@@ -38,5 +38,5 @@ export function getPublicBrandConfig() {
     website: WebsiteConfig;
     tenantName: string;
     demo: DemoLoginConfig;
-  }>('/api/index/config');
+  }>('/adminapi/config/brand');
 }

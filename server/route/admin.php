@@ -29,6 +29,9 @@ if (($peanutRouteApplication ?? null) !== 'adminapi') {
     return;
 }
 
+// Anonymous Admin branding uses its own Host boundary, separate from Member APIs.
+Route::get('config/brand', [ConfigController::class, 'brand']);
+
 // ─── 管理端会话与菜单路由（仅需登录，不做 RBAC） ───────────────────────────
 Route::group(function () {
     Route::post('user/info', [LoginController::class, 'info']);

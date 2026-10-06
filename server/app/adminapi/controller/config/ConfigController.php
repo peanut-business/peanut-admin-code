@@ -7,11 +7,72 @@ namespace app\adminapi\controller\config;
 use app\adminapi\controller\BaseAdminController;
 use app\adminapi\services\config\ConfigApplicationService;
 use app\adminapi\validate\config\WebsiteValidate;
+use app\common\http\ApiProblem;
+use app\common\http\RequestTrace;
+use app\common\execution\ConsumerExecutionContext;
+use app\common\execution\ExecutionContextStore;
+use PeanutAdmin\Kernel\Host\ApplicationHostPolicy;
+use PeanutAdmin\Kernel\Tenancy\TenantEntryBindingResolver;
+use PeanutAdmin\Modules\Settings\Service\WebsiteConfigService;
+use PeanutAdmin\Modules\Identity\Contract\TenantIdentityQuery;
+use PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy;
+use think\App;
+use think\facade\Config;
 
 /** @property-read ConfigApplicationService $configuration 当前 App 中声明式解析的控制器依赖。 */
 class ConfigController extends BaseAdminController
 {
     protected string $configurationClass = ConfigApplicationService::class;
+
+    public function __construct(
+        App $app,
+        private readonly ApplicationHostPolicy $hosts,
+        private readonly TenantEntryBindingResolver $entries,
+        private readonly WebsiteConfigService $website,
+        private readonly TenantIdentityQuery $tenants,
+        private readonly DemoAccountPolicy $demoAccounts,
+        private readonly ExecutionContextStore $contexts,
+    ) {
+        parent::__construct($app);
+    }
+
+    public function brand()
+    {
+        try {
+            $this->hosts->assertTenantAdmin($this->request);
+        } catch (\DomainException|\InvalidArgumentException) {
+            throw ApiProblem::fromEnvelope('管理入口不可用', null, 40300);
+        }
+        try {
+            $tenantId = $this->entries->boundTenantId($this->request, TenantEntryBindingResolver::ADMIN_CLIENT);
+            $context = $tenantId === null ? null : $this->entries->system(
+                $this->request,
+                TenantEntryBindingResolver::ADMIN_CLIENT,
+                'peanut.admin.public-brand',
+                'decoration.config',
+                RequestTrace::id($this->executionContext(), $this->request, 'admin-brand'),
+            );
+        } catch (\DomainException|\InvalidArgumentException) {
+            throw ApiProblem::fromEnvelope('租户入口不可用', null, 50300);
+        }
+        $read = fn(): array => [
+            'website' => $context === null ? WebsiteConfigService::defaults() : $this->website->get($context),
+            'tenantName' => $context === null ? '' : $this->tenants->activeName($context->tenantId),
+            'demo' => DemoAccountPolicy::publicLoginConfiguration((string) $this->request->host(), [
+                'enabled' => $this->demoAccounts->enabled(),
+                'tenant_a_host' => (string) Config::get('peanut.demo.tenant_a_host', ''),
+                'tenant_b_host' => (string) Config::get('peanut.demo.tenant_b_host', ''),
+                'shared_hosts' => ApplicationHostPolicy::hostList((string) Config::get('deployment.tenant_admin_hosts', '')),
+                'tenant_a_email' => (string) Config::get('peanut.demo.tenant_a_email', ''),
+                'tenant_b_email' => (string) Config::get('peanut.demo.tenant_b_email', ''),
+                'password' => (string) Config::get('peanut.demo.shared_password', ''),
+            ]),
+        ];
+        return $this->data($context === null ? $read() : $this->contexts->run(
+            ConsumerExecutionContext::publicTenant($context),
+            $read,
+        ));
+    }
 
     public function getWebsite()
     {

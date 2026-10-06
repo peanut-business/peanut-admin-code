@@ -91,6 +91,8 @@
 
 租户入口域名由 Identity 的 `Platform\Application\TenantEntryBindingAdminService` 管理。控制器保留 HTTP 输入／输出适配，传入同一个已验证平台上下文；所属用例继续检查权限、活动租户、域名与客户端约束、绑定冲突并在同一事务记录审计。类公开不代表允许调用者直接修改绑定表。
 
+管理端匿名品牌使用 `/adminapi/config/brand`，先验证管理 Host，再按 `admin-web` 绑定读取品牌与租户名称。登记的共享管理 Host 未绑定租户时，只展示应用自有默认品牌和空租户名，不读取默认租户配置；多租户安装不会自动把管理 Host 绑定到初始租户。登录后品牌来自 `/adminapi/user/info` 的已认证租户上下文，切换或退出时同步重置。会员端 `/api/index/config` 与 `/api/pc/config` 的内容、名称均来自同一个 `member-api` Host 上下文；未绑定入口继续拒绝，不跨客户端借用管理绑定。
+
 所有者邀请的创建、重发、撤销、查询和接受由 Identity 的 `Invitation` 用例维护；邀请表、账号、凭据、成员及角色属于同一身份业务。管理用例只接收同一个已验证 Core `PlatformContext` 并使用原生平台授权器；HTTP 包装上下文只留在控制器，不能把宿主会话服务重新变成模块依赖。`OwnerInvitationDeliveryPort` 是可信投递适配器，`TenantOwnerAdminProvisioner` 是已确认所有者后的应用初始化接口，宿主负责各自实现与绑定，不把数据库对象作为接口。原始令牌只交给既定投递或显式允许的人工交付方式，不在持久化、调试或普通日志中保存明文；重新发送和接受继续失效旧令牌，既有账号密码不得被邀请流程覆盖。
 
 产品模块模板仅用 `AdminDirectoryQuery::profileTenantsForUpdate` 选择明确指定的活动租户，在调用方原事务内执行锁定读取；随后仍必须核对完整、精确的租户编号集合。查询结果只含编号与代码，不是开通模块或取得租户业务权限的凭据。

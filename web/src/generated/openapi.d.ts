@@ -649,6 +649,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/adminapi/config/brand": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Anonymous Admin Host branding. Shared unbound entries return application defaults; bound entries use only their admin-web Tenant. */
+        get: operations["getAdminEntryBrand"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/adminapi/user/logout": {
         parameters: {
             query?: never;
@@ -6003,6 +6020,7 @@ export interface components {
             menu: components["schemas"]["AdminMenuNode"][];
             permissions: components["schemas"]["StringList"];
             tenantName: string;
+            website: components["schemas"]["WebsiteConfig"];
             canSwitchTenant: boolean;
             demoMode: boolean;
         };
@@ -6201,6 +6219,15 @@ export interface components {
             copyright: string;
             official_url: string;
             github_url: string;
+        };
+        AdminBrandConfig: {
+            website: components["schemas"]["WebsiteConfig"];
+            tenantName: string;
+            demo: {
+                enabled: boolean;
+                email: string;
+                password: string;
+            };
         };
         CopyrightItemList: {
             key: string;
@@ -10620,6 +10647,33 @@ export interface operations {
             400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getAdminEntryBrand: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["AdminBrandConfig"];
+                    };
+                };
+            };
+            403: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
         };
     };
     adminLogout: {
