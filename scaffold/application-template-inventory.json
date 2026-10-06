@@ -23848,7 +23848,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "81e1d65227dd1a44e2c6595f55424ff1b61e75f0ee21eb882d2f9581150704dd"
+            "source_sha256": "b546a6a978fd11836e639c54b6c6c72b5294d4a57f91befa7a64c6e52b82a803"
         },
         {
             "path": "server/docker/compose.local.yaml",
