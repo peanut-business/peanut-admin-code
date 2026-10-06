@@ -85,6 +85,8 @@
 
 租户管理端刷新入口要求受保护刷新 cookie 与 `Authorization: Bearer <access_token>` 同时提供。access token 可以过期或已轮换，但其存储记录必须与刷新凭据属于同一会话和客户端；身份不匹配时拒绝刷新，不轮换另一会话。Web 请求记录发起会话代际，刷新、重试和异步退出只作用于该身份；同一会话刷新不改变代际，登录、切租户和退出的开始与提交各自形成边界。同一页面写刷新 cookie 的请求按顺序执行；跨标签页凭据变化通过本地存储观测使旧请求失效，迟到响应不得以新身份重放旧请求。
 
+浏览器刷新 cookie 的名称由 audience/client 原有 `__Host-` 前缀与精确 access token 的 SHA-256 组成；摘要只用于选择 cookie，授权仍由认证服务校验。应用宿主使用 ThinkPHP 原生 Cookie/Response 保持 Secure、HttpOnly、SameSite=Lax 与 Path=/。refresh 只删除请求旧令牌对应名称并签发新令牌对应名称，logout 只删除请求对应名称；登录和租户选择仅清理传入请求已观察到的本客户端名称。这样即使另一标签页已登录，浏览器随后应用旧响应的 Set-Cookie 也不能覆盖或删除新令牌对应 cookie。客户端的旧响应提交守卫与这项服务端名称政策分别保护界面状态和浏览器 cookie；JavaScript 无法阻止浏览器应用迟到响应头，不能仅靠前端守卫证明 cookie 隔离。动态名称无法由 OpenAPI 固定 cookie name 表达，合同通过 Bearer scheme 和描述声明选择政策。
+
 ## 11. 宿主调用身份能力的现行示例
 
 租户入口域名由 Identity 的 `Platform\Application\TenantEntryBindingAdminService` 管理。控制器保留 HTTP 输入／输出适配，传入同一个已验证平台上下文；所属用例继续检查权限、活动租户、域名与客户端约束、绑定冲突并在同一事务记录审计。类公开不代表允许调用者直接修改绑定表。

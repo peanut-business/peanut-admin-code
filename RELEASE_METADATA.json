@@ -84,8 +84,8 @@
   "legal_files": {
     "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
     "NOTICE": "c0680ac5f6eac2bf9106393ada2d3d54b845a50cf14d13bf8e46acb66026609f",
-    "THIRD_PARTY_NOTICES.md": "a08a147ca1465cae27b115b1eda9f943b2940999791aa940ddcc8a446b491891",
-    "RELEASE_SBOM.spdx.json": "8fd9ca5271b3505c89f2c405946edc3193bdfaf7458dd32499d0b3104d11dffe"
+    "THIRD_PARTY_NOTICES.md": "86ebfd8ae39cfcf9c02d4e6c001122d32ff22857aa61c29dad05e4fb2531375e",
+    "RELEASE_SBOM.spdx.json": "01153018a1e986197ef8a74fccec43dd27d9912617fa6f8a03e158d5f2b2bd62"
   },
   "technical_qualification": {
     "phase": "5.0.1-stable-candidate",
