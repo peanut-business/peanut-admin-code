@@ -14,6 +14,8 @@ use PeanutAdmin\Kernel\Context\PlatformContext;
 use PeanutAdmin\Kernel\Module\ModuleException;
 use PeanutAdmin\Modules\Identity\Module\Model\TenantModule;
 use PeanutAdmin\Kernel\Module\TenantModuleManager;
+use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
+use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
 use PeanutAdmin\Modules\Identity\Persistence\Model\PlatformOperator;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Role;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Tenant;
@@ -27,7 +29,12 @@ final readonly class PlatformTenantAdminService
 {
     private const TENANT_CODE_PATTERN = '/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/D';
 
-    public function __construct(private TenantModuleManager $modules, private AuditService $audit) {}
+    public function __construct(
+        private TenantModuleManager $modules,
+        private AuditService $audit,
+        private CompiledModuleRegistry $moduleRegistry,
+        private TenantModuleStateQueries $moduleStates,
+    ) {}
 
     /** @return array<string, mixed> */
     public function createTenant(
@@ -209,6 +216,7 @@ final readonly class PlatformTenantAdminService
                 $changeReason,
             ): array {
                 $this->requireOperator($actor);
+                $this->moduleStates->lockTenantMutation($this->moduleRegistry, [$moduleKey]);
                 if ($this->tenant($tenantId, true)['status'] !== TenantStatus::Active->value) {
                     throw AdminAccessException::conflict('MODULE_TENANT_DISABLED', 'Only an active tenant can enable a module.');
                 }
@@ -244,6 +252,13 @@ final readonly class PlatformTenantAdminService
         try {
             return Db::transaction(function () use ($actor, $tenantId, $moduleKey, $changeReason): array {
                 $this->requireOperator($actor);
+                $availabilityKeys = [$moduleKey];
+                foreach ($this->moduleRegistry->modules as $manifest) {
+                    if (in_array($moduleKey, $manifest->data['tenant']['requires'] ?? [], true)) {
+                        $availabilityKeys[] = (string) $manifest->data['key'];
+                    }
+                }
+                $this->moduleStates->lockTenantMutation($this->moduleRegistry, $availabilityKeys);
                 if ($this->tenant($tenantId, true)['status'] !== TenantStatus::Active->value) {
                     throw AdminAccessException::conflict('MODULE_TENANT_DISABLED', 'Only an active tenant can disable a module.');
                 }

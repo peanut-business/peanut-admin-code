@@ -89,7 +89,7 @@ final readonly class DeployedTenantModuleRegistry
     {
         $manifest = $this->manifests[$moduleKey]
             ?? throw new ModuleException('MODULE_NOT_INSTALLED', "Unknown module: {$moduleKey}");
-        $installation = $this->installationStates->installationIdentity($moduleKey);
+        $installation = $this->installationStates->installationIdentity($moduleKey, true);
         if ($installation === null) {
             throw new ModuleException('MODULE_NOT_INSTALLED', "Module {$moduleKey} is not installed.");
         }

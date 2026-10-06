@@ -513,6 +513,10 @@ final class PluginRuntimeGovernanceService
     {
         $now = gmdate('Y-m-d H:i:s.v');
         Db::transaction(function () use ($packageKey, $moduleKeys, $marker, $now): void {
+            $this->tenantStates->lockLifecycleRows($moduleKeys, [$packageKey]);
+            if ($this->tenantStates->enabledReferencesForUpdate($moduleKeys) !== []) {
+                throw new PluginLifecycleException('PLUGIN_TENANT_MODULE_ACTIVE', 'New TenantModule references block Module uninstall.');
+            }
             Db::name('plugin_installation')->where('plugin_key', $packageKey)->update([
                 'status' => 'maintenance', 'last_error_code' => $marker,
                 'revision' => Db::raw('revision+1'), 'updated_at' => $now,
@@ -526,6 +530,7 @@ final class PluginRuntimeGovernanceService
     {
         $now = gmdate('Y-m-d H:i:s.v');
         Db::transaction(function () use ($packageKey, $moduleKeys, $purge, $now): void {
+            $this->tenantStates->lockLifecycleRows($moduleKeys, [$packageKey]);
             $this->catalogs->finalizePackageRemoval($moduleKeys, $purge, $now);
             Db::name('plugin_installation')->where('plugin_key', $packageKey)->update([
                 'status' => 'uninstalled', 'last_error_code' => null,

@@ -153,6 +153,12 @@ final class PluginLockResolver
             ?? throw new PluginLifecycleException('PLUGIN_NOT_LOCKED', "Plugin is not locked: {$pluginKey}");
     }
 
+    /** Lifecycle owners must resolve the current immutable source after acquiring their package lock. */
+    public function reload(): void
+    {
+        $this->resolved = null;
+    }
+
     /** @return list<string> */
     public function moduleRoots(): array
     {

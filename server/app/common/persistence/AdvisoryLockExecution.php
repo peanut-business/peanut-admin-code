@@ -17,7 +17,13 @@ final class AdvisoryLockExecution
         }
 
         $name = RuntimeNamespace::fromConfiguration()->advisoryLockName($name);
-        $lock = Db::query('SELECT GET_LOCK(?, ?) AS acquired', [$name, $timeoutSeconds]);
+        $connection = Db::connect();
+        // Compose lifecycle owners without incrementing MySQL's recursive lock count.
+        $owner = $connection->query('SELECT IS_USED_LOCK(?) = CONNECTION_ID() AS owned', [$name], true);
+        if ((int) ($owner[0]['owned'] ?? 0) === 1) {
+            return $operation();
+        }
+        $lock = $connection->query('SELECT GET_LOCK(?, ?) AS acquired', [$name, $timeoutSeconds], true);
         if ((int) ($lock[0]['acquired'] ?? 0) !== 1) {
             throw new AdvisoryLockUnavailable('DATABASE_ADVISORY_LOCK_UNAVAILABLE');
         }
@@ -26,7 +32,7 @@ final class AdvisoryLockExecution
             return $operation();
         } finally {
             try {
-                Db::query('SELECT RELEASE_LOCK(?)', [$name]);
+                $connection->query('SELECT RELEASE_LOCK(?)', [$name], true);
             } catch (\Throwable) {
             }
         }

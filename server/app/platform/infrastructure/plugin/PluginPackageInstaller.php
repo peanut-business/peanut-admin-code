@@ -169,7 +169,7 @@ final class PluginPackageInstaller
                         $lifecycleStarted = true;
                         $result = $operation === 'update'
                             ? $lifecycle->upgrade($package->packageKey, false)
-                            : $lifecycle->install($package->packageKey, false);
+                            : $lifecycle->install($package->packageKey);
                         if ($operation === 'install') {
                             $this->clearQuarantine($package->packageKey);
                         }

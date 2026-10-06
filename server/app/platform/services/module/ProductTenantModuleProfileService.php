@@ -138,6 +138,15 @@ final readonly class ProductTenantModuleProfileService
             $registry,
             $additive
         ): array {
+            // Availability precedes tenant locks, including every foundation read below.
+            $availabilityKeys = $definition['modules'];
+            foreach ($registry->compiled()->moduleKeys() as $key) {
+                if ($registry->isRequiredTenantFoundation($key)) {
+                    $availabilityKeys[] = $key;
+                }
+            }
+            (new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries())
+                ->lockTenantMutation($registry->compiled(), $availabilityKeys);
             $tenants = $this->tenants($definition['tenant_codes']);
             $selected = $definition['modules'];
             foreach ($registry->compiled()->moduleKeys() as $moduleKey) {

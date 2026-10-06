@@ -416,7 +416,7 @@ class AppService extends Service
         $this->app->bind(TenantModuleManager::class, fn(): TenantModuleManager => new TenantModuleManager(
             $this->app->make(DeployedTenantModuleRegistry::class)->compiled(),
             new VerifiedTenantModuleRepository(
-                new ThinkPhpModuleRuntimeRepository($this->app->make(CompiledModuleRegistry::class)),
+                new ThinkPhpModuleRuntimeRepository($this->app->make(CompiledModuleRegistry::class), true),
                 $this->app->make(DeployedTenantModuleRegistry::class),
             ),
             $this->app->make(OpisTenantModuleConfigValidator::class),

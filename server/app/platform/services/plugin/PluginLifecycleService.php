@@ -32,11 +32,15 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     ) {}
 
     /** @return array<string,mixed> */
-    public function install(string $pluginKey, bool $acquireLock = true): array
+    public function install(string $pluginKey): array
+    {
+        return $this->withPackageLock($pluginKey, fn(): array => $this->installLocked($pluginKey));
+    }
+
+    private function installLocked(string $pluginKey): array
     {
         $plugin = $this->resolver->require($pluginKey);
         $this->assertTrustEligible($plugin);
-        $lockName = $this->lockName($pluginKey);
         $operation = function () use ($plugin, $pluginKey): array {
             $manifests = $this->pluginManifests($plugin);
             $this->assertPreflightOwnership($plugin, $manifests, false);
@@ -71,18 +75,16 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             }
             return $this->activate($plugin, $manifests, false);
         };
-        if (!$acquireLock) {
-            return $operation();
-        }
-        try {
-            return (new AdvisoryLockExecution())->run($lockName, 0, $operation);
-        } catch (AdvisoryLockUnavailable) {
-            throw new PluginLifecycleException('MODULE_LIFECYCLE_BUSY', 'Module lifecycle is busy.');
-        }
+        return $operation();
     }
 
     /** @return array<string,mixed> */
     public function reconcile(string $pluginKey): array
+    {
+        return $this->withPackageLock($pluginKey, fn(): array => $this->reconcileLocked($pluginKey));
+    }
+
+    private function reconcileLocked(string $pluginKey): array
     {
         $current = $this->pluginInstallation($pluginKey, false);
         if (!is_array($current)) {
@@ -107,6 +109,11 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
 
     /** @return array<string,mixed> */
     public function upgrade(string $pluginKey, bool $dryRun): array
+    {
+        return $this->withPackageLock($pluginKey, fn(): array => $this->upgradeLocked($pluginKey, $dryRun));
+    }
+
+    private function upgradeLocked(string $pluginKey, bool $dryRun): array
     {
         $plugin = $this->resolver->require($pluginKey);
         $this->assertTrustEligible($plugin);
@@ -157,6 +164,11 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     /** @return array<string,mixed> */
     public function uninstall(string $pluginKey): array
     {
+        return $this->withPackageLock($pluginKey, fn(): array => $this->uninstallLocked($pluginKey));
+    }
+
+    private function uninstallLocked(string $pluginKey): array
+    {
         $current = $this->pluginInstallation($pluginKey, false);
         if (!is_array($current) || $current['status'] === 'uninstalled') {
             throw new PluginLifecycleException('PLUGIN_NOT_INSTALLED', 'Plugin is not installed.');
@@ -175,6 +187,11 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         $modules = $this->pluginModuleRows($pluginKey);
         $now = $this->now();
         Db::transaction(function () use ($pluginKey, $modules, $now): void {
+            $moduleKeys = array_column($modules, 'module_key');
+            $this->tenantStates->lockLifecycleRows($moduleKeys, [$pluginKey]);
+            if ($this->tenantStates->enabledReferencesForUpdate($moduleKeys) !== []) {
+                throw new PluginLifecycleException('PLUGIN_TENANT_MODULE_ACTIVE', 'Disable every TenantModule before uninstall.');
+            }
             $this->catalogs->retire(array_map(
                 static fn(array $row): string => (string) $row['module_key'],
                 $modules,
@@ -222,6 +239,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     {
         $now = $this->now();
         Db::transaction(function () use ($plugin, $manifests, $upgrade, $now): void {
+            $this->tenantStates->lockLifecycleRows(array_keys($manifests), [$plugin->key]);
             $parameters = $this->pluginParameters($plugin);
             $values = [
                 'installed_version' => $parameters['version'], 'source' => $parameters['source'],
@@ -340,6 +358,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     {
         $now = $this->now();
         Db::transaction(function () use ($plugin, $manifests, $upgrade, $now): void {
+            $this->tenantStates->lockLifecycleRows(array_keys($manifests), [$plugin->key]);
             $compiled = $this->registries
                 ->fromPluginLock($this->resolver, $this->moduleConfig)
                 ->compiled();
@@ -386,6 +405,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         try {
             $now = $this->now();
             Db::transaction(function () use ($plugin, $manifests, $errorCode, $now): void {
+                $this->tenantStates->lockLifecycleRows(array_keys($manifests), [$plugin->key]);
                 Db::name('plugin_installation')->where('plugin_key', $plugin->key)->update([
                     'status' => 'failed', 'revision' => Db::raw('revision+1'),
                     'last_error_code' => $errorCode, 'updated_at' => $now,
@@ -414,7 +434,6 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         if ($compiledKeys !== $lockedKeys) {
             throw new PluginLifecycleException('PLUGIN_MODULE_MISMATCH', 'Compiled Plugin modules differ from plugins.lock.');
         }
-        ksort($manifests, SORT_STRING);
         return $manifests;
     }
 
@@ -623,6 +642,18 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     private function lockName(string $pluginKey): string
     {
         return 'pa:module-runtime:' . substr(hash('sha256', $pluginKey), 0, 40);
+    }
+
+    private function withPackageLock(string $pluginKey, callable $operation): array
+    {
+        try {
+            return (new AdvisoryLockExecution())->run($this->lockName($pluginKey), 0, function () use ($operation): array {
+                $this->resolver->reload();
+                return $operation();
+            });
+        } catch (AdvisoryLockUnavailable) {
+            throw new PluginLifecycleException('MODULE_LIFECYCLE_BUSY', 'Module lifecycle is busy.');
+        }
     }
 
 }

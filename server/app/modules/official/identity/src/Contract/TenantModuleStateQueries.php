@@ -5,10 +5,65 @@ declare(strict_types=1);
 namespace PeanutAdmin\Modules\Identity\Contract;
 
 use think\facade\Db;
+use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 
 /** 固定的租户模块状态投影，不返回配置正文或授权能力；安装清单与必需基础模块仍由原部署登记器决定。 */
 final readonly class TenantModuleStateQueries
 {
+    /** Lock only the selected tenant dependency closure, before any tenant rows. @param list<string> $moduleKeys */
+    public function lockTenantMutation(CompiledModuleRegistry $registry, array $moduleKeys): void
+    {
+        $selected = [];
+        $visit = function (string $key) use (&$visit, &$selected, $registry): void {
+            if (isset($selected[$key])) {
+                return;
+            }
+            $selected[$key] = true;
+            $manifest = $registry->requireManifest($key);
+            foreach ($manifest->data['tenant']['requires'] ?? [] as $dependency) {
+                $visit($dependency);
+            }
+        };
+        foreach ($moduleKeys as $key) {
+            $visit($key);
+        }
+        $this->lockLifecycleRows(array_keys($selected));
+    }
+
+    /**
+     * Transaction-owned availability boundary: sorted package rows, then sorted installation rows.
+     * Missing rows remain missing; the deployment identity check still rejects opening them.
+     * @param list<string> $moduleKeys @param list<string> $packageKeys
+     */
+    public function lockLifecycleRows(array $moduleKeys, array $packageKeys = []): void
+    {
+        if ($moduleKeys !== []) {
+            $packageKeys = [...$packageKeys, ...Db::name('plugin_module')->whereIn('module_key', $moduleKeys)->column('plugin_key')];
+        }
+        $packageKeys = array_values(array_unique($packageKeys));
+        sort($packageKeys, SORT_STRING);
+        foreach ($packageKeys as $key) {
+            Db::name('plugin_installation')->where('plugin_key', $key)->lock(true)->find();
+        }
+        $moduleKeys = array_values(array_unique($moduleKeys));
+        sort($moduleKeys, SORT_STRING);
+        foreach ($moduleKeys as $key) {
+            Db::name('module_installation')->where('module_key', $key)->lock(true)->find();
+        }
+    }
+
+    /** Current locking read after availability locks; includes disabled rows and insertion gaps. @param list<string> $moduleKeys @return list<string> */
+    public function enabledReferencesForUpdate(array $moduleKeys): array
+    {
+        if ($moduleKeys === []) {
+            return [];
+        }
+        $rows = Db::name('tenant_module')->whereIn('module_key', $moduleKeys)
+            ->order('module_key')->order('tenant_id')->lock(true)->field('module_key,status')->select()->toArray();
+        return array_values(array_map(static fn(array $row): string => (string) $row['module_key'],
+            array_filter($rows, static fn(array $row): bool => $row['status'] === 'enabled')));
+    }
+
     /**
      * 已选模块的活动安装记录数；用于受信安装健康核对，不授予运行权限。
      * 保留数据库集合/计数语义，不把重复输入或重复记录静默判为完整安装。
