@@ -26,12 +26,20 @@ export const useUserStore = defineStore('user', () => {
     token.value = newToken;
   }
 
+  function clearIfToken(expectedToken: string | null) {
+    if ((token.value || null) !== expectedToken) return false;
+    token.value = '';
+    userInfo.value = {};
+    uni.removeStorageSync(STORAGE_KEY);
+    return true;
+  }
+
   function setUserInfo(info: Partial<UserCenter & UserInfo>) {
     userInfo.value = { ...userInfo.value, ...info };
   }
 
   function login(data: LoginResult) {
-    token.value = data.token;
+    setToken(data.token);
     userInfo.value = {
       id: data.id,
       sn: data.sn,
@@ -47,5 +55,14 @@ export const useUserStore = defineStore('user', () => {
     uni.removeStorageSync(STORAGE_KEY);
   }
 
-  return { token, userInfo, isLoggedIn, setToken, setUserInfo, login, logout };
+  return {
+    token,
+    userInfo,
+    isLoggedIn,
+    setToken,
+    clearIfToken,
+    setUserInfo,
+    login,
+    logout,
+  };
 });

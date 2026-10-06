@@ -4,12 +4,32 @@ import type {
   TenantSessionOutcome,
   TenantSelection,
 } from '@peanut-admin/vue';
+import { getSessionSnapshot } from '@/utils/auth';
 
 const tenantClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || undefined,
   withCredentials: true,
   timeout: 15_000,
 });
+
+let sessionCookieQueue: Promise<void> = Promise.resolve();
+
+function queueSessionCookieRequest<T>(
+  operation: () => Promise<T>,
+  generation = getSessionSnapshot().generation
+): Promise<T> {
+  const request = sessionCookieQueue.then(() => {
+    if (getSessionSnapshot().generation !== generation) {
+      throw new Error('The tenant session has changed.');
+    }
+    return operation();
+  });
+  sessionCookieQueue = request.then(
+    () => undefined,
+    () => undefined
+  );
+  return request;
+}
 
 type TenantEnvelope<T> =
   | {
@@ -36,21 +56,33 @@ function tenantData<T>(response: TenantEnvelope<T>): T {
   return response.data;
 }
 
-export async function tenantLogin(email: string, password: string) {
-  const response = await tenantClient.post<
-    TenantEnvelope<TenantSessionOutcome>
-  >('/adminapi/tenant/session/login', { email, password });
-  return tenantData(response.data);
+export async function tenantLogin(
+  email: string,
+  password: string,
+  generation?: number
+) {
+  return queueSessionCookieRequest(async () => {
+    const response = await tenantClient.post<
+      TenantEnvelope<TenantSessionOutcome>
+    >('/adminapi/tenant/session/login', { email, password });
+    return tenantData(response.data);
+  }, generation);
 }
 
-export async function selectTenant(challengeToken: string, tenantId: number) {
-  const response = await tenantClient.post<
-    TenantEnvelope<TenantAuthentication>
-  >('/adminapi/tenant/session/select', {
-    challenge_token: challengeToken,
-    tenant_id: tenantId,
-  });
-  return tenantData(response.data);
+export async function selectTenant(
+  challengeToken: string,
+  tenantId: number,
+  generation?: number
+) {
+  return queueSessionCookieRequest(async () => {
+    const response = await tenantClient.post<
+      TenantEnvelope<TenantAuthentication>
+    >('/adminapi/tenant/session/select', {
+      challenge_token: challengeToken,
+      tenant_id: tenantId,
+    });
+    return tenantData(response.data);
+  }, generation);
 }
 
 export async function tenantSwitch(accessToken: string) {
@@ -62,17 +94,28 @@ export async function tenantSwitch(accessToken: string) {
   return tenantData(response.data);
 }
 
-export async function refreshTenantSession() {
-  const response = await tenantClient.post<
-    TenantEnvelope<TenantAuthentication>
-  >('/adminapi/tenant/session/refresh');
-  return tenantData(response.data);
+export async function refreshTenantSession(
+  accessToken: string,
+  generation: number
+) {
+  return queueSessionCookieRequest(async () => {
+    const response = await tenantClient.post<
+      TenantEnvelope<TenantAuthentication>
+    >(
+      '/adminapi/tenant/session/refresh',
+      {},
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    return tenantData(response.data);
+  }, generation);
 }
 
-export async function tenantLogout(accessToken: string) {
-  await tenantClient.post(
-    '/adminapi/tenant/session/logout',
-    {},
-    { headers: { Authorization: `Bearer ${accessToken}` } }
-  );
+export async function tenantLogout(accessToken: string, generation?: number) {
+  return queueSessionCookieRequest(async () => {
+    await tenantClient.post(
+      '/adminapi/tenant/session/logout',
+      {},
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+  }, generation);
 }

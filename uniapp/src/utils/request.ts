@@ -15,6 +15,7 @@ interface RequestOptions {
   header?: Record<string, string>;
   /** skip auth check — for login/register/public routes */
   auth?: boolean;
+  signal?: AbortSignal;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -104,7 +105,10 @@ const client = createClient({
   transport,
   session: {
     accessToken: () => useUserStore().token,
-    clear: () => useUserStore().logout(),
+    clear: (expectedToken?: string | null) => {
+      if (expectedToken === undefined) return;
+      useUserStore().clearIfToken(expectedToken);
+    },
   },
   decoder: decodeResponse,
   hooks: {
@@ -125,6 +129,7 @@ async function request<T = unknown>(options: RequestOptions): Promise<T> {
         ...options.header,
       },
       auth: options.auth,
+      signal: options.signal,
     });
   } catch (error) {
     if (error instanceof ClientRequestError && error.kind === 'transport') {
@@ -135,10 +140,20 @@ async function request<T = unknown>(options: RequestOptions): Promise<T> {
 }
 
 export const http = {
-  get<T = unknown>(url: string, data?: Record<string, unknown>, auth = true) {
-    return request<T>({ url, method: 'GET', data, auth });
+  get<T = unknown>(
+    url: string,
+    data?: Record<string, unknown>,
+    auth = true,
+    signal?: AbortSignal
+  ) {
+    return request<T>({ url, method: 'GET', data, auth, signal });
   },
-  post<T = unknown>(url: string, data?: Record<string, unknown>, auth = true) {
-    return request<T>({ url, method: 'POST', data, auth });
+  post<T = unknown>(
+    url: string,
+    data?: Record<string, unknown>,
+    auth = true,
+    signal?: AbortSignal
+  ) {
+    return request<T>({ url, method: 'POST', data, auth, signal });
   },
 };

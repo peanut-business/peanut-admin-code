@@ -2,7 +2,11 @@ import axios from 'axios';
 import type { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { useUserStore } from '@/store';
-import { getToken, setToken } from '@/utils/auth';
+import {
+  getSessionSnapshot,
+  getToken,
+  setToken,
+} from '@/utils/auth';
 import { isTenantAccessToken } from '@peanut-admin/vue';
 import { refreshTenantSession } from '@/api/tenant-session';
 
@@ -17,7 +21,13 @@ if (import.meta.env.VITE_API_BASE_URL) {
   axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL;
 }
 
-let tenantRefreshRequest: Promise<string> | null = null;
+type TenantSessionSnapshot = { generation: number; token: string | null };
+type SessionRequestConfig = AxiosRequestConfig & {
+  tenantRefreshRetried?: boolean;
+  tenantSession?: TenantSessionSnapshot;
+};
+
+const tenantRefreshRequests = new Map<string, Promise<string>>();
 
 axios.interceptors.request.use(
   (config: AxiosRequestConfig) => {
@@ -25,6 +35,12 @@ axios.interceptors.request.use(
     // this example using the JWT token
     // Authorization is a custom headers key
     // please modify it according to the actual situation
+    const requestConfig = config as SessionRequestConfig;
+    const snapshot = requestConfig.tenantSession ?? getSessionSnapshot();
+    if (snapshot.generation !== getSessionSnapshot().generation) {
+      return Promise.reject(new Error('The request session has changed.'));
+    }
+    requestConfig.tenantSession = snapshot;
     const token = getToken();
     if (token) {
       if (!config.headers) {
@@ -42,12 +58,15 @@ axios.interceptors.request.use(
 // add response interceptors
 const handleResponse = async (response: AxiosResponse<HttpResponse>) => {
   const res = response.data;
+  const retryConfig = response.config as SessionRequestConfig;
+  const snapshot = retryConfig.tenantSession ?? getSessionSnapshot();
+  retryConfig.tenantSession = snapshot;
+  if (snapshot.generation !== getSessionSnapshot().generation) {
+    return Promise.reject(new Error(res.msg || 'The request session has changed.'));
+  }
   // 20000 is the normal success envelope; LikeAdmin uses code=2 for a
   // successfully generated export file.
   if (![20000, 2].includes(res.code)) {
-    const retryConfig = response.config as AxiosRequestConfig & {
-      tenantRefreshRetried?: boolean;
-    };
     const accessToken = getToken();
     if (
       res.code === 40100 &&
@@ -58,21 +77,47 @@ const handleResponse = async (response: AxiosResponse<HttpResponse>) => {
     ) {
       retryConfig.tenantRefreshRetried = true;
       try {
-        tenantRefreshRequest ||= refreshTenantSession()
-          .then((authentication) => {
-            setToken(authentication.access_token);
-            return authentication.access_token;
-          })
-          .finally(() => {
-            tenantRefreshRequest = null;
-          });
-        const refreshedToken = await tenantRefreshRequest;
+        let refreshedToken = accessToken;
+        const requestToken = snapshot.token;
+        if (requestToken !== null && requestToken === accessToken) {
+          const refreshKey = JSON.stringify([snapshot.generation, requestToken]);
+          let refreshRequest = tenantRefreshRequests.get(refreshKey);
+          if (!refreshRequest) {
+            refreshRequest = refreshTenantSession(
+              requestToken,
+              snapshot.generation
+            )
+              .then((authentication) => authentication.access_token)
+              .finally(() => tenantRefreshRequests.delete(refreshKey));
+            tenantRefreshRequests.set(refreshKey, refreshRequest);
+          }
+          const candidate = await refreshRequest;
+          if (snapshot.generation !== getSessionSnapshot().generation) {
+            throw new Error('The request session has changed.');
+          }
+          const currentToken = getToken();
+          if (currentToken === requestToken) {
+            setToken(candidate);
+            refreshedToken = candidate;
+          } else if (currentToken) {
+            refreshedToken = currentToken;
+          } else {
+            throw new Error('The request session has changed.');
+          }
+        }
+        if (snapshot.generation !== getSessionSnapshot().generation) {
+          throw new Error('The request session has changed.');
+        }
+        snapshot.token = refreshedToken;
         retryConfig.headers = retryConfig.headers || {};
         retryConfig.headers.Authorization = `Bearer ${refreshedToken}`;
         return axios.request(retryConfig);
       } catch {
         // Continue to the existing re-login flow below.
       }
+    }
+    if (snapshot.generation !== getSessionSnapshot().generation) {
+      return Promise.reject(new Error(res.msg || 'The request session has changed.'));
     }
     ElMessage.error({
       message: res.msg || 'Error',
@@ -93,9 +138,17 @@ const handleResponse = async (response: AxiosResponse<HttpResponse>) => {
         }
       )
         .then(async () => {
+          if (
+            snapshot.generation !== getSessionSnapshot().generation ||
+            snapshot.token !== getToken()
+          ) return;
           const userStore = useUserStore();
-          await userStore.logout();
-          window.location.reload();
+          const cleared = await userStore.logout(snapshot);
+          if (
+            cleared &&
+            getSessionSnapshot().generation === snapshot.generation + 2 &&
+            getToken() === null
+          ) window.location.reload();
         })
         .catch(() => undefined);
     }

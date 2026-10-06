@@ -187,7 +187,12 @@
   import MenuComponent from '@/components/menu/index.vue';
   import { selectTenant, tenantSwitch } from '@/api/tenant-session';
   import { disposeTenantState, type TenantChoice } from '@peanut-admin/vue';
-  import { getToken, setToken } from '@/utils/auth';
+  import {
+    advanceSessionGeneration,
+    getSessionSnapshot,
+    getToken,
+    setToken,
+  } from '@/utils/auth';
 
   const appStore = useAppStore();
   const brandStore = useBrandStore();
@@ -248,18 +253,27 @@
   };
   const confirmTenantSwitch = async () => {
     if (!tenantChallenge.value || !selectedTenantId.value) return;
+    let generation = advanceSessionGeneration();
+    const token = getToken();
     tenantSwitching.value = true;
     try {
       const authenticated = await selectTenant(
         tenantChallenge.value,
-        selectedTenantId.value
+        selectedTenantId.value,
+        generation
       );
+      const beforeDispose = getSessionSnapshot();
+      if (beforeDispose.generation !== generation || beforeDispose.token !== token) return;
       await disposeTenantState();
+      const beforeCommit = getSessionSnapshot();
+      if (beforeCommit.generation !== generation || beforeCommit.token !== token) return;
+      generation = advanceSessionGeneration();
       setToken(authenticated.access_token);
       tenantSwitchVisible.value = false;
       userStore.resetInfo();
       appStore.clearServerMenu();
       await userStore.info();
+      if (getSessionSnapshot().generation !== generation) return;
       window.location.reload();
     } finally {
       tenantSwitching.value = false;
