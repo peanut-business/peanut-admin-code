@@ -18,6 +18,7 @@
 - [总体能力地图](architecture/overview.md)
 - [默认交付与职责](architecture/default-delivery-and-ownership.md)
 - [Core 能力、应用复用与实现替换](architecture/core-capabilities-and-application-overrides.md)
+- [框架扩展、钩子与生命周期](architecture/framework-extension-and-lifecycle.md)
 - [Peanut CLI 与可选 Recipes](architecture/cli-and-recipes.md)
 - [身份、组织与执行信息](architecture/identity-organization-access.md)
 - [租户模块授权与 Scope](architecture/tenant-modules-and-data-scopes.md)

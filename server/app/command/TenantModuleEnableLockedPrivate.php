@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace app\command;
 
+use app\common\composition\ModuleComposition;
 use app\common\execution\ModuleContextualCommand;
 use app\common\services\audit\AuditContractHost;
 use app\common\enum\instance\DeploymentMode;
@@ -46,6 +47,7 @@ final class TenantModuleEnableLockedPrivate extends ModuleContextualCommand
                 $governance,
                 app(AuditContractHost::class),
                 $this->getApp()->make(\PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery::class),
+                $this->getApp()->make(ModuleComposition::class),
             );
             $result = $service->applyAdditionalInstallationSelection($input->getOption('module'), $mode, new PluginLockResolver($root, $config['plugin_lock']));
             $output->writeln(json_encode($result + ['rbac_granted' => false], JSON_THROW_ON_ERROR));

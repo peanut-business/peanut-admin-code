@@ -31,8 +31,9 @@ server/public/index.php
 → new App / Http::run
 → App::initialize → load配置、公共文件、事件和app/service.php
 → app/service.php登记AppService → AppService::register及模块绑定
+→ ModuleExtensionService::register → ThinkPHP登记模块原生Service
 → AppInit事件
-→ 框架RegisterService初始化器 → BootService → AppService::boot
+→ 框架RegisterService初始化器 → BootService → AppService::boot → 模块Service::boot
 → HttpRun、全局中间件及MultiApp → 应用中间件（安装、维护限制）
 → 显式路由 → 路由中间件（身份、模块、权限）
 → Controller构造/initialize → Controller中间件 → action参数解析及业务
@@ -40,6 +41,8 @@ server/public/index.php
 ```
 
 这里的 `AppService::register` 发生在加载本应用service.php时，早于AppInit；不能因为框架的RegisterService初始化器在AppInit之后，就把应用服务注册也写成之后。[AppService](../../server/app/AppService.php)登记现有身份reader、基础设施和模块接口；boot通过Model::maker为相应模型接入Scope策略。
+
+模块可以在同一个 Provider 上继承原生 `think\Service`，通过原生 register/boot 接入事件、路由及命令；普通绑定型 Provider 无需空生命周期方法。详细扩展时点、租户启停钩子和失败责任见[框架扩展与生命周期](../architecture/framework-extension-and-lifecycle.md)。
 
 Controller的initialize由构造函数直接无参调用，不自动注入；Service::boot由框架服务启动机制调用，两者不同。路由认证早于Controller构造，不能移到initialize之后的Controller中间件。Callback与Container::make的构造/后置回调也不是同一入口；扩展前应核实际invokeClass、make和resolving调用路径。HttpEnd不代替可靠任务。
 

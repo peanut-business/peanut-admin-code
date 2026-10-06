@@ -7,6 +7,7 @@ import {
   createNuxtClientTransport,
   createNuxtSsrForwardHeaders,
 } from '@peanut-admin/nuxt';
+import { getCurrentScope, onScopeDispose } from 'vue';
 
 interface ApiResponse {
   code: number;
@@ -130,9 +131,11 @@ export function useRequest(options: { redirectOnUnauthorized?: boolean } = {}) {
                   query,
                   body,
                   headers: options.headers,
+                  signal: options.signal,
                 }
           );
         } catch (error) {
+          if (options?.signal?.aborted) throw error;
           const data =
             typeof error === 'object' && error !== null && 'data' in error
               ? error.data
@@ -161,22 +164,51 @@ export function useRequest(options: { redirectOnUnauthorized?: boolean } = {}) {
     },
   });
 
+  const pending = new Set<AbortController>();
+  const cancel = () => {
+    for (const controller of pending) controller.abort();
+  };
+  if (getCurrentScope()) onScopeDispose(cancel);
+
+  const send = async <T>(
+    path: string,
+    method: 'GET' | 'POST',
+    data: Record<string, unknown> | undefined,
+    auth: boolean,
+    signal?: AbortSignal
+  ): Promise<T> => {
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    if (signal?.aborted) controller.abort();
+    else signal?.addEventListener('abort', abort, { once: true });
+    pending.add(controller);
+    try {
+      return await client.request<T>({
+        path,
+        method,
+        data,
+        auth,
+        signal: controller.signal,
+      });
+    } finally {
+      signal?.removeEventListener('abort', abort);
+      pending.delete(controller);
+    }
+  };
+
   return {
     get: <T = unknown>(
       url: string,
       params?: Record<string, unknown>,
-      auth = true
-    ) => client.request<T>({ path: url, method: 'GET', data: params, auth }),
+      auth = true,
+      signal?: AbortSignal
+    ) => send<T>(url, 'GET', params, auth, signal),
     post: <T = unknown>(
       url: string,
       body?: Record<string, unknown> | null,
-      auth = true
-    ) =>
-      client.request<T>({
-        path: url,
-        method: 'POST',
-        data: body ?? undefined,
-        auth,
-      }),
+      auth = true,
+      signal?: AbortSignal
+    ) => send<T>(url, 'POST', body ?? undefined, auth, signal),
+    cancel,
   };
 }

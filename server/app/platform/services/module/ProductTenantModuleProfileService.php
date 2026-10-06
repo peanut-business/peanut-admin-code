@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace app\platform\services\module;
 
+use app\common\composition\ModuleComposition;
 use app\platform\infrastructure\module\DeployedTenantModuleRegistry;
 use app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider;
 use app\platform\infrastructure\module\VerifiedTenantModuleRepository;
@@ -50,6 +51,7 @@ final readonly class ProductTenantModuleProfileService
         private ThinkPhpModuleGovernanceProvider $moduleGovernance,
         private AuditContractHost $audit,
         private AdminDirectoryQuery $tenantDirectory,
+        private ModuleComposition $moduleComposition,
     ) {}
 
     /** @return array{profile:string,tenant_count:int,module_count:int,binding_count:int} */
@@ -123,6 +125,7 @@ final readonly class ProductTenantModuleProfileService
             $registry->compiled(),
             $repository,
             new OpisTenantModuleConfigValidator(),
+            $this->moduleComposition->tenantHooks($registry->compiled()),
         );
         $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
 

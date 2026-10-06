@@ -11,7 +11,7 @@
     "resolved_version": "dev-dev",
     "source_type": "git",
     "source_url": "https://github.com/peanut-business/peanut-admin-core-php.git",
-    "source_reference": "bb4e8816862dcefe4340bfedf146ca3aac13b586"
+    "source_reference": "35a2a4765b4fc0f07c2db8b5a042da35882acfe5"
   },
   "core_web": {
     "source_type": "git",

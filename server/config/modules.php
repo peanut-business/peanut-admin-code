@@ -21,4 +21,5 @@ return [
     'plugin_lock' => (string) env('PEANUT_PLUGIN_LOCK', $pluginLockDefault),
     'kernel_version' => (string) env('PEANUT_MODULE_KERNEL_VERSION', '1.0.0'),
     'registered_client_keys' => ['admin-web', 'platform-web', 'pc-web', 'uniapp'],
+    'tenant_hooks' => [],
 ];

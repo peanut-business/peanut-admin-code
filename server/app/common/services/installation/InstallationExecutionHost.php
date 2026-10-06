@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace app\common\services\installation;
 
+use app\common\composition\ModuleComposition;
 use app\common\exception\installation\InstallationExecutionException;
 use app\common\services\audit\AuditContractHost;
 use app\common\value\installation\ServerReleaseIdentity;
@@ -36,6 +37,7 @@ final class InstallationExecutionHost
         private readonly Closure $moduleRuntimeFactory,
         private readonly AuditContractHost $audit,
         private readonly TenantModuleStateQueries $moduleStates,
+        private readonly ModuleComposition $moduleComposition,
     ) {
         require_once $serverRoot . '/database/install.php';
     }
@@ -440,6 +442,7 @@ final class InstallationExecutionHost
             new ThinkPhpModuleGovernanceProvider($this->serverRoot, $config, $this->catalogs),
             $this->audit,
             $this->tenantDirectory,
+            $this->moduleComposition,
         ))->applyInstallationSelection($moduleKeys, $tenantBootstrap['code']);
         return ['operations' => $operations, 'profile' => $profile];
     }

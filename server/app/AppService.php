@@ -215,6 +215,7 @@ class AppService extends Service
                 fn(\PeanutAdmin\Kernel\Module\CompiledModuleRegistry $registry): \PeanutAdmin\Kernel\Module\ModuleRuntimeRepository => $this->installationModuleRuntime($registry),
                 $this->app->make(AuditContractHost::class),
                 $this->app->make(\PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries::class),
+                $this->app->make(ModuleComposition::class),
             ),
         );
         $this->app->bind(AuditContractHost::class, fn(): AuditContractHost => new AuditContractHost(
@@ -418,6 +419,7 @@ class AppService extends Service
                 $this->app->make(DeployedTenantModuleRegistry::class),
             ),
             $this->app->make(OpisTenantModuleConfigValidator::class),
+            $this->app->make(ModuleComposition::class)->tenantHooks($this->app->make(DeployedTenantModuleRegistry::class)->compiled()),
         ));
         $this->app->bind(PluginCatalogSyncService::class, fn(): PluginCatalogSyncService =>
             new PluginCatalogSyncService(
@@ -678,7 +680,7 @@ class AppService extends Service
             false,
         );
         $this->app->instance(CompiledModuleRegistry::class, $registry);
-        (new ModuleComposition($this->app))->register($registry);
+        $this->app->make(ModuleComposition::class)->register($registry);
     }
 
     /** @return array<string,mixed> */

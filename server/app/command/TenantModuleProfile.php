@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace app\command;
 
+use app\common\composition\ModuleComposition;
 use app\common\services\audit\AuditContractHost;
 use app\platform\services\module\ProductTenantModuleProfileService;
 use app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider;
@@ -41,6 +42,7 @@ final class TenantModuleProfile extends ModuleContextualCommand
                 $governance,
                 app(AuditContractHost::class),
                 $this->getApp()->make(\PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery::class),
+                $this->getApp()->make(ModuleComposition::class),
             ))->apply(trim((string) $input->getArgument('profile')));
             $output->writeln((string) json_encode(
                 $result,
