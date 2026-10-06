@@ -170,10 +170,13 @@ final class EditionUpgradePackage
             || Semver::greaterThanOrEqualTo($minimum, $target)
             || ($majorPolicy === 'same-major'
                 && (explode('.', $minimum, 2)[0] !== explode('.', $target, 2)[0]
-                    || explode('.', $current, 2)[0] !== explode('.', $target, 2)[0]))
-            || (($requireSourceCompatibility || $current !== $target)
-                && (Semver::lessThan($current, $minimum) || Semver::greaterThanOrEqualTo($current, $target)))) {
+                    || explode('.', $current, 2)[0] !== explode('.', $target, 2)[0]))) {
             throw new RuntimeException('EDITION_UPGRADE_RELEASE_CHAIN_INVALID');
+        }
+        if (($requireSourceCompatibility || $current !== $target)
+            && (Semver::lessThan($current, $minimum) || Semver::greaterThanOrEqualTo($current, $target))) {
+            throw new RuntimeException(($application['generation_source']['channel'] ?? null) === 'development'
+                ? 'SOURCE_RANGE_UNSUPPORTED' : 'EDITION_UPGRADE_RELEASE_CHAIN_INVALID');
         }
 
         $targetRelative = (string) ($manifest['target']['scaffold_manifest'] ?? '');

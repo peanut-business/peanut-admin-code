@@ -6,7 +6,7 @@ Peanut 上游应用、PHP Core 和 Web Core 六包使用同一个发行版本；
 
 ## 三种升级与独立版本
 
-`peanut upgrade` 在开发机上的 downstream APP 中吸收所选公开 Peanut/Scaffold 上游版本，调用经公开制品身份核验的固定 Code 来源原生 `scripts/scaffold-upgrade` 引擎，显式传入 APP project-root，保护 APP 身份及自有内容；它不是生产源码更新命令。`--check` 查询版本及来源，`--plan` 保存原生计划及同一引擎的仓库、tag、commit/tree、库存摘要绑定；resolve、apply 和 recover 重核该固定来源，不重新选择最新版。APP 只需已有 Composer 依赖，缺少独立入口的旧 APP 也使用这一标准路径；不依赖维护者工作树或私有 Project，也不向旧 APP 植入外部工具。明确审阅冲突后才应用。同版本不同 commit/tree 必须分别报告，不能仅凭版本相同宣称来源一致。
+`peanut upgrade` 在开发机上的 downstream APP 中吸收所选公开 Peanut/Scaffold 上游版本，调用经公开制品身份核验的固定 Code 来源原生 `scripts/scaffold-upgrade` 引擎，显式传入 APP project-root，保护 APP 身份及自有内容；它不是生产源码更新命令。`--check` 查询版本及来源，`--plan` 保存原生计划及同一引擎的仓库、tag、候选 commit/tree、库存和发行锁摘要绑定；resolve、apply 和 recover 重核该固定来源，不重新选择最新版。APP 只需已有 Composer 依赖，缺少独立入口的旧 APP 也使用这一标准路径；不依赖维护者工作树或私有 Project，也不向旧 APP 植入外部工具。明确审阅冲突后才应用。同版本不同 commit/tree 必须分别报告，不能仅凭版本相同宣称来源一致。同版本开发来源只有实际 tree 与公开候选 tree、inventory 同时相等且原 baseline 完整时，才可通过原生元数据归位计划采用公开身份；内容变化仍须合法范围的严格升版升级包。
 
 APP 继续开发并独立提升自己的版本，再从干净的 APP 提交制备 APP Release；APP 版本与 Peanut、Core、CLI 版本独立。生产服务器消费经清单和 SHA-256 核验的 APP Release，通过已安装的标准生产升级入口执行 plan、backup、apply、migration、health、verify 与受控 recovery，不能对生产目录执行 Peanut 上游吸收或 git pull。
 

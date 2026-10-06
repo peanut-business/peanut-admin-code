@@ -17,13 +17,13 @@ require $root . '/server/app/common/infrastructure/scaffold/ApplicationCreator.p
 
 function createAppUsage(): never
 {
-    fwrite(STDERR, "Usage: php scripts/create-app --name=<product> --slug=<slug> --package=<vendor/name> --target=/absolute/path --edition=standalone|multi-tenant [--application-version=<semver>] [--profile=minimal|standard|full] [--scaffold-manifest=/absolute/path/scaffold-manifest.json]\n");
+    fwrite(STDERR, "Usage: php scripts/create-app --name=<product> --slug=<slug> --package=<vendor/name> --target=/absolute/path --edition=standalone|multi-tenant [--application-version=<semver>] [--profile=minimal|standard|full] [--source-repository=peanut-business/peanut-admin-code --source-ref=<ref> --source-channel=development|prerelease|stable --source-commit=<sha> --source-tree=<sha> [--release-version=<semver>]] [--scaffold-manifest=/absolute/path/scaffold-manifest.json]\n");
     exit(64);
 }
 
 $options = [];
 foreach (array_slice($argv, 1) as $argument) {
-    if (preg_match('/^--(name|slug|package|target|edition|application-version|profile|scaffold-manifest)=(.*)$/D', $argument, $matches) !== 1 || isset($options[$matches[1]])) {
+    if (preg_match('/^--(name|slug|package|target|edition|application-version|profile|scaffold-manifest|source-repository|source-ref|source-channel|source-commit|source-tree|release-version)=(.*)$/D', $argument, $matches) !== 1 || isset($options[$matches[1]])) {
         createAppUsage();
     }
     $options[$matches[1]] = $matches[2];
@@ -44,21 +44,60 @@ try {
         throw new RuntimeException('CREATE_APP_ADOPTION_INVENTORY_VERSION_INVALID');
     }
     $versions->assertSame($templateVersion, $versions->scaffoldTemplate(), 'CREATE_APP_ADOPTION_INVENTORY_VERSION_INVALID');
-    $adoptionPath = $options['scaffold-manifest']
-        ?? ($root . '/scaffold/releases/v' . $templateVersion . '/scaffold-manifest.json');
-    if (!str_starts_with($adoptionPath, '/')) {
-        throw new RuntimeException('CREATE_APP_SCAFFOLD_MANIFEST_PATH_INVALID');
+    $channel = $options['source-channel'] ?? 'development';
+    if (!in_array($channel, ['development', 'prerelease', 'stable'], true)) {
+        throw new RuntimeException('CREATE_APP_SOURCE_CHANNEL_INVALID');
     }
-    $adoption = ScaffoldManifest::load($adoptionPath);
-    if ($adoption->version() !== $templateVersion
-        || ($adoption->release()['inventory_template_version'] ?? null) !== $templateVersion) {
-        throw new RuntimeException('CREATE_APP_ADOPTION_VERSION_MISMATCH');
+    $releaseVersion = $options['release-version'] ?? null;
+    if (($channel === 'development' && ($releaseVersion !== null || isset($options['scaffold-manifest'])))
+        || ($channel !== 'development' && (!is_string($releaseVersion) || $releaseVersion === ''))) {
+        throw new RuntimeException('CREATE_APP_SOURCE_CHANNEL_RELEASE_MISMATCH');
     }
+    if ($releaseVersion !== null && (
+        preg_match('/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$/D', $releaseVersion) !== 1
+        || ($channel === 'stable' && str_contains($releaseVersion, '-'))
+        || ($channel === 'prerelease' && !str_contains($releaseVersion, '-'))
+    )) {
+        throw new RuntimeException('CREATE_APP_RELEASE_VERSION_INVALID');
+    }
+    $adoptionPath = null;
+    if ($channel !== 'development') {
+        $adoptionPath = $options['scaffold-manifest']
+            ?? ($root . '/scaffold/releases/v' . $releaseVersion . '/scaffold-manifest.json');
+        if (!str_starts_with($adoptionPath, '/')) {
+            throw new RuntimeException('CREATE_APP_SCAFFOLD_MANIFEST_PATH_INVALID');
+        }
+        $adoption = ScaffoldManifest::load($adoptionPath);
+        if ($adoption->path !== realpath($root . '/scaffold/releases/v' . $releaseVersion . '/scaffold-manifest.json')) {
+            throw new RuntimeException('CREATE_APP_SCAFFOLD_MANIFEST_PATH_INVALID');
+        }
+        if ($adoption->version() !== $releaseVersion
+            || ($adoption->release()['inventory_template_version'] ?? null) !== $templateVersion
+            || ($adoption->release()['inventory_sha256'] ?? null) !== hash_file('sha256', $inventoryPath)) {
+            throw new RuntimeException('CREATE_APP_ADOPTION_VERSION_MISMATCH');
+        }
+    }
+    $specifiedSourceIdentity = isset($options['source-commit'], $options['source-tree'])
+        ? ['commit' => $options['source-commit'], 'tree' => $options['source-tree']]
+        : null;
+    if (isset($options['source-commit']) !== isset($options['source-tree'])) {
+        throw new RuntimeException('CREATE_APP_SOURCE_IDENTITY_INVALID');
+    }
+    $provenance = $options === array_intersect_key($options, array_flip(['name', 'slug', 'package', 'target', 'edition', 'application-version', 'profile']))
+        ? null
+        : [
+            'repository' => $options['source-repository'] ?? null,
+            'requested_ref' => $options['source-ref'] ?? 'HEAD',
+            'channel' => $channel,
+            'release_version' => $releaseVersion,
+        ];
     $manifest = (new ApplicationCreator(
         $root,
         $inventoryPath,
-        null,
-        $adoption->path,
+        $specifiedSourceIdentity,
+        $adoptionPath,
+        true,
+        $provenance,
     ))->create(
         $options['name'],
         $options['slug'],
@@ -77,6 +116,7 @@ try {
         'edition' => $manifest['application']['edition'],
         'source_commit' => $manifest['template']['source_commit'],
         'generation_source_commit' => $manifest['generation_source']['commit'],
+        'generation_source' => $manifest['generation_source'],
         'managed_tree_sha256' => $manifest['digests']['managed_tree_sha256'],
         'app_owned_tree_sha256' => $manifest['digests']['app_owned_tree_sha256'],
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n");

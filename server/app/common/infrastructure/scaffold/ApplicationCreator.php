@@ -43,6 +43,7 @@ final class ApplicationCreator
         private readonly ?array $sourceIdentity = null,
         private readonly ?string $adoptionManifestPath = null,
         private readonly bool $projectEdition = true,
+        private readonly ?array $sourceProvenance = null,
     ) {}
 
     /** @return array<string,mixed> */
@@ -73,12 +74,42 @@ final class ApplicationCreator
             $packageIdentity,
             $applicationVersion ?? (string) $inventory['application']['version'],
         );
-        $generationIdentity = $this->validateSourceIdentity($this->sourceIdentity ?? $this->gitIdentity());
+        $actualIdentity = $this->gitIdentity();
+        $generationIdentity = $this->validateSourceIdentity($this->sourceIdentity ?? $actualIdentity);
+        if ($generationIdentity !== $actualIdentity) {
+            throw new RuntimeException('CREATE_APP_SOURCE_IDENTITY_MISMATCH');
+        }
+        $originRepository = $this->originRepository();
+        $declaredProvenance = $this->sourceProvenance;
+        if ($declaredProvenance !== null && ($declaredProvenance['repository'] ?? null) === null) {
+            $declaredProvenance['repository'] = $originRepository;
+        }
+        $provenance = $this->validateSourceProvenance($declaredProvenance ?? [
+            'repository' => $originRepository,
+            'requested_ref' => $generationIdentity['commit'],
+            'channel' => 'development',
+            'release_version' => null,
+        ]);
+        if ($originRepository !== null && $provenance['repository'] !== $originRepository) {
+            throw new RuntimeException('CREATE_APP_SOURCE_REPOSITORY_MISMATCH');
+        }
+        if ($this->sourceProvenance !== null
+            && (($provenance['channel'] === 'development') !== ($this->adoptionManifestPath === null))) {
+            throw new RuntimeException('CREATE_APP_SOURCE_CHANNEL_RELEASE_MISMATCH');
+        }
         $inventoryDigest = hash_file('sha256', $this->inventoryPath);
         if (!is_string($inventoryDigest) || preg_match('/^[a-f0-9]{64}$/D', $inventoryDigest) !== 1) {
             throw new RuntimeException('CREATE_APP_INVENTORY_DIGEST_INVALID');
         }
         $adoption = $this->loadAdoptionManifest($inventory);
+        if ($adoption !== null && $provenance['channel'] !== 'development') {
+            if ($adoption->version() !== $provenance['release_version']
+                || $adoption->release()['inventory_sha256'] !== $inventoryDigest
+                || $this->git(['rev-parse', $adoption->release()['source_commit'] . '^{tree}']) !== $adoption->release()['source_tree']) {
+                throw new RuntimeException('CREATE_APP_PUBLISHED_SEAL_INVALID');
+            }
+            $this->git(['merge-base', '--is-ancestor', $adoption->release()['source_commit'], $generationIdentity['commit']]);
+        }
         $adoptsEdition = $adoption !== null && array_key_exists('edition', $adoption->data);
         if ($adoptsEdition && (!$this->projectEdition || $adoption->data['edition'] !== $editionProfile->identity())) {
             throw new RuntimeException('CREATE_APP_ADOPTION_EDITION_MISMATCH');
@@ -152,6 +183,7 @@ final class ApplicationCreator
             $manifest = $this->writeApplicationManifest(
                 $stage,
                 $generationIdentity,
+                $provenance,
                 $inventoryDigest,
                 $templateIdentity,
                 $parameters,
@@ -225,6 +257,56 @@ final class ApplicationCreator
             throw new RuntimeException('CREATE_APP_SOURCE_IDENTITY_INVALID');
         }
         return $identity;
+    }
+
+    /** @param array<string,mixed> $provenance @return array{repository:?string,requested_ref:string,channel:string,release_version:?string} */
+    private function validateSourceProvenance(array $provenance): array
+    {
+        if (array_keys($provenance) !== ['repository', 'requested_ref', 'channel', 'release_version']
+            || ($provenance['repository'] !== null
+                && (!is_string($provenance['repository'])
+                    || preg_match('#^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$#D', $provenance['repository']) !== 1))
+            || !is_string($provenance['requested_ref'])
+            || $provenance['requested_ref'] === ''
+            || strlen($provenance['requested_ref']) > 255
+            || preg_match('/[\x00-\x20\x7f]/', $provenance['requested_ref']) === 1
+            || !in_array($provenance['channel'], ['development', 'prerelease', 'stable'], true)) {
+            throw new RuntimeException('CREATE_APP_SOURCE_PROVENANCE_INVALID');
+        }
+        $release = $provenance['release_version'];
+        if ($provenance['channel'] === 'development') {
+            if ($release !== null) {
+                throw new RuntimeException('CREATE_APP_SOURCE_CHANNEL_RELEASE_MISMATCH');
+            }
+        } elseif ($provenance['repository'] !== 'peanut-business/peanut-admin-code'
+            || !is_string($release)
+            || preg_match('/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$/D', $release) !== 1
+            || ($provenance['channel'] === 'stable' && str_contains($release, '-'))
+            || ($provenance['channel'] === 'prerelease' && !str_contains($release, '-'))) {
+            throw new RuntimeException('CREATE_APP_SOURCE_CHANNEL_RELEASE_MISMATCH');
+        }
+        return $provenance;
+    }
+
+    private function originRepository(): ?string
+    {
+        $pipes = [];
+        $process = proc_open(['git', '-C', $this->sourceRoot, 'config', '--get', 'remote.origin.url'],
+            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        if (!is_resource($process)) {
+            throw new RuntimeException('CREATE_APP_GIT_UNAVAILABLE');
+        }
+        $output = stream_get_contents($pipes[1]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        if (proc_close($process) !== 0 || !is_string($output)) {
+            return null;
+        }
+        $origin = trim($output);
+        if (preg_match('#^(?:git@github\.com:|https://github\.com/)([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+?)(?:\.git)?$#D', $origin, $matches) === 1) {
+            return $matches[1];
+        }
+        return null;
     }
 
     /** @param array<string,mixed> $inventory */
@@ -1207,6 +1289,7 @@ final class ApplicationCreator
 
     /**
      * @param array{commit:string,tree:string} $generationIdentity
+     * @param array{repository:?string,requested_ref:string,channel:string,release_version:?string} $sourceProvenance
      * @param array{version:string,inventory_sha256:string,source_commit:string,source_tree:string} $templateIdentity
      * @param array<string,string> $parameters
      * @param list<array<string,mixed>> $files
@@ -1214,6 +1297,7 @@ final class ApplicationCreator
     private function writeApplicationManifest(
         string $stage,
         array $generationIdentity,
+        array $sourceProvenance,
         string $inventoryDigest,
         array $templateIdentity,
         array $parameters,
@@ -1253,6 +1337,10 @@ final class ApplicationCreator
             'edition' => $editionProfile->identity(),
             'template' => $templateIdentity,
             'generation_source' => [
+                'repository' => $sourceProvenance['repository'],
+                'requested_ref' => $sourceProvenance['requested_ref'],
+                'channel' => $sourceProvenance['channel'],
+                'release_version' => $sourceProvenance['release_version'],
                 'commit' => $generationIdentity['commit'],
                 'tree' => $generationIdentity['tree'],
                 'inventory_sha256' => $inventoryDigest,
