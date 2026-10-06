@@ -160,18 +160,19 @@ final class EditionUpgradePackage
         $minimum = (string) ($manifest['compatibility']['source']['minimum_inclusive'] ?? '');
         $maximum = (string) ($manifest['compatibility']['source']['maximum_exclusive'] ?? '');
         $target = (string) ($manifest['target']['version'] ?? '');
+        $majorPolicy = $manifest['compatibility']['major_policy'] ?? null;
         if (preg_match(self::VERSION, $current) !== 1
             || preg_match(self::VERSION, $minimum) !== 1
             || preg_match(self::VERSION, $maximum) !== 1
             || preg_match(self::VERSION, $target) !== 1
             || $maximum !== $target
-            || ($manifest['compatibility']['major_policy'] ?? null) !== 'same-major'
+            || !in_array($majorPolicy, ['same-major', 'source-range'], true)
             || Semver::greaterThanOrEqualTo($minimum, $target)
-            || Semver::lessThan($current, $minimum)
-            || ($requireSourceCompatibility && Semver::greaterThanOrEqualTo($current, $target))
-            || (!$requireSourceCompatibility && $current !== $target
-                && (Semver::lessThan($current, $minimum) || Semver::greaterThanOrEqualTo($current, $target)))
-            || explode('.', $current, 2)[0] !== explode('.', $target, 2)[0]) {
+            || ($majorPolicy === 'same-major'
+                && (explode('.', $minimum, 2)[0] !== explode('.', $target, 2)[0]
+                    || explode('.', $current, 2)[0] !== explode('.', $target, 2)[0]))
+            || (($requireSourceCompatibility || $current !== $target)
+                && (Semver::lessThan($current, $minimum) || Semver::greaterThanOrEqualTo($current, $target)))) {
             throw new RuntimeException('EDITION_UPGRADE_RELEASE_CHAIN_INVALID');
         }
 
