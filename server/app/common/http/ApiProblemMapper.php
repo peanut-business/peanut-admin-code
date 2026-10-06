@@ -14,7 +14,6 @@ use app\platform\exception\PlatformRefreshCredentialException;
 use app\platform\exception\plugin\PluginLifecycleException;
 use app\platform\exception\plugin\PluginPackageException;
 use PeanutAdmin\Kernel\Auth\AuthException;
-use PeanutAdmin\Kernel\Auth\PlatformRefreshCookie;
 use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
 use PeanutAdmin\Kernel\Module\ModuleException;
 use PeanutAdmin\Modules\Ops\Domain\Application\OpsConsoleException;
@@ -59,7 +58,7 @@ final class ApiProblemMapper
                 PlatformRefreshCredentialException::MESSAGE,
                 ['error_code' => PlatformRefreshCredentialException::ERROR_CODE],
                 40100,
-            )->withHeaders(['Set-Cookie' => PlatformRefreshCookie::clear()]),
+            ),
             $exception instanceof AdminAccessException => new ApiProblem(
                 $exception->errorCode,
                 $exception->httpStatus,

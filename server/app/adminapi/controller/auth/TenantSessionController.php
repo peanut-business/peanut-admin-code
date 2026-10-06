@@ -6,6 +6,7 @@ namespace app\adminapi\controller\auth;
 
 use app\adminapi\services\auth\TenantSessionApplicationService;
 use app\BaseController;
+use app\common\http\SessionRefreshCookie;
 use PeanutAdmin\Modules\Identity\Http\TenantAuthResponse;
 use think\App;
 
@@ -48,6 +49,7 @@ final class TenantSessionController extends BaseController
     private function response(TenantAuthResponse $result)
     {
         $response = json($result->body ?? ['code' => 20000, 'msg' => 'success', 'data' => null], $result->status);
-        return $result->headers === [] ? $response : $response->header($result->headers);
+        $response->header($result->headers);
+        return SessionRefreshCookie::apply($response, $result->cookies);
     }
 }

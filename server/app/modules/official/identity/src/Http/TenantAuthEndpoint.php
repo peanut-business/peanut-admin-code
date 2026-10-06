@@ -9,6 +9,7 @@ use PeanutAdmin\Modules\Identity\Auth\TenantAuthentication;
 use PeanutAdmin\Modules\Identity\Auth\TenantAuthService;
 use PeanutAdmin\Modules\Identity\Auth\TenantSelectionRequired;
 use SensitiveParameter;
+use app\common\http\SessionRefreshCookie;
 
 final readonly class TenantAuthEndpoint
 {
@@ -22,6 +23,7 @@ final readonly class TenantAuthEndpoint
         string $ipAddress,
         ?string $userAgent,
         string $requestId,
+        array $observedCookieNames = [],
     ): TenantAuthResponse {
         return $this->outcome($this->auth->login(
             $email,
@@ -30,7 +32,7 @@ final readonly class TenantAuthEndpoint
             $ipAddress,
             $userAgent,
             $requestId,
-        ), $requestId);
+        ), $requestId, $observedCookieNames);
     }
 
     public function selectTenant(
@@ -40,6 +42,7 @@ final readonly class TenantAuthEndpoint
         string $ipAddress,
         ?string $userAgent,
         string $requestId,
+        array $observedCookieNames = [],
     ): TenantAuthResponse {
         return $this->authenticated($this->auth->selectTenant(
             $challengeToken,
@@ -47,7 +50,7 @@ final readonly class TenantAuthEndpoint
             $ipAddress,
             $userAgent,
             $requestId,
-        ), $requestId);
+        ), $requestId, $observedCookieNames);
     }
 
     public function refresh(
@@ -70,7 +73,7 @@ final readonly class TenantAuthEndpoint
             $ipAddress,
             $userAgent,
             $requestId,
-        ), $requestId);
+        ), $requestId, [$this->refreshCookieName($expectedAccessToken)]);
     }
 
     public function context(#[SensitiveParameter] string $accessToken, string $requestId): TenantAuthResponse
@@ -113,48 +116,53 @@ final readonly class TenantAuthEndpoint
     {
         $this->auth->logout($accessToken, $requestId);
 
-        return new TenantAuthResponse(204, null, [
-            'Set-Cookie' => \PeanutAdmin\Kernel\Http\TenantRefreshCookie::clear($this->auth->client()),
-        ]);
+        return new TenantAuthResponse(204, null, cookies: SessionRefreshCookie::clear([$this->refreshCookieName($accessToken)]));
     }
 
     public function logoutAll(#[SensitiveParameter] string $accessToken, string $requestId): TenantAuthResponse
     {
         $this->auth->logoutAll($accessToken, $requestId);
 
-        return new TenantAuthResponse(204, null, [
-            'Set-Cookie' => \PeanutAdmin\Kernel\Http\TenantRefreshCookie::clear($this->auth->client()),
-        ]);
+        return new TenantAuthResponse(204, null, cookies: SessionRefreshCookie::clear([$this->refreshCookieName($accessToken)]));
     }
 
     private function outcome(
         TenantSelectionRequired|TenantAuthentication $outcome,
         string $requestId,
+        array $observedCookieNames,
     ): TenantAuthResponse {
         if ($outcome instanceof TenantAuthentication) {
-            return $this->authenticated($outcome, $requestId);
+            return $this->authenticated($outcome, $requestId, $observedCookieNames);
         }
 
         return new TenantAuthResponse(200, [
             'data' => $outcome->responseData(),
             'meta' => ['request_id' => $requestId],
-        ]);
+        ], cookies: SessionRefreshCookie::clear($observedCookieNames));
     }
 
     private function authenticated(
         TenantAuthentication $authentication,
         string $requestId,
+        array $expiredCookieNames,
     ): TenantAuthResponse {
         return new TenantAuthResponse(200, [
             'data' => $authentication->responseData(),
             'meta' => ['request_id' => $requestId],
-        ], [
-            'Set-Cookie' => \PeanutAdmin\Kernel\Http\TenantRefreshCookie::issue($this->auth->client(), $authentication->tokens->refresh),
+        ], cookies: [
+            ...SessionRefreshCookie::clear($expiredCookieNames),
+            $this->refreshCookieName($authentication->tokens->access->expose()) => $authentication->tokens->refresh->expose(),
         ]);
     }
 
-    public function refreshCookieName(): string
+    public function refreshCookieName(#[SensitiveParameter] string $accessToken): string
     {
-        return \PeanutAdmin\Kernel\Http\TenantRefreshCookie::name($this->auth->client());
+        return SessionRefreshCookie::name($this->auth->client()->refreshCookieName, $accessToken);
+    }
+
+    /** @return list<string> */
+    public function observedRefreshCookieNames(object $request): array
+    {
+        return SessionRefreshCookie::observedNames($request, $this->auth->client()->refreshCookieName);
     }
 }

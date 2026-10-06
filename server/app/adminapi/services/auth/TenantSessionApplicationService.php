@@ -38,6 +38,7 @@ final readonly class TenantSessionApplicationService
                 $request->ip(),
                 $request->header('User-Agent'),
                 PlatformRequest::requestId($this->executionContext, $request),
+                $this->tenantAuth->observedRefreshCookieNames($request),
             );
         } catch (AuthException|\DomainException|\InvalidArgumentException) {
             throw new BusinessException(
@@ -63,6 +64,7 @@ final readonly class TenantSessionApplicationService
                 $request->ip(),
                 $request->header('User-Agent'),
                 PlatformRequest::requestId($this->executionContext, $request),
+                $this->tenantAuth->observedRefreshCookieNames($request),
             );
         } catch (AuthException|\DomainException|\InvalidArgumentException) {
             throw new BusinessException(
@@ -102,9 +104,13 @@ final readonly class TenantSessionApplicationService
     {
         try {
             $this->hostPolicy->assertTenantAdmin($request);
+            $accessToken = PlatformRequest::bearerToken($request);
+            if ($accessToken === '') {
+                throw new AuthException('AUTH_TOKEN_INVALID', 401);
+            }
             return $this->tenantAuth->refresh(
-                trim((string) $request->cookie($this->tenantAuth->refreshCookieName(), '')),
-                PlatformRequest::bearerToken($request),
+                trim((string) $request->cookie($this->tenantAuth->refreshCookieName($accessToken), '')),
+                $accessToken,
                 $this->isTrustedBrowserOrigin($request),
                 $request->ip(),
                 $request->header('User-Agent'),

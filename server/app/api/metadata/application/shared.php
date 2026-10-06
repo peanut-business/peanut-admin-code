@@ -206,10 +206,10 @@ return [
                 'description' => '必须命中已登记的 Tenant Admin 入口；Host 不是身份凭证。',
             ],
             'tenantRefreshCookie' => [
-                'type' => 'apiKey',
-                'in' => 'cookie',
-                'name' => '__Host-pa_tenant_refresh_admin-web',
-                'description' => 'HttpOnly refresh cookie；同时要求可信 same-origin 浏览器请求。',
+                'type' => 'http',
+                'scheme' => 'bearer',
+                'bearerFormat' => 'opaque tenant access token',
+                'description' => 'Bearer 必须是发起刷新的精确 access token（允许过期或已轮换）。浏览器自动携带对应的 Secure HttpOnly refresh cookie，名称为本 client 的 __Host-pa_tenant_refresh_<client> 加下划线及 access token 的 SHA-256；hash 仅用于选择 cookie，服务端仍校验凭据属于同一会话。另要求可信 same-origin 浏览器请求；OpenAPI 固定 name 的 cookie scheme 无法表示该动态名称。',
             ],
             'platformHost' => [
                 'type' => 'apiKey',
@@ -218,10 +218,10 @@ return [
                 'description' => '必须命中实例登记的 Platform Host；该约束不授予 Platform 权限。',
             ],
             'platformRefreshCookie' => [
-                'type' => 'apiKey',
-                'in' => 'cookie',
-                'name' => '__Host-pa_platform_refresh',
-                'description' => 'Platform HttpOnly refresh cookie。',
+                'type' => 'http',
+                'scheme' => 'bearer',
+                'bearerFormat' => 'opaque platform access token',
+                'description' => 'Bearer 指定发起刷新的精确 access token。浏览器自动携带对应的 Secure HttpOnly refresh cookie，名称为 __Host-pa_platform_refresh 加下划线及 access token 的 SHA-256；hash 仅用于选择 cookie，不代替 Platform refresh 凭据校验。OpenAPI 固定 name 的 cookie scheme 无法表示该动态名称。',
             ],
             'installationSetupToken' => [
                 'type' => 'http',

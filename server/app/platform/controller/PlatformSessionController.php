@@ -8,6 +8,7 @@ use app\platform\http\PlatformRequest;
 use app\platform\services\PlatformOperatorSessionService;
 use app\platform\validate\PlatformLoginValidate;
 use PeanutAdmin\Kernel\Auth\PlatformRefreshCookie;
+use app\common\http\SessionRefreshCookie;
 
 /** @property-read PlatformOperatorSessionService $sessions 当前 App 中声明式解析的控制器依赖。 */
 final class PlatformSessionController extends BasePlatformController
@@ -18,6 +19,7 @@ final class PlatformSessionController extends BasePlatformController
     {
         $params = $this->request->post();
         $this->validate($params, PlatformLoginValidate::class);
+        $oldCookieNames = SessionRefreshCookie::observedNames($this->request, PlatformRefreshCookie::NAME);
         $authentication = $this->sessions->login(
             trim((string) $params['email']),
             (string) $params['password'],
@@ -26,13 +28,16 @@ final class PlatformSessionController extends BasePlatformController
             $this->requestId(),
         );
 
-        return $this->data($authentication->responseData())
-            ->header(['Set-Cookie' => PlatformRefreshCookie::issue($authentication->tokens->refresh)]);
+        return SessionRefreshCookie::apply($this->data($authentication->responseData()), [
+            ...SessionRefreshCookie::clear($oldCookieNames),
+            SessionRefreshCookie::name(PlatformRefreshCookie::NAME, $authentication->tokens->access->expose()) => $authentication->tokens->refresh->expose(),
+        ]);
     }
 
     public function refresh()
     {
         $token = PlatformRequest::refreshToken($this->request);
+        $accessToken = PlatformRequest::bearerToken($this->request);
         $authentication = $this->sessions->refresh(
             $token,
             $this->request->ip(),
@@ -40,8 +45,10 @@ final class PlatformSessionController extends BasePlatformController
             $this->requestId(),
         );
 
-        return $this->data($authentication->responseData())
-            ->header(['Set-Cookie' => PlatformRefreshCookie::issue($authentication->tokens->refresh)]);
+        return SessionRefreshCookie::apply($this->data($authentication->responseData()), [
+            SessionRefreshCookie::name(PlatformRefreshCookie::NAME, $accessToken) => null,
+            SessionRefreshCookie::name(PlatformRefreshCookie::NAME, $authentication->tokens->access->expose()) => $authentication->tokens->refresh->expose(),
+        ]);
     }
 
     public function logout()
@@ -51,7 +58,9 @@ final class PlatformSessionController extends BasePlatformController
             $this->sessions->logout($token);
         }
 
-        return $this->success('success')->header(['Set-Cookie' => PlatformRefreshCookie::clear()]);
+        return SessionRefreshCookie::apply($this->success('success'), $token === '' ? [] : [
+            SessionRefreshCookie::name(PlatformRefreshCookie::NAME, $token) => null,
+        ]);
     }
 
     public function info()

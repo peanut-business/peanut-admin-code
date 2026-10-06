@@ -7,6 +7,7 @@ namespace app\platform\http;
 use app\common\execution\CurrentExecutionContext;
 use app\common\http\RequestTrace;
 use PeanutAdmin\Kernel\Auth\PlatformRefreshCookie;
+use app\common\http\SessionRefreshCookie;
 
 final class PlatformRequest
 {
@@ -22,7 +23,11 @@ final class PlatformRequest
 
     public static function refreshToken($request): string
     {
-        return trim((string) $request->cookie(PlatformRefreshCookie::NAME, ''));
+        $accessToken = self::bearerToken($request);
+        if ($accessToken === '') {
+            return '';
+        }
+        return trim((string) $request->cookie(SessionRefreshCookie::name(PlatformRefreshCookie::NAME, $accessToken), ''));
     }
 
     public static function requestId(CurrentExecutionContext $executionContext, $request): string
