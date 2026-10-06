@@ -18,6 +18,7 @@ use PeanutAdmin\Kernel\Tenancy\TenantScope;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
 use PeanutAdmin\Kernel\Audit\AuditOutcome;
 use Cron\CronExpression;
+use think\facade\Db;
 
 final class CrontabSchedulerService
 {
@@ -127,15 +128,19 @@ final class CrontabSchedulerService
                         return;
                     }
 
-                    if (Crontab::where('id', $jobId)
-                            ->where('status', CrontabEnum::START)
-                            ->where('last_time', $lastTime)
-                            ->update(['last_time' => $now]) !== 1) {
-                        return;
-                    }
+                    // The schedule and its durable job/event use the default connection.
+                    // Keep the window unchanged if admission or enqueue fails.
+                    Db::transaction(function () use ($jobId, $lastTime, $now, $scope, $item, $trigger): void {
+                        if (Crontab::where('id', $jobId)
+                                ->where('status', CrontabEnum::START)
+                                ->where('last_time', $lastTime)
+                                ->update(['last_time' => $now]) !== 1) {
+                            return;
+                        }
 
-                    $item['last_time'] = $now;
-                    $trigger($scope, $item);
+                        $item['last_time'] = $now;
+                        $trigger($scope, $item);
+                    });
                 } finally {
                     $this->locks->release($scope, $jobId);
                 }
