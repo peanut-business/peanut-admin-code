@@ -75,11 +75,10 @@ class WorkbenchApplicationService
             ['name' => '菜单权限', 'image' => 'menu_auth', 'url' => '/system/menu'],
             ['name' => '网站信息', 'image' => 'menu_web', 'url' => '/app-setting/website'],
         ];
-        $moduleMenus = $this->authorization->moduleMenuRecords($context);
+        $authorizedMenus = $this->authorization->menusForAdminId($context, $context->memberId);
         $items = array_values(array_filter(
             $items,
-            static fn(array $item): bool => $item['url'] !== '/system/file'
-                || self::menuContainsPath($moduleMenus, '/system/file'),
+            static fn(array $item): bool => self::menuContainsPath($authorizedMenus, $item['url']),
         ));
 
         return array_map(function (array $item): array {
