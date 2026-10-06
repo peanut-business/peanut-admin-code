@@ -215,7 +215,7 @@ final readonly class PlatformUpgradeReadinessService
         $serverIdentityPath = $this->projectRoot . '/server/.peanut/release-identity.json';
         if (file_exists($serverIdentityPath) || is_link($serverIdentityPath)) {
             try {
-                $identity = ServerReleaseIdentity::load($this->projectRoot . '/server');
+                $identity = ServerReleaseIdentity::resolve($this->projectRoot . '/server');
             } catch (RuntimeException $exception) {
                 throw new RuntimeException('UPGRADE_SOURCE_SERVER_RELEASE_INVALID', 0, $exception);
             }

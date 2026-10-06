@@ -26,10 +26,14 @@ final readonly class VerifiedServerDeployment
     public static function read(App $app): self
     {
         $root = rtrim($app->getRootPath(), '/');
+        foreach (['maintenance.json', 'current-update.json'] as $guard) {
+            $path = $root . '/runtime/upgrade/' . $guard;
+            if (file_exists($path) || is_link($path)) {
+                throw new RuntimeException('SERVER_DEPLOYMENT_TRAFFIC_CLOSED');
+            }
+        }
         self::assertProtectedPath($root, 'runtime/upgrade/.traffic-ready');
-        if (self::bytes($root . '/runtime/upgrade/.traffic-ready') !== "peanut.server-traffic-ready.v1\n"
-            || file_exists($root . '/runtime/upgrade/maintenance.json')
-            || is_link($root . '/runtime/upgrade/maintenance.json')) {
+        if (self::bytes($root . '/runtime/upgrade/.traffic-ready') !== "peanut.server-traffic-ready.v1\n") {
             throw new RuntimeException('SERVER_DEPLOYMENT_TRAFFIC_CLOSED');
         }
         self::assertProtectedPath($root, 'runtime/upgrade/verified-deployment/current.json');

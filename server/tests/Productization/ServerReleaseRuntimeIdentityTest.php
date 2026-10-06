@@ -164,6 +164,49 @@ try {
         'generated-template server release must fall back to its upstream generation identity',
     );
 
+    $server = $fixture . '/application/server';
+    mkdir($server . '/runtime/upgrade', 0700, true);
+    $currentUpdate = $server . '/runtime/upgrade/current-update.json';
+    foreach (['file', 'dangling-link'] as $kind) {
+        if ($kind === 'file') {
+            file_put_contents($currentUpdate, '{}');
+        } else {
+            symlink('missing-update-state', $currentUpdate);
+        }
+        try {
+            \app\common\infrastructure\installation\VerifiedServerDeployment::read(new \think\App($server));
+            throw new RuntimeException('current update guard was accepted: ' . $kind);
+        } catch (RuntimeException $exception) {
+            serverReleaseIdentityExpect(
+                $exception->getMessage() === 'SERVER_DEPLOYMENT_TRAFFIC_CLOSED',
+                'an existing or linked current update pointer must close direct PHP admission',
+            );
+        } finally {
+            unlink($currentUpdate);
+        }
+    }
+
+    $cli = new \think\App($server);
+    $cli->instance(ServerReleaseIdentity::class, $application);
+    serverReleaseIdentityExpect(
+        $cli->runningInConsole() && $cli->exists(ServerReleaseIdentity::class)
+        && ServerReleaseIdentity::resolve($server) === $application,
+        'CLI admission must reuse its explicitly verified same-root native App instance',
+    );
+    $otherProgram = $fixture . '/generated/server/database/install.php';
+    file_put_contents($otherProgram, "<?php // changed external root\n");
+    try {
+        ServerReleaseIdentity::resolve($fixture . '/generated/server');
+        throw new RuntimeException('another root borrowed current App admission');
+    } catch (RuntimeException $exception) {
+        serverReleaseIdentityExpect(
+            $exception->getMessage() === 'SERVER_RELEASE_IDENTITY_INVALID',
+            'another server root must retain full fresh content verification',
+        );
+    } finally {
+        file_put_contents($otherProgram, "<?php\n");
+    }
+
     // A release declaration alone is never HTTP admission, even after successful CLI verification.
     try {
         \app\common\infrastructure\installation\VerifiedServerDeployment::read(new \think\App($fixture . '/application/server'));
@@ -176,6 +219,19 @@ try {
     }
     $program = $fixture . '/application/server/database/install.php';
     file_put_contents($program, "<?php // modified after verification\n");
+    $cli = new \think\App($server);
+    // A closure binding is not an existing verified instance and may not bypass fresh CLI verification.
+    $cli->bind(ServerReleaseIdentity::class, static fn(): ServerReleaseIdentity => $application);
+    try {
+        ServerReleaseIdentity::resolve($server);
+        throw new RuntimeException('unverified CLI closure bypassed content verification');
+    } catch (RuntimeException $exception) {
+        serverReleaseIdentityExpect(
+            !$cli->exists(ServerReleaseIdentity::class)
+            && $exception->getMessage() === 'SERVER_RELEASE_IDENTITY_INVALID',
+            'CLI without an explicit verified identity instance must perform fresh full verification',
+        );
+    }
     try {
         ServerReleaseIdentity::load($fixture . '/application/server');
         throw new RuntimeException('modified source was accepted by fresh verification');
@@ -197,7 +253,7 @@ try {
         );
     }
 
-    echo "SERVER-RELEASE-RUNTIME-IDENTITY passed assertions=7\n";
+    echo "SERVER-RELEASE-RUNTIME-IDENTITY passed assertions=12\n";
 } finally {
     serverReleaseIdentityDelete($fixture);
 }

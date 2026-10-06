@@ -144,7 +144,7 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
     private function runtimeIdentity(): array
     {
         if ($this->serverReleaseAvailable()) {
-            $identity = ServerReleaseIdentity::load($this->projectRoot . '/server');
+            $identity = ServerReleaseIdentity::resolve($this->projectRoot . '/server');
             $source = $identity->runtimeSourceIdentity();
             $versions = $identity->versions();
             $releaseVersion = (string) ($versions['release_sequence_version'] ?? '');
@@ -497,7 +497,7 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
     private function migrationTargetVersion(): string
     {
         if ($this->serverReleaseAvailable()) {
-            $identity = ServerReleaseIdentity::load($this->projectRoot . '/server');
+            $identity = ServerReleaseIdentity::resolve($this->projectRoot . '/server');
             $versions = $identity->versions();
             $base = (string) ($versions['scaffold_template'] ?? '');
             if ($base === '') {

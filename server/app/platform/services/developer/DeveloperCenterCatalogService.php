@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace app\platform\services\developer;
 
-use app\platform\composition\plugin\ModuleDefinitionRegistryFactory;
 use app\platform\infrastructure\plugin\DevelopmentModuleDiscovery;
-use app\platform\infrastructure\plugin\PluginLockResolver;
 use app\platform\services\plugin\PluginPackageArchiveService;
 use app\platform\value\plugin\ModuleFrontendLayout;
 use PeanutAdmin\Kernel\Module\ManifestLoader;
+use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 use PeanutAdmin\Kernel\Module\ModuleProvider;
 use Throwable;
 
@@ -19,10 +18,9 @@ use Throwable;
  */
 final readonly class DeveloperCenterCatalogService
 {
-    /** @param array<string,mixed> $deploymentConfig */
     public function __construct(
         private string $serverRoot,
-        private array $deploymentConfig,
+        private CompiledModuleRegistry $registry,
     ) {}
 
     /** @return array<string,mixed> */
@@ -109,7 +107,7 @@ final readonly class DeveloperCenterCatalogService
             'read_only' => true,
             'sources' => [
                 'module_declarations' => 'server/app/modules/*/*/module.json',
-                'registration' => 'ModuleDefinitionRegistryFactory + configured plugins.lock',
+                'registration' => 'Current ThinkPHP App CompiledModuleRegistry',
                 'routes' => 'server/generated/api-catalog.json (generated from peanut_route_endpoint_inventory)',
                 'generated_api' => 'server/generated/api-catalog.json',
                 'package_preview' => 'PluginPackageArchiveService::previewModule',
@@ -187,12 +185,7 @@ final readonly class DeveloperCenterCatalogService
     private function registration(): array
     {
         try {
-            $lockPath = trim((string) ($this->deploymentConfig['plugin_lock'] ?? '../plugins.lock'));
-            $resolver = new PluginLockResolver($this->serverRoot, $lockPath);
-            $registry = (new ModuleDefinitionRegistryFactory($this->serverRoot))->fromPluginLock(
-                $resolver,
-                $this->deploymentConfig,
-            );
+            $registry = $this->registry;
             return [
                 $this->state('registered', 'MODULE_REGISTRY_READY', count($registry->modules) . ' locked Modules compiled.'),
                 $registry->moduleKeys(),

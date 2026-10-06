@@ -26,13 +26,13 @@ final readonly class ServerReleaseIdentity
         return $this->document;
     }
 
-    /** Reuse the current HTTP App admission; CLI and other roots are verified independently. */
+    /** Reuse current App admission or an explicitly verified CLI instance; other roots remain fresh. */
     public static function resolve(string $serverRoot): self
     {
         $container = Container::getInstance();
         $root = realpath($serverRoot);
-        if ($container instanceof App && !$container->runningInConsole()
-            && $root !== false && $root === realpath($container->getRootPath())) {
+        if ($container instanceof App && $root !== false && $root === realpath($container->getRootPath())
+            && ($container->exists(self::class) || !$container->runningInConsole())) {
             return $container->make(self::class);
         }
 

@@ -584,6 +584,14 @@ class AppService extends Service
 
     private function registerApplicationServices(): void
     {
+        $this->app->bind(
+            \app\platform\services\developer\DeveloperCenterCatalogService::class,
+            fn(): \app\platform\services\developer\DeveloperCenterCatalogService =>
+                new \app\platform\services\developer\DeveloperCenterCatalogService(
+                    dirname(__DIR__),
+                    $this->app->make(CompiledModuleRegistry::class),
+                ),
+        );
         $this->app->bind(WorkbenchApplicationService::class, fn(): WorkbenchApplicationService => new WorkbenchApplicationService(
             $this->app->make(AdminAuthorizationService::class),
             $this->app->make(FileService::class),

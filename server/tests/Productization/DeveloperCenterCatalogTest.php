@@ -20,11 +20,20 @@ $configuration = [
     'kernel_version' => '1.0.0',
     'registered_client_keys' => ['admin-web', 'platform-web'],
 ];
-$service = new DeveloperCenterCatalogService($serverRoot, $configuration);
+$registry = (new \app\platform\composition\plugin\ModuleDefinitionRegistryFactory($serverRoot))->fromPluginLock(
+    new \app\platform\infrastructure\plugin\PluginLockResolver($serverRoot, $configuration['plugin_lock']),
+    $configuration,
+);
+$service = new DeveloperCenterCatalogService($serverRoot, $registry);
 $first = $service->snapshot('official.article');
 $second = $service->snapshot('official.article');
 
 developerCenterExpect($first['read_only'] === true, 'developer catalog is not explicitly read-only');
+developerCenterExpect(
+    ($first['status']['registration']['revision'] ?? null) === $registry->revision
+    && ($second['status']['registration']['revision'] ?? null) === $registry->revision,
+    'developer catalog must use the injected App registry across read-only projections',
+);
 developerCenterExpect(
     ($first['status']['api_catalog']['status'] ?? null) === 'available',
     'generated API catalog inputs are missing or stale',
