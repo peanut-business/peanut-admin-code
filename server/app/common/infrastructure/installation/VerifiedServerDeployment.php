@@ -263,6 +263,14 @@ final readonly class VerifiedServerDeployment
             throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_PATH_INVALID');
         }
         if ($httpMount !== null) {
+            // The verified native HTTP mount hides owner-only Docker inputs.
+            // Validate their original paths with the same owner DAC contract;
+            // full release byte verification still consumes the owner view.
+            if ($root === '/run/peanut-owner/server'
+                && ($relative === 'docker' || str_starts_with($relative, 'docker/'))) {
+                self::assertProtectedPath($root, $relative);
+                return;
+            }
             $httpMount->assertPath($relative);
             return;
         }

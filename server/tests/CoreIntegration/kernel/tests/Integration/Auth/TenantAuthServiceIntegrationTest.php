@@ -19,6 +19,7 @@ use PeanutAdmin\Kernel\Auth\TokenIssuer;
 use PeanutAdmin\Modules\Identity\Http\TenantAuthEndpoint;
 use PeanutAdmin\Kernel\Http\TenantRefreshCookie;
 use PeanutAdmin\Kernel\Identity\PasswordHasher;
+use PeanutAdmin\Kernel\Identity\PasswordPolicy;
 use PeanutAdmin\Modules\Identity\Identity\SelfService\AccountSelfService;
 use PeanutAdmin\Modules\Identity\Platform\Bootstrap\BootstrapService;
 use PeanutAdmin\Kernel\Tests\Integration\Schema\DatabaseTestCase;
@@ -48,7 +49,7 @@ final class TenantAuthServiceIntegrationTest extends DatabaseTestCase
             new DateTimeZone('UTC'),
         ));
         $passwords = new PasswordHasher();
-        $bootstrap = new BootstrapService(passwords: $passwords);
+        $bootstrap = new BootstrapService(new AuditService(), $passwords, new PasswordPolicy());
         $platform = $bootstrap->bootstrapPlatformOwner(
             self::EMAIL,
             self::PASSWORD,
@@ -809,7 +810,7 @@ SQL);
                     $this->writeSocketLine($passwordSockets[1], (string) $connectionId, $deadline);
                     $this->readSocketLine($passwordSockets[1], $deadline);
                     ThinkPhpTestConnection::fromPdo($passwordConnection);
-                    $passwords = new AccountSelfService(new AuditService(), new PasswordHasher());
+                    $passwords = new AccountSelfService(new AuditService(), new PasswordHasher(), new PasswordPolicy());
                     $passwords->changePassword(
                         $context,
                         self::PASSWORD,
