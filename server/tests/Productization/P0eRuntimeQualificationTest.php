@@ -535,7 +535,9 @@ def reject(operation):
     except consumer['ChainError']: return
     raise AssertionError('invalid derived proof accepted')
 
-with tempfile.TemporaryDirectory(prefix='p0e-consumer-contract-') as temporary:
+# Native creation forbids a target inside its source checkout, including the
+# project-env TMPDIR. This POSIX maintainer fixture owns an external temp root.
+with tempfile.TemporaryDirectory(prefix='p0e-consumer-contract-', dir='/tmp') as temporary:
     base = Path(temporary).resolve()
     cache, output = base / 'cache', base / 'output'
     artifacts = cache / 'edition-artifacts'
