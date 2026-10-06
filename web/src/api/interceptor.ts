@@ -2,11 +2,7 @@ import axios from 'axios';
 import type { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { useUserStore } from '@/store';
-import {
-  getSessionSnapshot,
-  getToken,
-  setToken,
-} from '@/utils/auth';
+import { getSessionSnapshot, getToken, setToken } from '@/utils/auth';
 import { isTenantAccessToken } from '@peanut-admin/vue';
 import { refreshTenantSession } from '@/api/tenant-session';
 
@@ -62,8 +58,13 @@ const handleResponse = async (response: AxiosResponse<HttpResponse>) => {
   const snapshot = retryConfig.tenantSession ?? getSessionSnapshot();
   retryConfig.tenantSession = snapshot;
   const currentSession = getSessionSnapshot();
-  if (snapshot.generation !== currentSession.generation || snapshot.token !== currentSession.token) {
-    return Promise.reject(new Error(res.msg || 'The request session has changed.'));
+  if (
+    snapshot.generation !== currentSession.generation ||
+    snapshot.token !== currentSession.token
+  ) {
+    return Promise.reject(
+      new Error(res.msg || 'The request session has changed.')
+    );
   }
   // 20000 is the normal success envelope; LikeAdmin uses code=2 for a
   // successfully generated export file.
@@ -81,7 +82,10 @@ const handleResponse = async (response: AxiosResponse<HttpResponse>) => {
         let refreshedToken = accessToken;
         const requestToken = snapshot.token;
         if (requestToken !== null && requestToken === accessToken) {
-          const refreshKey = JSON.stringify([snapshot.generation, requestToken]);
+          const refreshKey = JSON.stringify([
+            snapshot.generation,
+            requestToken,
+          ]);
           let refreshRequest = tenantRefreshRequests.get(refreshKey);
           if (!refreshRequest) {
             refreshRequest = refreshTenantSession(
@@ -118,7 +122,9 @@ const handleResponse = async (response: AxiosResponse<HttpResponse>) => {
       }
     }
     if (snapshot.generation !== getSessionSnapshot().generation) {
-      return Promise.reject(new Error(res.msg || 'The request session has changed.'));
+      return Promise.reject(
+        new Error(res.msg || 'The request session has changed.')
+      );
     }
     ElMessage.error({
       message: res.msg || 'Error',
@@ -142,14 +148,16 @@ const handleResponse = async (response: AxiosResponse<HttpResponse>) => {
           if (
             snapshot.generation !== getSessionSnapshot().generation ||
             snapshot.token !== getToken()
-          ) return;
+          )
+            return;
           const userStore = useUserStore();
           const cleared = await userStore.logout(snapshot);
           if (
             cleared &&
             getSessionSnapshot().generation === snapshot.generation + 2 &&
             getToken() === null
-          ) window.location.reload();
+          )
+            window.location.reload();
         })
         .catch(() => undefined);
     }

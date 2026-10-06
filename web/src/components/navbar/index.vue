@@ -248,7 +248,11 @@
     if (!token) return;
     const selection = await tenantSwitch(token);
     const current = getSessionSnapshot();
-    if (snapshot.generation !== current.generation || snapshot.token !== current.token) return;
+    if (
+      snapshot.generation !== current.generation ||
+      snapshot.token !== current.token
+    )
+      return;
     tenantChallenge.value = selection.challenge_token;
     tenantChoices.value = selection.tenants;
     selectedTenantId.value = selection.tenants[0]?.tenant_id;
@@ -266,10 +270,18 @@
         generation
       );
       const beforeDispose = getSessionSnapshot();
-      if (beforeDispose.generation !== generation || beforeDispose.token !== token) return;
+      if (
+        beforeDispose.generation !== generation ||
+        beforeDispose.token !== token
+      )
+        return;
       await disposeTenantState();
       const beforeCommit = getSessionSnapshot();
-      if (beforeCommit.generation !== generation || beforeCommit.token !== token) return;
+      if (
+        beforeCommit.generation !== generation ||
+        beforeCommit.token !== token
+      )
+        return;
       generation = advanceSessionGeneration();
       setToken(authenticated.access_token);
       tenantSwitchVisible.value = false;

@@ -88,11 +88,19 @@
       })
     );
     if (!confirmed) return;
-    if (userStore.sessionGeneration !== expectedGeneration || userStore.token !== expectedToken) return;
+    if (
+      userStore.sessionGeneration !== expectedGeneration ||
+      userStore.token !== expectedToken
+    )
+      return;
     try {
       await logout();
     } catch (_) {}
-    if (userStore.sessionGeneration !== expectedGeneration || userStore.token !== expectedToken) return;
+    if (
+      userStore.sessionGeneration !== expectedGeneration ||
+      userStore.token !== expectedToken
+    )
+      return;
     if (!userStore.clearIfToken(expectedToken || null)) return;
     uni.reLaunch({ url: '/pages/index/index' });
   }

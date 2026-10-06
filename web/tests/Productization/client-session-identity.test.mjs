@@ -12,34 +12,77 @@ const ts = require(resolve(root, 'tools/quality/node_modules/typescript'));
 const axios = createRequire(resolve(root, 'platform/package.json'))('axios');
 const storage = () => {
   const data = new Map();
-  return { getItem: (key) => data.get(key) ?? null, setItem: (key, value) => data.set(key, value), removeItem: (key) => data.delete(key) };
+  return {
+    getItem: (key) => data.get(key) ?? null,
+    setItem: (key, value) => data.set(key, value),
+    removeItem: (key) => data.delete(key),
+  };
 };
 const deferred = () => {
   let resolve;
-  const promise = new Promise((done) => { resolve = done; });
+  const promise = new Promise((done) => {
+    resolve = done;
+  });
   return { promise, resolve };
 };
-function load(path, localStorage, bindings = {}, window = { addEventListener() {}, location: { reload() {} } }) {
+function load(
+  path,
+  localStorage,
+  bindings = {},
+  window = { addEventListener() {}, location: { reload() {} } }
+) {
   const exports = {};
-  const source = readFileSync(resolve(root, path), 'utf8').replaceAll('import.meta.env.VITE_API_BASE_URL', 'undefined');
-  const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-  vm.runInNewContext(output, { exports, localStorage, crypto: webcrypto, window, require: (name) => { assert.ok(Object.hasOwn(bindings, name), name); return bindings[name]; } });
+  const source = readFileSync(resolve(root, path), 'utf8').replaceAll(
+    'import.meta.env.VITE_API_BASE_URL',
+    'undefined'
+  );
+  const output = ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+    },
+  }).outputText;
+  vm.runInNewContext(output, {
+    exports,
+    localStorage,
+    crypto: webcrypto,
+    window,
+    require: (name) => {
+      assert.ok(Object.hasOwn(bindings, name), name);
+      return bindings[name];
+    },
+  });
   return exports;
 }
 function platform(transport) {
   const localStorage = storage();
   localStorage.setItem('peanut-platform-token', 'old-token');
   localStorage.setItem('peanut-platform-session', 'old-session');
-  const controlledAxios = { isAxiosError: axios.isAxiosError, create: (options) => {
-    const client = axios.create(options);
-    client.defaults.adapter = async (config) => ({ data: await transport(config), status: 200, statusText: 'OK', headers: {}, config });
-    return client;
-  } };
+  const controlledAxios = {
+    isAxiosError: axios.isAxiosError,
+    create: (options) => {
+      const client = axios.create(options);
+      client.defaults.adapter = async (config) => ({
+        data: await transport(config),
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      });
+      return client;
+    },
+  };
   controlledAxios.default = controlledAxios;
-  const api = load('platform/src/api/platform.ts', localStorage, { axios: controlledAxios });
+  const api = load('platform/src/api/platform.ts', localStorage, {
+    axios: controlledAxios,
+  });
   return { ...api, localStorage };
 }
-const envelope = (data, code = 20000) => ({ code, msg: code === 20000 ? 'ok' : 'expired', data });
+const envelope = (data, code = 20000) => ({
+  code,
+  msg: code === 20000 ? 'ok' : 'expired',
+  data,
+});
 function replaceSession(h) {
   h.localStorage.setItem('peanut-platform-token', 'new-token');
   h.localStorage.setItem('peanut-platform-session', 'new-session');
@@ -61,29 +104,40 @@ test('Web tabs preserve refresh identity and invalidate a login/tenant transitio
   assert.ok(b.getSessionSnapshot().generation > before.generation);
 });
 
-for (const identity of ['session-change', 'token-refresh']) for (const code of [20000, 40100]) {
-  test(`Platform rejects late ${code} after ${identity} without affecting the current token`, async () => {
-    const response = deferred();
-    const started = deferred();
-    let calls = 0;
-    const h = platform(async () => { calls++; started.resolve(); return response.promise; });
-    const work = h.api.tenants();
-    const rejection = assert.rejects(work, /session has changed/);
-    await started.promise;
-    if (identity === 'session-change') replaceSession(h);
-    else h.localStorage.setItem('peanut-platform-token', 'new-token');
-    response.resolve(envelope({ lists: [{ id: 'old' }] }, code));
-    await rejection;
-    assert.equal(h.localStorage.getItem('peanut-platform-token'), 'new-token');
-    assert.equal(calls, 1);
-  });
-}
+for (const identity of ['session-change', 'token-refresh'])
+  for (const code of [20000, 40100]) {
+    test(`Platform rejects late ${code} after ${identity} without affecting the current token`, async () => {
+      const response = deferred();
+      const started = deferred();
+      let calls = 0;
+      const h = platform(async () => {
+        calls++;
+        started.resolve();
+        return response.promise;
+      });
+      const work = h.api.tenants();
+      const rejection = assert.rejects(work, /session has changed/);
+      await started.promise;
+      if (identity === 'session-change') replaceSession(h);
+      else h.localStorage.setItem('peanut-platform-token', 'new-token');
+      response.resolve(envelope({ lists: [{ id: 'old' }] }, code));
+      await rejection;
+      assert.equal(
+        h.localStorage.getItem('peanut-platform-token'),
+        'new-token'
+      );
+      assert.equal(calls, 1);
+    });
+  }
 
 test('Platform rejects a late refresh token after another tab logs in', async () => {
   const refresh = deferred();
   const started = deferred();
   const h = platform(async (config) => {
-    if (config.url === '/platformapi/session/refresh') { started.resolve(); return refresh.promise; }
+    if (config.url === '/platformapi/session/refresh') {
+      started.resolve();
+      return refresh.promise;
+    }
     return envelope(null, 40100);
   });
   const work = h.api.tenants();
@@ -98,7 +152,10 @@ test('Platform rejects a late refresh token after another tab logs in', async ()
 test('Platform old logout await does not clear a new login', async () => {
   const response = deferred();
   const started = deferred();
-  const h = platform(async () => { started.resolve(); return response.promise; });
+  const h = platform(async () => {
+    started.resolve();
+    return response.promise;
+  });
   const work = h.api.logout();
   const rejection = assert.rejects(work, /session has changed/);
   await started.promise;
@@ -112,14 +169,26 @@ test('Platform refresh updates only its own token and replays the actual request
   const calls = [];
   const h = platform(async (config) => {
     calls.push(config.url);
-    if (config.url === '/platformapi/session/refresh') return envelope({ access_token: 'rotated-token' });
+    if (config.url === '/platformapi/session/refresh')
+      return envelope({ access_token: 'rotated-token' });
     return config.headers.Authorization === 'Bearer rotated-token'
-      ? envelope({ lists: ['current'] }) : envelope(null, 40100);
+      ? envelope({ lists: ['current'] })
+      : envelope(null, 40100);
   });
   assert.deepEqual(Array.from((await h.api.tenants()).lists), ['current']);
-  assert.equal(h.localStorage.getItem('peanut-platform-token'), 'rotated-token');
-  assert.equal(h.localStorage.getItem('peanut-platform-session'), 'old-session');
-  assert.deepEqual(calls, ['/platformapi/tenants', '/platformapi/session/refresh', '/platformapi/tenants']);
+  assert.equal(
+    h.localStorage.getItem('peanut-platform-token'),
+    'rotated-token'
+  );
+  assert.equal(
+    h.localStorage.getItem('peanut-platform-session'),
+    'old-session'
+  );
+  assert.deepEqual(calls, [
+    '/platformapi/tenants',
+    '/platformapi/session/refresh',
+    '/platformapi/tenants',
+  ]);
 });
 
 test('Platform logout returns only the snapshot it cleared', async () => {

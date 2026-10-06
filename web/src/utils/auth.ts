@@ -22,7 +22,10 @@ const getToken = () => {
   if (!hasObservedToken) {
     rememberToken(token);
     observedSession = identity;
-  } else if (identity !== observedSession || (identity === null && token !== observedToken)) {
+  } else if (
+    identity !== observedSession ||
+    (identity === null && token !== observedToken)
+  ) {
     rememberToken(token);
     observedSession = identity;
     sessionGeneration += 1;
@@ -40,12 +43,18 @@ const clearToken = () => {
   localStorage.removeItem(TOKEN_KEY);
   rememberToken(null);
   sessionGeneration += 1;
-  observedSession = Array.from(crypto.getRandomValues(new Uint32Array(4)), (value) => value.toString(16)).join('-');
+  observedSession = Array.from(
+    crypto.getRandomValues(new Uint32Array(4)),
+    (value) => value.toString(16)
+  ).join('-');
   localStorage.setItem(SESSION_KEY, observedSession);
 };
 
 const advanceSessionGeneration = () => {
-  observedSession = Array.from(crypto.getRandomValues(new Uint32Array(4)), (value) => value.toString(16)).join('-');
+  observedSession = Array.from(
+    crypto.getRandomValues(new Uint32Array(4)),
+    (value) => value.toString(16)
+  ).join('-');
   localStorage.setItem(SESSION_KEY, observedSession);
   sessionGeneration += 1;
   return sessionGeneration;

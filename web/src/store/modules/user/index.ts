@@ -66,7 +66,11 @@ const useUserStore = defineStore('user', {
       const snapshot = getSessionSnapshot();
       const res = await getUserInfo();
       const current = getSessionSnapshot();
-      if (snapshot.generation !== current.generation || snapshot.token !== current.token) throw new Error('The request session has changed.');
+      if (
+        snapshot.generation !== current.generation ||
+        snapshot.token !== current.token
+      )
+        throw new Error('The request session has changed.');
       const appStore = useAppStore();
       const brandStore = useBrandStore();
       appStore.setServerMenu(res.data.menu || []);
@@ -133,9 +137,16 @@ const useUserStore = defineStore('user', {
         throw err;
       }
     },
-    async logoutCallBack(expectedGeneration: number, expectedToken: string | null) {
+    async logoutCallBack(
+      expectedGeneration: number,
+      expectedToken: string | null
+    ) {
       const beforeDispose = getSessionSnapshot();
-      if (beforeDispose.generation !== expectedGeneration || beforeDispose.token !== expectedToken) return false;
+      if (
+        beforeDispose.generation !== expectedGeneration ||
+        beforeDispose.token !== expectedToken
+      )
+        return false;
       let disposalError: unknown;
       try {
         await disposeTenantState();
@@ -143,7 +154,11 @@ const useUserStore = defineStore('user', {
         disposalError = error;
       }
       const beforeCommit = getSessionSnapshot();
-      if (beforeCommit.generation !== expectedGeneration || beforeCommit.token !== expectedToken) return false;
+      if (
+        beforeCommit.generation !== expectedGeneration ||
+        beforeCommit.token !== expectedToken
+      )
+        return false;
       const appStore = useAppStore();
       const brandStore = useBrandStore();
       this.resetInfo();
@@ -159,7 +174,11 @@ const useUserStore = defineStore('user', {
       const beforeLogout = getSessionSnapshot();
       const generation = expected?.generation ?? beforeLogout.generation;
       const token = expected ? expected.token : beforeLogout.token;
-      if (beforeLogout.generation !== generation || beforeLogout.token !== token) return false;
+      if (
+        beforeLogout.generation !== generation ||
+        beforeLogout.token !== token
+      )
+        return false;
       const logoutGeneration = advanceSessionGeneration();
       let cleared = false;
       try {
@@ -170,7 +189,10 @@ const useUserStore = defineStore('user', {
         }
       } finally {
         const afterRemoteLogout = getSessionSnapshot();
-        if (afterRemoteLogout.generation === logoutGeneration && afterRemoteLogout.token === token) {
+        if (
+          afterRemoteLogout.generation === logoutGeneration &&
+          afterRemoteLogout.token === token
+        ) {
           cleared = await this.logoutCallBack(logoutGeneration, token);
         }
       }

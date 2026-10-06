@@ -104,27 +104,34 @@ const transport = createUniAppClientTransport({
 const createSessionClient = (generation: number) => {
   let clearedGeneration: number | null = null;
   return createClient({
-  transport,
-  session: {
-    accessToken: () => useUserStore().sessionGeneration === generation ? useUserStore().token : null,
-    clear: (expectedToken?: string | null) => {
-      if (expectedToken === undefined) return;
-      const userStore = useUserStore();
-      if (userStore.sessionGeneration !== generation) return;
-      if (userStore.clearIfToken(expectedToken)) clearedGeneration = userStore.sessionGeneration;
+    transport,
+    session: {
+      accessToken: () =>
+        useUserStore().sessionGeneration === generation
+          ? useUserStore().token
+          : null,
+      clear: (expectedToken?: string | null) => {
+        if (expectedToken === undefined) return;
+        const userStore = useUserStore();
+        if (userStore.sessionGeneration !== generation) return;
+        if (userStore.clearIfToken(expectedToken))
+          clearedGeneration = userStore.sessionGeneration;
+      },
     },
-  },
-  decoder: decodeResponse,
-  hooks: {
-    unauthorized: () => {
-      const userStore = useUserStore();
-      if (clearedGeneration === userStore.sessionGeneration && !userStore.token) {
-        uni.reLaunch({ url: '/pages/login/login' });
-      }
+    decoder: decodeResponse,
+    hooks: {
+      unauthorized: () => {
+        const userStore = useUserStore();
+        if (
+          clearedGeneration === userStore.sessionGeneration &&
+          !userStore.token
+        ) {
+          uni.reLaunch({ url: '/pages/login/login' });
+        }
+      },
+      businessError: (error) =>
+        uni.showToast({ title: error.message || '请求失败', icon: 'none' }),
     },
-    businessError: (error) =>
-      uni.showToast({ title: error.message || '请求失败', icon: 'none' }),
-  },
   });
 };
 
