@@ -1,0 +1,39 @@
+{
+    "name": "scaffold-product-token-pc",
+    "version": "999999.999999.999999",
+    "description": "Scaffold Product Token PC client",
+    "private": true,
+    "author": "application owner",
+    "homepage": "https://github.com/peanut-business/peanut-admin-code",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/peanut-business/peanut-admin-code.git",
+        "directory": "pc"
+    },
+    "license": "Apache-2.0",
+    "type": "module",
+    "scripts": {
+        "dev": "../scripts/local-client-dev pc",
+        "build": "nuxt build",
+        "generate": "nuxt generate",
+        "preview": "nuxt preview",
+        "typecheck": "nuxt typecheck"
+    },
+    "dependencies": {
+        "@element-plus/nuxt": "^1.0.10",
+        "@peanut-admin/client": "5.0.0",
+        "@peanut-admin/nuxt": "5.0.0",
+        "@pinia/nuxt": "^0.5.5",
+        "dompurify": "^3.4.16",
+        "element-plus": "^2.9.1",
+        "nuxt": "^3.14.0",
+        "pinia": "^2.2.6",
+        "vue": "^3.5.13",
+        "vue-router": "4.6.4"
+    },
+    "devDependencies": {
+        "@nuxtjs/tailwindcss": "^6.12.2",
+        "typescript": "^5.6.3",
+        "vue-tsc": "^2.1.10"
+    }
+}
