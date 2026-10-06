@@ -6,11 +6,11 @@
     },
     "release": {
         "version": "5.0.1",
-        "source_commit": "8cbe52287515e1d510163c1b44bded2f17151b36",
-        "source_tree": "e34712142874e8a698fe7d905b3ad9d2be6bdb0a",
-        "inventory_sha256": "3d2b6df9108e1cd4075824ee6e74593ce03e59a10a15d483615bb6a0dbad1814",
+        "source_commit": "1a0bb412e2d96c3f933766044e41b9e619225777",
+        "source_tree": "1b1e5cb9a34ce7a1f67cb7444a6e3bd80df343c4",
+        "inventory_sha256": "d7bd9bb7943c689e138c7af9f66949b3d1fe17b1b4cc9450f5e5550a3b8c955e",
         "inventory_template_version": "5.0.1",
-        "managed_tree_sha256": "45c38300d6ba6d25a078f67a7276780762244c2d312729547cc6d480a1ee34a9",
+        "managed_tree_sha256": "02938330634bddbe857f335cb080012a53c6b71d0e972a41d4c86b4c1a4cb39c",
         "tokens": {
             "product_name": "Scaffold Product Token",
             "slug": "scaffold-product-token",
@@ -5742,7 +5742,7 @@
         {
             "path": "server/app/common/services/installation/InstallationExecutionHost.php",
             "source": "files/server/app/common/services/installation/InstallationExecutionHost.php",
-            "template_sha256": "eec02a98aa8d0c52347865d98997842cc7fa474f2764a7bedd2e8c8014975e38",
+            "template_sha256": "5616f290b83002776873fd25ab378653d7540cc3040772203114d298f24ae0b4",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -14662,7 +14662,7 @@
         {
             "path": "server/app/platform/composition/plugin/PluginModuleRegistryFactory.php",
             "source": "files/server/app/platform/composition/plugin/PluginModuleRegistryFactory.php",
-            "template_sha256": "2ca2bedd154574a24dc4fdf359feb30c6731e6fdac23bf82fdb0a834ed17a891",
+            "template_sha256": "1e0e7a112c71f5ddf75778c0ca316baf918bbe4168fe717f08c8905127e2a74d",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -14982,7 +14982,7 @@
         {
             "path": "server/app/platform/infrastructure/module/ThinkPhpModuleGovernanceProvider.php",
             "source": "files/server/app/platform/infrastructure/module/ThinkPhpModuleGovernanceProvider.php",
-            "template_sha256": "5f9f58d0c9bdcef9f2a9bec7c0c2616bfc5f5abd33cbdec490231b95cd22ca11",
+            "template_sha256": "53533ba76270e108726403d9e07a2095823f6c79eed24ca99257059aefc1b1d8",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -15072,7 +15072,7 @@
         {
             "path": "server/app/platform/infrastructure/plugin/PluginLockResolver.php",
             "source": "files/server/app/platform/infrastructure/plugin/PluginLockResolver.php",
-            "template_sha256": "69c08729536f177d47fd522394872d168278801e46fb0d10fad26880422e0f1d",
+            "template_sha256": "d2f77704fabf610b79f73eb80eb4043df13daf34c3c1e048783542536cd9e77d",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -15762,7 +15762,7 @@
         {
             "path": "server/config/log.php",
             "source": "files/server/config/log.php",
-            "template_sha256": "af6e13d0556d390bee349f22a5ab65a4755a53d508cc3a7359acd9c5d3f7cf1b",
+            "template_sha256": "fdc62979edc5481aa3ad5961393f22783f056624d8c2c6d50f86e74a3943b038",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,

@@ -6,6 +6,7 @@ namespace app\platform\composition\plugin;
 
 use app\platform\infrastructure\plugin\PluginLockResolver;
 use app\platform\infrastructure\module\DeployedTenantModuleRegistry;
+use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 
 /** The single Host construction path for deployed Module registry compilation. */
 final readonly class PluginModuleRegistryFactory
@@ -14,6 +15,7 @@ final readonly class PluginModuleRegistryFactory
 
     public function __construct(
         private string $serverRoot,
+        private ?CompiledModuleRegistry $applicationRegistry = null,
     ) {
         $this->definitions = new ModuleDefinitionRegistryFactory($serverRoot);
     }
@@ -22,7 +24,7 @@ final readonly class PluginModuleRegistryFactory
     public function fromDeploymentConfig(array $deploymentConfig): DeployedTenantModuleRegistry
     {
         return new DeployedTenantModuleRegistry(
-            $this->definitions->fromDeploymentConfig($deploymentConfig),
+            $this->applicationRegistry ?? $this->definitions->fromDeploymentConfig($deploymentConfig),
         );
     }
 
@@ -30,7 +32,7 @@ final readonly class PluginModuleRegistryFactory
     public function fromPluginLock(PluginLockResolver $resolver, array $deploymentConfig): DeployedTenantModuleRegistry
     {
         return new DeployedTenantModuleRegistry(
-            $this->definitions->fromPluginLock($resolver, $deploymentConfig),
+            $this->applicationRegistry ?? $this->definitions->fromPluginLock($resolver, $deploymentConfig),
         );
     }
 }

@@ -253,7 +253,7 @@ final class PluginLockResolver
         if ($source['type'] !== 'canonical-contents') {
             return;
         }
-        $projectRoot = realpath(dirname($this->serverRoot)) ?: dirname($this->serverRoot);
+        $projectRoot = rtrim(realpath(dirname($this->serverRoot)) ?: dirname($this->serverRoot), '/\\');
         $files = [];
         foreach ($moduleRoots as $directory) {
             $iterator = new \RecursiveIteratorIterator(
