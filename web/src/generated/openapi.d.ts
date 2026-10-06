@@ -10779,7 +10779,10 @@ export interface operations {
     refreshTenantSession: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                /** @description 发起刷新会话的 access token，允许过期或已轮换；必须与受保护刷新 cookie 属于同一会话。 */
+                Authorization: string;
+            };
             path?: never;
             cookie?: never;
         };

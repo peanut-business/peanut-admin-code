@@ -53,6 +53,8 @@ final readonly class TenantAuthEndpoint
     public function refresh(
         #[SensitiveParameter]
         string $refreshToken,
+        #[SensitiveParameter]
+        string $expectedAccessToken,
         bool $trustedOrigin,
         string $ipAddress,
         ?string $userAgent,
@@ -64,6 +66,7 @@ final readonly class TenantAuthEndpoint
 
         return $this->authenticated($this->auth->refresh(
             $refreshToken,
+            $expectedAccessToken,
             $ipAddress,
             $userAgent,
             $requestId,

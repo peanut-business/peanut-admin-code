@@ -3880,7 +3880,18 @@
                     "TenantSession"
                 ],
                 "operationId": "refreshTenantSession",
-                "parameters": [],
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Authorization",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^Bearer pa_tat_\\S+$"
+                        },
+                        "description": "发起刷新会话的 access token，允许过期或已轮换；必须与受保护刷新 cookie 属于同一会话。"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "成功",

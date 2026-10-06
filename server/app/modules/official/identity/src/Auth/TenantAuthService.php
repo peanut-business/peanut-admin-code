@@ -353,19 +353,32 @@ final class TenantAuthService
     public function refresh(
         #[SensitiveParameter]
         string $refreshToken,
+        #[SensitiveParameter]
+        string $expectedAccessToken,
         string $ipAddress,
         ?string $userAgent,
         string $requestId,
     ): TenantAuthentication {
         $this->assertTenantTokenPrefix($refreshToken, \PeanutAdmin\Kernel\Auth\TokenIssuer::TENANT_REFRESH_PREFIX);
+        $this->assertTenantTokenPrefix($expectedAccessToken, \PeanutAdmin\Kernel\Auth\TokenIssuer::TENANT_ACCESS_PREFIX);
         $now = $this->clock->now();
         $result = Db::transaction(function () use (
             $refreshToken,
+            $expectedAccessToken,
             $ipAddress,
             $userAgent,
             $requestId,
             $now,
         ): TenantAuthentication|\PeanutAdmin\Kernel\Auth\AuthException {
+            // Access expiry/rotation is why refresh is needed. Only its immutable
+            // session binding is used; current validity is checked on the locked refresh record.
+            $expected = $this->repository->sessionByTokenHash(
+                hash('sha256', $expectedAccessToken),
+                'access',
+            );
+            if ($expected === null || $expected->clientKey !== $this->client->key) {
+                return new \PeanutAdmin\Kernel\Auth\AuthException('AUTH_TOKEN_INVALID', 401);
+            }
             $record = $this->repository->sessionByTokenHash(
                 hash('sha256', $refreshToken),
                 'refresh',
@@ -374,7 +387,7 @@ final class TenantAuthService
             if ($record === null) {
                 return new \PeanutAdmin\Kernel\Auth\AuthException('AUTH_TOKEN_INVALID', 401);
             }
-            if ($record->clientKey !== $this->client->key) {
+            if ($record->clientKey !== $this->client->key || $record->sessionId !== $expected->sessionId) {
                 return new \PeanutAdmin\Kernel\Auth\AuthException('AUTH_TOKEN_INVALID', 401);
             }
             if ($record->tokenStatus === 'used') {

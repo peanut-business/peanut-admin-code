@@ -104,6 +104,7 @@ final readonly class TenantSessionApplicationService
             $this->hostPolicy->assertTenantAdmin($request);
             return $this->tenantAuth->refresh(
                 trim((string) $request->cookie($this->tenantAuth->refreshCookieName(), '')),
+                PlatformRequest::bearerToken($request),
                 $this->isTrustedBrowserOrigin($request),
                 $request->ip(),
                 $request->header('User-Agent'),
