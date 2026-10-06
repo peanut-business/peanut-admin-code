@@ -24,7 +24,7 @@
             v-model="pwdForm.new_password"
             type="password"
             show-password
-            placeholder="请设置新密码"
+            :placeholder="passwordHint"
           />
         </el-form-item>
         <el-form-item label="确认密码">
@@ -80,6 +80,27 @@
 
   const request = useRequest();
   const pwdLoading = ref(false);
+  interface PasswordPolicy { minimum_length: number; maximum_length: number; length_unit: 'utf8_bytes' }
+  const passwordPolicy = ref<PasswordPolicy | null>(null);
+  const passwordPolicyError = ref('');
+  const passwordHint = computed(() => passwordPolicy.value
+    ? `密码须为 ${passwordPolicy.value.minimum_length}～${passwordPolicy.value.maximum_length} 个 UTF-8 字节`
+    : passwordPolicyError.value || '正在读取密码要求');
+  async function loadPasswordPolicy() {
+    try {
+      const policy = await request.get<PasswordPolicy>('installapi/password-policy', undefined, false);
+      if (!Number.isSafeInteger(policy?.minimum_length) || !Number.isSafeInteger(policy?.maximum_length) ||
+          policy.minimum_length < 1 || policy.maximum_length < policy.minimum_length || policy.length_unit !== 'utf8_bytes') {
+        throw new Error('Invalid password policy');
+      }
+      passwordPolicy.value = policy;
+      passwordPolicyError.value = '';
+    } catch {
+      passwordPolicy.value = null;
+      passwordPolicyError.value = '无法读取密码要求，请重试';
+    }
+  }
+  onMounted(loadPasswordPolicy);
   const mobileLoading = ref(false);
 
   const pwdForm = ref({
@@ -90,10 +111,17 @@
   const mobileForm = ref({ mobile: '' });
 
   async function handleChangePwd() {
+    if (!passwordPolicy.value) {
+      await loadPasswordPolicy();
+      if (!passwordPolicy.value) return ElMessage.error(passwordPolicyError.value);
+    }
     if (!pwdForm.value.old_password || !pwdForm.value.new_password)
       return ElMessage.warning('请填写完整密码信息');
     if (pwdForm.value.new_password !== pwdForm.value.new_password_confirm)
       return ElMessage.warning('两次密码不一致');
+    const length = new TextEncoder().encode(pwdForm.value.new_password).length;
+    if (length < passwordPolicy.value.minimum_length || length > passwordPolicy.value.maximum_length)
+      return ElMessage.warning(passwordHint.value);
     pwdLoading.value = true;
     try {
       await request.post('api/user/changePassword', pwdForm.value);

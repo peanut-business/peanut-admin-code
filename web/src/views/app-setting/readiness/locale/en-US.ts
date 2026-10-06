@@ -60,5 +60,5 @@ export default {
   'readiness.items.account_security.impact':
     'Strong passwords, login failure lockout, and least-privilege Admin roles protect the control plane. MFA is not available yet.',
   'readiness.items.account_security.action':
-    'Review Admin accounts and roles, use a unique 12–128 character password, and remove unused accounts.',
+    'Review Admin accounts and roles, use a unique password that meets the current policy, and remove unused accounts.',
 };

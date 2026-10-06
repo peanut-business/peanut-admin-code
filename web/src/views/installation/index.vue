@@ -138,7 +138,7 @@
                 type="password"
                 autocomplete="new-password"
                 show-password
-                :placeholder="$t('installation.admin.passwordPlaceholder')"
+                :placeholder="passwordHint"
               />
             </el-form-item>
           </div>
@@ -165,7 +165,7 @@
                 type="password"
                 autocomplete="new-password"
                 show-password
-                :placeholder="$t('installation.platform.passwordPlaceholder')"
+                :placeholder="passwordHint"
               />
             </el-form-item>
           </div>
@@ -243,6 +243,7 @@
     shouldShowInstallation,
   } from '@/core/installation';
   import { useBrandStore } from '@/store';
+  import { getPasswordPolicy, passwordWithinPolicy, type PasswordPolicy } from '@/api/password-policy';
 
   interface ModuleOption {
     key: string;
@@ -260,6 +261,20 @@
   const refreshing = ref(false);
   const submitting = ref(false);
   const errorMessage = ref('');
+  const passwordPolicy = ref<PasswordPolicy | null>(null);
+  const passwordPolicyError = ref('');
+  const passwordHint = computed(() => passwordPolicy.value
+    ? t('installation.validation.password', { min: passwordPolicy.value.minimum_length, max: passwordPolicy.value.maximum_length })
+    : passwordPolicyError.value || t('installation.validation.policyLoading'));
+  async function loadPasswordPolicy() {
+    try {
+      passwordPolicy.value = await getPasswordPolicy();
+      passwordPolicyError.value = '';
+    } catch {
+      passwordPolicy.value = null;
+      passwordPolicyError.value = t('installation.validation.policyUnavailable');
+    }
+  }
   const form = reactive({
     setupToken: '',
     admin_email: '',
@@ -386,8 +401,9 @@
           trigger: 'blur',
         },
         {
-          min: 12,
-          message: t('installation.validation.password'),
+          validator: (_rule, value: string, callback: (error?: Error) => void) =>
+            callback(passwordPolicy.value && passwordWithinPolicy(value, passwordPolicy.value)
+              ? undefined : new Error(passwordHint.value)),
           trigger: 'blur',
         },
       ],
@@ -412,8 +428,9 @@
           trigger: 'blur',
         },
         {
-          min: 12,
-          message: t('installation.validation.password'),
+          validator: (_rule, value: string, callback: (error?: Error) => void) =>
+            callback(passwordPolicy.value && passwordWithinPolicy(value, passwordPolicy.value)
+              ? undefined : new Error(passwordHint.value)),
           trigger: 'blur',
         },
       ];
@@ -465,6 +482,10 @@
 
   async function submit() {
     if (submitting.value || !readyForForm.value) return;
+    if (!passwordPolicy.value) {
+      await loadPasswordPolicy();
+      if (!passwordPolicy.value) { errorMessage.value = passwordPolicyError.value; return; }
+    }
     const valid = await installationForm.value?.validate().catch(() => false);
     if (!valid) return;
     submitting.value = true;
@@ -495,6 +516,7 @@
   }
 
   onMounted(async () => {
+    await loadPasswordPolicy();
     await bootstrapInstallationStatus();
     loading.value = false;
     await redirectIfNotGuided();

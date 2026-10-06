@@ -45,7 +45,7 @@ export default {
   'userSetting.form.error.profile.maxLength': '最多不超过200字',
   'userSetting.SecuritySettings.form.label.password': '登录密码',
   'userSetting.SecuritySettings.placeholder.password':
-    '已设置。密码至少6位字符。',
+    '已设置。修改密码时请遵循当前密码要求。',
   'userSetting.SecuritySettings.form.label.securityQuestion': '密保问题',
   'userSetting.SecuritySettings.placeholder.securityQuestion':
     '您暂未设置密保问题，密保问题可以有效的保护账号的安全。',
@@ -85,7 +85,7 @@ export default {
   'userSetting.security.oldPassword': '当前密码',
   'userSetting.security.oldPassword.placeholder': '请输入当前密码',
   'userSetting.security.newPassword': '新密码',
-  'userSetting.security.newPassword.placeholder': '请输入新密码（12~128 位）',
+  'userSetting.security.newPassword.placeholder': '请输入新密码',
   'userSetting.security.confirmPassword': '确认新密码',
   'userSetting.security.confirmPassword.placeholder': '请再次输入新密码',
   'userSetting.security.success': '密码修改成功',
@@ -93,7 +93,9 @@ export default {
     '演示环境账号密码已锁定，不能在页面中修改。',
   'userSetting.security.error.oldRequired': '请输入当前密码',
   'userSetting.security.error.newRequired': '请输入新密码',
-  'userSetting.security.error.length': '密码长度须在 12~128 位字符',
+  'userSetting.security.error.length': '密码长度须为 {min}～{max} 个 UTF-8 字节',
+  'userSetting.security.policyLoading': '正在读取密码要求',
+  'userSetting.security.policyUnavailable': '无法读取密码要求，请重试',
   'userSetting.security.error.confirmRequired': '请再次输入新密码',
   'userSetting.security.error.mismatch': '两次输入的密码不一致',
 };

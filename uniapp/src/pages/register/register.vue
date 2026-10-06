@@ -17,7 +17,8 @@
       <view class="input-group">
         <input
           v-model="form.password"
-          placeholder="请设置密码"
+          :maxlength="-1"
+          :placeholder="passwordHint"
           class="input"
           type="password"
         />
@@ -25,6 +26,7 @@
       <view class="input-group">
         <input
           v-model="form.password_confirm"
+          :maxlength="-1"
           placeholder="请再次输入密码"
           class="input"
           type="password"
@@ -44,19 +46,37 @@
 </template>
 
 <script setup lang="ts">
-  import { ref } from 'vue';
+  import { computed, ref } from 'vue';
+  import { onShow } from '@dcloudio/uni-app';
+  import { getPasswordPolicy, passwordWithinPolicy, type PasswordPolicy } from '@/api/password-policy';
   import { register } from '@/api/account';
 
   const loading = ref(false);
+  const passwordPolicy = ref<PasswordPolicy | null>(null);
+  const passwordPolicyError = ref('');
+  const passwordHint = computed(() => passwordPolicy.value
+    ? `密码须为 ${passwordPolicy.value.minimum_length}～${passwordPolicy.value.maximum_length} 个 UTF-8 字节`
+    : passwordPolicyError.value || '正在读取密码要求');
+  async function loadPasswordPolicy() {
+    try { passwordPolicy.value = await getPasswordPolicy(); passwordPolicyError.value = ''; }
+    catch { passwordPolicy.value = null; passwordPolicyError.value = '无法读取密码要求，请重试'; }
+  }
+  onShow(loadPasswordPolicy);
   const form = ref({ account: '', password: '', password_confirm: '' });
 
   async function handleRegister() {
+    if (!passwordPolicy.value) {
+      await loadPasswordPolicy();
+      if (!passwordPolicy.value) return uni.showToast({ title: passwordPolicyError.value, icon: 'none' });
+    }
     if (!form.value.account)
       return uni.showToast({ title: '请输入账号', icon: 'none' });
     if (!form.value.password)
       return uni.showToast({ title: '请输入密码', icon: 'none' });
     if (form.value.password !== form.value.password_confirm)
       return uni.showToast({ title: '两次密码不一致', icon: 'none' });
+    if (!passwordWithinPolicy(form.value.password, passwordPolicy.value))
+      return uni.showToast({ title: passwordHint.value, icon: 'none' });
 
     loading.value = true;
     try {

@@ -47,7 +47,7 @@ export default {
   'userSetting.form.error.profile.maxLength': 'No more than 200 words',
   'userSetting.SecuritySettings.form.label.password': 'Login Password',
   'userSetting.SecuritySettings.placeholder.password':
-    'Has been set. The password must contain at least 6 characters.',
+    'Set. Follow the current password requirements when changing it.',
   'userSetting.SecuritySettings.form.label.securityQuestion':
     'Security Question',
   'userSetting.SecuritySettings.placeholder.securityQuestion':
@@ -96,7 +96,7 @@ export default {
   'userSetting.security.oldPassword.placeholder': 'Enter current password',
   'userSetting.security.newPassword': 'New Password',
   'userSetting.security.newPassword.placeholder':
-    'Enter new password (12-128 chars)',
+    'Enter new password',
   'userSetting.security.confirmPassword': 'Confirm New Password',
   'userSetting.security.confirmPassword.placeholder':
     'Enter new password again',
@@ -105,7 +105,9 @@ export default {
     'Demo account passwords are locked and cannot be changed here.',
   'userSetting.security.error.oldRequired': 'Please enter current password',
   'userSetting.security.error.newRequired': 'Please enter new password',
-  'userSetting.security.error.length': 'Password must be 12-128 characters',
+  'userSetting.security.error.length': 'Password must be {min}–{max} UTF-8 bytes',
+  'userSetting.security.policyLoading': 'Loading password requirements',
+  'userSetting.security.policyUnavailable': 'Password requirements unavailable; please retry',
   'userSetting.security.error.confirmRequired': 'Please confirm new password',
   'userSetting.security.error.mismatch': 'Passwords do not match',
 };

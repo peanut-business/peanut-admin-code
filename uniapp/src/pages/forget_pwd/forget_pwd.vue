@@ -17,14 +17,16 @@
       <view class="input-group">
         <input
           v-model="form.new_password"
+          :maxlength="-1"
           class="input"
           type="password"
-          placeholder="请设置新密码"
+          :placeholder="passwordHint"
         />
       </view>
       <view class="input-group">
         <input
           v-model="form.confirm_password"
+          :maxlength="-1"
           class="input"
           type="password"
           placeholder="请再次输入新密码"
@@ -45,18 +47,36 @@
 </template>
 
 <script setup lang="ts">
-  import { ref } from 'vue';
+  import { computed, ref } from 'vue';
+  import { onShow } from '@dcloudio/uni-app';
+  import { getPasswordPolicy, passwordWithinPolicy, type PasswordPolicy } from '@/api/password-policy';
 
   const loading = ref(false);
+  const passwordPolicy = ref<PasswordPolicy | null>(null);
+  const passwordPolicyError = ref('');
+  const passwordHint = computed(() => passwordPolicy.value
+    ? `密码须为 ${passwordPolicy.value.minimum_length}～${passwordPolicy.value.maximum_length} 个 UTF-8 字节`
+    : passwordPolicyError.value || '正在读取密码要求');
+  async function loadPasswordPolicy() {
+    try { passwordPolicy.value = await getPasswordPolicy(); passwordPolicyError.value = ''; }
+    catch { passwordPolicy.value = null; passwordPolicyError.value = '无法读取密码要求，请重试'; }
+  }
+  onShow(loadPasswordPolicy);
   const form = ref({ mobile: '', new_password: '', confirm_password: '' });
 
   async function handleSubmit() {
+    if (!passwordPolicy.value) {
+      await loadPasswordPolicy();
+      if (!passwordPolicy.value) return uni.showToast({ title: passwordPolicyError.value, icon: 'none' });
+    }
     if (!/^1\d{10}$/.test(form.value.mobile))
       return uni.showToast({ title: '请输入正确的手机号', icon: 'none' });
     if (!form.value.new_password)
       return uni.showToast({ title: '请输入新密码', icon: 'none' });
     if (form.value.new_password !== form.value.confirm_password)
       return uni.showToast({ title: '两次密码不一致', icon: 'none' });
+    if (!passwordWithinPolicy(form.value.new_password, passwordPolicy.value))
+      return uni.showToast({ title: passwordHint.value, icon: 'none' });
     // Note: backend forget_pwd API not implemented in this version — show placeholder
     uni.showToast({ title: '功能开发中', icon: 'none' });
   }

@@ -60,5 +60,5 @@ export default {
   'readiness.items.account_security.impact':
     '强密码、登录失败锁定和最小管理员授权决定后台身份安全。当前产品尚未提供 MFA。',
   'readiness.items.account_security.action':
-    '复核管理员列表与角色，使用 12～128 位独立密码并清理不再使用的账号。',
+    '复核管理员列表与角色，使用符合当前要求的独立密码并清理不再使用的账号。',
 };
