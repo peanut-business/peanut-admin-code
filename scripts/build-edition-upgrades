@@ -108,7 +108,6 @@ foreach (['version', 'minimum-source-version'] as $versionOption) {
     }
 }
 if (Semver::greaterThanOrEqualTo($options['minimum-source-version'], $options['version'])
-    || explode('.', $options['minimum-source-version'], 2)[0] !== explode('.', $options['version'], 2)[0]
     || preg_match('/^[a-f0-9]{40}$/D', $options['source-commit']) !== 1
     || !str_starts_with($options['output'], '/')) {
     editionUpgradeUsage();
@@ -297,7 +296,8 @@ try {
                     'minimum_inclusive' => $options['minimum-source-version'],
                     'maximum_exclusive' => $options['version'],
                 ],
-                'major_policy' => 'same-major',
+                'major_policy' => explode('.', $options['minimum-source-version'], 2)[0]
+                    === explode('.', $options['version'], 2)[0] ? 'same-major' : 'source-range',
                 'edition_conversion' => false,
             ],
             'build_source' => [
