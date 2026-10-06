@@ -6,7 +6,7 @@ import type {
 import NProgress from 'nprogress'; // progress bar
 
 import { useUserStore } from '@/store';
-import { isLogin } from '@/utils/auth';
+import { getSessionSnapshot } from '@/utils/auth';
 import { WHITE_LIST } from '../constants';
 
 function loginQuery(to: RouteLocationNormalized): LocationQueryRaw {
@@ -23,12 +23,13 @@ export default function setupUserLoginInfoGuard(router: Router) {
   router.beforeEach(async (to, from, next) => {
     NProgress.start();
     const userStore = useUserStore();
+    const session = getSessionSnapshot();
     if (WHITE_LIST.some((route) => route.name === to.name)) {
       next();
       return;
     }
 
-    if (isLogin()) {
+    if (session.token) {
       if (userStore.role) {
         next();
       } else {
@@ -36,11 +37,20 @@ export default function setupUserLoginInfoGuard(router: Router) {
           await userStore.info();
           next();
         } catch (error) {
-          await userStore.logout();
-          next({
-            name: 'login',
-            query: loginQuery(to),
-          });
+          const cleared = await userStore.logout(session);
+          const afterLogout = getSessionSnapshot();
+          if (
+            cleared &&
+            afterLogout.generation === session.generation + 2 &&
+            afterLogout.token === null
+          ) {
+            next({
+              name: 'login',
+              query: loginQuery(to),
+            });
+          } else {
+            next();
+          }
         }
       }
     } else {
