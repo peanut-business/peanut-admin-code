@@ -505,6 +505,7 @@ export function onPlatformSessionChange(
 const client = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || undefined,
   withCredentials: true,
+  timeout: 15_000,
 });
 
 let platformRefreshRequest: Promise<string> | null = null;

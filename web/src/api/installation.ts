@@ -66,6 +66,7 @@ export interface InstallationExecuteResult {
 // setup token supplied by the caller.
 export const installationClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || undefined,
+  timeout: 30_000,
 });
 
 function isRecord(value: unknown): value is Record<string, unknown> {

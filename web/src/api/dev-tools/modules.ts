@@ -53,6 +53,7 @@ export interface UninstallPreview {
 const client = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || undefined,
   withCredentials: true,
+  timeout: 15_000,
 });
 
 client.interceptors.request.use((config) => {

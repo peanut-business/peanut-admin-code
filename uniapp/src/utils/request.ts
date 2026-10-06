@@ -93,6 +93,7 @@ const transport = createUniAppClientTransport({
       method: options.method,
       data: options.data,
       header: options.header,
+      timeout: 20_000,
       success: (response) => options.success?.({ data: response.data }),
       fail: options.fail,
     });
