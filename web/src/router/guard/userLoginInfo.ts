@@ -38,7 +38,12 @@ export default function setupUserLoginInfoGuard(router: Router) {
           next();
         } catch (error) {
           const cleared = await userStore.logout(session);
-          if (cleared) {
+          const afterLogout = getSessionSnapshot();
+          if (
+            cleared &&
+            afterLogout.generation === session.generation + 2 &&
+            afterLogout.token === null
+          ) {
             next({
               name: 'login',
               query: loginQuery(to),
