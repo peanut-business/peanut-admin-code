@@ -466,7 +466,7 @@ SQL)->fetchColumn());
             $sockets['second'] = $second['socket'];
             $secondReady = $this->readSocketMessage($second['socket']);
 
-            $gateConnection = $this->newConnection(self::DATABASE);
+            $gateConnection = $this->connect($this->databaseName);
             $gateHeld = $this->acquireNamedLock($gateConnection, $gateLock) === 1;
             if (!$gateHeld) {
                 throw new RuntimeException('Could not acquire the password-change test gate.');
@@ -519,8 +519,8 @@ SQL)->fetchColumn());
                 $gateConnection->exec('DROP TRIGGER IF EXISTS test_pause_password_change_denied');
             }
             $gateConnection = null;
-            $this->admin = $this->newConnection();
-            $this->database = $this->newConnection(self::DATABASE);
+            $this->admin = $this->connect();
+            $this->database = $this->connect($this->databaseName);
             ThinkPhpTestConnection::fromPdo($this->database);
             $this->service = new AccountSelfService(new AuditService(), $this->passwords);
         }
@@ -732,22 +732,6 @@ SQL);
         ), $requestId);
     }
 
-    private function newConnection(?string $database = null): PDO
-    {
-        return new PDO(
-            'mysql:host=127.0.0.1;port=' . (getenv('MYSQL_PORT') ?: '3306')
-            . ($database === null ? '' : ";dbname={$database}")
-            . ';charset=utf8mb4',
-            'root',
-            getenv('MYSQL_ROOT_PASSWORD') ?: 'peanut_admin_root_dev',
-            [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES => false,
-            ],
-        );
-    }
-
     private function passwordChangeIpLockName(string $ipAddress): string
     {
         return 'pa-pwd:' . substr(hash('sha256', $ipAddress), 0, 57);
@@ -823,7 +807,7 @@ SQL);
     private function passwordChangeProcessExitCode($socket, int $memberId, int $accountId, string $requestId): int
     {
         try {
-            $pdo = $this->newConnection(self::DATABASE);
+            $pdo = $this->connect($this->databaseName);
             $connectionIdQuery = $pdo->query('SELECT CONNECTION_ID()');
             if ($connectionIdQuery === false) {
                 throw new RuntimeException('Could not read the password-change child connection ID.');

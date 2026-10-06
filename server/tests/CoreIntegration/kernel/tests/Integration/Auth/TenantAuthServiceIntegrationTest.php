@@ -577,8 +577,8 @@ SQL)->fetchColumn());
         $childOutcome = stream_get_contents($sockets[0]);
         fclose($sockets[0]);
         pcntl_waitpid($processId, $status);
-        $this->admin = $this->newConnection();
-        $this->database = $this->newConnection(self::DATABASE);
+        $this->admin = $this->connect();
+        $this->database = $this->connect($this->databaseName);
 
         $outcomes = [$parentOutcome, $childOutcome];
         sort($outcomes);
@@ -800,7 +800,7 @@ SQL);
                 fclose($switchSockets[0]);
                 $outcome = 'child_setup_failed';
                 try {
-                    $passwordConnection = $this->newConnection(self::DATABASE);
+                    $passwordConnection = $this->connect($this->databaseName);
                     $connectionIdStatement = $passwordConnection->query('SELECT CONNECTION_ID()');
                     if ($connectionIdStatement === false) {
                         throw new \RuntimeException('Could not read the password child connection ID.');
@@ -831,7 +831,7 @@ SQL);
             fclose($passwordSockets[1]);
             $passwordChildSocket = null;
 
-            $gateConnection = $this->newConnection(self::DATABASE);
+            $gateConnection = $this->connect($this->databaseName);
             self::assertSame(1, $this->acquireNamedLock($gateConnection, $gateLock));
             $gateLockHeld = true;
             $this->writeSocketLine($switchParentSocket, 'start', $deadline);
@@ -873,8 +873,8 @@ SQL);
             self::assertTrue(pcntl_wifexited($passwordStatus));
             self::assertSame(0, pcntl_wexitstatus($passwordStatus));
 
-            $this->admin = $this->newConnection();
-            $this->database = $this->newConnection(self::DATABASE);
+            $this->admin = $this->connect();
+            $this->database = $this->connect($this->databaseName);
             $connectionsReset = true;
             $this->database->exec("DROP TRIGGER IF EXISTS `{$triggerName}`");
             $triggerCreated = false;
@@ -928,7 +928,7 @@ SQL);
 
             try {
                 $cleanupDeadline = max($deadline, microtime(true) + 1.0);
-                $cleanupConnection = $this->newConnection();
+                $cleanupConnection = $this->connect();
                 $this->forceReleaseNamedLock($cleanupConnection, $gateLock, $cleanupDeadline);
                 $this->forceReleaseNamedLock($cleanupConnection, $arrivedLock, $cleanupDeadline);
             } catch (\Throwable) {
@@ -936,8 +936,8 @@ SQL);
 
             if (!$connectionsReset) {
                 try {
-                    $this->admin = $this->newConnection();
-                    $this->database = $this->newConnection(self::DATABASE);
+                    $this->admin = $this->connect();
+                    $this->database = $this->connect($this->databaseName);
                 } catch (\Throwable) {
                 }
             }
@@ -1034,7 +1034,7 @@ SQL);
 
     private function authServiceForNewConnection(): TenantAuthService
     {
-        $pdo = $this->newConnection(self::DATABASE);
+        $pdo = $this->connect($this->databaseName);
         ThinkPhpTestConnection::fromPdo($pdo);
 
         return new TenantAuthService(
@@ -1056,22 +1056,6 @@ SQL);
             'test-identifier-hmac-secret-at-least-32-bytes',
             $registry,
             $clientKey,
-        );
-    }
-
-    private function newConnection(?string $database = null): PDO
-    {
-        return new PDO(
-            'mysql:host=127.0.0.1;port=' . (getenv('MYSQL_PORT') ?: '3306')
-            . ($database === null ? '' : ";dbname={$database}")
-            . ';charset=utf8mb4',
-            'root',
-            getenv('MYSQL_ROOT_PASSWORD') ?: 'peanut_admin_root_dev',
-            [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES => false,
-            ],
         );
     }
 

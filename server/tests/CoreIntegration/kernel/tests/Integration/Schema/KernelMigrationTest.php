@@ -100,7 +100,7 @@ FROM information_schema.tables
 WHERE table_schema = :schema AND table_name = :table
 SQL);
         $statement->execute([
-            'schema' => self::DATABASE,
+            'schema' => $this->databaseName,
             'table' => $table,
         ]);
 
