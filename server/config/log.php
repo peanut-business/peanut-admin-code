@@ -21,7 +21,7 @@ return [
             // 日志记录方式
             'type'           => 'File',
             // 日志保存目录
-            'path'           => '',
+            'path'           => dirname(__DIR__) . '/runtime/log/',
             // 单文件日志写入
             'single'         => false,
             // 独立日志级别

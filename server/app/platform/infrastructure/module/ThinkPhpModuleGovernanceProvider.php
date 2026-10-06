@@ -31,7 +31,7 @@ final class ThinkPhpModuleGovernanceProvider implements ModuleGovernanceProvider
         private readonly ModuleCatalogApplier $catalogs,
         private readonly ?\PeanutAdmin\Kernel\Module\CompiledModuleRegistry $applicationRegistry = null,
     ) {
-        $this->registryFactory = new PluginModuleRegistryFactory($serverRoot);
+        $this->registryFactory = new PluginModuleRegistryFactory($serverRoot, $applicationRegistry);
     }
 
     public function registry(): DeployedTenantModuleRegistry

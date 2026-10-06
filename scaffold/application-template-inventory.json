@@ -2290,7 +2290,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "89e9042d459f3fdf8377970bc14d082510a66dac7093b1fdda9935fa6f1ac48c"
+            "source_sha256": "6404bddf6ca9fd68726d0a74f741aa1a36425385710e5b48ffc3ffb9bdc81f7e"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2372,7 +2372,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ebf79a06f677e7ddd2db1204016b79682e64e1183b6823d1291a7c6194c5a8e5"
+            "source_sha256": "5d0ca571df346ecf4fb9240a62305eecb4c080d59dbc1922a6d8f0bdc727b097"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -8637,7 +8637,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "eec02a98aa8d0c52347865d98997842cc7fa474f2764a7bedd2e8c8014975e38"
+            "source_sha256": "5616f290b83002776873fd25ab378653d7540cc3040772203114d298f24ae0b4"
         },
         {
             "path": "server/app/common/services/installation/InstallationPreflightHost.php",
@@ -21343,7 +21343,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2ca2bedd154574a24dc4fdf359feb30c6731e6fdac23bf82fdb0a834ed17a891"
+            "source_sha256": "1e0e7a112c71f5ddf75778c0ca316baf918bbe4168fe717f08c8905127e2a74d"
         },
         {
             "path": "server/app/platform/context/PlatformOperatorContext.php",
@@ -21791,7 +21791,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5f9f58d0c9bdcef9f2a9bec7c0c2616bfc5f5abd33cbdec490231b95cd22ca11"
+            "source_sha256": "53533ba76270e108726403d9e07a2095823f6c79eed24ca99257059aefc1b1d8"
         },
         {
             "path": "server/app/platform/infrastructure/module/VerifiedTenantModuleRepository.php",
@@ -21917,7 +21917,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "69c08729536f177d47fd522394872d168278801e46fb0d10fad26880422e0f1d"
+            "source_sha256": "d2f77704fabf610b79f73eb80eb4043df13daf34c3c1e048783542536cd9e77d"
         },
         {
             "path": "server/app/platform/infrastructure/plugin/PluginPackageInstaller.php",
@@ -22883,7 +22883,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "af6e13d0556d390bee349f22a5ab65a4755a53d508cc3a7359acd9c5d3f7cf1b"
+            "source_sha256": "fdc62979edc5481aa3ad5961393f22783f056624d8c2c6d50f86e74a3943b038"
         },
         {
             "path": "server/config/middleware.php",

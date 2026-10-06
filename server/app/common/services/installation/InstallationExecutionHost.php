@@ -432,11 +432,14 @@ final class InstallationExecutionHost
     private function installModules(array $moduleKeys, array $tenantBootstrap): array
     {
         $config = $this->moduleConfig();
-        $lifecycle = (new ThinkPhpModuleGovernanceProvider(
+        $registry = $this->definitionRegistry();
+        $governance = new ThinkPhpModuleGovernanceProvider(
             $this->serverRoot,
             $config,
             $this->catalogs,
-        ))->pluginLifecycle();
+            $registry,
+        );
+        $lifecycle = $governance->pluginLifecycle();
         $operations = [];
         foreach ($moduleKeys as $moduleKey) {
             $result = $lifecycle->reconcile($moduleKey);
@@ -446,8 +449,8 @@ final class InstallationExecutionHost
             ];
         }
         $profile = (new ProductTenantModuleProfileService(
-            $this->runtimeForProfile($this->definitionRegistry()),
-            new ThinkPhpModuleGovernanceProvider($this->serverRoot, $config, $this->catalogs),
+            $this->runtimeForProfile($registry),
+            $governance,
             $this->audit,
             $this->tenantDirectory,
             $this->moduleComposition,
@@ -455,7 +458,7 @@ final class InstallationExecutionHost
         return ['operations' => $operations, 'profile' => $profile];
     }
 
-    /** Resolve after lifecycle reconciliation, never retain an earlier compiled registry. */
+    /** Construct persistence after reconciliation over the same immutable deployment declaration. */
     private function runtimeForProfile(CompiledModuleRegistry $registry): ModuleRuntimeRepository
     {
         return ($this->moduleRuntimeFactory)($registry);
