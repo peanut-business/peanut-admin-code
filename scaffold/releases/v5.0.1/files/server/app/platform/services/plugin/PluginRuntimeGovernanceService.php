@@ -603,7 +603,7 @@ final class PluginRuntimeGovernanceService
     {
         $identityPath = $this->serverRoot . '/.peanut/release-identity.json';
         if (file_exists($identityPath) || is_link($identityPath)) {
-            ServerReleaseIdentity::load($this->serverRoot);
+            ServerReleaseIdentity::resolve($this->serverRoot);
             throw new PluginLifecycleException(
                 'PLUGIN_RELEASE_CHANGE_REQUIRED',
                 'Server Plugin lock is part of the release identity; change Plugins through a new application release.',

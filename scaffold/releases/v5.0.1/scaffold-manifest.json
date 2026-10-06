@@ -6,11 +6,11 @@
     },
     "release": {
         "version": "5.0.1",
-        "source_commit": "1a0bb412e2d96c3f933766044e41b9e619225777",
-        "source_tree": "1b1e5cb9a34ce7a1f67cb7444a6e3bd80df343c4",
-        "inventory_sha256": "d7bd9bb7943c689e138c7af9f66949b3d1fe17b1b4cc9450f5e5550a3b8c955e",
+        "source_commit": "b082e8ad71eb86ee00fd10101853a4af49f74751",
+        "source_tree": "d7b35ceadf69c8d3793b084388fc45b89cfe12e9",
+        "inventory_sha256": "3a70c939237dc8c92733b20b463a5aef25e89882dfef1424fd326ae7ffad6bd9",
         "inventory_template_version": "5.0.1",
-        "managed_tree_sha256": "02938330634bddbe857f335cb080012a53c6b71d0e972a41d4c86b4c1a4cb39c",
+        "managed_tree_sha256": "2651be957f7ae9a46790ab82f23a49d136e2d1f8a523560093ba05e3e8931ca0",
         "tokens": {
             "product_name": "Scaffold Product Token",
             "slug": "scaffold-product-token",
@@ -5742,7 +5742,7 @@
         {
             "path": "server/app/common/services/installation/InstallationExecutionHost.php",
             "source": "files/server/app/common/services/installation/InstallationExecutionHost.php",
-            "template_sha256": "5616f290b83002776873fd25ab378653d7540cc3040772203114d298f24ae0b4",
+            "template_sha256": "463d9f1b17e838722dfd77dd2b413044d3125da7bb0468406a9a6ac9af1e0e1c",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
@@ -15362,7 +15362,7 @@
         {
             "path": "server/app/platform/services/plugin/PluginRuntimeGovernanceService.php",
             "source": "files/server/app/platform/services/plugin/PluginRuntimeGovernanceService.php",
-            "template_sha256": "5616f80a986c65b15980344a27c5d68471cf9119fb6c1304bbbc175e5cecd38c",
+            "template_sha256": "b56be9fc330fcd1a1aeffd5530be705e5f9e2b77d34ba66cff1d4e61461455a1",
             "classification": "managed",
             "transform": "tokens",
             "mode": 420,
