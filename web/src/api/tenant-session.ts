@@ -8,6 +8,7 @@ import type {
 const tenantClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || undefined,
   withCredentials: true,
+  timeout: 15_000,
 });
 
 type TenantEnvelope<T> =

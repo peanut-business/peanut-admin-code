@@ -1274,35 +1274,65 @@
     loading.value = true;
     error.value = '';
     try {
-      await loadTenants();
-      const id = targetTenantId.value;
-      if (view.value === 'overview')
-        operators.value = (await api.operators()).lists;
-      else if (view.value === 'owners') {
-        if (id)
-          [invitations.value, owner.value] = [
-            (await api.invitations(id)).lists,
-            await api.tenantOwner(id).catch(() => null),
-          ];
-        else [invitations.value, owner.value] = [[], null];
-      } else if (view.value === 'endpoints')
+      if (view.value === 'overview') {
+        await Promise.all([
+          loadTenants(),
+          api.operators().then((result) => {
+            operators.value = result.lists;
+          }),
+        ]);
+      } else if (view.value === 'owners') {
+        await loadTenants();
+        const id = targetTenantId.value;
+        if (id) {
+          [invitations.value, owner.value] = await Promise.all([
+            api.invitations(id).then((result) => result.lists),
+            api.tenantOwner(id).catch(() => null),
+          ]);
+        } else [invitations.value, owner.value] = [[], null];
+      } else if (view.value === 'endpoints') {
+        await loadTenants();
+        const id = targetTenantId.value;
         bindings.value = id ? await api.entryBindings(id) : [];
-      else if (view.value === 'modules')
+      } else if (view.value === 'modules') {
+        await loadTenants();
+        const id = targetTenantId.value;
         modules.value = id ? (await api.moduleStates(id)).lists : [];
-      else if (view.value === 'storage')
-        storage.value = await api.storageSnapshot();
-      else if (view.value === 'operators') {
-        [operators.value, roles.value] = [
-          (await api.operators()).lists,
-          (await api.roles()).lists,
-        ];
+      } else if (view.value === 'storage') {
+        await Promise.all([
+          loadTenants(),
+          api.storageSnapshot().then((result) => {
+            storage.value = result;
+          }),
+        ]);
+      } else if (view.value === 'operators') {
+        await Promise.all([
+          loadTenants(),
+          api.operators().then((result) => {
+            operators.value = result.lists;
+          }),
+          api.roles().then((result) => {
+            roles.value = result.lists;
+          }),
+        ]);
       } else if (view.value === 'roles') {
-        [roles.value, permissions.value] = [
-          (await api.roles()).lists,
-          (await api.permissions()).lists,
-        ];
-      } else if (view.value === 'audit')
-        audits.value = (await api.audit()).lists;
+        await Promise.all([
+          loadTenants(),
+          api.roles().then((result) => {
+            roles.value = result.lists;
+          }),
+          api.permissions().then((result) => {
+            permissions.value = result.lists;
+          }),
+        ]);
+      } else if (view.value === 'audit') {
+        await Promise.all([
+          loadTenants(),
+          api.audit().then((result) => {
+            audits.value = result.lists;
+          }),
+        ]);
+      }
     } catch (cause) {
       error.value = message(cause);
       if (!hasPlatformSession()) authenticated.value = false;
