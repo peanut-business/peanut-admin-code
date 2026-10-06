@@ -26,7 +26,11 @@ final class RoleApplicationService
     {
         $pagination = PaginationInput::from($params);
         $result = $this->service()->list($context->tenantId, $pagination->pageRequest);
-        $lists = array_map(fn(array $row): array => $this->compat($context, $row), $result['items']);
+        $memberCounts = $this->runtime->batchMemberCounts(
+            $context->tenantId,
+            array_map('intval', array_column($result['items'], 'id')),
+        );
+        $lists = array_map(fn(array $row): array => $this->compat($context, $row, $memberCounts), $result['items']);
         return new PageResult($lists, $result['total'], $pagination->page, $pagination->pageSize);
     }
 
@@ -93,12 +97,15 @@ final class RoleApplicationService
         return true;
     }
 
-    private function compat(TenantContext $context, array $role): array
+    /** @param array<int,int>|null $memberCounts Null is used only for the single-role detail projection. */
+    private function compat(TenantContext $context, array $role, ?array $memberCounts = null): array
     {
         $keys = $role['permission_keys'] ?? [];
         $menus = $this->runtime->menuKeys($context, is_array($keys) ? $keys : []);
-        return ['id' => (int) $role['id'], 'name' => $role['name'], 'desc' => $role['description'] ?? '', 'sort' => 0,
-            'create_time' => '', 'num' => $this->runtime->memberCount($context->tenantId, (int) $role['id']),
+        $roleId = (int) $role['id'];
+        return ['id' => $roleId, 'name' => $role['name'], 'desc' => $role['description'] ?? '', 'sort' => 0,
+            'create_time' => '', 'num' => $memberCounts === null
+                ? $this->runtime->memberCount($context->tenantId, $roleId) : ($memberCounts[$roleId] ?? 0),
             'menu_keys' => $menus, 'status' => $role['status'], 'revision' => (int) $role['revision']];
     }
 

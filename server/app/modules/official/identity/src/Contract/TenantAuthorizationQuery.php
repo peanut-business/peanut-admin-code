@@ -115,6 +115,30 @@ final readonly class TenantAuthorizationQuery
         return MemberRole::where('tenant_id', $tenantId)->where('role_id', $roleId)->count();
     }
 
+    /**
+     * Counts include roles without memberships, using the same membership semantics as roleMemberCount().
+     * @param list<int> $roleIds
+     * @return array<int,int>
+     */
+    public function batchRoleMemberCounts(int $tenantId, array $roleIds): array
+    {
+        if ($roleIds === []) {
+            return [];
+        }
+        foreach ($roleIds as $roleId) {
+            if (!is_int($roleId) || $roleId < 1) {
+                throw new \InvalidArgumentException('ROLE_ID_INVALID');
+            }
+        }
+        $counts = array_fill_keys(array_values(array_unique($roleIds)), 0);
+        $rows = MemberRole::where('tenant_id', $tenantId)->whereIn('role_id', array_keys($counts))
+            ->field('role_id')->fieldRaw('COUNT(*) AS member_count')->group('role_id')->select()->toArray();
+        foreach ($rows as $row) {
+            $counts[(int) $row['role_id']] = (int) $row['member_count'];
+        }
+        return $counts;
+    }
+
     public function permissionAssigned(string $permission): bool
     {
         return RolePermission::alias('role_permission')

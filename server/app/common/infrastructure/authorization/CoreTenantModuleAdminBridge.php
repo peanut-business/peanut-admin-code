@@ -38,13 +38,15 @@ final readonly class CoreTenantModuleAdminBridge
         return array_column($this->menuAdministration->records(), 'key');
     }
 
-    /** @return array{menu:list<array<string,mixed>>,permissions:list<string>} */
-    public function accessData(mixed $tenantContext): array
+    /**
+     * Returns the effective permission keys without constructing menu projections.
+     * @return list<string>
+     */
+    public function permissionsOnly(TenantContext $tenantContext): array
     {
-        if (!$tenantContext instanceof TenantContext
-            || $tenantContext->tenantId < 1
+        if ($tenantContext->tenantId < 1
             || $tenantContext->memberId < 1) {
-            return ['menu' => [], 'permissions' => []];
+            return [];
         }
 
         $permissions = array_values(array_unique([
@@ -60,6 +62,19 @@ final readonly class CoreTenantModuleAdminBridge
                 ...$this->registeredPermissions($tenantContext->tenantId),
             ]));
         }
+        return $permissions;
+    }
+
+    /** @return array{menu:list<array<string,mixed>>,permissions:list<string>} */
+    public function accessData(mixed $tenantContext): array
+    {
+        if (!$tenantContext instanceof TenantContext
+            || $tenantContext->tenantId < 1
+            || $tenantContext->memberId < 1) {
+            return ['menu' => [], 'permissions' => []];
+        }
+
+        $permissions = $this->permissionsOnly($tenantContext);
         $definitions = $this->menuCatalog->activeDefinitions('tenant');
         $qualification = $this->moduleGovernance->qualification();
         $deploymentModules = array_map(

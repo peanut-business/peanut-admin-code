@@ -115,7 +115,7 @@ final readonly class ModuleDefinitionRegistryFactory
             new StrictVersionConstraintMatcher(),
             new ReflectionContractInspector(),
             $kernelVersion,
-            $this->frontendComponents($roots),
+            $this->frontendComponents($documents),
             $layout,
             [
                 ...KernelSchema::tableNames(),
@@ -171,13 +171,11 @@ final readonly class ModuleDefinitionRegistryFactory
         return $owners;
     }
 
-    /** @param non-empty-list<string> $roots @return list<string> */
-    private function frontendComponents(array $roots): array
+    /** @param list<\PeanutAdmin\Kernel\Module\ManifestDocument> $documents @return list<string> */
+    private function frontendComponents(array $documents): array
     {
         $components = [];
-        $loader = new ManifestLoader();
-        foreach ($roots as $root) {
-            $manifest = $loader->load($root);
+        foreach ($documents as $manifest) {
             $catalog = is_array($manifest->data['catalog'] ?? null) ? $manifest->data['catalog'] : [];
             foreach ((array) ($catalog['menus'] ?? []) as $menu) {
                 if (!is_array($menu) || ($menu['type'] ?? null) !== 'page') {

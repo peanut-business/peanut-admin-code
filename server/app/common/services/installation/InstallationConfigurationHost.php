@@ -331,7 +331,7 @@ final class InstallationConfigurationHost
             return $identity;
         }
 
-        $release = ServerReleaseIdentity::load($this->serverRoot);
+        $release = ServerReleaseIdentity::resolve($this->serverRoot);
         return [
             'application' => $release->applicationIdentity(),
             'versions' => $release->versions(),

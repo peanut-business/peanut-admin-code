@@ -47,6 +47,12 @@ final readonly class RoleAdministrationRuntime
         return $this->identityAuthorization->roleMemberCount($tenantId, $roleId);
     }
 
+    /** @param list<int> $roleIds @return array<int,int> */
+    public function batchMemberCounts(int $tenantId, array $roleIds): array
+    {
+        return $this->identityAuthorization->batchRoleMemberCounts($tenantId, $roleIds);
+    }
+
     /** @param list<string> $menuKeys @return list<string> */
     public function permissionKeys(int $tenantId, array $menuKeys): array
     {

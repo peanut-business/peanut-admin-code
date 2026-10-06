@@ -19,7 +19,7 @@ final class InstallationStateMiddleware
         }
 
         try {
-            $status = $this->host->status();
+            $installed = $this->host->isInstalled();
         } catch (\Throwable) {
             throw \app\common\http\ApiProblem::fromEnvelope(
                 '系统安装状态不可用。',
@@ -28,10 +28,10 @@ final class InstallationStateMiddleware
             );
         }
 
-        if (($status['state'] ?? null) !== 'installed') {
+        if (!$installed) {
             throw \app\common\http\ApiProblem::fromEnvelope(
                 '系统尚未完成安装。',
-                ['error_code' => (string) ($status['code'] ?? 'INSTALLATION_REQUIRED')],
+                ['error_code' => 'INSTALLATION_REQUIRED'],
                 50300,
             );
         }

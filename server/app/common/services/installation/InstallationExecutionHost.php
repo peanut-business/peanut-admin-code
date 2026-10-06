@@ -41,6 +41,15 @@ final class InstallationExecutionHost
         require_once $serverRoot . '/database/install.php';
     }
 
+    /** Checks the completion receipt and file-state guards without preflight or database inspection. */
+    public function isInstalled(): bool
+    {
+        return $this->completionLockPresent()
+            && $this->completionReceiptValid()
+            && $this->installationMigrationComplete()
+            && !$this->hasLegacyInstallationState();
+    }
+
     /** @return array<string,mixed> */
     public function status(): array
     {

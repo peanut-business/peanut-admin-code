@@ -149,7 +149,7 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
             array_unique($registered),
             InstanceControlPlanePolicy::tenantAdminPermissions(),
         ));
-        $owned = $bridge->accessData($tenantContext)['permissions'];
+        $owned = $bridge->permissionsOnly($tenantContext);
         $allowed = $this->permissionPolicy->canAccess(
             $admin->root,
             $accessUri,
