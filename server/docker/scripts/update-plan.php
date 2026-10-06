@@ -95,9 +95,15 @@ final class PeanutServerUpdatePlan
         $digest = $product['plan_sha256'] ?? null;
         unset($product['plan_sha256']);
         $normalize = static function (mixed $value) use (&$normalize): mixed {
-            if (!is_array($value)) { return $value; }
-            if (!array_is_list($value)) { ksort($value, SORT_STRING); }
-            foreach ($value as $key => $child) { $value[$key] = $normalize($child); }
+            if (!is_array($value)) {
+                return $value;
+            }
+            if (!array_is_list($value)) {
+                ksort($value, SORT_STRING);
+            }
+            foreach ($value as $key => $child) {
+                $value[$key] = $normalize($child);
+            }
             return $value;
         };
         if (($product['protocol'] ?? null) !== 'peanut.product-upgrade-plan.v2'
@@ -152,6 +158,8 @@ final class PeanutServerUpdatePlan
                 if (($state['phase_in_progress'] ?? null) === 'activate' && ($state['activation_started'] ?? null) !== true) {
                     throw new RuntimeException('product activation boundary was not persisted');
                 }
+                self::revokeTraffic($serverRoot);
+                self::nativeRuntimeHealth($serverRoot);
                 self::grantTraffic($serverRoot);
                 self::clearMaintenance($serverRoot, $id, isset($state['recovery_context']) ? 'recovered' : 'completed');
                 return ['write_gate' => 'open', 'candidate' => $id];
@@ -190,7 +198,9 @@ final class PeanutServerUpdatePlan
                     self::assertPlanOperations($serverRoot, $workspace, $input);
                     return ['candidate' => $id, 'program_changes' => false];
                 }
-                if ($phase !== 'files-apply') { throw new RuntimeException('file intents are missing'); }
+                if ($phase !== 'files-apply') {
+                    throw new RuntimeException('file intents are missing');
+                }
                 self::assertPreparedServer($workspace, $input);
                 self::assertPlanOperations($serverRoot, $workspace, $input);
                 $journal = self::initialJournal($workspace, $input);
@@ -217,7 +227,9 @@ final class PeanutServerUpdatePlan
                 }
             } elseif ($phase === 'files-recover') {
                 for ($index = count($journal['operations']) - 1; $index >= 0; --$index) {
-                    if ($journal['operations'][$index]['status'] === 'pending') { continue; }
+                    if ($journal['operations'][$index]['status'] === 'pending') {
+                        continue;
+                    }
                     self::recoverOperation($serverRoot, $workspace, $journal['operations'][$index]);
                     $journal['operations'][$index]['status'] = 'recovered';
                     self::writeJson($path, $journal);
@@ -279,6 +291,9 @@ final class PeanutServerUpdatePlan
                     self::removeTrafficReady($serverRoot);
                     throw $exception;
                 }
+                self::removeTrafficReady($serverRoot);
+                self::prepareRuntimeAdmission($serverRoot, $serverRelease);
+                self::grantTraffic($serverRoot);
                 return ['status' => 'open'];
             }
             if (file_exists($ready) || is_link($ready)) {
@@ -286,6 +301,7 @@ final class PeanutServerUpdatePlan
                 throw new RuntimeException('unbound traffic permission exists before initialization');
             }
             self::durableFile($initialized, "peanut.server-traffic-initialized.v1\n", 0600);
+            self::prepareRuntimeAdmission($serverRoot, $serverRelease);
             self::grantTraffic($serverRoot);
             return ['status' => 'open'];
         });
@@ -445,9 +461,13 @@ final class PeanutServerUpdatePlan
             'database_migrations_changed' => self::operationPrefix($operations, 'server/database/'),
             'runtime_environment_changed' => self::operationTouches($operations, 'server/docker/Dockerfile')
                 || self::operationTouches($operations, 'server/docker/compose.yaml')
-                || self::operationPrefix(array_values(array_filter($operations,
-                    static fn(array $operation): bool => $operation['path'] !== 'server/docker/conf/nginx.conf')),
-                    'server/docker/conf/'),
+                || self::operationPrefix(
+                    array_values(array_filter(
+                        $operations,
+                        static fn(array $operation): bool => $operation['path'] !== 'server/docker/conf/nginx.conf',
+                    )),
+                    'server/docker/conf/',
+                ),
             'nginx_configuration_changed' => self::operationTouches($operations, 'server/docker/conf/nginx.conf'),
         ];
 
@@ -488,14 +508,20 @@ final class PeanutServerUpdatePlan
 
     private static function nativeRuntimeHealth(string $serverRoot): void
     {
+        $started = hrtime(true);
         $envPath = $serverRoot . '/.env';
         self::regularBytes($envPath, 'installed runtime environment');
         putenv('PEANUT_SERVER_ENV_FILE=' . $envPath);
         chdir($serverRoot);
+        self::assertAdmissionBoundary($serverRoot);
         require_once $serverRoot . '/vendor/autoload.php';
-        \app\common\value\installation\ServerReleaseIdentity::load($serverRoot);
+        $identity = \app\common\value\installation\ServerReleaseIdentity::load($serverRoot);
+        $verified = hrtime(true);
         require_once $serverRoot . '/database/install.php';
-        $application = \ensureThinkPhpApplication($serverRoot);
+        $application = new \think\App($serverRoot);
+        $application->instance(\app\common\value\installation\ServerReleaseIdentity::class, $identity);
+        $application->initialize();
+        $compiled = hrtime(true);
         $host = $application->make(\app\common\services\installation\InstallationExecutionHost::class);
         $status = $host->status();
         if (($status['state'] ?? null) !== 'installed'
@@ -503,6 +529,56 @@ final class PeanutServerUpdatePlan
             || !is_array($status['health'] ?? null) || $status['health'] === []) {
             throw new RuntimeException('native installed runtime health is not current');
         }
+        $healthy = hrtime(true);
+        \app\common\infrastructure\installation\VerifiedServerDeployment::publish($application, $identity);
+        self::writeAdmissionReceipt($serverRoot, $application, $identity, $started, $verified, $compiled, $healthy);
+    }
+
+    private static function assertAdmissionBoundary(string $serverRoot): void
+    {
+        require_once $serverRoot . '/app/common/infrastructure/installation/VerifiedServerDeployment.php';
+        \app\common\infrastructure\installation\VerifiedServerDeployment::assertImmutableProgram($serverRoot);
+    }
+
+    private static function prepareRuntimeAdmission(string $serverRoot, bool $serverRelease): void
+    {
+        if (!$serverRelease) {
+            return;
+        }
+        $started = hrtime(true);
+        self::assertAdmissionBoundary($serverRoot);
+        require_once $serverRoot . '/vendor/autoload.php';
+        $identity = \app\common\value\installation\ServerReleaseIdentity::load($serverRoot);
+        $verified = hrtime(true);
+        require_once $serverRoot . '/database/install.php';
+        $application = new \think\App($serverRoot);
+        $application->instance(\app\common\value\installation\ServerReleaseIdentity::class, $identity);
+        $application->initialize();
+        $compiled = hrtime(true);
+        \app\common\infrastructure\installation\VerifiedServerDeployment::publish($application, $identity);
+        self::writeAdmissionReceipt($serverRoot, $application, $identity, $started, $verified, $compiled);
+    }
+
+    private static function writeAdmissionReceipt(
+        string $serverRoot,
+        \think\App $application,
+        \app\common\value\installation\ServerReleaseIdentity $identity,
+        int $started,
+        int $verified,
+        int $compiled,
+        ?int $healthy = null,
+    ): void {
+        $healthy ??= $compiled;
+        self::writeJson($serverRoot . '/runtime/upgrade/verified-deployment/receipt.json', [
+            'protocol' => 'peanut.server-runtime-admission-receipt.v1',
+            'identity_sha256' => $identity->identitySha256(),
+            'file_count' => count($identity->document()['files']),
+            'module_count' => count($application->make(\PeanutAdmin\Kernel\Module\CompiledModuleRegistry::class)->modules),
+            'verification_ms' => ($verified - $started) / 1000000,
+            'module_initialization_ms' => ($compiled - $verified) / 1000000,
+            'runtime_health_ms' => ($healthy - $compiled) / 1000000,
+            'publication_ms' => (hrtime(true) - $healthy) / 1000000,
+        ]);
     }
 
     /** @param array<string,mixed> $plan @param array<string,mixed> $journal @return array<string,mixed> */
@@ -690,7 +766,7 @@ final class PeanutServerUpdatePlan
             throw new RuntimeException('installed identity cannot be hashed');
         }
         $path = self::deploymentPath($serverRoot);
-            if (!file_exists($path) && !is_link($path)) {
+        if (!file_exists($path) && !is_link($path)) {
             $baseline = self::jsonFile($baselinePath, 'installed instance baseline');
             if (($baseline['source']['server_release_identity_sha256'] ?? null) !== $currentDigest) {
                 throw new RuntimeException('current release has no matching installed deployment chain');
@@ -859,9 +935,13 @@ final class PeanutServerUpdatePlan
             'database_migrations_changed' => self::operationPrefix($operations, 'server/database/'),
             'runtime_environment_changed' => self::operationTouches($operations, 'server/docker/Dockerfile')
                 || self::operationTouches($operations, 'server/docker/compose.yaml')
-                || self::operationPrefix(array_values(array_filter($operations,
-                    static fn(array $operation): bool => $operation['path'] !== 'server/docker/conf/nginx.conf')),
-                    'server/docker/conf/'),
+                || self::operationPrefix(
+                    array_values(array_filter(
+                        $operations,
+                        static fn(array $operation): bool => $operation['path'] !== 'server/docker/conf/nginx.conf',
+                    )),
+                    'server/docker/conf/',
+                ),
             'nginx_configuration_changed' => self::operationTouches($operations, 'server/docker/conf/nginx.conf'),
         ];
         if ($plan['requirements'] !== $requirements) {

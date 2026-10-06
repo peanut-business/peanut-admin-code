@@ -14,7 +14,19 @@ final readonly class ServerReleaseIdentity
 {
     private function __construct(private array $document, private string $digest) {}
 
-    /** Reuse the current HTTP application's verified identity; CLI and other roots are verified independently. */
+    /** Only a deployment-owner admission record may supply this already verified declaration. */
+    public static function admitted(\app\common\infrastructure\installation\VerifiedServerDeployment $deployment): self
+    {
+        return new self($deployment->identityDocument(), $deployment->identityDigest());
+    }
+
+    /** @return array<string,mixed> Complete declaration, verified by load(), for closed-traffic admission. */
+    public function document(): array
+    {
+        return $this->document;
+    }
+
+    /** Reuse the current HTTP App admission; CLI and other roots are verified independently. */
     public static function resolve(string $serverRoot): self
     {
         $container = Container::getInstance();
@@ -130,8 +142,8 @@ final readonly class ServerReleaseIdentity
         }
         $listed = array_column($files, 'sha256', 'path');
         foreach (['server/database/install.php', 'server/plugins.lock',
-                     'server/.peanut/RELEASE_METADATA.json',
-                     'server/resources/project-resources.json'] as $required) {
+            'server/.peanut/RELEASE_METADATA.json',
+            'server/resources/project-resources.json'] as $required) {
             if (!isset($listed[$required])) {
                 throw new RuntimeException('SERVER_RELEASE_IDENTITY_INVALID');
             }
@@ -166,14 +178,18 @@ final readonly class ServerReleaseIdentity
             $plugin = $lock['plugins'][$index] ?? null;
             if (!is_array($item) || !is_array($plugin)
                 || ($item['key'] ?? null) !== ($plugin['key'] ?? null)
-                || !hash_equals((string) ($item['projected_manifest_sha256'] ?? ''),
-                    (string) ($plugin['manifest_sha256'] ?? ''))
-                || !hash_equals((string) ($item['projected_source_sha256'] ?? ''),
-                    (string) ($plugin['source']['sha256'] ?? ''))) {
+                || !hash_equals(
+                    (string) ($item['projected_manifest_sha256'] ?? ''),
+                    (string) ($plugin['manifest_sha256'] ?? ''),
+                )
+                || !hash_equals(
+                    (string) ($item['projected_source_sha256'] ?? ''),
+                    (string) ($plugin['source']['sha256'] ?? ''),
+                )) {
                 throw new RuntimeException('SERVER_RELEASE_IDENTITY_INVALID');
             }
             foreach (['source_manifest_sha256', 'source_sha256',
-                         'projected_manifest_sha256', 'projected_source_sha256'] as $field) {
+                'projected_manifest_sha256', 'projected_source_sha256'] as $field) {
                 if (preg_match($hex64, (string) ($item[$field] ?? '')) !== 1) {
                     throw new RuntimeException('SERVER_RELEASE_IDENTITY_INVALID');
                 }

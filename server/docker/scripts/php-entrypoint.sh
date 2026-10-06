@@ -26,7 +26,6 @@ chmod 1775 runtime
 chmod 0755 runtime/upgrade
 chmod 0644 runtime/upgrade/.mount-ready
 [ -f vendor/autoload.php ] || { echo "composer dependencies are unavailable" >&2; exit 1; }
-php docker/scripts/update-plan.php initialize-traffic --instance-server="$SERVER_ROOT"
 
 secret() { php -r 'echo bin2hex(random_bytes(32));'; }
 
@@ -93,6 +92,7 @@ write_installing_env() {
 
 run_monitored_fpm() {
     phase="$1"
+    php docker/scripts/update-plan.php initialize-traffic --instance-server="$SERVER_ROOT"
     php-fpm -F &
     fpm_pid=$!
     trap 'kill -TERM "$fpm_pid" 2>/dev/null || true; wait "$fpm_pid" 2>/dev/null || true; exit 143' TERM
@@ -121,6 +121,7 @@ if [ -f "$INSTALLED" ] && [ ! -L "$INSTALLED" ]; then
     rm -f "$BOOTSTRAP_ENV" "$INSTALLING_ENV" "$TOKEN_FILE"
     [ -f "$FINAL_ENV" ] && [ ! -L "$FINAL_ENV" ] || { echo "installed instance is missing server/.env" >&2; exit 1; }
     export PEANUT_SERVER_ENV_FILE="$FINAL_ENV"
+    php docker/scripts/update-plan.php initialize-traffic --instance-server="$SERVER_ROOT"
     exec php-fpm -F
 fi
 
@@ -147,6 +148,7 @@ case "$installation_mode" in
     php database/environment-guard.php --wait=60
     php database/install.php --skip-if-installed
     php database/environment-guard.php --current
+    php docker/scripts/update-plan.php initialize-traffic --instance-server="$SERVER_ROOT"
     exec php-fpm -F
     ;;
   *) echo "PEANUT_INSTALLATION_MODE must be guided or automatic" >&2; exit 1 ;;

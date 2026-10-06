@@ -5,6 +5,7 @@ declare(strict_types=1);
 use app\common\value\installation\ServerReleaseIdentity;
 
 require_once dirname(__DIR__, 2) . '/app/common/value/installation/ServerReleaseIdentity.php';
+require_once dirname(__DIR__, 2) . '/vendor/autoload.php';
 
 function serverReleaseIdentityExpect(bool $condition, string $message): void
 {
@@ -163,7 +164,40 @@ try {
         'generated-template server release must fall back to its upstream generation identity',
     );
 
-    echo "SERVER-RELEASE-RUNTIME-IDENTITY passed\n";
+    // A release declaration alone is never HTTP admission, even after successful CLI verification.
+    try {
+        \app\common\infrastructure\installation\VerifiedServerDeployment::read(new \think\App($fixture . '/application/server'));
+        throw new RuntimeException('missing deployment-owner admission was accepted');
+    } catch (RuntimeException $exception) {
+        serverReleaseIdentityExpect(
+            str_starts_with($exception->getMessage(), 'SERVER_DEPLOYMENT_'),
+            'missing protected admission must fail closed without compiling or scanning source',
+        );
+    }
+    $program = $fixture . '/application/server/database/install.php';
+    file_put_contents($program, "<?php // modified after verification\n");
+    try {
+        ServerReleaseIdentity::load($fixture . '/application/server');
+        throw new RuntimeException('modified source was accepted by fresh verification');
+    } catch (RuntimeException $exception) {
+        serverReleaseIdentityExpect(
+            $exception->getMessage() === 'SERVER_RELEASE_IDENTITY_INVALID',
+            'CLI and lifecycle full verification must reject changed program bytes',
+        );
+    }
+    unlink($program);
+    symlink($fixture . '/generated/server/database/install.php', $program);
+    try {
+        ServerReleaseIdentity::load($fixture . '/application/server');
+        throw new RuntimeException('linked source was accepted by fresh verification');
+    } catch (RuntimeException $exception) {
+        serverReleaseIdentityExpect(
+            $exception->getMessage() === 'SERVER_RELEASE_IDENTITY_INVALID',
+            'fresh verification must reject links even when target bytes match the inventory',
+        );
+    }
+
+    echo "SERVER-RELEASE-RUNTIME-IDENTITY passed assertions=7\n";
 } finally {
     serverReleaseIdentityDelete($fixture);
 }

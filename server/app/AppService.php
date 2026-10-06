@@ -455,6 +455,7 @@ class AppService extends Service
                 dirname(__DIR__),
                 $this->moduleConfiguration(),
                 $this->app->make(ModuleCatalogApplier::class),
+                $this->app->make(CompiledModuleRegistry::class),
             ));
         $this->app->bind(ModuleQualificationQuery::class, fn(): ModuleQualificationQuery => $this->app
             ->make(ThinkPhpModuleGovernanceProvider::class)
@@ -675,11 +676,14 @@ class AppService extends Service
         if ($lockPath === '') {
             throw new \RuntimeException('PLUGIN_LOCK_INVALID');
         }
-        $registry = (new ModuleDefinitionRegistryFactory($serverRoot))->fromPluginLock(
-            new PluginLockResolver($serverRoot, $lockPath),
-            $config,
-            false,
-        );
+        $releasePath = $serverRoot . '/.peanut/release-identity.json';
+        $registry = !$this->app->runningInConsole() && (file_exists($releasePath) || is_link($releasePath))
+            ? $this->app->make(\app\common\infrastructure\installation\VerifiedServerDeployment::class)->registry()
+            : (new ModuleDefinitionRegistryFactory($serverRoot))->fromPluginLock(
+                new PluginLockResolver($serverRoot, $lockPath),
+                $config,
+                false,
+            );
         $this->app->instance(CompiledModuleRegistry::class, $registry);
         $this->app->make(ModuleComposition::class)->register($registry);
     }

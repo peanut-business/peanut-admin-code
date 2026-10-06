@@ -29,6 +29,7 @@ final class ThinkPhpModuleGovernanceProvider implements ModuleGovernanceProvider
         private readonly string $serverRoot,
         private readonly array $moduleConfig,
         private readonly ModuleCatalogApplier $catalogs,
+        private readonly ?\PeanutAdmin\Kernel\Module\CompiledModuleRegistry $applicationRegistry = null,
     ) {
         $this->registryFactory = new PluginModuleRegistryFactory($serverRoot);
     }
@@ -37,6 +38,9 @@ final class ThinkPhpModuleGovernanceProvider implements ModuleGovernanceProvider
     {
         if ($this->registryInstance instanceof DeployedTenantModuleRegistry) {
             return $this->registryInstance;
+        }
+        if ($this->applicationRegistry !== null) {
+            return $this->registryInstance = new DeployedTenantModuleRegistry($this->applicationRegistry);
         }
         $lockPath = trim((string) ($this->moduleConfig['plugin_lock'] ?? ''));
         if ($lockPath !== '' && is_file($this->lockFile($lockPath))) {

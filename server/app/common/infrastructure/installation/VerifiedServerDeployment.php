@@ -1,0 +1,310 @@
+<?php
+
+declare(strict_types=1);
+
+namespace app\common\infrastructure\installation;
+
+use app\common\infrastructure\module\ModuleHostLayoutFactory;
+use app\common\value\installation\ServerReleaseIdentity;
+use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
+use PeanutAdmin\Kernel\Module\ManifestDocument;
+use RuntimeException;
+use think\App;
+use think\cache\driver\File;
+
+/** Deployment-owner admission of pure declarations into ThinkPHP's native File store.
+ * File::set is not atomic: write an immutable key under the instance lock, fsync it,
+ * then atomically publish the pointer while traffic is closed. HTTP never compiles.
+ */
+final readonly class VerifiedServerDeployment
+{
+    private const FORMAT = 'peanut.verified-server-deployment.v1';
+    private const DIRECTORY = '/runtime/upgrade/verified-deployment';
+
+    private function __construct(private string $serverRoot, private array $record) {}
+
+    public static function read(App $app): self
+    {
+        $root = rtrim($app->getRootPath(), '/');
+        self::assertProtectedPath($root, 'runtime/upgrade/.traffic-ready');
+        if (self::bytes($root . '/runtime/upgrade/.traffic-ready') !== "peanut.server-traffic-ready.v1\n"
+            || file_exists($root . '/runtime/upgrade/maintenance.json')
+            || is_link($root . '/runtime/upgrade/maintenance.json')) {
+            throw new RuntimeException('SERVER_DEPLOYMENT_TRAFFIC_CLOSED');
+        }
+        self::assertProtectedPath($root, 'runtime/upgrade/verified-deployment/current.json');
+        $pointer = self::json(self::bytes($root . self::DIRECTORY . '/current.json'));
+        if (($pointer['format'] ?? null) !== self::FORMAT
+            || !is_string($pointer['key'] ?? null)
+            || preg_match('/^[a-f0-9]{64}$/D', $pointer['key']) !== 1
+            || !is_string($pointer['sha256'] ?? null)) {
+            throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_INVALID');
+        }
+        $store = self::store($app);
+        $file = $store->getCacheKey($pointer['key']);
+        self::assertProtectedPath($root, substr($file, strlen($root) + 1));
+        if (!hash_equals($pointer['sha256'], hash('sha256', self::bytes($file)))) {
+            throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_INVALID');
+        }
+        $record = $store->get($pointer['key']);
+        if (!is_array($record) || ($record['format'] ?? null) !== self::FORMAT
+            || ($record['binding'] ?? null) !== self::binding($root, $app->config->get('modules', []))
+            || !is_array($record['identity'] ?? null) || !is_array($record['registry'] ?? null)) {
+            throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_MISMATCH');
+        }
+        return new self($root, $record);
+    }
+
+    /** Called only under the updater's exclusive instance lock, before granting traffic. */
+    public static function publish(App $app, ServerReleaseIdentity $identity): void
+    {
+        $root = rtrim($app->getRootPath(), '/');
+        self::assertImmutableProgram($root);
+        $registry = $app->make(CompiledModuleRegistry::class);
+        $modules = [];
+        foreach ($registry->modules as $manifest) {
+            $relative = self::relative($root, $manifest->root);
+            self::assertProtectedPath($root, $relative . '/module.json');
+            $modules[] = ['root' => $relative, 'json' => json_encode($manifest->object, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)];
+        }
+        $binding = self::binding($root, $app->config->get('modules', []));
+        if (!hash_equals($identity->identitySha256(), $binding['identity'])) {
+            throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_MISMATCH');
+        }
+        $record = ['format' => self::FORMAT, 'binding' => $binding, 'identity' => $identity->document(),
+            'registry' => ['modules' => $modules, 'targetTypeOwners' => $registry->targetTypeOwners,
+                'ownedTableOwners' => $registry->ownedTableOwners, 'menus' => $registry->menus,
+                'revision' => $registry->revision]];
+        $directory = $root . self::DIRECTORY;
+        if (!file_exists($directory) && !mkdir($directory, 0755)) {
+            throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_UNAVAILABLE');
+        }
+        self::assertProtectedPath($root, 'runtime/upgrade/verified-deployment');
+        $key = hash('sha256', json_encode($record, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+        $store = self::store($app);
+        $path = $store->getCacheKey($key);
+        if (!file_exists($path)) {
+            if (!$store->set($key, $record, 0) || !chmod($path, 0644)) {
+                throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_UNAVAILABLE');
+            }
+            self::sync($path);
+        } else {
+            self::assertProtectedPath($root, substr($path, strlen($root) + 1));
+            if ($store->get($key) !== $record) {
+                throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_INVALID');
+            }
+        }
+        $pointer = json_encode(['format' => self::FORMAT, 'key' => $key,
+            'sha256' => hash('sha256', self::bytes($path))], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES) . "\n";
+        $temporary = $directory . '/current-' . bin2hex(random_bytes(8)) . '.tmp';
+        $handle = fopen($temporary, 'xb');
+        if (!is_resource($handle)) {
+            throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_UNAVAILABLE');
+        }
+        try {
+            if (fwrite($handle, $pointer) !== strlen($pointer) || !fflush($handle)
+                || !fsync($handle) || !chmod($temporary, 0644)
+                || !rename($temporary, $directory . '/current.json')) {
+                throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_UNAVAILABLE');
+            }
+        } finally {
+            fclose($handle);
+            if (is_file($temporary)) {
+                unlink($temporary);
+            }
+        }
+        self::sync($directory);
+    }
+
+    public function identityDocument(): array
+    {
+        return $this->record['identity'];
+    }
+    public function identityDigest(): string
+    {
+        return $this->record['binding']['identity'];
+    }
+
+    public function registry(): CompiledModuleRegistry
+    {
+        $record = $this->record['registry'];
+        $modules = [];
+        $roots = [];
+        foreach ($record['modules'] as $item) {
+            if (!is_array($item) || !is_string($item['root'] ?? null) || !is_string($item['json'] ?? null)) {
+                throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_INVALID');
+            }
+            self::assertProtectedPath($this->serverRoot, $item['root'] . '/module.json');
+            $data = self::json($item['json']);
+            $object = json_decode($item['json'], false, 512, JSON_THROW_ON_ERROR);
+            $modules[] = ManifestDocument::fromDecodedJson($this->serverRoot . '/' . $item['root'], $data, $object);
+            $roots[$data['key']] = $this->serverRoot . '/' . $item['root'];
+        }
+        ModuleHostLayoutFactory::registerRuntimeAutoload($roots, $this->serverRoot);
+        return new CompiledModuleRegistry(
+            $modules,
+            $record['targetTypeOwners'],
+            $record['ownedTableOwners'],
+            $record['menus'],
+            $record['revision'],
+        );
+    }
+
+    /** Source and dependencies must be immutable to the application user before executing Composer. */
+    public static function assertImmutableProgram(string $root): void
+    {
+        $owner = fileowner($root);
+        $application = posix_getpwnam('www-data');
+        if (!is_int($owner) || !is_array($application) || $owner === $application['uid']
+            || !in_array(posix_geteuid(), [0, $owner], true)) {
+            throw new RuntimeException('SERVER_DEPLOYMENT_OWNER_REQUIRED');
+        }
+        self::assertProtectedPath($root, '.peanut/release-identity.json');
+        $identity = self::json(self::bytes($root . '/.peanut/release-identity.json'));
+        foreach ($identity['files'] ?? [] as $file) {
+            if (!is_array($file) || !is_string($file['path'] ?? null) || !str_starts_with($file['path'], 'server/')) {
+                throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_INVALID');
+            }
+            self::assertProtectedPath($root, substr($file['path'], strlen('server/')));
+        }
+        foreach (['app', 'config', 'database', '.peanut', 'resources', 'vendor', 'route', 'bootstrap', 'extend'] as $directory) {
+            self::assertProtectedPath($root, $directory);
+            $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(
+                $root . '/' . $directory,
+                \FilesystemIterator::SKIP_DOTS,
+            ), \RecursiveIteratorIterator::SELF_FIRST);
+            foreach ($iterator as $file) {
+                if ($file->isLink()) {
+                    throw new RuntimeException('SERVER_DEPLOYMENT_PROGRAM_WRITABLE: ' . $directory);
+                }
+                self::assertProtectedPath($root, self::relative($root, $file->getPathname()));
+            }
+        }
+        foreach (['plugins.lock', 'composer.json', 'composer.lock', 'think', 'public/index.php'] as $file) {
+            self::assertProtectedPath($root, $file);
+        }
+    }
+
+    private static function binding(string $root, mixed $config): array
+    {
+        if (!is_array($config)) {
+            throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_INVALID');
+        }
+        // Host and FPM mounts may differ; only server-relative Module roots are admitted.
+        foreach ($config['roots'] ?? [] as $index => $path) {
+            $absolute = str_starts_with($path, '/') ? $path : $root . '/' . $path;
+            $config['roots'][$index] = self::relative($root, $absolute);
+        }
+        $lock = $config['plugin_lock'] ?? null;
+        if ($lock !== 'plugins.lock' && $lock !== $root . '/plugins.lock') {
+            throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_INVALID');
+        }
+        $config['plugin_lock'] = 'plugins.lock';
+        $binding = ['modules' => hash('sha256', json_encode($config, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES))];
+        foreach (['identity' => '.peanut/release-identity.json', 'lock' => 'plugins.lock',
+            'dependencies' => 'composer.lock', 'installed_dependencies' => 'vendor/composer/installed.json'] as $key => $path) {
+            self::assertProtectedPath($root, $path);
+            $binding[$key] = hash('sha256', self::bytes($root . '/' . $path));
+        }
+        foreach (['installed' => 'installed.json', 'baseline' => 'baseline.json', 'deployment' => 'deployment.json'] as $key => $file) {
+            foreach (['private', 'private/installation'] as $directory) {
+                if (!is_dir($root . '/' . $directory) || is_link($root . '/' . $directory)) {
+                    throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_PATH_INVALID');
+                }
+            }
+            $path = $root . '/private/installation/' . $file;
+            $binding[$key] = file_exists($path) || is_link($path) ? hash('sha256', self::bytes($path)) : null;
+        }
+        return $binding;
+    }
+
+    private static function store(App $app): File
+    {
+        return new File($app, ['path' => rtrim($app->getRootPath(), '/') . self::DIRECTORY,
+            'prefix' => '', 'cache_subdir' => false, 'expire' => 0,
+            'serialize' => [static fn(mixed $value): string => json_encode($value, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
+                static fn(string $value): array => self::json($value)]]);
+    }
+
+    private static function relative(string $root, string $path): string
+    {
+        $canonical = realpath($path);
+        if ($canonical === false || !str_starts_with($canonical, rtrim($root, '/') . '/')) {
+            throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_PATH_INVALID');
+        }
+        return substr($canonical, strlen(rtrim($root, '/')) + 1);
+    }
+
+    private static function assertProtectedPath(string $root, string $relative): void
+    {
+        $parts = explode('/', $relative);
+        if (array_intersect($parts, ['', '.', '..']) !== [] || str_contains($relative, '\\')) {
+            throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_PATH_INVALID');
+        }
+        $owner = fileowner($root);
+        $application = posix_getpwnam('www-data');
+        if (!is_int($owner) || !is_array($application) || $owner === $application['uid']) {
+            throw new RuntimeException('SERVER_DEPLOYMENT_OWNER_REQUIRED');
+        }
+        // A protected child is insufficient when the application can replace its mount parent.
+        for ($parent = dirname($root); ; $parent = dirname($parent)) {
+            $stat = @lstat($parent);
+            if (!is_array($stat) || !is_dir($parent) || is_link($parent)
+                || !in_array($stat['uid'], [0, $owner], true)
+                || (($stat['mode'] & 0022) !== 0 && ($stat['mode'] & 01000) === 0)) {
+                throw new RuntimeException('SERVER_DEPLOYMENT_PROGRAM_WRITABLE: parent');
+            }
+            if ($parent === '/') {
+                break;
+            }
+        }
+        $cursor = $root;
+        foreach (['', ...$parts] as $index => $part) {
+            if ($index > 0) {
+                $cursor .= '/' . $part;
+            }
+            clearstatcache(true, $cursor);
+            $stat = @lstat($cursor);
+            $isDirectory = is_dir($cursor);
+            $stickyWindow = ($cursor === $root || $cursor === $root . '/runtime')
+                && $isDirectory && is_array($stat) && ($stat['mode'] & 01000) !== 0
+                && ($stat['mode'] & 0002) === 0;
+            if (!is_array($stat) || is_link($cursor) || (!$isDirectory && !is_file($cursor))
+                || !in_array($stat['uid'], [0, $owner], true) || (!$isDirectory && $stat['nlink'] !== 1)
+                || (($stat['mode'] & 0022) !== 0 && !$stickyWindow)) {
+                throw new RuntimeException('SERVER_DEPLOYMENT_PROGRAM_WRITABLE: ' . $relative);
+            }
+        }
+    }
+
+    private static function bytes(string $path): string
+    {
+        $stat = @lstat($path);
+        if (!is_array($stat) || !is_file($path) || is_link($path) || $stat['nlink'] !== 1) {
+            throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_UNAVAILABLE');
+        }
+        $bytes = file_get_contents($path);
+        if (!is_string($bytes)) {
+            throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_UNAVAILABLE');
+        }
+        return $bytes;
+    }
+
+    private static function json(string $bytes): array
+    {
+        $value = json_decode($bytes, true, 512, JSON_THROW_ON_ERROR);
+        if (!is_array($value)) {
+            throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_INVALID');
+        }
+        return $value;
+    }
+
+    private static function sync(string $path): void
+    {
+        $handle = fopen($path, 'r');
+        if (!is_resource($handle) || !fsync($handle)) {
+            throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_UNAVAILABLE');
+        }
+        fclose($handle);
+    }
+}
