@@ -88,7 +88,7 @@ const transport = createUniAppClientTransport({
     if (options.data !== undefined && !isRecord(options.data)) {
       throw new Error('UNIAPP_REQUEST_DATA_INVALID');
     }
-    uni.request({
+    return uni.request({
       url: options.url,
       method: options.method,
       data: options.data,
