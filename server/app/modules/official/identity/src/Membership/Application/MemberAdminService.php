@@ -13,6 +13,7 @@ use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
 use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
 use PeanutAdmin\Kernel\Identity\EmailAddress;
 use PeanutAdmin\Kernel\Identity\PasswordHasher;
+use PeanutAdmin\Kernel\Identity\PasswordPolicy;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Account;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Credential;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Department;
@@ -31,7 +32,8 @@ final readonly class MemberAdminService
 
     public function __construct(
         private AuditService $audit,
-        private PasswordHasher $passwords = new PasswordHasher(),
+        private PasswordHasher $passwords,
+        private PasswordPolicy $passwordPolicy,
     ) {}
 
     /** @param list<int> $roleIds
@@ -497,6 +499,7 @@ final readonly class MemberAdminService
 
     private function createAccountAndCredential(string $identifier, string $displayName, string $password): int
     {
+        $this->passwordPolicy->assertValid($password);
         $now = $this->now();
         $accountId = (int) Account::insertGetId([
             'display_name' => $displayName,

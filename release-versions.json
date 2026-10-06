@@ -7,11 +7,11 @@
   "generated_instance_default": "0.1.0",
   "core_php": {
     "package": "peanut-admin/core",
-    "constraint": "4.0.0",
-    "resolved_version": "v4.0.0",
+    "constraint": "dev-dev",
+    "resolved_version": "dev-dev",
     "source_type": "git",
     "source_url": "https://github.com/peanut-business/peanut-admin-core-php.git",
-    "source_reference": "c3cc5a73216cd3c355e7b067a32adbe6e2fd654d"
+    "source_reference": "bb4e8816862dcefe4340bfedf146ca3aac13b586"
   },
   "core_web": {
     "source_type": "git",

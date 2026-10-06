@@ -11,7 +11,6 @@ use PeanutAdmin\DataPermission\Policy\EffectivePolicySet;
 use PeanutAdmin\DataPermission\Policy\PolicyRepository;
 use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use PeanutAdmin\Kernel\Auth\Clock;
-use PeanutAdmin\Kernel\Auth\SystemClock;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
 use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
@@ -27,7 +26,7 @@ final readonly class EffectiveAccessPreviewService
         private ResourceOperationCatalog $catalog,
         private PolicyRepository $policies,
         private AuditService $audit,
-        private Clock $clock = new SystemClock(),
+        private Clock $clock,
     ) {}
 
     /**

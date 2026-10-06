@@ -437,7 +437,11 @@
   import { Download, Plus, Refresh, Search } from '@element-plus/icons-vue';
   import useLoading from '@/hooks/loading';
   import { useUserStore } from '@/store';
-  import { getPasswordPolicy, passwordWithinPolicy, type PasswordPolicy } from '@/api/password-policy';
+  import {
+    getPasswordPolicy,
+    passwordWithinPolicy,
+    type PasswordPolicy,
+  } from '@/api/password-policy';
   import { uploadFile, type FileRecord } from '@/modules/official-file/api';
   import { getRoleAll } from '@/api/system/role';
   import { getDeptAll, type DeptRecord } from '@/api/system/dept';
@@ -536,12 +540,25 @@
   const modalVisible = ref(false);
   const passwordPolicy = ref<PasswordPolicy | null>(null);
   const passwordPolicyError = ref('');
-  const passwordHint = computed(() => passwordPolicy.value
-    ? t('systemAdmin.field.password.length', { min: passwordPolicy.value.minimum_length, max: passwordPolicy.value.maximum_length })
-    : passwordPolicyError.value || t('systemAdmin.field.password.policyLoading'));
+  const passwordHint = computed(() =>
+    passwordPolicy.value
+      ? t('systemAdmin.field.password.length', {
+          min: passwordPolicy.value.minimum_length,
+          max: passwordPolicy.value.maximum_length,
+        })
+      : passwordPolicyError.value ||
+        t('systemAdmin.field.password.policyLoading')
+  );
   async function loadPasswordPolicy() {
-    try { passwordPolicy.value = await getPasswordPolicy(); passwordPolicyError.value = ''; }
-    catch { passwordPolicy.value = null; passwordPolicyError.value = t('systemAdmin.field.password.policyUnavailable'); }
+    try {
+      passwordPolicy.value = await getPasswordPolicy();
+      passwordPolicyError.value = '';
+    } catch {
+      passwordPolicy.value = null;
+      passwordPolicyError.value = t(
+        'systemAdmin.field.password.policyUnavailable'
+      );
+    }
   }
   const isEdit = ref(false);
   const submitLoading = ref(false);
@@ -605,7 +622,10 @@
               value: string,
               callback: (message?: string | Error) => void
             ) => {
-              if (!passwordPolicy.value || (value && !passwordWithinPolicy(value, passwordPolicy.value))) {
+              if (
+                !passwordPolicy.value ||
+                (value && !passwordWithinPolicy(value, passwordPolicy.value))
+              ) {
                 callback(new Error(passwordHint.value));
                 return;
               }
@@ -616,9 +636,17 @@
       : [
           { required: true, message: t('systemAdmin.field.password.required') },
           {
-            validator: (_rule: unknown, value: string, callback: (error?: Error) => void) =>
-              callback(passwordPolicy.value && passwordWithinPolicy(value, passwordPolicy.value)
-                ? undefined : new Error(passwordHint.value)),
+            validator: (
+              _rule: unknown,
+              value: string,
+              callback: (error?: Error) => void
+            ) =>
+              callback(
+                passwordPolicy.value &&
+                  passwordWithinPolicy(value, passwordPolicy.value)
+                  ? undefined
+                  : new Error(passwordHint.value)
+              ),
           },
         ],
     password_confirm: [
@@ -683,7 +711,10 @@
   const handleSubmit = async () => {
     if (!passwordPolicy.value) {
       await loadPasswordPolicy();
-      if (!passwordPolicy.value) { ElMessage.error(passwordPolicyError.value); return false; }
+      if (!passwordPolicy.value) {
+        ElMessage.error(passwordPolicyError.value);
+        return false;
+      }
     }
     const valid = await formRef.value?.validate().catch(() => false);
     if (!valid) return false;

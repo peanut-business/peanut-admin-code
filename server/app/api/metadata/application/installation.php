@@ -98,9 +98,9 @@ $schemas = [
         'required' => ['admin_email', 'admin_password'],
         'properties' => [
             'admin_email' => ['type' => 'string', 'format' => 'email'],
-            'admin_password' => ['type' => 'string', 'minLength' => 12],
+            'admin_password' => ['type' => 'string', 'description' => 'New password: effective UTF-8 byte bounds from getPasswordPolicy.'],
             'platform_email' => ['type' => 'string', 'format' => 'email'],
-            'platform_password' => ['type' => 'string', 'minLength' => 10],
+            'platform_password' => ['type' => 'string', 'description' => 'New password: effective UTF-8 byte bounds from getPasswordPolicy.'],
             'official_modules' => ['type' => 'array', 'uniqueItems' => true, 'items' => ['type' => 'string', 'pattern' => '^official\.[a-z][a-z0-9_-]*$']],
         ],
         'description' => 'multi-tenant 部署还要求 platform_email/platform_password；standalone 部署禁止提供这两个字段。',
@@ -127,6 +127,20 @@ $schemas = [
 ];
 
 $paths = [
+    '/installapi/password-policy' => ['get' => $operation(
+        'getPasswordPolicy',
+        'Installation',
+        ['200' => $success([
+            'type' => 'object', 'additionalProperties' => false,
+            'required' => ['minimum_length', 'maximum_length', 'length_unit'],
+            'properties' => [
+                'minimum_length' => ['type' => 'integer', 'minimum' => 1],
+                'maximum_length' => ['type' => 'integer', 'minimum' => 1],
+                'length_unit' => ['type' => 'string', 'enum' => ['utf8_bytes']],
+            ],
+        ])],
+        description: 'Public effective password limits from the native container binding; available before and after installation. No credentials or instance configuration are returned.',
+    )],
     '/installapi/configuration' => ['get' => $operation(
         'getInstallationConfiguration',
         'Installation',

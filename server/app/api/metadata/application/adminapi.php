@@ -161,7 +161,7 @@ $schemas = [
             'id' => ['type' => 'integer', 'minimum' => 1], 'account' => ['type' => 'string', 'format' => 'email', 'maxLength' => 255],
             'username' => ['type' => 'string', 'format' => 'email', 'maxLength' => 255],
             'name' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 120], 'nickname' => ['type' => 'string'],
-            'avatar' => ['type' => 'string', 'maxLength' => 512], 'password' => ['type' => 'string', 'minLength' => 12, 'maxLength' => 128],
+            'avatar' => ['type' => 'string', 'maxLength' => 512], 'password' => ['type' => 'string', 'description' => 'Effective UTF-8 byte bounds from getPasswordPolicy.'],
             'password_confirm' => ['type' => 'string'], 'role_id' => $ref('IntegerList'), 'role_ids' => $ref('IntegerList'),
             'dept_id' => $ref('IntegerList'), 'jobs_id' => $ref('IntegerList'),
             'disable' => ['type' => 'integer', 'enum' => [0, 1]], 'multipoint_login' => ['type' => 'integer', 'enum' => [0, 1]],
@@ -172,7 +172,7 @@ $schemas = [
         'properties' => [
             'nickname' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 50],
             'avatar' => ['type' => 'string', 'maxLength' => 255],
-            'password_old' => ['type' => 'string'], 'password' => ['type' => 'string', 'minLength' => 12, 'maxLength' => 128],
+            'password_old' => ['type' => 'string'], 'password' => ['type' => 'string', 'description' => 'Effective UTF-8 byte bounds from getPasswordPolicy.'],
             'password_confirm' => ['type' => 'string'],
         ],
     ],
@@ -484,7 +484,7 @@ $schemas = [
         'type' => 'object', 'required' => ['token'],
         'properties' => [
             'token' => ['type' => 'string', 'pattern' => '^[A-Za-z0-9_-]{43}$'],
-            'new_account_password' => ['type' => 'string', 'minLength' => 12, 'maxLength' => 128],
+            'new_account_password' => ['type' => 'string', 'description' => 'Effective UTF-8 byte bounds from getPasswordPolicy.'],
         ],
     ],
     'InvitationAcceptance' => [

@@ -58,9 +58,11 @@ export default {
   'systemAdmin.field.password.addPlaceholder': 'Enter password',
   'systemAdmin.field.password.editPlaceholder': 'Leave blank to keep unchanged',
   'systemAdmin.field.password.required': 'Password is required',
-  'systemAdmin.field.password.length': 'Password must be {min}–{max} UTF-8 bytes',
+  'systemAdmin.field.password.length':
+    'Password must be {min}–{max} UTF-8 bytes',
   'systemAdmin.field.password.policyLoading': 'Loading password requirements',
-  'systemAdmin.field.password.policyUnavailable': 'Password requirements unavailable; please retry',
+  'systemAdmin.field.password.policyUnavailable':
+    'Password requirements unavailable; please retry',
   'systemAdmin.field.passwordConfirm': 'Confirm Password',
   'systemAdmin.field.passwordConfirm.placeholder': 'Confirm password',
   'systemAdmin.field.passwordConfirm.required': 'Confirmation is required',

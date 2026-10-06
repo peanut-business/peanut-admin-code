@@ -41,7 +41,7 @@ $schemas = [
         'type' => 'object', 'additionalProperties' => false, 'required' => ['email', 'password'],
         'properties' => [
             'email' => ['type' => 'string', 'format' => 'email', 'maxLength' => 255],
-            'password' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 128],
+            'password' => ['type' => 'string', 'minLength' => 1],
         ],
     ],
     'PlatformSessionInfo' => [
@@ -388,7 +388,7 @@ $operatorRequests = [
     'create' => [
         'operationId' => 'createPlatformOperator', 'schema' => [
             'type' => 'object', 'additionalProperties' => false, 'required' => ['email', 'display_name'],
-            'properties' => ['email' => ['type' => 'string', 'format' => 'email', 'maxLength' => 255], 'display_name' => ['type' => 'string', 'maxLength' => 120], 'initial_password' => ['type' => 'string', 'minLength' => 12, 'maxLength' => 128]],
+            'properties' => ['email' => ['type' => 'string', 'format' => 'email', 'maxLength' => 255], 'display_name' => ['type' => 'string', 'maxLength' => 120], 'initial_password' => ['type' => 'string', 'description' => 'Effective UTF-8 byte bounds from getPasswordPolicy.']],
         ],
     ],
     'update' => [

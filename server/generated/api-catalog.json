@@ -8,7 +8,7 @@
         },
         {
             "path": "server/app/api/metadata/application/adminapi.php",
-            "sha256": "1c5722cb090143abb7185a4e294f360b5ad6680f793b3e7fa9c0688c2a8921bc"
+            "sha256": "6b10f5bd2d388231fa9583c1fc2aec1a2542eb5ac0b69485eb308c443097d9e9"
         },
         {
             "path": "server/app/api/metadata/application/common.php",
@@ -16,11 +16,11 @@
         },
         {
             "path": "server/app/api/metadata/application/installation.php",
-            "sha256": "9edf4fc71ecd8cbe6defd798ee77634476ba46fe921d51f5840d5cd9a3ec0cd7"
+            "sha256": "65a9adf4faed54f0e68a1dc8f1da224e387c771b4eac4716db74a5495e596fdc"
         },
         {
             "path": "server/app/api/metadata/application/platform.php",
-            "sha256": "b4f22715957d07b2cb8cb880fffef2f493708f2aa09752f7832be70d044a7d05"
+            "sha256": "56036f14a793d7a4613e476a0f2bcf5558e2fbaf9d5f2acb357c21019168346d"
         },
         {
             "path": "server/app/api/metadata/application/shared.php",
@@ -128,7 +128,7 @@
         },
         {
             "path": "server/route/app.php",
-            "sha256": "94176503df8b919c0af97765eea7047dda5ccab588e6456f5543646e31d2ae49"
+            "sha256": "2cb0b00d8c475938299bbb6a79c37aaad9599a21f2b854b577f5a401dbcf287d"
         },
         {
             "path": "server/route/platform.php",
@@ -156,35 +156,35 @@
         ]
     },
     "summary": {
-        "route_count": 338,
-        "generated_api_operations": 338,
+        "route_count": 339,
+        "generated_api_operations": 339,
         "route_only_operations": 0,
-        "complete_operations": 338,
+        "complete_operations": 339,
         "partial_operations": 0,
-        "runtime_routes": 338,
-        "documented_operations": 338,
+        "runtime_routes": 339,
+        "documented_operations": 339,
         "undocumented_routes": 0,
-        "automatic_route_metadata": 338,
+        "automatic_route_metadata": 339,
         "requires_owner_contract": 0,
         "owners": 15,
         "runtime_inventory": {
-            "total": 338,
+            "total": 339,
             "methods": {
                 "DELETE": 4,
-                "GET": 152,
+                "GET": 153,
                 "POST": 179,
                 "PUT": 3
             },
             "applications": {
                 "adminapi": 229,
                 "api": 47,
-                "installation": 4,
+                "installation": 5,
                 "platform": 58
             },
             "owners": {
                 "application:adminapi": 91,
                 "application:api": 18,
-                "application:installation": 4,
+                "application:installation": 5,
                 "application:platform": 58,
                 "module:official.article": 21,
                 "module:official.file": 14,
@@ -204,7 +204,7 @@
     "owners": {
         "application:adminapi": 91,
         "application:api": 18,
-        "application:installation": 4,
+        "application:installation": 5,
         "application:platform": 58,
         "module:official.article": 21,
         "module:official.file": 14,
@@ -9188,10 +9188,52 @@
             "middleware": [],
             "source": {
                 "file": "server/route/app.php",
-                "line": 10
+                "line": 11
             },
             "documented": true,
             "openapi_operation_id": "getInstallationConfiguration",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": []
+            }
+        },
+        {
+            "method": "GET",
+            "path": "/installapi/password-policy",
+            "runtime_path": "/installapi/password-policy",
+            "application": "installation",
+            "owner": {
+                "type": "application",
+                "key": "installation"
+            },
+            "controller": "app\\installation\\controller\\InstallationController",
+            "action": "passwordPolicy",
+            "auth": {
+                "mode": "public",
+                "exception_registration": null
+            },
+            "permissions": [],
+            "errors": [],
+            "middleware": [],
+            "source": {
+                "file": "server/route/app.php",
+                "line": 10
+            },
+            "documented": true,
+            "openapi_operation_id": "getPasswordPolicy",
             "contract_quality": "complete",
             "sdk_consumers": [
                 "web/src/generated/openapi.d.ts"
@@ -9232,7 +9274,7 @@
             "middleware": [],
             "source": {
                 "file": "server/route/app.php",
-                "line": 12
+                "line": 13
             },
             "documented": true,
             "openapi_operation_id": "getInstallationStatus",
@@ -19060,7 +19102,7 @@
             "middleware": [],
             "source": {
                 "file": "server/route/app.php",
-                "line": 17
+                "line": 18
             },
             "documented": true,
             "openapi_operation_id": "userLogin",
@@ -19102,7 +19144,7 @@
             "middleware": [],
             "source": {
                 "file": "server/route/app.php",
-                "line": 18
+                "line": 19
             },
             "documented": true,
             "openapi_operation_id": "adminLogout",
@@ -20530,7 +20572,7 @@
             "middleware": [],
             "source": {
                 "file": "server/route/app.php",
-                "line": 11
+                "line": 12
             },
             "documented": true,
             "openapi_operation_id": "configureInstallation",
@@ -20578,7 +20620,7 @@
             "middleware": [],
             "source": {
                 "file": "server/route/app.php",
-                "line": 13
+                "line": 14
             },
             "documented": true,
             "openapi_operation_id": "executeGuidedInstallation",

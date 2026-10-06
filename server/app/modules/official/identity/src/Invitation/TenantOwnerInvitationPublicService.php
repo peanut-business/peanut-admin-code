@@ -11,6 +11,7 @@ use DateTimeZone;
 use PeanutAdmin\Kernel\Audit\AuditOutcome;
 use PeanutAdmin\Kernel\Identity\EmailAddress;
 use PeanutAdmin\Kernel\Identity\PasswordHasher;
+use PeanutAdmin\Kernel\Identity\PasswordPolicy;
 use think\facade\Db;
 use PeanutAdmin\Modules\Identity\Tenancy\TenantStatus;
 
@@ -22,6 +23,7 @@ final class TenantOwnerInvitationPublicService
         private readonly TenantOwnerAdminProvisioner $applicationBootstrap,
         private readonly AuditContractHost $audit,
         private readonly PasswordHasher $passwords,
+        private readonly PasswordPolicy $passwordPolicy,
     ) {}
 
     /** @return array<string,mixed> */
@@ -102,6 +104,7 @@ final class TenantOwnerInvitationPublicService
                 if ($newAccountPassword === null || $newAccountPassword === '') {
                     return ['_error' => 'NEW_ACCOUNT_PASSWORD_REQUIRED'];
                 }
+                $this->passwordPolicy->assertValid($newAccountPassword);
                 $now = $this->format($this->now());
                 // MySQL BIGINT 自增值可能返回字符串，在进入严格身份合同前归一化。
                 $accountId = (int) Db::name('account')->insertGetId([

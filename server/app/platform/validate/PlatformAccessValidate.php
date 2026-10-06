@@ -5,16 +5,18 @@ declare(strict_types=1);
 namespace app\platform\validate;
 
 use think\Validate;
+use app\common\validate\PasswordRule;
 
 final class PlatformAccessValidate extends Validate
 {
+    use PasswordRule;
     protected $rule = [
         'operator_id' => 'require|integer|gt:0',
         'role_id' => 'require|integer|gt:0',
         'expected_revision' => 'require|integer|gt:0',
         'email' => 'require|email|max:255',
         'display_name' => 'require|max:120',
-        'initial_password' => 'length:12,128',
+        'initial_password' => 'passwordPolicy',
         'role_ids' => 'require|array|max:100',
         'permission_keys' => 'require|array|max:100',
         'key' => 'require|regex:/^platform\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?:\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*)*$/|max:96',

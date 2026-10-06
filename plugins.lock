@@ -305,7 +305,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "ae4e470960dcbcbc0e9b454528fc5df6cca9a0e1be5acfdb8223db8e0d0e308a"
+                "sha256": "ef68475f539836b7fa9d5d8863a60239178adcace2d805028e505c29798385f3"
             },
             "trust": {
                 "channel": "bundled",
@@ -375,7 +375,7 @@
                 }
             ],
             "manifest": "plugins/official.identity/plugin.json",
-            "manifest_sha256": "7cc26c4e6bb8c797720d86a58ed0f8356fb56ef1ef2c54689ae0992d6d82e788"
+            "manifest_sha256": "34454fbb98b16be128b2b646df28a67f8e5749e931d336b8dbf4583e3c61a542"
         },
         {
             "key": "official.import-export",
@@ -592,7 +592,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "63ad3d7564bc70d491982dd45890ff002bf77a2b67446cdce2d29fd10b9b659b"
+                "sha256": "53ef6b94bf74254a51585e70637d2e16f5443d4a1c6a3aa50c2d128a1b45ae43"
             },
             "trust": {
                 "channel": "bundled",
@@ -689,7 +689,7 @@
                 }
             ],
             "manifest": "plugins/official.member/plugin.json",
-            "manifest_sha256": "0473e8085c7cffed7df8d791157190bbd72db5d69c31b71774aaa6ad3dd02600"
+            "manifest_sha256": "172cfacb8756a1bec9da6c4bed73940bb5e2a8a500c34031db6000bd7a83b8bf"
         },
         {
             "key": "official.notification",
@@ -1610,7 +1610,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "dda454727286e17b1c337bd2387b652032721d3685d458c88636b60065a9d3d7"
+                "sha256": "9ef8fc2c043a1dc82b8a36c72dc86af6ee6b87732c5b9ca3900e9afdcd09b6ad"
             },
             "trust": {
                 "channel": "bundled",
@@ -1685,7 +1685,7 @@
                 }
             ],
             "manifest": "plugins/peanut.entitlement-quota/plugin.json",
-            "manifest_sha256": "abf5ba78c41db25e9324d9ef9da4ecc7fd2b902db7f7e246b69399c8697fad8f"
+            "manifest_sha256": "ff91094f9071c0e59dd623da43d5080e6d8682306ac15030cc5d1f07700fe443"
         },
         {
             "key": "peanut.workflow",

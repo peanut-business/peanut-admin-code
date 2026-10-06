@@ -2761,6 +2761,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/installapi/password-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Public effective password limits from the native container binding; available before and after installation. No credentials or instance configuration are returned. */
+        get: operations["getPasswordPolicy"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/installapi/configuration": {
         parameters: {
             query?: never;
@@ -6032,6 +6049,7 @@ export interface components {
             name: string;
             nickname?: string;
             avatar?: string;
+            /** @description Effective UTF-8 byte bounds from getPasswordPolicy. */
             password?: string;
             password_confirm?: string;
             role_id: components["schemas"]["IntegerList"];
@@ -6047,6 +6065,7 @@ export interface components {
             nickname: string;
             avatar?: string;
             password_old?: string;
+            /** @description Effective UTF-8 byte bounds from getPasswordPolicy. */
             password?: string;
             password_confirm?: string;
         };
@@ -6436,6 +6455,7 @@ export interface components {
         };
         InvitationAcceptRequest: {
             token: string;
+            /** @description Effective UTF-8 byte bounds from getPasswordPolicy. */
             new_account_password?: string;
         };
         InvitationAcceptance: {
@@ -6949,9 +6969,11 @@ export interface components {
         InstallationExecuteRequest: {
             /** Format: email */
             admin_email: string;
+            /** @description New password: effective UTF-8 byte bounds from getPasswordPolicy. */
             admin_password: string;
             /** Format: email */
             platform_email?: string;
+            /** @description New password: effective UTF-8 byte bounds from getPasswordPolicy. */
             platform_password?: string;
             official_modules?: string[];
         };
@@ -13842,6 +13864,7 @@ export interface operations {
                     /** Format: email */
                     email: string;
                     display_name: string;
+                    /** @description Effective UTF-8 byte bounds from getPasswordPolicy. */
                     initial_password?: string;
                 };
             };
@@ -14881,6 +14904,36 @@ export interface operations {
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getPasswordPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            minimum_length: number;
+                            maximum_length: number;
+                            /** @enum {string} */
+                            length_unit: "utf8_bytes";
+                        };
+                    };
+                };
+            };
         };
     };
     getInstallationConfiguration: {

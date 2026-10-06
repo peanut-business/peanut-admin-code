@@ -43,9 +43,11 @@ export default {
   'installation.submitting': 'Installing…',
   'installation.validation.required': 'This field is required',
   'installation.validation.email': 'Enter a valid email address',
-  'installation.validation.password': 'Password must be {min}–{max} UTF-8 bytes',
+  'installation.validation.password':
+    'Password must be {min}–{max} UTF-8 bytes',
   'installation.validation.policyLoading': 'Loading password requirements',
-  'installation.validation.policyUnavailable': 'Password requirements unavailable; please retry',
+  'installation.validation.policyUnavailable':
+    'Password requirements unavailable; please retry',
   'installation.error.title': 'Installation failed',
   'installation.error.retry': 'Check status and retry',
   'installation.success': 'Installation complete. Redirecting to login.',

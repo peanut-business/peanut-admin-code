@@ -97,9 +97,7 @@
                 :disabled="userStore.demoMode"
                 type="password"
                 show-password
-                :placeholder="
-                  passwordHint
-                "
+                :placeholder="passwordHint"
               />
             </el-form-item>
             <el-form-item
@@ -145,7 +143,11 @@
   import { Plus } from '@element-plus/icons-vue';
   import useLoading from '@/hooks/loading';
   import { useUserStore } from '@/store';
-  import { getPasswordPolicy, passwordWithinPolicy, type PasswordPolicy } from '@/api/password-policy';
+  import {
+    getPasswordPolicy,
+    passwordWithinPolicy,
+    type PasswordPolicy,
+  } from '@/api/password-policy';
   import { uploadFile, type FileRecord } from '@/modules/official-file/api';
   import {
     getAdminSelf,
@@ -180,12 +182,22 @@
   const pwdLoading = ref(false);
   const passwordPolicy = ref<PasswordPolicy | null>(null);
   const passwordPolicyError = ref('');
-  const passwordHint = computed(() => passwordPolicy.value
-    ? t('userSetting.security.error.length', { min: passwordPolicy.value.minimum_length, max: passwordPolicy.value.maximum_length })
-    : passwordPolicyError.value || t('userSetting.security.policyLoading'));
+  const passwordHint = computed(() =>
+    passwordPolicy.value
+      ? t('userSetting.security.error.length', {
+          min: passwordPolicy.value.minimum_length,
+          max: passwordPolicy.value.maximum_length,
+        })
+      : passwordPolicyError.value || t('userSetting.security.policyLoading')
+  );
   async function loadPasswordPolicy() {
-    try { passwordPolicy.value = await getPasswordPolicy(); passwordPolicyError.value = ''; }
-    catch { passwordPolicy.value = null; passwordPolicyError.value = t('userSetting.security.policyUnavailable'); }
+    try {
+      passwordPolicy.value = await getPasswordPolicy();
+      passwordPolicyError.value = '';
+    } catch {
+      passwordPolicy.value = null;
+      passwordPolicyError.value = t('userSetting.security.policyUnavailable');
+    }
   }
   loadPasswordPolicy();
   const pwdForm = reactive({
@@ -200,9 +212,17 @@
     password: [
       { required: true, message: t('userSetting.security.error.newRequired') },
       {
-        validator: (_rule: unknown, value: string, cb: (error?: Error) => void) =>
-          cb(passwordPolicy.value && passwordWithinPolicy(value, passwordPolicy.value)
-            ? undefined : new Error(passwordHint.value)),
+        validator: (
+          _rule: unknown,
+          value: string,
+          cb: (error?: Error) => void
+        ) =>
+          cb(
+            passwordPolicy.value &&
+              passwordWithinPolicy(value, passwordPolicy.value)
+              ? undefined
+              : new Error(passwordHint.value)
+          ),
       },
     ],
     password_confirm: [
@@ -269,7 +289,10 @@
   const savePassword = async () => {
     if (!passwordPolicy.value) {
       await loadPasswordPolicy();
-      if (!passwordPolicy.value) { ElMessage.error(passwordPolicyError.value); return; }
+      if (!passwordPolicy.value) {
+        ElMessage.error(passwordPolicyError.value);
+        return;
+      }
     }
     const valid = await pwdRef.value?.validate().catch(() => false);
     if (!valid) return;

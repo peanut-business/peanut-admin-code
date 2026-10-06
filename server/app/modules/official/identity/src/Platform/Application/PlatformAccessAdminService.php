@@ -13,6 +13,7 @@ use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
 use PeanutAdmin\Kernel\Context\PlatformContext;
 use PeanutAdmin\Kernel\Identity\EmailAddress;
 use PeanutAdmin\Kernel\Identity\PasswordHasher;
+use PeanutAdmin\Kernel\Identity\PasswordPolicy;
 use PeanutAdmin\Modules\Identity\Platform\PlatformOperatorStatus;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Account;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Credential;
@@ -40,7 +41,8 @@ final readonly class PlatformAccessAdminService
 
     public function __construct(
         private AuditService $audit,
-        private PasswordHasher $passwords = new PasswordHasher(),
+        private PasswordHasher $passwords,
+        private PasswordPolicy $passwordPolicy,
     ) {}
 
     /** @return array<string, mixed> */
@@ -464,6 +466,7 @@ final readonly class PlatformAccessAdminService
 
     private function createAccountAndCredential(string $email, string $displayName, string $password): int
     {
+        $this->passwordPolicy->assertValid($password);
         $now = $this->now();
         $accountId = (int) Account::insertGetId([
             'display_name' => $displayName, 'status' => 'active', 'created_at' => $now, 'updated_at' => $now,

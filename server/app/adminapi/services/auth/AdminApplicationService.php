@@ -15,6 +15,7 @@ use app\common\support\PaginationInput;
 use app\common\support\PositiveIds;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Modules\Identity\Membership\Application\MemberAdminService;
+use PeanutAdmin\Kernel\Identity\PasswordPolicy;
 
 /** 管理员界面编排；账户、成员资料、角色及状态由 Core 聚合命令原子写入。 */
 final class AdminApplicationService
@@ -27,6 +28,7 @@ final class AdminApplicationService
         private readonly AdminDirectoryQuery $directory,
         private readonly TenantAdminRuntime $tenantAdmins,
         private readonly FileReferences $files,
+        private readonly PasswordPolicy $passwords,
     ) {}
 
     public function normalizeInput(array $params): array
@@ -45,7 +47,17 @@ final class AdminApplicationService
             'account' => 'require|email|max:255',
             'name' => 'require|length:1,120',
             'avatar' => 'max:512',
-            'password' => 'length:12,128',
+            'password' => [function ($value): bool|string {
+                if (!is_string($value)) {
+                    return '密码必须是字符串';
+                }
+                try {
+                    $this->passwords->assertValid($value);
+                    return true;
+                } catch (\RuntimeException $exception) {
+                    return $exception->getMessage();
+                }
+            }],
             'password_confirm' => 'requireWith:password|confirm',
             'role_id' => 'array',
             'dept_id' => 'array',
@@ -54,7 +66,7 @@ final class AdminApplicationService
             'multipoint_login' => 'require|in:0,1',
         ];
         if ($scene === 'add') {
-            $rules['password'] .= '|require';
+            $rules['password'][] = 'require';
             $rules['role_id'] .= '|require';
             unset($rules['id']);
         }

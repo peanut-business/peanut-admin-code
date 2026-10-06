@@ -10,7 +10,7 @@ use PeanutAdmin\Kernel\Override\ServiceOverride;
 use PeanutAdmin\Kernel\Override\ServiceOverrideRegistry;
 use PeanutAdmin\Kernel\Override\ServiceOverrideSlot;
 
-/** 应用后端对核心服务的唯一覆盖入口。 */
+/** Versioned permission-policy slots; resolved bindings use the native framework container. */
 final class CoreServiceOverrides
 {
     public const ADMIN_PERMISSION_POLICY = 'authorization.permission.service.policy';
@@ -23,12 +23,6 @@ final class CoreServiceOverrides
     {
         self::$configuredOverrides = $overrides;
         self::$registry = null;
-    }
-
-    public static function adminPermissionPolicy(): AdminPermissionPolicy
-    {
-        $implementation = self::registry()->implementation(self::ADMIN_PERMISSION_POLICY);
-        return new $implementation();
     }
 
     public static function registry(): ServiceOverrideRegistry

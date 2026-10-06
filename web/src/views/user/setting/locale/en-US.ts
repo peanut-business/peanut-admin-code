@@ -95,8 +95,7 @@ export default {
   'userSetting.security.oldPassword': 'Current Password',
   'userSetting.security.oldPassword.placeholder': 'Enter current password',
   'userSetting.security.newPassword': 'New Password',
-  'userSetting.security.newPassword.placeholder':
-    'Enter new password',
+  'userSetting.security.newPassword.placeholder': 'Enter new password',
   'userSetting.security.confirmPassword': 'Confirm New Password',
   'userSetting.security.confirmPassword.placeholder':
     'Enter new password again',
@@ -105,9 +104,11 @@ export default {
     'Demo account passwords are locked and cannot be changed here.',
   'userSetting.security.error.oldRequired': 'Please enter current password',
   'userSetting.security.error.newRequired': 'Please enter new password',
-  'userSetting.security.error.length': 'Password must be {min}–{max} UTF-8 bytes',
+  'userSetting.security.error.length':
+    'Password must be {min}–{max} UTF-8 bytes',
   'userSetting.security.policyLoading': 'Loading password requirements',
-  'userSetting.security.policyUnavailable': 'Password requirements unavailable; please retry',
+  'userSetting.security.policyUnavailable':
+    'Password requirements unavailable; please retry',
   'userSetting.security.error.confirmRequired': 'Please confirm new password',
   'userSetting.security.error.mismatch': 'Passwords do not match',
 };

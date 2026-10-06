@@ -43,18 +43,29 @@
 <script setup lang="ts">
   import { computed, ref } from 'vue';
   import { onShow } from '@dcloudio/uni-app';
-  import { getPasswordPolicy, passwordWithinPolicy, type PasswordPolicy } from '@/api/password-policy';
+  import {
+    getPasswordPolicy,
+    passwordWithinPolicy,
+    type PasswordPolicy,
+  } from '@/api/password-policy';
   import { changePassword } from '@/api/user';
 
   const loading = ref(false);
   const passwordPolicy = ref<PasswordPolicy | null>(null);
   const passwordPolicyError = ref('');
-  const passwordHint = computed(() => passwordPolicy.value
-    ? `密码须为 ${passwordPolicy.value.minimum_length}～${passwordPolicy.value.maximum_length} 个 UTF-8 字节`
-    : passwordPolicyError.value || '正在读取密码要求');
+  const passwordHint = computed(() =>
+    passwordPolicy.value
+      ? `密码须为 ${passwordPolicy.value.minimum_length}～${passwordPolicy.value.maximum_length} 个 UTF-8 字节`
+      : passwordPolicyError.value || '正在读取密码要求'
+  );
   async function loadPasswordPolicy() {
-    try { passwordPolicy.value = await getPasswordPolicy(); passwordPolicyError.value = ''; }
-    catch { passwordPolicy.value = null; passwordPolicyError.value = '无法读取密码要求，请重试'; }
+    try {
+      passwordPolicy.value = await getPasswordPolicy();
+      passwordPolicyError.value = '';
+    } catch {
+      passwordPolicy.value = null;
+      passwordPolicyError.value = '无法读取密码要求，请重试';
+    }
   }
   onShow(loadPasswordPolicy);
   const form = ref({
@@ -66,7 +77,11 @@
   async function handleSubmit() {
     if (!passwordPolicy.value) {
       await loadPasswordPolicy();
-      if (!passwordPolicy.value) return uni.showToast({ title: passwordPolicyError.value, icon: 'none' });
+      if (!passwordPolicy.value)
+        return uni.showToast({
+          title: passwordPolicyError.value,
+          icon: 'none',
+        });
     }
     if (!form.value.old_password)
       return uni.showToast({ title: '请输入原密码', icon: 'none' });

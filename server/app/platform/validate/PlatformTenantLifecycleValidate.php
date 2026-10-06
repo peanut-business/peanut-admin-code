@@ -5,14 +5,16 @@ declare(strict_types=1);
 namespace app\platform\validate;
 
 use think\Validate;
+use app\common\validate\PasswordRule;
 
 final class PlatformTenantLifecycleValidate extends Validate
 {
+    use PasswordRule;
     protected $rule = [
         'tenant_code' => 'require|regex:/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/|max:64',
         'tenant_name' => 'require|max:190',
         'owner_email' => 'require|email|max:255',
-        'initial_password' => 'length:12,128',
+        'initial_password' => 'passwordPolicy',
         'owner_display_name' => 'require|max:190',
         'tenant_id' => 'require|integer|gt:0',
         'expected_revision' => 'require|integer|gt:0',

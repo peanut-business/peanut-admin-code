@@ -10,6 +10,7 @@ use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
 use PeanutAdmin\Kernel\Identity\PasswordHasher;
+use PeanutAdmin\Kernel\Identity\PasswordPolicy;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Account;
 use PeanutAdmin\Modules\Identity\Persistence\Model\AuthSecurityEvent;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Credential;
@@ -33,7 +34,8 @@ final readonly class AccountSelfService
 
     public function __construct(
         private AuditService $audit,
-        private PasswordHasher $passwords = new PasswordHasher(),
+        private PasswordHasher $passwords,
+        private PasswordPolicy $passwordPolicy,
     ) {}
 
     /** @return array<string, mixed> */
@@ -151,18 +153,18 @@ final readonly class AccountSelfService
         string $ipAddress,
         ?string $userAgent,
     ): void {
-        if ($currentPassword === '' || strlen($currentPassword) > 1_024) {
+        if ($currentPassword === '' || strlen($currentPassword) > PasswordHasher::MAXIMUM_INPUT_BYTES) {
             throw AdminAccessException::invalid('CURRENT_PASSWORD_INVALID', 'The current password is invalid.');
         }
         try {
-            $this->passwords->assertValid($newPassword);
+            $this->passwordPolicy->assertValid($newPassword);
         } catch (\RuntimeException) {
             throw AdminAccessException::invalid(
                 'NEW_PASSWORD_INVALID',
                 sprintf(
                     'The new password must contain between %d and %d bytes.',
-                    $this->passwords->minimumLength(),
-                    $this->passwords->maximumLength(),
+                    $this->passwordPolicy->minimumLength(),
+                    $this->passwordPolicy->maximumLength(),
                 ),
             );
         }

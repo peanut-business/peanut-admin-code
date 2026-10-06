@@ -243,7 +243,11 @@
     shouldShowInstallation,
   } from '@/core/installation';
   import { useBrandStore } from '@/store';
-  import { getPasswordPolicy, passwordWithinPolicy, type PasswordPolicy } from '@/api/password-policy';
+  import {
+    getPasswordPolicy,
+    passwordWithinPolicy,
+    type PasswordPolicy,
+  } from '@/api/password-policy';
 
   interface ModuleOption {
     key: string;
@@ -263,16 +267,23 @@
   const errorMessage = ref('');
   const passwordPolicy = ref<PasswordPolicy | null>(null);
   const passwordPolicyError = ref('');
-  const passwordHint = computed(() => passwordPolicy.value
-    ? t('installation.validation.password', { min: passwordPolicy.value.minimum_length, max: passwordPolicy.value.maximum_length })
-    : passwordPolicyError.value || t('installation.validation.policyLoading'));
+  const passwordHint = computed(() =>
+    passwordPolicy.value
+      ? t('installation.validation.password', {
+          min: passwordPolicy.value.minimum_length,
+          max: passwordPolicy.value.maximum_length,
+        })
+      : passwordPolicyError.value || t('installation.validation.policyLoading')
+  );
   async function loadPasswordPolicy() {
     try {
       passwordPolicy.value = await getPasswordPolicy();
       passwordPolicyError.value = '';
     } catch {
       passwordPolicy.value = null;
-      passwordPolicyError.value = t('installation.validation.policyUnavailable');
+      passwordPolicyError.value = t(
+        'installation.validation.policyUnavailable'
+      );
     }
   }
   const form = reactive({
@@ -401,9 +412,17 @@
           trigger: 'blur',
         },
         {
-          validator: (_rule, value: string, callback: (error?: Error) => void) =>
-            callback(passwordPolicy.value && passwordWithinPolicy(value, passwordPolicy.value)
-              ? undefined : new Error(passwordHint.value)),
+          validator: (
+            _rule,
+            value: string,
+            callback: (error?: Error) => void
+          ) =>
+            callback(
+              passwordPolicy.value &&
+                passwordWithinPolicy(value, passwordPolicy.value)
+                ? undefined
+                : new Error(passwordHint.value)
+            ),
           trigger: 'blur',
         },
       ],
@@ -428,9 +447,17 @@
           trigger: 'blur',
         },
         {
-          validator: (_rule, value: string, callback: (error?: Error) => void) =>
-            callback(passwordPolicy.value && passwordWithinPolicy(value, passwordPolicy.value)
-              ? undefined : new Error(passwordHint.value)),
+          validator: (
+            _rule,
+            value: string,
+            callback: (error?: Error) => void
+          ) =>
+            callback(
+              passwordPolicy.value &&
+                passwordWithinPolicy(value, passwordPolicy.value)
+                ? undefined
+                : new Error(passwordHint.value)
+            ),
           trigger: 'blur',
         },
       ];
@@ -484,7 +511,10 @@
     if (submitting.value || !readyForForm.value) return;
     if (!passwordPolicy.value) {
       await loadPasswordPolicy();
-      if (!passwordPolicy.value) { errorMessage.value = passwordPolicyError.value; return; }
+      if (!passwordPolicy.value) {
+        errorMessage.value = passwordPolicyError.value;
+        return;
+      }
     }
     const valid = await installationForm.value?.validate().catch(() => false);
     if (!valid) return;

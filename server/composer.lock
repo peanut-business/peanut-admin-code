@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "71e9cfd74b4eb466e42d50ba372e9b41",
+    "content-hash": "cc51cdc880a4dda9ae2bf15166994ef8",
     "packages": [
         {
             "name": "aliyuncs/oss-sdk-php",
@@ -1478,16 +1478,16 @@
         },
         {
             "name": "peanut-admin/core",
-            "version": "v4.0.0",
+            "version": "dev-dev",
             "source": {
                 "type": "git",
                 "url": "https://github.com/peanut-business/peanut-admin-core-php.git",
-                "reference": "c3cc5a73216cd3c355e7b067a32adbe6e2fd654d"
+                "reference": "bb4e8816862dcefe4340bfedf146ca3aac13b586"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/peanut-business/peanut-admin-core-php/zipball/c3cc5a73216cd3c355e7b067a32adbe6e2fd654d",
-                "reference": "c3cc5a73216cd3c355e7b067a32adbe6e2fd654d",
+                "url": "https://api.github.com/repos/peanut-business/peanut-admin-core-php/zipball/bb4e8816862dcefe4340bfedf146ca3aac13b586",
+                "reference": "bb4e8816862dcefe4340bfedf146ca3aac13b586",
                 "shasum": ""
             },
             "require": {
@@ -1508,6 +1508,7 @@
                 "qcloud/cos-sdk-v5": "Required by hosts that construct QcloudStorageDriver.",
                 "qiniu/php-sdk": "Required by hosts that construct QiniuStorageDriver."
             },
+            "default-branch": true,
             "type": "library",
             "autoload": {
                 "psr-4": {
@@ -1536,7 +1537,7 @@
                 "source": "https://github.com/peanut-business/peanut-admin-core-php",
                 "issues": "https://github.com/peanut-business/peanut-admin-core-php/issues"
             },
-            "time": "2026-10-04T15:49:34+00:00"
+            "time": "2026-10-06T02:20:26+00:00"
         },
         {
             "name": "psr/container",
@@ -4577,7 +4578,9 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {},
+    "stability-flags": {
+        "peanut-admin/core": 20
+    },
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {

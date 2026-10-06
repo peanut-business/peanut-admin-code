@@ -222,7 +222,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 17
+                        "line": 18
                     }
                 },
                 "x-peanut-permissions": []
@@ -3548,7 +3548,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 18
+                        "line": 19
                     }
                 },
                 "x-peanut-permissions": []
@@ -12813,8 +12813,7 @@
                                     },
                                     "initial_password": {
                                         "type": "string",
-                                        "minLength": 12,
-                                        "maxLength": 128
+                                        "description": "Effective UTF-8 byte bounds from getPasswordPolicy."
                                     }
                                 }
                             }
@@ -15856,6 +15855,86 @@
                 ]
             }
         },
+        "/installapi/password-policy": {
+            "get": {
+                "tags": [
+                    "Installation"
+                ],
+                "operationId": "getPasswordPolicy",
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": [
+                                                "minimum_length",
+                                                "maximum_length",
+                                                "length_unit"
+                                            ],
+                                            "properties": {
+                                                "minimum_length": {
+                                                    "type": "integer",
+                                                    "minimum": 1
+                                                },
+                                                "maximum_length": {
+                                                    "type": "integer",
+                                                    "minimum": 1
+                                                },
+                                                "length_unit": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "utf8_bytes"
+                                                    ]
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "Public effective password limits from the native container binding; available before and after installation. No credentials or instance configuration are returned.",
+                "security": [],
+                "x-peanut-route": {
+                    "application": "installation",
+                    "owner": {
+                        "type": "application",
+                        "key": "installation"
+                    },
+                    "controller": "app\\installation\\controller\\InstallationController",
+                    "action": "passwordPolicy",
+                    "permission": null,
+                    "source": {
+                        "file": "server/route/app.php",
+                        "line": 10
+                    }
+                },
+                "x-peanut-permissions": []
+            }
+        },
         "/installapi/configuration": {
             "get": {
                 "tags": [
@@ -15911,7 +15990,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 10
+                        "line": 11
                     }
                 },
                 "x-peanut-permissions": []
@@ -16007,7 +16086,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 11
+                        "line": 12
                     }
                 },
                 "x-peanut-permissions": []
@@ -16068,7 +16147,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 12
+                        "line": 13
                     }
                 },
                 "x-peanut-permissions": []
@@ -16173,7 +16252,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 13
+                        "line": 14
                     }
                 },
                 "x-peanut-permissions": []
@@ -32943,8 +33022,7 @@
                     },
                     "password": {
                         "type": "string",
-                        "minLength": 12,
-                        "maxLength": 128
+                        "description": "Effective UTF-8 byte bounds from getPasswordPolicy."
                     },
                     "password_confirm": {
                         "type": "string"
@@ -32997,8 +33075,7 @@
                     },
                     "password": {
                         "type": "string",
-                        "minLength": 12,
-                        "maxLength": 128
+                        "description": "Effective UTF-8 byte bounds from getPasswordPolicy."
                     },
                     "password_confirm": {
                         "type": "string"
@@ -34530,8 +34607,7 @@
                     },
                     "new_account_password": {
                         "type": "string",
-                        "minLength": 12,
-                        "maxLength": 128
+                        "description": "Effective UTF-8 byte bounds from getPasswordPolicy."
                     }
                 }
             },
@@ -34647,8 +34723,7 @@
                     },
                     "password": {
                         "type": "string",
-                        "minLength": 1,
-                        "maxLength": 128
+                        "minLength": 1
                     }
                 }
             },
@@ -36601,7 +36676,7 @@
                     },
                     "admin_password": {
                         "type": "string",
-                        "minLength": 12
+                        "description": "New password: effective UTF-8 byte bounds from getPasswordPolicy."
                     },
                     "platform_email": {
                         "type": "string",
@@ -36609,7 +36684,7 @@
                     },
                     "platform_password": {
                         "type": "string",
-                        "minLength": 10
+                        "description": "New password: effective UTF-8 byte bounds from getPasswordPolicy."
                     },
                     "official_modules": {
                         "type": "array",

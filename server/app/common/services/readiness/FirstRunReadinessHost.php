@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace app\common\services\readiness;
 
 use PeanutAdmin\Modules\Notification\Contract\NotificationQueries;
-use app\common\security\ApplicationPasswordPolicy;
+use PeanutAdmin\Kernel\Identity\PasswordPolicy;
 use app\common\infrastructure\authorization\CoreTenantModuleAdminBridge;
 use PeanutAdmin\Modules\Settings\Service\WebsiteConfigService;
 use PeanutAdmin\Kernel\Context\AuthenticatedMemberContext;
@@ -27,6 +27,7 @@ final class FirstRunReadinessHost
         private readonly StorageConfiguration $storage,
         private readonly WebsiteConfigService $website,
         private readonly InstanceSafetyQueries $instanceSafety,
+        private readonly PasswordPolicy $passwords,
     ) {}
 
     /** @return array{production_ready:bool,summary:array<string,int>,items:list<array<string,mixed>>} */
@@ -235,8 +236,9 @@ final class FirstRunReadinessHost
             false,
             $this->routeEntry('/user/setting', 'tenant_admin'),
             [
-                'minimum_password_length' => ApplicationPasswordPolicy::MINIMUM_LENGTH,
-                'maximum_password_length' => ApplicationPasswordPolicy::MAXIMUM_LENGTH,
+                'minimum_password_length' => $this->passwords->minimumLength(),
+                'maximum_password_length' => $this->passwords->maximumLength(),
+                'password_length_unit' => 'utf8_bytes',
                 'login_attempt_lock_enabled' => true,
                 'mfa_available' => false,
                 'credential_strength_verified' => false,

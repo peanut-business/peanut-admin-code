@@ -72,10 +72,8 @@ final class ReleaseDependencyIdentity
             }
             $mode = $current;
         }
-        // 原生发布身份不能与 PHP 浮动开发分支拼成一个完整发布候选。
-        if ($mode === 'registry' && !$fixed) {
-            throw new RuntimeException($phpError);
-        }
+        // Independently pinned PHP source and Web registry artifacts are valid development inputs.
+        // Published packaging separately requires an exact released PHP version; see package-release-files.py.
         return $mode;
     }
 

@@ -5,18 +5,20 @@ declare(strict_types=1);
 namespace app\adminapi\validate\auth;
 
 use app\common\validate\PageSizeRule;
+use app\common\validate\PasswordRule;
 use think\Validate;
 
 class AdminValidate extends Validate
 {
     use PageSizeRule;
+    use PasswordRule;
 
     protected $rule = [
         'id' => 'require|integer|gt:0',
         'account' => 'require|email|max:255',
         'name' => 'require|length:1,120',
         'avatar' => 'max:512',
-        'password' => 'length:12,128',
+        'password' => 'passwordPolicy',
         'password_confirm' => 'requireWith:password|checkPasswordConfirm',
         'role_id' => 'array',
         'dept_id' => 'array',
@@ -44,7 +46,6 @@ class AdminValidate extends Validate
         'name.length' => '名称须在1-16位字符',
         'avatar.max' => '头像地址不能超过255个字符',
         'password.require' => '密码不能为空',
-        'password.length' => '密码长度须在12-128位字符（演示环境使用固定演示密码）',
         'password_confirm.requireWith' => '确认密码不能为空',
         'role_id.require' => '请选择角色',
         'role_id.array' => '角色格式错误',

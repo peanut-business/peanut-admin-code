@@ -34,7 +34,6 @@ use app\common\infrastructure\idempotency\ThinkPhpIdempotentCommandExecutor;
 use app\common\services\installation\InstallationExecutionHost;
 use app\common\services\installation\InstallationConfigurationHost;
 use app\common\infrastructure\module\ModuleExecutionBoundary;
-use app\common\security\ApplicationPasswordPolicy;
 use app\common\composition\CoreServiceOverrides;
 use app\common\services\CrontabCommandService;
 use PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy;
@@ -113,7 +112,7 @@ use PeanutAdmin\Modules\Identity\Auth\Persistence\ThinkPhpPlatformAuthRepository
 use PeanutAdmin\Modules\Identity\Auth\PlatformAuthRepository;
 use PeanutAdmin\Modules\Identity\Auth\TenantAuthRepository;
 use PeanutAdmin\Modules\Identity\Auth\PlatformAuthService;
-use PeanutAdmin\Kernel\Auth\SystemClock;
+use PeanutAdmin\Kernel\Auth\Clock;
 use PeanutAdmin\Modules\Identity\Auth\TenantAuthService;
 use PeanutAdmin\Kernel\Auth\TokenIssuer;
 use PeanutAdmin\Modules\Identity\Authorization\Application\RoleAdminService;
@@ -177,7 +176,11 @@ class AppService extends Service
         $this->app->instance(CurrentExecutionContext::class, $current);
         $configuredOverrides = Config::get('peanut.overrides', []);
         CoreServiceOverrides::configure(is_array($configuredOverrides) ? $configuredOverrides : []);
-        $this->app->bind(PasswordHasher::class, fn(): PasswordHasher => ApplicationPasswordPolicy::hasher());
+        foreach (CoreServiceOverrides::registry()->bindings() as $contract => $implementation) {
+            if (!$this->app->bound($contract)) {
+                $this->app->bind($contract, $implementation);
+            }
+        }
         $this->app->bind(ModuleCatalogApplier::class, fn(): ModuleCatalogApplier => new ModuleCatalogApplier(
             $this->app->make(SettingCatalogService::class),
             new ModuleAuthorizationCatalogSynchronizer(
@@ -247,9 +250,9 @@ class AppService extends Service
             }
             return new TenantAuthService(
                 $this->app->make(TenantAuthRepository::class),
-                ApplicationPasswordPolicy::hasher(),
-                new SystemClock(),
-                new TokenIssuer(),
+                $this->app->make(PasswordHasher::class),
+                $this->app->make(Clock::class),
+                $this->app->make(TokenIssuer::class),
                 $key,
             );
         });
@@ -273,8 +276,6 @@ class AppService extends Service
         // Cross-Tenant read capabilities are server registrations supplied by source Modules.
         // The base product intentionally starts empty, so unknown/wide scopes fail closed.
         $this->app->instance(SourceReadCapabilityRegistry::class, new SourceReadCapabilityRegistry([]));
-        $this->app->bind(AdminPermissionPolicy::class, fn(): AdminPermissionPolicy =>
-            CoreServiceOverrides::adminPermissionPolicy());
         $this->app->bind(\PeanutAdmin\Kernel\Authorization\TenantAuthorizationRepository::class, ThinkPhpTenantAuthorizationRepository::class);
         $this->app->bind(
             \PeanutAdmin\Kernel\Authorization\Persistence\AuthorizationCatalogRepository::class,
@@ -306,8 +307,8 @@ class AppService extends Service
             $this->app->make(CurrentExecutionContext::class),
         ));
         $this->app->bind(TenantAdminRuntime::class, fn(): TenantAdminRuntime => new TenantAdminRuntime(
-            new MemberAdminService($this->app->make(AuditService::class), $this->app->make(PasswordHasher::class)),
-            new AccountSelfService($this->app->make(AuditService::class), $this->app->make(PasswordHasher::class)),
+            $this->app->make(MemberAdminService::class),
+            $this->app->make(AccountSelfService::class),
             $this->app->make(DemoAccountPolicy::class),
         ));
         $this->app->bind(AdminApiAccessRegistry::class, function (): AdminApiAccessRegistry {
@@ -395,8 +396,8 @@ class AppService extends Service
         $this->app->bind(PlatformAuthService::class, fn(): PlatformAuthService => new PlatformAuthService(
             $this->app->make(PlatformAuthRepository::class),
             $this->app->make(PasswordHasher::class),
-            new SystemClock(),
-            new TokenIssuer(),
+            $this->app->make(Clock::class),
+            $this->app->make(TokenIssuer::class),
             $this->platformIdentifierHmacKey(),
         ));
         $this->app->bind(PlatformOperatorIdentityPort::class, CorePlatformOperatorIdentityPort::class);
@@ -417,10 +418,6 @@ class AppService extends Service
                 $this->app->make(DeployedTenantModuleRegistry::class),
             ),
             $this->app->make(OpisTenantModuleConfigValidator::class),
-        ));
-        $this->app->bind(TenantOwnerAdminService::class, fn(): TenantOwnerAdminService => new TenantOwnerAdminService(
-            $this->app->make(AuditService::class),
-            $this->app->make(PasswordHasher::class),
         ));
         $this->app->bind(PluginCatalogSyncService::class, fn(): PluginCatalogSyncService =>
             new PluginCatalogSyncService(

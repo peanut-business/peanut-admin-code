@@ -10,6 +10,7 @@ use app\common\services\installation\InstallationExecutionHost;
 use app\common\services\installation\InstallationConfigurationHost;
 use think\facade\Config;
 use think\App;
+use PeanutAdmin\Kernel\Identity\PasswordPolicy;
 
 final class InstallationController extends BaseController
 {
@@ -26,6 +27,16 @@ final class InstallationController extends BaseController
     public function configuration()
     {
         return $this->data($this->configuration->status());
+    }
+
+    /** Public limits only; shares the same resolved implementation as credential writes. */
+    public function passwordPolicy(PasswordPolicy $passwords)
+    {
+        return $this->data([
+            'minimum_length' => $passwords->minimumLength(),
+            'maximum_length' => $passwords->maximumLength(),
+            'length_unit' => 'utf8_bytes',
+        ]);
     }
 
     public function configure()

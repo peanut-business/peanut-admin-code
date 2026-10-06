@@ -81,9 +81,7 @@ function validateInitialAdminPassword(string $password): void
         }
         return;
     }
-    if (strlen($password) < 12) {
-        throw new RuntimeException('ADMIN_INITIAL_PASSWORD 至少 12 位');
-    }
+    Container::getInstance()->make(\PeanutAdmin\Kernel\Identity\PasswordPolicy::class)->assertValid($password);
 }
 
 /** @return array{email:string,password:string}|null */
@@ -113,9 +111,7 @@ function initialPlatformCredentials(string $serverDir, string $adminEmail): ?arr
         }
         return ['email' => $email, 'password' => (string) $password];
     }
-    if (strlen((string) $password) < 12) {
-        throw new RuntimeException('PLATFORM_INITIAL_PASSWORD 至少 12 位');
-    }
+    Container::getInstance()->make(\PeanutAdmin\Kernel\Identity\PasswordPolicy::class)->assertValid((string) $password);
 
     return ['email' => $email, 'password' => (string) $password];
 }
@@ -167,8 +163,8 @@ function normalizeInstallationCredentials(array $input): array
         if ($platformPassword !== 'peanut1234') {
             throw new RuntimeException('演示模式的 Platform 初始密码必须统一为 peanut1234');
         }
-    } elseif (strlen($platformPassword) < 12) {
-        throw new RuntimeException('PLATFORM_INITIAL_PASSWORD 至少 12 位');
+    } else {
+        Container::getInstance()->make(\PeanutAdmin\Kernel\Identity\PasswordPolicy::class)->assertValid($platformPassword);
     }
 
     return [
@@ -387,9 +383,7 @@ function initializeCoreIdentity(
     ensureTenantChallengeClientKey($pdo);
     $pdo->exec(KernelSchema::addTenantMemberDepartmentForeignKeySql());
 
-    $service = new BootstrapService(
-        passwords: \app\common\security\ApplicationPasswordPolicy::hasher(),
-    );
+    $service = Container::getInstance()->make(BootstrapService::class);
     $separatePlatformOperator = $platformCredentials !== null;
     $demoBootstrapPassword = $demoAccounts->enabled()
         ? $demoAccounts->bootstrapPassword()

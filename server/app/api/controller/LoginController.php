@@ -89,7 +89,7 @@ class LoginController extends BaseApiController
             'password' => $this->request->post('password/s', ''),
         ];
         if (!preg_match('/^1[3-9]\d{9}$/', $params['mobile'])
-            || $params['code'] === '' || strlen($params['password']) < 6) {
+            || $params['code'] === '' || $params['password'] === '') {
             throw BusinessException::invalid('MEMBER_PASSWORD_RESET_INVALID', '手机号、验证码或新密码格式不正确');
         }
 

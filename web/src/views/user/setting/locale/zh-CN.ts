@@ -93,7 +93,8 @@ export default {
     '演示环境账号密码已锁定，不能在页面中修改。',
   'userSetting.security.error.oldRequired': '请输入当前密码',
   'userSetting.security.error.newRequired': '请输入新密码',
-  'userSetting.security.error.length': '密码长度须为 {min}～{max} 个 UTF-8 字节',
+  'userSetting.security.error.length':
+    '密码长度须为 {min}～{max} 个 UTF-8 字节',
   'userSetting.security.policyLoading': '正在读取密码要求',
   'userSetting.security.policyUnavailable': '无法读取密码要求，请重试',
   'userSetting.security.error.confirmRequired': '请再次输入新密码',

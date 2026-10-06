@@ -12,6 +12,7 @@ use PeanutAdmin\Modules\Identity\Identity\AccountStatus;
 use PeanutAdmin\Modules\Identity\Identity\CredentialStatus;
 use PeanutAdmin\Kernel\Identity\EmailAddress;
 use PeanutAdmin\Kernel\Identity\PasswordHasher;
+use PeanutAdmin\Kernel\Identity\PasswordPolicy;
 use PeanutAdmin\Modules\Identity\Membership\TenantMemberStatus;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Account;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Credential;
@@ -36,8 +37,9 @@ final readonly class BootstrapService
     private const PLATFORM_BOOTSTRAP_LOCK = 'peanut-admin:bootstrap:platform-owner';
 
     public function __construct(
-        private AuditService $audit = new AuditService(),
-        private PasswordHasher $passwords = new PasswordHasher(),
+        private AuditService $audit,
+        private PasswordHasher $passwords,
+        private PasswordPolicy $passwordPolicy,
     ) {}
 
     public function bootstrapPlatformOwner(
@@ -65,6 +67,7 @@ final readonly class BootstrapService
                     ->lock(true)
                     ->find();
                 if (!$credential instanceof Credential) {
+                    $this->passwordPolicy->assertValid($plainPassword);
                     $account = new Account();
                     $now = $this->now();
                     $account->save(['display_name' => $displayName, 'created_at' => $now, 'updated_at' => $now]);
@@ -185,6 +188,7 @@ final readonly class BootstrapService
                 if ($initialPassword === null) {
                     throw new DomainException('Initial password is required for a new account.');
                 }
+                $this->passwordPolicy->assertValid($initialPassword);
                 $account = new Account();
                 $account->save(['display_name' => $ownerDisplayName, 'created_at' => $now, 'updated_at' => $now]);
                 $accountId = (int) $account->getKey();

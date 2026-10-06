@@ -19,7 +19,6 @@ use PeanutAdmin\Modules\EntitlementQuota\Persistence\ThinkPhpEntitlementQuotaRep
 use PeanutAdmin\Kernel\Api\ApiException;
 use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use PeanutAdmin\Kernel\Auth\Clock;
-use PeanutAdmin\Kernel\Auth\SystemClock;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
 use PeanutAdmin\Kernel\Idempotency\IdempotencyKey;
 use PeanutAdmin\Kernel\Idempotency\IdempotencyService;
@@ -39,9 +38,9 @@ final readonly class EntitlementQuotaService
         private EntitlementPolicyProvider $policies,
         private IdempotencyService $idempotency,
         private AuditService $audit,
-        ?Clock $clock = null,
+        Clock $clock,
     ) {
-        $this->clock = $clock ?? new SystemClock();
+        $this->clock = $clock;
     }
 
     public function check(
