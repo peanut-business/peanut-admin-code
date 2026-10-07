@@ -924,11 +924,11 @@
         },
         {
             "key": "official.ops",
-            "version": "1.0.11",
+            "version": "1.0.12",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "89fb26b7e53014cae8e02d24426d0a1e37b7769e228397843317c6bde75ce8d1"
+                "sha256": "d3e2c2d1755d72297e08dcb3c4a5e1687f1952256e3117004be97cdd33d6cd36"
             },
             "trust": {
                 "channel": "bundled",
@@ -962,7 +962,7 @@
                     "modules": [
                         {
                             "key": "official.ops",
-                            "version": "1.0.11",
+                            "version": "1.0.12",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
@@ -996,15 +996,15 @@
             "npm": [
                 {
                     "name": "@peanut-admin/official-ops",
-                    "version": "1.0.2",
-                    "integrity": "sha256-VHXavWRe5W1TjAPsH6UvX1EdkUFw8SBHD/ytesUWRSw="
+                    "version": "1.0.3",
+                    "integrity": "sha256-qogqJKxCITCxMz5ufOklJR9Sg8pL0vYlWhKSjcXAlFs="
                 }
             ],
             "frontend": [
                 {
                     "client_key": "platform-web",
                     "package": "@peanut-admin/official-ops",
-                    "version": "1.0.2",
+                    "version": "1.0.3",
                     "entry": "platform/src/modules/official-ops/contribution.ts",
                     "sha256": "45a285f08ccefa5961bc2705a80561c8a4ca3a2736af5596597afadbc2c6430e"
                 }
@@ -1016,7 +1016,7 @@
                 }
             ],
             "manifest": "plugins/official.ops/plugin.json",
-            "manifest_sha256": "8006f30d8a5678045077722efdb3de3afe10985188ecb4e3f28844cb925d0a8a"
+            "manifest_sha256": "e97717783ee0c7516a7d8d4953d7737ca619393c6954fde5d28490bf1a0525e9"
         },
         {
             "key": "official.payment",
@@ -1137,11 +1137,11 @@
         },
         {
             "key": "official.reference-codes",
-            "version": "1.0.11",
+            "version": "1.0.12",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "4dcd45f707904c8210bd149a9a4a120cdf9a3887fe17ec8ae365d2b608bd4838"
+                "sha256": "60be1608c46137608ab421245c9489cec980630c441e0ecf1188b9a067cc71da"
             },
             "trust": {
                 "channel": "bundled",
@@ -1175,7 +1175,7 @@
                     "modules": [
                         {
                             "key": "official.reference-codes",
-                            "version": "1.0.11",
+                            "version": "1.0.12",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
@@ -1210,17 +1210,17 @@
             "npm": [
                 {
                     "name": "@peanut-admin/official-reference-codes",
-                    "version": "1.0.3",
-                    "integrity": "sha256-Hn+Nnv1/zqgArrOXbT9A2rcRQMBPGGrnJ+Jyp7XymP8="
+                    "version": "1.0.4",
+                    "integrity": "sha256-BDwbmgsgf8EwJkkpOyRMqh5GP1vvERpcoIcxtQAO3vE="
                 }
             ],
             "frontend": [
                 {
                     "client_key": "admin-web",
                     "package": "@peanut-admin/official-reference-codes",
-                    "version": "1.0.3",
+                    "version": "1.0.4",
                     "entry": "web/src/modules/official-reference-codes/contribution.ts",
-                    "sha256": "cc9081911c0a48d9027e40259cb17dd5c12a0cee9fe4ef4f89b47a739f9b8f0c"
+                    "sha256": "d220229091a06520718f780b9da32d40dea4f68c20a908a4d5cfe1f874657f7d"
                 }
             ],
             "modules": [
@@ -1230,7 +1230,7 @@
                 }
             ],
             "manifest": "plugins/official.reference-codes/plugin.json",
-            "manifest_sha256": "c364e6956cbd185f472c2d6f376294130577c802378eff29a4335a8f9bfb7f9e"
+            "manifest_sha256": "a8ef324c2930e1ead704cf4b7131fa5b1b6d676f4a20bcc91ea3750d53593fba"
         },
         {
             "key": "official.rich-text",

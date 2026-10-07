@@ -33,6 +33,7 @@ import localeArticleList from '@/modules/official-article/views/list/locale/zh-C
 import localeConfigurationTransfer from '@/modules/official-import-export/views/locale/zh-CN';
 import localeRichText from '@/modules/official-rich-text/views/locale/zh-CN';
 import localeOfficialSettings from '@/modules/official-settings/locale/zh-CN';
+import localeReferenceCodes from '@/modules/official-reference-codes/locale/zh-CN';
 import localeSettings from './zh-CN/settings';
 
 export default {
@@ -91,4 +92,5 @@ export default {
   ...localeConfigurationTransfer,
   ...localeRichText,
   ...localeOfficialSettings,
+  ...localeReferenceCodes,
 };

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace app\adminapi\services\auth;
 
 use app\common\exception\BusinessException;
+use DateTimeImmutable;
+use DateTimeZone;
 use PeanutAdmin\Modules\File\Contract\FileReferences;
 use app\common\services\XlsxExportService;
 use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
@@ -255,7 +257,10 @@ final class AdminApplicationService
                 'disable' => in_array($row['status'], ['active', 'pending'], true) ? 0 : 1,
                 'disable_desc' => in_array($row['status'], ['active', 'pending'], true) ? '正常' : '禁用',
                 'multipoint_login' => 1,
-                'login_time' => (string) ($row['last_login_at'] ?? ''),
+                'login_time' => ($row['last_login_at'] ?? null) === null
+                    ? ''
+                    : (new DateTimeImmutable((string) $row['last_login_at'], new DateTimeZone('UTC')))
+                        ->format('Y-m-d\TH:i:s.v\Z'),
                 'login_ip' => '',
                 'create_time' => (string) $row['created_at'],
                 'update_time' => (string) $row['updated_at'],

@@ -1038,8 +1038,11 @@ export const api = {
       }
       throw new Error(message);
     }
+    if (!window.isSecureContext || !window.crypto?.subtle) {
+      throw new Error('当前页面不支持安全下载，请通过 HTTPS 平台入口下载诊断包。');
+    }
     const actual = Array.from(
-      new Uint8Array(await crypto.subtle.digest('SHA-256', result.data)),
+      new Uint8Array(await window.crypto.subtle.digest('SHA-256', result.data)),
       (byte) => byte.toString(16).padStart(2, '0')
     ).join('');
     if (actual !== sha256) throw new Error('诊断包完整性校验失败');

@@ -33,6 +33,7 @@ import localeArticleList from '@/modules/official-article/views/list/locale/en-U
 import localeConfigurationTransfer from '@/modules/official-import-export/views/locale/en-US';
 import localeRichText from '@/modules/official-rich-text/views/locale/en-US';
 import localeOfficialSettings from '@/modules/official-settings/locale/en-US';
+import localeReferenceCodes from '@/modules/official-reference-codes/locale/en-US';
 import localeSettings from './en-US/settings';
 
 export default {
@@ -92,4 +93,5 @@ export default {
   ...localeConfigurationTransfer,
   ...localeRichText,
   ...localeOfficialSettings,
+  ...localeReferenceCodes,
 };

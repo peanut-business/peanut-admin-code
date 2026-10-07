@@ -19,7 +19,7 @@ const contribution: PluginFrontendContribution = {
           name: 'OfficialReferenceCodes',
           component: () => import('./RuntimePage.vue'),
           meta: {
-            locale: 'Reference codes',
+            locale: 'officialReferenceCodes.title',
             requiresAuth: true,
             tenantModuleKey: 'official.reference-codes',
             requiredPermissions: 'official.reference-codes.read',

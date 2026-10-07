@@ -111,7 +111,7 @@
           :label="$t('systemAdmin.columns.loginTime')"
           width="180"
           ><template #default="{ row }">{{
-            row.login_time || '-'
+            formatLoginTime(row.login_time)
           }}</template></el-table-column
         >
         <el-table-column :label="$t('systemAdmin.columns.loginIp')" width="150"
@@ -465,6 +465,13 @@
   const userStore = useUserStore();
   const { loading, setLoading } = useLoading(true);
   const renderData = ref<AdminRecord[]>([]);
+  const formatLoginTime = (value: string): string => {
+    if (!value) return '-';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+      ? '-'
+      : date.toLocaleString('zh-CN', { hour12: false });
+  };
   const roleOptions = ref<{ value: number; label: string }[]>([]);
   const jobsOptions = ref<{ value: number; label: string }[]>([]);
   const deptOptions = ref<DeptRecord[]>([]);

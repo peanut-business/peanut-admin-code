@@ -89,30 +89,29 @@ export interface OpsConsoleRuntime {
 }
 
 const problemMessages: Readonly<Record<string, string>> = {
-  OPS_REQUEST_INVALID: 'The operations request was rejected.',
-  OPS_PERMISSION_DENIED: 'You do not have permission for this operation.',
-  OPS_PROVIDER_NOT_FOUND: 'The selected provider is unavailable.',
-  OPS_TASK_NOT_FOUND: 'The operation task was not found.',
-  OPS_IDEMPOTENCY_CONFLICT: 'This request conflicts with an earlier operation.',
-  OPS_OPERATION_IN_PROGRESS: 'An operation is already in progress.',
-  OPS_REVISION_CONFLICT:
-    'The maintenance window changed. Reload and try again.',
-  OPS_RESTORE_TARGET_INVALID: 'The selected restore target is unavailable.',
+  OPS_REQUEST_INVALID: '运维请求无效。',
+  OPS_PERMISSION_DENIED: '无权执行此操作。',
+  OPS_PROVIDER_NOT_FOUND: '所选服务提供者不可用。',
+  OPS_TASK_NOT_FOUND: '未找到运维任务。',
+  OPS_IDEMPOTENCY_CONFLICT: '本次请求与先前操作冲突。',
+  OPS_OPERATION_IN_PROGRESS: '已有操作正在执行。',
+  OPS_REVISION_CONFLICT: '维护窗口已变化，请重新加载后重试。',
+  OPS_RESTORE_TARGET_INVALID: '所选恢复目标不可用。',
   OPS_RESTORE_UNSUPPORTED_SCHEMA:
-    'Create a new paired backup; the old record does not apply to this deployment.',
-  OPS_MAINTENANCE_INVALID: 'The maintenance window is invalid.',
-  OPS_STATUS_UNAVAILABLE: 'Operations status is unavailable.',
-  OPS_PROVIDER_UNAVAILABLE: 'The operation provider is unavailable.',
-  OPS_TASK_UNAVAILABLE: 'The operation task service is unavailable.',
-  OPS_LOGS_UNAVAILABLE: 'Runtime events are unavailable.',
-  OPS_INTERNAL_ERROR: 'The operation could not be completed.',
+    '旧备份不适用于当前部署，请创建新的配对备份。',
+  OPS_MAINTENANCE_INVALID: '维护窗口无效。',
+  OPS_STATUS_UNAVAILABLE: '运维状态不可用。',
+  OPS_PROVIDER_UNAVAILABLE: '运维服务提供者不可用。',
+  OPS_TASK_UNAVAILABLE: '运维任务服务不可用。',
+  OPS_LOGS_UNAVAILABLE: '运行事件不可用。',
+  OPS_INTERNAL_ERROR: '操作未能完成。',
 };
 const localError = (
   code: string,
   status: number | null = null
 ): OpsConsoleError => ({
   code,
-  message: problemMessages[code] ?? 'The operation could not be completed.',
+  message: problemMessages[code] ?? '操作未能完成。',
   requestId: null,
   status,
 });

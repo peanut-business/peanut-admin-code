@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace app\adminapi\services\generator;
 
+use app\common\exception\BusinessException;
 use RuntimeException;
 
 /** 将已完成归属校验的表配置渲染为现有 Module 可装配的 CRUD 代码和合并预览。 */
@@ -216,10 +217,16 @@ final class GeneratorRenderService
             }
         }
         if ($matches === []) {
-            throw new RuntimeException('目标模块未登记，请先使用现有 module:create/module:check 机制创建模块');
+            throw BusinessException::invalid(
+                'GENERATOR_MODULE_NOT_REGISTERED',
+                '目标模块未登记，请先使用现有 module:create/module:check 机制创建模块',
+            );
         }
         if (count($matches) !== 1) {
-            throw new RuntimeException('目标模块名称不唯一，请使用完整 Module key');
+            throw BusinessException::invalid(
+                'GENERATOR_MODULE_AMBIGUOUS',
+                '目标模块名称不唯一，请使用完整 Module key',
+            );
         }
 
         [$manifestPath, $manifestSource, $manifest] = $matches[0];
@@ -239,7 +246,10 @@ final class GeneratorRenderService
         }
         $frontendEntry = $manifest['frontend']['entry'] ?? $manifest['frontend']['clients']['admin-web']['entry'] ?? null;
         if (!is_string($frontendEntry) || !str_ends_with($frontendEntry, '/contribution.ts')) {
-            throw new RuntimeException('目标模块未登记 admin-web 前端贡献，不能生成可装配 CRUD 页面');
+            throw BusinessException::invalid(
+                'GENERATOR_MODULE_FRONTEND_REQUIRED',
+                '目标模块未登记 admin-web 前端贡献，不能生成可装配 CRUD 页面',
+            );
         }
         $permissionsRelative = (string) ($manifest['backend']['permissions'] ?? '');
         if ($permissionsRelative === '' || str_starts_with($permissionsRelative, '/') || str_contains($permissionsRelative, '..')) {

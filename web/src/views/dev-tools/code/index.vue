@@ -183,6 +183,10 @@
           <el-col :span="8">
             <el-form-item prop="module_name" label="模块名称">
               <el-input v-model="editForm.module_name" />
+              <div class="form-tip"
+                >仅可选择已登记且声明 admin-web 前端贡献的模块；请先用
+                module:create/module:check 建立并检查模块。</div
+              >
             </el-form-item>
           </el-col>
           <el-col :span="8">
@@ -504,6 +508,8 @@
       selectedKeys.value = selectedKeys.value.filter((id) =>
         renderData.value.some((row) => row.id === id)
       );
+    } catch {
+      // The shared API interceptor already reports the request failure.
     } finally {
       setLoading(false);
     }
@@ -537,6 +543,8 @@
       sourceTables.value = data.lists;
       sourcePagination.current = data.pageNo;
       sourcePagination.total = data.count;
+    } catch {
+      // The shared API interceptor already reports the request failure.
     } finally {
       sourceLoading.value = false;
     }
@@ -561,6 +569,8 @@
       sourceVisible.value = false;
       await fetchData(1);
       return true;
+    } catch {
+      return false;
     } finally {
       importLoading.value = false;
     }
@@ -599,35 +609,40 @@
     target_edition: [{ required: true, message: '请选择目标 Edition' }],
   };
   const openEdit = async (record: GeneratorRecord) => {
-    const [{ data }, modelResult] = await Promise.all([
-      getGeneratorDetail(record.id),
-      getGeneratorModels(),
-    ]);
-    Object.assign(editForm, {
-      id: data.id,
-      table_comment: data.table_comment,
-      module_name: data.module_name,
-      entity_name: data.entity_name,
-      template_type: data.template_type === 'tree' ? 'tree' : 'crud',
-      data_owner: data.data_owner,
-      target_edition: data.target_edition,
-      author: data.author || '',
-      tree_config: {
-        id_field: data.tree_config?.id_field || '',
-        parent_field: data.tree_config?.parent_field || '',
-        name_field: data.tree_config?.name_field || '',
-      },
-      relations: (data.relations || []).map((relation) => ({ ...relation })),
-      soft_delete: {
-        enabled: data.soft_delete?.enabled === true,
-        field: data.soft_delete?.field || '',
-      },
-      columns: (data.columns || []).map((column) => ({ ...column })),
-    });
-    models.value = modelResult.data.filter(
-      (model) => model.id !== data.id && model.module_name === data.module_name
-    );
-    editVisible.value = true;
+    try {
+      const [{ data }, modelResult] = await Promise.all([
+        getGeneratorDetail(record.id),
+        getGeneratorModels(),
+      ]);
+      Object.assign(editForm, {
+        id: data.id,
+        table_comment: data.table_comment,
+        module_name: data.module_name,
+        entity_name: data.entity_name,
+        template_type: data.template_type === 'tree' ? 'tree' : 'crud',
+        data_owner: data.data_owner,
+        target_edition: data.target_edition,
+        author: data.author || '',
+        tree_config: {
+          id_field: data.tree_config?.id_field || '',
+          parent_field: data.tree_config?.parent_field || '',
+          name_field: data.tree_config?.name_field || '',
+        },
+        relations: (data.relations || []).map((relation) => ({ ...relation })),
+        soft_delete: {
+          enabled: data.soft_delete?.enabled === true,
+          field: data.soft_delete?.field || '',
+        },
+        columns: (data.columns || []).map((column) => ({ ...column })),
+      });
+      models.value = modelResult.data.filter(
+        (model) =>
+          model.id !== data.id && model.module_name === data.module_name
+      );
+      editVisible.value = true;
+    } catch {
+      // The shared API interceptor already reports the request failure.
+    }
   };
   const handleSave = async () => {
     const valid = await formRef.value?.validate().catch(() => false);
@@ -653,6 +668,8 @@
       editVisible.value = false;
       await fetchData(pagination.current);
       return true;
+    } catch {
+      return false;
     } finally {
       saveLoading.value = false;
     }
@@ -681,25 +698,38 @@
   );
 
   const handleSync = async (record: GeneratorRecord) => {
-    await syncGenerator(record.id);
-    ElMessage.success('同步成功');
-    await fetchData(pagination.current);
+    try {
+      await syncGenerator(record.id);
+      ElMessage.success('同步成功');
+      await fetchData(pagination.current);
+    } catch {
+      // The shared API interceptor already reports the request failure.
+    }
   };
   const handleDelete = async (record: GeneratorRecord) => {
-    await deleteGenerator([record.id]);
-    ElMessage.success('删除成功');
-    selectedKeys.value = selectedKeys.value.filter((id) => id !== record.id);
-    await fetchData(pagination.current);
+    try {
+      await deleteGenerator([record.id]);
+      ElMessage.success('删除成功');
+      selectedKeys.value = selectedKeys.value.filter((id) => id !== record.id);
+      await fetchData(pagination.current);
+    } catch {
+      // The shared API interceptor already reports the request failure.
+    }
   };
 
   const previewVisible = ref(false);
   const previewFiles = ref<GeneratorPreviewFile[]>([]);
   const previewActiveKey = ref('');
   const openPreview = async (record: GeneratorRecord) => {
-    const { data } = await previewGenerator(record.id);
-    previewFiles.value = data;
-    previewActiveKey.value = data[0]?.path || '';
-    previewVisible.value = true;
+    try {
+      const { data } = await previewGenerator(record.id);
+      previewFiles.value = data;
+      previewActiveKey.value = data[0]?.path || '';
+      previewVisible.value = true;
+    } catch {
+      previewFiles.value = [];
+      previewActiveKey.value = '';
+    }
   };
   const copyPreview = async (content: string) => {
     await navigator.clipboard.writeText(content);
@@ -717,6 +747,8 @@
       await downloadGenerated(data);
       ElMessage.success('代码已生成并下载');
       selectedKeys.value = [];
+    } catch {
+      // The shared API interceptor already reports the request failure.
     } finally {
       generateLoading.value = false;
     }

@@ -16,11 +16,13 @@
     ElInputNumber,
   } from 'element-plus';
   import { computed, onMounted, ref } from 'vue';
+  import { useI18n } from 'vue-i18n';
 
   import type { ReferenceCodeEntry } from './contracts';
   import { useReferenceCodesRuntime } from './runtime';
 
   const runtime = useReferenceCodesRuntime();
+  const { t } = useI18n();
   const { state } = runtime;
   const asOfInput = ref('');
   const canManage = computed(() => runtime.canManage());
@@ -84,11 +86,15 @@
     await run(() => runtime.setPage(page));
   };
 
-  const dateLabel = (value: string | null): string => value ?? 'none';
+  const dateLabel = (value: string | null): string =>
+    value ?? t('officialReferenceCodes.value.none');
   const effectiveLabel = (entry: ReferenceCodeEntry): string =>
-    entry.effective?.label ?? 'No effective version';
+    entry.effective?.label ??
+    t('officialReferenceCodes.value.noEffectiveVersion');
   const statusLabel = (entry: ReferenceCodeEntry): string =>
-    entry.effective?.status ?? 'none';
+    entry.effective?.status === undefined
+      ? t('officialReferenceCodes.value.none')
+      : t(`officialReferenceCodes.status.${entry.effective.status}`);
   const metadataLabel = (entry: ReferenceCodeEntry): string =>
     JSON.stringify(entry.effective?.metadata ?? {});
   const canAppend = (entry: ReferenceCodeEntry): boolean =>
@@ -122,10 +128,10 @@
 <template>
   <PageContent class="reference-codes-page">
     <PageHeader>
-      Reference codes
+      {{ $t('officialReferenceCodes.title') }}
       <template #actions>
         <ElButton
-          aria-label="Reload reference codes"
+          :aria-label="$t('officialReferenceCodes.action.reloadCodes')"
           :aria-disabled="hasPendingMutation"
           :disabled="hasPendingMutation"
           :loading="state.loading"
@@ -133,30 +139,37 @@
             state.selectedSet === null ? loadSets() : run(runtime.loadEntries)
           "
         >
-          Reload
+          {{ $t('officialReferenceCodes.action.reload') }}
         </ElButton>
         <ElButton
-          aria-label="Create code"
+          :aria-label="$t('officialReferenceCodes.action.createCode')"
           type="primary"
           :disabled="
             !canManage || state.selectedSet === null || hasPendingMutation
           "
           @click="runtime.beginCreate"
         >
-          Create code
+          {{ $t('officialReferenceCodes.action.createCode') }}
         </ElButton>
       </template>
     </PageHeader>
 
-    <PageToolbar v-if="!state.errors.page" label="Reference-code controls">
+    <PageToolbar
+      v-if="!state.errors.page"
+      :label="$t('officialReferenceCodes.controls')"
+    >
       <div class="reference-controls">
-        <label for="reference-set">Owner and set</label>
+        <label for="reference-set">{{
+          $t('officialReferenceCodes.field.ownerSet')
+        }}</label>
         <select
           id="reference-set"
           :value="selectedSetValue"
           @change="selectSetFromEvent"
         >
-          <option disabled value=""> Select an owner and set </option>
+          <option disabled value="">
+            {{ $t('officialReferenceCodes.selectSet') }}
+          </option>
           <option
             v-for="set in state.sets"
             :key="`${set.moduleKey}/${set.setKey}`"
@@ -166,7 +179,9 @@
           </option>
         </select>
 
-        <label for="reference-as-of">As of</label>
+        <label for="reference-as-of">{{
+          $t('officialReferenceCodes.field.asOf')
+        }}</label>
         <ElInput
           id="reference-as-of"
           v-model="asOfInput"
@@ -177,10 +192,12 @@
           :disabled="state.selectedSet === null || hasPendingMutation"
           @click="applyAsOf"
         >
-          Apply as-of
+          {{ $t('officialReferenceCodes.action.applyAsOf') }}
         </ElButton>
 
-        <span id="reference-status-label">Effective status</span>
+        <span id="reference-status-label">{{
+          $t('officialReferenceCodes.field.effectiveStatus')
+        }}</span>
         <div
           class="reference-segmented"
           aria-labelledby="reference-status-label"
@@ -192,7 +209,7 @@
             :type="state.effectiveStatus === 'all' ? 'primary' : 'default'"
             @click="setEffectiveStatus('all')"
           >
-            All
+            {{ $t('officialReferenceCodes.status.all') }}
           </ElButton>
           <ElButton
             :aria-pressed="state.effectiveStatus === 'active'"
@@ -200,7 +217,7 @@
             :type="state.effectiveStatus === 'active' ? 'primary' : 'default'"
             @click="setEffectiveStatus('active')"
           >
-            Active
+            {{ $t('officialReferenceCodes.status.active') }}
           </ElButton>
           <ElButton
             :aria-pressed="state.effectiveStatus === 'inactive'"
@@ -208,7 +225,7 @@
             :type="state.effectiveStatus === 'inactive' ? 'primary' : 'default'"
             @click="setEffectiveStatus('inactive')"
           >
-            Inactive
+            {{ $t('officialReferenceCodes.status.inactive') }}
           </ElButton>
         </div>
 
@@ -218,7 +235,7 @@
           :model-value="state.includeRetired"
           @update:model-value="setIncludeRetired"
         >
-          Include retired
+          {{ $t('officialReferenceCodes.field.includeRetired') }}
         </ElCheckbox>
       </div>
     </PageToolbar>
@@ -244,7 +261,7 @@
     <EmptyState
       v-else-if="state.errors.page?.status === 404"
       data-reference-codes-state="not-found"
-      title="Reference-code set not available"
+      :title="$t('officialReferenceCodes.notAvailable')"
       v-bind="
         state.errors.page.requestId === null
           ? {}
@@ -269,17 +286,18 @@
       role="alert"
       aria-live="polite"
     >
-      <h2>Unable to load reference codes</h2>
+      <h2>{{ $t('officialReferenceCodes.loadError') }}</h2>
       <p>{{ state.errors.page.message }}</p>
       <p v-if="state.errors.page.requestId !== null">
-        Request ID: {{ state.errors.page.requestId }}
+        {{ $t('officialReferenceCodes.requestId') }}:
+        {{ state.errors.page.requestId }}
       </p>
       <ElButton
         @click="
           state.selectedSet === null ? loadSets() : run(runtime.loadEntries)
         "
       >
-        Retry
+        {{ $t('officialReferenceCodes.action.retry') }}
       </ElButton>
     </section>
 
@@ -290,50 +308,72 @@
       role="status"
       aria-live="polite"
     >
-      Loading reference codes...
+      {{ $t('officialReferenceCodes.loading') }}
     </div>
 
     <EmptyState
       v-else-if="state.sets.length === 0"
       data-reference-codes-state="empty-sets"
-      title="No reference-code sets"
-      message="No enabled owner Module declares a reference-code set."
+      :title="$t('officialReferenceCodes.empty.setsTitle')"
+      :message="$t('officialReferenceCodes.empty.setsMessage')"
     />
     <EmptyState
       v-else-if="state.selectedSet === null"
       data-reference-codes-state="select-set"
-      title="Select a reference-code set"
-      message="Choose an owner Module and set to view this Tenant's entries."
+      :title="$t('officialReferenceCodes.empty.selectTitle')"
+      :message="$t('officialReferenceCodes.empty.selectMessage')"
     />
     <EmptyState
       v-else-if="state.entries.length === 0"
       data-reference-codes-state="empty-entries"
-      title="No reference codes"
-      message="No entries match the fixed as-of instant and filters."
+      :title="$t('officialReferenceCodes.empty.entriesTitle')"
+      :message="$t('officialReferenceCodes.empty.entriesMessage')"
     />
 
     <section
       v-else
       class="reference-results"
-      aria-label="Reference-code entries"
+      :aria-label="$t('officialReferenceCodes.entries')"
     >
       <div class="reference-results__summary">
-        <span>{{ state.total }} entries</span>
-        <span>As of {{ state.asOf }}</span>
+        <span>{{
+          $t('officialReferenceCodes.count', { count: state.total })
+        }}</span>
+        <span>{{
+          $t('officialReferenceCodes.asOfValue', { value: state.asOf })
+        }}</span>
       </div>
       <div class="reference-table-wrap">
         <table class="reference-table">
           <thead>
             <tr>
-              <th scope="col"> Code </th>
-              <th scope="col"> Label </th>
-              <th scope="col"> Status </th>
-              <th scope="col"> Sort </th>
-              <th scope="col"> Effective interval </th>
-              <th scope="col"> Revision </th>
-              <th scope="col"> Lifecycle </th>
-              <th scope="col"> Metadata </th>
-              <th scope="col"> Actions </th>
+              <th scope="col">
+                {{ $t('officialReferenceCodes.field.code') }}
+              </th>
+              <th scope="col">
+                {{ $t('officialReferenceCodes.field.label') }}
+              </th>
+              <th scope="col">
+                {{ $t('officialReferenceCodes.field.status') }}
+              </th>
+              <th scope="col">
+                {{ $t('officialReferenceCodes.field.sort') }}
+              </th>
+              <th scope="col">
+                {{ $t('officialReferenceCodes.field.interval') }}
+              </th>
+              <th scope="col">
+                {{ $t('officialReferenceCodes.field.revision') }}
+              </th>
+              <th scope="col">
+                {{ $t('officialReferenceCodes.field.lifecycle') }}
+              </th>
+              <th scope="col">
+                {{ $t('officialReferenceCodes.field.metadata') }}
+              </th>
+              <th scope="col">
+                {{ $t('officialReferenceCodes.field.actions') }}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -342,46 +382,52 @@
               :key="entry.code"
               :data-reference-code="entry.code"
             >
-              <td data-label="Code">
+              <td :data-label="$t('officialReferenceCodes.field.code')">
                 <code>{{ entry.code }}</code>
               </td>
-              <td data-label="Label">
+              <td :data-label="$t('officialReferenceCodes.field.label')">
                 {{ effectiveLabel(entry) }}
               </td>
-              <td data-label="Status">
+              <td :data-label="$t('officialReferenceCodes.field.status')">
                 {{ statusLabel(entry) }}
               </td>
-              <td data-label="Sort">
-                {{ entry.effective?.sortOrder ?? 'none' }}
+              <td :data-label="$t('officialReferenceCodes.field.sort')">
+                {{
+                  entry.effective?.sortOrder ??
+                  $t('officialReferenceCodes.value.none')
+                }}
               </td>
-              <td data-label="Effective interval">
+              <td :data-label="$t('officialReferenceCodes.field.interval')">
                 <span>{{
                   dateLabel(entry.effective?.effectiveAt ?? null)
                 }}</span>
                 <span>
-                  to {{ dateLabel(entry.effective?.expiresAt ?? null) }}</span
+                  {{ $t('officialReferenceCodes.value.to') }}
+                  {{ dateLabel(entry.effective?.expiresAt ?? null) }}</span
                 >
               </td>
-              <td data-label="Revision">
+              <td :data-label="$t('officialReferenceCodes.field.revision')">
                 {{ entry.revision }}
               </td>
-              <td data-label="Lifecycle">
-                {{ entry.lifecycle }}
+              <td :data-label="$t('officialReferenceCodes.field.lifecycle')">
+                {{ $t(`officialReferenceCodes.lifecycle.${entry.lifecycle}`) }}
               </td>
-              <td data-label="Metadata">
+              <td :data-label="$t('officialReferenceCodes.field.metadata')">
                 <code>{{ metadataLabel(entry) }}</code>
               </td>
-              <td data-label="Actions">
+              <td :data-label="$t('officialReferenceCodes.field.actions')">
                 <div class="reference-actions">
                   <ElButton
-                    aria-label="Append version"
+                    :aria-label="
+                      $t('officialReferenceCodes.action.appendVersion')
+                    "
                     :disabled="!canAppend(entry)"
                     @click="runtime.beginAppend(entry)"
                   >
-                    Append version
+                    {{ $t('officialReferenceCodes.action.appendVersion') }}
                   </ElButton>
                   <ElButton
-                    aria-label="Retire"
+                    :aria-label="$t('officialReferenceCodes.action.retire')"
                     :disabled="
                       !canManage ||
                       entry.lifecycle === 'retired' ||
@@ -389,7 +435,7 @@
                     "
                     @click="runtime.beginRetire(entry)"
                   >
-                    Retire
+                    {{ $t('officialReferenceCodes.action.retire') }}
                   </ElButton>
                 </div>
                 <div
@@ -402,7 +448,7 @@
                     :disabled="hasPendingMutation"
                     @click="run(() => runtime.reloadStale(entry.code))"
                   >
-                    Reload stale record
+                    {{ $t('officialReferenceCodes.action.reloadStale') }}
                   </ElButton>
                 </div>
                 <p
@@ -418,23 +464,31 @@
         </table>
       </div>
 
-      <nav class="reference-pagination" aria-label="Reference-code pages">
+      <nav
+        class="reference-pagination"
+        :aria-label="$t('officialReferenceCodes.pages')"
+      >
         <ElButton
-          aria-label="Previous page"
+          :aria-label="$t('officialReferenceCodes.action.previous')"
           :disabled="state.page <= 1 || state.loading || hasPendingMutation"
           @click="setPage(state.page - 1)"
         >
-          Previous
+          {{ $t('officialReferenceCodes.action.previous') }}
         </ElButton>
-        <span>Page {{ state.page }} of {{ pageCount }}</span>
+        <span>{{
+          $t('officialReferenceCodes.pageOf', {
+            page: state.page,
+            count: pageCount,
+          })
+        }}</span>
         <ElButton
-          aria-label="Next page"
+          :aria-label="$t('officialReferenceCodes.action.next')"
           :disabled="
             state.page >= pageCount || state.loading || hasPendingMutation
           "
           @click="setPage(state.page + 1)"
         >
-          Next
+          {{ $t('officialReferenceCodes.action.next') }}
         </ElButton>
       </nav>
     </section>
@@ -442,7 +496,7 @@
     <ElDialog
       class="reference-codes-dialog"
       :model-value="state.createDraft !== null"
-      title="Create reference code"
+      :title="$t('officialReferenceCodes.dialog.create')"
       width="min(640px, calc(100vw - 32px))"
       :close-on-click-modal="false"
       :transition="{ name: 'dialog-fade', css: false }"
@@ -453,20 +507,26 @@
         class="reference-form"
         @submit.prevent="run(runtime.create)"
       >
-        <label for="reference-create-code">Code</label>
+        <label for="reference-create-code">{{
+          $t('officialReferenceCodes.field.code')
+        }}</label>
         <ElInput
           id="reference-create-code"
           :model-value="state.createDraft.code"
           autocomplete="off"
           @update:model-value="runtime.updateCreateDraft({ code: $event })"
         />
-        <label for="reference-create-label">Label</label>
+        <label for="reference-create-label">{{
+          $t('officialReferenceCodes.field.label')
+        }}</label>
         <ElInput
           id="reference-create-label"
           :model-value="state.createDraft.label"
           @update:model-value="runtime.updateCreateDraft({ label: $event })"
         />
-        <label for="reference-create-metadata">Metadata JSON</label>
+        <label for="reference-create-metadata">{{
+          $t('officialReferenceCodes.field.metadataJson')
+        }}</label>
         <ElInput
           id="reference-create-metadata"
           :model-value="state.createDraft.metadataText"
@@ -476,16 +536,24 @@
             runtime.updateCreateDraft({ metadataText: $event })
           "
         />
-        <label for="reference-create-status">Status</label>
+        <label for="reference-create-status">{{
+          $t('officialReferenceCodes.field.status')
+        }}</label>
         <select
           id="reference-create-status"
           :value="state.createDraft.status"
           @change="updateCreateStatusFromEvent"
         >
-          <option value="active"> active </option>
-          <option value="inactive"> inactive </option>
+          <option value="active">
+            {{ $t('officialReferenceCodes.status.active') }}
+          </option>
+          <option value="inactive">
+            {{ $t('officialReferenceCodes.status.inactive') }}
+          </option>
         </select>
-        <label for="reference-create-sort">Sort order</label>
+        <label for="reference-create-sort">{{
+          $t('officialReferenceCodes.field.sort')
+        }}</label>
         <ElInputNumber
           id="reference-create-sort"
           :max="1000000"
@@ -496,7 +564,9 @@
               runtime.updateCreateDraft({ sortOrder: $event })
           "
         />
-        <label for="reference-create-effective">Effective at</label>
+        <label for="reference-create-effective">{{
+          $t('officialReferenceCodes.field.effectiveAt')
+        }}</label>
         <ElInput
           id="reference-create-effective"
           :model-value="state.createDraft.effectiveAt"
@@ -504,11 +574,13 @@
             runtime.updateCreateDraft({ effectiveAt: $event })
           "
         />
-        <label for="reference-create-expires">Expires at</label>
+        <label for="reference-create-expires">{{
+          $t('officialReferenceCodes.field.expiresAt')
+        }}</label>
         <ElInput
           id="reference-create-expires"
           :model-value="state.createDraft.expiresAt ?? ''"
-          placeholder="none"
+          :placeholder="$t('officialReferenceCodes.value.none')"
           @update:model-value="
             runtime.updateCreateDraft({ expiresAt: normalizedNullable($event) })
           "
@@ -527,17 +599,19 @@
             :disabled="hasPendingMutation"
             @click="run(runtime.loadEntries)"
           >
-            Reload entries
+            {{ $t('officialReferenceCodes.action.reloadEntries') }}
           </ElButton>
         </div>
         <div class="reference-form__actions">
-          <ElButton @click="runtime.cancelCreate"> Cancel </ElButton>
+          <ElButton @click="runtime.cancelCreate">
+            {{ $t('officialReferenceCodes.action.cancel') }}
+          </ElButton>
           <ElButton
             native-type="submit"
             type="primary"
             :loading="runtime.isPending(state.createDraft.code)"
           >
-            Create
+            {{ $t('officialReferenceCodes.action.create') }}
           </ElButton>
         </div>
       </form>
@@ -546,7 +620,7 @@
     <ElDialog
       class="reference-codes-dialog"
       :model-value="state.appendDraft !== null"
-      title="Append reference-code version"
+      :title="$t('officialReferenceCodes.dialog.append')"
       width="min(640px, calc(100vw - 32px))"
       :close-on-click-modal="false"
       :transition="{ name: 'dialog-fade', css: false }"
@@ -557,19 +631,25 @@
         class="reference-form"
         @submit.prevent="run(runtime.appendVersion)"
       >
-        <label for="reference-append-code">Code</label>
+        <label for="reference-append-code">{{
+          $t('officialReferenceCodes.field.code')
+        }}</label>
         <ElInput
           id="reference-append-code"
           :model-value="state.appendDraft.code"
           disabled
         />
-        <label for="reference-append-label">Label</label>
+        <label for="reference-append-label">{{
+          $t('officialReferenceCodes.field.label')
+        }}</label>
         <ElInput
           id="reference-append-label"
           :model-value="state.appendDraft.label"
           @update:model-value="runtime.updateAppendDraft({ label: $event })"
         />
-        <label for="reference-append-metadata">Metadata JSON</label>
+        <label for="reference-append-metadata">{{
+          $t('officialReferenceCodes.field.metadataJson')
+        }}</label>
         <ElInput
           id="reference-append-metadata"
           :model-value="state.appendDraft.metadataText"
@@ -579,16 +659,24 @@
             runtime.updateAppendDraft({ metadataText: $event })
           "
         />
-        <label for="reference-append-status">Status</label>
+        <label for="reference-append-status">{{
+          $t('officialReferenceCodes.field.status')
+        }}</label>
         <select
           id="reference-append-status"
           :value="state.appendDraft.status"
           @change="updateAppendStatusFromEvent"
         >
-          <option value="active"> active </option>
-          <option value="inactive"> inactive </option>
+          <option value="active">
+            {{ $t('officialReferenceCodes.status.active') }}
+          </option>
+          <option value="inactive">
+            {{ $t('officialReferenceCodes.status.inactive') }}
+          </option>
         </select>
-        <label for="reference-append-sort">Sort order</label>
+        <label for="reference-append-sort">{{
+          $t('officialReferenceCodes.field.sort')
+        }}</label>
         <ElInputNumber
           id="reference-append-sort"
           :max="1000000"
@@ -599,7 +687,9 @@
               runtime.updateAppendDraft({ sortOrder: $event })
           "
         />
-        <label for="reference-append-effective">Effective at</label>
+        <label for="reference-append-effective">{{
+          $t('officialReferenceCodes.field.effectiveAt')
+        }}</label>
         <ElInput
           id="reference-append-effective"
           :model-value="state.appendDraft.effectiveAt"
@@ -607,11 +697,13 @@
             runtime.updateAppendDraft({ effectiveAt: $event })
           "
         />
-        <label for="reference-append-expires">Expires at</label>
+        <label for="reference-append-expires">{{
+          $t('officialReferenceCodes.field.expiresAt')
+        }}</label>
         <ElInput
           id="reference-append-expires"
           :model-value="state.appendDraft.expiresAt ?? ''"
-          placeholder="none"
+          :placeholder="$t('officialReferenceCodes.value.none')"
           @update:model-value="
             runtime.updateAppendDraft({ expiresAt: normalizedNullable($event) })
           "
@@ -626,7 +718,7 @@
             :disabled="hasPendingMutation"
             @click="run(() => runtime.reloadStale(state.appendDraft!.code))"
           >
-            Reload stale record
+            {{ $t('officialReferenceCodes.action.reloadStale') }}
           </ElButton>
         </div>
         <p
@@ -637,13 +729,15 @@
           {{ state.errors[state.appendDraft.code]?.message }}
         </p>
         <div class="reference-form__actions">
-          <ElButton @click="runtime.cancelAppend"> Cancel </ElButton>
+          <ElButton @click="runtime.cancelAppend">
+            {{ $t('officialReferenceCodes.action.cancel') }}
+          </ElButton>
           <ElButton
             native-type="submit"
             type="primary"
             :loading="runtime.isPending(state.appendDraft.code)"
           >
-            Append version
+            {{ $t('officialReferenceCodes.action.appendVersion') }}
           </ElButton>
         </div>
       </form>
@@ -652,7 +746,7 @@
     <ElDialog
       class="reference-codes-dialog"
       :model-value="state.retireCode !== null"
-      title="Retire reference code"
+      :title="$t('officialReferenceCodes.dialog.retire')"
       width="min(520px, calc(100vw - 32px))"
       :close-on-click-modal="false"
       :transition="{ name: 'dialog-fade', css: false }"
@@ -660,8 +754,11 @@
     >
       <div v-if="state.retireCode !== null" class="reference-retire">
         <p>
-          Retiring <code>{{ state.retireCode }}</code> is permanent. This
-          identity cannot be reused or reactivated.
+          {{
+            $t('officialReferenceCodes.retireWarning', {
+              code: state.retireCode,
+            })
+          }}
         </p>
         <p
           v-if="state.errors[state.retireCode]"
@@ -680,17 +777,19 @@
             :disabled="hasPendingMutation"
             @click="run(() => runtime.reloadStale(state.retireCode!))"
           >
-            Reload stale record
+            {{ $t('officialReferenceCodes.action.reloadStale') }}
           </ElButton>
         </div>
         <div class="reference-form__actions">
-          <ElButton @click="runtime.cancelRetire"> Cancel </ElButton>
+          <ElButton @click="runtime.cancelRetire">
+            {{ $t('officialReferenceCodes.action.cancel') }}
+          </ElButton>
           <ElButton
             type="danger"
             :loading="runtime.isPending(state.retireCode)"
             @click="run(runtime.retire)"
           >
-            Retire permanently
+            {{ $t('officialReferenceCodes.action.retirePermanently') }}
           </ElButton>
         </div>
       </div>
