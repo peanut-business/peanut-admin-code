@@ -184,7 +184,7 @@
     errorMessage,
   });
   const formAction = useAsyncAction(errorMessage);
-  void categoryList.load();
+  categoryList.load();
 
   const onPageChange = (current: number) => categoryList.load(current);
 
@@ -231,7 +231,7 @@
       articleCategoryResource.detail(record.id, signal)
     );
     if (result.status !== 'completed') return;
-    const data = result.data;
+    const { data } = result;
     form.value = {
       id: data.id,
       name: data.name,
@@ -261,7 +261,7 @@
     if (result.status !== 'completed') return;
     ElMessage.success(t('articleCate.message.success'));
     modalVisible.value = false;
-    void categoryList.reload();
+    await categoryList.reload();
   };
 
   const onDelete = async (record: ArticleCateRecord) => {
@@ -270,7 +270,7 @@
     );
     if (result.status !== 'completed') return;
     ElMessage.success(t('articleCate.message.success'));
-    void categoryList.reload();
+    await categoryList.reload();
   };
 
   const onStatusChange = async (record: ArticleCateRecord, val: unknown) => {

@@ -41,7 +41,7 @@ export interface ArticleCateListParams {
 export type ArticleCateListRes = PageData<ArticleCateRecord>;
 
 export function getArticleCateList(
-  params: ArticleCateListParams = {},
+  params: ArticleCateListParams,
   signal?: AbortSignal
 ) {
   return axios.get<ArticleCateListRes>(

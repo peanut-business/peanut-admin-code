@@ -2290,7 +2290,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "41443a119b450421b9ab0953b387a118efcce9020787d6919d7ac7068e47dad3"
+            "source_sha256": "384bc88adf6789d98e414684cfe7e9196bb6e9a429dd44dad933d4cc0a10612d"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2344,7 +2344,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e433628f3511cc696115c2a1eed78bdf0a3305a97381af11533ef52317e0bcd9"
+            "source_sha256": "82d042b57aec8a35949f1268bc53414717535df410a113ced848429b8bb70e3f"
         },
         {
             "path": "plugins/official.file/plugin.json",
@@ -9462,7 +9462,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a3ce161a6a5228029012420e2d066ba238017859ecb9649264f6736c6f4ba40d"
+            "source_sha256": "f5a6104c220170dd44d5fef0a7e88c863ff5716f670435dde847bf826d4ec443"
         },
         {
             "path": "server/app/modules/official/article/database/migrations/20260825-adopt-permission-ownership.sql",
@@ -9504,7 +9504,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5c57ea3642a063ccab2c5f18cc574c32a3f9aa5e3cad1daafb0e57e4f3509a63"
+            "source_sha256": "6558dbcf6a4d5fd9b78dc40acd59484e7961a2fae79166c77c5a875f80e1007f"
         },
         {
             "path": "server/app/modules/official/article/resources/menus.json",
@@ -31996,7 +31996,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "41edea3f6fa2e01c9d2714a405c7a4040077ade0730057cb1b59370d93606516"
+            "source_sha256": "d93937b87ff9b97a6702e2b5ded1dbdeb68d17b2cc921c169227f3645781fb75"
         },
         {
             "path": "web/src/modules/official-article/category-resource.ts",
@@ -32052,7 +32052,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c6da5b344b0d771d2f025538812872786b585650bd5768a87bd9fa6a46b065a9"
+            "source_sha256": "23c2423a346fbb0681c6f9e3e215b30dab2ca5de5f0e85d9715d721fef4070ef"
         },
         {
             "path": "web/src/modules/official-article/views/cate/index.vue",
@@ -32066,7 +32066,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "11c48267bbb5693349add2838eb45a5188502b9bb6cf69047524548c258068a4"
+            "source_sha256": "5c916cec8e440ff7c8834e05ca0a21d06bbbb3a47f5dc4332657d2f4af552e62"
         },
         {
             "path": "web/src/modules/official-article/views/cate/locale/en-US.ts",

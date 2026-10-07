@@ -95,11 +95,11 @@
         },
         {
             "key": "official.article",
-            "version": "1.0.2",
+            "version": "1.0.3",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "bac19d0ecc334f6f5782a6e2f96baf2878136a2239c5de3fdb596998cafe8a7b"
+                "sha256": "6fecda6a15bf8a0f3e2a22d02cf6fbe05c16f9ad963771a1694d06be9fadd909"
             },
             "trust": {
                 "channel": "bundled",
@@ -133,7 +133,7 @@
                     "modules": [
                         {
                             "key": "official.article",
-                            "version": "1.0.2",
+                            "version": "1.0.3",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
@@ -165,22 +165,22 @@
             "composer": [
                 {
                     "name": "peanut-business/official-article",
-                    "version": "1.0.2",
-                    "sha256": "a3ce161a6a5228029012420e2d066ba238017859ecb9649264f6736c6f4ba40d"
+                    "version": "1.0.3",
+                    "sha256": "f5a6104c220170dd44d5fef0a7e88c863ff5716f670435dde847bf826d4ec443"
                 }
             ],
             "npm": [
                 {
                     "name": "@peanut-admin/official-article",
-                    "version": "1.0.0",
-                    "integrity": "sha256-xtpbNEsNdx0vAlU4gShyeGtYVlC9V2ioe9n6akawZak="
+                    "version": "1.0.1",
+                    "integrity": "sha256-I8JCOjRvuwaBxvnj4hWzDasspd5fDoXZcV1yH+9AcO8="
                 }
             ],
             "frontend": [
                 {
                     "client_key": "admin-web",
                     "package": "@peanut-admin/official-article",
-                    "version": "1.0.0",
+                    "version": "1.0.1",
                     "entry": "web/src/modules/official-article/contribution.ts",
                     "sha256": "c4c715937dd643e5014d3218db515e98eca49a049c7cc47465c3abc370dd0486"
                 }
@@ -192,7 +192,7 @@
                 }
             ],
             "manifest": "plugins/official.article/plugin.json",
-            "manifest_sha256": "e433628f3511cc696115c2a1eed78bdf0a3305a97381af11533ef52317e0bcd9"
+            "manifest_sha256": "82d042b57aec8a35949f1268bc53414717535df410a113ced848429b8bb70e3f"
         },
         {
             "key": "official.file",
