@@ -54,7 +54,8 @@ export default {
   'navbar.tenantSelect': 'Select a Tenant',
   'navbar.cancel': 'Cancel',
   'navbar.confirm': 'Confirm',
-  'tenantSession.networkError': 'Network connection failed. Check your connection and try again.',
+  'tenantSession.networkError':
+    'Network connection failed. Check your connection and try again.',
   'tenantSession.requestTimeout': 'The request timed out. Please try again.',
   ...localeSettings,
   ...localeLogin,

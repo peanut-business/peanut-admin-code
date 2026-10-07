@@ -31873,7 +31873,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "258abfc664df6fced67995c114675e39a4ad89439eab72d2c4b242e82ad1d841"
+            "source_sha256": "a389a15eb124fc21f22702cadcfe0a64789b09f488212ae0908cf14dbe42eaef"
         },
         {
             "path": "web/src/locale/en-US/settings.ts",
@@ -35160,7 +35160,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fdd87bdfac86199c2c1a6c41afdb472260a0e5377a5b768bb15e928447bb6fdb"
+            "source_sha256": "f525045bbf7ac6e05d2590713ac4e6bceb135dfe42e78b38ebaaa375608a18d2"
         },
         {
             "path": "web/src/views/installation/locale/en-US.ts",
@@ -35174,7 +35174,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3705750b268b535802c80a7623d8b6c271adc64f627a67c34f66346f8e8d8a6d"
+            "source_sha256": "0a947b5a438375579f35a9a5ddee5bad5c895b87ebd696ee3bf55f2964b830f4"
         },
         {
             "path": "web/src/views/installation/locale/zh-CN.ts",
@@ -35188,7 +35188,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "82d234023c1cdfe6a8a5f91c24c5f0ac392d343920a4bb1e80ffea2acc222397"
+            "source_sha256": "5c7ef7ab4eca6f43449b250c706731592f46efc1a899647366617e040a438bf8"
         },
         {
             "path": "web/src/views/login/components/banner.vue",

@@ -14,6 +14,25 @@ export default {
   'installation.preflight.check': '预检项',
   'installation.preflight.remediation': '建议',
   'installation.preflight.retry': '重新检查',
+  'installation.blocked.migrationPending':
+    '安装状态迁移尚未完成，请由维护人员核对迁移进度。',
+  'installation.blocked.migrationRequired':
+    '检测到旧版安装状态，请由维护人员先完成状态迁移。',
+  'installation.blocked.lockInvalid':
+    '安装完成记录无效，请核对记录与当前应用来源，保留现有数据。',
+  'installation.blocked.lockedDatabaseUnavailable':
+    '安装完成记录已存在，但数据库暂不可用，请核对连接和登记资源。',
+  'installation.blocked.databaseUnavailable':
+    '数据库暂不可用，请核对连接和登记资源后重新检查。',
+  'installation.blocked.lockedDatabaseMismatch':
+    '安装完成记录与数据库状态不一致，请核对安装记录及数据库来源。',
+  'installation.blocked.partialState':
+    '检测到部分安装数据，请由维护人员核对恢复方案，保留现有数据。',
+  'installation.blocked.lockMissing':
+    '数据库已有安装数据，但安装完成记录缺失。为保护现有数据，安装已暂停；请核对安装记录与数据库来源。',
+  'installation.blocked.unknown': '安装状态异常，请联系维护人员核对。',
+  'installation.blocked.unknownWithCode':
+    '安装状态异常，请联系维护人员核对（诊断码：{code}）。',
   'installation.token.label': '一次性安装令牌',
   'installation.token.placeholder': '输入部署配置提供的一次性令牌',
   'installation.token.help': '令牌仅用于本次请求，成功后立即失效，不会保存。',

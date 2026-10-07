@@ -21,7 +21,10 @@
           :sub-title="blockedReason"
         >
           <template #extra>
-            <div v-if="preflightChecks.length" class="preflight-checks">
+            <div
+              v-if="preflight?.status !== 'ready' && preflightChecks.length"
+              class="preflight-checks"
+            >
               <div
                 v-for="(check, index) in preflightChecks"
                 :key="check.id || check.code || check.reason || index"
@@ -301,9 +304,7 @@
   const isMultiTenant = computed(
     () => currentStatus.value?.deployment_mode === 'multi-tenant'
   );
-  const automatic = computed(
-    () => currentStatus.value?.state === 'installed'
-  );
+  const automatic = computed(() => currentStatus.value?.state === 'installed');
   const preflightChecks = computed<InstallationPreflightCheck[]>(() => {
     const checks = preflight.value?.checks;
     return Array.isArray(checks) ? checks : [];
@@ -329,8 +330,6 @@
     }, []);
     return options;
   }
-
-
   const moduleOptions = computed(() => {
     const modules =
       currentStatus.value?.official_modules ||
@@ -361,13 +360,37 @@
       ? t('installation.mode.multiTenant')
       : t('installation.mode.standalone')
   );
-  const blockedReason = computed(
-    () =>
-      (moduleCatalogMissing.value
-        ? t('installation.modules.catalogMissing')
-        : preflight.value?.reason) || t('installation.preflight.blocked')
-  );
-
+  const blockedReason = computed(() => {
+    if (currentStatus.value?.state === 'blocked') {
+      const code = currentStatus.value.code;
+      if (code === 'INSTALL_PREFLIGHT_BLOCKED') {
+        return preflight.value?.reason || t('installation.preflight.blocked');
+      }
+      const reasonKeys: Record<string, string> = {
+        INSTALL_STATE_MIGRATION_PENDING:
+          'installation.blocked.migrationPending',
+        INSTALL_STATE_MIGRATION_REQUIRED:
+          'installation.blocked.migrationRequired',
+        INSTALL_COMPLETION_LOCK_INVALID: 'installation.blocked.lockInvalid',
+        INSTALL_LOCKED_DATABASE_UNAVAILABLE:
+          'installation.blocked.lockedDatabaseUnavailable',
+        INSTALL_DATABASE_UNAVAILABLE:
+          'installation.blocked.databaseUnavailable',
+        INSTALL_LOCKED_DATABASE_MISMATCH:
+          'installation.blocked.lockedDatabaseMismatch',
+        INSTALL_PARTIAL_STATE_REQUIRES_REBUILD:
+          'installation.blocked.partialState',
+        INSTALL_COMPLETION_LOCK_MISSING: 'installation.blocked.lockMissing',
+      };
+      if (code && reasonKeys[code]) return t(reasonKeys[code]);
+      return code
+        ? t('installation.blocked.unknownWithCode', { code })
+        : t('installation.blocked.unknown');
+    }
+    if (moduleCatalogMissing.value)
+      return t('installation.modules.catalogMissing');
+    return preflight.value?.reason || t('installation.preflight.blocked');
+  });
 
   watch(
     moduleOptions,

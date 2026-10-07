@@ -17,6 +17,26 @@ export default {
   'installation.preflight.check': 'Check',
   'installation.preflight.remediation': 'Remediation',
   'installation.preflight.retry': 'Check again',
+  'installation.blocked.migrationPending':
+    'Installation state migration is pending. Ask an administrator to check its progress.',
+  'installation.blocked.migrationRequired':
+    'Legacy installation state was found. Ask an administrator to complete its migration.',
+  'installation.blocked.lockInvalid':
+    'The installation completion record is invalid. Check it against this application source and preserve existing data.',
+  'installation.blocked.lockedDatabaseUnavailable':
+    'An installation completion record exists, but the database is unavailable. Check its connection and registered resource.',
+  'installation.blocked.databaseUnavailable':
+    'The database is unavailable. Check its connection and registered resource, then check again.',
+  'installation.blocked.lockedDatabaseMismatch':
+    'The installation completion record and database state disagree. Check the record and database source.',
+  'installation.blocked.partialState':
+    'Partial installation data was found. Ask an administrator to review recovery while preserving existing data.',
+  'installation.blocked.lockMissing':
+    'The database contains installed data, but its installation completion record is missing. Installation is paused to protect existing data; check the record and database source.',
+  'installation.blocked.unknown':
+    'The installation state is unavailable. Ask an administrator to investigate.',
+  'installation.blocked.unknownWithCode':
+    'The installation state is unavailable. Ask an administrator to investigate (diagnostic code: {code}).',
   'installation.token.label': 'One-time setup token',
   'installation.token.placeholder':
     'Enter the one-time token from deployment configuration',
