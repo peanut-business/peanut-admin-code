@@ -504,7 +504,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "adfc26d76d05b83a14dbf3bbc624043452c08901eef8bb2ca83614358f56170b"
+                "sha256": "8c329a9a0ad64375c2f1895515753ea1aad23cbe1173e788ce58eb4a202c402b"
             },
             "trust": {
                 "channel": "bundled",
@@ -583,7 +583,7 @@
                     "package": "@peanut-admin/official-integration",
                     "version": "1.0.2",
                     "entry": "web/src/modules/official-integration/contribution.ts",
-                    "sha256": "4d3edb1f1c288f6085f0f84da127dd9df30ea1ca26b997c63e400ffa4211f2b7"
+                    "sha256": "b447ee15eec4ba04c2e771514cdc93cdebba23d3be6d8fdfb7843dff747c5df7"
                 }
             ],
             "modules": [
@@ -593,7 +593,7 @@
                 }
             ],
             "manifest": "plugins/official.integration/plugin.json",
-            "manifest_sha256": "12f5bbcef801d93098a467021607e7001962f468c644052a0ef522d40860c791"
+            "manifest_sha256": "fd768cb7b82a0f7f7e98359c29489c2f33e4fe0476a7d317117e1cff36d68404"
         },
         {
             "key": "official.member",
@@ -601,7 +601,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "8a79940bcd4333bbc5a31cf6f9b67dd8cd4924de9a49e64e5c465dd67e9727a0"
+                "sha256": "283a9f909df06637acf5551425b813bd6fa14c86d73d0c7fd7328f3161569388"
             },
             "trust": {
                 "channel": "bundled",
@@ -698,7 +698,7 @@
                 }
             ],
             "manifest": "plugins/official.member/plugin.json",
-            "manifest_sha256": "3c39cdf6833eb9df943a9e586420100c4d2dceed76d7b927c8ffddc6b5b0ff9f"
+            "manifest_sha256": "88cb0df793af15cb0a7b6845869fb9bed972b0d4a5c62fde655e6ddf22da1bf1"
         },
         {
             "key": "official.notification",
