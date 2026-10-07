@@ -31312,7 +31312,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4adc62fae17a9610eb3b277d6d05baac7850e1bdc498952aff87da9b0a769957"
+            "source_sha256": "f3e7b53883a54e6e6f12f4399090489bd440a92c3c305ba63d02d36ec7ccfb43"
         },
         {
             "path": "web/src/api/user.ts",
@@ -31873,7 +31873,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cec4e3a0ce4c039839a611b5fc52fa80a39b50dc0a4bf53b42e612d223e4bea2"
+            "source_sha256": "258abfc664df6fced67995c114675e39a4ad89439eab72d2c4b242e82ad1d841"
         },
         {
             "path": "web/src/locale/en-US/settings.ts",
@@ -31915,7 +31915,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2fdfe83cb84d806c55a3ee4a6dcb63768d84bde63fd4c8ee2670f5d44b882323"
+            "source_sha256": "27ecbb9f8b5f02365e2f0ac30c54298885e91a63e8124b7b14cbacb777dc3458"
         },
         {
             "path": "web/src/locale/zh-CN/settings.ts",

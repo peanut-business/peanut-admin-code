@@ -5,6 +5,7 @@ import type {
   TenantSelection,
 } from '@peanut-admin/vue';
 import { getSessionSnapshot } from '@/utils/auth';
+import i18n from '@/locale';
 
 const tenantClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || undefined,
@@ -13,10 +14,17 @@ const tenantClient = axios.create({
 });
 
 tenantClient.interceptors.response.use(undefined, (error: unknown) => {
+  if (axios.isCancel(error)) return Promise.reject(error);
   if (axios.isAxiosError<{ msg?: unknown }>(error)) {
     const message = error.response?.data?.msg;
     if (typeof message === 'string' && message.trim() !== '') {
       error.message = message;
+    } else if (!error.response) {
+      if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+        error.message = i18n.global.t('tenantSession.requestTimeout');
+      } else if (error.code === 'ERR_NETWORK' || error.request) {
+        error.message = i18n.global.t('tenantSession.networkError');
+      }
     }
   }
   return Promise.reject(error);

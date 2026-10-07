@@ -54,6 +54,8 @@ export default {
   'navbar.tenantSelect': '请选择租户',
   'navbar.cancel': '取消',
   'navbar.confirm': '确认',
+  'tenantSession.networkError': '网络连接失败，请检查网络后重试',
+  'tenantSession.requestTimeout': '请求超时，请稍后重试',
   ...localeSettings,
   ...localeLogin,
   ...localeInstallation,
