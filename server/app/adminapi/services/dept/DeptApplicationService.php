@@ -65,6 +65,8 @@ final class DeptApplicationService
                 (string) $params['name'],
                 (int) $params['pid'] > 0 ? (int) $params['pid'] : null,
                 (int) ($params['sort'] ?? 0),
+                (string) ($params['leader'] ?? ''),
+                (string) ($params['mobile'] ?? ''),
             );
             if ((int) $params['status'] === 0) {
                 $this->departments->setStatus($context, (int) $department['id'], (int) $department['revision'], false);
@@ -85,6 +87,8 @@ final class DeptApplicationService
                 (string) $params['name'],
                 (int) ($params['sort'] ?? 0),
                 (int) $current['revision'],
+                array_key_exists('leader', $params) ? (string) $params['leader'] : (string) $current['leader'],
+                array_key_exists('mobile', $params) ? (string) $params['mobile'] : (string) $current['mobile'],
             );
             $parent = (int) $params['pid'] > 0 ? (int) $params['pid'] : null;
             $currentParent = $updated['parent_id'] === null ? null : (int) $updated['parent_id'];
@@ -114,10 +118,11 @@ final class DeptApplicationService
     private static function compat(array $row): array
     {
         return ['id' => (int) $row['id'], 'pid' => $row['parent_id'] === null ? 0 : (int) $row['parent_id'],
-            'code' => $row['code'], 'name' => $row['name'], 'leader' => '', 'mobile' => '',
+            'code' => $row['code'], 'name' => $row['name'], 'leader' => $row['leader'], 'mobile' => $row['mobile'],
             'sort' => (int) $row['sort_order'], 'status' => self::statusInt($row['status']),
             'is_disable' => self::statusInt($row['status']) === 1 ? 0 : 1,
-            'status_desc' => self::statusInt($row['status']) === 1 ? '正常' : '停用', 'revision' => (int) $row['revision']];
+            'status_desc' => self::statusInt($row['status']) === 1 ? '正常' : '停用', 'revision' => (int) $row['revision'],
+            'create_time' => $row['created_at'], 'update_time' => $row['updated_at']];
     }
 
     private static function buildTree(array $data, int $pid = 0, int $level = 0): array

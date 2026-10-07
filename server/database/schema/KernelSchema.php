@@ -175,6 +175,8 @@ CREATE TABLE `pa_department` (
   `parent_id` BIGINT UNSIGNED NULL,
   `code` VARCHAR(64) NOT NULL,
   `name` VARCHAR(120) NOT NULL,
+  `leader` VARCHAR(50) NOT NULL DEFAULT '',
+  `mobile` VARCHAR(20) NOT NULL DEFAULT '',
   `sort_order` INT NOT NULL DEFAULT 0,
   `status` VARCHAR(32) NOT NULL DEFAULT 'active',
   `revision` BIGINT UNSIGNED NOT NULL DEFAULT 1,

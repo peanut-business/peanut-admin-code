@@ -28,7 +28,7 @@ final readonly class DepartmentAdminService
     {
         $query = Department::where('tenant_id', $tenantId);
         $total = (int) (clone $query)->count();
-        $rows = $query->field('id,parent_id,code,name,sort_order,status,revision')
+        $rows = $query->field('id,parent_id,code,name,leader,mobile,sort_order,status,revision,created_at,updated_at')
             ->order('sort_order')->order('id')->limit($page->offset(), $page->pageSize)->select()->toArray();
 
         return ['items' => array_values(array_map($this->normalize(...), $rows)), 'total' => $total];
@@ -38,7 +38,7 @@ final readonly class DepartmentAdminService
     public function get(int $tenantId, int $departmentId): array
     {
         $row = Department::where('tenant_id', $tenantId)->where('id', $departmentId)
-            ->field('id,parent_id,code,name,sort_order,status,revision')->find()?->toArray();
+            ->field('id,parent_id,code,name,leader,mobile,sort_order,status,revision,created_at,updated_at')->find()?->toArray();
 
         return $row === null ? throw AdminAccessException::notFound() : $this->normalize($row);
     }
@@ -74,8 +74,11 @@ final readonly class DepartmentAdminService
         string $name,
         ?int $parentId,
         int $sortOrder,
+        string $leader,
+        string $mobile,
     ): array {
-        return $this->transaction(function () use ($actor, $code, $name, $parentId, $sortOrder): array {
+        [$leader, $mobile] = $this->contactFields($leader, $mobile);
+        return $this->transaction(function () use ($actor, $code, $name, $parentId, $sortOrder, $leader, $mobile): array {
             $this->lockTenant($actor->tenantId);
             if ($parentId !== null) {
                 $this->requireActive($actor->tenantId, $parentId, true);
@@ -89,6 +92,8 @@ final readonly class DepartmentAdminService
                 'parent_id' => $parentId,
                 'code' => $code,
                 'name' => $name,
+                'leader' => $leader,
+                'mobile' => $mobile,
                 'sort_order' => $sortOrder,
                 'status' => 'active',
                 'created_at' => $now,
@@ -109,7 +114,10 @@ final readonly class DepartmentAdminService
         string $name,
         int $sortOrder,
         int $expectedRevision,
+        string $leader,
+        string $mobile,
     ): array {
+        [$leader, $mobile] = $this->contactFields($leader, $mobile);
         return $this->transaction(function () use (
             $actor,
             $departmentId,
@@ -117,6 +125,8 @@ final readonly class DepartmentAdminService
             $name,
             $sortOrder,
             $expectedRevision,
+            $leader,
+            $mobile,
         ): array {
             $department = $this->requireDepartment($actor->tenantId, $departmentId, true);
             $this->assertRevision($department, $expectedRevision);
@@ -125,6 +135,8 @@ final readonly class DepartmentAdminService
                 ->where('revision', $expectedRevision)->update([
                     'code' => $code,
                     'name' => $name,
+                    'leader' => $leader,
+                    'mobile' => $mobile,
                     'sort_order' => $sortOrder,
                     'revision' => new Raw('revision + 1'),
                     'updated_at' => $now,
@@ -298,10 +310,25 @@ final readonly class DepartmentAdminService
             'parent_id' => $row['parent_id'] === null ? null : (string) $row['parent_id'],
             'code' => $row['code'],
             'name' => $row['name'],
+            'leader' => $row['leader'],
+            'mobile' => $row['mobile'],
             'sort_order' => (int) $row['sort_order'],
             'status' => $row['status'],
             'revision' => (string) $row['revision'],
+            'created_at' => $row['created_at'],
+            'updated_at' => $row['updated_at'],
         ];
+    }
+
+    /** @return array{string, string} */
+    private function contactFields(string $leader, string $mobile): array
+    {
+        $leader = trim($leader);
+        $mobile = trim($mobile);
+        if (mb_strlen($leader) > 50 || mb_strlen($mobile) > 20) {
+            throw AdminAccessException::invalid('DEPARTMENT_CONTACT_INVALID', 'Department contact fields are too long.');
+        }
+        return [$leader, $mobile];
     }
 
     private function bumpTenant(int $tenantId, string $now): void
