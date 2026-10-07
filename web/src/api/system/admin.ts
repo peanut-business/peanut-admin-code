@@ -12,6 +12,7 @@ export interface AdminRecord {
   username: string;
   nickname: string;
   avatar: string;
+  avatar_uri: string;
   root: number;
   disable: number;
   disable_desc: string;

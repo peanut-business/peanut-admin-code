@@ -1,11 +1,11 @@
 {
     "schema_version": 1,
     "key": "official.member",
-    "version": "1.0.8",
+    "version": "1.0.9",
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "bf0bd7fc6c1bcb7b3b9e6ce668af83b063a65c61f2eae1a95c6669c952b868d3"
+        "sha256": "8a79940bcd4333bbc5a31cf6f9b67dd8cd4924de9a49e64e5c465dd67e9727a0"
     },
     "trust": {
         "channel": "bundled",
@@ -39,7 +39,7 @@
             "modules": [
                 {
                     "key": "official.member",
-                    "version": "1.0.8",
+                    "version": "1.0.9",
                     "kernel_constraint": "^1.0",
                     "dependencies": [
                         {
@@ -48,7 +48,7 @@
                         },
                         {
                             "module_key": "official.identity",
-                            "version": "4.0.0-rc.23"
+                            "version": "4.0.0-rc.24"
                         }
                     ],
                     "permissions": {
@@ -75,22 +75,22 @@
     "composer": [
         {
             "name": "peanut-business/official-member",
-            "version": "1.0.4",
-            "sha256": "d09f19e55154d787bcd248c610a11b441cd238993e84e345c7b5f1b707cc71a8"
+            "version": "1.0.5",
+            "sha256": "a8e844573adbcd1ac1d005667a803b428bb97085b10500c904fab093881cd86b"
         }
     ],
     "npm": [
         {
             "name": "@peanut-admin/official-member",
-            "version": "1.0.1",
-            "integrity": "sha256-ZmHRLrTQfJyUjjHN1QYhydMPEHajuQ6MbHesftN1EsA="
+            "version": "1.0.2",
+            "integrity": "sha256-N5EVRwZ6G9crzxTLDocPoZdqVngRV/Ms5Fk80cHqLlk="
         }
     ],
     "frontend": [
         {
             "client_key": "admin-web",
             "package": "@peanut-admin/official-member",
-            "version": "1.0.1",
+            "version": "1.0.2",
             "entry": "web/src/modules/official-member/contribution.ts",
             "sha256": "96458014ed5346bdd7495d09fd89d37d9808b78924e69c80e1af546b87d70455"
         }

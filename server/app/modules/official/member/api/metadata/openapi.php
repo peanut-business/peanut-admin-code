@@ -352,7 +352,7 @@ return [
                 'type' => 'object', 'additionalProperties' => false, 'required' => ['nickname'],
                 'properties' => [
                     'nickname' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 50],
-                    'mobile' => ['type' => 'string', 'maxLength' => 20],
+                    'mobile' => ['type' => 'string', 'maxLength' => 20, 'pattern' => '^1[3-9][0-9]{9}$'],
                     'email' => ['type' => 'string', 'format' => 'email'],
                     'sex' => ['type' => 'integer', 'enum' => [0, 1, 2]],
                     'status' => ['type' => 'integer', 'enum' => [0, 1]],

@@ -6048,6 +6048,7 @@ export interface components {
             name: string;
             nickname: string;
             avatar: string;
+            avatar_uri: string;
             root: number;
             /** @enum {integer} */
             disable: 0 | 1;

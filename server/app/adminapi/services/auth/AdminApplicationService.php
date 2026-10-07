@@ -215,7 +215,9 @@ final class AdminApplicationService
             $service->updateProfile(
                 $context,
                 (string) ($params['name'] ?? $params['nickname'] ?? $profile['display_name']),
-                array_key_exists('avatar', $params) ? (string) $params['avatar'] : ($profile['avatar_uri'] ?? null),
+                array_key_exists('avatar', $params)
+                    ? $this->files->setTenantFileUrl($context, (string) $params['avatar'])
+                    : ($profile['avatar_uri'] ?? null),
             );
             if (!empty($params['password'])) {
                 $this->tenantAdmins->assertPasswordChangeAllowed($context->accountId);
@@ -248,6 +250,7 @@ final class AdminApplicationService
                 'name' => (string) ($row['display_name'] ?: $row['username']),
                 'nickname' => (string) ($row['display_name'] ?: $row['username']),
                 'avatar' => $this->files->getFileUrl((string) ($row['avatar_uri'] ?? '')),
+                'avatar_uri' => (string) ($row['avatar_uri'] ?? ''),
                 'root' => (int) $row['root'],
                 'disable' => in_array($row['status'], ['active', 'pending'], true) ? 0 : 1,
                 'disable_desc' => in_array($row['status'], ['active', 'pending'], true) ? '正常' : '禁用',

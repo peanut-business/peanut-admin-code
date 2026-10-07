@@ -8,7 +8,7 @@
         },
         {
             "path": "server/app/api/metadata/application/adminapi.php",
-            "sha256": "2156f8e7bc5e71feca1ef1265f0134daf4966a06a99e3d0be7473d70287869ee"
+            "sha256": "ddca7b23f58f9c9eb2c78e881a0deb5735121d18999a3eb56a6d2cf84c554123"
         },
         {
             "path": "server/app/api/metadata/application/common.php",
@@ -64,7 +64,7 @@
         },
         {
             "path": "server/app/modules/official/member/api/metadata/openapi.php",
-            "sha256": "7e3871184d52a802c2f2948fe51a35a58460ba7bda8f10d868fc0c96cea39a4e"
+            "sha256": "29105b1bfe9c71eb09323493f9061a5f26e2fff0689acee1e427839cb2e6b722"
         },
         {
             "path": "server/app/modules/official/member/route/app.php",

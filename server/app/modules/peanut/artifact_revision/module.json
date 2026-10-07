@@ -3,7 +3,7 @@
   "key": "peanut.artifact-revision",
   "name": "ArtifactRevision",
   "description": "版本化业务制品与不可变修订；保留原模块编号与审计、幂等语义。",
-  "version": "4.0.0-rc.23",
+  "version": "4.0.0-rc.24",
   "kernel_constraint": "^1.0",
   "license": "Apache-2.0",
   "php_package": "peanut-business/artifact-revision",
@@ -11,11 +11,11 @@
   "dependencies": [
     {
       "module_key": "official.identity",
-      "version": "4.0.0-rc.23"
+      "version": "4.0.0-rc.24"
     },
     {
       "module_key": "peanut.workflow",
-      "version": "4.0.0-rc.23"
+      "version": "4.0.0-rc.24"
     }
   ],
   "backend": {

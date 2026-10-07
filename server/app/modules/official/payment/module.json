@@ -3,7 +3,7 @@
   "key": "official.payment",
   "name": "Payment",
   "description": "Tenant-owned payment settings, recharge orders and refund processing.",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "kernel_constraint": "^1.0",
   "license": "Apache-2.0",
   "php_package": "peanut-business/official-payment",
@@ -15,7 +15,7 @@
     },
     {
       "module_key": "official.identity",
-      "version": "4.0.0-rc.23"
+      "version": "4.0.0-rc.24"
     },
     {
       "module_key": "official.integration",

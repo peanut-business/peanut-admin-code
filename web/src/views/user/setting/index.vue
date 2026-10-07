@@ -252,7 +252,7 @@
       const { data } = await getAdminSelf();
       username.value = data.username;
       basicForm.nickname = data.nickname;
-      basicForm.avatar = data.avatar;
+      basicForm.avatar = data.avatar_uri;
       basicForm.avatarUrl = data.avatar;
     } finally {
       setLoading(false);
@@ -276,11 +276,17 @@
         avatar: basicForm.avatar,
       };
       await editAdminSelf(payload);
+      const { data } = await getAdminSelf();
+      basicForm.nickname = data.nickname;
+      basicForm.avatar = data.avatar_uri;
+      basicForm.avatarUrl = data.avatar;
       userStore.setInfo({
-        name: basicForm.nickname,
-        avatar: basicForm.avatarUrl,
+        name: data.nickname,
+        avatar: data.avatar,
       });
       ElMessage.success(t('userSetting.saveSuccess'));
+    } catch {
+      // The shared interceptor displays the server's business error.
     } finally {
       basicLoading.value = false;
     }

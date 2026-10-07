@@ -1,11 +1,11 @@
 {
     "schema_version": 1,
     "key": "peanut.workflow",
-    "version": "4.0.0-rc.23",
+    "version": "4.0.0-rc.24",
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "9c82f734d0cb56b107bee3d370409ca69fba047e46b953bd80c33ede3f18e8c1"
+        "sha256": "95c2f8848fcdabdf6df05420dc18a26bce9ef7d1f7eb47b471b11c9814c2e3a7"
     },
     "trust": {
         "channel": "bundled",
@@ -39,12 +39,12 @@
             "modules": [
                 {
                     "key": "peanut.workflow",
-                    "version": "4.0.0-rc.23",
+                    "version": "4.0.0-rc.24",
                     "kernel_constraint": "^1.0",
                     "dependencies": [
                         {
                             "module_key": "official.identity",
-                            "version": "4.0.0-rc.23"
+                            "version": "4.0.0-rc.24"
                         }
                     ],
                     "permissions": {

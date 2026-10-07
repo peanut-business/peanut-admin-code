@@ -13,7 +13,7 @@ class MemberValidate extends TenantContextValidate
     protected $rule = [
         'id'       => 'require|integer|gt:0|checkMember',
         'nickname' => 'require|max:50',
-        'mobile'   => 'max:20',
+        'mobile'   => 'max:20|regex:/^1[3-9]\\d{9}$/',
         'email'    => 'email',
         'sex'      => 'in:0,1,2',
         'status'   => 'require|in:0,1',
@@ -30,6 +30,7 @@ class MemberValidate extends TenantContextValidate
         'nickname.require' => '昵称不能为空',
         'nickname.max'     => '昵称最多 50 个字符',
         'mobile.max'       => '手机号最多 20 个字符',
+        'mobile.regex'     => '手机号码格式错误',
         'email.email'      => '邮箱格式不正确',
         'sex.in'           => '性别值无效',
         'status.require'   => '状态不能为空',

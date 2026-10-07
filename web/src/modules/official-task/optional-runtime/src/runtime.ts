@@ -18,6 +18,7 @@ export const TASK_JOB_STORE_KEY = 'official.task.jobs.runtime' as const;
 
 export interface TaskJobError {
   readonly message: string;
+  readonly messageKey?: string;
   readonly requestId: string | null;
   readonly status: number | null;
 }
@@ -54,11 +55,11 @@ const failure = (result: TaskTransportResult): TaskJobError => {
       ? (result.body as Record<string, unknown>)
       : {};
   const id = body.request_id ?? result.headers.get('X-Request-Id');
+  const detail =
+    typeof body.detail === 'string' && body.detail !== '' ? body.detail : null;
   return {
-    message:
-      typeof body.detail === 'string' && body.detail !== ''
-        ? body.detail
-        : `Task request failed (${result.status}).`,
+    message: detail ?? `Task request failed (${result.status}).`,
+    ...(detail === null ? { messageKey: 'taskJobs.error.requestFailed' } : {}),
     requestId: typeof id === 'string' && id !== '' ? id : null,
     status: result.status,
   };
@@ -114,6 +115,7 @@ export const createTaskJobRuntime = (
       if (current === generation)
         state.error = {
           message: 'The task service could not be reached.',
+          messageKey: 'taskJobs.error.serviceUnavailable',
           requestId: null,
           status: null,
         };
@@ -141,6 +143,7 @@ export const createTaskJobRuntime = (
     } catch {
       state.error = {
         message: 'The task action could not be completed.',
+        messageKey: 'taskJobs.error.actionFailed',
         requestId: null,
         status: null,
       };

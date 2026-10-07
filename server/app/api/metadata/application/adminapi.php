@@ -128,10 +128,10 @@ $schemas = [
     'AdminRecord' => [
         'type' => 'object',
         'additionalProperties' => $ref('ApplicationDynamicValue'),
-        'required' => ['id', 'account', 'username', 'name', 'nickname', 'avatar', 'root', 'disable', 'disable_desc', 'multipoint_login', 'login_time', 'login_ip', 'create_time', 'update_time', 'role_id', 'role_ids', 'dept_id', 'jobs_id', 'role_name', 'dept_name', 'jobs_name', 'roles'],
+        'required' => ['id', 'account', 'username', 'name', 'nickname', 'avatar', 'avatar_uri', 'root', 'disable', 'disable_desc', 'multipoint_login', 'login_time', 'login_ip', 'create_time', 'update_time', 'role_id', 'role_ids', 'dept_id', 'jobs_id', 'role_name', 'dept_name', 'jobs_name', 'roles'],
         'properties' => [
             'id' => ['type' => 'integer'], 'account' => ['type' => 'string'], 'username' => ['type' => 'string'],
-            'name' => ['type' => 'string'], 'nickname' => ['type' => 'string'], 'avatar' => ['type' => 'string'],
+            'name' => ['type' => 'string'], 'nickname' => ['type' => 'string'], 'avatar' => ['type' => 'string'], 'avatar_uri' => ['type' => 'string'],
             'root' => ['type' => 'integer'], 'disable' => ['type' => 'integer', 'enum' => [0, 1]],
             'disable_desc' => ['type' => 'string'], 'multipoint_login' => ['type' => 'integer', 'enum' => [0, 1]],
             'login_time' => ['type' => 'string'], 'login_ip' => ['type' => 'string'],

@@ -8,13 +8,22 @@
     PageToolbar,
     SessionExpiredState,
   } from '@peanut-admin/ui-vue';
-  import { ElButton } from 'element-plus';
+  import { ElButton, ElPopconfirm } from 'element-plus';
   import { computed, onMounted } from 'vue';
+  import { useI18n } from 'vue-i18n';
   import { useTaskJobRuntime } from './runtime';
 
   const runtime = useTaskJobRuntime();
+  const { t } = useI18n();
   const { state } = runtime;
   const canManage = computed(runtime.canManage);
+  const errorMessage = computed(() =>
+    state.error?.messageKey
+      ? t(state.error.messageKey, { status: state.error.status ?? '' })
+      : state.error?.message ?? ''
+  );
+  const statusLabel = (status: string): string =>
+    t(`taskJobs.status.${status}`);
   const statuses = [
     'queued',
     'running',
@@ -29,88 +38,119 @@
 <template>
   <PageContent class="task-job-page">
     <PageHeader>
-      Tasks
+      {{ $t('taskJobs.title') }}
       <template #actions>
         <ElButton
+          :aria-label="$t('taskJobs.action.reload')"
           :loading="state.loading"
           :disabled="state.mutating"
           @click="runtime.load"
         >
-          Reload
+          {{ $t('taskJobs.action.reload') }}
         </ElButton>
       </template>
     </PageHeader>
-    <PageToolbar label="Task status">
+    <PageToolbar :label="$t('taskJobs.filter.status')">
       <ElButton
         v-for="status in statuses"
         :key="status"
         :type="state.status === status ? 'primary' : 'default'"
+        :aria-label="
+          $t('taskJobs.aria.filterStatus', { status: statusLabel(status) })
+        "
+        :aria-pressed="state.status === status"
         @click="runtime.setStatus(status)"
       >
-        {{ status }}
+        {{ statusLabel(status) }}
       </ElButton>
     </PageToolbar>
 
     <SessionExpiredState
       v-if="state.error?.status === 401"
-      :message="state.error.message"
+      :message="errorMessage"
     />
     <ForbiddenState
       v-else-if="state.error?.status === 403"
-      :message="state.error.message"
+      :message="errorMessage"
     />
     <ModuleUnavailableState
       v-else-if="state.error?.status === 503"
-      :message="state.error.message"
+      :message="errorMessage"
       @action="runtime.load"
     />
     <section v-else-if="state.error" role="alert" class="task-state">
-      <h2>Unable to complete the task request</h2>
-      <p>{{ state.error.message }}</p>
+      <h2>{{ $t('taskJobs.error.title') }}</h2>
+      <p>{{ errorMessage }}</p>
       <p v-if="state.error.requestId">
-        Request ID: {{ state.error.requestId }}
+        {{ $t('taskJobs.error.requestId') }}: {{ state.error.requestId }}
       </p>
     </section>
     <div v-else-if="state.loading" class="task-state" role="status">
-      Loading tasks...
+      {{ $t('taskJobs.loading') }}
     </div>
     <EmptyState
       v-else-if="state.items.length === 0"
-      title="No tasks"
-      message="No tasks match this status."
+      :title="$t('taskJobs.empty.title')"
+      :message="$t('taskJobs.empty.message')"
     />
     <div v-else class="task-table-wrap">
-      <table class="task-table">
+      <table class="task-table" :aria-label="$t('taskJobs.table.label')">
         <thead
           ><tr
-            ><th>Type</th><th>Status</th><th>Attempts</th><th>Error</th
-            ><th>Updated</th><th>Actions</th></tr
+            ><th>{{ $t('taskJobs.column.type') }}</th
+            ><th>{{ $t('taskJobs.column.status') }}</th
+            ><th>{{ $t('taskJobs.column.attempts') }}</th
+            ><th>{{ $t('taskJobs.column.error') }}</th
+            ><th>{{ $t('taskJobs.column.updated') }}</th
+            ><th>{{ $t('taskJobs.column.actions') }}</th></tr
           ></thead
         >
         <tbody>
           <tr v-for="job in state.items" :key="job.jobKey">
             <td>{{ job.taskType }}</td
-            ><td>{{ job.status }}</td>
+            ><td>{{ statusLabel(job.status) }}</td>
             <td>{{ job.attemptCount }} / {{ job.maxAttempts }}</td>
             <td>{{ job.lastErrorCode ?? '-' }}</td
             ><td>{{ job.updatedAt }}</td>
             <td>
-              <ElButton
+              <ElPopconfirm
                 v-if="job.status === 'queued'"
-                text
-                :disabled="!canManage || state.mutating"
-                @click="runtime.cancel(job)"
+                :title="$t('taskJobs.confirm.cancel')"
+                :confirm-button-text="$t('taskJobs.action.confirm')"
+                :cancel-button-text="$t('taskJobs.action.keep')"
+                @confirm="runtime.cancel(job)"
               >
-                Cancel
-              </ElButton>
-              <ElButton
+                <template #reference>
+                  <ElButton
+                    text
+                    :aria-label="
+                      $t('taskJobs.aria.cancel', { name: job.taskType })
+                    "
+                    :disabled="!canManage || state.mutating"
+                  >
+                    {{ $t('taskJobs.action.cancel') }}
+                  </ElButton>
+                </template>
+              </ElPopconfirm>
+              <ElPopconfirm
                 v-if="job.status === 'dead'"
-                text
-                :disabled="!canManage || state.mutating"
-                @click="runtime.retry(job)"
+                :title="$t('taskJobs.confirm.retry')"
+                :confirm-button-text="$t('taskJobs.action.confirm')"
+                :cancel-button-text="$t('taskJobs.action.keep')"
+                @confirm="runtime.retry(job)"
               >
-                Retry
-              </ElButton>
+                <template #reference>
+                  <ElButton
+                    text
+                    :aria-label="
+                      $t('taskJobs.aria.retry', { name: job.taskType })
+                    "
+                    :disabled="!canManage || state.mutating"
+                  >
+                    {{ $t('taskJobs.action.retry') }}
+                  </ElButton>
+                </template>
+              </ElPopconfirm>
             </td>
           </tr>
         </tbody>

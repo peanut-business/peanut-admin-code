@@ -17,6 +17,7 @@ use PeanutAdmin\Modules\Identity\Persistence\Model\Credential;
 use PeanutAdmin\Modules\Identity\Persistence\Model\LoginChallenge;
 use PeanutAdmin\Modules\Identity\Persistence\Model\PlatformSession;
 use PeanutAdmin\Modules\Identity\Persistence\Model\PlatformSessionToken;
+use PeanutAdmin\Modules\Identity\Persistence\Model\TenantMember;
 use PeanutAdmin\Modules\Identity\Persistence\Model\TenantSession;
 use PeanutAdmin\Modules\Identity\Persistence\Model\TenantSessionToken;
 use SensitiveParameter;
@@ -69,7 +70,7 @@ final readonly class AccountSelfService
             ->where('credential.identifier_type', 'email')
             ->where('credential.status', 'active')
             ->field([
-                'account.id', 'account.display_name', 'account.avatar_uri', 'credential.kind',
+                'account.id', 'member.display_name', 'account.avatar_uri', 'credential.kind',
                 'credential.identifier_type', 'credential.identifier_normalized',
                 'credential.verified_at', 'credential.secret_changed_at',
             ])->order('credential.id')->limit(1);
@@ -118,10 +119,18 @@ final readonly class AccountSelfService
                     'The account credential is not available.',
                 );
             }
+            $now = $this->now();
+            TenantMember::where('tenant_id', $actor->tenantId)
+                ->where('id', $actor->memberId)
+                ->where('account_id', $actor->accountId)
+                ->where('status', 'active')
+                ->update([
+                    'display_name' => $displayName,
+                    'updated_at' => $now,
+                ]);
             Account::where('id', $actor->accountId)->where('status', 'active')->update([
-                'display_name' => $displayName,
                 'avatar_uri' => $avatarUri,
-                'updated_at' => $this->now(),
+                'updated_at' => $now,
             ]);
             $changedFields = [];
             if ((string) $current['display_name'] !== $displayName) {
@@ -326,6 +335,10 @@ final readonly class AccountSelfService
             return null;
         }
         $avatarUri = trim($avatarUri);
+        // The HTTP adapter verifies ownership of canonical file keys before calling this service.
+        if (preg_match('/^file_[0-9a-f]{32}$/D', $avatarUri) === 1) {
+            return $avatarUri;
+        }
         $parts = parse_url($avatarUri);
         if (strlen($avatarUri) > 512
             || filter_var($avatarUri, FILTER_VALIDATE_URL) === false

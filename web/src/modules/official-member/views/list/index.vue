@@ -332,8 +332,10 @@
             v-model="fieldForm.value"
             :maxlength="fieldForm.field === 'mobile' ? 11 : 32"
             show-word-limit
+            @update:model-value="fieldError = ''"
           />
         </el-form-item>
+        <el-form-item v-if="fieldError" :error="fieldError" />
       </el-form>
       <template #footer>
         <el-button @click="fieldModalVisible = false">
@@ -384,8 +386,8 @@
         </el-form-item>
         <el-form-item prop="remark" :label="$t('member.field.remark')">
           <el-input
-            type="textarea"
             v-model="balanceForm.remark"
+            type="textarea"
             :placeholder="$t('member.field.remark.placeholder')"
             maxlength="128"
             show-word-limit
@@ -579,6 +581,20 @@
     nickname: [
       { required: true, message: t('member.field.nickname.required') },
     ],
+    mobile: [
+      {
+        pattern: /^1[3-9]\d{9}$/,
+        message: t('member.field.mobile.invalid'),
+        trigger: 'blur',
+      },
+    ],
+    email: [
+      {
+        type: 'email',
+        message: t('member.field.email.invalid'),
+        trigger: 'blur',
+      },
+    ],
   };
   const resetForm = (patch: Partial<MemberForm> = {}) =>
     Object.assign(form, defaultForm(), patch);
@@ -587,6 +603,7 @@
     modalVisible.value = true;
   };
   const handleSubmit = async () => {
+    if (submitLoading.value) return false;
     const valid = await formRef.value?.validate().catch(() => false);
     if (!valid) return false;
     submitLoading.value = true;
@@ -596,6 +613,9 @@
       modalVisible.value = false;
       await fetchData(pagination.current);
       return true;
+    } catch {
+      // The shared interceptor displays the server's business error.
+      return false;
     } finally {
       submitLoading.value = false;
     }
@@ -652,6 +672,7 @@
 
   const fieldModalVisible = ref(false);
   const fieldLoading = ref(false);
+  const fieldError = ref('');
   const fieldForm = reactive<{
     field: MemberEditableField;
     value: MemberDetail[MemberEditableField];
@@ -668,11 +689,19 @@
   const openFieldEdit = (field: MemberEditableField) => {
     fieldForm.field = field;
     fieldForm.value = detail[field];
+    fieldError.value = '';
     fieldModalVisible.value = true;
   };
   const submitFieldEdit = async () => {
     if (fieldForm.value === '') {
       ElMessage.warning(t('member.detail.valueRequired'));
+      return false;
+    }
+    if (
+      fieldForm.field === 'mobile' &&
+      !/^1[3-9]\d{9}$/.test(String(fieldForm.value))
+    ) {
+      fieldError.value = t('member.field.mobile.invalid');
       return false;
     }
     fieldLoading.value = true;
