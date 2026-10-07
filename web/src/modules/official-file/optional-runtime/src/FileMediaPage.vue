@@ -11,7 +11,7 @@
   const runtime = createFileAssetRuntime({
     canRead: () => user.permissions.includes(FILE_ASSET_READ_PERMISSION),
   });
-  const state = runtime.state;
+  const { state } = runtime;
 
   onMounted(() => runtime.load());
   onBeforeUnmount(runtime.dispose);

@@ -117,8 +117,8 @@ export const parseAssetCandidate = (value: unknown): AssetCandidate => {
   if ((width === null) !== (height === null))
     throw new Error('FILE_ASSET_RESPONSE_INVALID');
   const keys = new Set<string>();
-  const variants = item.variants.map((value): ImageVariant => {
-    const variant = record(value);
+  const variants = item.variants.map((variantValue): ImageVariant => {
+    const variant = record(variantValue);
     exactKeys(variant, [
       'variant_key',
       'file_key',
@@ -181,7 +181,7 @@ export const parseAssetList = (value: unknown): AssetList => {
   ) {
     throw new Error('FILE_ASSET_RESPONSE_INVALID');
   }
-  for (const key of ['page', 'page_size', 'total'] as const) {
+  (['page', 'page_size', 'total'] as const).forEach((key) => {
     const number = meta[key];
     if (
       typeof number !== 'number' ||
@@ -190,7 +190,7 @@ export const parseAssetList = (value: unknown): AssetList => {
     ) {
       throw new Error('FILE_ASSET_RESPONSE_INVALID');
     }
-  }
+  });
   return {
     items: data.items.map(parseAssetCandidate),
     page: meta.page as number,

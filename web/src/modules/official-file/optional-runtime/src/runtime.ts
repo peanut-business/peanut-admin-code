@@ -72,7 +72,8 @@ export const createFileAssetRuntime = (
   let generation = 0;
   let controller: AbortController | null = null;
   const load = async (page = state.page): Promise<void> => {
-    const current = ++generation;
+    generation += 1;
+    const current = generation;
     controller?.abort();
     controller = new AbortController();
     state.loading = true;

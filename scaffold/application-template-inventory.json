@@ -2290,7 +2290,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bd7290356456b113f4b3c5edf03bcf88d3d6793614833ce8e27952be3fcad134"
+            "source_sha256": "3c17ebf93573cab60b925810a628130a2caa574c89bdc4212e4633c5d7e2df7f"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2358,7 +2358,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "db88c21e048a736cc76f56f3cdda1292364099691b1000a0a38492b96c43a402"
+            "source_sha256": "4d2fae4cca71d8eed2f1501ed1dee963fdd917309942260befe626c1b33b5595"
         },
         {
             "path": "plugins/official.identity/plugin.json",
@@ -9868,7 +9868,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "38897ab302c0d6f038e65b96cf3047ff74ddbe42eb8f2546dc7b2af29b309090"
+            "source_sha256": "d807b2a29004391cbd749aaa34a5f3f7ee5fb6480f518a2e50365bf8f9e136a2"
         },
         {
             "path": "server/app/modules/official/file/resources/menus.json",
@@ -32248,7 +32248,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4c6e10a94131c821dd21eb8b9c592cc13f8ae49944ea8c8cd6acb1fb93a26359"
+            "source_sha256": "94e74c55af9bd5048bdac83707592bd102885d13634baf13a0abb8c4f09c65b4"
         },
         {
             "path": "web/src/modules/official-file/optional-runtime/src/contracts.ts",
@@ -32262,7 +32262,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1507c193201ec648963733c07ba528e536d9ec15f23bd7424fce7459c214bf33"
+            "source_sha256": "ac5f4a6f941831bd0ec32262f17184e5780efc2477ecf0018285267023127ae0"
         },
         {
             "path": "web/src/modules/official-file/optional-runtime/src/index.ts",
@@ -32290,7 +32290,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f1134952652c89c7a2b98662e48df6154150b30df3a6cd576ba3e69d7b17ebcf"
+            "source_sha256": "32ddb5a29751cb07525a1962c9290bbafc7b2237992c189bb5a57a2fe3f116e1"
         },
         {
             "path": "web/src/modules/official-file/optional-runtime/tests/asset-selector.spec.ts",
@@ -32360,7 +32360,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "56e93885f5ff9ebb4a7f151efd36cc5ce636ca14d813336f69e4019456dc08b3"
+            "source_sha256": "7c7c60aecf7a6f7b6e3319787491e5e598a9601a66edef387f70866807696bea"
         },
         {
             "path": "web/src/modules/official-file/views/index.vue",
