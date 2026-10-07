@@ -12,7 +12,10 @@
     >
       <el-form-item
         prop="username"
-        :rules="[{ required: true, message: $t('login.form.userName.errMsg') }]"
+        :rules="[
+          { required: true, message: $t('login.form.userName.errMsg') },
+          { type: 'email', message: $t('login.form.userName.formatErrMsg') },
+        ]"
       >
         <el-input
           v-model="userInfo.username"

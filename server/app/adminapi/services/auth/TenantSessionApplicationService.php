@@ -44,7 +44,7 @@ final readonly class TenantSessionApplicationService
             throw new BusinessException(
                 'TENANT_AUTHENTICATION_REJECTED',
                 401,
-                'Tenant authentication was rejected.',
+                '登录验证失败，请检查账号、密码或登录入口',
             );
         }
     }

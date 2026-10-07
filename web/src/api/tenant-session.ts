@@ -12,6 +12,16 @@ const tenantClient = axios.create({
   timeout: 15_000,
 });
 
+tenantClient.interceptors.response.use(undefined, (error: unknown) => {
+  if (axios.isAxiosError<{ msg?: unknown }>(error)) {
+    const message = error.response?.data?.msg;
+    if (typeof message === 'string' && message.trim() !== '') {
+      error.message = message;
+    }
+  }
+  return Promise.reject(error);
+});
+
 let sessionCookieQueue: Promise<void> = Promise.resolve();
 
 function queueSessionCookieRequest<T>(
