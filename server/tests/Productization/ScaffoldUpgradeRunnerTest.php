@@ -175,6 +175,39 @@ function scaffoldCopyRelease(string $source, string $target): void
 {
     scaffoldCopy(dirname($source), $target);
 }
+function scaffoldRenameRelease(string $source, string $target, string $fromPath, string $toPath): string
+{
+    scaffoldCopyRelease($source, $target);
+    $manifestPath = $target . '/scaffold-manifest.json';
+    $manifest = json_decode((string) file_get_contents($manifestPath), true, 512, JSON_THROW_ON_ERROR);
+    $index = null;
+    foreach ($manifest['files'] as $candidateIndex => $file) {
+        if (($file['path'] ?? null) === $fromPath) {
+            $index = $candidateIndex;
+            break;
+        }
+    }
+    scaffoldExpect(is_int($index), 'rename fixture source file must exist in the target release');
+    $file = $manifest['files'][$index];
+    $oldArtifact = $target . '/' . $file['source'];
+    $content = file_get_contents($oldArtifact);
+    scaffoldExpect(is_string($content), 'rename fixture source artifact must be readable');
+    $newSource = 'files/' . $toPath;
+    $newArtifact = $target . '/' . $newSource;
+    if (!is_dir(dirname($newArtifact))) {
+        mkdir(dirname($newArtifact), 0775, true);
+    }
+    file_put_contents($newArtifact, $content);
+    chmod($newArtifact, (int) $file['mode']);
+    unlink($oldArtifact);
+    $file['path'] = $toPath;
+    $file['source'] = $newSource;
+    $file['template_sha256'] = hash('sha256', $content);
+    $manifest['files'][$index] = $file;
+    $manifest['renames'] = [['from' => $fromPath, 'to' => $toPath, 'owner' => $file['owner']]];
+    file_put_contents($manifestPath, json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n");
+    return $manifestPath;
+}
 
 $temporaryRoot = realpath(sys_get_temp_dir());
 if ($temporaryRoot === false) {
@@ -342,6 +375,172 @@ try {
     file_put_contents($newManifestPath, json_encode($newManifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n");
     $newPlan = $runner->preview($from, $fromRelease, $newManifestPath);
     scaffoldExpect($newPlan['status'] === 'ready' && count(array_filter($newPlan['actions'], static fn(array $action): bool => ($action['path'] ?? null) === 'host/new-managed.txt' && ($action['action'] ?? null) === 'create')) === 1, 'a target-only path without an instance file must remain creatable');
+
+    $renameFromPath = '.dockerignore';
+    $renameToPath = 'host/dockerignore-renamed';
+    $renameRelease = $temporary . '/rename-release';
+    $renameManifest = scaffoldRenameRelease($toRelease, $renameRelease, $renameFromPath, $renameToPath);
+    $renameArtifact = $renameRelease . '/files/' . $renameToPath;
+
+    $renameApp = $temporary . '/rename-app';
+    scaffoldFresh($source, $renameApp);
+    $renameBefore = scaffoldFileTree($renameApp);
+    $renamePlan = $runner->preflight($renameApp, $fromRelease, $renameManifest);
+    $renameActions = array_values(array_filter($renamePlan['actions'], static fn(array $action): bool => ($action['path'] ?? null) === 'host/dockerignore-renamed'));
+    scaffoldExpect(
+        $renamePlan['status'] === 'ready' && count($renameActions) === 1
+        && $renameActions[0]['action'] === 'rename' && $renameActions[0]['reason'] === 'upstream_renamed'
+        && ($renameActions[0]['rename_from'] ?? null) === $renameFromPath,
+        'a pristine managed upstream rename must be automatic',
+    );
+    $renameApply = $runner->apply($renameApp, scaffoldPlanPath($renameApp, $renamePlan));
+    $renameVerify = $runner->verify($renameApp, scaffoldPlanPath($renameApp, $renamePlan));
+    scaffoldExpect($renameApply['status'] === 'applied' && $renameVerify['status'] === 'verified', 'automatic rename apply/verify must complete');
+    scaffoldExpect(
+        !file_exists($renameApp . '/' . $renameFromPath)
+        && hash_equals((string) hash_file('sha256', $renameArtifact), (string) hash_file('sha256', $renameApp . '/' . $renameToPath)),
+        'automatic rename must remove the source and install the target bytes',
+    );
+    $renameAppliedManifest = json_decode((string) file_get_contents($renameApp . '/.peanut/application-manifest.json'), true, 512, JSON_THROW_ON_ERROR);
+    scaffoldExpect(
+        count(array_filter($renameAppliedManifest['files'], static fn(array $file): bool => ($file['path'] ?? null) === 'host/dockerignore-renamed')) === 1
+        && count(array_filter($renameAppliedManifest['files'], static fn(array $file): bool => ($file['path'] ?? null) === '.dockerignore')) === 0,
+        'automatic rename must advance managed ownership to the target path',
+    );
+    $renameIdempotentTree = scaffoldFileTree($renameApp, true);
+    scaffoldExpect(
+        $runner->apply($renameApp, scaffoldPlanPath($renameApp, $renamePlan))['idempotent'] === true
+        && $runner->verify($renameApp, scaffoldPlanPath($renameApp, $renamePlan))['idempotent'] === true
+        && hash_equals($renameIdempotentTree, scaffoldFileTree($renameApp, true)),
+        'automatic rename apply/verify must be idempotent',
+    );
+    scaffoldExpect(
+        $runner->recover($renameApp, scaffoldPlanPath($renameApp, $renamePlan))['status'] === 'recovered'
+        && hash_equals($renameBefore, scaffoldFileTree($renameApp)),
+        'automatic rename recovery must restore the exact source tree',
+    );
+
+    $renameSourceCustom = $temporary . '/rename-source-custom';
+    scaffoldFresh($source, $renameSourceCustom);
+    file_put_contents($renameSourceCustom . '/' . $renameFromPath, (string) file_get_contents($renameSourceCustom . '/' . $renameFromPath) . "\n# downstream rename customization\n");
+    $renameSourceCustomBytes = (string) file_get_contents($renameSourceCustom . '/' . $renameFromPath);
+    $renameSourceCustomBefore = scaffoldFileTree($renameSourceCustom);
+    $renameSourcePlan = $runner->preflight($renameSourceCustom, $fromRelease, $renameManifest);
+    $renameSourceConflict = array_values(array_filter($renameSourcePlan['actions'], static fn(array $action): bool => ($action['path'] ?? null) === 'host/dockerignore-renamed'));
+    scaffoldExpect(
+        $renameSourcePlan['status'] === 'blocked' && count($renameSourceConflict) === 1
+        && $renameSourceConflict[0]['reason'] === 'project_modified_upstream_renamed'
+        && ($renameSourceConflict[0]['resolution_options'] ?? null) === ['preserve','replace'],
+        'a customized rename source must require an explicit preserve/replace decision',
+    );
+    $renameSourceResolved = $runner->resolve($renameSourceCustom, scaffoldPlanPath($renameSourceCustom, $renameSourcePlan), $renameSourcePlan['plan_sha256'], [$renameToPath], []);
+    scaffoldExpect($renameSourceResolved['status'] === 'ready', 'rename source preserve resolution must produce a ready plan');
+    $runner->apply($renameSourceCustom, scaffoldPlanPath($renameSourceCustom, $renameSourceResolved));
+    $runner->verify($renameSourceCustom, scaffoldPlanPath($renameSourceCustom, $renameSourceResolved));
+    scaffoldExpect(
+        !file_exists($renameSourceCustom . '/' . $renameFromPath)
+        && hash_equals(hash('sha256', $renameSourceCustomBytes), (string) hash_file('sha256', $renameSourceCustom . '/' . $renameToPath)),
+        'preserving a customized rename source must move its exact bytes to the target path',
+    );
+    scaffoldExpect(
+        $runner->recover($renameSourceCustom, scaffoldPlanPath($renameSourceCustom, $renameSourceResolved))['status'] === 'recovered'
+        && hash_equals($renameSourceCustomBefore, scaffoldFileTree($renameSourceCustom)),
+        'customized rename source recovery must restore the exact pre-apply tree',
+    );
+
+    $renameTargetCustom = $temporary . '/rename-target-custom';
+    scaffoldFresh($source, $renameTargetCustom);
+    mkdir($renameTargetCustom . '/host', 0775, true);
+    file_put_contents($renameTargetCustom . '/' . $renameToPath, "downstream target occupant\n");
+    $renameTargetBytes = (string) file_get_contents($renameTargetCustom . '/' . $renameToPath);
+    $renameTargetBefore = scaffoldFileTree($renameTargetCustom);
+    $renameTargetPlan = $runner->preflight($renameTargetCustom, $fromRelease, $renameManifest);
+    $renameTargetConflict = array_values(array_filter($renameTargetPlan['actions'], static fn(array $action): bool => ($action['path'] ?? null) === 'host/dockerignore-renamed'));
+    scaffoldExpect(
+        $renameTargetPlan['status'] === 'blocked' && count($renameTargetConflict) === 1
+        && $renameTargetConflict[0]['reason'] === 'rename_target_already_exists'
+        && ($renameTargetConflict[0]['rename_preserve'] ?? null) === 'target',
+        'an occupied rename target must block before ownership is adopted',
+    );
+    $renameTargetResolved = $runner->resolve($renameTargetCustom, scaffoldPlanPath($renameTargetCustom, $renameTargetPlan), $renameTargetPlan['plan_sha256'], [$renameToPath], []);
+    $runner->apply($renameTargetCustom, scaffoldPlanPath($renameTargetCustom, $renameTargetResolved));
+    $runner->verify($renameTargetCustom, scaffoldPlanPath($renameTargetCustom, $renameTargetResolved));
+    scaffoldExpect(
+        !file_exists($renameTargetCustom . '/' . $renameFromPath)
+        && hash_equals(hash('sha256', $renameTargetBytes), (string) hash_file('sha256', $renameTargetCustom . '/' . $renameToPath)),
+        'explicit target preservation must keep the existing target bytes and retire the old source',
+    );
+    scaffoldExpect(
+        $runner->recover($renameTargetCustom, scaffoldPlanPath($renameTargetCustom, $renameTargetResolved))['status'] === 'recovered'
+        && hash_equals($renameTargetBefore, scaffoldFileTree($renameTargetCustom)),
+        'occupied rename target recovery must restore both original paths',
+    );
+
+    $renameAmbiguous = $temporary . '/rename-ambiguous';
+    scaffoldFresh($source, $renameAmbiguous);
+    file_put_contents($renameAmbiguous . '/' . $renameFromPath, (string) file_get_contents($renameAmbiguous . '/' . $renameFromPath) . "\n# source changed\n");
+    mkdir($renameAmbiguous . '/host', 0775, true);
+    file_put_contents($renameAmbiguous . '/' . $renameToPath, "target also changed\n");
+    $renameAmbiguousBefore = scaffoldFileTree($renameAmbiguous);
+    $renameAmbiguousPlan = $runner->preflight($renameAmbiguous, $fromRelease, $renameManifest);
+    $renameAmbiguousConflict = array_values(array_filter($renameAmbiguousPlan['actions'], static fn(array $action): bool => ($action['path'] ?? null) === 'host/dockerignore-renamed'));
+    scaffoldExpect(
+        $renameAmbiguousPlan['status'] === 'blocked' && count($renameAmbiguousConflict) === 1
+        && $renameAmbiguousConflict[0]['reason'] === 'rename_source_and_target_modified'
+        && ($renameAmbiguousConflict[0]['resolution_options'] ?? null) === ['replace'],
+        'two customized rename paths must reject ambiguous preservation',
+    );
+    scaffoldFails(fn() => $runner->resolve($renameAmbiguous, scaffoldPlanPath($renameAmbiguous, $renameAmbiguousPlan), $renameAmbiguousPlan['plan_sha256'], [$renameToPath], []), 'SCAFFOLD_RESOLUTION_OPTION_UNSUPPORTED');
+    $renameAmbiguousResolved = $runner->resolve($renameAmbiguous, scaffoldPlanPath($renameAmbiguous, $renameAmbiguousPlan), $renameAmbiguousPlan['plan_sha256'], [], [$renameToPath]);
+    $runner->apply($renameAmbiguous, scaffoldPlanPath($renameAmbiguous, $renameAmbiguousResolved));
+    $runner->verify($renameAmbiguous, scaffoldPlanPath($renameAmbiguous, $renameAmbiguousResolved));
+    scaffoldExpect(
+        !file_exists($renameAmbiguous . '/' . $renameFromPath)
+        && hash_equals((string) hash_file('sha256', $renameArtifact), (string) hash_file('sha256', $renameAmbiguous . '/' . $renameToPath)),
+        'explicit replacement must install upstream bytes for an ambiguous rename',
+    );
+    scaffoldExpect(
+        $runner->recover($renameAmbiguous, scaffoldPlanPath($renameAmbiguous, $renameAmbiguousResolved))['status'] === 'recovered'
+        && hash_equals($renameAmbiguousBefore, scaffoldFileTree($renameAmbiguous)),
+        'ambiguous rename replacement recovery must restore both customized paths',
+    );
+
+    $renameFault = $temporary . '/rename-fault';
+    scaffoldFresh($source, $renameFault);
+    $renameFaultBefore = scaffoldFileTree($renameFault);
+    $renameFaultPlan = $runner->preflight($renameFault, $fromRelease, $renameManifest);
+    $renameFaultRunner = new ScaffoldUpgradeRunner(1);
+    scaffoldFails(fn() => $renameFaultRunner->apply($renameFault, scaffoldPlanPath($renameFault, $renameFaultPlan)), 'SCAFFOLD_FAULT_INJECTED');
+    scaffoldExpect(
+        $runner->recover($renameFault, scaffoldPlanPath($renameFault, $renameFaultPlan))['status'] === 'recovered'
+        && hash_equals($renameFaultBefore, scaffoldFileTree($renameFault)),
+        'rename recovery must restore an interrupted path transition exactly',
+    );
+
+    $renameStale = $temporary . '/rename-stale';
+    scaffoldFresh($source, $renameStale);
+    $renameStalePlan = $runner->preflight($renameStale, $fromRelease, $renameManifest);
+    file_put_contents($renameStale . '/' . $renameFromPath, (string) file_get_contents($renameStale . '/' . $renameFromPath) . "\n# changed after rename plan\n");
+    scaffoldFails(fn() => $runner->apply($renameStale, scaffoldPlanPath($renameStale, $renameStalePlan)), 'SCAFFOLD_PLAN_PROJECT_CHANGED');
+    scaffoldExpect(!file_exists($renameStale . '/' . $renameToPath), 'stale rename plan must not create the target path');
+
+    $ordinaryConflict = $temporary . '/ordinary-conflict';
+    scaffoldFresh($source, $ordinaryConflict);
+    $ordinaryChanged = 'scripts/scaffold-upgrade';
+    file_put_contents($ordinaryConflict . '/' . $ordinaryChanged, (string) file_get_contents($ordinaryConflict . '/' . $ordinaryChanged) . "\n# downstream ordinary managed edit\n");
+    $ordinaryBefore = scaffoldFileTree($ordinaryConflict);
+    $ordinaryPlan = $runner->preflight($ordinaryConflict, $fromRelease, $toRelease);
+    scaffoldExpect(
+        $ordinaryPlan['status'] === 'blocked'
+        && count(array_filter($ordinaryPlan['actions'], static fn(array $action): bool => ($action['reason'] ?? null) === 'both_project_and_upstream_modified')) >= 1,
+        'ordinary both-sides managed changes must remain blocked',
+    );
+    scaffoldFails(fn() => $runner->apply($ordinaryConflict, scaffoldPlanPath($ordinaryConflict, $ordinaryPlan)), 'SCAFFOLD_PLAN_BLOCKED');
+    scaffoldExpect(hash_equals($ordinaryBefore, scaffoldFileTree($ordinaryConflict)), 'blocked ordinary conflict must perform zero product-tree writes');
+    if (in_array('--rename-only', $argv, true)) {
+        echo "SCAFFOLD-RENAME-UPGRADE passed: automatic, preserve, replace, freshness, recovery and legacy conflict contracts verified\n";
+        return;
+    }
 
     $appOwnedPath = 'server/config/peanut.php';
     file_put_contents($from . '/' . $appOwnedPath, (string) file_get_contents($from . '/' . $appOwnedPath) . "\n// application customization\n");
@@ -543,7 +742,7 @@ try {
     $latestVerify = $runner->verify($latestApp, scaffoldPlanPath($latestApp, $latestPlan));
     scaffoldExpect($latestApply['status'] === 'applied' && $latestVerify['status'] === 'verified', 'v1.1.1 to v1.1.2 apply/verify must complete');
     $latestAppliedManifest = json_decode((string) file_get_contents($latestApplicationManifestPath), true, 512, JSON_THROW_ON_ERROR);
-    scaffoldExpect(($latestAppliedManifest['generation_source'] ?? null) === $generationSource, 'scaffold upgrade must preserve generation_source');
+    scaffoldExpect(($latestAppliedManifest['generation_source'] ?? null) === $latestPlan['identity']['target_generation_source'], 'scaffold upgrade must advance generation_source to the planned target source');
     scaffoldExpect(($latestAppliedManifest['last_scaffold_upgrade']['from'] ?? null) === '1.1.1' && ($latestAppliedManifest['last_scaffold_upgrade']['to'] ?? null) === '1.1.2', 'scaffold upgrade must record the v1.1.2 transition');
     scaffoldExpect(hash_equals($latestAppOwnedDigest, (string) hash_file('sha256', $latestApp . '/' . $latestAppOwnedPath)), 'v1.1.2 upgrade must preserve app-owned bytes');
     $latestRecover = $runner->recover($latestApp, scaffoldPlanPath($latestApp, $latestPlan));
@@ -571,7 +770,7 @@ try {
     $nextVerify = $runner->verify($nextApp, scaffoldPlanPath($nextApp, $nextPlan));
     scaffoldExpect($nextApply['status'] === 'applied' && $nextVerify['status'] === 'verified', 'v1.1.2 to v1.1.3 apply/verify must complete');
     $nextAppliedManifest = json_decode((string) file_get_contents($nextApplicationManifestPath), true, 512, JSON_THROW_ON_ERROR);
-    scaffoldExpect(($nextAppliedManifest['generation_source'] ?? null) === $nextGenerationSource, 'v1.1.3 scaffold upgrade must preserve generation_source');
+    scaffoldExpect(($nextAppliedManifest['generation_source'] ?? null) === $nextPlan['identity']['target_generation_source'], 'v1.1.3 scaffold upgrade must advance generation_source to the planned target source');
     scaffoldExpect(($nextAppliedManifest['last_scaffold_upgrade']['from'] ?? null) === '1.1.2' && ($nextAppliedManifest['last_scaffold_upgrade']['to'] ?? null) === '1.1.3', 'scaffold upgrade must record the v1.1.3 transition');
     scaffoldExpect(hash_equals($nextAppOwnedDigest, (string) hash_file('sha256', $nextApp . '/' . $nextAppOwnedPath)), 'v1.1.3 upgrade must preserve app-owned bytes');
     scaffoldExpect(str_contains((string) file_get_contents($nextApp . '/deploy/docker/production.Dockerfile'), 'COPY plugins.lock /build/plugins.lock'), 'v1.1.3 upgrade must install the production Plugin lock copy');
