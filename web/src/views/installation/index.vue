@@ -235,12 +235,13 @@
     executeInstallation,
     type InstallationModuleOption,
     type InstallationPreflightCheck,
+    type InstallationStatus,
   } from '@/api/installation';
   import {
     bootstrapInstallationStatus,
     installationStatus,
+    loadInstallationDiagnostics,
     markInstallationInstalled,
-    shouldShowInstallation,
   } from '@/core/installation';
   import { useBrandStore } from '@/store';
   import {
@@ -301,10 +302,7 @@
     () => currentStatus.value?.deployment_mode === 'multi-tenant'
   );
   const automatic = computed(
-    () =>
-      currentStatus.value !== null &&
-      !shouldShowInstallation(currentStatus.value) &&
-      currentStatus.value.state !== 'blocked'
+    () => currentStatus.value?.state === 'installed'
   );
   const preflightChecks = computed<InstallationPreflightCheck[]>(() => {
     const checks = preflight.value?.checks;
@@ -342,21 +340,21 @@
   });
   const moduleCatalogMissing = computed(
     () =>
-      shouldShowInstallation(currentStatus.value) &&
+      currentStatus.value?.state === 'uninstalled' &&
       preflight.value?.status === 'ready' &&
       moduleOptions.value.length === 0
   );
   const blocked = computed(() => {
     if (currentStatus.value?.state === 'blocked') return true;
     return (
-      shouldShowInstallation(currentStatus.value) &&
+      currentStatus.value?.state === 'uninstalled' &&
       (!preflight.value ||
         preflight.value.status !== 'ready' ||
         moduleCatalogMissing.value)
     );
   });
   const readyForForm = computed(
-    () => shouldShowInstallation(currentStatus.value) && !blocked.value
+    () => currentStatus.value?.state === 'uninstalled' && !blocked.value
   );
   const deploymentModeLabel = computed(() =>
     isMultiTenant.value
@@ -469,11 +467,7 @@
 
   async function redirectIfNotGuided() {
     const status = currentStatus.value;
-    if (
-      status &&
-      status.state !== 'blocked' &&
-      !shouldShowInstallation(status)
-    ) {
+    if (status?.state === 'installed') {
       await router.replace({ name: 'login' });
     }
   }
@@ -483,6 +477,7 @@
     refreshing.value = true;
     errorMessage.value = '';
     try {
+      await loadInstallationDiagnostics(true);
       await bootstrapInstallationStatus(true);
       await redirectIfNotGuided();
     } finally {
@@ -550,6 +545,16 @@
   onMounted(async () => {
     await loadPasswordPolicy();
     await bootstrapInstallationStatus();
+    try {
+      await loadInstallationDiagnostics();
+    } catch {
+      installationStatus.value = {
+        state: 'blocked',
+        mode: 'guided',
+        deployment_mode: 'standalone',
+        preflight: null,
+      } satisfies InstallationStatus;
+    }
     loading.value = false;
     await redirectIfNotGuided();
   });

@@ -1,57 +1,43 @@
 import { ref } from 'vue';
 import {
-  getInstallationStatus,
+  getInstallationEntryStatus,
+  type InstallationDeploymentMode,
+  type InstallationEntryStatus,
   type InstallationStatus,
 } from '@/api/installation';
 
 export const installationStatus = ref<InstallationStatus | null>(null);
 
-let pendingStatus: Promise<InstallationStatus> | null = null;
+const entryStatus = ref<InstallationEntryStatus | null>(null);
+let pendingStatus: Promise<InstallationEntryStatus> | null = null;
+let pendingDiagnostics: Promise<InstallationStatus> | null = null;
 
-function configuredDeploymentMode() {
+function configuredDeploymentMode(): InstallationDeploymentMode {
   return import.meta.env.VITE_DEPLOYMENT_MODE === 'multi-tenant'
     ? 'multi-tenant'
     : 'standalone';
 }
 
-function blockedStatus(): InstallationStatus {
-  return {
-    state: 'blocked',
-    mode: 'guided',
-    deployment_mode: configuredDeploymentMode(),
-    preflight: {
-      status: 'blocked',
-      code: 'INSTALL_STATUS_UNAVAILABLE',
-      reason: '无法读取安装状态。',
-      remediation: '请检查部署服务后重新检查。',
-      checks: [],
-    },
-  };
-}
-
-/**
- * Load the installation state once for the router and the installation page.
- * A failed status request deliberately becomes a blocked state so that the
- * application never falls through to authenticated routes without knowing
- * whether the database is installed.
- */
 export function bootstrapInstallationStatus(
   force = false
-): Promise<InstallationStatus> {
-  if (!force && installationStatus.value) {
-    return Promise.resolve(installationStatus.value);
+): Promise<InstallationEntryStatus> {
+  if (!force && entryStatus.value) {
+    return Promise.resolve(entryStatus.value);
   }
   if (pendingStatus) {
     return pendingStatus;
   }
-  pendingStatus = getInstallationStatus()
+  pendingStatus = getInstallationEntryStatus()
     .then((status) => {
-      installationStatus.value = status;
+      entryStatus.value = status;
       return status;
     })
     .catch(() => {
-      const status = blockedStatus();
-      installationStatus.value = status;
+      const status = {
+        installed: false,
+        deployment_mode: configuredDeploymentMode(),
+      } satisfies InstallationEntryStatus;
+      entryStatus.value = status;
       return status;
     })
     .finally(() => {
@@ -62,15 +48,36 @@ export function bootstrapInstallationStatus(
 
 export const loadInstallationStatus = bootstrapInstallationStatus;
 
-export function shouldShowInstallation(status: InstallationStatus | null) {
-  return status?.state === 'uninstalled' && status.mode === 'guided';
+export function loadInstallationDiagnostics(
+  force = false
+): Promise<InstallationStatus> {
+  if (!force && installationStatus.value) {
+    return Promise.resolve(installationStatus.value);
+  }
+  if (!pendingDiagnostics) {
+    pendingDiagnostics = import('@/api/installation')
+      .then(({ getInstallationStatus }) => getInstallationStatus())
+      .then((status) => {
+        installationStatus.value = status;
+        return status;
+      })
+      .finally(() => {
+        pendingDiagnostics = null;
+      });
+  }
+  return pendingDiagnostics;
+}
+
+export function shouldShowInstallation(status: InstallationEntryStatus | null) {
+  return status?.installed === false;
 }
 
 export function markInstallationInstalled() {
-  const current = installationStatus.value;
-  if (!current) return;
-  installationStatus.value = {
-    ...current,
-    state: 'installed',
+  entryStatus.value = {
+    installed: true,
+    deployment_mode: entryStatus.value?.deployment_mode || configuredDeploymentMode(),
   };
+  if (installationStatus.value) {
+    installationStatus.value = { ...installationStatus.value, state: 'installed' };
+  }
 }

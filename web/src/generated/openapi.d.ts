@@ -2846,6 +2846,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/installapi/entry-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 只读取物理安装完成锁和部署模式，供正常前端入口判断；不运行安装预检。 */
+        get: operations["getInstallationEntryStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/installapi/execute": {
         parameters: {
             query?: never;
@@ -6991,6 +7008,11 @@ export interface components {
             health: {
                 [key: string]: components["schemas"]["ApplicationDynamicValue"];
             } | null;
+        };
+        InstallationEntryStatus: {
+            installed: boolean;
+            /** @enum {string} */
+            deployment_mode: "standalone" | "multi-tenant";
         };
         /** @description multi-tenant 部署还要求 platform_email/platform_password；standalone 部署禁止提供这两个字段。 */
         InstallationExecuteRequest: {
@@ -15076,6 +15098,31 @@ export interface operations {
                 };
             };
             503: components["responses"]["ErrorResponse"];
+        };
+    };
+    getInstallationEntryStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["InstallationEntryStatus"];
+                    };
+                };
+            };
         };
     };
     executeGuidedInstallation: {

@@ -93,6 +93,14 @@ $schemas = [
             'health' => $nullableDynamicMap,
         ],
     ],
+    'InstallationEntryStatus' => [
+        'type' => 'object', 'additionalProperties' => false,
+        'required' => ['installed', 'deployment_mode'],
+        'properties' => [
+            'installed' => ['type' => 'boolean'],
+            'deployment_mode' => ['type' => 'string', 'enum' => ['standalone', 'multi-tenant']],
+        ],
+    ],
     'InstallationExecuteRequest' => [
         'type' => 'object', 'additionalProperties' => false,
         'required' => ['admin_email', 'admin_password'],
@@ -166,6 +174,12 @@ $paths = [
         'Installation',
         ['200' => $success($ref('InstallationStatus')), '503' => $error],
         description: '只读安装状态与 preflight；不会执行数据库安装。',
+    )],
+    '/installapi/entry-status' => ['get' => $operation(
+        'getInstallationEntryStatus',
+        'Installation',
+        ['200' => $success($ref('InstallationEntryStatus'))],
+        description: '只读取物理安装完成锁和部署模式，供正常前端入口判断；不运行安装预检。',
     )],
     '/installapi/execute' => ['post' => $operation(
         'executeGuidedInstallation',

@@ -41,13 +41,19 @@ final class InstallationExecutionHost
         require_once $serverRoot . '/database/install.php';
     }
 
-    /** Checks the completion receipt and file-state guards without preflight or database inspection. */
+    /** The normal request gate checks only the physical completion lock. */
     public function isInstalled(): bool
     {
-        return $this->completionLockPresent()
-            && $this->completionReceiptValid()
-            && $this->installationMigrationComplete()
-            && !$this->hasLegacyInstallationState();
+        return $this->completionLockPresent();
+    }
+
+    /** @return array{installed:bool,deployment_mode:string} */
+    public function entryStatus(): array
+    {
+        return [
+            'installed' => $this->completionLockPresent(),
+            'deployment_mode' => $this->deploymentMode(),
+        ];
     }
 
     /** @return array<string,mixed> */

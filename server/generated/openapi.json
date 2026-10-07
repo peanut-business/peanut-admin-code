@@ -222,7 +222,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 18
+                        "line": 19
                     }
                 },
                 "x-peanut-permissions": []
@@ -3612,7 +3612,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 19
+                        "line": 20
                     }
                 },
                 "x-peanut-permissions": []
@@ -16228,6 +16228,64 @@
                 "x-peanut-permissions": []
             }
         },
+        "/installapi/entry-status": {
+            "get": {
+                "tags": [
+                    "Installation"
+                ],
+                "operationId": "getInstallationEntryStatus",
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/InstallationEntryStatus"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "description": "只读取物理安装完成锁和部署模式，供正常前端入口判断；不运行安装预检。",
+                "security": [],
+                "x-peanut-route": {
+                    "application": "installation",
+                    "owner": {
+                        "type": "application",
+                        "key": "installation"
+                    },
+                    "controller": "app\\installation\\controller\\InstallationController",
+                    "action": "entryStatus",
+                    "permission": null,
+                    "source": {
+                        "file": "server/route/app.php",
+                        "line": 14
+                    }
+                },
+                "x-peanut-permissions": []
+            }
+        },
         "/installapi/execute": {
             "post": {
                 "tags": [
@@ -16327,7 +16385,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 14
+                        "line": 15
                     }
                 },
                 "x-peanut-permissions": []
@@ -36778,6 +36836,26 @@
                             "$ref": "#/components/schemas/ApplicationDynamicValue"
                         },
                         "nullable": true
+                    }
+                }
+            },
+            "InstallationEntryStatus": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "installed",
+                    "deployment_mode"
+                ],
+                "properties": {
+                    "installed": {
+                        "type": "boolean"
+                    },
+                    "deployment_mode": {
+                        "type": "string",
+                        "enum": [
+                            "standalone",
+                            "multi-tenant"
+                        ]
                     }
                 }
             },

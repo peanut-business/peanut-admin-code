@@ -54,6 +54,11 @@ final class InstallationController extends BaseController
         return $this->data($this->host->status());
     }
 
+    public function entryStatus()
+    {
+        return $this->data($this->host->entryStatus());
+    }
+
     public function execute()
     {
         $this->assertSameOrigin();

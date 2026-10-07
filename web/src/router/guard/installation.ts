@@ -10,7 +10,7 @@ export default function setupInstallationGuard(router: Router) {
     const status = await bootstrapInstallationStatus();
     const isInstallationRoute = to.name === INSTALLATION_ROUTE_NAME;
 
-    if (status.state === 'blocked' || shouldShowInstallation(status)) {
+    if (shouldShowInstallation(status)) {
       return isInstallationRoute ? true : { name: INSTALLATION_ROUTE_NAME };
     }
 

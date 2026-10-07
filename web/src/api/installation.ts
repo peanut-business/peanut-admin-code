@@ -48,6 +48,11 @@ export interface InstallationStatus {
   health?: InstallationHealth | null;
 }
 
+export interface InstallationEntryStatus {
+  installed: boolean;
+  deployment_mode: InstallationDeploymentMode;
+}
+
 export interface InstallationExecutePayload {
   admin_email: string;
   admin_password: string;
@@ -196,6 +201,25 @@ function normalizeExecuteResult(value: unknown): InstallationExecuteResult {
 export async function getInstallationStatus(): Promise<InstallationStatus> {
   const response = await installationClient.get<unknown>('/installapi/status');
   return normalizeStatus(unwrap(response));
+}
+
+export async function getInstallationEntryStatus(): Promise<InstallationEntryStatus> {
+  const response = await installationClient.get<unknown>(
+    '/installapi/entry-status'
+  );
+  const value = unwrap(response);
+  if (
+    !isRecord(value) ||
+    typeof value.installed !== 'boolean' ||
+    (value.deployment_mode !== 'standalone' &&
+      value.deployment_mode !== 'multi-tenant')
+  ) {
+    throw new Error('Installation entry status returned an invalid payload.');
+  }
+  return {
+    installed: value.installed,
+    deployment_mode: value.deployment_mode,
+  };
 }
 
 export async function executeInstallation(
