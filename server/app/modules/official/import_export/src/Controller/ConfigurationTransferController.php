@@ -52,12 +52,15 @@ final class ConfigurationTransferController extends BaseAdminController
     private function requestPayload(): array
     {
         $payload = $this->request->post();
+        // ThinkPHP's associative JSON decoding turns both {} and [] into an empty array.
+        $rawPayload = json_decode($this->request->getContent());
         $keys = array_keys($payload);
         sort($keys, SORT_STRING);
         if ($keys !== ['conflict_policy', 'package', 'secret_bindings']
+            || !($rawPayload instanceof \stdClass)
+            || !(($rawPayload->secret_bindings ?? null) instanceof \stdClass)
             || (!is_array($payload['package']) && !is_string($payload['package']))
             || !is_array($payload['secret_bindings'])
-            || array_is_list($payload['secret_bindings'])
             || !is_string($payload['conflict_policy'])
         ) {
             throw BusinessException::invalid('TRANSFER_REQUEST_INVALID', '配置转移请求无效');

@@ -2290,7 +2290,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1def3476d4a55ca3bbedd29c440cfe271e75a86bac1a131632bf3abac8953168"
+            "source_sha256": "f5f8a0505f8233313f83de1e6f21e35231887a78104c707772936cbed6e482b2"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2386,7 +2386,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "56bdf53405eaeb75b35b4958edb1d7c0d86f9ab232322f193d94da2eac2fa4c3"
+            "source_sha256": "266b1aaada2a1799f9ebcc2c70d089940ddc94b3d7e3ca0110c9c3da60898c5e"
         },
         {
             "path": "plugins/official.integration/plugin.json",
@@ -12570,7 +12570,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5ad0a4980af9bdb87cdf4e7e3dca92dcd0bcabca0155da17e71e67a13781e790"
+            "source_sha256": "3fcf796485650652e5dd0a93947a86b1082ffccef3bb0d6e37197135cfda74a8"
         },
         {
             "path": "server/app/modules/official/import_export/database/migrations/20260826-namespace-permission-keys.sql",
@@ -12626,7 +12626,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2f1a191fcf9e53d12c391e7f4783a4cb767bfde171951db0f8f57a4448d989ef"
+            "source_sha256": "310a7e29e8db6fcb20599667831065184c362fee24603f75d91d74fbb2f9c46f"
         },
         {
             "path": "server/app/modules/official/import_export/resources/configuration-package.schema.json",
@@ -12822,7 +12822,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4239c9422f1dd1a0800fec19fe39dd51aa0b4aa8798d2c5db916720704bd8ed4"
+            "source_sha256": "390e53f8132bbc31611065a3f16c853b78d0ef4ce035631507fe11b6e311dca0"
         },
         {
             "path": "server/app/modules/official/import_export/src/Controller/ImportExportOperationController.php",
