@@ -51,7 +51,7 @@ ensure_env_value() {
 
 registered_demo_port() {
     name=$1
-    value=$(awk -F= -v name="$name" '$1 == name { print $2; exit }' "$orchestration_env")
+    value=$(printf '%s\n' "$listener_values" | awk -F= -v name="$name" '$1 == name { print $2; exit }')
     [ -n "$value" ] || die "selected listener is missing from the registry: $name"
     printf '%s\n' "$value"
 }
@@ -72,11 +72,15 @@ prepare_env() {
         while IFS='=' read -r name value; do set_env "$backend_env" "$name" "$value"; done
     listener_values=$("$registry" local-stack-env --deployment-target local-multi-tenant-demo) \
         || die 'selected demo listener registration is unavailable'
-    printf '%s\n' "$listener_values" |
-        while IFS='=' read -r name value; do set_env "$orchestration_env" "$name" "$value"; done
-    set_env "$orchestration_env" PHP_PORT "$(registered_demo_port MT_DEMO_PHP_PORT)"
-    set_env "$orchestration_env" VITE_PORT "$(registered_demo_port MT_DEMO_VITE_PORT)"
-    set_env "$orchestration_env" PLATFORM_PORT "$(registered_demo_port MT_DEMO_PLATFORM_PORT)"
+    php_port=$(registered_demo_port MT_DEMO_PHP_PORT) || die 'demo PHP listener is unavailable'
+    admin_port=$(registered_demo_port MT_DEMO_VITE_PORT) || die 'demo Admin listener is unavailable'
+    platform_port=$(registered_demo_port MT_DEMO_PLATFORM_PORT) || die 'demo Platform listener is unavailable'
+    clear_env "$orchestration_env" MT_DEMO_PHP_PORT
+    clear_env "$orchestration_env" MT_DEMO_VITE_PORT
+    clear_env "$orchestration_env" MT_DEMO_PLATFORM_PORT
+    set_env "$orchestration_env" PHP_PORT "$php_port"
+    set_env "$orchestration_env" VITE_PORT "$admin_port"
+    set_env "$orchestration_env" PLATFORM_PORT "$platform_port"
     set_env "$orchestration_env" VITE_ALLOWED_HOSTS platform.peanut-admin.test,admin.peanut-admin.test,tenant-a.peanut-admin.test,tenant-b.peanut-admin.test
     set_env "$orchestration_env" VITE_DEPLOYMENT_MODE multi-tenant
     set_env "$orchestration_env" VITE_OPEN_BROWSER false
