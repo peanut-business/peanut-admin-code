@@ -4,6 +4,19 @@ All notable Peanut Admin application changes are recorded here. The upstream
 application, PHP Core and all six Web Core packages share one release version.
 Downstream applications retain their own application versions.
 
+## [5.0.1] - 2026-10-07
+
+### Changed
+
+- Use the published PHP Core and all six Web Core 5.0.1 packages with fixed public source and integrity identities; downstream applications retain their own versions.
+- Validate complete release files and compile Module declarations in the owning startup, installation, update and recovery lifecycle. HTTP requests reuse the protected, deployment-bound identity and the current ThinkPHP application's compiled registry.
+
+### Fixed
+
+- Complete fresh guided installation with the correct project-root paths, protected runtime directory permissions and installation receipt identity.
+- Filter all workbench shortcuts through the current administrator's authorized menus and preserve the current session across delayed logout and refresh responses.
+- Load anonymous Admin branding through its own Host and entry-binding policy, then use the authenticated tenant identity for branding without falling back to an unbound Member entry.
+
 ## [5.0.0] - 2026-10-06
 
 ### Changed
