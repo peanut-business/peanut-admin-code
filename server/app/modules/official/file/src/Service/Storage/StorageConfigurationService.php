@@ -56,7 +56,7 @@ final readonly class StorageConfigurationService implements StorageConfiguration
                 'name' => $account['name'], 'credential_ciphertext' => $account['credential']['ciphertext'],
                 'credential_key_version' => $account['credential']['key_version'],
                 'credential_rotated_at' => $account['credential']['rotated_at'], 'status' => 'active',
-                'created_at' => StorageAccount::raw('UTC_TIMESTAMP(3)'), 'updated_at' => StorageAccount::raw('UTC_TIMESTAMP(3)'),
+                'created_at' => Db::raw('UTC_TIMESTAMP(3)'), 'updated_at' => Db::raw('UTC_TIMESTAMP(3)'),
             ]);
             return (int) $created->id;
         });
@@ -81,7 +81,7 @@ final readonly class StorageConfigurationService implements StorageConfiguration
             $data = [
                 'name' => $account['name'],
                 'status' => $this->status((string) ($value['status'] ?? 'active'), ['active', 'disabled']),
-                'updated_at' => StorageAccount::raw('UTC_TIMESTAMP(3)'),
+                'updated_at' => Db::raw('UTC_TIMESTAMP(3)'),
             ];
             if ($account['credential'] !== null) {
                 $data += [
@@ -108,7 +108,7 @@ final readonly class StorageConfigurationService implements StorageConfiguration
                 'bucket' => $space['bucket'], 'region' => $space['region'],
                 'endpoint' => $space['endpoint'], 'access_domain' => $space['access_domain'],
                 'local_path' => $space['local_path'], 'status' => 'active',
-                'created_at' => StorageSpace::raw('UTC_TIMESTAMP(3)'), 'updated_at' => StorageSpace::raw('UTC_TIMESTAMP(3)'),
+                'created_at' => Db::raw('UTC_TIMESTAMP(3)'), 'updated_at' => Db::raw('UTC_TIMESTAMP(3)'),
             ]);
             return (int) $created->id;
         });
@@ -132,7 +132,7 @@ final readonly class StorageConfigurationService implements StorageConfiguration
             ]);
             StorageSpace::where('id', $id)->update([
                 'name' => $space['name'], 'access_domain' => $space['access_domain'],
-                'status' => $space['status'], 'updated_at' => StorageSpace::raw('UTC_TIMESTAMP(3)'),
+                'status' => $space['status'], 'updated_at' => Db::raw('UTC_TIMESTAMP(3)'),
             ]);
         });
     }
@@ -156,7 +156,7 @@ final readonly class StorageConfigurationService implements StorageConfiguration
             }
             StorageRoute::duplicate(['access_type', 'space_id', 'updated_at'])->insert([
                 'route_key' => $key, 'access_type' => $access, 'space_id' => $space,
-                'updated_at' => StorageRoute::raw('UTC_TIMESTAMP(3)'),
+                'updated_at' => Db::raw('UTC_TIMESTAMP(3)'),
             ]);
         });
     }

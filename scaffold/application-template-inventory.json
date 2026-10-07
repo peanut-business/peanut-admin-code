@@ -2290,7 +2290,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7b2588bfb3eb8b3c0186480d48092e79f81a7755d92f92f023a36777d295551f"
+            "source_sha256": "d26b707ace9e49f3320fea5c0b9911876f973587677a23721f81311601ef58e8"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2358,7 +2358,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "21457a8becef5d54ac6f1b5fbc6c6bf08a0319c394cc274cd94e29b5ab0d8f1b"
+            "source_sha256": "97b776c50e856242b8d80623b69b6973e7d0b5e512cb97ecff2e58f80fe4a827"
         },
         {
             "path": "plugins/official.identity/plugin.json",
@@ -9812,7 +9812,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "526cc412247aa984f58aa7271bece344537da7060f4791b7763ddd5441e9356a"
+            "source_sha256": "d1ec1c0b511ab3a15b22b91a3114f11c0ac6c3ef41aa8a1c6e51d7716794fb77"
         },
         {
             "path": "server/app/modules/official/file/database/migrations/20260823-unify-storage-service.sql",
@@ -9868,7 +9868,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b147d6a9469914476488485bff5cc9a875c149786dd84bd01195ec820bdd11a2"
+            "source_sha256": "201aeb57006b1e5c040d8133d905238a3335422df8728f4d22f8a37f10996e33"
         },
         {
             "path": "server/app/modules/official/file/resources/menus.json",
@@ -10386,7 +10386,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "486a0e7578236e585db2e7cdc77d0a4d0f4c444c891c2f824df955d1c879792a"
+            "source_sha256": "10ca605d666cb72297e594d214cb4953d79e41e404311ef989ce17fd00ba069e"
         },
         {
             "path": "server/app/modules/official/file/src/Service/Storage/StorageService.php",
