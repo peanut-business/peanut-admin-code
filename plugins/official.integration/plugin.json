@@ -1,11 +1,11 @@
 {
     "schema_version": 1,
     "key": "official.integration",
-    "version": "1.0.8",
+    "version": "1.0.9",
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "87306da820cd695cde285c6b5e8c19180682f596755af404f27e01d9e1bfea94"
+        "sha256": "75fcbf0fea50c42860e19be15d404113da44407893f4f5f0e9a2e7d04b6ffbf5"
     },
     "trust": {
         "channel": "bundled",
@@ -39,12 +39,12 @@
             "modules": [
                 {
                     "key": "official.integration",
-                    "version": "1.0.8",
+                    "version": "1.0.9",
                     "kernel_constraint": "^1.0",
                     "dependencies": [
                         {
                             "module_key": "official.identity",
-                            "version": "4.0.0-rc.21"
+                            "version": "4.0.0-rc.22"
                         }
                     ],
                     "permissions": {

@@ -689,7 +689,7 @@ async function unwrap<T>(
         '尚未配置租户所有者邀请邮件服务，当前不能创建或发送邀请。',
       PLATFORM_AUTHENTICATION_INVALID: '平台登录凭据无效，请重新登录。',
       PLATFORM_SESSION_INVALID: '平台会话已失效，请重新登录。',
-      TENANT_CODE_EXISTS: '租户编码已被使用。',
+      TENANT_CODE_CONFLICT: '租户编码已被使用。',
       TENANT_OWNER_INVITATION_PENDING: '该租户已有待接受的所有者邀请。',
       TENANT_ENTRY_BINDING_CONFLICT: '该域名和客户端已绑定其他租户。',
     };

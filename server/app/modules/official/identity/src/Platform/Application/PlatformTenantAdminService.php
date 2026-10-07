@@ -21,7 +21,7 @@ use PeanutAdmin\Modules\Identity\Persistence\Model\Role;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Tenant;
 use PeanutAdmin\Modules\Identity\Persistence\Model\TenantMember;
 use PeanutAdmin\Modules\Identity\Tenancy\TenantStatus;
-use Throwable;
+use think\db\exception\PDOException;
 use think\db\Raw;
 use think\facade\Db;
 
@@ -508,8 +508,10 @@ final readonly class PlatformTenantAdminService
     {
         try {
             return Db::transaction($operation);
-        } catch (Throwable $exception) {
-            if ((string) $exception->getCode() === '23000') {
+        } catch (PDOException $exception) {
+            $error = $exception->getData()['PDO Error Info'] ?? [];
+            if (($error['SQLSTATE'] ?? null) === '23000'
+                && (int) ($error['Driver Error Code'] ?? 0) === 1062) {
                 throw AdminAccessException::conflict($conflictCode, $conflictMessage);
             }
             throw $exception;
