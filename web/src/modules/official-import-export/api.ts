@@ -45,7 +45,7 @@ export interface ConfigurationTransferPlanEntry {
     | 'skip'
     | 'conflict';
   exists: boolean;
-  current_revision: number | null;
+  current_revision: string | null;
   secrets: ConfigurationTransferSecret[];
 }
 
@@ -70,7 +70,7 @@ export interface ConfigurationTransferPlan {
   conflicts: Array<{
     adapter: string;
     key: string;
-    current_revision: number | null;
+    current_revision: string | null;
     action: 'replace' | 'skip' | 'conflict';
   }>;
   missing_secret_references: string[];

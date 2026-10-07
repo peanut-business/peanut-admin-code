@@ -2290,7 +2290,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f5f8a0505f8233313f83de1e6f21e35231887a78104c707772936cbed6e482b2"
+            "source_sha256": "38a2a1f816a884c26e52287131f7d5e93e12509c62a02c128f03a711edc4ba2c"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2386,7 +2386,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "266b1aaada2a1799f9ebcc2c70d089940ddc94b3d7e3ca0110c9c3da60898c5e"
+            "source_sha256": "95fe073eb10a8ce246bfa356138bf214d7ea1d4dc7bf1cc74b463176707def1c"
         },
         {
             "path": "plugins/official.integration/plugin.json",
@@ -12570,7 +12570,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3fcf796485650652e5dd0a93947a86b1082ffccef3bb0d6e37197135cfda74a8"
+            "source_sha256": "5b788781f933e90da5de31705a7d69602d42932eee5bf88b5be11bddbc0968fb"
         },
         {
             "path": "server/app/modules/official/import_export/database/migrations/20260826-namespace-permission-keys.sql",
@@ -12626,7 +12626,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "310a7e29e8db6fcb20599667831065184c362fee24603f75d91d74fbb2f9c46f"
+            "source_sha256": "e0844c000a49a05e4663e9aac448d4a5fa5567ec4566d09878d4171d92c6df5d"
         },
         {
             "path": "server/app/modules/official/import_export/resources/configuration-package.schema.json",
@@ -13271,7 +13271,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e65a8157dc73e94ef0cdedeb3a1c8070bd1a444ab45a214ce193e2a8385a8f77"
+            "source_sha256": "c67b657070419a3fe87b4c9a366c1bdc57805fb816bbf4ea0cee86564db13942"
         },
         {
             "path": "server/app/modules/official/import_export/src/Service/ImportExportAdminApplicationService.php",
@@ -32416,7 +32416,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "929cca8c4f9f6c83b29b5b73112907dc31b71b5c070f5c9a87bd4e3f47fe8d7a"
+            "source_sha256": "7713141147b0f01925cee808d312a017bd8dceb56dad004abdc01eddd6d1f15f"
         },
         {
             "path": "web/src/modules/official-import-export/contribution.ts",
@@ -32570,7 +32570,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "601b07ec3c83d8f192cc64947491a9241ac1ad3e3b3421c0bafc51a6ea939184"
+            "source_sha256": "d143e1d2650f86128af01036f55f66f857a603bee092e654007db0b8d2053d12"
         },
         {
             "path": "web/src/modules/official-import-export/views/index.vue",

@@ -340,7 +340,12 @@ final class ConfigurationTransferApplicationService implements ConfigurationTran
             'conflict_policy' => $plan['conflict_policy'],
             'counts' => $counts,
             'entries' => $items,
-            'conflicts' => $plan['conflicts'],
+            'conflicts' => array_map(static fn(array $conflict): array => [
+                ...$conflict,
+                'current_revision' => $conflict['current_revision'] === null
+                    ? null
+                    : (string) $conflict['current_revision'],
+            ], $plan['conflicts']),
             'missing_secret_references' => $plan['missing_secret_references'],
         ];
     }
@@ -361,7 +366,9 @@ final class ConfigurationTransferApplicationService implements ConfigurationTran
             'key' => $entry['key'],
             'action' => $item['action'],
             'exists' => $item['current_exists'],
-            'current_revision' => $item['current_revision'],
+            'current_revision' => $item['current_revision'] === null
+                ? null
+                : (string) $item['current_revision'],
             'secrets' => $secrets,
         ];
     }

@@ -379,11 +379,11 @@
         },
         {
             "key": "official.import-export",
-            "version": "1.0.7",
+            "version": "1.0.8",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "765448024e24167e4c14d572b45f04cea73e807ee6ca0b2d97144bdc3aad4a3b"
+                "sha256": "6643026f37852806ef5406a3fc76d7ad2f6d3bebce772f5034a20545bf200be3"
             },
             "trust": {
                 "channel": "bundled",
@@ -417,7 +417,7 @@
                     "modules": [
                         {
                             "key": "official.import-export",
-                            "version": "1.0.7",
+                            "version": "1.0.8",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
@@ -465,22 +465,22 @@
             "composer": [
                 {
                     "name": "peanut-business/official-import-export",
-                    "version": "1.0.5",
-                    "sha256": "3fcf796485650652e5dd0a93947a86b1082ffccef3bb0d6e37197135cfda74a8"
+                    "version": "1.0.6",
+                    "sha256": "5b788781f933e90da5de31705a7d69602d42932eee5bf88b5be11bddbc0968fb"
                 }
             ],
             "npm": [
                 {
                     "name": "@peanut-admin/official-import-export",
-                    "version": "1.0.1",
-                    "integrity": "sha256-YBsH7DyD2PGSzGSUdJGpJBrBrT47NCHAuvxRpuqTkYQ="
+                    "version": "1.0.2",
+                    "integrity": "sha256-0UPh0mUPhhKK8BA29V9m+FemA77gkuZUAH2wuNIFPRI="
                 }
             ],
             "frontend": [
                 {
                     "client_key": "admin-web",
                     "package": "@peanut-admin/official-import-export",
-                    "version": "1.0.1",
+                    "version": "1.0.2",
                     "entry": "web/src/modules/official-import-export/contribution.ts",
                     "sha256": "0bd86b7b5abd93eb254ae53993f7696f8fffceeffe5ee85338cb8acfa6bb34a2"
                 }
@@ -492,7 +492,7 @@
                 }
             ],
             "manifest": "plugins/official.import-export/plugin.json",
-            "manifest_sha256": "266b1aaada2a1799f9ebcc2c70d089940ddc94b3d7e3ca0110c9c3da60898c5e"
+            "manifest_sha256": "95fe073eb10a8ce246bfa356138bf214d7ea1d4dc7bf1cc74b463176707def1c"
         },
         {
             "key": "official.integration",
