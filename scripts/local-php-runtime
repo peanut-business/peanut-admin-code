@@ -25,6 +25,11 @@ read_env() {
     awk -F= -v name="$name" '$1 == name { sub(/^[^=]*=/, ""); print; exit }' "$env_file"
 }
 
+read_backend_env() {
+    name=$1
+    awk -F= -v name="$name" '$1 == name { sub(/^[^=]*=/, ""); print; exit }' "$backend_env"
+}
+
 runtime_pid() {
     [ -f "$pid_file" ] || return 1
     pid=$(cat "$pid_file" 2>/dev/null || true)
@@ -76,7 +81,31 @@ start_runtime() {
         "Composer version $expected_composer_version "*"PHP version $expected_php_version "*) ;;
         *) die "registered Composer identity mismatch: expected Composer $expected_composer_version on PHP $expected_php_version" ;;
     esac
-    "$resource_registry" validate >/dev/null
+    deployment_target=$(read_backend_env PEANUT_DEPLOYMENT_TARGET)
+    case "$deployment_target" in
+        local-development)
+            registered_port_name=PHP_PORT
+            registered_ports=$("$resource_registry" local-stack-ports --env-file "$env_file") \
+                || die "effective local listeners are unavailable"
+            ;;
+        local-multi-tenant-demo)
+            registered_port_name=MT_DEMO_PHP_PORT
+            registered_ports=$("$resource_registry" local-stack-env --deployment-target "$deployment_target") \
+                || die "registered listeners are unavailable for $deployment_target"
+            ;;
+        *) die "unsupported local PHP deployment target: $deployment_target" ;;
+    esac
+    registered_port=$(printf '%s\n' "$registered_ports" | awk -F= -v name="$registered_port_name" '$1 == name { print $2; exit }')
+    port=$(read_env PHP_PORT)
+    [ -n "$registered_port" ] && [ "$port" = "$registered_port" ] \
+        || die "PHP_PORT does not match the registered $registered_port_name for $deployment_target"
+
+    if [ ! -f "$repo_dir/server/vendor/autoload.php" ]; then
+        printf 'Installing locked PHP dependencies with %s\n' "$composer_bin"
+        (cd "$repo_dir/server" && "$composer_bin" install --no-interaction --prefer-dist)
+    fi
+    PEANUT_SERVER_ENV_FILE="$backend_env" "$php_bin" "$repo_dir/server/database/environment-guard.php" --current >/dev/null \
+        || die "selected database environment is not current"
 
     if is_running; then
         if is_owned_process; then
@@ -98,13 +127,6 @@ start_runtime() {
         printf 'Removed stale PHP pid file (pid=%s). Previous log: %s\n' "$stale_pid" "$log_file" >&2
     fi
 
-    if [ ! -f "$repo_dir/server/vendor/autoload.php" ]; then
-        printf 'Installing locked PHP dependencies with %s\n' "$composer_bin"
-        (cd "$repo_dir/server" && "$composer_bin" install --no-interaction --prefer-dist)
-    fi
-
-    port=$(read_env PHP_PORT)
-    [ -n "$port" ] || die 'PHP_PORT is missing from the local environment'
     : > "$log_file"
     (
         cd "$repo_dir/server"

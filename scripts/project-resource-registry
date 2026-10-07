@@ -217,14 +217,23 @@ def emit(values: dict[str, str | int]) -> None:
 
 def local_stack_defaults(registry: dict[str, Any], target: str) -> dict[str, int]:
     values: dict[str, int] = {}
+    environment = target_environment(target)
     for item in registry["resources"]["local_listeners"]:
-        environment = "local-development" if item["environment"] == "development" else item["environment"]
-        if environment == target:
-            values[item["port_env"]] = item["port"]
+        environments = item.get("environments", [item.get("environment")])
+        if environment not in environments or not item.get("port_env"):
+            continue
+        name, port = item["port_env"], item.get("port")
+        if not isinstance(name, str) or not isinstance(port, int) or not 1 <= port <= 65535 or name in values:
+            fail(f"invalid local listener port mapping for {target}: {item.get('stable_resource_id')}")
+        values[name] = port
     if target == "local-development":
         for item in registry["resources"].get("optional_services", []):
-            if "development" in item.get("environments", []) and item.get("port_env"):
-                values[item["port_env"]] = item["port"]
+            if "development" not in item.get("environments", []) or not item.get("port_env"):
+                continue
+            name, port = item["port_env"], item.get("port")
+            if not isinstance(name, str) or not isinstance(port, int) or not 1 <= port <= 65535 or name in values:
+                fail(f"invalid optional listener port mapping: {item.get('stable_resource_id')}")
+            values[name] = port
     if not values:
         fail(f"no listener registration for {target}")
     return values
@@ -260,26 +269,20 @@ def effective_local_stack_ports(registry: dict[str, Any], env_file: Path) -> dic
             overrides[name] = int(raw)
 
     effective = defaults | overrides
-    selected_owner: dict[str, str] = {}
-    reserved_owner: dict[int, str] = {}
+    reserved_ports: set[int] = set()
     for item in [
         *registry["resources"]["local_listeners"],
         *registry["resources"].get("optional_services", []),
     ]:
         port = item.get("port")
-        owner = item.get("stable_resource_id")
-        name = item.get("port_env")
-        if isinstance(port, int) and isinstance(owner, str):
-            reserved_owner[port] = owner
-            if name in defaults and defaults[name] == port:
-                selected_owner[name] = owner
+        if isinstance(port, int):
+            reserved_ports.add(port)
     occupied: dict[int, str] = {}
     for name, port in effective.items():
         if port in occupied:
             fail(f"local listener port collision: {name} and {occupied[port]}")
         occupied[port] = name
-        owner = reserved_owner.get(port)
-        if owner is not None and owner != selected_owner.get(name):
+        if port in reserved_ports and port != defaults[name]:
             fail(f"local listener port reserved by another resource: {name}")
     return effective
 

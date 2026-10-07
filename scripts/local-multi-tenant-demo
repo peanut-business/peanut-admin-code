@@ -49,6 +49,13 @@ ensure_env_value() {
     grep -q "^${name}=." "$target" || set_env "$target" "$name" "$value"
 }
 
+registered_demo_port() {
+    name=$1
+    value=$(awk -F= -v name="$name" '$1 == name { print $2; exit }' "$orchestration_env")
+    [ -n "$value" ] || die "selected listener is missing from the registry: $name"
+    printf '%s\n' "$value"
+}
+
 prepare_env() {
     umask 077
     mkdir -p "$state_dir"
@@ -56,16 +63,20 @@ prepare_env() {
     [ -f "$backend_env" ] || : > "$backend_env"
     chmod 600 "$orchestration_env" "$backend_env"
     "$repo_dir/scripts/project-development-database.sh" sync-credentials --backend-env "$backend_env" >/dev/null
-    "$registry" database-env \
+    database_values=$("$registry" database-env \
         --deployment-target local-multi-tenant-demo \
         --consumer host \
-        --resource-id peanut-admin-mysql84-local-multi-tenant-demo |
+        --resource-id peanut-admin-mysql84-local-multi-tenant-demo) \
+        || die 'selected demo database registration is unavailable'
+    printf '%s\n' "$database_values" |
         while IFS='=' read -r name value; do set_env "$backend_env" "$name" "$value"; done
-    "$registry" local-stack-env --deployment-target local-multi-tenant-demo |
+    listener_values=$("$registry" local-stack-env --deployment-target local-multi-tenant-demo) \
+        || die 'selected demo listener registration is unavailable'
+    printf '%s\n' "$listener_values" |
         while IFS='=' read -r name value; do set_env "$orchestration_env" "$name" "$value"; done
-    set_env "$orchestration_env" PHP_PORT 20178
-    set_env "$orchestration_env" VITE_PORT 20179
-    set_env "$orchestration_env" PLATFORM_PORT 20176
+    set_env "$orchestration_env" PHP_PORT "$(registered_demo_port MT_DEMO_PHP_PORT)"
+    set_env "$orchestration_env" VITE_PORT "$(registered_demo_port MT_DEMO_VITE_PORT)"
+    set_env "$orchestration_env" PLATFORM_PORT "$(registered_demo_port MT_DEMO_PLATFORM_PORT)"
     set_env "$orchestration_env" VITE_ALLOWED_HOSTS platform.peanut-admin.test,admin.peanut-admin.test,tenant-a.peanut-admin.test,tenant-b.peanut-admin.test
     set_env "$orchestration_env" VITE_DEPLOYMENT_MODE multi-tenant
     set_env "$orchestration_env" VITE_OPEN_BROWSER false
@@ -186,7 +197,7 @@ start_clients() {
             trap '' HUP
             cd "$repo_dir/platform"
             exec env -i PATH="$PATH" HOME="$HOME" PEANUT_CLIENT_ENV_FILE="$orchestration_env" \
-                node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 20176
+                node node_modules/vite/bin/vite.js --configLoader runner --host 127.0.0.1 --port 20176
         ) >> "$platform_log" 2>&1 &
         printf '%s\n' "$!" > "$platform_pid"
     fi
@@ -228,7 +239,6 @@ case "${1:-}" in
         trap - EXIT HUP INT TERM
         PEANUT_SERVER_ENV_FILE="$backend_env" \
             php "$repo_dir/server/database/seed-multi-tenant-demo.php" --apply
-        PEANUT_SERVER_ENV_FILE="$backend_env" php "$repo_dir/server/database/environment-guard.php" --current
         "$repo_dir/scripts/local-php-runtime" start --env-file "$orchestration_env" --backend-env "$backend_env" \
             --pid-file "$php_pid" --log-file "$php_log"
         start_clients

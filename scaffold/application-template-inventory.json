@@ -3260,7 +3260,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0d9530f2a16929813a4588f60001a2933db4f7720274fcb476e89cdf13a2fb20"
+            "source_sha256": "ab93290b2aa7f2d40e51a46fb394b6011c1baae37a7810e21c57e010fa52d8c3"
         },
         {
             "path": "scripts/local-php-runtime",
@@ -3545,7 +3545,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "801b20827e37a895f34ee075476944254e2f8fb224c45069b459779e50cbdb09"
+            "source_sha256": "a3a18c1436efd7ca21812dbb4068f6482f1ec80587b88dada9472f8c10a01b3e"
         },
         {
             "path": "scripts/publish-github-release",
