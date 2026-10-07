@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace PeanutAdmin\DataPermission\Tests\Integration\Schema;
 
-use Phinx\Config\Config;
-use Phinx\Migration\Manager;
-use think\console\Input;
-use think\migration\NullOutput;
+use PDO;
+use RuntimeException;
 
 final readonly class DataPermissionMigrationRunner
 {
@@ -21,33 +19,25 @@ final readonly class DataPermissionMigrationRunner
 
     public function migrate(): void
     {
-        $this->manager()->migrate('data_permission');
-    }
+        $connection = new PDO(
+            sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4', $this->host, $this->port, $this->database),
+            $this->username,
+            $this->password,
+            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION],
+        );
+        $directory = dirname(__DIR__, 6) . '/app/modules/official/identity/database/migrations';
+        $files = glob($directory . '/*create_pa_data_permission_*.sql') ?: [];
+        sort($files, SORT_STRING);
+        if ($files === []) {
+            throw new RuntimeException('The locked Identity Module data permission migrations are unavailable.');
+        }
 
-    public function rollbackAll(): void
-    {
-        $this->manager()->rollback('data_permission', 'all', true);
-    }
-
-    private function manager(): Manager
-    {
-        return new Manager(new Config([
-            'paths' => ['migrations' => dirname(__DIR__, 6) . '/app/modules/official/identity/access/database/migrations'],
-            'environments' => [
-                'default_environment' => 'data_permission',
-                'default_migration_table' => 'pa_data_permission_migration',
-                'data_permission' => [
-                    'adapter' => 'mysql',
-                    'host' => $this->host,
-                    'port' => $this->port,
-                    'name' => $this->database,
-                    'user' => $this->username,
-                    'pass' => $this->password,
-                    'charset' => 'utf8mb4',
-                    'collation' => 'utf8mb4_0900_ai_ci',
-                ],
-            ],
-            'version_order' => Config::VERSION_ORDER_CREATION_TIME,
-        ]), new Input([]), new NullOutput());
+        foreach ($files as $file) {
+            $sql = file_get_contents($file);
+            if (!is_string($sql) || trim($sql) === '') {
+                throw new RuntimeException('The locked Identity Module data permission migration is unreadable.');
+            }
+            $connection->exec($sql);
+        }
     }
 }

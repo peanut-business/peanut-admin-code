@@ -59,6 +59,12 @@ registered_demo_port() {
 prepare_env() {
     umask 077
     mkdir -p "$state_dir"
+    for directory in \
+        runtime/cache runtime/log runtime/session runtime/temp runtime/storage \
+        runtime/generator runtime/file private/installation private/resources/pending \
+        public/storage private/storage; do
+        mkdir -p "$repo_dir/server/$directory"
+    done
     [ -f "$orchestration_env" ] || : > "$orchestration_env"
     [ -f "$backend_env" ] || : > "$backend_env"
     chmod 600 "$orchestration_env" "$backend_env"
@@ -89,6 +95,7 @@ prepare_env() {
     set_env "$backend_env" DB_PREFIX pa_
     set_env "$backend_env" PEANUT_DEMO_MODE enabled
     set_env "$backend_env" PEANUT_DEPLOYMENT_TARGET local-multi-tenant-demo
+    set_env "$backend_env" PEANUT_INSTALLATION_SOURCE_MODE development
     set_env "$backend_env" DEPLOYMENT_MODE multi-tenant
     set_env "$backend_env" PLATFORM_HOSTS platform.peanut-admin.test
     set_env "$backend_env" TENANT_ADMIN_HOSTS admin.peanut-admin.test
@@ -106,6 +113,7 @@ prepare_env() {
     set_env "$backend_env" PEANUT_DEMO_TENANT_B_HOST tenant-b.peanut-admin.test
     set_env "$backend_env" PEANUT_DEMO_DOCS_URL http://docs.peanut-admin.test
     ensure_env_value "$backend_env" JWT_SECRET "$(openssl rand -hex 32)"
+    ensure_env_value "$backend_env" ASYNC_SIGNING_KEY "$(openssl rand -hex 32)"
     ensure_env_value "$backend_env" TENANT_IDENTIFIER_HMAC_KEY "$(openssl rand -hex 32)"
     ensure_env_value "$backend_env" PLATFORM_IDENTIFIER_HMAC_KEY "$(openssl rand -hex 32)"
     printf 'Prepared private demo environments: %s and %s\n' "$orchestration_env" "$backend_env"

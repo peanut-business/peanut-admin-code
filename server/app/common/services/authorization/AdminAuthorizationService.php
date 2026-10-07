@@ -21,6 +21,7 @@ use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
 use PeanutAdmin\Modules\Identity\Contract\TenantAuthorizationQuery;
 use PeanutAdmin\Modules\Identity\Contract\TenantMemberDirectory;
 use PeanutAdmin\Modules\Identity\Platform\InstanceControlPlanePolicy;
+use app\common\validation\instance\InstanceToolAccessGuard;
 
 /** Tenant Admin identity, RBAC and access projection service. */
 final class AdminAuthorizationService implements AdminAuthorizationQuery, AuthorizedOperationFactory
@@ -85,6 +86,12 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
             array_column($this->compatibilityMenus($tenantContext, $admin, $permissions), null, 'menu_key'),
             array_column($native['menu'], null, 'menu_key'),
         ));
+        if (!InstanceToolAccessGuard::fromConfiguredValue(config('deployment.mode'))->allows()) {
+            $menus = array_values(array_filter(
+                $menus,
+                static fn(array $row): bool => strtolower(trim((string) ($row['paths'] ?? ''))) !== '/system/menu',
+            ));
+        }
         do {
             $before = count($menus);
             $ids = array_column($menus, 'menu_key');

@@ -145,6 +145,7 @@ ensure_env() {
     set_env_value "$backend_env" DEPLOYMENT_MODE standalone
     set_env_value "$backend_env" DB_PREFIX pa_
     grep -q '^JWT_SECRET=..' "$backend_env" || set_env_value "$backend_env" JWT_SECRET "$(make_secret 32)"
+    grep -q '^ASYNC_SIGNING_KEY=..' "$backend_env" || set_env_value "$backend_env" ASYNC_SIGNING_KEY "$(make_secret 32)"
     grep -q '^TENANT_IDENTIFIER_HMAC_KEY=..' "$backend_env" || set_env_value "$backend_env" TENANT_IDENTIFIER_HMAC_KEY "$(make_secret 32)"
     grep -q '^PLATFORM_IDENTIFIER_HMAC_KEY=..' "$backend_env" || set_env_value "$backend_env" PLATFORM_IDENTIFIER_HMAC_KEY "$(make_secret 32)"
     remove_env_value "$backend_env" ADMIN_INITIAL_EMAIL

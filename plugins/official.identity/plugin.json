@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "d81b2b294fa607c3dc7d484511a7a44f7294af2459464d25df0ec515c88488f1"
+        "sha256": "ac7ce03fe011a8d8b09293089a6ee24d4e3157f568f812783977733a2e4ae35d"
     },
     "trust": {
         "channel": "bundled",
@@ -49,6 +49,26 @@
                     "migrations": {
                         "reversibility": "verified-backup-required",
                         "files": [
+                            {
+                                "key": "official.identity:20260716020101_create_pa_data_permission_policy",
+                                "sha256": "9ccbb19f70c230b27f97d1eeac818dfd08197406664cdf85ddd63a25cb51750e"
+                            },
+                            {
+                                "key": "official.identity:20260716020102_create_pa_data_permission_group",
+                                "sha256": "bac2408f49ffcfa3470e854b7550b5197d9cc9cf4c96ac74dd732572b9f91cbd"
+                            },
+                            {
+                                "key": "official.identity:20260716020103_create_pa_data_permission_target_set",
+                                "sha256": "d34eecc5886ee842b78e44556a8029487668a22b32190c1d275137dd9e3c2708"
+                            },
+                            {
+                                "key": "official.identity:20260716020104_create_pa_data_permission_condition",
+                                "sha256": "52b4836e3be7e87a6ccc5f5eab410778f947fa892f0708b2fd3f332989f54530"
+                            },
+                            {
+                                "key": "official.identity:20260716020105_create_pa_data_permission_target",
+                                "sha256": "baa95b025a3bdae3ee9e56f40018443f1927959f41c71828fd40bca96bd9078e"
+                            },
                             {
                                 "key": "official.identity:20260921020000_create_pa_source_read_grant",
                                 "sha256": "e59e69ed167d4f565dd7e9b60284f69b021e93a9826fdf1f9b9a35a7bf6e7c0c"

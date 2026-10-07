@@ -511,7 +511,7 @@ class RechargeAdministrationService
     private function export(object $context, array $params, int $count, int $pageSize): array
     {
         if ($count === 0) {
-            throw new \runtimeException('没有数据,无法导出');
+            throw BusinessException::invalid('RECHARGE_EXPORT_EMPTY', '没有数据，无法导出');
         }
 
         $pageType = (int) ($params['page_type'] ?? 0);
@@ -521,12 +521,14 @@ class RechargeAdministrationService
             $offset = ($pageStart - 1) * $pageSize;
             $limit = ($pageEnd - $pageStart + 1) * $pageSize;
             if ($limit > self::EXPORT_MAX_ROWS) {
-                throw new \runtimeException(
+                throw BusinessException::invalid(
+                    'RECHARGE_EXPORT_LIMIT_EXCEEDED',
                     '已超出系统限制数量，请分页查询或导出，当前最多记录数为：25000',
                 );
             }
             if ($offset >= $count) {
-                throw new \runtimeException(
+                throw BusinessException::invalid(
+                    'RECHARGE_EXPORT_RANGE_EMPTY',
                     '第' . $pageStart . '页到第' . $pageEnd . '页没有数据，无法导出',
                 );
             }

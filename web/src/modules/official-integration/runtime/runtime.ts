@@ -150,10 +150,15 @@ const failure = (result: TransportResult): RuntimeError => {
     !Array.isArray(result.body)
       ? (result.body as Record<string, unknown>)
       : {};
+  const data =
+    typeof body.data === 'object' && body.data !== null && !Array.isArray(body.data)
+      ? (body.data as Record<string, unknown>)
+      : {};
+  const errorCode = body.error_code ?? data.error_code ?? body.code;
   const code: RuntimeErrorCode =
-    typeof body.code === 'string' &&
-    runtimeErrorCodes.has(body.code as RuntimeErrorCode)
-      ? (body.code as RuntimeErrorCode)
+    typeof errorCode === 'string' &&
+    runtimeErrorCodes.has(errorCode as RuntimeErrorCode)
+      ? (errorCode as RuntimeErrorCode)
       : 'INTEGRATION_REQUEST_FAILED';
   const candidate = body.request_id ?? result.headers.get('X-Request-Id');
   return {
