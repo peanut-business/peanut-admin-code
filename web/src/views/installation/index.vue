@@ -310,6 +310,29 @@
     const checks = preflight.value?.checks;
     return Array.isArray(checks) ? checks : [];
   });
+  function normalizeModuleOptions(value: unknown): ModuleOption[] {
+    if (!Array.isArray(value) || value.length === 0) return [];
+    const options = value.reduce<ModuleOption[]>((result, item) => {
+      if (typeof item === 'string' && item.trim()) {
+        result.push({ key: item, label: item, default: true });
+        return result;
+      }
+      if (!item || typeof item !== 'object') return result;
+      const module = item as InstallationModuleOption;
+      if (!module.key?.trim()) return result;
+      result.push({
+        key: module.key,
+        label: module.label || module.name || module.key,
+        description: module.description,
+        required: module.required,
+        default: module.default ?? module.selected ?? true,
+      });
+      return result;
+    }, []);
+    return options;
+  }
+
+
   const moduleOptions = computed(() => {
     const modules =
       currentStatus.value?.official_modules ||
@@ -347,27 +370,6 @@
         : preflight.value?.reason) || t('installation.preflight.blocked')
   );
 
-  function normalizeModuleOptions(value: unknown): ModuleOption[] {
-    if (!Array.isArray(value) || value.length === 0) return [];
-    const options = value.reduce<ModuleOption[]>((result, item) => {
-      if (typeof item === 'string' && item.trim()) {
-        result.push({ key: item, label: item, default: true });
-        return result;
-      }
-      if (!item || typeof item !== 'object') return result;
-      const module = item as InstallationModuleOption;
-      if (!module.key?.trim()) return result;
-      result.push({
-        key: module.key,
-        label: module.label || module.name || module.key,
-        description: module.description,
-        required: module.required,
-        default: module.default ?? module.selected ?? true,
-      });
-      return result;
-    }, []);
-    return options;
-  }
 
   watch(
     moduleOptions,

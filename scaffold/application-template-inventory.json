@@ -35160,7 +35160,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "07eb41c4d0d5ffafa5d291d50df871cfa48a211446d4de44de59f9f929fd8524"
+            "source_sha256": "921c336353eced112799a74426df09af4a829305ec9675d1b7de6e89375b306d"
         },
         {
             "path": "web/src/views/installation/locale/en-US.ts",
