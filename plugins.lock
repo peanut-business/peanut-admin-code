@@ -196,11 +196,11 @@
         },
         {
             "key": "official.file",
-            "version": "1.0.8",
+            "version": "1.0.9",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "0eb8e6a27981c92a7fa8ac008b72e8766aab16aabe4d824f835a9ed506ee00f1"
+                "sha256": "252f18710df99bac231522f379e9628d3939fa20d99c480717c41eec45c5d0c6"
             },
             "trust": {
                 "channel": "bundled",
@@ -234,7 +234,7 @@
                     "modules": [
                         {
                             "key": "official.file",
-                            "version": "1.0.8",
+                            "version": "1.0.9",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
@@ -277,15 +277,15 @@
             "npm": [
                 {
                     "name": "@peanut-admin/official-file",
-                    "version": "1.0.1",
-                    "integrity": "sha256-pJ0Bpn0jR29VLZhnR94J1Z8N4TgKa+VJBJ6ppqyXLp0="
+                    "version": "1.0.2",
+                    "integrity": "sha256-Vuk4hfX/nrtKfxUe/TbMXOY2yhTYEzNvaeQBlFbcCLM="
                 }
             ],
             "frontend": [
                 {
                     "client_key": "admin-web",
                     "package": "@peanut-admin/official-file",
-                    "version": "1.0.1",
+                    "version": "1.0.2",
                     "entry": "web/src/modules/official-file/contribution.ts",
                     "sha256": "e1821e8f1411ab45754614dd6abe7f2a78046d8d6568fa5372ecabab216482ae"
                 }
@@ -297,7 +297,7 @@
                 }
             ],
             "manifest": "plugins/official.file/plugin.json",
-            "manifest_sha256": "61e3593049e425b9c91ae116b9d29bf6ca0dbb212938c294215ea3a4e0c05bb6"
+            "manifest_sha256": "db88c21e048a736cc76f56f3cdda1292364099691b1000a0a38492b96c43a402"
         },
         {
             "key": "official.identity",

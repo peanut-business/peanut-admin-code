@@ -5,7 +5,7 @@
       <template #header>{{ $t('menu.system.file') }}</template>
       <div class="asset-selector-link">
         <el-button @click="$router.push({ name: 'official.file.assets' })">
-          Image asset selector
+          {{ $t('systemFile.op.assetSelector') }}
         </el-button>
       </div>
       <el-tabs v-model="activeType" type="card" @change="onTypeChange">
@@ -24,40 +24,77 @@
                 v-permission="['official.file.category.add']"
                 link
                 size="small"
+                :aria-label="$t('systemFile.cate.addTitle')"
+                :title="$t('systemFile.cate.addTitle')"
                 @click="handleCateAdd()"
               >
                 <template #icon><Plus /></template>
               </el-button>
             </div>
             <ul class="cate-list">
-              <li
-                :class="{ active: currentCid === '' }"
-                @click="selectCate('')"
-              >
-                <span class="cate-name">{{ $t('systemFile.cate.all') }}</span>
+              <li :class="{ active: currentCid === '' }">
+                <button class="cate-name" type="button" @click="selectCate('')">
+                  {{ $t('systemFile.cate.all') }}
+                </button>
               </li>
               <li
                 v-for="c in flatCateList"
                 :key="c.id"
                 :class="{ active: currentCid === c.id }"
-                @click="selectCate(c.id)"
               >
-                <span class="cate-name">
+                <button
+                  class="cate-name"
+                  type="button"
+                  @click="selectCate(c.id)"
+                >
                   {{ `${'  '.repeat(c.depth)}${c.name}` }}
-                </span>
+                </button>
                 <span class="cate-ops" @click.stop>
-                  <span v-permission="['official.file.category.add']">
-                    <Plus @click="handleCateAdd(c.id)" />
-                  </span>
-                  <span v-permission="['official.file.category.edit']">
-                    <icon-edit @click="handleCateEdit(c)" />
-                  </span>
+                  <el-button
+                    v-permission="['official.file.category.add']"
+                    link
+                    size="small"
+                    :aria-label="
+                      $t('systemFile.cate.addChild', { name: c.name })
+                    "
+                    :title="$t('systemFile.cate.addChild', { name: c.name })"
+                    @click="handleCateAdd(c.id)"
+                  >
+                    <template #icon><Plus /></template>
+                  </el-button>
+                  <el-button
+                    v-permission="['official.file.category.edit']"
+                    link
+                    size="small"
+                    :aria-label="
+                      $t('systemFile.cate.editAction', { name: c.name })
+                    "
+                    :title="$t('systemFile.cate.editAction', { name: c.name })"
+                    @click="handleCateEdit(c)"
+                  >
+                    <template #icon><icon-edit /></template>
+                  </el-button>
                   <el-popconfirm
-                    v-permission="['official.file.category.delete']"
-                    :title="$t('systemFile.cate.delete.confirm')"
+                    :title="
+                      $t('systemFile.cate.delete.confirm', { name: c.name })
+                    "
                     @confirm="handleCateDelete(c)"
                   >
-                    <template #reference><Delete /></template>
+                    <template #reference>
+                      <el-button
+                        v-permission="['official.file.category.delete']"
+                        link
+                        size="small"
+                        :aria-label="
+                          $t('systemFile.cate.deleteAction', { name: c.name })
+                        "
+                        :title="
+                          $t('systemFile.cate.deleteAction', { name: c.name })
+                        "
+                      >
+                        <template #icon><Delete /></template>
+                      </el-button>
+                    </template>
                   </el-popconfirm>
                 </span>
               </li>
@@ -606,21 +643,28 @@
     }
 
     .cate-name {
+      flex: 1;
+      min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
     }
 
     .cate-ops {
       display: none;
-      gap: 8px;
-
-      :deep(svg) {
-        cursor: pointer;
-      }
+      align-items: center;
+      gap: 4px;
     }
 
-    li:hover .cate-ops {
+    li:hover .cate-ops,
+    li:focus-within .cate-ops,
+    li.active .cate-ops {
       display: flex;
     }
   }
