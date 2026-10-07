@@ -60,12 +60,12 @@
               >{{ $t('richText.action.edit') }}</el-button
             >
             <el-popconfirm
-              v-permission="['official.rich-text.document.delete']"
               :title="$t('richText.confirm.delete')"
               @confirm="remove(row.id)"
             >
               <template #reference>
                 <el-button
+                  v-permission="['official.rich-text.document.delete']"
                   link
                   type="danger"
                   :disabled="documentAction.loading.value"

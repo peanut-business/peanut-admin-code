@@ -2290,7 +2290,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b98f444de40983fe547465a920be6a7ccf596a8ff8486892982ab26adbd81b4a"
+            "source_sha256": "1def3476d4a55ca3bbedd29c440cfe271e75a86bac1a131632bf3abac8953168"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2498,7 +2498,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ea782eb87b86c3ef769097864772611fe7d3768c3425a73c06973782c8f8ca34"
+            "source_sha256": "c78630ccef9b8cdb673d742998c3bb84111516ec81e13c2b027bd3659ef921e5"
         },
         {
             "path": "plugins/official.settings/plugin.json",
@@ -18679,7 +18679,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f91b4809a168e5a1f4fdac38ded29f821cbd1321091ae93f6afb679af201cc1b"
+            "source_sha256": "b115039d13b55e751e504f7cf3121a569b2e23677ede095e8292cc54d3f6008c"
         },
         {
             "path": "server/app/modules/official/rich_text/resources/menus.json",
@@ -33858,7 +33858,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e3dda17322d2ddc7576cf8bfcf3b73d82d50625b479a79c0af2cfaa8e75bbabd"
+            "source_sha256": "fdcfefa4b49530e55aeb7f835c924864cebae4e2f6388f71780fed1e61ff4eea"
         },
         {
             "path": "web/src/modules/official-rich-text/src/document.ts",
@@ -33900,7 +33900,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c9faf66536281635b5bcd28073a5cb16ba7f43e0ee0c14c7e3b2678450e7c569"
+            "source_sha256": "9001e40edfba066b40d39ba3e561818781586b1b51df460f4d4e6b0b6dd26448"
         },
         {
             "path": "web/src/modules/official-rich-text/views/locale/en-US.ts",
