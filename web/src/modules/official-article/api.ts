@@ -149,6 +149,23 @@ export interface ArticleRecord {
   update_time?: string | number | null;
 }
 
+export type ArticleCreateRequest = Pick<
+  ArticleRecord,
+  | 'cid'
+  | 'title'
+  | 'desc'
+  | 'abstract'
+  | 'image'
+  | 'author'
+  | 'content'
+  | 'click_virtual'
+  | 'sort'
+  | 'is_show'
+>;
+
+export type ArticleUpdateRequest = ArticleCreateRequest &
+  Pick<ArticleRecord, 'id'>;
+
 export interface ArticleListParams {
   page_no?: number;
   page_size?: number;
@@ -192,27 +209,36 @@ export function exportArticles(
   });
 }
 
-export function getArticleDetail(id: number) {
+export function getArticleDetail(id: number, signal?: AbortSignal) {
   return axios.get<ArticleRecord>('/adminapi/official.article.detail', {
     params: { id },
+    signal,
   });
 }
 
-export function addArticle(data: Partial<ArticleRecord>) {
-  return axios.post('/adminapi/official.article.add', data);
+export function addArticle(data: ArticleCreateRequest, signal?: AbortSignal) {
+  return axios.post('/adminapi/official.article.add', data, { signal });
 }
 
-export function editArticle(data: Partial<ArticleRecord>) {
-  return axios.post('/adminapi/official.article.edit', data);
+export function editArticle(data: ArticleUpdateRequest, signal?: AbortSignal) {
+  return axios.post('/adminapi/official.article.edit', data, { signal });
 }
 
-export function deleteArticle(id: number) {
-  return axios.post('/adminapi/official.article.delete', { id });
+export function deleteArticle(id: number, signal?: AbortSignal) {
+  return axios.post('/adminapi/official.article.delete', { id }, { signal });
 }
 
-export function updateArticleStatus(id: number, isShow: number) {
-  return axios.post('/adminapi/official.article.update-status', {
-    id,
-    is_show: isShow,
-  });
+export function updateArticleStatus(
+  id: number,
+  isShow: number,
+  signal?: AbortSignal
+) {
+  return axios.post(
+    '/adminapi/official.article.update-status',
+    {
+      id,
+      is_show: isShow,
+    },
+    { signal }
+  );
 }

@@ -3,6 +3,13 @@
     <Breadcrumb :items="['menu.article', 'menu.article.list']" />
     <el-card class="general-card">
       <template #header>{{ $t('menu.article.list') }}</template>
+      <el-alert
+        v-if="articleAction.error.value && !modalVisible"
+        type="error"
+        :closable="false"
+        :title="articleAction.error.value"
+        style="margin-bottom: 16px"
+      />
       <el-form :model="formModel" label-position="top">
         <el-row :gutter="16">
           <el-col :span="7">
@@ -61,6 +68,7 @@
         v-permission="['official.article.add']"
         type="primary"
         :icon="Plus"
+        :disabled="articleAction.loading.value"
         style="margin-bottom: 16px"
         @click="openAdd"
       >
@@ -110,6 +118,7 @@
             ><el-switch
               v-permission="['official.article.update-status']"
               :model-value="row.is_show === 1"
+              :disabled="articleAction.loading.value"
               @change="(value: boolean) => onStatusChange(row, value)" /></template
         ></el-table-column>
         <el-table-column :label="$t('article.columns.createTime')" width="170"
@@ -128,6 +137,7 @@
                 link
                 type="primary"
                 size="small"
+                :disabled="articleAction.loading.value"
                 @click="openEdit(row)"
               >
                 {{ $t('article.button.edit') }}
@@ -138,7 +148,12 @@
                 @confirm="onDelete(row)"
               >
                 <template #reference
-                  ><el-button link type="danger" size="small">
+                  ><el-button
+                    link
+                    type="danger"
+                    size="small"
+                    :disabled="articleAction.loading.value"
+                  >
                     {{ $t('article.button.delete') }}
                   </el-button></template
                 >
@@ -160,8 +175,18 @@
         v-model="modalVisible"
         :title="form.id ? $t('article.modal.edit') : $t('article.modal.add')"
         width="900px"
+        :close-on-click-modal="!articleAction.loading.value"
+        :close-on-press-escape="!articleAction.loading.value"
+        :show-close="!articleAction.loading.value"
         @closed="closeModal"
       >
+        <el-alert
+          v-if="articleAction.error.value"
+          type="error"
+          :closable="false"
+          :title="articleAction.error.value"
+          style="margin-bottom: 16px"
+        />
         <el-form ref="formRef" :model="form" :rules="rules" label-width="auto">
           <el-form-item prop="cid" :label="$t('article.field.cate')">
             <el-select
@@ -331,8 +356,14 @@
           </el-form-item>
         </el-form>
         <template #footer
-          ><el-button @click="closeModal">取消</el-button
-          ><el-button type="primary" @click="onSubmit"
+          ><el-button
+            :disabled="articleAction.loading.value"
+            @click="closeModal"
+            >取消</el-button
+          ><el-button
+            type="primary"
+            :loading="articleAction.loading.value"
+            @click="onSubmit"
             >确定</el-button
           ></template
         >
@@ -358,6 +389,7 @@
     Search,
     VideoCamera,
   } from '@element-plus/icons-vue';
+  import { useAsyncAction } from '@peanut-admin/vue';
   import useLoading from '@/hooks/loading';
   import sanitizeRichText from '@/utils/sanitize-rich-text';
   import FilePicker from '@/components/file-picker/index.vue';
@@ -371,6 +403,7 @@
     deleteArticle,
     updateArticleStatus,
     type ArticleRecord,
+    type ArticleCreateRequest,
     type ArticleListParams,
   } from '@/modules/official-article/api';
 
@@ -389,6 +422,7 @@
   }
 
   const { t } = useI18n();
+  const articleAction = useAsyncAction(() => t('article.error.request'));
   const { loading, setLoading } = useLoading(true);
   const renderData = ref<ArticleRecord[]>([]);
   const cateOptions = ref<Array<{ label: string; value: number }>>([]);
@@ -421,11 +455,15 @@
   };
 
   const fetchCateOptions = async () => {
-    const { data } = await getArticleCateAll();
-    cateOptions.value = data.map((item) => ({
-      label: item.name,
-      value: item.id,
-    }));
+    try {
+      const { data } = await getArticleCateAll();
+      cateOptions.value = data.map((item) => ({
+        label: item.name,
+        value: item.id,
+      }));
+    } catch {
+      // The shared Axios interceptor displays the server error.
+    }
   };
   fetchCateOptions();
 
@@ -446,6 +484,8 @@
       pagination.current = data.pageNo;
       pagination.pageSize = data.pageSize;
       pagination.total = data.count;
+    } catch {
+      // The shared Axios interceptor displays the server error.
     } finally {
       setLoading(false);
     }
@@ -535,6 +575,7 @@
   };
 
   const openAdd = async () => {
+    articleAction.cancel();
     contentRange.value = undefined;
     form.value = generateForm();
     modalVisible.value = true;
@@ -542,8 +583,13 @@
   };
 
   const openEdit = async (record: ArticleRecord) => {
+    articleAction.cancel();
     contentRange.value = undefined;
-    const { data } = await getArticleDetail(record.id);
+    const result = await articleAction.run(({ signal }) =>
+      getArticleDetail(record.id, signal)
+    );
+    if (result.status !== 'completed') return;
+    const { data } = result.data;
     form.value = {
       id: data.id,
       cid: data.cid,
@@ -648,33 +694,57 @@
   };
 
   const closeModal = () => {
+    if (articleAction.loading.value) return;
+    articleAction.cancel();
     contentRange.value = undefined;
     modalVisible.value = false;
   };
 
   const onSubmit = async () => {
+    if (articleAction.loading.value) return;
     form.value.content = readEditorContent();
-    const valid = await formRef.value?.validate().catch(() => false);
-    if (!valid) return;
-    if (form.value.id) {
-      await editArticle(form.value);
-    } else {
-      await addArticle(form.value);
-    }
+    const result = await articleAction.run(async ({ signal }) => {
+      const valid = await formRef.value?.validate().catch(() => false);
+      if (!valid || form.value.cid === undefined) return false;
+      const { id, cid, title, desc, abstract, image, author, content, sort } =
+        form.value;
+      const payload: ArticleCreateRequest = {
+        cid,
+        title,
+        desc,
+        abstract,
+        image,
+        author,
+        content,
+        click_virtual: form.value.click_virtual,
+        sort,
+        is_show: form.value.is_show,
+      };
+      return id
+        ? editArticle({ id, ...payload }, signal)
+        : addArticle(payload, signal);
+    });
+    if (result.status !== 'completed' || !result.data) return;
     ElMessage.success(t('article.message.success'));
     modalVisible.value = false;
-    fetchData(pagination.current);
+    await fetchData(pagination.current);
   };
 
   const onDelete = async (record: ArticleRecord) => {
-    await deleteArticle(record.id);
+    const result = await articleAction.run(({ signal }) =>
+      deleteArticle(record.id, signal)
+    );
+    if (result.status !== 'completed') return;
     ElMessage.success(t('article.message.success'));
-    fetchData(pagination.current);
+    await fetchData(pagination.current);
   };
 
   const onStatusChange = async (record: ArticleRecord, value: unknown) => {
     const isShow = value ? 1 : 0;
-    await updateArticleStatus(record.id, isShow);
+    const result = await articleAction.run(({ signal }) =>
+      updateArticleStatus(record.id, isShow, signal)
+    );
+    if (result.status !== 'completed') return;
     record.is_show = isShow;
     ElMessage.success(t('article.message.success'));
   };

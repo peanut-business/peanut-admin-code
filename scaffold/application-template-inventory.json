@@ -2290,7 +2290,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "384bc88adf6789d98e414684cfe7e9196bb6e9a429dd44dad933d4cc0a10612d"
+            "source_sha256": "6ebc8c636eefc38a6fe66f17393ce7aa5adf3a49a36192a25af310b500a0ad84"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2344,7 +2344,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "82d042b57aec8a35949f1268bc53414717535df410a113ced848429b8bb70e3f"
+            "source_sha256": "0bbae90ec4316cb54263972e0132a596effd81e936cffbb6cee63477aea3e8f6"
         },
         {
             "path": "plugins/official.file/plugin.json",
@@ -9462,7 +9462,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f5a6104c220170dd44d5fef0a7e88c863ff5716f670435dde847bf826d4ec443"
+            "source_sha256": "6c0301588f96df9fa4647a108ad5e92f24e9176a098614420a4d5cf3709f9847"
         },
         {
             "path": "server/app/modules/official/article/database/migrations/20260825-adopt-permission-ownership.sql",
@@ -9504,7 +9504,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6558dbcf6a4d5fd9b78dc40acd59484e7961a2fae79166c77c5a875f80e1007f"
+            "source_sha256": "d262ad23419c7f10005027c284e2ba847874bfe67b6138ff88d2d619599b047d"
         },
         {
             "path": "server/app/modules/official/article/resources/menus.json",
@@ -31996,7 +31996,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d93937b87ff9b97a6702e2b5ded1dbdeb68d17b2cc921c169227f3645781fb75"
+            "source_sha256": "01f77edada62d01506ac8a888cd18f654c9edf7551cace6d6b500a3780649436"
         },
         {
             "path": "web/src/modules/official-article/category-resource.ts",
@@ -32052,7 +32052,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "23c2423a346fbb0681c6f9e3e215b30dab2ca5de5f0e85d9715d721fef4070ef"
+            "source_sha256": "d886b6c9247eff71d4ea63d011dd5763e450176263702c8cbc957d6d929ce279"
         },
         {
             "path": "web/src/modules/official-article/views/cate/index.vue",
@@ -32108,7 +32108,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6c4ea30db186351221f4bc0a7f0ed57c90ecdaa18779a375d10674e9ce95fbff"
+            "source_sha256": "1009cc09498d752394b68ca7f1ac2fb9a515017ed4bd596e123e0f9c266ecb99"
         },
         {
             "path": "web/src/modules/official-article/views/list/locale/en-US.ts",
@@ -32122,7 +32122,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "683dcd82b8743e08bc22d7995024b766399ffccfd16ff93099b222bed4c1acc4"
+            "source_sha256": "fd426a144f76c2827780d7ca290c8db0b92b433765dbb07e4c2d0b5b1cb05ba8"
         },
         {
             "path": "web/src/modules/official-article/views/list/locale/zh-CN.ts",
@@ -32136,7 +32136,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5d66129ee7c2b50b261a59ca9af07eeda5db96b36406a118391ddb6cc1eccf3c"
+            "source_sha256": "bac93c87c136aa0680d4a49873ff8ec4a15550744d396bb7a6a4e7415416b94d"
         },
         {
             "path": "web/src/modules/official-file/api.ts",

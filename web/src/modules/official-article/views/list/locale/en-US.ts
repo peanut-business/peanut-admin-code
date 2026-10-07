@@ -43,4 +43,5 @@ export default {
   'article.tip.uploadSuccess': 'Upload succeeded',
   'article.tip.uploadFail': 'Upload failed',
   'article.message.success': 'Success',
+  'article.error.request': 'Article request failed. Please try again.',
 };

@@ -43,4 +43,5 @@ export default {
   'article.tip.uploadSuccess': '上传成功',
   'article.tip.uploadFail': '上传失败',
   'article.message.success': '操作成功',
+  'article.error.request': '文章请求失败，请重试。',
 };
