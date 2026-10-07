@@ -20,6 +20,7 @@ foreach ([
     'app/modules/official/import_export/route/app.php',
     'app/modules/official/settings/route/app.php',
     'app/modules/official/reference_codes/route/app.php',
+    'app/modules/official/rich_text/route/app.php',
     'app/modules/official/integration/route/app.php',
 ] as $moduleRoute) {
     require $serverRoot . '/' . $moduleRoute;

@@ -490,6 +490,25 @@ final class InstallationExecutionHost
                     throw new RuntimeException('Default Tenant Module selection is incomplete.');
                 }
             }
+            $ownedTables = [];
+            foreach ($moduleKeys as $moduleKey) {
+                foreach ($definitions->requireManifest($moduleKey)->data['database']['owned_tables'] ?? [] as $table) {
+                    $ownedTables[$table] = true;
+                }
+            }
+            if ($ownedTables !== []) {
+                $names = array_keys($ownedTables);
+                $placeholders = implode(',', array_fill(0, count($names), '?'));
+                $query = $pdo->prepare(
+                    "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ({$placeholders})",
+                );
+                $query->execute($names);
+                $present = $query->fetchAll(PDO::FETCH_COLUMN);
+                $missing = array_diff($names, $present);
+                if ($missing !== []) {
+                    throw new RuntimeException('Installed Module tables are missing: ' . implode(', ', $missing));
+                }
+            }
         }
         $health['selected_module_count'] = count($moduleKeys);
         return $health;

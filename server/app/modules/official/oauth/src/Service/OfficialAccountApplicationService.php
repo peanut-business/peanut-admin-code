@@ -65,7 +65,7 @@ class OfficialAccountApplicationService implements OfficialAccountCallbacks
             'app_id' => (string) ($stored['app_id'] ?? ''),
             'app_secret' => self::maskedSecret($secret),
             'app_secret_configured' => $secret !== '',
-            'url' => $domain . '/api/wechat/official-account/callback/'
+            'url' => $token === '' ? '' : $domain . '/api/wechat/official-account/callback/'
                 . $this->bindings->callbackKey($context, ExternalProvider::WECHAT_OFFICIAL_CALLBACK),
             'token' => self::maskedSecret($token),
             'token_configured' => $token !== '',

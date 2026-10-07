@@ -1,6 +1,7 @@
 export default {
   'menu.appSetting.readiness': '生产准备清单',
   'readiness.title': '首次运行配置清单',
+  'readiness.error.load': '无法加载生产准备清单，请检查访问权限后重试。',
   'readiness.description':
     '集中查看开箱后的生产准备度、影响、责任方和下一动作。',
   'readiness.boundary.title': '状态证据边界',

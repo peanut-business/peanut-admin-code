@@ -496,11 +496,11 @@
         },
         {
             "key": "official.integration",
-            "version": "1.0.6",
+            "version": "1.0.7",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "e7b758e6b3d3ab2da8f62f33054dcc0ebe0a4b33b33870bcbbb6676ef8883574"
+                "sha256": "d0aa995296ef19dad3b72504f4ed941d4168efe5ca2624dbc8db0abbd59a6116"
             },
             "trust": {
                 "channel": "bundled",
@@ -534,7 +534,7 @@
                     "modules": [
                         {
                             "key": "official.integration",
-                            "version": "1.0.6",
+                            "version": "1.0.7",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
@@ -548,7 +548,12 @@
                             },
                             "migrations": {
                                 "reversibility": "verified-backup-required",
-                                "files": []
+                                "files": [
+                                    {
+                                        "key": "official.integration:20260921010000_adopt_official_integration_schema",
+                                        "sha256": "bc94d9e65a0c8ac1686b00496ea98c4d96eeee1f5677d21f52540605ab641f95"
+                                    }
+                                ]
                             }
                         }
                     ]
@@ -557,8 +562,8 @@
             "composer": [
                 {
                     "name": "peanut-business/official-integration",
-                    "version": "1.0.5",
-                    "sha256": "705faadc34399df4f026020780cd8c6fafb1b24038059198ca36f118cb611ed4"
+                    "version": "1.0.6",
+                    "sha256": "c58658f4862b5a54a5b56b7c14e2d67abd3205ea997c9d18207bbae07abf3e85"
                 }
             ],
             "npm": [
@@ -584,7 +589,7 @@
                 }
             ],
             "manifest": "plugins/official.integration/plugin.json",
-            "manifest_sha256": "ac93bb7ea93f23a0911caa6c4c05568a7ae59ed4d612babab06d00cac5345da1"
+            "manifest_sha256": "44cec5bc784d82a4ee0aed9568edb52f7922df9e888bda742ced7d4231dcc140"
         },
         {
             "key": "official.member",
@@ -802,11 +807,11 @@
         },
         {
             "key": "official.oauth",
-            "version": "1.0.1",
+            "version": "1.0.2",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "9e2f5ddde37fa435b3dfc5ca71b1719cb13c629394e75c5ae646621dd6473196"
+                "sha256": "f05d629e80be6739a367a348d608ccc6d6153f287f354b8dedc693da943bd253"
             },
             "trust": {
                 "channel": "bundled",
@@ -840,7 +845,7 @@
                     "modules": [
                         {
                             "key": "official.oauth",
-                            "version": "1.0.1",
+                            "version": "1.0.2",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
@@ -884,8 +889,8 @@
             "composer": [
                 {
                     "name": "peanut-business/official-oauth",
-                    "version": "1.0.1",
-                    "sha256": "3364f119d67ceacae01ada2b03e127f98b7738ccbc5a389052ccefa3181eaac8"
+                    "version": "1.0.2",
+                    "sha256": "071e1c10bdecc54d85e1b6c81cf9928ae8b4fc004323f255103be84e92ecaffa"
                 }
             ],
             "npm": [
@@ -911,7 +916,7 @@
                 }
             ],
             "manifest": "plugins/official.oauth/plugin.json",
-            "manifest_sha256": "aa96ee622de3c21767d16e69f8d25f9405455a1536b4608e9616fe2f812a90e4"
+            "manifest_sha256": "a603476ca28982e57599f9d9a575cb5628188f75c5524d08279fd0490fa488d7"
         },
         {
             "key": "official.ops",
