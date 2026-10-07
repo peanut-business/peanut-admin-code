@@ -1,0 +1,77 @@
+{
+    "schema_version": 1,
+    "key": "official.identity",
+    "version": "4.0.0-rc.19",
+    "source": {
+        "type": "canonical-contents",
+        "reference": "canonical-plugin-contents-v1",
+        "sha256": "3dbd037ab1614ef2c2020df4a882f897d0fdb7e972ef45f69cec8a446ed520aa"
+    },
+    "trust": {
+        "channel": "bundled",
+        "origin": {
+            "type": "repository-contents",
+            "reference": "canonical-plugin-contents-v1"
+        },
+        "archive": {
+            "status": "not-issued",
+            "sha256": null
+        },
+        "signature": {
+            "status": "not-issued",
+            "key_id": null
+        },
+        "sbom": {
+            "status": "not-issued",
+            "sha256": null
+        },
+        "license": {
+            "identifier": "Apache-2.0",
+            "status": "declared"
+        },
+        "qualification": {
+            "status": "bundled-locked",
+            "review": "not-reviewed",
+            "vulnerability_response": "not-configured",
+            "marketplace": "blocked"
+        },
+        "compatibility": {
+            "modules": [
+                {
+                    "key": "official.identity",
+                    "version": "4.0.0-rc.19",
+                    "kernel_constraint": "^1.0",
+                    "dependencies": [],
+                    "permissions": {
+                        "path": null,
+                        "sha256": null
+                    },
+                    "migrations": {
+                        "reversibility": "verified-backup-required",
+                        "files": [
+                            {
+                                "key": "official.identity:20260921020000_create_pa_source_read_grant",
+                                "sha256": "e59e69ed167d4f565dd7e9b60284f69b021e93a9826fdf1f9b9a35a7bf6e7c0c"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "composer": [
+        {
+            "name": "peanut-business/official-identity",
+            "version": "4.0.0-rc.16",
+            "sha256": "9ec0464efd4fc4ad437e22dc8e8b8b9b52dfbc92b0f175c174552739657f244d"
+        }
+    ],
+    "npm": [],
+    "frontend": [],
+    "modules": [
+        {
+            "key": "official.identity",
+            "root": "server/app/modules/official/identity"
+        }
+    ]
+}

@@ -927,6 +927,7 @@ try {
         $moduleGovernance,
         new \app\common\services\audit\AuditContractHost(null),
         new \PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery(new \app\common\execution\CurrentExecutionContext(new \app\common\execution\ExecutionContextStore())),
+        $app->make(\app\common\composition\ModuleComposition::class),
     );
     foreach ([
         [['fixture.delivery-record'], \app\common\enum\instance\DeploymentMode::MultiTenant, 'PRIVATE_TENANT_MODULE_STANDALONE_REQUIRED'],

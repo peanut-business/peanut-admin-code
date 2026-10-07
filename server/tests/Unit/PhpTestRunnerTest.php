@@ -56,6 +56,36 @@ PHP);
         self::assertStringContainsString('[php-test] phpunit', $output);
     }
 
+    public function testIsolatedPhpunitDoesNotPreloadExplicitEnvironmentInParent(): void
+    {
+        $root = dirname(__DIR__, 3);
+        $environment = $root . '/server/.env.runner-' . bin2hex(random_bytes(6));
+        $handle = fopen($environment, 'x');
+        self::assertNotFalse($handle);
+        fwrite($handle, "APP_ENV=development\nDEPLOYMENT_MODE=standalone\n");
+        fclose($handle);
+        chmod($environment, 0600);
+        try {
+            [$code, $output] = $this->runFixture('IsolatedTest.php', <<<'PHP'
+<?php
+#[\PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses]
+#[\PHPUnit\Framework\Attributes\PreserveGlobalState(false)]
+final class IsolatedTest extends \PHPUnit\Framework\TestCase
+{
+    public function testRuns(): void
+    {
+        self::assertFalse(getenv('APP_ENV'));
+        self::assertNotFalse(getenv('PEANUT_SERVER_ENV_FILE'));
+    }
+}
+PHP, $environment);
+            self::assertSame(0, $code, $output);
+            self::assertStringContainsString('1 test, 2 assertions', $output);
+        } finally {
+            unlink($environment);
+        }
+    }
+
     public function testFailingPhpunitDoesNotBecomeARequireOnlySuccess(): void
     {
         [$code, $output] = $this->runFixture('FailingTest.php', <<<'PHP'
@@ -86,7 +116,7 @@ PHP);
     }
 
     /** @return array{int,string} */
-    private function runFixture(string $name, string $source): array
+    private function runFixture(string $name, string $source, ?string $environmentFile = null): array
     {
         $file = $this->directory . '/' . $name;
         self::assertNotFalse(file_put_contents($file, $source));
@@ -94,8 +124,11 @@ PHP);
         // Child tests are isolated syntax/runner fixtures and must not inherit a real database environment.
         $environment = getenv();
         unset($environment['PEANUT_SERVER_ENV_FILE'], $environment['PEANUT_INTEGRATION']);
+        foreach (function_exists('peanutBackendEnvironmentKeys') ? \peanutBackendEnvironmentKeys() : [] as $key) {
+            unset($environment[$key], $environment['PHP_' . $key]);
+        }
         $process = proc_open(
-            [PHP_BINARY, $root . '/scripts/run-php-test', $file],
+            [PHP_BINARY, $root . '/scripts/run-php-test', ...($environmentFile === null ? [] : ['--env-file=' . $environmentFile]), $file],
             [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $pipes,
             $root,

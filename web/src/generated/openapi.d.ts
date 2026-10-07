@@ -649,6 +649,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/adminapi/config/brand": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Anonymous Admin Host branding. Shared unbound entries return application defaults; bound entries use only their admin-web Tenant. */
+        get: operations["getAdminEntryBrand"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/adminapi/user/logout": {
         parameters: {
             query?: never;
@@ -2753,6 +2770,23 @@ export interface paths {
             cookie?: never;
         };
         get: operations["downloadPlatformDiagnostics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/installapi/password-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Public effective password limits from the native container binding; available before and after installation. No credentials or instance configuration are returned. */
+        get: operations["getPasswordPolicy"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5986,6 +6020,7 @@ export interface components {
             menu: components["schemas"]["AdminMenuNode"][];
             permissions: components["schemas"]["StringList"];
             tenantName: string;
+            website: components["schemas"]["WebsiteConfig"];
             canSwitchTenant: boolean;
             demoMode: boolean;
         };
@@ -6032,6 +6067,7 @@ export interface components {
             name: string;
             nickname?: string;
             avatar?: string;
+            /** @description Effective UTF-8 byte bounds from getPasswordPolicy. */
             password?: string;
             password_confirm?: string;
             role_id: components["schemas"]["IntegerList"];
@@ -6047,6 +6083,7 @@ export interface components {
             nickname: string;
             avatar?: string;
             password_old?: string;
+            /** @description Effective UTF-8 byte bounds from getPasswordPolicy. */
             password?: string;
             password_confirm?: string;
         };
@@ -6182,6 +6219,15 @@ export interface components {
             copyright: string;
             official_url: string;
             github_url: string;
+        };
+        AdminBrandConfig: {
+            website: components["schemas"]["WebsiteConfig"];
+            tenantName: string;
+            demo: {
+                enabled: boolean;
+                email: string;
+                password: string;
+            };
         };
         CopyrightItemList: {
             key: string;
@@ -6436,6 +6482,7 @@ export interface components {
         };
         InvitationAcceptRequest: {
             token: string;
+            /** @description Effective UTF-8 byte bounds from getPasswordPolicy. */
             new_account_password?: string;
         };
         InvitationAcceptance: {
@@ -6878,7 +6925,7 @@ export interface components {
         };
         InstallationConfigurationStatus: {
             /** @enum {string} */
-            state: "unconfigured" | "configured" | "blocked" | "installed";
+            state: "unconfigured" | "pending" | "configured" | "blocked" | "installed";
             code: string;
             configured: boolean;
             application: components["schemas"]["InstallationApplicationIdentity"];
@@ -6894,9 +6941,9 @@ export interface components {
         };
         InstallationConfigureResult: {
             /** @enum {string} */
-            state: "configured";
+            state: "pending" | "configured";
             /** @enum {string} */
-            code: "INSTALL_CONFIGURATION_COMPLETED";
+            code: "INSTALL_CONFIGURATION_PENDING" | "INSTALL_CONFIGURATION_COMPLETED";
             restart_required: boolean;
             application: components["schemas"]["InstallationApplicationIdentity"];
             deployment_target: string;
@@ -6949,9 +6996,11 @@ export interface components {
         InstallationExecuteRequest: {
             /** Format: email */
             admin_email: string;
+            /** @description New password: effective UTF-8 byte bounds from getPasswordPolicy. */
             admin_password: string;
             /** Format: email */
             platform_email?: string;
+            /** @description New password: effective UTF-8 byte bounds from getPasswordPolicy. */
             platform_password?: string;
             official_modules?: string[];
         };
@@ -10600,6 +10649,33 @@ export interface operations {
             403: components["responses"]["ErrorResponse"];
         };
     };
+    getAdminEntryBrand: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["AdminBrandConfig"];
+                    };
+                };
+            };
+            403: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
     adminLogout: {
         parameters: {
             query?: never;
@@ -10757,7 +10833,10 @@ export interface operations {
     refreshTenantSession: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                /** @description 发起刷新会话的 access token，允许过期或已轮换；必须与受保护刷新 cookie 属于同一会话。 */
+                Authorization: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -13842,6 +13921,7 @@ export interface operations {
                     /** Format: email */
                     email: string;
                     display_name: string;
+                    /** @description Effective UTF-8 byte bounds from getPasswordPolicy. */
                     initial_password?: string;
                 };
             };
@@ -14881,6 +14961,36 @@ export interface operations {
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getPasswordPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            minimum_length: number;
+                            maximum_length: number;
+                            /** @enum {string} */
+                            length_unit: "utf8_bytes";
+                        };
+                    };
+                };
+            };
         };
     };
     getInstallationConfiguration: {

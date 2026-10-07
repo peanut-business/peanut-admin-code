@@ -51,7 +51,7 @@ final class MigrationTargetIdentityTest extends TestCase
         );
         [$identity, $constraint, $packages] = $result;
         self::assertSame($constraint, $identity['constraint']);
-        self::assertSame($identity['constraint'], $identity['resolved_version']);
+        self::assertTrue(\Composer\Semver\Semver::satisfies($identity['resolved_version'], $identity['constraint']));
         self::assertCount(1, $packages);
         self::assertSame($identity['resolved_version'], $packages[0]['version']);
         self::assertSame($identity['source_type'], $packages[0]['source']['type']);

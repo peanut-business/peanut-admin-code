@@ -149,11 +149,23 @@ if (!mkdir($temporary, 0700, true)) {
     throw new RuntimeException('SCAFFOLD_RELEASE_TEMP_FAILED');
 }
 try {
-    $archive = $temporary . '/source.tar';
     $source = $temporary . '/source';
-    mkdir($source, 0700);
-    releaseRun(['git','-C',$root,'archive','--format=tar','--output=' . $archive,$commit]);
-    (new PharData($archive))->extractTo($source);
+    $origin = trim(releaseRun(['git','-C',$root,'remote','get-url','origin']));
+    if ($origin === '') {
+        throw new RuntimeException('SCAFFOLD_RELEASE_SOURCE_ORIGIN_INVALID');
+    }
+    // Fetch only the fixed commit into an independent repository. Its identity
+    // and cleanliness must not depend on the enclosing maintainer checkout.
+    releaseRun(['git','init','--quiet',$source]);
+    releaseRun(['git','-C',$source,'fetch','--quiet','--no-tags','--depth=1',$root,$commit]);
+    releaseRun(['git','-C',$source,'remote','add','origin',$origin]);
+    releaseRun(['git','-C',$source,'checkout','--quiet','--detach',$commit]);
+    if (realpath(trim(releaseRun(['git','-C',$source,'rev-parse','--show-toplevel']))) !== realpath($source)
+        || !hash_equals($commit, trim(releaseRun(['git','-C',$source,'rev-parse','HEAD'])))
+        || !hash_equals($tree, trim(releaseRun(['git','-C',$source,'rev-parse','HEAD^{tree}'])))
+        || trim(releaseRun(['git','-C',$source,'status','--porcelain=v1','--untracked-files=all'])) !== '') {
+        throw new RuntimeException('SCAFFOLD_RELEASE_SOURCE_IDENTITY_MISMATCH');
+    }
     $modernCreator = is_file($source . '/server/app/common/infrastructure/scaffold/ApplicationCreator.php');
     require $source . ($modernCreator
         ? '/server/app/common/validation/scaffold/ScaffoldPathGuard.php'

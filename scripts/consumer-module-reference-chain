@@ -20,6 +20,8 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parent.parent
+TOOL_ROOT = ROOT
+TOOL_BINDING: dict[str, Any] | None = None
 LEASE_TOOL = ROOT / "scripts/project-resource-lease"
 PHP = Path(os.environ.get("PEANUT_PHP_BINARY") or shutil.which("php") or "/usr/bin/php")
 COMPOSER = ROOT / "scripts/project-composer"
@@ -55,7 +57,7 @@ def fail(message: str) -> None:
 def command(
     arguments: list[str],
     *,
-    cwd: Path = ROOT,
+    cwd: Path | None = None,
     env: dict[str, str] | None = None,
     log: Path | None = None,
 ) -> str:
@@ -68,7 +70,7 @@ def command(
         merged.update(env)
     result = subprocess.run(
         arguments,
-        cwd=cwd,
+        cwd=ROOT if cwd is None else cwd,
         env=merged,
         text=True,
         stdout=subprocess.PIPE,
@@ -1272,7 +1274,7 @@ def p0e_installer_inputs(args: argparse.Namespace, candidate_tree: str) -> dict[
     expect(plan_path.is_absolute() and plan_path.is_file() and not plan_path.is_symlink(),
            "P0-E requires its regular absolute qualification plan")
     value = read_json(plan_path)
-    native = runpy.run_path(str(ROOT / "scripts/p0e-runtime-qualification"))
+    native = runpy.run_path(str(TOOL_ROOT / "scripts/p0e-runtime-qualification"))
     selection = value.get("selection_scope")
     expect(selection in ("full", "through-group", "selected-groups"), "P0-E selection scope is invalid")
     native_args = argparse.Namespace(
@@ -1282,7 +1284,10 @@ def p0e_installer_inputs(args: argparse.Namespace, candidate_tree: str) -> dict[
         http_port=value["ports"]["http"], docs_port=value["ports"]["docs"], minimum_release=False,
         through_group=value["through_group"],
         groups=",".join(value["groups"]) if selection == "selected-groups" else None,
+        source_root=args.source_root, qualification_tool_commit=args.qualification_tool_commit,
+        qualification_tool_files_sha256=args.qualification_tool_files_sha256,
     )
+    native["configure_source"](native_args)
     expect(bool(native_args.owner) and bool(native_args.thread), "P0-E plan is not an owned execution plan")
     actual = native["plan"](native_args, require_clean=True)
     expect(value == actual and value["candidate_tree"] == candidate_tree,
@@ -1290,6 +1295,15 @@ def p0e_installer_inputs(args: argparse.Namespace, candidate_tree: str) -> dict[
     native["verify_lease"](native_args, actual)
     cache = Path(value["paths"]["cache-dir"])
     output = Path(value["paths"]["output-dir"])
+    if TOOL_BINDING is not None:
+        binding_path = output / "qualification-tool-binding.json"
+        expect(binding_path.is_file() and not binding_path.is_symlink()
+               and not any(parent.is_symlink() for parent in binding_path.parents),
+               "consumer qualification tool binding path is unsafe")
+        binding = read_json(binding_path)
+        expect(all(binding.get(key) == expected for key, expected in TOOL_BINDING.items())
+               and binding.get("plan_sha256") == sha256(plan_path),
+               "consumer qualification tool binding differs from the original plan")
     expect(plan_path == output / "plan.json" and "consumer-module-lifecycle" in value["groups"]
            and args.installer_mode == "formal" and args.edition == "multi-tenant"
            and args.database == value["databases"]["consumer_module_cycle"]
@@ -1317,6 +1331,9 @@ def p0e_installer_inputs(args: argparse.Namespace, candidate_tree: str) -> dict[
            and checkpoint.get("planned_groups") == value["groups"]
            and checkpoint.get("groups", {}).get("generated-application", {}).get("status") == "passed",
            "P0-E generated Installer has no matching completed native evidence")
+    if TOOL_BINDING is not None:
+        expect(checkpoint.get("qualification_tool_binding_sha256") == sha256(binding_path),
+               "consumer checkpoint tool binding differs")
     edition = receipt.get("editions", {}).get("multi-tenant", {})
     artifact = read_json(Path(args.installer_manifest))
     expect(edition.get("archive_sha256") == args.installer_sha256
@@ -1329,6 +1346,14 @@ def p0e_installer_inputs(args: argparse.Namespace, candidate_tree: str) -> dict[
 
 
 def run_chain(args: argparse.Namespace) -> dict[str, Any]:
+    global ROOT, LEASE_TOOL, COMPOSER, TOOL_BINDING
+    native = runpy.run_path(str(TOOL_ROOT / "scripts/p0e-runtime-qualification"))
+    TOOL_BINDING = native["configure_source"](args)
+    if TOOL_BINDING is not None:
+        expect(bool(args.qualification_plan), "independent qualification tools require the original P0-E plan")
+        ROOT = Path(TOOL_BINDING["source_root"])
+        LEASE_TOOL = ROOT / "scripts/project-resource-lease"
+        COMPOSER = ROOT / "scripts/project-composer"
     if not re.fullmatch(r"[0-9a-f]{40}", args.candidate):
         fail("candidate must be an exact lowercase 40-hex commit")
     if command(["git", "rev-parse", "HEAD"]).strip() != args.candidate:
@@ -1336,7 +1361,7 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
     candidate_tree = command(["git", "rev-parse", "HEAD^{tree}"]).strip()
     if not re.fullmatch(r"[0-9a-f]{40}", candidate_tree):
         fail("candidate tree identity is invalid")
-    if command(["git", "status", "--porcelain", "--untracked-files=no"]).strip() != "":
+    if command(["git", "status", "--porcelain", "--untracked-files=all"]).strip() != "":
         fail("candidate worktree must be clean")
     installer_package = Path(args.installer_package)
     installer_manifest = Path(args.installer_manifest)
@@ -1442,6 +1467,14 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
                     and "Project/docs" not in source,
                     f"generated Module tool retained a maintainer-private path: {relative}",
                 )
+            # The package identity is already checked. Prepare only the owner's
+            # private preflight directories; installation state remains native.
+            for relative in ("server/private", "server/private/installation", "server/private/resources"):
+                directory = project / relative
+                expect(not directory.is_symlink() and (not directory.exists() or directory.is_dir()),
+                       "generated private preflight directory is unsafe")
+                directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+                directory.chmod(0o700)
         author_resource = "cr21-author-mysql84-development"
         author_endpoint = "cr21-author-mysql84-development-host"
         consumer_resource = "cr21-consumer-mysql84-development"
@@ -1798,6 +1831,9 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--candidate", required=True)
+    parser.add_argument("--source-root")
+    parser.add_argument("--qualification-tool-commit")
+    parser.add_argument("--qualification-tool-files-sha256")
     parser.add_argument("--lease", required=True)
     parser.add_argument("--database", required=True)
     parser.add_argument("--database-resource", required=True, help="Explicit registered development database resource")

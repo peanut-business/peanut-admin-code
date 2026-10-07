@@ -43,9 +43,9 @@ final class ApiContractCatalogTest extends TestCase
             );
             // All current owners have completed their contracts; do not freeze the
             // obsolete partial-delivery snapshot or accept missing routes as success.
-            self::assertSame(336, $summary['route_count']);
-            self::assertSame(336, $summary['generated_api_operations']);
-            self::assertSame(336, $summary['complete_operations']);
+            self::assertSame(339, $summary['route_count']);
+            self::assertSame(339, $summary['generated_api_operations']);
+            self::assertSame(339, $summary['complete_operations']);
             self::assertSame(0, $summary['partial_operations']);
             self::assertSame(0, $summary['route_only_operations']);
 
@@ -78,7 +78,7 @@ final class ApiContractCatalogTest extends TestCase
             self::assertOwnerCoverage($endpoints, 'official.task', 10, 10);
             self::assertApplicationCoverage($endpoints, 'adminapi', 91);
             self::assertApplicationCoverage($endpoints, 'platform', 58);
-            self::assertApplicationCoverage($endpoints, 'installation', 2);
+            self::assertApplicationCoverage($endpoints, 'installation', 5);
 
             $byRoute = [];
             foreach ($endpoints as $endpoint) {
@@ -109,7 +109,7 @@ final class ApiContractCatalogTest extends TestCase
 
         self::assertSame(91, self::operationCount($admin));
         self::assertSame(58, self::operationCount($platform));
-        self::assertSame(2, self::operationCount($installation));
+        self::assertSame(5, self::operationCount($installation));
 
         $schemes = $shared['components']['securitySchemes'];
         self::assertSame('Host', $schemes['platformHost']['name']);

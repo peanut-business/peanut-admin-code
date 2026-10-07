@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 return [
+    // Optional minimum_length / maximum_length integers; omitted values use Core defaults (UTF-8 bytes).
+    'password' => [],
     // 稳定 override key => 实现 AdminPermissionPolicy 的应用类。
     'overrides' => [],
     'environment' => env('APP_ENV', 'production'),

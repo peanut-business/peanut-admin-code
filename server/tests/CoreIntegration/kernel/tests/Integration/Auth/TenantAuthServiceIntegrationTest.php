@@ -19,6 +19,7 @@ use PeanutAdmin\Kernel\Auth\TokenIssuer;
 use PeanutAdmin\Modules\Identity\Http\TenantAuthEndpoint;
 use PeanutAdmin\Kernel\Http\TenantRefreshCookie;
 use PeanutAdmin\Kernel\Identity\PasswordHasher;
+use PeanutAdmin\Kernel\Identity\PasswordPolicy;
 use PeanutAdmin\Modules\Identity\Identity\SelfService\AccountSelfService;
 use PeanutAdmin\Modules\Identity\Platform\Bootstrap\BootstrapService;
 use PeanutAdmin\Kernel\Tests\Integration\Schema\DatabaseTestCase;
@@ -48,7 +49,7 @@ final class TenantAuthServiceIntegrationTest extends DatabaseTestCase
             new DateTimeZone('UTC'),
         ));
         $passwords = new PasswordHasher();
-        $bootstrap = new BootstrapService(passwords: $passwords);
+        $bootstrap = new BootstrapService(new AuditService(), $passwords, new PasswordPolicy());
         $platform = $bootstrap->bootstrapPlatformOwner(
             self::EMAIL,
             self::PASSWORD,
@@ -304,6 +305,7 @@ SQL)->fetchAll();
 
         $untrustedOrigin = $this->captureAuthError(fn() => (new TenantAuthEndpoint($this->auth))->refresh(
             $refresh,
+            $access,
             false,
             '127.0.0.1',
             'Test Agent',
@@ -396,6 +398,7 @@ SQL)->fetchAll();
 
         $singleRotated = $single->refresh(
             $singleAuth->tokens->refresh->expose(),
+            $singleAuth->tokens->access->expose(),
             '127.0.0.1',
             'Single Client',
             'request-single-refresh',
@@ -459,6 +462,7 @@ SQL)->fetchColumn());
 
         $rotated = $this->auth->refresh(
             $authentication->tokens->refresh->expose(),
+            $authentication->tokens->access->expose(),
             '127.0.0.1',
             'Test Agent',
             'request-refresh-after-access-expiry',
@@ -472,6 +476,29 @@ SQL)->fetchColumn());
         );
     }
 
+    public function testRefreshCannotRotateACookieFromAnotherSession(): void
+    {
+        $first = $this->selectAlpha($this->login());
+        $second = $this->selectAlpha($this->login());
+        $foreignRefresh = $second->tokens->refresh->expose();
+        $firstAccess = $first->tokens->access->expose();
+        $secondAccess = $second->tokens->access->expose();
+
+        $error = $this->captureAuthError(fn() => $this->auth->refresh(
+            $foreignRefresh,
+            $firstAccess,
+            '127.0.0.1',
+            'Test Agent',
+            'request-foreign-refresh-cookie',
+        ));
+        self::assertSame('AUTH_TOKEN_INVALID', $error->errorCode);
+        self::assertSame($first->context->sessionKey, $this->auth->context($firstAccess, 'request-first-unaffected')->sessionKey);
+        self::assertSame($second->context->sessionKey, $this->auth->context($secondAccess, 'request-second-unaffected')->sessionKey);
+
+        $rotated = $this->auth->refresh($foreignRefresh, $secondAccess, '127.0.0.1', 'Test Agent', 'request-matching-refresh');
+        self::assertSame($second->context->sessionKey, $rotated->context->sessionKey);
+    }
+
     public function testRefreshRotatesOnceAndReuseRevokesTheTokenFamily(): void
     {
         $authentication = $this->selectAlpha($this->login());
@@ -480,6 +507,7 @@ SQL)->fetchColumn());
 
         $rotated = $this->auth->refresh(
             $oldRefresh,
+            $oldAccess,
             '127.0.0.1',
             'Test Agent',
             'request-refresh',
@@ -501,6 +529,7 @@ SQL)->fetchColumn());
 
         $reuse = $this->captureAuthError(fn() => $this->auth->refresh(
             $oldRefresh,
+            $oldAccess,
             '127.0.0.1',
             'Test Agent',
             'request-reuse',
@@ -530,6 +559,7 @@ SQL)->fetchColumn());
             $outcome = $this->refreshOutcome(
                 $this->authServiceForNewConnection(),
                 $refresh,
+                $authentication->tokens->access->expose(),
                 'request-refresh-child',
             );
             fwrite($sockets[1], $outcome);
@@ -542,13 +572,14 @@ SQL)->fetchColumn());
         $parentOutcome = $this->refreshOutcome(
             $this->auth,
             $refresh,
+            $authentication->tokens->access->expose(),
             'request-refresh-parent',
         );
         $childOutcome = stream_get_contents($sockets[0]);
         fclose($sockets[0]);
         pcntl_waitpid($processId, $status);
-        $this->admin = $this->newConnection();
-        $this->database = $this->newConnection(self::DATABASE);
+        $this->admin = $this->connect();
+        $this->database = $this->connect($this->databaseName);
 
         $outcomes = [$parentOutcome, $childOutcome];
         sort($outcomes);
@@ -680,13 +711,7 @@ SQL);
         $context = $authentication->context;
         $accessToken = $authentication->tokens->access->expose();
         $deadline = microtime(true) + 15;
-        $lockSuffix = getmypid() . '_' . bin2hex(random_bytes(4));
-        $arrivedLock = 'pa_switch_arrived_' . $lockSuffix;
-        $gateLock = 'pa_switch_gate_' . $lockSuffix;
-        $triggerName = 'test_pause_tenant_switch_challenge';
-        $triggerCreated = false;
         $gateConnection = null;
-        $gateLockHeld = false;
         $switchParentSocket = null;
         $switchChildSocket = null;
         $passwordParentSocket = null;
@@ -696,21 +721,6 @@ SQL);
         $connectionsReset = false;
 
         try {
-            $this->database->exec(<<<SQL
-CREATE TRIGGER test_pause_tenant_switch_challenge
-BEFORE INSERT ON pa_login_challenge
-FOR EACH ROW
-BEGIN
-    IF NEW.purpose = 'tenant_switch' THEN
-        SET @switch_arrived_lock = GET_LOCK('{$arrivedLock}', 0);
-        SET @switch_gate_lock = GET_LOCK('{$gateLock}', 15);
-        SET @switch_gate_release = RELEASE_LOCK('{$gateLock}');
-        SET @switch_arrived_release = RELEASE_LOCK('{$arrivedLock}');
-    END IF;
-END
-SQL);
-            $triggerCreated = true;
-
             $switchSockets = stream_socket_pair(STREAM_PF_UNIX, STREAM_SOCK_STREAM, STREAM_IPPROTO_IP);
             self::assertIsArray($switchSockets);
             $switchParentSocket = $switchSockets[0];
@@ -730,8 +740,14 @@ SQL);
                 fclose($passwordSockets[0]);
                 fclose($passwordSockets[1]);
                 try {
+                    $switchAuth = $this->authServiceForNewConnection();
+                    $connectionId = (int) (\think\facade\Db::query('SELECT CONNECTION_ID() AS connection_id')[0]['connection_id'] ?? 0);
+                    if ($connectionId < 1) {
+                        throw new \RuntimeException('Could not read the tenant-switch child connection ID.');
+                    }
+                    $this->writeSocketLine($switchSockets[1], (string) $connectionId, $deadline);
                     $this->readSocketLine($switchSockets[1], $deadline);
-                    $challenge = $this->authServiceForNewConnection()->switchChallenge(
+                    $challenge = $switchAuth->switchChallenge(
                         $accessToken,
                         '127.0.0.1',
                         'Test Agent',
@@ -770,7 +786,7 @@ SQL);
                 fclose($switchSockets[0]);
                 $outcome = 'child_setup_failed';
                 try {
-                    $passwordConnection = $this->newConnection(self::DATABASE);
+                    $passwordConnection = $this->connect($this->databaseName);
                     $connectionIdStatement = $passwordConnection->query('SELECT CONNECTION_ID()');
                     if ($connectionIdStatement === false) {
                         throw new \RuntimeException('Could not read the password child connection ID.');
@@ -779,7 +795,7 @@ SQL);
                     $this->writeSocketLine($passwordSockets[1], (string) $connectionId, $deadline);
                     $this->readSocketLine($passwordSockets[1], $deadline);
                     ThinkPhpTestConnection::fromPdo($passwordConnection);
-                    $passwords = new AccountSelfService(new AuditService(), new PasswordHasher());
+                    $passwords = new AccountSelfService(new AuditService(), new PasswordHasher(), new PasswordPolicy());
                     $passwords->changePassword(
                         $context,
                         self::PASSWORD,
@@ -801,12 +817,60 @@ SQL);
             fclose($passwordSockets[1]);
             $passwordChildSocket = null;
 
-            $gateConnection = $this->newConnection(self::DATABASE);
-            self::assertSame(1, $this->acquireNamedLock($gateConnection, $gateLock));
-            $gateLockHeld = true;
+            $gateConnection = $this->connect($this->databaseName);
+            $gateConnection->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+            self::assertTrue($gateConnection->beginTransaction());
+            $gateConnectionIdStatement = $gateConnection->query('SELECT CONNECTION_ID()');
+            self::assertNotFalse($gateConnectionIdStatement);
+            $gateConnectionId = (int) $gateConnectionIdStatement->fetchColumn();
+            self::assertGreaterThan(0, $gateConnectionId);
+            $maximumIdStatement = $gateConnection->query('SELECT COALESCE(MAX(id), 0) FROM pa_login_challenge');
+            self::assertNotFalse($maximumIdStatement);
+            $maximumChallengeId = (int) $maximumIdStatement->fetchColumn();
+            // Lock only the primary-key supremum gap, after every existing challenge.
+            // The real switch INSERT waits here while retaining its source-session lock.
+            $insertGate = $gateConnection->prepare(
+                'SELECT id FROM pa_login_challenge FORCE INDEX (PRIMARY) WHERE id > ? ORDER BY id FOR UPDATE',
+            );
+            self::assertNotFalse($insertGate);
+            $insertGate->execute([$maximumChallengeId]);
+            self::assertSame([], $insertGate->fetchAll(PDO::FETCH_COLUMN));
+            $switchConnectionId = (int) $this->readSocketLine($switchParentSocket, $deadline);
+            self::assertGreaterThan(0, $switchConnectionId);
             $this->writeSocketLine($switchParentSocket, 'start', $deadline);
-            $switchConnectionId = $this->waitForNamedLockOwner($gateConnection, $arrivedLock, $deadline);
-            self::assertNotNull($switchConnectionId, 'Tenant switch did not reach the challenge insert gate.');
+            $insertWait = $gateConnection->prepare(<<<'SQL'
+SELECT COUNT(*)
+FROM performance_schema.data_lock_waits lock_wait
+JOIN performance_schema.threads requesting_thread
+  ON requesting_thread.THREAD_ID = lock_wait.REQUESTING_THREAD_ID
+JOIN performance_schema.threads blocking_thread
+  ON blocking_thread.THREAD_ID = lock_wait.BLOCKING_THREAD_ID
+JOIN performance_schema.data_locks waiting_lock
+  ON waiting_lock.ENGINE = lock_wait.ENGINE
+  AND waiting_lock.ENGINE_LOCK_ID = lock_wait.REQUESTING_ENGINE_LOCK_ID
+WHERE requesting_thread.PROCESSLIST_ID = :switch_connection_id
+  AND blocking_thread.PROCESSLIST_ID = :gate_connection_id
+  AND waiting_lock.OBJECT_SCHEMA = DATABASE()
+  AND waiting_lock.OBJECT_NAME = 'pa_login_challenge'
+  AND waiting_lock.INDEX_NAME = 'PRIMARY'
+  AND waiting_lock.LOCK_TYPE = 'RECORD'
+  AND waiting_lock.LOCK_STATUS = 'WAITING'
+  AND waiting_lock.LOCK_MODE LIKE '%INSERT_INTENTION%'
+SQL);
+            self::assertNotFalse($insertWait);
+            $switchReachedInsert = false;
+            do {
+                $insertWait->execute([
+                    'switch_connection_id' => $switchConnectionId,
+                    'gate_connection_id' => $gateConnectionId,
+                ]);
+                if ((int) $insertWait->fetchColumn() > 0) {
+                    $switchReachedInsert = true;
+                    break;
+                }
+                usleep(10_000);
+            } while (microtime(true) < $deadline);
+            self::assertTrue($switchReachedInsert, 'Tenant switch did not reach the challenge insert gate.');
 
             $passwordConnectionId = (int) $this->readSocketLine($passwordParentSocket, $deadline);
             self::assertGreaterThan(0, $passwordConnectionId);
@@ -821,8 +885,7 @@ SQL);
                 'Password change did not wait behind the tenant-switch source-session transaction.',
             );
 
-            self::assertSame(1, $this->releaseNamedLock($gateConnection, $gateLock));
-            $gateLockHeld = false;
+            self::assertTrue($gateConnection->rollBack());
             $switchOutcome = $this->readSocketLine($switchParentSocket, $deadline);
             $passwordOutcome = $this->readSocketLine($passwordParentSocket, $deadline);
             fclose($switchParentSocket);
@@ -843,11 +906,9 @@ SQL);
             self::assertTrue(pcntl_wifexited($passwordStatus));
             self::assertSame(0, pcntl_wexitstatus($passwordStatus));
 
-            $this->admin = $this->newConnection();
-            $this->database = $this->newConnection(self::DATABASE);
+            $this->admin = $this->connect();
+            $this->database = $this->connect($this->databaseName);
             $connectionsReset = true;
-            $this->database->exec("DROP TRIGGER IF EXISTS `{$triggerName}`");
-            $triggerCreated = false;
 
             $switchResult = json_decode($switchOutcome, true, 512, JSON_THROW_ON_ERROR);
             self::assertIsArray($switchResult);
@@ -875,9 +936,9 @@ SQL);
                 ))->errorCode,
             );
         } finally {
-            if ($gateLockHeld && $gateConnection instanceof PDO) {
+            if ($gateConnection instanceof PDO && $gateConnection->inTransaction()) {
                 try {
-                    $this->releaseNamedLock($gateConnection, $gateLock);
+                    $gateConnection->rollBack();
                 } catch (\Throwable) {
                 }
             }
@@ -896,27 +957,14 @@ SQL);
             $this->terminateChildProcess($switchProcessId, $deadline);
             $this->terminateChildProcess($passwordProcessId, $deadline);
 
-            try {
-                $cleanupDeadline = max($deadline, microtime(true) + 1.0);
-                $cleanupConnection = $this->newConnection();
-                $this->forceReleaseNamedLock($cleanupConnection, $gateLock, $cleanupDeadline);
-                $this->forceReleaseNamedLock($cleanupConnection, $arrivedLock, $cleanupDeadline);
-            } catch (\Throwable) {
-            }
-
             if (!$connectionsReset) {
                 try {
-                    $this->admin = $this->newConnection();
-                    $this->database = $this->newConnection(self::DATABASE);
+                    $this->admin = $this->connect();
+                    $this->database = $this->connect($this->databaseName);
                 } catch (\Throwable) {
                 }
             }
-            if ($triggerCreated && isset($this->database)) {
-                try {
-                    $this->database->exec("DROP TRIGGER IF EXISTS `{$triggerName}`");
-                } catch (\Throwable) {
-                }
-            }
+
         }
     }
 
@@ -1004,7 +1052,7 @@ SQL);
 
     private function authServiceForNewConnection(): TenantAuthService
     {
-        $pdo = $this->newConnection(self::DATABASE);
+        $pdo = $this->connect($this->databaseName);
         ThinkPhpTestConnection::fromPdo($pdo);
 
         return new TenantAuthService(
@@ -1026,22 +1074,6 @@ SQL);
             'test-identifier-hmac-secret-at-least-32-bytes',
             $registry,
             $clientKey,
-        );
-    }
-
-    private function newConnection(?string $database = null): PDO
-    {
-        return new PDO(
-            'mysql:host=127.0.0.1;port=' . (getenv('MYSQL_PORT') ?: '3306')
-            . ($database === null ? '' : ";dbname={$database}")
-            . ';charset=utf8mb4',
-            'root',
-            getenv('MYSQL_ROOT_PASSWORD') ?: 'peanut_admin_root_dev',
-            [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES => false,
-            ],
         );
     }
 
@@ -1256,10 +1288,11 @@ SQL);
     private function refreshOutcome(
         TenantAuthService $service,
         string $refreshToken,
+        string $accessToken,
         string $requestId,
     ): string {
         try {
-            $service->refresh($refreshToken, '127.0.0.1', null, $requestId);
+            $service->refresh($refreshToken, $accessToken, '127.0.0.1', null, $requestId);
 
             return 'success';
         } catch (AuthException $exception) {

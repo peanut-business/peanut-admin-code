@@ -535,7 +535,9 @@ def reject(operation):
     except consumer['ChainError']: return
     raise AssertionError('invalid derived proof accepted')
 
-with tempfile.TemporaryDirectory(prefix='p0e-consumer-contract-') as temporary:
+# Native creation forbids a target inside its source checkout, including the
+# project-env TMPDIR. This POSIX maintainer fixture owns an external temp root.
+with tempfile.TemporaryDirectory(prefix='p0e-consumer-contract-', dir='/tmp') as temporary:
     base = Path(temporary).resolve()
     cache, output = base / 'cache', base / 'output'
     artifacts = cache / 'edition-artifacts'
@@ -562,12 +564,16 @@ with tempfile.TemporaryDirectory(prefix='p0e-consumer-contract-') as temporary:
     checkpoint_path.write_text(json.dumps(checkpoint))
     args = argparse.Namespace(qualification_plan=str(plan), candidate='c' * 40, lease='lease', installer_mode='formal', edition='multi-tenant',
         database='consumer', author_database='author', installer_package=str(archive), installer_manifest=str(manifest),
-        installer_sha256=sha(archive), installer_manifest_sha256=sha(manifest))
+        installer_sha256=sha(archive), installer_manifest_sha256=sha(manifest),
+        source_root=None, qualification_tool_commit=None, qualification_tool_files_sha256=None)
     observed = []
     def native_plan(native_args, require_clean):
         assert require_clean and native_args.groups is None and native_args.through_group is None
         return value
-    native = {'plan': native_plan, 'verify_lease': lambda a, p: observed.append((a.lease, p))}
+    def native_source(native_args):
+        assert native_args.source_root is None and native_args.qualification_tool_commit is None
+        assert native_args.qualification_tool_files_sha256 is None
+    native = {'configure_source': native_source, 'plan': native_plan, 'verify_lease': lambda a, p: observed.append((a.lease, p))}
     verify = consumer['p0e_installer_inputs']
     with patch('runpy.run_path', return_value=native):
         assert verify(args, 'b' * 40) == value and observed
@@ -659,14 +665,12 @@ with tempfile.TemporaryDirectory(prefix='p0e-consumer-contract-') as temporary:
     consumer['CONFIG_VALUES'].update(DB_HOST='127.0.0.1', DB_PORT='21306', DB_USER='fixture', DB_PASS='fixture')
     for label in ('author', 'consumer'):
         app = base / label
-        (app / 'resources').mkdir(parents=True)
-        (app / 'server/database').mkdir(parents=True)
-        (app / 'server/bootstrap').mkdir()
+        creator = r"require $argv[1] . '/server/vendor/autoload.php'; (new app\common\infrastructure\scaffold\ApplicationCreator($argv[1], $argv[1] . '/scaffold/application-template-inventory.json'))->create('Fixture ' . $argv[2], $argv[2], 'fixture/' . $argv[2], $argv[3], 'multi-tenant', '0.1.0', 'full');"
+        created = subprocess.run(['php', '-r', creator, str(root), label, str(app)], capture_output=True, text=True)
+        assert created.returncode == 0, created.stderr
         (app / 'server/vendor').mkdir()
-        (app / '.peanut').mkdir()
         registry = app / 'resources/project-resources.json'
         registry.write_text(json.dumps({'schema_version': 1, 'project_id': label, 'authority': {'role': 'application'}, 'resources': {'databases': []}}))
-        (app / '.peanut/application-manifest.json').write_text(json.dumps({'application': {'slug': label}}))
         consumer['configure_generated_database'](app, 'cr21-' + label, 'cr21-' + label + '-host', label)
         resource = json.loads(registry.read_text())['resources']['databases'][0]
         assert resource['database'] == label and resource['deployment_modes'] == ['multi-tenant']

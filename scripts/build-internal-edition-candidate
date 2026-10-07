@@ -471,11 +471,22 @@ function internalCandidateMain(array $argv): void
     }
 
     try {
-        $sourceArchive = $temporary . '/source.tar';
         $source = $temporary . '/source';
-        mkdir($source, 0700);
-        internalCandidateRun(['git', '-C', $root, 'archive', '--format=tar', '--output=' . $sourceArchive, $commit]);
-        (new PharData($sourceArchive))->extractTo($source);
+        $origin = trim(internalCandidateRun(['git', '-C', $root, 'remote', 'get-url', 'origin']));
+        if ($origin === '') {
+            throw new RuntimeException('INTERNAL_CANDIDATE_SOURCE_ORIGIN_INVALID');
+        }
+        // Use an independent shallow repository for the exact fixed source commit.
+        internalCandidateRun(['git', 'init', '--quiet', $source]);
+        internalCandidateRun(['git', '-C', $source, 'fetch', '--quiet', '--no-tags', '--depth=1', $root, $commit]);
+        internalCandidateRun(['git', '-C', $source, 'remote', 'add', 'origin', $origin]);
+        internalCandidateRun(['git', '-C', $source, 'checkout', '--quiet', '--detach', $commit]);
+        if (realpath(trim(internalCandidateRun(['git', '-C', $source, 'rev-parse', '--show-toplevel']))) !== realpath($source)
+            || !hash_equals($commit, trim(internalCandidateRun(['git', '-C', $source, 'rev-parse', 'HEAD'])))
+            || !hash_equals($tree, trim(internalCandidateRun(['git', '-C', $source, 'rev-parse', 'HEAD^{tree}'])))
+            || trim(internalCandidateRun(['git', '-C', $source, 'status', '--porcelain=v1', '--untracked-files=all'])) !== '') {
+            throw new RuntimeException('INTERNAL_CANDIDATE_SOURCE_IDENTITY_MISMATCH');
+        }
 
         require $source . '/server/app/common/value/scaffold/VersionContract.php';
         require $source . '/server/app/common/validation/scaffold/ScaffoldPathGuard.php';

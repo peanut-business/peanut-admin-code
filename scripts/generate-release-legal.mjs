@@ -539,4 +539,24 @@ for (const [relativePath, content] of outputs) {
   }
 }
 
+// Bind metadata to the newly generated legal bytes, rather than the previous
+// release's inventory that existed when candidate preparation first ran.
+for (const [relativePath, content] of outputs) {
+  const digest = createHash('sha256').update(content).digest('hex');
+  if (checkOnly) {
+    if (releaseMetadata.legal_files?.[relativePath] !== digest) {
+      different = true;
+      console.error(`RELEASE_METADATA.json: ${relativePath} digest is out of date`);
+    }
+  } else {
+    releaseMetadata.legal_files[relativePath] = digest;
+  }
+}
+if (!checkOnly) {
+  writeFileSync(
+    resolve(rootDir, 'RELEASE_METADATA.json'),
+    `${JSON.stringify(releaseMetadata, null, 2)}\n`
+  );
+}
+
 if (different) process.exitCode = 1;

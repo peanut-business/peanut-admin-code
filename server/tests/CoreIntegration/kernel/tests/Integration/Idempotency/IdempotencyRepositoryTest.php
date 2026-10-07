@@ -419,7 +419,7 @@ SQL)->fetchColumn());
             $statuses[] = $status;
         }
         $this->database = $this->connection();
-        $this->admin = $this->connection(null);
+        $this->admin = $this->connect();
         ThinkPhpTestConnection::fromPdo($this->database);
         $results = array_map(static function (string $path): array {
             $result = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
@@ -466,26 +466,8 @@ SQL)->fetchColumn());
         return TenantScope::fromTrustedContext($tenantId, 'idempotency-integration-test');
     }
 
-    private function connection(?string $database = self::DATABASE, bool $foundRows = false): PDO
+    private function connection(bool $foundRows = false): PDO
     {
-        $options = [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES => false,
-        ];
-        if ($foundRows) {
-            $options[PDO::MYSQL_ATTR_FOUND_ROWS] = true;
-        }
-
-        return new PDO(
-            sprintf(
-                'mysql:host=127.0.0.1;port=%d%s;charset=utf8mb4',
-                (int) (getenv('MYSQL_PORT') ?: 3306),
-                $database === null ? '' : ';dbname=' . $database,
-            ),
-            'root',
-            getenv('MYSQL_ROOT_PASSWORD') ?: 'peanut_admin_root_dev',
-            $options,
-        );
+        return $this->connect($this->databaseName, $foundRows);
     }
 }

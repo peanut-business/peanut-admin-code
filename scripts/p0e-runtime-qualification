@@ -25,6 +25,9 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parent.parent
+TOOL_ROOT = ROOT
+TOOL_FILES = ("scripts/p0e-runtime-qualification", "scripts/consumer-module-reference-chain", "server/fixtures/plugin-module-lifecycle/run.php")
+TOOL_BINDING: dict[str, Any] | None = None
 FIXTURE_PATH = ROOT / "server/tests/fixtures/p0e-runtime-qualification/matrix.json"
 REGISTRY_PATH = Path(os.environ.get("PEANUT_RESOURCE_REGISTRY") or ROOT / "resources/project-resources.json")
 P0E_REGISTRY_PATH = ROOT / "resources/p0e-runtime-qualification.json"
@@ -64,9 +67,13 @@ def fail(message: str) -> None:
 
 
 def operating_system_environment() -> dict[str, str]:
+    # Keep the host's existing network routing for package downloads. Application
+    # runtime configuration still comes only from the explicit group environment.
     return {
         key: value
-        for key in ("PATH", "HOME", "TMPDIR", "SSH_AUTH_SOCK", "PEANUT_RESOURCE_REGISTRY", "SystemRoot", "COMSPEC", "PATHEXT")
+        for key in ("PATH", "HOME", "TMPDIR", "SSH_AUTH_SOCK", "PEANUT_RESOURCE_REGISTRY", "SystemRoot", "COMSPEC", "PATHEXT",
+                    "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY",
+                    "http_proxy", "https_proxy", "all_proxy", "no_proxy")
         if (value := os.environ.get(key))
     }
 
@@ -84,7 +91,7 @@ def read_json(path: Path) -> dict[str, Any]:
 def command(
     arguments: list[str],
     *,
-    cwd: Path = ROOT,
+    cwd: Path | None = None,
     env: dict[str, str] | None = None,
     log: Path | None = None,
     capture: bool = False,
@@ -92,6 +99,7 @@ def command(
     input_text: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
     merged = operating_system_environment()
+    cwd = ROOT if cwd is None else cwd
     if env:
         merged.update(env)
     if log is not None:
@@ -128,6 +136,63 @@ def command(
 
 def git(*arguments: str) -> str:
     return command(["git", "-C", str(ROOT), *arguments], capture=True).stdout.strip()
+
+
+def configure_source(args: argparse.Namespace) -> dict[str, Any] | None:
+    """Bind corrected qualification tools without changing product or plan identity."""
+    global ROOT, FIXTURE_PATH, P0E_REGISTRY_PATH, LEASE_TOOL, REGISTRY_TOOL
+    global INSPECTOR, BROWSER_RUNNER, BROWSER_TOOLING, CONSUMER_MODULE_CHAIN
+    global DEVELOPMENT_DATABASE_SYNC, LOCAL_BACKEND_ENV, TOOL_BINDING
+    values = [getattr(args, name, None) for name in
+              ("source_root", "qualification_tool_commit", "qualification_tool_files_sha256")]
+    if not any(values):
+        return None
+    if not all(values):
+        fail("source-root, qualification-tool-commit and qualification-tool-files-sha256 are required together")
+    source = Path(values[0])
+    if not source.is_absolute() or source.is_symlink() or not source.is_dir() or any(p.is_symlink() for p in source.parents):
+        fail("qualification source root is unsafe")
+    source = source.resolve()
+    def checkout(root: Path, commit: str) -> str:
+        if not re.fullmatch(r"[0-9a-f]{40}", commit):
+            fail("qualification identity requires exact commit hashes")
+        if command(["git", "-C", str(root), "rev-parse", "--show-toplevel"], capture=True).stdout.strip() != str(root):
+            fail("qualification root must be the checkout root")
+        if command(["git", "-C", str(root), "rev-parse", "HEAD"], capture=True).stdout.strip() != commit:
+            fail("qualification checkout HEAD differs from its explicit commit")
+        if command(["git", "-C", str(root), "status", "--porcelain=v1", "--untracked-files=all"], capture=True).stdout.strip():
+            fail("qualification checkout must be clean")
+        return command(["git", "-C", str(root), "rev-parse", "HEAD^{tree}"], capture=True).stdout.strip()
+    tree = checkout(source, args.candidate)
+    tool_tree = checkout(TOOL_ROOT, values[1])
+    command(["git", "-C", str(TOOL_ROOT), "merge-base", "--is-ancestor", args.candidate, values[1]], capture=True)
+    changed = command(["git", "-C", str(TOOL_ROOT), "diff", "--name-only", args.candidate, values[1]], capture=True).stdout.splitlines()
+    if not changed or set(changed) - set(TOOL_FILES) - {"docs/development/p0e-tool-identity.md"}:
+        fail("qualification tool revision changes product inputs")
+    files = {}
+    for relative in TOOL_FILES:
+        path = TOOL_ROOT / relative
+        if path.is_symlink() or not path.is_file():
+            fail("qualification tool file is unsafe")
+        files[relative] = sha256(path)
+    digest = hashlib.sha256("".join(f"{name}\0{files[name]}\n" for name in sorted(files)).encode()).hexdigest()
+    if digest != values[2]:
+        fail("qualification tool file inventory digest differs")
+    ROOT = source
+    FIXTURE_PATH = ROOT / "server/tests/fixtures/p0e-runtime-qualification/matrix.json"
+    P0E_REGISTRY_PATH = ROOT / "resources/p0e-runtime-qualification.json"
+    LEASE_TOOL = ROOT / "scripts/project-resource-lease"
+    REGISTRY_TOOL = ROOT / "scripts/project-resource-registry"
+    INSPECTOR = ROOT / "server/tests/fixtures/mt05/inspect.php"
+    BROWSER_RUNNER = ROOT / "scripts/p0e-browser-smoke"
+    BROWSER_TOOLING = ROOT / "scripts/p0e-browser-tooling"
+    CONSUMER_MODULE_CHAIN = TOOL_ROOT / "scripts/consumer-module-reference-chain"
+    DEVELOPMENT_DATABASE_SYNC = ROOT / "scripts/project-development-database.sh"
+    LOCAL_BACKEND_ENV = ROOT / "server/.env"
+    TOOL_BINDING = {"source_root": str(ROOT), "candidate": args.candidate, "candidate_tree": tree,
+                    "tool_root": str(TOOL_ROOT), "tool_commit": values[1], "tool_tree": tool_tree,
+                    "tool_files": files, "tool_files_sha256": digest}
+    return TOOL_BINDING
 
 
 def sha256(path: Path) -> str:
@@ -1109,9 +1174,86 @@ class Runner:
             if checkpoint.get(key) != expected:
                 fail(f"checkpoint {key} mismatch")
         self.checkpoint = checkpoint
+        if TOOL_BINDING is not None:
+            self.bind_tools()
         self.created_candidate_vendor = bool(checkpoint.get("owned_candidate_vendor"))
         self.prepare_runtime_credentials(resume=True)
         self.prepare_registry_proof(resume=True)
+
+    def service_gate_evidence(self) -> dict[str, Any]:
+        raw_path = getattr(self.args, "service_gates_receipt", None)
+        expected = getattr(self.args, "service_gates_receipt_sha256", None)
+        if not raw_path or not expected:
+            fail("corrected Plugin qualification requires the frozen service receipt and its explicit digest")
+        path = Path(raw_path)
+        if not path.is_absolute() or not path.is_file() or path.is_symlink() or any(p.is_symlink() for p in path.parents) or sha256(path) != expected:
+            fail("service gate receipt identity is unsafe or changed")
+        receipt = read_json(path)
+        for key in ("candidate", "candidate_tree", "run_id", "lease"):
+            if receipt.get(key) != self.plan[key]:
+                fail(f"service gate evidence {key} differs")
+        if receipt.get("plan_sha256") != sha256(self.output / "plan.json") or receipt.get("group_inputs") != self.plan["group_inputs"]["plugin-lifecycle"] or receipt.get("fixture_accepted") is not False:
+            fail("service gate evidence is not bound to the rejected original fixture")
+        log = Path(receipt.get("log", ""))
+        if not log.is_absolute() or not log.is_file() or log.is_symlink() or any(p.is_symlink() for p in log.parents) or sha256(log) != receipt.get("log_sha256"):
+            fail("frozen service log identity changed")
+        markers = {
+            "server/tests/Multitenancy/MemberUploadTenantWiringTest.php": "MT03-MEMBER-UPLOAD-TENANT-WIRING-001 passed",
+            "server/tests/Multitenancy/TaskImportExportTenantIsolationTest.php": "MT03-TASK-IMPORT-EXPORT-TENANT-ISOLATION-001 passed (49 checks)",
+        }
+        gates = receipt.get("service_gates", [])
+        if len(gates) != 2 or {gate.get("source_path") for gate in gates} != set(markers):
+            fail("service receipt must contain exactly the two original completed gates")
+        lines = log.read_text(encoding="utf-8").splitlines()
+        for gate in gates:
+            relative = gate["source_path"]
+            if gate.get("accepted") is not True or gate.get("completion_marker") != markers[relative] or markers[relative] not in lines or gate.get("source_sha256") != sha256(ROOT / relative) or gate["source_sha256"] != self.plan["group_inputs"]["plugin-lifecycle"]["source_files"][relative]:
+                fail("service gate completion or source identity changed")
+        return {"receipt": str(path), "receipt_sha256": expected, "log_sha256": receipt["log_sha256"], "gates": gates}
+
+    def bind_tools(self) -> None:
+        if read_json(self.output / "plan.json") != self.plan:
+            fail("tool binding cannot change the original plan")
+        record = dict(TOOL_BINDING or {}) | {
+            "schema_version": 1, "run_id": self.args.run_id, "lease": self.args.lease,
+            "parent_lease": self.args.parent_lease, "plan_sha256": sha256(self.output / "plan.json"),
+            "invalidated_groups": ["plugin-lifecycle", "consumer-module-lifecycle"],
+            "reason": "removed Provider API and absent completion marker rejected original Plugin pass; consumer preflight directory preparation corrected",
+            "service_evidence": self.service_gate_evidence(),
+        }
+        binding_path = self.output / "qualification-tool-binding.json"
+        for path in (binding_path, self.output / "checkpoint.before-tool-binding.json", self.output / "plan.before-tool-binding.json"):
+            if path.is_symlink() or any(p.is_symlink() for p in path.parents):
+                fail("qualification tool evidence path is unsafe")
+        if binding_path.exists():
+            existing = read_json(binding_path)
+            if {key: value for key, value in existing.items() if key != "original_checkpoint_sha256"} != record:
+                fail("qualification tool binding differs from its original record")
+            original = self.output / "checkpoint.before-tool-binding.json"
+            if not original.is_file() or original.is_symlink() or sha256(original) != existing.get("original_checkpoint_sha256"):
+                fail("original checkpoint snapshot changed")
+        else:
+            original = self.output / "checkpoint.before-tool-binding.json"
+            original_plan = self.output / "plan.before-tool-binding.json"
+            for source, target in ((self.checkpoint_path, original), (self.output / "plan.json", original_plan)):
+                with target.open("xb") as stream:
+                    stream.write(source.read_bytes())
+                target.chmod(0o600)
+            record["original_checkpoint_sha256"] = sha256(original)
+            self.write_json(binding_path, record)
+        original = read_json(self.output / "checkpoint.before-tool-binding.json")
+        if not self.checkpoint.get("qualification_tool_binding_sha256"):
+            if self.checkpoint != original:
+                fail("checkpoint changed before qualification invalidation")
+            for group in record["invalidated_groups"]:
+                if group in self.plan["groups"]:
+                    self.checkpoint["groups"][group] = {"status": "stale", "reason": record["reason"]}
+            self.checkpoint["qualification_tool_binding_sha256"] = sha256(binding_path)
+            self.save_checkpoint()
+        elif self.checkpoint["qualification_tool_binding_sha256"] != sha256(binding_path):
+            fail("checkpoint tool binding digest differs")
+        if sha256(self.output / "plan.before-tool-binding.json") != record["plan_sha256"]:
+            fail("original plan snapshot changed")
 
     def prepare_registry_proof(self, resume: bool = False) -> None:
         # The original bytes are lease-bound, never an ordinary APP dependency.
@@ -1214,7 +1356,7 @@ class Runner:
             str(LEASE_TOOL), "renew", "--lease", self.args.lease, "--owner", self.args.owner,
             "--ttl", str(self.args.ttl),
         ])
-        if state.get("status") in ("failed", "running"):
+        if state.get("status") in ("failed", "running", "stale"):
             self.prepare_retry(group)
         self.current_group = group
         self.checkpoint["groups"][group] = {"status": "running", "started_at": int(time.time())}
@@ -1489,7 +1631,15 @@ class Runner:
             if target.read_bytes() != original or (target.stat().st_mode & 0o777) != mode:
                 fail(f"generated application qualification bridge was not restored: {target.relative_to(project_root)}")
 
-    def install_current(self, database: str, mode: str, log: Path, project_root: Path = ROOT) -> None:
+    def install_current(self, database: str, mode: str, log: Path, project_root: Path | None = None) -> None:
+        project_root = ROOT if project_root is None else project_root
+        if project_root in self.generated.values():
+            for relative in ("server/private", "server/private/installation", "server/private/resources"):
+                directory = project_root / relative
+                if directory.is_symlink():
+                    fail(f"generated application private directory must not be a symlink: {relative}")
+                directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+                directory.chmod(0o700)
         self.reset_generated_installation_state(project_root)
         with self.generated_install_bridge(project_root, database):
             with self.backend_process_environment(project_root, database, mode) as env:
@@ -1522,7 +1672,8 @@ class Runner:
                 with contextlib.suppress(FileNotFoundError):
                     state.unlink()
 
-    def assert_up_to_date(self, database: str, mode: str, log: Path, project_root: Path = ROOT) -> None:
+    def assert_up_to_date(self, database: str, mode: str, log: Path, project_root: Path | None = None) -> None:
+        project_root = ROOT if project_root is None else project_root
         # The container entrypoint keeps the released command contract:
         # ["php", "server/database/environment-guard.php", "--current"]
         # Host-side fresh checks pass the active lease proof explicitly because
@@ -1557,7 +1708,8 @@ class Runner:
         if parsed.get("status") != "current":
             fail(f"fresh schema/current assertion failed for {database}")
 
-    def inspect(self, database: str, mode: str, label: str, project_root: Path = ROOT) -> None:
+    def inspect(self, database: str, mode: str, label: str, project_root: Path | None = None) -> None:
+        project_root = ROOT if project_root is None else project_root
         inspector_mode = "multitenant-empty" if mode == "multi-tenant" else "standalone-empty"
         inspector = INSPECTOR
         created_directories: list[Path] = []
@@ -1815,12 +1967,17 @@ class Runner:
         self.create_database(database)
         self.install_current(database, "multi-tenant", log, project_root=project_root)
         with self.backend_process_environment(project_root, database, "multi-tenant") as env:
-            command(
+            result = command(
                 ["php", "server/fixtures/plugin-module-lifecycle/run.php"],
                 cwd=project_root,
                 env=env,
-                log=log,
+                capture=True,
+                check=False,
             )
+            with log.open("a", encoding="utf-8") as stream:
+                stream.write(result.stdout + result.stderr)
+            if result.returncode != 0 or "PLUGIN-MODULE-LIFECYCLE-DB-001 passed" not in result.stdout.splitlines():
+                fail("Plugin fixture did not complete this invocation; cleanup is not acceptance")
         self.inspect(database, "multi-tenant", group, project_root=project_root)
         self.drop_database(database)
 
@@ -1837,7 +1994,8 @@ class Runner:
                 {"ASYNC_PRIVATE_ROOT": str(self.cache / "task-import-export-private")},
             ),
         ]
-        for test, additions in service_gates:
+        reused_services = self.service_gate_evidence() if TOOL_BINDING is not None else None
+        for test, additions in ([] if reused_services is not None else service_gates):
             self.create_database(database)
             with self.backend_process_environment(ROOT, database, "multi-tenant") as env:
                 env.update(additions)
@@ -1877,7 +2035,7 @@ class Runner:
             (ROOT / "server/app/modules/fixture/delivery_record", generated / "server/app/modules/fixture/delivery_record"),
             (ROOT / "web/src/modules/fixture-delivery-record", generated / "web/src/modules/fixture-delivery-record"),
         ]
-        runner_source = ROOT / "server/fixtures/plugin-module-lifecycle/run.php"
+        runner_source = TOOL_ROOT / "server/fixtures/plugin-module-lifecycle/run.php"
         runner_target = generated / "server/fixtures/plugin-module-lifecycle/run.php"
         if any(target.exists() for _, target in fixture_paths) or runner_target.exists():
             fail("generated application already contains a Plugin qualification fixture")
@@ -1923,6 +2081,8 @@ class Runner:
             "application_root": str(generated),
             "database": self.plan["databases"]["plugin_lifecycle"],
             "source_service_gates": [test for test, _ in service_gates],
+            "reused_service_evidence": reused_services,
+            "qualification_tool_binding_sha256": self.checkpoint.get("qualification_tool_binding_sha256"),
             "plugin_lock_restored_sha256": sha256(lock),
             "fixture_removed": True,
             "app_owned_before_sha256": before["tree_sha256"],
@@ -1959,6 +2119,9 @@ class Runner:
             "--installer-manifest-sha256", sha256(installer_manifest),
             "--qualification-plan", str(self.output / "plan.json"),
         ]
+        if TOOL_BINDING is not None:
+            arguments.extend(["--source-root", str(ROOT), "--qualification-tool-commit", TOOL_BINDING["tool_commit"],
+                              "--qualification-tool-files-sha256", TOOL_BINDING["tool_files_sha256"]])
         consumer_environment = self.cache / "consumer-module-environment.env"
         consumer_environment.write_text(
             "".join(f"{name}={value}\n" for name, value in {
@@ -2091,7 +2254,9 @@ class Runner:
             if (server / "private/installation").exists() and any((server / "private/installation").iterdir()):
                 fail("unbound native installation state; preserve it")
             self.write_json(instance_receipt, identity)
-        for relative in ("runtime", "public/storage", "private/storage", "private/resources", "private/installation"):
+        for relative in ("runtime/cache", "runtime/log", "runtime/session", "runtime/temp", "runtime/storage",
+                         "runtime/generator", "runtime/file", "public/storage", "private/storage",
+                         "private/resources/pending", "private/installation"):
             directory = server / relative
             if directory.is_symlink():
                 fail("native instance directory is a symlink")
@@ -2166,11 +2331,13 @@ class Runner:
         if proof_dir.is_symlink() or not proof_dir.is_dir():
             fail("active child lease proof directory is unavailable")
         mounts = f"      - {proof_dir}:{self.plan['lease_proof_container_path']}:ro\n"
+        mounts += f"      - {proof_dir}:/var/www/peanut-http{self.plan['lease_proof_container_path']}:ro\n"
         if self.args.parent_lease:
             parent = proof_dir.parent / self.args.parent_lease
             if parent.is_symlink() or not parent.is_dir():
                 fail("active parent lease proof directory is unavailable")
             mounts += f"      - {parent}:/run/peanut-admin/resource-lease-parent:ro\n"
+            mounts += f"      - {parent}:/var/www/peanut-http/run/peanut-admin/resource-lease-parent:ro\n"
         return ("services:\n  php:\n    depends_on: !reset {}\n    volumes:\n" + mounts
             + "  mysql:\n    profiles: [bundled-db]\nnetworks:\n  default:\n    ipam:\n      config:\n        - subnet: 192.168.224.0/20\n")
 
@@ -2201,7 +2368,7 @@ class Runner:
         *arguments: str,
         log: Path | None = None,
         check: bool = True,
-        project_root: Path = ROOT,
+        project_root: Path | None = None,
     ) -> subprocess.CompletedProcess[str]:
         environment = self.compose_environment()
         native_file = environment.get("NATIVE_COMPOSE_FILE")
@@ -2617,6 +2784,11 @@ class Runner:
 
 
 def add_fixed_arguments(parser: argparse.ArgumentParser, with_lease: bool = True) -> None:
+    parser.add_argument("--source-root", help="explicit clean product checkout; independent of qualification tools")
+    parser.add_argument("--qualification-tool-commit")
+    parser.add_argument("--qualification-tool-files-sha256")
+    parser.add_argument("--service-gates-receipt")
+    parser.add_argument("--service-gates-receipt-sha256")
     parser.add_argument("--candidate", required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--output-dir", required=True)
@@ -2652,7 +2824,12 @@ def main() -> int:
     add_fixed_arguments(run_parser)
     resume_parser = subparsers.add_parser("resume", help="resume only incomplete/failed groups")
     add_fixed_arguments(resume_parser)
+    bind_parser = subparsers.add_parser("bind-tools", help="bind corrected qualification tools and invalidate only their groups, without runtime execution")
+    add_fixed_arguments(bind_parser)
     args = parser.parse_args()
+    configure_source(args)
+    if TOOL_BINDING is not None and args.command not in ("resume", "bind-tools", "plan"):
+        fail("independent tools are only valid for original-plan resume or binding")
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", args.lease):
         fail("lease id is invalid")
     if args.lease != f"p0e-runtime-{args.run_id}":
@@ -2671,14 +2848,27 @@ def main() -> int:
         print(json.dumps({"status": "claimed", "lease": args.lease, "candidate": args.candidate}))
         return 0
     verify_lease(args, plan_data)
+    if args.command == "bind-tools":
+        if TOOL_BINDING is None:
+            fail("bind-tools requires explicit independent tool identity")
+        fixture, _, _, _, _, _ = validate_fixture()
+        runner = Runner(args, plan_data, fixture)
+        runner.checkpoint = read_json(runner.checkpoint_path)
+        for key in ("candidate", "candidate_tree", "run_id", "lease", "parent_lease", "planned_groups"):
+            expected = runner.plan["groups"] if key == "planned_groups" else runner.plan[key]
+            if runner.checkpoint.get(key) != expected:
+                fail(f"binding checkpoint {key} mismatch")
+        runner.bind_tools()
+        print(json.dumps({"status": "bound", "binding": str(runner.output / "qualification-tool-binding.json")}))
+        return 0
     prepare_database_credentials()
     fixture, _, _, _, _, _ = validate_fixture()
     runner = Runner(args, plan_data, fixture)
+    if args.command == "resume":
+        runner.resume()
     runner.preflight_database_admin_tooling()
     if args.command == "run":
         runner.initialize()
-    else:
-        runner.resume()
     try:
         runner.run()
     except Exception as exception:

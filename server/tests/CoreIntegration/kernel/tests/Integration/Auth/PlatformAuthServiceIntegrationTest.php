@@ -6,6 +6,7 @@ namespace PeanutAdmin\Kernel\Tests\Integration\Auth;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use PeanutAdmin\Kernel\Auth\AuthException;
 use PeanutAdmin\Modules\Identity\Auth\Persistence\ThinkPhpPlatformAuthRepository;
 use PeanutAdmin\Modules\Identity\Auth\Persistence\ThinkPhpTenantAuthRepository;
@@ -14,6 +15,7 @@ use PeanutAdmin\Kernel\Auth\PlatformRefreshCookie;
 use PeanutAdmin\Modules\Identity\Auth\TenantAuthService;
 use PeanutAdmin\Kernel\Auth\TokenIssuer;
 use PeanutAdmin\Kernel\Identity\PasswordHasher;
+use PeanutAdmin\Kernel\Identity\PasswordPolicy;
 use PeanutAdmin\Modules\Identity\Platform\Bootstrap\BootstrapService;
 use PeanutAdmin\Kernel\Tests\Integration\Schema\DatabaseTestCase;
 
@@ -32,7 +34,7 @@ final class PlatformAuthServiceIntegrationTest extends DatabaseTestCase
         $this->runner->migrate();
 
         $passwords = new PasswordHasher();
-        $bootstrap = new BootstrapService(passwords: $passwords);
+        $bootstrap = new BootstrapService(new AuditService(), $passwords, new PasswordPolicy());
         $bootstrap->bootstrapPlatformOwner(
             'platform@example.com',
             'platform correct horse password',

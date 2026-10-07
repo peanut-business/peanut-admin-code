@@ -1,0 +1,205 @@
+#!/usr/bin/env python3
+"""Fixed-image runtime phases subordinate to scripts/upgrade's product state."""
+import argparse
+import contextlib
+import hashlib
+import importlib.util
+import io
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+import urllib.request
+
+# Frozen adapter directories must remain exactly their authenticated inventory.
+sys.dont_write_bytecode = True
+
+
+def sha(path):
+    if path.is_symlink() or not path.is_file() or path.stat().st_nlink != 1:
+        raise ValueError('phase input is missing or linked')
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def read(path):
+    sha(path)
+    return json.loads(path.read_text())
+
+
+def write(path, value):
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    temporary = path.with_name(path.name + '.next')
+    with temporary.open('xb') as output:
+        os.fchmod(output.fileno(), 0o600)
+        output.write(json.dumps(value, sort_keys=True).encode())
+        output.flush(); os.fsync(output.fileno())
+    os.replace(temporary, path)
+    descriptor = os.open(path.parent, os.O_RDONLY)
+    try: os.fsync(descriptor)
+    finally: os.close(descriptor)
+
+
+def run(*args, cwd=None):
+    result = subprocess.run([str(a) for a in args], cwd=cwd, stdin=subprocess.DEVNULL,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=650)
+    if result.returncode:
+        raise RuntimeError(f'phase command exit={result.returncode}; diagnostic_sha256={hashlib.sha256(result.stderr).hexdigest()}')
+    return result.stdout.decode().strip()
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('phase', choices=('prepare', 'migration-preflight', 'backup', 'quiesce', 'migrate', 'switch',
+        'reload-safe', 'migration-verify', 'health', 'activate', 'recover', 'resume-old', 'recovery-verify'))
+    for name in ('instance-root', 'package', 'plan', 'state'): parser.add_argument('--' + name, type=Path, required=True)
+    args = parser.parse_args(); root = args.instance_root; package = args.package; phase = args.phase
+    for path in (root, package, args.plan, args.state):
+        if not path.is_absolute() or path.resolve() != path or path.is_symlink(): raise ValueError('phase paths must be canonical')
+    plan = read(args.plan); workspace = Path(plan['workspace']); trusted = workspace / 'trusted'
+    if sha(trusted / 'manifest.json') != plan['runtime_sha256']: raise ValueError('installed adapter manifest changed')
+    for relative, digest in read(trusted / 'manifest.json').items():
+        if sha(trusted / relative) != digest: raise ValueError('installed phase adapter changed')
+    tools = trusted / 'server/docker/scripts'
+    spec = importlib.util.spec_from_file_location('product_recovery', tools / 'update-recovery.py')
+    recovery = importlib.util.module_from_spec(spec); spec.loader.exec_module(recovery)
+    product, state = recovery.product_binding(workspace)
+    if product != plan or plan.get('scope') != 'server' or plan['instance_root'] != str(root) or plan['package']['root'] != str(package) \
+        or plan['state_path'] != str(args.state) or state['phase_in_progress'] != phase:
+        raise ValueError('phase differs from the sole product plan/state')
+    server = root / 'server'; docker_dir = server / 'docker'; environment = recovery.env(docker_dir / '.env')
+    images = {}
+    for service in ('php', 'nginx', 'mysql'):
+        reference = environment.get(service.upper() + '_IMAGE', '')
+        if not re.fullmatch(r'(sha256:[a-f0-9]{64}|[A-Za-z0-9][A-Za-z0-9._:/-]{0,160}@sha256:[a-f0-9]{64})', reference):
+            raise ValueError('runtime image must be prepared and immutable')
+        images[service] = run('docker', 'image', 'inspect', '--format', '{{.Id}}', reference)
+    candidate = plan['candidate']; prepared = workspace / 'prepared'; target = prepared / 'server'
+    arguments = argparse.Namespace(server=server, workspace=workspace); record_path = workspace / 'prepared.json'
+
+    def compose(*values):
+        return run('docker', 'compose', '--env-file', '.env', '-f', 'compose.yaml', *values, cwd=docker_dir)
+
+    def php(tool, *values):
+        mounts = ['--mount', f'type=bind,src={root},dst={root}', '--mount', f'type=bind,src={workspace},dst={workspace}']
+        output = run('docker', 'run', '--rm', '--network', 'container:' + compose('ps', '-q', 'mysql'), *mounts,
+            '--env', 'PEANUT_SERVER_ENV_FILE=' + str(server / '.env'),
+            '--workdir', str(server), '--entrypoint', 'php', images['php'], tool, *values)
+        return json.loads(output) if output else {}
+
+    def native(operation):
+        return php(tools / 'update-plan.php', operation, '--instance-server=' + str(server), '--workspace=' + str(workspace))
+
+    def stopped(): return recovery.assert_stopped(server)
+
+    def hold():
+        native('hold'); compose('stop', '--timeout', '60', 'nginx', 'php'); return stopped()
+
+    def preparation(operation):
+        # The existing preparation command also prints its vendor checks; its bound record is authoritative.
+        return run(sys.executable, tools / 'update-preparation.py', operation, '--server', server, '--workspace', workspace)
+
+    def prepared_record():
+        record = read(record_path)
+        if record['candidate'] != candidate or record['plan_sha256'] != plan['plan_sha256'] or record['runtime_images'] != images \
+            or record['inputs_sha256'] != sha(workspace / 'plan.json'): raise ValueError('prepared target, inputs or fixed images changed')
+        return record
+
+    def db(operation):
+        return php(tools / 'update-database.php', operation, server, workspace)
+
+    def health(public=False):
+        native('health'); containers = {}
+        for service in ('mysql', 'php', 'nginx'):
+            ids = compose('ps', '-a', '-q', service).splitlines()
+            if len(ids) != 1: raise ValueError('runtime service is not unique')
+            detail = json.loads(run('docker', 'inspect', '--format', '{{json .}}', ids[0]))
+            if detail['Image'] != images[service] or detail['State']['Running'] != (service in ('mysql', 'php') or public):
+                raise ValueError('runtime service or image differs from plan')
+            containers[service] = {'id': detail['Id'], 'image': detail['Image']}
+        if public:
+            bind = environment.get('HTTP_BIND', ''); port = environment.get('HTTP_PORT', '')
+            if bind == '0.0.0.0': bind = '127.0.0.1'
+            if bind not in ('127.0.0.1', '::1') or not port.isdigit(): raise ValueError('registered HTTP endpoint is unavailable')
+            host = '[' + bind + ']' if ':' in bind else bind
+            for path in ('/healthz', '/', '/legal/RELEASE_METADATA.json'):
+                with urllib.request.build_opener(urllib.request.ProxyHandler({})).open(f'http://{host}:{port}{path}', timeout=10) as response:
+                    if response.status != 200: raise ValueError('public runtime health failed')
+        return {'services': containers, 'private_installed_health': True, 'public_http': public}
+
+    if phase == 'prepare':
+        if state['activation_started'] or state['database_recovery_required']: raise ValueError('prepare cannot restart after migration')
+        if record_path.exists(): payload = prepared_record(); preparation('check')
+        else:
+            inputs = read(workspace / 'plan.json')
+            if inputs.get('requirements', {}).get('runtime_environment_changed'): raise ValueError('environment changed; prepare compatible fixed images first')
+            for relative in ('docker/Dockerfile', 'docker/compose.yaml'):
+                if (target / relative).exists() and sha(target / relative) != sha(server / relative): raise ValueError('runtime recipe changed; environment preparation is required')
+            if sha(server / 'composer.lock') != sha(target / 'composer.lock') or sha(server / 'composer.json') != sha(target / 'composer.json'):
+                run(tools / 'prepare-vendor.sh', 'prepared', target, images['php'])
+            preparation('record')
+            if not (target / 'vendor').exists(): shutil.copytree(server / 'vendor', target / 'vendor')
+            shutil.copyfile(server / '.env', target / '.env'); os.chmod(target / '.env', 0o600)
+            for name in ('private/resources', 'private/installation'):
+                if (server / name).exists(): shutil.copytree(server / name, target / name, dirs_exist_ok=True)
+            if (target / 'docker/conf/nginx.conf').exists():
+                run('docker', 'run', '--rm', '--network', 'none', '--add-host', 'php:127.0.0.1',
+                    '--mount', f'type=bind,src={target / "docker/conf/nginx.conf"},dst=/etc/nginx/nginx.conf,readonly', '--entrypoint', 'nginx', images['nginx'], '-t')
+            payload = {'candidate': candidate, 'plan_sha256': plan['plan_sha256'], 'kind': 'mounted-app-source', 'target': str(prepared),
+                'runtime_images': images, 'inputs_sha256': sha(workspace / 'plan.json'), 'source': plan['package'],
+                'dependency_preparation_sha256': sha(workspace / 'preparation.json')}
+            write(record_path, payload)
+    elif phase == 'migration-preflight': prepared_record(); payload = {'database': db('preflight')}
+    elif phase == 'backup':
+        prepared_record(); drained = hold()
+        with contextlib.redirect_stdout(io.StringIO()):
+            if (workspace / 'backup.json').exists(): recovery.verify(arguments)
+            else: recovery.backup(arguments)
+        payload = {'backup_sha256': sha(workspace / 'backup.json'), 'writers_stopped': drained}
+    elif phase == 'quiesce': stopped(); recovery.verify(arguments); payload = {'write_gate': 'closed', 'backup_sha256': sha(workspace / 'backup.json')}
+    elif phase == 'migrate':
+        stopped(); recovery.verify(arguments); preparation('switch')
+        if not state['database_recovery_required']: raise ValueError('migration intent must be persisted')
+        payload = {'database': db('migrate')}
+    elif phase == 'switch':
+        stopped(); prepared_record(); preparation('check'); payload = {'active_target': 'mounted-source-in-place', 'source': plan['package'], 'runtime_images': images}
+    elif phase == 'reload-safe':
+        compose('up', '-d', '--wait', '--no-build', '--no-deps', '--force-recreate', 'php'); payload = {'php_reloaded': True, 'public_writers_stopped': True}
+    elif phase == 'migration-verify': payload = {'database': db('verify')}
+    elif phase == 'health': prepared_record(); payload = health(state['activation_started'])
+    elif phase == 'activate':
+        if not state['activation_started'] or 'health' not in state['evidence']: raise ValueError('healthy activation boundary must precede traffic')
+        native('health')
+        native('publish')
+        try:
+            native('open'); compose('up', '-d', '--wait', '--no-build', '--no-deps', '--force-recreate', 'nginx'); payload = health(True)
+        except Exception:
+            try: native('hold')
+            finally: compose('stop', '--timeout', '60', 'nginx', 'php')
+            raise
+    elif phase == 'recover':
+        if state['activation_started']: raise ValueError('activation started; forward repair is required')
+        hold()
+        with contextlib.redirect_stdout(io.StringIO()):
+            if state['database_recovery_required']: recovery.restore(arguments)
+        if (workspace / 'preparation.json').exists(): preparation('recover')
+        payload = {'recovery': 'paired-database-public-private-installation' if state['database_recovery_required'] else 'program-only', 'writers_stopped': True, 'resume_required': True}
+    elif phase == 'resume-old':
+        try:
+            compose('up', '-d', '--wait', '--no-build', '--no-deps', '--force-recreate', 'php'); native('health'); native('open')
+            compose('up', '-d', '--wait', '--no-build', '--no-deps', '--force-recreate', 'nginx'); payload = health(True); payload['resumed_old_runtime'] = True
+        except Exception:
+            try: native('hold')
+            finally: compose('stop', '--timeout', '60', 'nginx', 'php')
+            raise
+    else: payload = health(True); payload['recovered_runtime_verified'] = True
+    print(json.dumps({'protocol': 'peanut.product-upgrade-host-evidence.v1', 'status': 'completed', 'phase': phase, 'candidate': candidate,
+        'plan_sha256': plan['plan_sha256'], 'package_manifest_sha256': plan['package']['manifest_sha256'], 'payload': payload}))
+
+
+if __name__ == '__main__':
+    try: main()
+    except (OSError, ValueError, RuntimeError, KeyError, subprocess.SubprocessError) as error:
+        print(f'product-upgrade-host: {error}', file=sys.stderr); sys.exit(1)

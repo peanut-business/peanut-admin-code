@@ -22,19 +22,20 @@ class WorkbenchApplicationService
 
     public function index(TenantContext $context): array
     {
+        $website = $this->website->get($context);
         return [
-            'version' => self::versionInfo($context),
+            'version' => $this->versionInfo($context, $website),
             'today'   => self::today(),
             'menu'    => self::menu($context),
             'visitor' => self::visitor(),
-            'support' => self::support($context),
+            'support' => $this->support($context, $website),
             'sale'    => self::sale(),
         ];
     }
 
-    public function versionInfo(TenantContext $context): array
+    public function versionInfo(TenantContext $context, ?array $website = null): array
     {
-        $website = $this->website->get($context);
+        $website ??= $this->website->get($context);
         return [
             'version' => $this->projectVersion,
             'website' => $website['official_url'],
@@ -74,11 +75,10 @@ class WorkbenchApplicationService
             ['name' => '菜单权限', 'image' => 'menu_auth', 'url' => '/system/menu'],
             ['name' => '网站信息', 'image' => 'menu_web', 'url' => '/app-setting/website'],
         ];
-        $moduleMenus = $this->authorization->moduleMenuRecords($context);
+        $authorizedMenus = $this->authorization->menusForAdminId($context, $context->memberId);
         $items = array_values(array_filter(
             $items,
-            static fn(array $item): bool => $item['url'] !== '/system/file'
-                || self::menuContainsPath($moduleMenus, '/system/file'),
+            static fn(array $item): bool => self::menuContainsPath($authorizedMenus, $item['url']),
         ));
 
         return array_map(function (array $item): array {
@@ -136,9 +136,9 @@ class WorkbenchApplicationService
         ];
     }
 
-    public function support(TenantContext $context): array
+    public function support(TenantContext $context, ?array $website = null): array
     {
-        $website = $this->website->get($context);
+        $website ??= $this->website->get($context);
         return [
             [
                 'image' => $this->files->getFileUrl(

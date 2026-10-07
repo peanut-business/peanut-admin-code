@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use app\platform\services\developer\DeveloperCenterCatalogService;
 use PHPUnit\Framework\TestCase;
+use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 
 /** 验证展示事实的数量，不用路由存在冒充完整接口文档；只操作本例临时文件。 */
 final class DeveloperCenterDocumentationCountTest extends TestCase
@@ -23,8 +24,9 @@ final class DeveloperCenterDocumentationCountTest extends TestCase
                 ['method' => 'GET', 'path' => '/missing-contract', 'owner' => 'application:test'],
             ],
         ], JSON_THROW_ON_ERROR));
+        $registry = new CompiledModuleRegistry([], [], [], [], hash('sha256', ''));
         try {
-            $snapshot = (new DeveloperCenterCatalogService($root . '/server', []))->snapshot();
+            $snapshot = (new DeveloperCenterCatalogService($root . '/server', $registry))->snapshot();
             self::assertSame(3, $snapshot['summary']['routes']);
             self::assertSame(1, $snapshot['summary']['generated_api_operations']);
             self::assertSame(0, $snapshot['summary']['complete_api_operations']);
@@ -32,9 +34,10 @@ final class DeveloperCenterDocumentationCountTest extends TestCase
             self::assertSame(2, $snapshot['summary']['undocumented_routes']);
             self::assertSame('not_checked', $snapshot['status']['runtime_effective']['status']);
             self::assertSame('not_recorded', $snapshot['status']['tests']['status']);
+            self::assertSame($registry->revision, $snapshot['status']['registration']['revision']);
             // 目录过期时拒绝展示旧结果，不能继续用旧数量说明当前源码。
             file_put_contents($input, '<?php return ["module_commands" => [], "changed" => true];');
-            $stale = (new DeveloperCenterCatalogService($root . '/server', []))->snapshot();
+            $stale = (new DeveloperCenterCatalogService($root . '/server', $registry))->snapshot();
             self::assertSame('stale', $stale['status']['api_catalog']['status']);
             self::assertSame(0, $stale['summary']['routes']);
             self::assertSame(0, $stale['summary']['generated_api_operations']);

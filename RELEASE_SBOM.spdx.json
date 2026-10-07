@@ -2,10 +2,10 @@
   "spdxVersion": "SPDX-2.3",
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
-  "name": "Peanut Admin 4.0.3 release dependency SBOM",
-  "documentNamespace": "https://github.com/peanut-business/peanut-admin-code/releases/tag/v4.0.3/sbom",
+  "name": "Peanut Admin 5.0.1 release dependency SBOM",
+  "documentNamespace": "https://github.com/peanut-business/peanut-admin-code/releases/tag/v5.0.1/sbom",
   "creationInfo": {
-    "created": "2026-10-05T00:00:00Z",
+    "created": "2026-10-06T00:00:00Z",
     "creators": [
       "Organization: 花生科技",
       "Tool: scripts/generate-release-legal.mjs"
@@ -26,7 +26,7 @@
     {
       "name": "Peanut Admin",
       "SPDXID": "SPDXRef-Package-Peanut-Admin",
-      "versionInfo": "4.0.3",
+      "versionInfo": "5.0.1",
       "downloadLocation": "https://github.com/peanut-business/peanut-admin-code",
       "filesAnalyzed": false,
       "licenseConcluded": "Apache-2.0",
@@ -37,7 +37,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:github/peanut-business/peanut-admin-code@4.0.3"
+          "referenceLocator": "pkg:github/peanut-business/peanut-admin-code@5.0.1"
         }
       ]
     },
@@ -442,8 +442,8 @@
     },
     {
       "name": "peanut-admin/core",
-      "SPDXID": "SPDXRef-Package-composer-6169c39e0bdc09bd4e00",
-      "versionInfo": "v4.0.0",
+      "SPDXID": "SPDXRef-Package-composer-c151087efb19b68dd9f6",
+      "versionInfo": "v5.0.1",
       "downloadLocation": "https://github.com/peanut-business/peanut-admin-core-php.git",
       "filesAnalyzed": false,
       "licenseConcluded": "NOASSERTION",
@@ -455,7 +455,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:composer/peanut-admin/core@v4.0.0"
+          "referenceLocator": "pkg:composer/peanut-admin/core@v5.0.1"
         }
       ]
     },
@@ -4375,9 +4375,9 @@
     },
     {
       "name": "@peanut-admin/client",
-      "SPDXID": "SPDXRef-Package-pc-ea073dae0c9bf6720cf9",
-      "versionInfo": "4.0.0",
-      "downloadLocation": "https://registry.npmjs.org/@peanut-admin/client/-/client-4.0.0.tgz",
+      "SPDXID": "SPDXRef-Package-pc-3f4111fdf183c8003cfc",
+      "versionInfo": "5.0.1",
+      "downloadLocation": "https://registry.npmjs.org/@peanut-admin/client/-/client-5.0.1.tgz",
       "filesAnalyzed": false,
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "Apache-2.0",
@@ -4388,15 +4388,15 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:npm/%40peanut-admin/client@4.0.0"
+          "referenceLocator": "pkg:npm/%40peanut-admin/client@5.0.1"
         }
       ]
     },
     {
       "name": "@peanut-admin/nuxt",
-      "SPDXID": "SPDXRef-Package-pc-1a145d3abd9e9bb03d36",
-      "versionInfo": "4.0.0",
-      "downloadLocation": "https://registry.npmjs.org/@peanut-admin/nuxt/-/nuxt-4.0.0.tgz",
+      "SPDXID": "SPDXRef-Package-pc-2e2f16d60606cb5de7b9",
+      "versionInfo": "5.0.1",
+      "downloadLocation": "https://registry.npmjs.org/@peanut-admin/nuxt/-/nuxt-5.0.1.tgz",
       "filesAnalyzed": false,
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "Apache-2.0",
@@ -4407,7 +4407,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:npm/%40peanut-admin/nuxt@4.0.0"
+          "referenceLocator": "pkg:npm/%40peanut-admin/nuxt@5.0.1"
         }
       ]
     },
@@ -19556,9 +19556,9 @@
     },
     {
       "name": "@peanut-admin/ui-vue",
-      "SPDXID": "SPDXRef-Package-platform-8d6be2bf8fe284b0f9ac",
-      "versionInfo": "4.0.0",
-      "downloadLocation": "https://registry.npmjs.org/@peanut-admin/ui-vue/-/ui-vue-4.0.0.tgz",
+      "SPDXID": "SPDXRef-Package-platform-ccd9234262d42208c285",
+      "versionInfo": "5.0.1",
+      "downloadLocation": "https://registry.npmjs.org/@peanut-admin/ui-vue/-/ui-vue-5.0.1.tgz",
       "filesAnalyzed": false,
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "Apache-2.0",
@@ -19569,15 +19569,15 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:npm/%40peanut-admin/ui-vue@4.0.0"
+          "referenceLocator": "pkg:npm/%40peanut-admin/ui-vue@5.0.1"
         }
       ]
     },
     {
       "name": "@peanut-admin/vue",
-      "SPDXID": "SPDXRef-Package-platform-26203594001511def885",
-      "versionInfo": "4.0.0",
-      "downloadLocation": "https://registry.npmjs.org/@peanut-admin/vue/-/vue-4.0.0.tgz",
+      "SPDXID": "SPDXRef-Package-platform-1346e775b948948c9a72",
+      "versionInfo": "5.0.1",
+      "downloadLocation": "https://registry.npmjs.org/@peanut-admin/vue/-/vue-5.0.1.tgz",
       "filesAnalyzed": false,
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "Apache-2.0",
@@ -19588,7 +19588,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:npm/%40peanut-admin/vue@4.0.0"
+          "referenceLocator": "pkg:npm/%40peanut-admin/vue@5.0.1"
         }
       ]
     },
@@ -30139,9 +30139,9 @@
     },
     {
       "name": "@peanut-admin/client",
-      "SPDXID": "SPDXRef-Package-uniapp-0cc9aa58a0d4341914bb",
-      "versionInfo": "4.0.0",
-      "downloadLocation": "https://registry.npmjs.org/@peanut-admin/client/-/client-4.0.0.tgz",
+      "SPDXID": "SPDXRef-Package-uniapp-0dce3ec6a530beba7ed8",
+      "versionInfo": "5.0.1",
+      "downloadLocation": "https://registry.npmjs.org/@peanut-admin/client/-/client-5.0.1.tgz",
       "filesAnalyzed": false,
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "Apache-2.0",
@@ -30152,15 +30152,15 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:npm/%40peanut-admin/client@4.0.0"
+          "referenceLocator": "pkg:npm/%40peanut-admin/client@5.0.1"
         }
       ]
     },
     {
       "name": "@peanut-admin/uniapp",
-      "SPDXID": "SPDXRef-Package-uniapp-829d152bef4b6f72fdf7",
-      "versionInfo": "4.0.0",
-      "downloadLocation": "https://registry.npmjs.org/@peanut-admin/uniapp/-/uniapp-4.0.0.tgz",
+      "SPDXID": "SPDXRef-Package-uniapp-8f437ae053176afc686b",
+      "versionInfo": "5.0.1",
+      "downloadLocation": "https://registry.npmjs.org/@peanut-admin/uniapp/-/uniapp-5.0.1.tgz",
       "filesAnalyzed": false,
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "Apache-2.0",
@@ -30171,7 +30171,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:npm/%40peanut-admin/uniapp@4.0.0"
+          "referenceLocator": "pkg:npm/%40peanut-admin/uniapp@5.0.1"
         }
       ]
     },
@@ -46403,9 +46403,9 @@
     },
     {
       "name": "@peanut-admin/ui-vue",
-      "SPDXID": "SPDXRef-Package-web-dfe59ec583305c6ba177",
-      "versionInfo": "4.0.0",
-      "downloadLocation": "https://registry.npmjs.org/%40peanut-admin%2Fui-vue/4.0.0",
+      "SPDXID": "SPDXRef-Package-web-28ac9d8e25f45a00145f",
+      "versionInfo": "5.0.1",
+      "downloadLocation": "https://registry.npmjs.org/%40peanut-admin%2Fui-vue/5.0.1",
       "filesAnalyzed": false,
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "Apache-2.0",
@@ -46416,15 +46416,15 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:npm/%40peanut-admin/ui-vue@4.0.0"
+          "referenceLocator": "pkg:npm/%40peanut-admin/ui-vue@5.0.1"
         }
       ]
     },
     {
       "name": "@peanut-admin/vue",
-      "SPDXID": "SPDXRef-Package-web-26c79fcf4159d52a473d",
-      "versionInfo": "4.0.0",
-      "downloadLocation": "https://registry.npmjs.org/%40peanut-admin%2Fvue/4.0.0",
+      "SPDXID": "SPDXRef-Package-web-96705f5a1026fe1a8acf",
+      "versionInfo": "5.0.1",
+      "downloadLocation": "https://registry.npmjs.org/%40peanut-admin%2Fvue/5.0.1",
       "filesAnalyzed": false,
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "Apache-2.0",
@@ -46435,7 +46435,7 @@
         {
           "referenceCategory": "PACKAGE-MANAGER",
           "referenceType": "purl",
-          "referenceLocator": "pkg:npm/%40peanut-admin/vue@4.0.0"
+          "referenceLocator": "pkg:npm/%40peanut-admin/vue@5.0.1"
         }
       ]
     },
@@ -60649,7 +60649,7 @@
     {
       "spdxElementId": "SPDXRef-Package-Peanut-Admin",
       "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-composer-6169c39e0bdc09bd4e00",
+      "relatedSpdxElement": "SPDXRef-Package-composer-c151087efb19b68dd9f6",
       "comment": "composer; runtime"
     },
     {
@@ -61891,13 +61891,13 @@
     {
       "spdxElementId": "SPDXRef-Package-Peanut-Admin",
       "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-pc-ea073dae0c9bf6720cf9",
+      "relatedSpdxElement": "SPDXRef-Package-pc-3f4111fdf183c8003cfc",
       "comment": "pc; static-build-input"
     },
     {
       "spdxElementId": "SPDXRef-Package-Peanut-Admin",
       "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-pc-1a145d3abd9e9bb03d36",
+      "relatedSpdxElement": "SPDXRef-Package-pc-2e2f16d60606cb5de7b9",
       "comment": "pc; static-build-input"
     },
     {
@@ -66685,13 +66685,13 @@
     {
       "spdxElementId": "SPDXRef-Package-Peanut-Admin",
       "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-platform-8d6be2bf8fe284b0f9ac",
+      "relatedSpdxElement": "SPDXRef-Package-platform-ccd9234262d42208c285",
       "comment": "platform; static-build-input"
     },
     {
       "spdxElementId": "SPDXRef-Package-Peanut-Admin",
       "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-platform-26203594001511def885",
+      "relatedSpdxElement": "SPDXRef-Package-platform-1346e775b948948c9a72",
       "comment": "platform; static-build-input"
     },
     {
@@ -70027,13 +70027,13 @@
     {
       "spdxElementId": "SPDXRef-Package-Peanut-Admin",
       "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-uniapp-0cc9aa58a0d4341914bb",
+      "relatedSpdxElement": "SPDXRef-Package-uniapp-0dce3ec6a530beba7ed8",
       "comment": "uniapp; static-build-input"
     },
     {
       "spdxElementId": "SPDXRef-Package-Peanut-Admin",
       "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-uniapp-829d152bef4b6f72fdf7",
+      "relatedSpdxElement": "SPDXRef-Package-uniapp-8f437ae053176afc686b",
       "comment": "uniapp; static-build-input"
     },
     {
@@ -75163,13 +75163,13 @@
     {
       "spdxElementId": "SPDXRef-Package-Peanut-Admin",
       "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-web-dfe59ec583305c6ba177",
+      "relatedSpdxElement": "SPDXRef-Package-web-28ac9d8e25f45a00145f",
       "comment": "web; static-build-input"
     },
     {
       "spdxElementId": "SPDXRef-Package-Peanut-Admin",
       "relationshipType": "DEPENDS_ON",
-      "relatedSpdxElement": "SPDXRef-Package-web-26c79fcf4159d52a473d",
+      "relatedSpdxElement": "SPDXRef-Package-web-96705f5a1026fe1a8acf",
       "comment": "web; static-build-input"
     },
     {

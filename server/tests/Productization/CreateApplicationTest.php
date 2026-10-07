@@ -279,13 +279,26 @@ try {
         createApplicationBuildCurrentRelease($root, $templateVersion, $releaseRoot) === $identity['commit'],
         'source commit changed while preparing the fixture',
     );
-    // 与封存器使用同一提交的完整 Git 源码快照。源码与输出是临时目录下的兄弟，
-    // 既不借另一工作树放夹具，也不放宽 CREATE_APP_TARGET_INSIDE_SOURCE。
-    $sourceArchive = $temporary . '/source.tar';
-    createApplicationRun(['git', '-C', $root, 'archive', '--format=tar', '--output=' . $sourceArchive, $identity['commit']]);
+    // 使用同一固定提交的独立 Git 上下文；源码与输出仍是临时目录下的兄弟。
+    // 不借用父仓身份，也不放宽 CREATE_APP_TARGET_INSIDE_SOURCE。
+    $sourceOrigin = trim(createApplicationRun(['git', '-C', $root, 'remote', 'get-url', 'origin']));
+    $sourceRepository = preg_match(
+        '#^(?:git@github\.com:|https://github\.com/)([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+?)(?:\.git)?$#D',
+        $sourceOrigin,
+        $sourceOriginMatches,
+    ) === 1 ? $sourceOriginMatches[1] : null;
     $sourceFixture = $temporary . '/source';
-    createApplicationExpect(mkdir($sourceFixture, 0700), 'cannot create isolated fixture source');
-    (new PharData($sourceArchive))->extractTo($sourceFixture);
+    createApplicationRun(['git', 'init', '--quiet', $sourceFixture]);
+    createApplicationRun(['git', '-C', $sourceFixture, 'fetch', '--quiet', '--no-tags', '--depth=1', $root, $identity['commit']]);
+    createApplicationRun(['git', '-C', $sourceFixture, 'remote', 'add', 'origin', $sourceOrigin]);
+    createApplicationRun(['git', '-C', $sourceFixture, 'checkout', '--quiet', '--detach', $identity['commit']]);
+    createApplicationExpect(
+        realpath(trim(createApplicationRun(['git', '-C', $sourceFixture, 'rev-parse', '--show-toplevel']))) === realpath($sourceFixture)
+            && trim(createApplicationRun(['git', '-C', $sourceFixture, 'rev-parse', 'HEAD'])) === $identity['commit']
+            && trim(createApplicationRun(['git', '-C', $sourceFixture, 'rev-parse', 'HEAD^{tree}'])) === $identity['tree']
+            && trim(createApplicationRun(['git', '-C', $sourceFixture, 'status', '--porcelain=v1', '--untracked-files=all'])) === '',
+        'fixture must have its own clean fixed Git identity',
+    );
     createApplicationExpect(
         hash_file('sha256', $sourceFixture . '/scaffold/application-template-inventory.json') === hash_file('sha256', $inventoryPath),
         'fixture must preserve the exact committed inventory, not rebuild or filter it',
@@ -366,6 +379,10 @@ try {
         'source_tree' => $release['source_tree'],
     ], 'application template identity must adopt the immutable release');
     createApplicationExpect($manifestOne['generation_source'] === [
+        'repository' => $sourceRepository,
+        'requested_ref' => $identity['commit'],
+        'channel' => 'development',
+        'release_version' => null,
         'commit' => $identity['commit'],
         'tree' => $identity['tree'],
         'inventory_sha256' => hash_file('sha256', $inventoryPath),

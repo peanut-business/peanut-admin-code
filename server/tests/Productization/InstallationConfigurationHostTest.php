@@ -56,6 +56,8 @@ $fixture = $root . '/installation-configuration-' . bin2hex(random_bytes(6));
 mkdir($fixture . '/standalone/private/installation', 0700, true);
 mkdir($fixture . '/multi/private/installation', 0700, true);
 mkdir($fixture . '/partial/private/resources', 0700, true);
+mkdir($fixture . '/pending/private/resources/pending', 0700, true);
+mkdir($fixture . '/pending/private/installation', 0700, true);
 $token = str_repeat('t', 64);
 $secret = str_repeat('a', 64);
 
@@ -146,6 +148,32 @@ try {
         installationConfigExpect($exception->errorCode === 'INSTALL_CONFIGURATION_PARTIAL', 'pending configuration must fail closed');
     }
     installationConfigExpect(!file_exists($fixture . '/partial/.env'), 'pending failure must not create final env');
+
+    $pending = new InstallationConfigurationHost(
+        $fixture . '/pending',
+        static fn(string $serverRoot): array => installationConfigIdentity('standalone'),
+        static fn(): string => $secret,
+        true,
+    );
+    $result = $pending->configure($token, $token, ['deployment_target' => 'local-production-preview', 'database_name' => 'pending_fixture']);
+    installationConfigExpect($result['state'] === 'pending' && $result['restart_required'], 'HTTP configuration must return its pending owner transition');
+    installationConfigExpect($pending->status()['state'] === 'pending', 'pending input must be distinguishable from canonical configuration');
+    installationConfigExpect(!file_exists($fixture . '/pending/.env') && !file_exists($fixture . '/pending/private/resources/project-resources.json'), 'HTTP configuration must not publish canonical owner files');
+    $owner = new InstallationConfigurationHost(
+        $fixture . '/pending',
+        static fn(string $serverRoot): array => installationConfigIdentity('standalone'),
+        static fn(): string => $secret,
+    );
+    try {
+        $owner->publishPending(str_repeat('x', 64));
+        throw new RuntimeException('unbound pending setup identity accepted');
+    } catch (RuntimeException $exception) {
+        installationConfigExpect($exception->getMessage() === 'INSTALL_CONFIGURATION_PENDING_BINDING_INVALID', 'owner must independently verify setup identity');
+    }
+    $published = $owner->publishPending($token);
+    installationConfigExpect($published['state'] === 'configured' && $owner->status()['configured'], 'native owner must publish canonical configuration');
+    installationConfigExpect(!file_exists($fixture . '/pending/private/resources/pending/configuration.json'), 'pending input must be consumed instead of becoming a second runtime source');
+    installationConfigExpect(str_contains((string) file_get_contents($fixture . '/pending/.env'), 'DB_NAME=pending_fixture'), 'owner must revalidate and preserve the selected database');
 
     echo "INSTALLATION-CONFIGURATION-HOST passed\n";
 } finally {

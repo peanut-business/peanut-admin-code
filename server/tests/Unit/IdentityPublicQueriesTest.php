@@ -142,6 +142,30 @@ final class IdentityPublicQueriesTest extends TestCase
         self::assertSame(['article.edit'], $this->authorization->registeredPermissionKeys(['peanut.admin']));
     }
 
+    public function testBatchRoleMemberCountsPreserveZerosAndTenantIsolation(): void
+    {
+        $this->database->exec('INSERT INTO pa_member_role VALUES (1, 12, 31), (2, 23, 31)');
+        self::assertSame([31 => 2, 32 => 0, 999 => 0], $this->authorization->batchRoleMemberCounts(1, [31, 32, 999, 31]));
+        self::assertSame([31 => 1, 32 => 1], $this->authorization->batchRoleMemberCounts(2, [31, 32]));
+        self::assertSame([], $this->authorization->batchRoleMemberCounts(1, []));
+        foreach ([31, 32, 999] as $roleId) {
+            self::assertSame($this->authorization->roleMemberCount(1, $roleId), $this->authorization->batchRoleMemberCounts(1, [$roleId])[$roleId]);
+        }
+    }
+
+    public static function invalidBatchRoleIds(): array
+    {
+        return ['zero' => [0], 'negative' => [-1], 'numeric string' => ['31'], 'float' => [31.0], 'array' => [[]]];
+    }
+
+    #[DataProvider('invalidBatchRoleIds')]
+    public function testBatchRoleCountsRejectInvalidIdsRatherThanCoercingThem(mixed $roleId): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('ROLE_ID_INVALID');
+        $this->authorization->batchRoleMemberCounts(1, [31, $roleId]);
+    }
+
     public static function revokedActorStates(): array
     {
         return [

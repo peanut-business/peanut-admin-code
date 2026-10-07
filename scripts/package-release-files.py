@@ -564,6 +564,11 @@ def server_identity(source: Path, target: Path, manifest: dict, git: dict, versi
     metadata.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(regular_file(source, 'RELEASE_METADATA.json'), metadata)
     metadata.chmod(0o644)
+    version_projection = server / '.peanut/release-versions.json'
+    if version_projection.exists() or version_projection.is_symlink():
+        raise ValueError('server release version projection conflicts with application source')
+    shutil.copyfile(regular_file(source, 'release-versions.json'), version_projection)
+    version_projection.chmod(0o644)
     for legal in ('LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md', 'RELEASE_SBOM.spdx.json'):
         destination = server / '.peanut' / legal
         shutil.copyfile(regular_file(source, legal), destination)

@@ -16,7 +16,9 @@ require_once __DIR__ . '/KernelMigrationRunner.php';
 
 abstract class DatabaseTestCase extends TestCase
 {
-    protected const DATABASE = 'peanut_admin_kernel_test';
+    /** @var array<string,string> */
+    protected array $databaseConfig;
+    protected string $databaseName;
 
     protected PDO $admin;
     protected PDO $database;
@@ -27,10 +29,18 @@ abstract class DatabaseTestCase extends TestCase
         parent::setUp();
 
         if (getenv('PEANUT_INTEGRATION') !== '1') {
-            self::markTestSkipped('Run through scripts/test-integration.');
+            self::markTestSkipped('Run the selected native PHPUnit contract with an active qualification lease and PEANUT_INTEGRATION=1.');
         }
 
         $root = dirname(__DIR__, 6);
+        require_once $root . '/database/environment-guard.php';
+        $proof = requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
+        $config = guardedDatabaseConfig($proof);
+        if ($config['resource_id'] !== 'peanut-admin-p0e-mysql84-gate') {
+            throw new RuntimeException('KERNEL_INTEGRATION_REQUIRES_LEASED_SYNTHETIC_DATABASE');
+        }
+        $this->databaseConfig = $config;
+        $this->databaseName = $config['database'];
         $app = new App($root);
         $cache = require $root . '/config/cache.php';
         if (!is_array($cache)) {
@@ -40,27 +50,27 @@ abstract class DatabaseTestCase extends TestCase
         $app->cache->clear();
 
         $this->admin = $this->connect();
-        $this->admin->exec('DROP DATABASE IF EXISTS `' . self::DATABASE . '`');
+        $this->admin->exec('DROP DATABASE IF EXISTS `' . $this->databaseName . '`');
         $this->admin->exec(
-            'CREATE DATABASE `' . self::DATABASE
+            'CREATE DATABASE `' . $this->databaseName
             . '` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci',
         );
 
-        $this->database = $this->connect(self::DATABASE);
+        $this->database = $this->connect($this->databaseName);
         ThinkPhpTestConnection::fromPdo($this->database);
         $this->runner = new KernelMigrationRunner(
-            self::DATABASE,
-            '127.0.0.1',
-            (int) (getenv('MYSQL_PORT') ?: 3306),
-            'root',
-            getenv('MYSQL_ROOT_PASSWORD') ?: 'peanut_admin_root_dev',
+            $this->databaseName,
+            $config['host'],
+            (int) $config['port'],
+            $config['user'],
+            $config['password'],
         );
     }
 
     protected function tearDown(): void
     {
         if (isset($this->admin)) {
-            $this->admin->exec('DROP DATABASE IF EXISTS `' . self::DATABASE . '`');
+            $this->admin->exec('DROP DATABASE IF EXISTS `' . $this->databaseName . '`');
         }
 
         parent::tearDown();
@@ -113,23 +123,32 @@ abstract class DatabaseTestCase extends TestCase
         return $statement;
     }
 
-    private function connect(?string $database = null): PDO
+    protected function connect(?string $database = null, bool $foundRows = false): PDO
     {
+        if ($database !== null && $database !== $this->databaseName) {
+            throw new RuntimeException('KERNEL_INTEGRATION_DATABASE_OUTSIDE_LEASE');
+        }
+        $config = $this->databaseConfig;
         $dsn = sprintf(
-            'mysql:host=127.0.0.1;port=%d%s;charset=utf8mb4',
-            (int) (getenv('MYSQL_PORT') ?: 3306),
+            'mysql:host=%s;port=%d%s;charset=utf8mb4',
+            $config['host'],
+            (int) $config['port'],
             $database === null ? '' : ";dbname={$database}",
         );
+        $options = [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false,
+        ];
+        if ($foundRows) {
+            $options[PDO::MYSQL_ATTR_FOUND_ROWS] = true;
+        }
 
         return new PDO(
             $dsn,
-            'root',
-            getenv('MYSQL_ROOT_PASSWORD') ?: 'peanut_admin_root_dev',
-            [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES => false,
-            ],
+            $config['user'],
+            $config['password'],
+            $options,
         );
     }
 }
