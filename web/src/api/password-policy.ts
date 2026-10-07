@@ -44,6 +44,6 @@ export function passwordWithinPolicy(
   value: string,
   policy: PasswordPolicy
 ): boolean {
-  const length = new TextEncoder().encode(value).length;
+  const { length } = new TextEncoder().encode(value);
   return length >= policy.minimum_length && length <= policy.maximum_length;
 }
