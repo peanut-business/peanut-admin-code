@@ -13,7 +13,7 @@
   import { useTaskJobRuntime } from './runtime';
 
   const runtime = useTaskJobRuntime();
-  const state = runtime.state;
+  const { state } = runtime;
   const canManage = computed(runtime.canManage);
   const statuses = [
     'queued',

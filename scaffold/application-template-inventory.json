@@ -2290,7 +2290,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "208fc62a71e2b61fb6cc3cae123e5a77d489d7dda21ef2fc8affc3e531bb1a8f"
+            "source_sha256": "0e2def3a8c390697509729a1d16688c39f02dfe14e072b5ce954309468afdea7"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2526,7 +2526,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e6a6d0cc8be2f32b6d4e4a614858a290b7aa30605c1f972ee62019f594d5c02c"
+            "source_sha256": "acea27a473f658b9746a5450d3cea66999f640a6521d67cfc8a38b97a741b74c"
         },
         {
             "path": "plugins/peanut.artifact-revision/plugin.json",
@@ -19620,7 +19620,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "17c86d906c72e3718cee24590bc659fa2a33d5f9edb289f97a13d001c580d114"
+            "source_sha256": "e3d0fb72444997786b2ac05c910e9dc966553f2bf95c966a7f7a75e5dd787961"
         },
         {
             "path": "server/app/modules/official/task/resources/menus.json",
@@ -34222,7 +34222,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1fb5cf4b1bf290699871d79cfe9ff25b16f2d56126c55d9c7b04b1b56bfafdc1"
+            "source_sha256": "795469b4e4991d4e054bbb49560e7fc8e1b52f55eac7acaa035cb0372fa30ce9"
         },
         {
             "path": "web/src/modules/official-task/optional-runtime/src/contracts.ts",
@@ -34236,7 +34236,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "acc0ce6fae342052c7f8d888c0453b62966420083cb7d217ff4080f564561c6b"
+            "source_sha256": "8db061db3263011ef47e43f10d7288e2c4143bd40b665f95e09f284e28f5a8f3"
         },
         {
             "path": "web/src/modules/official-task/optional-runtime/src/index.ts",
@@ -34264,7 +34264,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e92aecf98c55c1c0d5b3327175a395185fb5a8c06c7e0e685433bd9dfd1960d3"
+            "source_sha256": "379e5793e78cbf29c3325c94524bc3f6aa2819efd9a23d260de7b06b5824d82b"
         },
         {
             "path": "web/src/modules/official-task/optional-runtime/tests/contracts.spec.ts",
@@ -34320,7 +34320,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6918921d7628ec27ecff0a7298d689070eeb1ec894d22fd26b84d162593274c1"
+            "source_sha256": "03f83d355ff4d5f7fa47c22bc9ed2e4a1b8e8c1f6b8855e34fbeadb9b345ebab"
         },
         {
             "path": "web/src/modules/official-task/views/index.vue",

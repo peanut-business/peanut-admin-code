@@ -162,7 +162,7 @@ export const parseTaskList = (value: unknown): TaskJobList => {
   const meta = record(body.meta);
   exactKeys(data, ['items']);
   if (!Array.isArray(data.items)) throw new Error('TASK_RESPONSE_INVALID');
-  for (const key of ['page', 'page_size', 'total'] as const) {
+  (['page', 'page_size', 'total'] as const).forEach((key) => {
     const number = meta[key];
     if (
       typeof number !== 'number' ||
@@ -171,7 +171,7 @@ export const parseTaskList = (value: unknown): TaskJobList => {
     ) {
       throw new Error('TASK_RESPONSE_INVALID');
     }
-  }
+  });
   return {
     items: data.items.map(parseTaskJob),
     page: meta.page as number,

@@ -1427,11 +1427,11 @@
         },
         {
             "key": "official.task",
-            "version": "1.0.9",
+            "version": "1.0.10",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "9bbb371116eaaea313523effc505cfc352ddcc3cac7d452c91aaac059bc4cb11"
+                "sha256": "339b38a63eadaeda511d6fb864cba5d4f68359eb08e3f90cfba8f8f380de6772"
             },
             "trust": {
                 "channel": "bundled",
@@ -1465,7 +1465,7 @@
                     "modules": [
                         {
                             "key": "official.task",
-                            "version": "1.0.9",
+                            "version": "1.0.10",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
@@ -1504,15 +1504,15 @@
             "npm": [
                 {
                     "name": "@peanut-admin/official-task",
-                    "version": "1.0.2",
-                    "integrity": "sha256-aRiSHXYo7Cfs/wpymNaJBw7rHsiU0i/Sa4TRYlkydME="
+                    "version": "1.0.3",
+                    "integrity": "sha256-A/g9NV/01ff6R8Irye0uShuOjB9riFXjT76tubNF66s="
                 }
             ],
             "frontend": [
                 {
                     "client_key": "admin-web",
                     "package": "@peanut-admin/official-task",
-                    "version": "1.0.2",
+                    "version": "1.0.3",
                     "entry": "web/src/modules/official-task/contribution.ts",
                     "sha256": "3054ae6e330a8c6782f663ed426e1f1721055ddf9d5645b87ff072967e0da0db"
                 }
@@ -1524,7 +1524,7 @@
                 }
             ],
             "manifest": "plugins/official.task/plugin.json",
-            "manifest_sha256": "e6a6d0cc8be2f32b6d4e4a614858a290b7aa30605c1f972ee62019f594d5c02c"
+            "manifest_sha256": "acea27a473f658b9746a5450d3cea66999f640a6521d67cfc8a38b97a741b74c"
         },
         {
             "key": "peanut.artifact-revision",

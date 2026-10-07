@@ -1,6 +1,4 @@
-import { defineAdminModule } from '@peanut-admin/vue';
 import { inject, reactive } from 'vue';
-import type { AdminModuleContribution } from '@peanut-admin/vue';
 import type { InjectionKey } from 'vue';
 
 import { parseTaskList, parseTaskResponse } from './contracts';
@@ -93,7 +91,8 @@ export const createTaskJobRuntime = (
     }
   };
   const load = async (): Promise<void> => {
-    const current = ++generation;
+    generation += 1;
+    const current = generation;
     state.loading = true;
     state.error = null;
     try {
@@ -162,7 +161,7 @@ export const createTaskJobRuntime = (
     retry: (job) => mutate(job, 'retry'),
     dispose() {
       generation += 1;
-      for (const controller of controllers) controller.abort();
+      controllers.forEach((controller) => controller.abort());
       controllers.clear();
     },
   };
@@ -175,24 +174,3 @@ export const useTaskJobRuntime = (): TaskJobRuntime => {
   if (runtime === undefined) throw new Error('TASK_JOB_RUNTIME_MISSING');
   return runtime;
 };
-export const createTaskJobModuleContribution = (
-  runtime: TaskJobRuntime
-): AdminModuleContribution =>
-  defineAdminModule({
-    key: TASK_JOB_MODULE_KEY,
-    routes: [
-      {
-        name: TASK_JOB_ROUTE_NAME,
-        path: TASK_JOB_ROUTE_PATH,
-        component: async () => ({
-          default: (await import('./TaskJobPage.vue')).default,
-        }),
-        access: {
-          moduleKey: TASK_JOB_MODULE_KEY,
-          permissionKeys: [TASK_JOB_READ_PERMISSION],
-        },
-      },
-    ],
-    disposeOnTenantChange: true,
-    stores: [{ key: TASK_JOB_STORE_KEY, dispose: runtime.dispose }],
-  });
