@@ -144,9 +144,9 @@
     ],
   });
 
-  const editorExtensions = (collaborationDocument?: Y.Doc) => [
+  const editorExtensions = (sharedDocument?: Y.Doc) => [
     StarterKit.configure({
-      undoRedo: collaborationDocument ? false : {},
+      undoRedo: sharedDocument ? false : {},
       link: {
         autolink: false,
         openOnClick: false,
@@ -154,8 +154,8 @@
       },
     }),
     MediaPlaceholder,
-    ...(collaborationDocument
-      ? [Collaboration.configure({ document: collaborationDocument })]
+    ...(sharedDocument
+      ? [Collaboration.configure({ document: sharedDocument })]
       : []),
   ];
 

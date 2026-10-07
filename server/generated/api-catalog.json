@@ -103,6 +103,10 @@
             "sha256": "d69024a901b671d6f9271d3ee21c2b741ce67643037cf6f6986262263444ae70"
         },
         {
+            "path": "server/app/modules/official/rich_text/route/app.php",
+            "sha256": "fd59c1ccc2427245ad3ca8c608a2bcb8b4382483f6c2f46410466c67d550fe48"
+        },
+        {
             "path": "server/app/modules/official/settings/api/metadata/openapi.php",
             "sha256": "75f12a714549ecf6d945b93834147664a1f5e7010541443ec1c3a33b2b62b1c5"
         },
@@ -156,27 +160,27 @@
         ]
     },
     "summary": {
-        "route_count": 341,
+        "route_count": 347,
         "generated_api_operations": 341,
-        "route_only_operations": 0,
+        "route_only_operations": 6,
         "complete_operations": 341,
         "partial_operations": 0,
-        "runtime_routes": 341,
+        "runtime_routes": 347,
         "documented_operations": 341,
-        "undocumented_routes": 0,
-        "automatic_route_metadata": 341,
-        "requires_owner_contract": 0,
-        "owners": 15,
+        "undocumented_routes": 6,
+        "automatic_route_metadata": 347,
+        "requires_owner_contract": 6,
+        "owners": 16,
         "runtime_inventory": {
-            "total": 341,
+            "total": 347,
             "methods": {
                 "DELETE": 4,
-                "GET": 155,
-                "POST": 179,
+                "GET": 158,
+                "POST": 182,
                 "PUT": 3
             },
             "applications": {
-                "adminapi": 230,
+                "adminapi": 236,
                 "api": 47,
                 "installation": 6,
                 "platform": 58
@@ -195,6 +199,7 @@
                 "module:official.oauth": 26,
                 "module:official.payment": 17,
                 "module:official.reference-codes": 20,
+                "module:official.rich-text": 6,
                 "module:official.settings": 3,
                 "module:official.task": 10
             },
@@ -215,10 +220,96 @@
         "module:official.oauth": 26,
         "module:official.payment": 17,
         "module:official.reference-codes": 20,
+        "module:official.rich-text": 6,
         "module:official.settings": 3,
         "module:official.task": 10
     },
-    "documentation_gaps": [],
+    "documentation_gaps": [
+        {
+            "method": "GET",
+            "path": "/adminapi/official.rich-text.document.collaboration",
+            "owner": {
+                "type": "module",
+                "key": "official.rich-text"
+            },
+            "source": {
+                "file": "server/app/modules/official/rich_text/route/app.php",
+                "line": 22
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/official/rich_text/api/metadata/openapi.php"
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/official.rich-text.document.detail",
+            "owner": {
+                "type": "module",
+                "key": "official.rich-text"
+            },
+            "source": {
+                "file": "server/app/modules/official/rich_text/route/app.php",
+                "line": 18
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/official/rich_text/api/metadata/openapi.php"
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/official.rich-text.document.list",
+            "owner": {
+                "type": "module",
+                "key": "official.rich-text"
+            },
+            "source": {
+                "file": "server/app/modules/official/rich_text/route/app.php",
+                "line": 17
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/official/rich_text/api/metadata/openapi.php"
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/official.rich-text.document.add",
+            "owner": {
+                "type": "module",
+                "key": "official.rich-text"
+            },
+            "source": {
+                "file": "server/app/modules/official/rich_text/route/app.php",
+                "line": 19
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/official/rich_text/api/metadata/openapi.php"
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/official.rich-text.document.delete",
+            "owner": {
+                "type": "module",
+                "key": "official.rich-text"
+            },
+            "source": {
+                "file": "server/app/modules/official/rich_text/route/app.php",
+                "line": 21
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/official/rich_text/api/metadata/openapi.php"
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/official.rich-text.document.edit",
+            "owner": {
+                "type": "module",
+                "key": "official.rich-text"
+            },
+            "source": {
+                "file": "server/app/modules/official/rich_text/route/app.php",
+                "line": 20
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/official/rich_text/api/metadata/openapi.php"
+        }
+    ],
     "endpoints": [
         {
             "method": "DELETE",
@@ -6928,6 +7019,237 @@
                     "source"
                 ],
                 "requires_owner_contract": []
+            }
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/official.rich-text.document.collaboration",
+            "runtime_path": "/adminapi/official.rich-text.document.collaboration",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.rich-text"
+            },
+            "controller": "PeanutAdmin\\Modules\\RichText\\Controller\\RichTextDocumentController",
+            "action": "collaboration",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "official.rich-text"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "official.rich-text.document.collaboration"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "official.rich-text",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/rich_text/route/app.php",
+                "line": 22
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/official.rich-text.document.detail",
+            "runtime_path": "/adminapi/official.rich-text.document.detail",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.rich-text"
+            },
+            "controller": "PeanutAdmin\\Modules\\RichText\\Controller\\RichTextDocumentController",
+            "action": "detail",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "official.rich-text"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "official.rich-text.document.detail"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "official.rich-text",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/rich_text/route/app.php",
+                "line": 18
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/official.rich-text.document.list",
+            "runtime_path": "/adminapi/official.rich-text.document.list",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.rich-text"
+            },
+            "controller": "PeanutAdmin\\Modules\\RichText\\Controller\\RichTextDocumentController",
+            "action": "lists",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "official.rich-text"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "official.rich-text.document.list"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "official.rich-text",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/rich_text/route/app.php",
+                "line": 17
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
             }
         },
         {
@@ -18142,6 +18464,237 @@
                     "source"
                 ],
                 "requires_owner_contract": []
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/official.rich-text.document.add",
+            "runtime_path": "/adminapi/official.rich-text.document.add",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.rich-text"
+            },
+            "controller": "PeanutAdmin\\Modules\\RichText\\Controller\\RichTextDocumentController",
+            "action": "add",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "official.rich-text"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "official.rich-text.document.add"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "official.rich-text",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/rich_text/route/app.php",
+                "line": 19
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/official.rich-text.document.delete",
+            "runtime_path": "/adminapi/official.rich-text.document.delete",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.rich-text"
+            },
+            "controller": "PeanutAdmin\\Modules\\RichText\\Controller\\RichTextDocumentController",
+            "action": "delete",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "official.rich-text"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "official.rich-text.document.delete"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "official.rich-text",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/rich_text/route/app.php",
+                "line": 21
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/official.rich-text.document.edit",
+            "runtime_path": "/adminapi/official.rich-text.document.edit",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.rich-text"
+            },
+            "controller": "PeanutAdmin\\Modules\\RichText\\Controller\\RichTextDocumentController",
+            "action": "edit",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "official.rich-text"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "official.rich-text.document.edit"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "official.rich-text",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/rich_text/route/app.php",
+                "line": 20
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
             }
         },
         {

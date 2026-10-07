@@ -1,11 +1,11 @@
 {
     "schema_version": 1,
     "key": "official.payment",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "979ad3cba5d8875eacff4cd869ddd959c875f765d76283784514b8540dab3d96"
+        "sha256": "3062fd2e29fd217d68066efdf5826fe1e3a69e65fd8b0e7ae758e7b178b1226b"
     },
     "trust": {
         "channel": "bundled",
@@ -39,7 +39,7 @@
             "modules": [
                 {
                     "key": "official.payment",
-                    "version": "1.0.5",
+                    "version": "1.0.6",
                     "kernel_constraint": "^1.0",
                     "dependencies": [
                         {
@@ -94,15 +94,15 @@
     "npm": [
         {
             "name": "@peanut-admin/official-payment",
-            "version": "1.0.0",
-            "integrity": "sha256-GdQVPdD6yjxCe/FKkoJtrPjlfAv3CkkC8bS0K29oSY8="
+            "version": "1.0.1",
+            "integrity": "sha256-keygajJ3fZ1nH3NnVHm/QaXRMjJYw650MCNBPU2ljLE="
         }
     ],
     "frontend": [
         {
             "client_key": "admin-web",
             "package": "@peanut-admin/official-payment",
-            "version": "1.0.0",
+            "version": "1.0.1",
             "entry": "web/src/modules/official-payment/contribution.ts",
             "sha256": "94d41ccbd29f32bcef54e01363e8c4cf4a850825a2fc2cf0f594864625fe3e83"
         }

@@ -3,7 +3,7 @@
   "key": "official.settings",
   "name": "Settings",
   "description": "Deployment, tenant and target-scoped settings with tenant website configuration.",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "kernel_constraint": "^1.0",
   "license": "Apache-2.0",
   "php_package": "peanut-business/official-settings",

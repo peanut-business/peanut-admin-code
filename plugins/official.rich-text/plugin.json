@@ -1,11 +1,11 @@
 {
     "schema_version": 1,
     "key": "official.rich-text",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "4aabfbd75e631b5844117be71e4a6ce3ad5697d0f21df957741898affeb4e692"
+        "sha256": "ec3504030b225f180134a039dbf62cd53625cb81bb2b394d43137361af07ec1e"
     },
     "trust": {
         "channel": "bundled",
@@ -39,7 +39,7 @@
             "modules": [
                 {
                     "key": "official.rich-text",
-                    "version": "1.0.2",
+                    "version": "1.0.3",
                     "kernel_constraint": "^1.0",
                     "dependencies": [],
                     "permissions": {
@@ -69,15 +69,15 @@
     "npm": [
         {
             "name": "@peanut-admin/official-rich-text",
-            "version": "1.0.1",
-            "integrity": "sha256-ih9ohP+n7dRaTkPaVmWEgUGxHUxPCTVmmFrHyo59Tb4="
+            "version": "1.0.2",
+            "integrity": "sha256-bSf5Vm8ejWAkmOpU6THvkpKtodVRFpOctCW4ewcyNno="
         }
     ],
     "frontend": [
         {
             "client_key": "admin-web",
             "package": "@peanut-admin/official-rich-text",
-            "version": "1.0.1",
+            "version": "1.0.2",
             "entry": "web/src/modules/official-rich-text/contribution.ts",
             "sha256": "d2fbce2da164bd53d370f29eabdb62173a91b63c4a8c0605a247d4e69f24d4e4"
         }
