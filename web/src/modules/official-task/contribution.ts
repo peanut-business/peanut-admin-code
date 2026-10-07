@@ -26,7 +26,7 @@ const contribution: PluginFrontendContribution = {
           name: 'OfficialTaskJobs',
           component: () => import('./TaskJobsPage.vue'),
           meta: {
-            locale: 'Task jobs',
+            locale: 'menu.system.taskJobs',
             requiresAuth: true,
             tenantModuleKey: 'official.task',
             requiredPermissions: 'official.task.jobs.read',

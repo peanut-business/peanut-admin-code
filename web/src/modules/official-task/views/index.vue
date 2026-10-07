@@ -204,15 +204,21 @@
           <el-input
             v-model="form.expression"
             :placeholder="$t('systemCrontab.field.expression.placeholder')"
+            @update:model-value="clearPreview"
           >
             <template #append
               ><el-button
                 v-permission="['official.task.expression']"
+                :disabled="previewLoading"
+                :loading="previewLoading"
                 @click="previewExpression"
                 >{{ $t('systemCrontab.field.preview') }}</el-button
               ></template
             >
           </el-input>
+        </el-form-item>
+        <el-form-item v-if="previewError">
+          <span class="preview-error" role="alert">{{ previewError }}</span>
         </el-form-item>
         <el-form-item
           v-if="previewList.length"
@@ -234,8 +240,8 @@
         </el-form-item>
         <el-form-item prop="remark" :label="$t('systemCrontab.field.remark')">
           <el-input
-            type="textarea"
             v-model="form.remark"
+            type="textarea"
             :placeholder="$t('systemCrontab.field.remark.placeholder')"
             maxlength="255"
             show-word-limit
@@ -337,6 +343,8 @@
   const submitLoading = ref(false);
   const formRef = ref<FormInstance>();
   const previewList = ref<ExpressionItem[]>([]);
+  const previewError = ref('');
+  const previewLoading = ref(false);
 
   const defaultForm = (): CrontabForm => ({
     id: undefined,
@@ -351,6 +359,11 @@
   });
   const form = reactive<CrontabForm>(defaultForm());
 
+  const clearPreview = () => {
+    previewList.value = [];
+    previewError.value = '';
+  };
+
   const rules = {
     name: [{ required: true, message: t('systemCrontab.field.name.required') }],
     command: [
@@ -363,7 +376,7 @@
 
   const resetForm = (patch: Partial<CrontabForm> = {}) => {
     Object.assign(form, defaultForm(), patch);
-    previewList.value = [];
+    clearPreview();
   };
 
   const handleAdd = () => {
@@ -389,16 +402,28 @@
   };
 
   const previewExpression = async () => {
-    if (!form.expression) {
-      ElMessage.warning(t('systemCrontab.field.expression.required'));
+    if (previewLoading.value) return;
+    clearPreview();
+    const { expression } = form;
+    if (!expression?.trim()) {
+      previewError.value = t('systemCrontab.field.expression.required');
       return;
     }
-    const { data } = await getCrontabExpression(form.expression);
-    if (Array.isArray(data) && data.length) {
-      previewList.value = data;
-    } else {
-      previewList.value = [];
-      ElMessage.error(t('systemCrontab.tip.badExpression'));
+    previewLoading.value = true;
+    try {
+      const { data } = await getCrontabExpression(expression);
+      if (form.expression !== expression || !modalVisible.value) return;
+      if (Array.isArray(data) && data.length) {
+        previewList.value = data;
+      } else {
+        previewError.value = t('systemCrontab.tip.badExpression');
+      }
+    } catch {
+      // The shared interceptor already shows the server's business message.
+      if (form.expression === expression && modalVisible.value)
+        previewError.value = t('systemCrontab.tip.previewFailed');
+    } finally {
+      previewLoading.value = false;
     }
   };
 
@@ -445,6 +470,10 @@
 <style scoped lang="less">
   .container {
     padding: 0 20px 20px 20px;
+  }
+
+  .preview-error {
+    color: var(--el-color-danger);
   }
 
   .preview-list {

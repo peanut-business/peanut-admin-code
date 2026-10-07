@@ -10,12 +10,14 @@
   } from '@peanut-admin/ui-vue';
   import { ElButton, ElInput, ElInputNumber, ElSwitch } from 'element-plus';
   import { computed, onMounted } from 'vue';
+  import { useI18n } from 'vue-i18n';
 
   import { settingEditorKind } from './contracts';
   import type { SettingRecord, SettingScalar } from './contracts';
   import { useSettingsRuntime } from './runtime';
 
   const runtime = useSettingsRuntime();
+  const { t } = useI18n();
   const { state } = runtime;
   const canManage = computed(() => runtime.canManage());
   const hasPendingMutation = computed(() => state.pendingResources.size > 0);
@@ -45,13 +47,16 @@
     if (value !== undefined) runtime.updateForm(keyOf(record), value);
   };
   const typeLabel = (record: SettingRecord): string => {
-    if (record.secret) return 'secret';
+    if (record.secret) return t('officialSettings.type.secret');
     const { type } = record.schema;
     return typeof type === 'string' ? type : type.join(' | ');
   };
   const sourceLabel = (record: SettingRecord): string =>
-    record.sourceScope ?? 'not configured';
-  const dateLabel = (value: string | null): string => value ?? 'none';
+    record.sourceScope === null
+      ? t('officialSettings.value.notConfigured')
+      : t(`officialSettings.source.${record.sourceScope}`);
+  const dateLabel = (value: string | null): string =>
+    value ?? t('officialSettings.value.none');
   const canSave = (record: SettingRecord): boolean => {
     if (!canManage.value || runtime.isPending(keyOf(record))) return false;
     if (state.forms[keyOf(record)]?.dirty !== true) return false;
@@ -98,22 +103,24 @@
 <template>
   <PageContent class="settings-page">
     <PageHeader>
-      Settings
+      {{ $t('officialSettings.title') }}
       <template #actions>
         <ElButton
-          aria-label="Reload settings"
+          :aria-label="$t('officialSettings.action.reloadSettings')"
           :aria-disabled="hasPendingMutation"
           :disabled="hasPendingMutation"
           :loading="state.loading"
           @click="load"
         >
-          Reload
+          {{ $t('officialSettings.action.reload') }}
         </ElButton>
       </template>
     </PageHeader>
 
-    <PageToolbar v-if="!state.errors.page" label="Settings view">
-      <span>{{ state.records.length }} settings</span>
+    <PageToolbar v-if="!state.errors.page" :label="$t('officialSettings.view')">
+      <span>{{
+        $t('officialSettings.count', { count: state.records.length })
+      }}</span>
     </PageToolbar>
 
     <SessionExpiredState
@@ -139,7 +146,7 @@
     <EmptyState
       v-else-if="state.errors.page?.status === 404"
       data-settings-state="not-found"
-      title="Settings not available"
+      :title="$t('officialSettings.notAvailable')"
       v-bind="
         state.errors.page.requestId === null
           ? {}
@@ -166,18 +173,21 @@
       role="alert"
       aria-live="polite"
     >
-      <h2>Unable to load settings</h2>
+      <h2>{{ $t('officialSettings.loadError') }}</h2>
       <p>{{ state.errors.page.message }}</p>
       <p v-if="state.errors.page.requestId !== null">
-        Request ID: {{ state.errors.page.requestId }}
+        {{ $t('officialSettings.requestId') }}:
+        {{ state.errors.page.requestId }}
       </p>
-      <ElButton @click="load"> Retry </ElButton>
+      <ElButton @click="load">
+        {{ $t('officialSettings.action.retry') }}
+      </ElButton>
     </section>
 
     <EmptyState
       v-else-if="!state.loading && state.groups.length === 0"
-      title="No settings"
-      message="No settings are available for this Tenant."
+      :title="$t('officialSettings.empty.title')"
+      :message="$t('officialSettings.empty.message')"
     />
 
     <section
@@ -207,23 +217,29 @@
 
         <dl class="setting-item__metadata">
           <div>
-            <dt>Source</dt>
+            <dt>{{ $t('officialSettings.field.source') }}</dt>
             <dd>{{ sourceLabel(record) }}</dd>
           </div>
           <div>
-            <dt>Configured</dt>
-            <dd>{{ record.configured ? 'yes' : 'no' }}</dd>
+            <dt>{{ $t('officialSettings.field.configured') }}</dt>
+            <dd>{{
+              $t(
+                record.configured
+                  ? 'officialSettings.value.yes'
+                  : 'officialSettings.value.no'
+              )
+            }}</dd>
           </div>
           <div>
-            <dt>Revision</dt>
+            <dt>{{ $t('officialSettings.field.revision') }}</dt>
             <dd>{{ record.revision }}</dd>
           </div>
           <div>
-            <dt>Effective</dt>
+            <dt>{{ $t('officialSettings.field.effective') }}</dt>
             <dd>{{ dateLabel(record.effectiveAt) }}</dd>
           </div>
           <div>
-            <dt>Expires</dt>
+            <dt>{{ $t('officialSettings.field.expires') }}</dt>
             <dd>{{ dateLabel(record.expiresAt) }}</dd>
           </div>
         </dl>
@@ -253,20 +269,24 @@
             :data-boolean-unconfigured="keyOf(record)"
             role="status"
           >
-            <span>Not configured</span>
+            <span>{{ $t('officialSettings.value.notConfigured') }}</span>
             <ElButton
-              :aria-label="commandLabel('Set false for', record)"
+              :aria-label="
+                commandLabel(t('officialSettings.aria.setFalse'), record)
+              "
               :disabled="!canManage || runtime.isPending(keyOf(record))"
               @click="runtime.updateForm(keyOf(record), false)"
             >
-              Use false
+              {{ $t('officialSettings.action.useFalse') }}
             </ElButton>
             <ElButton
-              :aria-label="commandLabel('Set true for', record)"
+              :aria-label="
+                commandLabel(t('officialSettings.aria.setTrue'), record)
+              "
               :disabled="!canManage || runtime.isPending(keyOf(record))"
               @click="runtime.updateForm(keyOf(record), true)"
             >
-              Use true
+              {{ $t('officialSettings.action.useTrue') }}
             </ElButton>
           </div>
         </div>
@@ -333,7 +353,7 @@
             autocomplete="new-password"
             :disabled="!canManage || runtime.isPending(keyOf(record))"
             :model-value="String(state.forms[keyOf(record)]?.value ?? '')"
-            placeholder="Enter a new value"
+            :placeholder="$t('officialSettings.secret.placeholder')"
             :type="runtime.isSecretVisible(keyOf(record)) ? 'text' : 'password'"
             @update:model-value="runtime.updateForm(keyOf(record), $event)"
           />
@@ -341,8 +361,8 @@
             :aria-label="
               commandLabel(
                 runtime.isSecretVisible(keyOf(record))
-                  ? 'Hide typed value for'
-                  : 'Show typed value for',
+                  ? t('officialSettings.aria.hideSecret')
+                  : t('officialSettings.aria.showSecret'),
                 record
               )
             "
@@ -357,8 +377,8 @@
           >
             {{
               runtime.isSecretVisible(keyOf(record))
-                ? 'Hide typed value'
-                : 'Show typed value'
+                ? $t('officialSettings.action.hideSecret')
+                : $t('officialSettings.action.showSecret')
             }}
           </ElButton>
         </div>
@@ -369,7 +389,7 @@
           data-editor-kind="unsupported"
           role="status"
         >
-          This setting type is read-only.
+          {{ $t('officialSettings.readOnly') }}
         </div>
 
         <div
@@ -387,12 +407,14 @@
         >
           <span>{{ state.conflicts[keyOf(record)]?.message }}</span>
           <ElButton
-            :aria-label="commandLabel('Reload', record)"
+            :aria-label="
+              commandLabel(t('officialSettings.action.reload'), record)
+            "
             :aria-disabled="hasPendingMutation"
             :disabled="hasPendingMutation"
             @click="reload(keyOf(record))"
           >
-            Reload current value
+            {{ $t('officialSettings.action.reloadCurrent') }}
           </ElButton>
         </div>
 
@@ -401,15 +423,19 @@
           class="setting-item__actions"
         >
           <ElButton
-            :aria-label="commandLabel('Save', record)"
+            :aria-label="
+              commandLabel(t('officialSettings.action.save'), record)
+            "
             type="primary"
             :disabled="!canSave(record)"
             @click="save(keyOf(record))"
           >
-            Save
+            {{ $t('officialSettings.action.save') }}
           </ElButton>
           <ElButton
-            :aria-label="commandLabel('Unset', record)"
+            :aria-label="
+              commandLabel(t('officialSettings.action.unset'), record)
+            "
             :disabled="
               !canManage ||
               runtime.isPending(keyOf(record)) ||
@@ -417,7 +443,7 @@
             "
             @click="unset(keyOf(record))"
           >
-            Unset
+            {{ $t('officialSettings.action.unset') }}
           </ElButton>
         </div>
       </article>

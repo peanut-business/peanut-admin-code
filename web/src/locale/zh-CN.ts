@@ -32,6 +32,7 @@ import localeArticleCate from '@/modules/official-article/views/cate/locale/zh-C
 import localeArticleList from '@/modules/official-article/views/list/locale/zh-CN';
 import localeConfigurationTransfer from '@/modules/official-import-export/views/locale/zh-CN';
 import localeRichText from '@/modules/official-rich-text/views/locale/zh-CN';
+import localeOfficialSettings from '@/modules/official-settings/locale/zh-CN';
 import localeSettings from './zh-CN/settings';
 
 export default {
@@ -89,4 +90,5 @@ export default {
   ...localeArticleList,
   ...localeConfigurationTransfer,
   ...localeRichText,
+  ...localeOfficialSettings,
 };

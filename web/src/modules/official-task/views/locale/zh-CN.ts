@@ -1,5 +1,6 @@
 export default {
   'menu.system.crontab': '定时任务',
+  'menu.system.taskJobs': '任务作业',
 
   'systemCrontab.operation.create': '新增任务',
   'systemCrontab.operation.start': '启动',
@@ -53,4 +54,5 @@ export default {
   'systemCrontab.delete.confirm': '确定删除该定时任务吗？',
   'systemCrontab.tip.success': '操作成功',
   'systemCrontab.tip.badExpression': '运行规则错误',
+  'systemCrontab.tip.previewFailed': '无法预览运行规则，请检查规则后重试',
 };

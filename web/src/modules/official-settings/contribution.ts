@@ -19,7 +19,7 @@ const contribution: PluginFrontendContribution = {
           name: 'OfficialSettings',
           component: () => import('./RuntimePage.vue'),
           meta: {
-            locale: 'Settings',
+            locale: 'officialSettings.title',
             requiresAuth: true,
             tenantModuleKey: 'official.settings',
             requiredPermissions: 'official.settings.read',

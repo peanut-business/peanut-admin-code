@@ -1,5 +1,6 @@
 export default {
   'menu.system.crontab': 'Scheduled Tasks',
+  'menu.system.taskJobs': 'Task Jobs',
 
   'systemCrontab.operation.create': 'New Task',
   'systemCrontab.operation.start': 'Start',
@@ -53,4 +54,6 @@ export default {
   'systemCrontab.delete.confirm': 'Delete this scheduled task?',
   'systemCrontab.tip.success': 'Success',
   'systemCrontab.tip.badExpression': 'Invalid cron rule',
+  'systemCrontab.tip.previewFailed':
+    'Unable to preview the cron rule. Check it and try again.',
 };
