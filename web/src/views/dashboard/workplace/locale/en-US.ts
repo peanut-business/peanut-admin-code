@@ -1,5 +1,7 @@
 export default {
   'menu.dashboard.workplace': 'Workplace',
+  'workplace.demoData.notice':
+    'Demo data only. Business statistics are not connected; values and trends do not represent actual operations.',
   'workplace.version.title': 'Application version',
   'workplace.version.platform': 'Platform',
   'workplace.version.current': 'Current version',

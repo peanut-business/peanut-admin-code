@@ -5,9 +5,10 @@ $defaultImage = is_array($brandManifest['default_image'] ?? null)
     ? $brandManifest['default_image']
     : throw new RuntimeException('品牌默认图片配置格式错误');
 $defaultVersion = \app\common\value\installation\ApplicationReleaseVersions::runningVersion(dirname(__DIR__));
+$configuredVersion = trim((string) env('project.version', ''));
 
 return [
-    'version' => env('project.version', $defaultVersion),
+    'version' => $configuredVersion !== '' ? $configuredVersion : $defaultVersion,
     'based' => 'Vue 3.x、Element Plus、ThinkPHP 8、MySQL',
     // 用途化的中性默认资源；品牌 logo/favicon 由 config/brand.json 拥有。
     'default_image' => [

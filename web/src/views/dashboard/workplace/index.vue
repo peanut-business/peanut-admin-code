@@ -1,6 +1,13 @@
 <template>
   <div class="container">
     <div v-loading="loading" class="workplace-loading">
+      <el-alert
+        class="demo-data-alert"
+        type="warning"
+        :title="$t('workplace.demoData.notice')"
+        :closable="false"
+        show-icon
+      />
       <el-row :gutter="16" class="workplace-grid">
         <el-col :xs="24" :lg="7">
           <el-card class="general-card full-height">
@@ -343,6 +350,10 @@
 
   .workplace-loading {
     min-height: 280px;
+  }
+
+  .demo-data-alert {
+    margin-bottom: 16px;
   }
 
   .workplace-grid,

@@ -1,5 +1,7 @@
 export default {
   'menu.dashboard.workplace': '工作台',
+  'workplace.demoData.notice':
+    '演示数据，尚未接入真实业务统计；数值和趋势不代表实际经营数据。',
   'workplace.version.title': '应用版本信息',
   'workplace.version.platform': '平台名称',
   'workplace.version.current': '当前版本',
