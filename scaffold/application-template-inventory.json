@@ -5202,7 +5202,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "781358cc4dffad2b4a0706f0cf4a3ec241ca076d0b64f94bbf47a463dbe6ee52"
+            "source_sha256": "b5ecdd51c17102255c62201ba1540b18516c07c9cfc249f4a63de351e9cb844c"
         },
         {
             "path": "server/app/adminapi/services/auth/TenantSessionApplicationService.php",
@@ -10918,7 +10918,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3c4edf09657ff943cd23c2109fad2105f13196cdd48ae8920eb175bbefba9a57"
+            "source_sha256": "4e4c6d651e74340d209015ef77583807a1f7751acc3ebfd94e0aace88c666fce"
         },
         {
             "path": "server/app/modules/official/identity/src/Authorization/CatalogLifecycleService.php",

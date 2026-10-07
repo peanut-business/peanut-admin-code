@@ -104,7 +104,7 @@ final class RoleApplicationService
         $menus = $this->runtime->menuKeys($context, is_array($keys) ? $keys : []);
         $roleId = (int) $role['id'];
         return ['id' => $roleId, 'name' => $role['name'], 'desc' => $role['description'] ?? '', 'sort' => 0,
-            'create_time' => '', 'num' => $memberCounts === null
+            'create_time' => (string) $role['created_at'], 'num' => $memberCounts === null
                 ? $this->runtime->memberCount($context->tenantId, $roleId) : ($memberCounts[$roleId] ?? 0),
             'menu_keys' => $menus, 'status' => $role['status'], 'revision' => (int) $role['revision']];
     }

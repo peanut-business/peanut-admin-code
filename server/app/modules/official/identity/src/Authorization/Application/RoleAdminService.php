@@ -26,7 +26,7 @@ final readonly class RoleAdminService
     {
         $query = Role::where('tenant_id', $tenantId);
         $total = (int) (clone $query)->count();
-        $rows = $query->field('id,key,name,description,is_builtin,status,authorization_revision')
+        $rows = $query->field('id,key,name,description,is_builtin,status,authorization_revision,created_at')
             ->order('id')->limit($page->offset(), $page->pageSize)->select()->toArray();
 
         return ['items' => $this->hydratePermissions($tenantId, array_values($rows)), 'total' => $total];
@@ -36,7 +36,7 @@ final readonly class RoleAdminService
     public function get(int $tenantId, int $roleId): array
     {
         $row = Role::where('tenant_id', $tenantId)->where('id', $roleId)
-            ->field('id,key,name,description,is_builtin,status,authorization_revision')->find()?->toArray();
+            ->field('id,key,name,description,is_builtin,status,authorization_revision,created_at')->find()?->toArray();
         if ($row === null) {
             throw \PeanutAdmin\Kernel\Authorization\Application\AdminAccessException::notFound();
         }
