@@ -2290,7 +2290,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0974827a74268735b6f169a63aa64f4d29ca501aae93aef7ae70fedc41251056"
+            "source_sha256": "239231a8c9310ccf2ef6ebaba703007a197bf46b28d463bb10dc6631272c897b"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2540,7 +2540,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "db3482fdd7a33197b36ecbd838e85d3cf0924853c4f28fad2544385d658e0577"
+            "source_sha256": "966e74270966d3d9badddaf5b300885d43d9994affae393d66de294c48b9c471"
         },
         {
             "path": "plugins/peanut.entitlement-quota/plugin.json",
@@ -2554,7 +2554,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ff91094f9071c0e59dd623da43d5080e6d8682306ac15030cc5d1f07700fe443"
+            "source_sha256": "0c1294976905b764f57b26e1e75f32ecad1077dc3d9f19c0e7b55c7be128ac28"
         },
         {
             "path": "plugins/peanut.workflow/plugin.json",
@@ -2568,7 +2568,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e4d31ec177815dbece545b50a2b8228e32194d82f9afe7ce1dfa5bfd88bbe0a0"
+            "source_sha256": "a516343c9bc0365c62f7382660ff9265c0e111ac8dbe51b82b30b85b02968323"
         },
         {
             "path": "release-versions.json",
@@ -20279,7 +20279,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fb86d88fe6d12f1d0d9dc4cc39d15c882d24547441df2a0b713d564929f7666f"
+            "source_sha256": "4dd4fbaa05ff8b85c0207434915c509f44e6399017cf1626ee76cdf3d6560da3"
         },
         {
             "path": "server/app/modules/peanut/artifact_revision/database/migrations/20260921-register-module-schema.sql",
@@ -20307,7 +20307,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4128a25bb0d4fafebd82fd72d640070bbe544e6f8686fcd62f0e29c497be5126"
+            "source_sha256": "050875e71435446217772c8dc9cc3e5c1bb05c2ef1a619fd98bcd5e4c712a565"
         },
         {
             "path": "server/app/modules/peanut/artifact_revision/src/Application/ArtifactRevisionComparison.php",
@@ -20517,7 +20517,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "811f6564f3e98990b68771cd5645bac7ed8ffb1dbe5f6bdf75b2feedddf755c0"
+            "source_sha256": "117bb71ee389f74e4561adc005163a4d4033ec898ff37f331066941dbfd13afc"
         },
         {
             "path": "server/app/modules/peanut/entitlement_quota/database/migrations/20260921-register-module-schema.sql",
@@ -20545,7 +20545,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0f1da138a68763f714ca42877f0149c264b08e50c8214108324500534bb9abef"
+            "source_sha256": "a6f758bcfdbd7f2a3bf3b4df5f974e112d8287f798eb8f24b39a2e736260116d"
         },
         {
             "path": "server/app/modules/peanut/entitlement_quota/src/Application/EntitlementQuotaDecision.php",
@@ -20867,7 +20867,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ff0db064a975ea0b1f4defd55869a2c7abac677e49040658ce1b624295337cb9"
+            "source_sha256": "26e314b5b7ac71e0b8482b91f94a10de9d1ac336da3df8f932b700c123b948b7"
         },
         {
             "path": "server/app/modules/peanut/workflow/database/migrations/20260921-register-module-schema.sql",
@@ -20895,7 +20895,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "26dbbd6a28fb99653e1f42b4d6b06218fb6d835533ab19b1bf7ce8071f6839b9"
+            "source_sha256": "4f4835a3e67b33c68a9bc42285bcbb8b93059f3cc370a33c800c84320aedb02c"
         },
         {
             "path": "server/app/modules/peanut/workflow/src/Adapter/WorkflowAssignmentResolver.php",

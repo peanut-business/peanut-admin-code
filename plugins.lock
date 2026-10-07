@@ -1519,11 +1519,11 @@
         },
         {
             "key": "peanut.artifact-revision",
-            "version": "4.0.0-rc.19",
+            "version": "4.0.0-rc.20",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "683eb7faca8d6df9cc2b52611982b4b657c9f4178143d0246a7f4ee56f0bbd9f"
+                "sha256": "1c82ea951c4bdf7403df566a09b766506b1734215c0bc1d794b8beffb70b34ac"
             },
             "trust": {
                 "channel": "bundled",
@@ -1557,16 +1557,16 @@
                     "modules": [
                         {
                             "key": "peanut.artifact-revision",
-                            "version": "4.0.0-rc.19",
+                            "version": "4.0.0-rc.20",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
                                     "module_key": "official.identity",
-                                    "version": "4.0.0-rc.19"
+                                    "version": "4.0.0-rc.20"
                                 },
                                 {
                                     "module_key": "peanut.workflow",
-                                    "version": "4.0.0-rc.19"
+                                    "version": "4.0.0-rc.20"
                                 }
                             ],
                             "permissions": {
@@ -1589,8 +1589,8 @@
             "composer": [
                 {
                     "name": "peanut-business/artifact-revision",
-                    "version": "4.0.0-rc.18",
-                    "sha256": "fb86d88fe6d12f1d0d9dc4cc39d15c882d24547441df2a0b713d564929f7666f"
+                    "version": "4.0.0-rc.19",
+                    "sha256": "4dd4fbaa05ff8b85c0207434915c509f44e6399017cf1626ee76cdf3d6560da3"
                 }
             ],
             "npm": [],
@@ -1602,15 +1602,15 @@
                 }
             ],
             "manifest": "plugins/peanut.artifact-revision/plugin.json",
-            "manifest_sha256": "db3482fdd7a33197b36ecbd838e85d3cf0924853c4f28fad2544385d658e0577"
+            "manifest_sha256": "966e74270966d3d9badddaf5b300885d43d9994affae393d66de294c48b9c471"
         },
         {
             "key": "peanut.entitlement-quota",
-            "version": "4.0.0-rc.19",
+            "version": "4.0.0-rc.20",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "9ef8fc2c043a1dc82b8a36c72dc86af6ee6b87732c5b9ca3900e9afdcd09b6ad"
+                "sha256": "dffb43abfa5af31c9748065bfc49e6493f8b7b7bd9ef0839fe81ce4ef53b6f20"
             },
             "trust": {
                 "channel": "bundled",
@@ -1644,12 +1644,12 @@
                     "modules": [
                         {
                             "key": "peanut.entitlement-quota",
-                            "version": "4.0.0-rc.19",
+                            "version": "4.0.0-rc.20",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
                                     "module_key": "official.identity",
-                                    "version": "4.0.0-rc.19"
+                                    "version": "4.0.0-rc.20"
                                 }
                             ],
                             "permissions": {
@@ -1672,8 +1672,8 @@
             "composer": [
                 {
                     "name": "peanut-business/entitlement-quota",
-                    "version": "4.0.0-rc.18",
-                    "sha256": "811f6564f3e98990b68771cd5645bac7ed8ffb1dbe5f6bdf75b2feedddf755c0"
+                    "version": "4.0.0-rc.19",
+                    "sha256": "117bb71ee389f74e4561adc005163a4d4033ec898ff37f331066941dbfd13afc"
                 }
             ],
             "npm": [],
@@ -1685,15 +1685,15 @@
                 }
             ],
             "manifest": "plugins/peanut.entitlement-quota/plugin.json",
-            "manifest_sha256": "ff91094f9071c0e59dd623da43d5080e6d8682306ac15030cc5d1f07700fe443"
+            "manifest_sha256": "0c1294976905b764f57b26e1e75f32ecad1077dc3d9f19c0e7b55c7be128ac28"
         },
         {
             "key": "peanut.workflow",
-            "version": "4.0.0-rc.19",
+            "version": "4.0.0-rc.20",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "25e2162eeb1d91b6fb23234ea5f88da54831ed0b5822db797b17f3893e906960"
+                "sha256": "2f01eb303733ab0658436fad291a946fa7ff379a89935bf43d396fb137c565c1"
             },
             "trust": {
                 "channel": "bundled",
@@ -1727,12 +1727,12 @@
                     "modules": [
                         {
                             "key": "peanut.workflow",
-                            "version": "4.0.0-rc.19",
+                            "version": "4.0.0-rc.20",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
                                     "module_key": "official.identity",
-                                    "version": "4.0.0-rc.19"
+                                    "version": "4.0.0-rc.20"
                                 }
                             ],
                             "permissions": {
@@ -1755,8 +1755,8 @@
             "composer": [
                 {
                     "name": "peanut-business/workflow",
-                    "version": "4.0.0-rc.18",
-                    "sha256": "ff0db064a975ea0b1f4defd55869a2c7abac677e49040658ce1b624295337cb9"
+                    "version": "4.0.0-rc.19",
+                    "sha256": "26e314b5b7ac71e0b8482b91f94a10de9d1ac336da3df8f932b700c123b948b7"
                 }
             ],
             "npm": [],
@@ -1768,7 +1768,7 @@
                 }
             ],
             "manifest": "plugins/peanut.workflow/plugin.json",
-            "manifest_sha256": "e4d31ec177815dbece545b50a2b8228e32194d82f9afe7ce1dfa5bfd88bbe0a0"
+            "manifest_sha256": "a516343c9bc0365c62f7382660ff9265c0e111ac8dbe51b82b30b85b02968323"
         }
     ]
 }
