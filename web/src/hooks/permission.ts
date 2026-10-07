@@ -16,11 +16,19 @@ export function hasPermission(
   );
 }
 
-function hasRouteName(routes: RouteRecordRaw[], routeName: string): boolean {
+function hasRouteName(
+  routes: RouteRecordRaw[],
+  routeName: string,
+  tenantModuleKey?: string
+): boolean {
   const pending = [...routes];
   while (pending.length) {
     const route = pending.shift();
-    if (String(route?.name || '') === routeName) return true;
+    if (
+      String(route?.name || '') === routeName &&
+      (!tenantModuleKey || route?.meta?.tenantModuleKey === tenantModuleKey)
+    )
+      return true;
     if (route?.children?.length) pending.push(...route.children);
   }
   return false;
@@ -41,8 +49,17 @@ export default function usePermission() {
         ) {
           return true;
         }
+        const authorizedName =
+          route.meta?.hideInMenu && route.meta?.activeMenu
+            ? route.meta.activeMenu
+            : routeName;
         return (
-          routeName !== '' && hasRouteName(appStore.appAsyncMenus, routeName)
+          authorizedName !== '' &&
+          hasRouteName(
+            appStore.appAsyncMenus,
+            authorizedName,
+            route.meta?.tenantModuleKey
+          )
         );
       }
 

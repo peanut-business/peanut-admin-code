@@ -35,6 +35,8 @@ const contribution: PluginFrontendContribution = {
           meta: {
             locale: 'menu.system.file',
             requiresAuth: true,
+            hideInMenu: true,
+            activeMenu: 'SystemFile',
             tenantModuleKey: 'official.file',
             requiredPermissions: 'official.file.list',
           },

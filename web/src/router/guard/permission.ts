@@ -3,10 +3,7 @@ import NProgress from 'nprogress'; // progress bar
 
 import usePermission from '@/hooks/permission';
 import { useUserStore, useAppStore } from '@/store';
-import { routesForTenantModules } from '@peanut-admin/vue';
-import { permissionEvaluator } from '@/core/runtime';
 import { appRoutes } from '../routes';
-import { pluginRoutes } from '../routes/plugin-contributions';
 import { WHITE_LIST, NOT_FOUND, DEFAULT_ROUTE_NAME } from '../constants';
 
 export default function setupPermissionGuard(router: Router) {
@@ -22,21 +19,11 @@ export default function setupPermissionGuard(router: Router) {
       await appStore.fetchServerMenuConfig();
     }
     if (to.meta.tenantModuleKey) {
-      const enabledModules = appStore.enabledTenantModules;
-      const accessible = routesForTenantModules(
-        [{ moduleKey: to.meta.tenantModuleKey, routes: pluginRoutes }],
-        enabledModules,
-        userStore.permissions,
-        permissionEvaluator
-      ).some(
-        (route) =>
-          route.path === to.path ||
-          route.children?.some(
-            (child) =>
-              `${route.path}/${child.path}`.replace(/\/{2,}/g, '/') === to.path
-          )
-      );
-      if (!accessible) {
+      const required = to.meta.requiredPermissions;
+      if (
+        (typeof required !== 'string' && !Array.isArray(required)) ||
+        !Permission.hasPermission(required)
+      ) {
         next(NOT_FOUND);
         NProgress.done();
         return;
