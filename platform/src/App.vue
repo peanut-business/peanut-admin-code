@@ -1755,24 +1755,48 @@
     try {
       const key = await ElMessageBox.prompt(
         '账号标识（如 qiniu-main）',
-        '新增存储账号'
+        '新增存储账号',
+        {
+          inputPattern: /^[a-z][a-z0-9._-]{2,63}$/,
+          inputErrorMessage:
+            '账号标识须为 3–64 位小写字母、数字、点、下划线或连字符，且以字母开头',
+        }
       );
       const driver = await ElMessageBox.prompt(
-        '供应商：qiniu / aliyun / qcloud',
-        '供应商'
+        '供应商：local / qiniu / aliyun / qcloud',
+        '供应商',
+        {
+          inputPattern: /^(local|qiniu|aliyun|qcloud)$/,
+          inputErrorMessage: '请选择 local、qiniu、aliyun 或 qcloud',
+        }
       );
-      const name = await ElMessageBox.prompt('显示名称', '账号名称');
-      const access = await ElMessageBox.prompt('Access Key', '存储凭据');
-      const secret = await ElMessageBox.prompt('Secret Key', '存储凭据', {
-        inputType: 'password',
+      const name = await ElMessageBox.prompt('显示名称', '账号名称', {
+        inputValidator: (value: string) => {
+          const length = Array.from(value.trim()).length;
+          return length > 0 && length <= 128;
+        },
+        inputErrorMessage: '显示名称不能为空且最多 128 个字',
       });
+      let credentials: Record<string, string> = {};
+      if (driver.value !== 'local') {
+        const access = await ElMessageBox.prompt('Access Key', '存储凭据', {
+          inputPattern: /\S+/,
+          inputErrorMessage: '必须填写 Access Key',
+        });
+        const secret = await ElMessageBox.prompt('Secret Key', '存储凭据', {
+          inputType: 'password',
+          inputPattern: /\S+/,
+          inputErrorMessage: '必须填写 Secret Key',
+        });
+        credentials = { access_key: access.value, secret_key: secret.value };
+      }
       await run(
         () =>
           api.createStorageAccount({
             account_key: key.value,
             driver: driver.value,
             name: name.value,
-            credentials: { access_key: access.value, secret_key: secret.value },
+            credentials,
           }),
         '存储账号已创建'
       );
@@ -1782,16 +1806,52 @@
   }
   async function createStorageSpace() {
     try {
-      const account = await ElMessageBox.prompt('账号 ID', '新增 Space');
-      const key = await ElMessageBox.prompt('Space 标识', '新增 Space');
-      const name = await ElMessageBox.prompt('显示名称', '新增 Space');
+      const account = await ElMessageBox.prompt(
+        '账号标识（见存储账号列表）',
+        '新增 Space',
+        {
+          inputValidator: (value: string) =>
+            storage.value.accounts.some((a) => a.account_key === value.trim()),
+          inputErrorMessage: '请输入存储账号列表中存在的账号标识',
+        }
+      );
+      const accountRecord = storage.value.accounts.find(
+        (a) => a.account_key === account.value.trim()
+      );
+      if (!accountRecord) throw new Error('存储账号已变化，请重新加载后重试');
+      const key = await ElMessageBox.prompt('Space 标识', '新增 Space', {
+        inputPattern: /^[a-z][a-z0-9._-]{2,63}$/,
+        inputErrorMessage:
+          'Space 标识须为 3–64 位小写字母、数字、点、下划线或连字符，且以字母开头',
+      });
+      const name = await ElMessageBox.prompt('显示名称', '新增 Space', {
+        inputValidator: (value: string) => {
+          const length = Array.from(value.trim()).length;
+          return length > 0 && length <= 128;
+        },
+        inputErrorMessage: '显示名称不能为空且最多 128 个字',
+      });
       const access = await ElMessageBox.prompt(
         '公开属性：public / private',
-        '新增 Space'
+        '新增 Space',
+        {
+          inputPattern: /^(public|private)$/,
+          inputErrorMessage: '请选择 public 或 private',
+        }
       );
+      const accountId = accountRecord.id;
+      const isLocal = accountRecord.driver === 'local';
       const bucket = await ElMessageBox.prompt(
         'Bucket；本地账号填写 public/storage 或 private/storage',
-        '物理位置'
+        '物理位置',
+        {
+          inputPattern: isLocal
+            ? new RegExp(`^${access.value}/storage$`)
+            : /\S+/,
+          inputErrorMessage: isLocal
+            ? `本地账号须填写 ${access.value}/storage`
+            : '必须填写 Bucket',
+        }
       );
       const region = await ElMessageBox.prompt(
         'Region（不适用可留空）',
@@ -1805,13 +1865,10 @@
         '访问域名（不适用可留空）',
         '交付地址'
       );
-      const isLocal =
-        storage.value.accounts.find((a) => a.id === Number(account.value))
-          ?.driver === 'local';
       await run(
         () =>
           api.createStorageSpace({
-            account_id: Number(account.value),
+            account_id: accountId,
             space_key: key.value,
             name: name.value,
             access_type: access.value,
