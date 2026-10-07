@@ -106,7 +106,6 @@
                 >{{ $t('systemDept.operation.edit') }}</el-button
               >
               <el-popconfirm
-                v-if="row.pid !== 0"
                 :title="$t('systemDept.delete.confirm')"
                 @confirm="handleDelete(row)"
               >

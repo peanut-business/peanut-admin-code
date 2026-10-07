@@ -21,6 +21,7 @@ export default function setupPermissionGuard(router: Router) {
     if (to.meta.tenantModuleKey) {
       const required = to.meta.requiredPermissions;
       if (
+        !appStore.enabledTenantModules.includes(to.meta.tenantModuleKey) ||
         (typeof required !== 'string' && !Array.isArray(required)) ||
         !Permission.hasPermission(required)
       ) {

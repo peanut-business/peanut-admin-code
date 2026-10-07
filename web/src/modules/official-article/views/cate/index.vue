@@ -249,7 +249,14 @@
     const result = await formAction.run(({ signal }) =>
       form.value.id
         ? articleCategoryResource.update(form.value, signal)
-        : articleCategoryResource.create(form.value, signal)
+        : articleCategoryResource.create(
+            {
+              name: form.value.name,
+              sort: form.value.sort,
+              is_show: form.value.is_show,
+            },
+            signal
+          )
     );
     if (result.status !== 'completed') return;
     ElMessage.success(t('articleCate.message.success'));
