@@ -29,7 +29,11 @@ final class PluginPackageInstaller
         private readonly ModuleCatalogApplier $catalogs,
     ) {}
 
-    /** @return array<string,mixed> */
+    /**
+     * Verifies and promotes an archive, then runs the deployment-level install lifecycle.
+     *
+     * @return array<string,mixed>
+     */
     public function install(
         string $archivePath,
         ?string $expectedSha256,
@@ -40,7 +44,11 @@ final class PluginPackageInstaller
         );
     }
 
-    /** @return array<string,mixed> */
+    /**
+     * Verifies and plans an update; dry-run returns before source promotion or lock changes.
+     *
+     * @return array<string,mixed>
+     */
     public function update(
         string $archivePath,
         ?string $expectedSha256,

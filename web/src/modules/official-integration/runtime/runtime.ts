@@ -185,6 +185,10 @@ type RequestKey =
   | 'webhook-mutation'
   | 'session-mutation';
 
+/**
+ * Coordinates permission-gated requests, validates response bodies, and ignores
+ * results from superseded tenant or runtime generations.
+ */
 export const createIntegrationSecurityRuntime = (options: {
   readonly transport: IntegrationSecurityTransport;
   readonly permissions: IntegrationSecurityPermissions;

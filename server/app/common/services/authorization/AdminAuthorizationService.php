@@ -177,7 +177,11 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         );
     }
 
-    /** @param list<RequestedTargetSet> $requestedTargets */
+    /**
+     * Creates trusted context for the export operation only; callers cannot widen its targets.
+     *
+     * @param list<RequestedTargetSet> $requestedTargets
+     */
     public function authorizedOperation(
         TenantContext $tenantContext,
         AdminPrincipal $admin,

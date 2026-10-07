@@ -32,6 +32,7 @@ tenantClient.interceptors.response.use(undefined, (error: unknown) => {
 
 let sessionCookieQueue: Promise<void> = Promise.resolve();
 
+/** Serializes cookie-changing requests and rejects stale generations before dispatch. */
 function queueSessionCookieRequest<T>(
   operation: () => Promise<T>,
   generation = getSessionSnapshot().generation

@@ -6,6 +6,10 @@ import { useUserStore, useAppStore } from '@/store';
 import { appRoutes } from '../routes';
 import { WHITE_LIST, NOT_FOUND, DEFAULT_ROUTE_NAME } from '../constants';
 
+/**
+ * Loads server menus and gates tenant-module routes before navigation.
+ * Protected API operations still require server-side authorization.
+ */
 export default function setupPermissionGuard(router: Router) {
   router.beforeEach(async (to, from, next) => {
     const appStore = useAppStore();

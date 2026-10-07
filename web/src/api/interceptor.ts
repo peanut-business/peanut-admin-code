@@ -23,14 +23,12 @@ type SessionRequestConfig = AxiosRequestConfig & {
   tenantSession?: TenantSessionSnapshot;
 };
 
+// Share one refresh per captured token and generation while rotating the session cookie.
 const tenantRefreshRequests = new Map<string, Promise<string>>();
 
+/** Captures the issuing session so old responses cannot affect a later login. */
 axios.interceptors.request.use(
   (config: AxiosRequestConfig) => {
-    // let each request carry token
-    // this example using the JWT token
-    // Authorization is a custom headers key
-    // please modify it according to the actual situation
     const requestConfig = config as SessionRequestConfig;
     const snapshot = requestConfig.tenantSession ?? getSessionSnapshot();
     if (snapshot.generation !== getSessionSnapshot().generation) {
@@ -47,11 +45,11 @@ axios.interceptors.request.use(
     return config;
   },
   (error) => {
-    // do something
     return Promise.reject(error);
   }
 );
-// add response interceptors
+
+/** Handles each response only while its captured session is still current. */
 const handleResponse = async (response: AxiosResponse<HttpResponse>) => {
   const res = response.data;
   const retryConfig = response.config as SessionRequestConfig;
@@ -66,8 +64,7 @@ const handleResponse = async (response: AxiosResponse<HttpResponse>) => {
       new Error(res.msg || 'The request session has changed.')
     );
   }
-  // 20000 is the normal success envelope; LikeAdmin uses code=2 for a
-  // successfully generated export file.
+  // The legacy export endpoint uses code 2 to signal a generated file response.
   if (![20000, 2].includes(res.code)) {
     const accessToken = getToken();
     if (
@@ -130,7 +127,6 @@ const handleResponse = async (response: AxiosResponse<HttpResponse>) => {
       message: res.msg || 'Error',
       duration: 5 * 1000,
     });
-    // 50008: Illegal token; 50012: Other clients logged in; 50014: Token expired;
     if (
       [40100].includes(res.code) &&
       response.config.url !== '/adminapi/user/info'

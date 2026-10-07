@@ -6,6 +6,7 @@ namespace app\platform\infrastructure\plugin;
 
 use app\platform\value\plugin\PluginDescriptor;
 
+/** Immutable package inventory passed from archive verification into lifecycle application. */
 final readonly class VerifiedPluginPackage
 {
     /**

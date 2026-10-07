@@ -27,6 +27,7 @@ final class ModuleMigrationSqlExecutor
         $pdo = $connection->connect();
         $emulatedPrepares = (bool) $pdo->getAttribute(PDO::ATTR_EMULATE_PREPARES);
         if (!$emulatedPrepares) {
+            // Multi-statement migration execution needs this mode; the finally block restores it.
             $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, true);
         }
         try {

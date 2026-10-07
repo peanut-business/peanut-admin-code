@@ -31,7 +31,11 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         private TenantModuleStateQueries $tenantStates,
     ) {}
 
-    /** @return array<string,mixed> */
+    /**
+     * Installs or resumes the immutable package selected by the deployment lock.
+     *
+     * @return array<string,mixed>
+     */
     public function install(string $pluginKey): array
     {
         return $this->withPackageLock($pluginKey, fn(): array => $this->installLocked($pluginKey));
@@ -78,7 +82,11 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         return $operation();
     }
 
-    /** @return array<string,mixed> */
+    /**
+     * Installs a missing package or reconciles the active install to the locked identity.
+     *
+     * @return array<string,mixed>
+     */
     public function reconcile(string $pluginKey): array
     {
         return $this->withPackageLock($pluginKey, fn(): array => $this->reconcileLocked($pluginKey));
@@ -107,7 +115,11 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         return $this->upgrade($pluginKey, false);
     }
 
-    /** @return array<string,mixed> */
+    /**
+     * Returns an upgrade plan in dry-run mode; lower package versions are rejected.
+     *
+     * @return array<string,mixed>
+     */
     public function upgrade(string $pluginKey, bool $dryRun): array
     {
         return $this->withPackageLock($pluginKey, fn(): array => $this->upgradeLocked($pluginKey, $dryRun));
@@ -136,7 +148,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         return $this->activate($plugin, $manifests, true) + ['plan' => $plan];
     }
 
-    /** @return array<string,mixed> */
+    /** Describes manual rollback steps; it does not change the installed package or database. */
     public function rollbackPlan(string $pluginKey): array
     {
         $current = $this->pluginInstallation($pluginKey, false);
@@ -161,7 +173,11 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         ];
     }
 
-    /** @return array<string,mixed> */
+    /**
+     * Retires the package only after dependent and tenant-enabled modules are disabled.
+     *
+     * @return array<string,mixed>
+     */
     public function uninstall(string $pluginKey): array
     {
         return $this->withPackageLock($pluginKey, fn(): array => $this->uninstallLocked($pluginKey));

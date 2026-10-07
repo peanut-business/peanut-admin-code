@@ -1,6 +1,6 @@
 import { getCurrentScope, onScopeDispose, ref, shallowRef } from 'vue';
 
-/** A typed business envelope; stale responses cannot replace the current request result. */
+/** Starts loading immediately; revision checks discard late responses after reload or cancel. */
 export default function useRequest<T>(
   api: () => Promise<{ data: T }>,
   defaultValue?: T,

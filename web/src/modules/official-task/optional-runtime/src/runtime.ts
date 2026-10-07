@@ -34,6 +34,7 @@ export interface TaskJobState {
 }
 export interface TaskJobRuntime {
   readonly state: TaskJobState;
+  /** UI capability hint; server authorization remains required for every mutation. */
   readonly canManage: () => boolean;
   load: () => Promise<void>;
   setStatus: (status: TaskStatus) => Promise<void>;
@@ -65,6 +66,7 @@ const failure = (result: TaskTransportResult): TaskJobError => {
   };
 };
 
+/** Owns permission-checked task requests and abort controllers for one mounted runtime. */
 export const createTaskJobRuntime = (
   options: TaskJobRuntimeOptions
 ): TaskJobRuntime => {
