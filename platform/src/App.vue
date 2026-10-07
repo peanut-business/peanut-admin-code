@@ -415,7 +415,7 @@
         /></template>
         <template v-else-if="view === 'tenants'"
           ><div class="toolbar"
-            ><el-button type="primary" @click="provisionDialog = true"
+            ><el-button type="primary" @click="openProvisionDialog"
               >新建租户</el-button
             ></div
           ><el-table
@@ -885,23 +885,52 @@
           ><developer-center-page
         /></template> </el-main></el-container
   ></el-container>
-  <el-dialog v-model="provisionDialog" title="新建租户" width="520px"
-    ><el-form label-position="top"
-      ><el-form-item label="租户编码"
-        ><el-input v-model="provision.tenant_code" /></el-form-item
-      ><el-form-item label="租户名称"
-        ><el-input v-model="provision.tenant_name" /></el-form-item
-      ><el-form-item label="首位所有者邮箱"
-        ><el-input v-model="provision.owner_email" /></el-form-item
-      ><el-form-item label="首位所有者显示名"
-        ><el-input v-model="provision.owner_display_name" /></el-form-item
-      ><el-form-item label="邀请有效期（小时）"
+  <el-dialog
+    v-model="provisionDialog"
+    title="新建租户"
+    width="520px"
+    :close-on-click-modal="!loading"
+    :close-on-press-escape="!loading"
+    :show-close="!loading"
+    ><el-form
+      ref="provisionFormRef"
+      :model="provision"
+      :rules="provisionRules"
+      label-position="top"
+      @submit.prevent="createTenant"
+      ><el-alert
+        v-if="provisionError"
+        :title="provisionError"
+        type="error"
+        :closable="false"
+        show-icon /><el-form-item label="租户编码" prop="tenant_code"
+        ><el-input
+          v-model="provision.tenant_code"
+          :maxlength="64"
+          placeholder="小写字母开头，可含数字和连字符，最多 64 位" /></el-form-item
+      ><el-form-item label="租户名称" prop="tenant_name"
+        ><el-input
+          v-model="provision.tenant_name"
+          :maxlength="160"
+          show-word-limit /></el-form-item
+      ><el-form-item label="首位所有者邮箱" prop="owner_email"
+        ><el-input
+          v-model="provision.owner_email"
+          type="email"
+          :maxlength="255" /></el-form-item
+      ><el-form-item label="首位所有者显示名" prop="owner_display_name"
+        ><el-input
+          v-model="provision.owner_display_name"
+          :maxlength="120"
+          show-word-limit /></el-form-item
+      ><el-form-item label="邀请有效期（小时）" prop="expires_in_hours"
         ><el-input-number
           v-model="provision.expires_in_hours"
           :min="1"
           :max="720" /></el-form-item></el-form
     ><template #footer
-      ><el-button @click="provisionDialog = false">取消</el-button
+      ><el-button :disabled="loading" @click="provisionDialog = false"
+        >取消</el-button
       ><el-button type="primary" :loading="loading" @click="createTenant"
         >创建并发送邀请</el-button
       ></template
@@ -920,7 +949,14 @@
     reactive,
     ref,
   } from 'vue';
-  import { ElMessage, ElMessageBox, ElOption, ElSelect } from 'element-plus';
+  import {
+    ElMessage,
+    ElMessageBox,
+    ElOption,
+    ElSelect,
+    type FormInstance,
+    type FormRules,
+  } from 'element-plus';
   import {
     createOpsConsoleRuntime,
     OpsConsolePage,
@@ -1051,6 +1087,57 @@
     owner_display_name: '',
     expires_in_hours: 72,
   });
+  const provisionFormRef = ref<FormInstance>();
+  const provisionError = ref('');
+  const requiredTextRule = (label: string, max: number) => ({
+    validator: (
+      _rule: unknown,
+      value: string,
+      callback: (error?: Error) => void
+    ) => {
+      const length = Array.from(String(value ?? '').trim()).length;
+      callback(
+        length < 1 || length > max
+          ? new Error(`${label}不能为空且最多 ${max} 个字`)
+          : undefined
+      );
+    },
+    trigger: 'blur',
+  });
+  const provisionRules: FormRules = {
+    tenant_code: [
+      { required: true, message: '请输入租户编码', trigger: 'blur' },
+      {
+        pattern: /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/,
+        message: '租户编码须以小写字母开头，只能使用小写字母、数字和连字符',
+        trigger: 'blur',
+      },
+      { max: 64, message: '租户编码最多 64 位', trigger: 'blur' },
+    ],
+    tenant_name: [requiredTextRule('租户名称', 160)],
+    owner_email: [
+      { required: true, message: '请输入所有者邮箱', trigger: 'blur' },
+      { type: 'email', message: '请输入有效的所有者邮箱', trigger: 'blur' },
+      { max: 255, message: '所有者邮箱最多 255 位', trigger: 'blur' },
+    ],
+    owner_display_name: [requiredTextRule('所有者显示名', 120)],
+    expires_in_hours: [
+      {
+        validator: (
+          _rule: unknown,
+          value: number,
+          callback: (error?: Error) => void
+        ) => {
+          callback(
+            !Number.isInteger(value) || value < 1 || value > 720
+              ? new Error('邀请有效期须为 1～720 小时的整数')
+              : undefined
+          );
+        },
+        trigger: 'change',
+      },
+    ],
+  };
   const inviteForm = reactive({
     owner_email: '',
     owner_display_name: '',
@@ -1465,26 +1552,40 @@
   function goToTenantLogin() {
     window.location.assign('/admin/');
   }
+  function openProvisionDialog() {
+    provisionError.value = '';
+    provisionFormRef.value?.clearValidate();
+    provisionDialog.value = true;
+  }
   async function createTenant() {
+    if (loading.value) return;
+    provisionError.value = '';
+    const valid = await provisionFormRef.value?.validate().catch(() => false);
+    if (!valid) return;
     loading.value = true;
-    error.value = '';
+    let result: Invitation | null = null;
     try {
-      const result = await api.provision({ ...provision });
-      provisionDialog.value = false;
-      Object.assign(provision, {
-        tenant_code: '',
-        tenant_name: '',
-        owner_email: '',
-        owner_display_name: '',
-        expires_in_hours: 72,
-      });
+      result = await api.provision({ ...provision });
+    } catch (cause) {
+      provisionError.value = message(cause);
+    } finally {
+      loading.value = false;
+    }
+    if (!result) return;
+    provisionDialog.value = false;
+    Object.assign(provision, {
+      tenant_code: '',
+      tenant_name: '',
+      owner_email: '',
+      owner_display_name: '',
+      expires_in_hours: 72,
+    });
+    try {
       await showManualInvitation(result);
       ElMessage.success('租户已创建，所有者邀请已生成');
       await loadView();
     } catch (cause) {
       error.value = message(cause);
-    } finally {
-      loading.value = false;
     }
   }
   async function changeTenant(
