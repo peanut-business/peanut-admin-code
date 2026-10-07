@@ -5272,7 +5272,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "47d279047941950f51f56434c3a709048ad31d22ef14da40acde81b4dcfa7b6d"
+            "source_sha256": "62059337ecfda2b396eca84a03732c7febc768a7e8b477d327c3e7503d07bf72"
         },
         {
             "path": "server/app/adminapi/services/dept/JobsApplicationService.php",
@@ -35412,7 +35412,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a352765cea4b6f9cd33cc912cd3e0320eb1be3de2d50364c98f3f50e61e56a69"
+            "source_sha256": "f24b6f59460b63c64fa6b757c7500ec69f8f5a3912734e603d5fdb187ef1d016"
         },
         {
             "path": "web/src/views/system/dept/locale/en-US.ts",

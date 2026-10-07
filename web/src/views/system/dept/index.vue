@@ -256,8 +256,10 @@
 
   const formatTime = (value?: number | string): string => {
     if (!value) return '-';
-    if (typeof value === 'string') return value;
-    return new Date(value * 1000).toLocaleString('zh-CN', { hour12: false });
+    const date = new Date(typeof value === 'number' ? value * 1000 : value);
+    return Number.isNaN(date.getTime())
+      ? '-'
+      : date.toLocaleString('zh-CN', { hour12: false });
   };
 
   fetchData();

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace app\adminapi\services\dept;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use PeanutAdmin\Modules\Identity\Organization\Application\DepartmentAdminService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
@@ -117,12 +119,17 @@ final class DeptApplicationService
 
     private static function compat(array $row): array
     {
+        $utc = new DateTimeZone('UTC');
+        $createdAt = (new DateTimeImmutable((string) $row['created_at'], $utc))
+            ->setTimezone($utc)->format('Y-m-d\TH:i:s.v\Z');
+        $updatedAt = (new DateTimeImmutable((string) $row['updated_at'], $utc))
+            ->setTimezone($utc)->format('Y-m-d\TH:i:s.v\Z');
         return ['id' => (int) $row['id'], 'pid' => $row['parent_id'] === null ? 0 : (int) $row['parent_id'],
             'code' => $row['code'], 'name' => $row['name'], 'leader' => $row['leader'], 'mobile' => $row['mobile'],
             'sort' => (int) $row['sort_order'], 'status' => self::statusInt($row['status']),
             'is_disable' => self::statusInt($row['status']) === 1 ? 0 : 1,
             'status_desc' => self::statusInt($row['status']) === 1 ? '正常' : '停用', 'revision' => (int) $row['revision'],
-            'create_time' => $row['created_at'], 'update_time' => $row['updated_at']];
+            'create_time' => $createdAt, 'update_time' => $updatedAt];
     }
 
     private static function buildTree(array $data, int $pid = 0, int $level = 0): array
