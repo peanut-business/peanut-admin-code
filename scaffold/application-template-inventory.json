@@ -2290,7 +2290,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d2c9fb8c7b68da97b1bf8bdca2c7d8d669711f3912d51dc1cbc7a36c85ec7e83"
+            "source_sha256": "f2e50da2c51e5b50e3c0574d2374631e39ba35427c5ef68aaf017a71375d0436"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2344,7 +2344,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f474941f40af756891ea068d926d61f4abaff0d72f345f0cf5d637ba75dca8c3"
+            "source_sha256": "e433628f3511cc696115c2a1eed78bdf0a3305a97381af11533ef52317e0bcd9"
         },
         {
             "path": "plugins/official.file/plugin.json",
@@ -2358,7 +2358,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bdf5366756604d872b504b9262c8ba7d8f96ff7a1399e005ac6eaae78cec00c9"
+            "source_sha256": "7027444193ab21908c08fee66b6378c05f7a4f5de010e015789ed7004053b8bb"
         },
         {
             "path": "plugins/official.identity/plugin.json",
@@ -2400,7 +2400,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "321d5ac89c10cf00bdd3b1a4369f45518d2062d3d9fe0b71fe48f7fbd1b10c95"
+            "source_sha256": "32f1b0245fd72742ba36417a83befdf9ab12159737e4953566b92f24983c35d6"
         },
         {
             "path": "plugins/official.member/plugin.json",
@@ -2456,7 +2456,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a0e48b5f63ff84a9bc97e49f64c815ab75c1f2c21569f8bba765aab503002001"
+            "source_sha256": "0c20c8c7603876dc54aaffabe89edb90814f695859f0a89d440d9c2e4bddf4a6"
         },
         {
             "path": "plugins/official.payment/plugin.json",
@@ -2498,7 +2498,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5a2412591d85da67e6b0276e852de0f93ce350733d389bb6552156c14f79989b"
+            "source_sha256": "c95d461e18c7b704dc3eca35840ef730bbad191282d3b470df90ab075e901cf9"
         },
         {
             "path": "plugins/official.settings/plugin.json",
@@ -2512,7 +2512,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "707d1b308826edf5d3572bd90cfcabac68c2a089cfd6b80d2910afd3017b31f4"
+            "source_sha256": "dd4cb82099c1648c2647acc59eb664aeaa78091515b50ff0d282ee545460a599"
         },
         {
             "path": "plugins/official.task/plugin.json",
@@ -5146,7 +5146,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "43921c6e273c13c6b8a5832745ce23337e70495b7a61e2cd649ecb5ab94f67f9"
+            "source_sha256": "0cc340008a43b747e1e94c09246a635cde98841f6f1112a9dc121e5317224c4d"
         },
         {
             "path": "server/app/adminapi/services/auth/AdminApplicationService.php",
@@ -7542,7 +7542,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d802b985372c29fd1723f2990f7ca59b040657c65afdefb4ef3df985eeddef6e"
+            "source_sha256": "a39a5085405f8cc11f888d2968b47cfe3114dbecdc2dfd17e6e99a2ace179fbc"
         },
         {
             "path": "server/app/common/http/JsonResponseFactory.php",
@@ -13565,7 +13565,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "70e2b1f7716653d8558b367866acd0c71adb5f69c2c148a8cacbf1ee8459f94d"
+            "source_sha256": "b453f94ff5790a604f5f1d82217cf6d21567435538fd66e644e4a4c93a0c5feb"
         },
         {
             "path": "server/app/modules/official/integration/src/Application/MachineScopeGrantPolicy.php",
@@ -17179,7 +17179,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2ecb0c2fcb509ae2bbd208e6805ef20cdb6c337e01db81305d811b2faec15226"
+            "source_sha256": "78049510db9912eba4db43b3815c78ab3ba080bd417113f577137b2ca1b7121d"
         },
         {
             "path": "server/app/modules/official/ops/src/Infrastructure/Authorization/PlatformOpsPermissionChecker.php",
@@ -18791,7 +18791,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a8c8d9f6a1f55f3a11e445233ed7ab5b5898ef7df25f148ab885ab160cfc1eae"
+            "source_sha256": "60f3a3e2b094a9c747f64615c32c71dbd63d46820576065edf7c7c986d9f632e"
         },
         {
             "path": "server/app/modules/official/settings/LICENSE",
@@ -19183,7 +19183,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7d288983837cc530b244173b3c2bf2ec002c32aa0abef17727ffdfce3d3ad9bb"
+            "source_sha256": "6a127793b396fd714609ed9d6d012cbab1174db9030ad96b66364d3bddc9f960"
         },
         {
             "path": "server/app/modules/official/settings/src/Database/Schema.php",
@@ -22183,7 +22183,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "04f0eae1bb33153dfca3840701c9269adea0409575bfe3edaa0a6df9904d8ed9"
+            "source_sha256": "ddc10c21dfa0d42847b084269f748780e55b590e87f8f322c72ef161deaaab98"
         },
         {
             "path": "server/app/platform/services/module/ModuleQualificationQueryService.php",
@@ -31326,7 +31326,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "96bb89b120a8dfa01955b6d1a9f4f72618f352a80457b289bbc1eb1734a11dc3"
+            "source_sha256": "617cb754ed978fe59410132bf06b3a5aefd2faf066917cd1bf42c42fe595c64d"
         },
         {
             "path": "web/src/api/workbench.ts",
@@ -31624,21 +31624,6 @@
             "adapter_kind": "application-provider"
         },
         {
-            "path": "web/src/core/tenant-session.ts",
-            "target": "web/src/core/tenant-session.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "e788d9398bbc28f574c13104fb2aa13f2c01eede541493136e0ae9b576fc724b",
-            "adapter_kind": "application-provider"
-        },
-        {
             "path": "web/src/directive/index.ts",
             "target": "web/src/directive/index.ts",
             "classification": "managed",
@@ -31776,7 +31761,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8b33979b6968deec11fd5b1ecbeb54b070f9928a2aa49d67531b7a2cd472b311"
+            "source_sha256": "da34b2503310b2478b0fa3fe31b03027478f142f2c6e58bceebf979409451644"
         },
         {
             "path": "web/src/hooks/request.ts",
@@ -32081,7 +32066,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5816d98eb6a208fad8cac1956649c234e6814b304151543a515ff2f93cd1b743"
+            "source_sha256": "11c48267bbb5693349add2838eb45a5188502b9bb6cf69047524548c258068a4"
         },
         {
             "path": "web/src/modules/official-article/views/cate/locale/en-US.ts",
@@ -32179,7 +32164,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "db74f0ce04fc3c9d9ee1662dca190f661a5c2cac46e768e7713cb2fa4b91a1e4"
+            "source_sha256": "e1821e8f1411ab45754614dd6abe7f2a78046d8d6568fa5372ecabab216482ae"
         },
         {
             "path": "web/src/modules/official-file/generated/openapi.ts",
@@ -34405,7 +34390,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7af73dd5308f22205cafc6d0c605f3d33bb34d4e5ccaf1210b36c8f7a9be0439"
+            "source_sha256": "3243431d8b6759ea2d03d61fba3d5335ed18f93f9999ad82b3ebd05a7aa98d6e"
         },
         {
             "path": "web/src/router/guard/userLoginInfo.ts",
@@ -34727,7 +34712,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4359a94774185921bec135bf0f752ec6313e34a77886b00510b87bb14029ce8b"
+            "source_sha256": "ae276e8c9847d5d0559c17faf6d81544e7f17a419956b7bc7a75975684d4b07f"
         },
         {
             "path": "web/src/store/modules/user/types.ts",
@@ -35399,7 +35384,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "018e824b86578178efa629fb958b7f71716f637abe6598bf025b6156a3b042fa"
+            "source_sha256": "a352765cea4b6f9cd33cc912cd3e0320eb1be3de2d50364c98f3f50e61e56a69"
         },
         {
             "path": "web/src/views/system/dept/locale/en-US.ts",
