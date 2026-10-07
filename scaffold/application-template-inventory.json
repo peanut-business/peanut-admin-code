@@ -2290,7 +2290,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d26b707ace9e49f3320fea5c0b9911876f973587677a23721f81311601ef58e8"
+            "source_sha256": "818ce20cef527f23c964b634baf0cdf2d102a0969cb5e5c9aaf2c75fd24ea48b"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2400,7 +2400,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b7ea95d28a5be4df028c091b2b415e3664e9b15a0ae0e925dd6368e4bd2265da"
+            "source_sha256": "12f5bbcef801d93098a467021607e7001962f468c644052a0ef522d40860c791"
         },
         {
             "path": "plugins/official.member/plugin.json",
@@ -2526,7 +2526,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9306b90f1d4928ab6e15881fc178fdb70cb28940269e7e112bb84d47ee106dc1"
+            "source_sha256": "b49479d685b8827b757164cccb9ad3e9ee71946e2093123a8d07ca3f9de1c0c6"
         },
         {
             "path": "plugins/peanut.artifact-revision/plugin.json",
@@ -8567,7 +8567,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "001f6557613aa949d2a9f71bb54ed90fdaf99ac7e43ef322c85f4201a7fb2914"
+            "source_sha256": "07c201b0094b3888e4c9a105bb616fd6f7a510400b1909fbc4bf07d2b646f4af"
         },
         {
             "path": "server/app/common/services/authorization/MenuPermissionUsageQuery.php",
@@ -21889,7 +21889,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "efd5cc3af842de7b15aebecf5d899df260857b291648dd46cca47b61a7f38804"
+            "source_sha256": "46b255849f2dd6b74d6ab0396ebe84102f219226d993379174a0a5a7cad57f25"
         },
         {
             "path": "server/app/platform/infrastructure/plugin/ModuleUninstallPlanCodec.php",
@@ -21945,7 +21945,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1949574623f25aae1fe8e2ba294f2738e379b04f5f699c726bac23b4303d3fcc"
+            "source_sha256": "6bd8ae7946dfd4833a62a1aaa6640a8f7b05236e59c1db85bfeb2318d5a30b8b"
         },
         {
             "path": "server/app/platform/infrastructure/plugin/PluginPackageSourcePromoter.php",
@@ -21987,7 +21987,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a0e00baf7bdb3693e2a2568aa675e738c056ffe639517ffa59cba00b80f3694a"
+            "source_sha256": "d4b8b6b18ea65654b82de6b58b80e8048636e7dae3fe1a37313e42d9f6c3e8a3"
         },
         {
             "path": "server/app/platform/infrastructure/provider/AbstractTenantBindingQualificationContributor.php",
@@ -22295,7 +22295,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3147c9a935a08862a3bfa026a08d301ce75df6db98ec09b682d13207b874f056"
+            "source_sha256": "325f25cc80909fa4113ac14c409899ada557d864fcbad7479aad333077dcbcc7"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",
@@ -31144,7 +31144,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7bfacd72a97ee9af40cf4ebc1c73ed858a712947383962ed0486414536aebbfa"
+            "source_sha256": "9c7ef02ec21518f6dbd3e0f00b8f1ca2656c237c0615f9483f1f8b7710e9e568"
         },
         {
             "path": "web/src/api/password-policy.ts",
@@ -31340,7 +31340,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f3e7b53883a54e6e6f12f4399090489bd440a92c3c305ba63d02d36ec7ccfb43"
+            "source_sha256": "a82bbf8850371f4be9942bf35c91c01708cf5c074ead1557b1419492f3b4e4a1"
         },
         {
             "path": "web/src/api/user.ts",
@@ -31803,7 +31803,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d479de4541a334969a01551223a7bd5e4b092562a7e7d89123a60a447218c0ee"
+            "source_sha256": "9e5ec23cc21ab55d83a335066c8cf0f1e05f1da1826d6a15fb2e6beffa78e62c"
         },
         {
             "path": "web/src/hooks/responsive.ts",
@@ -32752,7 +32752,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "922fbb38f7d65bc54bffadc23c6870265adeee06ee5074874c1580dd03673231"
+            "source_sha256": "1d687c16bf3acc05ea6b938b6ed08ab9196e4ba453667e92caa3adf933fbe497"
         },
         {
             "path": "web/src/modules/official-integration/tsconfig.json",
@@ -34292,7 +34292,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bc31f482ca4b838407c6a15651f12d3081fc10d5c16c0f1eb22c84d8260a7371"
+            "source_sha256": "dc2f2069afc8c6bdffeff50499c77e87587c46c43f9c11e8145e5306da6780e3"
         },
         {
             "path": "web/src/modules/official-task/optional-runtime/tests/contracts.spec.ts",
@@ -34474,7 +34474,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3243431d8b6759ea2d03d61fba3d5335ed18f93f9999ad82b3ebd05a7aa98d6e"
+            "source_sha256": "79e274b31296ead9bc74b7b19636119ce5ae999acadcf89d080f0b1816c67524"
         },
         {
             "path": "web/src/router/guard/userLoginInfo.ts",
