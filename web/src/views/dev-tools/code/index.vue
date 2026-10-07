@@ -1,10 +1,10 @@
 <template>
   <div class="container">
-    <Breadcrumb :items="['开发工具', '代码生成器']" />
+    <Breadcrumb :items="['menu.devTools', 'menu.devTools.code']" />
     <el-card class="general-card">
       <template #header>代码生成器</template>
       <el-row
-        align="center"
+        align="middle"
         justify="space-between"
         style="margin-bottom: 16px"
       >

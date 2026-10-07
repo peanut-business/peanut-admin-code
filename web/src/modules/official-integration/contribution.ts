@@ -19,7 +19,7 @@ const contribution: PluginFrontendContribution = {
           name: 'official.integration.index',
           component: () => import('./RuntimePage.vue'),
           meta: {
-            locale: '集成与安全',
+            locale: 'menu.integrationSecurity',
             requiresAuth: true,
             tenantModuleKey: 'official.integration',
             requiredPermissions: 'official.integration.access',

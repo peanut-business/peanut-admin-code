@@ -34,6 +34,7 @@ import localeConfigurationTransfer from '@/modules/official-import-export/views/
 import localeRichText from '@/modules/official-rich-text/views/locale/zh-CN';
 import localeOfficialSettings from '@/modules/official-settings/locale/zh-CN';
 import localeReferenceCodes from '@/modules/official-reference-codes/locale/zh-CN';
+import localeIntegrationSecurity from '@/modules/official-integration/runtime/locale/zh-CN';
 import localeSettings from './zh-CN/settings';
 
 export default {
@@ -93,4 +94,5 @@ export default {
   ...localeRichText,
   ...localeOfficialSettings,
   ...localeReferenceCodes,
+  ...localeIntegrationSecurity,
 };

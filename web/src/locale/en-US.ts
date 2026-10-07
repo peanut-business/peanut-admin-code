@@ -34,6 +34,7 @@ import localeConfigurationTransfer from '@/modules/official-import-export/views/
 import localeRichText from '@/modules/official-rich-text/views/locale/en-US';
 import localeOfficialSettings from '@/modules/official-settings/locale/en-US';
 import localeReferenceCodes from '@/modules/official-reference-codes/locale/en-US';
+import localeIntegrationSecurity from '@/modules/official-integration/runtime/locale/en-US';
 import localeSettings from './en-US/settings';
 
 export default {
@@ -94,4 +95,5 @@ export default {
   ...localeRichText,
   ...localeOfficialSettings,
   ...localeReferenceCodes,
+  ...localeIntegrationSecurity,
 };

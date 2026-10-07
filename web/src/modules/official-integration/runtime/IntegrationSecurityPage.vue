@@ -1,7 +1,11 @@
 <script setup lang="ts">
   import { computed, onMounted, reactive, ref } from 'vue';
+  import { useI18n } from 'vue-i18n';
   import { useIntegrationSecurityRuntime } from './runtime';
 
+  const { t } = useI18n();
+  const errorMessage = (error: { code: string; message: string }) =>
+    t(`integrationSecurity.errors.${error.code}`, error.message);
   const runtime = useIntegrationSecurityRuntime();
   const machineDialog = ref(false);
   const webhookDialog = ref(false);
@@ -53,13 +57,12 @@
   <main class="integration-security-page">
     <header class="page-header">
       <div
-        ><h1>Integration security</h1
-        ><p
-          >Machine credentials, outbound endpoints, delivery evidence, and
-          signed-in devices</p
-        ></div
+        ><h1>{{ t('integrationSecurity.title') }}</h1
+        ><p>{{ t('integrationSecurity.description') }}</p></div
       >
-      <el-button @click="runtime.load"> Refresh </el-button>
+      <el-button @click="runtime.load">{{
+        t('integrationSecurity.refresh')
+      }}</el-button>
     </header>
     <el-alert
       v-if="runtime.state.disclosure"
@@ -68,66 +71,82 @@
       show-icon
     >
       <template #title>
-        Store this
+        {{ t('integrationSecurity.storeThis') }}
         {{
-          runtime.state.disclosure.kind === 'machine-token' ? 'token' : 'secret'
+          t(
+            runtime.state.disclosure.kind === 'machine-token'
+              ? 'integrationSecurity.token'
+              : 'integrationSecurity.secret'
+          )
         }}
-        now. It will not be shown again.
+        {{ t('integrationSecurity.willNotShowAgain') }}
       </template>
       <code class="disclosure">{{ runtime.state.disclosure.value }}</code>
-      <el-button text @click="runtime.clearDisclosure"> Dismiss </el-button>
+      <el-button text @click="runtime.clearDisclosure">{{
+        t('integrationSecurity.dismiss')
+      }}</el-button>
     </el-alert>
-    <section class="summary" aria-label="Security summary">
+    <section class="summary" :aria-label="t('integrationSecurity.summary')">
       <div
         ><strong>{{ activeMachines }}</strong
-        ><span>Active machines</span></div
+        ><span>{{ t('integrationSecurity.activeMachines') }}</span></div
       >
       <div
         ><strong>{{ activeWebhooks }}</strong
-        ><span>Active webhooks</span></div
+        ><span>{{ t('integrationSecurity.activeWebhooks') }}</span></div
       >
       <div
         ><strong>{{ runtime.state.deliveries.total }}</strong
-        ><span>Webhook deliveries</span></div
+        ><span>{{ t('integrationSecurity.webhookDeliveries') }}</span></div
       >
       <div
         ><strong>{{ runtime.state.sessions.items.length }}</strong
-        ><span>Signed-in devices</span></div
+        ><span>{{ t('integrationSecurity.signedInDevices') }}</span></div
       >
     </section>
 
     <section>
       <div class="section-header">
-        <h2>Machine identities</h2
+        <h2>{{ t('integrationSecurity.machineIdentities') }}</h2
         ><el-button
           v-if="runtime.can.canManageMachines()"
           @click="machineDialog = true"
         >
-          Create
+          {{ t('integrationSecurity.create') }}
         </el-button>
       </div>
       <el-alert
         v-if="runtime.state.machines.error"
         type="error"
-        :title="runtime.state.machines.error.message"
+        :title="errorMessage(runtime.state.machines.error)"
         :closable="false"
       />
       <el-table
         v-loading="runtime.state.machines.loading"
         :data="runtime.state.machines.items"
-        empty-text="No machine identities"
+        :empty-text="t('integrationSecurity.noMachineIdentities')"
       >
         <el-table-column
           prop="name"
-          label="Name"
+          :label="t('integrationSecurity.name')"
           min-width="180"
-        /><el-table-column prop="status" label="Status" width="120" />
-        <el-table-column label="Token" min-width="180">
+        /><el-table-column
+          prop="status"
+          :label="t('integrationSecurity.status')"
+          width="120"
+        />
+        <el-table-column
+          :label="t('integrationSecurity.token')"
+          min-width="180"
+        >
           <template #default="{ row }">
             {{ row.tokenPrefix }}...{{ row.tokenLastFour }}
           </template>
         </el-table-column>
-        <el-table-column label="Scopes" min-width="240">
+        <el-table-column
+          :label="t('integrationSecurity.scopes')"
+          min-width="240"
+        >
           <template #default="{ row }">
             {{ row.scopes.join(', ') }}
           </template>
@@ -144,14 +163,14 @@
               :disabled="row.status !== 'active' || runtime.state.mutating"
               @click="runtime.rotateMachine(row)"
             >
-              Rotate </el-button
+              {{ t('integrationSecurity.rotate') }} </el-button
             ><el-button
               text
               type="danger"
               :disabled="row.status !== 'active' || runtime.state.mutating"
               @click="runtime.revokeMachine(row)"
             >
-              Revoke
+              {{ t('integrationSecurity.revoke') }}
             </el-button>
           </template>
         </el-table-column>
@@ -160,40 +179,43 @@
 
     <section>
       <div class="section-header">
-        <h2>Webhook endpoints</h2
+        <h2>{{ t('integrationSecurity.webhookEndpoints') }}</h2
         ><el-button
           v-if="runtime.can.canManageWebhooks()"
           @click="webhookDialog = true"
         >
-          Create
+          {{ t('integrationSecurity.create') }}
         </el-button>
       </div>
       <el-alert
         v-if="runtime.state.webhooks.error"
         type="error"
-        :title="runtime.state.webhooks.error.message"
+        :title="errorMessage(runtime.state.webhooks.error)"
         :closable="false"
       />
       <el-table
         v-loading="runtime.state.webhooks.loading"
         :data="runtime.state.webhooks.items"
-        empty-text="No webhook endpoints"
+        :empty-text="t('integrationSecurity.noWebhookEndpoints')"
       >
         <el-table-column
           prop="name"
-          label="Name"
+          :label="t('integrationSecurity.name')"
           min-width="160"
         /><el-table-column
           prop="url"
-          label="HTTPS destination"
+          :label="t('integrationSecurity.httpsDestination')"
           min-width="280"
           show-overflow-tooltip
         />
         <el-table-column
           prop="status"
-          label="Status"
+          :label="t('integrationSecurity.status')"
           width="120"
-        /><el-table-column label="Events" min-width="220">
+        /><el-table-column
+          :label="t('integrationSecurity.events')"
+          min-width="220"
+        >
           <template #default="{ row }">
             {{ row.events.join(', ') }}
           </template>
@@ -210,14 +232,14 @@
               :disabled="row.status !== 'active' || runtime.state.mutating"
               @click="runtime.rotateWebhook(row)"
             >
-              Rotate secret </el-button
+              {{ t('integrationSecurity.rotateSecret') }} </el-button
             ><el-button
               text
               type="danger"
               :disabled="row.status !== 'active' || runtime.state.mutating"
               @click="runtime.disableWebhook(row)"
             >
-              Disable
+              {{ t('integrationSecurity.disable') }}
             </el-button>
           </template>
         </el-table-column>
@@ -225,36 +247,44 @@
     </section>
 
     <section>
-      <h2>Webhook deliveries</h2>
+      <h2>{{ t('integrationSecurity.webhookDeliveries') }}</h2>
       <el-alert
         v-if="runtime.state.deliveries.error"
         type="error"
-        :title="runtime.state.deliveries.error.message"
+        :title="errorMessage(runtime.state.deliveries.error)"
         :closable="false"
       />
       <el-table
         v-loading="runtime.state.deliveries.loading"
         :data="runtime.state.deliveries.items"
-        empty-text="No webhook deliveries"
+        :empty-text="t('integrationSecurity.noWebhookDeliveries')"
       >
         <el-table-column
           prop="eventType"
-          label="Event"
+          :label="t('integrationSecurity.event')"
           min-width="180"
-        /><el-table-column prop="status" label="Status" width="150" />
+        /><el-table-column
+          prop="status"
+          :label="t('integrationSecurity.status')"
+          width="150"
+        />
         <el-table-column
           prop="attemptCount"
-          label="Attempts"
+          :label="t('integrationSecurity.attempts')"
           width="100"
-        /><el-table-column prop="lastStatusCode" label="HTTP" width="90" />
+        /><el-table-column
+          prop="lastStatusCode"
+          :label="t('integrationSecurity.http')"
+          width="90"
+        />
         <el-table-column
           prop="lastErrorCode"
-          label="Result"
+          :label="t('integrationSecurity.result')"
           min-width="190"
         /><el-table-column label="" width="100" align="right">
           <template #default="{ row }">
             <el-button text @click="showAttempts(row.deliveryKey)">
-              Attempts
+              {{ t('integrationSecurity.attempts') }}
             </el-button>
           </template>
         </el-table-column>
@@ -272,30 +302,36 @@
     </section>
 
     <section>
-      <h2>Signed-in devices</h2>
+      <h2>{{ t('integrationSecurity.signedInDevices') }}</h2>
       <el-alert
         v-if="runtime.state.sessions.error"
         type="error"
-        :title="runtime.state.sessions.error.message"
+        :title="errorMessage(runtime.state.sessions.error)"
         :closable="false"
       />
       <el-table
         v-loading="runtime.state.sessions.loading"
         :data="runtime.state.sessions.items"
-        empty-text="No sessions"
+        :empty-text="t('integrationSecurity.noSessions')"
       >
-        <el-table-column label="Device" min-width="180">
+        <el-table-column
+          :label="t('integrationSecurity.device')"
+          min-width="180"
+        >
           <template #default="{ row }">
-            {{ row.clientKey }}<span v-if="row.current"> (current)</span>
+            {{ row.clientKey
+            }}<span v-if="row.current">
+              ({{ t('integrationSecurity.current') }})</span
+            >
           </template>
         </el-table-column>
         <el-table-column
           prop="maskedIp"
-          label="Network"
+          :label="t('integrationSecurity.network')"
           min-width="140"
         /><el-table-column
           prop="lastSeenAt"
-          label="Last seen"
+          :label="t('integrationSecurity.lastSeen')"
           min-width="190"
         />
         <el-table-column
@@ -310,7 +346,7 @@
               :disabled="row.status !== 'active' || runtime.state.mutating"
               @click="runtime.revokeSession(row)"
             >
-              Revoke
+              {{ t('integrationSecurity.revoke') }}
             </el-button>
           </template>
         </el-table-column>
@@ -319,70 +355,74 @@
 
     <el-dialog
       v-model="machineDialog"
-      title="Create machine identity"
+      :title="t('integrationSecurity.createMachineIdentity')"
       width="min(520px, 92vw)"
     >
       <el-form label-position="top">
-        <el-form-item label="Name">
+        <el-form-item :label="t('integrationSecurity.name')">
           <el-input v-model="machineForm.name" /> </el-form-item
-        ><el-form-item label="Scopes">
+        ><el-form-item :label="t('integrationSecurity.scopes')">
           <el-input
             v-model="machineForm.scopes"
-            placeholder="webhook.publish, data.export.read"
+            :placeholder="t('integrationSecurity.scopesPlaceholder')"
           /> </el-form-item
-        ><el-form-item label="Expires at">
+        ><el-form-item :label="t('integrationSecurity.expiresAt')">
           <el-input
             v-model="machineForm.expiresAt"
-            placeholder="2030-01-01T00:00:00.000Z"
+            :placeholder="t('integrationSecurity.expiresAtPlaceholder')"
           />
         </el-form-item> </el-form
       ><template #footer>
-        <el-button @click="machineDialog = false"> Cancel </el-button
+        <el-button @click="machineDialog = false">{{
+          t('integrationSecurity.cancel')
+        }}</el-button
         ><el-button
           type="primary"
           :loading="runtime.state.mutating"
           @click="createMachine"
         >
-          Create
+          {{ t('integrationSecurity.create') }}
         </el-button>
       </template>
     </el-dialog>
     <el-dialog
       v-model="webhookDialog"
-      title="Create webhook endpoint"
+      :title="t('integrationSecurity.createWebhookEndpoint')"
       width="min(520px, 92vw)"
     >
       <el-form label-position="top">
-        <el-form-item label="Name">
+        <el-form-item :label="t('integrationSecurity.name')">
           <el-input v-model="webhookForm.name" /> </el-form-item
-        ><el-form-item label="HTTPS URL">
+        ><el-form-item :label="t('integrationSecurity.httpsUrl')">
           <el-input v-model="webhookForm.url" /> </el-form-item
-        ><el-form-item label="Events">
+        ><el-form-item :label="t('integrationSecurity.events')">
           <el-input
             v-model="webhookForm.events"
-            placeholder="audit.event.created"
+            :placeholder="t('integrationSecurity.eventsPlaceholder')"
           />
         </el-form-item> </el-form
       ><template #footer>
-        <el-button @click="webhookDialog = false"> Cancel </el-button
+        <el-button @click="webhookDialog = false">{{
+          t('integrationSecurity.cancel')
+        }}</el-button
         ><el-button
           type="primary"
           :loading="runtime.state.mutating"
           @click="createWebhook"
         >
-          Create
+          {{ t('integrationSecurity.create') }}
         </el-button>
       </template>
     </el-dialog>
     <el-dialog
       v-model="attemptDialog"
-      title="Delivery attempts"
+      :title="t('integrationSecurity.deliveryAttempts')"
       width="min(720px, 94vw)"
     >
       <el-alert
         v-if="runtime.state.attempts.error"
         type="error"
-        :title="runtime.state.attempts.error.message"
+        :title="errorMessage(runtime.state.attempts.error)"
         :closable="false"
       /><el-table
         v-loading="runtime.state.attempts.loading"
@@ -394,17 +434,21 @@
           width="64"
         /><el-table-column
           prop="outcome"
-          label="Outcome"
+          :label="t('integrationSecurity.outcome')"
           min-width="150"
         /><el-table-column
           prop="responseStatus"
-          label="HTTP"
+          :label="t('integrationSecurity.http')"
           width="90"
         /><el-table-column
           prop="errorCode"
-          label="Result"
+          :label="t('integrationSecurity.result')"
           min-width="190"
-        /><el-table-column prop="durationMs" label="ms" width="90" />
+        /><el-table-column
+          prop="durationMs"
+          :label="t('integrationSecurity.durationMs')"
+          width="90"
+        />
       </el-table>
     </el-dialog>
   </main>

@@ -54,14 +54,17 @@ final class MemberAdministrationService implements MemberAdministration
      */
     public function members(array $params): PageResult|array
     {
-        $count = $this->buildListQuery($params)->count();
+        $exportMode = (int) ($params['export'] ?? 0);
+        $count = $exportMode === 1 || $exportMode === 2
+            ? $this->buildListQuery($params)->count()
+            : 0;
         $pageSize = (int) ($params['page_size'] ?? $params['limit'] ?? 15);
         $pageSize = max(1, min(100, $pageSize));
 
-        if ((int) ($params['export'] ?? 0) === 1) {
+        if ($exportMode === 1) {
             return self::exportInfo($count, $pageSize);
         }
-        if ((int) ($params['export'] ?? 0) === 2) {
+        if ($exportMode === 2) {
             return $this->export($params, $count, $pageSize);
         }
 
