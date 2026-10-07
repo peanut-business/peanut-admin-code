@@ -256,6 +256,7 @@ final readonly class RoleAdminService
                 'is_builtin' => (int) $row['is_builtin'] === 1,
                 'status' => $row['status'],
                 'revision' => (string) $row['authorization_revision'],
+                'created_at' => $row['created_at'],
                 'permission_keys' => array_values(array_unique($permissionKeys[(int) $row['id']] ?? [])),
             ];
         }

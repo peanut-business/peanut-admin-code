@@ -2,7 +2,7 @@
   "name": "peanut-business/official-notification",
   "description": "Official Tenant notification module",
   "type": "library",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "license": "Apache-2.0",
   "require": {
     "php": "^8.3",
