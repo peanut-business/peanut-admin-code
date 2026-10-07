@@ -10,17 +10,6 @@ export interface LoginData {
   challengeToken?: string;
 }
 
-export interface LoginRes {
-  token: string;
-}
-export function login(data: LoginData) {
-  return axios.post<LoginRes>('/adminapi/user/login', data);
-}
-
-export function logout() {
-  return axios.post<LoginRes>('/adminapi/user/logout');
-}
-
 export function getUserInfo() {
   return axios.post<UserState & { website: WebsiteConfig }>(
     '/adminapi/user/info'
