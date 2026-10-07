@@ -4,7 +4,7 @@
 declare(strict_types=1);
 
 use PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy;
-use app\platform\contract\TenantOwnerAdminProvisioner;
+use PeanutAdmin\Modules\Identity\Contract\TenantOwnerAdminProvisioner;
 use PeanutAdmin\Kernel\Identity\PasswordHasher;
 use PeanutAdmin\Kernel\Context\PlatformContext;
 use PeanutAdmin\Modules\Identity\Platform\Application\PlatformTenantAdminService;
