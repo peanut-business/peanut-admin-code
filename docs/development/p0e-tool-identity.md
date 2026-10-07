@@ -19,13 +19,14 @@ tool identity arguments before `resume`. This bounded operation verifies the
 native lease and original plan, without invoking database or runtime operations.
 It saves the exact original bytes as `plan.before-tool-binding.json` and
 `checkpoint.before-tool-binding.json`, and writes
-`qualification-tool-binding.json`. It explicitly revokes the old Plugin pass and
-marks only Plugin and consumer lifecycle groups stale; the original generated
+`qualification-tool-binding.json`. It marks only the changed Plugin fixture or
+consumer chain groups stale; an unchanged Plugin fixture keeps its original pass.
+The original generated
 application and both fresh-install records remain intact. An existing different
 binding or changed original snapshot fails closed. The revised checkpoint binds
 the new record by SHA-256; the original plan is never rewritten.
 
-This correction requires `--service-gates-receipt` and
+When the Plugin fixture changes, the correction requires `--service-gates-receipt` and
 `--service-gates-receipt-sha256`: a frozen receipt for the two already completed
 Member and Task gates, carrying candidate/tree/run/lease, the original plan hash,
 original Plugin group inputs, service source hashes, frozen log hash and exact
@@ -41,7 +42,10 @@ CurrentExecutionContext and DeliveryRecordCommands.
 
 The consumer chain receives the same explicit tool identity and authenticates its
 binding against the original plan and checkpoint. After package and application
-identity checks, it prepares only `server/private`, `private/installation` and
-`private/resources` with mode 0700 for each application. Native installation owns
+identity checks, it prepares installation and configuration private directories,
+`private/resources/pending`, and the seven writable `runtime` directories required
+by native installation preflight, with mode 0700 for each owned application.
+The fixed runner prepares the same directories for its generated applications.
+Native installation owns
 all installation state and initialization. Independent tool binding does not
 authorize a run, release, deployment, new candidate, or broader qualification.

@@ -1468,8 +1468,11 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
                     f"generated Module tool retained a maintainer-private path: {relative}",
                 )
             # The package identity is already checked. Prepare only the owner's
-            # private preflight directories; installation state remains native.
-            for relative in ("server/private", "server/private/installation", "server/private/resources"):
+            # writable preflight directories; installation state remains native.
+            for relative in ("server/private", "server/private/installation", "server/private/resources",
+                             "server/private/resources/pending", "server/runtime/cache", "server/runtime/log",
+                             "server/runtime/session", "server/runtime/temp", "server/runtime/storage",
+                             "server/runtime/generator", "server/runtime/file"):
                 directory = project / relative
                 expect(not directory.is_symlink() and (not directory.exists() or directory.is_dir()),
                        "generated private preflight directory is unsafe")

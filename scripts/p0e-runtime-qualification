@@ -1214,12 +1214,17 @@ class Runner:
     def bind_tools(self) -> None:
         if read_json(self.output / "plan.json") != self.plan:
             fail("tool binding cannot change the original plan")
+        plugin_changed = TOOL_BINDING["tool_files"]["server/fixtures/plugin-module-lifecycle/run.php"] != sha256(ROOT / "server/fixtures/plugin-module-lifecycle/run.php")
+        consumer_changed = TOOL_BINDING["tool_files"]["scripts/consumer-module-reference-chain"] != sha256(ROOT / "scripts/consumer-module-reference-chain")
+        invalidated = [group for group, changed in (("plugin-lifecycle", plugin_changed), ("consumer-module-lifecycle", consumer_changed)) if changed]
+        if not invalidated:
+            fail("tool binding requires an affected Plugin or consumer lifecycle tool")
         record = dict(TOOL_BINDING or {}) | {
             "schema_version": 1, "run_id": self.args.run_id, "lease": self.args.lease,
             "parent_lease": self.args.parent_lease, "plan_sha256": sha256(self.output / "plan.json"),
-            "invalidated_groups": ["plugin-lifecycle", "consumer-module-lifecycle"],
-            "reason": "removed Provider API and absent completion marker rejected original Plugin pass; consumer preflight directory preparation corrected",
-            "service_evidence": self.service_gate_evidence(),
+            "invalidated_groups": invalidated,
+            "reason": "Plugin fixture correction" if plugin_changed else "consumer preflight runtime directory preparation corrected",
+            "service_evidence": self.service_gate_evidence() if plugin_changed else None,
         }
         binding_path = self.output / "qualification-tool-binding.json"
         for path in (binding_path, self.output / "checkpoint.before-tool-binding.json", self.output / "plan.before-tool-binding.json"):
@@ -1634,7 +1639,10 @@ class Runner:
     def install_current(self, database: str, mode: str, log: Path, project_root: Path | None = None) -> None:
         project_root = ROOT if project_root is None else project_root
         if project_root in self.generated.values():
-            for relative in ("server/private", "server/private/installation", "server/private/resources"):
+            for relative in ("server/private", "server/private/installation", "server/private/resources",
+                             "server/private/resources/pending", "server/runtime/cache", "server/runtime/log",
+                             "server/runtime/session", "server/runtime/temp", "server/runtime/storage",
+                             "server/runtime/generator", "server/runtime/file"):
                 directory = project_root / relative
                 if directory.is_symlink():
                     fail(f"generated application private directory must not be a symlink: {relative}")
