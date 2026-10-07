@@ -1,11 +1,11 @@
 {
     "schema_version": 1,
     "key": "official.notification",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "08faa469019b7592376ab40f3d4b8ebbc00e2d8c23c504ca1144b1d2e309168f"
+        "sha256": "08c3e8fec05f9c1c7eb0f87b31152d8e264cd38ae76879bbb6b62eb9efd4ae9a"
     },
     "trust": {
         "channel": "bundled",
@@ -39,12 +39,12 @@
             "modules": [
                 {
                     "key": "official.notification",
-                    "version": "1.0.3",
+                    "version": "1.0.4",
                     "kernel_constraint": "^1.0",
                     "dependencies": [
                         {
                             "module_key": "official.identity",
-                            "version": "4.0.0-rc.19"
+                            "version": "4.0.0-rc.20"
                         },
                         {
                             "module_key": "official.integration",
@@ -79,8 +79,8 @@
     "composer": [
         {
             "name": "peanut-business/official-notification",
-            "version": "1.0.2",
-            "sha256": "6f5772d94779b3bbd20197070a82f72f78fe98a53712a1fe24f8a752b7c00bf6"
+            "version": "1.0.3",
+            "sha256": "017f1eb87c3348b37b4838f04d4b8f98d766b9b6b2dd0db1df6124eb5d517b97"
         }
     ],
     "npm": [
