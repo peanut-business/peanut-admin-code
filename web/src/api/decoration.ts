@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { readDecorationPage } from './decoration-model';
+import readDecorationPage from './decoration-model';
 
 /** The business link value object shared by all decoration surfaces. */
 export type DecorationLinkType = 'shop' | 'article' | 'custom' | 'mini_program';

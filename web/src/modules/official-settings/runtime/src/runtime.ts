@@ -610,7 +610,7 @@ export const createSettingsRuntime = (
       generation += 1;
       listRequest = null;
       resourceRequests.clear();
-      for (const controller of controllers.values()) controller.abort();
+      controllers.forEach((controller) => controller.abort());
       controllers.clear();
       state.records = [];
       state.groups = [];

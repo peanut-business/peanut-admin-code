@@ -281,9 +281,11 @@ const versionFingerprint = (input: ReferenceCodeVersionInput): string =>
   JSON.stringify({
     label: input.label,
     metadata: Object.fromEntries(
-      Object.entries(input.metadata).sort(([left], [right]) =>
-        left < right ? -1 : left > right ? 1 : 0
-      )
+      Object.entries(input.metadata).sort(([left], [right]) => {
+        if (left < right) return -1;
+        if (left > right) return 1;
+        return 0;
+      })
     ),
     status: input.status,
     sort_order: input.sortOrder,
@@ -947,7 +949,7 @@ export const createReferenceCodesRuntime = (
       generation += 1;
       collectionRequest = null;
       resourceRequests.clear();
-      for (const controller of controllers.values()) controller.abort();
+      controllers.forEach((controller) => controller.abort());
       controllers.clear();
       mutationKeys.clear();
       state.sets = [];

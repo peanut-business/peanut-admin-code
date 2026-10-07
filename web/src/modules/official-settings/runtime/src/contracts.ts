@@ -147,50 +147,53 @@ const enumValues = (
 
   const values: SettingScalar[] = [];
   const seen = new Set<string>();
-  for (const value of schema.enum) {
-    const valid =
-      type === 'string'
-        ? typeof value === 'string'
-        : type === 'boolean'
-        ? typeof value === 'boolean'
-        : type === 'number'
-        ? typeof value === 'number' && Number.isFinite(value)
-        : type === 'integer'
-        ? typeof value === 'number' && Number.isInteger(value)
-        : false;
-    if (!valid) return invalidResponse();
+  schema.enum.forEach((value) => {
+    let valid = false;
+    if (type === 'string') valid = typeof value === 'string';
+    else if (type === 'boolean') valid = typeof value === 'boolean';
+    else if (type === 'number')
+      valid = typeof value === 'number' && Number.isFinite(value);
+    else if (type === 'integer')
+      valid = typeof value === 'number' && Number.isInteger(value);
+    if (!valid) invalidResponse();
     const digest = `${typeof value}:${String(value)}`;
-    if (seen.has(digest)) return invalidResponse();
+    if (seen.has(digest)) invalidResponse();
     seen.add(digest);
     values.push(value as SettingScalar);
-  }
+  });
   return values;
 };
 
 const parseSchema = (value: unknown): SettingSchema => {
   if (!isRecord(value)) return invalidResponse();
-  const type =
-    typeof value.type === 'string'
-      ? schemaTypes.has(value.type as SettingSchemaType)
-        ? (value.type as SettingSchemaType)
-        : invalidResponse()
-      : Array.isArray(value.type) &&
-        value.type.length > 0 &&
-        new Set(value.type).size === value.type.length &&
-        value.type.every(
-          (item) =>
-            typeof item === 'string' &&
-            schemaTypes.has(item as SettingSchemaType)
-        )
-      ? (value.type as SettingSchemaType[])
-      : invalidResponse();
-  const parsedEnum = Array.isArray(type)
-    ? Object.prototype.hasOwnProperty.call(value, 'enum')
-      ? Array.isArray(value.enum) && value.enum.length > 0
-        ? [...value.enum]
-        : invalidResponse()
-      : undefined
-    : enumValues(value, type);
+  let type: SettingSchema['type'];
+  if (typeof value.type === 'string') {
+    if (!schemaTypes.has(value.type as SettingSchemaType))
+      return invalidResponse();
+    type = value.type as SettingSchemaType;
+  } else if (
+    Array.isArray(value.type) &&
+    value.type.length > 0 &&
+    new Set(value.type).size === value.type.length &&
+    value.type.every(
+      (item) =>
+        typeof item === 'string' && schemaTypes.has(item as SettingSchemaType)
+    )
+  ) {
+    type = value.type as SettingSchemaType[];
+  } else {
+    return invalidResponse();
+  }
+  let parsedEnum: readonly unknown[] | undefined;
+  if (Array.isArray(type)) {
+    if (Object.prototype.hasOwnProperty.call(value, 'enum')) {
+      if (!Array.isArray(value.enum) || value.enum.length === 0)
+        return invalidResponse();
+      parsedEnum = [...value.enum];
+    }
+  } else {
+    parsedEnum = enumValues(value, type as SettingSchemaType);
+  }
 
   return parsedEnum === undefined
     ? { ...value, type }
@@ -223,14 +226,12 @@ const parseSettingValue = (
   }
   if (value === null) return allowsMissingValue ? null : invalidResponse();
 
-  const valid =
-    schema.type === 'boolean'
-      ? typeof value === 'boolean'
-      : schema.type === 'string'
-      ? typeof value === 'string'
-      : schema.type === 'number'
-      ? typeof value === 'number' && Number.isFinite(value)
-      : typeof value === 'number' && Number.isInteger(value);
+  let valid: boolean;
+  if (schema.type === 'boolean') valid = typeof value === 'boolean';
+  else if (schema.type === 'string') valid = typeof value === 'string';
+  else if (schema.type === 'number')
+    valid = typeof value === 'number' && Number.isFinite(value);
+  else valid = typeof value === 'number' && Number.isInteger(value);
   if (!valid) return invalidResponse();
   if (
     schema.enum !== undefined &&
@@ -316,11 +317,11 @@ export const groupSettingRecords = (
   records: readonly SettingRecord[]
 ): SettingGroup[] => {
   const groups = new Map<string, SettingRecord[]>();
-  for (const record of records) {
+  records.forEach((record) => {
     const definitions = groups.get(record.moduleKey) ?? [];
     definitions.push(record);
     groups.set(record.moduleKey, definitions);
-  }
+  });
 
   return [...groups.entries()]
     .sort(([left], [right]) => left.localeCompare(right))

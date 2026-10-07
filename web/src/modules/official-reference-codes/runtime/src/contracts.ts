@@ -281,8 +281,8 @@ const metadata = (value: unknown): ReferenceCodeMetadata => {
   if (!isRecord(value) || Object.keys(value).length > 32)
     return invalidResponse();
   const parsed: Record<string, ReferenceCodeMetadataScalar> = {};
-  for (const [key, scalar] of Object.entries(value)) {
-    if (!localKeyPattern.test(key) || key.length > 64) return invalidResponse();
+  Object.entries(value).forEach(([key, scalar]) => {
+    if (!localKeyPattern.test(key) || key.length > 64) invalidResponse();
     if (scalar === null || typeof scalar === 'boolean') {
       parsed[key] = scalar as ReferenceCodeMetadataScalar;
     } else if (typeof scalar === 'number' && Number.isFinite(scalar)) {
@@ -290,9 +290,9 @@ const metadata = (value: unknown): ReferenceCodeMetadata => {
     } else if (typeof scalar === 'string' && [...scalar].length <= 500) {
       parsed[key] = scalar;
     } else {
-      return invalidResponse();
+      invalidResponse();
     }
-  }
+  });
   if (new TextEncoder().encode(JSON.stringify(parsed)).byteLength > 8192)
     return invalidResponse();
   return parsed;

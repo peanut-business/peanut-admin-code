@@ -80,6 +80,16 @@ export interface IntegrationSecurityState {
     value: string;
   } | null;
 }
+export interface IntegrationSecurityPermissions {
+  readonly canReadMachines: () => boolean;
+  readonly canManageMachines: () => boolean;
+  readonly canReadWebhooks: () => boolean;
+  readonly canManageWebhooks: () => boolean;
+  readonly canReadDeliveries: () => boolean;
+  readonly canReadSessions: () => boolean;
+  readonly canRevokeSession: () => boolean;
+}
+
 export interface IntegrationSecurityRuntime {
   readonly state: IntegrationSecurityState;
   load: () => Promise<void>;
@@ -106,15 +116,6 @@ export interface IntegrationSecurityRuntime {
   clearDisclosure: () => void;
   dispose: () => void;
   readonly can: IntegrationSecurityPermissions;
-}
-export interface IntegrationSecurityPermissions {
-  readonly canReadMachines: () => boolean;
-  readonly canManageMachines: () => boolean;
-  readonly canReadWebhooks: () => boolean;
-  readonly canManageWebhooks: () => boolean;
-  readonly canReadDeliveries: () => boolean;
-  readonly canReadSessions: () => boolean;
-  readonly canRevokeSession: () => boolean;
 }
 
 const requestIdPattern = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/;
@@ -238,7 +239,8 @@ export const createIntegrationSecurityRuntime = (options: {
     parser: (body: unknown) => T[]
   ): Promise<void> => {
     const currentGeneration = generation;
-    const currentEpoch = ++epochs[key];
+    epochs[key] += 1;
+    const currentEpoch = epochs[key];
     cancel(key);
     surface.loading = true;
     surface.error = null;
@@ -303,7 +305,8 @@ export const createIntegrationSecurityRuntime = (options: {
   ): Promise<void> => {
     const key: SurfaceKey = 'deliveries';
     const currentGeneration = generation;
-    const currentEpoch = ++epochs[key];
+    epochs[key] += 1;
+    const currentEpoch = epochs[key];
     const surface = state.deliveries;
     cancel(key);
     surface.loading = true;
@@ -566,26 +569,26 @@ export const createIntegrationSecurityRuntime = (options: {
     },
     dispose() {
       generation += 1;
-      for (const key of Object.keys(epochs) as SurfaceKey[]) epochs[key] += 1;
-      for (const controller of controllers.values()) controller.abort();
+      (Object.keys(epochs) as SurfaceKey[]).forEach((key) => {
+        epochs[key] += 1;
+      });
+      controllers.forEach((controller) => controller.abort());
       controllers.clear();
       state.machines.items = [];
       state.webhooks.items = [];
       state.deliveries.items = [];
       state.attempts.items = [];
       state.sessions.items = [];
-      state.machines.loading =
-        state.webhooks.loading =
-        state.deliveries.loading =
-        state.attempts.loading =
-        state.sessions.loading =
-          false;
-      state.machines.error =
-        state.webhooks.error =
-        state.deliveries.error =
-        state.attempts.error =
-        state.sessions.error =
-          null;
+      state.machines.loading = false;
+      state.webhooks.loading = false;
+      state.deliveries.loading = false;
+      state.attempts.loading = false;
+      state.sessions.loading = false;
+      state.machines.error = null;
+      state.webhooks.error = null;
+      state.deliveries.error = null;
+      state.attempts.error = null;
+      state.sessions.error = null;
       state.attempts.deliveryKey = null;
       state.deliveries.total = 0;
       state.deliveries.page = 1;

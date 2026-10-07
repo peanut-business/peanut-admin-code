@@ -160,14 +160,14 @@ function readComponent(value: unknown): DecorationComponent {
   )
     return invalid();
   const styles: Record<string, string | number> = {};
-  for (const [key, item] of Object.entries(objectField(value.styles))) {
+  Object.entries(objectField(value.styles)).forEach(([key, item]) => {
     if (
       typeof item !== 'string' &&
       (typeof item !== 'number' || !Number.isFinite(item))
     )
-      return invalid();
+      invalid();
     styles[key] = item;
-  }
+  });
   return {
     ...value,
     title: value.title,
@@ -178,7 +178,7 @@ function readComponent(value: unknown): DecorationComponent {
   };
 }
 
-export function readDecorationPage(value: unknown): DecorationPage {
+export default function readDecorationPage(value: unknown): DecorationPage {
   if (
     !record(value) ||
     typeof value.id !== 'number' ||

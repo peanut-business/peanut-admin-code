@@ -16,7 +16,7 @@
   import { useSettingsRuntime } from './runtime';
 
   const runtime = useSettingsRuntime();
-  const state = runtime.state;
+  const { state } = runtime;
   const canManage = computed(() => runtime.canManage());
   const hasPendingMutation = computed(() => state.pendingResources.size > 0);
 
@@ -44,12 +44,11 @@
     const value = enumOptions(record)[Number(target.value)];
     if (value !== undefined) runtime.updateForm(keyOf(record), value);
   };
-  const typeLabel = (record: SettingRecord): string =>
-    record.secret
-      ? 'secret'
-      : typeof record.schema.type === 'string'
-      ? record.schema.type
-      : record.schema.type.join(' | ');
+  const typeLabel = (record: SettingRecord): string => {
+    if (record.secret) return 'secret';
+    const { type } = record.schema;
+    return typeof type === 'string' ? type : type.join(' | ');
+  };
   const sourceLabel = (record: SettingRecord): string =>
     record.sourceScope ?? 'not configured';
   const dateLabel = (value: string | null): string => value ?? 'none';
@@ -65,7 +64,7 @@
     try {
       await runtime.load();
     } catch {
-      return;
+      // Runtime state contains the request error for the page to display.
     }
   };
 
@@ -73,7 +72,7 @@
     try {
       await runtime.save(key);
     } catch {
-      return;
+      // Runtime state contains the request error for the page to display.
     }
   };
 
@@ -81,7 +80,7 @@
     try {
       await runtime.unset(key);
     } catch {
-      return;
+      // Runtime state contains the request error for the page to display.
     }
   };
 
@@ -89,7 +88,7 @@
     try {
       await runtime.reload(key);
     } catch {
-      return;
+      // Runtime state contains the request error for the page to display.
     }
   };
 

@@ -21,7 +21,7 @@
   import { useReferenceCodesRuntime } from './runtime';
 
   const runtime = useReferenceCodesRuntime();
-  const state = runtime.state;
+  const { state } = runtime;
   const asOfInput = ref('');
   const canManage = computed(() => runtime.canManage());
   const hasPendingMutation = computed(() => state.pendingResources.size > 0);
@@ -38,7 +38,7 @@
     try {
       await operation();
     } catch {
-      return;
+      // Runtime state contains the request error for the page to display.
     }
   };
 

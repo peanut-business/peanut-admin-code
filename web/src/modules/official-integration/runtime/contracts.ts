@@ -163,7 +163,7 @@ const safeCode = (value: unknown): value is string =>
 
 export const parseMachine = (value: unknown): MachineIdentity => {
   const item = record(value);
-  const scopes = item.scopes;
+  const { scopes } = item;
   exact(item, [
     'identity_key',
     'name',
