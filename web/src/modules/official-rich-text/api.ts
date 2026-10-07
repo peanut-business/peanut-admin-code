@@ -11,47 +11,60 @@ export interface RichTextDocumentRecord {
   collaboration_state?: string;
   created_by_member_id: number;
   updated_by_member_id: number;
-  create_time: number;
-  update_time: number;
+  create_time: string;
+  update_time: string;
 }
 
 export type RichTextDocumentList = PageData<RichTextDocumentRecord>;
 
-export const getRichTextDocuments = (params: {
-  title?: string;
-  page_no?: number;
-  page_size?: number;
-}) =>
+export const getRichTextDocuments = (
+  params: {
+    title?: string;
+    page_no?: number;
+    page_size?: number;
+  },
+  signal?: AbortSignal
+) =>
   axios.get<RichTextDocumentList>(
     '/adminapi/official.rich-text.document.list',
-    { params }
+    { params, signal }
   );
 
-export const getRichTextDocument = (id: number) =>
+export const getRichTextDocument = (id: number, signal?: AbortSignal) =>
   axios.get<RichTextDocumentRecord>(
     '/adminapi/official.rich-text.document.detail',
-    { params: { id } }
+    { params: { id }, signal }
   );
 
-export const addRichTextDocument = (data: {
-  title: string;
-  document: RichTextDocumentValue;
-  collaboration_state: string;
-}) => axios.post('/adminapi/official.rich-text.document.add', data);
+export const addRichTextDocument = (
+  data: {
+    title: string;
+    document: RichTextDocumentValue;
+    collaboration_state: string;
+  },
+  signal?: AbortSignal
+) => axios.post('/adminapi/official.rich-text.document.add', data, { signal });
 
-export const editRichTextDocument = (data: {
-  id: number;
-  title: string;
-  document: RichTextDocumentValue;
-  collaboration_state: string;
-  revision: number;
-}) => axios.post('/adminapi/official.rich-text.document.edit', data);
+export const editRichTextDocument = (
+  data: {
+    id: number;
+    title: string;
+    document: RichTextDocumentValue;
+    collaboration_state: string;
+    revision: number;
+  },
+  signal?: AbortSignal
+) => axios.post('/adminapi/official.rich-text.document.edit', data, { signal });
 
-export const deleteRichTextDocument = (id: number) =>
-  axios.post('/adminapi/official.rich-text.document.delete', { id });
+export const deleteRichTextDocument = (id: number, signal?: AbortSignal) =>
+  axios.post(
+    '/adminapi/official.rich-text.document.delete',
+    { id },
+    { signal }
+  );
 
-export const getRichTextCollaboration = (id: number) =>
+export const getRichTextCollaboration = (id: number, signal?: AbortSignal) =>
   axios.get<RichTextCollaborationConfig>(
     '/adminapi/official.rich-text.document.collaboration',
-    { params: { id } }
+    { params: { id }, signal }
   );

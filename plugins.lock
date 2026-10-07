@@ -1133,11 +1133,11 @@
         },
         {
             "key": "official.reference-codes",
-            "version": "1.0.7",
+            "version": "1.0.8",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "181e0a5aede281738603f3e29f3447e167d6ef965ecf0062d936d62af439be3d"
+                "sha256": "45a16c923bcd6e079c53f0fda940c7ad08f92a9d821e1828806c72b597dbe116"
             },
             "trust": {
                 "channel": "bundled",
@@ -1171,7 +1171,7 @@
                     "modules": [
                         {
                             "key": "official.reference-codes",
-                            "version": "1.0.7",
+                            "version": "1.0.8",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
@@ -1206,15 +1206,15 @@
             "npm": [
                 {
                     "name": "@peanut-admin/official-reference-codes",
-                    "version": "1.0.2",
-                    "integrity": "sha256-fEx8Udt4UdIoevvt3H86TW0wsAw6foT/KTDVbkF37pc="
+                    "version": "1.0.3",
+                    "integrity": "sha256-Hn+Nnv1/zqgArrOXbT9A2rcRQMBPGGrnJ+Jyp7XymP8="
                 }
             ],
             "frontend": [
                 {
                     "client_key": "admin-web",
                     "package": "@peanut-admin/official-reference-codes",
-                    "version": "1.0.2",
+                    "version": "1.0.3",
                     "entry": "web/src/modules/official-reference-codes/contribution.ts",
                     "sha256": "cc9081911c0a48d9027e40259cb17dd5c12a0cee9fe4ef4f89b47a739f9b8f0c"
                 }
@@ -1226,15 +1226,15 @@
                 }
             ],
             "manifest": "plugins/official.reference-codes/plugin.json",
-            "manifest_sha256": "73f608bb02b8bab2dfe8b24c323da8354719fb3e6685d202f0e3f07fb92ce141"
+            "manifest_sha256": "78ba46f3a6499d45f76773942890f88b9d11b12553d723ae4cb18b7346608817"
         },
         {
             "key": "official.rich-text",
-            "version": "1.0.3",
+            "version": "1.0.4",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "ec3504030b225f180134a039dbf62cd53625cb81bb2b394d43137361af07ec1e"
+                "sha256": "d28e2d675aaf4d2d92455e7098554a658091f1dfed4b1c698c272ba4c03eb2c3"
             },
             "trust": {
                 "channel": "bundled",
@@ -1268,7 +1268,7 @@
                     "modules": [
                         {
                             "key": "official.rich-text",
-                            "version": "1.0.3",
+                            "version": "1.0.4",
                             "kernel_constraint": "^1.0",
                             "dependencies": [],
                             "permissions": {
@@ -1291,22 +1291,22 @@
             "composer": [
                 {
                     "name": "peanut-business/official-rich-text",
-                    "version": "1.0.2",
-                    "sha256": "db76762dda2b82eebef2d931993fda999ddb2dc75a441e9e2d8fb458502f3c95"
+                    "version": "1.0.3",
+                    "sha256": "1e4a47b6b8534c10a31b811abbae3bc002c77d073c15b310bc2b52a7743926d6"
                 }
             ],
             "npm": [
                 {
                     "name": "@peanut-admin/official-rich-text",
-                    "version": "1.0.2",
-                    "integrity": "sha256-bSf5Vm8ejWAkmOpU6THvkpKtodVRFpOctCW4ewcyNno="
+                    "version": "1.0.3",
+                    "integrity": "sha256-492hcyLS3cdXbPi/zztz2C1QYltHmnnAryz6qOdbur0="
                 }
             ],
             "frontend": [
                 {
                     "client_key": "admin-web",
                     "package": "@peanut-admin/official-rich-text",
-                    "version": "1.0.2",
+                    "version": "1.0.3",
                     "entry": "web/src/modules/official-rich-text/contribution.ts",
                     "sha256": "d2fbce2da164bd53d370f29eabdb62173a91b63c4a8c0605a247d4e69f24d4e4"
                 }
@@ -1318,7 +1318,7 @@
                 }
             ],
             "manifest": "plugins/official.rich-text/plugin.json",
-            "manifest_sha256": "221ee9fc46cc21eb3f07da9ea30b0148285bfaad59b6827d31af8b4f03ac55cc"
+            "manifest_sha256": "ea782eb87b86c3ef769097864772611fe7d3768c3425a73c06973782c8f8ca34"
         },
         {
             "key": "official.settings",

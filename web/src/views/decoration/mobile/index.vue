@@ -210,7 +210,11 @@
                     class="form-width"
                   >
                     <el-form-item label="页面标题"
-                      ><el-input v-model="metaContent.title" :maxlength="8"
+                      ><el-input
+                        v-model="metaContent.title"
+                        :maxlength="8"
+                        show-word-limit
+                        placeholder="页面标题最多 8 个字"
                     /></el-form-item>
                     <el-form-item label="标题图片">
                       <div class="image-field">
@@ -311,7 +315,11 @@
                   <el-form :model="content(component)" label-position="top">
                     <template v-if="isMetaComponent(component)">
                       <el-form-item label="页面标题"
-                        ><el-input v-model="metaContent.title" :maxlength="8"
+                        ><el-input
+                          v-model="metaContent.title"
+                          :maxlength="8"
+                          show-word-limit
+                          placeholder="页面标题最多 8 个字"
                       /></el-form-item>
                       <el-form-item label="背景颜色"
                         ><el-input
@@ -777,6 +785,13 @@
 
   const handleSubmit = async () => {
     if (!page.id) return;
+    if ([1, 2].includes(activeType.value)) {
+      const title = String(metaContent.value.title ?? '').trim();
+      if (Array.from(title).length > 8) {
+        ElMessage.error('页面标题最多 8 个字');
+        return;
+      }
+    }
     submitLoading.value = true;
     try {
       const data = activeType.value === 5 ? { ...theme } : page.data;
@@ -787,6 +802,8 @@
         meta: activeType.value === 5 ? [] : page.meta,
       });
       ElMessage.success('保存成功');
+    } catch {
+      // The shared Axios interceptor displays the server error.
     } finally {
       submitLoading.value = false;
     }

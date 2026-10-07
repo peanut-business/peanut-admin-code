@@ -45,7 +45,7 @@ final readonly class RichTextDocumentService
             return [];
         }
         $row = $document->toArray();
-        $row['document'] = json_decode((string) $row['document_json'], true, 64, JSON_THROW_ON_ERROR);
+        $row['document'] = $row['document_json'];
         $row['collaboration_state'] = base64_encode((string) ($row['collaboration_state'] ?? ''));
         unset($row['document_json'], $row['tenant_id'], $row['delete_time']);
         return $row;

@@ -1,11 +1,11 @@
 {
     "schema_version": 1,
     "key": "official.reference-codes",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "181e0a5aede281738603f3e29f3447e167d6ef965ecf0062d936d62af439be3d"
+        "sha256": "45a16c923bcd6e079c53f0fda940c7ad08f92a9d821e1828806c72b597dbe116"
     },
     "trust": {
         "channel": "bundled",
@@ -39,7 +39,7 @@
             "modules": [
                 {
                     "key": "official.reference-codes",
-                    "version": "1.0.7",
+                    "version": "1.0.8",
                     "kernel_constraint": "^1.0",
                     "dependencies": [
                         {
@@ -74,15 +74,15 @@
     "npm": [
         {
             "name": "@peanut-admin/official-reference-codes",
-            "version": "1.0.2",
-            "integrity": "sha256-fEx8Udt4UdIoevvt3H86TW0wsAw6foT/KTDVbkF37pc="
+            "version": "1.0.3",
+            "integrity": "sha256-Hn+Nnv1/zqgArrOXbT9A2rcRQMBPGGrnJ+Jyp7XymP8="
         }
     ],
     "frontend": [
         {
             "client_key": "admin-web",
             "package": "@peanut-admin/official-reference-codes",
-            "version": "1.0.2",
+            "version": "1.0.3",
             "entry": "web/src/modules/official-reference-codes/contribution.ts",
             "sha256": "cc9081911c0a48d9027e40259cb17dd5c12a0cee9fe4ef4f89b47a739f9b8f0c"
         }

@@ -3,12 +3,21 @@
     <Breadcrumb :items="['menu.richText', 'menu.richText.documents']" />
     <el-card class="general-card">
       <template #header>{{ $t('menu.richText.documents') }}</template>
+      <el-alert
+        v-if="
+          listAction.error.value ||
+          (documentAction.error.value && !dialogVisible)
+        "
+        type="error"
+        :title="listAction.error.value || documentAction.error.value || ''"
+        :closable="false"
+      />
       <el-form inline @submit.prevent="fetchData(1)">
         <el-form-item :label="$t('richText.search.title')">
           <el-input v-model="keyword" clearable />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="fetchData(1)">{{
+          <el-button type="primary" :loading="loading" @click="fetchData(1)">{{
             $t('richText.action.search')
           }}</el-button>
           <el-button @click="reset">{{
@@ -19,6 +28,7 @@
       <el-button
         v-permission="['official.rich-text.document.add']"
         type="primary"
+        :disabled="documentAction.loading.value"
         style="margin-bottom: 16px"
         @click="openAdd"
         >{{ $t('richText.action.add') }}</el-button
@@ -45,6 +55,7 @@
               v-permission="['official.rich-text.document.edit']"
               link
               type="primary"
+              :disabled="documentAction.loading.value"
               @click="openEdit(row)"
               >{{ $t('richText.action.edit') }}</el-button
             >
@@ -54,9 +65,12 @@
               @confirm="remove(row.id)"
             >
               <template #reference>
-                <el-button link type="danger">{{
-                  $t('richText.action.delete')
-                }}</el-button>
+                <el-button
+                  link
+                  type="danger"
+                  :disabled="documentAction.loading.value"
+                  >{{ $t('richText.action.delete') }}</el-button
+                >
               </template>
             </el-popconfirm>
           </template>
@@ -78,7 +92,17 @@
       :title="form.id ? $t('richText.dialog.edit') : $t('richText.dialog.add')"
       width="min(1000px, 92vw)"
       destroy-on-close
+      :close-on-click-modal="!documentAction.loading.value"
+      :close-on-press-escape="!documentAction.loading.value"
+      :show-close="!documentAction.loading.value"
+      @closed="closeDialog"
     >
+      <el-alert
+        v-if="documentAction.error.value"
+        type="error"
+        :title="documentAction.error.value"
+        :closable="false"
+      />
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
         <el-form-item prop="title" :label="$t('richText.form.title')">
           <el-input v-model="form.title" maxlength="200" show-word-limit />
@@ -93,8 +117,15 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="save">保存</el-button>
+        <el-button :disabled="documentAction.loading.value" @click="closeDialog"
+          >取消</el-button
+        >
+        <el-button
+          type="primary"
+          :loading="documentAction.loading.value"
+          @click="save"
+          >保存</el-button
+        >
       </template>
     </el-dialog>
   </div>
@@ -103,7 +134,7 @@
 <script lang="ts" setup>
   import { reactive, ref } from 'vue';
   import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
-  import useLoading from '@/hooks/loading';
+  import { useAsyncAction } from '@peanut-admin/vue';
   import { RichTextEditor } from '../src/editor';
   import { emptyDocument, type RichTextDocumentValue } from '../src/document';
   import type { RichTextCollaborationConfig } from '../components/types';
@@ -132,7 +163,9 @@
     document: emptyDocument(),
     collaboration_state: '',
   });
-  const { loading, setLoading } = useLoading(true);
+  const listAction = useAsyncAction(() => '文档列表加载失败，请重试');
+  const documentAction = useAsyncAction(() => '文档操作失败，请重试');
+  const { loading } = listAction;
   const documents = ref<RichTextDocumentRecord[]>([]);
   const keyword = ref('');
   const pagination = reactive({ current: 1, pageSize: 15, total: 0 });
@@ -148,20 +181,23 @@
   };
 
   const fetchData = async (page = 1) => {
-    setLoading(true);
-    try {
-      const { data } = await getRichTextDocuments({
-        title: keyword.value || undefined,
-        page_no: page,
-        page_size: pagination.pageSize,
-      });
-      documents.value = data.lists;
-      pagination.current = data.pageNo;
-      pagination.pageSize = data.pageSize;
-      pagination.total = data.count;
-    } finally {
-      setLoading(false);
-    }
+    listAction.cancel();
+    const result = await listAction.run(({ signal }) =>
+      getRichTextDocuments(
+        {
+          title: keyword.value || undefined,
+          page_no: page,
+          page_size: pagination.pageSize,
+        },
+        signal
+      )
+    );
+    if (result.status !== 'completed') return;
+    const { data } = result.data;
+    documents.value = data.lists;
+    pagination.current = data.pageNo;
+    pagination.pageSize = data.pageSize;
+    pagination.total = data.count;
   };
 
   const reset = () => {
@@ -170,6 +206,8 @@
   };
 
   const openAdd = () => {
+    if (documentAction.loading.value) return;
+    documentAction.cancel();
     form.value = blankForm();
     collaboration.value = null;
     editorKey.value = `new-${Date.now()}`;
@@ -177,10 +215,15 @@
   };
 
   const openEdit = async (row: RichTextDocumentRecord) => {
-    const [{ data }, { data: collaborationData }] = await Promise.all([
-      getRichTextDocument(row.id),
-      getRichTextCollaboration(row.id),
-    ]);
+    if (documentAction.loading.value) return;
+    const result = await documentAction.run(({ signal }) =>
+      Promise.all([
+        getRichTextDocument(row.id, signal),
+        getRichTextCollaboration(row.id, signal),
+      ])
+    );
+    if (result.status !== 'completed') return;
+    const [{ data }, { data: collaborationData }] = result.data;
     form.value = {
       id: data.id,
       title: data.title,
@@ -194,23 +237,48 @@
   };
 
   const save = async () => {
-    const valid = await formRef.value?.validate().catch(() => false);
-    if (!valid) return;
-    if (form.value.id) await editRichTextDocument(form.value);
-    else await addRichTextDocument(form.value);
+    if (documentAction.loading.value) return;
+    const result = await documentAction.run(async ({ signal }) => {
+      const valid = await formRef.value?.validate().catch(() => false);
+      if (!valid) return false;
+      const {
+        id,
+        revision,
+        title,
+        document,
+        collaboration_state: collaborationState,
+      } = form.value;
+      const payload = {
+        title,
+        document,
+        collaboration_state: collaborationState,
+      };
+      if (id) await editRichTextDocument({ id, revision, ...payload }, signal);
+      else await addRichTextDocument(payload, signal);
+      return true;
+    });
+    if (result.status !== 'completed' || !result.data) return;
     ElMessage.success('保存成功');
     dialogVisible.value = false;
-    fetchData(pagination.current);
+    await fetchData(pagination.current);
   };
 
   const remove = async (id: number) => {
-    await deleteRichTextDocument(id);
+    const result = await documentAction.run(({ signal }) =>
+      deleteRichTextDocument(id, signal)
+    );
+    if (result.status !== 'completed') return;
     ElMessage.success('删除成功');
-    fetchData(pagination.current);
+    await fetchData(pagination.current);
   };
 
-  const formatTime = (value: number) =>
-    value ? new Date(value * 1000).toLocaleString() : '-';
+  const closeDialog = () => {
+    if (documentAction.loading.value) return;
+    documentAction.cancel();
+    dialogVisible.value = false;
+  };
+
+  const formatTime = (value: string) => value || '-';
 
   fetchData();
 </script>

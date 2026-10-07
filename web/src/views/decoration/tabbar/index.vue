@@ -95,7 +95,12 @@
               </template>
               <el-form :model="item" label-position="top">
                 <el-form-item label="名称">
-                  <el-input v-model="item.name" :maxlength="20" />
+                  <el-input
+                    v-model="item.name"
+                    :maxlength="20"
+                    show-word-limit
+                    placeholder="名称不能为空且最多 20 个字"
+                  />
                 </el-form-item>
                 <el-space wrap>
                   <el-form-item label="未选中图标">
@@ -314,6 +319,15 @@
       ElMessage.error('Tabbar 总项数必须为 2～5 项');
       return;
     }
+    if (
+      form.list.some((item) => {
+        const name = item.name.trim();
+        return name === '' || Array.from(name).length > 20;
+      })
+    ) {
+      ElMessage.error('Tabbar 名称不能为空且最多 20 个字');
+      return;
+    }
     const visible = form.list.filter((item) => item.is_show === 1).length;
     if (
       visible < 2 ||
@@ -331,6 +345,8 @@
         list: form.list.map((item, position) => ({ ...item, position })),
       });
       ElMessage.success('保存成功');
+    } catch {
+      // The shared Axios interceptor displays the server error.
     } finally {
       submitLoading.value = false;
     }

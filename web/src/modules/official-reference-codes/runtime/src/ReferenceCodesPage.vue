@@ -445,7 +445,7 @@
       title="Create reference code"
       width="min(640px, calc(100vw - 32px))"
       :close-on-click-modal="false"
-      :transition="{ css: false }"
+      :transition="{ name: 'dialog-fade', css: false }"
       @close="runtime.cancelCreate"
     >
       <form
@@ -549,7 +549,7 @@
       title="Append reference-code version"
       width="min(640px, calc(100vw - 32px))"
       :close-on-click-modal="false"
-      :transition="{ css: false }"
+      :transition="{ name: 'dialog-fade', css: false }"
       @close="runtime.cancelAppend"
     >
       <form
@@ -655,7 +655,7 @@
       title="Retire reference code"
       width="min(520px, calc(100vw - 32px))"
       :close-on-click-modal="false"
-      :transition="{ css: false }"
+      :transition="{ name: 'dialog-fade', css: false }"
       @close="runtime.cancelRetire"
     >
       <div v-if="state.retireCode !== null" class="reference-retire">

@@ -2290,7 +2290,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cf1aeabd94da745122b81012d7f827872739b50703b4498ac3a8ca9108b9a729"
+            "source_sha256": "b98f444de40983fe547465a920be6a7ccf596a8ff8486892982ab26adbd81b4a"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2484,7 +2484,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "73f608bb02b8bab2dfe8b24c323da8354719fb3e6685d202f0e3f07fb92ce141"
+            "source_sha256": "78ba46f3a6499d45f76773942890f88b9d11b12553d723ae4cb18b7346608817"
         },
         {
             "path": "plugins/official.rich-text/plugin.json",
@@ -2498,7 +2498,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "221ee9fc46cc21eb3f07da9ea30b0148285bfaad59b6827d31af8b4f03ac55cc"
+            "source_sha256": "ea782eb87b86c3ef769097864772611fe7d3768c3425a73c06973782c8f8ca34"
         },
         {
             "path": "plugins/official.settings/plugin.json",
@@ -17991,7 +17991,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3f5375f283bafd307349f611c6fe6de20cadea4b0a0f0b688761045db919867d"
+            "source_sha256": "b8e7209f68a9c9d50a57d66276c383c572a691875dae733e36741d77d42b6480"
         },
         {
             "path": "server/app/modules/official/reference_codes/resources/menus.json",
@@ -18651,7 +18651,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "db76762dda2b82eebef2d931993fda999ddb2dc75a441e9e2d8fb458502f3c95"
+            "source_sha256": "1e4a47b6b8534c10a31b811abbae3bc002c77d073c15b310bc2b52a7743926d6"
         },
         {
             "path": "server/app/modules/official/rich_text/database/migrations/20260903-create-rich-text-document.sql",
@@ -18679,7 +18679,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e1f0e64f40fa401b24de4d7ec9e429018d6cffe6f5fd89860a7d2ae144c0e8eb"
+            "source_sha256": "f91b4809a168e5a1f4fdac38ded29f821cbd1321091ae93f6afb679af201cc1b"
         },
         {
             "path": "server/app/modules/official/rich_text/resources/menus.json",
@@ -18777,7 +18777,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bcc7467968b7ba6fc383c2086c834c67c6851601d61bd0f1df5a294f671a8004"
+            "source_sha256": "59498972268045e854199bfac3492d909c5c181868c41cf95fa73876f8fc52cb"
         },
         {
             "path": "server/app/modules/official/rich_text/src/Validation/RichTextDocumentValidate.php",
@@ -33648,7 +33648,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7c4c7c51db7851d2287afbeddc7f3a4d6d30b00c3a7e84ff2930d56e4177ee97"
+            "source_sha256": "1e7f8d9efd7fcea800aeb3976d3f40dab71140c04f186ae727e272a7b5f298ff"
         },
         {
             "path": "web/src/modules/official-reference-codes/runtime/LICENSE",
@@ -33676,7 +33676,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b3e00c3a682211ad466ad422da1a9ee03dfc5be2d014db76d1c8e82e8d9da273"
+            "source_sha256": "9f8dcb0c75932788a902bb0e2651413f90de86debd3f7931475ef14a48f09083"
         },
         {
             "path": "web/src/modules/official-reference-codes/runtime/src/contracts.ts",
@@ -33802,7 +33802,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5ede1bf857f04c77c4c3d0e7fe90df8fb887dbc61f8f9369550159e8f3e737a4"
+            "source_sha256": "dd1f09c736f3ced27cca146a21163978d014014399b36aed56c494604562e918"
         },
         {
             "path": "web/src/modules/official-rich-text/components/RichTextEditor.vue",
@@ -33858,7 +33858,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6d27f9566f1e8d602498ea54e931ef9292ada1d55116939cb425b87b0732367a"
+            "source_sha256": "e3dda17322d2ddc7576cf8bfcf3b73d82d50625b479a79c0af2cfaa8e75bbabd"
         },
         {
             "path": "web/src/modules/official-rich-text/src/document.ts",
@@ -33900,7 +33900,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "38043e4d6578b741e9bbc548098ec3b833a4dba6d1fd9df5350d41cf529e79ee"
+            "source_sha256": "c9faf66536281635b5bcd28073a5cb16ba7f43e0ee0c14c7e3b2678450e7c569"
         },
         {
             "path": "web/src/modules/official-rich-text/views/locale/en-US.ts",
@@ -35104,7 +35104,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fe74308cfc0f6a8d55209f520a7985b8b50ab8b9ddc1b594f123354d66b39beb"
+            "source_sha256": "df8a4f3a8aaf585d73a480e79b072f9ec7bb4e9652f44b987d76ea73b49380bb"
         },
         {
             "path": "web/src/views/decoration/pc/index.vue",
@@ -35118,7 +35118,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d1a6596d30ff04aea093c3b0c96c6c2bd7cd9dafcdaa642648d641ea16f1f73a"
+            "source_sha256": "32051333dc6f91ffea44f1719350f5e04cd9f3e221372309d3c833015d7230ba"
         },
         {
             "path": "web/src/views/decoration/tabbar/index.vue",
@@ -35132,7 +35132,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "20c6684559e2a8cc616a88fa2a0d8a15a533babedecca117050fcc576e28d374"
+            "source_sha256": "bf27d5c51689d8dd0a3939d8596c4b30c4911293b8a2a1cf745fbd69ab9fdaae"
         },
         {
             "path": "web/src/views/dev-tools/code/index.vue",

@@ -311,6 +311,8 @@
         meta: [],
       });
       ElMessage.success('保存成功');
+    } catch {
+      // The shared Axios interceptor displays the server error.
     } finally {
       submitLoading.value = false;
     }
