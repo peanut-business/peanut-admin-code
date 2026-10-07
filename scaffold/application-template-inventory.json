@@ -709,7 +709,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "65064d98b542a6d8be78b5d5a1a4eed10d6f0b78d75c0a39cf991fe7255c73cd"
+            "source_sha256": "fca2b06564ba7a9fb119564fb837e0e023891a2f4fe645686eefee7610048c8a"
         },
         {
             "path": "docs/architecture/overview.md",
@@ -765,7 +765,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dc1c6968fe2cd188b130a4d9fbaf5eebb673a81020cbac952520464470208686"
+            "source_sha256": "0b8c6b999a93b7eedc1386bcf7bcc660af3a495b03155dfd7a93819ad86cfa6d"
         },
         {
             "path": "docs/development/controller-access-and-namespaces.md",
@@ -806,7 +806,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e55a4d0b9b782edf6ad196a5f7b39c32e946c75f1382d0814915224251d5711e"
+            "source_sha256": "26d5af5623a42a7452a5d79318a79be937304a3908ff4559e64b138402c08679"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -3711,7 +3711,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2d429dbcdb0aa7c23862ae1e304e0ce147d80ef27960348715468a7e875809e9"
+            "source_sha256": "b163229f7a794c11173044cd6d653228e99ea546afe9f088d5978ce8861d6bd7"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",
@@ -24855,7 +24855,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ef8af29645bf853fcb4dcb2624de6fbf4b33d5f37f1c48c1f5fa92d67f783327"
+            "source_sha256": "70b99f6b63d655894012bd4b73c1423d795e4722545998c9eda659b08ddd0c0b"
         },
         {
             "path": "server/resources/scaffold-application/docs-site/guide/development.md.stub",
@@ -24883,7 +24883,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7f1ae1b948b53752fd787854c348ea470c8235eab6d0a60cd5808236894e05df"
+            "source_sha256": "94604690c2e79dd03b216fe5601510517358221a0efd22670ed17d2281dde642"
         },
         {
             "path": "server/resources/scaffold-application/docs-site/index.md.stub",

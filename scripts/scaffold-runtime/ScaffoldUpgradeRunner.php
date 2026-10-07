@@ -12,6 +12,7 @@ use app\platform\value\plugin\PluginDescriptor;
 use app\platform\exception\plugin\PluginLifecycleException;
 use app\platform\infrastructure\plugin\PluginLockResolver;
 use app\platform\infrastructure\plugin\PluginArtifactWriter;
+use app\platform\validation\module\StrictVersionConstraintMatcher;
 use app\platform\validation\plugin\ModulePackagePreflight;
 use RuntimeException;
 use Throwable;
@@ -91,7 +92,7 @@ final class ScaffoldUpgradeRunner
             $actions = $this->projectPluginBoundary($actions, $pluginProjection, $targetPlugins, $pluginTarget);
         }
         $summary = $this->summary($actions);
-        $impact = $this->impact($actions);
+        $impact = $this->withModuleCompatibilityImpact($this->impact($actions), $pluginTarget);
         $appOwnedState = $this->ownershipState($root, $application, 'app-owned');
         $managedState = $this->actionState($root, $actions);
         $identity = [
@@ -114,7 +115,9 @@ final class ScaffoldUpgradeRunner
         ];
         $planDigest = hash('sha256', self::canonicalJson([$identity, $actions]));
         $candidate = 'scaffold-' . substr($planDigest, 0, 24);
-        $status = $summary['conflicts'] === 0 ? 'ready' : 'blocked';
+        $status = $summary['conflicts'] === 0 && !$this->moduleCompatibilityBlocked($pluginTarget)
+            ? 'ready'
+            : 'blocked';
         return [
             'schema_version' => 2,
             'protocol' => 'peanut.scaffold-upgrade-plan.v2',
@@ -166,6 +169,9 @@ final class ScaffoldUpgradeRunner
             }
             $this->assertPlanFresh($root, $plan);
             $resolved = $this->resolveConflicts($plan, $confirmedPlanSha256, $preservePaths, $replacePaths);
+            if (($resolved['status'] ?? null) !== 'ready') {
+                throw new RuntimeException('SCAFFOLD_MODULE_COMPATIBILITY_BLOCKED');
+            }
             $stateRoot = ScaffoldPathGuard::projectPath($root, '.peanut/upgrades');
             $path = $stateRoot . '/plans/' . $resolved['candidate'] . '.json';
             $this->writeJsonAtomic($path, $resolved, 0600);
@@ -1661,12 +1667,265 @@ final class ScaffoldUpgradeRunner
                 }
             }
             $preflight->dependencyOrder($modules, []);
+            $compatibility = $this->customerModuleCompatibility(
+                $stage,
+                $projection,
+                $keys,
+                $release,
+                $parameters,
+                $versionContract,
+            );
             return ['keys' => $keys, 'source_projection' => $sourceProjection,
                 'managed_upstream_proofs' => $managedUpstreamProofs,
-                'manifest_contents' => $manifestContents, 'lock_contents' => $built['contents'], 'projection' => $projection];
+                'manifest_contents' => $manifestContents, 'lock_contents' => $built['contents'],
+                'projection' => $projection, 'compatibility' => $compatibility];
         } finally {
             $this->removePluginProjectionStage($stage);
         }
+    }
+
+    /**
+     * Check only customer Modules preserved into the target graph. This is intentionally
+     * narrow: Kernel version constraints, explicit Kernel imports, and direct static calls.
+     * It reports upgrade work; it never rewrites downstream source.
+     *
+     * @param array<string,mixed> $projection
+     * @param list<string> $upstreamPluginKeys
+     * @param array<string,string> $parameters
+     * @param array<string,mixed> $versionContract
+     * @return array<string,mixed>
+     */
+    private function customerModuleCompatibility(
+        string $stage,
+        array $projection,
+        array $upstreamPluginKeys,
+        ScaffoldManifest $release,
+        array $parameters,
+        array $versionContract,
+    ): array {
+        $kernelVersion = $this->targetModuleKernelVersion($release, $parameters, $versionContract);
+        $matcher = new StrictVersionConstraintMatcher();
+        $upstream = array_fill_keys($upstreamPluginKeys, true);
+        $modules = [];
+        $blockers = [];
+        $checkedPhpFiles = 0;
+        foreach (($projection['plugins'] ?? []) as $pluginKey => $plugin) {
+            if (!is_string($pluginKey) || !is_array($plugin)) {
+                throw new RuntimeException('SCAFFOLD_PLUGIN_PROJECTION_INVALID');
+            }
+            if (isset($upstream[$pluginKey])) {
+                continue;
+            }
+            $moduleKeys = $plugin['module_keys'] ?? null;
+            $moduleRoots = $plugin['module_roots'] ?? null;
+            if (!is_array($moduleKeys) || !array_is_list($moduleKeys)
+                || !is_array($moduleRoots) || !array_is_list($moduleRoots)
+                || count($moduleKeys) !== count($moduleRoots)) {
+                throw new RuntimeException('SCAFFOLD_PLUGIN_PROJECTION_INVALID');
+            }
+            foreach ($moduleKeys as $index => $moduleKey) {
+                $moduleRoot = $moduleRoots[$index] ?? null;
+                if (!is_string($moduleKey) || !is_string($moduleRoot)) {
+                    throw new RuntimeException('SCAFFOLD_PLUGIN_PROJECTION_INVALID');
+                }
+                $manifestPath = ScaffoldPathGuard::projectPath($stage, $moduleRoot . '/module.json');
+                $manifest = json_decode((string) file_get_contents($manifestPath), true, 128, JSON_THROW_ON_ERROR);
+                $constraint = is_array($manifest) ? ($manifest['kernel_constraint'] ?? null) : null;
+                if (($manifest['key'] ?? null) !== $moduleKey || !is_string($constraint)) {
+                    throw new RuntimeException('SCAFFOLD_PLUGIN_PROJECTION_INVALID');
+                }
+                $moduleBlockers = [];
+                if (!$matcher->matches($kernelVersion, $constraint)) {
+                    $moduleBlockers[] = [
+                        'code' => 'MODULE_KERNEL_INCOMPATIBLE',
+                        'module_key' => $moduleKey,
+                        'path' => $moduleRoot . '/module.json',
+                        'line' => null,
+                        'symbol' => null,
+                        'method' => null,
+                        'detail' => "Target Module Kernel {$kernelVersion} does not satisfy {$constraint}.",
+                    ];
+                }
+                [$referenceBlockers, $phpFiles] = $this->scanCustomerModuleKernelReferences(
+                    $stage,
+                    $moduleKey,
+                    $moduleRoot,
+                );
+                array_push($moduleBlockers, ...$referenceBlockers);
+                array_push($blockers, ...$moduleBlockers);
+                $checkedPhpFiles += $phpFiles;
+                $modules[] = [
+                    'key' => $moduleKey,
+                    'kernel_constraint' => $constraint,
+                    'checked_php_files' => $phpFiles,
+                    'status' => $moduleBlockers === [] ? 'ready' : 'blocked',
+                ];
+            }
+        }
+        usort($modules, static fn(array $left, array $right): int => strcmp($left['key'], $right['key']));
+        usort($blockers, static fn(array $left, array $right): int => strcmp(
+            implode('|', array_map('strval', [
+                $left['module_key'] ?? '', $left['path'] ?? '', $left['line'] ?? 0,
+                $left['code'] ?? '', $left['symbol'] ?? '', $left['method'] ?? '',
+            ])),
+            implode('|', array_map('strval', [
+                $right['module_key'] ?? '', $right['path'] ?? '', $right['line'] ?? 0,
+                $right['code'] ?? '', $right['symbol'] ?? '', $right['method'] ?? '',
+            ])),
+        ));
+        return [
+            'status' => $blockers === [] ? 'ready' : 'blocked',
+            'kernel_version' => $kernelVersion,
+            'customer_module_count' => count($modules),
+            'checked_php_files' => $checkedPhpFiles,
+            'modules' => $modules,
+            'blockers' => $blockers,
+            'scope' => 'kernel_constraint, explicit PeanutAdmin\\Kernel imports, and direct static calls; no automatic rewrite',
+        ];
+    }
+
+    /** @return array{0:list<array<string,mixed>>,1:int} */
+    private function scanCustomerModuleKernelReferences(string $stage, string $moduleKey, string $moduleRoot): array
+    {
+        $root = ScaffoldPathGuard::projectPath($stage, $moduleRoot);
+        if (!is_dir($root) || is_link($root)) {
+            throw new RuntimeException('SCAFFOLD_PLUGIN_PROJECTION_INVALID');
+        }
+        $files = [];
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS),
+        );
+        foreach ($iterator as $entry) {
+            if ($entry->isLink()) {
+                throw new RuntimeException('SCAFFOLD_PLUGIN_PROJECTION_PATH_INVALID');
+            }
+            if ($entry->isFile() && strtolower($entry->getExtension()) === 'php') {
+                $files[] = $entry->getPathname();
+            }
+        }
+        sort($files, SORT_STRING);
+        $blockers = [];
+        foreach ($files as $file) {
+            $source = (string) file_get_contents($file);
+            $scan = '';
+            foreach (token_get_all($source) as $token) {
+                if (is_array($token) && in_array($token[0], [
+                    T_COMMENT, T_DOC_COMMENT, T_CONSTANT_ENCAPSED_STRING, T_ENCAPSED_AND_WHITESPACE,
+                ], true)) {
+                    $scan .= preg_replace('/[^\r\n]/', ' ', $token[1]) ?? '';
+                } else {
+                    $scan .= is_array($token) ? $token[1] : $token;
+                }
+            }
+            $relative = str_replace(DIRECTORY_SEPARATOR, '/', substr($file, strlen($stage) + 1));
+            preg_match_all(
+                '/^\s*use\s+(PeanutAdmin\\\\Kernel\\\\[A-Za-z_][A-Za-z0-9_\\\\]*)(?:\s+as\s+([A-Za-z_][A-Za-z0-9_]*))?\s*;/mi',
+                $scan,
+                $imports,
+                PREG_SET_ORDER | PREG_OFFSET_CAPTURE,
+            );
+            foreach ($imports as $import) {
+                $symbol = $import[1][0];
+                $segments = explode('\\', $symbol);
+                $alias = ($import[2][0] ?? '') !== '' ? $import[2][0] : end($segments);
+                $importLine = substr_count(substr($scan, 0, $import[1][1]), "\n") + 1;
+                if (!$this->kernelSymbolExists($symbol)) {
+                    $blockers[] = [
+                        'code' => 'MODULE_CORE_CLASS_MISSING', 'module_key' => $moduleKey,
+                        'path' => $relative, 'line' => $importLine, 'symbol' => $symbol, 'method' => null,
+                        'detail' => 'Imported Peanut Module Kernel symbol is unavailable in the target Core.',
+                    ];
+                    continue;
+                }
+                preg_match_all(
+                    '/\b' . preg_quote((string) $alias, '/') . '::([A-Za-z_][A-Za-z0-9_]*)\s*\(/',
+                    $scan,
+                    $calls,
+                    PREG_SET_ORDER | PREG_OFFSET_CAPTURE,
+                );
+                foreach ($calls as $call) {
+                    $method = $call[1][0];
+                    try {
+                        $reflection = new \ReflectionMethod($symbol, $method);
+                        $compatible = $reflection->isPublic() && $reflection->isStatic();
+                    } catch (\ReflectionException) {
+                        $compatible = false;
+                    }
+                    if (!$compatible) {
+                        $blockers[] = [
+                            'code' => method_exists($symbol, $method)
+                                ? 'MODULE_CORE_METHOD_INCOMPATIBLE'
+                                : 'MODULE_CORE_METHOD_MISSING',
+                            'module_key' => $moduleKey,
+                            'path' => $relative,
+                            'line' => substr_count(substr($scan, 0, $call[0][1]), "\n") + 1,
+                            'symbol' => $symbol,
+                            'method' => $method,
+                            'detail' => 'Direct static Kernel call is unavailable or no longer public/static in the target Core.',
+                        ];
+                    }
+                }
+            }
+        }
+        return [$blockers, count($files)];
+    }
+
+    private function kernelSymbolExists(string $symbol): bool
+    {
+        try {
+            return class_exists($symbol)
+                || interface_exists($symbol)
+                || trait_exists($symbol)
+                || (function_exists('enum_exists') && enum_exists($symbol));
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    /** @param array<string,string> $parameters @param array<string,mixed> $versionContract */
+    private function targetModuleKernelVersion(
+        ScaffoldManifest $release,
+        array $parameters,
+        array $versionContract,
+    ): string {
+        $file = $release->files()['server/config/modules.php'] ?? null;
+        if (!is_array($file)) {
+            throw new RuntimeException('SCAFFOLD_MODULE_KERNEL_VERSION_UNAVAILABLE');
+        }
+        $contents = $this->renderCurrentVersionArtifact($release, $file, $parameters, $versionContract);
+        if (preg_match(
+            '/env\(\s*[\'"]PEANUT_MODULE_KERNEL_VERSION[\'"]\s*,\s*[\'"]([^\'"]+)[\'"]\s*\)/',
+            $contents,
+            $match,
+        ) !== 1 || !(new StrictVersionConstraintMatcher())->matches($match[1], $match[1])) {
+            throw new RuntimeException('SCAFFOLD_MODULE_KERNEL_VERSION_UNAVAILABLE');
+        }
+        return $match[1];
+    }
+
+    /** @param array<string,mixed>|null $pluginTarget */
+    private function moduleCompatibilityBlocked(?array $pluginTarget): bool
+    {
+        return is_array($pluginTarget)
+            && (($pluginTarget['compatibility']['status'] ?? null) === 'blocked');
+    }
+
+    /** @param array<string,mixed>|null $pluginTarget */
+    private function withModuleCompatibilityImpact(array $impact, ?array $pluginTarget): array
+    {
+        $compatibility = is_array($pluginTarget) ? ($pluginTarget['compatibility'] ?? null) : null;
+        if (!is_array($compatibility)) {
+            return $impact;
+        }
+        $impact['module_compatibility'] = $compatibility;
+        if (($compatibility['status'] ?? null) === 'blocked') {
+            $impact['message'] = sprintf(
+                'No files will be changed until %d managed-file conflicts and %d customer Module compatibility blockers are resolved.',
+                count($impact['must_resolve'] ?? []),
+                count($compatibility['blockers'] ?? []),
+            );
+        }
+        return $impact;
     }
 
     /** Verify the fixed raw template graph before deriving any APP-specific canonical identities. */
@@ -1963,9 +2222,14 @@ final class ScaffoldUpgradeRunner
         unset($action);
         $resolved = $plan;
         $resolved['actions'] = $actions;
-        $resolved['status'] = 'ready';
+        $resolved['status'] = $this->moduleCompatibilityBlocked($resolved['identity']['plugin_target'] ?? null)
+            ? 'blocked'
+            : 'ready';
         $resolved['summary'] = $this->summary($actions);
-        $resolved['impact'] = $this->impact($actions);
+        $resolved['impact'] = $this->withModuleCompatibilityImpact(
+            $this->impact($actions),
+            $resolved['identity']['plugin_target'] ?? null,
+        );
         $resolved['resolution'] = [
             'from_candidate' => $plan['candidate'],
             'from_plan_sha256' => $actualPlanSha256,
@@ -2281,11 +2545,18 @@ final class ScaffoldUpgradeRunner
             || (isset($data['plan_sha256']) && !hash_equals('sha256:' . $digest, (string) $data['plan_sha256']))) {
             throw new RuntimeException('SCAFFOLD_PLAN_CHECKSUM_DRIFT');
         }
-        $expectedStatus = count(array_filter($data['actions'], static fn(array $action): bool => ($action['conflict'] ?? null) === true)) === 0 ? 'ready' : 'blocked';
+        $expectedStatus = count(array_filter($data['actions'], static fn(array $action): bool => ($action['conflict'] ?? null) === true)) === 0
+            && !$this->moduleCompatibilityBlocked($data['identity']['plugin_target'] ?? null)
+            ? 'ready'
+            : 'blocked';
         if (($data['status'] ?? null) !== $expectedStatus) {
             throw new RuntimeException('SCAFFOLD_PLAN_STATUS_DRIFT');
         }
-        if (($data['impact'] ?? null) !== $this->impact($data['actions'])) {
+        $expectedImpact = $this->withModuleCompatibilityImpact(
+            $this->impact($data['actions']),
+            $data['identity']['plugin_target'] ?? null,
+        );
+        if (($data['impact'] ?? null) !== $expectedImpact) {
             throw new RuntimeException('SCAFFOLD_PLAN_IMPACT_DRIFT');
         }
         return $data;

@@ -75,7 +75,7 @@ class ExampleController extends BaseAdminController
 
 ### APP-R14：模块声明统一消费
 决策状态：已生效。
-开发者中心、Provider、依赖、路由和打包消费同一正式定义；沿用 module.json/Composer/Plugin。发现、安装、租户开通、人员授权仍分开，不造第二 manifest，不猜目录执行。
+开发者中心、Provider、依赖、路由和打包消费同一正式定义；沿用 module.json/Composer/Plugin。下游业务默认放入自己的 Module，跨 Module 及对 Core 的调用使用已声明的公开契约，不以修改 Core 内部实现承载单一业务。发现、安装、租户开通、人员授权仍分开，不造第二 manifest，不猜目录执行。
 
 ### APP-R15：生成器、类型和文档同步
 决策状态：已生效。
@@ -83,7 +83,7 @@ class ExampleController extends BaseAdminController
 
 ### APP-R16：定制扩展与升级
 决策状态：已生效。
-分开上游受管区、客户自定义及秘密；独立升级入口复用现有差异/冲突和恢复能力，install.php 仅用于首次安装。公共底座须接收上游修复，不把整个 server/app 或前端都归为客户自有。更新保护客户代码；回退代码不证明数据库/外部副作用已恢复，真实客户操作另需授权，不造第二升级引擎。
+分开上游受管区、客户自定义及秘密；独立升级入口复用现有差异/冲突和恢复能力，install.php 仅用于首次安装。公共底座须接收上游修复，不把整个 server/app 或前端都归为客户自有。更新保护客户代码，但“文件未冲突”不等于业务兼容：plan 在 apply 前检查客户 Module 的目标 Kernel 约束和可静态确定的 Core 类/静态方法引用，不兼容先报告、修正 Module 后重跑计划，不自动改业务源码。回退代码不证明数据库/外部副作用已恢复，真实客户操作另需授权，不造第二升级引擎。
 
 ### APP-R17：可解释诊断与验收
 决策状态：已生效。
