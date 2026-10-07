@@ -114,7 +114,13 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
         $checks[] = $this->check('cache.read', $cacheStatus, false, $cacheLatency);
 
         [$storageStatus, $storageLatency] = $this->probe(function (): void {
-            foreach (['server/runtime', 'server/public/storage', 'server/private/storage'] as $relative) {
+            // The HTTP program tree is read-only; only these mounted runtime
+            // directories are expected to be writable by the worker.
+            foreach ([
+                'server/runtime/cache', 'server/runtime/log', 'server/runtime/session',
+                'server/runtime/temp', 'server/runtime/storage', 'server/runtime/generator',
+                'server/runtime/file', 'server/public/storage', 'server/private/storage',
+            ] as $relative) {
                 $path = $this->projectRoot . '/' . $relative;
                 if (!is_dir($path) || !is_readable($path) || !is_writable($path)) {
                     throw new \RuntimeException('runtime storage unavailable');

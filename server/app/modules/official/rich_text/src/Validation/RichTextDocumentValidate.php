@@ -39,6 +39,11 @@ final class RichTextDocumentValidate extends TenantContextValidate
         'collaboration' => ['id'],
     ];
 
+    public function sceneLists(): self
+    {
+        return $this->only($this->scene['lists'])->remove('title', 'require');
+    }
+
     protected function checkExists(mixed $value): bool|string
     {
         $this->requireTenantContext();

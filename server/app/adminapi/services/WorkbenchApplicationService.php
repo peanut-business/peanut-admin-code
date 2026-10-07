@@ -70,7 +70,6 @@ class WorkbenchApplicationService
             ['name' => '角色管理', 'image' => 'menu_role', 'url' => '/system/role'],
             ['name' => '部门管理', 'image' => 'menu_dept', 'url' => '/system/dept'],
             ['name' => '字典管理', 'image' => 'menu_dict', 'url' => '/system/dict'],
-            ['name' => '代码生成器', 'image' => 'menu_generator', 'url' => '/dev-tools/code'],
             ['name' => '素材中心', 'image' => 'menu_file', 'url' => '/system/file'],
             ['name' => '菜单权限', 'image' => 'menu_auth', 'url' => '/system/menu'],
             ['name' => '网站信息', 'image' => 'menu_web', 'url' => '/app-setting/website'],
