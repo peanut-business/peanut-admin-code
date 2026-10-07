@@ -233,6 +233,7 @@
         <el-button @click="exportVisible = false">取消</el-button>
         <el-button
           type="primary"
+          :disabled="exportInfoLoading || exportInfo.count <= 0 || exportLoading"
           :loading="exportLoading"
           @click="handleExport"
           >{{ $t('recharge.export.confirm') }}</el-button
