@@ -18,7 +18,9 @@ final class SettingsController extends BaseAdminController
     public function index(): Json
     {
         try {
-            return $this->response(['items' => $this->settings->list($this->tenantAdminContext())['items']]);
+            $items = $this->settings->list($this->tenantAdminContext())['items'];
+            $etag = '"settings-' . hash('sha256', json_encode($items, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)) . '"';
+            return $this->response(['items' => $items], $etag);
         } catch (SettingException $exception) {
             throw $this->problem($exception);
         }

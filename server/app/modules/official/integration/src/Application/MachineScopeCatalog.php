@@ -21,7 +21,9 @@ final readonly class MachineScopeCatalog
             }
             $known[$scope] = true;
         }
-        if ($known === [] || count($known) > 128) {
+        // An unconfigured deployment may still inspect integration records.
+        // Grant policy rejects every requested scope until scopes are configured.
+        if (count($known) > 128) {
             throw IntegrationSecurityException::invalid();
         }
         $this->known = $known;
