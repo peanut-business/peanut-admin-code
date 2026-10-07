@@ -33,6 +33,11 @@ original Plugin group inputs, service source hashes, frozen log hash and exact
 completion markers. These two service gates are reused with their original
 identity. The rejected fixture is never accepted through this receipt.
 
+An unchanged Plugin fixture does not require a service receipt, even when an
+independent consumer tool is bound. If its Plugin group has not passed, the runner
+executes both native service gates before the fixture; only an actual Plugin
+fixture digest change selects frozen service evidence.
+
 The Plugin fixture executes in the generated application, using its bootstrap,
 production modules, App container and registered database environment. Its
 corrected runner alone comes from the tool checkout. This invocation must return

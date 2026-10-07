@@ -2002,7 +2002,8 @@ class Runner:
                 {"ASYNC_PRIVATE_ROOT": str(self.cache / "task-import-export-private")},
             ),
         ]
-        reused_services = self.service_gate_evidence() if TOOL_BINDING is not None else None
+        plugin_changed = TOOL_BINDING is not None and TOOL_BINDING["tool_files"]["server/fixtures/plugin-module-lifecycle/run.php"] != sha256(ROOT / "server/fixtures/plugin-module-lifecycle/run.php")
+        reused_services = self.service_gate_evidence() if plugin_changed else None
         for test, additions in ([] if reused_services is not None else service_gates):
             self.create_database(database)
             with self.backend_process_environment(ROOT, database, "multi-tenant") as env:
