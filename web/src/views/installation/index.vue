@@ -362,7 +362,7 @@
   );
   const blockedReason = computed(() => {
     if (currentStatus.value?.state === 'blocked') {
-      const code = currentStatus.value.code;
+      const { code } = currentStatus.value;
       if (code === 'INSTALL_PREFLIGHT_BLOCKED') {
         return preflight.value?.reason || t('installation.preflight.blocked');
       }
