@@ -306,6 +306,8 @@
       renderData.value = data.lists;
       pagination.current = data.pageNo;
       pagination.total = data.count;
+    } catch {
+      // The shared API interceptor already reports request and session errors.
     } finally {
       setLoading(false);
     }
