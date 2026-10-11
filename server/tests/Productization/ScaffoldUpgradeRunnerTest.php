@@ -617,7 +617,14 @@ PHP,
     $latestVerify = $runner->verify($latestApp, scaffoldPlanPath($latestApp, $latestPlan));
     scaffoldExpect($latestApply['status'] === 'applied' && $latestVerify['status'] === 'verified', 'v1.1.1 to v1.1.2 apply/verify must complete');
     $latestAppliedManifest = json_decode((string) file_get_contents($latestApplicationManifestPath), true, 512, JSON_THROW_ON_ERROR);
-    scaffoldExpect(($latestAppliedManifest['generation_source'] ?? null) === $generationSource, 'scaffold upgrade must preserve generation_source');
+    $latestTargetIdentity = json_decode((string) file_get_contents($latestRelease), true, 512, JSON_THROW_ON_ERROR)['release'];
+    $latestAppliedGenerationSource = $latestAppliedManifest['generation_source'] ?? [];
+    scaffoldExpect(
+        ($latestAppliedGenerationSource['commit'] ?? null) === $latestTargetIdentity['source_commit']
+            && ($latestAppliedGenerationSource['tree'] ?? null) === $latestTargetIdentity['source_tree']
+            && ($latestAppliedGenerationSource['inventory_sha256'] ?? null) === $latestTargetIdentity['inventory_sha256'],
+        'scaffold upgrade must advance generation_source to the selected target identity',
+    );
     scaffoldExpect(($latestAppliedManifest['last_scaffold_upgrade']['from'] ?? null) === '1.1.1' && ($latestAppliedManifest['last_scaffold_upgrade']['to'] ?? null) === '1.1.2', 'scaffold upgrade must record the v1.1.2 transition');
     scaffoldExpect(hash_equals($latestAppOwnedDigest, (string) hash_file('sha256', $latestApp . '/' . $latestAppOwnedPath)), 'v1.1.2 upgrade must preserve app-owned bytes');
     $latestRecover = $runner->recover($latestApp, scaffoldPlanPath($latestApp, $latestPlan));
@@ -645,7 +652,14 @@ PHP,
     $nextVerify = $runner->verify($nextApp, scaffoldPlanPath($nextApp, $nextPlan));
     scaffoldExpect($nextApply['status'] === 'applied' && $nextVerify['status'] === 'verified', 'v1.1.2 to v1.1.3 apply/verify must complete');
     $nextAppliedManifest = json_decode((string) file_get_contents($nextApplicationManifestPath), true, 512, JSON_THROW_ON_ERROR);
-    scaffoldExpect(($nextAppliedManifest['generation_source'] ?? null) === $nextGenerationSource, 'v1.1.3 scaffold upgrade must preserve generation_source');
+    $nextTargetIdentity = json_decode((string) file_get_contents($nextRelease), true, 512, JSON_THROW_ON_ERROR)['release'];
+    $nextAppliedGenerationSource = $nextAppliedManifest['generation_source'] ?? [];
+    scaffoldExpect(
+        ($nextAppliedGenerationSource['commit'] ?? null) === $nextTargetIdentity['source_commit']
+            && ($nextAppliedGenerationSource['tree'] ?? null) === $nextTargetIdentity['source_tree']
+            && ($nextAppliedGenerationSource['inventory_sha256'] ?? null) === $nextTargetIdentity['inventory_sha256'],
+        'v1.1.3 scaffold upgrade must advance generation_source to the selected target identity',
+    );
     scaffoldExpect(($nextAppliedManifest['last_scaffold_upgrade']['from'] ?? null) === '1.1.2' && ($nextAppliedManifest['last_scaffold_upgrade']['to'] ?? null) === '1.1.3', 'scaffold upgrade must record the v1.1.3 transition');
     scaffoldExpect(hash_equals($nextAppOwnedDigest, (string) hash_file('sha256', $nextApp . '/' . $nextAppOwnedPath)), 'v1.1.3 upgrade must preserve app-owned bytes');
     scaffoldExpect(str_contains((string) file_get_contents($nextApp . '/deploy/docker/production.Dockerfile'), 'COPY plugins.lock /build/plugins.lock'), 'v1.1.3 upgrade must install the production Plugin lock copy');
