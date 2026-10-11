@@ -1,11 +1,14 @@
 <template>
   <view class="page">
-    <view class="policy-content" v-if="policy">
+    <view
+      class="policy-content"
+      v-if="policy && (policy.title.trim() || policy.content.trim())"
+    >
       <view class="policy-title">{{ policy.title }}</view>
       <rich-text :nodes="policy.content" class="policy-body" />
     </view>
     <view v-else-if="loading" class="loading">加载中...</view>
-    <view v-else class="loading">{{ errorMessage }}</view>
+    <view v-else class="loading">{{ errorMessage || '暂未配置相关协议内容' }}</view>
   </view>
 </template>
 
