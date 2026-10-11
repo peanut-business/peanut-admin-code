@@ -245,6 +245,8 @@
           sceneKey: `${scene.terminal}-${scene.pay_way}`,
         })),
       });
+    } catch {
+      // The shared interceptor displays the request error.
     } finally {
       setLoading(false);
     }
@@ -270,17 +272,21 @@
   }
 
   async function savePay() {
+    if (savingPay.value) return;
     savingPay.value = true;
     try {
       await savePayConfig({ ...pay });
       ElMessage.success('支付配置已保存');
       await load();
+    } catch {
+      // Keep the form available after the interceptor displays the error.
     } finally {
       savingPay.value = false;
     }
   }
 
   async function saveRecharge() {
+    if (savingRecharge.value) return;
     savingRecharge.value = true;
     try {
       await saveRechargeSetting({
@@ -296,6 +302,8 @@
       });
       ElMessage.success('充值配置已保存');
       await load();
+    } catch {
+      // Keep the form available after the interceptor displays the error.
     } finally {
       savingRecharge.value = false;
     }

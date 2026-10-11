@@ -37,10 +37,13 @@ export default function setupUserLoginInfoGuard(router: Router) {
           await userStore.info();
           next();
         } catch (error) {
-          const cleared = await userStore.logout(session);
+          try {
+            await userStore.logout(session);
+          } catch {
+            // A revoked token can make the remote logout request fail after local cleanup.
+          }
           const afterLogout = getSessionSnapshot();
           if (
-            cleared &&
             afterLogout.generation === session.generation + 2 &&
             afterLogout.token === null
           ) {

@@ -1,7 +1,8 @@
 <script setup lang="ts">
   import { onBeforeUnmount, provide } from 'vue';
+  import useUser from '@/hooks/user';
   import { useUserStore } from '@/store';
-  import { getToken } from '@/utils/auth';
+  import { getSessionSnapshot, getToken } from '@/utils/auth';
   import IntegrationSecurityPage from './runtime/IntegrationSecurityPage.vue';
   import {
     createIntegrationSecurityFetchTransport,
@@ -9,6 +10,8 @@
     integrationSecurityRuntimeKey,
   } from './runtime';
 
+  const { logout } = useUser();
+  const sessionGeneration = getSessionSnapshot().generation;
   const user = useUserStore();
   const allowed = (permission: string): boolean =>
     user.permissions.includes(permission);
@@ -25,6 +28,9 @@
       canReadDeliveries: () => allowed('official.integration.delivery.read'),
       canReadSessions: () => allowed('official.integration.session.read'),
       canRevokeSession: () => allowed('official.integration.session.revoke'),
+    },
+    onCurrentSessionRevoked: async () => {
+      if (getSessionSnapshot().generation === sessionGeneration) await logout();
     },
   });
 

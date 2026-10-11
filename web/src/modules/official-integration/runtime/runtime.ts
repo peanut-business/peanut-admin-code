@@ -151,7 +151,9 @@ const failure = (result: TransportResult): RuntimeError => {
       ? (result.body as Record<string, unknown>)
       : {};
   const data =
-    typeof body.data === 'object' && body.data !== null && !Array.isArray(body.data)
+    typeof body.data === 'object' &&
+    body.data !== null &&
+    !Array.isArray(body.data)
       ? (body.data as Record<string, unknown>)
       : {};
   const errorCode = body.error_code ?? data.error_code ?? body.code;
@@ -197,6 +199,7 @@ type RequestKey =
 export const createIntegrationSecurityRuntime = (options: {
   readonly transport: IntegrationSecurityTransport;
   readonly permissions: IntegrationSecurityPermissions;
+  readonly onCurrentSessionRevoked?: () => Promise<void>;
 }): IntegrationSecurityRuntime => {
   const state = reactive<IntegrationSecurityState>({
     machines: { items: [], loading: false, error: null },
@@ -569,8 +572,25 @@ export const createIntegrationSecurityRuntime = (options: {
         'session-mutation',
         options.permissions.canRevokeSession,
         (signal) => options.transport.revokeSession(session.sessionKey, signal),
-        (body) => parseItem(body, parseSession),
-        async () => loadSessions(),
+        (body) => {
+          const value = parseItem(body, parseSession);
+          if (
+            value.sessionKey !== session.sessionKey ||
+            value.status !== 'revoked'
+          )
+            throw new Error('INTEGRATION_RESPONSE_INVALID');
+          return value;
+        },
+        async (value) => {
+          if (value.current) {
+            state.sessions.items = state.sessions.items.filter(
+              (item) => item.sessionKey !== value.sessionKey
+            );
+            await options.onCurrentSessionRevoked?.();
+            return;
+          }
+          await loadSessions();
+        },
         state.sessions
       ),
     clearDisclosure: () => {

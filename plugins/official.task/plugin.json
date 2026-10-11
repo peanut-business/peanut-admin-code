@@ -1,11 +1,11 @@
 {
     "schema_version": 1,
     "key": "official.task",
-    "version": "1.0.12",
+    "version": "1.0.13",
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "7b6d79745b7faa5791d392ef90652d64bc34dcb359fd39e98e8e3c1be98c50a3"
+        "sha256": "a86a5094b30f7954fe886153237ac13271931440afe8402f9a3bedfe7ec6797b"
     },
     "trust": {
         "channel": "bundled",
@@ -39,7 +39,7 @@
             "modules": [
                 {
                     "key": "official.task",
-                    "version": "1.0.12",
+                    "version": "1.0.13",
                     "kernel_constraint": "^1.0",
                     "dependencies": [
                         {
@@ -78,15 +78,15 @@
     "npm": [
         {
             "name": "@peanut-admin/official-task",
-            "version": "1.0.4",
-            "integrity": "sha256-dZ0pZ2C2xN/Hra2tV8O6rmGQFGOo+pmswg0AKQfTCKg="
+            "version": "1.0.5",
+            "integrity": "sha256-Rso/9zXDRaU73s+Z46Oq8GGUDXc2uKjePFKoO+VX0x0="
         }
     ],
     "frontend": [
         {
             "client_key": "admin-web",
             "package": "@peanut-admin/official-task",
-            "version": "1.0.4",
+            "version": "1.0.5",
             "entry": "web/src/modules/official-task/contribution.ts",
             "sha256": "3054ae6e330a8c6782f663ed426e1f1721055ddf9d5645b87ff072967e0da0db"
         }

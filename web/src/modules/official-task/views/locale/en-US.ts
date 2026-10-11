@@ -56,7 +56,9 @@ export default {
   'systemCrontab.columns.command': 'Command',
   'systemCrontab.columns.expression': 'Cron Rule',
   'systemCrontab.columns.status': 'Status',
-  'systemCrontab.columns.lastTime': 'Last Run',
+  'systemCrontab.columns.lastTime': 'Scheduling baseline',
+  'systemCrontab.columns.lastTimeHelp':
+    'Creation or most recently processed schedule-window baseline; it does not indicate a completed command run.',
   'systemCrontab.columns.time': 'Time(s)',
   'systemCrontab.columns.maxTime': 'Max Time(s)',
   'systemCrontab.columns.error': 'Last Error',

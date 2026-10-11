@@ -56,7 +56,9 @@ export default {
   'systemCrontab.columns.command': '命令',
   'systemCrontab.columns.expression': '运行规则',
   'systemCrontab.columns.status': '状态',
-  'systemCrontab.columns.lastTime': '最后执行',
+  'systemCrontab.columns.lastTime': '调度基准时间',
+  'systemCrontab.columns.lastTimeHelp':
+    '创建或最近处理的调度窗口基准，不代表命令已执行。',
   'systemCrontab.columns.time': '耗时(秒)',
   'systemCrontab.columns.maxTime': '最大耗时(秒)',
   'systemCrontab.columns.error': '最近错误',

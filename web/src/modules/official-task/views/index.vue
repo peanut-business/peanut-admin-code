@@ -93,11 +93,16 @@
             }}</el-tag></template
           ></el-table-column
         >
-        <el-table-column
-          prop="last_time"
-          :label="$t('systemCrontab.columns.lastTime')"
-          width="170"
-        />
+        <el-table-column prop="last_time" width="170">
+          <template #header>
+            <el-tooltip
+              :content="$t('systemCrontab.columns.lastTimeHelp')"
+              placement="top"
+            >
+              <span>{{ $t('systemCrontab.columns.lastTime') }}</span>
+            </el-tooltip>
+          </template>
+        </el-table-column>
         <el-table-column
           prop="time"
           :label="$t('systemCrontab.columns.time')"
