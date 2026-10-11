@@ -2290,7 +2290,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0f15c047c58d1b520eed24b55f2fe14f02eb4be1aa6b50b0190acb6e6c373bf8"
+            "source_sha256": "53021ca76c1b8c4cff37ac7cbd9ec25ceb20266042fb3949d2f7b1bce602e60e"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2400,7 +2400,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bea5348bb8e9362fad182ce1af587399d2c32655353f61828532371564209f6d"
+            "source_sha256": "01d0047d0e67085441415df02c65ffc1d54c5f3bf8ed8b47641ec4d7f86497a9"
         },
         {
             "path": "plugins/official.member/plugin.json",
@@ -13411,7 +13411,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c58658f4862b5a54a5b56b7c14e2d67abd3205ea997c9d18207bbae07abf3e85"
+            "source_sha256": "260f5b3a071654408e7c8c602b956cb02bbe02dbc11b5b66f672f8e7adb697eb"
         },
         {
             "path": "server/app/modules/official/integration/database/migrations/20260921010000_adopt_official_integration_schema.sql",
@@ -13439,7 +13439,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7b6d4be33fa0f78379b3aeac9b6591c871a38be30f8eea4ccfda6d7d9c8110d5"
+            "source_sha256": "07434c091305c7f691c08459aaeb7603cb91ade4896590fcb36f998dcde63932"
         },
         {
             "path": "server/app/modules/official/integration/resources/menus.json",
@@ -13985,7 +13985,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b2a53a20c9827d462e88341e72d754f537faeaf6f2f83dcaa7f9b9511fde3753"
+            "source_sha256": "1622e6e02f273face3281f729ed4ccaa36a2cd7aff2c839d765d820ac5df3ff0"
         },
         {
             "path": "server/app/modules/official/integration/src/Controller/WebhookController.php",
@@ -35230,7 +35230,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7567357052cd9117341ee21fea78ad04a23577f3d981b67f605045f67fb1a112"
+            "source_sha256": "54bc31ee0512fee2f85407023dcf3baac6cc5a5f19bc315edb9f2e21a4e77250"
         },
         {
             "path": "web/src/views/dev-tools/modules/index.vue",

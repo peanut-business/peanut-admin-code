@@ -27,7 +27,13 @@ final class SessionSecurityController extends IntegrationAdminController
     public function revoke(string $sessionKey): Json
     {
         try {
-            $this->body([]);
+            $body = json_decode((string) $this->request->getContent());
+            if ($this->request->contentType() !== 'application/json'
+                || !$body instanceof \stdClass
+                || get_object_vars($body) !== []
+            ) {
+                throw IntegrationSecurityException::invalid();
+            }
             return $this->response($this->session($this->sessions->revokeSession(
                 $this->tenantAdminContext(),
                 $this->tenantAdminActor(),

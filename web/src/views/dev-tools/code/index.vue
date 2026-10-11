@@ -431,6 +431,7 @@
         <el-tab-pane
           v-for="file in previewFiles"
           :key="file.path"
+          :name="file.path"
           :label="file.path"
         >
           <el-text style="display: block; margin-bottom: 8px">{{
