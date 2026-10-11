@@ -29,11 +29,8 @@ export interface UserInfo {
 }
 
 export interface SetInfoParams {
-  nickname?: string;
-  avatar?: string;
-  sex?: number;
-  birthday?: string;
-  email?: string;
+  field: 'nickname' | 'avatar' | 'sex' | 'birthday' | 'email';
+  value: string | number;
 }
 
 export interface ChangePasswordParams {
@@ -58,7 +55,7 @@ export function getUserInfo() {
 
 /** POST api/user/setInfo */
 export function setUserInfo(data: SetInfoParams) {
-  return http.post('api/user/setInfo', { ...data });
+  return http.post('api/user/setInfo', { field: data.field, value: data.value });
 }
 
 /** POST api/user/changePassword */

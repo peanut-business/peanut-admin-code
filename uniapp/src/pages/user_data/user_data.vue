@@ -58,7 +58,7 @@
 <script setup lang="ts">
   import { ref, onMounted } from 'vue';
   import { useUserStore } from '@/store/user';
-  import { getUserInfo, setUserInfo } from '@/api/user';
+  import { getUserInfo, setUserInfo, type SetInfoParams } from '@/api/user';
 
   const userStore = useUserStore();
   const loading = ref(false);
@@ -66,6 +66,8 @@
   const sexIndex = ref(0);
 
   const form = ref({ nickname: '', avatar: '', birthday: '', email: '' });
+  const initialForm = ref({ nickname: '', avatar: '', birthday: '', email: '' });
+  const initialSexIndex = ref(0);
 
   onMounted(async () => {
     try {
@@ -76,7 +78,9 @@
         birthday: info.birthday,
         email: info.email,
       };
+      initialForm.value = { ...form.value };
       sexIndex.value = info.sex || 0;
+      initialSexIndex.value = sexIndex.value;
     } catch (error) {
       console.error('Failed to load user info:', error);
     }
@@ -126,7 +130,26 @@
   async function handleSave() {
     loading.value = true;
     try {
-      await setUserInfo({ ...form.value, sex: sexIndex.value });
+      const updates: SetInfoParams[] = [
+        ...(form.value.nickname !== initialForm.value.nickname
+          ? [{ field: 'nickname' as const, value: form.value.nickname }]
+          : []),
+        ...(form.value.avatar !== initialForm.value.avatar
+          ? [{ field: 'avatar' as const, value: form.value.avatar }]
+          : []),
+        ...(sexIndex.value !== initialSexIndex.value
+          ? [{ field: 'sex' as const, value: sexIndex.value }]
+          : []),
+        ...(form.value.birthday !== initialForm.value.birthday
+          ? [{ field: 'birthday' as const, value: form.value.birthday }]
+          : []),
+        ...(form.value.email !== initialForm.value.email
+          ? [{ field: 'email' as const, value: form.value.email }]
+          : []),
+      ];
+      for (const update of updates) {
+        await setUserInfo(update);
+      }
       userStore.setUserInfo({
         nickname: form.value.nickname,
         avatar: form.value.avatar,
