@@ -1040,11 +1040,11 @@
         },
         {
             "key": "official.payment",
-            "version": "1.0.9",
+            "version": "1.0.10",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "c47a8d78ba3e5bcc860d85fd8c2b73d4537891e8b0f0d2daabe699e6fc5ad0ad"
+                "sha256": "8ad960d978677045f47df35fd4e1547607136264e054fd8caa544405355cb094"
             },
             "trust": {
                 "channel": "bundled",
@@ -1078,7 +1078,7 @@
                     "modules": [
                         {
                             "key": "official.payment",
-                            "version": "1.0.9",
+                            "version": "1.0.10",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
@@ -1126,22 +1126,22 @@
             "composer": [
                 {
                     "name": "peanut-business/official-payment",
-                    "version": "1.0.4",
-                    "sha256": "e715ac9474e1350fe53d6ce1202b1e993ac0cdd682760947dac0a1505debe3b8"
+                    "version": "1.0.5",
+                    "sha256": "4bc85f0d39d41bd114439c28fc175e1b06dfcff55dc8f9dabe6a954a93239375"
                 }
             ],
             "npm": [
                 {
                     "name": "@peanut-admin/official-payment",
-                    "version": "1.0.1",
-                    "integrity": "sha256-keygajJ3fZ1nH3NnVHm/QaXRMjJYw650MCNBPU2ljLE="
+                    "version": "1.0.2",
+                    "integrity": "sha256-KKU0lkKOxm2KmSz1u6TtbQgg2FTwW+Ruy2X4OqYRtlo="
                 }
             ],
             "frontend": [
                 {
                     "client_key": "admin-web",
                     "package": "@peanut-admin/official-payment",
-                    "version": "1.0.1",
+                    "version": "1.0.2",
                     "entry": "web/src/modules/official-payment/contribution.ts",
                     "sha256": "94d41ccbd29f32bcef54e01363e8c4cf4a850825a2fc2cf0f594864625fe3e83"
                 }
@@ -1153,7 +1153,7 @@
                 }
             ],
             "manifest": "plugins/official.payment/plugin.json",
-            "manifest_sha256": "48b943d322d80a28e25da9a1884deec209090d2d452f2e81a8cf79cf68fd89de"
+            "manifest_sha256": "9cecbfc5ba8bac75e6e665fc6e6e862d6871beb4a62f0669ed679e2e6209b0d1"
         },
         {
             "key": "official.reference-codes",

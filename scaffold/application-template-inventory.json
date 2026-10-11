@@ -2290,7 +2290,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3a852b2b08b760d187a19dd6364191994910612295400043093b5066f0bb2cb9"
+            "source_sha256": "0f15c047c58d1b520eed24b55f2fe14f02eb4be1aa6b50b0190acb6e6c373bf8"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2400,7 +2400,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fd768cb7b82a0f7f7e98359c29489c2f33e4fe0476a7d317117e1cff36d68404"
+            "source_sha256": "bea5348bb8e9362fad182ce1af587399d2c32655353f61828532371564209f6d"
         },
         {
             "path": "plugins/official.member/plugin.json",
@@ -2470,7 +2470,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4f298708e21e66f5462b98e9519e92b90615da006734e87742ed49a33fd5a1e1"
+            "source_sha256": "9cecbfc5ba8bac75e6e665fc6e6e862d6871beb4a62f0669ed679e2e6209b0d1"
         },
         {
             "path": "plugins/official.reference-codes/plugin.json",
@@ -3260,7 +3260,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4ed390e4c10bca4fa976e06a493be3f99d7e9123963e8ed54d4213a2ee7767ba"
+            "source_sha256": "dc7e6b9793685d4f1e3c1bda38307cc693ba7a90a5a26076f9a9ed4ce5414ecf"
         },
         {
             "path": "scripts/local-php-runtime",
@@ -8567,7 +8567,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "07c201b0094b3888e4c9a105bb616fd6f7a510400b1909fbc4bf07d2b646f4af"
+            "source_sha256": "59548542255d549bd526c4c9e620e78d628c78838cea5e84b989be244034fb65"
         },
         {
             "path": "server/app/common/services/authorization/MenuPermissionUsageQuery.php",
@@ -17445,7 +17445,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e715ac9474e1350fe53d6ce1202b1e993ac0cdd682760947dac0a1505debe3b8"
+            "source_sha256": "4bc85f0d39d41bd114439c28fc175e1b06dfcff55dc8f9dabe6a954a93239375"
         },
         {
             "path": "server/app/modules/official/payment/database/migrations/20260826-namespace-permission-keys.sql",
@@ -17473,7 +17473,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f72a88168f4ec424e262a82bb8f3b1ef98f08a79224c3acfbb63c1f0c1a36033"
+            "source_sha256": "aa65d4bc156b5ddef6a2aa3576d99af6340a98cf7c95be3688142cdcb03b7d4b"
         },
         {
             "path": "server/app/modules/official/payment/resources/menus.json",
@@ -17795,7 +17795,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7f280cc588623533a3fd57bd452a5b60cc2c792876d75a5ccda95176e9ac6681"
+            "source_sha256": "e21a9a2cffa9c1ef89a3e6bc9b140a6716bfcd260eef318e8ede8d36ec52ee7c"
         },
         {
             "path": "server/app/modules/official/payment/src/Service/RechargeApplicationService.php",
@@ -32766,7 +32766,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1d687c16bf3acc05ea6b938b6ed08ab9196e4ba453667e92caa3adf933fbe497"
+            "source_sha256": "0df09455c7adbd620f7d197ceb256bb9b20c05b3e8404b479e3c7ac72a031a4a"
         },
         {
             "path": "web/src/modules/official-integration/tsconfig.json",
@@ -33494,7 +33494,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "91eca06a32777d9d671f73675479bf41a5d1323258c3ae743023413d4da58cb1"
+            "source_sha256": "28a53496428ec66d8a992cf5bba4ed6d0820d854f05be46ecb65f83aa611b65a"
         },
         {
             "path": "web/src/modules/official-payment/views/recharge/index.vue",
@@ -33508,7 +33508,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "324b1d4b9566c733a7ffd79c4cb6054ced8007d181c15edd07fb2af89092f6fc"
+            "source_sha256": "af2cf684fb2c9e0de394e282977e2051709c25226a571830ae51be66461dfd11"
         },
         {
             "path": "web/src/modules/official-payment/views/recharge/locale/en-US.ts",
