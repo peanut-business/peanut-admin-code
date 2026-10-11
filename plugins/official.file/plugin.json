@@ -1,11 +1,11 @@
 {
     "schema_version": 1,
     "key": "official.file",
-    "version": "1.0.13",
+    "version": "1.0.14",
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "4903df68ce7160b52720c0d692b9d42fb900dbc9bc62edbcd8ab123de4649a82"
+        "sha256": "cfca4efdb13723e9f573512fcc06c39e9cf2729e3d0b6788f9b15f3c60b5aa09"
     },
     "trust": {
         "channel": "bundled",
@@ -39,7 +39,7 @@
             "modules": [
                 {
                     "key": "official.file",
-                    "version": "1.0.13",
+                    "version": "1.0.14",
                     "kernel_constraint": "^1.0",
                     "dependencies": [
                         {
@@ -82,15 +82,15 @@
     "npm": [
         {
             "name": "@peanut-admin/official-file",
-            "version": "1.0.4",
-            "integrity": "sha256-8xtCdeW0Ia3hA54tjdjS9hbPsukGD3y/+ekV6Qp4Jx8="
+            "version": "1.0.5",
+            "integrity": "sha256-6ZhcuTdVFziNba/iMq9M0SulsQlyYIjbfbT3sT4sPSE="
         }
     ],
     "frontend": [
         {
             "client_key": "admin-web",
             "package": "@peanut-admin/official-file",
-            "version": "1.0.4",
+            "version": "1.0.5",
             "entry": "web/src/modules/official-file/contribution.ts",
             "sha256": "e1821e8f1411ab45754614dd6abe7f2a78046d8d6568fa5372ecabab216482ae"
         }

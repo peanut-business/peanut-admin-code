@@ -66,6 +66,7 @@ export interface FileListParams {
 export function getFileList(params: FileListParams) {
   return axios.get<ListRes<FileRecord>>('/adminapi/official.file.list', {
     params,
+    timeout: 15_000,
   });
 }
 

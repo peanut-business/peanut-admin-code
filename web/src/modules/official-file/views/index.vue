@@ -426,6 +426,8 @@
       pagination.current = data.pageNo;
       pagination.total = data.count;
       checkedIds.value = [];
+    } catch {
+      return;
     } finally {
       setLoading(false);
     }
