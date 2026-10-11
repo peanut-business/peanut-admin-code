@@ -86,6 +86,7 @@
                       <el-button
                         type="danger"
                         size="small"
+                        :disabled="form.list.length <= 2"
                         @click="removeItem(index)"
                         >删除</el-button
                       >
