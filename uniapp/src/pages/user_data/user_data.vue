@@ -156,6 +156,11 @@
       });
       uni.showToast({ title: '保存成功' });
       setTimeout(() => uni.navigateBack(), 800);
+    } catch (error) {
+      uni.showToast({
+        title: error instanceof Error ? error.message : '保存失败，请稍后重试',
+        icon: 'none',
+      });
     } finally {
       loading.value = false;
     }
