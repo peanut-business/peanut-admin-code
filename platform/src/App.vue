@@ -1455,6 +1455,8 @@
             operators.value = result.lists;
           }),
         ]);
+      } else if (view.value === 'tenants') {
+        await loadTenants();
       } else if (view.value === 'owners') {
         await loadTenants();
         const id = targetTenantId.value;
