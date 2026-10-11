@@ -257,6 +257,52 @@ try {
         $specs = array_map(static fn(string $key, string $path): string => $key . '=' . $path, $plugin['module_keys'], $plugin['module_roots']);
         $moduleWriter->make($key, $plugin['version'], $specs);
     }
+    $customerModuleRoot = $moduleRoot . '/server/app/modules/acme/compat';
+    mkdir($customerModuleRoot . '/src', 0775, true);
+    file_put_contents($customerModuleRoot . '/composer.json', json_encode([
+        'name' => 'acme/compat',
+        'type' => 'library',
+        'version' => '1.0.0',
+        'license' => 'MIT',
+        'require' => ['php' => '^8.3'],
+        'autoload' => ['psr-4' => ['Acme\\Compat\\' => 'src/']],
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
+    file_put_contents($customerModuleRoot . '/module.json', json_encode([
+        'schema_version' => 1,
+        'key' => 'acme.compat',
+        'name' => 'Compatibility fixture',
+        'description' => 'Downstream Module compatibility fixture',
+        'version' => '1.0.0',
+        'kernel_constraint' => '^1.0',
+        'license' => 'MIT',
+        'php_package' => 'acme/compat',
+        'web_package' => null,
+        'dependencies' => [],
+        'backend' => ['provider' => 'Acme\\Compat\\ModuleProvider'],
+        'frontend' => (object) [],
+        'database' => ['owned_tables' => []],
+        'contracts' => ['exports' => [], 'events' => []],
+        'tenant' => ['enableable' => true, 'disable_behavior' => 'reject_new_operations', 'requires' => []],
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
+    file_put_contents(
+        $customerModuleRoot . '/src/ModuleProvider.php',
+        <<<'PHP'
+<?php
+namespace Acme\Compat;
+use PeanutAdmin\Kernel\Module\ModuleProvider as ModuleProviderContract;
+final class ModuleProvider implements ModuleProviderContract
+{
+    public function moduleKey(): string { return 'acme.compat'; }
+    public function bindings(): array { return []; }
+}
+PHP,
+    );
+    $customerProbe = $customerModuleRoot . '/src/KernelProbe.php';
+    $writeCustomerProbe = static function (string $method) use ($customerProbe): void {
+        file_put_contents($customerProbe, "<?php\nnamespace Acme\\Compat;\nuse PeanutAdmin\\Kernel\\Module\\ModuleKey;\nfinal class KernelProbe { public static function probe(): void { ModuleKey::{$method}('acme.compat'); } }\n");
+    };
+    $writeCustomerProbe('fromString');
+    $moduleWriter->make('acme.compat', '1.0.0', ['acme.compat=server/app/modules/acme/compat']);
     $moduleWriter->writeLock();
     $moduleProjection = Closure::bind(
         fn(): array => $this->upstreamPluginProjection($moduleRoot, $this->pluginProjection($moduleRoot), $moduleFiles, [], $moduleTarget, $moduleRelease, $moduleParameters, []),
@@ -268,6 +314,34 @@ try {
     scaffoldExpect(hash_file('sha256', $articleRoot . '/module.json') !== $articleManifest->digest, 'real catalog manifest must exercise distinct file and semantic digest contracts');
     $identicalProjection = $moduleProjection();
     scaffoldExpect($identicalProjection['projection'] === $projectionReader($moduleRoot), 'same-version identical native graph must be accepted without changing its identity');
+    scaffoldExpect(
+        ($identicalProjection['compatibility']['status'] ?? null) === 'ready'
+            && count(array_filter(
+                $identicalProjection['compatibility']['modules'] ?? [],
+                static fn(array $module): bool => ($module['key'] ?? null) === 'acme.compat'
+                    && ($module['status'] ?? null) === 'ready',
+            )) === 1
+            && ($identicalProjection['compatibility']['blockers'] ?? null) === [],
+        'preserved customer Module with compatible Kernel references must remain ready: '
+            . json_encode($identicalProjection['compatibility'] ?? null, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+    );
+    $writeCustomerProbe('removedByUpgrade');
+    $moduleWriter->make('acme.compat', '1.0.0', ['acme.compat=server/app/modules/acme/compat']);
+    $moduleWriter->writeLock();
+    $incompatibleProjection = $moduleProjection();
+    scaffoldExpect(
+        ($incompatibleProjection['compatibility']['status'] ?? null) === 'blocked'
+            && count(array_filter(
+                $incompatibleProjection['compatibility']['blockers'] ?? [],
+                static fn(array $blocker): bool => ($blocker['code'] ?? null) === 'MODULE_CORE_METHOD_MISSING'
+                    && ($blocker['module_key'] ?? null) === 'acme.compat'
+                    && str_ends_with((string) ($blocker['path'] ?? ''), '/src/KernelProbe.php'),
+            )) === 1,
+        'missing target Kernel static method must block the preserved customer Module',
+    );
+    $writeCustomerProbe('fromString');
+    $moduleWriter->make('acme.compat', '1.0.0', ['acme.compat=server/app/modules/acme/compat']);
+    $moduleWriter->writeLock();
     $articleService = $articleRoot . '/src/Service/ArticleQueryService.php';
     file_put_contents($articleService, (string) file_get_contents($articleService) . "\n// changed same-version source\n");
     $moduleWriter->make('official.article', $moduleTarget['official.article']['version'], ['official.article=server/app/modules/official/article']);
@@ -543,7 +617,14 @@ try {
     $latestVerify = $runner->verify($latestApp, scaffoldPlanPath($latestApp, $latestPlan));
     scaffoldExpect($latestApply['status'] === 'applied' && $latestVerify['status'] === 'verified', 'v1.1.1 to v1.1.2 apply/verify must complete');
     $latestAppliedManifest = json_decode((string) file_get_contents($latestApplicationManifestPath), true, 512, JSON_THROW_ON_ERROR);
-    scaffoldExpect(($latestAppliedManifest['generation_source'] ?? null) === $generationSource, 'scaffold upgrade must preserve generation_source');
+    $latestTargetIdentity = json_decode((string) file_get_contents($latestRelease), true, 512, JSON_THROW_ON_ERROR)['release'];
+    $latestAppliedGenerationSource = $latestAppliedManifest['generation_source'] ?? [];
+    scaffoldExpect(
+        ($latestAppliedGenerationSource['commit'] ?? null) === $latestTargetIdentity['source_commit']
+            && ($latestAppliedGenerationSource['tree'] ?? null) === $latestTargetIdentity['source_tree']
+            && ($latestAppliedGenerationSource['inventory_sha256'] ?? null) === $latestTargetIdentity['inventory_sha256'],
+        'scaffold upgrade must advance generation_source to the selected target identity',
+    );
     scaffoldExpect(($latestAppliedManifest['last_scaffold_upgrade']['from'] ?? null) === '1.1.1' && ($latestAppliedManifest['last_scaffold_upgrade']['to'] ?? null) === '1.1.2', 'scaffold upgrade must record the v1.1.2 transition');
     scaffoldExpect(hash_equals($latestAppOwnedDigest, (string) hash_file('sha256', $latestApp . '/' . $latestAppOwnedPath)), 'v1.1.2 upgrade must preserve app-owned bytes');
     $latestRecover = $runner->recover($latestApp, scaffoldPlanPath($latestApp, $latestPlan));
@@ -571,7 +652,14 @@ try {
     $nextVerify = $runner->verify($nextApp, scaffoldPlanPath($nextApp, $nextPlan));
     scaffoldExpect($nextApply['status'] === 'applied' && $nextVerify['status'] === 'verified', 'v1.1.2 to v1.1.3 apply/verify must complete');
     $nextAppliedManifest = json_decode((string) file_get_contents($nextApplicationManifestPath), true, 512, JSON_THROW_ON_ERROR);
-    scaffoldExpect(($nextAppliedManifest['generation_source'] ?? null) === $nextGenerationSource, 'v1.1.3 scaffold upgrade must preserve generation_source');
+    $nextTargetIdentity = json_decode((string) file_get_contents($nextRelease), true, 512, JSON_THROW_ON_ERROR)['release'];
+    $nextAppliedGenerationSource = $nextAppliedManifest['generation_source'] ?? [];
+    scaffoldExpect(
+        ($nextAppliedGenerationSource['commit'] ?? null) === $nextTargetIdentity['source_commit']
+            && ($nextAppliedGenerationSource['tree'] ?? null) === $nextTargetIdentity['source_tree']
+            && ($nextAppliedGenerationSource['inventory_sha256'] ?? null) === $nextTargetIdentity['inventory_sha256'],
+        'v1.1.3 scaffold upgrade must advance generation_source to the selected target identity',
+    );
     scaffoldExpect(($nextAppliedManifest['last_scaffold_upgrade']['from'] ?? null) === '1.1.2' && ($nextAppliedManifest['last_scaffold_upgrade']['to'] ?? null) === '1.1.3', 'scaffold upgrade must record the v1.1.3 transition');
     scaffoldExpect(hash_equals($nextAppOwnedDigest, (string) hash_file('sha256', $nextApp . '/' . $nextAppOwnedPath)), 'v1.1.3 upgrade must preserve app-owned bytes');
     scaffoldExpect(str_contains((string) file_get_contents($nextApp . '/deploy/docker/production.Dockerfile'), 'COPY plugins.lock /build/plugins.lock'), 'v1.1.3 upgrade must install the production Plugin lock copy');

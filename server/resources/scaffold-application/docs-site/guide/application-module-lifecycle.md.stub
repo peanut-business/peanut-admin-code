@@ -67,7 +67,7 @@ php think module:update-package <archive> --sha256=<64-hex> --signature-key-id=<
 - `app-owned`：应用、自有扩展和客户模块，升级保留并在冲突时要求 adoption。
 - 实例状态：环境文件、凭据、上传、数据库行、备份和 recovery pointer，不能进入候选或包。
 
-产品升级从已安装的 `scripts/upgrade` 入口进行。入口核对包内 inventory、逐文件 SHA-256、manifest、版本兼容及来源/目标身份后才使用包内驱动。`PEANUT_SERVER_ENV_FILE` 指向实例自己的后端环境文件。
+产品升级从已安装的 `scripts/upgrade` 入口进行。入口核对包内 inventory、逐文件 SHA-256、manifest、版本兼容及来源/目标身份后才使用包内驱动。源码升级 plan 还会检查保留的客户 Module 对目标 Module Kernel 的约束，以及明确 Kernel 类/静态方法引用；不兼容时报告 Module、文件和行号并停止 apply，修正业务 Module 后重新 plan，不自动改业务源码。`PEANUT_SERVER_ENV_FILE` 指向实例自己的后端环境文件。
 
 ```bash
 php scripts/upgrade plan --instance-root=<absolute-instance> --package=<absolute-extracted-package>
