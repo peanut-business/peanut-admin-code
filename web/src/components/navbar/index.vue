@@ -160,6 +160,13 @@
           {{ getMenuLabel(item) }}
         </el-button>
       </div>
+      <p
+        v-else-if="menuSearchQuery.trim()"
+        class="menu-search-empty"
+        role="status"
+      >
+        {{ $t('settings.search.empty') }}
+      </p>
     </el-dialog>
     <el-dialog
       v-model="tenantSwitchVisible"
@@ -476,5 +483,11 @@
     text-align: left;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .menu-search-empty {
+    margin: 16px 0 4px;
+    color: var(--el-text-color-secondary);
+    text-align: center;
   }
 </style>

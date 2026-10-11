@@ -3,6 +3,7 @@ export default {
   'settings.themeColor': 'Theme Color',
   'settings.content': 'Content Setting',
   'settings.search': 'Search',
+  'settings.search.empty': 'No matching menu items',
   'settings.language': 'Language',
   'settings.navbar': 'Navbar',
   'settings.menuWidth': 'Menu Width (px)',

@@ -3,6 +3,7 @@ export default {
   'settings.themeColor': '主题色',
   'settings.content': '内容区域',
   'settings.search': '搜索',
+  'settings.search.empty': '没有匹配的菜单项',
   'settings.language': '语言',
   'settings.navbar': '导航栏',
   'settings.menuWidth': '菜单宽度 (px)',
