@@ -24,6 +24,10 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       proxy: {
+        '/installapi': {
+          target: apiProxyTarget,
+          changeOrigin: false,
+        },
         '/api': {
           target: apiProxyTarget,
           changeOrigin: false,
