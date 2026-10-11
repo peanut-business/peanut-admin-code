@@ -255,6 +255,7 @@
   const { t } = useI18n();
   const { loading, setLoading } = useLoading(true);
   const renderData = ref<OperationLogRecord[]>([]);
+  let latestRequest = 0;
 
   const generateFormModel = () => ({
     username: '',
@@ -290,6 +291,8 @@
   };
 
   const fetchData = async (page = 1) => {
+    latestRequest += 1;
+    const requestId = latestRequest;
     setLoading(true);
     try {
       const params: OperationLogParams = {
@@ -303,13 +306,14 @@
         page_size: pagination.pageSize,
       };
       const { data } = await getOperationLogList(params);
+      if (requestId !== latestRequest) return;
       renderData.value = data.lists;
       pagination.current = data.pageNo;
       pagination.total = data.count;
     } catch {
       // The shared API interceptor already reports request and session errors.
     } finally {
-      setLoading(false);
+      if (requestId === latestRequest) setLoading(false);
     }
   };
   fetchData();
