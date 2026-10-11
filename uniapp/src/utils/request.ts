@@ -157,6 +157,60 @@ async function request<T = unknown>(options: RequestOptions): Promise<T> {
   }
 }
 
+export interface UploadedImage {
+  id: number;
+  cid: number;
+  type: number;
+  name: string;
+  file_key: string;
+  uri: string;
+  url: string;
+}
+
+export function uploadImage(filePath: string): Promise<UploadedImage> {
+  const store = useUserStore();
+  const generation = store.sessionGeneration;
+  const token = store.token;
+  if (!token) return Promise.reject(new Error('请先登录'));
+
+  return new Promise((resolve, reject) => {
+    uni.uploadFile({
+      url: `${baseUrl()}/api/upload/image`,
+      filePath,
+      name: 'file',
+      header: { Authorization: `Bearer ${token}` },
+      timeout: 20_000,
+      success: (response) => {
+        let envelope: unknown;
+        try {
+          envelope = typeof response.data === 'string'
+            ? JSON.parse(response.data)
+            : response.data;
+        } catch {
+          reject(new Error('上传响应格式无效'));
+          return;
+        }
+        if (!isRecord(envelope) || typeof envelope.code !== 'number') {
+          reject(new Error('上传响应格式无效'));
+          return;
+        }
+        if (envelope.code === 40100) {
+          if (store.sessionGeneration === generation && store.clearIfToken(token))
+            uni.reLaunch({ url: '/pages/login/login' });
+          reject(new Error(typeof envelope.msg === 'string' ? envelope.msg : '请先登录'));
+          return;
+        }
+        if (response.statusCode < 200 || response.statusCode >= 300 || envelope.code !== 20000 || !isRecord(envelope.data) || typeof envelope.data.url !== 'string') {
+          reject(new Error(typeof envelope.msg === 'string' ? envelope.msg : '图片上传失败'));
+          return;
+        }
+        resolve(envelope.data as unknown as UploadedImage);
+      },
+      fail: () => reject(new Error('网络错误，请稍后重试')),
+    });
+  });
+}
+
 export const http = {
   get<T = unknown>(
     url: string,

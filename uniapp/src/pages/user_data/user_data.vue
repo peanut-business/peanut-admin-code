@@ -59,6 +59,7 @@
   import { ref, onMounted } from 'vue';
   import { useUserStore } from '@/store/user';
   import { getUserInfo, setUserInfo, type SetInfoParams } from '@/api/user';
+  import { uploadImage } from '@/utils/request';
 
   const userStore = useUserStore();
   const loading = ref(false);
@@ -120,10 +121,23 @@
   function chooseAvatar() {
     uni.chooseImage({
       count: 1,
-      success(res) {
-        // avatar upload would normally call upload API — store locally for now
-        form.value.avatar = res.tempFilePaths[0];
+      success: async (res) => {
+        const filePath = res.tempFilePaths[0];
+        if (!filePath) return;
+        loading.value = true;
+        try {
+          const uploaded = await uploadImage(filePath);
+          form.value.avatar = uploaded.url;
+        } catch (error) {
+          uni.showToast({
+            title: error instanceof Error ? error.message : '头像上传失败',
+            icon: 'none',
+          });
+        } finally {
+          loading.value = false;
+        }
       },
+      fail: () => uni.showToast({ title: '未能选择图片', icon: 'none' }),
     });
   }
 
