@@ -3,6 +3,7 @@ import type { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { useUserStore } from '@/store';
 import { getSessionSnapshot, getToken, setToken } from '@/utils/auth';
+import i18n from '@/locale';
 import { isTenantAccessToken } from '@peanut-admin/vue';
 import { refreshTenantSession } from '@/api/tenant-session';
 
@@ -170,8 +171,16 @@ axios.interceptors.response.use(handleResponse, (error) => {
   if (response?.data && typeof response.data.code === 'number') {
     return handleResponse(response);
   }
+  let message = error.msg || 'Request Error';
+  if (axios.isAxiosError(error) && !error.response) {
+    if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+      message = i18n.global.t('tenantSession.requestTimeout');
+    } else if (error.code === 'ERR_NETWORK' || error.request) {
+      message = i18n.global.t('tenantSession.networkError');
+    }
+  }
   ElMessage.error({
-    message: error.msg || 'Request Error',
+    message,
     duration: 5 * 1000,
   });
   return Promise.reject(error);
