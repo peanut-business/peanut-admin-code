@@ -24,11 +24,11 @@ export default {
   'configurationTransfer.plan.title': 'Import plan',
   'configurationTransfer.plan.checksum': 'Checksum',
   'configurationTransfer.plan.total': 'Entries',
-  'configurationTransfer.plan.conflicts': 'Conflicts',
+  'configurationTransfer.plan.conflicts': 'Blocking conflicts',
   'configurationTransfer.plan.missingSecrets':
     '{count} secret references still need rebinding',
   'configurationTransfer.plan.conflictCount':
-    '{count} conflicts detected; review the selected policy',
+    '{count} entries differ from the target; review the selected policy and planned actions',
   'configurationTransfer.plan.adapter': 'Collection',
   'configurationTransfer.plan.key': 'Configuration key',
   'configurationTransfer.plan.action': 'Planned action',

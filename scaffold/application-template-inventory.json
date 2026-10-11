@@ -2290,7 +2290,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2f8687c371b10244b316bb5ee4b7b90fc65661f4a03204cfce0cc9cf054c3f54"
+            "source_sha256": "14af7df0284319ae54d2159e299086888c50d793872f010043d70f0451629806"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2386,7 +2386,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ed7630fad9efb57f60773805e4eb8c73b28004b707e69821f2df53aac1288c4d"
+            "source_sha256": "80d7d4e49e52443aeadcf380eb73b41503dc26d208e638d8c220493db2b8dfab"
         },
         {
             "path": "plugins/official.integration/plugin.json",
@@ -12626,7 +12626,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e2ca533987b2c3a3be438837127a6fe775e403317fd3a531773be81f501a3232"
+            "source_sha256": "fe5acef29a708070e14760a976fc3662a102bbac078d74d7ab451a2c038e53a3"
         },
         {
             "path": "server/app/modules/official/import_export/resources/configuration-package.schema.json",
@@ -32570,7 +32570,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d143e1d2650f86128af01036f55f66f857a603bee092e654007db0b8d2053d12"
+            "source_sha256": "83b3131e8510afb51075abd9fae5ecc36c112485f14c306f1ad2bebeab8ddc84"
         },
         {
             "path": "web/src/modules/official-import-export/views/index.vue",
@@ -32598,7 +32598,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e3b1a92895fa71da356cc6e9e18d0436586d9122536a36c03fd014a8760c57e0"
+            "source_sha256": "73e748ceda395e47cdc57cf274dc68eb3e18868a620077bee41f4db75bca7325"
         },
         {
             "path": "web/src/modules/official-import-export/views/locale/zh-CN.ts",
@@ -32612,7 +32612,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4c7b08b55c4ed873f13232588b2bc7c9e246e4a813b7346f6e49dc896fcedafb"
+            "source_sha256": "68c78a29874818b6212475795ab4a9313d786645f6eb135b5d75e5ba60265b9d"
         },
         {
             "path": "web/src/modules/official-integration/LICENSE",

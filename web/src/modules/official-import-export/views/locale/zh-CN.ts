@@ -24,11 +24,11 @@ export default {
   'configurationTransfer.plan.title': '导入计划',
   'configurationTransfer.plan.checksum': '校验和',
   'configurationTransfer.plan.total': '配置项',
-  'configurationTransfer.plan.conflicts': '冲突项',
+  'configurationTransfer.plan.conflicts': '阻断冲突',
   'configurationTransfer.plan.missingSecrets':
     '仍缺少 {count} 个秘密引用的重绑定',
   'configurationTransfer.plan.conflictCount':
-    '检测到 {count} 个冲突，请按策略处理',
+    '检测到 {count} 个与目标值不同的配置项，请核对当前策略及下方处理动作',
   'configurationTransfer.plan.adapter': '配置集合',
   'configurationTransfer.plan.key': '配置键',
   'configurationTransfer.plan.action': '计划动作',
