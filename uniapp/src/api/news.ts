@@ -62,10 +62,10 @@ export function getArticleLists(params: ArticleListParams = {}) {
   return http.get<ArticleListResult>(
     'api/article/lists',
     {
-      cid: params.cid,
-      keyword: params.keyword,
-      page_no: params.pageNo,
-      page_size: params.pageSize,
+      ...(params.cid !== undefined ? { cid: params.cid } : {}),
+      ...(params.keyword !== undefined ? { keyword: params.keyword } : {}),
+      ...(params.pageNo !== undefined ? { page_no: params.pageNo } : {}),
+      ...(params.pageSize !== undefined ? { page_size: params.pageSize } : {}),
     },
     false
   );
@@ -93,8 +93,8 @@ export async function getCollectLists(
   const page = await http.get<
     Omit<CollectListResult, 'lists'> & { lists: ArticleCollectionWire[] }
   >('api/article/collect', {
-    page_no: params.pageNo,
-    page_size: params.pageSize,
+    ...(params.pageNo !== undefined ? { page_no: params.pageNo } : {}),
+    ...(params.pageSize !== undefined ? { page_size: params.pageSize } : {}),
   });
   return {
     ...page,
