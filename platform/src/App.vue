@@ -817,8 +817,29 @@
                 >权限目录{{
                   permissionRole ? `：${permissionRole.name}` : ''
                 }}</template
-              ><el-scrollbar height="220px"
-                ><el-checkbox-group v-model="permissionSelection"
+              ><p v-if="permissionRole">
+                当前已授予
+                {{ permissionRole.permission_keys.length }} 项，编辑已选
+                {{ permissionSelection.length }} 项
+              </p>
+              <el-alert
+                v-if="permissionEditingBlockedReason"
+                :title="permissionEditingBlockedReason"
+                type="warning"
+                :closable="false"
+              />
+              <div v-if="unmappedPermissionKeys.length">
+                <p>以下权限已保留，但当前目录无法展示其定义：</p>
+                <ul>
+                  <li v-for="key in unmappedPermissionKeys" :key="key">
+                    {{ key }}（目录外权限）
+                  </li>
+                </ul>
+              </div>
+              <el-scrollbar height="220px"
+                ><el-checkbox-group
+                  v-model="permissionSelection"
+                  :disabled="!canEditPermissions || permissionSubmitting"
                   ><el-checkbox
                     v-for="permission in permissions"
                     :key="permission.key"
@@ -828,8 +849,8 @@
                 ></el-scrollbar
               ><el-button
                 type="primary"
-                :disabled="!permissionRole"
-                :loading="loading"
+                :disabled="!canEditPermissions || permissionSubmitting"
+                :loading="loading || permissionSubmitting"
                 @click="savePermissions"
                 >保存当前角色权限</el-button
               ></el-card
@@ -1006,6 +1027,11 @@
   const operators = ref<Operator[]>([]);
   const roles = ref<PlatformRole[]>([]);
   const permissions = ref<Permission[]>([]);
+  const permissionCatalogState = ref<'idle' | 'loading' | 'ready' | 'error'>(
+    'idle'
+  );
+  const permissionCatalogError = ref('');
+  let permissionCatalogRequest = 0;
   const audits = ref<AuditEvent[]>([]);
   const storage = ref<StorageSnapshot>({
     accounts: [],
@@ -1018,6 +1044,7 @@
   const provisionDialog = ref(false);
   const permissionSelection = ref<string[]>([]);
   const permissionRole = ref<PlatformRole | null>(null);
+  const permissionSubmitting = ref(false);
   const platformPermissions = ref<string[]>([]);
   const diagnosticLoading = ref(false);
   const backupCenter = ref<OpsBackupCenterSnapshot | null>(null);
@@ -1041,6 +1068,9 @@
     operators.value = [];
     roles.value = [];
     permissions.value = [];
+    permissionCatalogRequest += 1;
+    permissionCatalogState.value = 'idle';
+    permissionCatalogError.value = '';
     audits.value = [];
     owner.value = null;
     storage.value = { accounts: [], spaces: [], routes: [], purposes: [] };
@@ -1057,6 +1087,42 @@
   });
   const can = (permission: string) =>
     platformPermissions.value.includes(permission);
+  const unmappedPermissionKeys = computed(() => {
+    const keys = new Set(permissions.value.map((permission) => permission.key));
+    return [
+      ...new Set([
+        ...(permissionRole.value?.permission_keys || []),
+        ...permissionSelection.value,
+      ]),
+    ].filter((key) => !keys.has(key));
+  });
+  const permissionEditingBlockedReason = computed(() => {
+    if (!can('platform.permission.read'))
+      return '缺少读取权限目录的权限，无法安全编辑。';
+    if (!can('platform.role.permission.assign'))
+      return '缺少分配角色权限的权限，无法保存。';
+    if (permissionCatalogState.value === 'loading')
+      return '权限目录正在加载，暂不能编辑或保存。';
+    if (permissionCatalogState.value !== 'ready')
+      return (
+        permissionCatalogError.value || '权限目录尚未加载，暂不能编辑或保存。'
+      );
+    if (!permissionRole.value) return '请选择需要编辑权限的角色。';
+    if (
+      permissionRole.value.permission_count !==
+      new Set(permissionRole.value.permission_keys).size
+    )
+      return '角色已授予权限列表不完整，已禁止编辑和保存，请刷新后重试。';
+    if (unmappedPermissionKeys.value.length)
+      return '当前目录未包含全部已授予权限，已禁止编辑和保存；请先修复权限目录，再刷新重试。';
+    return '';
+  });
+  const canEditPermissions = computed(
+    () =>
+      view.value === 'roles' &&
+      !loading.value &&
+      !permissionEditingBlockedReason.value
+  );
   const opsRuntime = createOpsConsoleRuntime({
     transport: createPlatformOpsTransport(),
     providers: [
@@ -1429,9 +1495,7 @@
           api.roles().then((result) => {
             roles.value = result.lists;
           }),
-          api.permissions().then((result) => {
-            permissions.value = result.lists;
-          }),
+          loadPermissionCatalog(),
         ]);
       } else if (view.value === 'audit') {
         await Promise.all([
@@ -1452,6 +1516,41 @@
     if (view.value === 'ops')
       await Promise.all([opsRuntime.load(), loadOpsView()]);
     else await loadView();
+  }
+  async function loadPermissionCatalog() {
+    const request = ++permissionCatalogRequest;
+    permissionCatalogState.value = 'loading';
+    permissionCatalogError.value = '';
+    permissions.value = [];
+    try {
+      if (!can('platform.permission.read'))
+        throw new Error('缺少读取权限目录的权限。');
+      const result = await api.permissions();
+      if (request !== permissionCatalogRequest) return;
+      if (
+        !Array.isArray(result.lists) ||
+        !result.lists.every(
+          (permission) =>
+            permission &&
+            typeof permission.key === 'string' &&
+            permission.key.length > 0 &&
+            typeof permission.name === 'string'
+        ) ||
+        !Number.isInteger(result.count) ||
+        result.count !== result.lists.length ||
+        result.count !==
+          new Set(result.lists.map((permission) => permission.key)).size
+      )
+        throw new Error('权限目录不完整或格式异常，无法安全编辑。');
+      permissions.value = result.lists;
+      permissionCatalogState.value = 'ready';
+    } catch (cause) {
+      if (request !== permissionCatalogRequest) return;
+      permissionCatalogState.value = 'error';
+      permissionCatalogError.value = `${message(
+        cause
+      )} 已禁止编辑和保存，请刷新后重试。`;
+    }
   }
   async function downloadDiagnosticBundle() {
     diagnosticLoading.value = true;
@@ -2012,24 +2111,35 @@
     permissionSelection.value = [...item.permission_keys];
   }
   async function savePermissions() {
-    if (!permissionRole.value) return;
+    if (
+      !canEditPermissions.value ||
+      permissionSubmitting.value ||
+      !permissionRole.value
+    )
+      return;
+    const role = permissionRole.value;
+    const selection = [...permissionSelection.value];
+    permissionSubmitting.value = true;
     try {
       const reason = await ElMessageBox.prompt(
         '变更原因',
-        `保存 ${permissionRole.value.name} 的权限`,
+        `保存 ${role.name} 的权限`,
         { inputPattern: /\S+/, inputErrorMessage: '必须填写原因' }
       );
+      if (!canEditPermissions.value || permissionRole.value !== role) {
+        error.value =
+          permissionEditingBlockedReason.value ||
+          '角色或页面状态已变化，请重新选择角色后再保存。';
+        return;
+      }
       await run(
-        () =>
-          api.replaceRolePermissions(
-            permissionRole.value!,
-            permissionSelection.value,
-            reason.value
-          ),
+        () => api.replaceRolePermissions(role, selection, reason.value),
         '角色权限已更新'
       );
     } catch (cause) {
       if (cause !== 'cancel' && cause !== 'close') error.value = message(cause);
+    } finally {
+      permissionSubmitting.value = false;
     }
   }
   async function archiveRole(item: PlatformRole) {
