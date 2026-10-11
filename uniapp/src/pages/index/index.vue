@@ -297,7 +297,7 @@
     uni.navigateTo({ url: `/pages/news_detail/news_detail?id=${id}` });
   }
   function goNews() {
-    uni.navigateTo({ url: '/pages/news/news' });
+    uni.navigateTo({ url: '/pages/search/search' });
   }
 </script>
 

@@ -24,11 +24,18 @@
 <script setup lang="ts">
   import { ref, onMounted } from 'vue';
   import { getCollectLists } from '@/api/news';
+  import { useUserStore } from '@/store/user';
   import type { ArticleCollection } from '@/api/news';
 
+  const userStore = useUserStore();
   const articles = ref<ArticleCollection[]>([]);
 
   onMounted(async () => {
+    if (!userStore.isLoggedIn) {
+      uni.reLaunch({ url: '/pages/login/login' });
+      return;
+    }
+
     try {
       const data = await getCollectLists();
       articles.value = data.lists;
