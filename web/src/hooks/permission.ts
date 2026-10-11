@@ -42,6 +42,15 @@ export default function usePermission() {
       if (!route.meta?.requiresAuth) return true;
 
       if (appStore.menuFromServer) {
+        if (route.meta?.tenantModuleKey) {
+          const required = route.meta.requiredPermissions;
+          if (
+            (typeof required !== 'string' && !Array.isArray(required)) ||
+            !hasPermission(required)
+          ) {
+            return false;
+          }
+        }
         const routeName = String(route.name || '');
         if (
           routeName === REDIRECT_ROUTE_NAME ||

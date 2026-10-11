@@ -65,12 +65,6 @@ export default function mapServerMenu(
         meta: {
           ...staticRoute.meta,
           icon: menu.icon || staticRoute.meta?.icon,
-          tenantModuleKey:
-            menu.module_key && menu.module_key !== 'core'
-              ? menu.module_key
-              : staticRoute.meta?.tenantModuleKey,
-          requiredPermissions:
-            menu.required_permission || staticRoute.meta?.requiredPermissions,
           title: menu.name || staticRoute.meta?.title,
           hideInMenu:
             Number(menu.is_show ?? 1) === 0 ||

@@ -349,6 +349,8 @@
       ElMessage.success(t('systemDept.tip.success'));
       modalVisible.value = false;
       await fetchData();
+    } catch {
+      // The shared Axios interceptor already shows the server error; keep the form open and its values intact.
     } finally {
       submitLoading.value = false;
     }

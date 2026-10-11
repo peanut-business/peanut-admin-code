@@ -31775,7 +31775,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "da34b2503310b2478b0fa3fe31b03027478f142f2c6e58bceebf979409451644"
+            "source_sha256": "2ef2d47095876ced061a5c791e5e1eebdb5424b3aa255ee3c636b02849d74579"
         },
         {
             "path": "web/src/hooks/request.ts",
@@ -34754,7 +34754,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "073571cfbb4f2d2c0aa04c995d51cee8204a8014dbc1226c392ee75c68f322c5"
+            "source_sha256": "ecfd9628320862ccd246aaff0010b6756ef4ea7ed2f44b10a979312c6c33fdc2"
         },
         {
             "path": "web/src/store/modules/app/types.ts",
@@ -35482,7 +35482,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f24b6f59460b63c64fa6b757c7500ec69f8f5a3912734e603d5fdb187ef1d016"
+            "source_sha256": "96728a260ffc623b6f23ad72fa10dd7199d72aee4cb780ea295724ffb6000c83"
         },
         {
             "path": "web/src/views/system/dept/locale/en-US.ts",
