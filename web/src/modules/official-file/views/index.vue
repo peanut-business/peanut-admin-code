@@ -289,6 +289,8 @@
         <el-form-item prop="name" :label="$t('systemFile.rename.field')">
           <el-input
             v-model="renameForm.name"
+            maxlength="20"
+            show-word-limit
             :placeholder="$t('systemFile.rename.placeholder')"
           />
         </el-form-item>
@@ -520,7 +522,16 @@
   const renameFormRef = ref<FormInstance>();
   const renameForm = reactive({ id: 0, name: '' });
   const renameRules = {
-    name: [{ required: true, message: t('systemFile.rename.required') }],
+    name: [
+      { required: true, message: t('systemFile.rename.required') },
+      {
+        max: 20,
+        message: t('systemFile.cate.field.name.max').replace(
+          t('systemFile.cate.field.name'),
+          t('systemFile.rename.field')
+        ),
+      },
+    ],
   };
   const handleRename = (item: FileRecord) => {
     renameForm.id = item.id;
@@ -533,12 +544,14 @@
     renameSubmitting.value = true;
     try {
       await renameFile(renameForm.id, renameForm.name);
-      ElMessage.success(t('systemFile.tip.ok'));
-      renameModalVisible.value = false;
-      await fetchFiles(pagination.current);
+    } catch {
+      return;
     } finally {
       renameSubmitting.value = false;
     }
+    ElMessage.success(t('systemFile.tip.ok'));
+    renameModalVisible.value = false;
+    await fetchFiles(pagination.current);
   };
 
   // ---- 删除 ----
