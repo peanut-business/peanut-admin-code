@@ -44,6 +44,7 @@
       </el-row>
 
       <el-table
+        ref="generatorTable"
         row-key="id"
         :loading="loading"
         :data="renderData"
@@ -488,6 +489,7 @@
   const renderData = ref<GeneratorRecord[]>([]);
   const keyword = ref('');
   const selectedKeys = ref<number[]>([]);
+  const generatorTable = ref<{ clearSelection: () => void }>();
   const pagination = reactive({
     current: 1,
     pageSize: 15,
@@ -747,6 +749,7 @@
       // eslint-disable-next-line no-use-before-define
       await downloadGenerated(data);
       ElMessage.success('代码已生成并下载');
+      generatorTable.value?.clearSelection();
       selectedKeys.value = [];
     } catch {
       // The shared API interceptor already reports the request failure.
