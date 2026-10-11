@@ -14,6 +14,7 @@
 | --- | --- | --- |
 | 业务模块（如 `official.article` 或派生 APP 模块） | 主业务对象、负责人/参与人、角色和状态、归档恢复、允许哪些文档槽位、审批/发布时点、可执行操作 | 保存 CRDT/存储文件本体、实现协同 WebSocket |
 | `official.document`（新增 Code 官方模块） | 标准文档身份、业务归属、逻辑状态、正文权威持久化、不可变业务版本、引用索引、审计与受控公共 Query/Command | 自己再造负责人/成员/角色、决定业务流程 |
+| `official.content-tools`（新增目标：内容工具／内容编辑与预览） | 统一工具注册、格式与能力选择、ContentEditor/ContentViewer、工具会话与编辑/预览适配器生命周期；具体格式插件各守自己的实现 | 不拥有业务文档版本账本，不另造文件存储，不授予业务或资源权限 |
 | `official.rich-text`（复用现有模块，调整职责） | Tiptap/ProseMirror 结构、富文本控件、工具栏、查看器、类型化前端交互及正文内容投影 | 充当通用业务对象/角色表、单独拥有新正式文档账本 |
 | `official.file`（复用） | `file_key`、真实上传/分类/存储/地址解析/访问控制、文件版本/资源管理与资源审计 | 将文档查看权限自动变成资源管理权限 |
 | `official.collaboration`（新增 Code 的 PHP 应用适配模块） | PHP 的协作准入/有效授权、会话签发/撤销、读写/保存服务接口、协作事件审计 | 用 Node 绕过 PHP 直接查业务表；成为另一套身份系统 |
@@ -23,7 +24,9 @@
 
 一个业务对象可以拥有多个文档（正文、补充说明等），**一份正式文档始终只有一个主管业务对象**；不允许两个对象共同修改同一文档。其他对象引用某个文档时，V1 只能建立指向该文档已冻结版本的引用或另存副本，不把引用变成第二个所有者。V1 不对普通用户开放无业务归属的独立文档/草稿中心；历史游离文档可为迁移保留受限制的待认领记录，但不作为新增业务能力。
 
-**依赖规则：**业务模块明确选择使用文档后依赖 `official.document`；富文本呈现依赖 `official.rich-text`；业务附件能力依赖 `official.file`；启用多人协作才装配 `official.collaboration` 与 Node 服务。业务模块拥有自己的主业务记录，不反向强依赖 Node。无媒体的纯文本可不启用文件选择器；启用媒体插入才要求 `official.file`。工作流/审批独立，仅消费固定文档版本 ID，不成为文档模块必需依赖。
+**依赖规则：**业务模块使用标准文档时依赖 `official.document`，文档/文件界面通过 `official.content-tools` 选择具体编辑器或预览器；富文本由现有 `official.rich-text` 提供适配器，业务附件仍由 `official.file` 保管。`DocumentEditor/DocumentViewer` 是文档侧的权限、版本与保存封装，内部委托 `ContentEditor/ContentViewer`，不能另写一套格式选择器；文件侧同理。工具注册由可信应用组合根完成，content-tools 不反向导入具体 provider，provider 不依赖 Document 私表，以免循环。仅启用多人协作才装配 `official.collaboration` 和 Node；工作流只消费固定文档版本，不成为必需依赖。
+
+本次以“内容工具”作为上层名称，不将 `official.rich-text` 全库替换重命名：旧模块标识、已执行迁移、组件和 API 兼容入口保留；DOCX/XLSX/PPTX/PDF/图片/媒体编辑与查看工具统一在内容工具模块下接入和管理，而不是塞进 File 或 Document。部署容器、工具适配器和独立模块不是一一对应关系。详细包与接口职责见 [内容工具合同](content-surface-and-format-adapters.md)。
 
 ## 2. 标准文档模型与归属
 

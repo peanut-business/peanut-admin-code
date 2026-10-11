@@ -1,13 +1,26 @@
 # 多格式内容的编辑器与预览器适配合同（039，承接 037）
 
 - 状态：**公开实施目标合同，尚未完成各格式的真实实现与验收**；日期：2026-10-12。业务文档与实时富文本详见 [标准文档协同](document-collaboration-standard.md)；资源句柄、可见性、CDN 与访问安全仅引用 `official.file` 原有权威合同，本文件不另建一套文件管理权限。
-- 范围：Code 的 `official.file`、`official.document`（目标）、`official.rich-text`、可选文件格式适配器及 Vue 组件。Office 在线引擎并非 Peanut PHP Core，也不强迫所有派生 APP 安装。
+- 范围：Code 新增目标 `official.content-tools`（中文“内容工具”，界面可称“内容编辑与预览”）统一处理工具注册与调度；`official.document` 与 `official.file` 负责各自数据/权限，现有 `official.rich-text` 是富文本工具提供者。Office 在线引擎不是 PHP Core，也不强迫所有派生 APP 安装。
 
 ## 1. 一个业务入口，多种格式处理
 
 业务对象决定谁能访问；标准文档记录业务归属、状态、版本；`official.file` 记录二进制原件、受控地址与文件版本；具体格式由独立、显式登记的查看器或编辑器处理。**文件即使没有创建 `official.document` 记录，也允许在有独立 File 权限时由文件管理页面调用 `FileViewer`；不强制所有素材变成业务文档。**
 
 逻辑内容类型 V1 明确：`rich_text`（原富文本结构及协同）与 `file_resource`（文件型内容，引用 `file_key`）。`file_resource` 的文档业务版本固定到已保存且不可变的文件字节/合法资源版本，不能反复覆盖原文件导致旧审批稿随之变化。图片、音视频、DOCX/XLSX/PPTX/PDF 不作为 Tiptap/Yjs 数据保存。
+
+## 1.1 模块归属、组件合同与防止重复实现
+
+- **内容工具模块**：`official.content-tools`；目标源码按既有规则为 `server/app/modules/official/content_tools/`（实际需要的注册/能力服务）和 `web/src/modules/official-content-tools/`。复用现行 module.json、原生容器、前端贡献和服务绑定，不增加独立仓库、插件市场、通用配置语言或自定义加载框架。
+- **标准组件归属**：`ContentViewer`、`ContentEditor`、工具选择/能力状态、格式适配器的启动/销毁在 content-tools。`DocumentViewer/DocumentEditor` 留在 document，负责当前文档权限、版本、保存与协作会话后调用它们；File 的查看/编辑入口只是文件授权后的封装，不拥有另一套 PDF/Office/媒体编辑器。资源列表与 FileAssetPicker 仍属 file。
+- **保留富文本实现**：`official.rich-text`/`RichTextEditor` 不盲目改名，不修改历史表和发布快照；注册为 rich-text provider。公共格式选择只在 content-tools 做一次，旧富文本 API 迁移按主文档合同渐进处理。
+- **合理粒度**：图片/PDF/音视频基础查看器可以作为 content-tools 内的适配器，不要求每种格式一个模块；同一 Office 引擎可以提供 DOCX/XLSX/PPTX 多种能力。只有真实存在独立依赖、部署、许可或版本交付需求时才拆独立 provider 模块，不先生成空包。
+- **无环装配**：content-tools 定义工具协议和注册器，不直接依赖具体富文本/Office 实现；具体 provider 实现该协议，应用组合根选择并登记。document/file 的 UI 包可调用 content-tools，纯 File 存储后端不得反向依赖编辑 UI。所需服务端授权通过所属模块的可信公开入口核验，不用循环容器或请求中的类名解决依赖。
+- **能力不是授权**：工具模块负责“这个格式能做什么”；Doc/File 负责“此人对这个对象允许做什么”。界面可用操作是两者与当前服务健康/开通状态的交集。客户端 capability/props 不能作为后端授权凭据；每次读取和保存都重新检查真实文档/资源上下文。
+
+`ContentViewer`/`ContentEditor` 目标输入为已校验的内容描述、允许操作、已选工具标识及受控访问/保存回调；它们不自行持久化业务记录。目标事件为 `ready`、`capabilities-changed`、`dirty-change`、`save-request`、`error`，退出必须销毁编辑实例、订阅和临时授权。原有 `DocumentEditor` 的 `save-state` 仍由文档持久化回执驱动，而不是由工具的 `save-request` 冒充“已保存”。
+
+注册项至少补充 `providerModuleKey`、`adapterVersion`、可用环境/服务依赖、MIME 范围、查看/编辑/协作模式、兼容协议和明确 unavailable 原因；字段通过既有贡献机制与生成类型登记。多个工具符合条件时按应用明确配置选择；不以注册先后、任意 URL 或客户端偏好绕开许可、权限与服务状态。注册组件也不意味着支持该格式的完整编辑或原样回存。
 
 ## 2. 格式与功能对应关系
 
