@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\File\Service;
 
+use app\common\exception\BusinessException;
 use PeanutAdmin\Modules\File\Model\File;
 use PeanutAdmin\Modules\File\Model\FileCate;
 use PeanutAdmin\Modules\File\Model\Storage\FileImageAsset;
@@ -63,11 +64,11 @@ final class FileUploadService implements FileUploads
 
         $ext = strtolower($uploaded->extension);
         if (!in_array($ext, FileEnum::EXT[$type], true)) {
-            throw new \Exception('不允许上传 ' . ($ext ?: '未知') . ' 格式文件');
+            throw BusinessException::invalid('FILE_EXTENSION_NOT_ALLOWED', '不允许上传 ' . ($ext ?: '未知') . ' 格式文件');
         }
         if ($uploaded->size > FileEnum::MAX_SIZE[$type]) {
             $mb = (int) (FileEnum::MAX_SIZE[$type] / 1024 / 1024);
-            throw new \Exception('文件大小超过上限 ' . $mb . 'MB');
+            throw BusinessException::invalid('FILE_SIZE_EXCEEDED', '文件大小超过上限 ' . $mb . 'MB');
         }
 
         $originName = $uploaded->originalName;
