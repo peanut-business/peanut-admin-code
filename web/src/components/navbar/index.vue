@@ -31,7 +31,13 @@
     <ul class="right-side">
       <li>
         <el-tooltip :content="$t('settings.search')">
-          <el-button class="nav-btn" plain circle>
+          <el-button
+            class="nav-btn"
+            plain
+            circle
+            :aria-label="$t('settings.search')"
+            @click="openMenuSearch"
+          >
             <el-icon><Search /></el-icon>
           </el-button>
         </el-tooltip>
@@ -130,6 +136,32 @@
       </li>
     </ul>
     <el-dialog
+      v-model="menuSearchVisible"
+      :title="$t('settings.search')"
+      width="420px"
+      destroy-on-close
+    >
+      <el-input
+        ref="menuSearchInput"
+        v-model="menuSearchQuery"
+        :placeholder="$t('settings.search')"
+        clearable
+        autofocus
+        @keyup.enter="openFirstMenuSearchResult"
+      />
+      <div v-if="menuSearchResults.length" class="menu-search-results">
+        <el-button
+          v-for="item in menuSearchResults"
+          :key="String(item.name)"
+          class="menu-search-result"
+          text
+          @click="openMenuSearchResult(item)"
+        >
+          {{ getMenuLabel(item) }}
+        </el-button>
+      </div>
+    </el-dialog>
+    <el-dialog
       v-model="tenantSwitchVisible"
       :title="$t('navbar.tenantSwitch')"
       width="420px"
@@ -164,9 +196,11 @@
 </template>
 
 <script lang="ts" setup>
-  import { computed, inject, ref } from 'vue';
+  import { computed, inject, nextTick, ref } from 'vue';
+  import { useI18n } from 'vue-i18n';
   import { useDark, useToggle, useFullscreen } from '@vueuse/core';
   import { useRouter } from 'vue-router';
+  import type { RouteRecordRaw } from 'vue-router';
   import {
     Check,
     FullScreen,
@@ -185,6 +219,7 @@
   import useLocale from '@/hooks/locale';
   import useUser from '@/hooks/user';
   import MenuComponent from '@/components/menu/index.vue';
+  import useMenuTree from '@/components/menu/use-menu-tree';
   import { selectTenant, tenantSwitch } from '@/api/tenant-session';
   import { disposeTenantState, type TenantChoice } from '@peanut-admin/vue';
   import {
@@ -199,6 +234,8 @@
   const userStore = useUserStore();
   const router = useRouter();
   const { logout } = useUser();
+  const { t, te } = useI18n();
+  const { menuTree } = useMenuTree();
   const { changeLocale, currentLocale } = useLocale();
   const { isFullscreen, toggle: toggleFullScreen } = useFullscreen();
   const locales = [...LOCALE_OPTIONS];
@@ -221,6 +258,46 @@
   const tenantChoices = ref<TenantChoice[]>([]);
   const tenantChallenge = ref('');
   const selectedTenantId = ref<number>();
+  const menuSearchVisible = ref(false);
+  const menuSearchQuery = ref('');
+  const menuSearchInput = ref();
+  const searchableMenuItems = computed(() => {
+    const items: RouteRecordRaw[] = [];
+    const collect = (routes: RouteRecordRaw[]) => {
+      routes.forEach((item) => {
+        if (item.children?.length) collect(item.children);
+        else if (item.name) items.push(item);
+      });
+    };
+    collect(menuTree.value);
+    return items;
+  });
+  const getMenuLabel = (item: RouteRecordRaw) => {
+    const locale = String(item.meta?.locale || '');
+    return locale && te(locale)
+      ? t(locale)
+      : String(item.meta?.title || locale || item.name || '');
+  };
+  const menuSearchResults = computed(() => {
+    const query = menuSearchQuery.value.trim().toLocaleLowerCase();
+    if (!query) return searchableMenuItems.value;
+    return searchableMenuItems.value.filter((item) =>
+      getMenuLabel(item).toLocaleLowerCase().includes(query)
+    );
+  });
+  const openMenuSearch = () => {
+    menuSearchQuery.value = '';
+    menuSearchVisible.value = true;
+    nextTick(() => menuSearchInput.value?.focus?.());
+  };
+  const openMenuSearchResult = (item: RouteRecordRaw) => {
+    menuSearchVisible.value = false;
+    router.push({ name: item.name });
+  };
+  const openFirstMenuSearchResult = () => {
+    const [first] = menuSearchResults.value;
+    if (first) openMenuSearchResult(first);
+  };
   const isDark = useDark({
     selector: 'html',
     attribute: 'class',
@@ -382,5 +459,22 @@
       width: 14px;
       height: 14px;
     }
+  }
+
+  .menu-search-results {
+    display: flex;
+    max-height: 320px;
+    margin-top: 12px;
+    flex-direction: column;
+    align-items: stretch;
+    overflow-y: auto;
+  }
+
+  .menu-search-result {
+    justify-content: flex-start;
+    overflow: hidden;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 </style>
