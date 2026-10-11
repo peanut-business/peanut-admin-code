@@ -8,7 +8,11 @@
           {{ $t('systemFile.op.assetSelector') }}
         </el-button>
       </div>
-      <el-tabs v-model="activeType" type="card" @change="onTypeChange">
+      <el-tabs
+        v-model="activeType"
+        type="card"
+        @update:model-value="onTypeChange"
+      >
         <el-tab-pane :name="10" :label="$t('systemFile.tab.image')" />
         <el-tab-pane :name="20" :label="$t('systemFile.tab.video')" />
         <el-tab-pane :name="30" :label="$t('systemFile.tab.file')" />
@@ -386,6 +390,7 @@
 
   // ---- 分类 ----
   const cateList = ref<FileCateRecord[]>([]);
+  let cateRequestId = 0;
   const flatCateList = computed(() => {
     const result: Array<FileCateRecord & { depth: number }> = [];
     const walk = (items: FileCateRecord[], depth: number) => {
@@ -400,28 +405,37 @@
   const currentCid = ref<number | ''>('');
 
   const fetchCate = async () => {
-    const { data } = await getFileCateList(activeType.value);
+    const type = activeType.value;
+    cateRequestId += 1;
+    const requestId = cateRequestId;
+    const { data } = await getFileCateList(type);
+    if (requestId !== cateRequestId || type !== activeType.value) return;
     cateList.value = data;
   };
 
   // ---- 文件 ----
   const renderData = ref<FileRecord[]>([]);
+  let fileListRequestId = 0;
   const searchName = ref('');
   const searchSource = ref<number | ''>('');
   const checkedIds = ref<number[]>([]);
   const pagination = reactive({ current: 1, pageSize: 24, total: 0 });
 
   const fetchFiles = async (page = 1) => {
+    const type = activeType.value;
+    fileListRequestId += 1;
+    const requestId = fileListRequestId;
     setLoading(true);
     try {
       const { data } = await getFileList({
-        type: activeType.value,
+        type,
         cid: currentCid.value,
         name: searchName.value,
         source: searchSource.value,
         page_no: page,
         page_size: pagination.pageSize,
       });
+      if (requestId !== fileListRequestId || type !== activeType.value) return;
       renderData.value = data.lists;
       pagination.current = data.pageNo;
       pagination.total = data.count;
@@ -429,7 +443,9 @@
     } catch {
       return;
     } finally {
-      setLoading(false);
+      if (requestId === fileListRequestId && type === activeType.value) {
+        setLoading(false);
+      }
     }
   };
 
@@ -439,10 +455,23 @@
   };
   init();
 
-  const onTypeChange = async () => {
+  const onTypeChange = async (nextType: string | number) => {
+    const type = Number(nextType);
+    if (type !== 10 && type !== 20 && type !== 30) return;
+    activeType.value = type;
+    // Invalidate in-flight requests before awaiting the category list; a slow
+    // response for the previous tab must not repopulate this tab's file grid.
+    cateRequestId += 1;
+    fileListRequestId += 1;
     currentCid.value = '';
     searchName.value = '';
     searchSource.value = '';
+    cateList.value = [];
+    renderData.value = [];
+    checkedIds.value = [];
+    pagination.current = 1;
+    pagination.total = 0;
+    setLoading(false);
     await fetchCate();
     await fetchFiles(1);
   };
