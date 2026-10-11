@@ -82,19 +82,35 @@ final class ScaffoldManifest
             if (isset($seen[$file['path']])) {
                 throw new RuntimeException('SCAFFOLD_MANIFEST_PATH_DUPLICATE: ' . $file['path']);
             }
-            $seen[$file['path']] = true;
+            $seen[$file['path']] = $file;
         }
         $renames = $data['renames'] ?? [];
         if (!is_array($renames)) {
             throw new RuntimeException('SCAFFOLD_MANIFEST_RENAMES_INVALID');
         }
+        $renameFrom = [];
+        $renameTo = [];
         foreach ($renames as $index => $rename) {
             if (!is_array($rename)) {
                 throw new RuntimeException("SCAFFOLD_MANIFEST_RENAME_INVALID: {$index}");
             }
-            self::path((string) ($rename['from'] ?? ''));
-            self::path((string) ($rename['to'] ?? ''));
-            self::owner((string) ($rename['owner'] ?? ''));
+            $from = self::path((string) ($rename['from'] ?? ''));
+            $to = self::path((string) ($rename['to'] ?? ''));
+            $owner = (string) ($rename['owner'] ?? '');
+            self::owner($owner);
+            if ($from === $to
+                || isset($renameFrom[$from]) || isset($renameTo[$to])
+                || isset($renameFrom[$to]) || isset($renameTo[$from])) {
+                throw new RuntimeException("SCAFFOLD_MANIFEST_RENAME_INVALID: {$index}");
+            }
+            if (isset($seen[$from]) || !isset($seen[$to])) {
+                throw new RuntimeException("SCAFFOLD_MANIFEST_RENAME_TARGET_INVALID: {$from} -> {$to}");
+            }
+            if (($seen[$to]['owner'] ?? null) !== $owner) {
+                throw new RuntimeException("SCAFFOLD_MANIFEST_RENAME_OWNER_MISMATCH: {$from} -> {$to}");
+            }
+            $renameFrom[$from] = true;
+            $renameTo[$to] = true;
         }
 
         return new self($resolved, dirname($resolved), $data);

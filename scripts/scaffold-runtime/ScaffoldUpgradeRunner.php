@@ -84,11 +84,25 @@ final class ScaffoldUpgradeRunner
         if (Semver::greaterThanOrEqualTo($from->version(), '3.0.0')) {
             $pluginProjection = $this->pluginProjection($root);
             $targetPlugins = $this->targetPluginIndex($to, $targetParameters, $versionContract);
-            $managedUpstreamProofs = $this->managedBundledUpstreamProofs($root, $application, $pluginProjection,
-                $this->targetPluginIndex($from, $fromParameters, $versionContract), $from->files(), $targetPlugins, $to->files());
-            $pluginTarget = $this->upstreamPluginProjection($root, $pluginProjection,
-                $from->files(), $managedUpstreamProofs,
-                $targetPlugins, $to, $targetParameters, $versionContract);
+            $managedUpstreamProofs = $this->managedBundledUpstreamProofs(
+                $root,
+                $application,
+                $pluginProjection,
+                $this->targetPluginIndex($from, $fromParameters, $versionContract),
+                $from->files(),
+                $targetPlugins,
+                $to->files(),
+            );
+            $pluginTarget = $this->upstreamPluginProjection(
+                $root,
+                $pluginProjection,
+                $from->files(),
+                $managedUpstreamProofs,
+                $targetPlugins,
+                $to,
+                $targetParameters,
+                $versionContract,
+            );
             $actions = $this->projectPluginBoundary($actions, $pluginProjection, $targetPlugins, $pluginTarget);
         }
         $summary = $this->summary($actions);
@@ -297,8 +311,18 @@ final class ScaffoldUpgradeRunner
         string $releaseLockSha256,
     ): array {
         $root = ScaffoldPathGuard::projectRoot($projectRoot);
-        $plan = $this->previewReleaseAdoption($root, $releaseManifestPath, $repository, $requestedRef,
-            $channel, $releaseVersion, $sourceCommit, $sourceTree, $releaseLockPath, $releaseLockSha256);
+        $plan = $this->previewReleaseAdoption(
+            $root,
+            $releaseManifestPath,
+            $repository,
+            $requestedRef,
+            $channel,
+            $releaseVersion,
+            $sourceCommit,
+            $sourceTree,
+            $releaseLockPath,
+            $releaseLockSha256,
+        );
         $stateRoot = ScaffoldPathGuard::projectPath($root, '.peanut/upgrades');
         $path = $stateRoot . '/plans/' . $plan['candidate'] . '.json';
         $this->writeJsonAtomic($path, $plan, 0600);
@@ -319,9 +343,18 @@ final class ScaffoldUpgradeRunner
                 return ['status' => 'applied', 'candidate' => $plan['candidate'], 'idempotent' => true];
             }
             $proof = $plan['identity']['source_proof'];
-            $expected = $this->previewReleaseAdoption($root, $plan['manifest_paths']['to'],
-                $proof['repository'], $proof['requested_ref'], $proof['channel'], $proof['release_version'],
-                $proof['commit'], $proof['tree'], $proof['release_lock_path'], $proof['release_lock_sha256']);
+            $expected = $this->previewReleaseAdoption(
+                $root,
+                $plan['manifest_paths']['to'],
+                $proof['repository'],
+                $proof['requested_ref'],
+                $proof['channel'],
+                $proof['release_version'],
+                $proof['commit'],
+                $proof['tree'],
+                $proof['release_lock_path'],
+                $proof['release_lock_sha256'],
+            );
             if ($expected['candidate'] !== $plan['candidate'] || $expected['plan_sha256'] !== $plan['plan_sha256']) {
                 throw new RuntimeException('SCAFFOLD_RELEASE_ADOPTION_PLAN_REBIND_FAILED');
             }
@@ -400,6 +433,41 @@ final class ScaffoldUpgradeRunner
             $ledger->append($this->event($plan, 'apply', 'started', $pre, null));
             try {
                 $writes = 0;
+                foreach ($plan['actions'] as $action) {
+                    if (!in_array($action['action'], ['rename', 'rename-preserve'], true)) {
+                        continue;
+                    }
+                    $this->assertActionFresh($root, $action);
+                    $artifact = $this->targetContent($to, $action, $plan);
+                    $targetPath = ScaffoldPathGuard::projectPath($root, $action['path']);
+                    if ($action['action'] === 'rename-preserve') {
+                        if (($action['rename_preserve'] ?? null) === 'source') {
+                            $sourcePath = ScaffoldPathGuard::projectPath($root, (string) $action['rename_from']);
+                            $sourceContent = file_get_contents($sourcePath);
+                            if (!is_string($sourceContent)) {
+                                throw new RuntimeException('SCAFFOLD_RENAME_SOURCE_READ_FAILED: ' . $action['rename_from']);
+                            }
+                            $this->writeFileAtomic($targetPath, $sourceContent, (int) $action['rename_from_current']['mode']);
+                        } elseif (($action['rename_preserve'] ?? null) !== 'target') {
+                            throw new RuntimeException('SCAFFOLD_RENAME_PRESERVE_INVALID: ' . $action['path']);
+                        }
+                    } else {
+                        $this->writeFileAtomic($targetPath, $artifact, (int) $action['mode']);
+                    }
+                    $baseline = '.peanut/scaffold-baseline/' . $to->version() . '/files/' . $action['path'];
+                    $this->writeFileAtomic(ScaffoldPathGuard::projectPath($root, $baseline), $artifact, 0644);
+                    $sourcePath = ScaffoldPathGuard::projectPath($root, (string) $action['rename_from']);
+                    if (file_exists($sourcePath)) {
+                        if (!is_file($sourcePath) || is_link($sourcePath) || !unlink($sourcePath)) {
+                            throw new RuntimeException('SCAFFOLD_ATOMIC_RENAME_SOURCE_DELETE_FAILED: ' . $action['rename_from']);
+                        }
+                        $this->pruneEmptyParents(dirname($sourcePath), $root);
+                    }
+                    $writes++;
+                    if ($this->failAfterReplacements !== null && $writes >= $this->failAfterReplacements) {
+                        throw new RuntimeException('SCAFFOLD_FAULT_INJECTED');
+                    }
+                }
                 foreach ($plan['actions'] as $action) {
                     if ($action['action'] !== 'delete') {
                         continue;
@@ -581,9 +649,16 @@ final class ScaffoldUpgradeRunner
             || ($release->data['edition'] ?? null) !== null) {
             throw new RuntimeException('SCAFFOLD_RELEASE_ADOPTION_MANIFEST_INVALID');
         }
-        $this->validatePublishedReleaseLock($root, $releaseLockPath, $releaseLockSha256,
-            $releaseVersion, $sourceCommit, $sourceTree,
-            $release->release()['inventory_sha256'], $release->digest());
+        $this->validatePublishedReleaseLock(
+            $root,
+            $releaseLockPath,
+            $releaseLockSha256,
+            $releaseVersion,
+            $sourceCommit,
+            $sourceTree,
+            $release->release()['inventory_sha256'],
+            $release->digest(),
+        );
         $lockPath = ScaffoldPathGuard::existingFileWithin($root, $releaseLockPath, 'SCAFFOLD_RELEASE_ADOPTION_LOCK_INVALID');
         if (!str_starts_with($lockPath, $root . '/.peanut/upgrades/release-proofs/')) {
             throw new RuntimeException('SCAFFOLD_RELEASE_ADOPTION_LOCK_INVALID');
@@ -697,10 +772,16 @@ final class ScaffoldUpgradeRunner
         ];
     }
 
-    private function validatePublishedReleaseLock(string $root, string $releaseLockPath, string $releaseLockSha256,
-        string $releaseVersion, string $sourceCommit, string $sourceTree, string $inventorySha256,
-        ?string $manifestSha256): string
-    {
+    private function validatePublishedReleaseLock(
+        string $root,
+        string $releaseLockPath,
+        string $releaseLockSha256,
+        string $releaseVersion,
+        string $sourceCommit,
+        string $sourceTree,
+        string $inventorySha256,
+        ?string $manifestSha256,
+    ): string {
         $lockPath = ScaffoldPathGuard::existingFileWithin($root, $releaseLockPath, 'SCAFFOLD_RELEASE_ADOPTION_LOCK_INVALID');
         if (!str_starts_with($lockPath, $root . '/.peanut/upgrades/release-proofs/')) {
             throw new RuntimeException('SCAFFOLD_RELEASE_ADOPTION_LOCK_INVALID');
@@ -839,9 +920,16 @@ final class ScaffoldUpgradeRunner
             || preg_match('/^sha256:[a-f0-9]{64}$/D', (string) $selection['release_lock_sha256']) !== 1) {
             throw new RuntimeException('SCAFFOLD_UPGRADE_SOURCE_SELECTION_INVALID');
         }
-        $selection['release_lock_path'] = $this->validatePublishedReleaseLock($root,
-            $selection['release_lock_path'], $selection['release_lock_sha256'], $to->version(),
-            $selection['commit'], $selection['tree'], $to->release()['inventory_sha256'], null);
+        $selection['release_lock_path'] = $this->validatePublishedReleaseLock(
+            $root,
+            $selection['release_lock_path'],
+            $selection['release_lock_sha256'],
+            $to->version(),
+            $selection['commit'],
+            $selection['tree'],
+            $to->release()['inventory_sha256'],
+            null,
+        );
         return $selection;
     }
 
@@ -1045,9 +1133,6 @@ final class ScaffoldUpgradeRunner
         array $targetParameters,
         array $versionContract,
     ): array {
-        if ($from->renames() !== [] || $to->renames() !== []) {
-            throw new RuntimeException('SCAFFOLD_RENAME_UNSUPPORTED');
-        }
         $old = $from->files();
         $new = $to->files();
         $actions = [];
@@ -1057,9 +1142,83 @@ final class ScaffoldUpgradeRunner
                 $applicationFiles[$file['path']] = $file;
             }
         }
+        $renamedFrom = [];
+        $renamedTo = [];
+        foreach ($to->renames() as $rename) {
+            $fromPath = (string) $rename['from'];
+            $toPath = (string) $rename['to'];
+            $before = $old[$fromPath] ?? null;
+            $after = $new[$toPath] ?? null;
+            if ($before === null || $after === null || isset($old[$toPath]) || isset($new[$fromPath])
+                || ($before['owner'] ?? null) !== ($rename['owner'] ?? null)
+                || ($after['owner'] ?? null) !== ($rename['owner'] ?? null)) {
+                throw new RuntimeException("SCAFFOLD_RENAME_CONTRACT_INVALID: {$fromPath} -> {$toPath}");
+            }
+            $sourceInstance = $applicationFiles[$fromPath] ?? null;
+            if (!is_array($sourceInstance)
+                || !in_array($sourceInstance['classification'] ?? null, ['managed', 'generated-managed'], true)) {
+                throw new RuntimeException("SCAFFOLD_RENAME_SOURCE_OWNERSHIP_INVALID: {$fromPath}");
+            }
+            if (isset($applicationFiles[$toPath])) {
+                throw new RuntimeException("SCAFFOLD_RENAME_TARGET_OWNERSHIP_CONFLICT: {$toPath}");
+            }
+            $sourceCurrent = $this->regularFileState(ScaffoldPathGuard::projectPath($root, $fromPath), $fromPath);
+            $targetCurrent = $this->regularFileState(ScaffoldPathGuard::projectPath($root, $toPath), $toPath);
+            $oldContent = $this->renderArtifact($from, $before, $fromParameters);
+            $currentVersionContent = $this->renderCurrentVersionArtifact($from, $before, $targetParameters, $versionContract);
+            $targetContent = $this->renderCurrentVersionArtifact($to, $after, $targetParameters, $versionContract);
+            $targetDigest = hash('sha256', $targetContent);
+            $sourceChanged = !$sourceCurrent['present']
+                || (!$this->renderedContentMatches($root, $fromPath, $sourceCurrent, $oldContent)
+                    && !$this->renderedContentMatches($root, $fromPath, $sourceCurrent, $currentVersionContent))
+                || ($sourceCurrent['mode'] ?? null) !== ($before['mode'] ?? null);
+            $action = 'rename';
+            $reason = 'upstream_renamed';
+            $conflict = false;
+            $resolutionOptions = null;
+            $preserveKind = null;
+            if (!$sourceCurrent['present']) {
+                $action = 'conflict';
+                $reason = 'rename_source_missing';
+                $conflict = true;
+                $resolutionOptions = ['replace'];
+            } elseif ($sourceChanged && $targetCurrent['present']) {
+                $action = 'conflict';
+                $reason = 'rename_source_and_target_modified';
+                $conflict = true;
+                $resolutionOptions = ['replace'];
+            } elseif ($sourceChanged) {
+                $action = 'conflict';
+                $reason = 'project_modified_upstream_renamed';
+                $conflict = true;
+                $resolutionOptions = ['preserve', 'replace'];
+                $preserveKind = 'source';
+            } elseif ($targetCurrent['present']) {
+                $action = 'conflict';
+                $reason = 'rename_target_already_exists';
+                $conflict = true;
+                $resolutionOptions = ['preserve', 'replace'];
+                $preserveKind = 'target';
+            }
+            $renameAction = $this->action($toPath, $after, $action, $reason, $conflict, $targetCurrent, $targetDigest);
+            $renameAction['rename_from'] = $fromPath;
+            $renameAction['rename_from_current'] = $sourceCurrent;
+            if ($resolutionOptions !== null) {
+                $renameAction['resolution_options'] = $resolutionOptions;
+            }
+            if ($preserveKind !== null) {
+                $renameAction['rename_preserve'] = $preserveKind;
+            }
+            $actions[] = $renameAction;
+            $renamedFrom[$fromPath] = true;
+            $renamedTo[$toPath] = true;
+        }
         $paths = array_unique(array_merge(array_keys($old), array_keys($new)));
         sort($paths, SORT_STRING);
         foreach ($paths as $path) {
+            if (isset($renamedFrom[$path]) || isset($renamedTo[$path])) {
+                continue;
+            }
             $before = $old[$path] ?? null;
             $after = $new[$path] ?? null;
             $projectPath = ScaffoldPathGuard::projectPath($root, $path);
@@ -1597,14 +1756,20 @@ final class ScaffoldUpgradeRunner
                     if ($path !== $plugin['manifest'] && !$this->withinAnyRoot($path, $roots)) {
                         continue;
                     }
-                    $this->writeFileAtomic(ScaffoldPathGuard::projectPath($stage, $path),
-                        $this->renderCurrentVersionArtifact($release, $file, $parameters, $versionContract), (int) $file['mode']);
+                    $this->writeFileAtomic(
+                        ScaffoldPathGuard::projectPath($stage, $path),
+                        $this->renderCurrentVersionArtifact($release, $file, $parameters, $versionContract),
+                        (int) $file['mode'],
+                    );
                 }
             }
             $schema = 'server/resources/schemas/plugin.schema.json';
             if (isset($files[$schema])) {
-                $this->writeFileAtomic(ScaffoldPathGuard::projectPath($stage, $schema),
-                    $this->renderCurrentVersionArtifact($release, $files[$schema], $parameters, $versionContract), 0644);
+                $this->writeFileAtomic(
+                    ScaffoldPathGuard::projectPath($stage, $schema),
+                    $this->renderCurrentVersionArtifact($release, $files[$schema], $parameters, $versionContract),
+                    0644,
+                );
             } else {
                 $this->copyPluginProjectionPath($root, $stage, $schema);
             }
@@ -1622,8 +1787,11 @@ final class ScaffoldUpgradeRunner
                 $manifestContents[$plugin['manifest']] = (string) file_get_contents($stage . '/' . $plugin['manifest']);
                 // Canonical public artifacts retain the release-declared mode regardless
                 // of the caller's private-state umask, which is part of the plan identity.
-                $this->writeFileAtomic($stage . '/' . $plugin['manifest'],
-                    $manifestContents[$plugin['manifest']], (int) $files[$plugin['manifest']]['mode']);
+                $this->writeFileAtomic(
+                    $stage . '/' . $plugin['manifest'],
+                    $manifestContents[$plugin['manifest']],
+                    (int) $files[$plugin['manifest']]['mode'],
+                );
             }
             $built = $writer->lock();
             $this->writeFileAtomic($stage . '/plugins.lock', $built['contents'], 0644);
@@ -2202,7 +2370,22 @@ final class ScaffoldUpgradeRunner
                 continue;
             }
             $path = (string) $action['path'];
+            $selectedResolution = isset($preserve[$path]) ? 'preserve' : 'replace';
+            if (isset($action['resolution_options'])
+                && (!is_array($action['resolution_options'])
+                    || !in_array($selectedResolution, $action['resolution_options'], true))) {
+                throw new RuntimeException('SCAFFOLD_RESOLUTION_OPTION_UNSUPPORTED: ' . $path);
+            }
             if (isset($preserve[$path])) {
+                if (isset($action['rename_from'])) {
+                    if (!in_array($action['rename_preserve'] ?? null, ['source', 'target'], true)) {
+                        throw new RuntimeException('SCAFFOLD_RENAME_PRESERVE_INVALID: ' . $path);
+                    }
+                    $action['action'] = 'rename-preserve';
+                    $action['reason'] = 'conflict_preserve_confirmed';
+                    $action['conflict'] = false;
+                    continue;
+                }
                 $ownershipTransition = ($action['reason'] ?? null) === 'recipe_ownership_transition_required'
                     && ($action['target_sha256'] ?? null) === null;
                 $action['action'] = $ownershipTransition ? 'omit' : 'preserve';
@@ -2215,7 +2398,9 @@ final class ScaffoldUpgradeRunner
             if (!isset($replace[$path]) || !is_string($action['target_sha256'] ?? null)) {
                 throw new RuntimeException('SCAFFOLD_RESOLUTION_PATHS_MISMATCH');
             }
-            $action['action'] = ($action['classification'] ?? null) === 'generated-managed' ? 'regenerate' : 'replace';
+            $action['action'] = isset($action['rename_from'])
+                ? 'rename'
+                : (($action['classification'] ?? null) === 'generated-managed' ? 'regenerate' : 'replace');
             $action['reason'] = 'conflict_replace_confirmed';
             $action['conflict'] = false;
         }
@@ -2246,7 +2431,7 @@ final class ScaffoldUpgradeRunner
     {
         $summary = ['total' => count($actions), 'automatic' => 0, 'preserved' => 0, 'conflicts' => 0];
         foreach ($actions as $action) {
-            $action['conflict'] ? $summary['conflicts']++ : (in_array($action['action'], ['create','delete','replace','regenerate'], true) ? $summary['automatic']++ : $summary['preserved']++);
+            $action['conflict'] ? $summary['conflicts']++ : (in_array($action['action'], ['create','delete','replace','regenerate','rename'], true) ? $summary['automatic']++ : $summary['preserved']++);
         }
         return $summary;
     }
@@ -2258,9 +2443,15 @@ final class ScaffoldUpgradeRunner
         $conflicts = [];
         foreach ($actions as $action) {
             $item = ['path' => $action['path'], 'action' => $action['action'], 'reason' => $action['reason']];
+            if (isset($action['rename_from'])) {
+                $item['from'] = $action['rename_from'];
+            }
+            if (isset($action['resolution_options'])) {
+                $item['resolution_options'] = $action['resolution_options'];
+            }
             if ($action['conflict']) {
                 $conflicts[] = $item;
-            } elseif (in_array($action['action'], ['create', 'delete', 'replace', 'regenerate'], true)) {
+            } elseif (in_array($action['action'], ['create', 'delete', 'replace', 'regenerate', 'rename', 'rename-preserve'], true)) {
                 $changes[] = $item;
             } else {
                 $preserved[] = $item;
@@ -2515,6 +2706,10 @@ final class ScaffoldUpgradeRunner
         $files = [];
         foreach ($actions as $action) {
             $files[$action['path']] = $this->regularFileState(ScaffoldPathGuard::projectPath($root, $action['path']), $action['path']);
+            if (isset($action['rename_from'])) {
+                $source = (string) $action['rename_from'];
+                $files[$source] = $this->regularFileState(ScaffoldPathGuard::projectPath($root, $source), $source);
+            }
         }
         ksort($files, SORT_STRING);
         return ['files' => $files, 'digest' => 'sha256:' . hash('sha256', self::canonicalJson($files))];
@@ -2604,6 +2799,13 @@ final class ScaffoldUpgradeRunner
         $actual = $this->regularFileState(ScaffoldPathGuard::projectPath($root, $action['path']), $action['path']);
         if ($actual !== $action['current']) {
             throw new RuntimeException('SCAFFOLD_PLAN_PROJECT_CHANGED: ' . $action['path']);
+        }
+        if (isset($action['rename_from'])) {
+            $source = (string) $action['rename_from'];
+            $actualSource = $this->regularFileState(ScaffoldPathGuard::projectPath($root, $source), $source);
+            if ($actualSource !== ($action['rename_from_current'] ?? null)) {
+                throw new RuntimeException('SCAFFOLD_PLAN_PROJECT_CHANGED: ' . $source);
+            }
         }
     }
 
@@ -2753,6 +2955,9 @@ final class ScaffoldUpgradeRunner
         $paths = ['.peanut/application-manifest.json'];
         foreach ($plan['actions'] as $action) {
             $paths[] = $action['path'];
+            if (isset($action['rename_from'])) {
+                $paths[] = $action['rename_from'];
+            }
             $paths[] = '.peanut/scaffold-baseline/' . $plan['identity']['to']['version'] . '/files/' . $action['path'];
         }
         $paths = array_values(array_unique($paths));
