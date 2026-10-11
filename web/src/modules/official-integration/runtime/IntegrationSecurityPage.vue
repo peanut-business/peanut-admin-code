@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import { computed, onMounted, reactive, ref } from 'vue';
+  import type { FormInstance, FormRules } from 'element-plus';
   import { useI18n } from 'vue-i18n';
   import { useIntegrationSecurityRuntime } from './runtime';
 
@@ -10,8 +11,88 @@
   const machineDialog = ref(false);
   const webhookDialog = ref(false);
   const attemptDialog = ref(false);
+  const machineFormRef = ref<FormInstance>();
+  const webhookFormRef = ref<FormInstance>();
   const machineForm = reactive({ name: '', scopes: '', expiresAt: '' });
   const webhookForm = reactive({ name: '', url: '', events: '' });
+  const csv = (value: string) => [
+    ...new Set(
+      value
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean)
+    ),
+  ];
+  const nameRules: FormRules = {
+    name: [
+      {
+        required: true,
+        whitespace: true,
+        message: t('integrationSecurity.required'),
+      },
+      { max: 120, message: t('integrationSecurity.nameTooLong') },
+    ],
+  };
+  const machineRules: FormRules = {
+    ...nameRules,
+    scopes: [
+      {
+        validator: (_rule, value: string, callback) => {
+          const scopes = csv(value);
+          if (
+            scopes.length < 1 ||
+            scopes.length > 32 ||
+            scopes.some((scope) => scope.length > 96)
+          ) {
+            callback(new Error(t('integrationSecurity.invalidScopes')));
+            return;
+          }
+          callback();
+        },
+      },
+    ],
+  };
+  const webhookRules: FormRules = {
+    ...nameRules,
+    url: [
+      {
+        required: true,
+        whitespace: true,
+        message: t('integrationSecurity.required'),
+      },
+      {
+        validator: (_rule, value: string, callback) => {
+          try {
+            const url = new URL(value);
+            if (url.protocol === 'https:' && value.length <= 2048) {
+              callback();
+              return;
+            }
+          } catch {
+            // Report invalid and non-HTTPS destinations with the same field message.
+          }
+          callback(new Error(t('integrationSecurity.invalidHttpsUrl')));
+        },
+      },
+    ],
+    events: [
+      {
+        validator: (_rule, value: string, callback) => {
+          const events = csv(value);
+          const validEvent = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)+$/;
+          if (
+            events.length < 1 ||
+            events.length > 32 ||
+            events.some((event) => event.length > 96 || !validEvent.test(event))
+          ) {
+            callback(new Error(t('integrationSecurity.invalidEvents')));
+            return;
+          }
+          callback();
+        },
+      },
+    ],
+  };
   const activeMachines = computed(
     () =>
       runtime.state.machines.items.filter((item) => item.status === 'active')
@@ -22,15 +103,8 @@
       runtime.state.webhooks.items.filter((item) => item.status === 'active')
         .length
   );
-  const csv = (value: string) => [
-    ...new Set(
-      value
-        .split(',')
-        .map((item) => item.trim())
-        .filter(Boolean)
-    ),
-  ];
   const createMachine = async () => {
+    if (!(await machineFormRef.value?.validate().catch(() => false))) return;
     await runtime.createMachine({
       name: machineForm.name,
       scopes: csv(machineForm.scopes),
@@ -39,6 +113,7 @@
     if (runtime.state.machines.error === null) machineDialog.value = false;
   };
   const createWebhook = async () => {
+    if (!(await webhookFormRef.value?.validate().catch(() => false))) return;
     await runtime.createWebhook({
       name: webhookForm.name,
       url: webhookForm.url,
@@ -358,10 +433,15 @@
       :title="t('integrationSecurity.createMachineIdentity')"
       width="min(520px, 92vw)"
     >
-      <el-form label-position="top">
-        <el-form-item :label="t('integrationSecurity.name')">
+      <el-form
+        ref="machineFormRef"
+        :model="machineForm"
+        :rules="machineRules"
+        label-position="top"
+      >
+        <el-form-item prop="name" :label="t('integrationSecurity.name')">
           <el-input v-model="machineForm.name" /> </el-form-item
-        ><el-form-item :label="t('integrationSecurity.scopes')">
+        ><el-form-item prop="scopes" :label="t('integrationSecurity.scopes')">
           <el-input
             v-model="machineForm.scopes"
             :placeholder="t('integrationSecurity.scopesPlaceholder')"
@@ -390,12 +470,17 @@
       :title="t('integrationSecurity.createWebhookEndpoint')"
       width="min(520px, 92vw)"
     >
-      <el-form label-position="top">
-        <el-form-item :label="t('integrationSecurity.name')">
+      <el-form
+        ref="webhookFormRef"
+        :model="webhookForm"
+        :rules="webhookRules"
+        label-position="top"
+      >
+        <el-form-item prop="name" :label="t('integrationSecurity.name')">
           <el-input v-model="webhookForm.name" /> </el-form-item
-        ><el-form-item :label="t('integrationSecurity.httpsUrl')">
+        ><el-form-item prop="url" :label="t('integrationSecurity.httpsUrl')">
           <el-input v-model="webhookForm.url" /> </el-form-item
-        ><el-form-item :label="t('integrationSecurity.events')">
+        ><el-form-item prop="events" :label="t('integrationSecurity.events')">
           <el-input
             v-model="webhookForm.events"
             :placeholder="t('integrationSecurity.eventsPlaceholder')"
