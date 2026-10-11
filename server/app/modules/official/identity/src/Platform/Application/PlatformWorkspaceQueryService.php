@@ -89,7 +89,7 @@ final readonly class PlatformWorkspaceQueryService
             'id,key,name,description,is_builtin,status,revision,archived_at,created_at,updated_at',
         )->order('id')->limit($page->offset(), $page->pageSize)->select()->toArray();
 
-        return ['items' => $this->hydrateRoles(array_values($rows), false), 'total' => $total];
+        return ['items' => $this->hydrateRoles(array_values($rows), true), 'total' => $total];
     }
 
     /** @return array<string, mixed> */

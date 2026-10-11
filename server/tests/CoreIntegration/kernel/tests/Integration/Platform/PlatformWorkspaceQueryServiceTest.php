@@ -90,6 +90,7 @@ final class PlatformWorkspaceQueryServiceTest extends DatabaseTestCase
         $roles = $this->service->roles(new PageRequest());
         self::assertSame(1, $roles['total']);
         self::assertSame(1, $roles['items'][0]['permission_count']);
+        self::assertSame(['platform.audit.read'], $roles['items'][0]['permission_keys']);
         self::assertSame(['platform.audit.read'], $this->service->role($roleId)['permission_keys']);
 
         $permissions = $this->service->permissions();
