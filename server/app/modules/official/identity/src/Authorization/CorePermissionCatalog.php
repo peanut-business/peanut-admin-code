@@ -65,6 +65,8 @@ final class CorePermissionCatalog
         'platform.ops.backup.manage',
         'platform.ops.restore.manage',
         'platform.ops.maintenance.manage',
+        'platform.ops.module.manage',
+        'platform.ops.upgrade.manage',
         'platform.ops.logs.read',
     ];
 

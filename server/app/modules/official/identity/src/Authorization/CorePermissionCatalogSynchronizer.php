@@ -52,7 +52,13 @@ final readonly class CorePermissionCatalogSynchronizer
             match (true) {
                 str_contains($key, 'provision-owner') => 'critical',
                 in_array($key, ['core.member.effective-access.read', 'platform.upgrade.read', 'platform.ops.read', 'platform.ops.logs.read'], true) => 'sensitive',
-                in_array($key, ['platform.ops.backup.manage', 'platform.ops.restore.manage', 'platform.ops.maintenance.manage'], true) => 'critical',
+                in_array($key, [
+                    'platform.ops.backup.manage',
+                    'platform.ops.restore.manage',
+                    'platform.ops.maintenance.manage',
+                    'platform.ops.module.manage',
+                    'platform.ops.upgrade.manage',
+                ], true) => 'critical',
                 default => 'normal',
             },
             self::MANIFEST_VERSION,
