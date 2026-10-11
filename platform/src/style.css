@@ -55,9 +55,12 @@ h1 {
   color: #7cc4ff;
   margin-left: 5px;
 }
-.el-menu {
+.app-shell .el-aside .el-menu {
+  --el-menu-text-color: #d5def0;
+  --el-menu-active-color: #fff;
+  --el-menu-bg-color: #102a56;
+  --el-menu-hover-bg-color: #183a73;
   border: 0;
-  background: transparent;
 }
 .el-menu-item {
   color: #d5def0;
@@ -66,6 +69,11 @@ h1 {
 .el-menu-item.is-active {
   background: #183a73;
   color: #fff;
+}
+.app-shell .el-aside .el-menu-item:focus-visible,
+.app-shell .el-aside .el-sub-menu__title:focus-visible {
+  outline: 2px solid #7cc4ff;
+  outline-offset: -2px;
 }
 .el-header {
   display: flex;
@@ -108,20 +116,16 @@ h1 {
   margin-bottom: 0;
 }
 @media (max-width: 760px) {
+  .app-shell {
+    flex-direction: column;
+  }
   .el-aside {
-    width: 64px !important;
+    width: 100% !important;
+    max-height: 40vh;
   }
   .logo {
-    padding: 0 8px;
-    font-size: 0;
-  }
-  .logo b {
-    font-size: 12px;
-    margin: 0;
-  }
-  .el-menu-item {
-    font-size: 0;
-    padding: 0 12px;
+    height: 48px;
+    padding: 0 24px;
   }
   .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
