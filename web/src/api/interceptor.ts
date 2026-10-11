@@ -148,9 +148,12 @@ const handleResponse = async (response: AxiosResponse<HttpResponse>) => {
           )
             return;
           const userStore = useUserStore();
-          const cleared = await userStore.logout(snapshot);
+          try {
+            await userStore.logout(snapshot);
+          } catch {
+            // Local logout cleanup may finish before tenant-state disposal reports an error.
+          }
           if (
-            cleared &&
             getSessionSnapshot().generation === snapshot.generation + 2 &&
             getToken() === null
           )

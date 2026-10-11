@@ -337,6 +337,9 @@
       modalVisible.value = false;
       await fetchData(pagination.current);
       return true;
+    } catch {
+      // The shared Axios interceptor already shows the server error; keep the form open and its values intact.
+      return false;
     } finally {
       submitLoading.value = false;
     }

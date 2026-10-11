@@ -31130,7 +31130,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6bcaedc5bbd037fa0b49e77bc03a269c680303e7bdfceb6cb3ee0195a88e5047"
+            "source_sha256": "05c2ec9e3ee5d85cc5b943bc41ea0fffeea34fdcfe361376dcf99bc1fb6e6621"
         },
         {
             "path": "web/src/api/password-policy.ts",
@@ -35762,7 +35762,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1ff2a0adb220540ad4efae29f36f43fb252818ef7371f2b730ccc39189e3bd46"
+            "source_sha256": "a8f39725fc5480c698ccaed334435a9130bdceb1cc5b7b4d3584b5cdbe0d9c44"
         },
         {
             "path": "web/src/views/system/role/locale/en-US.ts",
