@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "key": "official.content-tools",
+  "name": "Content Tools",
+  "description": "Trusted content adapter registration and capability selection; object permissions remain with Document/File.",
+  "version": "1.0.0",
+  "kernel_constraint": "^1.0",
+  "license": "Apache-2.0",
+  "php_package": "peanut-business/official-content-tools",
+  "web_package": "@peanut-admin/official-content-tools",
+  "dependencies": [],
+  "lifecycle": {
+    "protected": false
+  },
+  "backend": {
+    "provider": "PeanutAdmin\\Modules\\ContentTools\\ModuleProvider",
+    "migrations": "database/migrations",
+    "menus": "resources/menus.json",
+    "permissions": "resources/permissions.json",
+    "setting_definitions": "resources/setting-definitions.json"
+  },
+  "frontend": {
+    "entry": "web/src/modules/official-content-tools/contribution.ts"
+  },
+  "database": {
+    "owned_tables": []
+  },
+  "contracts": {
+    "exports": [
+      "PeanutAdmin\\Modules\\ContentTools\\Contract\\AuthorizedContentContext",
+      "PeanutAdmin\\Modules\\ContentTools\\Contract\\SurfaceAdapterRegistration",
+      "PeanutAdmin\\Modules\\ContentTools\\Service\\ContentToolRegistry",
+      "PeanutAdmin\\Modules\\ContentTools\\Service\\ContentCapabilitiesService"
+    ],
+    "events": []
+  },
+  "tenant": {
+    "enableable": true,
+    "disable_behavior": "reject_new_operations",
+    "requires": []
+  }
+}

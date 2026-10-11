@@ -18,6 +18,7 @@
     "src/modules/official-task/optional-runtime/tests/**/*.ts",
     "src/modules/official-reference-codes/runtime/tests/**/*.ts",
     "src/modules/official-settings/runtime/tests/**/*.ts",
+    "src/modules/official-content-tools/tests/**/*.ts",
     "src/env.d.ts"
   ],
   "exclude": []

@@ -20,6 +20,7 @@
     "node_modules",
     "src/modules/**/optional-runtime/tests/**",
     "src/modules/official-reference-codes/runtime/tests/**",
-    "src/modules/official-settings/runtime/tests/**"
+    "src/modules/official-settings/runtime/tests/**",
+    "src/modules/official-content-tools/tests/**"
   ]
 }

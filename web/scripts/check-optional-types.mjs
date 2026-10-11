@@ -13,6 +13,7 @@ const areas = [
   'official-task/optional-runtime',
   'official-reference-codes/runtime',
   'official-settings/runtime',
+  'official-content-tools',
 ];
 const vueExtension = [
   {
