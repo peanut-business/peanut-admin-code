@@ -77,7 +77,7 @@ final class ModuleProvider implements ModuleProviderContract
                 $app->make(AdminDirectoryQuery::class),
                 $app->make(ModuleExecutionBoundary::class),
                 $app->make(CrontabCommandService::class),
-                Closure::fromCallable([$app->make('console'), 'call']),
+                fn(string $command, array $parameters = [], string $driver = 'buffer') => $app->make('console')->call($command, $parameters, $driver),
                 $app->make(TaskWorkerDefinitionRegistry::class)->resolve($app),
                 (int) $app->config->get('async.worker_limit', 25),
             ),
