@@ -123,6 +123,9 @@
             "name": "Installation"
         },
         {
+            "name": "Document"
+        },
+        {
             "name": "Integration"
         },
         {
@@ -602,7 +605,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/file/route/app.php",
-                        "line": 41
+                        "line": 44
                     }
                 },
                 "x-peanut-permissions": []
@@ -16391,6 +16394,95 @@
                 "x-peanut-permissions": []
             }
         },
+        "/adminapi/official.article.document": {
+            "post": {
+                "tags": [
+                    "Article"
+                ],
+                "operationId": "ensureArticleBodyDocument",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "id",
+                                    "request_id"
+                                ],
+                                "properties": {
+                                    "id": {
+                                        "type": "integer",
+                                        "minimum": 1
+                                    },
+                                    "request_id": {
+                                        "type": "string",
+                                        "pattern": "^[A-Za-z0-9:_-]{1,128}$"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Business-owned body document; no automatic conversion of legacy Article content.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DocumentMetadataResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ArticleErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ArticleErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ArticleErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ArticleErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ArticleErrorResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "adminapi",
+                    "owner": {
+                        "type": "module",
+                        "key": "official.article"
+                    },
+                    "controller": "PeanutAdmin\\Modules\\Article\\Controller\\ArticleController",
+                    "action": "bodyDocument",
+                    "permission": "official.article.edit",
+                    "source": {
+                        "file": "server/app/modules/official/article/route/app.php",
+                        "line": 33
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "module_capability",
+                        "key": "official.article"
+                    },
+                    {
+                        "kind": "tenant_action",
+                        "key": "official.article.edit"
+                    }
+                ]
+            }
+        },
         "/adminapi/official.article.category.list": {
             "get": {
                 "tags": [
@@ -17905,7 +17997,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 33
+                        "line": 34
                     }
                 },
                 "x-peanut-permissions": [
@@ -17982,7 +18074,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 34
+                        "line": 35
                     }
                 },
                 "x-peanut-permissions": [
@@ -18175,7 +18267,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 35
+                        "line": 36
                     }
                 },
                 "x-peanut-permissions": [
@@ -18246,7 +18338,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 36
+                        "line": 37
                     }
                 },
                 "x-peanut-permissions": [
@@ -18320,7 +18412,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 37
+                        "line": 38
                     }
                 },
                 "x-peanut-permissions": [
@@ -18394,7 +18486,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 38
+                        "line": 39
                     }
                 },
                 "x-peanut-permissions": [
@@ -18405,6 +18497,1103 @@
                     {
                         "kind": "tenant_action",
                         "key": "official.article.force-delete"
+                    }
+                ]
+            }
+        },
+        "/adminapi/official.document.detail": {
+            "get": {
+                "tags": [
+                    "Document"
+                ],
+                "operationId": "documentDetail",
+                "parameters": [
+                    {
+                        "name": "document_id",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "revision_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Current owner-authorized document result. Confirmed versions are immutable and committed, not business approval.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DocumentDetailResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "adminapi",
+                    "owner": {
+                        "type": "module",
+                        "key": "official.document"
+                    },
+                    "controller": "PeanutAdmin\\Modules\\Document\\Controller\\DocumentController",
+                    "action": "detail",
+                    "permission": null,
+                    "source": {
+                        "file": "server/app/modules/official/document/route/app.php",
+                        "line": 11
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "module_capability",
+                        "key": "official.document"
+                    },
+                    {
+                        "kind": "tenant_action",
+                        "key": "official.document.detail"
+                    }
+                ]
+            }
+        },
+        "/adminapi/official.document.capabilities": {
+            "get": {
+                "tags": [
+                    "Document"
+                ],
+                "operationId": "documentCapabilities",
+                "parameters": [
+                    {
+                        "name": "document_id",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "revision_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "intent",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "view",
+                                "edit"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Current owner-authorized document result. Confirmed versions are immutable and committed, not business approval.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DocumentCapabilitiesResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "adminapi",
+                    "owner": {
+                        "type": "module",
+                        "key": "official.document"
+                    },
+                    "controller": "PeanutAdmin\\Modules\\Document\\Controller\\DocumentController",
+                    "action": "capabilities",
+                    "permission": null,
+                    "source": {
+                        "file": "server/app/modules/official/document/route/app.php",
+                        "line": 12
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "module_capability",
+                        "key": "official.document"
+                    },
+                    {
+                        "kind": "tenant_action",
+                        "key": "official.document.capabilities"
+                    }
+                ]
+            }
+        },
+        "/adminapi/official.document.solo.save": {
+            "post": {
+                "tags": [
+                    "Document"
+                ],
+                "operationId": "saveSoloDocument",
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "Current owner-authorized document result. Confirmed versions are immutable and committed, not business approval.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DocumentSaveResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "document_id": {
+                                        "type": "integer",
+                                        "minimum": 1
+                                    },
+                                    "expected_state_seq": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                    },
+                                    "request_id": {
+                                        "type": "string",
+                                        "pattern": "^[A-Za-z0-9:_-]{1,128}$"
+                                    },
+                                    "structured_content": {
+                                        "$ref": "#/components/schemas/DocumentStructuredContent"
+                                    }
+                                },
+                                "required": [
+                                    "document_id",
+                                    "expected_state_seq",
+                                    "request_id",
+                                    "structured_content"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "adminapi",
+                    "owner": {
+                        "type": "module",
+                        "key": "official.document"
+                    },
+                    "controller": "PeanutAdmin\\Modules\\Document\\Controller\\DocumentController",
+                    "action": "soloSave",
+                    "permission": null,
+                    "source": {
+                        "file": "server/app/modules/official/document/route/app.php",
+                        "line": 13
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "module_capability",
+                        "key": "official.document"
+                    },
+                    {
+                        "kind": "tenant_action",
+                        "key": "official.document.solo.save"
+                    }
+                ]
+            }
+        },
+        "/adminapi/official.document.resource.bind": {
+            "post": {
+                "tags": [
+                    "Document"
+                ],
+                "operationId": "bindDocumentResource",
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "Current owner-authorized document result. Confirmed versions are immutable and committed, not business approval.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DocumentSaveResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "document_id": {
+                                        "type": "integer",
+                                        "minimum": 1
+                                    },
+                                    "expected_state_seq": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                    },
+                                    "request_id": {
+                                        "type": "string",
+                                        "pattern": "^[A-Za-z0-9:_-]{1,128}$"
+                                    },
+                                    "file_key": {
+                                        "type": "string",
+                                        "pattern": "^file_[0-9a-f]{32}$"
+                                    }
+                                },
+                                "required": [
+                                    "document_id",
+                                    "expected_state_seq",
+                                    "request_id",
+                                    "file_key"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "adminapi",
+                    "owner": {
+                        "type": "module",
+                        "key": "official.document"
+                    },
+                    "controller": "PeanutAdmin\\Modules\\Document\\Controller\\DocumentController",
+                    "action": "bindResource",
+                    "permission": null,
+                    "source": {
+                        "file": "server/app/modules/official/document/route/app.php",
+                        "line": 14
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "module_capability",
+                        "key": "official.document"
+                    },
+                    {
+                        "kind": "tenant_action",
+                        "key": "official.document.resource.bind"
+                    }
+                ]
+            }
+        },
+        "/adminapi/official.document.version.create": {
+            "post": {
+                "tags": [
+                    "Document"
+                ],
+                "operationId": "createDocumentVersion",
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "Current owner-authorized document result. Confirmed versions are immutable and committed, not business approval.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DocumentVersionResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "document_id": {
+                                        "type": "integer",
+                                        "minimum": 1
+                                    },
+                                    "expected_state_seq": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                    },
+                                    "reason": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 255
+                                    },
+                                    "idempotency_key": {
+                                        "type": "string",
+                                        "pattern": "^[A-Za-z0-9:_-]{1,128}$"
+                                    }
+                                },
+                                "required": [
+                                    "document_id",
+                                    "expected_state_seq",
+                                    "reason",
+                                    "idempotency_key"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "adminapi",
+                    "owner": {
+                        "type": "module",
+                        "key": "official.document"
+                    },
+                    "controller": "PeanutAdmin\\Modules\\Document\\Controller\\DocumentController",
+                    "action": "createVersion",
+                    "permission": null,
+                    "source": {
+                        "file": "server/app/modules/official/document/route/app.php",
+                        "line": 15
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "module_capability",
+                        "key": "official.document"
+                    },
+                    {
+                        "kind": "tenant_action",
+                        "key": "official.document.version.create"
+                    }
+                ]
+            }
+        },
+        "/adminapi/official.document.version.restore": {
+            "post": {
+                "tags": [
+                    "Document"
+                ],
+                "operationId": "restoreDocumentVersion",
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "Current owner-authorized document result. Confirmed versions are immutable and committed, not business approval.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DocumentVersionResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "document_id": {
+                                        "type": "integer",
+                                        "minimum": 1
+                                    },
+                                    "expected_state_seq": {
+                                        "type": "integer",
+                                        "minimum": 0
+                                    },
+                                    "request_id": {
+                                        "type": "string",
+                                        "pattern": "^[A-Za-z0-9:_-]{1,128}$"
+                                    },
+                                    "revision_id": {
+                                        "type": "integer",
+                                        "minimum": 1
+                                    }
+                                },
+                                "required": [
+                                    "document_id",
+                                    "expected_state_seq",
+                                    "request_id",
+                                    "revision_id"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "adminapi",
+                    "owner": {
+                        "type": "module",
+                        "key": "official.document"
+                    },
+                    "controller": "PeanutAdmin\\Modules\\Document\\Controller\\DocumentController",
+                    "action": "restoreVersion",
+                    "permission": null,
+                    "source": {
+                        "file": "server/app/modules/official/document/route/app.php",
+                        "line": 16
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "module_capability",
+                        "key": "official.document"
+                    },
+                    {
+                        "kind": "tenant_action",
+                        "key": "official.document.version.restore"
+                    }
+                ]
+            }
+        },
+        "/adminapi/official.document.archive": {
+            "post": {
+                "tags": [
+                    "Document"
+                ],
+                "operationId": "archiveDocument",
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "Current owner-authorized document result. Confirmed versions are immutable and committed, not business approval.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DocumentMetadataResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "document_id": {
+                                        "type": "integer",
+                                        "minimum": 1
+                                    },
+                                    "expected_auth_revision": {
+                                        "type": "integer",
+                                        "minimum": 1
+                                    },
+                                    "request_id": {
+                                        "type": "string",
+                                        "pattern": "^[A-Za-z0-9:_-]{1,128}$"
+                                    }
+                                },
+                                "required": [
+                                    "document_id",
+                                    "expected_auth_revision",
+                                    "request_id"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "adminapi",
+                    "owner": {
+                        "type": "module",
+                        "key": "official.document"
+                    },
+                    "controller": "PeanutAdmin\\Modules\\Document\\Controller\\DocumentController",
+                    "action": "archive",
+                    "permission": null,
+                    "source": {
+                        "file": "server/app/modules/official/document/route/app.php",
+                        "line": 17
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "module_capability",
+                        "key": "official.document"
+                    },
+                    {
+                        "kind": "tenant_action",
+                        "key": "official.document.archive"
+                    }
+                ]
+            }
+        },
+        "/adminapi/official.document.restore": {
+            "post": {
+                "tags": [
+                    "Document"
+                ],
+                "operationId": "restoreDocument",
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "Current owner-authorized document result. Confirmed versions are immutable and committed, not business approval.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DocumentMetadataResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "document_id": {
+                                        "type": "integer",
+                                        "minimum": 1
+                                    },
+                                    "expected_auth_revision": {
+                                        "type": "integer",
+                                        "minimum": 1
+                                    },
+                                    "request_id": {
+                                        "type": "string",
+                                        "pattern": "^[A-Za-z0-9:_-]{1,128}$"
+                                    }
+                                },
+                                "required": [
+                                    "document_id",
+                                    "expected_auth_revision",
+                                    "request_id"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "adminapi",
+                    "owner": {
+                        "type": "module",
+                        "key": "official.document"
+                    },
+                    "controller": "PeanutAdmin\\Modules\\Document\\Controller\\DocumentController",
+                    "action": "restore",
+                    "permission": null,
+                    "source": {
+                        "file": "server/app/modules/official/document/route/app.php",
+                        "line": 18
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "module_capability",
+                        "key": "official.document"
+                    },
+                    {
+                        "kind": "tenant_action",
+                        "key": "official.document.restore"
+                    }
+                ]
+            }
+        },
+        "/adminapi/official.file.snapshot.pending": {
+            "get": {
+                "tags": [
+                    "File"
+                ],
+                "operationId": "pendingDocumentFileSnapshots",
+                "responses": {
+                    "200": {
+                        "description": "Old unclaimed captures only; no storage address or credentials.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "additionalProperties": false,
+                                                "required": [
+                                                    "file_key",
+                                                    "status",
+                                                    "created_at"
+                                                ],
+                                                "properties": {
+                                                    "file_key": {
+                                                        "type": "string",
+                                                        "pattern": "^file_[0-9a-f]{32}$"
+                                                    },
+                                                    "status": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "captured",
+                                                            "cleanup_pending",
+                                                            "interrupted_capture"
+                                                        ]
+                                                    },
+                                                    "created_at": {
+                                                        "type": "string"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "adminapi",
+                    "owner": {
+                        "type": "module",
+                        "key": "official.file"
+                    },
+                    "controller": "PeanutAdmin\\Modules\\File\\Controller\\FileController",
+                    "action": "pendingSnapshots",
+                    "permission": "official.file.manage",
+                    "source": {
+                        "file": "server/app/modules/official/file/route/app.php",
+                        "line": 31
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "module_capability",
+                        "key": "official.file"
+                    },
+                    {
+                        "kind": "tenant_action",
+                        "key": "official.file.manage"
+                    }
+                ]
+            }
+        },
+        "/adminapi/official.file.snapshot.recover": {
+            "post": {
+                "tags": [
+                    "File"
+                ],
+                "operationId": "recoverDocumentFileSnapshot",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "file_key"
+                                ],
+                                "properties": {
+                                    "file_key": {
+                                        "type": "string",
+                                        "pattern": "^file_[0-9a-f]{32}$"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Real provider deletion result. Unknown outcome remains cleanup_pending; claimed versions always reject.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": [
+                                                "file_key",
+                                                "cleanup_pending",
+                                                "provider_delete_acknowledged"
+                                            ],
+                                            "properties": {
+                                                "file_key": {
+                                                    "type": "string"
+                                                },
+                                                "cleanup_pending": {
+                                                    "type": "boolean"
+                                                },
+                                                "provider_delete_acknowledged": {
+                                                    "type": "boolean"
+                                                },
+                                                "provider_outcome": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "adminapi",
+                    "owner": {
+                        "type": "module",
+                        "key": "official.file"
+                    },
+                    "controller": "PeanutAdmin\\Modules\\File\\Controller\\FileController",
+                    "action": "recoverSnapshot",
+                    "permission": "official.file.delete",
+                    "source": {
+                        "file": "server/app/modules/official/file/route/app.php",
+                        "line": 32
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "module_capability",
+                        "key": "official.file"
+                    },
+                    {
+                        "kind": "tenant_action",
+                        "key": "official.file.delete"
+                    }
+                ]
+            }
+        },
+        "/adminapi/api/v1/files/resolve": {
+            "post": {
+                "tags": [
+                    "File"
+                ],
+                "operationId": "resolveFileAccess",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "file_key",
+                                    "operation"
+                                ],
+                                "properties": {
+                                    "file_key": {
+                                        "type": "string",
+                                        "pattern": "^file_[0-9a-f]{32}$"
+                                    },
+                                    "operation": {
+                                        "type": "string",
+                                        "enum": [
+                                            "preview",
+                                            "download_original",
+                                            "manage"
+                                        ]
+                                    },
+                                    "document_id": {
+                                        "type": "integer",
+                                        "minimum": 1
+                                    },
+                                    "variant_key": {
+                                        "type": "string",
+                                        "pattern": "^[a-z][a-z0-9-]{0,31}$",
+                                        "maxLength": 32
+                                    },
+                                    "viewer_adapter_id": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 128
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Current live File access, or explicit unavailable preview. No original bytes without download authorization.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FileAccessResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "adminapi",
+                    "owner": {
+                        "type": "module",
+                        "key": "official.file"
+                    },
+                    "controller": "PeanutAdmin\\Modules\\File\\Controller\\FileController",
+                    "action": "resolve",
+                    "permission": null,
+                    "source": {
+                        "file": "server/app/modules/official/file/route/app.php",
+                        "line": 25
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "module_capability",
+                        "key": "official.file"
+                    },
+                    {
+                        "kind": "tenant_action",
+                        "key": "api/v1/files/resolve"
                     }
                 ]
             }
@@ -18498,7 +19687,7 @@
                     "permission": "official.file.list",
                     "source": {
                         "file": "server/app/modules/official/file/route/app.php",
-                        "line": 25
+                        "line": 26
                     }
                 },
                 "x-peanut-permissions": [
@@ -18750,7 +19939,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/file/route/app.php",
-                        "line": 42
+                        "line": 45
                     }
                 },
                 "x-peanut-permissions": [
@@ -18814,7 +20003,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/file/route/app.php",
-                        "line": 27
+                        "line": 28
                     }
                 },
                 "x-peanut-permissions": [
@@ -18886,7 +20075,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/file/route/app.php",
-                        "line": 28
+                        "line": 29
                     }
                 },
                 "x-peanut-permissions": [
@@ -18954,7 +20143,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/file/route/app.php",
-                        "line": 29
+                        "line": 30
                     }
                 },
                 "x-peanut-permissions": [
@@ -19028,7 +20217,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/file/route/app.php",
-                        "line": 30
+                        "line": 33
                     }
                 },
                 "x-peanut-permissions": [
@@ -19096,7 +20285,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/file/route/app.php",
-                        "line": 31
+                        "line": 34
                     }
                 },
                 "x-peanut-permissions": [
@@ -19164,7 +20353,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/file/route/app.php",
-                        "line": 32
+                        "line": 35
                     }
                 },
                 "x-peanut-permissions": [
@@ -19232,7 +20421,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/file/route/app.php",
-                        "line": 33
+                        "line": 36
                     }
                 },
                 "x-peanut-permissions": [
@@ -37788,6 +38977,497 @@
                     }
                 }
             },
+            "DocumentStructuredContent": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "schemaVersion": {
+                        "type": "string",
+                        "enum": [
+                            "peanut.richtext/1"
+                        ]
+                    },
+                    "editorModel": {
+                        "type": "string",
+                        "enum": [
+                            "tiptap-prosemirror"
+                        ]
+                    },
+                    "content": {
+                        "type": "object",
+                        "additionalProperties": true
+                    },
+                    "annotations": {
+                        "type": "array",
+                        "maxItems": 0
+                    }
+                },
+                "required": [
+                    "schemaVersion",
+                    "editorModel",
+                    "content",
+                    "annotations"
+                ]
+            },
+            "DocumentMetadataResponse": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "code": {
+                        "type": "integer",
+                        "enum": [
+                            20000
+                        ]
+                    },
+                    "msg": {
+                        "type": "string"
+                    },
+                    "data": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "document_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "content_kind": {
+                                "type": "string",
+                                "enum": [
+                                    "rich_text",
+                                    "file_resource"
+                                ]
+                            },
+                            "schema_version": {
+                                "type": "string"
+                            },
+                            "status": {
+                                "type": "string",
+                                "enum": [
+                                    "active",
+                                    "archiving",
+                                    "archived",
+                                    "blocked_recovery"
+                                ]
+                            },
+                            "state_seq": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "auth_revision": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "created": {
+                                "type": "boolean"
+                            }
+                        },
+                        "required": [
+                            "document_id",
+                            "content_kind",
+                            "schema_version",
+                            "status",
+                            "state_seq",
+                            "auth_revision"
+                        ]
+                    }
+                },
+                "required": [
+                    "code",
+                    "msg",
+                    "data"
+                ]
+            },
+            "DocumentDetailResponse": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "code": {
+                        "type": "integer",
+                        "enum": [
+                            20000
+                        ]
+                    },
+                    "msg": {
+                        "type": "string"
+                    },
+                    "data": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "document_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "content_kind": {
+                                "type": "string",
+                                "enum": [
+                                    "rich_text",
+                                    "file_resource"
+                                ]
+                            },
+                            "schema_version": {
+                                "type": "string"
+                            },
+                            "status": {
+                                "type": "string",
+                                "enum": [
+                                    "active",
+                                    "archiving",
+                                    "archived",
+                                    "blocked_recovery"
+                                ]
+                            },
+                            "state_seq": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "auth_revision": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "created": {
+                                "type": "boolean"
+                            },
+                            "tenant_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "owner": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "module_key": {
+                                        "type": "string"
+                                    },
+                                    "object_type": {
+                                        "type": "string"
+                                    },
+                                    "object_id": {
+                                        "type": "string"
+                                    },
+                                    "slot": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "module_key",
+                                    "object_type",
+                                    "object_id",
+                                    "slot"
+                                ]
+                            },
+                            "authorization_revision": {
+                                "type": "string",
+                                "pattern": "^[0-9a-f]{64}$"
+                            },
+                            "structured_content": {
+                                "allOf": [
+                                    {
+                                        "$ref": "#/components/schemas/DocumentStructuredContent"
+                                    }
+                                ],
+                                "nullable": true
+                            },
+                            "file_key": {
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "file_sha256": {
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "verified_mime_type": {
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "digest": {
+                                "type": "string",
+                                "pattern": "^[0-9a-f]{64}$"
+                            },
+                            "persisted_at": {
+                                "type": "string"
+                            },
+                            "revision_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "revision_no": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "source_state_seq": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "confirmed": {
+                                "type": "boolean",
+                                "enum": [
+                                    true
+                                ]
+                            },
+                            "references": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "file_key": {
+                                            "type": "string",
+                                            "pattern": "^file_[0-9a-f]{32}$"
+                                        },
+                                        "variant_key": {
+                                            "type": "string",
+                                            "nullable": true
+                                        }
+                                    },
+                                    "required": [
+                                        "file_key",
+                                        "variant_key"
+                                    ]
+                                }
+                            },
+                            "file_keys": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "pattern": "^file_[0-9a-f]{32}$"
+                                }
+                            }
+                        },
+                        "required": [
+                            "document_id",
+                            "content_kind",
+                            "schema_version",
+                            "status",
+                            "state_seq",
+                            "auth_revision"
+                        ]
+                    }
+                },
+                "required": [
+                    "code",
+                    "msg",
+                    "data"
+                ]
+            },
+            "DocumentVersionResponse": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "code": {
+                        "type": "integer",
+                        "enum": [
+                            20000
+                        ]
+                    },
+                    "msg": {
+                        "type": "string"
+                    },
+                    "data": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "document_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "revision_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "revision_no": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "source_state_seq": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "digest": {
+                                "type": "string",
+                                "pattern": "^[0-9a-f]{64}$"
+                            }
+                        },
+                        "required": [
+                            "document_id",
+                            "revision_id",
+                            "revision_no",
+                            "source_state_seq",
+                            "digest"
+                        ]
+                    }
+                },
+                "required": [
+                    "code",
+                    "msg",
+                    "data"
+                ]
+            },
+            "DocumentSaveResponse": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "code": {
+                        "type": "integer",
+                        "enum": [
+                            20000
+                        ]
+                    },
+                    "msg": {
+                        "type": "string"
+                    },
+                    "data": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "document_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "state_seq": {
+                                "type": "integer",
+                                "minimum": 0
+                            },
+                            "persisted_at": {
+                                "type": "string"
+                            },
+                            "digest": {
+                                "type": "string",
+                                "pattern": "^[0-9a-f]{64}$"
+                            },
+                            "file_key": {
+                                "type": "string",
+                                "pattern": "^file_[0-9a-f]{32}$"
+                            }
+                        },
+                        "required": [
+                            "document_id",
+                            "state_seq",
+                            "digest"
+                        ]
+                    }
+                },
+                "required": [
+                    "code",
+                    "msg",
+                    "data"
+                ]
+            },
+            "DocumentCapabilitiesResponse": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "code": {
+                        "type": "integer",
+                        "enum": [
+                            20000
+                        ]
+                    },
+                    "msg": {
+                        "type": "string"
+                    },
+                    "data": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "document_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "can_view": {
+                                "type": "boolean"
+                            },
+                            "can_edit": {
+                                "type": "boolean"
+                            },
+                            "can_download_original": {
+                                "type": "boolean"
+                            },
+                            "collaboration_enabled": {
+                                "type": "boolean"
+                            },
+                            "capabilities": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "contentKind": {
+                                        "type": "string",
+                                        "enum": [
+                                            "rich_text",
+                                            "file_resource"
+                                        ]
+                                    },
+                                    "verifiedMimeType": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "viewerAdapterId": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "editorAdapterId": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "canView": {
+                                        "type": "boolean"
+                                    },
+                                    "canEdit": {
+                                        "type": "boolean"
+                                    },
+                                    "canDownloadOriginal": {
+                                        "type": "boolean"
+                                    },
+                                    "state": {
+                                        "type": "string",
+                                        "enum": [
+                                            "permission_denied",
+                                            "preview_unavailable",
+                                            "edit_unsupported",
+                                            "service_unavailable",
+                                            "read_only",
+                                            "available"
+                                        ]
+                                    },
+                                    "unavailableReason": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "capabilityRevision": {
+                                        "type": "string",
+                                        "pattern": "^[0-9a-f]{64}$"
+                                    }
+                                },
+                                "required": [
+                                    "contentKind",
+                                    "verifiedMimeType",
+                                    "viewerAdapterId",
+                                    "editorAdapterId",
+                                    "canView",
+                                    "canEdit",
+                                    "canDownloadOriginal",
+                                    "state",
+                                    "unavailableReason",
+                                    "capabilityRevision"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "document_id",
+                            "can_view",
+                            "can_edit",
+                            "can_download_original",
+                            "collaboration_enabled",
+                            "capabilities"
+                        ]
+                    }
+                },
+                "required": [
+                    "code",
+                    "msg",
+                    "data"
+                ]
+            },
             "FileImageVariant": {
                 "type": "object",
                 "additionalProperties": false,
@@ -38224,6 +39904,12 @@
                     },
                     "url": {
                         "type": "string"
+                    },
+                    "preview_state": {
+                        "type": "string"
+                    },
+                    "can_download_original": {
+                        "type": "boolean"
                     }
                 }
             },
@@ -38278,6 +39964,95 @@
                     },
                     "data": {
                         "$ref": "#/components/schemas/FileListPage"
+                    }
+                }
+            },
+            "FileAccessResponse": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "code",
+                    "msg",
+                    "data"
+                ],
+                "properties": {
+                    "code": {
+                        "type": "integer",
+                        "enum": [
+                            20000
+                        ]
+                    },
+                    "msg": {
+                        "type": "string"
+                    },
+                    "data": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "file_key"
+                        ],
+                        "properties": {
+                            "file_key": {
+                                "type": "string",
+                                "pattern": "^file_[0-9a-f]{32}$"
+                            },
+                            "delivery_file_key": {
+                                "type": "string"
+                            },
+                            "source_file_key": {
+                                "type": "string"
+                            },
+                            "source_sha256": {
+                                "type": "string"
+                            },
+                            "media_type": {
+                                "type": "string"
+                            },
+                            "original_name": {
+                                "type": "string"
+                            },
+                            "revision": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "can_manage": {
+                                "type": "boolean"
+                            },
+                            "can_download_original": {
+                                "type": "boolean"
+                            },
+                            "state": {
+                                "type": "string"
+                            },
+                            "purpose": {
+                                "type": "string",
+                                "enum": [
+                                    "preview",
+                                    "download_original"
+                                ]
+                            },
+                            "bytes": {
+                                "type": "string",
+                                "enum": [
+                                    "original",
+                                    "derivative"
+                                ]
+                            },
+                            "authorization_revision": {
+                                "type": "string"
+                            },
+                            "expires_at": {
+                                "type": "integer"
+                            },
+                            "url": {
+                                "type": "string",
+                                "nullable": true
+                            },
+                            "capabilities": {
+                                "type": "object",
+                                "additionalProperties": true
+                            }
+                        }
                     }
                 }
             },

@@ -25,6 +25,34 @@ $mutationResponse = [
 
 return [
     'paths' => [
+        '/adminapi/official.file.snapshot.pending' => ['get' => [
+            'tags' => ['File'],'operationId' => 'pendingDocumentFileSnapshots','responses' => [
+                '200' => ['description' => 'Old unclaimed captures only; no storage address or credentials.', 'content' => ['application/json' => ['schema' => [
+                    'type' => 'object','additionalProperties' => false,'required' => ['code','msg','data'],'properties' => [
+                        'code' => ['type' => 'integer','enum' => [20000]],'msg' => ['type' => 'string'],'data' => ['type' => 'array','items' => [
+                            'type' => 'object','additionalProperties' => false,'required' => ['file_key','status','created_at'],'properties' => [
+                                'file_key' => ['type' => 'string','pattern' => '^file_[0-9a-f]{32}$'],'status' => ['type' => 'string','enum' => ['captured','cleanup_pending','interrupted_capture']],'created_at' => ['type' => 'string'],
+                            ],
+                        ]],
+                    ],
+                ]]]], '401' => $error,'403' => $error,
+            ],
+        ]],
+        '/adminapi/official.file.snapshot.recover' => ['post' => [
+            'tags' => ['File'],'operationId' => 'recoverDocumentFileSnapshot',
+            'requestBody' => ['required' => true,'content' => ['application/json' => ['schema' => [
+                'type' => 'object','additionalProperties' => false,'required' => ['file_key'],'properties' => ['file_key' => ['type' => 'string','pattern' => '^file_[0-9a-f]{32}$']],
+            ]]]], 'responses' => [
+                '200' => ['description' => 'Real provider deletion result. Unknown outcome remains cleanup_pending; claimed versions always reject.', 'content' => ['application/json' => ['schema' => [
+                    'type' => 'object','additionalProperties' => false,'required' => ['code','msg','data'],'properties' => [
+                        'code' => ['type' => 'integer','enum' => [20000]],'msg' => ['type' => 'string'],'data' => [
+                            'type' => 'object','additionalProperties' => false,'required' => ['file_key','cleanup_pending','provider_delete_acknowledged'],
+                            'properties' => ['file_key' => ['type' => 'string'],'cleanup_pending' => ['type' => 'boolean'],'provider_delete_acknowledged' => ['type' => 'boolean'],'provider_outcome' => ['type' => 'string']],
+                        ],
+                    ],
+                ]]]], '401' => $error,'403' => $error,'409' => $error,'422' => $error,
+            ],
+        ]],
         '/adminapi/api/v1/files/resolve' => ['post' => [
             'tags' => ['File'], 'operationId' => 'resolveFileAccess',
             'requestBody' => ['required' => true, 'content' => ['application/json' => ['schema' => [

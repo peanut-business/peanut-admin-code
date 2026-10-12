@@ -17,6 +17,22 @@ class ArticleController extends BaseAdminController
     use CrudTrait;
 
     protected string $crudClass = ArticleAdministration::class;
+    public function bodyDocument(): Json
+    {
+        $input = $this->request->post();
+        if (array_diff(array_keys($input), ['id','request_id']) !== [] || !is_string($input['request_id'] ?? null)) {
+            throw \app\common\exception\BusinessException::invalid('ARTICLE_DOCUMENT_INPUT_INVALID', '资讯文档输入无效');
+        }
+        $raw = $input['id'] ?? null;
+        if (!is_int($raw) && !(is_string($raw) && preg_match('/^[1-9][0-9]*$/D', $raw) === 1)) {
+            throw \app\common\exception\BusinessException::invalid('ARTICLE_DOCUMENT_INPUT_INVALID', '资讯 ID 无效');
+        }
+        $id = filter_var($raw, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        if ($id === false) {
+            throw \app\common\exception\BusinessException::invalid('ARTICLE_DOCUMENT_INPUT_INVALID', '资讯 ID 无效');
+        }
+        return $this->data($this->crud->bodyDocument($this->tenantAdminContext(), $id, $input['request_id']));
+    }
     protected const CRUD_VALIDATE = ArticleValidate::class;
     protected const CRUD_ADD_SUCCESS_MESSAGE = '添加成功';
     protected const CRUD_EDIT_SUCCESS_MESSAGE = '编辑成功';

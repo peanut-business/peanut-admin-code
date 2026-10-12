@@ -30,6 +30,7 @@ final readonly class ModuleComposition
         $providers = [];
         $taskWorkers = [];
         $fileDocumentPolicy = null;
+        $documentOwnerPolicies = [];
         foreach ($registry->modules as $manifest) {
             $moduleKey = $manifest->data['key'] ?? null;
             $backend = $manifest->data['backend'] ?? null;
@@ -47,6 +48,17 @@ final readonly class ModuleComposition
             }
             $providerClasses[$providerClass] = true;
             $providers[$providerClass] = $provider;
+            if ($provider instanceof \PeanutAdmin\Modules\Document\Contract\DocumentOwnerContributor) {
+                foreach ($provider->documentOwnerPolicies() as $type => $policy) {
+                    $key = $moduleKey . ':' . $type;
+                    if (!is_string($type) || preg_match('/^[a-z][a-z0-9_-]{0,63}$/D', $type) !== 1
+                        || isset($documentOwnerPolicies[$key]) || !is_string($policy)
+                        || !is_a($policy, \PeanutAdmin\Modules\Document\Contract\DocumentOwnerPolicy::class, true)) {
+                        throw new ModuleException('MODULE_DOCUMENT_OWNER_POLICY_INVALID', 'Invalid business Document owner policy contribution.');
+                    }
+                    $documentOwnerPolicies[$key] = $policy;
+                }
+            }
             if ($provider instanceof FileDocumentReferenceContributor) {
                 $policy = $provider->fileDocumentReferencePolicy();
                 if ($moduleKey !== 'official.document' || $fileDocumentPolicy !== null
@@ -73,7 +85,8 @@ final readonly class ModuleComposition
                 throw new ModuleException('MODULE_BINDING_CONFLICT', "Module binding conflicts with Host binding: {$abstract}");
             }
         }
-        if ($this->app->bound(TaskWorkerDefinitionRegistry::class) || $this->app->bound(FileDocumentReferenceRegistry::class)) {
+        if ($this->app->bound(TaskWorkerDefinitionRegistry::class) || $this->app->bound(FileDocumentReferenceRegistry::class)
+            || $this->app->bound(\PeanutAdmin\Modules\Document\Service\DocumentOwnerRegistry::class)) {
             throw new ModuleException('MODULE_BINDING_CONFLICT', 'Task worker registry conflicts with a Host binding.');
         }
         foreach ($providers as $providerClass => $provider) {
@@ -89,6 +102,14 @@ final readonly class ModuleComposition
         }
         $this->app->instance(TaskWorkerDefinitionRegistry::class, $taskRegistry);
         $this->app->instance(FileDocumentReferenceRegistry::class, new FileDocumentReferenceRegistry($this->app, $fileDocumentPolicy));
+        if (class_exists(\PeanutAdmin\Modules\Document\Service\DocumentOwnerRegistry::class)) {
+            $this->app->instance(
+                \PeanutAdmin\Modules\Document\Service\DocumentOwnerRegistry::class,
+                new \PeanutAdmin\Modules\Document\Service\DocumentOwnerRegistry($this->app, $documentOwnerPolicies),
+            );
+        } elseif ($documentOwnerPolicies !== []) {
+            throw new ModuleException('MODULE_DOCUMENT_OWNER_UNAVAILABLE', 'Business owner contributions require the installed Document module.');
+        }
     }
 
     /** @return array<string, TenantModuleEnableHook> */

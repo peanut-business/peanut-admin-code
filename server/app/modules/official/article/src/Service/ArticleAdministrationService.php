@@ -38,6 +38,7 @@ final class ArticleAdministrationService implements ArticleAdministration
         private readonly ProductAssetReferenceService $assets,
         private readonly RichTextResourceService $richText,
         private readonly XlsxExportService $xlsxExport,
+        private readonly \PeanutAdmin\Modules\Document\Contract\DocumentCommands $documents,
     ) {}
 
     public function lists(TenantContext $context, array $params): PageResult|array
@@ -50,6 +51,12 @@ final class ArticleAdministrationService implements ArticleAdministration
     {
         $this->assertPermission($context, 'official.article.detail');
         return $this->findRow($id, false);
+    }
+
+    public function bodyDocument(TenantContext $context, int $id, string $requestId): array
+    {
+        $this->assertPermission($context, 'official.article.edit');
+        return $this->documents->create($context, new \PeanutAdmin\Modules\Document\Contract\DocumentOwnerReference('official.article', 'article', (string) $id, 'body'), 'rich_text', $requestId);
     }
 
     public function add(TenantContext $context, array $params): bool
@@ -82,7 +89,7 @@ final class ArticleAdministrationService implements ArticleAdministration
     public function delete(TenantContext $context, int $id): bool
     {
         $this->assertPermission($context, 'official.article.delete');
-        return Db::transaction(function () use ($id): bool {
+        return Db::transaction(function () use ($context, $id): bool {
             $article = Article::withTrashed()->where('id', $id)->lock(true)->findOrEmpty();
             if ($article->isEmpty()) {
                 throw BusinessException::notFound('ARTICLE_NOT_FOUND', '资讯不存在');
@@ -93,6 +100,7 @@ final class ArticleAdministrationService implements ArticleAdministration
             if (!$article->delete()) {
                 throw new \LogicException('ARTICLE_SOFT_DELETE_FAILED');
             }
+            $this->documents->archiveOwner($context, 'official.article', 'article', (string) $id);
             // 封面和正文中的文件引用仍由文件模块保留；软删除不触发外部清理。
             return true;
         });
@@ -128,8 +136,8 @@ final class ArticleAdministrationService implements ArticleAdministration
     public function restore(TenantContext $context, array $ids): array
     {
         $this->assertPermission($context, 'official.article.restore');
-        return $this->batch($ids, 'restored', function (int $id): string {
-            return Db::transaction(function () use ($id): string {
+        return $this->batch($ids, 'restored', function (int $id) use ($context): string {
+            return Db::transaction(function () use ($context, $id): string {
                 $article = Article::withTrashed()->where('id', $id)->lock(true)->findOrEmpty();
                 if ($article->isEmpty()) {
                     throw BusinessException::notFound('ARTICLE_NOT_FOUND', '资讯不存在');
@@ -141,6 +149,7 @@ final class ArticleAdministrationService implements ArticleAdministration
                 if (!$article->restore()) {
                     throw new \LogicException('ARTICLE_RESTORE_FAILED');
                 }
+                $this->documents->restoreOwner($context, 'official.article', 'article', (string) $id);
                 return 'restored';
             });
         });
@@ -149,8 +158,8 @@ final class ArticleAdministrationService implements ArticleAdministration
     public function forceDelete(TenantContext $context, array $ids): array
     {
         $this->assertPermission($context, 'official.article.force-delete');
-        return $this->batch($ids, 'deleted', static function (int $id): string {
-            return Db::transaction(static function () use ($id): string {
+        return $this->batch($ids, 'deleted', function (int $id) use ($context): string {
+            return Db::transaction(function () use ($context, $id): string {
                 $article = Article::withTrashed()->where('id', $id)->lock(true)->findOrEmpty();
                 if ($article->isEmpty()) {
                     throw BusinessException::notFound('ARTICLE_NOT_FOUND', '资讯不存在');
@@ -158,6 +167,7 @@ final class ArticleAdministrationService implements ArticleAdministration
                 if (!$article->trashed()) {
                     throw BusinessException::conflict('ARTICLE_FORCE_DELETE_REQUIRES_TRASHED', '仅回收站资讯可永久删除');
                 }
+                $this->documents->assertOwnerDeletionAllowed($context, new \PeanutAdmin\Modules\Document\Contract\DocumentOwnerReference('official.article', 'article', (string) $id, 'body'));
                 if (!ArticleCollect::withTrashed()->where('article_id', $id)
                     ->lock(true)->findOrEmpty()->isEmpty()
                 ) {

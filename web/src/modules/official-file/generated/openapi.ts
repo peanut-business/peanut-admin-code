@@ -7,6 +7,8 @@ export interface ModuleApiOperations {
   uploadFile: paths['/adminapi/official.file.upload.file']['post'];
   deliverTenantFile: paths['/api/storage/delivery']['get'];
   listFiles: paths['/adminapi/official.file.list']['get'];
+  pendingDocumentFileSnapshots: paths['/adminapi/official.file.snapshot.pending']['get'];
+  recoverDocumentFileSnapshot: paths['/adminapi/official.file.snapshot.recover']['post'];
   resolveFileAccess: paths['/adminapi/api/v1/files/resolve']['post'];
   listFileAssets: paths['/adminapi/api/v1/files/assets']['get'];
   uploadAdminImage: paths['/adminapi/official.file.upload.image']['post'];
@@ -27,6 +29,8 @@ export function createModuleApi(client: Client<paths>) {
     uploadFile: pathClient['/adminapi/official.file.upload.file'].POST,
     deliverTenantFile: pathClient['/api/storage/delivery'].GET,
     listFiles: pathClient['/adminapi/official.file.list'].GET,
+    pendingDocumentFileSnapshots: pathClient['/adminapi/official.file.snapshot.pending'].GET,
+    recoverDocumentFileSnapshot: pathClient['/adminapi/official.file.snapshot.recover'].POST,
     resolveFileAccess: pathClient['/adminapi/api/v1/files/resolve'].POST,
     listFileAssets: pathClient['/adminapi/api/v1/files/assets'].GET,
     uploadAdminImage: pathClient['/adminapi/official.file.upload.image'].POST,

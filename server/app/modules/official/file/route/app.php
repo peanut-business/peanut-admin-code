@@ -28,6 +28,8 @@ if (($peanutRouteApplication ?? null) === 'adminapi') {
         Route::post('official.file.move', [FileController::class, 'move']);
         Route::post('official.file.rename', [FileController::class, 'rename']);
         Route::post('official.file.delete', [FileController::class, 'delete']);
+        Route::get('official.file.snapshot.pending', [FileController::class,'pendingSnapshots'])->option(['peanut_permission' => 'official.file.manage']);
+        Route::post('official.file.snapshot.recover', [FileController::class,'recoverSnapshot'])->option(['peanut_permission' => 'official.file.delete']);
         Route::get('official.file.category.list', [FileController::class, 'listCate']);
         Route::post('official.file.category.add', [FileController::class, 'addCate']);
         Route::post('official.file.category.edit', [FileController::class, 'editCate']);

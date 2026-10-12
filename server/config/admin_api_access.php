@@ -22,6 +22,15 @@ return [
     'authenticated' => [
         // File resolves its operation and current Document/File policy inside the use case.
         'POST adminapi/api/v1/files/resolve',
+        // Document contextual operations must pass live owner/slot/state authorization in the use case.
+        'GET adminapi/official.document.detail',
+        'GET adminapi/official.document.capabilities',
+        'POST adminapi/official.document.solo.save',
+        'POST adminapi/official.document.resource.bind',
+        'POST adminapi/official.document.version.create',
+        'POST adminapi/official.document.version.restore',
+        'POST adminapi/official.document.archive',
+        'POST adminapi/official.document.restore',
         'POST adminapi/user/info',
         'POST adminapi/user/menu',
         'GET adminapi/login/info',

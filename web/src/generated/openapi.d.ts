@@ -2880,6 +2880,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/adminapi/official.article.document": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["ensureArticleBodyDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/adminapi/official.article.category.list": {
         parameters: {
             query?: never;
@@ -3231,6 +3247,182 @@ export interface paths {
         put?: never;
         /** 永久删除资讯 */
         post: operations["forceDeleteArticles"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.document.detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["documentDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.document.capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["documentCapabilities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.document.solo.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["saveSoloDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.document.resource.bind": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["bindDocumentResource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.document.version.create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createDocumentVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.document.version.restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["restoreDocumentVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.document.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["archiveDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.document.restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["restoreDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.file.snapshot.pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["pendingDocumentFileSnapshots"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.file.snapshot.recover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["recoverDocumentFileSnapshot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/files/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["resolveFileAccess"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7268,6 +7460,122 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        DocumentStructuredContent: {
+            /** @enum {string} */
+            schemaVersion: "peanut.richtext/1";
+            /** @enum {string} */
+            editorModel: "tiptap-prosemirror";
+            content: {
+                [key: string]: unknown;
+            };
+            annotations: unknown[];
+        };
+        DocumentMetadataResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: {
+                document_id: number;
+                /** @enum {string} */
+                content_kind: "rich_text" | "file_resource";
+                schema_version: string;
+                /** @enum {string} */
+                status: "active" | "archiving" | "archived" | "blocked_recovery";
+                state_seq: number;
+                auth_revision: number;
+                created?: boolean;
+            };
+        };
+        DocumentDetailResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: {
+                document_id: number;
+                /** @enum {string} */
+                content_kind: "rich_text" | "file_resource";
+                schema_version: string;
+                /** @enum {string} */
+                status: "active" | "archiving" | "archived" | "blocked_recovery";
+                state_seq: number;
+                auth_revision: number;
+                created?: boolean;
+                tenant_id?: number;
+                owner?: {
+                    module_key: string;
+                    object_type: string;
+                    object_id: string;
+                    slot: string;
+                };
+                authorization_revision?: string;
+                structured_content?: components["schemas"]["DocumentStructuredContent"] | null;
+                file_key?: string | null;
+                file_sha256?: string | null;
+                verified_mime_type?: string | null;
+                digest?: string;
+                persisted_at?: string;
+                revision_id?: number;
+                revision_no?: number;
+                source_state_seq?: number;
+                /** @enum {boolean} */
+                confirmed?: true;
+                references?: {
+                    file_key: string;
+                    variant_key: string | null;
+                }[];
+                file_keys?: string[];
+            };
+        };
+        DocumentVersionResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: {
+                document_id: number;
+                revision_id: number;
+                revision_no: number;
+                source_state_seq: number;
+                digest: string;
+            };
+        };
+        DocumentSaveResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: {
+                document_id: number;
+                state_seq: number;
+                persisted_at?: string;
+                digest: string;
+                file_key?: string;
+            };
+        };
+        DocumentCapabilitiesResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: {
+                document_id: number;
+                can_view: boolean;
+                can_edit: boolean;
+                can_download_original: boolean;
+                collaboration_enabled: boolean;
+                capabilities: {
+                    /** @enum {string} */
+                    contentKind: "rich_text" | "file_resource";
+                    verifiedMimeType: string | null;
+                    viewerAdapterId: string | null;
+                    editorAdapterId: string | null;
+                    canView: boolean;
+                    canEdit: boolean;
+                    canDownloadOriginal: boolean;
+                    /** @enum {string} */
+                    state: "permission_denied" | "preview_unavailable" | "edit_unsupported" | "service_unavailable" | "read_only" | "available";
+                    unavailableReason: string | null;
+                    capabilityRevision: string;
+                };
+            };
+        };
         FileImageVariant: {
             variant_key: string;
             file_key: string;
@@ -7351,6 +7659,8 @@ export interface components {
             tenant_id: number;
             file_key: string;
             url: string;
+            preview_state?: string;
+            can_download_original?: boolean;
         };
         FileListPage: {
             lists: components["schemas"]["FileListRecord"][];
@@ -7363,6 +7673,33 @@ export interface components {
             code: 20000;
             msg: string;
             data: components["schemas"]["FileListPage"];
+        };
+        FileAccessResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: {
+                file_key: string;
+                delivery_file_key?: string;
+                source_file_key?: string;
+                source_sha256?: string;
+                media_type?: string;
+                original_name?: string;
+                revision?: number;
+                can_manage?: boolean;
+                can_download_original?: boolean;
+                state?: string;
+                /** @enum {string} */
+                purpose?: "preview" | "download_original";
+                /** @enum {string} */
+                bytes?: "original" | "derivative";
+                authorization_revision?: string;
+                expires_at?: number;
+                url?: string | null;
+                capabilities?: {
+                    [key: string]: unknown;
+                };
+            };
         };
         FileUploadResult: {
             id: number;
@@ -15159,6 +15496,38 @@ export interface operations {
             503: components["responses"]["ErrorResponse"];
         };
     };
+    ensureArticleBodyDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    id: number;
+                    request_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Business-owned body document; no automatic conversion of legacy Article content. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentMetadataResponse"];
+                };
+            };
+            401: components["responses"]["ArticleErrorResponse"];
+            403: components["responses"]["ArticleErrorResponse"];
+            404: components["responses"]["ArticleErrorResponse"];
+            409: components["responses"]["ArticleErrorResponse"];
+            422: components["responses"]["ArticleErrorResponse"];
+        };
+    };
     listArticleCategories: {
         parameters: {
             query?: {
@@ -15790,6 +16159,373 @@ export interface operations {
             400: components["responses"]["ArticleErrorResponse"];
             401: components["responses"]["ArticleErrorResponse"];
             403: components["responses"]["ArticleErrorResponse"];
+        };
+    };
+    documentDetail: {
+        parameters: {
+            query: {
+                document_id: number;
+                revision_id?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current owner-authorized document result. Confirmed versions are immutable and committed, not business approval. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentDetailResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    documentCapabilities: {
+        parameters: {
+            query: {
+                document_id: number;
+                revision_id?: number;
+                intent: "view" | "edit";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current owner-authorized document result. Confirmed versions are immutable and committed, not business approval. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentCapabilitiesResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    saveSoloDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    document_id: number;
+                    expected_state_seq: number;
+                    request_id: string;
+                    structured_content: components["schemas"]["DocumentStructuredContent"];
+                };
+            };
+        };
+        responses: {
+            /** @description Current owner-authorized document result. Confirmed versions are immutable and committed, not business approval. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentSaveResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    bindDocumentResource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    document_id: number;
+                    expected_state_seq: number;
+                    request_id: string;
+                    file_key: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Current owner-authorized document result. Confirmed versions are immutable and committed, not business approval. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentSaveResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    createDocumentVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    document_id: number;
+                    expected_state_seq: number;
+                    reason: string;
+                    idempotency_key: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Current owner-authorized document result. Confirmed versions are immutable and committed, not business approval. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentVersionResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    restoreDocumentVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    document_id: number;
+                    expected_state_seq: number;
+                    request_id: string;
+                    revision_id: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Current owner-authorized document result. Confirmed versions are immutable and committed, not business approval. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentVersionResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    archiveDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    document_id: number;
+                    expected_auth_revision: number;
+                    request_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Current owner-authorized document result. Confirmed versions are immutable and committed, not business approval. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentMetadataResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    restoreDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    document_id: number;
+                    expected_auth_revision: number;
+                    request_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Current owner-authorized document result. Confirmed versions are immutable and committed, not business approval. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentMetadataResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    pendingDocumentFileSnapshots: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Old unclaimed captures only; no storage address or credentials. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            file_key: string;
+                            /** @enum {string} */
+                            status: "captured" | "cleanup_pending" | "interrupted_capture";
+                            created_at: string;
+                        }[];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    recoverDocumentFileSnapshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    file_key: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Real provider deletion result. Unknown outcome remains cleanup_pending; claimed versions always reject. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            file_key: string;
+                            cleanup_pending: boolean;
+                            provider_delete_acknowledged: boolean;
+                            provider_outcome?: string;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    resolveFileAccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    file_key: string;
+                    /** @enum {string} */
+                    operation: "preview" | "download_original" | "manage";
+                    document_id?: number;
+                    variant_key?: string;
+                    viewer_adapter_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Current live File access, or explicit unavailable preview. No original bytes without download authorization. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileAccessResponse"];
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
         };
     };
     listFileAssets: {

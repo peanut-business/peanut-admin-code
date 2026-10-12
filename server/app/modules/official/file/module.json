@@ -43,7 +43,8 @@
       "pa_file_derivative",
       "pa_file_delivery_nonce",
       "pa_file_delivery_grant",
-      "pa_file_reference"
+      "pa_file_reference",
+      "pa_file_immutable_snapshot"
     ]
   },
   "contracts": {
@@ -59,7 +60,8 @@
       "PeanutAdmin\\Modules\\File\\Contract\\FileAccess",
       "PeanutAdmin\\Modules\\File\\Contract\\FileReferenceCommands",
       "PeanutAdmin\\Modules\\File\\Contract\\FileDocumentReferencePolicy",
-      "PeanutAdmin\\Modules\\File\\Contract\\FileDocumentReferenceContributor"
+      "PeanutAdmin\\Modules\\File\\Contract\\FileDocumentReferenceContributor",
+      "PeanutAdmin\\Modules\\File\\Contract\\FileDocumentSnapshots"
     ],
     "events": []
   },

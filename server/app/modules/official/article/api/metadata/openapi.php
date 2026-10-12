@@ -110,6 +110,16 @@ $articlePermissionError = ['ARTICLE_ADMIN_PERMISSION_DENIED'];
 
 return [
     'paths' => [
+        '/adminapi/official.article.document' => ['post' => [
+            'tags' => ['Article'],'operationId' => 'ensureArticleBodyDocument',
+            'requestBody' => ['required' => true,'content' => ['application/json' => ['schema' => [
+                'type' => 'object','additionalProperties' => false,'required' => ['id','request_id'],
+                'properties' => ['id' => ['type' => 'integer','minimum' => 1],'request_id' => ['type' => 'string','pattern' => '^[A-Za-z0-9:_-]{1,128}$']],
+            ]]]],
+            'responses' => ['200' => ['description' => 'Business-owned body document; no automatic conversion of legacy Article content.',
+                'content' => ['application/json' => ['schema' => ['$ref' => '#/components/schemas/DocumentMetadataResponse']]]],
+                '401' => $responseRef('ArticleErrorResponse'),'403' => $responseRef('ArticleErrorResponse'),'404' => $responseRef('ArticleErrorResponse'),'409' => $responseRef('ArticleErrorResponse'),'422' => $responseRef('ArticleErrorResponse')],
+        ]],
         '/adminapi/official.article.category.list' => [
             'get' => $operation(
                 'listArticleCategories',

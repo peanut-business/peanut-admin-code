@@ -9,14 +9,14 @@ use app\common\execution\CurrentExecutionContext;
 use app\common\services\audit\AuditContractHost;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Modules\File\Contract\FileReferenceCommands;
-use PeanutAdmin\Modules\File\Model\Storage\FileObject;
 use PeanutAdmin\Modules\File\Model\Storage\FileReference;
+use PeanutAdmin\Modules\File\Service\Storage\StorageService;
 use think\facade\Db;
 
 /** Owner and File changes share the caller's ThinkPHP transaction. */
 final readonly class FileReferenceService implements FileReferenceCommands
 {
-    public function __construct(private FileDocumentReferenceRegistry $documents, private FileAuthorizationService $authorization, private AuditContractHost $audit, private CurrentExecutionContext $execution) {}
+    public function __construct(private FileDocumentReferenceRegistry $documents, private FileAuthorizationService $authorization, private AuditContractHost $audit, private CurrentExecutionContext $execution, private StorageService $storage) {}
 
     public function replaceDocumentReferences(TenantContext $context, int $documentId, array $fileKeys): void
     {
@@ -46,11 +46,8 @@ final readonly class FileReferenceService implements FileReferenceCommands
             }
             // Same object lock as deletion prevents reference/delete races. Scope is supplied by owner boundary.
             foreach ($fileKeys as $key) {
-                $object = FileObject::where('file_key', $key)->lock(true)->find()?->toArray();
-                if ($object === null) {
-                    throw BusinessException::notFound('FILE_REFERENCE_NOT_FOUND', '引用资源不存在');
-                }
-                $this->authorization->authorize($context, $object, 'preview', $object['purpose'] === 'attachment.sensitive' ? null : $documentId);
+                $object = $this->storage->lockedReferenceObject($context, $key);
+                $this->authorization->authorizeDocumentReference($context, $object, $documentId);
             }
             FileReference::where('owner_module_key', 'official.document')->where('owner_type', 'document')
                 ->where('owner_id', (string) $documentId)->delete();
@@ -59,8 +56,17 @@ final readonly class FileReferenceService implements FileReferenceCommands
                     'owner_module_key' => 'official.document', 'owner_type' => 'document', 'owner_id' => (string) $documentId,
                     'reference_digest' => $owner['reference_digest'], 'updated_at' => gmdate('Y-m-d H:i:s')]);
             }
-            $this->audit->appendTenantMember($context, 'file.references.replaced', 'file.references.replace', 'document', (string) $documentId,
-                null, null, count($fileKeys), hash('sha256', implode("\0", $fileKeys)));
+            $this->audit->appendTenantMember(
+                $context,
+                'file.references.replaced',
+                'file.references.replace',
+                'document',
+                (string) $documentId,
+                null,
+                null,
+                count($fileKeys),
+                hash('sha256', implode("\0", $fileKeys)),
+            );
         });
     }
 }

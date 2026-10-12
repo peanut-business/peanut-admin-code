@@ -14,11 +14,16 @@ use PeanutAdmin\Modules\Article\Contract\ArticleQueries;
 use PeanutAdmin\Modules\Article\Contract\PublicArticleQueries;
 use PeanutAdmin\Kernel\Module\ModuleProvider as ModuleProviderContract;
 
-final class ModuleProvider implements ModuleProviderContract
+final class ModuleProvider implements ModuleProviderContract, \PeanutAdmin\Modules\Document\Contract\DocumentOwnerContributor
 {
     public function moduleKey(): string
     {
         return 'official.article';
+    }
+
+    public function documentOwnerPolicies(): array
+    {
+        return ['article' => \PeanutAdmin\Modules\Article\Service\ArticleDocumentOwnerPolicy::class];
     }
 
     public function bindings(): array

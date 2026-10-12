@@ -13,6 +13,7 @@ use PeanutAdmin\Modules\File\Value\Storage\StoragePath;
 use PeanutAdmin\Modules\File\Value\Storage\StoragePurpose;
 use PeanutAdmin\Modules\File\Model\Storage\StorageAccount;
 use PeanutAdmin\Modules\File\Model\Storage\FileObject;
+use PeanutAdmin\Modules\File\Model\Storage\FileImmutableSnapshot;
 use PeanutAdmin\Modules\File\Model\Storage\StorageRoute;
 use PeanutAdmin\Modules\File\Model\Storage\StorageSpace;
 use PeanutAdmin\Modules\File\Infrastructure\Storage\DatabaseReplayGuard;
@@ -33,7 +34,7 @@ use PeanutAdmin\Modules\File\Service\FileAuthorizationService;
 use PeanutAdmin\Modules\File\Model\Storage\FileReference;
 use app\common\services\audit\AuditContractHost;
 
-final readonly class StorageService implements FileStorage
+final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules\File\Contract\FileDocumentSnapshots
 {
     public const DELIVERY_URL_TTL = 600;
     private SignedDeliveryTokenService $deliveryTokens;
@@ -51,6 +52,7 @@ final readonly class StorageService implements FileStorage
         private CurrentExecutionContext $execution,
         private AuditContractHost $audit,
         private \PeanutAdmin\Modules\ContentTools\Service\ContentCapabilitiesService $capabilities,
+        private \PeanutAdmin\Modules\File\Service\FileDocumentReferenceRegistry $documents,
     ) {
         if (strlen($this->signingSecret) < 32) {
             throw new \RuntimeException('文件签名配置无效');
@@ -102,7 +104,7 @@ final readonly class StorageService implements FileStorage
             throw new \RuntimeException('文件真实类型无法识别');
         }
         $mediaType = $detectedType;
-        $this->reserveObject($tenantId, [
+        $attributes = [
             'file_key' => $fileKey,
             'purpose' => $purpose,
             'access_type' => $access,
@@ -114,7 +116,8 @@ final readonly class StorageService implements FileStorage
             'size_bytes' => $size,
             'sha256' => $sha256,
             'created_by_member_id' => $memberId && $memberId > 0 ? $memberId : null,
-        ]);
+        ];
+        $this->reserveObject($tenantId, $attributes);
         try {
             $driver->put($objectKey, $sourcePath);
             if (!$this->markObjectReady($tenantId, $fileKey)) {
@@ -137,7 +140,7 @@ final readonly class StorageService implements FileStorage
         }
 
         $this->newUploads->{$fileKey} = ['tenant_id' => $tenantId, 'member_id' => $memberId,
-            'request_id' => $this->execution->requestId(), 'object_key' => $objectKey];
+            'request_id' => $this->execution->requestId(), 'object_key' => $objectKey,'driver' => $driver,'attributes' => $attributes];
         $stored = [
             'file_key' => $fileKey,
             'object_key' => $objectKey,
@@ -189,7 +192,7 @@ final readonly class StorageService implements FileStorage
         }
         if (preg_match('/^file_[0-9a-f]{32}$/D', $reference) === 1) {
             $object = $this->deliverableObjectForTenant($tenantId, $reference);
-            if ($object === null || $object['access_type'] !== 'public' || $object['purpose'] === 'attachment.sensitive') {
+            if ($object === null || $object['access_type'] !== 'public' || !StoragePurpose::allowsDocumentPreviewInheritance($object['purpose'])) {
                 throw new \RuntimeException('素材对象不属于当前租户');
             }
             return $reference;
@@ -239,8 +242,13 @@ final readonly class StorageService implements FileStorage
         if ($context instanceof TenantContext) {
             $this->audit->appendTenantMember($context, $event, 'file.upload.compensate', 'file', $key, null, null, 0, null, $metadata);
         } else {
-            $this->audit->appendTenantSystem($context->tenantId, $event, 'file.upload.compensate', $context->requestId,
-                [...$metadata, 'file_key' => $key, 'initiating_member_id' => $context->memberId]);
+            $this->audit->appendTenantSystem(
+                $context->tenantId,
+                $event,
+                'file.upload.compensate',
+                $context->requestId,
+                [...$metadata, 'file_key' => $key, 'initiating_member_id' => $context->memberId],
+            );
         }
     }
 
@@ -256,6 +264,7 @@ final readonly class StorageService implements FileStorage
         Db::transaction(function () use ($fileKey, $context): void {
             $this->ownedObjects($context->tenantId)->where('file_key', $fileKey)->lock(true)->find();
             if (FileReference::where('file_key', $fileKey)->lock(true)->find() !== null
+                || FileImmutableSnapshot::where('file_key', $fileKey)->find() !== null
                 || \PeanutAdmin\Modules\File\Model\Storage\FileDerivative::where('source_file_key', $fileKey)->find() !== null
                 || \PeanutAdmin\Modules\File\Model\Storage\FileDerivative::where('derivative_file_key', $fileKey)->find() !== null) {
                 throw BusinessException::conflict('FILE_REFERENCED', '资源仍被引用，不能删除');
@@ -269,8 +278,18 @@ final readonly class StorageService implements FileStorage
             $this->drivers->make($object, $object)->delete((string) $object['object_key']);
         } catch (\Throwable $error) {
             $this->restore($tenantId, $fileKey);
-            $this->audit->appendTenantMember($context, 'file.delete.failed', 'file.manage', 'file', $fileKey,
-                null, null, 0, null, ['provider_delete_failed' => true]);
+            $this->audit->appendTenantMember(
+                $context,
+                'file.delete.failed',
+                'file.manage',
+                'file',
+                $fileKey,
+                null,
+                null,
+                0,
+                null,
+                ['provider_delete_failed' => true],
+            );
             throw $error;
         }
         $this->audit->appendTenantMember($context, 'file.delete.completed', 'file.manage', 'file', $fileKey);
@@ -294,6 +313,205 @@ final readonly class StorageService implements FileStorage
             throw BusinessException::forbidden('FILE_ACCESS_DENIED', '无权访问其他租户资源');
         }
         $this->authorization->requireOriginalDownloadPermission($context);
+    }
+
+    public function describeForDocument(TenantContext $context, string $fileKey): array
+    {
+        $object = $this->deliverableObjectForTenant($context->tenantId, $fileKey);
+        if ($object === null) {
+            throw BusinessException::notFound('FILE_NOT_FOUND', '资源不存在');
+        }
+        $this->authorization->authorize($context, $object, 'preview');
+        return ['file_key' => $fileKey,'verified_mime_type' => (string) $object['media_type'],'sha256' => (string) $object['sha256'],'revision' => (int) $object['revision']];
+    }
+
+    /** File-internal reference locking/enrichment; never exposed by a cross-module or HTTP contract. */
+    public function lockedReferenceObject(TenantContext $context, string $fileKey): array
+    {
+        $tenantId = $this->logicalTenantId($context->tenantId);
+        $this->ownedObjects($tenantId)->where('file_key', $fileKey)->lock(true)->find();
+        $object = $this->deliverableObjectForTenant($tenantId, $fileKey);
+        if ($object === null) {
+            throw BusinessException::notFound('FILE_REFERENCE_NOT_FOUND', '引用资源不存在');
+        }
+        return $object;
+    }
+
+    public function captureForDocument(TenantContext $context, string $fileKey, string $expectedSha256, int $expectedRevision, string $captureId): array
+    {
+        if (($pdo = Db::connect()->getPdo()) instanceof \PDO && $pdo->inTransaction()) {
+            throw BusinessException::conflict('FILE_SNAPSHOT_OUTER_TRANSACTION_DENIED', '文件捕获必须在业务事务之前持久完成');
+        }
+        if (preg_match('/^[0-9a-f]{64}$/D', $expectedSha256) !== 1 || $expectedRevision < 1 || $captureId === '' || strlen($captureId) > 256) {
+            throw BusinessException::invalid('FILE_SNAPSHOT_INPUT_INVALID', '文件快照输入无效');
+        }
+        $captureId = hash('sha256', $captureId);
+        $stored = null;
+        $opened = null;
+        try {
+            $plan = Db::transaction(function () use ($context, $fileKey, $expectedSha256, $expectedRevision, $captureId): array {
+                $this->ownedObjects($context->tenantId)->where('file_key', $fileKey)->lock(true)->find();
+                $source = $this->deliverableObjectForTenant($context->tenantId, $fileKey);
+                if ($source === null || (int) $source['revision'] !== $expectedRevision || !hash_equals($expectedSha256, (string) $source['sha256'])) {
+                    throw BusinessException::conflict('FILE_SNAPSHOT_SOURCE_CHANGED', '快照来源已改变');
+                }
+                $this->authorization->authorize($context, $source, 'download_original');
+                $existing = FileImmutableSnapshot::where('capture_id', $captureId)->lock(true)->find();
+                if ($existing !== null && $existing->status === 'abandoned') {
+                    if ($existing->source_file_key !== $fileKey || (int) $existing->source_revision !== $expectedRevision || !hash_equals($expectedSha256, (string) $existing->source_sha256)) {
+                        throw BusinessException::conflict('FILE_SNAPSHOT_IDEMPOTENCY_CONFLICT', '文件快照请求已被其他内容使用');
+                    }
+                    // Only an acknowledged, unclaimed cleanup may retry with a newly generated private object.
+                    $existing->delete();
+                    $existing = null;
+                }
+                if ($existing !== null) {
+                    $target = $this->deliverableObjectForTenant($context->tenantId, (string) $existing['file_key']);
+                    if ($existing['source_file_key'] !== $fileKey || (int) $existing['source_revision'] !== $expectedRevision || !in_array($existing['status'], ['captured','claimed'], true) || !hash_equals($expectedSha256, (string) $existing['source_sha256']) || $target === null || $target['access_type'] !== 'private' || !hash_equals($expectedSha256, (string) $target['sha256'])) {
+                        throw BusinessException::conflict('FILE_SNAPSHOT_IDEMPOTENCY_CONFLICT', '文件快照请求已被其他内容使用');
+                    }
+                    return ['existing' => ['file_key' => $existing['file_key'],'verified_mime_type' => $existing['verified_mime_type'],'sha256' => $existing['source_sha256'],'source_file_key' => $fileKey,'capture_id' => $captureId]];
+                }
+                return ['source' => $source];
+            });
+            if (isset($plan['existing'])) {
+                return $plan['existing'];
+            }
+            // The File object ledger commits before provider IO. A crash leaves a discoverable pending_write/ready snapshot object.
+            $source = $plan['source'];
+            $opened = $this->materialize($source);
+            $purpose = StoragePurpose::allowsDocumentPreviewInheritance($source['purpose']) ? 'document.snapshot' : 'document.snapshot-sensitive';
+            $stored = $this->storePath($context->tenantId, $context->memberId, $purpose, $opened['path'], (string) $source['original_name'], (string) $source['media_type']);
+            return Db::transaction(function () use ($context, $fileKey, $expectedSha256, $expectedRevision, $captureId, $stored, $source): array {
+                $this->ownedObjects($context->tenantId)->where('file_key', $fileKey)->lock(true)->find();
+                $current = $this->deliverableObjectForTenant($context->tenantId, $fileKey);
+                if ($current === null || (int) $current['revision'] !== $expectedRevision || !hash_equals($expectedSha256, (string) $current['sha256'])) {
+                    throw BusinessException::conflict('FILE_SNAPSHOT_SOURCE_CHANGED', '捕获期间来源已改变');
+                }
+                $this->authorization->authorize($context, $current, 'download_original');
+                $this->ownedObjects($context->tenantId)->where('file_key', $stored['file_key'])->lock(true)->find();
+                $target = $this->deliverableObjectForTenant($context->tenantId, $stored['file_key']);
+                if ($target === null || !hash_equals($expectedSha256, (string) $target['sha256']) || $target['media_type'] !== $source['media_type']) {
+                    throw BusinessException::conflict('FILE_SNAPSHOT_BYTES_CHANGED', '快照字节与来源不一致');
+                }
+                FileImmutableSnapshot::create(['file_key' => $stored['file_key'],'tenant_id' => $context->tenantId,'capture_id' => $captureId,'source_file_key' => $fileKey,'source_revision' => $expectedRevision,'source_sha256' => $expectedSha256,'verified_mime_type' => $target['media_type'],'status' => 'captured','created_by_member_id' => $context->memberId,'created_at' => gmdate('Y-m-d H:i:s')]);
+                $this->audit->appendTenantMember($context, 'file.snapshot.created', 'file.snapshot.capture', 'file', $stored['file_key'], null, null, 1, $expectedSha256);
+                return ['file_key' => $stored['file_key'],'verified_mime_type' => $target['media_type'],'sha256' => $expectedSha256,'source_file_key' => $fileKey,'capture_id' => $captureId];
+            });
+        } catch (\Throwable $error) {
+            if (is_array($stored)) {
+                try {
+                    $this->abandonDocumentSnapshot($context, ['file_key' => $stored['file_key'],'capture_id' => $captureId]);
+                } catch (\Throwable) { /* Durable File ledger remains recoverable; preserve the original business error. */
+                }
+            }
+            throw $error;
+        } finally {
+            if (is_array($opened) && $opened['temporary']) {
+                @unlink($opened['path']);
+            }
+        }
+    }
+
+    public function abandonDocumentSnapshot(TenantContext $context, array $snapshot): void
+    {
+        $key = $snapshot['file_key'] ?? '';
+        $proof = is_string($key) ? ($this->newUploads->{$key} ?? null) : null;
+        if (!is_array($proof) || $proof['tenant_id'] !== $context->tenantId || $proof['member_id'] !== $context->memberId || $proof['request_id'] !== $this->execution->requestId()) {
+            throw BusinessException::forbidden('FILE_SNAPSHOT_ABANDON_DENIED', '仅可补偿本次未认领文件快照');
+        }
+        $this->cleanupDocumentSnapshot($context, $key, false, $snapshot['capture_id'] ?? null);
+        unset($this->newUploads->{$key});
+    }
+
+    public function claimDocumentSnapshot(TenantContext $context, int $documentId, array $snapshot): void
+    {
+        if (!(($pdo = Db::connect()->getPdo()) instanceof \PDO) || !$pdo->inTransaction()) {
+            throw BusinessException::conflict('FILE_SNAPSHOT_CLAIM_TRANSACTION_REQUIRED', '认领必须在业务外层事务内');
+        }
+        $key = $snapshot['file_key'] ?? '';
+        $owner = $this->documents->requirePolicy()->referencesForUpdate($context, $documentId);
+        if (!in_array($key, $owner['file_keys'], true) || $owner['authorization_revision'] === '' || $owner['reference_digest'] === '') {
+            throw BusinessException::forbidden('FILE_SNAPSHOT_CLAIM_DENIED', '快照不在当前受权业务引用中');
+        }
+        $object = $this->ownedObjects($context->tenantId)->where('file_key', $key)->lock(true)->find();
+        $capture = FileImmutableSnapshot::where('file_key', $key)->lock(true)->find();
+        if ($object === null || $capture === null || $capture->capture_id !== ($snapshot['capture_id'] ?? null)
+            || !hash_equals((string) $capture->source_sha256, (string) ($snapshot['sha256'] ?? ''))
+            || !in_array($capture->status, ['captured','claimed'], true) || ($capture->status === 'claimed' && (int) $capture->claimed_document_id !== $documentId)
+            || FileReference::where('file_key', $key)->where('owner_module_key', 'official.document')->where('owner_type', 'document')->where('owner_id', (string) $documentId)->find() === null) {
+            throw BusinessException::conflict('FILE_SNAPSHOT_CLAIM_DENIED', '不可认领未受权或已回收的快照');
+        }
+        $object = $this->deliverableObjectForTenant($context->tenantId, $key);
+        if ($object === null) {
+            throw BusinessException::conflict('FILE_SNAPSHOT_CLAIM_DENIED', '快照字节不可用');
+        }
+        $this->authorization->authorizeDocumentReference($context, $object, $documentId);
+        $capture->save(['status' => 'claimed','claimed_document_id' => $documentId,'claimed_at' => gmdate('Y-m-d H:i:s')]);
+        $this->audit->appendTenantMember($context, 'file.snapshot.claimed', 'file.snapshot.claim', 'file', $key, null, null, 1, (string) $capture->source_sha256, ['document_id' => $documentId]);
+    }
+
+    public function pendingDocumentSnapshots(TenantContext $context): array
+    {
+        $this->authorization->requireManagementPermission($context, 'official.file.delete');
+        $objects = $this->ownedObjects($context->tenantId)->whereIn('purpose', ['document.snapshot','document.snapshot-sensitive'])->where('created_at', '<', gmdate('Y-m-d H:i:s', time() - 3600))->order('created_at')->limit(100)->select()->toArray();
+        return array_values(array_filter(array_map(function (array $object): ?array {
+            $capture = FileImmutableSnapshot::where('file_key', $object['file_key'])->find();
+            if ($capture?->status === 'claimed' || $capture?->status === 'abandoned' || FileReference::where('file_key', $object['file_key'])->find() !== null) {
+                return null;
+            }
+            return ['file_key' => $object['file_key'],'status' => $capture?->status ?? 'interrupted_capture','created_at' => $object['created_at']];
+        }, $objects)));
+    }
+
+    public function recoverDocumentSnapshot(TenantContext $context, string $fileKey): array
+    {
+        $this->authorization->requireManagementPermission($context, 'official.file.delete');
+        return $this->cleanupDocumentSnapshot($context, $fileKey, true, null);
+    }
+
+    /** Archive under the same object lock as claim/reference/delete, then record the real provider outcome. */
+    private function cleanupDocumentSnapshot(TenantContext $context, string $key, bool $recovery, ?string $captureId): array
+    {
+        if (($pdo = Db::connect()->getPdo()) instanceof \PDO && $pdo->inTransaction()) {
+            throw BusinessException::conflict('FILE_SNAPSHOT_CLEANUP_TRANSACTION_DENIED', '回收必须在业务事务之外');
+        }
+        $object = Db::transaction(function () use ($context, $key, $recovery, $captureId): array {
+            $object = $this->ownedObjects($context->tenantId)->where('file_key', $key)->lock(true)->find();
+            $object = is_array($object) ? $object : $object?->toArray();
+            $capture = FileImmutableSnapshot::where('file_key', $key)->lock(true)->find();
+            if ($object === null || !in_array($object['purpose'], ['document.snapshot','document.snapshot-sensitive'], true) || $object['access_type'] !== 'private'
+                || (!$recovery && (int) $object['created_by_member_id'] !== $context->memberId)
+                || ($recovery && strtotime($object['created_at'] . ' UTC') > time() - 3600)
+                || $capture?->status === 'claimed' || ($capture !== null && !$recovery && $capture->capture_id !== $captureId)
+                || FileReference::where('file_key', $key)->find() !== null
+                || \PeanutAdmin\Modules\File\Model\File::withTrashed()->where('file_key', $key)->find() !== null
+                || Db::name('file_derivative')->where('source_file_key|derivative_file_key', $key)->find() !== null) {
+                throw BusinessException::conflict('FILE_SNAPSHOT_RECOVERY_DENIED', '快照已被认领、仍被引用或尚未进入恢复窗口');
+            }
+            $this->ownedObjects($context->tenantId)->where('file_key', $key)->update(['status' => 'archived','archived_at' => new Raw('UTC_TIMESTAMP(3)'),'updated_at' => new Raw('UTC_TIMESTAMP(3)'),'revision' => new Raw('revision+1')]);
+            $capture?->save(['status' => 'cleanup_pending']);
+            $space = StorageSpace::where('id', $object['storage_space_id'])->lock(true)->find();
+            if ($space === null) {
+                throw BusinessException::conflict('FILE_SNAPSHOT_RECOVERY_CONFIG_MISSING', '快照存储空间不存在');
+            }
+            StorageAccount::where('id', $space->account_id)->lock(true)->find();
+            $configured = $this->objectForTenant($context->tenantId, $key, false);
+            if ($configured === null) {
+                throw BusinessException::conflict('FILE_SNAPSHOT_RECOVERY_CONFIG_MISSING', '快照原存储配置不可用');
+            }
+            $this->audit->appendTenantMember($context, 'file.snapshot.cleanup_intent', 'file.snapshot.recover', 'file', $key);
+            return $configured;
+        });
+        try {
+            $receipt = $this->drivers->make($object, $object)->delete((string) $object['object_key']);
+            FileImmutableSnapshot::where('file_key', $key)->update(['status' => 'abandoned']);
+            $result = ['file_key' => $key,'cleanup_pending' => false,'provider_delete_acknowledged' => true,'provider_outcome' => $receipt->outcome];
+        } catch (\Throwable) {
+            $result = ['file_key' => $key,'cleanup_pending' => true,'provider_delete_acknowledged' => false];
+        }
+        $this->audit->appendTenantMember($context, 'file.snapshot.cleanup_result', 'file.snapshot.recover', 'file', $key, null, null, 0, null, $result);
+        return $result;
     }
 
     /** @return array{path:string,filename:string,media_type:string,temporary:bool} */
@@ -408,8 +626,14 @@ final readonly class StorageService implements FileStorage
             }
         }
         $capability = $this->capabilities->resolve(new \PeanutAdmin\Modules\ContentTools\Contract\AuthorizedContentContext(
-            'file_resource', (string) $target['media_type'], true, false, $canDownload,
-            $grant['authorization_revision'], 'browser', $this->authorization->contentProviderModules($context),
+            'file_resource',
+            (string) $target['media_type'],
+            true,
+            false,
+            $canDownload,
+            $grant['authorization_revision'],
+            'browser',
+            $this->authorization->contentProviderModules($context),
         ), 'view', $viewerAdapterId, null);
         if ($operation === 'preview' && !$capability['canView']) {
             return ['file_key' => $fileKey, 'state' => $capability['state'], 'capabilities' => $capability, 'can_download_original' => $canDownload, 'url' => null];
@@ -476,7 +700,9 @@ final readonly class StorageService implements FileStorage
             throw BusinessException::notFound('STORAGE_DELIVERY_NOT_FOUND', '文件不存在或不可用');
         }
         if (!hash_equals((string) $object['sha256'], (string) hash_file('sha256', $path))) {
-            if ($temporary) { unlink($path); }
+            if ($temporary) {
+                unlink($path);
+            }
             throw BusinessException::conflict('FILE_BYTES_CHANGED', '资源内容与登记不一致');
         }
         return ['path' => $path, 'temporary' => $temporary];
@@ -549,7 +775,9 @@ final readonly class StorageService implements FileStorage
     private function assertPublicDerivative(array $object): void
     {
         $query = Db::name('file_derivative')->where('derivative_file_key', $object['file_key']);
-        if ($this->dataScopePolicy->usesTenantColumn()) { $query->where('tenant_id', (int) $object['tenant_id']); }
+        if ($this->dataScopePolicy->usesTenantColumn()) {
+            $query->where('tenant_id', (int) $object['tenant_id']);
+        }
         $derivative = $query->find();
         if (is_array($derivative)) {
             $source = $this->deliverableObjectForTenant((int) $object['tenant_id'], (string) $derivative['source_file_key']);

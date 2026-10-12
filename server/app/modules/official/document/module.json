@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "key": "official.document",
+  "name": "Business Documents",
+  "description": "Business-owned documents, committed immutable versions and controlled File references.",
+  "version": "1.0.0",
+  "kernel_constraint": "^1.0",
+  "license": "Apache-2.0",
+  "php_package": "peanut-business/official-document",
+  "web_package": "@peanut-admin/official-document",
+  "dependencies": [
+    {
+      "module_key": "official.identity",
+      "version": "4.0.0-rc.24"
+    },
+    {
+      "module_key": "official.file",
+      "version": "^1.0"
+    },
+    {
+      "module_key": "official.content-tools",
+      "version": "1.0.0"
+    },
+    {
+      "module_key": "official.rich-text",
+      "version": "^1.0"
+    }
+  ],
+  "lifecycle": {
+    "protected": false
+  },
+  "backend": {
+    "provider": "PeanutAdmin\\Modules\\Document\\ModuleProvider",
+    "migrations": "database/migrations",
+    "menus": "resources/menus.json",
+    "permissions": "resources/permissions.json",
+    "setting_definitions": "resources/setting-definitions.json"
+  },
+  "frontend": {
+    "entry": "web/src/modules/official-document/contribution.ts"
+  },
+  "database": {
+    "owned_tables": [
+      "pa_document",
+      "pa_document_state",
+      "pa_document_revision",
+      "pa_document_file_ref",
+      "pa_document_resource_binding",
+      "pa_document_operation"
+    ]
+  },
+  "contracts": {
+    "exports": [
+      "PeanutAdmin\\Modules\\Document\\Contract\\DocumentCommands",
+      "PeanutAdmin\\Modules\\Document\\Contract\\DocumentQueries",
+      "PeanutAdmin\\Modules\\Document\\Contract\\DocumentOwnerReference",
+      "PeanutAdmin\\Modules\\Document\\Contract\\DocumentOwnerState",
+      "PeanutAdmin\\Modules\\Document\\Contract\\DocumentOwnerPolicy",
+      "PeanutAdmin\\Modules\\Document\\Contract\\DocumentOwnerContributor",
+      "PeanutAdmin\\Modules\\Document\\Contract\\VersionSnapshot"
+    ],
+    "events": []
+  },
+  "tenant": {
+    "enableable": true,
+    "disable_behavior": "reject_new_operations",
+    "requires": [
+      "official.identity",
+      "official.file",
+      "official.content-tools",
+      "official.rich-text"
+    ]
+  }
+}

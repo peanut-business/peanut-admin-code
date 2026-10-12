@@ -345,6 +345,7 @@ class AppService extends Service
             $this->app->make(CurrentExecutionContext::class),
             $this->app->make(AuditContractHost::class),
             $this->app->make(\PeanutAdmin\Modules\ContentTools\Service\ContentCapabilitiesService::class),
+            $this->app->make(\PeanutAdmin\Modules\File\Service\FileDocumentReferenceRegistry::class),
         ));
         $this->app->bind(FileService::class, fn(): FileService => new FileService(
             $this->app->make(StorageService::class),

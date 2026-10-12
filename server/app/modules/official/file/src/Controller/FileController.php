@@ -13,6 +13,19 @@ use app\common\exception\BusinessException;
 class FileController extends BaseAdminController
 {
     protected string $filesClass = FileAdministration::class;
+    protected string $snapshotsClass = \PeanutAdmin\Modules\File\Contract\FileDocumentSnapshots::class;
+    public function pendingSnapshots()
+    {
+        return $this->data($this->snapshots->pendingDocumentSnapshots($this->tenantAdminContext()));
+    }
+    public function recoverSnapshot()
+    {
+        $input = $this->request->post();
+        if (array_diff(array_keys($input), ['file_key']) !== [] || !is_string($input['file_key'] ?? null) || preg_match('/^file_[0-9a-f]{32}$/D', $input['file_key']) !== 1) {
+            throw BusinessException::invalid('FILE_SNAPSHOT_INPUT_INVALID', '恢复资源标识无效');
+        }
+        return $this->data($this->snapshots->recoverDocumentSnapshot($this->tenantAdminContext(), $input['file_key']));
+    }
 
     public function resolve()
     {
@@ -40,7 +53,12 @@ class FileController extends BaseAdminController
             throw BusinessException::invalid('FILE_ACCESS_INPUT_INVALID', '资源变体无效');
         }
         return $this->data(app(\PeanutAdmin\Modules\File\Contract\FileAccess::class)->resolve(
-            $this->executionContext()->tenantAdmin(), $fileKey, $operation, $documentId, $variant, $viewer,
+            $this->executionContext()->tenantAdmin(),
+            $fileKey,
+            $operation,
+            $documentId,
+            $variant,
+            $viewer,
         ));
     }
 

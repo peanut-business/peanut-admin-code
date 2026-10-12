@@ -41,7 +41,7 @@ final readonly class FileAuthorizationService
 
     public function authorizePublic(array $object): string
     {
-        if ($object['status'] !== 'ready' || $object['access_type'] !== 'public' || $object['purpose'] === 'attachment.sensitive') {
+        if ($object['status'] !== 'ready' || $object['access_type'] !== 'public' || !\PeanutAdmin\Modules\File\Value\Storage\StoragePurpose::allowsDocumentPreviewInheritance($object['purpose'])) {
             throw BusinessException::forbidden('FILE_PUBLIC_ACCESS_DENIED', '资源不能公开交付');
         }
         $guard = new ModuleGuard($this->modules);
@@ -71,8 +71,14 @@ final readonly class FileAuthorizationService
     /** Same current identity, Module and independent right used by final object authorization. */
     public function requireOriginalDownloadPermission(TenantContext $context): void
     {
-        $current = $this->sessions->revalidateSession($context->tenantId, $context->accountId, $context->memberId,
-            $context->sessionKey, $context->clientKey, $context->requestId);
+        $current = $this->sessions->revalidateSession(
+            $context->tenantId,
+            $context->accountId,
+            $context->memberId,
+            $context->sessionKey,
+            $context->clientKey,
+            $context->requestId,
+        );
         if ($current->authorizationRevision !== $context->authorizationRevision) {
             throw BusinessException::forbidden('FILE_AUTHORIZATION_STALE', '资源授权已改变');
         }
@@ -97,6 +103,19 @@ final readonly class FileAuthorizationService
         }
     }
 
+    /** File-internal use after the owner has authorized its persisted reference set. */
+    public function authorizeDocumentReference(TenantContext $context, array $object, int $documentId): array
+    {
+        try {
+            return $this->authorize($context, $object, 'preview');
+        } catch (BusinessException $error) {
+            if ($error->errorCode !== 'FILE_ACCESS_DENIED' || !\PeanutAdmin\Modules\File\Value\Storage\StoragePurpose::allowsDocumentPreviewInheritance($object['purpose'])) {
+                throw $error;
+            }
+            return $this->authorize($context, $object, 'preview', $documentId);
+        }
+    }
+
     /** @return array{authorization_revision:string,reference_digest:?string,context:TenantContext} */
     public function authorize(TenantContext $context, array $object, string $operation, ?int $documentId = null): array
     {
@@ -105,8 +124,12 @@ final readonly class FileAuthorizationService
             throw BusinessException::forbidden('FILE_ACCESS_DENIED', '无权访问资源');
         }
         $current = $this->sessions->revalidateSession(
-            $context->tenantId, $context->accountId, $context->memberId,
-            $context->sessionKey, $context->clientKey, $context->requestId,
+            $context->tenantId,
+            $context->accountId,
+            $context->memberId,
+            $context->sessionKey,
+            $context->clientKey,
+            $context->requestId,
         );
         if ($current->authorizationRevision !== $context->authorizationRevision) {
             throw BusinessException::forbidden('FILE_AUTHORIZATION_STALE', '资源授权已改变');
@@ -119,7 +142,7 @@ final readonly class FileAuthorizationService
             $referenceDigest = null;
             $documentRevision = '';
             if ($documentId !== null) {
-                if ($operation !== 'preview' || $documentId < 1 || $object['purpose'] === 'attachment.sensitive') {
+                if ($operation !== 'preview' || $documentId < 1 || !\PeanutAdmin\Modules\File\Value\Storage\StoragePurpose::allowsDocumentPreviewInheritance($object['purpose'])) {
                     throw BusinessException::forbidden('FILE_CONTEXTUAL_ACCESS_DENIED', '此资源需要独立授权');
                 }
                 $documentInstallation = $guard->assertDeployment('official.document');
@@ -145,8 +168,12 @@ final readonly class FileAuthorizationService
     public function grantContext(array $subject): TenantContext
     {
         return $this->sessions->revalidateSession(
-            (int) $subject['tenant_id'], (int) $subject['account_id'], (int) $subject['member_id'],
-            (string) $subject['session_key'], (string) $subject['client_key'], 'file-delivery-' . bin2hex(random_bytes(8)),
+            (int) $subject['tenant_id'],
+            (int) $subject['account_id'],
+            (int) $subject['member_id'],
+            (string) $subject['session_key'],
+            (string) $subject['client_key'],
+            'file-delivery-' . bin2hex(random_bytes(8)),
         );
     }
 }

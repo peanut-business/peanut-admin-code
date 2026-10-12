@@ -12,6 +12,10 @@
     {
       "module_key": "official.file",
       "version": "^1.0"
+    },
+    {
+      "module_key": "official.document",
+      "version": "^1.0"
     }
   ],
   "backend": {
@@ -43,7 +47,8 @@
     "enableable": true,
     "disable_behavior": "reject_new_operations",
     "requires": [
-      "official.file"
+      "official.file",
+      "official.document"
     ]
   }
 }

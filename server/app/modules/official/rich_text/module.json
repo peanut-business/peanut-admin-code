@@ -27,7 +27,9 @@
     ]
   },
   "contracts": {
-    "exports": [],
+    "exports": [
+      "PeanutAdmin\\Modules\\RichText\\Contract\\RichTextProjection"
+    ],
     "events": []
   },
   "tenant": {
