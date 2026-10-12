@@ -163,12 +163,33 @@ def resources(items):
     return result
 requested = resources(args)
 active = []
+try:
+    lock_holders = {p.read_text().strip() for p in (pathlib.Path(leases).parent/'resources').glob('*/lease')}
+except OSError:
+    fail('cannot establish resource lock boundary')
 for path in pathlib.Path(leases).glob('*'):
     if not path.is_dir() or path.name.startswith('.') or path.name == own:
         continue
     try:
-        m = dict(line.split('\t', 1) for line in (path/'metadata.tsv').read_text().splitlines())
-        if m.get('status') != 'ACTIVE' or int(m['expires_at']) <= time.time(): continue
+        # Native lease identity starts at metadata.tsv. Empty directories and
+        # registry-only snapshots are not leases, unless a lock references them.
+        # Preserve them; partial/corrupt lease records still fail closed.
+        if not (path/'metadata.tsv').exists():
+            entries = {p.name for p in path.iterdir()}
+            archive = entries == {'registry.json'} and (path/'registry.json').is_file() and not (path/'registry.json').is_symlink()
+            if (not entries or archive) and path.name not in lock_holders: continue
+            raise ValueError('partial lease identity')
+        rows = [line.split('\t') for line in (path/'metadata.tsv').read_text().splitlines()]
+        keys = {'lease', 'owner', 'thread', 'candidate', 'candidate_repository', 'parent_lease', 'gate', 'worktree', 'created_at', 'expires_at', 'status'}
+        if any(len(row) != 2 for row in rows): raise ValueError('invalid metadata fields')
+        m = dict(rows)
+        if (len(rows) != len(keys) or set(m) != keys or len(m) != len(rows)
+            or any(not value for key,value in m.items() if key != 'parent_lease')
+            or m['lease'] != path.name or m['status'] != 'ACTIVE'
+            or not m['created_at'].isdigit() or not m['expires_at'].isdigit()
+            or int(m['created_at']) > time.time() or int(m['expires_at']) <= int(m['created_at'])):
+            raise ValueError('invalid lease metadata')
+        if int(m['expires_at']) <= time.time(): continue
         r = resources(line.split('\t', 2)[1]+'='+line.split('\t', 2)[2] for line in (path/'resources.tsv').read_text().splitlines())
         active.append((path.name, r))
     except (ValueError, OSError, KeyError):

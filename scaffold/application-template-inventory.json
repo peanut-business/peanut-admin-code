@@ -3598,7 +3598,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ef5a9562a021011d5843b75b03b055c9625db77b15bc082b10d32501b577db83"
+            "source_sha256": "ae5442c4fd6118de3ca27d1fa89d4755b81bc1785a7f73ea01e4b75d1c595b71"
         },
         {
             "path": "scripts/project-resource-registry",

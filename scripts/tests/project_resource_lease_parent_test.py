@@ -46,6 +46,16 @@ with tempfile.TemporaryDirectory(prefix="peanut-resource-lease-parent-") as temp
     thread = owner
     worktree = str(root.resolve())
 
+    # An empty historical lease directory is not an active record. It remains
+    # untouched; nonempty partial or malformed records must still block claims.
+    leases = root / '.git/peanut-admin-resource-leases/leases'
+    historical_empty = leases / 'historical-empty'
+    historical_empty.mkdir(parents=True)
+    historical_archive = leases / 'historical-archive'
+    historical_archive.mkdir()
+    archive_snapshot = b'{"historical_registry_snapshot":true}\n'
+    (historical_archive / 'registry.json').write_bytes(archive_snapshot)
+
     run(tool + [
         "claim",
         "--lease", "controller-test",
@@ -55,6 +65,32 @@ with tempfile.TemporaryDirectory(prefix="peanut-resource-lease-parent-") as temp
         "--gate", "controller",
         "--resource", "controller-task=lease-parent-test",
     ], root)
+    assert historical_empty.is_dir() and list(historical_empty.iterdir()) == []
+    assert (historical_archive / 'registry.json').read_bytes() == archive_snapshot
+    malformed = leases / 'malformed-record'
+    malformed.mkdir()
+    probe_claim = tool + ['claim', '--lease', 'malformed-probe', '--owner', owner,
+                         '--candidate', candidate, '--parent-lease', 'controller-test',
+                         '--gate', 'runtime', '--resource', 'runtime-instance=malformed-probe']
+    historical_lock = leases.parent / 'resources/historical-reference'
+    historical_lock.mkdir()
+    for historical in [historical_empty, historical_archive]:
+        (historical_lock / 'lease').write_text(historical.name + '\n')
+        assert 'cannot establish active lease boundary' in run(probe_claim, root, ok=False).stderr
+    shutil.rmtree(historical_lock)  # Only this isolated test-owned lock reference.
+    (malformed / 'resources.tsv').write_text('partial\n')
+    assert 'cannot establish active lease boundary' in run(probe_claim, root, ok=False).stderr
+    (malformed / 'resources.tsv').unlink()
+    (malformed / 'partial').write_text('incomplete\n')
+    assert 'cannot establish active lease boundary' in run(probe_claim, root, ok=False).stderr
+    (malformed / 'metadata.tsv').write_text('unexpected\tvalue\n')
+    assert 'cannot establish active lease boundary' in run(probe_claim, root, ok=False).stderr
+    (malformed / 'metadata.tsv').write_text('status\tACTIVE\nexpires_at\tnot-a-time\n')
+    assert 'cannot establish active lease boundary' in run(probe_claim, root, ok=False).stderr
+    active_metadata = (leases / 'controller-test/metadata.tsv').read_text().replace('lease\tcontroller-test\n', 'lease\tmalformed-record\n')
+    (malformed / 'metadata.tsv').write_text(active_metadata)
+    assert 'cannot establish active lease boundary' in run(probe_claim, root, ok=False).stderr
+    shutil.rmtree(malformed)  # Only this isolated test-owned partial record.
     run(tool + [
         "claim",
         "--lease", "runtime-test",
