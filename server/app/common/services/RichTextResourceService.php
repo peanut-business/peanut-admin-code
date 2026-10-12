@@ -10,7 +10,7 @@ use PeanutAdmin\Kernel\Context\AuthenticatedMemberContext;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Context\TenantSystemContext;
 
-/** 富文本内资源地址的相对 URI 存储与绝对 URL 读取转换。 */
+/** Stable media references and ordinary external hyperlinks have separate contracts. */
 final readonly class RichTextResourceService
 {
     public function __construct(private FileReferences $files) {}
@@ -45,13 +45,24 @@ final readonly class RichTextResourceService
                 return $this->files->getFileUrl($url);
             }
             return $context === null
-                ? trim($url)
+                ? throw new \DomainException('FILE_REFERENCE_TRUSTED_CONTEXT_REQUIRED')
                 : $this->files->setTenantFileUrl($context, $url);
         };
 
         $html = preg_replace_callback(
             '~(\b(?:src|href|poster)\s*=\s*)(["\'])(.*?)\2~is',
-            static fn(array $match): string => $match[1] . $match[2] . $convert($match[3]) . $match[2],
+            static function (array $match) use ($convert): string {
+                // A normal hyperlink does not acquire a File grant. Media src/poster always do.
+                $value = html_entity_decode($match[3], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                if (str_starts_with(strtolower(trim($match[1])), 'href')
+                    && filter_var($value, FILTER_VALIDATE_URL) !== false
+                    && in_array(strtolower((string) parse_url($value, PHP_URL_SCHEME)), ['http', 'https'], true)
+                    && !str_contains((string) parse_url($value, PHP_URL_PATH), '/storage/')
+                    && !str_contains((string) parse_url($value, PHP_URL_PATH), '/api/storage/delivery')) {
+                    return $match[0];
+                }
+                return $match[1] . $match[2] . htmlspecialchars($convert($value), ENT_QUOTES | ENT_HTML5, 'UTF-8') . $match[2];
+            },
             $html,
         ) ?? $html;
         return $html;

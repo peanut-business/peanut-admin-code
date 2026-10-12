@@ -15,6 +15,9 @@ use PeanutAdmin\Modules\Task\Service\TaskWorkerDefinitionRegistry;
 use Throwable;
 use think\App;
 use think\facade\Config;
+use PeanutAdmin\Modules\File\Contract\FileDocumentReferenceContributor;
+use PeanutAdmin\Modules\File\Contract\FileDocumentReferencePolicy;
+use PeanutAdmin\Modules\File\Service\FileDocumentReferenceRegistry;
 
 /** Registers compiled Module bindings into the one ThinkPHP container. */
 final readonly class ModuleComposition
@@ -26,6 +29,7 @@ final readonly class ModuleComposition
         $providerClasses = [];
         $providers = [];
         $taskWorkers = [];
+        $fileDocumentPolicy = null;
         foreach ($registry->modules as $manifest) {
             $moduleKey = $manifest->data['key'] ?? null;
             $backend = $manifest->data['backend'] ?? null;
@@ -43,6 +47,14 @@ final readonly class ModuleComposition
             }
             $providerClasses[$providerClass] = true;
             $providers[$providerClass] = $provider;
+            if ($provider instanceof FileDocumentReferenceContributor) {
+                $policy = $provider->fileDocumentReferencePolicy();
+                if ($moduleKey !== 'official.document' || $fileDocumentPolicy !== null
+                    || !is_a($policy, FileDocumentReferencePolicy::class, true)) {
+                    throw new ModuleException('MODULE_FILE_REFERENCE_POLICY_INVALID', 'Invalid Document resource policy contribution.');
+                }
+                $fileDocumentPolicy = $policy;
+            }
             if ($provider instanceof TaskWorkerContributor) {
                 foreach ($provider->taskWorkerDefinitions() as $definition) {
                     if (!is_string($definition) || !is_a($definition, TaskWorkerDefinition::class, true)) {
@@ -61,7 +73,7 @@ final readonly class ModuleComposition
                 throw new ModuleException('MODULE_BINDING_CONFLICT', "Module binding conflicts with Host binding: {$abstract}");
             }
         }
-        if ($this->app->bound(TaskWorkerDefinitionRegistry::class)) {
+        if ($this->app->bound(TaskWorkerDefinitionRegistry::class) || $this->app->bound(FileDocumentReferenceRegistry::class)) {
             throw new ModuleException('MODULE_BINDING_CONFLICT', 'Task worker registry conflicts with a Host binding.');
         }
         foreach ($providers as $providerClass => $provider) {
@@ -76,6 +88,7 @@ final readonly class ModuleComposition
             $this->app->instance($providerClass, $provider);
         }
         $this->app->instance(TaskWorkerDefinitionRegistry::class, $taskRegistry);
+        $this->app->instance(FileDocumentReferenceRegistry::class, new FileDocumentReferenceRegistry($this->app, $fileDocumentPolicy));
     }
 
     /** @return array<string, TenantModuleEnableHook> */

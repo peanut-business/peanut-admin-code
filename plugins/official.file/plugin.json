@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "d14279058f990cf8a9a7ee1c61b0c4561f97d0dea945bac93989463422c115a6"
+        "sha256": "2d0191e81c6562d612d29b7b9764ae2df248a19da7b95e176956871e887e2d54"
     },
     "trust": {
         "channel": "bundled",
@@ -43,13 +43,17 @@
                     "kernel_constraint": "^1.0",
                     "dependencies": [
                         {
+                            "module_key": "official.content-tools",
+                            "version": "1.0.0"
+                        },
+                        {
                             "module_key": "official.identity",
                             "version": "4.0.0-rc.24"
                         }
                     ],
                     "permissions": {
                         "path": "resources/permissions.json",
-                        "sha256": "c0154d7b00960587b6c0f4a006ec476f2b2ea158dee76a4e581a2e960bb0dc16"
+                        "sha256": "471f9c5d89cb725cadb7ebacc69a4d0b3af6d0cee8cc62f0073fef21924c05a5"
                     },
                     "migrations": {
                         "reversibility": "verified-backup-required",
@@ -65,6 +69,10 @@
                             {
                                 "key": "official.file:20260921020000_add_file_image_assets",
                                 "sha256": "826fa9d8fd841b6834bc5f23cabced30b7ca111de4bb1f629ccbdb8501200cd4"
+                            },
+                            {
+                                "key": "official.file:20261012030000_add_controlled_file_references",
+                                "sha256": "005edad54fc0cf06a4eeb6afa7c0e5f374a0bc352eaa088282b2f12932251591"
                             }
                         ]
                     }

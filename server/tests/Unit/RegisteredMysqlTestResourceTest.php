@@ -10,6 +10,40 @@ require_once dirname(__DIR__) . '/Support/RegisteredMysqlTestResource.php';
 
 final class RegisteredMysqlTestResourceTest extends TestCase
 {
+    public function testExplicitMaintainerSourceRejectsForeignRegistry(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'registry-source-');
+        self::assertIsString($path);
+        file_put_contents($path, '{}');
+        $this->assertSourceRejected($path, (string) hash_file('sha256', $path));
+        unlink($path);
+    }
+
+    public function testExplicitMaintainerSourceRejectsWrongDigest(): void
+    {
+        $this->assertSourceRejected(dirname(__DIR__, 3) . '/resources/project-resources.json', str_repeat('0', 64));
+    }
+
+    private function assertSourceRejected(string $path, string $digest): void
+    {
+        $root = dirname(__DIR__, 3);
+        $values = ['PEANUT_DATABASE_REGISTRY_FILE' => $path,
+            'PEANUT_DATABASE_REGISTRY_TOOL' => $root . '/scripts/project-resource-registry',
+            'PEANUT_DATABASE_REGISTRY_SHA256' => $digest];
+        $previous = [];
+        foreach ($values as $key => $value) { $previous[$key] = getenv($key); putenv($key . '=' . $value); }
+        try {
+            try {
+                (new \ReflectionMethod(\RegisteredMysqlTestResource::class, 'registrySource'))->invoke(null, $root);
+                self::fail('Foreign or changed registry accepted');
+            } catch (\RuntimeException $error) {
+                self::assertSame('REGISTERED_MYSQL_REGISTRY_SOURCE_INVALID', $error->getMessage());
+            }
+        } finally {
+            foreach ($previous as $key => $value) { putenv($value === false ? $key : $key . '=' . $value); }
+        }
+    }
+
     public function testExactRegisteredContractIsAccepted(): void
     {
         [$registry, $lease, $environment, $root, $candidate, $now] = $this->fixture();

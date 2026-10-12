@@ -375,6 +375,14 @@ final class RegisteredMysqlTestResource
             && !self::hasResource($lease['resources'], 'registry-sha256', $registrySha256)) {
             throw new RuntimeException('REGISTERED_MYSQL_LEASE_MISMATCH');
         }
+        if ($registrySha256 !== null
+            && !self::hasResource($lease['resources'], 'registry-tool-sha256', (string) hash_file('sha256', $registryTool))) {
+            // The native selector bytes are part of the explicit source contract.
+            // Historical P0-E leases retain their separately sealed tool proof.
+            if ($environment['PEANUT_DATABASE_RESOURCE_ID'] !== 'peanut-admin-p0e-mysql84-gate') {
+                throw new RuntimeException('REGISTERED_MYSQL_LEASE_MISMATCH');
+            }
+        }
         self::assertRegistryToolResolution($root, $registryTool, $registryPath, $environment);
         return $authorization;
     }
@@ -464,23 +472,25 @@ final class RegisteredMysqlTestResource
         // P0-E explicitly binds the private maintainer registry digest to its
         // candidate lease and uses this candidate's unchanged native selector.
         $p0eRegistry = getenv('PEANUT_DATABASE_RESOURCE_ID') === 'peanut-admin-p0e-mysql84-gate';
-        if ($p0eRegistry && $toolPath !== realpath($canonicalTool)) {
+        $maintainerRegistry = $toolPath === realpath($canonicalTool)
+            && $registryPath !== realpath($canonicalRegistry);
+        if ($p0eRegistry && !$maintainerRegistry) {
             throw new RuntimeException('REGISTERED_MYSQL_REGISTRY_SOURCE_INVALID');
         }
         if ($registryPath === false || $toolPath === false || $expectedRegistry === false
-            || (!$p0eRegistry && $registryPath !== $expectedRegistry)
+            || (!$maintainerRegistry && $registryPath !== $expectedRegistry)
             || !is_file($registryPath) || is_link($registryPath)
             || !is_file($toolPath) || is_link($toolPath) || !is_executable($toolPath)
             || !hash_equals((string) hash_file('sha256', $canonicalTool), (string) hash_file('sha256', $toolPath))
             || !hash_equals($configuredSha256, (string) hash_file('sha256', $registryPath))) {
             throw new RuntimeException('REGISTERED_MYSQL_REGISTRY_SOURCE_INVALID');
         }
-        if ($p0eRegistry) {
+        if ($maintainerRegistry) {
             if (is_link($configuredRegistry) || is_link($configuredTool)) {
                 throw new RuntimeException('REGISTERED_MYSQL_REGISTRY_SOURCE_INVALID');
             }
             [$status, $stdout, $stderr] = self::run([
-                $toolPath, 'p0e-maintainer-source', '--sha256', $configuredSha256,
+                $toolPath, $p0eRegistry ? 'p0e-maintainer-source' : 'maintainer-source', '--sha256', $configuredSha256,
             ], $root, [
                 'PATH' => (string) getenv('PATH'),
                 'PEANUT_RESOURCE_REGISTRY' => $registryPath,

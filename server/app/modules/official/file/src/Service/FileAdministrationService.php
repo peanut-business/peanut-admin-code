@@ -25,6 +25,7 @@ final class FileAdministrationService implements FileAdministration
         private readonly StorageService $storage,
         private readonly CurrentExecutionContext $executionContext,
         private readonly FileService $files,
+        private readonly FileAuthorizationService $authorization,
     ) {}
 
     /** 分页列表：按 type / 分类子树 / source / name 组合过滤，追加 url。 */
@@ -67,7 +68,11 @@ final class FileAdministrationService implements FileAdministration
             : (array) $item);
         $lists = $pageResult->items;
         foreach ($lists as &$item) {
-            $item['url'] = $this->files->getFileUrl((string) ($item['file_key'] ?? ''));
+            $viewer = match ($type) { FileEnum::IMAGE => 'builtin.image', FileEnum::VIDEO => 'builtin.video', default => null };
+            $preview = $this->storage->resolveAuthorized($this->executionContext->tenantAdmin(), (string) $item['file_key'], 'preview', null, null, $viewer);
+            $item['url'] = $preview['url'] ?? '';
+            $item['preview_state'] = $preview['state'];
+            $item['can_download_original'] = $preview['can_download_original'];
         }
         unset($item);
 
@@ -124,7 +129,7 @@ final class FileAdministrationService implements FileAdministration
                     'width' => (int) $derivative['width'],
                     'height' => (int) $derivative['height'],
                     'media_type' => (string) $derivative['media_type'],
-                    'delivery_uri' => $this->files->getFileUrl($derivativeKey),
+                    'delivery_uri' => $this->storage->resolveAuthorized($this->executionContext->tenantAdmin(), $fileKey, 'preview', null, (string) $derivative['variant_key'], 'builtin.image')['url'] ?? '',
                 ];
             }
             return [
@@ -143,6 +148,7 @@ final class FileAdministrationService implements FileAdministration
     /** 批量移动到分类。 */
     public function move(array $ids, int $cid): void
     {
+        $this->authorization->requireManagementPermission($this->executionContext->tenantAdmin(), 'official.file.move');
         $ids = $this->normalizeIds($ids);
         $rows = File::where([])->whereIn('id', $ids)->select()->toArray();
         if (count($rows) !== count($ids)) {
@@ -171,6 +177,7 @@ final class FileAdministrationService implements FileAdministration
     /** 重命名。 */
     public function rename(int $id, string $name): void
     {
+        $this->authorization->requireManagementPermission($this->executionContext->tenantAdmin(), 'official.file.rename');
         $name = trim($name);
         if ($id <= 0 || $name === '') {
             throw new \InvalidArgumentException($id <= 0 ? '素材 ID 无效' : '名称不能为空');
@@ -188,6 +195,7 @@ final class FileAdministrationService implements FileAdministration
     /** 逐项软删素材并删除外部对象；Driver 失败时恢复当前素材，使失败项仍可重试。 */
     public function delete(array $ids): array
     {
+        $this->authorization->requireManagementPermission($this->executionContext->tenantAdmin(), 'official.file.delete');
         $ids = $this->normalizeIds($ids);
         $rows = File::where([])->whereIn('id', $ids)->order(['id' => 'asc'])->select();
         if ($rows->count() !== count($ids)) {
@@ -242,6 +250,7 @@ final class FileAdministrationService implements FileAdministration
 
     public function addCategory(array $params): void
     {
+        $this->authorization->requireManagementPermission($this->executionContext->tenantAdmin(), 'official.file.category.add');
         $name = trim((string) ($params['name'] ?? ''));
         if ($name === '') {
             throw new \InvalidArgumentException('分类名称不能为空');
@@ -273,6 +282,7 @@ final class FileAdministrationService implements FileAdministration
 
     public function editCategory(array $params): void
     {
+        $this->authorization->requireManagementPermission($this->executionContext->tenantAdmin(), 'official.file.category.edit');
         $name = trim((string) ($params['name'] ?? ''));
         if ($name === '') {
             throw new \InvalidArgumentException('分类名称不能为空');
@@ -288,6 +298,7 @@ final class FileAdministrationService implements FileAdministration
     /** 删除分类子树、其中素材及存储对象，并返回三者结果。 */
     public function deleteCategory(int $id): array
     {
+        $this->authorization->requireManagementPermission($this->executionContext->tenantAdmin(), 'official.file.category.delete');
         if ($id <= 0) {
             throw new \InvalidArgumentException('分类 ID 无效');
         }

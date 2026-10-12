@@ -27,11 +27,18 @@ use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
 use think\db\BaseQuery;
 use think\db\Raw;
 use think\facade\Db;
+use PeanutAdmin\Kernel\Auth\TenantContext;
+use app\common\execution\CurrentExecutionContext;
+use PeanutAdmin\Modules\File\Service\FileAuthorizationService;
+use PeanutAdmin\Modules\File\Model\Storage\FileReference;
+use app\common\services\audit\AuditContractHost;
 
 final readonly class StorageService implements FileStorage
 {
     public const DELIVERY_URL_TTL = 600;
     private SignedDeliveryTokenService $deliveryTokens;
+    /** In-process receipts for objects created by this exact operation; never serialized or exported. */
+    private \stdClass $newUploads;
 
     public function __construct(
         private StorageDriverFactory $drivers,
@@ -40,6 +47,10 @@ final readonly class StorageService implements FileStorage
         private string $signingSecret,
         private string $applicationOrigin,
         private AdminDirectoryQuery $directory,
+        private FileAuthorizationService $authorization,
+        private CurrentExecutionContext $execution,
+        private AuditContractHost $audit,
+        private \PeanutAdmin\Modules\ContentTools\Service\ContentCapabilitiesService $capabilities,
     ) {
         if (strlen($this->signingSecret) < 32) {
             throw new \RuntimeException('文件签名配置无效');
@@ -49,6 +60,7 @@ final readonly class StorageService implements FileStorage
             new DatabaseReplayGuard(),
             self::DELIVERY_URL_TTL,
         );
+        $this->newUploads = new \stdClass();
     }
 
     public function storePath(
@@ -63,6 +75,13 @@ final readonly class StorageService implements FileStorage
             throw new \InvalidArgumentException('待存储文件无效');
         }
         $access = StoragePurpose::accessType($purpose);
+        $current = $this->execution->current();
+        $uploadActor = $current instanceof \app\common\execution\AdminExecutionContext ? $current->tenant
+            : ($current instanceof \app\common\execution\ConsumerExecutionContext ? $current->member : null);
+        if (($access === 'public' || $purpose === 'export.xlsx')
+            && ($uploadActor === null || $uploadActor->tenantId !== $tenantId || $uploadActor->memberId !== $memberId)) {
+            throw BusinessException::forbidden('FILE_UPLOAD_ACTOR_REQUIRED', '文件交付需要当前可信上传身份');
+        }
         $originalName = self::filename($originalName);
         $fileKey = 'file_' . bin2hex(random_bytes(16));
         $objectKey = StoragePath::objectKey(
@@ -78,6 +97,11 @@ final readonly class StorageService implements FileStorage
         if (!is_int($size) || !is_string($sha256)) {
             throw new \RuntimeException('文件信息读取失败');
         }
+        $detectedType = (new \finfo(FILEINFO_MIME_TYPE))->file($sourcePath);
+        if (!is_string($detectedType) || $detectedType === '') {
+            throw new \RuntimeException('文件真实类型无法识别');
+        }
+        $mediaType = $detectedType;
         $this->reserveObject($tenantId, [
             'file_key' => $fileKey,
             'purpose' => $purpose,
@@ -112,17 +136,36 @@ final readonly class StorageService implements FileStorage
             throw $error;
         }
 
-        $object = $this->deliverableObjectForTenant($tenantId, $fileKey);
-        if ($object === null) {
-            throw new \RuntimeException('文件对象当前不可交付');
-        }
-        return [
+        $this->newUploads->{$fileKey} = ['tenant_id' => $tenantId, 'member_id' => $memberId,
+            'request_id' => $this->execution->requestId(), 'object_key' => $objectKey];
+        $stored = [
             'file_key' => $fileKey,
             'object_key' => $objectKey,
             'access_type' => $access,
-            'url' => $this->url($object),
+            'url' => '',
             'original_name' => $originalName,
         ];
+        if ($access === 'private' && $purpose !== 'export.xlsx') {
+            return $stored;
+        }
+        try {
+            $object = $this->deliverableObjectForTenant($tenantId, $fileKey);
+            if ($object === null) {
+                throw new \RuntimeException('文件对象当前不可交付');
+            }
+            $stored['url'] = $purpose === 'export.xlsx' ? $this->accessUrlForTenant($tenantId, $fileKey)
+                : ($access === 'public' ? $this->url($object) : '');
+            return $stored;
+        } catch (\Throwable $error) {
+            try {
+                $this->discardFailedUpload($uploadActor, $stored);
+            } catch (\Throwable $compensation) {
+                \app\common\infrastructure\runtime\OperationalLog::warning($this->execution, 'file_upload_compensation_failed', [
+                    'file_key' => $fileKey, 'exception' => $compensation::class,
+                ]);
+            }
+            throw $error;
+        }
     }
 
     public function publicUrl(string $reference): string
@@ -131,13 +174,8 @@ final readonly class StorageService implements FileStorage
         if ($reference === '') {
             return '';
         }
-        $internal = $this->internalReference($reference);
-        if ($internal !== null) {
-            $object = $this->publicObject($internal);
-            return $object === null ? '' : $this->url($object);
-        }
-        if (preg_match('#^https?://#i', $reference) === 1) {
-            return $reference;
+        if (preg_match('/^file_[0-9a-f]{32}$/D', $reference) !== 1) {
+            return '';
         }
         $object = $this->publicObject($reference);
         return $object === null ? '' : $this->url($object);
@@ -149,31 +187,61 @@ final readonly class StorageService implements FileStorage
         if ($reference === '') {
             return '';
         }
-        $internal = $this->internalReference($reference) ?? $reference;
-        if (preg_match('/^file_[0-9a-f]{32}$/D', $internal) === 1) {
-            $object = $this->deliverableObjectForTenant($tenantId, $internal);
-            if ($object === null || $object['access_type'] !== 'public') {
+        if (preg_match('/^file_[0-9a-f]{32}$/D', $reference) === 1) {
+            $object = $this->deliverableObjectForTenant($tenantId, $reference);
+            if ($object === null || $object['access_type'] !== 'public' || $object['purpose'] === 'attachment.sensitive') {
                 throw new \RuntimeException('素材对象不属于当前租户');
             }
-            return $internal;
-        }
-        $path = preg_match('#^https?://#i', $internal) === 1
-            ? ltrim((string) (parse_url($internal, PHP_URL_PATH) ?? ''), '/')
-            : ltrim($internal, '/');
-        if (str_starts_with($path, 'storage/')) {
-            $path = substr($path, 8);
-        }
-        $object = $this->publicObject($path);
-        if ($object !== null) {
-            if ((int) $object['tenant_id'] !== $tenantId || $path !== (string) $object['object_key']) {
-                throw new \RuntimeException('素材对象不属于当前租户');
-            }
-            return (string) $object['file_key'];
-        }
-        if (preg_match('#^https?://#i', $reference) === 1) {
             return $reference;
         }
-        throw new \RuntimeException('素材对象不属于当前租户');
+        throw BusinessException::invalid('FILE_REFERENCE_INVALID', '仅允许稳定资源引用，不允许交付链接或外部地址');
+    }
+
+    /** File-internal metadata rollback only; absent from FileStorage and all HTTP actions. */
+    public function discardFailedUpload(TenantContext|\PeanutAdmin\Kernel\Context\AuthenticatedMemberContext $context, array $stored): void
+    {
+        $key = $stored['file_key'] ?? '';
+        $receipt = is_string($key) ? ($this->newUploads->{$key} ?? null) : null;
+        $actor = $context instanceof TenantContext ? $this->execution->tenantAdmin() : $this->execution->member();
+        if (!is_array($receipt) || $actor->tenantId !== $context->tenantId || $actor->memberId !== $context->memberId
+            || $receipt['tenant_id'] !== $context->tenantId || $receipt['member_id'] !== $context->memberId
+            || $receipt['request_id'] !== $this->execution->requestId()
+            || $receipt['object_key'] !== ($stored['object_key'] ?? null)) {
+            throw BusinessException::forbidden('FILE_UPLOAD_COMPENSATION_DENIED', '仅可补偿本次新上传');
+        }
+        unset($this->newUploads->{$key});
+        $object = $this->objectForTenant($context->tenantId, $key);
+        if ($object === null) {
+            throw BusinessException::notFound('FILE_UPLOAD_COMPENSATION_NOT_FOUND', '上传资源不存在');
+        }
+        Db::transaction(function () use ($context, $key): void {
+            $locked = $this->ownedObjects($context->tenantId)->where('file_key', $key)->lock(true)->find();
+            $locked = is_array($locked) ? $locked : $locked?->toArray();
+            if ($locked === null || (int) $locked['created_by_member_id'] !== $context->memberId || $locked['status'] !== 'ready'
+                || \PeanutAdmin\Modules\File\Model\File::withTrashed()->where('file_key', $key)->find() !== null
+                || FileReference::where('file_key', $key)->find() !== null
+                || Db::name('file_derivative')->where('source_file_key|derivative_file_key', $key)->find() !== null) {
+                throw BusinessException::conflict('FILE_UPLOAD_COMPENSATION_CONFLICT', '上传已被持久引用或状态改变');
+            }
+            if (!$this->archive($context->tenantId, $key)) {
+                throw BusinessException::conflict('FILE_REVISION_CONFLICT', '上传状态已改变');
+            }
+        });
+        try {
+            $receipt = $this->drivers->make($object, $object)->delete((string) $object['object_key']);
+            $metadata = ['provider_delete_acknowledged' => true, 'provider_outcome' => $receipt->outcome];
+            $event = 'file.upload.compensated';
+        } catch (\Throwable) {
+            // Remain archived and non-deliverable; the original metadata error must survive.
+            $metadata = ['provider_delete_acknowledged' => false, 'cleanup_pending' => true];
+            $event = 'file.upload.compensation_pending';
+        }
+        if ($context instanceof TenantContext) {
+            $this->audit->appendTenantMember($context, $event, 'file.upload.compensate', 'file', $key, null, null, 0, null, $metadata);
+        } else {
+            $this->audit->appendTenantSystem($context->tenantId, $event, 'file.upload.compensate', $context->requestId,
+                [...$metadata, 'file_key' => $key, 'initiating_member_id' => $context->memberId]);
+        }
     }
 
     public function delete(int $tenantId, string $fileKey): void
@@ -182,15 +250,30 @@ final readonly class StorageService implements FileStorage
         if ($object === null) {
             throw new \RuntimeException('文件对象不存在');
         }
-        if (!$this->archive($tenantId, $fileKey)) {
-            throw new \RuntimeException('文件对象状态更新失败');
-        }
+        $context = $this->execution->tenantAdmin();
+        $this->authorization->requireManagementPermission($context, 'official.file.delete');
+        $this->authorization->authorize($context, $object, 'manage');
+        Db::transaction(function () use ($fileKey, $context): void {
+            $this->ownedObjects($context->tenantId)->where('file_key', $fileKey)->lock(true)->find();
+            if (FileReference::where('file_key', $fileKey)->lock(true)->find() !== null
+                || \PeanutAdmin\Modules\File\Model\Storage\FileDerivative::where('source_file_key', $fileKey)->find() !== null
+                || \PeanutAdmin\Modules\File\Model\Storage\FileDerivative::where('derivative_file_key', $fileKey)->find() !== null) {
+                throw BusinessException::conflict('FILE_REFERENCED', '资源仍被引用，不能删除');
+            }
+            $this->audit->appendTenantMember($context, 'file.delete.intent', 'file.manage', 'file', $fileKey);
+            if (!$this->archive($context->tenantId, $fileKey)) {
+                throw BusinessException::conflict('FILE_REVISION_CONFLICT', '资源状态已改变');
+            }
+        });
         try {
             $this->drivers->make($object, $object)->delete((string) $object['object_key']);
         } catch (\Throwable $error) {
             $this->restore($tenantId, $fileKey);
+            $this->audit->appendTenantMember($context, 'file.delete.failed', 'file.manage', 'file', $fileKey,
+                null, null, 0, null, ['provider_delete_failed' => true]);
             throw $error;
         }
+        $this->audit->appendTenantMember($context, 'file.delete.completed', 'file.manage', 'file', $fileKey);
     }
 
     public function accessUrlForTenant(int $tenantId, string $fileKey): string
@@ -199,7 +282,18 @@ final readonly class StorageService implements FileStorage
         if ($object === null) {
             throw new \RuntimeException('文件对象不存在或不可用');
         }
-        return $this->url($object);
+        $context = $this->execution->tenantAdmin();
+        $grant = $this->authorization->authorize($context, $object, 'download_original');
+        return $this->url($object, $grant, 'download_original');
+    }
+
+    public function requireOriginalDownloadPermission(int $tenantId): void
+    {
+        $context = $this->execution->tenantAdmin();
+        if ($context->tenantId !== $tenantId) {
+            throw BusinessException::forbidden('FILE_ACCESS_DENIED', '无权访问其他租户资源');
+        }
+        $this->authorization->requireOriginalDownloadPermission($context);
     }
 
     /** @return array{path:string,filename:string,media_type:string,temporary:bool} */
@@ -209,6 +303,7 @@ final readonly class StorageService implements FileStorage
         if ($object === null) {
             throw BusinessException::notFound('STORAGE_INPUT_NOT_FOUND', '文件不存在或不可用');
         }
+        $this->authorization->authorize($this->execution->tenantAdmin(), $object, 'download_original');
         return [
             ...$this->materialize($object),
             'filename' => (string) $object['original_name'],
@@ -239,12 +334,118 @@ final readonly class StorageService implements FileStorage
         if ($claims['visibility'] !== $expectedVisibility) {
             throw new BusinessException('STORAGE_DELIVERY_INPUT_INVALID', 422, '文件链接无效或已过期');
         }
+        $grant = Db::name('file_delivery_grant')->where('token_id_hash', hash('sha256', $claims['token_id']))->find();
+        if (!is_array($grant) || (int) $grant['subject_tenant_id'] !== $tenantId
+            || $grant['file_key'] !== $fileKey || (int) $grant['file_revision'] !== (int) $object['revision']
+            || $grant['visibility'] !== $object['access_type']
+            || strtotime((string) $grant['expires_at'] . ' UTC') <= time()) {
+            throw BusinessException::forbidden('FILE_DELIVERY_REVOKED', '资源链接已失效');
+        }
+        $source = $this->deliverableObjectForTenant($tenantId, (string) $grant['source_file_key']);
+        if ($source === null || (int) $source['revision'] !== (int) $grant['source_revision']
+            || $source['access_type'] !== $grant['source_visibility']) {
+            throw BusinessException::forbidden('FILE_DELIVERY_REVOKED', '资源链接已失效');
+        }
+        if ($grant['operation'] === 'public') {
+            if (!hash_equals((string) $grant['authorization_revision'], $this->authorization->authorizePublic($source))) {
+                throw BusinessException::forbidden('FILE_DELIVERY_REVOKED', '资源授权已改变');
+            }
+            $this->assertPublicDerivative($source);
+        } else {
+            $subject = json_decode((string) $grant['subject_json'], true, 16, JSON_THROW_ON_ERROR);
+            $context = $this->authorization->grantContext($subject);
+            if ($context->authorizationRevision !== (int) $subject['authorization_revision']) {
+                throw BusinessException::forbidden('FILE_DELIVERY_REVOKED', '资源授权已改变');
+            }
+            $live = $this->authorization->authorize($context, $source, (string) $grant['operation'], $grant['document_id'] === null ? null : (int) $grant['document_id']);
+            if (!hash_equals((string) $grant['authorization_revision'], $live['authorization_revision'])
+                || $grant['reference_digest'] !== $live['reference_digest']) {
+                throw BusinessException::forbidden('FILE_DELIVERY_REVOKED', '资源授权已改变');
+            }
+        }
         return [
             ...$this->materialize($object),
             'filename' => (string) $object['original_name'],
             'media_type' => (string) $object['media_type'],
-            'disposition' => (string) $object['disposition'],
+            'disposition' => $grant['operation'] !== 'download_original'
+                && in_array(strtolower((string) $object['media_type']), ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'audio/mpeg', 'audio/ogg', 'audio/wav', 'video/mp4', 'video/webm', 'video/ogg'], true)
+                ? 'inline' : 'attachment',
         ];
+    }
+
+    /** The File-owned facade returns no storage account, credential or physical address. */
+    public function resolveAuthorized(TenantContext $context, string $fileKey, string $operation, ?int $documentId = null, ?string $variantKey = null, ?string $viewerAdapterId = null): array
+    {
+        $source = $this->deliverableObjectForTenant($context->tenantId, $fileKey);
+        if ($source === null) {
+            throw BusinessException::notFound('FILE_NOT_FOUND', '资源不存在');
+        }
+        $grant = $this->authorization->authorize($context, $source, $operation, $documentId);
+        $canDownload = false;
+        try {
+            $this->authorization->authorize($context, $source, 'download_original');
+            $canDownload = true;
+        } catch (BusinessException) {
+            // Preview never inherits an independent original-download right.
+        }
+        if ($operation === 'manage') {
+            return ['file_key' => $fileKey, 'revision' => (int) $source['revision'], 'can_manage' => true];
+        }
+        $target = $source;
+        if ($operation === 'preview' && (!$canDownload || $variantKey !== null)) {
+            $query = Db::name('file_derivative')->where('source_file_key', $fileKey);
+            if ($this->dataScopePolicy->usesTenantColumn()) {
+                $query->where('tenant_id', $context->tenantId);
+            }
+            if ($variantKey !== null) {
+                $query->where('variant_key', $variantKey);
+            }
+            $variant = $query->order('variant_key')->find();
+            $target = is_array($variant) ? $this->deliverableObjectForTenant($context->tenantId, (string) $variant['derivative_file_key']) : null;
+            if ($target === null || $target['file_key'] === $fileKey || $target['sha256'] === $source['sha256']
+                || !in_array($target['media_type'], ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'], true)) {
+                return ['file_key' => $fileKey, 'state' => 'preview_unavailable', 'can_download_original' => $canDownload, 'url' => null];
+            }
+        }
+        $capability = $this->capabilities->resolve(new \PeanutAdmin\Modules\ContentTools\Contract\AuthorizedContentContext(
+            'file_resource', (string) $target['media_type'], true, false, $canDownload,
+            $grant['authorization_revision'], 'browser', $this->authorization->contentProviderModules($context),
+        ), 'view', $viewerAdapterId, null);
+        if ($operation === 'preview' && !$capability['canView']) {
+            return ['file_key' => $fileKey, 'state' => $capability['state'], 'capabilities' => $capability, 'can_download_original' => $canDownload, 'url' => null];
+        }
+        return [
+            'file_key' => $fileKey, 'delivery_file_key' => (string) $target['file_key'], 'source_file_key' => $fileKey,
+            'source_sha256' => (string) $source['sha256'], 'media_type' => (string) $target['media_type'],
+            'original_name' => (string) $source['original_name'], 'revision' => (int) $source['revision'],
+            'state' => 'available', 'purpose' => $operation === 'preview' ? 'preview' : 'download_original',
+            'bytes' => $target['file_key'] === $fileKey ? 'original' : 'derivative',
+            'can_download_original' => $canDownload, 'authorization_revision' => $grant['authorization_revision'],
+            'capabilities' => $capability,
+            'expires_at' => (time() + 300) * 1000,
+            'url' => $this->url($target, $grant, $operation, $source, $documentId),
+        ];
+    }
+
+    /** Server-side derivative binding inspects actual bytes under current management authorization. */
+    public function verifyImageDerivative(TenantContext $context, string $fileKey, int $width, int $height, string $mediaType): void
+    {
+        $object = $this->deliverableObjectForTenant($context->tenantId, $fileKey);
+        if ($object === null) {
+            throw BusinessException::notFound('FILE_DERIVATIVE_NOT_FOUND', '衍生资源不存在');
+        }
+        $this->authorization->authorize($context, $object, 'manage');
+        $materialized = $this->materialize($object);
+        try {
+            $metadata = (new \PeanutAdmin\FileMedia\Media\ImageMetadataInspector())->inspect($materialized['path']);
+            if ($metadata->width !== $width || $metadata->height !== $height || $metadata->mediaType !== $mediaType) {
+                throw BusinessException::invalid('FILE_DERIVATIVE_CONTENT_MISMATCH', '衍生图内容与声明不一致');
+            }
+        } finally {
+            if ($materialized['temporary']) {
+                @unlink($materialized['path']);
+            }
+        }
     }
 
     /** @return array{path:string,temporary:bool} */
@@ -273,6 +474,10 @@ final readonly class StorageService implements FileStorage
                 unlink($path);
             }
             throw BusinessException::notFound('STORAGE_DELIVERY_NOT_FOUND', '文件不存在或不可用');
+        }
+        if (!hash_equals((string) $object['sha256'], (string) hash_file('sha256', $path))) {
+            if ($temporary) { unlink($path); }
+            throw BusinessException::conflict('FILE_BYTES_CHANGED', '资源内容与登记不一致');
         }
         return ['path' => $path, 'temporary' => $temporary];
     }
@@ -327,13 +532,32 @@ final readonly class StorageService implements FileStorage
             }
             $tenantId = $referenceTenantId;
         }
-        return $this->findOwnedObject(
+        $object = $this->findOwnedObject(
             $this->objectQuery($tenantId)
                 ->where($field, $reference)
                 ->where('f.access_type', 'public')
                 ->where('f.status', 'ready'),
             true,
         );
+        if ($object !== null) {
+            $this->authorization->authorizePublic($object);
+            $this->assertPublicDerivative($object);
+        }
+        return $object;
+    }
+
+    private function assertPublicDerivative(array $object): void
+    {
+        $query = Db::name('file_derivative')->where('derivative_file_key', $object['file_key']);
+        if ($this->dataScopePolicy->usesTenantColumn()) { $query->where('tenant_id', (int) $object['tenant_id']); }
+        $derivative = $query->find();
+        if (is_array($derivative)) {
+            $source = $this->deliverableObjectForTenant((int) $object['tenant_id'], (string) $derivative['source_file_key']);
+            if ($source === null || $source['access_type'] !== 'public') {
+                throw BusinessException::forbidden('FILE_PUBLIC_ACCESS_DENIED', '资源不能公开交付');
+            }
+            $this->authorization->authorizePublic($source);
+        }
     }
 
     private function reserveObject(int $tenantId, array $data): void
@@ -498,11 +722,33 @@ final readonly class StorageService implements FileStorage
         return $row === null ? null : (is_array($row) ? $row : $row->toArray());
     }
 
-    private function url(array $object): string
+    private function url(array $object, ?array $grant = null, string $operation = 'public', ?array $source = null, ?int $documentId = null): string
     {
         $tenantId = (int) $object['tenant_id'];
         $fileKey = (string) $object['file_key'];
         $private = $object['access_type'] === 'private';
+        if ($private && $grant === null) {
+            $grant = $this->authorization->authorize($this->execution->tenantAdmin(), $object, 'download_original');
+            $operation = 'download_original';
+        }
+        $source ??= $object;
+        $tokenId = bin2hex(random_bytes(16));
+        $context = $grant['context'] ?? null;
+        Db::name('file_delivery_grant')->insert([
+            'token_id_hash' => hash('sha256', $tokenId), 'subject_tenant_id' => $tenantId,
+            'file_key' => $fileKey, 'file_revision' => (int) $object['revision'], 'visibility' => $object['access_type'],
+            'source_file_key' => $source['file_key'], 'source_revision' => (int) $source['revision'],
+            'source_visibility' => $source['access_type'],
+            'operation' => $operation, 'document_id' => $documentId,
+            'authorization_revision' => $grant['authorization_revision'] ?? $this->authorization->authorizePublic($source),
+            'reference_digest' => $grant['reference_digest'] ?? null,
+            'subject_json' => $context instanceof TenantContext ? json_encode([
+                'tenant_id' => $context->tenantId, 'account_id' => $context->accountId, 'member_id' => $context->memberId,
+                'session_key' => $context->sessionKey, 'client_key' => $context->clientKey,
+                'authorization_revision' => $context->authorizationRevision,
+            ], JSON_THROW_ON_ERROR) : null,
+            'expires_at' => gmdate('Y-m-d H:i:s', time() + ($private || $grant !== null ? 300 : self::DELIVERY_URL_TTL)),
+        ]);
         $token = $this->deliveryTokens->issue(
             $tenantId,
             $fileKey,
@@ -510,29 +756,13 @@ final readonly class StorageService implements FileStorage
             $private ? ReplayMode::SingleUse : ReplayMode::Bounded,
             new DateTimeImmutable('now', new DateTimeZone('UTC')),
             $private ? 300 : self::DELIVERY_URL_TTL,
+            $tokenId,
         );
         return rtrim($this->applicationOrigin, '/') . '/api/storage/delivery?' . http_build_query([
             'tenant_id' => $tenantId,
             'file_key' => $fileKey,
             'token' => $token,
         ]);
-    }
-
-    private function internalReference(string $reference): ?string
-    {
-        if (preg_match('/^file_[0-9a-f]{32}$/D', $reference) === 1) {
-            return $reference;
-        }
-        $path = (string) (parse_url($reference, PHP_URL_PATH) ?? '');
-        if ($path === '/api/storage/delivery') {
-            parse_str((string) (parse_url($reference, PHP_URL_QUERY) ?? ''), $query);
-            $fileKey = $query['file_key'] ?? null;
-            return is_string($fileKey) && preg_match('/^file_[0-9a-f]{32}$/D', $fileKey) === 1
-                ? $fileKey
-                : null;
-        }
-        $path = ltrim($path !== '' ? $path : $reference, '/');
-        return str_starts_with($path, 'storage/tenants/v1/') ? substr($path, 8) : null;
     }
 
     private static function filename(string $value): string

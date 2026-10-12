@@ -25,6 +25,24 @@ $mutationResponse = [
 
 return [
     'paths' => [
+        '/adminapi/api/v1/files/resolve' => ['post' => [
+            'tags' => ['File'], 'operationId' => 'resolveFileAccess',
+            'requestBody' => ['required' => true, 'content' => ['application/json' => ['schema' => [
+                'type' => 'object', 'additionalProperties' => false, 'required' => ['file_key', 'operation'],
+                'properties' => [
+                    'file_key' => ['type' => 'string', 'pattern' => '^file_[0-9a-f]{32}$'],
+                    'operation' => ['type' => 'string', 'enum' => ['preview', 'download_original', 'manage']],
+                    'document_id' => ['type' => 'integer', 'minimum' => 1],
+                    'variant_key' => ['type' => 'string', 'pattern' => '^[a-z][a-z0-9-]{0,31}$', 'maxLength' => 32],
+                    'viewer_adapter_id' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 128],
+                ],
+            ]]]],
+            'responses' => [
+                '200' => ['description' => 'Current live File access, or explicit unavailable preview. No original bytes without download authorization.',
+                    'content' => ['application/json' => ['schema' => ['$ref' => '#/components/schemas/FileAccessResponse']]]],
+                '400' => $error, '401' => $error, '403' => $error, '404' => $error, '409' => $error,
+            ],
+        ]],
         '/adminapi/api/v1/files/assets' => [
             'get' => [
                 'tags' => ['File'], 'operationId' => 'listFileAssets',
@@ -241,6 +259,8 @@ return [
                 'tenant_id' => ['type' => 'integer', 'minimum' => 1],
                 'file_key' => ['type' => 'string', 'pattern' => '^file_[0-9a-f]{32}$'],
                 'url' => ['type' => 'string'],
+                'preview_state' => ['type' => 'string'],
+                'can_download_original' => ['type' => 'boolean'],
             ],
         ],
         'FileListPage' => [
@@ -260,6 +280,22 @@ return [
                 'msg' => ['type' => 'string'],
                 'data' => ['$ref' => '#/components/schemas/FileListPage'],
             ],
+        ],
+        'FileAccessResponse' => [
+            'type' => 'object', 'additionalProperties' => false, 'required' => ['code', 'msg', 'data'],
+            'properties' => ['code' => ['type' => 'integer', 'enum' => [20000]], 'msg' => ['type' => 'string'],
+                'data' => ['type' => 'object', 'additionalProperties' => false, 'required' => ['file_key'], 'properties' => [
+                    'file_key' => ['type' => 'string', 'pattern' => '^file_[0-9a-f]{32}$'],
+                    'delivery_file_key' => ['type' => 'string'], 'source_file_key' => ['type' => 'string'],
+                    'source_sha256' => ['type' => 'string'], 'media_type' => ['type' => 'string'],
+                    'original_name' => ['type' => 'string'], 'revision' => ['type' => 'integer', 'minimum' => 1],
+                    'can_manage' => ['type' => 'boolean'], 'can_download_original' => ['type' => 'boolean'],
+                    'state' => ['type' => 'string'], 'purpose' => ['type' => 'string', 'enum' => ['preview', 'download_original']],
+                    'bytes' => ['type' => 'string', 'enum' => ['original', 'derivative']],
+                    'authorization_revision' => ['type' => 'string'], 'expires_at' => ['type' => 'integer'],
+                    'url' => ['type' => 'string', 'nullable' => true],
+                    'capabilities' => ['type' => 'object', 'additionalProperties' => true],
+                ]]],
         ],
         'FileUploadResult' => [
             'type' => 'object', 'additionalProperties' => false,

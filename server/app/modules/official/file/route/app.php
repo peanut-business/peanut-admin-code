@@ -22,6 +22,7 @@ if (($peanutRouteApplication ?? null) === 'adminapi') {
         Route::post('official.file.upload.video', [UploadController::class, 'video']);
         Route::post('official.file.upload.file', [UploadController::class, 'file']);
         Route::get('official.file.list', [FileController::class, 'lists']);
+        Route::post('api/v1/files/resolve', [FileController::class, 'resolve']);
         Route::get('api/v1/files/assets', [FileController::class, 'assets'])
             ->option(['peanut_permission' => 'official.file.list']);
         Route::post('official.file.move', [FileController::class, 'move']);

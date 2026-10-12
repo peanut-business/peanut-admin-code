@@ -341,6 +341,10 @@ class AppService extends Service
             (string) Config::get('jwt.secret', ''),
             (string) $this->app->request->domain(),
             $this->app->make(\PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery::class),
+            $this->app->make(\PeanutAdmin\Modules\File\Service\FileAuthorizationService::class),
+            $this->app->make(CurrentExecutionContext::class),
+            $this->app->make(AuditContractHost::class),
+            $this->app->make(\PeanutAdmin\Modules\ContentTools\Service\ContentCapabilitiesService::class),
         ));
         $this->app->bind(FileService::class, fn(): FileService => new FileService(
             $this->app->make(StorageService::class),

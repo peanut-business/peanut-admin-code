@@ -24,7 +24,6 @@ final class ModuleProvider implements ModuleProviderContract
                 $app->instance(ContentToolRegistry::class, $registry);
                 return $registry;
             },
-            ContentCapabilitiesService::class => ContentCapabilitiesService::class,
         ];
     }
 }

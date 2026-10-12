@@ -20,6 +20,7 @@ final class StoragePurpose
         'export.xlsx' => StorageAccess::PRIVATE,
         'export.csv' => StorageAccess::PRIVATE,
         'attachment.sensitive' => StorageAccess::PRIVATE,
+        'document.resource' => StorageAccess::PRIVATE,
     ];
 
     public static function accessType(string $purpose): string

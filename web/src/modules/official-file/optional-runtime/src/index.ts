@@ -1,6 +1,8 @@
 export const FILE_MEDIA_PACKAGE =
   '@peanut-admin/official-file/optional-runtime' as const;
 export const FILE_MEDIA_VERSION = '1.0.0' as const;
+export { createFileContentCallbacks } from './contentCallbacks';
+export type { FileContentCallbackOptions } from './contentCallbacks';
 export { default as FileAssetSelector } from './FileAssetSelector.vue';
 export { default as FileMediaPage } from './FileMediaPage.vue';
 export { parseAssetCandidate, parseAssetList } from './contracts';

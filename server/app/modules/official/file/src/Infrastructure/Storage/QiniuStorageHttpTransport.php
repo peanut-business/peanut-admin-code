@@ -27,7 +27,7 @@ final readonly class QiniuStorageHttpTransport implements StorageHttpTransport
      *     sink?:string,
      *     multipart?:list<array{name:string,contents:mixed,filename?:string,headers?:array<string,string>}>
      * } $request
-     * @return array{status:int,body:string}
+     * @return array{status:int,body:string,headers:array<string,string>}
      */
     public function request(array $request): array
     {
@@ -43,6 +43,6 @@ final readonly class QiniuStorageHttpTransport implements StorageHttpTransport
             multipart: $request['multipart'] ?? [],
         ));
 
-        return ['status' => $response->status, 'body' => $response->body];
+        return ['status' => $response->status, 'body' => $response->body, 'headers' => $response->headers];
     }
 }

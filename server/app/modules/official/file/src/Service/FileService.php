@@ -24,11 +24,7 @@ final readonly class FileService implements FileReferences
         if ($reference === '') {
             return '';
         }
-        if (preg_match('#^https?://#i', $reference) === 1) {
-            return $reference;
-        }
-        $url = $this->storage->publicUrl($reference);
-        return $url !== '' ? $url : rtrim($this->applicationOrigin, '/') . '/' . ltrim($reference, '/');
+        return $this->storage->publicUrl($reference);
     }
 
     public function setTenantFileUrl(

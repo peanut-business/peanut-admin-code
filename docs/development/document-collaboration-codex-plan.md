@@ -46,7 +46,7 @@ G0 输出是绑定实际源码与环境的准入回执、精确任务写集、�
 | --- | --- | --- | --- |
 | G0 | 规则/源码/运行身份与任务回执；只在授权下做环境准备 | 明确实施启动指令 | B 节准入、授权、容量和证据复用清楚 |
 | R0 | official.file 的稳定 file_key、合法引用、动态预览/原件下载分权、当前权限复核、引用保护；原生 File 测试 | G0 | Doc 预览不能变资源管理权；旧/跨租户/失权引用不能泄露私有数据；复用现有存储/审计 |
-| R1 | 既定资源阶段一：批量权限准入、任务恢复、物理源站/已知 CDN 撤销、引用影响、审计；只由 File 唯一 owner 改写 | G0、资源主线接收/接手与明确专用存储测试权限 | 直接按原方案验收；local 加至少一种真实对象存储；已配置 CDN 验证、未覆盖项显式列出；不能以 R0 完成冒充 R1 完成 |
+| R1 | 既定资源阶段一：批量权限准入、任务恢复、物理源站/已知 CDN 撤销、引用影响、审计；只由 File 唯一 owner 改写 | G0、资源主线接收/接手与明确专用存储测试权限 | 直接按原方案验收；本轮真实存储限定隔离 local 与用户授权七牛 test-louku 的唯一合成对象前缀，公开 Bucket 不改权限，单对象私有化不可用时验证迁移私有 local 后精确删除旧对象；已配置 CDN 验证、未覆盖项显式列出；其他供应商以后使用时再真实验证，不能以 R0 完成冒充 R1 完成 |
 | T0 | official.content-tools 正式模块/工具接口/能力登记与选择；server/app/modules/official/content_tools、web/src/modules/official-content-tools | G0 | 真实模块注册和可调用实现、无环装配、受信 MIME/权限交集、缺能力明确拒绝；不能只交空接口 |
 | B1 | official.document 新增模型、增量迁移、owner 策略、rich_text/file_resource、状态/固定版本/绑定/引用、受权 Commands/Queries | G0；文件型集成依赖 R0 | 租户/owner/slot 不变量；不修改旧迁移/旧 ID；同一业务拥有者事务协调 |
 | B2 | official.rich-text 的 Tiptap/Yjs/工具适配、稳定媒体节点、富文本清洗；File picker 复用 | T0、B1 DTO；媒体集成依赖 R0 | 保留旧组件导出；富文本是工具 provider，不承担 Office；JSON 不与 Yjs 双写 |

@@ -14,6 +14,36 @@ class FileController extends BaseAdminController
 {
     protected string $filesClass = FileAdministration::class;
 
+    public function resolve()
+    {
+        $input = $this->request->post();
+        if (array_diff(array_keys($input), ['file_key', 'operation', 'document_id', 'variant_key', 'viewer_adapter_id']) !== []) {
+            throw BusinessException::invalid('FILE_ACCESS_INPUT_INVALID', '资源操作字段无效');
+        }
+        $fileKey = $input['file_key'] ?? null;
+        $operation = $input['operation'] ?? null;
+        if (!is_string($fileKey) || !is_string($operation)
+            || preg_match('/^file_[0-9a-f]{32}$/D', $fileKey) !== 1
+            || !in_array($operation, ['preview', 'download_original', 'manage'], true)) {
+            throw BusinessException::invalid('FILE_ACCESS_INPUT_INVALID', '资源操作无效');
+        }
+        $documentId = isset($input['document_id']) ? $this->integerValue($input['document_id'], '文档 ID 无效') : null;
+        $variant = $input['variant_key'] ?? null;
+        $viewer = $input['viewer_adapter_id'] ?? null;
+        if ($documentId !== null && ($documentId < 1 || $operation !== 'preview')) {
+            throw BusinessException::invalid('FILE_ACCESS_INPUT_INVALID', '文档仅可授权资源预览');
+        }
+        if ($viewer !== null && (!is_string($viewer) || $viewer === '' || strlen($viewer) > 128)) {
+            throw BusinessException::invalid('FILE_ACCESS_INPUT_INVALID', '查看工具无效');
+        }
+        if ($variant !== null && (!is_string($variant) || preg_match('/^[a-z][a-z0-9-]{0,31}$/D', $variant) !== 1)) {
+            throw BusinessException::invalid('FILE_ACCESS_INPUT_INVALID', '资源变体无效');
+        }
+        return $this->data(app(\PeanutAdmin\Modules\File\Contract\FileAccess::class)->resolve(
+            $this->executionContext()->tenantAdmin(), $fileKey, $operation, $documentId, $variant, $viewer,
+        ));
+    }
+
     // ---- 文件 ----
     public function lists()
     {

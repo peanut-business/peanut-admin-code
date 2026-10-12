@@ -20,6 +20,8 @@ return [
         'POST adminapi/tenant/session/logout',
     ],
     'authenticated' => [
+        // File resolves its operation and current Document/File policy inside the use case.
+        'POST adminapi/api/v1/files/resolve',
         'POST adminapi/user/info',
         'POST adminapi/user/menu',
         'GET adminapi/login/info',

@@ -12,6 +12,10 @@
     {
       "module_key": "official.identity",
       "version": "4.0.0-rc.24"
+    },
+    {
+      "module_key": "official.content-tools",
+      "version": "1.0.0"
     }
   ],
   "lifecycle": {
@@ -37,7 +41,9 @@
       "pa_file_object",
       "pa_file_image_asset",
       "pa_file_derivative",
-      "pa_file_delivery_nonce"
+      "pa_file_delivery_nonce",
+      "pa_file_delivery_grant",
+      "pa_file_reference"
     ]
   },
   "contracts": {
@@ -49,7 +55,11 @@
       "PeanutAdmin\\Modules\\File\\Contract\\FileDerivatives",
       "PeanutAdmin\\Modules\\File\\Contract\\FileStorage",
       "PeanutAdmin\\Modules\\File\\Contract\\Dto\\UploadFile",
-      "PeanutAdmin\\Modules\\File\\Contract\\StorageConfiguration"
+      "PeanutAdmin\\Modules\\File\\Contract\\StorageConfiguration",
+      "PeanutAdmin\\Modules\\File\\Contract\\FileAccess",
+      "PeanutAdmin\\Modules\\File\\Contract\\FileReferenceCommands",
+      "PeanutAdmin\\Modules\\File\\Contract\\FileDocumentReferencePolicy",
+      "PeanutAdmin\\Modules\\File\\Contract\\FileDocumentReferenceContributor"
     ],
     "events": []
   },
@@ -57,7 +67,8 @@
     "enableable": true,
     "disable_behavior": "reject_new_operations",
     "requires": [
-      "official.identity"
+      "official.identity",
+      "official.content-tools"
     ]
   }
 }

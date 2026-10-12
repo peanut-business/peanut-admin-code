@@ -53,6 +53,14 @@ class ExampleController extends BaseAdminController
 决策状态：已生效。
 声明用途、数量、格式和引用；现有文件模块统一上传/访问/临时文件/补偿。头像、封面、附件复用；保存稳定引用，不存临时签名 URL，保留旧存储绑定和权限。
 
+受控资源只持久化 `file_[32 位十六进制]`，拒绝外部媒体地址、临时交付链接和物理存储路径。读取通过 `FileAccess::resolve(TenantContext, fileKey, operation, documentId?, variantKey?, viewerAdapterId?)` 或登录后的 `POST /adminapi/api/v1/files/resolve`，操作为 `preview`、`download_original`、`manage`。File 每次签发和交付均复核持久 session、当前成员授权、模块状态、资源状态与修订；预览不授予原件下载。没有下载权时只交付已登记且核验真实字节的衍生内容，没有适配工具或衍生能力则返回 `preview_unavailable`。File 只消费 Content Tools 的显式选择合同。
+
+Document 通过其正式 provider 贡献 `FileDocumentReferencePolicy`；缺少 provider 时包括空引用集合在内一律拒绝。`FileReferenceCommands::replaceDocumentReferences` 必须由 owner 的业务保存事务调用，provider 在同一 ThinkPHP 连接中锁定、核权并返回当前持久引用；File 索引与该事务一起提交，保护资源删除。文档授权仅可继承当前获准引用的预览，涉密附件、原件下载和管理均需要独立 File 权限。前端薄封装 `createFileContentCallbacks` 每次解析短时地址，不把地址保存为正文。
+
+应用交付地址的撤权不证明旧物理源站或 CDN 已撤销；公开空间迁移与物理撤销由 File 的资源阶段一单独验证。当前衍生绑定核验图像真实尺寸/MIME/SHA-256；尚无生产衍生处理器的格式明确不可预览，不以原件地址冒充衍生预览。
+
+同步 XLSX 导出在创建临时文件或对象前通过 `FileStorage::requireOriginalDownloadPermission` 复核可信当前 session、File 模块和独立原件下载权限；`export.xlsx` 存储后再按当前对象授权签发 `download_original` 地址。存储后的授权或返回准备失败由 File 内部同次新上传凭证补偿，保留原错误；未知物理删除结果保持不可交付并记录待处理。主动或未知 MIME（包括 HTML、SVG）在公开和私有交付均为附件；只有已核验的安全图像/音视频 MIME 可内联。
+
 ### APP-R09：统一服务配置入口
 决策状态：已生效。
 声明提供方与配置，通过[四种绑定策略](../architecture/service-bindings.md)解析有效配置/秘密引用。存储/短信不各自猜继承；不下发平台密钥，不因自定义失败静默借用平台付费渠道；复用现有 Service Binding。

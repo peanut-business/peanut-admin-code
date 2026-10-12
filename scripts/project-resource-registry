@@ -23,8 +23,8 @@ def fail(message: str) -> None:
     raise SystemExit(f"project-resource-registry: {message}")
 
 
-def p0e_maintainer_source(expected_sha256: str) -> Path:
-    """Resolve only the maintainer qualification source from the registered workspace."""
+def maintainer_source(expected_sha256: str) -> Path:
+    """Resolve the exact lease-bound maintainer source from the registered workspace."""
     def git(root: Path, *arguments: str) -> bytes:
         result = subprocess.run(["git", "-C", str(root), *arguments], capture_output=True, check=False)
         if result.returncode != 0 or result.stderr.strip():
@@ -292,6 +292,8 @@ def main() -> int:
     subparsers = parser.add_subparsers(dest="command", required=True)
     p0e_source_parser = subparsers.add_parser("p0e-maintainer-source")
     p0e_source_parser.add_argument("--sha256", required=True)
+    maintainer_source_parser = subparsers.add_parser("maintainer-source")
+    maintainer_source_parser.add_argument("--sha256", required=True)
 
     database_parser = subparsers.add_parser("database-env")
     database_parser.add_argument("--deployment-target", required=True)
@@ -320,8 +322,8 @@ def main() -> int:
     args = parser.parse_args()
     registry = load_registry()
 
-    if args.command == "p0e-maintainer-source":
-        source = p0e_maintainer_source(args.sha256)
+    if args.command in ("p0e-maintainer-source", "maintainer-source"):
+        source = maintainer_source(args.sha256)
         if registry["authority"]["role"] != "maintainer":
             fail("P0-E registry must declare the maintainer role")
         print(source)

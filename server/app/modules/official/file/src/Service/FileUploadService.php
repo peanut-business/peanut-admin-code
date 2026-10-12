@@ -130,7 +130,13 @@ final class FileUploadService implements FileUploads
                 return $file;
             });
         } catch (\Throwable $exception) {
-            $this->storage->delete($tenantId, $stored['file_key']);
+            try {
+                $this->storage->discardFailedUpload($context, $stored);
+            } catch (\Throwable $compensation) {
+                \app\common\infrastructure\runtime\OperationalLog::warning($this->executionContext, 'file_upload_compensation_failed', [
+                    'file_key' => $stored['file_key'], 'exception' => $compensation::class,
+                ]);
+            }
             throw $exception;
         }
 
