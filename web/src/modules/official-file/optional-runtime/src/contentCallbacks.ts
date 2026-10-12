@@ -1,12 +1,15 @@
 import { getToken } from '@/utils/auth';
+import parseSurfaceCapabilities from '@/modules/official-content-tools/src/capabilities';
 import type {
   FileResourceContent,
   SurfaceCallbacks,
   AuthorizedPreviewAccess,
-} from '../../../official-content-tools/src/contracts';
+} from '@/modules/official-content-tools/src';
 
 export interface FileContentCallbackOptions {
   readonly documentId?: number;
+  /** A fixed derivative selection, verified against the server's actual selected record. */
+  readonly variantKey?: string | null;
   readonly viewerAdapterId: string;
   readonly canDownloadOriginal: () => boolean;
 }
@@ -36,6 +39,11 @@ const deliveryUrl = (value: unknown): string => {
 export const createFileContentCallbacks = (
   options: FileContentCallbackOptions
 ): SurfaceCallbacks => {
+  if (
+    options.variantKey != null &&
+    !/^[a-z][a-z0-9-]{0,31}$/.test(options.variantKey)
+  )
+    throw new Error('FILE_VARIANT_KEY_INVALID');
   const resolve = async (
     content: FileResourceContent,
     operation: 'preview' | 'download_original',
@@ -56,6 +64,9 @@ export const createFileContentCallbacks = (
         ...(operation === 'preview'
           ? {
               viewer_adapter_id: options.viewerAdapterId,
+              ...(options.variantKey == null
+                ? {}
+                : { variant_key: options.variantKey }),
               ...(options.documentId === undefined
                 ? {}
                 : { document_id: options.documentId }),
@@ -79,6 +90,30 @@ export const createFileContentCallbacks = (
       !['original', 'derivative'].includes(String(data.bytes))
     )
       throw new Error('FILE_ACCESS_RESPONSE_INVALID');
+    if (operation === 'preview') {
+      const capability = parseSurfaceCapabilities(data.capabilities);
+      if (
+        capability.contentKind !== 'file_resource' ||
+        !capability.canView ||
+        !['available', 'read_only'].includes(capability.state) ||
+        capability.viewerAdapterId !== options.viewerAdapterId ||
+        capability.verifiedMimeType !== data.media_type ||
+        (data.bytes === 'original' &&
+          (data.media_type !== content.verifiedMimeType ||
+            data.delivery_file_key !== content.fileKey ||
+            data.variant_key !== null)) ||
+        (data.bytes === 'derivative' &&
+          (typeof data.variant_key !== 'string' ||
+            !/^[a-z][a-z0-9-]{0,31}$/.test(data.variant_key) ||
+            typeof data.delivery_file_key !== 'string' ||
+            !/^file_[0-9a-f]{32}$/.test(data.delivery_file_key) ||
+            data.delivery_file_key === content.fileKey)) ||
+        (options.variantKey != null &&
+          (data.variant_key !== options.variantKey ||
+            data.bytes !== 'derivative'))
+      )
+        throw new Error('FILE_VARIANT_RECEIPT_INVALID');
+    }
     if (
       operation === 'download_original' &&
       (data.bytes !== 'original' ||
@@ -91,7 +126,10 @@ export const createFileContentCallbacks = (
   };
 
   return {
-    resolvePreview: async (content, signal): Promise<AuthorizedPreviewAccess> => {
+    resolvePreview: async (
+      content,
+      signal
+    ): Promise<AuthorizedPreviewAccess> => {
       const data = await resolve(content, 'preview', signal);
       if (!options.canDownloadOriginal() && data.bytes !== 'derivative')
         throw new Error('FILE_PREVIEW_ORIGINAL_FORBIDDEN');

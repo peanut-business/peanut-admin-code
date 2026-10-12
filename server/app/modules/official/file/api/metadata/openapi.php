@@ -320,6 +320,7 @@ return [
                     'can_manage' => ['type' => 'boolean'], 'can_download_original' => ['type' => 'boolean'],
                     'state' => ['type' => 'string'], 'purpose' => ['type' => 'string', 'enum' => ['preview', 'download_original']],
                     'bytes' => ['type' => 'string', 'enum' => ['original', 'derivative']],
+                    'variant_key' => ['type' => 'string', 'nullable' => true, 'pattern' => '^[a-z][a-z0-9-]{0,31}$', 'description' => 'The actual selected derivative variant; null for original bytes.'],
                     'authorization_revision' => ['type' => 'string'], 'expires_at' => ['type' => 'integer'],
                     'url' => ['type' => 'string', 'nullable' => true],
                     'capabilities' => ['type' => 'object', 'additionalProperties' => true],

@@ -35,8 +35,9 @@ final class ModuleProvider implements ModuleProviderContract
     public function scheduler(
         TaskJobRuntime $tasks,
         CrontabSchedulerService $crontabs,
+        ExecutionContextStore $execution,
     ): TaskScheduler {
-        return new TaskSchedulerService($tasks, $crontabs);
+        return new TaskSchedulerService($tasks, $crontabs, $execution);
     }
 
     public function jobs(
@@ -85,6 +86,7 @@ final class ModuleProvider implements ModuleProviderContract
             TaskScheduler::class => fn(App $app): TaskScheduler => $this->scheduler(
                 $app->make(TaskJobRuntime::class),
                 $app->make(CrontabSchedulerService::class),
+                $app->make(ExecutionContextStore::class),
             ),
         ];
     }

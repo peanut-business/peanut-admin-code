@@ -40038,6 +40038,12 @@
                                     "derivative"
                                 ]
                             },
+                            "variant_key": {
+                                "type": "string",
+                                "nullable": true,
+                                "pattern": "^[a-z][a-z0-9-]{0,31}$",
+                                "description": "The actual selected derivative variant; null for original bytes."
+                            },
                             "authorization_revision": {
                                 "type": "string"
                             },

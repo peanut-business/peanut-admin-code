@@ -30,6 +30,9 @@ abstract class ContextualCommand extends Command
         }
 
         try {
+            if (!$this->establishesInstanceContext()) {
+                return $this->handle($input, $output);
+            }
             return $this->contexts->run(
                 new InstanceExecutionContext(
                     'console.' . $this->getName(),
@@ -61,6 +64,12 @@ abstract class ContextualCommand extends Command
     final protected function establishedInstanceContext(): bool
     {
         return $this->establishedInstanceContext;
+    }
+
+    /** Tenant Task entrypoints establish an authorized root for each job instead. */
+    protected function establishesInstanceContext(): bool
+    {
+        return true;
     }
 
     abstract protected function handle(Input $input, Output $output): int;

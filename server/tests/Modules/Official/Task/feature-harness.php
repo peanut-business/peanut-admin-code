@@ -246,7 +246,18 @@ SQL)->fetchColumn();
     expectProblem('TASK_PERMISSION_DENIED', fn() => $admin->list(context(101, TaskJobService::RESOURCE_KEY, 'manage'), 'queued', 1, 20), 'read permission operation');
 
     $handler = new HarnessHandler();
-    $worker = new LocalWorker(101, 'worker-local-01', $repository, new TaskHandlerRegistry([$handler]), new JobHandlerAdapter($codec, new HarnessRevalidator()), 30);
+    // Explicit fixture lifecycle; native Runtime/CLI integration is covered separately.
+    $jobContexts = new \app\common\execution\ExecutionContextStore();
+    $jobRoot = static function ($context, $claim, \Closure $handle) use ($jobContexts): void {
+        if (!$jobContexts->isEmpty()) {
+            throw new \DomainException('TASK_EXECUTION_ROOT_REQUIRED');
+        }
+        $jobContexts->run(new \app\common\execution\SystemExecutionContext(
+            new \PeanutAdmin\Kernel\Context\TenantSystemContext($claim->tenantId, 'task-worker', 'async.worker', $claim->jobKey),
+            new \app\common\execution\SystemExecutionMetadata($claim->jobKey, $claim->attemptNumber, $claim->handlerKey),
+        ), $handle);
+    };
+    $worker = new LocalWorker(101, 'worker-local-01', $repository, new TaskHandlerRegistry([$handler]), new JobHandlerAdapter($codec, new HarnessRevalidator()), $jobRoot, 30);
     assertSame('queued', $worker->runOnce(), 'retryable failure schedules retry');
     $pdo->exec("UPDATE pa_task_job SET available_at = UTC_TIMESTAMP(3) WHERE job_key = " . $pdo->quote($job->jobKey));
     assertSame('succeeded', $worker->runOnce(), 'bounded retry succeeds');
@@ -277,6 +288,7 @@ SQL)->fetchColumn();
             $repository,
             new TaskHandlerRegistry([$handler]),
             new JobHandlerAdapter($codec, new HarnessRevalidator($drift)),
+            $jobRoot,
             30,
         );
         assertSame('dead', $driftWorker->runOnce(), 'revalidated ' . $drift . ' drift fails closed');
@@ -296,6 +308,7 @@ SQL)->fetchColumn();
         $repository,
         new TaskHandlerRegistry([$successHandler]),
         new JobHandlerAdapter($codec, new HarnessRevalidator('reorder_targets')),
+        $jobRoot,
         30,
     );
     assertSame('succeeded', $targetWorker->runOnce(), 'target set ordering is normalized');
@@ -324,7 +337,7 @@ SQL)->fetchColumn();
     Db::transaction(fn() => $repository->succeed($attemptRecovered));
 
     $missing = $publisher->publish($producer101, 'test.missing', ['message' => 'missing'], 'idem-missing');
-    $missingWorker = new LocalWorker(101, 'worker-missing', $repository, new TaskHandlerRegistry(), new JobHandlerAdapter($codec, new HarnessRevalidator()), 30);
+    $missingWorker = new LocalWorker(101, 'worker-missing', $repository, new TaskHandlerRegistry(), new JobHandlerAdapter($codec, new HarnessRevalidator()), $jobRoot, 30);
     assertSame('dead', $missingWorker->runOnce(), 'unknown handler fails closed');
     assertSame('TASK_HANDLER_UNAVAILABLE', $admin->detail(context(101, TaskJobService::RESOURCE_KEY, 'read'), $missing->jobKey)->lastErrorCode, 'handler error is stable and redacted');
 

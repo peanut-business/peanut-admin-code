@@ -30,6 +30,11 @@ final class TenantTaskWorker extends ContextualCommand
             ->addArgument('tenant_id', Argument::REQUIRED, 'Tenant ID');
     }
 
+    protected function establishesInstanceContext(): bool
+    {
+        return false;
+    }
+
     protected function handle(Input $input, Output $output): int
     {
         $raw = (string) $input->getArgument('tenant_id');

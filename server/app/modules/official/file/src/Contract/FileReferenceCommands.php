@@ -10,4 +10,6 @@ interface FileReferenceCommands
 {
     /** Rebuild only a currently authorized Document's references, in the caller's transaction. @param list<string> $fileKeys */
     public function replaceDocumentReferences(TenantContext $context, int $documentId, array $fileKeys): void;
+    /** Authorize historical references without changing the index or issuing delivery. Requires caller transaction. @param list<string> $fileKeys */
+    public function assertDocumentReferencesReadable(TenantContext $context, int $documentId, array $fileKeys): void;
 }

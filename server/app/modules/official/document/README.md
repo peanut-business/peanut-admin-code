@@ -35,6 +35,27 @@ produced by `RichTextProjection`, independently of MySQL's JSON formatting. Read
 a version returns its own references, not the current draft's reference set.
 Restoring a version appends another version.
 
+An owner that prepares a version outside its transaction and then locks its own
+record may call `DocumentQueries::verifyPreparedVersion(context, snapshot,
+expectedOwner)` inside that same connection's transaction. All three parameters
+are required; `DocumentOwnerReference` includes module, object type, ID and slot.
+The native container's shared Document service recognizes only the original DTO
+returned in the same outer Admin execution lifetime. New, cloned or serialized
+DTOs are data, not proof. The private PHP WeakMap binds all snapshot fields,
+current actor/session/revision, owner and opaque root identity, with a 120-second
+monotonic lifetime. No proof crosses requests, containers, jobs or processes.
+Ordinary reads without an external Admin root still work but do not mint proof.
+The existing prohibition on preparing a version in an outer transaction remains.
+
+Verification may repeat in two transactions during that same action. It repeats
+live session, owner, Document and File authorization and locks owner, Document,
+immutable revision, then sorted File objects. It compares the complete persisted
+snapshot and digest; current draft edits do not replace historical references.
+File's read-only reference and claimed-snapshot checks issue no delivery, change
+no index and perform no provider I/O. SHA/MIME metadata checks do not constitute
+a fresh physical-storage integrity measurement. System Task contexts cannot
+become Admin Document proof; this contract does not enable a Document worker.
+
 File versions capture the independently authorized original into a new private
 File object before the owner transaction. Capture binds the source revision and
 SHA-256, verifies MIME and actual copied bytes, and refuses an existing outer

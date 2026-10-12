@@ -24,4 +24,9 @@ final readonly class FileAccessService implements FileAccess
         }
         return array_map(fn(string $key): array => $this->resolve($context, $key, $operation), $fileKeys);
     }
+
+    public function attachmentSnapshot(TenantContext $context, string $fileKey): array
+    {
+        return $this->storage->attachmentSnapshot($context, $fileKey);
+    }
 }

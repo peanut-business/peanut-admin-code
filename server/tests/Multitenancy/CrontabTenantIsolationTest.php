@@ -222,6 +222,7 @@ $tasks = $taskProvider->jobs(
 $scheduler = $taskProvider->scheduler(
     $tasks,
     app(\PeanutAdmin\Modules\Task\Service\CrontabSchedulerService::class),
+    app(ExecutionContextStore::class),
 );
 $scheduler->runDue($windowNow);
 

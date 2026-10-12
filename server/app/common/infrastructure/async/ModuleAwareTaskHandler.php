@@ -6,10 +6,8 @@ namespace app\common\infrastructure\async;
 
 use app\common\execution\ExecutionContextStore;
 use app\common\execution\SystemExecutionContext;
-use app\common\execution\SystemExecutionMetadata;
 use app\common\infrastructure\module\ModuleExecutionBoundary;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
-use PeanutAdmin\Kernel\Context\TenantSystemContext;
 use PeanutAdmin\Modules\Task\Contract\JobExecution;
 use PeanutAdmin\Modules\Task\Contract\TaskHandler;
 use PeanutAdmin\Modules\Task\Job\Application\TaskJobException;
@@ -37,32 +35,22 @@ final readonly class ModuleAwareTaskHandler implements TaskHandler
 
     public function handle(AuthorizedOperationContext $context, JobExecution $execution): void
     {
-        $systemContext = new SystemExecutionContext(
-            new TenantSystemContext(
-                $context->tenantContext->tenantId,
-                'task-worker',
-                'async.worker',
-                $execution->jobKey,
-            ),
-            new SystemExecutionMetadata($execution->jobKey, $execution->attemptNumber, $this->key()),
-        );
-        $execution->addAuthorizationCheck(function () use ($systemContext): void {
-            $this->executionContexts->run($systemContext, function (): void {
-                try {
-                    $this->modules->assertWorker('official.task');
-                    $this->modules->assertWorker($this->moduleKey);
-                } catch (AuthException|ModuleException|\DomainException) {
+        $execution->addAuthorizationCheck(function () use ($context, $execution): void {
+            try {
+                $ambient = $this->executionContexts->require();
+                if (!$ambient instanceof SystemExecutionContext || $ambient->tenantId() !== $context->tenantContext->tenantId
+                    || $ambient->metadata->jobKey !== $execution->jobKey || $ambient->metadata->attemptNumber !== $execution->attemptNumber
+                    || $ambient->metadata->handlerKey !== $this->key() || $this->executionContexts->rootIdentity() === null) {
                     throw TaskJobException::denied();
                 }
-            });
+                $this->modules->assertWorker('official.task');
+                $this->modules->assertWorker($this->moduleKey);
+            } catch (AuthException|ModuleException|\DomainException) {
+                throw TaskJobException::denied();
+            }
         });
         $execution->checkpoint();
-        $this->executionContexts->run(
-            $systemContext,
-            function () use ($context, $execution): void {
-                $this->inner->handle($context, $execution);
-                $execution->assertLeaseOwned();
-            },
-        );
+        $this->inner->handle($context, $execution);
+        $execution->assertLeaseOwned();
     }
 }

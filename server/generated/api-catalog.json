@@ -48,7 +48,7 @@
         },
         {
             "path": "server/app/modules/official/file/api/metadata/openapi.php",
-            "sha256": "8c2196bf429dad4fbfc15faf90a44607412db2836c4e5455f85ecc2e0ded09f2"
+            "sha256": "9b100ef4c7dd62c64cce9a7803a1ab7750a9f34353c0a405d6e8a81b2d1bca72"
         },
         {
             "path": "server/app/modules/official/file/route/app.php",

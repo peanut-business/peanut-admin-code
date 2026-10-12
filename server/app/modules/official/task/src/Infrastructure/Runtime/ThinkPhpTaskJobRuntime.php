@@ -25,6 +25,11 @@ use PeanutAdmin\Modules\Task\Contract\TaskSubmissionProvider;
 use PeanutAdmin\Modules\Task\Job\Submission\TaskSubmissionRegistry;
 use PeanutAdmin\Modules\Task\Contract\TrustedJobPublisher;
 use PeanutAdmin\Kernel\Tenancy\TenantScope;
+use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
+use PeanutAdmin\Kernel\Context\TenantSystemContext;
+use PeanutAdmin\Modules\Task\Job\Execution\JobClaim;
+use app\common\execution\SystemExecutionContext;
+use app\common\execution\SystemExecutionMetadata;
 
 final readonly class ThinkPhpTaskJobRuntime implements TaskJobRuntime
 {
@@ -73,6 +78,9 @@ final readonly class ThinkPhpTaskJobRuntime implements TaskJobRuntime
 
     public function runTenant(int $tenantId, string $workerId): int
     {
+        if (!$this->executionContexts->isEmpty()) {
+            throw new \DomainException('TASK_EXECUTION_ROOT_REQUIRED');
+        }
         if ($tenantId < 1) {
             throw new \runtimeException('ASYNC_TENANT_INVALID');
         }
@@ -95,6 +103,18 @@ final readonly class ThinkPhpTaskJobRuntime implements TaskJobRuntime
             $this->repository,
             new TaskHandlerRegistry($handlers),
             new JobHandlerAdapter($this->envelopes(), new TaskAuthorizationRouter($definitions)),
+            function (AuthorizedOperationContext $context, JobClaim $claim, Closure $handle): void {
+                if (!$this->executionContexts->isEmpty() || $context->tenantContext->tenantId !== $claim->tenantId) {
+                    throw new \DomainException('TASK_EXECUTION_ROOT_REQUIRED');
+                }
+                $this->executionContexts->run(
+                    new SystemExecutionContext(
+                        new TenantSystemContext($claim->tenantId, 'task-worker', 'async.worker', $claim->jobKey),
+                        new SystemExecutionMetadata($claim->jobKey, $claim->attemptNumber, $claim->handlerKey),
+                    ),
+                    $handle,
+                );
+            },
         );
 
         $processed = 0;

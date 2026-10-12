@@ -7693,6 +7693,8 @@ export interface components {
                 purpose?: "preview" | "download_original";
                 /** @enum {string} */
                 bytes?: "original" | "derivative";
+                /** @description The actual selected derivative variant; null for original bytes. */
+                variant_key?: string | null;
                 authorization_revision?: string;
                 expires_at?: number;
                 url?: string | null;

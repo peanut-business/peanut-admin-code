@@ -35,6 +35,11 @@ class Crontab extends ContextualCommand
         $this->setName('crontab')->setDescription('定时任务调度器');
     }
 
+    protected function establishesInstanceContext(): bool
+    {
+        return false;
+    }
+
     protected function handle(Input $input, Output $output): int
     {
         try {

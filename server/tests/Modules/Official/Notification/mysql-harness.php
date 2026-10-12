@@ -224,12 +224,24 @@ try {
             $this->inner->handle($context, $execution);
         }
     };
+    // Explicit fixture lifecycle; native Runtime/CLI integration is covered separately.
+    $jobContexts = new \app\common\execution\ExecutionContextStore();
+    $jobRoot = static function ($context, $claim, \Closure $handle) use ($jobContexts): void {
+        if (!$jobContexts->isEmpty()) {
+            throw new \DomainException('TASK_EXECUTION_ROOT_REQUIRED');
+        }
+        $jobContexts->run(new \app\common\execution\SystemExecutionContext(
+            new \PeanutAdmin\Kernel\Context\TenantSystemContext($claim->tenantId, 'task-worker', 'async.worker', $claim->jobKey),
+            new \app\common\execution\SystemExecutionMetadata($claim->jobKey, $claim->attemptNumber, $claim->handlerKey),
+        ), $handle);
+    };
     $lostWorker = new LocalWorker(
         101,
         'notification-lease-loss',
         new TaskJobStore(),
         new TaskHandlerRegistry([$leaseLosingHandler]),
         new JobHandlerAdapter(new TrustedEnvelopeCodec(str_repeat('e', 32)), $revalidator),
+        $jobRoot,
         30,
     );
     same('lease_lost', $lostWorker->runOnce(), 'expired inbox claim is fenced');
@@ -242,6 +254,7 @@ try {
         new TaskJobStore(),
         new TaskHandlerRegistry([$inboxHandler]),
         new JobHandlerAdapter(new TrustedEnvelopeCodec(str_repeat('e', 32)), $revalidator),
+        $jobRoot,
         30,
     );
     same('succeeded', $recoveryWorker->runOnce(), 'expired inbox claim is recovered and consumed');

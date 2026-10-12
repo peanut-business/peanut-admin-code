@@ -315,6 +315,31 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
         $this->authorization->requireOriginalDownloadPermission($context);
     }
 
+    public function attachmentSnapshot(TenantContext $context, string $fileKey): array
+    {
+        $actor = $this->execution->tenantAdmin();
+        if ($actor->tenantId !== $context->tenantId || $actor->accountId !== $context->accountId || $actor->memberId !== $context->memberId
+            || $actor->clientKey !== $context->clientKey || !hash_equals($actor->sessionKey, $context->sessionKey)) {
+            throw BusinessException::forbidden('FILE_CONTEXT_MISMATCH', '资源与当前可信会话不一致');
+        }
+        if (preg_match('/^file_[0-9a-f]{32}$/D', $fileKey) !== 1) {
+            throw BusinessException::invalid('FILE_KEY_INVALID', '资源引用无效');
+        }
+        $object = $this->deliverableObjectForTenant($context->tenantId, $fileKey);
+        if ($object === null) {
+            throw BusinessException::notFound('FILE_NOT_FOUND', '资源不存在');
+        }
+        $this->authorization->authorize($context, $object, 'preview');
+        if (!is_string($object['original_name']) || strlen($object['original_name']) > 255
+            || preg_match('/^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/D', (string) $object['media_type']) !== 1
+            || strlen((string) $object['media_type']) > 127 || (int) $object['size_bytes'] < 0
+            || preg_match('/^[0-9a-f]{64}$/D', (string) $object['sha256']) !== 1) {
+            throw BusinessException::conflict('FILE_ATTACHMENT_METADATA_INVALID', '资源登记元数据无效');
+        }
+        return ['file_key' => $fileKey, 'original_name' => $object['original_name'], 'verified_mime_type' => $object['media_type'],
+            'size_bytes' => (int) $object['size_bytes'], 'sha256' => $object['sha256']];
+    }
+
     public function describeForDocument(TenantContext $context, string $fileKey): array
     {
         $object = $this->deliverableObjectForTenant($context->tenantId, $fileKey);
@@ -323,6 +348,27 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
         }
         $this->authorization->authorize($context, $object, 'preview');
         return ['file_key' => $fileKey,'verified_mime_type' => (string) $object['media_type'],'sha256' => (string) $object['sha256'],'revision' => (int) $object['revision']];
+    }
+
+    public function assertDocumentSnapshotReadable(TenantContext $context, int $documentId, string $fileKey, string $sha256, string $verifiedMimeType): void
+    {
+        $actor = $this->execution->tenantAdmin();
+        if ($actor->tenantId !== $context->tenantId || $actor->accountId !== $context->accountId || $actor->memberId !== $context->memberId
+            || $actor->clientKey !== $context->clientKey || !hash_equals($actor->sessionKey, $context->sessionKey)) {
+            throw BusinessException::forbidden('FILE_REFERENCE_CONTEXT_MISMATCH', '引用与当前可信会话不一致');
+        }
+        if (!(($pdo = Db::connect()->getPdo()) instanceof \PDO) || !$pdo->inTransaction()) {
+            throw BusinessException::conflict('FILE_REFERENCE_TRANSACTION_REQUIRED', '历史快照复核必须在业务事务内');
+        }
+        $object = $this->lockedReferenceObject($context, $fileKey);
+        $capture = FileImmutableSnapshot::where('file_key', $fileKey)->lock(true)->find();
+        if ($capture === null || $capture->status !== 'claimed' || (int) $capture->claimed_document_id !== $documentId
+            || !in_array($object['purpose'], ['document.snapshot', 'document.snapshot-sensitive'], true) || $object['access_type'] !== 'private'
+            || !hash_equals($sha256, (string) $object['sha256']) || !hash_equals($sha256, (string) $capture->source_sha256)
+            || $verifiedMimeType !== $object['media_type'] || $verifiedMimeType !== $capture->verified_mime_type) {
+            throw BusinessException::conflict('FILE_DOCUMENT_SNAPSHOT_CHANGED', '不可变文件快照与文档版本不一致');
+        }
+        $this->authorization->authorizeDocumentReference($context, $object, $documentId);
     }
 
     /** File-internal reference locking/enrichment; never exposed by a cross-module or HTTP contract. */
@@ -610,6 +656,7 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
             return ['file_key' => $fileKey, 'revision' => (int) $source['revision'], 'can_manage' => true];
         }
         $target = $source;
+        $selectedVariantKey = null;
         if ($operation === 'preview' && (!$canDownload || $variantKey !== null)) {
             $query = Db::name('file_derivative')->where('source_file_key', $fileKey);
             if ($this->dataScopePolicy->usesTenantColumn()) {
@@ -624,6 +671,7 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
                 || !in_array($target['media_type'], ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'], true)) {
                 return ['file_key' => $fileKey, 'state' => 'preview_unavailable', 'can_download_original' => $canDownload, 'url' => null];
             }
+            $selectedVariantKey = (string) $variant['variant_key'];
         }
         $capability = $this->capabilities->resolve(new \PeanutAdmin\Modules\ContentTools\Contract\AuthorizedContentContext(
             'file_resource',
@@ -644,6 +692,7 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
             'original_name' => (string) $source['original_name'], 'revision' => (int) $source['revision'],
             'state' => 'available', 'purpose' => $operation === 'preview' ? 'preview' : 'download_original',
             'bytes' => $target['file_key'] === $fileKey ? 'original' : 'derivative',
+            'variant_key' => $selectedVariantKey,
             'can_download_original' => $canDownload, 'authorization_revision' => $grant['authorization_revision'],
             'capabilities' => $capability,
             'expires_at' => (time() + 300) * 1000,

@@ -6,10 +6,13 @@ namespace PeanutAdmin\Modules\Document\Service;
 
 use app\common\exception\BusinessException;
 use app\common\services\audit\AuditContractHost;
+use app\common\execution\AdminExecutionContext;
+use app\common\execution\ExecutionContextStore;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Modules\Document\Contract\DocumentCommands;
 use PeanutAdmin\Modules\Document\Contract\DocumentQueries;
 use PeanutAdmin\Modules\Document\Contract\DocumentOwnerReference;
+use PeanutAdmin\Modules\Document\Contract\VersionSnapshot;
 use PeanutAdmin\Modules\Document\Model\Document;
 use PeanutAdmin\Modules\Document\Model\DocumentState;
 use PeanutAdmin\Modules\Document\Model\DocumentRevision;
@@ -28,6 +31,9 @@ use think\facade\Db;
 /** One native owner/Document transaction per mutation; versions and command receipts are append-only. */
 final readonly class DocumentService implements DocumentCommands, DocumentQueries, FileDocumentReferencePolicy
 {
+    private \WeakMap $preparedVersions;
+    private const PREPARED_LIFETIME_NANOSECONDS = 120_000_000_000;
+
     public function __construct(
         private DocumentAuthorizationService $authorization,
         private FileReferenceCommands $references,
@@ -35,7 +41,10 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
         private FileStorage $files,
         private AuditContractHost $audit,
         private ContentCapabilitiesService $tools,
-    ) {}
+        private ExecutionContextStore $execution,
+    ) {
+        $this->preparedVersions = new \WeakMap();
+    }
 
     public function create(TenantContext $context, DocumentOwnerReference $owner, string $contentKind, string $requestId, ?string $fileKey = null): array
     {
@@ -297,29 +306,95 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
 
     public function versionSnapshot(TenantContext $context, int $documentId, int $revisionId): \PeanutAdmin\Modules\Document\Contract\VersionSnapshot
     {
+        // Capture the external lifetime before DocAuth creates its transient nested run.
+        $root = $this->execution->current() instanceof AdminExecutionContext ? $this->execution->rootIdentity() : null;
         if (($pdo = Db::connect()->getPdo()) instanceof \PDO && $pdo->inTransaction()) {
             throw BusinessException::conflict('DOCUMENT_VERSION_NOT_COMMITTED', '不可把外层事务中的版本声明为已提交');
         }
-        return $this->authorization->run($context, function (TenantContext $current) use ($documentId, $revisionId) {
+        return $this->authorization->run($context, function (TenantContext $current) use ($documentId, $revisionId, $root) {
             $document = $this->authorization->document($current, $documentId, 'view');
             $revision = $this->revision($document, $revisionId);
-            $content = $revision->content_snapshot_json === null ? null : self::json($revision->content_snapshot_json);
-            $refs = $content === null ? [['file_key' => (string) $revision->immutable_file_key,'variant_key' => null]] : RichTextProjection::fromStructured($content)->fileReferences;
-            return new \PeanutAdmin\Modules\Document\Contract\VersionSnapshot(
-                $current->tenantId,
-                $documentId,
-                $revisionId,
-                (int) $revision->revision_no,
-                (int) $revision->source_state_seq,
-                (string) $revision->content_kind,
-                (string) $revision->snapshot_sha256,
-                $content,
-                $revision->immutable_file_key,
-                $revision->immutable_file_sha256,
-                $revision->immutable_file_mime_type,
-                $refs,
-            );
+            $snapshot = $this->snapshotFromRevision($current, $document, $revision);
+            if ($root !== null && $root === $this->execution->rootIdentity()) {
+                $this->preparedVersions[$snapshot] = [
+                    'root' => $root, 'actor' => self::preparedActor($current), 'owner' => DocumentAuthorizationService::reference($document),
+                    'canonical' => self::snapshotHash($snapshot), 'expires_at' => hrtime(true) + self::PREPARED_LIFETIME_NANOSECONDS,
+                ];
+            }
+            return $snapshot;
         });
+    }
+
+    public function verifyPreparedVersion(TenantContext $context, VersionSnapshot $snapshot, DocumentOwnerReference $expectedOwner): void
+    {
+        $proof = $this->preparedVersions[$snapshot] ?? null;
+        if ($proof === null || !$this->execution->current() instanceof AdminExecutionContext
+            || $proof['root'] !== $this->execution->rootIdentity() || hrtime(true) >= $proof['expires_at']
+            || $proof['actor'] !== self::preparedActor($context) || $proof['owner'] != $expectedOwner
+            || !hash_equals($proof['canonical'], self::snapshotHash($snapshot))) {
+            throw BusinessException::forbidden('DOCUMENT_PREPARED_VERSION_DENIED', '文档版本准备证明无效或已过期');
+        }
+        if (!(($pdo = Db::connect()->getPdo()) instanceof \PDO) || !$pdo->inTransaction()) {
+            throw BusinessException::conflict('DOCUMENT_PREPARED_TRANSACTION_REQUIRED', '版本复核必须在业务外层事务内');
+        }
+        $this->authorization->run($context, function (TenantContext $current) use ($snapshot, $expectedOwner, $proof): void {
+            $document = $this->authorization->document($current, $snapshot->documentId, 'view', true);
+            if (DocumentAuthorizationService::reference($document) != $expectedOwner || $proof['actor'] !== self::preparedActor($current)) {
+                throw BusinessException::forbidden('DOCUMENT_PREPARED_VERSION_DENIED', '文档版本业务归属或身份已改变');
+            }
+            $revision = DocumentRevision::where('document_id', $document->id)->where('id', $snapshot->revisionId)->lock(true)->find();
+            if ($revision === null || !hash_equals($proof['canonical'], self::snapshotHash($this->snapshotFromRevision($current, $document, $revision)))) {
+                throw BusinessException::conflict('DOCUMENT_PREPARED_VERSION_CHANGED', '不可变文档版本与准备结果不一致');
+            }
+            $keys = array_values(array_unique(array_column($snapshot->references, 'file_key')));
+            $this->references->assertDocumentReferencesReadable($current, $snapshot->documentId, $keys);
+            if ($snapshot->contentKind === 'file_resource') {
+                $this->snapshots->assertDocumentSnapshotReadable($current, $snapshot->documentId, $snapshot->fileKey, $snapshot->fileSha256, $snapshot->verifiedMimeType);
+            }
+        });
+    }
+
+    private function snapshotFromRevision(TenantContext $context, Document $document, DocumentRevision $revision): VersionSnapshot
+    {
+        $projection = $revision->content_snapshot_json === null ? null : RichTextProjection::fromStructured(self::json($revision->content_snapshot_json));
+        $content = $projection?->json;
+        if (!in_array($revision->content_kind, ['rich_text', 'file_resource'], true)
+            || ($revision->content_kind === 'rich_text' && ($content === null || $revision->immutable_file_key !== null || $revision->immutable_file_sha256 !== null || $revision->immutable_file_mime_type !== null))
+            || ($revision->content_kind === 'file_resource' && ($content !== null || !is_string($revision->immutable_file_key)
+                || preg_match('/^file_[0-9a-f]{32}$/D', $revision->immutable_file_key) !== 1 || !is_string($revision->immutable_file_sha256)
+                || preg_match('/^[0-9a-f]{64}$/D', $revision->immutable_file_sha256) !== 1 || !is_string($revision->immutable_file_mime_type) || $revision->immutable_file_mime_type === ''))) {
+            throw BusinessException::conflict('DOCUMENT_VERSION_DIGEST_INVALID', '不可变文档版本字段不一致');
+        }
+        $digest = hash('sha256', json_encode([(string) $revision->content_kind, (int) $revision->source_state_seq, $content,
+            $revision->yjs_snapshot === null ? null : hash('sha256', $revision->yjs_snapshot), $revision->immutable_file_key, $revision->immutable_file_sha256], JSON_THROW_ON_ERROR));
+        if (!hash_equals((string) $revision->snapshot_sha256, $digest)) {
+            throw BusinessException::conflict('DOCUMENT_VERSION_DIGEST_INVALID', '不可变文档版本摘要不一致');
+        }
+        return new VersionSnapshot(
+            $context->tenantId,
+            (int) $document->id,
+            (int) $revision->id,
+            (int) $revision->revision_no,
+            (int) $revision->source_state_seq,
+            (string) $revision->content_kind,
+            $digest,
+            $projection === null ? null : self::json($projection->json),
+            $revision->immutable_file_key,
+            $revision->immutable_file_sha256,
+            $revision->immutable_file_mime_type,
+            $projection?->fileReferences ?? [['file_key' => (string) $revision->immutable_file_key, 'variant_key' => null]],
+        );
+    }
+
+    private static function snapshotHash(VersionSnapshot $snapshot): string
+    {
+        return hash('sha256', json_encode(RichTextProjection::canonical($snapshot->toArray()), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
+
+    private static function preparedActor(TenantContext $context): array
+    {
+        return [$context->tenantId, $context->accountId, $context->memberId, $context->sessionKey,
+            $context->clientKey, $context->requestId, $context->authorizationRevision];
     }
 
     public function capabilities(TenantContext $context, int $documentId, string $intent, ?int $revisionId = null): array

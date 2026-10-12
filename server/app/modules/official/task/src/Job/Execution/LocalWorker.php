@@ -12,6 +12,7 @@ use PeanutAdmin\Modules\Task\Contract\RetryableTaskException;
 use PeanutAdmin\Modules\Task\Job\Application\TaskJobException;
 use PeanutAdmin\Modules\Task\Job\Persistence\TaskJobStore;
 use Throwable;
+use Closure;
 
 final readonly class LocalWorker
 {
@@ -21,6 +22,8 @@ final readonly class LocalWorker
         private TaskJobStore $repository,
         private TaskHandlerRegistry $handlers,
         private JobHandlerAdapter $authorization,
+        /** Host-owned lifecycle, invoked only after signed claim reauthorization. */
+        private Closure $executeAuthorizedJob,
         private int $leaseSeconds = 60,
     ) {
         if ($tenantId < 1
@@ -59,8 +62,10 @@ final readonly class LocalWorker
                         fn() => $this->repository->assertExecutable($claim),
                         fn() => $authorization->assertAuthorized(),
                     );
-                    $handler->handle($context, $execution);
-                    $execution->assertLeaseOwned();
+                    ($this->executeAuthorizedJob)($context, $claim, function () use ($handler, $context, $execution): void {
+                        $handler->handle($context, $execution);
+                        $execution->assertLeaseOwned();
+                    });
                 },
             );
         } catch (LeaseLostException) {
