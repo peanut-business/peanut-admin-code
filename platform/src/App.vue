@@ -641,12 +641,14 @@
                   v-if="row.status === 'enabled'"
                   link
                   type="danger"
+                  :disabled="loading"
                   @click="changeModule(row, false)"
                   >停用</el-button
                 ><el-button
                   v-else
                   link
                   type="success"
+                  :disabled="loading"
                   @click="changeModule(row, true)"
                   >启用</el-button
                 ></template
@@ -1041,6 +1043,7 @@
   });
   const owner = ref<TenantOwner | null>(null);
   const targetTenantId = ref<number | null>(null);
+  let viewRequest = 0;
   const provisionDialog = ref(false);
   const permissionSelection = ref<string[]>([]);
   const permissionRole = ref<PlatformRole | null>(null);
@@ -1252,8 +1255,14 @@
           ElSelect,
           {
             'modelValue': targetTenantId.value,
+            'disabled': loading.value,
             'onUpdate:modelValue': (id: number) => {
+              if (loading.value || id === targetTenantId.value) return;
               targetTenantId.value = id;
+              invitations.value = [];
+              owner.value = null;
+              bindings.value = [];
+              modules.value = [];
               void loadView();
             },
             'placeholder': '选择目标租户',
@@ -1372,8 +1381,9 @@
       loading.value = false;
     }
   }
-  async function loadTenants() {
+  async function loadTenants(isCurrent: () => boolean = () => true) {
     const result = await api.tenants();
+    if (!isCurrent()) return;
     tenants.value = result.lists;
     if (targetTenantId.value && !targetTenant.value)
       targetTenantId.value = null;
@@ -1441,77 +1451,105 @@
     ]);
   }
   async function loadView() {
-    if (view.value === 'ops') {
-      await loadOpsView();
+    const request = ++viewRequest;
+    const requestedView = view.value;
+    const requestedTenantId = targetTenantId.value;
+    const isCurrentRequest = () =>
+      request === viewRequest && requestedView === view.value;
+    const isCurrentTenantRequest = (tenantId: number | null) =>
+      isCurrentRequest() &&
+      (requestedTenantId === null || requestedTenantId === tenantId) &&
+      targetTenantId.value === tenantId;
+    if (requestedView === 'ops') {
+      loading.value = true;
+      try {
+        await loadOpsView();
+      } finally {
+        if (request === viewRequest) loading.value = false;
+      }
       return;
     }
     loading.value = true;
     error.value = '';
     try {
-      if (view.value === 'overview') {
+      if (requestedView === 'overview') {
         await Promise.all([
-          loadTenants(),
+          loadTenants(isCurrentRequest),
           api.operators().then((result) => {
-            operators.value = result.lists;
+            if (isCurrentRequest()) operators.value = result.lists;
           }),
         ]);
-      } else if (view.value === 'tenants') {
-        await loadTenants();
-      } else if (view.value === 'owners') {
-        await loadTenants();
-        const id = targetTenantId.value;
-        if (id) {
-          [invitations.value, owner.value] = await Promise.all([
-            api.invitations(id).then((result) => result.lists),
-            api.tenantOwner(id).catch(() => null),
-          ]);
-        } else [invitations.value, owner.value] = [[], null];
-      } else if (view.value === 'endpoints') {
-        await loadTenants();
-        const id = targetTenantId.value;
-        bindings.value = id ? await api.entryBindings(id) : [];
-      } else if (view.value === 'modules') {
-        await loadTenants();
-        const id = targetTenantId.value;
-        modules.value = id ? (await api.moduleStates(id)).lists : [];
-      } else if (view.value === 'storage') {
+      } else if (requestedView === 'tenants') {
+        await loadTenants(isCurrentRequest);
+      } else if (requestedView === 'owners') {
+        await loadTenants(isCurrentRequest);
+        if (!isCurrentRequest()) return;
+        const tenantId = targetTenantId.value;
+        const ownerData = tenantId
+          ? await Promise.all([
+              api.invitations(tenantId).then((result) => result.lists),
+              api.tenantOwner(tenantId).catch(() => null),
+            ])
+          : null;
+        if (!isCurrentTenantRequest(tenantId)) return;
+        if (ownerData) [invitations.value, owner.value] = ownerData;
+        else [invitations.value, owner.value] = [[], null];
+      } else if (requestedView === 'endpoints') {
+        await loadTenants(isCurrentRequest);
+        if (!isCurrentRequest()) return;
+        const tenantId = targetTenantId.value;
+        const bindingData = tenantId ? await api.entryBindings(tenantId) : [];
+        if (!isCurrentTenantRequest(tenantId)) return;
+        bindings.value = bindingData;
+      } else if (requestedView === 'modules') {
+        await loadTenants(isCurrentRequest);
+        if (!isCurrentRequest()) return;
+        const tenantId = targetTenantId.value;
+        const moduleData = tenantId
+          ? (await api.moduleStates(tenantId)).lists
+          : [];
+        if (!isCurrentTenantRequest(tenantId)) return;
+        modules.value = moduleData;
+      } else if (requestedView === 'storage') {
         await Promise.all([
-          loadTenants(),
+          loadTenants(isCurrentRequest),
           api.storageSnapshot().then((result) => {
-            storage.value = result;
+            if (isCurrentRequest()) storage.value = result;
           }),
         ]);
-      } else if (view.value === 'operators') {
+      } else if (requestedView === 'operators') {
         await Promise.all([
-          loadTenants(),
+          loadTenants(isCurrentRequest),
           api.operators().then((result) => {
-            operators.value = result.lists;
+            if (isCurrentRequest()) operators.value = result.lists;
           }),
           api.roles().then((result) => {
-            roles.value = result.lists;
+            if (isCurrentRequest()) roles.value = result.lists;
           }),
         ]);
-      } else if (view.value === 'roles') {
+      } else if (requestedView === 'roles') {
         await Promise.all([
-          loadTenants(),
+          loadTenants(isCurrentRequest),
           api.roles().then((result) => {
-            roles.value = result.lists;
+            if (isCurrentRequest()) roles.value = result.lists;
           }),
           loadPermissionCatalog(),
         ]);
-      } else if (view.value === 'audit') {
+      } else if (requestedView === 'audit') {
         await Promise.all([
-          loadTenants(),
+          loadTenants(isCurrentRequest),
           api.audit().then((result) => {
-            audits.value = result.lists;
+            if (isCurrentRequest()) audits.value = result.lists;
           }),
         ]);
       }
     } catch (cause) {
-      error.value = message(cause);
-      if (!hasPlatformSession()) authenticated.value = false;
+      if (isCurrentRequest()) {
+        error.value = message(cause);
+        if (!hasPlatformSession()) authenticated.value = false;
+      }
     } finally {
-      loading.value = false;
+      if (request === viewRequest) loading.value = false;
     }
   }
   async function refreshView() {
@@ -1831,21 +1869,25 @@
     }
   }
   async function changeModule(item: ModuleState, enabled: boolean) {
-    if (!targetTenantId.value) return;
+    if (loading.value || !targetTenantId.value) return;
+    const tenantId = targetTenantId.value;
+    const request = viewRequest;
     try {
       const result = await ElMessageBox.prompt(
         '填写变更原因',
         `${enabled ? '启用' : '停用'} ${item.module_key}`,
         { inputPattern: /\S+/, inputErrorMessage: '必须填写原因' }
       );
+      if (
+        loading.value ||
+        view.value !== 'modules' ||
+        request !== viewRequest ||
+        tenantId !== targetTenantId.value
+      )
+        return;
       await run(
         () =>
-          api.changeModule(
-            enabled,
-            targetTenantId.value!,
-            item.module_key,
-            result.value
-          ),
+          api.changeModule(enabled, tenantId, item.module_key, result.value),
         `模块已${enabled ? '启用' : '停用'}`
       );
     } catch (cause) {
