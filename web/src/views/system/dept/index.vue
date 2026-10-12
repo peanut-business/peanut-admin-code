@@ -42,7 +42,7 @@
         <el-col :span="12">
           <el-space>
             <el-button
-              v-permission="['dept/add']"
+              v-permission="['core.department.create']"
               type="primary"
               @click="handleAdd()"
             >
@@ -92,14 +92,14 @@
           <template #default="{ row }">
             <el-space>
               <el-button
-                v-permission="['dept/add']"
+                v-permission="['core.department.create']"
                 link
                 size="small"
                 @click="handleAdd(row)"
                 >{{ $t('systemDept.operation.addChild') }}</el-button
               >
               <el-button
-                v-permission="['dept/edit']"
+                v-permission="['core.department.update']"
                 link
                 size="small"
                 @click="handleEdit(row)"
@@ -111,7 +111,7 @@
               >
                 <template #reference>
                   <el-button
-                    v-permission="['dept/delete']"
+                    v-permission="['core.department.archive']"
                     link
                     type="danger"
                     size="small"
@@ -141,7 +141,7 @@
             :data="parentTree"
             :props="{ value: 'id', label: 'name', children: 'children' }"
             :placeholder="$t('systemDept.field.pid.placeholder')"
-            :disabled="isRootDepartmentEdit"
+            :disabled="isRootDepartmentEdit || (isEdit && !canMoveDepartment)"
           />
         </el-form-item>
         <el-form-item prop="name" :label="$t('systemDept.field.name')">
@@ -207,6 +207,7 @@
     type DeptRecord,
     type DeptForm,
   } from '@/api/system/dept';
+  import { hasPermission } from '@/hooks/permission';
   import {
     buildParentDepartmentOptions,
     initialParentDepartmentId,
@@ -281,6 +282,10 @@
   const modalVisible = ref(false);
   const isEdit = ref(false);
   const isRootDepartmentEdit = ref(false);
+  const canMoveDepartment = computed(() =>
+    hasPermission('core.department.move')
+  );
+  const originalParentDepartmentId = ref<number | undefined>();
   const submitLoading = ref(false);
   const formRef = ref<FormInstance>();
 
@@ -320,6 +325,7 @@
   const handleAdd = async (parent?: DeptRecord) => {
     isEdit.value = false;
     isRootDepartmentEdit.value = false;
+    originalParentDepartmentId.value = undefined;
     await loadDeptOptions();
     resetForm({ pid: initialParentDepartmentId(parent?.id) });
     modalVisible.value = true;
@@ -333,6 +339,7 @@
       loadDeptOptions(),
     ]);
     resetForm({ ...data, children: undefined });
+    originalParentDepartmentId.value = data.pid;
     modalVisible.value = true;
   };
 
@@ -342,6 +349,9 @@
     submitLoading.value = true;
     try {
       if (isEdit.value) {
+        if (!canMoveDepartment.value) {
+          form.pid = originalParentDepartmentId.value ?? form.pid;
+        }
         await editDept(form);
       } else {
         await addDept(form);
@@ -365,7 +375,7 @@
 
 <script lang="ts">
   export default {
-    name: 'SystemDept',
+    name: 'tenant.departments.list',
   };
 </script>
 

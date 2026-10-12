@@ -65,15 +65,45 @@ final class ApplicationMigrationRunner
                     . "ON DUPLICATE KEY UPDATE release_version=VALUES(release_version),checksum=VALUES(checksum),status='applying',started_at=VALUES(started_at),finished_at=NULL,error_code=NULL",
                 )->execute([$migration['id'], $migration['release_version'], $migration['checksum'], 'applying', $now]);
                 try {
-                    $pdo->exec($migration['sql']);
+                    // Use the same text protocol and result draining as the installer.
+                    $emulatedPrepares = (bool) $pdo->getAttribute(PDO::ATTR_EMULATE_PREPARES);
+                    $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, true);
+                    try {
+                        $statement = $pdo->query($migration['sql']);
+                        try {
+                            do {
+                                if ($statement->columnCount() > 0) {
+                                    $statement->fetchAll(PDO::FETCH_ASSOC);
+                                }
+                            } while ($statement->nextRowset());
+                        } finally {
+                            $statement->closeCursor();
+                        }
+                    } finally {
+                        $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, $emulatedPrepares);
+                    }
+                    if ($pdo->inTransaction()) {
+                        throw new RuntimeException('MIGRATION_TRANSACTION_INCOMPLETE: ' . $migration['id']);
+                    }
                     $pdo->prepare(
                         "UPDATE pa_schema_migration SET status='applied',finished_at=?,error_code=NULL WHERE migration_id=?",
                     )->execute([gmdate('Y-m-d H:i:s'), $migration['id']]);
                     $applied[] = $migration['id'];
                 } catch (Throwable $exception) {
-                    $pdo->prepare(
-                        "UPDATE pa_schema_migration SET status='failed',finished_at=?,error_code=? WHERE migration_id=?",
-                    )->execute([gmdate('Y-m-d H:i:s'), substr($exception->getMessage(), 0, 255), $migration['id']]);
+                    try {
+                        if ($pdo->inTransaction()) {
+                            $pdo->rollBack();
+                        }
+                        $pdo->prepare(
+                            "UPDATE pa_schema_migration SET status='failed',finished_at=?,error_code=? WHERE migration_id=?",
+                        )->execute([gmdate('Y-m-d H:i:s'), substr($exception->getMessage(), 0, 255), $migration['id']]);
+                    } catch (Throwable $recordingException) {
+                        throw new RuntimeException(
+                            'MIGRATION_FAILED: ' . $migration['id'] . '; FAILURE_RECORDING_FAILED: ' . $recordingException->getMessage(),
+                            0,
+                            $exception,
+                        );
+                    }
                     throw new RuntimeException('MIGRATION_FAILED: ' . $migration['id'], 0, $exception);
                 }
             }

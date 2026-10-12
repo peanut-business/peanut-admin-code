@@ -68,7 +68,7 @@ class WorkbenchApplicationService
         $items = [
             ['name' => '管理员', 'image' => 'menu_admin', 'url' => '/system/admin'],
             ['name' => '角色管理', 'image' => 'menu_role', 'url' => '/system/role'],
-            ['name' => '部门管理', 'image' => 'menu_dept', 'url' => '/system/dept'],
+            ['name' => '部门管理', 'image' => 'menu_dept', 'url' => '/app/departments'],
             ['name' => '字典管理', 'image' => 'menu_dict', 'url' => '/system/dict'],
             ['name' => '素材中心', 'image' => 'menu_file', 'url' => '/system/file'],
             ['name' => '菜单权限', 'image' => 'menu_auth', 'url' => '/system/menu'],

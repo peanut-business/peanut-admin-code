@@ -1823,29 +1823,7 @@ INSERT IGNORE INTO `pa_system_menu`
   (66,57,'A','退款','',0,'recharge.recharge/refund','','',0,1,0),
   (67,58,'A','重新退款','',0,'recharge.recharge/refundAgain','','',0,1,0),
   (68,58,'A','退款日志','',0,'finance.refund/log','','',0,1,0);
-INSERT INTO `pa_system_menu`
-    (`pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `is_cache`, `is_show`, `is_disable`)
-SELECT 1, 'C', '部门管理', 'icon-mind-mapping', 70, 'dept/lists', '/system/dept', 'system/dept/index', 0, 1, 0
-WHERE NOT EXISTS (
-    SELECT 1 FROM `pa_system_menu` WHERE `paths` = '/system/dept' AND `type` = 'C'
-);
-SET @pa_dept_menu_id = (
-    SELECT `id` FROM `pa_system_menu`
-    WHERE `paths` = '/system/dept' AND `type` = 'C'
-    ORDER BY `id` ASC LIMIT 1
-);
-INSERT INTO `pa_system_menu`
-    (`pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `is_cache`, `is_show`, `is_disable`)
-SELECT @pa_dept_menu_id, 'A', '新增部门', '', 30, 'dept/add', '', '', 0, 1, 0
-WHERE NOT EXISTS (SELECT 1 FROM `pa_system_menu` WHERE `perms` = 'dept/add');
-INSERT INTO `pa_system_menu`
-    (`pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `is_cache`, `is_show`, `is_disable`)
-SELECT @pa_dept_menu_id, 'A', '编辑部门', '', 20, 'dept/edit', '', '', 0, 1, 0
-WHERE NOT EXISTS (SELECT 1 FROM `pa_system_menu` WHERE `perms` = 'dept/edit');
-INSERT INTO `pa_system_menu`
-    (`pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `is_cache`, `is_show`, `is_disable`)
-SELECT @pa_dept_menu_id, 'A', '删除部门', '', 10, 'dept/delete', '', '', 0, 1, 0
-WHERE NOT EXISTS (SELECT 1 FROM `pa_system_menu` WHERE `perms` = 'dept/delete');
+-- Department navigation and permissions are supplied by core.department.list.
 INSERT INTO `pa_system_menu`
     (`pid`, `type`, `name`, `icon`, `sort`, `perms`, `paths`, `component`, `is_cache`, `is_show`, `is_disable`)
 SELECT 1, 'C', '岗位管理', 'icon-idcard', 60, 'jobs/lists', '/system/jobs', 'system/jobs/index', 0, 1, 0
@@ -2499,10 +2477,6 @@ VALUES
   ('role/detail','角色详情','role/lists','','A','',''),
   ('admin/detail','管理员详情','admin/lists','','A','',''),
   ('admin/status','管理员状态','admin/lists','','A','',''),
-  ('dept/all','部门选择','dept/lists','','A','',''),
-  ('dept/leaderdept','负责人部门','dept/lists','','A','',''),
-  ('dept/detail','部门详情','dept/lists','','A','',''),
-  ('dept/status','部门状态','dept/lists','','A','',''),
   ('jobs/all','岗位选择','jobs/lists','','A','',''),
   ('jobs/detail','岗位详情','jobs/lists','','A','',''),
   ('jobs/status','岗位状态','jobs/lists','','A','',''),
@@ -2601,3 +2575,45 @@ JOIN `pa_permission` permission ON permission.`status`='active'
 WHERE role.`tenant_id`=@pa_default_tenant_id AND role.`key`='core.tenant-owner' AND role.`status`='active';
 
 SET @pa_default_tenant_id = NULL;
+
+-- Role-selection action nodes live under the native page's stable key. Insert
+-- after legacy permission derivation so the canonical Core catalog stays intact.
+CREATE TEMPORARY TABLE `pa_dept_action_seed` (
+  `action_key` VARCHAR(160) NOT NULL,
+  `action_name` VARCHAR(50) NOT NULL,
+  `sort_order` SMALLINT NOT NULL,
+  PRIMARY KEY (`action_key`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+INSERT INTO `pa_dept_action_seed` VALUES
+  ('core.department.create','新增部门',40),
+  ('core.department.update','编辑部门',30),
+  ('core.department.move','移动部门',20),
+  ('core.department.archive','归档部门',10);
+CREATE TEMPORARY TABLE `pa_dept_action_assertion` (
+  `phase` VARCHAR(64) NOT NULL,
+  `valid` INT NOT NULL,
+  CONSTRAINT `chk_dept_action_assertion` CHECK (`valid`=1)
+);
+INSERT INTO `pa_dept_action_assertion`
+SELECT 'action_identity_conflict',IF(COUNT(*)=0,1,0)
+FROM `pa_system_menu` m JOIN `pa_dept_action_seed` seed
+  ON m.`menu_key`=seed.`action_key` OR m.`perms`=seed.`action_key`
+WHERE NOT (m.`menu_key`<=>seed.`action_key` AND m.`perms`=seed.`action_key`
+  AND m.`parent_key`<=>'core.department.list' AND m.`module_key`='core'
+  AND m.`pid`=0 AND m.`type`='A' AND m.`name`=seed.`action_name`
+  AND m.`sort`=seed.`sort_order` AND m.`icon`='' AND m.`paths`='' AND m.`component`=''
+  AND m.`is_cache`=0 AND m.`is_show`=1 AND m.`is_disable`=0
+  AND m.`upstream_defaults_json` IS NULL AND m.`menu_conflict_json` IS NULL);
+INSERT INTO `pa_dept_action_assertion`
+SELECT 'action_identity_ambiguous',IF(COUNT(*)=0,1,0) FROM (
+  SELECT seed.`action_key` FROM `pa_dept_action_seed` seed
+  JOIN `pa_system_menu` m ON m.`menu_key`=seed.`action_key` OR m.`perms`=seed.`action_key`
+  GROUP BY seed.`action_key` HAVING COUNT(*)>1
+) conflicts;
+INSERT INTO `pa_system_menu`
+  (`menu_key`,`parent_key`,`module_key`,`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`is_cache`,`is_show`,`is_disable`)
+SELECT seed.`action_key`,'core.department.list','core',0,'A',seed.`action_name`,'',seed.`sort_order`,seed.`action_key`,'','',0,1,0
+FROM `pa_dept_action_seed` seed
+WHERE NOT EXISTS (SELECT 1 FROM `pa_system_menu` m WHERE m.`menu_key`=seed.`action_key`);
+DROP TEMPORARY TABLE `pa_dept_action_assertion`;
+DROP TEMPORARY TABLE `pa_dept_action_seed`;

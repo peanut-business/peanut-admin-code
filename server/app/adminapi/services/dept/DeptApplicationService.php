@@ -6,6 +6,10 @@ namespace app\adminapi\services\dept;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use app\common\dto\authorization\AdminPrincipal;
+use app\common\exception\BusinessException;
+use app\common\execution\CurrentExecutionContext;
+use app\common\services\authorization\AdminAuthorizationService;
 use PeanutAdmin\Modules\Identity\Organization\Application\DepartmentAdminService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
@@ -14,7 +18,11 @@ use think\facade\Db;
 /** Compatibility department tree backed by native pa_department. */
 final class DeptApplicationService
 {
-    public function __construct(private readonly DepartmentAdminService $departments) {}
+    public function __construct(
+        private readonly DepartmentAdminService $departments,
+        private readonly CurrentExecutionContext $executionContext,
+        private readonly AdminAuthorizationService $authorization,
+    ) {}
 
     public function validationRules(string $scene): array
     {
@@ -82,6 +90,11 @@ final class DeptApplicationService
         return Db::transaction(function () use ($context, $params): bool {
             $service = $this->departments;
             $current = $service->get($context->tenantId, (int) $params['id']);
+            $parent = (int) $params['pid'] > 0 ? (int) $params['pid'] : null;
+            $currentParent = $current['parent_id'] === null ? null : (int) $current['parent_id'];
+            if ($parent !== $currentParent) {
+                $this->assertMovePermission($context);
+            }
             $updated = $service->update(
                 $context,
                 (int) $params['id'],
@@ -92,8 +105,6 @@ final class DeptApplicationService
                 array_key_exists('leader', $params) ? (string) $params['leader'] : (string) $current['leader'],
                 array_key_exists('mobile', $params) ? (string) $params['mobile'] : (string) $current['mobile'],
             );
-            $parent = (int) $params['pid'] > 0 ? (int) $params['pid'] : null;
-            $currentParent = $updated['parent_id'] === null ? null : (int) $updated['parent_id'];
             if ($parent !== $currentParent) {
                 $updated = $service->move($context, (int) $params['id'], $parent, (int) $updated['revision']);
             }
@@ -115,6 +126,24 @@ final class DeptApplicationService
         $department = $this->departments->get($context->tenantId, $id);
         $this->departments->setStatus($context, $id, (int) $department['revision'], $status === 1);
         return true;
+    }
+
+    private function assertMovePermission(TenantContext $context): void
+    {
+        try {
+            $current = $this->executionContext->tenantAdmin();
+            $actor = AdminPrincipal::fromArray($this->executionContext->tenantAdminPrincipal());
+        } catch (\Throwable) {
+            throw BusinessException::forbidden('DEPARTMENT_MOVE_PERMISSION_DENIED', '无权移动部门');
+        }
+        if ($current->tenantId !== $context->tenantId
+            || $current->accountId !== $context->accountId
+            || $current->memberId !== $context->memberId
+            || $current->authorizationRevision !== $context->authorizationRevision
+            || !$this->authorization->decide($context, $actor, 'core.department.move')->allowed
+        ) {
+            throw BusinessException::forbidden('DEPARTMENT_MOVE_PERMISSION_DENIED', '无权移动部门');
+        }
     }
 
     private static function compat(array $row): array

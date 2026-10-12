@@ -43,13 +43,13 @@ const SYSTEM: AppRouteRecordRaw = {
       },
     },
     {
-      path: 'dept',
-      name: 'SystemDept',
+      path: '/app/departments',
+      name: 'tenant.departments.list',
       component: () => import('@/views/system/dept/index.vue'),
       meta: {
         locale: 'menu.system.dept',
         requiresAuth: true,
-        roles: ['admin'],
+        requiredPermissions: 'core.department.read',
       },
     },
     {
