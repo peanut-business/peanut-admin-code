@@ -3,6 +3,7 @@
     <div class="left-side">
       <el-space class="left-content" :size="12" alignment="center">
         <img
+          v-if="brandStore.website.web_logo"
           alt="logo"
           :src="brandStore.website.web_logo"
           style="width: 28px; height: 28px"

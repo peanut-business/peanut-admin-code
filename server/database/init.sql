@@ -2522,17 +2522,35 @@ VALUES
   ('finance/refund/log','退款日志 REST 接口','finance.refund/record','/finance/refund','A','',''),
   ('finance.refund/stat','退款统计兼容接口','finance.refund/record','/finance/refund','A','','');
 
+-- Insert new pages before actions that reference their permission. Empty parent
+-- selectors never match unrelated menus with empty permission/path fields.
 INSERT INTO `pa_system_menu`
   (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`is_cache`,`is_show`,`is_disable`)
 SELECT COALESCE(
-    NULLIF((SELECT MIN(`id`) FROM `pa_system_menu` p WHERE LOWER(p.`perms`)=LOWER(seed.`parent_permission`)), 0),
-    NULLIF((SELECT MIN(`id`) FROM `pa_system_menu` p WHERE p.`paths`=seed.`parent_path`), 0)
+    NULLIF((SELECT MIN(`id`) FROM `pa_system_menu` p WHERE seed.`parent_permission`<>'' AND LOWER(p.`perms`)=LOWER(seed.`parent_permission`)), 0),
+    NULLIF((SELECT MIN(`id`) FROM `pa_system_menu` p WHERE seed.`parent_path`<>'' AND p.`paths`=seed.`parent_path`), 0)
   ),
   seed.`type`, seed.`name`, '', 0, seed.`perms`, seed.`paths`, seed.`component`, 0, 1, 0
 FROM `pa_admin_permission_seed` seed
-WHERE COALESCE(
-    NULLIF((SELECT MIN(`id`) FROM `pa_system_menu` p WHERE LOWER(p.`perms`)=LOWER(seed.`parent_permission`)), 0),
-    NULLIF((SELECT MIN(`id`) FROM `pa_system_menu` p WHERE p.`paths`=seed.`parent_path`), 0)
+WHERE seed.`type`='C' AND COALESCE(
+    NULLIF((SELECT MIN(`id`) FROM `pa_system_menu` p WHERE seed.`parent_permission`<>'' AND LOWER(p.`perms`)=LOWER(seed.`parent_permission`)), 0),
+    NULLIF((SELECT MIN(`id`) FROM `pa_system_menu` p WHERE seed.`parent_path`<>'' AND p.`paths`=seed.`parent_path`), 0)
+  ) IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM `pa_system_menu` existing WHERE LOWER(existing.`perms`)=LOWER(seed.`perms`)
+  );
+
+INSERT INTO `pa_system_menu`
+  (`pid`,`type`,`name`,`icon`,`sort`,`perms`,`paths`,`component`,`is_cache`,`is_show`,`is_disable`)
+SELECT COALESCE(
+    NULLIF((SELECT MIN(`id`) FROM `pa_system_menu` p WHERE seed.`parent_permission`<>'' AND LOWER(p.`perms`)=LOWER(seed.`parent_permission`)), 0),
+    NULLIF((SELECT MIN(`id`) FROM `pa_system_menu` p WHERE seed.`parent_path`<>'' AND p.`paths`=seed.`parent_path`), 0)
+  ),
+  seed.`type`, seed.`name`, '', 0, seed.`perms`, seed.`paths`, seed.`component`, 0, 1, 0
+FROM `pa_admin_permission_seed` seed
+WHERE seed.`type`<>'C' AND COALESCE(
+    NULLIF((SELECT MIN(`id`) FROM `pa_system_menu` p WHERE seed.`parent_permission`<>'' AND LOWER(p.`perms`)=LOWER(seed.`parent_permission`)), 0),
+    NULLIF((SELECT MIN(`id`) FROM `pa_system_menu` p WHERE seed.`parent_path`<>'' AND p.`paths`=seed.`parent_path`), 0)
   ) IS NOT NULL
   AND NOT EXISTS (
     SELECT 1 FROM `pa_system_menu` existing WHERE LOWER(existing.`perms`)=LOWER(seed.`perms`)

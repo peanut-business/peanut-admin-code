@@ -611,7 +611,9 @@
             v-else
             v-loading="loading"
             :data="modules"
-            empty-text="本实例没有已安装的可分配模块"
+            :empty-text="
+              loading ? '模块列表正在加载…' : '本实例没有已安装的可分配模块'
+            "
             ><el-table-column
               prop="module_key"
               label="模块键"
