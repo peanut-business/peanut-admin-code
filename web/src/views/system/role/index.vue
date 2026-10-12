@@ -600,11 +600,6 @@
     const menuIds = orderKeys(
       new Set([...authCheckedKeys.value, ...authHalfCheckedKeys.value])
     );
-    if (menuIds.length === 0) {
-      ElMessage.warning(t('systemRole.tip.permissionRequired'));
-      return false;
-    }
-
     authSubmitLoading.value = true;
     try {
       await editRole({

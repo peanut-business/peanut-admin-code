@@ -33,6 +33,4 @@ export default {
 
   'systemRole.delete.confirm': '确定删除该角色吗？',
   'systemRole.tip.success': '操作成功',
-  'systemRole.tip.permissionRequired':
-    '至少选择一项权限；当前后端不支持用空权限清空授权',
 };

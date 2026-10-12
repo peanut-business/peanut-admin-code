@@ -33,6 +33,4 @@ export default {
 
   'systemRole.delete.confirm': 'Are you sure to delete this role?',
   'systemRole.tip.success': 'Success',
-  'systemRole.tip.permissionRequired':
-    'Select at least one permission; empty permission clearing is not supported by the current backend',
 };
