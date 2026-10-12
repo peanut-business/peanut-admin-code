@@ -11,6 +11,7 @@ use PeanutAdmin\Kernel\Authorization\TenantAuthorizationRepository;
 use PeanutAdmin\Kernel\Menu\MenuDefinition;
 use PeanutAdmin\Kernel\Menu\MenuCatalogRepository;
 use PeanutAdmin\Kernel\Menu\MenuRegistry;
+use PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog;
 use PeanutAdmin\Modules\Identity\Contract\TenantAuthorizationQuery;
 use PeanutAdmin\Modules\Identity\Menu\MenuAdministrationService;
 
@@ -135,7 +136,10 @@ final readonly class CoreTenantModuleAdminBridge
                 static fn(string $moduleKey): bool => isset($installed[$moduleKey]),
             ),
         ]));
-        return $this->identityAuthorization->registeredPermissionKeys($active);
+        return array_values(array_unique([
+            ...$this->identityAuthorization->registeredPermissionKeys($active),
+            ...$this->registeredCoreTenantPermissions(),
+        ]));
     }
 
     /** @return list<string> */
@@ -160,9 +164,22 @@ final readonly class CoreTenantModuleAdminBridge
         $menuPermissions = array_map('strval', SystemMenu::where('is_disable', 0)
             ->where('perms', '<>', '')->distinct(true)->column('perms'));
         $states = $this->identityAuthorization->permissionStates($menuPermissions);
+        $registeredCorePermissions = array_fill_keys(
+            $this->registeredCoreTenantPermissions(),
+            true,
+        );
         foreach ($menuPermissions as $permission) {
             $state = $states[$permission] ?? null;
             $moduleKey = $state['module_key'] ?? null;
+            if (str_starts_with($permission, 'core.')) {
+                if (!isset($registeredCorePermissions[$permission])
+                    || $moduleKey !== 'core'
+                    || ($state['status'] ?? null) !== 'active') {
+                    continue;
+                }
+                $permissions[] = $permission;
+                continue;
+            }
             if ($moduleKey !== null && $moduleKey !== '') {
                 if (($state['status'] ?? null) !== 'active' || !isset($active[$moduleKey])) {
                     continue;
@@ -178,6 +195,23 @@ final readonly class CoreTenantModuleAdminBridge
     private function applicationPermissions(TenantContext $context): array
     {
         return $this->identityAuthorization->applicationPermissionKeys($context);
+    }
+
+    /** @return list<string> */
+    private function registeredCoreTenantPermissions(): array
+    {
+        $permissionKeys = CorePermissionCatalog::TENANT;
+        $states = $this->identityAuthorization->permissionStates($permissionKeys);
+        $registered = [];
+        foreach ($permissionKeys as $permission) {
+            $state = $states[$permission] ?? null;
+            if (($state['key'] ?? null) === $permission
+                && ($state['module_key'] ?? null) === 'core'
+                && ($state['status'] ?? null) === 'active') {
+                $registered[] = $permission;
+            }
+        }
+        return $registered;
     }
 
     /**
