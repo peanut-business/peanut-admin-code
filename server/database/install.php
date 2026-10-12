@@ -7,6 +7,8 @@ use app\common\value\installation\ApplicationSourceIdentity;
 use app\common\value\installation\ServerReleaseIdentity;
 use app\common\value\scaffold\EditionProfile;
 use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
+use PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalogSynchronizer;
+use PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
 use PeanutAdmin\Modules\Identity\Platform\Bootstrap\BootstrapService;
 use think\App;
 use think\Container;
@@ -842,6 +844,9 @@ function installFreshDatabase(string $serverDir, array $input): array
             ], $demoAccounts->credentialHash());
         }
         executeSqlFiles($pdo, $files);
+        // Application migrations require the canonical catalog before Module installation.
+        // Its condition definitions can only be synchronized after the fresh application schema.
+        (new CorePermissionCatalogSynchronizer(new ThinkPhpAuthorizationCatalogRepository()))->synchronize();
         seedBrandDefaults($pdo, brandWebsiteDefaults($serverDir));
 
         $actual = array_map('strval', $pdo->query(
