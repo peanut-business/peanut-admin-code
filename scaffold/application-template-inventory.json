@@ -2329,7 +2329,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4df5b44a8a37f7dab38d1608aceab854d51380d8131135a9035ca4b4f1387560"
+            "source_sha256": "fff5ef9bbd667ad18a7edbd073438dbbb2d58b2a5fdd1ba29fba725073a33ba8"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2593,7 +2593,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "03a6b7e1237f19710a610af1018db810d3770b57ce7b6608519df142656d1148"
+            "source_sha256": "59ef9a25d2edd2d50323b3dbdd99462d031fd2a3280bf716d08f6c370a2c2f10"
         },
         {
             "path": "plugins/peanut.artifact-revision/plugin.json",
