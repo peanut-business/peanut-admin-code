@@ -7,6 +7,7 @@ namespace PeanutAdmin\Modules\Identity\Auth;
 use DateTimeImmutable;
 use DateTimeZone;
 use PeanutAdmin\Kernel\Auth\TenantContext;
+use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use PeanutAdmin\Modules\Identity\Contract\Dto\TenantMemberSummary;
 use PeanutAdmin\Modules\Identity\Contract\Dto\TenantSessionSummary;
@@ -24,6 +25,37 @@ final readonly class TenantSessionAccessService implements TenantSessionAccess
         private TenantMemberDirectory $members,
         private AuditService $audit,
     ) {}
+
+    public function revalidateSession(int $tenantId, int $accountId, int $memberId, string $sessionKey, string $clientKey, string $requestId): TenantContext
+    {
+        if ($tenantId < 1 || $accountId < 1 || $memberId < 1
+            || preg_match('/^[0-9A-HJKMNP-TV-Z]{26}$/D', $sessionKey) !== 1
+            || trim($clientKey) === '' || trim($requestId) === '') {
+            throw TenantSessionAccessException::denied();
+        }
+        $member = $this->members->activeMembership($tenantId, $memberId);
+        if ($member === null || $member->accountId !== $accountId) {
+            throw TenantSessionAccessException::denied();
+        }
+        $now = $this->format(new DateTimeImmutable('now', new DateTimeZone('UTC')));
+        $session = TenantSession::where('tenant_id', $tenantId)
+            ->where('account_id', $accountId)->where('tenant_member_id', $memberId)
+            ->where('session_key', $sessionKey)->where('client_key', $clientKey)
+            ->where('status', 'active')
+            ->where('account_security_revision', $member->accountSecurityRevision)
+            ->where('tenant_security_revision', $member->tenantSecurityRevision)
+            ->where('member_security_revision', $member->securityRevision)
+            ->where('idle_expires_at', '>', $now)->where('absolute_expires_at', '>', $now)
+            ->find()?->toArray();
+        if ($session === null) {
+            throw TenantSessionAccessException::denied();
+        }
+        return TenantContext::fromValidatedSession(new ValidatedTenantSession(
+            (int) $session['id'], $sessionKey, $tenantId, $accountId, $memberId, $clientKey,
+            new DateTimeImmutable((string) $session['issued_at'], new DateTimeZone('UTC')),
+            $member->authorizationRevision,
+        ), $requestId);
+    }
 
     public function ownedSessions(TenantContext $context): array
     {
@@ -112,6 +144,7 @@ final readonly class TenantSessionAccessService implements TenantSessionAccess
             ->where('account_id', $member->accountId)
             ->where('tenant_member_id', $member->memberId)
             ->where('session_key', $context->sessionKey)
+            ->where('client_key', $context->clientKey)
             ->where('status', 'active')
             ->where('account_security_revision', $member->accountSecurityRevision)
             ->where('tenant_security_revision', $member->tenantSecurityRevision)
