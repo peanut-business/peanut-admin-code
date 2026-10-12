@@ -7,6 +7,8 @@ import subprocess
 import tempfile
 import hashlib
 import time
+import json
+import os
 
 
 SOURCE = Path(__file__).resolve().parents[1] / "project-resource-lease"
@@ -157,5 +159,68 @@ with tempfile.TemporaryDirectory(prefix="peanut-resource-lease-parent-") as temp
 
     run(tool + ["release", "--lease", "runtime-test", "--owner", owner], root)
     run(tool + ["release", "--lease", "controller-test", "--owner", owner], root)
+
+    # Pure filesystem lease contracts: never connect to the registered database.
+    physical = "127.0.0.1:23306"
+    policy = {"mode": "schema", "physical_endpoint": physical,
+              "physical_resource_id": "fixture-physical", "max_executors": 2,
+              "server_resources": ["mysql-resource=fixture-physical", "docker-container=fixture-container", "docker-volume=fixture-volume"]}
+    descriptor = {"stable_resource_id": "fixture-db", "lease_gate": "schema-test",
+                  "database": "schema_one", "synthetic_databases": {"test": ["schema_two", "schema_three"]},
+                  "upstream_endpoint": {"endpoint_id": "fixture-host", "host": "127.0.0.1", "port": 23306},
+                  "lease_policy": policy}
+    alias = dict(descriptor, stable_resource_id="fixture-alias",
+                 upstream_endpoint=dict(descriptor["upstream_endpoint"], endpoint_id="alias-host"))
+    registry = root / "registry.json"
+    registry.write_text(json.dumps({"resources": {"databases": [descriptor, alias]}}))
+    os.environ["PEANUT_RESOURCE_REGISTRY"] = str(registry)
+    digest = hashlib.sha256(registry.read_bytes()).hexdigest()
+    run(tool + ["claim", "--lease", "schema-controller", "--owner", owner, "--candidate", candidate,
+                "--gate", "controller", "--resource", "controller-task=schema-test"], root)
+
+    def schema_claim(lease: str, schema_name: str, *, resource="fixture-db", endpoint="fixture-host", **overrides):
+        values = {"resource-id": resource, "endpoint": endpoint, "mysql-db": schema_name,
+                  "database": schema_name, "registry-sha256": digest, "resource-scope": "same-scope",
+                  "mysql-schema": physical + "/" + schema_name}
+        values.update(overrides)
+        return tool + ["claim", "--lease", lease, "--owner", owner, "--candidate", candidate,
+                       "--parent-lease", "schema-controller", "--gate", "schema-test"] + [
+            item for k, v in values.items() for item in ("--resource", k + "=" + v)]
+
+    legacy = tool + ["claim", "--lease", "legacy-server", "--owner", owner, "--candidate", candidate,
+                     "--parent-lease", "schema-controller", "--gate", "legacy", "--resource", "port=23306"]
+    run(legacy, root)
+    assert "server-exclusive" in run(schema_claim("schema-one", "schema_one"), root, ok=False).stderr
+    run(tool + ["release", "--lease", "legacy-server", "--owner", owner], root)
+    legacy_database = legacy[:-2] + ["--resource", "mysql-db=schema_two"]
+    run(legacy_database, root)
+    assert "server-exclusive" in run(schema_claim("schema-one", "schema_one"), root, ok=False).stderr
+    run(tool + ["release", "--lease", "legacy-server", "--owner", owner], root)
+    run(schema_claim("schema-one", "schema_one"), root)
+    run(schema_claim("schema-two", "schema_two"), root)
+    assert "same physical schema" in run(schema_claim("alias-one", "schema_one", resource="fixture-alias", endpoint="alias-host"), root, ok=False).stderr
+    assert "maximum two" in run(schema_claim("schema-three", "schema_three"), root, ok=False).stderr
+    assert "mismatch" in run(schema_claim("wrong-endpoint", "schema_three", endpoint="foreign"), root, ok=False).stderr
+    assert "digest" in run(schema_claim("wrong-digest", "schema_three", **{"registry-sha256": "0" * 64}), root, ok=False).stderr
+    assert "coverage" in run(schema_claim("wrong-coverage", "schema_three", **{"database": "foreign"}), root, ok=False).stderr
+    for resource in ["port=23306", "mysql-db=schema_three", "database=schema_three", "mysql-server=" + physical, "mysql-resource=fixture-physical",
+                     "docker-container=fixture-container", "docker-volume=fixture-volume"]:
+        command = legacy[:-2] + ["--resource", resource, "--resource", "registry-sha256=" + digest]
+        assert "active schema" in run(command, root, ok=False).stderr
+    run(tool + ["show", "--lease", "schema-one", "--verify-locks"], root)
+    run(tool + ["renew", "--lease", "schema-one", "--owner", owner], root)
+    schema_lock = root / ".git/peanut-admin-resource-leases/resources" / hashlib.sha256(("mysql-schema\t" + physical + "/schema_one").encode()).hexdigest()
+    holder = schema_lock / "lease"
+    saved = holder.read_text(); holder.write_text("foreign\n")
+    assert "lock holder mismatch" in run(tool + ["show", "--lease", "schema-one"], root, ok=False).stderr
+    holder.write_text(saved)
+    run(tool + ["release", "--lease", "schema-one", "--owner", owner], root)
+    run(tool + ["release", "--lease", "schema-two", "--owner", owner], root)
+    policy["server_resources"] = ["mysql-resource=fixture-physical"]
+    registry.write_text(json.dumps({"resources": {"databases": [descriptor, alias]}}))
+    digest = hashlib.sha256(registry.read_bytes()).hexdigest()
+    assert "management mapping" in run(schema_claim("missing-mapping", "schema_one"), root, ok=False).stderr
+    run(tool + ["release", "--lease", "schema-controller", "--owner", owner], root)
+    del os.environ["PEANUT_RESOURCE_REGISTRY"]
 
 print("PROJECT-RESOURCE-LEASE-PARENT-001 passed")

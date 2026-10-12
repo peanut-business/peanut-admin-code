@@ -10,6 +10,33 @@ require_once dirname(__DIR__) . '/Support/RegisteredMysqlTestResource.php';
 
 final class RegisteredMysqlTestResourceTest extends TestCase
 {
+    public function testRegisteredSchemaLeaseReplacesOnlyTheDatabasePortLock(): void
+    {
+        $f = $this->schemaFixture();
+        $result = \RegisteredMysqlTestResource::validateContract(...$f);
+        self::assertSame('registered_mysql_test', $result['database']);
+        foreach (['PEANUT_DATABASE_LEASE_OWNER', 'PEANUT_DATABASE_ENDPOINT_ID', 'DB_NAME'] as $field) {
+            $bad = $f; $bad[2][$field] = 'foreign';
+            $this->assertRejected($field === 'PEANUT_DATABASE_ENDPOINT_ID' ? 'REGISTERED_MYSQL_ENDPOINT_MISMATCH' : ($field === 'DB_NAME' ? 'REGISTERED_MYSQL_RESOURCE_MISMATCH' : 'REGISTERED_MYSQL_LEASE_MISMATCH'), $bad);
+        }
+        $bad = $f;
+        foreach ($bad[1]['resources'] as &$r) { if ($r[0] === 'mysql-schema') { $r[1] = '127.0.0.1:49123/foreign'; } } unset($r);
+        $this->assertRejected('REGISTERED_MYSQL_LEASE_MISMATCH', $bad);
+        $bad = $f; $bad[0]['resources']['databases'][0]['lease_policy']['physical_endpoint'] = '127.0.0.2:49123';
+        $this->assertRejected('REGISTERED_MYSQL_SCHEMA_POLICY_INVALID', $bad);
+        $bad = $f; unset($bad[0]['resources']['databases'][0]['lease_policy']);
+        $this->assertRejected('REGISTERED_MYSQL_LEASE_MISMATCH', $bad);
+    }
+
+    private function schemaFixture(): array
+    {
+        $f = $this->fixture();
+        $f[0]['resources']['databases'][0]['lease_policy'] = ['mode' => 'schema', 'physical_endpoint' => '127.0.0.1:49123', 'physical_resource_id' => 'fixture', 'max_executors' => 2, 'server_resources' => ['mysql-resource=fixture']];
+        $f[1]['resources'] = array_values(array_filter($f[1]['resources'], fn($r) => $r[0] !== 'port'));
+        $f[1]['resources'][] = ['mysql-schema', '127.0.0.1:49123/registered_mysql_test'];
+        return $f;
+    }
+
     public function testExplicitMaintainerSourceRejectsForeignRegistry(): void
     {
         $path = tempnam(sys_get_temp_dir(), 'registry-source-');

@@ -289,16 +289,20 @@ final class RegisteredMysqlTestResource
             || self::canonicalPath((string) ($metadata['worktree'] ?? '')) !== self::canonicalPath($root)) {
             throw new RuntimeException('REGISTERED_MYSQL_LEASE_MISMATCH');
         }
-        foreach ([
+        $schemaEndpoint = self::schemaLeaseEndpoint($resource, $endpoint, $p0e);
+        $requiredResources = [
             ['resource-id', $environment['PEANUT_DATABASE_RESOURCE_ID']],
             ['endpoint', $environment['PEANUT_DATABASE_ENDPOINT_ID']],
-            ['port', (string) (int) $environment['DB_PORT']],
             ['mysql-db', $environment['DB_NAME']],
             ['database', $environment['DB_NAME']],
             [$scopeType, $environment['PEANUT_DATABASE_RESOURCE_SCOPE']],
             ['gate', $gate],
             ['worktree', self::canonicalPath($root)],
-        ] as [$type, $value]) {
+        ];
+        $requiredResources[] = $schemaEndpoint === null
+            ? ['port', (string) (int) $environment['DB_PORT']]
+            : ['mysql-schema', $schemaEndpoint . '/' . $environment['DB_NAME']];
+        foreach ($requiredResources as [$type, $value]) {
             if (!self::hasResource($lease['resources'], $type, $value)) {
                 throw new RuntimeException('REGISTERED_MYSQL_LEASE_MISMATCH');
             }
@@ -312,6 +316,22 @@ final class RegisteredMysqlTestResource
             'lease_id' => $environment['PEANUT_DATABASE_LEASE_ID'],
             'lease_owner' => $environment['PEANUT_DATABASE_LEASE_OWNER'],
         ];
+    }
+
+    /** Explicit schema policy never changes endpoint, schema ownership or qualification policy. */
+    private static function schemaLeaseEndpoint(array $resource, array $endpoint, bool $p0e): ?string
+    {
+        $policy = $resource['lease_policy'] ?? null;
+        if ($policy === null || ($policy['mode'] ?? null) === 'exclusive') { return null; }
+        if ($p0e || !is_array($policy) || ($policy['mode'] ?? null) !== 'schema'
+            || ($policy['max_executors'] ?? null) !== 2
+            || ($policy['physical_endpoint'] ?? null) !== $endpoint['host'] . ':' . (int) $endpoint['port']
+            || !is_string($policy['physical_resource_id'] ?? null) || $policy['physical_resource_id'] === ''
+            || !is_array($policy['server_resources'] ?? null) || $policy['server_resources'] === []
+            || preg_match('/qualification|performance|recovery/', (string) ($resource['lease_gate'] ?? '')) === 1) {
+            throw new RuntimeException('REGISTERED_MYSQL_SCHEMA_POLICY_INVALID');
+        }
+        return $policy['physical_endpoint'];
     }
 
     public static function assertEmptyTableCount(int $tableCount): void

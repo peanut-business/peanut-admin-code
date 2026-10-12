@@ -137,6 +137,136 @@ validate_resource() {
   [[ -n "$value" && "$value" != *$'\n'* && "$value" != *$'\t'* ]] || die "resource value must be non-empty and contain no tabs/newlines: $type"
 }
 
+# Identity proofs remain in resources.tsv. Only registered schema leases may
+# share these fields; mutable directories, controllers, listeners and writers do not.
+schema_identity_resource() {
+  [[ "${SCHEMA_MODE:-exclusive}" == schema ]] || return 1
+  case "$1" in
+    resource-id|database-resource|endpoint|resource-scope|scope|gate|mysql-db|database|registry-sha256|registry-tool-sha256|environment|consumer|host|version) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# Runs under the existing registry mutex. No database access. Physical endpoint
+# and exact schema, rather than resource aliases, define the exclusive key.
+mysql_claim_policy() {
+  python3 - "$LEASES_DIR" "${PEANUT_RESOURCE_REGISTRY:-}" "$1" "$2" "$3" "${@:4}" <<'PY'
+import hashlib, json, pathlib, re, sys, time
+leases, registry_path, own, gate, operation, *args = sys.argv[1:]
+def fail(message):
+    raise SystemExit('resource-lease: ' + message)
+def resources(items):
+    result = {}
+    for item in items:
+        k, v = item.split('=', 1)
+        result.setdefault(k, set()).add(v)
+    return result
+requested = resources(args)
+active = []
+for path in pathlib.Path(leases).glob('*'):
+    if not path.is_dir() or path.name.startswith('.') or path.name == own:
+        continue
+    try:
+        m = dict(line.split('\t', 1) for line in (path/'metadata.tsv').read_text().splitlines())
+        if m.get('status') != 'ACTIVE' or int(m['expires_at']) <= time.time(): continue
+        r = resources(line.split('\t', 2)[1]+'='+line.split('\t', 2)[2] for line in (path/'resources.tsv').read_text().splitlines())
+        active.append((path.name, r))
+    except (ValueError, OSError, KeyError):
+        fail('cannot establish active lease boundary: '+path.name)
+special = bool(requested.get('mysql-schema') or requested.get('mysql-server'))
+schema_active = any(r.get('mysql-schema') for _, r in active)
+management = any(requested.get(t) for t in ['port', 'mysql-resource', 'docker-container', 'docker-volume', 'mysql-db', 'database'])
+if not special and (not schema_active or not management):
+    print('exclusive'); sys.exit(0)
+p = pathlib.Path(registry_path)
+if not registry_path or not p.is_absolute() or p.is_symlink() or not p.is_file():
+    fail('explicit registry required for MySQL schema/server boundary')
+raw = p.read_bytes()
+try: registry = json.loads(raw)
+except ValueError: fail('invalid resource registry')
+dbs = registry.get('resources', {}).get('databases', [])
+policies = {}
+for d in dbs:
+    policy = d.get('lease_policy')
+    if not isinstance(policy, dict) or policy.get('mode') != 'schema': continue
+    e = d.get('upstream_endpoint') or {}
+    physical = policy.get('physical_endpoint')
+    server = policy.get('physical_resource_id')
+    aliases = policy.get('server_resources')
+    if (policy.get('max_executors') != 2 or physical != str(e.get('host'))+':'+str(e.get('port'))
+        or not isinstance(server, str) or not server or not isinstance(aliases, list) or not aliases
+        or any(not isinstance(a, str) or re.fullmatch(r'(mysql-resource|docker-container|docker-volume)=[^\s=]+', a) is None for a in aliases)
+        or {a.split('=',1)[0] for a in aliases} != {'mysql-resource', 'docker-container', 'docker-volume'}
+        or 'mysql-resource='+server not in aliases):
+        fail('invalid schema policy / missing physical management mapping')
+    previous = policies.get(physical)
+    if previous and previous != set(aliases): fail('inconsistent physical endpoint aliases')
+    policies[physical] = set(aliases)
+physical_names = {physical: set() for physical in policies}
+for d in dbs:
+    e = d.get('upstream_endpoint') or {}
+    physical = str(e.get('host'))+':'+str(e.get('port'))
+    if physical not in physical_names: continue
+    names = [d.get('database')]
+    for group in d.get('synthetic_databases', {}).values():
+        if not isinstance(group, list): fail('invalid exact schema allowlist')
+        names += group
+    physical_names[physical].update(n for n in names if isinstance(n, str))
+if special and requested.get('registry-sha256', set()) != {hashlib.sha256(raw).hexdigest()}:
+    fail('schema/server registry digest must match current registry')
+for value in requested.get('mysql-server', set()):
+    if value not in policies: fail('server endpoint not registered for schema locking')
+schemas = requested.get('mysql-schema', set())
+covered = set()
+for value in schemas:
+    physical, sep, name = value.rpartition('/')
+    if not sep or not re.fullmatch(r'[A-Za-z0-9_]{1,64}', name): fail('invalid exact schema key')
+    matches = []
+    for d in dbs:
+        if d.get('stable_resource_id') not in requested.get('resource-id', set()) | requested.get('database-resource', set()): continue
+        policy = d.get('lease_policy') or {}
+        e = d.get('upstream_endpoint') or {}
+        names = [d.get('database')]
+        for group in d.get('synthetic_databases', {}).values():
+            if not isinstance(group, list): fail('invalid exact schema allowlist')
+            names += group
+        if policy.get('mode') == 'schema' and policy.get('physical_endpoint') == physical and name in names and e.get('endpoint_id') in requested.get('endpoint', set()):
+            if d.get('lease_gate') != gate: fail('schema resource gate mismatch')
+            if 'qualification' in gate or 'performance' in gate or 'recovery' in gate: fail('qualification retains server exclusivity')
+            matches.append(d)
+    if len(matches) != 1: fail('schema resource/endpoint/allowlist mismatch')
+    covered.add(name)
+if schemas and (requested.get('mysql-db', set()) != covered or requested.get('database', set()) != covered):
+    fail('mysql-db/database proof requires exact schema coverage')
+def affected(r, physical):
+    aliases = policies.get(physical)
+    if aliases is None: fail('active schema lacks current physical management mapping')
+    # Legacy database-only leases did not necessarily claim the DB listener.
+    # They remain exclusive against schema executors on this physical service.
+    legacy_names = (r.get('mysql-db', set()) | r.get('database', set())) if not r.get('mysql-schema') else set()
+    if legacy_names and not legacy_names <= set().union(*physical_names.values()):
+        fail('legacy database lease lacks physical management mapping')
+    return (physical in r.get('mysql-server', set()) or physical.rsplit(':',1)[1] in r.get('port', set())
+            or bool(legacy_names & physical_names[physical])
+            or any(a.split('=',1)[1] in r.get(a.split('=',1)[0], set()) for a in aliases))
+endpoints = {v.rpartition('/')[0] for v in schemas}
+for physical in endpoints:
+    if affected(requested, physical): fail('schema lease cannot also hold server management/port lock')
+    count = 0
+    for lease, r in active:
+        if affected(r, physical): fail('server-exclusive lease conflicts with schema: '+lease)
+        same = {v for v in r.get('mysql-schema', set()) if v.rpartition('/')[0] == physical}
+        if same:
+            if same & schemas: fail('same physical schema already leased: '+lease)
+            count += 1
+    if count >= 2: fail('maximum two schema runtime executors reached')
+for lease, r in active:
+    for value in r.get('mysql-schema', set()):
+        if affected(requested, value.rpartition('/')[0]): fail('active schema conflicts with server operation: '+lease)
+print('schema' if schemas else 'exclusive')
+PY
+}
+
 resource_hash() {
   printf '%s\t%s' "$1" "$2" | shasum -a 256 | awk '{print $1}'
 }
@@ -298,6 +428,7 @@ case "$COMMAND" in
     if [[ -n "$PARENT_LEASE" ]]; then
       validate_parent_lease_locked "$PARENT_LEASE" "$OWNER" "$THREAD_ID" "$CANDIDATE" "$CANDIDATE_REPOSITORY" "$WORKTREE"
     fi
+    SCHEMA_MODE="$(mysql_claim_policy "$LEASE_ID" "$GATE" claim "${RESOURCES[@]}")" || die 'MySQL lease policy rejected claim'
     LEASE_DIR="$LEASES_DIR/$LEASE_ID"
     [[ ! -e "$LEASE_DIR" ]] || die "lease already exists: $LEASE_ID"
     NOW="$(date +%s)"
@@ -323,6 +454,10 @@ case "$COMMAND" in
       fi
       printf '%s\n' "$HASH" >> "$SEEN_FILE"
       RESOURCE_DIR="$RESOURCES_DIR/$HASH"
+      if schema_identity_resource "$TYPE"; then
+        printf '%s\t%s\t%s\n' "$HASH" "$TYPE" "$VALUE" >> "$CLAIM_TMP_DIR/resources.tsv"
+        continue
+      fi
       if [[ -d "$RESOURCE_DIR" ]]; then
         HOLDER="$(cat "$RESOURCE_DIR/lease" 2>/dev/null || printf 'unknown')"
         die "resource conflict: $TYPE=$VALUE is held by lease $HOLDER"
@@ -364,6 +499,11 @@ case "$COMMAND" in
     [[ "$(metadata_value "$LEASE_DIR/metadata.tsv" owner)" == "$OWNER" ]] || die "lease $LEASE_ID belongs to another owner"
     ! lease_expired "$LEASE_DIR" || die "lease is expired: $LEASE_ID"
     PARENT_LEASE="$(metadata_value "$LEASE_DIR/metadata.tsv" parent_lease)"
+    if awk -F '\t' '$2 == "mysql-schema" {found=1} END {exit found ? 0 : 1}' "$LEASE_DIR/resources.tsv"; then
+      SCHEMA_PROOFS=()
+      while IFS=$'\t' read -r HASH TYPE VALUE; do SCHEMA_PROOFS+=("$TYPE=$VALUE"); done < "$LEASE_DIR/resources.tsv"
+      mysql_claim_policy "$LEASE_ID" "$(metadata_value "$LEASE_DIR/metadata.tsv" gate)" verify "${SCHEMA_PROOFS[@]}" >/dev/null || die 'MySQL schema renewal proof is invalid'
+    fi
     NOW="$(date +%s)"; EXPIRES_AT=$((NOW + TTL)); TMP_METADATA="$LEASE_DIR/.metadata.$$"
     if [[ -n "$PARENT_LEASE" ]]; then
       validate_lease_id "$PARENT_LEASE"
@@ -420,7 +560,7 @@ case "$COMMAND" in
     LEASE_ID="$2"; validate_lease_id "$LEASE_ID"; LEASE_DIR="$LEASES_DIR/$LEASE_ID"
     [[ -d "$LEASE_DIR" ]] || die "lease does not exist: $LEASE_ID"
     PARENT_LEASE="$(metadata_value "$LEASE_DIR/metadata.tsv" parent_lease 2>/dev/null || true)"
-    if [[ -n "$PARENT_LEASE" || "$VERIFY_LOCKS" == 1 ]]; then acquire_mutex; fi
+    if [[ -n "$PARENT_LEASE" || "$VERIFY_LOCKS" == 1 ]] || awk -F '\t' '$2 == "mysql-schema" {found=1} END {exit found ? 0 : 1}' "$LEASE_DIR/resources.tsv"; then acquire_mutex; fi
     if [[ -n "$PARENT_LEASE" ]]; then
       validate_parent_lease_locked \
         "$PARENT_LEASE" \
@@ -429,6 +569,13 @@ case "$COMMAND" in
         "$(metadata_value "$LEASE_DIR/metadata.tsv" candidate)" \
         "$(metadata_value "$LEASE_DIR/metadata.tsv" candidate_repository)" \
         "$(metadata_value "$LEASE_DIR/metadata.tsv" worktree)"
+    fi
+    SCHEMA_MODE=exclusive
+    if awk -F '\t' '$2 == "mysql-schema" {found=1} END {exit found ? 0 : 1}' "$LEASE_DIR/resources.tsv"; then
+      SCHEMA_PROOFS=()
+      while IFS=$'\t' read -r HASH TYPE VALUE; do SCHEMA_PROOFS+=("$TYPE=$VALUE"); done < "$LEASE_DIR/resources.tsv"
+      SCHEMA_MODE="$(mysql_claim_policy "$LEASE_ID" "$(metadata_value "$LEASE_DIR/metadata.tsv" gate)" verify "${SCHEMA_PROOFS[@]}")" || die 'MySQL schema proof is invalid'
+      VERIFY_LOCKS=1
     fi
     if [[ "$VERIFY_LOCKS" == 1 ]]; then
       [[ ! -L "$LEASE_DIR" && -f "$LEASE_DIR/metadata.tsv" && ! -L "$LEASE_DIR/metadata.tsv" \
@@ -450,6 +597,7 @@ case "$COMMAND" in
       while IFS=$'\t' read -r HASH TYPE VALUE; do
         validate_resource "$TYPE=$VALUE"
         [[ "$HASH" == "$(resource_hash "$TYPE" "$VALUE")" ]] || die 'lease resource hash is invalid'
+        schema_identity_resource "$TYPE" && continue
         LOCK_DIR="$RESOURCES_DIR/$HASH"
         [[ -d "$LOCK_DIR" && ! -L "$LOCK_DIR" ]] || die 'lease resource lock is invalid'
         for LOCK_FILE in lease type value; do

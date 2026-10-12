@@ -23,6 +23,23 @@ function requiredEnvironment(string $name): string
     return trim($value);
 }
 
+/** Only the explicitly registered development-test schema policy replaces a port lock. */
+function mysqlSchemaLeaseResource(array $database, array $endpoint, array $actual): ?string
+{
+    $policy = $database['lease_policy'] ?? null;
+    if ($policy === null || ($policy['mode'] ?? null) === 'exclusive') { return null; }
+    if (!is_array($policy) || ($policy['mode'] ?? null) !== 'schema'
+        || ($policy['max_executors'] ?? null) !== 2
+        || ($policy['physical_endpoint'] ?? null) !== (string) $endpoint['host'] . ':' . (int) $endpoint['port']
+        || !is_string($policy['physical_resource_id'] ?? null) || $policy['physical_resource_id'] === ''
+        || !is_array($policy['server_resources'] ?? null) || $policy['server_resources'] === []
+        || preg_match('/qualification|performance|recovery/', (string) ($database['lease_gate'] ?? '')) === 1
+        || preg_match('/^[A-Za-z0-9_]{1,64}$/D', $actual['database']) !== 1) {
+        throw new RuntimeException('MySQL schema lease policy does not match registered physical endpoint');
+    }
+    return $policy['physical_endpoint'] . '/' . $actual['database'];
+}
+
 /** @return array<string,mixed> */
 function projectResourceRegistry(?string &$registrySha256 = null): array
 {
@@ -844,6 +861,9 @@ function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null)
     }
     $deploymentMode = requiredEnvironment('DEPLOYMENT_MODE');
     if ($isTemplated) {
+        if (($database['lease_policy']['mode'] ?? null) === 'schema') {
+            throw new RuntimeException('qualification database retains server exclusivity');
+        }
         if (($database['application_runtime'] ?? null) !== false
             || ($database['lifecycle'] ?? null) !== 'ephemeral') {
             throw new RuntimeException('templated database 必须是登记的 ephemeral qualification resource');
@@ -908,13 +928,20 @@ function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null)
         $root = realpath(dirname(__DIR__, 2));
         $common = leaseGit(['-C', (string) $root, 'rev-parse', '--path-format=absolute', '--git-common-dir']);
         $expectedProof = $common . '/peanut-admin-resource-leases/leases/' . $metadata['lease'];
+        $schemaResource = mysqlSchemaLeaseResource($database, $endpoint, $actual);
+        if ($schemaResource !== null) {
+            assertLeaseResourceValues($resources, 'registry-sha256', [(string) $registrySha256]);
+            assertLeaseResourceValues($resources, 'endpoint', [(string) $endpoint['endpoint_id']]);
+        }
         if ($metadata['owner'] !== ($database['owner'] ?? null)
             || realpath($metadata['worktree']) !== $root
             || realpath($metadata['candidate_repository']) !== $root
             || realpath($leaseProofPath) !== realpath($expectedProof)
             || !in_array($resourceId, $resources['database-resource'] ?? [], true)
             || !in_array($actual['database'], $resources['mysql-db'] ?? [], true)
-            || !in_array($actual['port'], $resources['port'] ?? [], true)) {
+            || ($schemaResource === null
+                ? !in_array($actual['port'], $resources['port'] ?? [], true)
+                : !in_array($schemaResource, $resources['mysql-schema'] ?? [], true))) {
             throw new RuntimeException('development-test active lease 与当前资源/工作树不匹配');
         }
     } else {

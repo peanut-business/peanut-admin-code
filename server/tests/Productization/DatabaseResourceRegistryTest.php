@@ -2,6 +2,41 @@
 
 declare(strict_types=1);
 
+// Narrow pure policy contract; does not load credentials or open a connection.
+if (in_array('--schema-contract', $argv ?? [], true)) {
+    $guardEnvironmentPath = dirname(__DIR__, 2) . '/.env.schema-resource-contract-' . getmypid();
+    if (file_exists($guardEnvironmentPath) || is_link($guardEnvironmentPath)) {
+        throw new RuntimeException('isolated backend environment fixture already exists');
+    }
+    file_put_contents($guardEnvironmentPath, '');
+    chmod($guardEnvironmentPath, 0600);
+    register_shutdown_function(static function () use ($guardEnvironmentPath): void {
+        if (is_file($guardEnvironmentPath)) {
+            unlink($guardEnvironmentPath);
+        }
+    });
+    putenv('PEANUT_SERVER_ENV_FILE=' . $guardEnvironmentPath);
+    require_once dirname(__DIR__, 2) . '/database/environment-guard.php';
+    unlink($guardEnvironmentPath);
+    $endpoint = ['host' => '127.0.0.1', 'port' => 23306];
+    $actual = ['database' => 'exact_schema'];
+    $resource = ['lease_gate' => 'schema-test', 'lease_policy' => ['mode' => 'schema', 'physical_endpoint' => '127.0.0.1:23306', 'physical_resource_id' => 'fixture', 'max_executors' => 2, 'server_resources' => ['mysql-resource=fixture']]];
+    if (mysqlSchemaLeaseResource($resource, $endpoint, $actual) !== '127.0.0.1:23306/exact_schema'
+        || mysqlSchemaLeaseResource([], $endpoint, $actual) !== null) {
+        throw new RuntimeException('schema/exclusive lease contract failed');
+    }
+    foreach (['physical_endpoint' => '127.0.0.2:23306', 'max_executors' => 3, 'server_resources' => []] as $field => $value) {
+        $bad = $resource; $bad['lease_policy'][$field] = $value;
+        try { mysqlSchemaLeaseResource($bad, $endpoint, $actual); }
+        catch (RuntimeException) { continue; }
+        throw new RuntimeException('invalid schema policy accepted: ' . $field);
+    }
+    $bad = $resource; $bad['lease_gate'] = 'recovery-qualification';
+    try { mysqlSchemaLeaseResource($bad, $endpoint, $actual); }
+    catch (RuntimeException) { fwrite(STDOUT, "MYSQL-SCHEMA-GUARD-CONTRACT passed (6 assertions)\n"); exit(0); }
+    throw new RuntimeException('qualification schema policy accepted');
+}
+
 const P0E_FRESH_SCENARIO_MODES = [
     'standalone_fresh' => 'standalone',
     'multi_tenant_fresh' => 'multi-tenant',
