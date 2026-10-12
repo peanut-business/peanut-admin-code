@@ -14,6 +14,7 @@ const areas = [
   'official-reference-codes/runtime',
   'official-settings/runtime',
   'official-content-tools',
+  'official-rich-text',
 ];
 const vueExtension = [
   {
@@ -82,6 +83,11 @@ let testCount = 0;
 for (const area of areas) {
   const directory = resolve(root, `src/modules/${area}`);
   const productionFiles = files(resolve(directory, 'src'));
+  if (area === 'official-rich-text')
+    productionFiles.push(
+      ...files(resolve(directory, 'components')),
+      resolve(directory, 'contribution.ts')
+    );
   const testFiles = files(resolve(directory, 'tests'));
   requireIncluded(production, productionFiles, area + ' production');
   requireIncluded(

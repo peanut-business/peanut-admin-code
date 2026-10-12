@@ -73,6 +73,7 @@ export default {
       'src/modules/official-reference-codes/runtime/tests/**/*.spec.ts',
       'src/modules/official-settings/runtime/tests/**/*.spec.ts',
       'src/modules/official-content-tools/tests/**/*.spec.ts',
+      'src/modules/official-rich-text/tests/**/*.spec.ts',
     ],
     passWithNoTests: false,
   },

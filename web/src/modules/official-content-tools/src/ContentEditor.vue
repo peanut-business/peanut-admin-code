@@ -9,9 +9,11 @@
     @error="emit('error', $event)"
   />
 </template>
+
 <script setup lang="ts">
   import ContentSurface from './ContentSurface.vue';
   import type { ContentSurfaceProps, SurfaceCapabilities } from './contracts';
+
   const props = defineProps<ContentSurfaceProps>();
   const emit = defineEmits<{
     (event: 'ready'): void;

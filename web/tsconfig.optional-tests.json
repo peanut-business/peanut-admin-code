@@ -19,7 +19,8 @@
     "src/modules/official-reference-codes/runtime/tests/**/*.ts",
     "src/modules/official-settings/runtime/tests/**/*.ts",
     "src/modules/official-content-tools/tests/**/*.ts",
-    "src/env.d.ts"
+    "src/env.d.ts",
+    "src/modules/official-rich-text/tests/**/*.ts"
   ],
   "exclude": []
 }

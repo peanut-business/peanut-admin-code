@@ -1,8 +1,8 @@
 export { default as ContentViewer } from './ContentViewer.vue';
 export { default as ContentEditor } from './ContentEditor.vue';
-export { ContentToolRegistry } from './registry';
-export { createLockedContentToolRegistry } from './contributions';
-export { parseSurfaceCapabilities } from './capabilities';
+export { default as ContentToolRegistry } from './registry';
+export { default as createLockedContentToolRegistry } from './contributions';
+export { default as parseSurfaceCapabilities } from './capabilities';
 export type {
   AuthorizedPreviewAccess,
   ContentDescriptor,
@@ -13,6 +13,8 @@ export type {
   RichTextContent,
   SurfaceAdapterRegistration,
   SurfaceCallbacks,
+  StableMediaReference,
+  ResolvedMediaSurface,
   SurfaceCapabilities,
   SurfaceIntent,
   SurfaceState,

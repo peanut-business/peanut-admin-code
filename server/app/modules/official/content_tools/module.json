@@ -30,7 +30,8 @@
       "PeanutAdmin\\Modules\\ContentTools\\Contract\\AuthorizedContentContext",
       "PeanutAdmin\\Modules\\ContentTools\\Contract\\SurfaceAdapterRegistration",
       "PeanutAdmin\\Modules\\ContentTools\\Service\\ContentToolRegistry",
-      "PeanutAdmin\\Modules\\ContentTools\\Service\\ContentCapabilitiesService"
+      "PeanutAdmin\\Modules\\ContentTools\\Service\\ContentCapabilitiesService",
+      "PeanutAdmin\\Modules\\ContentTools\\Contract\\ContentToolContributor"
     ],
     "events": []
   },

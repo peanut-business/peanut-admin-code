@@ -18,6 +18,9 @@ use think\facade\Config;
 use PeanutAdmin\Modules\File\Contract\FileDocumentReferenceContributor;
 use PeanutAdmin\Modules\File\Contract\FileDocumentReferencePolicy;
 use PeanutAdmin\Modules\File\Service\FileDocumentReferenceRegistry;
+use PeanutAdmin\Modules\ContentTools\Contract\ContentToolContributor;
+use PeanutAdmin\Modules\ContentTools\Contract\SurfaceAdapterRegistration;
+use PeanutAdmin\Modules\ContentTools\Service\ContentToolRegistry;
 
 /** Registers compiled Module bindings into the one ThinkPHP container. */
 final readonly class ModuleComposition
@@ -31,13 +34,15 @@ final readonly class ModuleComposition
         $taskWorkers = [];
         $fileDocumentPolicy = null;
         $documentOwnerPolicies = [];
+        $contentAdapters = [];
+        $selectedModuleKeys = [];
         foreach ($registry->modules as $manifest) {
             $moduleKey = $manifest->data['key'] ?? null;
             $backend = $manifest->data['backend'] ?? null;
             $providerClass = is_array($backend) ? ($backend['provider'] ?? null) : null;
             if (!is_string($moduleKey) || $moduleKey === ''
                 || !is_string($providerClass) || $providerClass === ''
-                || isset($providerClasses[$providerClass])) {
+                || isset($providerClasses[$providerClass]) || isset($selectedModuleKeys[$moduleKey])) {
                 throw new ModuleException('MODULE_COMPOSITION_INVALID', 'Module provider identity is invalid or duplicated.');
             }
 
@@ -48,6 +53,19 @@ final readonly class ModuleComposition
             }
             $providerClasses[$providerClass] = true;
             $providers[$providerClass] = $provider;
+            $selectedModuleKeys[$moduleKey] = true;
+            if ($provider instanceof ContentToolContributor) {
+                $registrations = $provider->contentToolRegistrations();
+                if (!array_is_list($registrations)) {
+                    throw new ModuleException('MODULE_CONTENT_TOOL_INVALID', 'Content tools must be typed list contributions.');
+                }
+                foreach ($registrations as $registration) {
+                    if (!$registration instanceof SurfaceAdapterRegistration || $registration->providerModuleKey !== $moduleKey) {
+                        throw new ModuleException('MODULE_CONTENT_TOOL_INVALID', 'Content tool provider identity does not match its compiled Module.');
+                    }
+                    $contentAdapters[] = $registration;
+                }
+            }
             if ($provider instanceof \PeanutAdmin\Modules\Document\Contract\DocumentOwnerContributor) {
                 foreach ($provider->documentOwnerPolicies() as $type => $policy) {
                     $key = $moduleKey . ':' . $type;
@@ -78,6 +96,16 @@ final readonly class ModuleComposition
         }
 
         $taskRegistry = new TaskWorkerDefinitionRegistry($taskWorkers);
+        $contentRegistry = null;
+        if (isset($selectedModuleKeys['official.content-tools'])) {
+            $contentRegistry = ContentToolRegistry::withBuiltins();
+            usort($contentAdapters, static fn(SurfaceAdapterRegistration $a, SurfaceAdapterRegistration $b): int => strcmp($a->id, $b->id));
+            foreach ($contentAdapters as $registration) {
+                $contentRegistry->register($registration);
+            }
+        } elseif ($contentAdapters !== []) {
+            throw new ModuleException('MODULE_CONTENT_TOOL_UNAVAILABLE', 'Content tool contributions require the selected Content Tools Module.');
+        }
         $bindings = ModuleProviderBindings::collect(array_values($providers));
         $this->assertAliasGraphIsAcyclic($bindings);
         foreach ($bindings as $abstract => $concrete) {
@@ -94,6 +122,9 @@ final readonly class ModuleComposition
                 throw new ModuleException('MODULE_BINDING_CONFLICT', "Module provider conflicts with a binding: {$providerClass}");
             }
         }
+        if ($contentRegistry !== null && ($this->app->bound(ContentToolRegistry::class) || isset($bindings[ContentToolRegistry::class]))) {
+            throw new ModuleException('MODULE_BINDING_CONFLICT', 'Content tool registry conflicts with a Host or Module binding.');
+        }
         foreach ($bindings as $abstract => $concrete) {
             $this->app->bind($abstract, $concrete);
         }
@@ -101,6 +132,9 @@ final readonly class ModuleComposition
             $this->app->instance($providerClass, $provider);
         }
         $this->app->instance(TaskWorkerDefinitionRegistry::class, $taskRegistry);
+        if ($contentRegistry !== null) {
+            $this->app->instance(ContentToolRegistry::class, $contentRegistry);
+        }
         $this->app->instance(FileDocumentReferenceRegistry::class, new FileDocumentReferenceRegistry($this->app, $fileDocumentPolicy));
         if (class_exists(\PeanutAdmin\Modules\Document\Service\DocumentOwnerRegistry::class)) {
             $this->app->instance(

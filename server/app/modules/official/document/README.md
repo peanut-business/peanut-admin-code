@@ -6,6 +6,13 @@ its dependency on Document and contributes a `DocumentOwnerPolicy` through its
 compiled provider. Article contributes only its existing `article/body` slot;
 its publication and approval behavior remains owned by Article.
 
+The public `DocumentOwnerRegistry` is an application-composition contract. The
+composition root constructs it from the selected, compiled providers' owner
+policy declarations and registers that instance in the native ThinkPHP container.
+Request fields cannot contribute policy classes. Registry lookup selects the
+policy; the policy and Document still perform current authorization, owner and
+slot validation. This export does not expose other Document services or Models.
+
 Every operation revalidates the durable Identity session, installation and tenant
 module state, the current business owner and the requested action. Unknown owners
 and slots are rejected. Creation and update metadata do not grant an actor ACL.

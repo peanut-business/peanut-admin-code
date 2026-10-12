@@ -1,0 +1,70 @@
+<template>
+  <RichTextEditor
+    :model-value="value"
+    :context-key="contextKey"
+    :callbacks="callbacks"
+    :registry="registry"
+    :read-only="intent === 'view' || !capabilities.canEdit"
+    @ready="ready"
+    @dirty-change="dirty"
+    @update:model-value="value = $event"
+    @error="invalid"
+  />
+  <button
+    v-if="intent === 'edit' && capabilities.canEdit"
+    type="button"
+    :disabled="!changed || !valid"
+    @click="emit('save-request', value)"
+    >请求保存</button
+  >
+</template>
+
+<script setup lang="ts">
+  import { ref, watch } from 'vue';
+  import type {
+    RichTextContent,
+    SurfaceCallbacks,
+    SurfaceCapabilities,
+    SurfaceIntent,
+  } from '@/modules/official-content-tools/src/contracts';
+  import type ContentToolRegistry from '@/modules/official-content-tools/src/registry';
+  import RichTextEditor from './RichTextEditor.vue';
+  import type { RichTextDocumentValue } from '../src/document';
+
+  const props = defineProps<{
+    content: RichTextContent;
+    contextKey: string;
+    callbacks: SurfaceCallbacks;
+    capabilities: SurfaceCapabilities;
+    registry: ContentToolRegistry;
+    intent: SurfaceIntent;
+  }>();
+  const emit = defineEmits<{
+    (event: 'ready'): void;
+    (event: 'dirty-change', value: boolean): void;
+    (event: 'save-request', value: RichTextDocumentValue): void;
+    (event: 'error', code: string): void;
+  }>();
+  const value = ref(props.content.value as RichTextDocumentValue);
+  const changed = ref(false);
+  const valid = ref(false);
+  const ready = () => {
+    valid.value = true;
+    emit('ready');
+  };
+  const invalid = (code: string) => {
+    valid.value = false;
+    emit('error', code);
+  };
+  watch(
+    () => props.content.value,
+    (next) => {
+      value.value = next as RichTextDocumentValue;
+      changed.value = false;
+    }
+  );
+  const dirty = (state: boolean) => {
+    changed.value = state;
+    emit('dirty-change', state);
+  };
+</script>

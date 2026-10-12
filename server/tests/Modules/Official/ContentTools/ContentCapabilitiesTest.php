@@ -69,11 +69,59 @@ contentReject(fn() => $service->resolve(contentContext(), 'download', null, null
 $rich = new AuthorizedContentContext('rich_text', null, true, true, false, 'auth-rich', 'browser', ['official.rich-text']);
 contentExpect($service->resolve($rich, 'edit', null, null)['state'] === 'edit_unsupported', 'missing rich-text provider is honest');
 
-// Exercise the actual provider bindings and ThinkPHP singleton instance path without booting DB/runtime.
-$app = new think\App($root . '/server');
-foreach ((new ModuleProvider())->bindings() as $abstract => $binding) {
-    $app->bind($abstract, $binding);
+// Exercise complete composition, never a lazily instantiated provider side effect.
+$manifests = [];
+foreach (['content_tools', 'rich_text'] as $name) {
+    $path = $root . '/server/app/modules/official/' . $name;
+    $manifests[] = (new \PeanutAdmin\Kernel\Module\ManifestLoader())->load($path);
 }
-contentExpect($app->make(ContentToolRegistry::class) === $app->make(ContentToolRegistry::class), 'registry must retain registered providers in the application scope');
-contentExpect($app->make(ContentCapabilitiesService::class)->resolve(contentContext(), 'view', 'builtin.image', null)['canView'], 'provider service is callable through native container');
+$compiled = new \PeanutAdmin\Kernel\Module\CompiledModuleRegistry($manifests, [], [], [], 'content-composition');
+$app = new think\App($root . '/server');
+(new \app\common\composition\ModuleComposition($app))->register($compiled);
+contentExpect($app->make(ContentToolRegistry::class) === $app->make(ContentToolRegistry::class), 'registry retains application scope');
+contentExpect($app->make(ContentCapabilitiesService::class)->resolve(contentContext(), 'view', 'builtin.image', null)['canView'], 'native container capabilities');
+contentExpect($app->make(ContentCapabilitiesService::class)->resolve($rich, 'edit', 'rich-text.tiptap', 'rich-text.tiptap')['canEdit'], 'actual RichText provider collected before service resolution');
+$reverse = new think\App($root . '/server');
+(new \app\common\composition\ModuleComposition($reverse))->register(new \PeanutAdmin\Kernel\Module\CompiledModuleRegistry(array_reverse($manifests), [], [], [], 'reverse'));
+contentExpect($reverse->make(ContentCapabilitiesService::class)->resolve($rich, 'edit', 'rich-text.tiptap', 'rich-text.tiptap')['canEdit'], 'provider order does not determine availability');
+try {
+    (new \app\common\composition\ModuleComposition(new think\App()))->register(new \PeanutAdmin\Kernel\Module\CompiledModuleRegistry([$manifests[1]], [], [], [], 'missing'));
+    throw new RuntimeException('missing Content Tools must reject');
+} catch (\PeanutAdmin\Kernel\Module\ModuleException $exception) {
+    contentExpect($exception->errorCode === 'MODULE_CONTENT_TOOL_UNAVAILABLE', 'missing provider module rejection');
+}
+// Explicit synthetic contribution faults verify rejection before any binding mutation.
+final class ContentContributorFixture implements \PeanutAdmin\Kernel\Module\ModuleProvider, \PeanutAdmin\Modules\ContentTools\Contract\ContentToolContributor
+{
+    public static bool $wrongOwner = false;
+    public function moduleKey(): string { return 'example.fixture'; }
+    public function bindings(): array { return []; }
+    public function contentToolRegistrations(): array
+    {
+        return [new SurfaceAdapterRegistration('rich-text.tiptap', self::$wrongOwner ? 'example.other' : 'example.fixture', '1.0.0', ['rich_text'], [], ['view'])];
+    }
+}
+$fixture = \PeanutAdmin\Kernel\Module\ManifestDocument::fromArray($root, ['key'=>'example.fixture','backend'=>['provider'=>ContentContributorFixture::class]]);
+foreach ([false, true] as $wrongOwner) {
+    ContentContributorFixture::$wrongOwner = $wrongOwner;
+    $faultApp = new think\App();
+    try {
+        (new \app\common\composition\ModuleComposition($faultApp))->register(new \PeanutAdmin\Kernel\Module\CompiledModuleRegistry([...$manifests, $fixture], [], [], [], 'fault'));
+        throw new RuntimeException('invalid contribution must reject');
+    } catch (\PeanutAdmin\Kernel\Module\ModuleException | LogicException $exception) {
+        contentExpect($wrongOwner ? $exception instanceof \PeanutAdmin\Kernel\Module\ModuleException && $exception->errorCode === 'MODULE_CONTENT_TOOL_INVALID' : $exception->getMessage() === 'CONTENT_ADAPTER_DUPLICATE', 'typed owner and duplicate rejection');
+        contentExpect(!$faultApp->bound(ContentToolRegistry::class), 'fault does not publish partial registry');
+    }
+}
+// Public PHP validation is also used by the legacy service, with no DB invocation.
+$method = new ReflectionMethod(\PeanutAdmin\Modules\RichText\Service\RichTextDocumentService::class, 'encodeDocument');
+$legacy = (new ReflectionClass(\PeanutAdmin\Modules\RichText\Service\RichTextDocumentService::class))->newInstanceWithoutConstructor();
+$projection = \PeanutAdmin\Modules\RichText\Contract\RichTextProjection::empty();
+contentExpect($method->invoke($legacy, json_decode($projection->json, true)) === $projection->json, 'legacy encode uses canonical public projection');
+try {
+    $method->invoke($legacy, ['schemaVersion'=>'peanut.richtext/1','editorModel'=>'tiptap-prosemirror','content'=>['type'=>'doc','content'=>[['type'=>'mediaPlaceholder','attrs'=>['ref'=>'asset:legacy']]]],'annotations'=>[]]);
+    throw new RuntimeException('legacy invalid media must reject');
+} catch (\app\common\exception\BusinessException $exception) {
+    contentExpect(true, 'legacy media not silently cleaned or persisted');
+}
 echo 'CONTENT-CAPABILITIES-001 passed; assertions=' . $assertions . PHP_EOL;

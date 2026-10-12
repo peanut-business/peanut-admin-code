@@ -1,16 +1,14 @@
 import type { SurfaceCapabilities, SurfaceState } from './contracts';
 
 /** Decode actual API bytes; generated TypeScript alone does not validate a response. */
-export const parseSurfaceCapabilities = (
-  value: unknown
-): SurfaceCapabilities => {
+const parseSurfaceCapabilities = (value: unknown): SurfaceCapabilities => {
   if (typeof value !== 'object' || value === null || Array.isArray(value))
     throw new Error('CONTENT_CAPABILITIES_INVALID');
   const item = value as Record<string, unknown>;
   const nullableText = (candidate: unknown): candidate is string | null =>
     candidate === null ||
     (typeof candidate === 'string' && candidate.length > 0);
-  const state = item.state;
+  const { state } = item;
   const validState = (candidate: unknown): candidate is SurfaceState =>
     candidate === 'available' ||
     candidate === 'read_only' ||
@@ -51,3 +49,5 @@ export const parseSurfaceCapabilities = (
     capabilityRevision: item.capabilityRevision,
   };
 };
+
+export default parseSurfaceCapabilities;

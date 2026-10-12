@@ -50,7 +50,26 @@ export interface AuthorizedPreviewAccess {
   expiresAt: number;
   dispose: () => void;
 }
+export interface StableMediaReference {
+  fileKey: string;
+  kind: 'image' | 'video' | 'audio' | 'file';
+  variantKey?: string;
+  alt?: string;
+  title?: string;
+}
 export interface SurfaceCallbacks {
+  /** Owner/File picker returns stable references, never delivery URLs. */
+  pickMedia?: (signal: AbortSignal) => Promise<StableMediaReference | null>;
+  /** Owner supplies freshly authorized metadata/capabilities; uses File callbacks for bytes. */
+  resolveMedia?: (
+    reference: StableMediaReference,
+    signal: AbortSignal
+  ) => Promise<{
+    content: FileResourceContent;
+    capabilities: SurfaceCapabilities;
+    allowedOperations: readonly ('view' | 'edit' | 'download_original')[];
+    callbacks: SurfaceCallbacks;
+  }>;
   resolvePreview?: (
     content: FileResourceContent,
     signal: AbortSignal
@@ -62,6 +81,9 @@ export interface SurfaceCallbacks {
   /** The owner persists and returns its own receipt; tools only request saves. */
   save?: (value: unknown, signal: AbortSignal) => Promise<void>;
 }
+export type ResolvedMediaSurface = Awaited<
+  ReturnType<NonNullable<SurfaceCallbacks['resolveMedia']>>
+>;
 export interface SurfaceAdapterRegistration {
   id: string;
   providerModuleKey: string;
@@ -86,5 +108,5 @@ export interface ContentSurfaceProps {
   contextKey: string;
   allowedOperations: readonly ('view' | 'edit' | 'download_original')[];
   callbacks: SurfaceCallbacks;
-  registry: import('./registry').ContentToolRegistry;
+  registry: import('./registry').default;
 }

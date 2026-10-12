@@ -9,8 +9,10 @@ use PeanutAdmin\Modules\RichText\Service\RichTextDocumentService;
 use PeanutAdmin\Kernel\Module\ModuleProvider as ModuleProviderContract;
 use think\App;
 use think\facade\Config;
+use PeanutAdmin\Modules\ContentTools\Contract\ContentToolContributor;
+use PeanutAdmin\Modules\ContentTools\Contract\SurfaceAdapterRegistration;
 
-final class ModuleProvider implements ModuleProviderContract
+final class ModuleProvider implements ModuleProviderContract, ContentToolContributor
 {
     public function moduleKey(): string
     {
@@ -26,5 +28,12 @@ final class ModuleProvider implements ModuleProviderContract
                 trim((string) Config::get('peanut.rich_text.collaboration_secret', '')),
             ),
         ];
+    }
+
+    public function contentToolRegistrations(): array
+    {
+        return [new SurfaceAdapterRegistration(
+            'rich-text.tiptap', 'official.rich-text', '1.0.0', ['rich_text'], [], ['view', 'edit'],
+        )];
     }
 }

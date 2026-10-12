@@ -1,8 +1,27 @@
-import type { PluginFrontendContribution } from '@peanut-admin/vue';
+import { defineAsyncComponent } from 'vue';
+import type { ContentToolsContribution } from '@/modules/official-content-tools/src/contracts';
 import { DEFAULT_LAYOUT } from '@/router/routes/base';
 
-const contribution: PluginFrontendContribution = {
+const contribution: ContentToolsContribution = {
   moduleKey: 'official.rich-text',
+  contentAdapters: [
+    {
+      id: 'rich-text.tiptap',
+      providerModuleKey: 'official.rich-text',
+      adapterVersion: '1.0.0',
+      protocolVersion: 'content-surface/1',
+      contentKinds: ['rich_text'],
+      mimeTypes: [],
+      intents: ['view', 'edit'],
+      environments: ['browser'],
+      serviceDependencies: [],
+      supportsCollaboration: false,
+      unavailableReason: null,
+      component: defineAsyncComponent(
+        () => import('./components/RichTextSurface.vue')
+      ),
+    },
+  ],
   routes: [
     {
       path: '/rich-text',

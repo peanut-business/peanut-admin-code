@@ -29,12 +29,25 @@ module.exports = {
     'plugin:prettier/recommended',
   ],
   settings: {
+    'import/core-modules': ['virtual:peanut-plugin-contributions'],
     'import/resolver': {
       typescript: {
         project: path.resolve(__dirname, './tsconfig.json'),
       },
     },
   },
+  overrides: [
+    {
+      files: ['src/modules/official-rich-text/tests/**/*.ts'],
+      settings: {
+        'import/resolver': {
+          typescript: {
+            project: path.resolve(__dirname, './tsconfig.optional-tests.json'),
+          },
+        },
+      },
+    },
+  ],
   rules: {
     'prettier/prettier': 1,
     // Vue: Recommended rules to be closed or modify
@@ -42,7 +55,11 @@ module.exports = {
     'vue/singleline-html-element-content-newline': 0,
     'vue/max-attributes-per-line': 0,
     // Vue: Add extra rules
-    'vue/custom-event-name-casing': [2, 'camelCase'],
+    'vue/custom-event-name-casing': [
+      2,
+      'camelCase',
+      { ignores: ['capabilities-changed', 'dirty-change', 'save-request'] },
+    ],
     'vue/no-v-text': 1,
     'vue/padding-line-between-blocks': 1,
     'vue/require-direct-export': 1,

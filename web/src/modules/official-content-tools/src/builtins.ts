@@ -2,7 +2,7 @@ import { defineAsyncComponent } from 'vue';
 import type { SurfaceAdapterRegistration } from './contracts';
 
 const component = defineAsyncComponent(() => import('./BasicFileViewer.vue'));
-export const builtinContentAdapters: readonly SurfaceAdapterRegistration[] =
+const builtinContentAdapters: readonly SurfaceAdapterRegistration[] =
   Object.entries({
     image: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif'],
     pdf: ['application/pdf'],
@@ -22,3 +22,5 @@ export const builtinContentAdapters: readonly SurfaceAdapterRegistration[] =
     unavailableReason: null,
     component,
   }));
+
+export default builtinContentAdapters;

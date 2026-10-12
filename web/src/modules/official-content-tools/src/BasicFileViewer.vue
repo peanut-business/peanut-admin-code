@@ -9,7 +9,7 @@
     />
     <object
       v-else-if="mediaKind === 'pdf'"
-      :data="access?.url"
+      :data="pdfUrl"
       type="application/pdf"
       :aria-label="content.displayName"
       @error="failed"
@@ -54,6 +54,7 @@
     (event: 'error', code: string): void;
   }>();
   const access = shallowRef<AuthorizedPreviewAccess>();
+  const pdfUrl = shallowRef<string>();
   const status = shallowRef<'loading' | 'ready' | 'failed'>('loading');
   const message = computed(() =>
     status.value === 'failed' ? '受控预览暂不可用。' : '正在获取预览权限…'
@@ -70,6 +71,8 @@
     if (expiryTimer !== undefined) clearTimeout(expiryTimer);
     access.value?.dispose();
     access.value = undefined;
+    if (pdfUrl.value) URL.revokeObjectURL(pdfUrl.value);
+    pdfUrl.value = undefined;
   };
   const failed = () => {
     release();
@@ -143,6 +146,48 @@
           return;
         }
         access.value = preview;
+        if (preview.mimeType === 'application/pdf') {
+          // File deliberately serves PDF as attachment. Consume only the authorized
+          // preview bytes; never alter File disposition or request an original URL.
+          const url = new URL(preview.url, window.location.origin);
+          if (url.origin !== window.location.origin)
+            throw new Error('CONTENT_PDF_ORIGIN_INVALID');
+          const response = await fetch(url.href, {
+            signal: current.signal,
+            credentials: 'same-origin',
+            redirect: 'error',
+          });
+          if (
+            !response.ok ||
+            response.headers.get('content-type')?.split(';')[0] !==
+              'application/pdf' ||
+            !response.body
+          )
+            throw new Error('CONTENT_PDF_RESPONSE_INVALID');
+          const reader = response.body.getReader();
+          const chunks: Uint8Array<ArrayBuffer>[] = [];
+          let size = 0;
+          try {
+            const read = async (): Promise<void> => {
+              const { value, done } = await reader.read();
+              if (done) return;
+              size += value.byteLength;
+              if (size > 32 * 1024 * 1024)
+                throw new Error('CONTENT_PDF_TOO_LARGE');
+              chunks.push(new Uint8Array(value));
+              await read();
+            };
+            await read();
+          } finally {
+            await reader.cancel();
+          }
+          if (current.signal.aborted) return;
+          if (size === 0 || preview.expiresAt <= Date.now())
+            throw new Error('CONTENT_PDF_EXPIRED');
+          pdfUrl.value = URL.createObjectURL(
+            new Blob(chunks, { type: 'application/pdf' })
+          );
+        }
         status.value = 'ready';
         expiryTimer = setTimeout(
           failed,

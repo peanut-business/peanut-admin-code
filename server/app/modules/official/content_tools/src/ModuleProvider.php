@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace PeanutAdmin\Modules\ContentTools;
 
 use PeanutAdmin\Kernel\Module\ModuleProvider as ModuleProviderContract;
-use PeanutAdmin\Modules\ContentTools\Service\ContentToolRegistry;
-use PeanutAdmin\Modules\ContentTools\Service\ContentCapabilitiesService;
-use think\App;
 
 final class ModuleProvider implements ModuleProviderContract
 {
@@ -18,12 +15,7 @@ final class ModuleProvider implements ModuleProviderContract
 
     public function bindings(): array
     {
-        return [
-            ContentToolRegistry::class => static function (App $app): ContentToolRegistry {
-                $registry = ContentToolRegistry::withBuiltins();
-                $app->instance(ContentToolRegistry::class, $registry);
-                return $registry;
-            },
-        ];
+        // ModuleComposition installs the complete registry before any consumer resolves.
+        return [];
     }
 }

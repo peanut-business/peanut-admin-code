@@ -1,246 +1,220 @@
 <template>
-  <div class="rich-text-editor">
-    <div class="rich-text-editor__toolbar" role="toolbar" aria-label="正文格式">
-      <el-button size="small" @mousedown.prevent="run('bold')"
-        ><b>B</b></el-button
+  <section class="rich-text-editor">
+    <p v-if="error" role="status">{{ error }}</p>
+    <div v-if="!readOnly && !error" role="toolbar" aria-label="正文格式">
+      <button
+        v-for="command in [
+          'bold',
+          'italic',
+          'heading',
+          'bullet',
+          'ordered',
+          'undo',
+          'redo',
+        ]"
+        :key="command"
+        type="button"
+        @mousedown.prevent="run(command)"
+        >{{ command }}</button
       >
-      <el-button size="small" @mousedown.prevent="run('italic')"
-        ><i>I</i></el-button
-      >
-      <el-button size="small" @mousedown.prevent="run('heading')">H2</el-button>
-      <el-button size="small" @mousedown.prevent="run('bullet')"
-        >• 列表</el-button
-      >
-      <el-button size="small" @mousedown.prevent="run('ordered')"
-        >1. 列表</el-button
-      >
-      <el-button size="small" @mousedown.prevent="run('undo')">撤销</el-button>
-      <el-button size="small" @mousedown.prevent="run('redo')">重做</el-button>
-    </div>
-    <div class="rich-text-editor__controls">
-      <el-input
+      <input
         v-model="link"
-        placeholder="https://example.com"
         aria-label="链接地址"
+        placeholder="https://example.com"
       />
-      <el-button @click="setLink">设置链接</el-button>
-    </div>
-    <div class="rich-text-editor__controls">
-      <el-input
-        v-model="mediaRef"
-        placeholder="asset:image:001"
-        aria-label="媒体引用"
-      />
-      <el-select v-model="mediaKind" aria-label="媒体类型">
-        <el-option label="图片" value="image" />
-        <el-option label="视频" value="video" />
-        <el-option label="音频" value="audio" />
-      </el-select>
-      <el-button @click="insertMedia">插入媒体引用</el-button>
+      <button type="button" @click="setLink">设置链接</button>
+      <button
+        v-if="callbacks?.pickMedia"
+        type="button"
+        :disabled="picking"
+        @click="insertMedia"
+        >选择文件素材</button
+      >
     </div>
     <div ref="host" class="rich-text-editor__content" />
-    <div class="rich-text-editor__status" role="status" aria-live="polite">
-      {{ collaborationStatus }}
-    </div>
-  </div>
+    <p v-if="collaboration?.enabled || collaborationState" role="status"
+      >协同服务尚未可用；未连接、未保存协同状态。</p
+    >
+  </section>
 </template>
 
-<script lang="ts" setup>
-  import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue';
-  import { ElMessage } from 'element-plus';
-  import { Editor, Node } from '@tiptap/core';
-  import Collaboration from '@tiptap/extension-collaboration';
-  import StarterKit from '@tiptap/starter-kit';
-  import { HocuspocusProvider } from '@hocuspocus/provider';
+<script setup lang="ts">
+  import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
+  import { Editor } from '@tiptap/core';
   import DOMPurify from 'dompurify';
-  import * as Y from 'yjs';
+  import type { SurfaceCallbacks } from '@/modules/official-content-tools/src/contracts';
+  import type ContentToolRegistry from '@/modules/official-content-tools/src/registry';
   import {
     DOCUMENT_VERSION,
+    parseRichTextDocument,
+    validLink,
     type RichTextDocumentValue,
   } from '../src/document';
+  import richTextExtensions from '../src/extensions';
   import type { RichTextCollaborationConfig } from './types';
 
-  const props = defineProps<{
-    modelValue: RichTextDocumentValue;
-    collaborationState?: string;
-    collaboration?: RichTextCollaborationConfig | null;
-  }>();
+  const props = withDefaults(
+    defineProps<{
+      modelValue: RichTextDocumentValue;
+      collaborationState?: string;
+      collaboration?: RichTextCollaborationConfig | null;
+      contextKey?: string;
+      readOnly?: boolean;
+      callbacks?: SurfaceCallbacks;
+      registry?: ContentToolRegistry;
+    }>(),
+    { contextKey: 'standalone', readOnly: false, callbacks: () => ({}) }
+  );
   const emit = defineEmits<{
     (event: 'update:modelValue', value: RichTextDocumentValue): void;
     (event: 'update:collaborationState', value: string): void;
+    (event: 'ready'): void;
+    (event: 'dirty-change', value: boolean): void;
+    (event: 'error', code: string): void;
   }>();
-
   const host = ref<HTMLDivElement>();
   const editor = shallowRef<Editor>();
-  const provider = shallowRef<HocuspocusProvider>();
-  const collaborationDocument = shallowRef<Y.Doc>();
-  const collaborationStatus = ref('单人编辑 · 保存到数据库');
+  const error = ref('');
   const link = ref('');
-  const mediaRef = ref('');
-  const mediaKind = ref<'image' | 'video' | 'audio'>('image');
-
-  const cleanPastedHtml = (html: string): string =>
-    DOMPurify.sanitize(html, {
-      ALLOWED_TAGS: [
-        'a',
-        'blockquote',
-        'br',
-        'code',
-        'em',
-        'figure',
-        'h1',
-        'h2',
-        'h3',
-        'li',
-        'ol',
-        'p',
-        'pre',
-        'span',
-        'strong',
-        'ul',
-      ],
-      ALLOWED_ATTR: [
-        'href',
-        'rel',
-        'target',
-        'data-media-kind',
-        'data-media-label',
-        'data-media-ref',
-      ],
-    });
-
-  const MediaPlaceholder = Node.create({
-    name: 'mediaPlaceholder',
-    group: 'block',
-    atom: true,
-    addAttributes: () => ({
-      ref: { default: '' },
-      kind: { default: 'image' },
-      label: { default: '' },
-    }),
-    parseHTML: () => [
-      {
-        tag: 'figure[data-media-ref]',
-        getAttrs: (element) => {
-          const node = element as HTMLElement;
-          return {
-            ref: node.dataset.mediaRef || '',
-            kind: node.dataset.mediaKind || 'image',
-            label: node.dataset.mediaLabel || '',
-          };
-        },
-      },
-    ],
-    renderHTML: ({ node }) => [
-      'figure',
-      {
-        'data-media-ref': node.attrs.ref,
-        'data-media-kind': node.attrs.kind,
-        'data-media-label': node.attrs.label,
-        'class': 'rich-text-editor__media',
-        'contenteditable': 'false',
-      },
-      ['span', {}, node.attrs.label || node.attrs.ref],
-    ],
-  });
-
-  const editorExtensions = (sharedDocument?: Y.Doc) => [
-    StarterKit.configure({
-      undoRedo: sharedDocument ? false : {},
-      link: {
-        autolink: false,
-        openOnClick: false,
-        HTMLAttributes: { rel: 'noopener noreferrer' },
-      },
-    }),
-    MediaPlaceholder,
-    ...(sharedDocument
-      ? [Collaboration.configure({ document: sharedDocument })]
-      : []),
-  ];
-
-  const documentEnvelope = (instance: Editor): RichTextDocumentValue => ({
-    schemaVersion: DOCUMENT_VERSION,
-    editorModel: 'tiptap-prosemirror',
-    content: instance.getJSON(),
-    annotations: [],
-  });
-
-  const bytesToBase64 = (bytes: Uint8Array) => {
-    let binary = '';
-    for (let offset = 0; offset < bytes.length; offset += 0x8000) {
-      binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
-    }
-    return btoa(binary);
-  };
-
-  const base64ToBytes = (value: string) =>
-    Uint8Array.from(atob(value), (character) => character.charCodeAt(0));
-
-  const publish = (instance: Editor) => {
-    emit('update:modelValue', documentEnvelope(instance));
-    if (collaborationDocument.value) {
-      emit(
-        'update:collaborationState',
-        bytesToBase64(Y.encodeStateAsUpdate(collaborationDocument.value))
-      );
-    }
-  };
-
-  onMounted(() => {
-    const config = props.collaboration;
-    const yDocument = config?.enabled ? new Y.Doc() : undefined;
-    collaborationDocument.value = yDocument;
-    if (yDocument && props.collaborationState) {
-      Y.applyUpdate(yDocument, base64ToBytes(props.collaborationState));
-    }
-    const instance = new Editor({
-      element: host.value,
-      extensions: editorExtensions(yDocument),
-      content: yDocument ? undefined : props.modelValue.content,
-      editorProps: {
-        attributes: {
-          'aria-label': '富文本正文',
-          'aria-multiline': 'true',
-          'role': 'textbox',
-          'spellcheck': 'true',
-        },
-        transformPastedHTML: cleanPastedHtml,
-      },
-      onUpdate: ({ editor: current }) => publish(current),
-    });
-    editor.value = instance;
-
-    if (!yDocument || !config?.url || !config.token) return;
-    if (!props.collaborationState) {
-      instance.commands.setContent(props.modelValue.content);
-    }
-    collaborationStatus.value = '协同连接中';
-    provider.value = new HocuspocusProvider({
-      url: config.url,
-      name: config.document_name,
-      document: yDocument,
-      token: config.token,
-      onStatus: ({ status }) => {
-        collaborationStatus.value =
-          status === 'connected' ? '协同已连接' : `协同${status}`;
-      },
-      onAuthenticationFailed: ({ reason }) => {
-        collaborationStatus.value = `协同认证失败：${reason}`;
-        instance.setEditable(false);
-      },
-    });
-  });
-
-  onBeforeUnmount(() => {
-    provider.value?.destroy();
+  const picking = ref(false);
+  let mounted = false;
+  let picker: AbortController | undefined;
+  const dispose = () => {
+    picker?.abort();
+    picker = undefined;
+    picking.value = false;
     editor.value?.destroy();
-    collaborationDocument.value?.destroy();
+    editor.value = undefined;
+    link.value = '';
+  };
+  const unavailable = () =>
+    !!props.collaboration?.enabled || !!props.collaborationState;
+  const envelope = (instance: Editor) =>
+    parseRichTextDocument({
+      schemaVersion: DOCUMENT_VERSION,
+      editorModel: 'tiptap-prosemirror',
+      content: instance.getJSON(),
+      annotations: [],
+    });
+  const start = () => {
+    dispose();
+    error.value = '';
+    if (!mounted || !host.value) return;
+    if (unavailable()) {
+      error.value = '协同模式不可用';
+      emit('error', 'RICH_TEXT_COLLABORATION_UNAVAILABLE');
+      return;
+    }
+    try {
+      const value = parseRichTextDocument(props.modelValue);
+      editor.value = new Editor({
+        element: host.value,
+        editable: !props.readOnly,
+        extensions: richTextExtensions({
+          callbacks: props.callbacks,
+          registry: props.registry,
+          contextKey: props.contextKey,
+        }),
+        content: value.content,
+        editorProps: {
+          attributes: {
+            'role': props.readOnly ? 'document' : 'textbox',
+            'aria-label': '富文本正文',
+          },
+          transformPastedHTML: (html) =>
+            DOMPurify.sanitize(html, {
+              ALLOWED_TAGS: [
+                'a',
+                'blockquote',
+                'br',
+                'code',
+                'em',
+                'h1',
+                'h2',
+                'h3',
+                'h4',
+                'h5',
+                'h6',
+                'li',
+                'ol',
+                'p',
+                'pre',
+                'strong',
+                's',
+                'u',
+                'ul',
+                'hr',
+                'table',
+                'tbody',
+                'tr',
+                'td',
+                'th',
+              ],
+              ALLOWED_ATTR: ['href', 'rel', 'target', 'colspan', 'rowspan'],
+            }),
+        },
+        onUpdate: ({ editor: current }) => {
+          if (props.readOnly || unavailable()) return;
+          try {
+            const projection = envelope(current);
+            emit('update:modelValue', projection);
+            emit('dirty-change', true);
+          } catch {
+            current.setEditable(false);
+            error.value = '内容结构无效，无法保存';
+            emit('error', 'RICH_TEXT_PROJECTION_INVALID');
+          }
+        },
+      });
+      emit('ready');
+    } catch {
+      error.value = '内容结构或旧媒体引用无法识别，未修改原内容';
+      emit('error', 'RICH_TEXT_PROJECTION_INVALID');
+    }
+  };
+  onMounted(() => {
+    mounted = true;
+    start();
   });
-
+  watch(
+    () => [
+      props.contextKey,
+      props.readOnly,
+      props.collaboration?.enabled,
+      props.collaborationState,
+      props.callbacks,
+      props.registry,
+    ],
+    start
+  );
+  watch(
+    () => props.modelValue,
+    () => {
+      if (!editor.value) return;
+      try {
+        const value = parseRichTextDocument(props.modelValue);
+        if (
+          JSON.stringify(value.content) !==
+          JSON.stringify(editor.value.getJSON())
+        )
+          editor.value.commands.setContent(value.content, {
+            emitUpdate: false,
+          });
+      } catch {
+        dispose();
+        error.value = '内容结构或旧媒体引用无法识别，未修改原内容';
+        emit('error', 'RICH_TEXT_PROJECTION_INVALID');
+      }
+    },
+    { deep: true }
+  );
+  onBeforeUnmount(() => {
+    mounted = false;
+    dispose();
+  });
   const run = (command: string) => {
-    const chain = editor.value?.chain().focus();
-    if (!chain) return;
+    if (props.readOnly || !editor.value?.isEditable) return;
+    const chain = editor.value.chain().focus();
     const commands: Record<string, () => void> = {
       bold: () => chain.toggleBold().run(),
       italic: () => chain.toggleItalic().run(),
@@ -252,73 +226,68 @@
     };
     commands[command]?.();
   };
-
   const setLink = () => {
-    try {
-      const value = link.value.trim();
-      const url = new URL(value);
-      if (!['http:', 'https:', 'mailto:'].includes(url.protocol))
-        throw new Error();
-      editor.value
-        ?.chain()
-        .focus()
-        .extendMarkRange('link')
-        .setLink({ href: value })
-        .run();
-    } catch {
-      ElMessage.error('仅允许 http、https 或 mailto 链接');
-    }
-  };
-
-  const insertMedia = () => {
-    const value = mediaRef.value.trim();
-    if (!/^[a-z][a-z0-9._:-]{2,80}$/.test(value)) {
-      ElMessage.error('媒体引用格式无效');
+    if (props.readOnly || !editor.value?.isEditable) return;
+    if (!validLink(link.value.trim())) {
+      emit('error', 'RICH_TEXT_LINK_INVALID');
       return;
     }
     editor.value
-      ?.chain()
+      .chain()
       .focus()
-      .insertContent({
-        type: 'mediaPlaceholder',
-        attrs: { ref: value, kind: mediaKind.value, label: value },
+      .extendMarkRange('link')
+      .setLink({
+        href: link.value.trim(),
+        target: '_blank',
+        rel: 'noopener noreferrer',
+        class: null,
       })
       .run();
   };
+  const insertMedia = async () => {
+    if (
+      props.readOnly ||
+      picking.value ||
+      !editor.value?.isEditable ||
+      !props.callbacks.pickMedia
+    )
+      return;
+    const current = new AbortController();
+    picker = current;
+    picking.value = true;
+    try {
+      const reference = await props.callbacks.pickMedia(current.signal);
+      if (
+        current.signal.aborted ||
+        picker !== current ||
+        !reference ||
+        !editor.value?.isEditable
+      )
+        return;
+      const node = { type: 'media', attrs: reference };
+      parseRichTextDocument({
+        ...props.modelValue,
+        content: { type: 'doc', content: [node] },
+      });
+      editor.value.chain().focus().insertContent(node).run();
+    } catch {
+      if (!current.signal.aborted) emit('error', 'RICH_TEXT_MEDIA_INVALID');
+    } finally {
+      if (picker === current) {
+        picking.value = false;
+        picker = undefined;
+      }
+    }
+  };
 </script>
 
-<style scoped lang="less">
-  .rich-text-editor {
-    width: 100%;
-  }
-
-  .rich-text-editor__toolbar,
-  .rich-text-editor__controls {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 10px;
-  }
-
+<style scoped>
   .rich-text-editor__content {
-    min-height: 320px;
-    padding: 14px;
-    border: 1px solid var(--el-border-color);
-    border-radius: 4px;
-  }
-
-  .rich-text-editor__content :deep(.ProseMirror) {
-    min-height: 290px;
-    outline: none;
-  }
-
-  .rich-text-editor__content :deep(.rich-text-editor__media) {
+    min-height: 180px;
     padding: 12px;
-    background: var(--el-fill-color-light);
-    border: 1px dashed var(--el-border-color);
+    border: 1px solid var(--el-border-color);
   }
-
-  .rich-text-editor__status {
-    margin-top: 8px;
-    color: var(--el-text-color-secondary);
+  .rich-text-editor__content :deep(.ProseMirror) {
+    outline: none;
   }
 </style>

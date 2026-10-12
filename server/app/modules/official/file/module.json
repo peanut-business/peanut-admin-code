@@ -61,7 +61,8 @@
       "PeanutAdmin\\Modules\\File\\Contract\\FileReferenceCommands",
       "PeanutAdmin\\Modules\\File\\Contract\\FileDocumentReferencePolicy",
       "PeanutAdmin\\Modules\\File\\Contract\\FileDocumentReferenceContributor",
-      "PeanutAdmin\\Modules\\File\\Contract\\FileDocumentSnapshots"
+      "PeanutAdmin\\Modules\\File\\Contract\\FileDocumentSnapshots",
+      "PeanutAdmin\\Modules\\File\\Service\\FileDocumentReferenceRegistry"
     ],
     "events": []
   },

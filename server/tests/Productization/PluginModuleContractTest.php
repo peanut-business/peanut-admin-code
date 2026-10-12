@@ -5,8 +5,6 @@ declare(strict_types=1);
 use app\platform\validation\module\OpisManifestSchemaValidator;
 use app\platform\validation\module\ReflectionContractInspector;
 use app\platform\validation\module\StrictVersionConstraintMatcher;
-use PeanutAdmin\Modules\Identity\DataPermission\Persistence\Schema\DataPermissionSchema;
-use PeanutAdmin\Modules\Identity\Authorization\Persistence\Schema\AuthorizationSchema;
 use PeanutAdmin\Kernel\Idempotency\IdempotencySchema;
 use PeanutAdmin\Kernel\Migration\ModuleSchema;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
@@ -160,7 +158,7 @@ foreach ($moduleRoots as $root) {
     $document = json_decode((string) file_get_contents($root . '/module.json'), true, 32, JSON_THROW_ON_ERROR);
     $moduleRootsByKey[(string) $document['key']] = $root;
 }
-$layout = ModuleHostLayoutFactory::fromModuleRoots($moduleRootsByKey);
+$layout = ModuleHostLayoutFactory::registerRuntimeAutoload($moduleRootsByKey, $serverRoot);
 $frontendComponents = [];
 foreach ($moduleRoots as $root) {
     $document = json_decode((string) file_get_contents($root . '/module.json'), true, 32, JSON_THROW_ON_ERROR);
@@ -198,10 +196,9 @@ $compiler = new ModuleRegistryCompiler(
     $layout,
     [
         ...KernelSchema::tableNames(),
-        ...AuthorizationSchema::tableNames(),
         ...ModuleSchema::tableNames(),
         ...IdempotencySchema::tableNames(),
-        ...DataPermissionSchema::tableNames(),
+        ...array_keys($historicalTableOwners),
     ],
     ['admin-web', 'platform-web'],
     [...\PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog::TENANT, ...\PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalog::PLATFORM],
@@ -212,6 +209,26 @@ $loader = new ManifestLoader();
 $manifests = array_map(static fn(string $root) => $loader->load($root), $moduleRoots);
 $manifest = $manifests[0];
 $registry = $compiler->compile($manifests);
+pluginModuleContractExpect(
+    ($historicalTableOwners['pa_data_permission_group'] ?? null) === 'official.identity',
+    'current protected Identity manifest lost data-permission table ownership',
+);
+foreach (['pa_data_permission_group', 'pa_file', 'pa_module_migration'] as $claimedTable) {
+    $invalidOwner = $manifest->data;
+    $invalidOwner['database']['owned_tables'][] = $claimedTable;
+    try {
+        $compiler->compile([
+            ManifestDocument::fromArray($manifest->root, $invalidOwner),
+            ...array_slice($manifests, 1),
+        ]);
+        throw new RuntimeException("foreign or technical table ownership was accepted: {$claimedTable}");
+    } catch (ModuleException $exception) {
+        pluginModuleContractExpect(
+            $exception->errorCode === 'MODULE_REGISTRY_CONFLICT',
+            "table ownership rejection changed for {$claimedTable}: {$exception->errorCode}",
+        );
+    }
+}
 $expectedKeys = array_map(
     static fn(ManifestDocument $manifest): string => (string) $manifest->data['key'],
     $manifests,

@@ -1,5 +1,5 @@
 import type { ContentToolsContribution } from './src/contracts';
-import { builtinContentAdapters } from './src/builtins';
+import builtinContentAdapters from './src/builtins';
 
 const contribution: ContentToolsContribution = {
   moduleKey: 'official.content-tools',

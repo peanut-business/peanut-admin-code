@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "0c2baaf32f135e08ccb20f77f79ec13cb57d4ac6d193c095bada5bb7b019e128"
+        "sha256": "f30f9a7b95026d991ead21ef2d4871c1bf346eb534a445d6e2234ae04d17abcf"
     },
     "trust": {
         "channel": "bundled",
@@ -41,7 +41,16 @@
                     "key": "official.rich-text",
                     "version": "1.0.5",
                     "kernel_constraint": "^1.0",
-                    "dependencies": [],
+                    "dependencies": [
+                        {
+                            "module_key": "official.content-tools",
+                            "version": "1.0.0"
+                        },
+                        {
+                            "module_key": "official.file",
+                            "version": "^1.0"
+                        }
+                    ],
                     "permissions": {
                         "path": "resources/permissions.json",
                         "sha256": "289640e0f2c43a3dee7d6557005a1ad72a01bf180c3492d5f0dbd08acb5fe2e1"
@@ -62,24 +71,24 @@
     "composer": [
         {
             "name": "peanut-business/official-rich-text",
-            "version": "1.0.3",
-            "sha256": "1e4a47b6b8534c10a31b811abbae3bc002c77d073c15b310bc2b52a7743926d6"
+            "version": "1.0.5",
+            "sha256": "064ff20379c98d435a8bbfafbd7e060a9e9f53eca61a3a8986f012167ad47659"
         }
     ],
     "npm": [
         {
             "name": "@peanut-admin/official-rich-text",
-            "version": "1.0.4",
-            "integrity": "sha256-/c/vpLSVMOVa63+DXJJIZM665OL2OI9xeA/tHmH/Tuo="
+            "version": "1.0.5",
+            "integrity": "sha256-YcFcjjRWnayVOJzxz71jpbD2jW24enY725/xY32aQKA="
         }
     ],
     "frontend": [
         {
             "client_key": "admin-web",
             "package": "@peanut-admin/official-rich-text",
-            "version": "1.0.4",
+            "version": "1.0.5",
             "entry": "web/src/modules/official-rich-text/contribution.ts",
-            "sha256": "d2fbce2da164bd53d370f29eabdb62173a91b63c4a8c0605a247d4e69f24d4e4"
+            "sha256": "90854bf9fc7b34c8d175ec3876db6ffc66154a9c0a0ba59a855f6aa6c025d69e"
         }
     ],
     "modules": [

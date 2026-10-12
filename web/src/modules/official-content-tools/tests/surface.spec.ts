@@ -6,8 +6,8 @@ import ContentViewer from '../src/ContentViewer.vue';
 import ContentEditor from '../src/ContentEditor.vue';
 import BasicFileViewer from '../src/BasicFileViewer.vue';
 import contribution from '../contribution';
-import { ContentToolRegistry } from '../src/registry';
-import { parseSurfaceCapabilities } from '../src/capabilities';
+import ContentToolRegistry from '../src/registry';
+import parseSurfaceCapabilities from '../src/capabilities';
 import type {
   AuthorizedPreviewAccess,
   ContentSurfaceProps,
@@ -132,6 +132,22 @@ describe('content surfaces', () => {
     ['audio/mpeg', 'builtin.audio', 'audio'],
     ['video/mp4', 'builtin.video', 'video'],
   ])('uses an actual controlled %s viewer', async (mime, id, element) => {
+    if (mime === 'application/pdf') {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(
+          async () =>
+            new Response(new TextEncoder().encode('%PDF-1.7\npreview'), {
+              headers: {
+                'Content-Type': 'application/pdf',
+                'Content-Disposition': 'attachment',
+              },
+            })
+        )
+      );
+      vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:controlled-pdf');
+      vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    }
     const preview = access(mime);
     const selected = props();
     selected.content = content(mime);
@@ -147,6 +163,11 @@ describe('content surfaces', () => {
     expect(wrapper.emitted('ready')).toHaveLength(1);
     wrapper.unmount();
     expect(preview.dispose).toHaveBeenCalledOnce();
+    if (mime === 'application/pdf') {
+      expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:controlled-pdf');
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    }
   });
   it('refuses original bytes when there is no original-download permission', async () => {
     const preview = { ...access(), bytes: 'original' as const };

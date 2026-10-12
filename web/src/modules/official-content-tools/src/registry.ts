@@ -4,14 +4,13 @@ import type {
   SurfaceAdapterRegistration,
   SurfaceIntent,
 } from './contracts';
-
 /** Collected from the existing locked contribution array, never a URL/script loader. */
-export class ContentToolRegistry {
+export default class ContentToolRegistry {
   private readonly adapters = new Map<string, SurfaceAdapterRegistration>();
 
   constructor(contributions: readonly ContentToolsContribution[]) {
-    for (const contribution of contributions) {
-      for (const registration of contribution.contentAdapters ?? []) {
+    contributions.forEach((contribution) => {
+      (contribution.contentAdapters ?? []).forEach((registration) => {
         if (
           registration.providerModuleKey !== contribution.moduleKey ||
           !/^[a-z][a-z0-9.-]+$/.test(registration.id) ||
@@ -40,8 +39,8 @@ export class ContentToolRegistry {
         if (this.adapters.has(registration.id))
           throw new Error('CONTENT_ADAPTER_DUPLICATE');
         this.adapters.set(registration.id, registration);
-      }
-    }
+      });
+    });
   }
 
   selected(

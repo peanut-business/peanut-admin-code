@@ -9,6 +9,7 @@ use app\common\execution\CurrentExecutionContext;
 use app\common\http\PageResult;
 use app\common\support\PaginationInput;
 use PeanutAdmin\Modules\RichText\Model\RichTextDocument;
+use PeanutAdmin\Modules\RichText\Contract\RichTextProjection;
 use think\facade\Db;
 
 final readonly class RichTextDocumentService
@@ -141,10 +142,10 @@ final readonly class RichTextDocumentService
 
     private function encodeDocument(mixed $document): string
     {
-        if (!is_array($document) || ($document['schemaVersion'] ?? null) !== self::DOCUMENT_VERSION) {
-            throw BusinessException::invalid('RICH_TEXT_DOCUMENT_INVALID', '文档格式无效');
+        if (!is_array($document)) {
+            throw BusinessException::invalid('RICH_TEXT_PROJECTION_INVALID', '富文本结构无效');
         }
-        return (string) json_encode($document, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE, 64);
+        return RichTextProjection::fromStructured($document)->json;
     }
 
     private function decodeCollaborationState(mixed $value): ?string
