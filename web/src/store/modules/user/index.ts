@@ -60,10 +60,7 @@ const useUserStore = defineStore('user', {
       const snapshot = getSessionSnapshot();
       const res = await getUserInfo();
       const current = getSessionSnapshot();
-      if (
-        snapshot.generation !== current.generation ||
-        snapshot.token !== current.token
-      )
+      if (snapshot.generation !== current.generation)
         throw new Error('The request session has changed.');
       const appStore = useAppStore();
       const brandStore = useBrandStore();
