@@ -2329,7 +2329,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fff5ef9bbd667ad18a7edbd073438dbbb2d58b2a5fdd1ba29fba725073a33ba8"
+            "source_sha256": "f08b6f27cdb3e67fed0406d83ce8d3a6083f72e712d18b907f82456bc88311b4"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2467,7 +2467,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "36d6d7a2e0b49333fd31a45324a59a1a50d33764578284b34dbc4e9f8d77721e"
+            "source_sha256": "231e227f98811b8df74918cbb89b2f2c28e0e93474940742577beab1a49a377d"
         },
         {
             "path": "plugins/official.member/plugin.json",
@@ -3327,7 +3327,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dc7e6b9793685d4f1e3c1bda38307cc693ba7a90a5a26076f9a9ed4ce5414ecf"
+            "source_sha256": "bbd4344f8c08f62df24c812412f6118e1cf64d7fe16f2a40f9adcf856c13eb31"
         },
         {
             "path": "scripts/local-php-runtime",
@@ -14531,6 +14531,20 @@
             "source_sha256": "35372da24f3627dda6d5277ae1c3b44cbbbe414e7b9909185bb4bf44be3e182d"
         },
         {
+            "path": "server/app/modules/official/integration/src/Console/DispatchWebhooksCommand.php",
+            "target": "server/app/modules/official/integration/src/Console/DispatchWebhooksCommand.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "8e9fe6062b68e5d2d7d8850415ee856608300e1d92f85856f8bc7ab680971d01"
+        },
+        {
             "path": "server/app/modules/official/integration/src/Console/PurgeExpiredDeliveriesCommand.php",
             "target": "server/app/modules/official/integration/src/Console/PurgeExpiredDeliveriesCommand.php",
             "classification": "managed",
@@ -14867,6 +14881,20 @@
             "source_sha256": "224faccdb8bf869094c514eb8055d30d03eb830906af13164765db65fab03b8f"
         },
         {
+            "path": "server/app/modules/official/integration/src/Infrastructure/CurlWebhookTransport.php",
+            "target": "server/app/modules/official/integration/src/Infrastructure/CurlWebhookTransport.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "089c59599f01441550031b0533f4133563aa379974246a107dd1bf81c9a55256"
+        },
+        {
             "path": "server/app/modules/official/integration/src/Infrastructure/Persistence/ThinkPhpIntegrationSecurityRepository.php",
             "target": "server/app/modules/official/integration/src/Infrastructure/Persistence/ThinkPhpIntegrationSecurityRepository.php",
             "classification": "managed",
@@ -15004,7 +15032,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6dafb69a34f4fd73b43993978f0104104713563fb457ac6f2a1caa13bdf09095"
+            "source_sha256": "92d4edf47d53e9d4997a3820acd81e682e2d3617173a7fd011265561aae23d02"
         },
         {
             "path": "server/app/modules/official/integration/src/Package.php",
@@ -23608,7 +23636,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "02f2ff1c33e421297395512cf792c597cf07f4d0633353ed801c1b6f068fa275"
+            "source_sha256": "aac98dadf1962d0030332f007b6fff34f8f4e782350bea9367d8ef0b0e464cc2"
         },
         {
             "path": "server/config/cookie.php",

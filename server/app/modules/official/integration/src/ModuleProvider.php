@@ -17,6 +17,7 @@ use PeanutAdmin\Modules\Integration\Contract\ExternalTenantResolutionService;
 use PeanutAdmin\Modules\Integration\Contract\IntegrationSecurityRepository;
 use PeanutAdmin\Modules\Integration\Contract\MachineScopeGrantResolver;
 use PeanutAdmin\Modules\Integration\Infrastructure\ConfiguredMachineScopeGrantResolver;
+use PeanutAdmin\Modules\Integration\Infrastructure\CurlWebhookTransport;
 use PeanutAdmin\Modules\Integration\Infrastructure\ThinkPhpExternalTenantAudit;
 use PeanutAdmin\Modules\Integration\Infrastructure\ThinkPhpExternalTenantBindingRepository;
 use PeanutAdmin\Modules\Integration\Infrastructure\UnavailableWebhookSecretProtector;
@@ -29,6 +30,7 @@ use PeanutAdmin\IntegrationSecurity\Crypto\WebhookSecretProtector;
 use PeanutAdmin\IntegrationSecurity\Webhook\HostAddressResolver;
 use PeanutAdmin\IntegrationSecurity\Webhook\SystemHostAddressResolver;
 use PeanutAdmin\IntegrationSecurity\Webhook\WebhookDestinationPolicy;
+use PeanutAdmin\IntegrationSecurity\Webhook\WebhookTransport;
 use PeanutAdmin\Kernel\Module\ModuleProvider as ModuleProviderContract;
 use think\App;
 
@@ -59,6 +61,7 @@ final class ModuleProvider implements ModuleProviderContract
             ),
             IntegrationSecurityRepository::class => ThinkPhpIntegrationSecurityRepository::class,
             HostAddressResolver::class => SystemHostAddressResolver::class,
+            WebhookTransport::class => CurlWebhookTransport::class,
             WebhookDestinationPolicy::class => fn(App $app): WebhookDestinationPolicy => new WebhookDestinationPolicy(
                 $app->make(HostAddressResolver::class),
             ),

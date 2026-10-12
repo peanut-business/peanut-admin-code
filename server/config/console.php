@@ -9,6 +9,7 @@ return [
         // 平台系统维护仅允许顶层CLI执行，不登记为租户调度命令。
         'import-export:expire' => \PeanutAdmin\Modules\ImportExport\Console\ExpireOperationsCommand::class,
         'integration:purge-expired' => \PeanutAdmin\Modules\Integration\Console\PurgeExpiredDeliveriesCommand::class,
+        'integration:webhook:dispatch' => \PeanutAdmin\Modules\Integration\Console\DispatchWebhooksCommand::class,
         'crontab'         => \app\command\Crontab::class,
         'crontab:demo'    => \app\command\CrontabDemo::class,
         'refund:reconcile' => \app\command\RefundReconcile::class,

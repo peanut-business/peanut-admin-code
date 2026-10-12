@@ -87,7 +87,7 @@ prepare_env() {
     set_env "$orchestration_env" PHP_PORT "$php_port"
     set_env "$orchestration_env" VITE_PORT "$admin_port"
     set_env "$orchestration_env" PLATFORM_PORT "$platform_port"
-    set_env "$orchestration_env" VITE_ALLOWED_HOSTS platform.peanut-admin.test,admin.peanut-admin.test,tenant-a.peanut-admin.test,tenant-b.peanut-admin.test
+    set_env "$orchestration_env" VITE_ALLOWED_HOSTS platform.peanut-admin.localhost,admin.peanut-admin.test,tenant-a.peanut-admin.test,tenant-b.peanut-admin.test
     set_env "$orchestration_env" VITE_DEPLOYMENT_MODE multi-tenant
     set_env "$orchestration_env" VITE_OPEN_BROWSER false
     set_env "$backend_env" APP_ENV development
@@ -97,7 +97,7 @@ prepare_env() {
     set_env "$backend_env" PEANUT_DEPLOYMENT_TARGET local-multi-tenant-demo
     set_env "$backend_env" PEANUT_INSTALLATION_SOURCE_MODE development
     set_env "$backend_env" DEPLOYMENT_MODE multi-tenant
-    set_env "$backend_env" PLATFORM_HOSTS platform.peanut-admin.test
+    set_env "$backend_env" PLATFORM_HOSTS platform.peanut-admin.localhost
     set_env "$backend_env" TENANT_ADMIN_HOSTS admin.peanut-admin.test
     set_env "$backend_env" OWNER_INVITATION_DELIVERY_MODE manual
     clear_env "$backend_env" ADMIN_INITIAL_EMAIL
@@ -220,7 +220,7 @@ show_urls() {
         'Tenant Admin: http://admin.peanut-admin.test:20179/admin/' \
         'Tenant Alpha: http://tenant-a.peanut-admin.test:20179/admin/' \
         'Tenant Beta:  http://tenant-b.peanut-admin.test:20179/admin/' \
-        'Platform:     http://platform.peanut-admin.test:20176/platform/' \
+        'Platform:     http://platform.peanut-admin.localhost:20176/platform/' \
         'API:          http://127.0.0.1:20178/'
 }
 
