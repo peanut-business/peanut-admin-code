@@ -7,7 +7,13 @@
     shallowRef,
     watch,
   } from 'vue';
-  import { Handle, Position, VueFlow, useVueFlow } from '@vue-flow/core';
+  import {
+    Handle,
+    Position,
+    useNodesInitialized,
+    VueFlow,
+    useVueFlow,
+  } from '@vue-flow/core';
   import type {
     Connection,
     NodeChange,
@@ -17,6 +23,7 @@
   import '@vue-flow/core/dist/style.css';
   import '@vue-flow/core/dist/theme-default.css';
   import type { EditorDocument } from '../types';
+
   const props = defineProps<{
     document: EditorDocument;
     instanceId: string;
@@ -29,7 +36,8 @@
     (event: 'connect', from: string, to: string): void;
     (event: 'viewport', value: ViewportTransform): void;
   }>();
-  const flow = useVueFlow({ id: props.instanceId });
+  const flow = useVueFlow(props.instanceId);
+  const nodesInitialized = useNodesInitialized();
   const dragging = shallowRef<Record<string, { x: number; y: number }>>({});
   const nodes = computed(() =>
     props.document.graph.nodes.map((node, index) => {
@@ -84,35 +92,43 @@
   }) {
     if (event.event) emit('viewport', event.flowTransform);
   }
-  const observer = new ResizeObserver(async () => {
-    await nextTick();
-    if (!props.document.layout.viewport) await flow.fitView({ padding: 0.2 });
-  });
   const containerId = `workflow-canvas-${props.instanceId}`;
-  onMounted(async () => {
+  let viewportInitialized = false;
+  let disposed = false;
+  async function updateViewport(force = false) {
+    await nextTick();
+    if (disposed) return;
+    const element = document.getElementById(containerId);
+    if (!element || element.clientWidth === 0 || element.clientHeight === 0)
+      return;
+    const viewport = props.document.layout.viewport;
+    if (!viewport && !nodesInitialized.value) return;
+    if (!viewportInitialized || force) {
+      if (viewport) await flow.setViewport(viewport);
+      else viewportInitialized = await flow.fitView({ padding: 0.2 });
+      if (viewport) viewportInitialized = true;
+    } else if (!viewport) await flow.fitView({ padding: 0.2 });
+  }
+  const observer = new ResizeObserver(() => updateViewport());
+  onMounted(() => {
     const element = document.getElementById(containerId);
     if (element) observer.observe(element);
-    await nextTick();
-    if (props.document.layout.viewport)
-      await flow.setViewport(props.document.layout.viewport);
-    else await flow.fitView({ padding: 0.2 });
+    void updateViewport();
+  });
+  watch(nodesInitialized, (initialized) => {
+    if (initialized && !props.document.layout.viewport) void updateViewport();
   });
   watch(
-    () => props.instanceId,
-    () => flow.$destroy()
-  );
-  watch(
     () => props.document.layout.viewport,
-    (value) => {
-      if (value) void flow.setViewport(value);
-    },
+    () => updateViewport(true),
     { deep: true }
   );
   onBeforeUnmount(() => {
+    disposed = true;
     observer.disconnect();
-    flow.$destroy();
   });
 </script>
+
 <template>
   <div :id="containerId" class="workflow-canvas" aria-label="流程画布">
     <div class="canvas-tools nodrag nopan nowheel"
@@ -157,6 +173,7 @@
     </VueFlow>
   </div>
 </template>
+
 <style scoped>
   .workflow-canvas {
     width: 100%;

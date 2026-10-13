@@ -913,7 +913,13 @@ if ($installerIsDirect) {
             echo json_encode($status, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR), PHP_EOL;
             exit(0);
         }
-        $result = $host->executeAutomatic(automaticInstallationInput());
+        $result = $application->make(\app\common\execution\ExecutionContextStore::class)->run(
+            new \app\common\execution\InstallationExecutionContext(
+                'installation.console.execute',
+                'install-' . bin2hex(random_bytes(16)),
+            ),
+            static fn() => $host->executeAutomatic(automaticInstallationInput()),
+        );
         echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR), PHP_EOL;
         exit(0);
     } catch (\app\common\exception\installation\InstallationExecutionException $exception) {

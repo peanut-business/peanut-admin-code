@@ -23972,7 +23972,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "370c57295c01499d6effa1fe6e6e847ddde71192afdaa09af144ce0c5b35a756"
+            "source_sha256": "f8a6b85d3a7a76fa33cbbb04fe183691e7b78b633ae10a480641155bbe543c00"
         },
         {
             "path": "server/database/kernel-migrations/20260716010101_create_pa_account.php",
@@ -35943,7 +35943,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "91ed731f2290d4c61af21537e009a9ba814106691a33380cd1035326160f11b4"
+            "source_sha256": "7a41937ea1c4dbd89e849be12b7cdfbf77205b01c3ff727dfdd0f5dc4cc78bb6"
         },
         {
             "path": "web/src/modules/peanut-workflow/designer/WorkflowDesignerPage.vue",
