@@ -517,7 +517,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "e0686915ea1e693bbdaf5f0e402e9143cfe090b8b1d9fdc6ca001126c34dafda"
+                "sha256": "d7c708ddfcbfbe237647c86b256afd61dec439c321ebaac7d4f069552c58adcc"
             },
             "trust": {
                 "channel": "bundled",
@@ -611,7 +611,7 @@
                 }
             ],
             "manifest": "plugins/official.identity/plugin.json",
-            "manifest_sha256": "8dd60dd4816134e52f4f9028d2e4fb648713035892bde683fc4fc9c7f11c6709"
+            "manifest_sha256": "58d10b6eaf20f8a744ad779d90a86a656fccb64f8990496ce61d8ceb38947256"
         },
         {
             "key": "official.import-export",

@@ -22,7 +22,6 @@ final class TenantAuthService
     private const RATE_WINDOW = '-15 minutes';
     private const RATE_LIMIT = 20;
 
-    private readonly string $dummyPasswordHash;
     private readonly \PeanutAdmin\Kernel\Auth\TenantClient $client;
 
     public function __construct(
@@ -35,7 +34,6 @@ final class TenantAuthService
         string $clientKey = 'admin-web',
     ) {
         $this->client = ($clients ?? \PeanutAdmin\Kernel\Auth\TenantClientRegistry::adminWeb())->require($clientKey);
-        $this->dummyPasswordHash = $this->passwords->hash('peanut-admin-invalid-credential-pad');
     }
 
     public function client(): \PeanutAdmin\Kernel\Auth\TenantClient
@@ -84,8 +82,12 @@ final class TenantAuthService
             throw new \PeanutAdmin\Kernel\Auth\AuthException('AUTH_RATE_LIMITED', 429);
         }
 
+        // Password padding belongs only to admitted password logins, not Token requests.
+        // Keep the configured hasher and generate before acquiring credential locks.
+        $dummyPasswordHash = $this->passwords->hash('peanut-admin-invalid-credential-pad');
         $result = Db::transaction(function () use (
             $normalizedEmail,
+            $dummyPasswordHash,
             $plainPassword,
             $tenantCode,
             $ipAddress,
@@ -96,7 +98,7 @@ final class TenantAuthService
             $autoEnterSingleTenant,
         ): TenantSelectionRequired|TenantAuthentication|\PeanutAdmin\Kernel\Auth\AuthException {
             $credential = $this->repository->credentialByEmail($normalizedEmail, true);
-            $hash = $credential === null ? $this->dummyPasswordHash : $credential->secretHash;
+            $hash = $credential === null ? $dummyPasswordHash : $credential->secretHash;
             $passwordValid = $this->passwords->verify($plainPassword, $hash);
             if ($credential === null || !$passwordValid || !$this->credentialCanAuthenticate($credential, $now)) {
                 $this->repository->registerFailedLogin(

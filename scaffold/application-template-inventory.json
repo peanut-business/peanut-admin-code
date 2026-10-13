@@ -2329,7 +2329,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f08b6f27cdb3e67fed0406d83ce8d3a6083f72e712d18b907f82456bc88311b4"
+            "source_sha256": "989dcbeeb7f86536035f391355336b20777ab127274559721cc5c122762f6f33"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2439,7 +2439,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8dd60dd4816134e52f4f9028d2e4fb648713035892bde683fc4fc9c7f11c6709"
+            "source_sha256": "58d10b6eaf20f8a744ad779d90a86a656fccb64f8990496ce61d8ceb38947256"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -11587,7 +11587,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d01e37f11cd9fbf2036636a28530b5562b6f0b418bb1825aaaeb310cc3cf2e15"
+            "source_sha256": "9c3609ef3bcdd687cf749138b6327c479fa9a74c467a475090f14b75d1fd55ae"
         },
         {
             "path": "server/app/modules/official/identity/src/Auth/PlatformAuthentication.php",
@@ -11671,7 +11671,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "84c0c5e5915f432e27cf1ad977d8da828a19b580b374607051141bc866e029f9"
+            "source_sha256": "33be06365ba7f569330ef3c285e1171aa695da360a6ff976d68e6c2f0b4d0fea"
         },
         {
             "path": "server/app/modules/official/identity/src/Auth/TenantAuthentication.php",
@@ -26641,6 +26641,19 @@
         {
             "path": "server/tests/Modules/Official/FileDeliveryEdgeCasesTest.php",
             "target": "server/tests/Modules/Official/FileDeliveryEdgeCasesTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Modules/Official/Identity/Auth/AuthRequestPasswordCostTest.php",
+            "target": "server/tests/Modules/Official/Identity/Auth/AuthRequestPasswordCostTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

@@ -19,17 +19,13 @@ final class PlatformAuthService
     private const RATE_WINDOW = '-15 minutes';
     private const RATE_LIMIT = 20;
 
-    private readonly string $dummyPasswordHash;
-
     public function __construct(
         private readonly PlatformAuthRepository $repository,
         private readonly PasswordHasher $passwords,
         private readonly \PeanutAdmin\Kernel\Auth\Clock $clock,
         private readonly \PeanutAdmin\Kernel\Auth\TokenIssuer $tokens,
         private readonly string $identifierHmacKey,
-    ) {
-        $this->dummyPasswordHash = $passwords->hash('peanut-admin-platform-invalid-pad');
-    }
+    ) {}
 
     public function login(
         string $email,
@@ -69,8 +65,12 @@ final class PlatformAuthService
             );
             throw new \PeanutAdmin\Kernel\Auth\AuthException('AUTH_RATE_LIMITED', 429);
         }
+        // Password padding belongs only to admitted password logins, not Token requests.
+        // Keep the configured hasher and generate before acquiring credential locks.
+        $dummyPasswordHash = $this->passwords->hash('peanut-admin-platform-invalid-pad');
         $result = Db::transaction(function () use (
             $normalizedEmail,
+            $dummyPasswordHash,
             $plainPassword,
             $identifierHmac,
             $ipAddress,
@@ -79,7 +79,7 @@ final class PlatformAuthService
             $now,
         ): PlatformAuthentication|\PeanutAdmin\Kernel\Auth\AuthException {
             $principal = $this->repository->principalByEmail($normalizedEmail, true);
-            $hash = $principal === null ? $this->dummyPasswordHash : $principal->secretHash;
+            $hash = $principal === null ? $dummyPasswordHash : $principal->secretHash;
             if (
                 !$this->passwords->verify($plainPassword, $hash)
                 || $principal === null
