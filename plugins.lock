@@ -630,7 +630,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "8cf93df02ba6a73ab20062f41aa8567fa4fcbc5fe6238129a357ab8d5d81e63f"
+                "sha256": "8cd51a1e929636eb915d4f21a8f2d62304fc421b2e76d82de0b16ef90d61e0e6"
             },
             "trust": {
                 "channel": "bundled",
@@ -728,7 +728,7 @@
                 }
             ],
             "manifest": "plugins/official.identity/plugin.json",
-            "manifest_sha256": "532c46382a44fb3873a2c0524e00f17d688337f3ba0e71edf9f0c6ac1de3f136"
+            "manifest_sha256": "0af8722e483fb5f4df650959c29ee40bf7057d5211d764ed14b83a6e46ede357"
         },
         {
             "key": "official.import-export",
@@ -1055,7 +1055,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "9e592557d70781a1bda44853e687f9c7ce96fd810ec6ad8328b43356ce50aa7e"
+                "sha256": "c9bbca94967cd73d53685cf316646f67233a321908f7354ac428903ca22c6df6"
             },
             "trust": {
                 "channel": "bundled",
@@ -1160,7 +1160,7 @@
                 }
             ],
             "manifest": "plugins/official.notification/plugin.json",
-            "manifest_sha256": "da6109edcdee1b9b393203ae7881ceb381c370ec3c891cf4a26027a97c0bfadf"
+            "manifest_sha256": "c5a8adcdf097738589c98d79bc71404996fe66f82807863271d5c39c54a752af"
         },
         {
             "key": "official.oauth",
@@ -2060,7 +2060,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "6799f82d9ae035e5d2ddd3bfb86747be2639664f3e6a0dcec0adf81a1067b11b"
+                "sha256": "1c5816e7e04885ff83367d35f6a19e6d7f462a0ef11abc340302a4a69a4b46d3"
             },
             "trust": {
                 "channel": "bundled",
@@ -2161,7 +2161,7 @@
                 }
             ],
             "manifest": "plugins/peanut.workflow/plugin.json",
-            "manifest_sha256": "31b2ce1394094f65b2cd09a4a5175155052065f1d2c85045d12788cebd1ac153"
+            "manifest_sha256": "d264cc8c6a773b4ed28621092bc3e7a503a8271c78015859ccdaed1f55867d45"
         }
     ]
 }

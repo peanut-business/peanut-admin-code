@@ -2329,7 +2329,35 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1d8b3d886e126e85f9924e7150e3bb430ebdb57e4cb2aa0c60c7d41159bfea31"
+            "source_sha256": "c1224f19a575f989ff97068466f9522fb73ac7094c7cb3ce8b3c5f3e2f8ab3e1"
+        },
+        {
+            "path": "plugins.lock",
+            "target": "plugins.lock",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "plugins-lock",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "c1224f19a575f989ff97068466f9522fb73ac7094c7cb3ce8b3c5f3e2f8ab3e1"
+        },
+        {
+            "path": "plugins.lock",
+            "target": "plugins.lock",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "plugins-lock",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "c1224f19a575f989ff97068466f9522fb73ac7094c7cb3ce8b3c5f3e2f8ab3e1"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2452,7 +2480,35 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c4200dcc3ed06600b3c6d125795961829fb739616b3778bb87b575323778205a"
+            "source_sha256": "0af8722e483fb5f4df650959c29ee40bf7057d5211d764ed14b83a6e46ede357"
+        },
+        {
+            "path": "plugins/official.identity/plugin.json",
+            "target": "plugins/official.identity/plugin.json",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "0af8722e483fb5f4df650959c29ee40bf7057d5211d764ed14b83a6e46ede357"
+        },
+        {
+            "path": "plugins/official.identity/plugin.json",
+            "target": "plugins/official.identity/plugin.json",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "0af8722e483fb5f4df650959c29ee40bf7057d5211d764ed14b83a6e46ede357"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -2508,7 +2564,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1f526765c17950df69fa55a3ed7ce225d186cb6e5a6465f5eefb97ea296ce7b8"
+            "source_sha256": "c5a8adcdf097738589c98d79bc71404996fe66f82807863271d5c39c54a752af"
         },
         {
             "path": "plugins/official.oauth/plugin.json",
@@ -2648,7 +2704,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "af36e942bbbbc3f5989e75ee37cbfd334e72661a4271bee4bbc38350efc1f161"
+            "source_sha256": "d264cc8c6a773b4ed28621092bc3e7a503a8271c78015859ccdaed1f55867d45"
         },
         {
             "path": "release-versions.json",
@@ -3791,7 +3847,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2ca9d9c28bce7c0dc7873b6de5f66bce38d6739c3e4956d2d87074be96a9f050"
+            "source_sha256": "7b72595cfbfb41053ec751413e079a255eb0cfa01c92eaa5b57403f7bd91633b"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",
@@ -6251,6 +6307,20 @@
             "source_sha256": "2ec90b2fec3b305f61c5d53f7c9fe6a5e9e172a9bfcbb3eedbcafe3c79980e9e"
         },
         {
+            "path": "server/app/command/IdentityCredentialRecovery.php",
+            "target": "server/app/command/IdentityCredentialRecovery.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "c7a6b4723419b5a70e01a8d9106f8ea2d2ac5bd8a0fd09a294d97da2574316fb"
+        },
+        {
             "path": "server/app/command/ModuleAdoptPackage.php",
             "target": "server/app/command/ModuleAdoptPackage.php",
             "classification": "managed",
@@ -6276,7 +6346,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f381011477b42b24d34af9cbc85c0f9a2efb834b2d18fa7d9d6b3671870987c9"
+            "source_sha256": "eebc674a6b1771b6d72732294394b94d513b8c7d6bde89da391e98aaafa8df1b"
         },
         {
             "path": "server/app/command/ModuleCreate.php",
@@ -6710,7 +6780,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e29d6bed3dcb7e21bbf18278c15a2843980115372e9abab7af0dda984ac02dd3"
+            "source_sha256": "5b730c72c68ee444ad465e44fff86338cb61622cd915143d6fc3ad9edff9a758"
         },
         {
             "path": "server/app/common/composition/ModuleExtensionService.php",
@@ -7622,7 +7692,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d9014b5d7ee098ad786a7157f20270d2399478232c589ab06ba50ee7408d419c"
+            "source_sha256": "eb90462c3303311f69c7304073b311cf33ae5e03700777626a9d3cf9a7bc9a50"
         },
         {
             "path": "server/app/common/http/HostApiProblemRenderer.php",
@@ -11900,7 +11970,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "71939d33b92dbfd7a9fa4004604335a2c75e2d82a83fcf5fb24ba4cd4aa992d5"
+            "source_sha256": "e427dc1b7b34d40fedda07db8cf59234e487e32b3e41edbe0a63d1107262ba6f"
         },
         {
             "path": "server/app/modules/official/identity/src/Audit/AuditService.php",
@@ -12096,7 +12166,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d01e37f11cd9fbf2036636a28530b5562b6f0b418bb1825aaaeb310cc3cf2e15"
+            "source_sha256": "9c3609ef3bcdd687cf749138b6327c479fa9a74c467a475090f14b75d1fd55ae"
         },
         {
             "path": "server/app/modules/official/identity/src/Auth/PlatformAuthentication.php",
@@ -12180,7 +12250,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "84c0c5e5915f432e27cf1ad977d8da828a19b580b374607051141bc866e029f9"
+            "source_sha256": "33be06365ba7f569330ef3c285e1171aa695da360a6ff976d68e6c2f0b4d0fea"
         },
         {
             "path": "server/app/modules/official/identity/src/Auth/TenantAuthentication.php",
@@ -12937,6 +13007,20 @@
                 "full"
             ],
             "source_sha256": "38e19f89b629201cfdf7d174475c41257feb5fbc07a44a902e1366582c3f44d7"
+        },
+        {
+            "path": "server/app/modules/official/identity/src/Identity/Maintenance/IdentityCredentialRecovery.php",
+            "target": "server/app/modules/official/identity/src/Identity/Maintenance/IdentityCredentialRecovery.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "b6103b5fb2ecbebae340076ea45d647d90c7b70de1bf3900b9e6e65938e08d98"
         },
         {
             "path": "server/app/modules/official/identity/src/Identity/Query/ThinkPhpPlatformOperatorIdentityQuery.php",
@@ -16398,6 +16482,20 @@
             "source_sha256": "eaef582cd762c803f3f7d213687f61d43fd3634e9f0b984471f11648e10979fb"
         },
         {
+            "path": "server/app/modules/official/notification/database/migrations/20261012-notification-producer-identity.sql",
+            "target": "server/app/modules/official/notification/database/migrations/20261012-notification-producer-identity.sql",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "7c01bc1bf1f309e879ff3014f89418157abbce45374a58064d1a6dc94fca07ce"
+        },
+        {
             "path": "server/app/modules/official/notification/delivery/README.md",
             "target": "server/app/modules/official/notification/delivery/README.md",
             "classification": "managed",
@@ -16423,7 +16521,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5fe82592dd3defe91a48a5f4ded3e7d9503015c5fb1988edd1dda08e8ffc768e"
+            "source_sha256": "15e25451934308e82e643f2ed08c4431876409acfd8b9ae63e224115d1e1b236"
         },
         {
             "path": "server/app/modules/official/notification/resources/menus.json",
@@ -16538,6 +16636,62 @@
             "source_sha256": "52c709335acd9e4c626ebc2a2dbf1ec7d45bdff419031c8436da397a03521d38"
         },
         {
+            "path": "server/app/modules/official/notification/src/Contract/NotificationLifecycleQueries.php",
+            "target": "server/app/modules/official/notification/src/Contract/NotificationLifecycleQueries.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "e36facfd76b90f4a7ac826a798ae8ce995113a23f99c520dab8dd8358fe49b6f"
+        },
+        {
+            "path": "server/app/modules/official/notification/src/Contract/NotificationProducer.php",
+            "target": "server/app/modules/official/notification/src/Contract/NotificationProducer.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "f98c7a43107efadf9d5d007a44f601ef0bc6980b1a08360022d96b59369a3977"
+        },
+        {
+            "path": "server/app/modules/official/notification/src/Contract/NotificationProducerRegistry.php",
+            "target": "server/app/modules/official/notification/src/Contract/NotificationProducerRegistry.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "74676be5d9679491e47fea14418c0c40737c5233aead6065b605b6c5da8b35bd"
+        },
+        {
+            "path": "server/app/modules/official/notification/src/Contract/NotificationPublicationIdentity.php",
+            "target": "server/app/modules/official/notification/src/Contract/NotificationPublicationIdentity.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "a38db80522d52df7c01fa6afa927113f079b8bf61075c4c5e5449006a7639f81"
+        },
+        {
             "path": "server/app/modules/official/notification/src/Contract/NotificationQueries.php",
             "target": "server/app/modules/official/notification/src/Contract/NotificationQueries.php",
             "classification": "managed",
@@ -16550,6 +16704,20 @@
                 "full"
             ],
             "source_sha256": "37ee375038cdfdc994ef8cf6298a68f6bb22884536b9fb7391bad04f5a2410c9"
+        },
+        {
+            "path": "server/app/modules/official/notification/src/Contract/NotificationUpgradePreflight.php",
+            "target": "server/app/modules/official/notification/src/Contract/NotificationUpgradePreflight.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "3e97a51f96b667f25abe1c3dbb5266ed50e1988060c7f2393b8826a542925f7f"
         },
         {
             "path": "server/app/modules/official/notification/src/Contract/VerificationCodeCommands.php",
@@ -16664,6 +16832,20 @@
             "source_sha256": "4fe4d5b06ba70d3b8dd60d91e659b1e59d6d288e898392be4804ffa1f40df5fd"
         },
         {
+            "path": "server/app/modules/official/notification/src/Delivery/Application/FileAttachmentResolver.php",
+            "target": "server/app/modules/official/notification/src/Delivery/Application/FileAttachmentResolver.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "8a2c7278109cebd141ef50162406310db0854f08e53ddee7f93d0cf79e7a6649"
+        },
+        {
             "path": "server/app/modules/official/notification/src/Delivery/Application/NotificationException.php",
             "target": "server/app/modules/official/notification/src/Delivery/Application/NotificationException.php",
             "classification": "managed",
@@ -16717,7 +16899,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "946295e6e758c77ab836f99630719f15f6f2170b8116969880b5d041dd0146a1"
+            "source_sha256": "4fa9aa66c7c0d1e3d3df460dfa034e749b0baa12c06b95fc51cce644ea5ca7fd"
         },
         {
             "path": "server/app/modules/official/notification/src/Delivery/Application/OutboxRecord.php",
@@ -16888,6 +17070,20 @@
             "source_sha256": "a9a6579293ec6134aef2c26941e12cd9f2cfa9ea17e2813a14c10a640b46b8f3"
         },
         {
+            "path": "server/app/modules/official/notification/src/Delivery/Persistence/Model/NotificationTaskActorRecord.php",
+            "target": "server/app/modules/official/notification/src/Delivery/Persistence/Model/NotificationTaskActorRecord.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "3309fd414689e4e560ec6b4169afa903da28a53fd769a571173b3bc6c5d7d453"
+        },
+        {
             "path": "server/app/modules/official/notification/src/Delivery/Persistence/Model/NotificationTemplateRecord.php",
             "target": "server/app/modules/official/notification/src/Delivery/Persistence/Model/NotificationTemplateRecord.php",
             "classification": "managed",
@@ -16927,7 +17123,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9bd4dfe62af44acd63c95809e3dd921b61987fbfdcc53759f9019ff8e58a81ca"
+            "source_sha256": "8fc748100e3b1b4fd2928cbd085194e86c8c10f8dfe13d39a2fb7db6be0eb037"
         },
         {
             "path": "server/app/modules/official/notification/src/Delivery/Persistence/NotificationStore.php",
@@ -16941,7 +17137,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7479b0af1d403600997c9b3a68dac948fef0d62516504886844b877444bec1af"
+            "source_sha256": "58b0eccd3845deedccedef6458f848d9baab72403bc6df5476a22039f99a415b"
         },
         {
             "path": "server/app/modules/official/notification/src/Delivery/Persistence/SmsDispatch.php",
@@ -17109,7 +17305,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cd35b8d77fdb868ef6a4e30f6c91b5125a9974823ecf856d7b16d1fedfd25ab1"
+            "source_sha256": "33b5312ac88de7ae9a9b35747ef847761577796bdf614a1b01bafb2b1dd48ab4"
         },
         {
             "path": "server/app/modules/official/notification/src/Delivery/Task/NotificationOutboxDispatcher.php",
@@ -17151,7 +17347,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f4b827fd479398ca252366eedc26fd4be1c48940c1afdab1cbdb1841245eaa31"
+            "source_sha256": "7772e13b7545abba1621937782263cbfe1a62a44d2b7aaba3aad63ebc56ec006"
+        },
+        {
+            "path": "server/app/modules/official/notification/src/Delivery/Task/ProducerOutboxTaskSubmissionProvider.php",
+            "target": "server/app/modules/official/notification/src/Delivery/Task/ProducerOutboxTaskSubmissionProvider.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "2734be26567dc1342586328067106981bb3cf0d4469cf6bc66e90dd639cd0759"
         },
         {
             "path": "server/app/modules/official/notification/src/Delivery/Task/SmsTaskHandler.php",
@@ -17179,7 +17389,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "36db06dc602404a28ae29276bb1d62879a161de2787f522e653b87f3524dca51"
+            "source_sha256": "72d1bc2901b3d2c1347b3a7a0f926e38b4050cf434d0f4a94c7d337babc4983f"
         },
         {
             "path": "server/app/modules/official/notification/src/Model/NoticeLog.php",
@@ -17221,7 +17431,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0b87c2b014e477b42d251872513aec0499551f7975feac84f3655707c69c1f54"
+            "source_sha256": "bcd1cef3e4237a9cbd51c8daf94a4472f31cf084ba0eb56dceadc1a928f090f7"
         },
         {
             "path": "server/app/modules/official/notification/src/Service/NotificationAdminApplicationService.php",
@@ -22297,7 +22507,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5552d44f31dec65e25abc62abaea059f5bd56784ae133fee6b00d989b5b40971"
+            "source_sha256": "494f9cb1120bfacbc84ecafd5e8709c3aa8b8a6a1a2fcc3d29e28ca777b68c23"
         },
         {
             "path": "server/app/modules/peanut/workflow/api/metadata/openapi.php",
@@ -22395,7 +22605,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f4c692c9edbd081cbd4af494e1056b09c25c1e2f9fe6d3adfeba10eb8ac107a4"
+            "source_sha256": "32430a0504d083d27e43f5a255e246827e6b7cb4e72e69cea73df87e52a3fb8a"
         },
         {
             "path": "server/app/modules/peanut/workflow/resources/config-schema.json",
@@ -24033,7 +24243,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b0340f8ff62f8b5b981ea86dc7d3fa3d690e388d038d31712791407dd13ece95"
+            "source_sha256": "f26fb94b536b46714f0ba3164852be9bc4c5c417e420ea7776d42a0d0f13376c"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",
@@ -24523,7 +24733,35 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c2f4e9e8a19cbd9a9b1b54b852c2a9aaeda3a60c96773a8edb7cec784971d1d2"
+            "source_sha256": "87c6447951797a52fee63e66baa31a53cd27fb310d310b1694436dc8c03fe575"
+        },
+        {
+            "path": "server/config/console.php",
+            "target": "server/config/console.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "87c6447951797a52fee63e66baa31a53cd27fb310d310b1694436dc8c03fe575"
+        },
+        {
+            "path": "server/config/console.php",
+            "target": "server/config/console.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "87c6447951797a52fee63e66baa31a53cd27fb310d310b1694436dc8c03fe575"
         },
         {
             "path": "server/config/cookie.php",
@@ -27528,6 +27766,19 @@
         {
             "path": "server/tests/Modules/Official/FileDeliveryEdgeCasesTest.php",
             "target": "server/tests/Modules/Official/FileDeliveryEdgeCasesTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Modules/Official/Identity/Auth/AuthRequestPasswordCostTest.php",
+            "target": "server/tests/Modules/Official/Identity/Auth/AuthRequestPasswordCostTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -36910,6 +37161,20 @@
                 "full"
             ],
             "source_sha256": "327b992a9b3ecd35c4c41e460a42c672b07c65e5bd18b885509848407111b3d7"
+        },
+        {
+            "path": "web/src/modules/peanut-workflow/designer/configuration.ts",
+            "target": "web/src/modules/peanut-workflow/designer/configuration.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "c1f01fa565ec0837203e3084e61cf1eb70d8cdfeb888a9673c00f8147b3f62fb"
         },
         {
             "path": "web/src/modules/peanut-workflow/designer/editor-state.ts",
