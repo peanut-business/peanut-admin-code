@@ -214,15 +214,17 @@ for d in dbs:
     physical = policy.get('physical_endpoint')
     server = policy.get('physical_resource_id')
     aliases = policy.get('server_resources')
-    if (policy.get('max_executors') != 2 or physical != str(e.get('host'))+':'+str(e.get('port'))
+    limit = policy.get('max_executors')
+    if (type(limit) is not int or not 1 <= limit <= 8 or physical != str(e.get('host'))+':'+str(e.get('port'))
         or not isinstance(server, str) or not server or not isinstance(aliases, list) or not aliases
         or any(not isinstance(a, str) or re.fullmatch(r'(mysql-resource|docker-container|docker-volume)=[^\s=]+', a) is None for a in aliases)
         or {a.split('=',1)[0] for a in aliases} != {'mysql-resource', 'docker-container', 'docker-volume'}
         or 'mysql-resource='+server not in aliases):
         fail('invalid schema policy / missing physical management mapping')
+    mapping = {'aliases': set(aliases), 'max_executors': limit, 'physical_resource_id': server}
     previous = policies.get(physical)
-    if previous and previous != set(aliases): fail('inconsistent physical endpoint aliases')
-    policies[physical] = set(aliases)
+    if previous and previous != mapping: fail('inconsistent physical endpoint schema policy')
+    policies[physical] = mapping
 physical_names = {physical: set() for physical in policies}
 for d in dbs:
     e = d.get('upstream_endpoint') or {}
@@ -260,8 +262,9 @@ for value in schemas:
 if schemas and (requested.get('mysql-db', set()) != covered or requested.get('database', set()) != covered):
     fail('mysql-db/database proof requires exact schema coverage')
 def affected(r, physical):
-    aliases = policies.get(physical)
-    if aliases is None: fail('active schema lacks current physical management mapping')
+    policy = policies.get(physical)
+    if policy is None: fail('active schema lacks current physical management mapping')
+    aliases = policy['aliases']
     # Legacy database-only leases did not necessarily claim the DB listener.
     # They remain exclusive against schema executors on this physical service.
     legacy_names = (r.get('mysql-db', set()) | r.get('database', set())) if not r.get('mysql-schema') else set()
@@ -280,7 +283,7 @@ for physical in endpoints:
         if same:
             if same & schemas: fail('same physical schema already leased: '+lease)
             count += 1
-    if count >= 2: fail('maximum two schema runtime executors reached')
+    if count >= policies[physical]['max_executors']: fail('registered maximum schema runtime executors reached')
 for lease, r in active:
     for value in r.get('mysql-schema', set()):
         if affected(requested, value.rpartition('/')[0]): fail('active schema conflicts with server operation: '+lease)

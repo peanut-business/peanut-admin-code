@@ -324,7 +324,8 @@ final class RegisteredMysqlTestResource
         $policy = $resource['lease_policy'] ?? null;
         if ($policy === null || ($policy['mode'] ?? null) === 'exclusive') { return null; }
         if ($p0e || !is_array($policy) || ($policy['mode'] ?? null) !== 'schema'
-            || ($policy['max_executors'] ?? null) !== 2
+            || !is_int($policy['max_executors'] ?? null)
+            || $policy['max_executors'] < 1 || $policy['max_executors'] > 8
             || ($policy['physical_endpoint'] ?? null) !== $endpoint['host'] . ':' . (int) $endpoint['port']
             || !is_string($policy['physical_resource_id'] ?? null) || $policy['physical_resource_id'] === ''
             || !is_array($policy['server_resources'] ?? null) || $policy['server_resources'] === []
