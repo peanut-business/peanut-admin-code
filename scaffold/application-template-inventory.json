@@ -2329,7 +2329,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "989dcbeeb7f86536035f391355336b20777ab127274559721cc5c122762f6f33"
+            "source_sha256": "66c2ba46213e1d2528bcbc65a213bbed2c638ee40f0a44006c3db6efe47d3fe8"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2439,7 +2439,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "58d10b6eaf20f8a744ad779d90a86a656fccb64f8990496ce61d8ceb38947256"
+            "source_sha256": "9848ad5438b7b09ac69301c8691bba4244009b3220b65469676a0c2cb886ba9e"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -6236,6 +6236,20 @@
                 "full"
             ],
             "source_sha256": "2ec90b2fec3b305f61c5d53f7c9fe6a5e9e172a9bfcbb3eedbcafe3c79980e9e"
+        },
+        {
+            "path": "server/app/command/IdentityCredentialRecovery.php",
+            "target": "server/app/command/IdentityCredentialRecovery.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "c7a6b4723419b5a70e01a8d9106f8ea2d2ac5bd8a0fd09a294d97da2574316fb"
         },
         {
             "path": "server/app/command/ModuleAdoptPackage.php",
@@ -11391,7 +11405,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "71939d33b92dbfd7a9fa4004604335a2c75e2d82a83fcf5fb24ba4cd4aa992d5"
+            "source_sha256": "46c3bdd4f5159a5bf4827ef3a52bbb989465a84f7c6ce01e4c5e80440dab2983"
         },
         {
             "path": "server/app/modules/official/identity/src/Audit/AuditService.php",
@@ -12400,6 +12414,20 @@
                 "full"
             ],
             "source_sha256": "38e19f89b629201cfdf7d174475c41257feb5fbc07a44a902e1366582c3f44d7"
+        },
+        {
+            "path": "server/app/modules/official/identity/src/Identity/Maintenance/IdentityCredentialRecovery.php",
+            "target": "server/app/modules/official/identity/src/Identity/Maintenance/IdentityCredentialRecovery.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "b6103b5fb2ecbebae340076ea45d647d90c7b70de1bf3900b9e6e65938e08d98"
         },
         {
             "path": "server/app/modules/official/identity/src/Identity/Query/ThinkPhpPlatformOperatorIdentityQuery.php",
@@ -23636,7 +23664,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "aac98dadf1962d0030332f007b6fff34f8f4e782350bea9367d8ef0b0e464cc2"
+            "source_sha256": "60256a945d113e4151f2b59fecd2a6ad96a86e35d75bb11a9081ae0664197d63"
         },
         {
             "path": "server/config/cookie.php",
