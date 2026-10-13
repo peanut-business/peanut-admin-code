@@ -14,8 +14,12 @@ final readonly class NotificationService
     public function __construct(
         private NotificationRepository $repository,
         private RecipientResolver $recipients,
-        private AttachmentResolver $attachments,
+        private ?AttachmentResolver $attachments,
         private TemplateRenderer $renderer,
+        private \PeanutAdmin\Modules\Notification\Contract\NotificationProducerRegistry $producers,
+        private \PeanutAdmin\Kernel\Module\ModuleAvailability $modules,
+        private \PeanutAdmin\Modules\Notification\Delivery\Task\InboxTaskHandler $inboxDelivery,
+        private ?\PeanutAdmin\Modules\Task\Contract\TrustedJobPublisher $publisher = null,
     ) {}
 
     /**
@@ -74,51 +78,131 @@ final readonly class NotificationService
             $seenFiles[$fileKey] = true;
         }
 
-        return Db::transaction(function () use ($context, $templateKey, $recipientInputs, $fileKeys): array {
-            $template = $this->repository->activeTemplate($context->tenantContext->tenantId, $templateKey);
-            $channels = $template['channels'];
-            $requiresSms = in_array('sms', $channels, true);
-            $attachmentSnapshots = [];
-            foreach ($fileKeys as $fileKey) {
-                $attachmentSnapshots[] = $this->attachments->snapshot($context->tenantContext, $fileKey);
-            }
+        return Db::transaction(fn(): array => $this->materialize($context, $this->repository->activeTemplate($context->tenantContext->tenantId, $templateKey), $recipientInputs, $fileKeys, null));
+    }
 
-            $messages = [];
-            $outbox = [];
-            $seenMembers = [];
-            foreach ($recipientInputs as $input) {
-                if (isset($seenMembers[$input['member_id']])) {
-                    throw NotificationException::invalid();
-                }
-                $seenMembers[$input['member_id']] = true;
-                $recipient = $this->recipients->snapshot($context->tenantContext, $input['member_id'], $requiresSms);
-                $subject = $this->renderer->render(
-                    $template['subject_template'],
-                    $template['variables'],
-                    $input['variables'],
-                    255,
-                );
-                $body = $this->renderer->render(
-                    $template['body_template'],
-                    $template['variables'],
-                    $input['variables'],
-                    $requiresSms ? 1000 : 10000,
-                );
-                $created = $this->repository->createMessage(
-                    $context->tenantContext,
-                    'notice_' . bin2hex(random_bytes(16)),
-                    $template,
-                    $recipient,
-                    $subject,
-                    $body,
-                    $attachmentSnapshots,
-                );
-                $messages[] = $created['message'];
-                array_push($outbox, ...$created['outbox']);
-            }
+    private function materialize(AuthorizedOperationContext $context, array $template, array $recipientInputs, array $fileKeys, ?\PeanutAdmin\Modules\Notification\Contract\NotificationPublicationIdentity $identity): array
+    {
+        $channels = $template['channels'];
+        $requiresSms = in_array('sms', $channels, true);
+        $attachmentSnapshots = [];
+        foreach ($fileKeys as $fileKey) {
+            $attachmentSnapshots[] = ($this->attachments ?? throw NotificationException::attachmentUnavailable())->snapshot($context->tenantContext, $fileKey);
+        }
 
-            return ['messages' => $messages, 'outbox' => $outbox];
+        $messages = [];
+        $outbox = [];
+        $seenMembers = [];
+        foreach ($recipientInputs as $input) {
+            if (isset($seenMembers[$input['member_id']])) {
+                throw NotificationException::invalid();
+            }
+            $seenMembers[$input['member_id']] = true;
+            $recipient = $this->recipients->snapshot($context->tenantContext, $input['member_id'], $requiresSms);
+            $subject = $this->renderer->render(
+                $template['subject_template'],
+                $template['variables'],
+                $input['variables'],
+                255,
+            );
+            $body = $this->renderer->render(
+                $template['body_template'],
+                $template['variables'],
+                $input['variables'],
+                $requiresSms ? 1000 : 10000,
+            );
+            $created = $this->repository->createMessage(
+                $context->tenantContext,
+                'notice_' . ($identity === null ? bin2hex(random_bytes(16)) : substr(hash('sha256', $identity->digest($context->tenantContext->tenantId) . ':' . $recipient->memberId), 0, 32)),
+                $template,
+                $recipient,
+                $subject,
+                $body,
+                $attachmentSnapshots,
+                $identity,
+            );
+            $messages[] = $created['message'];
+            array_push($outbox, ...$created['outbox']);
+        }
+
+        return ['messages' => $messages, 'outbox' => $outbox];
+    }
+
+    /** Only a registered producer may materialize its own committed immutable business fact. */
+    public function publishProduced(AuthorizedOperationContext $basis, \PeanutAdmin\Modules\Notification\Contract\NotificationPublicationIdentity $identity): array
+    {
+        $pdo = Db::connect()->getPdo();
+        if (!$pdo instanceof \PDO || $pdo->inTransaction()) { throw NotificationException::invalid('NOTIFICATION_COMMITTED_FACT_REQUIRED'); }
+        $this->assertAvailable($basis->tenantContext->tenantId);
+        $producer = $this->producers->require($identity->producerKey);
+        $context = $producer->authorize($basis->tenantContext, $identity);
+        $publication = $producer->publication($context, $identity);
+        $template = $publication['template'];
+        $this->assertTemplateInput($template['template_key'], $template['name'], $template['subject_template'], $template['body_template'], $template['channels'], $template['variables']);
+        if ($template['channels'] !== ['inbox'] || count($publication['recipients']) < 1 || count($publication['recipients']) > 100 || count($publication['file_keys']) > 10) { throw NotificationException::invalid(); }
+        return Db::transaction(fn(): array => $this->materialize($context, $template, $publication['recipients'], $publication['file_keys'], $identity));
+    }
+
+    /** Registered producer workers use the original Inbox handler and its native final lease/authorization fences. */
+    public function deliverProduced(AuthorizedOperationContext $context, \PeanutAdmin\Modules\Task\Contract\JobExecution $execution): void
+    {
+        $this->assertAvailable($context->tenantContext->tenantId);
+        $this->inboxDelivery->handle($context, $execution);
+    }
+
+    public function dispatchProduced(AuthorizedOperationContext $basis, string $outboxKey): \PeanutAdmin\Modules\Task\Contract\JobRecord
+    {
+        $this->assertAvailable($basis->tenantContext->tenantId);
+        $identity = $this->repository->publicationIdentity($basis->tenantContext->tenantId, $outboxKey) ?? throw NotificationException::denied();
+        $producer = $this->producers->require($identity->producerKey);
+        $context = $producer->authorize($basis->tenantContext, $identity);
+        if ($this->publisher === null) { throw NotificationException::denied(); }
+        return Db::transaction(function () use ($producer, $context, $outboxKey) {
+            $outbox = $this->repository->outboxForSubmission($context->tenantContext->tenantId, $outboxKey);
+            if ($outbox->channel !== 'inbox') { throw NotificationException::denied(); }
+            $job = $this->publisher->publish($context, $producer->taskType(), ['outbox_key' => $outboxKey], $outboxKey);
+            $this->repository->bindJob($context->tenantContext->tenantId, $outboxKey, $job->jobKey);
+            return $job;
         });
+    }
+
+    public function deliveryState(AuthorizedOperationContext $basis, string $outboxKey): OutboxRecord
+    {
+        $this->assertAvailable($basis->tenantContext->tenantId);
+        $identity = $this->repository->publicationIdentity($basis->tenantContext->tenantId, $outboxKey) ?? throw NotificationException::denied();
+        $this->producers->require($identity->producerKey)->authorizeRead($basis->tenantContext, $identity);
+        return $this->repository->outboxState($basis->tenantContext->tenantId, $outboxKey);
+    }
+
+    public function assertPublicationSource(AuthorizedOperationContext $basis, \PeanutAdmin\Modules\Notification\Contract\NotificationPublicationIdentity $identity): void
+    {
+        $this->assertAvailable($basis->tenantContext->tenantId);
+        $this->producers->require($identity->producerKey)->authorize($basis->tenantContext, $identity);
+    }
+
+    public function recoverProduced(AuthorizedOperationContext $basis, AuthorizedOperationContext $taskContext, string $outboxKey, int $expectedJobRevision, string $strategy, \PeanutAdmin\Modules\Task\Contract\TaskJobService $jobs): OutboxRecord
+    {
+        $this->assertAvailable($basis->tenantContext->tenantId);
+        if (!in_array($strategy, ['retry_original', 'reauthorize'], true) || $taskContext->tenantContext !== $basis->tenantContext || $this->publisher === null) { throw NotificationException::denied(); }
+        $identity = $this->repository->publicationIdentity($basis->tenantContext->tenantId, $outboxKey) ?? throw NotificationException::denied();
+        $producer = $this->producers->require($identity->producerKey);
+        $context = $producer->authorize($basis->tenantContext, $identity);
+        return Db::transaction(function () use ($basis, $taskContext, $outboxKey, $expectedJobRevision, $strategy, $jobs, $producer, $context): OutboxRecord {
+            $observed = $this->repository->outboxState($context->tenantContext->tenantId, $outboxKey);
+            if ($observed->jobKey === null) { throw NotificationException::conflict(); }
+            $old = $jobs->detailForRecovery($taskContext, $observed->jobKey, $expectedJobRevision);
+            $outbox = $this->repository->outboxState($context->tenantContext->tenantId, $outboxKey, true);
+            if ($old->status !== 'dead' || $old->taskType !== $producer->taskType() || $outbox->jobKey !== $old->jobKey || !in_array($outbox->status, ['queued', 'retryable'], true)) { throw NotificationException::conflict(); }
+            $job = $strategy === 'retry_original' ? $jobs->retry($taskContext, $old->jobKey, $old->revision)
+                : $this->publisher->publish($context, $producer->taskType(), ['outbox_key' => $outboxKey], 'notification-recovery:' . hash('sha256', $old->jobKey . ':' . $old->revision));
+            $this->repository->replaceJob($basis->tenantContext->tenantId, $outboxKey, $old->jobKey, $job->jobKey);
+            return $this->repository->outboxState($basis->tenantContext->tenantId, $outboxKey);
+        });
+    }
+
+    private function assertAvailable(int $tenantId): void
+    {
+        $this->modules->assertAvailable(\PeanutAdmin\Kernel\Tenancy\TenantScope::fromTrustedContext($tenantId, 'notification'), Package::MODULE_KEY, new \DateTimeImmutable('now', new \DateTimeZone('UTC')));
     }
 
     /** @return array{items: list<NotificationMessage>, page: int, page_size: int, total: int} */
@@ -180,6 +264,7 @@ final readonly class NotificationService
 
     private function assertOperation(AuthorizedOperationContext $context, string $operation): void
     {
+        $this->assertAvailable($context->tenantContext->tenantId);
         if (!hash_equals(Package::RESOURCE_KEY, $context->resourceKey) || !hash_equals($operation, $context->operation)) {
             throw NotificationException::denied();
         }

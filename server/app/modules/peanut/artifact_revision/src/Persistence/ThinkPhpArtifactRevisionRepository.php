@@ -8,7 +8,6 @@ use PeanutAdmin\Modules\ArtifactRevision\Model\Artifact;
 use PeanutAdmin\Modules\ArtifactRevision\Model\ArtifactRevision;
 use PeanutAdmin\Modules\ArtifactRevision\Persistence\Model\ArtifactRecord;
 use PeanutAdmin\Modules\ArtifactRevision\Persistence\Model\ArtifactRevisionRecord;
-use PeanutAdmin\Modules\ArtifactRevision\Workflow\ArtifactSubjectRevisionReader;
 use PeanutAdmin\Kernel\Tenancy\TenantScope;
 use RuntimeException;
 use think\db\exception\PDOException;
@@ -16,7 +15,7 @@ use think\db\Raw;
 use UnexpectedValueException;
 
 /** ThinkORM persistence for the artifact aggregate's CAS and immutable-lineage rules. */
-final readonly class ThinkPhpArtifactRevisionRepository implements ArtifactSubjectRevisionReader
+final readonly class ThinkPhpArtifactRevisionRepository
 {
     public function artifact(
         int $tenantId,

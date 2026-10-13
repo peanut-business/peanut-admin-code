@@ -94,6 +94,119 @@
             "manifest_sha256": "69878ed593f8096df080dd8126ba36efef047584f6ac7f8987051bc702ac5a05"
         },
         {
+            "key": "fixture.workflow-business",
+            "version": "1.0.0",
+            "source": {
+                "type": "canonical-contents",
+                "reference": "canonical-plugin-contents-v1",
+                "sha256": "eebba2c9129fd8db007995417d4a573169a4acb91053801e8a2445824e288c2b"
+            },
+            "trust": {
+                "channel": "bundled",
+                "origin": {
+                    "type": "repository-contents",
+                    "reference": "canonical-plugin-contents-v1"
+                },
+                "archive": {
+                    "status": "not-issued",
+                    "sha256": null
+                },
+                "signature": {
+                    "status": "not-issued",
+                    "key_id": null
+                },
+                "sbom": {
+                    "status": "not-issued",
+                    "sha256": null
+                },
+                "license": {
+                    "identifier": "Apache-2.0",
+                    "status": "declared"
+                },
+                "qualification": {
+                    "status": "bundled-locked",
+                    "review": "not-reviewed",
+                    "vulnerability_response": "not-configured",
+                    "marketplace": "blocked"
+                },
+                "compatibility": {
+                    "modules": [
+                        {
+                            "key": "fixture.workflow-business",
+                            "version": "1.0.0",
+                            "kernel_constraint": "^1.0",
+                            "dependencies": [
+                                {
+                                    "module_key": "official.identity",
+                                    "version": "4.0.0-rc.24"
+                                },
+                                {
+                                    "module_key": "official.task",
+                                    "version": "^1.0"
+                                },
+                                {
+                                    "module_key": "peanut.artifact-revision",
+                                    "version": "4.0.0-rc.24"
+                                },
+                                {
+                                    "module_key": "peanut.workflow",
+                                    "version": "4.0.0-rc.24"
+                                }
+                            ],
+                            "permissions": {
+                                "path": "resources/permissions.json",
+                                "sha256": "1555e87dc071eb84e56631d77ab969bffd84fd16c7452f384e50f30eabe5da33"
+                            },
+                            "migrations": {
+                                "reversibility": "verified-backup-required",
+                                "files": [
+                                    {
+                                        "key": "fixture.workflow-business:20261012050100_workflow_business",
+                                        "sha256": "34c60bca6ac1dd7bdb31a77be9a137ae99f7de8b863e9d309f4f7075d094a99c"
+                                    },
+                                    {
+                                        "key": "fixture.workflow-business:20261012050200_workflow_collaboration",
+                                        "sha256": "fd9e10722653314d2fdfd28bd9bbafd969a4e00eaec64a6c970053a259d04399"
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            },
+            "composer": [
+                {
+                    "name": "peanut-business/fixture-workflow-business",
+                    "version": "1.0.0",
+                    "sha256": "c2ccbee45acf2181c81302b574dc0d892ada4d10d13e32e7f8ab2bb9811d5295"
+                }
+            ],
+            "npm": [
+                {
+                    "name": "@peanut-admin/fixture-workflow-business",
+                    "version": "1.0.0",
+                    "integrity": "sha256-5l85u0soSaDAyUg5Zwrb3VnYqO8K9XIeY1zbKjygLxg="
+                }
+            ],
+            "frontend": [
+                {
+                    "client_key": "admin-web",
+                    "package": "@peanut-admin/fixture-workflow-business",
+                    "version": "1.0.0",
+                    "entry": "web/src/modules/fixture-workflow-business/contribution.ts",
+                    "sha256": "b2a0387b43e2c21b7ca2d4ab71d6b4c99f5de2bc51934af2e77eceb50e79ecc8"
+                }
+            ],
+            "modules": [
+                {
+                    "key": "fixture.workflow-business",
+                    "root": "server/app/modules/fixture/workflow_business"
+                }
+            ],
+            "manifest": "plugins/fixture.workflow-business/plugin.json",
+            "manifest_sha256": "d7facbfddcbcb0996dbf6e00d18115dc152ddc8be00b50eed3497dcf9ca6aa1b"
+        },
+        {
             "key": "official.article",
             "version": "1.0.5",
             "source": {
@@ -517,7 +630,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "e0686915ea1e693bbdaf5f0e402e9143cfe090b8b1d9fdc6ca001126c34dafda"
+                "sha256": "8cf93df02ba6a73ab20062f41aa8567fa4fcbc5fe6238129a357ab8d5d81e63f"
             },
             "trust": {
                 "channel": "bundled",
@@ -588,6 +701,10 @@
                                     {
                                         "key": "official.identity:20261007010000_department_contact_fields",
                                         "sha256": "47626b595811ced52d25b9eb7438fc4ba9cb921a76272e47c073c2faae11b9ee"
+                                    },
+                                    {
+                                        "key": "official.identity:20261012010000_department_leader_member",
+                                        "sha256": "909c7bd6885a93cf2975ecbbb108cbbe993bc1e0b47f2590292968a886051532"
                                     }
                                 ]
                             }
@@ -611,7 +728,7 @@
                 }
             ],
             "manifest": "plugins/official.identity/plugin.json",
-            "manifest_sha256": "8dd60dd4816134e52f4f9028d2e4fb648713035892bde683fc4fc9c7f11c6709"
+            "manifest_sha256": "532c46382a44fb3873a2c0524e00f17d688337f3ba0e71edf9f0c6ac1de3f136"
         },
         {
             "key": "official.import-export",
@@ -938,7 +1055,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "e1a91aa1b2d6efcea45a8534074635ed69384f2d6f175703b9f71f3a064f617b"
+                "sha256": "9e592557d70781a1bda44853e687f9c7ce96fd810ec6ad8328b43356ce50aa7e"
             },
             "trust": {
                 "channel": "bundled",
@@ -1002,6 +1119,10 @@
                                     {
                                         "key": "official.notification:20260921-adopt-notification-delivery-schema",
                                         "sha256": "eaef582cd762c803f3f7d213687f61d43fd3634e9f0b984471f11648e10979fb"
+                                    },
+                                    {
+                                        "key": "official.notification:20261012-notification-producer-identity",
+                                        "sha256": "7c01bc1bf1f309e879ff3014f89418157abbce45374a58064d1a6dc94fca07ce"
                                     }
                                 ]
                             }
@@ -1039,7 +1160,7 @@
                 }
             ],
             "manifest": "plugins/official.notification/plugin.json",
-            "manifest_sha256": "1f526765c17950df69fa55a3ed7ce225d186cb6e5a6465f5eefb97ea296ce7b8"
+            "manifest_sha256": "da6109edcdee1b9b393203ae7881ceb381c370ec3c891cf4a26027a97c0bfadf"
         },
         {
             "key": "official.oauth",
@@ -1672,7 +1793,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "0dac390927ff590dbdf48ab214ccd8f8cb77041b962a4ce03117fa182aa311a9"
+                "sha256": "b35658df812269b0efc75144c4405052594bc59e45c2f296e5dd0504a98a182d"
             },
             "trust": {
                 "channel": "bundled",
@@ -1765,7 +1886,7 @@
                 }
             ],
             "manifest": "plugins/official.task/plugin.json",
-            "manifest_sha256": "59ef9a25d2edd2d50323b3dbdd99462d031fd2a3280bf716d08f6c370a2c2f10"
+            "manifest_sha256": "e42c71e6ae5661656464d0081a2a2b298f3ea7cffd1d345c7f289b7cdfdc8bbf"
         },
         {
             "key": "peanut.artifact-revision",
@@ -1773,7 +1894,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "711b943fe5659051d1e3ccbaf20b0759868b62de7cc532e95aa37d685ed6da7d"
+                "sha256": "8e0c204c7c57f95e4c2a179a4c39c22f02487ecddcc2f9c18f7b4072ae96bd07"
             },
             "trust": {
                 "channel": "bundled",
@@ -1813,10 +1934,6 @@
                                 {
                                     "module_key": "official.identity",
                                     "version": "4.0.0-rc.24"
-                                },
-                                {
-                                    "module_key": "peanut.workflow",
-                                    "version": "4.0.0-rc.24"
                                 }
                             ],
                             "permissions": {
@@ -1852,7 +1969,7 @@
                 }
             ],
             "manifest": "plugins/peanut.artifact-revision/plugin.json",
-            "manifest_sha256": "502b7d1d862d68a0ade8333092863da9b5482243465b3d362422edec420aa875"
+            "manifest_sha256": "f602bbf11df4952dcd44721caf1da234c47fd9b8765a3632d2563c7ff0bc788d"
         },
         {
             "key": "peanut.entitlement-quota",
@@ -1943,7 +2060,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "95c2f8848fcdabdf6df05420dc18a26bce9ef7d1f7eb47b471b11c9814c2e3a7"
+                "sha256": "6799f82d9ae035e5d2ddd3bfb86747be2639664f3e6a0dcec0adf81a1067b11b"
             },
             "trust": {
                 "channel": "bundled",
@@ -1986,8 +2103,8 @@
                                 }
                             ],
                             "permissions": {
-                                "path": null,
-                                "sha256": null
+                                "path": "resources/permissions.json",
+                                "sha256": "ba3676e0e72f1fd9b1ad10039446ffa1f1b3ada4dd80ae0a24e9b0c216098cd0"
                             },
                             "migrations": {
                                 "reversibility": "verified-backup-required",
@@ -1995,6 +2112,18 @@
                                     {
                                         "key": "peanut.workflow:20260921-register-module-schema",
                                         "sha256": "f0a21d63c83afcd2438fc327bf6ad97a59d82daa571bc4de51d74c32eb487ff7"
+                                    },
+                                    {
+                                        "key": "peanut.workflow:20261012-workflow-managed-template",
+                                        "sha256": "fd02893a4b7a0ea60aa6c5434ff8b46f11e35bec94f10a76fc0b0f64609282a5"
+                                    },
+                                    {
+                                        "key": "peanut.workflow:20261012-workflow-notification-facts",
+                                        "sha256": "ff26361f27773b9500fe6484729a26c0655d18f893cac8739bae9edfec8f6378"
+                                    },
+                                    {
+                                        "key": "peanut.workflow:20261012-workflow-v2-execution",
+                                        "sha256": "f46f8b9a7a567584988e3520669daa1a8f893b69d837a1dedf223deb4f2a1b09"
                                     }
                                 ]
                             }
@@ -2009,8 +2138,22 @@
                     "sha256": "40ce376d0c8028d93d512831dc36441436b6160d8d1b5527327410537529e3ea"
                 }
             ],
-            "npm": [],
-            "frontend": [],
+            "npm": [
+                {
+                    "name": "@peanut-modules/workflow-web",
+                    "version": "5.0.1",
+                    "integrity": "sha256-Z1YbFZj62IKwQvbs+Jsk4YSSfM9SB5dK8cvnk10+rCw="
+                }
+            ],
+            "frontend": [
+                {
+                    "client_key": "admin-web",
+                    "package": "@peanut-modules/workflow-web",
+                    "version": "5.0.1",
+                    "entry": "web/src/modules/peanut-workflow/contribution.ts",
+                    "sha256": "917a7dd97c32897e0e3e6d2a94409bfd68cec954655ffbb7040cdbc2d448d2aa"
+                }
+            ],
             "modules": [
                 {
                     "key": "peanut.workflow",
@@ -2018,7 +2161,7 @@
                 }
             ],
             "manifest": "plugins/peanut.workflow/plugin.json",
-            "manifest_sha256": "5693e1c7a39fe9fd4f54c720c1f600809323a824e6972cb88a80bede424b74d4"
+            "manifest_sha256": "31b2ce1394094f65b2cd09a4a5175155052065f1d2c85045d12788cebd1ac153"
         }
     ]
 }

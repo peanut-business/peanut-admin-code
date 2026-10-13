@@ -5619,6 +5619,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/adminapi/api/v1/workflow/definitions/{moduleKey}/{workflowKey}/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getWorkflowStartSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/workflow/instances/{instanceKey}/materials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getWorkflowFrozenMaterials"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/workflow/instances/{instanceKey}/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getWorkflowNotificationDiagnostics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/workflow/instances/{instanceKey}/notifications/recover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["recoverWorkflowNotification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -9746,6 +9810,43 @@ export interface components {
             msg: string;
             data: components["schemas"]["TaskExpressionItem"][];
         };
+        WorkflowStartSummary: {
+            definition_id: string;
+            module_key: string;
+            workflow_key: string;
+            /** @enum {string} */
+            status: "active";
+            draft_revision: number;
+            active_version: number;
+        };
+        WorkflowFrozenMaterials: {
+            revision_key: string;
+            sha256: string;
+            fields: Record<string, never>;
+            reference: Record<string, never>;
+        };
+        WorkflowNotificationDiagnostic: {
+            sequence_no: number;
+            /** @enum {string} */
+            status: "pending_materialization" | "materialized";
+            last_error: string | null;
+            available_actions: "reauthorize"[];
+            outboxes: components["schemas"]["WorkflowNotificationOutboxDiagnostic"][];
+        };
+        WorkflowNotificationOutboxDiagnostic: {
+            outbox_key: string;
+            delivery_status: string;
+            available_actions: ("retry_original" | "reauthorize")[];
+            /** @description The native redacted Task record; signed authorization and session references are excluded. */
+            task: Record<string, never> | null;
+        };
+        WorkflowRuntimeErrorEnvelope: {
+            code: number;
+            msg: string;
+            data: {
+                error_code: string;
+            };
+        };
     };
     responses: {
         /** @description Standard Peanut Admin API response */
@@ -9787,6 +9888,15 @@ export interface components {
             };
             content: {
                 "application/json": components["schemas"]["SettingRecordResponseBody"];
+            };
+        };
+        /** @description Native error envelope; HTTP status and X-Request-ID are retained. */
+        WorkflowRuntimeError: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["WorkflowRuntimeErrorEnvelope"];
             };
         };
     };
@@ -20495,6 +20605,161 @@ export interface operations {
             400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
+        };
+    };
+    getWorkflowStartSummary: {
+        parameters: {
+            query: {
+                subject_type: string;
+                subject_key: string;
+            };
+            header?: never;
+            path: {
+                moduleKey: string;
+                workflowKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current-authorized Workflow runtime result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["WorkflowStartSummary"];
+                        meta: {
+                            request_id: string;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["WorkflowRuntimeError"];
+            401: components["responses"]["WorkflowRuntimeError"];
+            403: components["responses"]["WorkflowRuntimeError"];
+            404: components["responses"]["WorkflowRuntimeError"];
+            409: components["responses"]["WorkflowRuntimeError"];
+        };
+    };
+    getWorkflowFrozenMaterials: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                instanceKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current-authorized Workflow runtime result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["WorkflowFrozenMaterials"];
+                        meta: {
+                            request_id: string;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["WorkflowRuntimeError"];
+            401: components["responses"]["WorkflowRuntimeError"];
+            403: components["responses"]["WorkflowRuntimeError"];
+            404: components["responses"]["WorkflowRuntimeError"];
+            409: components["responses"]["WorkflowRuntimeError"];
+        };
+    };
+    getWorkflowNotificationDiagnostics: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                instanceKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current-authorized Workflow runtime result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            items: components["schemas"]["WorkflowNotificationDiagnostic"][];
+                        };
+                        meta: {
+                            request_id: string;
+                            page?: number;
+                            page_size?: number;
+                            total?: number;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["WorkflowRuntimeError"];
+            401: components["responses"]["WorkflowRuntimeError"];
+            403: components["responses"]["WorkflowRuntimeError"];
+            404: components["responses"]["WorkflowRuntimeError"];
+            409: components["responses"]["WorkflowRuntimeError"];
+        };
+    };
+    recoverWorkflowNotification: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                instanceKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    sequence_no: number;
+                    outbox_key: string | null;
+                    expected_job_revision: number | null;
+                    /** @enum {string} */
+                    strategy: "retry_original" | "reauthorize";
+                };
+            };
+        };
+        responses: {
+            /** @description Current-authorized Workflow runtime result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            sequence_no: number;
+                            accepted: boolean;
+                        };
+                        meta: {
+                            request_id: string;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["WorkflowRuntimeError"];
+            401: components["responses"]["WorkflowRuntimeError"];
+            403: components["responses"]["WorkflowRuntimeError"];
+            404: components["responses"]["WorkflowRuntimeError"];
+            409: components["responses"]["WorkflowRuntimeError"];
         };
     };
 }

@@ -44,6 +44,7 @@ interface NotificationRepository
         string $subject,
         string $body,
         array $attachments,
+        ?\PeanutAdmin\Modules\Notification\Contract\NotificationPublicationIdentity $identity = null,
     ): array;
 
     /** @return array{items: list<NotificationMessage>, page: int, page_size: int, total: int} */
@@ -60,6 +61,11 @@ interface NotificationRepository
     public function bulkChangeInbox(TenantContext $context, array $messageKeys, string $action): int;
 
     public function outboxForSubmission(int $tenantId, string $outboxKey): OutboxRecord;
+    public function outboxState(int $tenantId, string $outboxKey, bool $lock = false): OutboxRecord;
+    public function publicationIdentity(int $tenantId, string $outboxKey): ?\PeanutAdmin\Modules\Notification\Contract\NotificationPublicationIdentity;
+    public function bindActor(\PeanutAdmin\Kernel\Context\AuthorizedOperationContext $context, string $outboxKey): void;
+    public function actorReference(\PeanutAdmin\Kernel\Async\VerifiedJobEnvelope $envelope): array;
+    public function replaceJob(int $tenantId, string $outboxKey, string $oldJobKey, string $newJobKey): void;
 
     public function bindJob(int $tenantId, string $outboxKey, string $jobKey): void;
 

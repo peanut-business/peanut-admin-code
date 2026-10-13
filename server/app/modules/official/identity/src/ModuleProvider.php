@@ -39,6 +39,9 @@ final class ModuleProvider implements ModuleProviderContract
     public function bindings(): array
     {
         return [
+            \PeanutAdmin\DataPermission\Provider\DepartmentHierarchyProvider::class => \PeanutAdmin\Modules\Identity\DataPermission\Provider\ThinkPhpDepartmentHierarchyProvider::class,
+            \PeanutAdmin\DataPermission\Provider\TargetSetMembershipProvider::class => \PeanutAdmin\Modules\Identity\DataPermission\Provider\ThinkPhpTargetSetMembershipProvider::class,
+            \PeanutAdmin\Modules\Identity\Contract\WorkflowOrganizationQuery::class => \PeanutAdmin\Modules\Identity\Identity\Query\ThinkPhpWorkflowOrganizationQuery::class,
             AuditWriter::class => AuditService::class,
             ResourceOperationCatalog::class => ThinkPhpResourceOperationCatalog::class,
             PolicyRepository::class => ThinkPhpPolicyRepository::class,

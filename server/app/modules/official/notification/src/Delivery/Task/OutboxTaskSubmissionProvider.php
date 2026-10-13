@@ -12,7 +12,7 @@ use PeanutAdmin\Modules\Task\Contract\TaskSubmissionProvider;
 
 final readonly class OutboxTaskSubmissionProvider implements TaskSubmissionProvider
 {
-    public function __construct(private string $channel)
+    public function __construct(private string $channel, private \PeanutAdmin\Modules\Notification\Infrastructure\Authorization\NotificationAsyncAuthorization $authorization)
     {
         if (!in_array($channel, ['inbox', 'sms'], true)) {
             throw NotificationException::invalid();
@@ -42,6 +42,7 @@ final readonly class OutboxTaskSubmissionProvider implements TaskSubmissionProvi
             throw NotificationException::invalid();
         }
 
+        $this->authorization->bind($context, $input['outbox_key']);
         return new TaskSubmission(
             'notification.' . $this->channel,
             ['outbox_key' => $input['outbox_key']],

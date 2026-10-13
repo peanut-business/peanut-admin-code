@@ -79,7 +79,42 @@ export interface WorkflowDefinition {
   graph: WorkflowGraph;
   layout: WorkflowLayout;
   status: string;
+  latest_version: number;
+  active_version: number | null;
+  versions: { version: number; graph_sha256: string; published_at: string }[];
 }
+export interface WorkflowDefinitionSummary {
+  definition_id: string;
+  module_key: string;
+  workflow_key: string;
+  status: string;
+  draft_revision: number;
+  active_version: number | null;
+}
+export interface ScenarioField {
+  type: 'boolean' | 'integer' | 'string' | 'enum' | 'datetime' | 'decimal';
+  nullable: boolean;
+  values?: string[];
+}
+export interface WorkflowScenario {
+  scenario_contract_version: number;
+  fields: Record<string, ScenarioField>;
+  result_codes: string[];
+  capabilities: string[];
+  actions: {
+    action_key: string;
+    contract_version: number;
+    input_schema: Record<string, unknown>;
+  }[];
+}
+export type WorkflowCondition =
+  | { all: WorkflowCondition[] }
+  | { any: WorkflowCondition[] }
+  | { field: string; operator: string; value: unknown };
+export type ActionBinding =
+  | { source: 'literal'; value: unknown }
+  | { source: 'instance'; field: string }
+  | { source: 'node_input'; field: string };
 export interface WorkItem {
   work_item_key: string;
   node_execution_key: string;
@@ -97,8 +132,12 @@ export interface WorkItem {
   available_actions: string[];
   decision: string | null;
 }
+/** Read-visible list projection; fetch instance detail before selecting an action. */
+export type InboxWorkItem = Omit<WorkItem, 'available_actions'>;
 export interface WorkflowInstance {
   instance_key: string;
+  subject_type: string;
+  subject_key: string;
   status: string;
   result_code: string | null;
   revision: number;
@@ -126,6 +165,22 @@ export interface WorkflowEvent {
   comment: string | null;
   metadata: Record<string, unknown>;
   occurred_at: string;
+}
+export interface WorkflowTaskDiagnostics {
+  instance_key: string;
+  revision: number;
+  items: {
+    node_execution_key: string;
+    node_revision: number;
+    status: string;
+    job: {
+      job_key: string;
+      status: string;
+      revision: number;
+      last_error_code: string | null;
+    };
+    available_actions: string[];
+  }[];
 }
 export interface PageResult<T> {
   lists: T[];

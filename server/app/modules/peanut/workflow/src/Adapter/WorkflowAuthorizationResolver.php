@@ -8,6 +8,9 @@ use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
 
 interface WorkflowAuthorizationResolver
 {
+    /** Native provider SQL constraints, applied before count and pagination. */
+    public function applyVisibleScopes(AuthorizedOperationContext $trustedBasis, \think\db\BaseQuery $query): void;
+
     /** @param non-empty-list<string> $permissionKeys */
     public function authorize(
         AuthorizedOperationContext $trustedBasis,

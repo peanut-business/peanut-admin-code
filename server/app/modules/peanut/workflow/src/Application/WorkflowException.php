@@ -13,13 +13,45 @@ final class WorkflowException extends RuntimeException
         public readonly string $errorCode,
         public readonly int $httpStatus,
         string $message,
+        public readonly ?string $conflictInstanceKey = null,
+        public readonly ?string $validationPath = null,
     ) {
         parent::__construct($message);
     }
 
-    public static function definitionInvalid(string $message = 'The workflow definition is invalid.'): self
+    public static function definitionInvalid(string $message = 'The workflow definition is invalid.', ?string $path = null): self
     {
-        return new self('WORKFLOW_DEFINITION_INVALID', 422, $message);
+        return new self('WORKFLOW_DEFINITION_INVALID', 422, $message, validationPath: $path);
+    }
+    public static function upgradeRequiresReview(): self
+    {
+        return new self('WORKFLOW_LEGACY_DATA_REQUIRES_REVIEW', 409, 'Workflow V2 migration requires an explicit legacy-data review; preserve the original deployment, immutable versions, opinions and responsibility semantics.');
+    }
+
+    public static function unsupported(string $capability, ?string $path = null): self
+    {
+        return new self('CAPABILITY_UNSUPPORTED', 422, 'Unsupported capability: ' . $capability, validationPath: $path);
+    }
+
+    /** @return array{code:string,path:string,message:string} */
+    public function validationIssue(): array
+    {
+        return ['code' => $this->errorCode, 'path' => $this->validationPath ?? '/graph', 'message' => $this->getMessage()];
+    }
+
+    public static function unresolved(string $message = 'Required assignees could not be resolved.'): self
+    {
+        return new self('ASSIGNEE_UNRESOLVED', 422, $message);
+    }
+
+    public static function blocked(string $message = 'The workflow action is blocked.'): self
+    {
+        return new self('ACTION_BLOCKED', 409, $message);
+    }
+
+    public static function alreadyCompleted(): self
+    {
+        return new self('TASK_ALREADY_COMPLETED', 409, 'This task has already been processed.');
     }
 
     public static function preconditionRequired(): self
@@ -37,9 +69,9 @@ final class WorkflowException extends RuntimeException
         return new self('WORKFLOW_DEFINITION_RETIRED', 409, 'The workflow definition is retired.');
     }
 
-    public static function instanceConflict(): self
+    public static function instanceConflict(?string $instanceKey = null): self
     {
-        return new self('WORKFLOW_INSTANCE_CONFLICT', 409, 'The workflow instance revision has changed.');
+        return new self('WORKFLOW_INSTANCE_CONFLICT', 409, 'The workflow instance revision has changed.', conflictInstanceKey: $instanceKey);
     }
 
     public static function transitionUnavailable(): self

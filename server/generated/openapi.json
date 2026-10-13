@@ -145,6 +145,9 @@
         },
         {
             "name": "Task"
+        },
+        {
+            "name": "Workflow"
         }
     ],
     "paths": {
@@ -6367,7 +6370,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\dept\\DeptController",
                     "action": "lists",
-                    "permission": null,
+                    "permission": "core.department.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 77
@@ -6376,7 +6379,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "dept/lists"
+                        "key": "core.department.read"
                     }
                 ]
             }
@@ -6442,7 +6445,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\dept\\DeptController",
                     "action": "all",
-                    "permission": null,
+                    "permission": "core.department.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 78
@@ -6451,7 +6454,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "dept/all"
+                        "key": "core.department.read"
                     }
                 ]
             }
@@ -6530,7 +6533,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\dept\\DeptController",
                     "action": "leaderDept",
-                    "permission": null,
+                    "permission": "core.department.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 79
@@ -6539,7 +6542,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "dept/leaderDept"
+                        "key": "core.department.read"
                     }
                 ]
             }
@@ -6612,7 +6615,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\dept\\DeptController",
                     "action": "detail",
-                    "permission": null,
+                    "permission": "core.department.read",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 80
@@ -6621,7 +6624,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "dept/detail"
+                        "key": "core.department.read"
                     }
                 ]
             }
@@ -6707,7 +6710,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\dept\\DeptController",
                     "action": "add",
-                    "permission": null,
+                    "permission": "core.department.create",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 81
@@ -6716,7 +6719,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "dept/add"
+                        "key": "core.department.create"
                     }
                 ]
             }
@@ -6802,7 +6805,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\dept\\DeptController",
                     "action": "edit",
-                    "permission": null,
+                    "permission": "core.department.update",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 82
@@ -6811,7 +6814,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "dept/edit"
+                        "key": "core.department.update"
                     }
                 ]
             }
@@ -6906,7 +6909,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\dept\\DeptController",
                     "action": "delete",
-                    "permission": null,
+                    "permission": "core.department.archive",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 83
@@ -6915,7 +6918,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "dept/delete"
+                        "key": "core.department.archive"
                     }
                 ]
             }
@@ -7018,7 +7021,7 @@
                     },
                     "controller": "app\\adminapi\\controller\\dept\\DeptController",
                     "action": "updateStatus",
-                    "permission": null,
+                    "permission": "core.department.update",
                     "source": {
                         "file": "server/route/admin.php",
                         "line": 84
@@ -7027,7 +7030,7 @@
                 "x-peanut-permissions": [
                     {
                         "kind": "tenant_action",
-                        "key": "dept/status"
+                        "key": "core.department.update"
                     }
                 ]
             }
@@ -31235,6 +31238,507 @@
                     }
                 ]
             }
+        },
+        "/adminapi/api/v1/workflow/definitions/{moduleKey}/{workflowKey}/summary": {
+            "get": {
+                "operationId": "getWorkflowStartSummary",
+                "tags": [
+                    "Workflow"
+                ],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "moduleKey",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "path",
+                        "name": "workflowKey",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "subject_type",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "subject_key",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Current-authorized Workflow runtime result.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "data",
+                                        "meta"
+                                    ],
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/WorkflowStartSummary"
+                                        },
+                                        "meta": {
+                                            "type": "object",
+                                            "required": [
+                                                "request_id"
+                                            ],
+                                            "properties": {
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/WorkflowRuntimeError"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/WorkflowRuntimeError"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/WorkflowRuntimeError"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/WorkflowRuntimeError"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/WorkflowRuntimeError"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "adminapi",
+                    "owner": {
+                        "type": "module",
+                        "key": "peanut.workflow"
+                    },
+                    "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowController",
+                    "action": "summary",
+                    "permission": "peanut.workflow.instance.start",
+                    "source": {
+                        "file": "server/app/modules/peanut/workflow/route/app.php",
+                        "line": 21
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "module_capability",
+                        "key": "peanut.workflow"
+                    },
+                    {
+                        "kind": "tenant_action",
+                        "key": "peanut.workflow.instance.start"
+                    }
+                ]
+            }
+        },
+        "/adminapi/api/v1/workflow/instances/{instanceKey}/materials": {
+            "get": {
+                "operationId": "getWorkflowFrozenMaterials",
+                "tags": [
+                    "Workflow"
+                ],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "instanceKey",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Current-authorized Workflow runtime result.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "data",
+                                        "meta"
+                                    ],
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/WorkflowFrozenMaterials"
+                                        },
+                                        "meta": {
+                                            "type": "object",
+                                            "required": [
+                                                "request_id"
+                                            ],
+                                            "properties": {
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/WorkflowRuntimeError"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/WorkflowRuntimeError"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/WorkflowRuntimeError"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/WorkflowRuntimeError"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/WorkflowRuntimeError"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "adminapi",
+                    "owner": {
+                        "type": "module",
+                        "key": "peanut.workflow"
+                    },
+                    "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowController",
+                    "action": "materials",
+                    "permission": "peanut.workflow.instance.read",
+                    "source": {
+                        "file": "server/app/modules/peanut/workflow/route/app.php",
+                        "line": 25
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "module_capability",
+                        "key": "peanut.workflow"
+                    },
+                    {
+                        "kind": "tenant_action",
+                        "key": "peanut.workflow.instance.read"
+                    }
+                ]
+            }
+        },
+        "/adminapi/api/v1/workflow/instances/{instanceKey}/notifications": {
+            "get": {
+                "operationId": "getWorkflowNotificationDiagnostics",
+                "tags": [
+                    "Workflow"
+                ],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "instanceKey",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "page",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "page_size",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Current-authorized Workflow runtime result.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "data",
+                                        "meta"
+                                    ],
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "required": [
+                                                "items"
+                                            ],
+                                            "properties": {
+                                                "items": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/WorkflowNotificationDiagnostic"
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        "meta": {
+                                            "type": "object",
+                                            "required": [
+                                                "request_id"
+                                            ],
+                                            "properties": {
+                                                "request_id": {
+                                                    "type": "string"
+                                                },
+                                                "page": {
+                                                    "type": "integer",
+                                                    "minimum": 1
+                                                },
+                                                "page_size": {
+                                                    "type": "integer",
+                                                    "minimum": 1
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "minimum": 0
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/WorkflowRuntimeError"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/WorkflowRuntimeError"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/WorkflowRuntimeError"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/WorkflowRuntimeError"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/WorkflowRuntimeError"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "adminapi",
+                    "owner": {
+                        "type": "module",
+                        "key": "peanut.workflow"
+                    },
+                    "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowController",
+                    "action": "notificationDiagnostics",
+                    "permission": "peanut.workflow.diagnostics.read",
+                    "source": {
+                        "file": "server/app/modules/peanut/workflow/route/app.php",
+                        "line": 30
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "module_capability",
+                        "key": "peanut.workflow"
+                    },
+                    {
+                        "kind": "tenant_action",
+                        "key": "peanut.workflow.diagnostics.read"
+                    }
+                ]
+            }
+        },
+        "/adminapi/api/v1/workflow/instances/{instanceKey}/notifications/recover": {
+            "post": {
+                "operationId": "recoverWorkflowNotification",
+                "tags": [
+                    "Workflow"
+                ],
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "instanceKey",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "header",
+                        "name": "Idempotency-Key",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9:_-]{1,128}$"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Current-authorized Workflow runtime result.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "required": [
+                                        "data",
+                                        "meta"
+                                    ],
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "required": [
+                                                "sequence_no",
+                                                "accepted"
+                                            ],
+                                            "properties": {
+                                                "sequence_no": {
+                                                    "type": "integer",
+                                                    "minimum": 1
+                                                },
+                                                "accepted": {
+                                                    "type": "boolean"
+                                                }
+                                            }
+                                        },
+                                        "meta": {
+                                            "type": "object",
+                                            "required": [
+                                                "request_id"
+                                            ],
+                                            "properties": {
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/WorkflowRuntimeError"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/WorkflowRuntimeError"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/WorkflowRuntimeError"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/WorkflowRuntimeError"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/WorkflowRuntimeError"
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "sequence_no",
+                                    "outbox_key",
+                                    "expected_job_revision",
+                                    "strategy"
+                                ],
+                                "properties": {
+                                    "sequence_no": {
+                                        "type": "integer",
+                                        "minimum": 1
+                                    },
+                                    "outbox_key": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "expected_job_revision": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "nullable": true
+                                    },
+                                    "strategy": {
+                                        "type": "string",
+                                        "enum": [
+                                            "retry_original",
+                                            "reauthorize"
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "adminapi",
+                    "owner": {
+                        "type": "module",
+                        "key": "peanut.workflow"
+                    },
+                    "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowController",
+                    "action": "recoverNotification",
+                    "permission": "peanut.workflow.diagnostics.retry",
+                    "source": {
+                        "file": "server/app/modules/peanut/workflow/route/app.php",
+                        "line": 31
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "module_capability",
+                        "key": "peanut.workflow"
+                    },
+                    {
+                        "kind": "tenant_action",
+                        "key": "peanut.workflow.diagnostics.retry"
+                    }
+                ]
+            }
         }
     },
     "components": {
@@ -48718,6 +49222,171 @@
                         }
                     }
                 }
+            },
+            "WorkflowStartSummary": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "definition_id",
+                    "module_key",
+                    "workflow_key",
+                    "status",
+                    "draft_revision",
+                    "active_version"
+                ],
+                "properties": {
+                    "definition_id": {
+                        "type": "string"
+                    },
+                    "module_key": {
+                        "type": "string"
+                    },
+                    "workflow_key": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "active"
+                        ]
+                    },
+                    "draft_revision": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "active_version": {
+                        "type": "integer",
+                        "minimum": 1
+                    }
+                }
+            },
+            "WorkflowFrozenMaterials": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "revision_key",
+                    "sha256",
+                    "fields",
+                    "reference"
+                ],
+                "properties": {
+                    "revision_key": {
+                        "type": "string"
+                    },
+                    "sha256": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{64}$"
+                    },
+                    "fields": {
+                        "type": "object"
+                    },
+                    "reference": {
+                        "type": "object"
+                    }
+                }
+            },
+            "WorkflowNotificationDiagnostic": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "sequence_no",
+                    "status",
+                    "last_error",
+                    "outboxes",
+                    "available_actions"
+                ],
+                "properties": {
+                    "sequence_no": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "pending_materialization",
+                            "materialized"
+                        ]
+                    },
+                    "last_error": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "available_actions": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "reauthorize"
+                            ]
+                        }
+                    },
+                    "outboxes": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/WorkflowNotificationOutboxDiagnostic"
+                        }
+                    }
+                }
+            },
+            "WorkflowNotificationOutboxDiagnostic": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "outbox_key",
+                    "delivery_status",
+                    "task",
+                    "available_actions"
+                ],
+                "properties": {
+                    "outbox_key": {
+                        "type": "string"
+                    },
+                    "delivery_status": {
+                        "type": "string"
+                    },
+                    "available_actions": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "retry_original",
+                                "reauthorize"
+                            ]
+                        }
+                    },
+                    "task": {
+                        "type": "object",
+                        "nullable": true,
+                        "description": "The native redacted Task record; signed authorization and session references are excluded."
+                    }
+                }
+            },
+            "WorkflowRuntimeErrorEnvelope": {
+                "type": "object",
+                "required": [
+                    "code",
+                    "msg",
+                    "data"
+                ],
+                "properties": {
+                    "code": {
+                        "type": "integer"
+                    },
+                    "msg": {
+                        "type": "string"
+                    },
+                    "data": {
+                        "type": "object",
+                        "required": [
+                            "error_code"
+                        ],
+                        "properties": {
+                            "error_code": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
             }
         },
         "responses": {
@@ -48782,6 +49451,16 @@
                     "application/json": {
                         "schema": {
                             "$ref": "#/components/schemas/SettingRecordResponseBody"
+                        }
+                    }
+                }
+            },
+            "WorkflowRuntimeError": {
+                "description": "Native error envelope; HTTP status and X-Request-ID are retained.",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/WorkflowRuntimeErrorEnvelope"
                         }
                     }
                 }

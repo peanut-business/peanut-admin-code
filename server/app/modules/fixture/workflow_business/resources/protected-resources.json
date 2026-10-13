@@ -1,0 +1,472 @@
+[
+  {
+    "key": "fixture.workflow-business.receipt",
+    "name": "Workflow sample receipt",
+    "ownership": "tenant_owned",
+    "provider": "PeanutAdmin\\Fixtures\\WorkflowBusiness\\Integration\\WorkflowBusinessPolicyProvider",
+    "operations": [
+      {
+        "key": "read",
+        "access_mode": "rule_filtered",
+        "target_cardinality": "none",
+        "permission_match": "all",
+        "audit_level": "deny_and_write",
+        "permissions": [
+          "fixture.workflow-business.read"
+        ],
+        "target_types": [],
+        "conditions": [
+          {
+            "key": "core.tenant_all",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.self",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.own_department",
+            "selector_resource_key": null
+          }
+        ]
+      },
+      {
+        "key": "create",
+        "access_mode": "tenant_wide",
+        "target_cardinality": "none",
+        "permission_match": "all",
+        "audit_level": "deny_and_write",
+        "permissions": [
+          "fixture.workflow-business.create"
+        ],
+        "target_types": [],
+        "conditions": []
+      },
+      {
+        "key": "update",
+        "access_mode": "rule_filtered",
+        "target_cardinality": "none",
+        "permission_match": "all",
+        "audit_level": "deny_and_write",
+        "permissions": [
+          "fixture.workflow-business.update"
+        ],
+        "target_types": [],
+        "conditions": [
+          {
+            "key": "core.tenant_all",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.self",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.own_department",
+            "selector_resource_key": null
+          }
+        ]
+      },
+      {
+        "key": "confirm",
+        "access_mode": "rule_filtered",
+        "target_cardinality": "none",
+        "permission_match": "all",
+        "audit_level": "deny_and_write",
+        "permissions": [
+          "fixture.workflow-business.confirm"
+        ],
+        "target_types": [],
+        "conditions": [
+          {
+            "key": "core.tenant_all",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.self",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.own_department",
+            "selector_resource_key": null
+          }
+        ]
+      },
+      {
+        "key": "start",
+        "access_mode": "rule_filtered",
+        "target_cardinality": "none",
+        "permission_match": "all",
+        "audit_level": "deny_and_write",
+        "permissions": [
+          "fixture.workflow-business.start"
+        ],
+        "target_types": [],
+        "conditions": [
+          {
+            "key": "core.tenant_all",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.self",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.own_department",
+            "selector_resource_key": null
+          }
+        ]
+      },
+      {
+        "key": "approve",
+        "access_mode": "rule_filtered",
+        "target_cardinality": "none",
+        "permission_match": "all",
+        "audit_level": "deny_and_write",
+        "permissions": [
+          "fixture.workflow-business.approve"
+        ],
+        "target_types": [],
+        "conditions": [
+          {
+            "key": "core.tenant_all",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.self",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.own_department",
+            "selector_resource_key": null
+          }
+        ]
+      },
+      {
+        "key": "reject",
+        "access_mode": "rule_filtered",
+        "target_cardinality": "none",
+        "permission_match": "all",
+        "audit_level": "deny_and_write",
+        "permissions": [
+          "fixture.workflow-business.reject"
+        ],
+        "target_types": [],
+        "conditions": [
+          {
+            "key": "core.tenant_all",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.self",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.own_department",
+            "selector_resource_key": null
+          }
+        ]
+      },
+      {
+        "key": "complete",
+        "access_mode": "rule_filtered",
+        "target_cardinality": "none",
+        "permission_match": "all",
+        "audit_level": "deny_and_write",
+        "permissions": [
+          "fixture.workflow-business.complete"
+        ],
+        "target_types": [],
+        "conditions": [
+          {
+            "key": "core.tenant_all",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.self",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.own_department",
+            "selector_resource_key": null
+          }
+        ]
+      },
+      {
+        "key": "receive",
+        "access_mode": "rule_filtered",
+        "target_cardinality": "none",
+        "permission_match": "all",
+        "audit_level": "deny_and_write",
+        "permissions": [
+          "fixture.workflow-business.receive"
+        ],
+        "target_types": [],
+        "conditions": [
+          {
+            "key": "core.tenant_all",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.self",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.own_department",
+            "selector_resource_key": null
+          }
+        ]
+      },
+      {
+        "key": "terminate",
+        "access_mode": "rule_filtered",
+        "target_cardinality": "none",
+        "permission_match": "all",
+        "audit_level": "deny_and_write",
+        "permissions": [
+          "fixture.workflow-business.terminate"
+        ],
+        "target_types": [],
+        "conditions": [
+          {
+            "key": "core.tenant_all",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.self",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.own_department",
+            "selector_resource_key": null
+          }
+        ]
+      },
+      {
+        "key": "restart",
+        "access_mode": "rule_filtered",
+        "target_cardinality": "none",
+        "permission_match": "all",
+        "audit_level": "deny_and_write",
+        "permissions": [
+          "fixture.workflow-business.restart"
+        ],
+        "target_types": [],
+        "conditions": [
+          {
+            "key": "core.tenant_all",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.self",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.own_department",
+            "selector_resource_key": null
+          }
+        ]
+      },
+      {
+        "key": "reassign",
+        "access_mode": "rule_filtered",
+        "target_cardinality": "none",
+        "permission_match": "all",
+        "audit_level": "deny_and_write",
+        "permissions": [
+          "fixture.workflow-business.reassign"
+        ],
+        "target_types": [],
+        "conditions": [
+          {
+            "key": "core.tenant_all",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.self",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.own_department",
+            "selector_resource_key": null
+          }
+        ]
+      },
+      {
+        "key": "claim",
+        "access_mode": "rule_filtered",
+        "target_cardinality": "none",
+        "permission_match": "all",
+        "audit_level": "deny_and_write",
+        "permissions": [
+          "fixture.workflow-business.claim"
+        ],
+        "target_types": [],
+        "conditions": [
+          {
+            "key": "core.tenant_all",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.self",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.own_department",
+            "selector_resource_key": null
+          }
+        ]
+      },
+      {
+        "key": "release",
+        "access_mode": "rule_filtered",
+        "target_cardinality": "none",
+        "permission_match": "all",
+        "audit_level": "deny_and_write",
+        "permissions": [
+          "fixture.workflow-business.release"
+        ],
+        "target_types": [],
+        "conditions": [
+          {
+            "key": "core.tenant_all",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.self",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.own_department",
+            "selector_resource_key": null
+          }
+        ]
+      },
+      {
+        "key": "return",
+        "access_mode": "rule_filtered",
+        "target_cardinality": "none",
+        "permission_match": "all",
+        "audit_level": "deny_and_write",
+        "permissions": [
+          "fixture.workflow-business.return"
+        ],
+        "target_types": [],
+        "conditions": [
+          {
+            "key": "core.tenant_all",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.self",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.own_department",
+            "selector_resource_key": null
+          }
+        ]
+      },
+      {
+        "key": "cancel",
+        "access_mode": "rule_filtered",
+        "target_cardinality": "none",
+        "permission_match": "all",
+        "audit_level": "deny_and_write",
+        "permissions": [
+          "fixture.workflow-business.cancel"
+        ],
+        "target_types": [],
+        "conditions": [
+          {
+            "key": "core.tenant_all",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.self",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.own_department",
+            "selector_resource_key": null
+          }
+        ]
+      },
+      {
+        "key": "withdraw",
+        "access_mode": "rule_filtered",
+        "target_cardinality": "none",
+        "permission_match": "all",
+        "audit_level": "deny_and_write",
+        "permissions": [
+          "fixture.workflow-business.withdraw"
+        ],
+        "target_types": [],
+        "conditions": [
+          {
+            "key": "core.tenant_all",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.self",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.own_department",
+            "selector_resource_key": null
+          }
+        ]
+      },
+      {
+        "key": "retry",
+        "access_mode": "rule_filtered",
+        "target_cardinality": "none",
+        "permission_match": "all",
+        "audit_level": "deny_and_write",
+        "permissions": [
+          "peanut.workflow.diagnostics.retry"
+        ],
+        "target_types": [],
+        "conditions": [
+          {
+            "key": "core.tenant_all",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.self",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.own_department",
+            "selector_resource_key": null
+          }
+        ]
+      },
+      {
+        "key": "collaborate",
+        "access_mode": "rule_filtered",
+        "target_cardinality": "none",
+        "permission_match": "all",
+        "audit_level": "deny_and_write",
+        "permissions": [
+          "fixture.workflow-business.collaborate"
+        ],
+        "target_types": [],
+        "conditions": [
+          {
+            "key": "core.tenant_all",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.self",
+            "selector_resource_key": null
+          },
+          {
+            "key": "core.own_department",
+            "selector_resource_key": null
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -35,6 +35,14 @@ final readonly class TaskJobService
         return $this->repository->get($context->tenantContext->tenantId, $jobKey);
     }
 
+    /** Locks a confirmed dead job in the caller's transaction; never exposes payload or envelope. */
+    public function detailForRecovery(AuthorizedOperationContext $context, string $jobKey, int $expectedRevision): JobRecord
+    {
+        $this->assertOperation($context, 'manage');
+        $this->assertJobKey($jobKey);
+        return $this->repository->terminalForRecovery($context->tenantContext->tenantId, $jobKey, $expectedRevision);
+    }
+
     public function cancel(AuthorizedOperationContext $context, string $jobKey, int $revision): JobRecord
     {
         $this->assertOperation($context, 'manage');

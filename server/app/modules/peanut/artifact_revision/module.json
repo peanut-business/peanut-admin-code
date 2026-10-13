@@ -12,10 +12,6 @@
     {
       "module_key": "official.identity",
       "version": "4.0.0-rc.24"
-    },
-    {
-      "module_key": "peanut.workflow",
-      "version": "4.0.0-rc.24"
     }
   ],
   "backend": {
@@ -24,24 +20,20 @@
   },
   "frontend": {},
   "database": {
-    "owned_tables": [
-      "pa_artifact",
-      "pa_artifact_revision"
-    ]
+    "owned_tables": ["pa_artifact", "pa_artifact_revision"]
   },
   "contracts": {
     "exports": [
       "PeanutAdmin\\Modules\\ArtifactRevision\\Application\\ArtifactRevisionService",
-      "PeanutAdmin\\Modules\\ArtifactRevision\\Workflow\\ArtifactSubjectRevisionReader"
+      "PeanutAdmin\\Modules\\ArtifactRevision\\Contract\\ArtifactRevisionQuery",
+      "PeanutAdmin\\Modules\\ArtifactRevision\\Contract\\Dto\\ArtifactRevisionSnapshot",
+      "PeanutAdmin\\Modules\\ArtifactRevision\\Application\\ArtifactRevisionException"
     ],
     "events": []
   },
   "tenant": {
     "enableable": true,
     "disable_behavior": "reject_new_operations",
-    "requires": [
-      "official.identity",
-      "peanut.workflow"
-    ]
+    "requires": ["official.identity"]
   }
 }

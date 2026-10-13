@@ -20,6 +20,15 @@ final readonly class TrustedJobPublisher
         private TrustedEnvelopeCodec $envelopes,
     ) {}
 
+    /** Descriptor check only; grants no permission and creates no task/session record. */
+    public function assertRegistered(string $taskType, string $resourceKey, string $operation): void
+    {
+        $provider = $this->submissions->require($taskType);
+        if (!hash_equals($provider->resourceKey(), $resourceKey) || !hash_equals($provider->operation(), $operation)) {
+            throw TaskJobException::denied();
+        }
+    }
+
     /** @param array<string, mixed> $input */
     public function publish(
         AuthorizedOperationContext $context,

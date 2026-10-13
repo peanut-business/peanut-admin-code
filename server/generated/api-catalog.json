@@ -31,6 +31,10 @@
             "sha256": "2f70e18b4915ca56b4d6687ab349525348e66bdd9c717e864f2a4e5e2f8339f8"
         },
         {
+            "path": "server/app/modules/fixture/workflow_business/route/app.php",
+            "sha256": "a75ab8ee6c324fce9b9a1b0cc83e3a3bee7270798b4ab8e4f3378ef39bf5e0fb"
+        },
+        {
             "path": "server/app/modules/official/article/api/metadata/openapi.php",
             "sha256": "19b338cab841f744697b7b88a96d79a05cc7ca105a6e422ffc4a0f6d58a38f3d"
         },
@@ -131,12 +135,24 @@
             "sha256": "9cb148876b853446f542c6b9c00fe54046756eaa93656e1298393359408548c1"
         },
         {
+            "path": "server/app/modules/peanut/workflow/api/metadata/openapi.php",
+            "sha256": "17012220d00efb5fe820ac5c0b3f31944a638bbc868def4775cf1a348ed6d959"
+        },
+        {
+            "path": "server/app/modules/peanut/workflow/route/app.php",
+            "sha256": "4af207c9fd8f583c8cb9d8f03f6dc1aa766a6ee5917145ce2650e360416c27e1"
+        },
+        {
+            "path": "server/app/modules/peanut/workflow/route/design.php",
+            "sha256": "9756fc274fc883061700ba15585f590542be1d1adc0363c79a7aec260f828da6"
+        },
+        {
             "path": "server/config/admin_api_access.php",
             "sha256": "7bbb00b18b9b343baed358624018c4973646f6cd5a6f197812586411cfd5eb0e"
         },
         {
             "path": "server/route/admin.php",
-            "sha256": "4725d463512ab6e450e27c82660430459b0cbc0560c03173ba06cc1af58611b9"
+            "sha256": "49563046fd127aeb24299f76cc23c92ea3572a8ec5a8321ad8b3b2d476816f5f"
         },
         {
             "path": "server/route/app.php",
@@ -168,27 +184,27 @@
         ]
     },
     "summary": {
-        "route_count": 365,
-        "generated_api_operations": 353,
-        "route_only_operations": 12,
-        "complete_operations": 353,
+        "route_count": 403,
+        "generated_api_operations": 357,
+        "route_only_operations": 46,
+        "complete_operations": 357,
         "partial_operations": 0,
-        "runtime_routes": 365,
-        "documented_operations": 353,
-        "undocumented_routes": 12,
-        "automatic_route_metadata": 365,
-        "requires_owner_contract": 12,
-        "owners": 17,
+        "runtime_routes": 403,
+        "documented_operations": 357,
+        "undocumented_routes": 46,
+        "automatic_route_metadata": 403,
+        "requires_owner_contract": 46,
+        "owners": 19,
         "runtime_inventory": {
-            "total": 365,
+            "total": 403,
             "methods": {
                 "DELETE": 4,
-                "GET": 162,
-                "POST": 196,
-                "PUT": 3
+                "GET": 175,
+                "POST": 218,
+                "PUT": 6
             },
             "applications": {
-                "adminapi": 248,
+                "adminapi": 286,
                 "api": 47,
                 "installation": 6,
                 "platform": 64
@@ -198,6 +214,7 @@
                 "application:api": 18,
                 "application:installation": 6,
                 "application:platform": 58,
+                "module:fixture.workflow-business": 8,
                 "module:official.article": 22,
                 "module:official.document": 8,
                 "module:official.file": 23,
@@ -210,7 +227,8 @@
                 "module:official.reference-codes": 20,
                 "module:official.rich-text": 6,
                 "module:official.settings": 3,
-                "module:official.task": 10
+                "module:official.task": 10,
+                "module:peanut.workflow": 30
             },
             "duplicates": []
         }
@@ -220,6 +238,7 @@
         "application:api": 18,
         "application:installation": 6,
         "application:platform": 58,
+        "module:fixture.workflow-business": 8,
         "module:official.article": 22,
         "module:official.document": 8,
         "module:official.file": 23,
@@ -232,9 +251,150 @@
         "module:official.reference-codes": 20,
         "module:official.rich-text": 6,
         "module:official.settings": 3,
-        "module:official.task": 10
+        "module:official.task": 10,
+        "module:peanut.workflow": 30
     },
     "documentation_gaps": [
+        {
+            "method": "GET",
+            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects",
+            "owner": {
+                "type": "module",
+                "key": "fixture.workflow-business"
+            },
+            "source": {
+                "file": "server/app/modules/fixture/workflow_business/route/app.php",
+                "line": 18
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/fixture/workflow_business/api/metadata/openapi.php"
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects/{objectKey}",
+            "owner": {
+                "type": "module",
+                "key": "fixture.workflow-business"
+            },
+            "source": {
+                "file": "server/app/modules/fixture/workflow_business/route/app.php",
+                "line": 19
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/fixture/workflow_business/api/metadata/openapi.php"
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects/{objectKey}/collaboration",
+            "owner": {
+                "type": "module",
+                "key": "fixture.workflow-business"
+            },
+            "source": {
+                "file": "server/app/modules/fixture/workflow_business/route/app.php",
+                "line": 24
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/fixture/workflow_business/api/metadata/openapi.php"
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/api/v1/workflow/definitions",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/design.php",
+                "line": 16
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/peanut/workflow/api/metadata/openapi.php"
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/api/v1/workflow/definitions/{moduleKey}/{workflowKey}",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/design.php",
+                "line": 23
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/peanut/workflow/api/metadata/openapi.php"
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/api/v1/workflow/definitions/{moduleKey}/{workflowKey}/scenario",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/design.php",
+                "line": 24
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/peanut/workflow/api/metadata/openapi.php"
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/api/v1/workflow/inbox",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 22
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/peanut/workflow/api/metadata/openapi.php"
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/api/v1/workflow/instances/{instanceKey}",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 26
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/peanut/workflow/api/metadata/openapi.php"
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/api/v1/workflow/instances/{instanceKey}/diagnostics",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 28
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/peanut/workflow/api/metadata/openapi.php"
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/api/v1/workflow/instances/{instanceKey}/events",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 24
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/peanut/workflow/api/metadata/openapi.php"
+        },
         {
             "method": "GET",
             "path": "/adminapi/official.rich-text.document.collaboration",
@@ -290,6 +450,300 @@
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": "server/app/modules/official/file/api/metadata/openapi.php"
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects",
+            "owner": {
+                "type": "module",
+                "key": "fixture.workflow-business"
+            },
+            "source": {
+                "file": "server/app/modules/fixture/workflow_business/route/app.php",
+                "line": 20
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/fixture/workflow_business/api/metadata/openapi.php"
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects/{objectKey}/collaboration",
+            "owner": {
+                "type": "module",
+                "key": "fixture.workflow-business"
+            },
+            "source": {
+                "file": "server/app/modules/fixture/workflow_business/route/app.php",
+                "line": 25
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/fixture/workflow_business/api/metadata/openapi.php"
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects/{objectKey}/confirm",
+            "owner": {
+                "type": "module",
+                "key": "fixture.workflow-business"
+            },
+            "source": {
+                "file": "server/app/modules/fixture/workflow_business/route/app.php",
+                "line": 22
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/fixture/workflow_business/api/metadata/openapi.php"
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/definitions/{moduleKey}/{workflowKey}/activate",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/design.php",
+                "line": 21
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/peanut/workflow/api/metadata/openapi.php"
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/definitions/{moduleKey}/{workflowKey}/publish",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/design.php",
+                "line": 21
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/peanut/workflow/api/metadata/openapi.php"
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/definitions/{moduleKey}/{workflowKey}/retire",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/design.php",
+                "line": 21
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/peanut/workflow/api/metadata/openapi.php"
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/definitions/preview",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/design.php",
+                "line": 18
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/peanut/workflow/api/metadata/openapi.php"
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/definitions/validate",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/design.php",
+                "line": 17
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/peanut/workflow/api/metadata/openapi.php"
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/instances",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 23
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/peanut/workflow/api/metadata/openapi.php"
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/instances/{instanceKey}/reassign",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 40
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/peanut/workflow/api/metadata/openapi.php"
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/instances/{instanceKey}/reconcile",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 27
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/peanut/workflow/api/metadata/openapi.php"
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/instances/{instanceKey}/recover",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 29
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/peanut/workflow/api/metadata/openapi.php"
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/instances/{instanceKey}/retry",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 40
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/peanut/workflow/api/metadata/openapi.php"
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/instances/{instanceKey}/terminate",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 40
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/peanut/workflow/api/metadata/openapi.php"
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/instances/{instanceKey}/withdraw",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 40
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/peanut/workflow/api/metadata/openapi.php"
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/tasks/{workItemKey}/claim",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 37
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/peanut/workflow/api/metadata/openapi.php"
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/tasks/{workItemKey}/completions",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 37
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/peanut/workflow/api/metadata/openapi.php"
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/tasks/{workItemKey}/decisions",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 37
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/peanut/workflow/api/metadata/openapi.php"
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/tasks/{workItemKey}/release",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 37
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/peanut/workflow/api/metadata/openapi.php"
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/tasks/{workItemKey}/resubmit",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 37
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/peanut/workflow/api/metadata/openapi.php"
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/tasks/{workItemKey}/return",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 37
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/peanut/workflow/api/metadata/openapi.php"
         },
         {
             "method": "POST",
@@ -402,6 +856,48 @@
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": "server/app/modules/official/file/api/metadata/openapi.php"
+        },
+        {
+            "method": "PUT",
+            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects/{objectKey}",
+            "owner": {
+                "type": "module",
+                "key": "fixture.workflow-business"
+            },
+            "source": {
+                "file": "server/app/modules/fixture/workflow_business/route/app.php",
+                "line": 21
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/fixture/workflow_business/api/metadata/openapi.php"
+        },
+        {
+            "method": "PUT",
+            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects/{objectKey}/form",
+            "owner": {
+                "type": "module",
+                "key": "fixture.workflow-business"
+            },
+            "source": {
+                "file": "server/app/modules/fixture/workflow_business/route/app.php",
+                "line": 23
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/fixture/workflow_business/api/metadata/openapi.php"
+        },
+        {
+            "method": "PUT",
+            "path": "/adminapi/api/v1/workflow/definitions/{moduleKey}/{workflowKey}/draft",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/design.php",
+                "line": 19
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/peanut/workflow/api/metadata/openapi.php"
         }
     ],
     "endpoints": [
@@ -1064,6 +1560,237 @@
                     "source"
                 ],
                 "requires_owner_contract": []
+            }
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects",
+            "runtime_path": "/adminapi/api/v1/fixture/workflow-business/:scene/objects",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "fixture.workflow-business"
+            },
+            "controller": "PeanutAdmin\\Fixtures\\WorkflowBusiness\\Controller\\WorkflowBusinessController",
+            "action": "index",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "fixture.workflow-business"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "fixture.workflow-business.read"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "fixture.workflow-business",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/fixture/workflow_business/route/app.php",
+                "line": 18
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects/{objectKey}",
+            "runtime_path": "/adminapi/api/v1/fixture/workflow-business/:scene/objects/:objectKey",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "fixture.workflow-business"
+            },
+            "controller": "PeanutAdmin\\Fixtures\\WorkflowBusiness\\Controller\\WorkflowBusinessController",
+            "action": "detail",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "fixture.workflow-business"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "fixture.workflow-business.read"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "fixture.workflow-business",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/fixture/workflow_business/route/app.php",
+                "line": 19
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects/{objectKey}/collaboration",
+            "runtime_path": "/adminapi/api/v1/fixture/workflow-business/:scene/objects/:objectKey/collaboration",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "fixture.workflow-business"
+            },
+            "controller": "PeanutAdmin\\Fixtures\\WorkflowBusiness\\Controller\\WorkflowBusinessController",
+            "action": "collaboration",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "fixture.workflow-business"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "fixture.workflow-business.read"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "fixture.workflow-business",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/fixture/workflow_business/route/app.php",
+                "line": 24
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
             }
         },
         {
@@ -1982,6 +2709,779 @@
         },
         {
             "method": "GET",
+            "path": "/adminapi/api/v1/workflow/definitions",
+            "runtime_path": "/adminapi/api/v1/workflow/definitions",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowDefinitionController",
+            "action": "index",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "peanut.workflow"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "peanut.workflow.definition.read"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "peanut.workflow",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/design.php",
+                "line": 16
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/api/v1/workflow/definitions/{moduleKey}/{workflowKey}",
+            "runtime_path": "/adminapi/api/v1/workflow/definitions/:moduleKey/:workflowKey",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowDefinitionController",
+            "action": "detail",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "peanut.workflow"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "peanut.workflow.definition.read"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "peanut.workflow",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/design.php",
+                "line": 23
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/api/v1/workflow/definitions/{moduleKey}/{workflowKey}/scenario",
+            "runtime_path": "/adminapi/api/v1/workflow/definitions/:moduleKey/:workflowKey/scenario",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowDefinitionController",
+            "action": "scenario",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "peanut.workflow"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "peanut.workflow.definition.read"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "peanut.workflow",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/design.php",
+                "line": 24
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/api/v1/workflow/definitions/{moduleKey}/{workflowKey}/summary",
+            "runtime_path": "/adminapi/api/v1/workflow/definitions/:moduleKey/:workflowKey/summary",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowController",
+            "action": "summary",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "peanut.workflow"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "peanut.workflow.instance.start"
+                }
+            ],
+            "errors": [
+                400,
+                401,
+                403,
+                404,
+                409
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "peanut.workflow",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 21
+            },
+            "documented": true,
+            "openapi_operation_id": "getWorkflowStartSummary",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts",
+                "web/src/modules/peanut-workflow/generated/openapi.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": []
+            }
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/api/v1/workflow/inbox",
+            "runtime_path": "/adminapi/api/v1/workflow/inbox",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowController",
+            "action": "inbox",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "peanut.workflow"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "peanut.workflow.instance.read"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "peanut.workflow",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 22
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/api/v1/workflow/instances/{instanceKey}",
+            "runtime_path": "/adminapi/api/v1/workflow/instances/:instanceKey",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowController",
+            "action": "instance",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "peanut.workflow"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "peanut.workflow.instance.read"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "peanut.workflow",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 26
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/api/v1/workflow/instances/{instanceKey}/diagnostics",
+            "runtime_path": "/adminapi/api/v1/workflow/instances/:instanceKey/diagnostics",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowController",
+            "action": "diagnostics",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "peanut.workflow"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "peanut.workflow.diagnostics.read"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "peanut.workflow",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 28
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/api/v1/workflow/instances/{instanceKey}/events",
+            "runtime_path": "/adminapi/api/v1/workflow/instances/:instanceKey/events",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowController",
+            "action": "events",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "peanut.workflow"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "peanut.workflow.instance.read"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "peanut.workflow",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 24
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/api/v1/workflow/instances/{instanceKey}/materials",
+            "runtime_path": "/adminapi/api/v1/workflow/instances/:instanceKey/materials",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowController",
+            "action": "materials",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "peanut.workflow"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "peanut.workflow.instance.read"
+                }
+            ],
+            "errors": [
+                400,
+                401,
+                403,
+                404,
+                409
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "peanut.workflow",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 25
+            },
+            "documented": true,
+            "openapi_operation_id": "getWorkflowFrozenMaterials",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts",
+                "web/src/modules/peanut-workflow/generated/openapi.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": []
+            }
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/api/v1/workflow/instances/{instanceKey}/notifications",
+            "runtime_path": "/adminapi/api/v1/workflow/instances/:instanceKey/notifications",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowController",
+            "action": "notificationDiagnostics",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "peanut.workflow"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "peanut.workflow.diagnostics.read"
+                }
+            ],
+            "errors": [
+                400,
+                401,
+                403,
+                404,
+                409
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "peanut.workflow",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 30
+            },
+            "documented": true,
+            "openapi_operation_id": "getWorkflowNotificationDiagnostics",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts",
+                "web/src/modules/peanut-workflow/generated/openapi.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": []
+            }
+        },
+        {
+            "method": "GET",
             "path": "/adminapi/config/agreement",
             "runtime_path": "/adminapi/config/agreement",
             "application": "adminapi",
@@ -2801,7 +4301,7 @@
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "dept/all"
+                    "key": "core.department.read"
                 }
             ],
             "errors": [
@@ -2864,7 +4364,7 @@
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "dept/detail"
+                    "key": "core.department.read"
                 }
             ],
             "errors": [
@@ -2927,7 +4427,7 @@
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "dept/leaderDept"
+                    "key": "core.department.read"
                 }
             ],
             "errors": [
@@ -2990,7 +4490,7 @@
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "dept/lists"
+                    "key": "core.department.read"
                 }
             ],
             "errors": [
@@ -11938,6 +13438,237 @@
         },
         {
             "method": "POST",
+            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects",
+            "runtime_path": "/adminapi/api/v1/fixture/workflow-business/:scene/objects",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "fixture.workflow-business"
+            },
+            "controller": "PeanutAdmin\\Fixtures\\WorkflowBusiness\\Controller\\WorkflowBusinessController",
+            "action": "create",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "fixture.workflow-business"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "fixture.workflow-business.create"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "fixture.workflow-business",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/fixture/workflow_business/route/app.php",
+                "line": 20
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects/{objectKey}/collaboration",
+            "runtime_path": "/adminapi/api/v1/fixture/workflow-business/:scene/objects/:objectKey/collaboration",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "fixture.workflow-business"
+            },
+            "controller": "PeanutAdmin\\Fixtures\\WorkflowBusiness\\Controller\\WorkflowBusinessController",
+            "action": "appendCollaboration",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "fixture.workflow-business"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "fixture.workflow-business.collaborate"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "fixture.workflow-business",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/fixture/workflow_business/route/app.php",
+                "line": 25
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects/{objectKey}/confirm",
+            "runtime_path": "/adminapi/api/v1/fixture/workflow-business/:scene/objects/:objectKey/confirm",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "fixture.workflow-business"
+            },
+            "controller": "PeanutAdmin\\Fixtures\\WorkflowBusiness\\Controller\\WorkflowBusinessController",
+            "action": "confirm",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "fixture.workflow-business"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "fixture.workflow-business.confirm"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "fixture.workflow-business",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/fixture/workflow_business/route/app.php",
+                "line": 22
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "POST",
             "path": "/adminapi/api/v1/import-export/exports",
             "runtime_path": "/adminapi/api/v1/import-export/exports",
             "application": "adminapi",
@@ -12956,6 +14687,1470 @@
         },
         {
             "method": "POST",
+            "path": "/adminapi/api/v1/workflow/definitions/{moduleKey}/{workflowKey}/activate",
+            "runtime_path": "/adminapi/api/v1/workflow/definitions/:moduleKey/:workflowKey/activate",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowDefinitionController",
+            "action": "activate",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "peanut.workflow"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "peanut.workflow.definition.publish"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "peanut.workflow",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/design.php",
+                "line": 21
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/definitions/{moduleKey}/{workflowKey}/publish",
+            "runtime_path": "/adminapi/api/v1/workflow/definitions/:moduleKey/:workflowKey/publish",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowDefinitionController",
+            "action": "publish",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "peanut.workflow"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "peanut.workflow.definition.publish"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "peanut.workflow",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/design.php",
+                "line": 21
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/definitions/{moduleKey}/{workflowKey}/retire",
+            "runtime_path": "/adminapi/api/v1/workflow/definitions/:moduleKey/:workflowKey/retire",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowDefinitionController",
+            "action": "retire",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "peanut.workflow"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "peanut.workflow.definition.publish"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "peanut.workflow",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/design.php",
+                "line": 21
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/definitions/preview",
+            "runtime_path": "/adminapi/api/v1/workflow/definitions/preview",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowDefinitionController",
+            "action": "preview",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "peanut.workflow"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "peanut.workflow.definition.write"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "peanut.workflow",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/design.php",
+                "line": 18
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/definitions/validate",
+            "runtime_path": "/adminapi/api/v1/workflow/definitions/validate",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowDefinitionController",
+            "action": "validateGraph",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "peanut.workflow"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "peanut.workflow.definition.write"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "peanut.workflow",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/design.php",
+                "line": 17
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/instances",
+            "runtime_path": "/adminapi/api/v1/workflow/instances",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowController",
+            "action": "start",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "peanut.workflow"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "peanut.workflow.instance.start"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "peanut.workflow",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 23
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/instances/{instanceKey}/notifications/recover",
+            "runtime_path": "/adminapi/api/v1/workflow/instances/:instanceKey/notifications/recover",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowController",
+            "action": "recoverNotification",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "peanut.workflow"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "peanut.workflow.diagnostics.retry"
+                }
+            ],
+            "errors": [
+                400,
+                401,
+                403,
+                404,
+                409
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "peanut.workflow",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 31
+            },
+            "documented": true,
+            "openapi_operation_id": "recoverWorkflowNotification",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts",
+                "web/src/modules/peanut-workflow/generated/openapi.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": []
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/instances/{instanceKey}/reassign",
+            "runtime_path": "/adminapi/api/v1/workflow/instances/:instanceKey/reassign",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowController",
+            "action": "reassign",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "peanut.workflow"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "peanut.workflow.diagnostics.reassign"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "peanut.workflow",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 40
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/instances/{instanceKey}/reconcile",
+            "runtime_path": "/adminapi/api/v1/workflow/instances/:instanceKey/reconcile",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowController",
+            "action": "reconcile",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "peanut.workflow"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "peanut.workflow.diagnostics.read"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "peanut.workflow",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 27
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/instances/{instanceKey}/recover",
+            "runtime_path": "/adminapi/api/v1/workflow/instances/:instanceKey/recover",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowController",
+            "action": "recover",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "peanut.workflow"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "peanut.workflow.diagnostics.retry"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "peanut.workflow",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 29
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/instances/{instanceKey}/retry",
+            "runtime_path": "/adminapi/api/v1/workflow/instances/:instanceKey/retry",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowController",
+            "action": "retry",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "peanut.workflow"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "peanut.workflow.diagnostics.retry"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "peanut.workflow",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 40
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/instances/{instanceKey}/terminate",
+            "runtime_path": "/adminapi/api/v1/workflow/instances/:instanceKey/terminate",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowController",
+            "action": "terminate",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "peanut.workflow"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "peanut.workflow.instance.terminate"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "peanut.workflow",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 40
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/instances/{instanceKey}/withdraw",
+            "runtime_path": "/adminapi/api/v1/workflow/instances/:instanceKey/withdraw",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowController",
+            "action": "withdraw",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "peanut.workflow"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "peanut.workflow.instance.withdraw"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "peanut.workflow",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 40
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/tasks/{workItemKey}/claim",
+            "runtime_path": "/adminapi/api/v1/workflow/tasks/:workItemKey/claim",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowController",
+            "action": "claim",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "peanut.workflow"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "peanut.workflow.task.claim"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "peanut.workflow",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 37
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/tasks/{workItemKey}/completions",
+            "runtime_path": "/adminapi/api/v1/workflow/tasks/:workItemKey/completions",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowController",
+            "action": "complete",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "peanut.workflow"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "peanut.workflow.task.complete"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "peanut.workflow",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 37
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/tasks/{workItemKey}/decisions",
+            "runtime_path": "/adminapi/api/v1/workflow/tasks/:workItemKey/decisions",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowController",
+            "action": "decide",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "peanut.workflow"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "peanut.workflow.task.decide"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "peanut.workflow",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 37
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/tasks/{workItemKey}/release",
+            "runtime_path": "/adminapi/api/v1/workflow/tasks/:workItemKey/release",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowController",
+            "action": "release",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "peanut.workflow"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "peanut.workflow.task.release"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "peanut.workflow",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 37
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/tasks/{workItemKey}/resubmit",
+            "runtime_path": "/adminapi/api/v1/workflow/tasks/:workItemKey/resubmit",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowController",
+            "action": "resubmit",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "peanut.workflow"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "peanut.workflow.instance.resubmit"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "peanut.workflow",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 37
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/workflow/tasks/{workItemKey}/return",
+            "runtime_path": "/adminapi/api/v1/workflow/tasks/:workItemKey/return",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowController",
+            "action": "returnTask",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "peanut.workflow"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "peanut.workflow.task.return"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "peanut.workflow",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/app.php",
+                "line": 37
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "POST",
             "path": "/adminapi/config/agreement/save",
             "runtime_path": "/adminapi/config/agreement/save",
             "application": "adminapi",
@@ -13552,7 +16747,7 @@
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "dept/add"
+                    "key": "core.department.create"
                 }
             ],
             "errors": [
@@ -13618,7 +16813,7 @@
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "dept/delete"
+                    "key": "core.department.archive"
                 }
             ],
             "errors": [
@@ -13684,7 +16879,7 @@
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "dept/edit"
+                    "key": "core.department.update"
                 }
             ],
             "errors": [
@@ -13750,7 +16945,7 @@
             "permissions": [
                 {
                     "kind": "tenant_action",
-                    "key": "dept/status"
+                    "key": "core.department.update"
                 }
             ],
             "errors": [
@@ -24812,6 +28007,160 @@
         },
         {
             "method": "PUT",
+            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects/{objectKey}",
+            "runtime_path": "/adminapi/api/v1/fixture/workflow-business/:scene/objects/:objectKey",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "fixture.workflow-business"
+            },
+            "controller": "PeanutAdmin\\Fixtures\\WorkflowBusiness\\Controller\\WorkflowBusinessController",
+            "action": "update",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "fixture.workflow-business"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "fixture.workflow-business.update"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "fixture.workflow-business",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/fixture/workflow_business/route/app.php",
+                "line": 21
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "PUT",
+            "path": "/adminapi/api/v1/fixture/workflow-business/{scene}/objects/{objectKey}/form",
+            "runtime_path": "/adminapi/api/v1/fixture/workflow-business/:scene/objects/:objectKey/form",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "fixture.workflow-business"
+            },
+            "controller": "PeanutAdmin\\Fixtures\\WorkflowBusiness\\Controller\\WorkflowBusinessController",
+            "action": "saveForm",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "fixture.workflow-business"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "fixture.workflow-business.complete"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "fixture.workflow-business",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/fixture/workflow_business/route/app.php",
+                "line": 23
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
+            }
+        },
+        {
+            "method": "PUT",
             "path": "/adminapi/api/v1/reference-code-sets/{moduleKey}/{setKey}/codes/{code}",
             "runtime_path": "/adminapi/api/v1/reference-code-sets/:moduleKey/:setKey/codes/:code",
             "application": "adminapi",
@@ -24970,6 +28319,83 @@
                     "source"
                 ],
                 "requires_owner_contract": []
+            }
+        },
+        {
+            "method": "PUT",
+            "path": "/adminapi/api/v1/workflow/definitions/{moduleKey}/{workflowKey}/draft",
+            "runtime_path": "/adminapi/api/v1/workflow/definitions/:moduleKey/:workflowKey/draft",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "peanut.workflow"
+            },
+            "controller": "PeanutAdmin\\Modules\\Workflow\\Controller\\WorkflowDefinitionController",
+            "action": "saveDraft",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "peanut.workflow"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "peanut.workflow.definition.write"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "peanut.workflow",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/peanut/workflow/route/design.php",
+                "line": 19
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
             }
         },
         {

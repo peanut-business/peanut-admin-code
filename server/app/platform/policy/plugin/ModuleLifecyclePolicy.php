@@ -86,4 +86,13 @@ final class ModuleLifecyclePolicy
             );
         }
     }
+
+    /** Called inside the existing package lifecycle lock/transaction. */
+    public static function assertNoOutstandingWorkflow(array $moduleKeys): void
+    {
+        if (in_array('peanut.workflow', $moduleKeys, true)
+            && \PeanutAdmin\Modules\Workflow\Application\WorkflowLifecycleQueries::outstanding() > 0) {
+            throw new PluginLifecycleException('WORKFLOW_LIFECYCLE_ACTIVE', 'Workflow instances or business effects must finish before uninstall.');
+        }
+    }
 }

@@ -20,6 +20,77 @@ use Throwable;
 /** Plan, apply, verify, and recover scaffold-owned changes with frozen application identities. */
 final class ScaffoldUpgradeRunner
 {
+    private function changesNotificationExecution(array $plan): bool
+    {
+        $prefix = 'server/app/modules/official/notification/';
+        foreach ($plan['actions'] ?? [] as $action) {
+            if (!in_array($action['action'] ?? '', ['create', 'replace', 'regenerate', 'delete', 'rename', 'rename-preserve'], true)) {
+                continue;
+            }
+            $path = $action['path'] ?? '';
+            if (is_string($path) && str_starts_with($path, $prefix)
+                && ($path === $prefix . 'module.json'
+                    || str_starts_with($path, $prefix . 'src/')
+                    || str_starts_with($path, $prefix . 'database/'))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The operator still owns the exclusive runtime-safe window; this never stops services. */
+    private function notificationExecutionPreflight(string $root): array
+    {
+        $unknown = ['status' => 'unknown', 'may_apply' => false, 'code' => 'NOTIFICATION_UPGRADE_STATE_UNKNOWN'];
+        $entry = $root . '/server/think';
+        if (!is_file($entry) || is_link($entry)) { return $unknown; }
+        $process = proc_open(
+            [PHP_BINARY, $entry, 'module:check', 'official.notification', '--runtime-data'],
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+            $root . '/server',
+        );
+        if (!is_resource($process)) { return $unknown; }
+        fclose($pipes[0]);
+        stream_set_blocking($pipes[1], false);
+        stream_set_blocking($pipes[2], false);
+        $stdout = '';
+        $exit = -1;
+        $deadline = microtime(true) + 15;
+        do {
+            $stdout .= (string) stream_get_contents($pipes[1]);
+            stream_get_contents($pipes[2]); // Never expose arbitrary APP errors or environment values.
+            $status = proc_get_status($process);
+            if (!$status['running']) { $exit = $status['exitcode']; break; }
+            if (strlen($stdout) > 8192 || microtime(true) >= $deadline) {
+                proc_terminate($process);
+                break;
+            }
+            usleep(50000);
+        } while (true);
+        $stdout .= (string) stream_get_contents($pipes[1]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        proc_close($process);
+        if (strlen($stdout) > 8192) { return $unknown; }
+        foreach (array_reverse(explode("\n", trim($stdout))) as $line) {
+            $report = json_decode($line, true);
+            if (!is_array($report) || ($report['schema_version'] ?? null) !== 1
+                || ($report['module_key'] ?? null) !== 'official.notification') { continue; }
+            if ($exit === 0 && ($report['may_apply'] ?? false) === true
+                && ($report['status'] ?? '') === 'ready' && ($report['pending_count'] ?? null) === 0) {
+                return ['status' => 'ready', 'pending_count' => 0, 'may_apply' => true, 'code' => null,
+                    'runtime_safe_window_required' => true];
+            }
+            if (($report['status'] ?? '') === 'blocked' && is_int($report['pending_count'] ?? null)
+                && $report['pending_count'] > 0) {
+                return ['status' => 'blocked', 'pending_count' => $report['pending_count'], 'may_apply' => false,
+                    'code' => 'NOTIFICATION_LEGACY_DELIVERY_PENDING'];
+            }
+        }
+        return $unknown;
+    }
+
     public function __construct(
         private readonly ?int $failAfterReplacements = null,
         private readonly ?int $failAfterAdoptionWrites = null,
@@ -152,6 +223,12 @@ final class ScaffoldUpgradeRunner
     {
         $root = ScaffoldPathGuard::projectRoot($projectRoot);
         $plan = $this->preview($root, $fromManifestPath, $toManifestPath, $sourceSelection);
+        if ($this->changesNotificationExecution($plan)) {
+            $plan['notification_preflight'] = $this->notificationExecutionPreflight($root);
+            if (($plan['notification_preflight']['may_apply'] ?? false) !== true) {
+                $plan['status'] = 'blocked';
+            }
+        }
         $stateRoot = ScaffoldPathGuard::projectPath($root, '.peanut/upgrades');
         $path = $stateRoot . '/plans/' . $plan['candidate'] . '.json';
         $this->writeJsonAtomic($path, $plan, 0600);
@@ -428,6 +505,13 @@ final class ScaffoldUpgradeRunner
             $this->assertPlanRebound($root, $plan);
             $to = ScaffoldManifest::load($plan['manifest_paths']['to']);
             $this->assertManifestDigest($to, $plan['identity']['to']['manifest_sha256']);
+            // Inspect the old APP before replacing source. Missing native proof remains unknown.
+            if ($this->changesNotificationExecution($plan)) {
+                $notification = $this->notificationExecutionPreflight($root);
+                if (($notification['may_apply'] ?? false) !== true) {
+                    throw new RuntimeException($notification['code']);
+                }
+            }
             $recovery = $this->createRecovery($root, $plan);
             $pre = $plan['identity']['managed_pre_sha256'];
             $ledger->append($this->event($plan, 'apply', 'started', $pre, null));

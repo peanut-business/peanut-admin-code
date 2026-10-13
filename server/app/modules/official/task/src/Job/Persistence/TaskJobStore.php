@@ -124,6 +124,22 @@ final class TaskJobStore
         return $this->map($row, $tenantId);
     }
 
+    public function terminalForRecovery(int $tenantId, string $jobKey, int $expectedRevision): JobRecord
+    {
+        $this->assertStorageMode();
+        $pdo = \think\facade\Db::connect()->getPdo();
+        if (!$pdo instanceof \PDO || !$pdo->inTransaction()) {
+            throw TaskJobException::stateConflict();
+        }
+        $row = $this->rowByJobKey($tenantId, $jobKey, true);
+        if ($row === null || !in_array($row['status'], ['dead', 'cancelled'], true) || (int) $row['revision'] !== $expectedRevision
+            || $row['completed_at'] === null || $row['lease_token_hash'] !== null || $row['lease_owner_hash'] !== null || $row['lease_expires_at'] !== null
+            || $this->query('task_job_attempt', $tenantId)->where('job_id', $row['id'])->where('status', 'running')->lock(true)->find() !== null) {
+            throw TaskJobException::stateConflict();
+        }
+        return $this->map($row, $tenantId);
+    }
+
     public function cancel(int $tenantId, int $actorMemberId, string $jobKey, int $revision): JobRecord
     {
         $this->assertStorageMode();

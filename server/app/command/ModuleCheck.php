@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace app\command;
 
 use app\platform\services\plugin\ModuleAuthorCheckHost;
-use app\common\execution\ContextualCommand;
+use app\common\execution\ModuleContextualCommand;
 use think\console\Input;
 use think\console\input\Argument;
 use think\console\input\Option;
 use think\console\Output;
 use think\facade\Config;
 
-final class ModuleCheck extends ContextualCommand
+final class ModuleCheck extends ModuleContextualCommand
 {
     protected function configure()
     {
@@ -20,12 +20,24 @@ final class ModuleCheck extends ContextualCommand
             ->addArgument('module_key', Argument::REQUIRED, 'Namespaced Module key')
             ->addOption('kernel-version', null, Option::VALUE_REQUIRED, 'Selected Module Kernel version', '')
             ->addOption('package', null, Option::VALUE_REQUIRED, 'Optional Module package tar path', '')
-            ->addOption('sha256', null, Option::VALUE_REQUIRED, 'Optional expected package SHA-256', '');
+            ->addOption('sha256', null, Option::VALUE_REQUIRED, 'Optional expected package SHA-256', '')
+            ->addOption('runtime-data', null, Option::VALUE_NONE, 'Read module upgrade state under native development-maintenance authorization');
     }
 
     protected function handle(Input $input, Output $output): int
     {
         try {
+            if ($input->getOption('runtime-data')) {
+                $this->assertDevelopmentInstanceMaintenanceAccess();
+                $query = match ($input->getArgument('module_key')) {
+                    'peanut.workflow' => \PeanutAdmin\Modules\Workflow\Application\WorkflowUpgradePreflight::class,
+                    'official.notification' => \PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::class,
+                    default => throw new \InvalidArgumentException('MODULE_RUNTIME_PREFLIGHT_UNAVAILABLE'),
+                };
+                $report = $this->getApp()->make($query)->report();
+                $output->writeln(json_encode($report, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+                return $report['may_apply'] ? 0 : 1;
+            }
             $kernelVersion = trim((string) $input->getOption('kernel-version'));
             if ($kernelVersion === '') {
                 $configured = trim((string) Config::get('modules.kernel_version', '1.0.0'));

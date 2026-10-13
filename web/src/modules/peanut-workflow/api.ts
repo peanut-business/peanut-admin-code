@@ -1,7 +1,8 @@
-import axios from 'axios';
+import type { WorkflowTransport } from './transport';
 import type {
   EditorDocument,
   InboxFilter,
+  InboxWorkItem,
   PageResult,
   ValidationIssue,
   WorkItem,
@@ -9,6 +10,9 @@ import type {
   WorkflowEvent,
   WorkflowInstance,
   WorkflowNode,
+  WorkflowScenario,
+  WorkflowDefinitionSummary,
+  WorkflowTaskDiagnostics,
 } from './types';
 
 export interface SaveReceipt {
@@ -39,12 +43,78 @@ export interface StartInput {
   attachment_file_keys: string[];
 }
 export interface InstanceActionDetails {
+  expected_job_revision?: number;
   work_item_key?: string;
   assignee_member_id?: string;
   expected_task_revision?: number;
+}
+export interface TaskActionDetails {
+  attachment_file_keys?: string[];
+  input?: Record<string, unknown>;
   subject_revision_key?: string;
 }
+export interface WorkflowNotificationDiagnostic {
+  sequence_no: number;
+  status: string;
+  last_error: string | null;
+  available_actions: string[];
+  outboxes: {
+    outbox_key: string;
+    delivery_status: string;
+    available_actions: string[];
+    task: {
+      job_key: string;
+      status: string;
+      revision: number;
+      last_error_code: string | null;
+    } | null;
+  }[];
+}
+
 export interface WorkflowApi {
+  diagnostics(
+    instanceKey: string,
+    signal?: AbortSignal
+  ): Promise<WorkflowTaskDiagnostics>;
+  reconcileTask(
+    instance: WorkflowInstance,
+    node: WorkflowTaskDiagnostics['items'][number],
+    comment: string,
+    key: string
+  ): Promise<WorkflowInstance>;
+  recoverTask(
+    instance: WorkflowInstance,
+    node: WorkflowTaskDiagnostics['items'][number],
+    strategy: 'retry_original' | 'reauthorize',
+    comment: string,
+    key: string
+  ): Promise<WorkflowInstance>;
+  definitionSummary(
+    moduleKey: string,
+    workflowKey: string,
+    subjectType: string,
+    subjectKey: string,
+    signal?: AbortSignal
+  ): Promise<WorkflowDefinitionSummary>;
+  scenario(
+    moduleKey: string,
+    workflowKey: string,
+    signal?: AbortSignal
+  ): Promise<WorkflowScenario>;
+  activate(
+    moduleKey: string,
+    workflowKey: string,
+    revision: number,
+    version: number,
+    key: string
+  ): Promise<void>;
+  retire(
+    moduleKey: string,
+    workflowKey: string,
+    revision: number,
+    key: string
+  ): Promise<void>;
+  dispose(): void;
   definition(
     moduleKey: string,
     workflowKey: string,
@@ -78,7 +148,7 @@ export interface WorkflowApi {
     filter: InboxFilter,
     page: number,
     signal?: AbortSignal
-  ): Promise<PageResult<WorkItem | WorkflowInstance>>;
+  ): Promise<PageResult<InboxWorkItem | WorkflowInstance>>;
   instance(key: string, signal?: AbortSignal): Promise<WorkflowInstance>;
   start(input: StartInput, idempotencyKey: string): Promise<WorkflowInstance>;
   events(
@@ -91,7 +161,8 @@ export interface WorkflowApi {
     instance: WorkflowInstance,
     action: string,
     comment: string,
-    idempotencyKey: string
+    idempotencyKey: string,
+    details?: TaskActionDetails
   ): Promise<WorkflowInstance>;
   instanceAction(
     instance: WorkflowInstance,
@@ -136,6 +207,9 @@ export function parseIssues(value: unknown): ValidationIssue[] {
     value,
     (item) => {
       const row = record(item, 'issue');
+      let issueField: string | undefined;
+      if (row.field !== undefined) issueField = textField(row.field, 'field');
+      else if (row.path !== undefined) issueField = textField(row.path, 'path');
       return {
         code: textField(row.code, 'issue.code'),
         message: textField(row.message, 'issue.message'),
@@ -143,18 +217,64 @@ export function parseIssues(value: unknown): ValidationIssue[] {
           row.node_key === undefined
             ? undefined
             : textField(row.node_key, 'node_key'),
-        field:
-          row.field === undefined
-            ? row.path === undefined
-              ? undefined
-              : textField(row.path, 'path')
-            : textField(row.field, 'field'),
+        field: issueField,
       };
     },
     'issues'
   );
 }
-export function parseTask(value: unknown): WorkItem {
+export function parseScenario(value: unknown): WorkflowScenario {
+  const row = record(value, 'scenario');
+  const fields = record(row.fields, 'fields');
+  const parsed: WorkflowScenario['fields'] = {};
+  Object.entries(fields).forEach(([key, fieldValue]) => {
+    const field = record(fieldValue, 'field');
+    const { type } = field;
+    if (
+      type !== 'boolean' &&
+      type !== 'integer' &&
+      type !== 'string' &&
+      type !== 'enum' &&
+      type !== 'datetime' &&
+      type !== 'decimal'
+    )
+      throw new Error('CAPABILITY_UNSUPPORTED: scenario field');
+    if (typeof field.nullable !== 'boolean')
+      throw new Error('Invalid field nullable');
+    parsed[key] = {
+      type,
+      nullable: field.nullable,
+      ...(field.values === undefined
+        ? {}
+        : { values: strings(field.values, 'field values') }),
+    };
+  });
+  return {
+    scenario_contract_version: numberField(
+      row.scenario_contract_version,
+      'scenario_contract_version'
+    ),
+    fields: parsed,
+    result_codes: strings(row.result_codes, 'result_codes'),
+    capabilities: strings(row.capabilities, 'capabilities'),
+    actions: list(
+      row.actions,
+      (item) => {
+        const action = record(item, 'action');
+        return {
+          action_key: textField(action.action_key, 'action_key'),
+          contract_version: numberField(
+            action.contract_version,
+            'contract_version'
+          ),
+          input_schema: record(action.input_schema, 'input_schema'),
+        };
+      },
+      'actions'
+    ),
+  };
+}
+function parseInboxTask(value: unknown): InboxWorkItem {
   const row = record(value, 'work item');
   if (
     row.status !== 'pending' &&
@@ -184,14 +304,34 @@ export function parseTask(value: unknown): WorkItem {
       'assignee_member_id'
     ),
     relations: strings(row.relations, 'relations'),
-    available_actions: strings(row.available_actions, 'available_actions'),
     decision: nullableText(row.decision, 'decision'),
   };
 }
+export function parseTask(value: unknown): WorkItem {
+  const row = record(value, 'work item');
+  return {
+    ...parseInboxTask(row),
+    available_actions: strings(row.available_actions, 'available_actions'),
+  };
+}
+function parseBlocker(value: unknown): WorkflowInstance['blocker'] {
+  const row = record(value, 'blocker');
+  return {
+    code: textField(row.code, 'blocker.code'),
+    message: textField(row.message, 'blocker.message'),
+    node_execution_key: nullableText(
+      row.node_execution_key,
+      'blocker.node_execution_key'
+    ),
+  };
+}
+
 export function parseInstance(value: unknown): WorkflowInstance {
   const row = record(value, 'instance');
   return {
     instance_key: textField(row.instance_key, 'instance_key'),
+    subject_type: textField(row.subject_type, 'subject_type'),
+    subject_key: textField(row.subject_key, 'subject_key'),
     status: textField(row.status, 'status'),
     result_code: nullableText(row.result_code, 'result_code'),
     revision: numberField(row.revision, 'revision'),
@@ -222,34 +362,6 @@ export function parseInstance(value: unknown): WorkflowInstance {
   };
 }
 
-function parseBlocker(value: unknown): WorkflowInstance['blocker'] {
-  const row = record(value, 'blocker');
-  return {
-    code: textField(row.code, 'blocker.code'),
-    message: textField(row.message, 'blocker.message'),
-    node_execution_key: nullableText(
-      row.node_execution_key,
-      'blocker.node_execution_key'
-    ),
-  };
-}
-
-function parseDefinition(value: unknown): WorkflowDefinition {
-  const row = record(value, 'definition');
-  // Graph/layout are validated separately before they enter editor state.
-  const graph = readGraph(row.graph);
-  const layout = readLayout(row.layout);
-  return {
-    definition_id: textField(row.definition_id, 'definition_id'),
-    module_key: textField(row.module_key, 'module_key'),
-    workflow_key: textField(row.workflow_key, 'workflow_key'),
-    draft_revision: numberField(row.draft_revision, 'draft_revision'),
-    graph,
-    layout,
-    status: textField(row.status, 'status'),
-  };
-}
-
 export function readGraph(value: unknown): EditorDocument['graph'] {
   const row = record(value, 'graph');
   if (row.contract_version !== 2)
@@ -258,7 +370,7 @@ export function readGraph(value: unknown): EditorDocument['graph'] {
     row.nodes,
     (item) => {
       const node = record(item, 'node');
-      const type = node.type;
+      const { type } = node;
       if (
         type !== 'start' &&
         type !== 'approval' &&
@@ -415,37 +527,196 @@ export function readLayout(value: unknown): EditorDocument['layout'] {
   };
 }
 
-/** Respect hosts whose axios baseURL already ends in /adminapi. */
-export function workflowBase(baseURL = ''): string {
-  return /\/adminapi\/?$/.test(baseURL)
-    ? '/api/v1/workflow'
-    : '/adminapi/api/v1/workflow';
+function parseDefinition(value: unknown): WorkflowDefinition {
+  const row = record(value, 'definition');
+  // Graph/layout are validated separately before they enter editor state.
+  const graph = readGraph(row.graph);
+  const layout = readLayout(row.layout);
+  return {
+    definition_id: textField(row.definition_id, 'definition_id'),
+    module_key: textField(row.module_key, 'module_key'),
+    workflow_key: textField(row.workflow_key, 'workflow_key'),
+    draft_revision: numberField(row.draft_revision, 'draft_revision'),
+    graph,
+    layout,
+    status: textField(row.status, 'status'),
+    latest_version: numberField(row.latest_version, 'latest_version'),
+    active_version:
+      row.active_version === null
+        ? null
+        : numberField(row.active_version, 'active_version'),
+    versions: list(
+      row.versions,
+      (versionValue) => {
+        const item = record(versionValue, 'version');
+        return {
+          version: numberField(item.version, 'version'),
+          graph_sha256: textField(item.graph_sha256, 'graph_sha256'),
+          published_at: textField(item.published_at, 'published_at'),
+        };
+      },
+      'versions'
+    ),
+  };
 }
-export function createWorkflowApi(): WorkflowApi {
-  const base = () => workflowBase(axios.defaults.baseURL);
+
+export function createWorkflowApi(transport: WorkflowTransport): WorkflowApi {
+  const base = () => '';
   const path = (moduleKey: string, workflowKey: string) =>
     `${base()}/definitions/${encodeURIComponent(
       moduleKey
     )}/${encodeURIComponent(workflowKey)}`;
-  const get = async (url: string, signal?: AbortSignal) => {
-    const response = await axios.get<unknown>(url, { signal });
-    return response.data;
-  };
+  const getEnvelope = (url: string, signal?: AbortSignal) =>
+    transport.request(url, 'GET', undefined, undefined, signal);
+  const get = async (url: string, signal?: AbortSignal) =>
+    (await getEnvelope(url, signal)).data;
   const write = async (
     method: 'post' | 'put',
     url: string,
     data: unknown,
     key: string
-  ) => {
-    const response = await axios.request<unknown>({
-      method,
-      url,
-      data,
-      headers: { 'Idempotency-Key': key },
-    });
-    return response.data;
-  };
+  ) =>
+    (
+      await transport.request(
+        url,
+        method === 'post' ? 'POST' : 'PUT',
+        data,
+        key
+      )
+    ).data;
   return {
+    dispose: () => transport.dispose(),
+    async diagnostics(instanceKey, signal) {
+      const row = record(
+        await get(
+          `${base()}/instances/${encodeURIComponent(instanceKey)}/diagnostics`,
+          signal
+        ),
+        'diagnostics'
+      );
+      return {
+        instance_key: textField(row.instance_key, 'instance_key'),
+        revision: numberField(row.revision, 'revision'),
+        items: list(
+          row.items,
+          (value) => {
+            const node = record(value, 'diagnostic node');
+            const job = record(node.job, 'diagnostic job');
+            return {
+              node_execution_key: textField(
+                node.node_execution_key,
+                'node_execution_key'
+              ),
+              node_revision: numberField(node.node_revision, 'node_revision'),
+              status: textField(node.status, 'status'),
+              job: {
+                job_key: textField(job.job_key, 'job_key'),
+                status: textField(job.status, 'job.status'),
+                revision: numberField(job.revision, 'job.revision'),
+                last_error_code: nullableText(
+                  job.last_error_code,
+                  'last_error_code'
+                ),
+              },
+              available_actions: strings(
+                node.available_actions,
+                'available_actions'
+              ),
+            };
+          },
+          'diagnostic items'
+        ),
+      };
+    },
+    async reconcileTask(instance, node, comment, key) {
+      return parseInstance(
+        await write(
+          'post',
+          `${base()}/instances/${encodeURIComponent(
+            instance.instance_key
+          )}/reconcile`,
+          {
+            expected_revision: instance.revision,
+            node_execution_key: node.node_execution_key,
+            expected_node_revision: node.node_revision,
+            expected_job_revision: node.job.revision,
+            comment,
+          },
+          key
+        )
+      );
+    },
+    async recoverTask(instance, node, strategy, comment, key) {
+      return parseInstance(
+        await write(
+          'post',
+          `${base()}/instances/${encodeURIComponent(
+            instance.instance_key
+          )}/recover`,
+          {
+            expected_revision: instance.revision,
+            node_execution_key: node.node_execution_key,
+            expected_node_revision: node.node_revision,
+            expected_job_revision: node.job.revision,
+            strategy,
+            comment,
+          },
+          key
+        )
+      );
+    },
+    async definitionSummary(
+      moduleKey,
+      workflowKey,
+      subjectType,
+      subjectKey,
+      signal
+    ) {
+      const row = record(
+        await get(
+          `${path(
+            moduleKey,
+            workflowKey
+          )}/summary?subject_type=${encodeURIComponent(
+            subjectType
+          )}&subject_key=${encodeURIComponent(subjectKey)}`,
+          signal
+        ),
+        'definition summary'
+      );
+      return {
+        definition_id: textField(row.definition_id, 'definition_id'),
+        module_key: textField(row.module_key, 'module_key'),
+        workflow_key: textField(row.workflow_key, 'workflow_key'),
+        status: textField(row.status, 'status'),
+        draft_revision: numberField(row.draft_revision, 'draft_revision'),
+        active_version:
+          row.active_version === null
+            ? null
+            : numberField(row.active_version, 'active_version'),
+      };
+    },
+    async scenario(moduleKey, workflowKey, signal) {
+      return parseScenario(
+        await get(`${path(moduleKey, workflowKey)}/scenario`, signal)
+      );
+    },
+    async activate(moduleKey, workflowKey, revision, version, key) {
+      await write(
+        'post',
+        `${path(moduleKey, workflowKey)}/activate`,
+        { expected_revision: revision, version },
+        key
+      );
+    },
+    async retire(moduleKey, workflowKey, revision, key) {
+      await write(
+        'post',
+        `${path(moduleKey, workflowKey)}/retire`,
+        { expected_revision: revision },
+        key
+      );
+    },
     async definition(moduleKey, workflowKey, signal) {
       return parseDefinition(await get(path(moduleKey, workflowKey), signal));
     },
@@ -469,7 +740,7 @@ export function createWorkflowApi(): WorkflowApi {
       const row = record(
         await write(
           'post',
-          `${path(moduleKey, workflowKey)}/validate`,
+          '/definitions/validate',
           { graph: document.graph },
           crypto.randomUUID()
         ),
@@ -481,7 +752,7 @@ export function createWorkflowApi(): WorkflowApi {
       const row = record(
         await write(
           'post',
-          `${path(moduleKey, workflowKey)}/preview`,
+          '/definitions/preview',
           { graph: document.graph, basis },
           crypto.randomUUID()
         ),
@@ -522,18 +793,16 @@ export function createWorkflowApi(): WorkflowApi {
       );
     },
     async inbox(filter, page, signal) {
-      const data = record(
-        await get(
-          `${base()}/inbox?filter=${filter}&page=${page}&page_size=20`,
-          signal
-        ),
-        'inbox'
+      const envelope = await getEnvelope(
+        `/inbox?filter=${filter}&page=${page}&page_size=20`,
+        signal
       );
-      const meta = record(data.meta, 'meta');
+      const data = record(envelope.data, 'inbox');
+      const { meta } = envelope;
       return {
-        lists: list<WorkItem | WorkflowInstance>(
+        lists: list<InboxWorkItem | WorkflowInstance>(
           data.items,
-          filter === 'initiated' ? parseInstance : parseTask,
+          filter === 'initiated' ? parseInstance : parseInboxTask,
           'items'
         ),
         count: numberField(meta.total, 'total'),
@@ -584,19 +853,50 @@ export function createWorkflowApi(): WorkflowApi {
         'events'
       );
     },
-    async taskAction(task, instance, action, comment, key) {
+    async taskAction(task, instance, action, comment, key, details) {
       if (!task.available_actions.includes(action))
         throw new Error('Action is unavailable');
       const node = instance.active_nodes.find(
         (entry) => entry.node_execution_key === task.node_execution_key
       );
       if (!node) throw new Error('Current node execution is unavailable');
+      if (
+        ![
+          'claim',
+          'release',
+          'approve',
+          'reject',
+          'complete',
+          'return',
+          'resubmit',
+        ].includes(action)
+      )
+        throw new Error('Unsupported work item action');
+      if (action === 'complete' && !details?.input)
+        throw new Error('Completion requires a business form provider');
+      if (action === 'resubmit' && !details?.subject_revision_key)
+        throw new Error('Resubmission requires a confirmed subject revision');
       const decision = action === 'approve' || action === 'reject';
-      const resource = decision
-        ? 'decisions'
-        : action === 'complete'
-        ? 'completions'
-        : action;
+      let resource: string = action;
+      if (decision) resource = 'decisions';
+      else if (action === 'complete') resource = 'completions';
+      let actionBody: Record<string, unknown> = {};
+      if (decision) {
+        actionBody = {
+          decision: action,
+          comment: comment || null,
+          attachment_file_keys: details?.attachment_file_keys ?? [],
+        };
+      } else if (action !== 'claim' && action !== 'release') {
+        actionBody = {
+          comment: comment || null,
+          attachment_file_keys: details?.attachment_file_keys ?? [],
+          ...(action === 'complete' ? { input: details?.input } : {}),
+          ...(action === 'resubmit'
+            ? { subject_revision_key: details?.subject_revision_key }
+            : {}),
+        };
+      }
       return parseInstance(
         await write(
           'post',
@@ -608,25 +908,15 @@ export function createWorkflowApi(): WorkflowApi {
             expected_revision: instance.revision,
             expected_node_revision: node.revision,
             expected_task_revision: task.revision,
-            ...(decision
-              ? {
-                  decision: action,
-                  comment: comment || null,
-                  attachment_file_keys: [],
-                }
-              : action === 'claim' || action === 'release'
-              ? {}
-              : {
-                  comment: comment || null,
-                  attachment_file_keys: [],
-                  ...(action === 'complete' ? { input: {} } : {}),
-                }),
+            ...actionBody,
           },
           key
         )
       );
     },
     async instanceAction(instance, action, reason, key, details) {
+      if (!['withdraw', 'terminate', 'retry', 'reassign'].includes(action))
+        throw new Error('Unsupported instance action');
       if (!instance.available_actions.includes(action))
         throw new Error('Action is unavailable');
       return parseInstance(
@@ -638,11 +928,9 @@ export function createWorkflowApi(): WorkflowApi {
           {
             expected_revision: instance.revision,
             comment: reason,
-            ...(action === 'resubmit'
-              ? {
-                  subject_revision_key: details?.subject_revision_key,
-                  attachment_file_keys: [],
-                }
+            ...(action === 'terminate' &&
+            details?.expected_job_revision !== undefined
+              ? { expected_job_revision: details.expected_job_revision }
               : {}),
             ...(action === 'reassign'
               ? {

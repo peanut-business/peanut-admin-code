@@ -183,6 +183,9 @@ function excluded(string $path): bool
         || str_starts_with($path, 'web/.claude/')
         || str_starts_with($path, 'plugins/fixture.delivery-record/')
         || str_starts_with($path, 'server/app/modules/fixture/delivery_record/')
+        || str_starts_with($path, 'server/app/modules/fixture/workflow_business/')
+        || str_starts_with($path, 'plugins/fixture.workflow-business/')
+        || str_starts_with($path, 'web/src/modules/fixture-workflow-business/')
         || str_starts_with($path, 'server/fixtures/plugin-module-lifecycle/')
         || str_starts_with($path, 'web/src/modules/fixture-delivery-record/')
         || $path === 'web/tests/Productization/plugin-contribution.test.ts'

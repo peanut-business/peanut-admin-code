@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "e1a91aa1b2d6efcea45a8534074635ed69384f2d6f175703b9f71f3a064f617b"
+        "sha256": "9e592557d70781a1bda44853e687f9c7ce96fd810ec6ad8328b43356ce50aa7e"
     },
     "trust": {
         "channel": "bundled",
@@ -69,6 +69,10 @@
                             {
                                 "key": "official.notification:20260921-adopt-notification-delivery-schema",
                                 "sha256": "eaef582cd762c803f3f7d213687f61d43fd3634e9f0b984471f11648e10979fb"
+                            },
+                            {
+                                "key": "official.notification:20261012-notification-producer-identity",
+                                "sha256": "7c01bc1bf1f309e879ff3014f89418157abbce45374a58064d1a6dc94fca07ce"
                             }
                         ]
                     }

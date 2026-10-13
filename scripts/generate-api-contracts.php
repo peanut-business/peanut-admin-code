@@ -5,13 +5,17 @@ declare(strict_types=1);
 
 const API_CONTRACT_GENERATOR_VERSION = '2';
 
-$repositoryRoot = dirname(__DIR__);
+$toolRoot = dirname(__DIR__);
+$repositoryRoot = $toolRoot;
+$applicationRoot = null;
 $projectRoot = null;
 $checkOnly = false;
 $catalogOutput = null;
 $outputRootArgument = null;
 foreach (array_slice($argv, 1) as $argument) {
-    if (str_starts_with($argument, '--project-root=')) {
+    if (str_starts_with($argument, '--application-root=')) {
+        $applicationRoot = substr($argument, strlen('--application-root='));
+    } elseif (str_starts_with($argument, '--project-root=')) {
         $projectRoot = substr($argument, strlen('--project-root='));
     } elseif ($argument === '--check') {
         $checkOnly = true;
@@ -23,6 +27,14 @@ foreach (array_slice($argv, 1) as $argument) {
         fwrite(STDERR, "generate-api-contracts: unknown argument: {$argument}\n");
         exit(2);
     }
+}
+if ($applicationRoot !== null) {
+    $resolved = str_starts_with($applicationRoot, '/') ? realpath($applicationRoot) : false;
+    if ($resolved === false || !is_dir($resolved) || is_link($applicationRoot)) {
+        fwrite(STDERR, "generate-api-contracts: --application-root must be an existing absolute application directory\n");
+        exit(2);
+    }
+    $repositoryRoot = $resolved;
 }
 $outputRoot = $repositoryRoot;
 if ($outputRootArgument !== null) {
@@ -81,7 +93,7 @@ try {
         exit(0);
     }
 
-    $typeGenerator = $repositoryRoot . '/web/node_modules/openapi-typescript/bin/cli.js';
+    $typeGenerator = $toolRoot . '/web/node_modules/openapi-typescript/bin/cli.js';
     if (!is_file($typeGenerator)) {
         throw new RuntimeException('Install the web package lock before generating API types; openapi-typescript is unavailable.');
     }

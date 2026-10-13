@@ -5,7 +5,9 @@
   import { hasPermission } from '@/hooks/permission';
   import { useUserStore } from '@/store';
   import { getSessionSnapshot, SESSION_KEY } from '@/utils/auth';
-  import { createWorkflowApi, readGraph, readLayout } from '../api';
+  import { readGraph, readLayout } from '../api';
+  import { createHostWorkflowApi } from '../host-api';
+  import { WorkflowHttpError } from '../transport';
   import type {
     EditorDocument,
     NodeType,
@@ -18,10 +20,11 @@
   import NodePanel from './NodePanel.vue';
   import WorkflowCanvas from './WorkflowCanvas.vue';
 
-  const api = createWorkflowApi();
+  const api = createHostWorkflowApi();
   const moduleKey = ref('');
   const workflowKey = ref('');
   const definition = shallowRef<WorkflowDefinition | null>(null);
+  const definitionScope = ref('');
   const initial: EditorDocument = {
     graph: {
       contract_version: 2,
@@ -53,9 +56,12 @@
   const serverRevision = ref<number | null>(null);
   const previewSummary = ref('');
   const previewPeople = ref<string[]>([]);
-  const hostId = useUserStore().id;
+  const user = useUserStore();
+  const hostId = user.id;
   const previewInitiator = ref(
-    hostId === undefined || !Number.isSafeInteger(hostId) ? '' : String(hostId)
+    typeof hostId === 'string' || Number.isSafeInteger(hostId)
+      ? String(hostId)
+      : ''
   );
   const previewDepartment = ref('');
   const previewSubjectType = ref('');
@@ -65,7 +71,11 @@
     String(getSessionSnapshot().generation);
   const instanceId = ref(`workflow-${crypto.randomUUID()}`);
   const scopeKey = () =>
-    `peanut.workflow.draft:${location.origin}:${identity}:${moduleKey.value}:${workflowKey.value}`;
+    `peanut.workflow.draft:${location.origin}:${
+      import.meta.env.VITE_API_BASE_URL
+    }:${user.tenantName}:${user.id}:${identity}:${moduleKey.value}:${
+      workflowKey.value
+    }`;
   const selected = computed(() =>
     state.value.graph.nodes.find((node) => node.key === selectedKey.value)
   );
@@ -81,12 +91,14 @@
   let epoch = 0;
   let controller: AbortController | null = null;
   const lifecycle = useWorkflowLifecycle(() => {
+    api.dispose();
     epoch += 1;
     controller?.abort();
     history.replace(initial);
     state.value = history.document;
     changed.value = false;
     definition.value = null;
+    definitionScope.value = '';
     previewSummary.value = '';
     previewPeople.value = [];
     issues.value = [];
@@ -186,14 +198,21 @@
     controller?.abort();
     controller = new AbortController();
     const current = ++epoch;
+    const requestedScope = `${moduleKey.value}:${workflowKey.value}`;
     try {
       const result = await api.definition(
         moduleKey.value,
         workflowKey.value,
         controller.signal
       );
-      if (current !== epoch || !lifecycle.valid()) return;
+      if (
+        current !== epoch ||
+        !lifecycle.valid() ||
+        requestedScope !== `${moduleKey.value}:${workflowKey.value}`
+      )
+        return;
       definition.value = result;
+      definitionScope.value = requestedScope;
       revision.value = result.draft_revision;
       history.replace({ graph: result.graph, layout: result.layout });
       sync();
@@ -225,6 +244,7 @@
     epoch += 1;
     controller?.abort();
     definition.value = null;
+    definitionScope.value = '';
     revision.value = null;
     history.replace(initial);
     sync();
@@ -247,18 +267,37 @@
       !lifecycle.valid()
     )
       return;
+    const requestedModule = moduleKey.value;
+    const requestedWorkflow = workflowKey.value;
+    const requestedScope = `${requestedModule}:${requestedWorkflow}`;
+    if (revision.value !== null && definitionScope.value !== requestedScope) {
+      error.value = '定义已切换，请先读取其草稿修订';
+      return;
+    }
+    const current = ++epoch;
+    const valid = () =>
+      lifecycle.valid() &&
+      current === epoch &&
+      requestedScope === `${moduleKey.value}:${workflowKey.value}`;
     busy.value = true;
     error.value = '';
     try {
       const result = await api.save(
-        moduleKey.value,
-        workflowKey.value,
-        state.value,
+        requestedModule,
+        requestedWorkflow,
+        {
+          ...state.value,
+          layout: {
+            ...state.value.layout,
+            viewport: state.value.layout.viewport ?? { x: 0, y: 0, zoom: 1 },
+          },
+        },
         revision.value,
         crypto.randomUUID()
       );
-      if (!lifecycle.valid()) return;
+      if (!valid()) return;
       revision.value = result.draft_revision;
+      definitionScope.value = requestedScope;
       issues.value = result.issues;
       history.markSaved();
       sync();
@@ -266,30 +305,30 @@
       notice.value = '服务器草稿已保存；存在的问题需要在发布前修复。';
       // Refresh available actions only after the successful save.
       const resultDefinition = await api.definition(
-        moduleKey.value,
-        workflowKey.value
+        requestedModule,
+        requestedWorkflow
       );
-      if (lifecycle.valid()) definition.value = resultDefinition;
+      if (valid()) definition.value = resultDefinition;
     } catch (cause) {
-      if (!lifecycle.valid()) return;
+      if (!valid()) return;
       fail(cause);
       if (
-        cause instanceof Error &&
-        /409|REVISION_CONFLICT|revision/i.test(cause.message)
+        cause instanceof WorkflowHttpError &&
+        cause.code === 'WORKFLOW_DEFINITION_CONFLICT'
       ) {
         conflict.value = true;
         try {
           const current = await api.definition(
-            moduleKey.value,
-            workflowKey.value
+            requestedModule,
+            requestedWorkflow
           );
-          if (lifecycle.valid()) serverRevision.value = current.draft_revision;
+          if (valid()) serverRevision.value = current.draft_revision;
         } catch {
           /* Original conflict remains visible. */
         }
       }
     } finally {
-      if (lifecycle.valid()) busy.value = false;
+      if (lifecycle.valid() && current === epoch) busy.value = false;
     }
   }
   async function check(simulate = false) {

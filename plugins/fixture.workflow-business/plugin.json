@@ -1,0 +1,112 @@
+{
+    "schema_version": 1,
+    "key": "fixture.workflow-business",
+    "version": "1.0.0",
+    "source": {
+        "type": "canonical-contents",
+        "reference": "canonical-plugin-contents-v1",
+        "sha256": "eebba2c9129fd8db007995417d4a573169a4acb91053801e8a2445824e288c2b"
+    },
+    "trust": {
+        "channel": "bundled",
+        "origin": {
+            "type": "repository-contents",
+            "reference": "canonical-plugin-contents-v1"
+        },
+        "archive": {
+            "status": "not-issued",
+            "sha256": null
+        },
+        "signature": {
+            "status": "not-issued",
+            "key_id": null
+        },
+        "sbom": {
+            "status": "not-issued",
+            "sha256": null
+        },
+        "license": {
+            "identifier": "Apache-2.0",
+            "status": "declared"
+        },
+        "qualification": {
+            "status": "bundled-locked",
+            "review": "not-reviewed",
+            "vulnerability_response": "not-configured",
+            "marketplace": "blocked"
+        },
+        "compatibility": {
+            "modules": [
+                {
+                    "key": "fixture.workflow-business",
+                    "version": "1.0.0",
+                    "kernel_constraint": "^1.0",
+                    "dependencies": [
+                        {
+                            "module_key": "official.identity",
+                            "version": "4.0.0-rc.24"
+                        },
+                        {
+                            "module_key": "official.task",
+                            "version": "^1.0"
+                        },
+                        {
+                            "module_key": "peanut.artifact-revision",
+                            "version": "4.0.0-rc.24"
+                        },
+                        {
+                            "module_key": "peanut.workflow",
+                            "version": "4.0.0-rc.24"
+                        }
+                    ],
+                    "permissions": {
+                        "path": "resources/permissions.json",
+                        "sha256": "1555e87dc071eb84e56631d77ab969bffd84fd16c7452f384e50f30eabe5da33"
+                    },
+                    "migrations": {
+                        "reversibility": "verified-backup-required",
+                        "files": [
+                            {
+                                "key": "fixture.workflow-business:20261012050100_workflow_business",
+                                "sha256": "34c60bca6ac1dd7bdb31a77be9a137ae99f7de8b863e9d309f4f7075d094a99c"
+                            },
+                            {
+                                "key": "fixture.workflow-business:20261012050200_workflow_collaboration",
+                                "sha256": "fd9e10722653314d2fdfd28bd9bbafd969a4e00eaec64a6c970053a259d04399"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "composer": [
+        {
+            "name": "peanut-business/fixture-workflow-business",
+            "version": "1.0.0",
+            "sha256": "c2ccbee45acf2181c81302b574dc0d892ada4d10d13e32e7f8ab2bb9811d5295"
+        }
+    ],
+    "npm": [
+        {
+            "name": "@peanut-admin/fixture-workflow-business",
+            "version": "1.0.0",
+            "integrity": "sha256-5l85u0soSaDAyUg5Zwrb3VnYqO8K9XIeY1zbKjygLxg="
+        }
+    ],
+    "frontend": [
+        {
+            "client_key": "admin-web",
+            "package": "@peanut-admin/fixture-workflow-business",
+            "version": "1.0.0",
+            "entry": "web/src/modules/fixture-workflow-business/contribution.ts",
+            "sha256": "b2a0387b43e2c21b7ca2d4ab71d6b4c99f5de2bc51934af2e77eceb50e79ecc8"
+        }
+    ],
+    "modules": [
+        {
+            "key": "fixture.workflow-business",
+            "root": "server/app/modules/fixture/workflow_business"
+        }
+    ]
+}

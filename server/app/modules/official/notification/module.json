@@ -22,6 +22,9 @@
       "version": "4.0.0-rc.24"
     }
   ],
+  "optional_dependencies": [
+    {"module_key": "official.file", "version": "^1.0"}
+  ],
   "backend": {
     "provider": "PeanutAdmin\\Modules\\Notification\\ModuleProvider",
     "migrations": "database/migrations",
@@ -42,16 +45,30 @@
       "pa_notification_attachment",
       "pa_notification_outbox",
       "pa_sms_rate_bucket",
-      "pa_notification_event"
+      "pa_notification_event",
+      "pa_notification_task_actor"
     ]
   },
   "contracts": {
     "exports": [
+      "PeanutAdmin\\Modules\\Notification\\Contract\\NotificationUpgradePreflight",
       "PeanutAdmin\\Modules\\Notification\\Contract\\NotificationBootstrapCommands",
       "PeanutAdmin\\Modules\\Notification\\Contract\\NotificationCommands",
       "PeanutAdmin\\Modules\\Notification\\Contract\\NotificationQueries",
       "PeanutAdmin\\Modules\\Notification\\Contract\\VerificationCodeCommands",
-      "PeanutAdmin\\Modules\\Notification\\Contract\\NoticeSmsSender"
+      "PeanutAdmin\\Modules\\Notification\\Contract\\NoticeSmsSender",
+      "PeanutAdmin\\Modules\\Notification\\Contract\\NotificationPublicationIdentity",
+      "PeanutAdmin\\Modules\\Notification\\Contract\\NotificationProducer",
+      "PeanutAdmin\\Modules\\Notification\\Contract\\NotificationProducerRegistry",
+      "PeanutAdmin\\Modules\\Notification\\Contract\\NotificationLifecycleQueries",
+      "PeanutAdmin\\Modules\\Notification\\Delivery\\Application\\NotificationService",
+      "PeanutAdmin\\Modules\\Notification\\Delivery\\Application\\NotificationMessage",
+      "PeanutAdmin\\Modules\\Notification\\Delivery\\Application\\AttachmentReference",
+      "PeanutAdmin\\Modules\\Notification\\Delivery\\Application\\OutboxRecord",
+      "PeanutAdmin\\Modules\\Notification\\Delivery\\Application\\NotificationException",
+      "PeanutAdmin\\Modules\\Notification\\Delivery\\Task\\NotificationOutboxDispatcher",
+      "PeanutAdmin\\Modules\\Notification\\Delivery\\Task\\ProducerOutboxTaskSubmissionProvider",
+      "PeanutAdmin\\Modules\\Notification\\Infrastructure\\Authorization\\NotificationAsyncAuthorization"
     ],
     "events": []
   },

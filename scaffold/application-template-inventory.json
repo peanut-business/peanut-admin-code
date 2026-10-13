@@ -2329,7 +2329,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f08b6f27cdb3e67fed0406d83ce8d3a6083f72e712d18b907f82456bc88311b4"
+            "source_sha256": "1d8b3d886e126e85f9924e7150e3bb430ebdb57e4cb2aa0c60c7d41159bfea31"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2347,6 +2347,19 @@
         {
             "path": "plugins/fixture.delivery-record/plugin.json",
             "target": "plugins/fixture.delivery-record/plugin.json",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "plugins/fixture.workflow-business/plugin.json",
+            "target": "plugins/fixture.workflow-business/plugin.json",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -2439,7 +2452,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8dd60dd4816134e52f4f9028d2e4fb648713035892bde683fc4fc9c7f11c6709"
+            "source_sha256": "c4200dcc3ed06600b3c6d125795961829fb739616b3778bb87b575323778205a"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -2593,7 +2606,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "59ef9a25d2edd2d50323b3dbdd99462d031fd2a3280bf716d08f6c370a2c2f10"
+            "source_sha256": "e42c71e6ae5661656464d0081a2a2b298f3ea7cffd1d345c7f289b7cdfdc8bbf"
         },
         {
             "path": "plugins/peanut.artifact-revision/plugin.json",
@@ -2607,7 +2620,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "502b7d1d862d68a0ade8333092863da9b5482243465b3d362422edec420aa875"
+            "source_sha256": "f602bbf11df4952dcd44721caf1da234c47fd9b8765a3632d2563c7ff0bc788d"
         },
         {
             "path": "plugins/peanut.entitlement-quota/plugin.json",
@@ -2635,7 +2648,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5693e1c7a39fe9fd4f54c720c1f600809323a824e6972cb88a80bede424b74d4"
+            "source_sha256": "af36e942bbbbc3f5989e75ee37cbfd334e72661a4271bee4bbc38350efc1f161"
         },
         {
             "path": "release-versions.json",
@@ -3231,7 +3244,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9494bc6c4cbc300a5c425a658a50f603081ca93cea77da8aa6372425352f0422"
+            "source_sha256": "3a7d78fc35486db311a00c1ea00b5c9ac6aa63d6de2036c044111e4b28446a83"
         },
         {
             "path": "scripts/generate-release-legal.mjs",
@@ -5171,7 +5184,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "75e88a81b8ed5ab0b871722431c7bf6a340a3520562a6380023afc78a391a7e3"
+            "source_sha256": "cfda4abf4a341b59913936c1a98069f0634534df6fbba7e61c0d0a92604464ec"
         },
         {
             "path": "server/app/adminapi/services/AdminLoginAttemptService.php",
@@ -6263,7 +6276,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7a33ab042a3de52f14a0b8fedade34cd7fb01fa274d7445673d17206bb6373ac"
+            "source_sha256": "f381011477b42b24d34af9cbc85c0f9a2efb834b2d18fa7d9d6b3671870987c9"
         },
         {
             "path": "server/app/command/ModuleCreate.php",
@@ -6644,6 +6657,20 @@
             "source_sha256": "426bd3bd68bb490bdbff857b36df4efe25586c16e4c51e0bcf32e46c3e4defe8"
         },
         {
+            "path": "server/app/command/WorkflowInstallManaged.php",
+            "target": "server/app/command/WorkflowInstallManaged.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "0f285982540f1f823554d62408468f470576cbf4ab1f41218addf875078aa640"
+        },
+        {
             "path": "server/app/common.php",
             "target": "server/app/common.php",
             "classification": "managed",
@@ -6683,7 +6710,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8499a548d5b123a93c8efbcd6777ea51c21f250148ac8fe21df5df5aa8c7c2ed"
+            "source_sha256": "e29d6bed3dcb7e21bbf18278c15a2843980115372e9abab7af0dda984ac02dd3"
         },
         {
             "path": "server/app/common/composition/ModuleExtensionService.php",
@@ -9504,6 +9531,474 @@
             ]
         },
         {
+            "path": "server/app/modules/fixture/workflow_business/composer.json",
+            "target": "server/app/modules/fixture/workflow_business/composer.json",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/database/migrations/20261012050100_workflow_business.sql",
+            "target": "server/app/modules/fixture/workflow_business/database/migrations/20261012050100_workflow_business.sql",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/database/migrations/20261012050200_workflow_collaboration.sql",
+            "target": "server/app/modules/fixture/workflow_business/database/migrations/20261012050200_workflow_collaboration.sql",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/module.json",
+            "target": "server/app/modules/fixture/workflow_business/module.json",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/resources/menus.json",
+            "target": "server/app/modules/fixture/workflow_business/resources/menus.json",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/resources/permissions.json",
+            "target": "server/app/modules/fixture/workflow_business/resources/permissions.json",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/resources/protected-resources.json",
+            "target": "server/app/modules/fixture/workflow_business/resources/protected-resources.json",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/resources/workflows/receipt.json",
+            "target": "server/app/modules/fixture/workflow_business/resources/workflows/receipt.json",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/route/app.php",
+            "target": "server/app/modules/fixture/workflow_business/route/app.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/Controller/WorkflowBusinessController.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Controller/WorkflowBusinessController.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/Integration/PreparedWorkflowBusinessSnapshot.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Integration/PreparedWorkflowBusinessSnapshot.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/Integration/ReceiptNotificationWorkerDefinition.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Integration/ReceiptNotificationWorkerDefinition.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/Integration/ReceiptWorkerDefinition.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Integration/ReceiptWorkerDefinition.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessComposition.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessComposition.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessNotificationHandler.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessNotificationHandler.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessNotificationProducer.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessNotificationProducer.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessNotificationWorkerDefinition.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessNotificationWorkerDefinition.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessPolicyProvider.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessPolicyProvider.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessScenarioProvider.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessScenarioProvider.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessTaskAuthorization.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessTaskAuthorization.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessTaskHandler.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessTaskHandler.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessTaskSubmissionProvider.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessTaskSubmissionProvider.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessWorkerDefinition.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowBusinessWorkerDefinition.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowTaskSessionRevalidator.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Integration/WorkflowTaskSessionRevalidator.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/Model/BusinessObject.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Model/BusinessObject.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/Model/CollaborationEntry.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Model/CollaborationEntry.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/Model/EffectReceipt.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Model/EffectReceipt.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/Model/StockBalance.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Model/StockBalance.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/Model/StockLedger.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Model/StockLedger.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/Model/TaskActorReference.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Model/TaskActorReference.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/Model/VersionPayload.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Model/VersionPayload.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/ModuleProvider.php",
+            "target": "server/app/modules/fixture/workflow_business/src/ModuleProvider.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/Package.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Package.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/Service/WorkflowBusinessAccess.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Service/WorkflowBusinessAccess.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/Service/WorkflowBusinessService.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Service/WorkflowBusinessService.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/Service/WorkflowCollaborationService.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Service/WorkflowCollaborationService.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/app/modules/official/article/api/metadata/openapi.php",
             "target": "server/app/modules/official/article/api/metadata/openapi.php",
             "classification": "managed",
@@ -11380,6 +11875,20 @@
             "source_sha256": "47626b595811ced52d25b9eb7438fc4ba9cb921a76272e47c073c2faae11b9ee"
         },
         {
+            "path": "server/app/modules/official/identity/database/migrations/20261012010000_department_leader_member.sql",
+            "target": "server/app/modules/official/identity/database/migrations/20261012010000_department_leader_member.sql",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "909c7bd6885a93cf2975ecbbb108cbbe993bc1e0b47f2590292968a886051532"
+        },
+        {
             "path": "server/app/modules/official/identity/module.json",
             "target": "server/app/modules/official/identity/module.json",
             "classification": "managed",
@@ -12147,7 +12656,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "745dea94f9b9757527042c56b3204ccaad64bdcf2c92ea34ccd56ba8c135b175"
+            "source_sha256": "6abede049fa874efea4a2dd55c745ae7e1c1ccefa2138c98ca8dea45d0e7bc79"
         },
         {
             "path": "server/app/modules/official/identity/src/Contract/TenantOwnerAdminProvisioner.php",
@@ -12190,6 +12699,34 @@
                 "full"
             ],
             "source_sha256": "dfab87688b21d80d95f7199d48e5facb19ae7b5b16c71363c7b116af3799c8b5"
+        },
+        {
+            "path": "server/app/modules/official/identity/src/Contract/WorkflowLegacyOrganizationQuery.php",
+            "target": "server/app/modules/official/identity/src/Contract/WorkflowLegacyOrganizationQuery.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "e8a5210c19108c80aa40a87f44bc676992ee80a617936ac495a95e3e0cb75cad"
+        },
+        {
+            "path": "server/app/modules/official/identity/src/Contract/WorkflowOrganizationQuery.php",
+            "target": "server/app/modules/official/identity/src/Contract/WorkflowOrganizationQuery.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "64b15e82c617276e1532f1bac912ec8e042282897c2fa906ed4673bfc4bebf14"
         },
         {
             "path": "server/app/modules/official/identity/src/DataPermission/Application/DataPolicyAdminService.php",
@@ -12414,6 +12951,20 @@
                 "full"
             ],
             "source_sha256": "4e0a72b0000c1ebe17325c7deb77cc87bb13f395efc2e4bc602296630a8dbb87"
+        },
+        {
+            "path": "server/app/modules/official/identity/src/Identity/Query/ThinkPhpWorkflowOrganizationQuery.php",
+            "target": "server/app/modules/official/identity/src/Identity/Query/ThinkPhpWorkflowOrganizationQuery.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "a30de0b4971f1b9e055844e21f76e8f4bfaa6d58e6f9b42c513910ced4f219c7"
         },
         {
             "path": "server/app/modules/official/identity/src/Identity/SelfService/AccountSelfService.php",
@@ -12735,7 +13286,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1b0eadb60e98c74dbdc7822f94fd84d5b941f456b8b29981b90b4110a9305524"
+            "source_sha256": "fae515473fd1d53011deb7035c6fe2a5b3cda8ed7c265741377c64d5d8bb48ee"
         },
         {
             "path": "server/app/modules/official/identity/src/Organization/Application/DepartmentAdminService.php",
@@ -20667,7 +21218,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1191522406bef0d9a11489224dcffa55d3001b9e013eab97e64c46ef22bebe95"
+            "source_sha256": "73b2c2140a39af4aed0aee8a6a3cfc7dd3b70d1250efc48fc65866e18188791c"
         },
         {
             "path": "server/app/modules/official/task/src/Contract/TaskScheduler.php",
@@ -20751,7 +21302,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "05d38baff090c0ea630ae9df5f18b7aa660629209af19bf728ab54dc184f87c4"
+            "source_sha256": "daf8c280b42c8513980693937e8fc3ee05be21d64cf4765da78bd19491c4fd98"
         },
         {
             "path": "server/app/modules/official/task/src/Controller/CrontabController.php",
@@ -20947,7 +21498,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4b009ebfe886ac2da134df2e80905b0039a07e66658d7bed0eb31e7e581e0338"
+            "source_sha256": "aa534fda4b765f8331e8baa2a29c8b3bbbb60b9122d7cdc27cd85074cf0de43e"
         },
         {
             "path": "server/app/modules/official/task/src/Job/Submission/TaskSubmissionRegistry.php",
@@ -21172,7 +21723,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b0c22fb4c558110259c166c10f2b0e9d23a4484e05b826cab2269e24892f962b"
+            "source_sha256": "304666155d72ec766c31a69da6ffe2752d50d6d71b72c6118b2b38c9687fd0b5"
         },
         {
             "path": "server/app/modules/peanut/artifact_revision/src/Application/ArtifactRevisionComparison.php",
@@ -21203,6 +21754,20 @@
             "source_sha256": "947addd30b5b5b6ce7579c8b5e804450b5b62616eac353445ef35ec84d40aec6"
         },
         {
+            "path": "server/app/modules/peanut/artifact_revision/src/Application/ArtifactRevisionQueries.php",
+            "target": "server/app/modules/peanut/artifact_revision/src/Application/ArtifactRevisionQueries.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "5ccefcb526981f0df87e11d1023f42caf2f2d36d374766fc29928bcfae66c936"
+        },
+        {
             "path": "server/app/modules/peanut/artifact_revision/src/Application/ArtifactRevisionReceipt.php",
             "target": "server/app/modules/peanut/artifact_revision/src/Application/ArtifactRevisionReceipt.php",
             "classification": "managed",
@@ -21229,6 +21794,34 @@
                 "full"
             ],
             "source_sha256": "ea20b0109a1b20e30b2450e40ea47fa5056633be1ea599c5a08611c5a77e2c7f"
+        },
+        {
+            "path": "server/app/modules/peanut/artifact_revision/src/Contract/ArtifactRevisionQuery.php",
+            "target": "server/app/modules/peanut/artifact_revision/src/Contract/ArtifactRevisionQuery.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "e64c3a9bf0ef4253d6782f407842902f85bfcf40a107f1e116c574be2d936abe"
+        },
+        {
+            "path": "server/app/modules/peanut/artifact_revision/src/Contract/Dto/ArtifactRevisionSnapshot.php",
+            "target": "server/app/modules/peanut/artifact_revision/src/Contract/Dto/ArtifactRevisionSnapshot.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "674bfb8b575aee5ff71632649aeb7ff71b8581d257191d528d1744f510964701"
         },
         {
             "path": "server/app/modules/peanut/artifact_revision/src/Database/Schema.php",
@@ -21284,7 +21877,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ea64bcb64bef1225800e1ed1600b92f248dcbae24923d0ddec55d407c73b4778"
+            "source_sha256": "640717a03880e36489ea204822bc2b638d6ef2ef8f1fc1cbd3e57b69d4d4faa0"
         },
         {
             "path": "server/app/modules/peanut/artifact_revision/src/Package.php",
@@ -21340,35 +21933,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2016dd26f656021d9f4e1a3cdebadfe551f8c466765862b6657dc7e29ea45127"
-        },
-        {
-            "path": "server/app/modules/peanut/artifact_revision/src/Workflow/ArtifactSubjectRevisionReader.php",
-            "target": "server/app/modules/peanut/artifact_revision/src/Workflow/ArtifactSubjectRevisionReader.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "079300f35cbaf1801408805769068e41686047e34b921ee40d91ea94af079996"
-        },
-        {
-            "path": "server/app/modules/peanut/artifact_revision/src/Workflow/ArtifactWorkflowSubjectRevisionResolver.php",
-            "target": "server/app/modules/peanut/artifact_revision/src/Workflow/ArtifactWorkflowSubjectRevisionResolver.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "437cbb397f665ea9f580443c5dbae96bef6c4c9cb25a434cbd05aef66f2f4a8b"
+            "source_sha256": "6c76e447949a5f89bc844000f184b4347a9c896d92d1a51c253ab47cb6a44aab"
         },
         {
             "path": "server/app/modules/peanut/entitlement_quota/composer.json",
@@ -21721,6 +22286,34 @@
             "source_sha256": "0310ff0236d2dd8ed257b2e3f4dbcc6158158c92aa5e9723a969b952f4870b8c"
         },
         {
+            "path": "server/app/modules/peanut/workflow/README.md",
+            "target": "server/app/modules/peanut/workflow/README.md",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "5552d44f31dec65e25abc62abaea059f5bd56784ae133fee6b00d989b5b40971"
+        },
+        {
+            "path": "server/app/modules/peanut/workflow/api/metadata/openapi.php",
+            "target": "server/app/modules/peanut/workflow/api/metadata/openapi.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "17012220d00efb5fe820ac5c0b3f31944a638bbc868def4775cf1a348ed6d959"
+        },
+        {
             "path": "server/app/modules/peanut/workflow/composer.json",
             "target": "server/app/modules/peanut/workflow/composer.json",
             "classification": "managed",
@@ -21749,6 +22342,48 @@
             "source_sha256": "f0a21d63c83afcd2438fc327bf6ad97a59d82daa571bc4de51d74c32eb487ff7"
         },
         {
+            "path": "server/app/modules/peanut/workflow/database/migrations/20261012-workflow-managed-template.sql",
+            "target": "server/app/modules/peanut/workflow/database/migrations/20261012-workflow-managed-template.sql",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "fd02893a4b7a0ea60aa6c5434ff8b46f11e35bec94f10a76fc0b0f64609282a5"
+        },
+        {
+            "path": "server/app/modules/peanut/workflow/database/migrations/20261012-workflow-notification-facts.sql",
+            "target": "server/app/modules/peanut/workflow/database/migrations/20261012-workflow-notification-facts.sql",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "ff26361f27773b9500fe6484729a26c0655d18f893cac8739bae9edfec8f6378"
+        },
+        {
+            "path": "server/app/modules/peanut/workflow/database/migrations/20261012-workflow-v2-execution.sql",
+            "target": "server/app/modules/peanut/workflow/database/migrations/20261012-workflow-v2-execution.sql",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "f46f8b9a7a567584988e3520669daa1a8f893b69d837a1dedf223deb4f2a1b09"
+        },
+        {
             "path": "server/app/modules/peanut/workflow/module.json",
             "target": "server/app/modules/peanut/workflow/module.json",
             "classification": "managed",
@@ -21760,7 +22395,77 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e59b8609227d1d48f19ff9deea2347fb87bdd0971aee9bb8943307a136971099"
+            "source_sha256": "f4c692c9edbd081cbd4af494e1056b09c25c1e2f9fe6d3adfeba10eb8ac107a4"
+        },
+        {
+            "path": "server/app/modules/peanut/workflow/resources/config-schema.json",
+            "target": "server/app/modules/peanut/workflow/resources/config-schema.json",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "ef31e10ff33977a7e3854b999379952634c16dcc96ed4e0ab04f2981e2fbfb62"
+        },
+        {
+            "path": "server/app/modules/peanut/workflow/resources/menus.json",
+            "target": "server/app/modules/peanut/workflow/resources/menus.json",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "e516dfb876470a9d02c3c2516c896147757e4dc9d7b91ba50c3a1264a5692da4"
+        },
+        {
+            "path": "server/app/modules/peanut/workflow/resources/permissions.json",
+            "target": "server/app/modules/peanut/workflow/resources/permissions.json",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "ba3676e0e72f1fd9b1ad10039446ffa1f1b3ada4dd80ae0a24e9b0c216098cd0"
+        },
+        {
+            "path": "server/app/modules/peanut/workflow/route/app.php",
+            "target": "server/app/modules/peanut/workflow/route/app.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "4af207c9fd8f583c8cb9d8f03f6dc1aa766a6ee5917145ce2650e360416c27e1"
+        },
+        {
+            "path": "server/app/modules/peanut/workflow/route/design.php",
+            "target": "server/app/modules/peanut/workflow/route/design.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "9756fc274fc883061700ba15585f590542be1d1adc0363c79a7aec260f828da6"
         },
         {
             "path": "server/app/modules/peanut/workflow/src/Adapter/WorkflowAssignmentResolver.php",
@@ -21774,7 +22479,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e48a66637e88f78a4e52eeed785b6612254d6313e5823fc7b7292a87f8559c02"
+            "source_sha256": "250b44dc5581aa03d7237fd50ef7d3e3286f9c7f4e5a4461a3c70de6dc8252f6"
         },
         {
             "path": "server/app/modules/peanut/workflow/src/Adapter/WorkflowAttachment.php",
@@ -21816,11 +22521,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8766f613089f2ad35e120967bc5a8d88552c05c3b16f7a6a459113aa8dbab111"
+            "source_sha256": "149d37cc046fa9b9631d0e35183dc44b7412b91aba252e79964e815ef7c322f8"
         },
         {
-            "path": "server/app/modules/peanut/workflow/src/Adapter/WorkflowNotificationIntent.php",
-            "target": "server/app/modules/peanut/workflow/src/Adapter/WorkflowNotificationIntent.php",
+            "path": "server/app/modules/peanut/workflow/src/Adapter/WorkflowScenarioProvider.php",
+            "target": "server/app/modules/peanut/workflow/src/Adapter/WorkflowScenarioProvider.php",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -21830,11 +22535,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "26ee0409cb6669886b00597b1ba12502397f61adae0f506095dc42b45edcb66a"
+            "source_sha256": "371722fc494d0f1475aa686682200dfce42195981cc29f47ae96762dc3ab1ca7"
         },
         {
-            "path": "server/app/modules/peanut/workflow/src/Adapter/WorkflowSideEffectPublisher.php",
-            "target": "server/app/modules/peanut/workflow/src/Adapter/WorkflowSideEffectPublisher.php",
+            "path": "server/app/modules/peanut/workflow/src/Adapter/WorkflowServiceTaskHandler.php",
+            "target": "server/app/modules/peanut/workflow/src/Adapter/WorkflowServiceTaskHandler.php",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -21844,7 +22549,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e50aa3455ef7db34fc5f64e9012815f2fd58c00f3e1a1e95f827ce1dc3205f7c"
+            "source_sha256": "4d71d234d503516b51a7b27c198cf83fc53b0eb4ba3649f1de5db10740c2a505"
         },
         {
             "path": "server/app/modules/peanut/workflow/src/Adapter/WorkflowSubjectRevisionResolver.php",
@@ -21861,8 +22566,8 @@
             "source_sha256": "0597d428db3f0cf42abc45b5d1b08220327227cc726f3b697e56611573d6d400"
         },
         {
-            "path": "server/app/modules/peanut/workflow/src/Adapter/WorkflowTaskIntent.php",
-            "target": "server/app/modules/peanut/workflow/src/Adapter/WorkflowTaskIntent.php",
+            "path": "server/app/modules/peanut/workflow/src/Application/WorkflowAggregation.php",
+            "target": "server/app/modules/peanut/workflow/src/Application/WorkflowAggregation.php",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -21872,11 +22577,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "49db6340b86aa51e88d9da83409e98119d7f827b8fa17a4f1c7abde07f723d1a"
+            "source_sha256": "6478aa77f3136c79707cc932ede88bb76a3ac74382b2d7186ce4e7ffda54b312"
         },
         {
-            "path": "server/app/modules/peanut/workflow/src/Adapter/WorkflowTransitionEffects.php",
-            "target": "server/app/modules/peanut/workflow/src/Adapter/WorkflowTransitionEffects.php",
+            "path": "server/app/modules/peanut/workflow/src/Application/WorkflowCommandTransaction.php",
+            "target": "server/app/modules/peanut/workflow/src/Application/WorkflowCommandTransaction.php",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -21886,7 +22591,49 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e3ccec3141258127b359beaf899033387d87fb9c75940456100f5e72f9afd5f2"
+            "source_sha256": "9e52d45273ccae07f747fea050951b611c13501ea2e201be29c81f883a3f396e"
+        },
+        {
+            "path": "server/app/modules/peanut/workflow/src/Application/WorkflowCommands.php",
+            "target": "server/app/modules/peanut/workflow/src/Application/WorkflowCommands.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "e91d3366de0e500f9b4c1e4ac41865d5ea131a3d16e0569e6bcec2fa8360904b"
+        },
+        {
+            "path": "server/app/modules/peanut/workflow/src/Application/WorkflowDefinitionService.php",
+            "target": "server/app/modules/peanut/workflow/src/Application/WorkflowDefinitionService.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "50a24cf0b31c884d1bae0612d33c8dea0d2d5d9a3e74a0e889445a53eb874a91"
+        },
+        {
+            "path": "server/app/modules/peanut/workflow/src/Application/WorkflowDefinitionValidator.php",
+            "target": "server/app/modules/peanut/workflow/src/Application/WorkflowDefinitionValidator.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "0e6c03e71c65b4096cb912b9ec00a6686463a064385df23dbe10b5447939bfff"
         },
         {
             "path": "server/app/modules/peanut/workflow/src/Application/WorkflowException.php",
@@ -21900,11 +22647,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f807d66a531dc6e79a467d2f11c322ca33328a8a593c2a3ed4e022aae6605a94"
+            "source_sha256": "ef9251de7c26d8b63e4be3f945501516125dcb0ef2d7b6f3dd995b923a875233"
         },
         {
-            "path": "server/app/modules/peanut/workflow/src/Application/WorkflowQueryService.php",
-            "target": "server/app/modules/peanut/workflow/src/Application/WorkflowQueryService.php",
+            "path": "server/app/modules/peanut/workflow/src/Application/WorkflowLifecycleQueries.php",
+            "target": "server/app/modules/peanut/workflow/src/Application/WorkflowLifecycleQueries.php",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -21914,11 +22661,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ceff9288707f07e8bb25e6ad5c198e47eea6cf72c8beb33b476a1af29302c83e"
+            "source_sha256": "dead8f53fc17513f70d97ea887d6fbea04e934f5b844f8d8e813059df2a863a5"
         },
         {
-            "path": "server/app/modules/peanut/workflow/src/Application/WorkflowReceipt.php",
-            "target": "server/app/modules/peanut/workflow/src/Application/WorkflowReceipt.php",
+            "path": "server/app/modules/peanut/workflow/src/Application/WorkflowManagedDefinitions.php",
+            "target": "server/app/modules/peanut/workflow/src/Application/WorkflowManagedDefinitions.php",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -21928,11 +22675,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3e63b29e25c1242afc84e966c7625de0d9170621605b99b102991ff0d7d4d03e"
+            "source_sha256": "1903876c374e992978392204c63cfb43ab897469805e5b998d20f9abd52025ce"
         },
         {
-            "path": "server/app/modules/peanut/workflow/src/Application/WorkflowRuntime.php",
-            "target": "server/app/modules/peanut/workflow/src/Application/WorkflowRuntime.php",
+            "path": "server/app/modules/peanut/workflow/src/Application/WorkflowNotificationDelivery.php",
+            "target": "server/app/modules/peanut/workflow/src/Application/WorkflowNotificationDelivery.php",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -21942,7 +22689,63 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "38269b7d2045c0f03d377167ea2cea1cee7f7e3777399a329881f154fe404c52"
+            "source_sha256": "1bd5f7e1681d1b1f7731d1274b10f538b85355cce046765daaa3c5f33551e1df"
+        },
+        {
+            "path": "server/app/modules/peanut/workflow/src/Application/WorkflowQueries.php",
+            "target": "server/app/modules/peanut/workflow/src/Application/WorkflowQueries.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "bc3805ac985943f3f2e395aabc4a7b9ee676b8e0edd7e7468ce2699c64f84f80"
+        },
+        {
+            "path": "server/app/modules/peanut/workflow/src/Application/WorkflowUpgradePreflight.php",
+            "target": "server/app/modules/peanut/workflow/src/Application/WorkflowUpgradePreflight.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "5b507cc3874abbbf4143c27eb5ea04f7d5d103ace9354ee74a6308d1d6c1d111"
+        },
+        {
+            "path": "server/app/modules/peanut/workflow/src/Controller/WorkflowController.php",
+            "target": "server/app/modules/peanut/workflow/src/Controller/WorkflowController.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "c1a2d5bafa43d692031d622b4ac4a390e8949a864a01de4e14febc268d02e3f2"
+        },
+        {
+            "path": "server/app/modules/peanut/workflow/src/Controller/WorkflowDefinitionController.php",
+            "target": "server/app/modules/peanut/workflow/src/Controller/WorkflowDefinitionController.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "5ae023dfb0745fb682e123e932df631648201470fe5738f8b7b24bb1ee7b7e98"
         },
         {
             "path": "server/app/modules/peanut/workflow/src/Database/Schema.php",
@@ -21956,11 +22759,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "af915cdff9a601cbf64893f6e611b583051d503bc9c0b736f90ca9376284a92b"
+            "source_sha256": "54e69f68b2d4aa0fb7142350ee7c7c1e0836078d53ff829e3b6c3f4573c74bda"
         },
         {
-            "path": "server/app/modules/peanut/workflow/src/Definition/WorkflowDefinition.php",
-            "target": "server/app/modules/peanut/workflow/src/Definition/WorkflowDefinition.php",
+            "path": "server/app/modules/peanut/workflow/src/Definition/WorkflowActionInput.php",
+            "target": "server/app/modules/peanut/workflow/src/Definition/WorkflowActionInput.php",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -21970,11 +22773,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "777675f424ddd8a48736d8570d57e920fe21fd73d43300d640546727b5c4d648"
+            "source_sha256": "0941780a47aaccfe2033623e7a9278d81a9a3c755214771b98fd193c743cfea7"
         },
         {
-            "path": "server/app/modules/peanut/workflow/src/Definition/WorkflowDefinitionVersion.php",
-            "target": "server/app/modules/peanut/workflow/src/Definition/WorkflowDefinitionVersion.php",
+            "path": "server/app/modules/peanut/workflow/src/Definition/WorkflowCondition.php",
+            "target": "server/app/modules/peanut/workflow/src/Definition/WorkflowCondition.php",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -21984,7 +22787,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9da5c76761da616564ae7e455b158348a6c2f61c8e95e3c271b88559e2160bdd"
+            "source_sha256": "52b9f51786e2dff1d0e82402f8c5169ca3008a20824f2315ebcb0b03c502bf2e"
         },
         {
             "path": "server/app/modules/peanut/workflow/src/Definition/WorkflowGraph.php",
@@ -21998,11 +22801,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "46081a448a0c9a819b924324fe844ac370e62622858af7a6774629f7af9a23ca"
+            "source_sha256": "d4443d5eab92b9e99b7e16c47eb13cc7294abcbcc71bbc574f423b3542d749da"
         },
         {
-            "path": "server/app/modules/peanut/workflow/src/Definition/WorkflowNode.php",
-            "target": "server/app/modules/peanut/workflow/src/Definition/WorkflowNode.php",
+            "path": "server/app/modules/peanut/workflow/src/Definition/WorkflowJsonSchema.php",
+            "target": "server/app/modules/peanut/workflow/src/Definition/WorkflowJsonSchema.php",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -22012,11 +22815,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6675cedbff729630493ffa593065bf04cabe541ef094a316538ea0cec6873a76"
+            "source_sha256": "8bfc24e6f213de200c299f58c75dee23b6c77675a7e776888e8aaff86a8aa71d"
         },
         {
-            "path": "server/app/modules/peanut/workflow/src/Definition/WorkflowTransition.php",
-            "target": "server/app/modules/peanut/workflow/src/Definition/WorkflowTransition.php",
+            "path": "server/app/modules/peanut/workflow/src/Http/WorkflowHttpContext.php",
+            "target": "server/app/modules/peanut/workflow/src/Http/WorkflowHttpContext.php",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -22026,11 +22829,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9f51c6e80208fc23ad42f1e1be12dfabf977ad4bc5179c5e659d4f96d58eb893"
+            "source_sha256": "6e441c82e6b8b19b638d12872ba8c2f6dd89903096bd84ccfb127f3e68a0e5d1"
         },
         {
-            "path": "server/app/modules/peanut/workflow/src/Instance/WorkflowEvent.php",
-            "target": "server/app/modules/peanut/workflow/src/Instance/WorkflowEvent.php",
+            "path": "server/app/modules/peanut/workflow/src/Http/WorkflowJsonProjection.php",
+            "target": "server/app/modules/peanut/workflow/src/Http/WorkflowJsonProjection.php",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -22040,11 +22843,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7487483f7da6fc9a44b0c47c7121f056614b17cf9c0601349e8cec28c2d998d0"
+            "source_sha256": "632871eae8d0272e0034da2d95498fec23b53bc7fed7d2574800f7e731029d16"
         },
         {
-            "path": "server/app/modules/peanut/workflow/src/Instance/WorkflowInstance.php",
-            "target": "server/app/modules/peanut/workflow/src/Instance/WorkflowInstance.php",
+            "path": "server/app/modules/peanut/workflow/src/Http/contract.md",
+            "target": "server/app/modules/peanut/workflow/src/Http/contract.md",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -22054,11 +22857,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6e2f091e04ea098b33ed3767039d9cb463d7cb64e24f3c2579a8c349ba10b84a"
+            "source_sha256": "4cd4452b67402af179033aafc0f7e5d34677f62f34e0a34705086fa5775de71b"
         },
         {
-            "path": "server/app/modules/peanut/workflow/src/Instance/WorkflowWorkItem.php",
-            "target": "server/app/modules/peanut/workflow/src/Instance/WorkflowWorkItem.php",
+            "path": "server/app/modules/peanut/workflow/src/Integration/ArtifactWorkflowSubjectRevisionResolver.php",
+            "target": "server/app/modules/peanut/workflow/src/Integration/ArtifactWorkflowSubjectRevisionResolver.php",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -22068,7 +22871,77 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "717a62bb21d8a7098cf1ac23e3d81e9b7e118c4388f4e7d95d99c30b7aaa0705"
+            "source_sha256": "a48c2c861979d65f9ff895eadc96bf8378bae2175a6dc5c0bcf76105bacddc66"
+        },
+        {
+            "path": "server/app/modules/peanut/workflow/src/Integration/IdentityWorkflowAssignmentResolver.php",
+            "target": "server/app/modules/peanut/workflow/src/Integration/IdentityWorkflowAssignmentResolver.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "e7d3a1beb859f872d1099ad9b474afaa274d1c166c54580f8785241a927cf17a"
+        },
+        {
+            "path": "server/app/modules/peanut/workflow/src/Integration/ScenarioWorkflowAuthorizationResolver.php",
+            "target": "server/app/modules/peanut/workflow/src/Integration/ScenarioWorkflowAuthorizationResolver.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "ee8058b3a0acbde9aabbe072cd0ede3366a82cdad766c6239455982f4c5b0a07"
+        },
+        {
+            "path": "server/app/modules/peanut/workflow/src/Integration/WorkflowScenarioAccess.php",
+            "target": "server/app/modules/peanut/workflow/src/Integration/WorkflowScenarioAccess.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "f0343ecaee9ef9852f418e06fbf4ccdab981679a309274167baded41e1e6be3a"
+        },
+        {
+            "path": "server/app/modules/peanut/workflow/src/Integration/WorkflowScenarioContributor.php",
+            "target": "server/app/modules/peanut/workflow/src/Integration/WorkflowScenarioContributor.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "a80c5e71e13203fb92c087c1a3f8a351eb9113e8a996bee2e9cff4844f06dd33"
+        },
+        {
+            "path": "server/app/modules/peanut/workflow/src/Integration/WorkflowScenarioRegistry.php",
+            "target": "server/app/modules/peanut/workflow/src/Integration/WorkflowScenarioRegistry.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "87ce67ba0e36a0aa01d46b3d5a143062c046b6320ae587affca32acd6350ce60"
         },
         {
             "path": "server/app/modules/peanut/workflow/src/ModuleProvider.php",
@@ -22082,7 +22955,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "28e04aff1a930b03165f807a458442610659e6d8a693f113d9d6387082c5808b"
+            "source_sha256": "664eb838a07c48cbe3dad380d1eb9a3022e6339dc482558d4e310c5c7bc7bd6c"
         },
         {
             "path": "server/app/modules/peanut/workflow/src/Package.php",
@@ -22110,7 +22983,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c1f952a6cd765c2fc6964eb8b50af6d932984bb927f6500329acba7d16f65d02"
+            "source_sha256": "66fb0fc9d8517b7b32d2aed59b6c4eb82ba3d63d7bbc264e47eb3d9b4762a5c5"
         },
         {
             "path": "server/app/modules/peanut/workflow/src/Persistence/Model/WorkflowDefinitionVersionRecord.php",
@@ -22124,7 +22997,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f398233970bdd7904b94ec83b9f048387d2190506d2ad2e98a1abda6a07d89c9"
+            "source_sha256": "e53c0f3bdab2bbfda90f34edd373b0bb73878720ea6c5068447a6ab5d833771c"
         },
         {
             "path": "server/app/modules/peanut/workflow/src/Persistence/Model/WorkflowEventRecord.php",
@@ -22138,7 +23011,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b993ab2c7c2fcc33a11031c7259319fb2fbf146ecee750b3bc87a70069b349c5"
+            "source_sha256": "f3f40675f041fedef96e8e5a590e6f0a8aef8003e98fa6229206635682113370"
         },
         {
             "path": "server/app/modules/peanut/workflow/src/Persistence/Model/WorkflowInstanceRecord.php",
@@ -22152,7 +23025,35 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "16b311b35ecac7f92bdb1650d2b2a2c398c3cc107046c2dec2d6b1420e873535"
+            "source_sha256": "3168c1c54d20fdf87e678529003737b51085c0b2e72a82eda5261cf7deb370b1"
+        },
+        {
+            "path": "server/app/modules/peanut/workflow/src/Persistence/Model/WorkflowNodeExecutionRecord.php",
+            "target": "server/app/modules/peanut/workflow/src/Persistence/Model/WorkflowNodeExecutionRecord.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "761fe09a7dc1d4a56988bc4c4756be2b818ae28d2a7e1c0c979ac7cdf67fbb3b"
+        },
+        {
+            "path": "server/app/modules/peanut/workflow/src/Persistence/Model/WorkflowTaskIdentityLinkRecord.php",
+            "target": "server/app/modules/peanut/workflow/src/Persistence/Model/WorkflowTaskIdentityLinkRecord.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "e04b0b4f69f10feed1b5fa33d74d36a20f174da3cdcbcf1ed97cc23ad24f387b"
         },
         {
             "path": "server/app/modules/peanut/workflow/src/Persistence/Model/WorkflowWorkItemRecord.php",
@@ -22166,21 +23067,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "882b225ba359c89baf3941af9e830966364d106aa40e84db0ffa084f1828a85c"
-        },
-        {
-            "path": "server/app/modules/peanut/workflow/src/Persistence/ThinkPhpWorkflowRepository.php",
-            "target": "server/app/modules/peanut/workflow/src/Persistence/ThinkPhpWorkflowRepository.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "180a589824c52ada20960cf157afaa5aa1bc6244aeed1c60a133653ba9425266"
+            "source_sha256": "32e733e16d0562f860f58c7cfa9d467d419346439dcaccc156b552c19eebd8f2"
         },
         {
             "path": "server/app/platform/composition/plugin/ModuleDefinitionRegistryFactory.php",
@@ -22936,7 +23823,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "08ea2e677bf4c6f1940531509e576312b51716290b40c6e54b0f79cb521c8749"
+            "source_sha256": "7f420ead630fb6931d9b57196e3100468b757dd046ae0b5a3d72a3009d7d3606"
         },
         {
             "path": "server/app/platform/query/PlatformControlPlaneQueryService.php",
@@ -23146,7 +24033,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "325f25cc80909fa4113ac14c409899ada557d864fcbad7479aad333077dcbcc7"
+            "source_sha256": "b0340f8ff62f8b5b981ea86dc7d3fa3d690e388d038d31712791407dd13ece95"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",
@@ -23524,7 +24411,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d7c4f443d7ce6c08a3ded63f87e050430e0e103c2627db87c65625f5f1d0f3cb"
+            "source_sha256": "ab8901daaa3a2f48caf885a1cd92c15cb334b55be0a4457bf76c312ec0d97316"
         },
         {
             "path": "server/composer.lock",
@@ -23636,7 +24523,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "aac98dadf1962d0030332f007b6fff34f8f4e782350bea9367d8ef0b0e464cc2"
+            "source_sha256": "c2f4e9e8a19cbd9a9b1b54b852c2a9aaeda3a60c96773a8edb7cec784971d1d2"
         },
         {
             "path": "server/config/cookie.php",
@@ -25202,7 +26089,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2f6540847e78644ec5d85d798d22ecd89e5ab383c48779676197a28b4be07d1b"
+            "source_sha256": "f5c2c8806f7eceb5c62579a9b4cabee06d3afff258249b67244e58a51be0bad7"
         },
         {
             "path": "server/generated/openapi.json",
@@ -25216,7 +26103,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "582e53696228a00dfcc183706a0dcf49e3cfa3617916f14e3a9d52f5296bbe01"
+            "source_sha256": "31b3e7499d919c6e8ca43c8632b013e51f5915a5f7e80af30e8703b999632831"
         },
         {
             "path": "server/private/storage/.gitkeep",
@@ -32782,7 +33669,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "09d6a77354def4d4b5d03ba1b83aafb3f9ef6c1f4f2d53c548550b158cced9c2"
+            "source_sha256": "af89f3a0ca41208c3eff48f3ddb10949aad44a9803b8108493ba59d6fbe5415e"
         },
         {
             "path": "web/src/hooks/chart-option.ts",
@@ -33051,6 +33938,71 @@
         {
             "path": "web/src/modules/fixture-delivery-record/views/index.vue",
             "target": "web/src/modules/fixture-delivery-record/views/index.vue",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "web/src/modules/fixture-workflow-business/WorkflowBusinessPage.vue",
+            "target": "web/src/modules/fixture-workflow-business/WorkflowBusinessPage.vue",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "web/src/modules/fixture-workflow-business/WorkflowBusinessRuntime.vue",
+            "target": "web/src/modules/fixture-workflow-business/WorkflowBusinessRuntime.vue",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "web/src/modules/fixture-workflow-business/api.ts",
+            "target": "web/src/modules/fixture-workflow-business/api.ts",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "web/src/modules/fixture-workflow-business/contribution.ts",
+            "target": "web/src/modules/fixture-workflow-business/contribution.ts",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "web/src/modules/fixture-workflow-business/package.json",
+            "target": "web/src/modules/fixture-workflow-business/package.json",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -35887,7 +36839,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9a95a1dfc43258c47ab2ec413d093cf0eff70252a62ca079c6da42f1be0106ae"
+            "source_sha256": "fdd901f45091e486d1d825f53ccbfa442b3e259bf4e417cd907565564cff954e"
         },
         {
             "path": "web/src/modules/peanut-workflow/contribution.ts",
@@ -35957,7 +36909,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "489ab5b94ed5ab5ef31790a1dc18e5942def6b8845bf8bf41745b24b2983bd13"
+            "source_sha256": "327b992a9b3ecd35c4c41e460a42c672b07c65e5bd18b885509848407111b3d7"
         },
         {
             "path": "web/src/modules/peanut-workflow/designer/editor-state.ts",
@@ -35972,6 +36924,34 @@
                 "full"
             ],
             "source_sha256": "3e795340fa5032cafa851ef4aad9a4264e5b3bb18a253a72fdb7db9711f75d12"
+        },
+        {
+            "path": "web/src/modules/peanut-workflow/generated/openapi.ts",
+            "target": "web/src/modules/peanut-workflow/generated/openapi.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "694981a5dc7be7f362c2d222dc59bee05cfe19947d5f6d1486ca5dbfa6d74f59"
+        },
+        {
+            "path": "web/src/modules/peanut-workflow/host-api.ts",
+            "target": "web/src/modules/peanut-workflow/host-api.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "6ce6f4278f487ff11d676541fad044e5cef4b3f7e1aa02d2ec13712222c6137e"
         },
         {
             "path": "web/src/modules/peanut-workflow/package.json",
@@ -35999,7 +36979,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "19dd42bf7ae5e1295bf7c2994c1a45c2a091fc0143b33c7d73e2a9b14844e7a7"
+            "source_sha256": "d187918cf75bc9a8d173705d049ed389bd11cd6e00fefa993cee3f40a6d8eb29"
         },
         {
             "path": "web/src/modules/peanut-workflow/runtime/WorkflowStartButton.vue",
@@ -36013,7 +36993,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "25c49d4fc003ad1786a29de5081f25d583cfb7f8a78a009459e62d21402f4047"
+            "source_sha256": "a64fa5a96cbf319b416e85ed0e81dde889c0dd1740e2e3d48233ce1aa29092fb"
+        },
+        {
+            "path": "web/src/modules/peanut-workflow/runtime/business-forms.ts",
+            "target": "web/src/modules/peanut-workflow/runtime/business-forms.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "8e5ec208c17939f37e5b2924b679ab502e8e45660a9d5f856656c041f7df5ef0"
         },
         {
             "path": "web/src/modules/peanut-workflow/runtime/contribution.ts",
@@ -36055,7 +37049,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "93545ff0f9c5a4cf23b6d53aa11abd1be67c3290093684dc40e0e9396711caf6"
+            "source_sha256": "6abab476ddadbabd13e4801864453c4b7a8e60886eb49b73405be1b380b6ca43"
+        },
+        {
+            "path": "web/src/modules/peanut-workflow/transport.ts",
+            "target": "web/src/modules/peanut-workflow/transport.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "3b81fabce485f7a6dfb3d3e200972b74402959685c16cb10c35b1c4f7355774e"
         },
         {
             "path": "web/src/modules/peanut-workflow/types.ts",
@@ -36069,7 +37077,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "20aabf8b412655fc025d9af73e2727d9b645abccdd3ded171bf2559e4fda53e9"
+            "source_sha256": "54afed296d7b649c30967cb1692aa812c7ad28ed07b4434033e328e31c008799"
         },
         {
             "path": "web/src/peanut.overrides.ts",

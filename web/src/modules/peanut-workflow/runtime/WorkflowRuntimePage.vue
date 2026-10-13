@@ -1,12 +1,14 @@
 <script setup lang="ts">
-  import { computed, onBeforeUnmount, ref, shallowRef } from 'vue';
-  import { createWorkflowApi } from '../api';
+  import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue';
+  import { createHostWorkflowApi } from '../host-api';
   import type {
     InboxFilter,
     WorkItem,
     WorkflowEvent,
     WorkflowInstance,
   } from '../types';
+  import { useWorkflowTaskForm } from './business-forms';
+  import type { TaskActionDetails } from '../api';
   import { useWorkflowLifecycle } from './lifecycle';
   import {
     INSTANCE_ACTION_LABELS,
@@ -15,7 +17,13 @@
     visibleTaskActions,
   } from './task-actions';
 
-  const api = createWorkflowApi();
+  const props = defineProps<{ instanceKey?: string }>();
+  const actionError = ref<HTMLElement | null>(null);
+  const emit = defineEmits<{
+    (event: 'instance', instance: WorkflowInstance): void;
+  }>();
+  const formProvider = useWorkflowTaskForm();
+  const api = createHostWorkflowApi();
   const filter = ref<InboxFilter>('assigned');
   const page = ref(1);
   const count = ref(0);
@@ -38,13 +46,20 @@
   const selectedTask = shallowRef<WorkItem | null>(null);
   const comment = ref('');
   const dialog = ref(false);
-  const newSubjectRevision = ref('');
+  watch(
+    error,
+    () => {
+      if (dialog.value && error.value) actionError.value?.focus();
+    },
+    { flush: 'post' }
+  );
   const reassignTaskKey = ref('');
   const newAssignee = ref('');
   let requestEpoch = 0;
   let controller: AbortController | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
   const lifecycle = useWorkflowLifecycle(() => {
+    api.dispose();
     requestEpoch += 1;
     controller?.abort();
     if (timer) clearTimeout(timer);
@@ -75,7 +90,8 @@
     if (!lifecycle.valid()) return;
     controller?.abort();
     controller = new AbortController();
-    const epoch = ++requestEpoch;
+    requestEpoch += 1;
+    const epoch = requestEpoch;
     loading.value = true;
     error.value = '';
     try {
@@ -107,7 +123,8 @@
     if (!lifecycle.valid()) return;
     controller?.abort();
     controller = new AbortController();
-    const epoch = ++requestEpoch;
+    requestEpoch += 1;
+    const epoch = requestEpoch;
     loading.value = true;
     error.value = '';
     instance.value = null;
@@ -117,6 +134,7 @@
       const history = await api.events(key, '0', controller.signal);
       if (epoch !== requestEpoch || !lifecycle.valid()) return;
       instance.value = detail;
+      emit('instance', detail);
       events.value = history;
     } catch (cause) {
       if (epoch === requestEpoch && lifecycle.valid()) fail(cause);
@@ -128,10 +146,8 @@
     action.value = next;
     selectedTask.value = task;
     comment.value = '';
-    newSubjectRevision.value = '';
     reassignTaskKey.value = '';
     newAssignee.value = '';
-    newSubjectRevision.value = '';
     reassignTaskKey.value = '';
     newAssignee.value = '';
     dialog.value = true;
@@ -146,10 +162,6 @@
     const reassignTask = instance.value.own_work_items.find(
       (entry) => entry.work_item_key === reassignTaskKey.value
     );
-    if (action.value === 'resubmit' && !newSubjectRevision.value.trim()) {
-      error.value = '重新送审必须提供已确认的新材料版本';
-      return;
-    }
     if (
       action.value === 'reassign' &&
       (!reassignTask || !/^[1-9]\d*$/.test(newAssignee.value))
@@ -162,31 +174,65 @@
     const prior = instance.value;
     const task = selectedTask.value;
     try {
-      const result = task
-        ? await api.taskAction(
-            task,
-            prior,
-            action.value,
-            comment.value.trim(),
-            crypto.randomUUID()
-          )
-        : await api.instanceAction(
-            prior,
-            action.value,
-            comment.value.trim(),
-            crypto.randomUUID(),
-            action.value === 'resubmit'
-              ? { subject_revision_key: newSubjectRevision.value.trim() }
-              : action.value === 'reassign' && reassignTask
-              ? {
-                  work_item_key: reassignTask.work_item_key,
-                  assignee_member_id: newAssignee.value,
-                  expected_task_revision: reassignTask.revision,
-                }
-              : undefined
+      let details: TaskActionDetails | undefined;
+      if (
+        task &&
+        formProvider &&
+        (action.value === 'complete' || action.value === 'resubmit')
+      ) {
+        const form = await formProvider({
+          action: action.value,
+          workItem: task,
+          instance: prior,
+        });
+        if (!lifecycle.valid() || form === null) return;
+        details = form;
+        if (form.comment !== undefined) comment.value = form.comment;
+      }
+      if (task && ['complete', 'resubmit'].includes(action.value) && !details)
+        throw new Error(
+          '该业务模块尚未登记保存/确认表单接口，请从业务表单完成材料后操作。'
+        );
+      let result: WorkflowInstance;
+      if (task) {
+        result = await api.taskAction(
+          task,
+          prior,
+          action.value,
+          comment.value.trim(),
+          crypto.randomUUID(),
+          details
+        );
+      } else {
+        let instanceDetails: Parameters<typeof api.instanceAction>[4];
+        if (action.value === 'reassign' && reassignTask) {
+          instanceDetails = {
+            work_item_key: reassignTask.work_item_key,
+            assignee_member_id: newAssignee.value,
+            expected_task_revision: reassignTask.revision,
+          };
+        } else if (action.value === 'terminate') {
+          const diagnostic = await api.diagnostics(prior.instance_key);
+          const cancelledNode = diagnostic.items.find(
+            (node) => node.job.status === 'cancelled'
           );
+          if (cancelledNode) {
+            instanceDetails = {
+              expected_job_revision: cancelledNode.job.revision,
+            };
+          }
+        }
+        result = await api.instanceAction(
+          prior,
+          action.value,
+          comment.value.trim(),
+          crypto.randomUUID(),
+          instanceDetails
+        );
+      }
       if (!lifecycle.valid()) return;
       instance.value = result;
+      emit('instance', result);
       dialog.value = false;
       notice.value =
         result.status === 'blocked'
@@ -201,7 +247,10 @@
       // Refresh state after a possible conflict; preserve the unsent opinion.
       try {
         const current = await api.instance(prior.instance_key);
-        if (lifecycle.valid()) instance.value = current;
+        if (lifecycle.valid()) {
+          instance.value = current;
+          emit('instance', current);
+        }
       } catch {
         /* Keep the original error visible. */
       }
@@ -211,7 +260,10 @@
   }
   function schedule() {
     timer = setTimeout(async () => {
-      if (!document.hidden && !dialog.value && !submitting.value) await load();
+      if (!document.hidden && !dialog.value && !submitting.value) {
+        if (props.instanceKey) await showInstance(props.instanceKey);
+        else await load();
+      }
       if (lifecycle.valid()) schedule();
     }, 15000);
   }
@@ -220,7 +272,7 @@
       clearTimeout(timer);
       timer = null;
     } else if (!document.hidden && !timer && lifecycle.valid()) {
-      void load();
+      load();
       schedule();
     }
   }
@@ -228,7 +280,14 @@
   onBeforeUnmount(() =>
     document.removeEventListener('visibilitychange', visibility)
   );
-  void load();
+  if (!props.instanceKey) load();
+  watch(
+    () => props.instanceKey,
+    (key) => {
+      if (key) showInstance(key);
+    },
+    { immediate: true }
+  );
   schedule();
 </script>
 
@@ -243,50 +302,56 @@
       role="alert"
     />
     <el-alert v-if="notice" :title="notice" type="info" :closable="false" />
-    <div class="toolbar">
-      <el-select
-        v-model="filter"
-        aria-label="任务列表范围"
-        @change="
-          page = 1;
-          load();
-        "
-        ><el-option
-          v-for="item in filterOptions"
-          :key="item.value"
-          :label="item.label"
-          :value="item.value"
-      /></el-select>
-      <el-button :loading="loading" @click="load">刷新当前列表</el-button>
-    </div>
-    <el-table v-loading="loading" :data="tasks" empty-text="当前范围没有工作项">
-      <el-table-column prop="label" label="任务" min-width="160" />
-      <el-table-column prop="status" label="状态" width="110" />
-      <el-table-column label="当前办理人" min-width="130"
-        ><template #default="{ row }">{{
-          row.assignee_member_id || '尚未领取'
-        }}</template></el-table-column
+    <template v-if="!props.instanceKey">
+      <div class="toolbar">
+        <el-select
+          v-model="filter"
+          aria-label="任务列表范围"
+          @change="
+            page = 1;
+            load();
+          "
+          ><el-option
+            v-for="item in filterOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+        /></el-select>
+        <el-button :loading="loading" @click="load">刷新当前列表</el-button>
+      </div>
+      <el-table
+        v-loading="loading"
+        :data="tasks"
+        empty-text="当前范围没有工作项"
       >
-      <el-table-column label="任务归属人" min-width="130"
-        ><template #default="{ row }">{{
-          row.owner_member_id || '未分配'
-        }}</template></el-table-column
-      >
-      <el-table-column label="操作" width="120"
-        ><template #default="{ row }"
-          ><el-button link @click="showInstance(row.instance_key)"
-            >查看流程</el-button
-          ></template
-        ></el-table-column
-      >
-    </el-table>
-    <el-pagination
-      v-model:current-page="page"
-      :page-size="20"
-      :total="count"
-      layout="prev, pager, next, total"
-      @current-change="load"
-    />
+        <el-table-column prop="label" label="任务" min-width="160" />
+        <el-table-column prop="status" label="状态" width="110" />
+        <el-table-column label="当前办理人" min-width="130"
+          ><template #default="{ row }">{{
+            row.assignee_member_id || '尚未领取'
+          }}</template></el-table-column
+        >
+        <el-table-column label="任务归属人" min-width="130"
+          ><template #default="{ row }">{{
+            row.owner_member_id || '未分配'
+          }}</template></el-table-column
+        >
+        <el-table-column label="操作" width="120"
+          ><template #default="{ row }"
+            ><el-button link @click="showInstance(row.instance_key)"
+              >查看流程</el-button
+            ></template
+          ></el-table-column
+        >
+      </el-table>
+      <el-pagination
+        v-model:current-page="page"
+        :page-size="20"
+        :total="count"
+        layout="prev, pager, next, total"
+        @current-change="load"
+      />
+    </template>
     <section v-if="instance" aria-label="流程详情" class="detail">
       <h2>流程 {{ instance.instance_key }}</h2>
       <p
@@ -301,6 +366,9 @@
         :closable="false"
       />
       <p>送审版本：{{ instance.subject_revision_key }}</p>
+
+      <slot name="business-collaboration" :instance="instance" />
+
       <el-timeline
         ><el-timeline-item
           v-for="node in instance.active_nodes"
@@ -323,12 +391,28 @@
         <el-button
           v-for="entry in visibleTaskActions(task)"
           :key="entry"
-          :disabled="submitting"
+          :disabled="
+            submitting ||
+            (!formProvider && ['complete', 'resubmit'].includes(entry))
+          "
           @click="openAction(entry, task)"
           >{{ TASK_ACTION_LABELS[entry] }}</el-button
         >
       </div>
       <p>办理表单由所属业务页面提供。保存业务草稿与完成工作项是不同操作。</p>
+      <el-alert
+        v-if="
+          !formProvider &&
+          instance.own_work_items.some((task) =>
+            task.available_actions.some((action) =>
+              ['complete', 'resubmit'].includes(action)
+            )
+          )
+        "
+        title="当前入口未登记业务表单，完成办理和重新送审已禁用。请使用所属业务模块的办理入口保存/确认材料。"
+        type="warning"
+        :closable="false"
+      />
       <el-button
         v-for="entry in instanceActions"
         :key="entry"
@@ -353,6 +437,15 @@
       width="min(92vw, 560px)"
       :close-on-click-modal="false"
     >
+      <div
+        v-if="error"
+        ref="actionError"
+        role="alert"
+        tabindex="-1"
+        class="action-error"
+      >
+        <el-alert :title="error" type="error" :closable="false" />
+      </div>
       <p v-if="instance"
         >正在处理送审版本
         {{ instance.subject_revision_key }}，不修改已送审材料。</p
@@ -360,12 +453,9 @@
       <p v-if="action === 'terminate'"
         >终止不会撤销已经成立的业务效果；正在执行或结果未知的动作须先核对。</p
       >
-      <el-input
-        v-if="action === 'resubmit'"
-        v-model="newSubjectRevision"
-        aria-label="已确认的新材料版本键"
-        placeholder="已确认的新材料版本键；服务端重新核对材料与业务权限"
-      />
+      <p v-if="action === 'resubmit' || action === 'complete'"
+        >提交时由所属业务模块打开保存/确认表单，并返回材料版本、业务输入与附件。未登记接口时不能提交。</p
+      >
       <template v-if="action === 'reassign' && instance">
         <el-select v-model="reassignTaskKey" aria-label="重分配工作项"
           ><el-option
@@ -389,10 +479,14 @@
         :maxlength="2000"
         :rows="4"
         :aria-label="
-          requiresReason(action) ? '操作原因（必填）' : '处理意见（可选）'
+          requiresReason(action)
+            ? '操作原因（必填）'
+            : '处理意见（要求由当前节点校验）'
         "
         :placeholder="
-          requiresReason(action) ? '请填写原因（必填）' : '处理意见（可选）'
+          requiresReason(action)
+            ? '请填写原因（必填）'
+            : '处理意见（要求由当前节点校验）'
         "
       />
       <template #footer
@@ -409,6 +503,12 @@
 <style scoped>
   .workflow-runtime {
     padding: 20px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .action-error {
+    margin-bottom: 12px;
+    overflow-wrap: anywhere;
   }
   .toolbar {
     display: flex;

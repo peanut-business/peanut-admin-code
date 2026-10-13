@@ -1,9 +1,10 @@
 <script setup lang="ts">
   import { ref } from 'vue';
   import type { StartInput } from '../api';
-  import { createWorkflowApi } from '../api';
+  import { createHostWorkflowApi } from '../host-api';
   import type { WorkflowInstance } from '../types';
   import { useWorkflowLifecycle } from './lifecycle';
+
   const props = defineProps<{
     input: StartInput;
     availableActions: readonly string[];
@@ -11,9 +12,11 @@
   const emit = defineEmits<{
     (event: 'started', instance: WorkflowInstance): void;
   }>();
+  const api = createHostWorkflowApi();
   const busy = ref(false);
   const error = ref('');
   const lifecycle = useWorkflowLifecycle(() => {
+    api.dispose();
     error.value = '';
     busy.value = false;
   });
@@ -27,8 +30,15 @@
     busy.value = true;
     error.value = '';
     try {
-      const instance = await createWorkflowApi().start(
-        props.input,
+      const summary = await api.definitionSummary(
+        props.input.module_key,
+        props.input.workflow_key,
+        props.input.subject_type,
+        props.input.subject_key
+      );
+      if (!lifecycle.valid()) return;
+      const instance = await api.start(
+        { ...props.input, expected_revision: summary.draft_revision },
         crypto.randomUUID()
       );
       if (lifecycle.valid()) emit('started', instance);
@@ -40,6 +50,7 @@
     }
   }
 </script>
+
 <template>
   <div
     ><el-button

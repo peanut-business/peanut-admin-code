@@ -27,4 +27,10 @@ foreach ([
     require $serverRoot . '/' . $moduleRoute;
 }
 
+foreach (['app/modules/peanut/workflow/route/app.php', 'app/modules/fixture/workflow_business/route/app.php'] as $moduleRoute) {
+    if (is_file($serverRoot . '/' . $moduleRoute)) {
+        require $serverRoot . '/' . $moduleRoute;
+    }
+}
+
 unset($peanutRouteApplication, $serverRoot, $moduleRoute);

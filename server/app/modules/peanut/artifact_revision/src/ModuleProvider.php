@@ -17,8 +17,8 @@ final class ModuleProvider implements ModuleProviderContract
     public function bindings(): array
     {
         return [
-            \PeanutAdmin\Modules\ArtifactRevision\Workflow\ArtifactSubjectRevisionReader::class
-                => \PeanutAdmin\Modules\ArtifactRevision\Persistence\ThinkPhpArtifactRevisionRepository::class,
+            \PeanutAdmin\Modules\ArtifactRevision\Contract\ArtifactRevisionQuery::class
+                => \PeanutAdmin\Modules\ArtifactRevision\Application\ArtifactRevisionQueries::class,
         ];
     }
 }

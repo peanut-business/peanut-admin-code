@@ -46,6 +46,7 @@ final class ModuleProvider implements ModuleProviderContract, TaskWorkerContribu
     public function bindings(): array
     {
         return [
+            \PeanutAdmin\Modules\Notification\Contract\NotificationProducerRegistry::class => fn() => new \PeanutAdmin\Modules\Notification\Contract\NotificationProducerRegistry(),
             NoticeSmsSender::class => fn(App $app): NoticeSmsSender => new ApplicationNoticeSmsSender(
                 $app->make(CurrentExecutionContext::class),
                 $app->make(NoticeChannelService::class),
@@ -62,6 +63,17 @@ final class ModuleProvider implements ModuleProviderContract, TaskWorkerContribu
             NotificationQueries::class => NotificationApplicationService::class,
             VerificationCodeCommands::class => NotificationApplicationService::class,
             NotificationRepository::class => NotificationStore::class,
+            \PeanutAdmin\Modules\Notification\Delivery\Application\AttachmentResolver::class => \PeanutAdmin\Modules\Notification\Delivery\Application\FileAttachmentResolver::class,
+            \PeanutAdmin\Modules\Notification\Delivery\Application\NotificationService::class => fn(App $app) => new \PeanutAdmin\Modules\Notification\Delivery\Application\NotificationService(
+                $app->make(NotificationRepository::class), $app->make(RecipientResolver::class),
+                $app->bound(\PeanutAdmin\Modules\File\Contract\FileAccess::class)
+                    ? $app->make(\PeanutAdmin\Modules\Notification\Delivery\Application\AttachmentResolver::class) : null,
+                $app->make(\PeanutAdmin\Modules\Notification\Delivery\Application\TemplateRenderer::class),
+                $app->make(\PeanutAdmin\Modules\Notification\Contract\NotificationProducerRegistry::class),
+                $app->make(\PeanutAdmin\Kernel\Module\ModuleAvailability::class),
+                $app->make(\PeanutAdmin\Modules\Notification\Delivery\Task\InboxTaskHandler::class),
+                $app->bound(\PeanutAdmin\Modules\Task\Contract\TrustedJobPublisher::class) ? $app->make(\PeanutAdmin\Modules\Task\Contract\TrustedJobPublisher::class) : null,
+            ),
             RecipientResolver::class => TenantMemberRecipientResolver::class,
             SmsRecipientResolver::class => UnavailableSmsRecipientResolver::class,
             SmsProvider::class => fn(): SmsProvider => (string) Config::get('peanut.environment', '') === 'development'
@@ -70,8 +82,8 @@ final class ModuleProvider implements ModuleProviderContract, TaskWorkerContribu
             NotificationOutboxDispatcher::class => fn(App $app): NotificationOutboxDispatcher => new NotificationOutboxDispatcher(
                 $app->make(NotificationRepository::class),
                 $app->make(TaskJobRuntime::class)->publisher(
-                    new OutboxTaskSubmissionProvider('inbox'),
-                    new OutboxTaskSubmissionProvider('sms'),
+                    new OutboxTaskSubmissionProvider('inbox', $app->make(\PeanutAdmin\Modules\Notification\Infrastructure\Authorization\NotificationAsyncAuthorization::class)),
+                    new OutboxTaskSubmissionProvider('sms', $app->make(\PeanutAdmin\Modules\Notification\Infrastructure\Authorization\NotificationAsyncAuthorization::class)),
                 ),
             ),
         ];

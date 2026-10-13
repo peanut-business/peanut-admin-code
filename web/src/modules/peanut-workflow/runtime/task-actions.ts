@@ -6,11 +6,11 @@ export const TASK_ACTION_LABELS: Record<string, string> = {
   approve: '同意',
   reject: '拒绝',
   complete: '完成办理',
+  resubmit: '重新送审',
   return: '退回补正',
 };
 export const INSTANCE_ACTION_LABELS: Record<string, string> = {
   withdraw: '撤回申请',
-  resubmit: '重新送审',
   terminate: '终止流程',
   retry: '重试阻塞步骤',
   reassign: '重分配待处理任务',
@@ -28,7 +28,6 @@ export function requiresReason(action: string): boolean {
     'terminate',
     'reassign',
     'retry',
-    'resubmit',
   ].includes(action);
 }
 export function safeFormEntry(entry: string | null): string | null {

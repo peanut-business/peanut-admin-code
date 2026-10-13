@@ -10,6 +10,16 @@ use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
 /** 固定的租户模块状态投影，不返回配置正文或授权能力；安装清单与必需基础模块仍由原部署登记器决定。 */
 final readonly class TenantModuleStateQueries
 {
+    /** Lifecycle config projection; does not grant availability or any business permission. */
+    public function acceptsNewOperations(int $tenantId, string $moduleKey, bool $lock = false): bool
+    {
+        $row = Db::name('tenant_module')->where('tenant_id', $tenantId)->where('module_key', $moduleKey)->lock($lock)->field('status,config_json')->find();
+        if ($row === null || $row['status'] !== 'enabled') {
+            return false;
+        }
+        $config = $row['config_json'] === null ? [] : (is_array($row['config_json']) ? $row['config_json'] : json_decode((string) $row['config_json'], true, 128, JSON_THROW_ON_ERROR));
+        return ($config['lifecycle'] ?? 'running') === 'running';
+    }
     /** Lock only the selected tenant dependency closure, before any tenant rows. @param list<string> $moduleKeys */
     public function lockTenantMutation(CompiledModuleRegistry $registry, array $moduleKeys): void
     {

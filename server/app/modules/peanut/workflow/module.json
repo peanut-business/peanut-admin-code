@@ -7,7 +7,7 @@
   "kernel_constraint": "^1.0",
   "license": "Apache-2.0",
   "php_package": "peanut-business/workflow",
-  "web_package": null,
+  "web_package": "@peanut-modules/workflow-web",
   "dependencies": [
     {
       "module_key": "official.identity",
@@ -16,27 +16,45 @@
   ],
   "backend": {
     "provider": "PeanutAdmin\\Modules\\Workflow\\ModuleProvider",
-    "migrations": "database/migrations"
+    "migrations": "database/migrations",
+    "permissions": "resources/permissions.json",
+    "menus": "resources/menus.json",
+    "config_schema": "resources/config-schema.json"
   },
-  "frontend": {},
+  "frontend": {
+    "entry": "web/src/modules/peanut-workflow/contribution.ts"
+  },
   "database": {
     "owned_tables": [
       "pa_workflow_definition",
       "pa_workflow_definition_version",
       "pa_workflow_instance",
       "pa_workflow_work_item",
-      "pa_workflow_event"
+      "pa_workflow_event",
+      "pa_workflow_node_execution",
+      "pa_workflow_task_identity_link"
     ]
   },
   "contracts": {
     "exports": [
-      "PeanutAdmin\\Modules\\Workflow\\Application\\WorkflowRuntime",
-      "PeanutAdmin\\Modules\\Workflow\\Application\\WorkflowQueryService",
+      "PeanutAdmin\\Modules\\Workflow\\Application\\WorkflowCommands",
+      "PeanutAdmin\\Modules\\Workflow\\Application\\WorkflowQueries",
+      "PeanutAdmin\\Modules\\Workflow\\Application\\WorkflowDefinitionService",
       "PeanutAdmin\\Modules\\Workflow\\Application\\WorkflowException",
       "PeanutAdmin\\Modules\\Workflow\\Adapter\\WorkflowAuthorizationResolver",
       "PeanutAdmin\\Modules\\Workflow\\Adapter\\WorkflowAssignmentResolver",
-      "PeanutAdmin\\Modules\\Workflow\\Adapter\\WorkflowSideEffectPublisher",
-      "PeanutAdmin\\Modules\\Workflow\\Adapter\\WorkflowSubjectRevisionResolver"
+      "PeanutAdmin\\Modules\\Workflow\\Adapter\\WorkflowScenarioProvider",
+      "PeanutAdmin\\Modules\\Workflow\\Adapter\\WorkflowSubjectRevisionResolver",
+      "PeanutAdmin\\Modules\\Workflow\\Adapter\\WorkflowAttachmentResolver",
+      "PeanutAdmin\\Modules\\Workflow\\Adapter\\WorkflowAttachment",
+      "PeanutAdmin\\Modules\\Workflow\\Integration\\WorkflowScenarioRegistry",
+      "PeanutAdmin\\Modules\\Workflow\\Integration\\WorkflowScenarioAccess",
+      "PeanutAdmin\\Modules\\Workflow\\Integration\\WorkflowScenarioContributor",
+      "PeanutAdmin\\Modules\\Workflow\\Integration\\ArtifactWorkflowSubjectRevisionResolver",
+      "PeanutAdmin\\Modules\\Workflow\\Application\\WorkflowManagedDefinitions",
+      "PeanutAdmin\\Modules\\Workflow\\Application\\WorkflowLifecycleQueries",
+      "PeanutAdmin\\Modules\\Workflow\\Application\\WorkflowNotificationDelivery",
+      "PeanutAdmin\\Modules\\Workflow\\Application\\WorkflowUpgradePreflight"
     ],
     "events": []
   },
@@ -46,5 +64,10 @@
     "requires": [
       "official.identity"
     ]
-  }
+  },
+  "optional_dependencies": [
+    {"module_key": "official.task", "version": "^1.0"},
+    {"module_key": "peanut.artifact-revision", "version": "4.0.0-rc.24"},
+    {"module_key": "official.notification", "version": "^1.0"}
+  ]
 }

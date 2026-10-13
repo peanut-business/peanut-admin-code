@@ -204,6 +204,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         $now = $this->now();
         Db::transaction(function () use ($pluginKey, $modules, $now): void {
             $moduleKeys = array_column($modules, 'module_key');
+            ModuleLifecyclePolicy::assertNoOutstandingWorkflow($moduleKeys);
             $this->tenantStates->lockLifecycleRows($moduleKeys, [$pluginKey]);
             if ($this->tenantStates->enabledReferencesForUpdate($moduleKeys) !== []) {
                 throw new PluginLifecycleException('PLUGIN_TENANT_MODULE_ACTIVE', 'Disable every TenantModule before uninstall.');
@@ -326,6 +327,14 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                         );
                     }
                     continue;
+                }
+                if ($moduleKey === 'peanut.workflow' && $migrationKey === \PeanutAdmin\Modules\Workflow\Application\WorkflowUpgradePreflight::MIGRATION_KEY) {
+                    try { (new \PeanutAdmin\Modules\Workflow\Application\WorkflowUpgradePreflight(new \PeanutAdmin\Modules\Identity\Contract\WorkflowLegacyOrganizationQuery()))->assertMayApply(); }
+                    catch (\PeanutAdmin\Modules\Workflow\Application\WorkflowException $exception) { throw new PluginLifecycleException($exception->errorCode, $exception->getMessage()); }
+                }
+                if ($moduleKey === 'official.notification' && $migrationKey === \PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::MIGRATION_KEY) {
+                    try { app()->make(\PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::class)->assertMayApply(); }
+                    catch (\RuntimeException $exception) { throw new PluginLifecycleException($exception->getMessage(), 'Notification upgrade requires a known empty legacy delivery queue.'); }
                 }
                 $now = $this->now();
                 Db::transaction(function () use ($moduleKey, $migrationKey, $manifest, $checksum, $batch, $now): void {
@@ -467,6 +476,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     private function plan(PluginDescriptor $plugin, array $manifests, array $current): array
     {
         $pending = [];
+        $workflowPreflight = null;
+        $notificationPreflight = null;
         foreach ($manifests as $moduleKey => $manifest) {
             foreach ($this->migrationFiles($plugin->moduleRoots[$moduleKey], $manifest) as $key => $path) {
                 $row = Db::name('module_migration')->where('module_key', $moduleKey)
@@ -477,6 +488,12 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 }
                 if ($row === null || $row['status'] !== 'applied') {
                     $pending[] = ['module_key' => $moduleKey, 'migration_key' => $key, 'sha256' => $checksum];
+                    if ($moduleKey === 'peanut.workflow' && $key === \PeanutAdmin\Modules\Workflow\Application\WorkflowUpgradePreflight::MIGRATION_KEY) {
+                        $workflowPreflight = (new \PeanutAdmin\Modules\Workflow\Application\WorkflowUpgradePreflight(new \PeanutAdmin\Modules\Identity\Contract\WorkflowLegacyOrganizationQuery()))->report();
+                    }
+                    if ($moduleKey === 'official.notification' && $key === \PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::MIGRATION_KEY) {
+                        $notificationPreflight = app()->make(\PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::class)->report();
+                    }
                 }
             }
         }
@@ -486,6 +503,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             'to_version' => $plugin->version,
             'identity_changed' => !$this->sameIdentity($plugin, $current),
             'pending_migrations' => $pending,
+            'workflow_preflight' => $workflowPreflight,
+            'notification_preflight' => $notificationPreflight,
             'rollback' => ['automatic' => false, 'requires_verified_backup' => $pending !== []],
             'trust' => $plugin->trustResult(),
         ];

@@ -111,9 +111,20 @@ final class NotificationStore implements NotificationRepository
         string $subject,
         string $body,
         array $attachments,
+        ?\PeanutAdmin\Modules\Notification\Contract\NotificationPublicationIdentity $identity = null,
     ): array {
         $this->assertTenantActor($context);
         $this->assertRecipientSnapshot($context, $recipient);
+        $payloadHash = hash('sha256', $this->json([$template, $recipient->memberId, $subject, $body, $attachments]));
+        if ($identity !== null) {
+            $existing = NotificationMessageRecord::where('tenant_id', $context->tenantId)->where('producer_digest', $identity->digest($context->tenantId))
+                ->where('recipient_member_id', $recipient->memberId)->lock(true)->find()?->toArray();
+            if ($existing !== null) {
+                if (!hash_equals((string) $existing['producer_payload_sha256'], $payloadHash)) { throw NotificationException::conflict(); }
+                return ['message' => $this->messageById($context->tenantId, (int) $existing['id'], $recipient->memberId),
+                    'outbox' => array_map($this->mapOutbox(...), NotificationOutboxRecord::where('tenant_id', $context->tenantId)->where('message_id', $existing['id'])->select()->toArray())];
+            }
+        }
         $now = $this->now();
         $messageId = (int) NotificationMessageRecord::insertGetId([
             'message_key' => $messageKey,
@@ -132,6 +143,8 @@ final class NotificationStore implements NotificationRepository
             'updated_at' => $now,
             'read_at' => null,
             'archived_at' => null,
+            'producer_key' => $identity?->producerKey, 'producer_event_key' => $identity?->eventKey, 'producer_business_key' => $identity?->businessKey,
+            'producer_digest' => $identity?->digest($context->tenantId), 'producer_payload_sha256' => $identity === null ? null : $payloadHash,
         ]);
         foreach ($attachments as $attachment) {
             NotificationAttachmentRecord::insert([
@@ -178,6 +191,7 @@ final class NotificationStore implements NotificationRepository
     {
         $query = NotificationMessageRecord::where('tenant_id', $tenantId)
             ->where('recipient_member_id', $memberId);
+        $this->deliveredInbox($query);
         if ($status !== 'all') {
             $query->where('status', $status);
         }
@@ -275,6 +289,59 @@ final class NotificationStore implements NotificationRepository
         }
 
         return $changed;
+    }
+
+    public function outboxState(int $tenantId, string $outboxKey, bool $lock = false): OutboxRecord
+    {
+        return $this->mapOutbox($this->outboxRow($tenantId, $outboxKey, $lock) ?? throw NotificationException::notFound());
+    }
+
+    public function publicationIdentity(int $tenantId, string $outboxKey): ?\PeanutAdmin\Modules\Notification\Contract\NotificationPublicationIdentity
+    {
+        $row = $this->outboxRow($tenantId, $outboxKey, false) ?? throw NotificationException::notFound();
+        $message = $this->messageByInternalId($tenantId, (int) $row['message_id']);
+        return $message['producer_key'] === null ? null : new \PeanutAdmin\Modules\Notification\Contract\NotificationPublicationIdentity($message['producer_key'], $message['producer_event_key'], $message['producer_business_key']);
+    }
+
+    public function bindActor(\PeanutAdmin\Kernel\Context\AuthorizedOperationContext $context, string $outboxKey): void
+    {
+        $tenant = $context->tenantContext;
+        $this->assertTenantActor($tenant);
+        $member = $this->members->current($tenant) ?? throw NotificationException::denied();
+        foreach ([$tenant->sessionKey, $tenant->clientKey, $tenant->requestId] as $key) {
+            if ($key === '' || strlen($key) > 128) { throw NotificationException::denied(); }
+        }
+        $targets = hash('sha256', $this->json($context->targets));
+        $key = hash('sha256', $this->json([$tenant->tenantId, $tenant->accountId, $tenant->memberId, $context->resourceKey, $context->operation, $targets, $tenant->requestId, $outboxKey]));
+        $values = ['reference_key' => $key, 'tenant_id' => $tenant->tenantId, 'account_id' => $tenant->accountId, 'member_id' => $tenant->memberId,
+            'resource_key' => $context->resourceKey, 'operation' => $context->operation, 'targets_sha256' => $targets, 'request_id' => $tenant->requestId,
+            'session_key' => $tenant->sessionKey, 'client_key' => $tenant->clientKey, 'account_security_revision' => $member->accountSecurityRevision,
+            'tenant_security_revision' => $member->tenantSecurityRevision, 'member_security_revision' => $member->securityRevision, 'outbox_key' => $outboxKey];
+        $existing = Model\NotificationTaskActorRecord::where('tenant_id', $tenant->tenantId)->where('reference_key', $key)->lock(true)->find()?->toArray();
+        if ($existing !== null) {
+            foreach ($values as $field => $value) { if ((string) $existing[$field] !== (string) $value) { throw NotificationException::conflict(); } }
+            return;
+        }
+        Model\NotificationTaskActorRecord::insert($values + ['created_at' => $this->now()]);
+    }
+
+    public function actorReference(\PeanutAdmin\Kernel\Async\VerifiedJobEnvelope $envelope): array
+    {
+        $outbox = NotificationOutboxRecord::where('tenant_id', $envelope->tenantId)->where('dispatch_job_key', $envelope->operationId)->value('outbox_key');
+        if (!is_string($outbox)) { throw NotificationException::denied(); }
+        return Model\NotificationTaskActorRecord::where('tenant_id', $envelope->tenantId)->where('account_id', $envelope->accountId)->where('member_id', $envelope->memberId)
+            ->where('resource_key', $envelope->resourceKey)->where('operation', $envelope->operation)->where('request_id', $envelope->traceId)
+            ->where('targets_sha256', hash('sha256', $this->json($envelope->requestedTargets)))->where('outbox_key', $outbox)->find()?->toArray() ?? throw NotificationException::denied();
+    }
+
+    public function replaceJob(int $tenantId, string $outboxKey, string $oldJobKey, string $newJobKey): void
+    {
+        $row = $this->outboxRow($tenantId, $outboxKey, true) ?? throw NotificationException::notFound();
+        if (!in_array($row['status'], ['queued', 'retryable'], true) || $row['dispatch_job_key'] !== $oldJobKey) { throw NotificationException::conflict(); }
+        $changed = NotificationOutboxRecord::where('tenant_id', $tenantId)->where('id', $row['id'])->where('dispatch_job_key', $oldJobKey)->update([
+            'status' => 'queued', 'dispatch_job_key' => $newJobKey, 'revision' => new Raw('revision + 1'), 'updated_at' => $this->now()]);
+        if ($changed !== 1) { throw NotificationException::conflict(); }
+        $this->event($tenantId, (int) $row['message_id'], 'tenant.notification.delivery_recovered', null, ['previous_job_key' => $oldJobKey, 'job_key' => $newJobKey]);
     }
 
     public function outboxForSubmission(int $tenantId, string $outboxKey): OutboxRecord
@@ -472,7 +539,19 @@ final class NotificationStore implements NotificationRepository
     /** @return array<string, mixed>|null */
     private function messageRow(int $tenantId, int $memberId, string $messageKey, bool $lock): ?array
     {
-        return $this->find(NotificationMessageRecord::where('tenant_id', $tenantId)->where('recipient_member_id', $memberId)->where('message_key', $messageKey), $lock);
+        $query = NotificationMessageRecord::where('tenant_id', $tenantId)->where('recipient_member_id', $memberId)->where('message_key', $messageKey);
+        $this->deliveredInbox($query);
+        return $this->find($query, $lock);
+    }
+
+    private function deliveredInbox(BaseQuery $query): void
+    {
+        $messages = (new NotificationMessageRecord())->getTable();
+        $outbox = (new NotificationOutboxRecord())->getTable();
+        $query->whereExists(static function (BaseQuery $delivery) use ($messages, $outbox): void {
+            $delivery->table($outbox)->whereColumn($outbox . '.tenant_id', '=', $messages . '.tenant_id')->whereColumn($outbox . '.message_id', '=', $messages . '.id')
+                ->where($outbox . '.channel', 'inbox')->where($outbox . '.status', 'delivered')->fieldRaw('1');
+        });
     }
 
     /** @return array<string, mixed> */

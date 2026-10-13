@@ -4,483 +4,347 @@ declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Workflow\Definition;
 
-use JsonException;
 use PeanutAdmin\Modules\Workflow\Application\WorkflowException;
 
+/** Sole graph protocol; layout does not participate in the execution digest. */
 final readonly class WorkflowGraph
 {
-    private const ROOT_KEYS = [
-        'contract_version',
-        'subject_resource_key',
-        'subject_read_operation',
-        'subject_start_operation',
-        'start_permission_keys',
-        'nodes',
-        'transitions',
-    ];
+    public const CAPABILITIES = ['workflow.approval', 'workflow.human_task', 'workflow.direct', 'workflow.claim', 'workflow.all_approve', 'workflow.any_approve', 'workflow.exclusive_gateway', 'workflow.service_task', 'workflow.return', 'workflow.notification'];
+    private function __construct(public array $data, public string $canonicalJson, public string $sha256) {}
 
-    private const NODE_KEYS = ['key', 'type', 'completion_policy', 'assignments'];
-    private const ASSIGNMENT_KEYS = ['kind', 'key'];
-    private const TRANSITION_KEYS = [
-        'key', 'from', 'to', 'operation', 'action_kind', 'permission_keys',
-        'human_required', 'return_edge', 'max_traversals',
-        'notification_intent', 'task_intent',
-    ];
-
-    /**
-     * @param non-empty-list<string> $startPermissionKeys
-     * @param non-empty-list<WorkflowNode> $nodes
-     * @param non-empty-list<WorkflowTransition> $transitions
-     */
-    private function __construct(
-        public string $subjectResourceKey,
-        public string $subjectReadOperation,
-        public string $subjectStartOperation,
-        public array $startPermissionKeys,
-        public array $nodes,
-        public array $transitions,
-        public string $canonicalJson,
-        public string $sha256,
-    ) {}
-
-    /** @param array<string, mixed> $graph */
-    public static function fromArray(array $graph): self
+    public static function fromArray(array $graph, bool $publish = true): self
     {
-        self::assertExactKeys($graph, self::ROOT_KEYS);
-        if (($graph['contract_version'] ?? null) !== 1) {
-            throw WorkflowException::definitionInvalid('Workflow contract_version must be 1.');
+        if (strlen(self::json($graph)) > 65535) { throw WorkflowException::definitionInvalid('Graph exceeds capacity.'); }
+        self::keys($graph, ['contract_version', 'scenario_contract_version', 'subject_resource_key', 'subject_read_operation', 'subject_start_operation', 'start_permission_keys', 'required_capabilities', 'nodes', 'transitions']);
+        if ($graph['contract_version'] !== 2) {
+            throw WorkflowException::unsupported('contract_version', '/graph/contract_version');
         }
-        $subjectResourceKey = self::identifier($graph['subject_resource_key'] ?? null, 64, 'subject resource');
-        $subjectReadOperation = self::identifier($graph['subject_read_operation'] ?? null, 64, 'subject read operation');
-        $subjectStartOperation = self::identifier($graph['subject_start_operation'] ?? null, 64, 'subject start operation');
-        $startPermissionKeys = self::permissionKeys($graph['start_permission_keys'] ?? null);
-
-        if (!is_array($graph['nodes']) || !array_is_list($graph['nodes']) || $graph['nodes'] === []) {
-            throw WorkflowException::definitionInvalid('Workflow nodes must be a non-empty list.');
+        if (!is_int($graph['scenario_contract_version']) || $graph['scenario_contract_version'] < 1) {
+            throw WorkflowException::definitionInvalid('scenario_contract_version', '/graph/scenario_contract_version');
         }
+        foreach (['subject_resource_key', 'subject_read_operation', 'subject_start_operation'] as $key) {
+            self::identifier($graph[$key]);
+        }
+        self::strings($graph['start_permission_keys'], true);
+        self::strings($graph['required_capabilities']);
+        self::items($graph['nodes'], 100);
+        self::items($graph['transitions'], 200);
         $nodes = [];
-        $nodeMap = [];
-        $startCount = 0;
-        $terminalCount = 0;
-        $workNodeCount = 0;
-        foreach ($graph['nodes'] as $input) {
-            if (!is_array($input) || array_is_list($input)) {
-                throw WorkflowException::definitionInvalid('Every workflow node must be an object.');
+        $nodeIndexes = [];
+        foreach ($graph['nodes'] as $nodeIndex => $node) {
+            self::keys($node, ['key', 'label', 'type', 'config']);
+            self::identifier($node['key']);
+            if (isset($nodes[$node['key']])) {
+                throw WorkflowException::definitionInvalid('Duplicate node key: ' . $node['key'], '/graph/nodes/' . $nodeIndex . '/key');
             }
-            $node = self::parseNode($input);
-            if (isset($nodeMap[$node->key])) {
-                throw WorkflowException::definitionInvalid('Workflow node keys must be unique.');
+            if (!is_string($node['label']) || mb_strlen($node['label']) > 160 || !is_array($node['config'])) {
+                throw WorkflowException::definitionInvalid('Invalid node.', '/graph/nodes/' . $nodeIndex);
             }
-            $nodeMap[$node->key] = $node;
-            $nodes[] = $node;
-            $startCount += $node->type === 'start' ? 1 : 0;
-            $terminalCount += $node->type === 'terminal' ? 1 : 0;
-            $workNodeCount += in_array($node->type, ['review', 'action'], true) ? 1 : 0;
+            if (!in_array($node['type'], ['start', 'approval', 'human_task', 'exclusive_gateway', 'service_task', 'end'], true)) {
+                throw WorkflowException::unsupported('nodes.' . $node['key'] . '.type', '/graph/nodes/' . $nodeIndex . '/type');
+            }
+            self::config($node, $publish, '/graph/nodes/' . $nodeIndex . '/config');
+            $nodes[$node['key']] = $node;
+            $nodeIndexes[$node['key']] = $nodeIndex;
         }
-        if ($startCount !== 1 || $terminalCount < 1 || $workNodeCount < 1) {
-            throw WorkflowException::definitionInvalid('Workflow requires one start, work nodes, and terminal nodes.');
-        }
-
-        if (!is_array($graph['transitions']) || !array_is_list($graph['transitions']) || $graph['transitions'] === []) {
-            throw WorkflowException::definitionInvalid('Workflow transitions must be a non-empty list.');
-        }
-        $transitions = [];
-        $transitionKeys = [];
-        $outgoing = [];
-        foreach ($graph['transitions'] as $input) {
-            if (!is_array($input) || array_is_list($input)) {
-                throw WorkflowException::definitionInvalid('Every workflow transition must be an object.');
-            }
-            $transition = self::parseTransition($input, $nodeMap);
-            if (isset($transitionKeys[$transition->key])) {
-                throw WorkflowException::definitionInvalid('Workflow transition keys must be unique.');
-            }
-            $transitionKeys[$transition->key] = true;
-            $transitions[] = $transition;
-            $outgoing[$transition->from][] = $transition;
-        }
-
-        $start = null;
-        foreach ($nodes as $node) {
-            $edges = $outgoing[$node->key] ?? [];
-            if ($node->type === 'start') {
-                $start = $node;
-                if (count($edges) !== 1 || $edges[0]->humanRequired) {
-                    throw WorkflowException::definitionInvalid('The start node requires exactly one non-human transition.');
-                }
-            }
-            if ($node->type === 'terminal' && $edges !== []) {
-                throw WorkflowException::definitionInvalid('Terminal nodes cannot have outgoing transitions.');
+        // A concrete unsupported node strategy takes precedence over its capability declaration.
+        // These indices belong to the submitted graph, before canonical sorting.
+        foreach ($graph['required_capabilities'] as $capabilityIndex => $capability) {
+            if (!in_array($capability, self::CAPABILITIES, true)) {
+                throw WorkflowException::unsupported($capability, '/graph/required_capabilities/' . $capabilityIndex);
             }
         }
-        if (!$start instanceof WorkflowNode) {
-            throw WorkflowException::definitionInvalid();
+        $edges = [];
+        $edgeIndexes = [];
+        foreach ($graph['transitions'] as $edgeIndex => $edge) {
+            self::keys($edge, ['key', 'from', 'to', 'action', 'operation', 'permission_keys', 'return_edge', 'max_traversals']);
+            foreach (['key', 'from', 'to', 'operation'] as $key) {
+                self::identifier($edge[$key]);
+            }
+            self::strings($edge['permission_keys'], true);
+            if (isset($edges[$edge['key']])) {
+                throw WorkflowException::definitionInvalid('Duplicate transition key: ' . $edge['key'], '/graph/transitions/' . $edgeIndex . '/key');
+            }
+            if (!is_bool($edge['return_edge']) || !in_array($edge['action'], ['advance', 'approve', 'reject', 'complete', 'return', 'resubmit', 'succeeded', 'branch'], true)) {
+                throw WorkflowException::definitionInvalid('Invalid edge.', '/graph/transitions/' . $edgeIndex);
+            }
+            if ($edge['return_edge'] ? (!is_int($edge['max_traversals']) || $edge['max_traversals'] < 1 || $edge['max_traversals'] > 10 || $edge['action'] !== 'return') : $edge['max_traversals'] !== null) {
+                throw WorkflowException::definitionInvalid('Invalid return bound.');
+            }
+            $edges[$edge['key']] = $edge;
+            $edgeIndexes[$edge['key']] = $edgeIndex;
         }
-        self::assertReachable($start->key, $nodes, $outgoing);
-        self::assertReturnEdges($nodes, $transitions);
-
-        usort($nodes, static fn(WorkflowNode $left, WorkflowNode $right): int => strcmp($left->key, $right->key));
-        usort($transitions, static fn(WorkflowTransition $left, WorkflowTransition $right): int => strcmp($left->key, $right->key));
-        sort($startPermissionKeys, SORT_STRING);
-        $canonical = [
-            'contract_version' => 1,
-            'subject_resource_key' => $subjectResourceKey,
-            'subject_read_operation' => $subjectReadOperation,
-            'subject_start_operation' => $subjectStartOperation,
-            'start_permission_keys' => $startPermissionKeys,
-            'nodes' => array_map(static fn(WorkflowNode $node): array => $node->toArray(), $nodes),
-            'transitions' => array_map(static fn(WorkflowTransition $transition): array => $transition->toArray(), $transitions),
-        ];
-        try {
-            $json = json_encode($canonical, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        } catch (JsonException $exception) {
-            throw WorkflowException::definitionInvalid('Workflow graph cannot be encoded.');
+        if ($publish) {
+            self::executable($nodes, $edges, $nodeIndexes, $edgeIndexes);
+            $used = [];
+            foreach ($nodes as $node) {
+                if (!in_array($node['type'], ['start', 'end'], true)) { $used[] = 'workflow.' . $node['type']; }
+                if (isset($node['config']['allocation_mode']) && $node['config']['allocation_mode'] !== 'multi') { $used[] = 'workflow.' . $node['config']['allocation_mode']; }
+                if (isset($node['config']['aggregation_policy'])) { $used[] = 'workflow.' . $node['config']['aggregation_policy']; }
+            }
+            foreach ($edges as $edge) { if ($edge['return_edge']) { $used[] = 'workflow.return'; } }
+            if (array_diff($used, $graph['required_capabilities'])) {
+                throw WorkflowException::definitionInvalid('The graph must declare every capability it uses.');
+            }
         }
-
-        return new self(
-            $subjectResourceKey,
-            $subjectReadOperation,
-            $subjectStartOperation,
-            $startPermissionKeys,
-            $nodes,
-            $transitions,
-            $json,
-            hash('sha256', $json),
-        );
+        usort($graph['nodes'], static fn(array $a, array $b): int => strcmp($a['key'], $b['key']));
+        usort($graph['transitions'], static fn(array $a, array $b): int => strcmp($a['key'], $b['key']));
+        sort($graph['start_permission_keys']);
+        sort($graph['required_capabilities']);
+        $json = self::json($graph);
+        return new self($graph, $json, hash('sha256', $json));
     }
 
     public static function fromJson(string $json): self
     {
-        try {
-            $decoded = json_decode($json, true, 128, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            throw WorkflowException::internal();
-        }
-        if (!is_array($decoded) || array_is_list($decoded)) {
-            throw WorkflowException::internal();
-        }
-        try {
-            $graph = self::fromArray($decoded);
-        } catch (WorkflowException) {
-            throw WorkflowException::internal();
-        }
-
-        return $graph;
+        return self::fromArray(json_decode($json, true, 128, JSON_THROW_ON_ERROR));
     }
 
-    public function node(string $key): WorkflowNode
+    public function node(string $key): array
     {
-        foreach ($this->nodes as $node) {
-            if (hash_equals($node->key, $key)) {
+        foreach ($this->data['nodes'] as $node) {
+            if ($node['key'] === $key) {
                 return $node;
             }
         }
-
-        throw WorkflowException::transitionUnavailable();
+        throw WorkflowException::definitionInvalid('Unknown node.');
     }
 
-    public function startNode(): WorkflowNode
+    public function startNode(): array
     {
-        foreach ($this->nodes as $node) {
-            if ($node->type === 'start') {
+        foreach ($this->data['nodes'] as $node) {
+            if ($node['type'] === 'start') {
                 return $node;
             }
         }
-
-        throw WorkflowException::internal();
+        throw WorkflowException::definitionInvalid('Missing start.');
     }
 
-    public function transition(string $key, string $from): WorkflowTransition
+    public function outgoing(string $node, ?string $action = null): array
     {
-        foreach ($this->transitions as $transition) {
-            if (hash_equals($transition->key, $key) && hash_equals($transition->from, $from)) {
-                return $transition;
-            }
-        }
-
-        throw WorkflowException::transitionUnavailable();
+        return array_values(array_filter($this->data['transitions'], static fn(array $edge): bool => $edge['from'] === $node && ($action === null || $edge['action'] === $action)));
     }
 
-    /** @return non-empty-list<WorkflowTransition> */
-    public function outgoing(string $nodeKey): array
+    public function edge(string $node, string $action): array
     {
-        $edges = array_values(array_filter(
-            $this->transitions,
-            static fn(WorkflowTransition $transition): bool => hash_equals($transition->from, $nodeKey),
-        ));
-        if ($edges === []) {
-            throw WorkflowException::transitionUnavailable();
-        }
-
-        return $edges;
+        $edges = $this->outgoing($node, $action);
+        return count($edges) === 1 ? $edges[0] : throw WorkflowException::transitionUnavailable();
     }
 
-    /** @param array<string, mixed> $input */
-    private static function parseNode(array $input): WorkflowNode
+    public static function json(mixed $value): string
     {
-        self::assertExactKeys($input, self::NODE_KEYS);
-        $key = self::identifier($input['key'] ?? null, 64, 'node');
-        $type = $input['type'] ?? null;
-        if (!is_string($type) || !in_array($type, ['start', 'review', 'action', 'terminal'], true)) {
-            throw WorkflowException::definitionInvalid('Workflow node type is invalid.');
-        }
-        if (!is_array($input['assignments']) || !array_is_list($input['assignments'])) {
-            throw WorkflowException::definitionInvalid('Workflow node assignments must be a list.');
-        }
-        $completion = $input['completion_policy'];
-        if ($type === 'review') {
-            if (!is_string($completion) || !in_array($completion, ['any', 'all'], true) || $input['assignments'] === []) {
-                throw WorkflowException::definitionInvalid('Review nodes require a completion policy and assignments.');
-            }
-        } elseif ($completion !== null || $input['assignments'] !== []) {
-            throw WorkflowException::definitionInvalid('Only review nodes may declare assignments.');
-        }
-        $assignments = [];
-        $seen = [];
-        foreach ($input['assignments'] as $rule) {
-            if (!is_array($rule) || array_is_list($rule)) {
-                throw WorkflowException::definitionInvalid('Workflow assignment rule is invalid.');
-            }
-            self::assertExactKeys($rule, self::ASSIGNMENT_KEYS);
-            $kind = $rule['kind'] ?? null;
-            if (!is_string($kind) || !in_array($kind, ['member', 'role', 'department', 'initiator', 'previous_actor'], true)) {
-                throw WorkflowException::definitionInvalid('Workflow assignment kind is invalid.');
-            }
-            $ruleKey = $rule['key'] ?? null;
-            if ($kind === 'member') {
-                if (!is_string($ruleKey)
-                    || preg_match('/^[1-9][0-9]*$/D', $ruleKey) !== 1
-                    || strlen($ruleKey) > strlen((string) PHP_INT_MAX)
-                    || (strlen($ruleKey) === strlen((string) PHP_INT_MAX) && strcmp($ruleKey, (string) PHP_INT_MAX) > 0)) {
-                    throw WorkflowException::definitionInvalid('Member assignment key is invalid.');
+        $sort = function (mixed $value) use (&$sort): mixed {
+            if (is_array($value)) {
+                if (!array_is_list($value)) {
+                    ksort($value, SORT_STRING);
                 }
-            } elseif (in_array($kind, ['role', 'department'], true)) {
-                $ruleKey = self::identifier($ruleKey, 64, 'assignment');
-            } elseif ($ruleKey !== null) {
-                throw WorkflowException::definitionInvalid('Contextual assignment keys must be null.');
-            }
-            $identity = $kind . ':' . ($ruleKey ?? '');
-            if (isset($seen[$identity])) {
-                throw WorkflowException::definitionInvalid('Workflow assignments must be unique.');
-            }
-            $seen[$identity] = true;
-            $assignments[] = ['kind' => $kind, 'key' => $ruleKey];
-        }
-        usort($assignments, static fn(array $left, array $right): int => [$left['kind'], $left['key'] ?? ''] <=> [$right['kind'], $right['key'] ?? '']);
-
-        return new WorkflowNode($key, $type, $completion, $assignments);
-    }
-
-    /**
-     * @param array<string, mixed> $input
-     * @param array<string, WorkflowNode> $nodes
-     */
-    private static function parseTransition(array $input, array $nodes): WorkflowTransition
-    {
-        self::assertExactKeys($input, self::TRANSITION_KEYS);
-        $key = self::identifier($input['key'] ?? null, 64, 'transition');
-        $from = self::identifier($input['from'] ?? null, 64, 'transition source');
-        $to = self::identifier($input['to'] ?? null, 64, 'transition target');
-        if (!isset($nodes[$from], $nodes[$to]) || hash_equals($from, $to)) {
-            throw WorkflowException::definitionInvalid('Workflow transition endpoints are invalid.');
-        }
-        $operation = self::identifier($input['operation'] ?? null, 64, 'transition operation');
-        $action = $input['action_kind'] ?? null;
-        if (!is_string($action) || !in_array($action, ['advance', 'approve', 'reject', 'return', 'withdraw', 'automate'], true)) {
-            throw WorkflowException::definitionInvalid('Workflow transition action is invalid.');
-        }
-        $permissionKeys = self::permissionKeys($input['permission_keys'] ?? null);
-        if (!is_bool($input['human_required']) || !is_bool($input['return_edge'])) {
-            throw WorkflowException::definitionInvalid('Workflow transition flags are invalid.');
-        }
-        if ($input['human_required'] && $nodes[$from]->type !== 'review') {
-            throw WorkflowException::definitionInvalid('Human transitions may leave only review nodes.');
-        }
-        if (in_array($action, ['approve', 'reject'], true) && !$input['human_required']) {
-            throw WorkflowException::definitionInvalid('Approval decisions must require a human work item.');
-        }
-        if ($action === 'automate' && $nodes[$from]->type !== 'action') {
-            throw WorkflowException::definitionInvalid('Automation transitions require a non-human action node.');
-        }
-        $maxTraversals = $input['max_traversals'];
-        if ($input['return_edge']) {
-            if (!is_int($maxTraversals) || $maxTraversals < 1 || $maxTraversals > 100) {
-                throw WorkflowException::definitionInvalid('Return transitions require a bounded traversal count.');
-            }
-        } elseif ($maxTraversals !== null) {
-            throw WorkflowException::definitionInvalid('Only return transitions may declare max_traversals.');
-        }
-
-        $notification = $input['notification_intent'];
-        if ($notification !== null) {
-            if (!is_array($notification) || array_is_list($notification)) {
-                throw WorkflowException::definitionInvalid('Notification intent is invalid.');
-            }
-            self::assertExactKeys($notification, ['template_key', 'recipient_rule']);
-            $notification = [
-                'template_key' => self::identifier($notification['template_key'] ?? null, 64, 'notification template'),
-                'recipient_rule' => $notification['recipient_rule'] ?? null,
-            ];
-            if (!is_string($notification['recipient_rule'])
-                || !in_array($notification['recipient_rule'], ['next_assignees', 'initiator', 'actor'], true)) {
-                throw WorkflowException::definitionInvalid('Notification recipient rule is invalid.');
-            }
-        }
-        $task = $input['task_intent'];
-        if ($task !== null) {
-            if (!is_array($task) || array_is_list($task)) {
-                throw WorkflowException::definitionInvalid('Task intent is invalid.');
-            }
-            self::assertExactKeys($task, ['task_type']);
-            $task = ['task_type' => self::identifier($task['task_type'] ?? null, 64, 'task type')];
-        }
-
-        return new WorkflowTransition(
-            $key,
-            $from,
-            $to,
-            $operation,
-            $action,
-            $permissionKeys,
-            $input['human_required'],
-            $input['return_edge'],
-            $maxTraversals,
-            $notification,
-            $task,
-        );
-    }
-
-    /**
-     * @param mixed $value
-     * @return non-empty-list<string>
-     */
-    private static function permissionKeys(mixed $value): array
-    {
-        if (!is_array($value) || !array_is_list($value) || $value === []) {
-            throw WorkflowException::definitionInvalid('Permission keys must be a non-empty list.');
-        }
-        $permissions = [];
-        foreach ($value as $permission) {
-            if (!is_string($permission)
-                || strlen($permission) < 3
-                || strlen($permission) > 160
-                || preg_match('/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/D', $permission) !== 1) {
-                throw WorkflowException::definitionInvalid('Workflow permission key is invalid.');
-            }
-            $permissions[$permission] = true;
-        }
-        $keys = array_keys($permissions);
-        sort($keys, SORT_STRING);
-        return $keys;
-    }
-
-    private static function identifier(mixed $value, int $maximum, string $label): string
-    {
-        if (!is_string($value)
-            || strlen($value) < 1
-            || strlen($value) > $maximum
-            || preg_match('/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/D', $value) !== 1) {
-            throw WorkflowException::definitionInvalid("Workflow {$label} key is invalid.");
-        }
-
-        return $value;
-    }
-
-    /**
-     * @param array<string, mixed> $value
-     * @param list<string> $expected
-     */
-    private static function assertExactKeys(array $value, array $expected): void
-    {
-        $actual = array_keys($value);
-        sort($actual, SORT_STRING);
-        sort($expected, SORT_STRING);
-        if ($actual !== $expected) {
-            throw WorkflowException::definitionInvalid('Workflow graph object keys are not canonical.');
-        }
-    }
-
-    /**
-     * @param list<WorkflowNode> $nodes
-     * @param array<string, list<WorkflowTransition>> $outgoing
-     */
-    private static function assertReachable(string $start, array $nodes, array $outgoing): void
-    {
-        $visited = [];
-        $pending = [$start];
-        while ($pending !== []) {
-            $key = array_pop($pending);
-            if (isset($visited[$key])) {
-                continue;
-            }
-            $visited[$key] = true;
-            foreach ($outgoing[$key] ?? [] as $edge) {
-                $pending[] = $edge->to;
-            }
-        }
-        if (count($visited) !== count($nodes)) {
-            throw WorkflowException::definitionInvalid('Workflow contains an unreachable node.');
-        }
-    }
-
-    /**
-     * @param list<WorkflowNode> $nodes
-     * @param list<WorkflowTransition> $transitions
-     */
-    private static function assertReturnEdges(array $nodes, array $transitions): void
-    {
-        $forward = [];
-        foreach ($transitions as $transition) {
-            if (!$transition->returnEdge) {
-                $forward[$transition->from][] = $transition->to;
-            }
-        }
-        $state = [];
-        $visit = function (string $node) use (&$visit, &$state, $forward): void {
-            $state[$node] = 1;
-            foreach ($forward[$node] ?? [] as $target) {
-                if (($state[$target] ?? 0) === 1) {
-                    throw WorkflowException::definitionInvalid('Workflow cycles must use declared return transitions.');
-                }
-                if (($state[$target] ?? 0) === 0) {
-                    $visit($target);
+                foreach ($value as $key => $item) {
+                    $value[$key] = $sort($item);
                 }
             }
-            $state[$node] = 2;
+            return $value;
         };
-        foreach ($nodes as $node) {
-            if (($state[$node->key] ?? 0) === 0) {
-                $visit($node->key);
+        return json_encode($sort($value), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
+    public static function keys(mixed $input, array $keys): void
+    {
+        if (!is_array($input)) {
+            throw WorkflowException::definitionInvalid('Object required.');
+        }
+        $actual = array_keys($input);
+        sort($actual);
+        sort($keys);
+        if ($actual !== $keys) {
+            throw WorkflowException::definitionInvalid('Unknown or missing fields.');
+        }
+    }
+
+    private static function config(array $node, bool $publish, string $path): void
+    {
+        $c = $node['config'];
+        if ($node['type'] === 'start') {
+            self::keys($c, []);
+        } elseif ($node['type'] === 'end') {
+            self::keys($c, ['result_code']);
+            self::identifier($c['result_code']);
+        } elseif (in_array($node['type'], ['approval', 'human_task'], true)) {
+            self::keys($c, ['allocation_mode', 'aggregation_policy', 'assignments', 'participant_rules', 'watcher_rules', 'allow_self_approval', 'opinion_required']);
+            if (is_string($c['aggregation_policy']) && !in_array($c['aggregation_policy'], ['all_approve', 'any_approve'], true)) {
+                throw WorkflowException::unsupported('workflow.' . $c['aggregation_policy'], $path . '/aggregation_policy');
+            }
+            if (!in_array($c['allocation_mode'], ['direct', 'claim', 'multi'], true) || !is_bool($c['allow_self_approval']) || !is_bool($c['opinion_required']) || ($c['allocation_mode'] === 'multi' ? ($node['type'] !== 'approval' || !in_array($c['aggregation_policy'], ['all_approve', 'any_approve'], true)) : $c['aggregation_policy'] !== null)) {
+                throw WorkflowException::definitionInvalid('Invalid allocation/aggregation.');
+            }
+            foreach (['assignments', 'participant_rules', 'watcher_rules'] as $field) {
+                self::items($c[$field], 100);
+                foreach ($c[$field] as $ruleIndex => $rule) {
+                    self::keys($rule, ['kind', 'key', 'required', 'department_scope']);
+                    if (!is_string($rule['kind'])) {
+                        throw WorkflowException::definitionInvalid('Invalid assignment kind.', $path . '/' . $field . '/' . $ruleIndex . '/kind');
+                    }
+                    if (!in_array($rule['kind'], ['member', 'role_members', 'department_members', 'department_leaders', 'subject_owner', 'initiator', 'previous_actor'], true)) {
+                        throw WorkflowException::unsupported('assignment.' . (string) $rule['kind'], $path . '/' . $field . '/' . $ruleIndex . '/kind');
+                    }
+                    if (!is_bool($rule['required']) || !($rule['department_scope'] === null || is_string($rule['department_scope'])) || (in_array($rule['kind'], ['initiator', 'previous_actor', 'subject_owner'], true) ? $rule['key'] !== null : (!is_string($rule['key']) || $rule['key'] === '' || strlen($rule['key']) > 160))) {
+                        throw WorkflowException::definitionInvalid('Invalid assignment rule.');
+                    }
+                }
+            }
+            if ($publish && $c['assignments'] === []) {
+                throw WorkflowException::definitionInvalid('Assignments required.');
+            }
+        } elseif ($node['type'] === 'exclusive_gateway') {
+            self::keys($c, ['branches', 'default_transition_key']);
+            self::identifier($c['default_transition_key']);
+            self::items($c['branches'], 50);
+            $leaves = 0;
+            foreach ($c['branches'] as $branch) {
+                self::keys($branch, ['transition_key', 'condition']);
+                self::identifier($branch['transition_key']);
+                WorkflowCondition::validate($branch['condition'], 0, $leaves);
+            }
+        } else {
+            self::keys($c, ['action_key', 'contract_version', 'input']);
+            self::identifier($c['action_key']);
+            if (!is_int($c['contract_version']) || $c['contract_version'] < 1 || !is_array($c['input'])) {
+                throw WorkflowException::definitionInvalid('Invalid service action.');
+            }
+            WorkflowActionInput::validate($c['input']);
+        }
+    }
+
+    private static function executable(array $nodes, array $edges, array $nodeIndexes, array $edgeIndexes): void
+    {
+        $starts = array_filter($nodes, static fn(array $n): bool => $n['type'] === 'start');
+        if (count($starts) !== 1) {
+            throw WorkflowException::definitionInvalid('Exactly one start node is required.', '/graph/nodes');
+        }
+        if (!array_filter($nodes, static fn(array $n): bool => $n['type'] === 'end')) {
+            throw WorkflowException::definitionInvalid('At least one end node is required.', '/graph/nodes');
+        }
+        $out = [];
+        foreach ($edges as $edgeKey => $edge) {
+            $edgePath = '/graph/transitions/' . $edgeIndexes[$edgeKey];
+            if (!isset($nodes[$edge['from']])) {
+                throw WorkflowException::definitionInvalid('Unknown transition source: ' . $edge['from'], $edgePath . '/from');
+            }
+            if (!isset($nodes[$edge['to']])) {
+                throw WorkflowException::definitionInvalid('Unknown transition target: ' . $edge['to'], $edgePath . '/to');
+            }
+            if ($edge['from'] === $edge['to'] || ($edge['return_edge'] && !in_array($nodes[$edge['to']]['type'], ['approval', 'human_task'], true))) {
+                throw WorkflowException::definitionInvalid('Invalid edge endpoints.', $edgePath);
+            }
+            $out[$edge['from']][] = $edge;
+        }
+        foreach ($nodes as $key => $node) {
+            $exits = $out[$key] ?? [];
+            $allowed = match ($node['type']) {
+                'start' => ['advance'], 'approval' => ['approve', 'reject', 'return'], 'human_task' => ['complete', 'return', 'resubmit'], 'service_task' => ['succeeded'], 'exclusive_gateway' => ['branch'], default => [],
+            };
+            foreach ($exits as $exit) {
+                if (!in_array($exit['action'], $allowed, true) || ($exit['action'] === 'return' && !$exit['return_edge'])) {
+                    throw WorkflowException::definitionInvalid('Invalid action for node type.');
+                }
+            }
+            if ($node['type'] === 'end' ? $exits !== [] : $exits === []) {
+                throw WorkflowException::definitionInvalid(($node['type'] === 'end' ? 'End node has an outgoing transition: ' : 'Node has no outgoing transition: ') . $key, '/graph/nodes/' . $nodeIndexes[$key]);
+            }
+            $required = match ($node['type']) {
+                'start' => ['advance'], 'approval' => ['approve', 'reject'], 'service_task' => ['succeeded'], default => [],
+            };
+            foreach ($required as $action) {
+                if (count(array_filter($exits, static fn(array $e): bool => $e['action'] === $action)) !== 1) {
+                    throw WorkflowException::definitionInvalid('Missing/ambiguous action at ' . $key);
+                }
+            }
+            if ($node['type'] === 'human_task' && count(array_filter($exits, static fn(array $e): bool => in_array($e['action'], ['complete', 'resubmit'], true))) !== 1) {
+                throw WorkflowException::definitionInvalid('Human task requires exactly one complete or resubmit exit.');
+            }
+            if ($node['type'] !== 'exclusive_gateway' && count(array_unique(array_column($exits, 'action'))) !== count($exits)) {
+                throw WorkflowException::definitionInvalid('Ambiguous task action.');
+            }
+            if ($node['type'] === 'start' && count($exits) !== 1) {
+                throw WorkflowException::definitionInvalid('Start requires one exit.');
+            }
+            if ($node['type'] === 'exclusive_gateway') {
+                $wanted = [...array_column($node['config']['branches'], 'transition_key'), $node['config']['default_transition_key']];
+                if (count(array_unique($wanted)) !== count($wanted) || array_diff($wanted, array_column($exits, 'key')) || array_diff(array_column($exits, 'key'), $wanted)) {
+                    throw WorkflowException::definitionInvalid('Gateway exits mismatch.');
+                }
             }
         }
-        foreach ($transitions as $transition) {
-            if (!$transition->returnEdge || !self::pathExists($transition->to, $transition->from, $forward)) {
-                if ($transition->returnEdge) {
-                    throw WorkflowException::definitionInvalid('A return transition must target an earlier workflow path.');
+        $seen = [];
+        $stack = [];
+        $visit = function (string $key) use (&$visit, &$seen, &$stack, $out): void {
+            if (isset($stack[$key])) {
+                throw WorkflowException::definitionInvalid('Ordinary cycle.');
+            }
+            if (isset($seen[$key])) {
+                return;
+            }
+            $stack[$key] = true;
+            foreach ($out[$key] ?? [] as $edge) {
+                if (!$edge['return_edge']) {
+                    $visit($edge['to']);
                 }
+            }
+            unset($stack[$key]);
+            $seen[$key] = true;
+        };
+        $visit(array_key_first($starts));
+        if (count($seen) !== count($nodes)) {
+            foreach ($nodes as $key => $_node) {
+                if (!isset($seen[$key])) {
+                    throw WorkflowException::definitionInvalid('Unreachable node: ' . $key, '/graph/nodes/' . $nodeIndexes[$key]);
+                }
+            }
+        }
+        foreach ($edges as $edge) {
+            if (!$edge['return_edge']) {
+                continue;
+            }
+            $reachable = [];
+            $walk = function (string $key) use (&$walk, &$reachable, $out): void {
+                if (isset($reachable[$key])) {
+                    return;
+                }
+                $reachable[$key] = true;
+                foreach ($out[$key] ?? [] as $next) {
+                    if (!$next['return_edge']) {
+                        $walk($next['to']);
+                    }
+                }
+            };
+            $walk($edge['to']);
+            if (!isset($reachable[$edge['from']])) {
+                throw WorkflowException::definitionInvalid('Return must target an earlier path.');
             }
         }
     }
 
-    /** @param array<string, list<string>> $edges */
-    private static function pathExists(string $from, string $to, array $edges): bool
+    private static function identifier(mixed $v): void
     {
-        $seen = [];
-        $pending = [$from];
-        while ($pending !== []) {
-            $node = array_pop($pending);
-            if (hash_equals($node, $to)) {
-                return true;
-            }
-            if (isset($seen[$node])) {
-                continue;
-            }
-            $seen[$node] = true;
-            foreach ($edges[$node] ?? [] as $target) {
-                $pending[] = $target;
-            }
+        if (!is_string($v) || strlen($v) > 64 || preg_match('/^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$/D', $v) !== 1) {
+            throw WorkflowException::definitionInvalid('Invalid identifier.');
         }
+    }
 
-        return false;
+    private static function items(mixed $v, int $limit): void
+    {
+        if (!is_array($v) || !array_is_list($v) || count($v) > $limit) {
+            throw WorkflowException::definitionInvalid('List/capacity invalid.');
+        }
+    }
+
+    private static function strings(mixed $v, bool $required = false): void
+    {
+        self::items($v, 100);
+        if (($required && !$v) || count(array_unique($v)) !== count($v)) {
+            throw WorkflowException::definitionInvalid('Invalid identifier list.');
+        }
+        foreach ($v as $item) {
+            self::identifier($item);
+        }
     }
 }

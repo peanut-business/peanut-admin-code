@@ -18,6 +18,7 @@ final readonly class InboxTaskHandler implements TaskHandler
 {
     public function __construct(
         private NotificationRepository $repository,
+        private \PeanutAdmin\Modules\Notification\Infrastructure\Authorization\NotificationAsyncAuthorization $authorization,
     ) {}
 
     public function key(): string
@@ -28,10 +29,9 @@ final readonly class InboxTaskHandler implements TaskHandler
     public function handle(AuthorizedOperationContext $context, JobExecution $execution): void
     {
         $outboxKey = $this->outboxKey($execution);
-        if ($context->tenantContext->tenantId !== $execution->tenantId
-            || !hash_equals(Package::RESOURCE_KEY, $context->resourceKey)
-            || !hash_equals('manage', $context->operation)
-        ) {
+        $checked = $this->authorization->authorizeCurrent($context->tenantContext, $outboxKey);
+        if ($context->tenantContext->tenantId !== $execution->tenantId || $checked->resourceKey !== $context->resourceKey || $checked->operation !== $context->operation
+            || json_encode($checked->targets, JSON_THROW_ON_ERROR) !== json_encode($context->targets, JSON_THROW_ON_ERROR)) {
             throw NotificationException::denied();
         }
         $execution->checkpoint();
@@ -39,6 +39,7 @@ final readonly class InboxTaskHandler implements TaskHandler
             Db::transaction(function () use ($execution, $outboxKey): void {
                 $execution->assertLeaseOwned();
                 $this->repository->deliverInbox($execution->tenantId, $outboxKey, $execution->jobKey);
+                $execution->assertLeaseOwned();
             });
         } catch (NotificationException $exception) {
             throw $exception;

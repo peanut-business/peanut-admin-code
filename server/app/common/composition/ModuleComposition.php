@@ -31,6 +31,9 @@ final readonly class ModuleComposition
     {
         $providerClasses = [];
         $providers = [];
+        $selected = array_column(array_map(static fn($manifest) => $manifest->data, $registry->modules), 'key');
+        $taskSelected = in_array('official.task', $selected, true);
+        $workflowSelected = in_array('peanut.workflow', $selected, true);
         $taskWorkers = [];
         $fileDocumentPolicy = null;
         $documentOwnerPolicies = [];
@@ -95,7 +98,6 @@ final readonly class ModuleComposition
             }
         }
 
-        $taskRegistry = new TaskWorkerDefinitionRegistry($taskWorkers);
         $contentRegistry = null;
         if (isset($selectedModuleKeys['official.content-tools'])) {
             $contentRegistry = ContentToolRegistry::withBuiltins();
@@ -131,6 +133,23 @@ final readonly class ModuleComposition
         foreach ($providers as $providerClass => $provider) {
             $this->app->instance($providerClass, $provider);
         }
+        // Optional worker contributions are collected after selected module bindings exist.
+        if ($taskSelected && $workflowSelected) {
+            foreach ($providers as $provider) {
+                if ($provider instanceof TaskWorkerContributor
+                    || !$provider instanceof \PeanutAdmin\Modules\Workflow\Integration\WorkflowScenarioContributor
+                    || !method_exists($provider, 'taskWorkerDefinitions')) {
+                    continue;
+                }
+                foreach ($provider->taskWorkerDefinitions() as $definition) {
+                    if (!is_string($definition) || !is_a($definition, TaskWorkerDefinition::class, true)) {
+                        throw new ModuleException('MODULE_TASK_WORKER_INVALID', 'Workflow worker contribution is invalid.');
+                    }
+                    $taskWorkers[] = ['module_key' => $provider->moduleKey(), 'definition' => $definition];
+                }
+            }
+        }
+        $taskRegistry = new TaskWorkerDefinitionRegistry($taskWorkers);
         $this->app->instance(TaskWorkerDefinitionRegistry::class, $taskRegistry);
         if ($contentRegistry !== null) {
             $this->app->instance(ContentToolRegistry::class, $contentRegistry);
@@ -143,6 +162,46 @@ final readonly class ModuleComposition
             );
         } elseif ($documentOwnerPolicies !== []) {
             throw new ModuleException('MODULE_DOCUMENT_OWNER_UNAVAILABLE', 'Business owner contributions require the installed Document module.');
+        }
+
+        $dataPermissions = new \PeanutAdmin\DataPermission\Runtime\DataPermissionRuntimeRegistry();
+        foreach ($providers as $provider) {
+            if ($provider instanceof \PeanutAdmin\DataPermission\Runtime\DataPermissionModuleProvider) {
+                $provider->registerDataPermission($dataPermissions);
+            }
+        }
+        $this->app->instance(\PeanutAdmin\DataPermission\Runtime\DataPermissionRuntimeRegistry::class, $dataPermissions);
+        $this->app->instance(\PeanutAdmin\DataPermission\Provider\ResourceProviderRegistry::class, $dataPermissions->resourceProviders);
+        $this->app->instance(\PeanutAdmin\DataPermission\Target\TargetResolverRegistry::class, $dataPermissions->targetResolvers);
+        $this->app->instance(\PeanutAdmin\DataPermission\Target\TargetCatalogProviderRegistry::class, $dataPermissions->targetCatalogProviders);
+        $this->app->instance(\PeanutAdmin\DataPermission\Provider\SharedMasterScopeProviderRegistry::class, $dataPermissions->sharedMasterProviders);
+        if ($workflowSelected) {
+            $scenarios = new \PeanutAdmin\Modules\Workflow\Integration\WorkflowScenarioRegistry();
+            $contributors = [];
+            foreach ($providers as $provider) {
+                if ($provider instanceof \PeanutAdmin\Modules\Workflow\Integration\WorkflowScenarioContributor) {
+                    $provider->registerWorkflowScenarios($scenarios, $this->app);
+                    $contributors[] = $provider;
+                }
+            }
+            $this->app->instance(\PeanutAdmin\Modules\Workflow\Integration\WorkflowScenarioRegistry::class, $scenarios);
+            if ($this->app->bound(\PeanutAdmin\Modules\Notification\Contract\NotificationProducerRegistry::class)) {
+                $producers = $this->app->make(\PeanutAdmin\Modules\Notification\Contract\NotificationProducerRegistry::class);
+                foreach ($contributors as $provider) {
+                    if (method_exists($provider, 'notificationProducers')) {
+                        foreach ($provider->notificationProducers($this->app) as $producer) { $producers->register($producer); }
+                    }
+                }
+            }
+            if ($taskSelected) {
+                $this->app->bind(\PeanutAdmin\Modules\Task\Contract\TrustedJobPublisher::class, function () use ($contributors) {
+                    $submissions = [];
+                    foreach ($contributors as $provider) {
+                        array_push($submissions, ...$provider->workflowTaskSubmissions($this->app));
+                    }
+                    return $this->app->make(\PeanutAdmin\Modules\Task\Contract\TaskJobRuntime::class)->publisher(...$submissions);
+                });
+            }
         }
     }
 

@@ -9,6 +9,133 @@ use RuntimeException;
 
 final class EditionProjector
 {
+    /** Final bytes are projected before the canonical Plugin writer and API inventory. */
+    public function workflow(string $stage, array $files, string $mode): array
+    {
+        if (!in_array($mode, ['none', 'runtime', 'full'], true)) {
+            throw new RuntimeException('CREATE_APP_WORKFLOW_MODE_INVALID');
+        }
+        $result = [];
+        foreach ($files as $file) {
+            $path = $file['path'];
+            $workflow = str_starts_with($path, 'server/app/modules/peanut/workflow/') || str_starts_with($path, 'web/src/modules/peanut-workflow/') || str_starts_with($path, 'plugins/peanut.workflow/')
+                || str_starts_with($path, 'server/app/modules/official/article/src/Integration/Workflow/')
+                || str_starts_with($path, 'server/app/modules/official/article/resources/workflows/') || str_starts_with($path, 'web/src/modules/official-article/workflow/')
+                || str_starts_with($path, 'web/src/modules/official-article/views/review/');
+            $design = str_starts_with($path, 'web/src/modules/peanut-workflow/designer/')
+                || in_array($path, ['server/app/modules/peanut/workflow/route/design.php', 'server/app/modules/peanut/workflow/src/Controller/WorkflowDefinitionController.php', 'server/app/modules/peanut/workflow/src/Application/WorkflowDefinitionService.php', 'server/app/modules/peanut/workflow/src/Http/WorkflowJsonProjection.php'], true);
+            $absolute = $stage . '/' . $path;
+            if (($mode === 'none' && ($workflow || $path === 'server/app/command/WorkflowInstallManaged.php')) || ($mode === 'runtime' && $design)) {
+                if (!unlink($absolute)) {
+                    throw new RuntimeException('CREATE_APP_WORKFLOW_REMOVE_FAILED: ' . $path);
+                }
+                continue;
+            }
+            $content = (string) file_get_contents($absolute);
+            if ($mode === 'none' && $path === 'web/src/modules/official-article/contribution.ts') {
+                $content = $this->removeRange($content, '        // Workflow review route start:', '        // Workflow review route end.');
+            }
+            if ($mode === 'none' && $path === 'web/src/modules/official-article/views/list/index.vue') {
+                $content = $this->removeRange($content, '              <!-- Workflow review entry start:', '              <!-- Workflow review entry end. -->');
+                $content = $this->replaceOnce($content, "  import { useAppStore } from '@/store';\n", '', 'CREATE_APP_ARTICLE_WORKFLOW_IMPORT_INVALID');
+                $content = $this->replaceOnce($content, "  const appStore = useAppStore();\n", '', 'CREATE_APP_ARTICLE_WORKFLOW_STATE_INVALID');
+            }
+            if ($mode === 'runtime' && $path === 'web/src/modules/peanut-workflow/contribution.ts') {
+                $content = "export { default } from './runtime/contribution';\n";
+            }
+            if ($mode === 'runtime' && $path === 'server/app/modules/peanut/workflow/src/ModuleProvider.php') {
+                $start = strpos($content, '            \\PeanutAdmin\\Modules\\Workflow\\Application\\WorkflowDefinitionService::class =>');
+                $end = strpos($content, '            \\PeanutAdmin\\Modules\\Workflow\\Application\\WorkflowCommands::class =>');
+                if ($start === false || $end === false || $end <= $start) {
+                    throw new RuntimeException('CREATE_APP_WORKFLOW_PROVIDER_INVALID');
+                }
+                $content = substr($content, 0, $start) . substr($content, $end);
+            }
+            if ($mode === 'runtime' && $path === 'server/app/modules/peanut/workflow/module.json') {
+                $document = json_decode($content, true, 128, JSON_THROW_ON_ERROR);
+                $document['contracts']['exports'] = array_values(array_filter($document['contracts']['exports'], static fn(string $name): bool => !str_ends_with($name, '\\WorkflowDefinitionService')));
+                $content = self::json($document);
+            }
+            if ($mode === 'runtime' && $path === 'server/app/modules/peanut/workflow/src/Application/WorkflowQueries.php') {
+                $content = $this->removeRange($content, '    public function definitions(', '    public function instance(');
+                $content = $this->removeRange($content, '    private function definitionSummary(', '    private function taskManagementAllowed(');
+                $content = $this->removeRange($content, '    private function definitionContext(', '    private function page(');
+            }
+            if ($mode === 'runtime' && $path === 'web/src/modules/peanut-workflow/api.ts') {
+                foreach ([
+                    ['export interface SaveReceipt {', 'export interface StartInput {'],
+                    ['  scenario(', '  dispose(): void;'],
+                    ['  definition(', '  inbox('],
+                    ['export function parseIssues(', 'function parseInboxTask('],
+                    ['export function readGraph(', 'export function createWorkflowApi('],
+                    ['    async scenario(', '    async inbox('],
+                ] as [$start, $end]) {
+                    $content = $this->removeRange($content, $start, $end);
+                }
+                foreach (['EditorDocument', 'ValidationIssue', 'WorkflowDefinition', 'WorkflowNode', 'WorkflowScenario'] as $type) {
+                    $content = $this->replaceOnce($content, '  ' . $type . ",\n", '', 'CREATE_APP_WORKFLOW_SDK_IMPORT_INVALID');
+                }
+            }
+            if ($mode === 'runtime' && $path === 'server/app/modules/peanut/workflow/resources/permissions.json') {
+                $permissions = json_decode($content, true, 128, JSON_THROW_ON_ERROR);
+                $content = self::json(array_values(array_filter($permissions, static fn(array $permission): bool => !str_starts_with($permission['key'], 'peanut.workflow.definition.'))));
+            }
+            if ($mode === 'runtime' && $path === 'server/app/modules/peanut/workflow/resources/menus.json') {
+                $menus = json_decode($content, true, 128, JSON_THROW_ON_ERROR);
+                $content = self::json(array_values(array_filter($menus, static fn(array $menu): bool => $menu['key'] !== 'peanut.workflow.designer')));
+            }
+            if ($path === 'server/composer.json') {
+                $composer = json_decode($content, true, 128, JSON_THROW_ON_ERROR);
+                unset($composer['autoload']['psr-4']['PeanutAdmin\\Fixtures\\WorkflowBusiness\\']);
+                if ($mode === 'none') {
+                    unset($composer['autoload']['psr-4']['PeanutAdmin\\Modules\\Workflow\\']);
+                }
+                $content = self::json($composer);
+            }
+            if ($mode === 'none' && $path === 'server/config/console.php') {
+                $content = preg_replace('/^.*workflow:install-managed.*\n/m', '', $content) ?? $content;
+            }
+            if ($mode !== 'full' && $path === 'web/package.json') {
+                $package = json_decode($content, true, 128, JSON_THROW_ON_ERROR);
+                foreach (array_keys($package['dependencies']) as $dependency) {
+                    if (str_starts_with($dependency, '@vue-flow/')) {
+                        unset($package['dependencies'][$dependency]);
+                    }
+                }
+                $content = self::json($package);
+            }
+            if ($mode !== 'full' && $path === 'web/pnpm-lock.yaml') {
+                // Only importer declarations select installed dependencies. Unused lock
+                // resolutions are retained until the consumer's next native lock update.
+                $content = preg_replace('/^      \'@vue-flow\/[^\']+\':\n(?:        [^\n]*\n)+/m', '', $content) ?? $content;
+            }
+            if ($content !== file_get_contents($absolute)) {
+                $this->writeFile($absolute, $content, $file['mode']);
+                $file['sha256'] = hash('sha256', $content);
+            }
+            $result[] = $file;
+        }
+        return $result;
+    }
+
+    private static function json(array $document): string
+    {
+        return json_encode($document, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
+    }
+
+    private function removeRange(string $content, string $start, string $end): string
+    {
+        if (substr_count($content, $start) !== 1 || substr_count($content, $end) !== 1) {
+            throw new RuntimeException('CREATE_APP_WORKFLOW_PROJECTION_SOURCE_INVALID');
+        }
+        $from = strpos($content, $start);
+        $to = strpos($content, $end);
+        if ($to <= $from) {
+            throw new RuntimeException('CREATE_APP_WORKFLOW_PROJECTION_ORDER_INVALID');
+        }
+        return substr($content, 0, $from) . substr($content, $to);
+    }
+
     private const PATHS = [
         'deploy/docker/nginx-select-admin.sh',
         'deploy/docker/production.Dockerfile',

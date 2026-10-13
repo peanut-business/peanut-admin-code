@@ -63,6 +63,7 @@ final class ApplicationCreator
         string $edition,
         ?string $applicationVersion = null,
         string $profile = 'standard',
+        string $workflow = 'runtime',
     ): array {
         $journal = $this->sourceRoot . '/.local/module-source-adoption/journal.json';
         if (file_exists($journal) || is_link($journal)) {
@@ -71,6 +72,9 @@ final class ApplicationCreator
         $inventory = $this->loadInventory();
         if (!in_array($profile, self::PROFILES, true)) {
             throw new RuntimeException('CREATE_APP_PROFILE_INVALID');
+        }
+        if (!in_array($workflow, ['none', 'runtime', 'full'], true)) {
+            throw new RuntimeException('CREATE_APP_WORKFLOW_MODE_INVALID');
         }
         $editionProfile = EditionProfile::load(
             $this->sourceRoot . '/scaffold/edition-profiles.json',
@@ -169,6 +173,7 @@ final class ApplicationCreator
             if ($this->projectEdition) {
                 $files = $this->projectEdition($stage, $inventory, $files, $editionProfile);
             }
+            $files = (new EditionProjector())->workflow($stage, $files, $workflow);
             $files = $this->rebuildBundledPluginArtifacts($stage, $files);
             if ($adoptsEdition) {
                 $this->assertAdoptionEquivalent($stage, $adoption, $parameters, $files);
@@ -198,6 +203,7 @@ final class ApplicationCreator
                 $files,
                 $profile,
                 $editionProfile,
+                $workflow,
             );
 
             if (is_dir($target) && !rmdir($target)) {
@@ -1111,7 +1117,7 @@ final class ApplicationCreator
                 throw new RuntimeException('CREATE_APP_PLUGIN_LOCK_SOURCE_INVALID');
             }
             // The source-only qualification fixture is excluded by the template inventory.
-            if ($key === 'fixture.delivery-record') {
+            if (str_starts_with($key, 'fixture.')) {
                 continue;
             }
             if (isset($keys[$key])) {
@@ -1218,7 +1224,7 @@ final class ApplicationCreator
         if ($index === false) {
             return $files;
         }
-        $generator = ScaffoldPathGuard::existingFileWithin($stage, ScaffoldPathGuard::projectPath($stage, 'scripts/generate-api-contracts.php'), 'CREATE_APP_API_GENERATOR_INVALID');
+        $generator = ScaffoldPathGuard::existingFileWithin($this->sourceRoot, ScaffoldPathGuard::projectPath($this->sourceRoot, 'scripts/generate-api-contracts.php'), 'CREATE_APP_API_GENERATOR_INVALID');
         $catalog = ScaffoldPathGuard::existingFileWithin($stage, ScaffoldPathGuard::projectPath($stage, $catalogPath), 'CREATE_APP_API_CATALOG_INVALID');
         $openapiPath = ScaffoldPathGuard::existingFileWithin($stage, ScaffoldPathGuard::projectPath($stage, 'server/generated/openapi.json'), 'CREATE_APP_OPENAPI_INVALID');
         $versionPath = ScaffoldPathGuard::existingFileWithin($stage, ScaffoldPathGuard::projectPath($stage, 'release-versions.json'), 'CREATE_APP_VERSION_INPUT_INVALID');
@@ -1232,7 +1238,7 @@ final class ApplicationCreator
         // The native producer hashes every final APP input, including branded contract sources.
         $pipes = [];
         $process = proc_open(
-            [PHP_BINARY, $generator, '--check', '--catalog-output=' . $catalog],
+            [PHP_BINARY, $generator, '--application-root=' . $stage],
             [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $pipes,
             $stage,
@@ -1247,11 +1253,20 @@ final class ApplicationCreator
         if (proc_close($process) !== 0 || !is_string($stdout)) {
             throw new RuntimeException('CREATE_APP_API_GENERATOR_FAILED: ' . trim((string) $stderr));
         }
-        $content = file_get_contents($catalog);
-        if (!is_string($content) || (fileperms($catalog) & 0777) !== $files[$index]['mode']) {
-            throw new RuntimeException('CREATE_APP_API_CATALOG_WRITE_MISMATCH');
+        foreach ($files as &$file) {
+            $path = $file['path'];
+            if (!in_array($path, ['server/generated/api-catalog.json', 'server/generated/openapi.json', 'web/src/generated/openapi.d.ts'], true)
+                && preg_match('#^web/src/modules/[^/]+/generated/openapi\.ts$#D', $path) !== 1) {
+                continue;
+            }
+            $absolute = $stage . '/' . $path;
+            $content = file_get_contents($absolute);
+            if (!is_string($content) || (fileperms($absolute) & 0777) !== $file['mode']) {
+                throw new RuntimeException('CREATE_APP_API_CATALOG_WRITE_MISMATCH: ' . $path);
+            }
+            $file['sha256'] = hash('sha256', $content);
         }
-        $files[$index]['sha256'] = hash('sha256', $content);
+        unset($file);
         return $files;
     }
 
@@ -1320,6 +1335,7 @@ final class ApplicationCreator
         array $files,
         string $profile,
         EditionProfile $editionProfile,
+        string $workflow,
     ): array {
         $baselineRoot = '.peanut/scaffold-baseline/' . $templateIdentity['version'] . '/files';
         foreach ($files as &$file) {
@@ -1348,6 +1364,7 @@ final class ApplicationCreator
                 'package_identity' => $parameters['PACKAGE_IDENTITY'],
                 'version' => $parameters['APPLICATION_VERSION'],
                 'profile' => $profile,
+                'workflow' => $workflow,
                 'edition' => $editionProfile->edition,
             ],
             'edition' => $editionProfile->identity(),

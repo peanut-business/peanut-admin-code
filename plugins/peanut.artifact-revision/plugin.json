@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "711b943fe5659051d1e3ccbaf20b0759868b62de7cc532e95aa37d685ed6da7d"
+        "sha256": "8e0c204c7c57f95e4c2a179a4c39c22f02487ecddcc2f9c18f7b4072ae96bd07"
     },
     "trust": {
         "channel": "bundled",
@@ -44,10 +44,6 @@
                     "dependencies": [
                         {
                             "module_key": "official.identity",
-                            "version": "4.0.0-rc.24"
-                        },
-                        {
-                            "module_key": "peanut.workflow",
                             "version": "4.0.0-rc.24"
                         }
                     ],
