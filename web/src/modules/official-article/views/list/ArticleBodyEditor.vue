@@ -11,18 +11,47 @@
     >
       开启多人协作
     </el-button>
-    <DocumentEditor
+    <fieldset
       v-if="editor && mountedEditor"
-      ref="documentEditor"
-      :document-id="editor.document_id"
-      :owner="editor.owner"
-      :context-key="context"
-      :metadata-resolver="resolveMetadata"
-      :resolve-transport="resolveTransport"
-      @load="detail = $event"
-      @save-state="saveState = $event"
-      @error="onEditorError"
-    />
+      class="article-document-editor"
+      :disabled="busy || enablingCollaboration || !!targetAttempt || !!attempt"
+    >
+      <DocumentEditor
+        ref="documentEditor"
+        :document-id="editor.document_id"
+        :owner="editor.owner"
+        :context-key="context"
+        :metadata-resolver="resolveMetadata"
+        :resolve-transport="resolveTransport"
+        :business-actions="documentBusinessActions"
+        @load="onDocumentLoad"
+        @save-state="saveState = $event"
+        @operation-state="onDocumentOperation"
+        @error="onEditorError"
+      />
+    </fieldset>
+    <section v-if="editor" aria-label="正文历史版本查看">
+      <label>
+        已知历史版本 ID
+        <input v-model="historyRevision" type="number" min="1" />
+      </label>
+      <el-button :disabled="busy" @click="viewHistory">查看历史版本</el-button>
+      <el-button v-if="historyRevisionId" @click="historyRevisionId = undefined"
+        >关闭历史查看</el-button
+      >
+      <p v-if="historyMessage" role="status">{{ historyMessage }}</p>
+      <DocumentViewer
+        v-if="historyRevisionId"
+        :document-id="editor.document_id"
+        :owner="editor.owner"
+        :revision-id="historyRevisionId"
+        :context-key="context"
+        :allow-downloads="false"
+        @error="
+          historyMessage = '历史版本不可用，请检查当前查看权限和版本归属。'
+        "
+      />
+    </section>
     <el-button
       v-if="collaborationBaseline && !mountedEditor"
       :disabled="busy"
@@ -87,6 +116,7 @@
   import { useUserStore } from '@/store';
   import { getSessionSnapshot } from '@/utils/auth';
   import DocumentEditor from '@/modules/official-document/components/DocumentEditor.vue';
+  import DocumentViewer from '@/modules/official-document/components/DocumentViewer.vue';
   import parseCapabilities from '@/modules/official-content-tools/src/capabilities';
   import {
     queryDocumentSaveTarget,
@@ -98,6 +128,8 @@
     DocumentCapabilities,
     DocumentSaveState,
     AuthorizedDocumentTransport,
+    DocumentSurfaceOptions,
+    DocumentOperationFeedback,
   } from '@/modules/official-document/src/contracts';
   import {
     ensureArticleBody,
@@ -153,6 +185,19 @@
   const detail = shallowRef<DocumentDetail>();
   const saveState = ref<DocumentSaveState>('idle');
   const documentEditor = ref<InstanceType<typeof DocumentEditor>>();
+  const documentBusinessActions: NonNullable<
+    DocumentSurfaceOptions['businessActions']
+  > = ['version.restore'];
+  const documentOperation = shallowRef<DocumentOperationFeedback>();
+  const documentOperationLocked = computed(
+    () =>
+      !!documentOperation.value &&
+      (documentOperation.value.state !== 'completed' ||
+        !documentOperation.value.released)
+  );
+  const historyRevision = ref('');
+  const historyRevisionId = ref<number>();
+  const historyMessage = ref('');
   const saveStateText: Record<DocumentSaveState, string> = {
     idle: '有修改尚未保存',
     syncing: '正在连接并同步正文',
@@ -185,6 +230,7 @@
     () =>
       mountedEditor.value &&
       !enablingCollaboration.value &&
+      !documentOperationLocked.value &&
       !attempt.value &&
       !reloadRequired.value &&
       editor.value?.can_edit === true &&
@@ -192,11 +238,12 @@
       editor.value.collaboration_enabled === false
   );
   watch(
-    [attempt, phase, enablingCollaboration, busy],
+    [attempt, phase, enablingCollaboration, busy, documentOperationLocked],
     () =>
       emit(
         'locked',
         busy.value ||
+          documentOperationLocked.value ||
           enablingCollaboration.value ||
           (!!attempt.value && phase.value !== 'completed')
       ),
@@ -349,6 +396,7 @@
     };
   };
   const loadMetadata = async (discardMetadata: boolean) => {
+    if (documentOperationLocked.value) return false;
     if (attempt.value && phase.value !== 'completed') return false;
     if (
       targetAttempt.value &&
@@ -609,6 +657,7 @@
     const baseline = ownerBaseline.value;
     if (
       busy.value ||
+      documentOperationLocked.value ||
       attempt.value ||
       (saveState.value !== 'saved' && saveState.value !== 'persisting') ||
       !editor.value ||
@@ -746,6 +795,33 @@
     }
     await submitOriginal();
   };
+  const onDocumentLoad = (value: DocumentDetail) => {
+    detail.value = value;
+    // Surface reload occurs only after release or an explicit baseline restart.
+    documentOperation.value = undefined;
+  };
+  const onDocumentOperation = (value: DocumentOperationFeedback) => {
+    if (disposed || value.documentId !== editor.value?.document_id) return;
+    documentOperation.value = value;
+    if (value.state === 'completed') {
+      message.value = value.released
+        ? '正文已恢复为新版本，原历史仍保留。资讯正式绑定未改变，请正常业务保存；发布状态未改变。'
+        : '正文恢复已提交，连接释放尚未确认；保留原操作编号继续查询。';
+    } else {
+      message.value =
+        '正文恢复尚未确认，业务保存和开启多人协作已暂停；请查询或继续原操作。';
+    }
+  };
+  const viewHistory = () => {
+    const revisionId = Number(historyRevision.value);
+    if (!Number.isSafeInteger(revisionId) || revisionId < 1 || !editor.value) {
+      historyMessage.value = '请输入当前正文已知的有效历史版本 ID。';
+      return;
+    }
+    historyRevisionId.value = revisionId;
+    historyMessage.value =
+      '历史版本只读查看；当前草稿、资讯正式绑定和发布状态不会改变。';
+  };
   const onEditorError = () => {
     saveState.value = 'error';
     message.value = '正文编辑不可用，请检查当前授权和服务状态。';
@@ -768,6 +844,10 @@
       reloadRequired.value = false;
       emit('metadataReady', false);
       detail.value = undefined;
+      documentOperation.value = undefined;
+      historyRevision.value = '';
+      historyRevisionId.value = undefined;
+      historyMessage.value = '';
       attempt.value = undefined;
       targetAttempt.value = undefined;
       saved.value = undefined;
@@ -786,3 +866,12 @@
   });
   defineExpose({ save });
 </script>
+
+<style scoped>
+  .article-document-editor {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+  }
+</style>
