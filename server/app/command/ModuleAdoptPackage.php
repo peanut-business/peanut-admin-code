@@ -19,10 +19,10 @@ final class ModuleAdoptPackage extends ContextualCommand
 {
     protected function configure()
     {
-        $this->setName('module:adopt-package')->setDescription('Adopt a signed private package into development source')
+        $this->setName('module:adopt-package')->setDescription('Adopt a reviewed digest-pinned private package into development source')
             ->addArgument('package', Argument::OPTIONAL, 'Tar package path')
             ->addOption('sha256', null, Option::VALUE_REQUIRED, 'Required archive SHA-256')
-            ->addOption('signature-key-id', null, Option::VALUE_REQUIRED, 'Required trusted signature key id')
+            ->addOption('signature-key-id', null, Option::VALUE_REQUIRED, 'Optional trusted signature key id when explicitly selected')
             ->addOption('recover', null, Option::VALUE_NONE, 'Resume the pending source/lock transaction only');
     }
 
