@@ -2329,7 +2329,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c1224f19a575f989ff97068466f9522fb73ac7094c7cb3ce8b3c5f3e2f8ab3e1"
+            "source_sha256": "c863e2d7ceead092e77f579b25c95d3b346ff68ecf3f60b73567d7f11f9bc051"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2648,7 +2648,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d264cc8c6a773b4ed28621092bc3e7a503a8271c78015859ccdaed1f55867d45"
+            "source_sha256": "35406c8477c49d1841d8abc3d9985792de93d287f925d07f09f84ed585c2a92e"
         },
         {
             "path": "release-versions.json",
@@ -37062,7 +37062,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7a41937ea1c4dbd89e849be12b7cdfbf77205b01c3ff727dfdd0f5dc4cc78bb6"
+            "source_sha256": "7f2c4196c15abdb4ced129bce0877db5f87aa41934afcbb1f44f34f74a33f8e9"
         },
         {
             "path": "web/src/modules/peanut-workflow/designer/WorkflowDesignerPage.vue",

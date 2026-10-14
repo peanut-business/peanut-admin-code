@@ -2060,7 +2060,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "1c5816e7e04885ff83367d35f6a19e6d7f462a0ef11abc340302a4a69a4b46d3"
+                "sha256": "7ffe12e1f648ea8cdbd8add6b83f2bfb4dda8065902c8fb51dd1813407674ad1"
             },
             "trust": {
                 "channel": "bundled",
@@ -2161,7 +2161,7 @@
                 }
             ],
             "manifest": "plugins/peanut.workflow/plugin.json",
-            "manifest_sha256": "d264cc8c6a773b4ed28621092bc3e7a503a8271c78015859ccdaed1f55867d45"
+            "manifest_sha256": "35406c8477c49d1841d8abc3d9985792de93d287f925d07f09f84ed585c2a92e"
         }
     ]
 }

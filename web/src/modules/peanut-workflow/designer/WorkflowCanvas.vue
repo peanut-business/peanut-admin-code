@@ -101,22 +101,22 @@
     const element = document.getElementById(containerId);
     if (!element || element.clientWidth === 0 || element.clientHeight === 0)
       return;
-    const viewport = props.document.layout.viewport;
-    if (!viewport && !nodesInitialized.value) return;
+    const { viewport: savedViewport } = props.document.layout;
+    if (!savedViewport && !nodesInitialized.value) return;
     if (!viewportInitialized || force) {
-      if (viewport) await flow.setViewport(viewport);
+      if (savedViewport) await flow.setViewport(savedViewport);
       else viewportInitialized = await flow.fitView({ padding: 0.2 });
-      if (viewport) viewportInitialized = true;
-    } else if (!viewport) await flow.fitView({ padding: 0.2 });
+      if (savedViewport) viewportInitialized = true;
+    } else if (!savedViewport) await flow.fitView({ padding: 0.2 });
   }
   const observer = new ResizeObserver(() => updateViewport());
   onMounted(() => {
     const element = document.getElementById(containerId);
     if (element) observer.observe(element);
-    void updateViewport();
+    updateViewport();
   });
   watch(nodesInitialized, (initialized) => {
-    if (initialized && !props.document.layout.viewport) void updateViewport();
+    if (initialized && !props.document.layout.viewport) updateViewport();
   });
   watch(
     () => props.document.layout.viewport,
