@@ -356,7 +356,6 @@ final readonly class AccountSelfService
     private function accountTenants(int $accountId, bool $lock): array
     {
         $cursor = 0;
-        $count = 0;
         $tenants = [];
         do {
             $query = TenantMember::where('account_id', $accountId)->where('id', '>', $cursor)->field('id,tenant_id')->order('id')->limit(100);
@@ -367,10 +366,6 @@ final readonly class AccountSelfService
             foreach ($rows as $row) {
                 $cursor = (int) $row['id'];
                 $tenants[(int) $row['tenant_id']] = true;
-            }
-            $count += count($rows);
-            if ($count > 1000) {
-                throw new \DomainException('ACCOUNT_AUTHORITY_TENANT_SET_TOO_LARGE');
             }
         } while (count($rows) === 100);
         $ids = array_keys($tenants);

@@ -22,11 +22,13 @@ use PeanutAdmin\Modules\Identity\Persistence\Model\Account;
 use PeanutAdmin\Modules\Identity\Persistence\Model\AuthSecurityEvent;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Credential;
 use PeanutAdmin\Modules\Identity\Persistence\Model\LoginChallenge;
+use PeanutAdmin\Modules\Identity\Persistence\Model\Tenant;
 use PeanutAdmin\Modules\Identity\Persistence\Model\TenantMember;
 use PeanutAdmin\Modules\Identity\Persistence\Model\TenantSession;
 use PeanutAdmin\Modules\Identity\Persistence\Model\TenantSessionToken;
 use PeanutAdmin\Modules\Identity\Tenancy\TenantStatus;
 use think\db\Raw;
+use think\facade\Db;
 
 final class ThinkPhpTenantAuthRepository implements TenantAuthRepository
 {
@@ -257,7 +259,7 @@ final class ThinkPhpTenantAuthRepository implements TenantAuthRepository
     ): ValidatedTenantSession {
         $accountId = TenantMember::where('tenant_id', $choice->tenantId)->where('id', $choice->memberId)->value('account_id');
         if ($accountId !== null) {
-            $this->lockAccountAuthority((int) $accountId);
+            $this->lockAccountAuthority((int) $accountId, $choice->tenantId);
         }
         $principal = TenantMember::alias('member')
             ->join('account account', 'account.id = member.account_id')
@@ -339,7 +341,7 @@ final class ThinkPhpTenantAuthRepository implements TenantAuthRepository
         if ($forUpdate) {
             $candidate = (clone $query)->find();
             if ($candidate !== null) {
-                $this->lockAccountAuthority((int) $candidate['account_id']);
+                $this->lockAccountAuthority((int) $candidate['account_id'], (int) $candidate['tenant_id']);
                 TenantSession::where('id', (int) $candidate['session_id'])->lock(true)->find();
             }
             $query->lock(true);
@@ -386,9 +388,14 @@ final class ThinkPhpTenantAuthRepository implements TenantAuthRepository
 
     public function revokeSession(int $sessionId, string $reason, DateTimeImmutable $now): void
     {
-        $accountId = TenantSession::where('id', $sessionId)->value('account_id');
-        if ($accountId !== null) {
-            $this->lockAccountAuthority((int) $accountId);
+        $binding = TenantSession::where('id', $sessionId)->field('account_id,tenant_id')->find();
+        if ($binding !== null) {
+            $this->lockAccountAuthority((int) $binding['account_id'], (int) $binding['tenant_id']);
+            $current = TenantSession::where('id', $sessionId)->lock(true)->field('account_id,tenant_id')->find();
+            if ($current === null || (int) $current['account_id'] !== (int) $binding['account_id']
+                || (int) $current['tenant_id'] !== (int) $binding['tenant_id']) {
+                throw new DomainException('AUTH_SESSION_BINDING_CHANGED');
+            }
         }
         TenantSession::where('id', $sessionId)->where('status', 'active')->update([
             'status' => 'revoked', 'revoked_at' => $this->format($now),
@@ -415,28 +422,31 @@ final class ThinkPhpTenantAuthRepository implements TenantAuthRepository
         }
     }
 
-    /** Existing writes/forUpdate calls only: fixed real account membership tenants before Account/Member/Session. */
-    private function lockAccountAuthority(int $accountId): void
+    /** Lock the real operation scope; credential/challenge/account-wide operations cover all membership tenants. */
+    private function lockAccountAuthority(int $accountId, ?int $tenantId = null): void
     {
         $pdo = Db::connect()->getPdo();
         if (!$pdo instanceof \PDO || !$pdo->inTransaction()) {
             throw new DomainException('AUTH_AUTHORITY_TRANSACTION_REQUIRED');
         }
-        $tenants = $this->accountTenants($accountId, false);
-        foreach ($tenants as $tenantId) {
-            Tenant::where('id', $tenantId)->lock(true)->find();
+        $tenants = $tenantId === null ? $this->accountTenants($accountId, false) : [$tenantId];
+        foreach ($tenants as $id) {
+            Tenant::where('id', $id)->lock(true)->find();
         }
         Account::where('id', $accountId)->lock(true)->find();
         // An unseen/new tenant must cause immediate conflict, never a reverse wait while Account is held.
-        if ($tenants !== $this->accountTenants($accountId, true)) {
-            throw new DomainException('AUTH_AUTHORITY_TENANT_SET_CHANGED');
+        if ($tenantId === null) {
+            if ($tenants !== $this->accountTenants($accountId, true)) {
+                throw new DomainException('AUTH_AUTHORITY_TENANT_SET_CHANGED');
+            }
+        } else {
+            TenantMember::where('account_id', $accountId)->where('tenant_id', $tenantId)->field('id')->order('id')->lock(true)->select();
         }
     }
 
     private function accountTenants(int $accountId, bool $lock): array
     {
         $cursor = 0;
-        $count = 0;
         $tenants = [];
         do {
             $query = TenantMember::where('account_id', $accountId)->where('id', '>', $cursor)->field('id,tenant_id')->order('id')->limit(100);
@@ -447,10 +457,6 @@ final class ThinkPhpTenantAuthRepository implements TenantAuthRepository
             foreach ($rows as $row) {
                 $cursor = (int) $row['id'];
                 $tenants[(int) $row['tenant_id']] = true;
-            }
-            $count += count($rows);
-            if ($count > 1000) {
-                throw new DomainException('AUTH_AUTHORITY_TENANT_SET_TOO_LARGE');
             }
         } while (count($rows) === 100);
         $ids = array_keys($tenants);

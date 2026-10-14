@@ -63,21 +63,11 @@ final readonly class ModuleAuthorizationCatalogSynchronizer
             return;
         }
         Db::transaction(function () use ($moduleKeys): void {
-            $tenantIds = array_map('intval', Db::name('tenant_module')
-                ->whereIn('module_key', $moduleKeys)->distinct(true)->order('tenant_id')->limit(1001)->column('tenant_id'));
-            if (count($tenantIds) > 1000) {
-                throw new \DomainException('MODULE_AUTHORITY_TENANT_SET_LIMIT');
-            }
+            $tenantIds = $this->affectedTenantIds($moduleKeys, false);
             foreach ($tenantIds as $tenantId) {
                 Db::name('tenant')->where('id', $tenantId)->lock(true)->find();
             }
-            $rowLimit = 1000 * count(array_unique($moduleKeys));
-            $lockedTenantIds = array_map('intval', Db::name('tenant_module')
-                ->whereIn('module_key', $moduleKeys)->lock('FOR UPDATE NOWAIT')->order('tenant_id,module_key')->limit($rowLimit + 1)->column('tenant_id'));
-            if (count($lockedTenantIds) > $rowLimit) {
-                throw new \DomainException('MODULE_AUTHORITY_TENANT_SET_LIMIT');
-            }
-            $lockedTenantIds = array_values(array_unique($lockedTenantIds));
+            $lockedTenantIds = $this->affectedTenantIds($moduleKeys, true);
             if ($tenantIds !== $lockedTenantIds) {
                 throw new \DomainException('MODULE_AUTHORITY_TENANT_SET_CHANGED');
             }
@@ -93,6 +83,28 @@ final readonly class ModuleAuthorizationCatalogSynchronizer
                 ]);
             }
         });
+    }
+
+    /** Complete selected-module population in fixed read/lock batches; no total tenant limit. */
+    private function affectedTenantIds(array $moduleKeys, bool $lock): array
+    {
+        $cursor = 0;
+        $tenants = [];
+        do {
+            $query = Db::name('tenant_module')->whereIn('module_key', $moduleKeys)
+                ->where('id', '>', $cursor)->field('id,tenant_id')->order('id')->limit(100);
+            if ($lock) {
+                $query->lock('FOR UPDATE NOWAIT');
+            }
+            $rows = $query->select()->toArray();
+            foreach ($rows as $row) {
+                $cursor = (int) $row['id'];
+                $tenants[(int) $row['tenant_id']] = true;
+            }
+        } while (count($rows) === 100);
+        $ids = array_keys($tenants);
+        sort($ids, SORT_NUMERIC);
+        return $ids;
     }
 
     private function synchronizePermissions(ManifestDocument $module): void
