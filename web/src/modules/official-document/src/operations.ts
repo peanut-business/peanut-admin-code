@@ -34,15 +34,26 @@ export function parseSaveTarget(
   requestId: string
 ): DocumentSaveTargetReceipt {
   const row = record(value);
+  const unprepared =
+    ['not_prepared', 'canceled'].includes(String(row.phase)) &&
+    row.target_binary_sha256 === null &&
+    row.target_projection_sha256 === null &&
+    row.target_progress === null &&
+    row.store_id === null &&
+    row.state_seq === null &&
+    row.committed_binary_sha256 === null &&
+    row.revision_id === null;
   if (
     row.document_id !== documentId ||
     row.request_id !== requestId ||
-    !['prepared', 'confirmed', 'consumed', 'canceled'].includes(
+    !['not_prepared', 'prepared', 'confirmed', 'consumed', 'canceled'].includes(
       String(row.phase)
     ) ||
-    !digest(row.target_binary_sha256) ||
-    !digest(row.target_projection_sha256) ||
-    !integer(row.target_progress) ||
+    (row.phase === 'not_prepared' && !unprepared) ||
+    (!unprepared &&
+      (!digest(row.target_binary_sha256) ||
+        !digest(row.target_projection_sha256) ||
+        !integer(row.target_progress))) ||
     (row.revision_id !== null && !integer(row.revision_id, 1)) ||
     (row.phase === 'prepared' &&
       (row.store_id !== null ||

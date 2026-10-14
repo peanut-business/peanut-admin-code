@@ -8426,10 +8426,10 @@ export interface components {
                 document_id: number;
                 request_id: string;
                 /** @enum {string} */
-                phase: "prepared" | "confirmed" | "consumed" | "canceled";
-                target_binary_sha256: string;
-                target_projection_sha256: string;
-                target_progress: number;
+                phase: "not_prepared" | "prepared" | "confirmed" | "consumed" | "canceled";
+                target_binary_sha256: string | null;
+                target_projection_sha256: string | null;
+                target_progress: number | null;
                 store_id: string | null;
                 state_seq: number | null;
                 committed_binary_sha256: string | null;

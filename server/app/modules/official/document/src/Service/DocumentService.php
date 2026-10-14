@@ -704,17 +704,22 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
         return $this->authorization->run($context, fn(TenantContext $current): array => Db::transaction(function () use ($current, $documentId, $requestId): array {
             $this->authorization->document($current, $documentId, 'version.create', true);
             $target = DocumentOperation::where('document_id', $documentId)->where('operation_id', 'target:' . hash('sha256', $requestId))->lock(true)->find();
-            if ($target === null || $target->action !== 'collaboration.target') {
+            if ($target === null) {
+                return ['document_id' => $documentId,'request_id' => $requestId,'phase' => 'not_prepared',
+                    'target_binary_sha256' => null,'target_projection_sha256' => null,'target_progress' => null,
+                    'store_id' => null,'state_seq' => null,'committed_binary_sha256' => null,'revision_id' => null];
+            }
+            if ($target->action !== 'collaboration.target') {
                 throw BusinessException::notFound('DOCUMENT_TARGET_NOT_FOUND', '点击目标不存在');
             }
             $this->assertBusinessActor($current, $target);
             $command = self::json($target->command_input_json);
-            $frozen = $command['frozen'];
+            $frozen = $command['frozen'] ?? [];
             $proof = self::json($target->result_json);
             return ['document_id' => $documentId,'request_id' => $requestId,
                 'phase' => ($command['canceled'] ?? false) ? 'canceled' : ($target->phase === 'completed' ? 'consumed' : (isset($command['confirmed']) ? 'confirmed' : 'prepared')),
-                'target_binary_sha256' => $frozen['target_binary_sha256'],'target_projection_sha256' => $frozen['target_projection_sha256'],
-                'target_progress' => $frozen['target_progress'],'store_id' => $proof['store_id'] ?? null,
+                'target_binary_sha256' => $frozen['target_binary_sha256'] ?? null,'target_projection_sha256' => $frozen['target_projection_sha256'] ?? null,
+                'target_progress' => $frozen['target_progress'] ?? null,'store_id' => $proof['store_id'] ?? null,
                 'state_seq' => $proof['state_seq'] ?? null,'committed_binary_sha256' => $proof['committed_binary_sha256'] ?? null,
                 'revision_id' => $command['revision_id'] ?? null];
         }));
@@ -1129,12 +1134,15 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
             $old = DocumentOperation::where('document_id', $documentId)->where('operation_id', $key)->lock(true)->find();
             if ($old !== null) {
                 $this->assertBusinessActor($current, $old);
-                if ($old->action !== 'collaboration.target' || $old->input_sha256 !== $input->hash()) {
+                if ($old->action !== 'collaboration.target') {
                     throw BusinessException::conflict('DOCUMENT_TARGET_IDEMPOTENCY_CONFLICT', '点击目标不可改变');
                 }
                 $original = self::json($old->command_input_json);
                 if (($original['canceled'] ?? false) === true) {
                     throw BusinessException::conflict('DOCUMENT_TARGET_CANCELED', '已明确放弃的目标不能重新准备');
+                }
+                if ($old->input_sha256 !== $input->hash()) {
+                    throw BusinessException::conflict('DOCUMENT_TARGET_IDEMPOTENCY_CONFLICT', '点击目标不可改变');
                 }
                 if (($original['document_auth_revision'] ?? null) !== (int) $document->auth_revision || RichTextProjection::canonical($original['owner'] ?? null) !== RichTextProjection::canonical(self::ownerArray($owner))) {
                     throw BusinessException::conflict('DOCUMENT_TARGET_BINDING_CHANGED', '点击目标业务授权或归属已改变');
@@ -1286,8 +1294,26 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
         self::requestKey($requestId);
         return $this->authorization->run($context, fn(TenantContext $current): array => Db::transaction(function () use ($current, $documentId, $requestId): array {
             $document = $this->authorization->document($current, $documentId, 'version.create', true);
-            $target = DocumentOperation::where('document_id', $documentId)->where('operation_id', 'target:' . hash('sha256', $requestId))->lock(true)->find();
-            if ($target === null || $target->action !== 'collaboration.target') {
+            $key = 'target:' . hash('sha256', $requestId);
+            $target = DocumentOperation::where('document_id', $documentId)->where('operation_id', $key)->lock(true)->find();
+            $result = ['document_id' => $documentId,'request_id' => $requestId,'phase' => 'canceled'];
+            if ($target === null) {
+                $owner = DocumentAuthorizationService::reference($document);
+                $this->explicitTargetDocument($document, $owner);
+                if (DocumentOperation::where('document_id', $documentId)->where('operation_id', $requestId)->lock(true)->find() !== null) {
+                    throw BusinessException::conflict('DOCUMENT_TARGET_BUSINESS_STARTED', '正式保存已开始或已完成，须查询原业务操作');
+                }
+                // No preparation exists, so only the real cancellation input is retained; there is no target snapshot or reference reservation.
+                $command = ['document_id' => $documentId,'request_id' => $requestId,'owner' => self::ownerArray($owner),
+                    'document_auth_revision' => (int) $document->auth_revision,'canceled' => true];
+                DocumentOperation::create(['tenant_id' => $current->tenantId,'document_id' => $documentId,'operation_id' => $key,
+                    'action' => 'collaboration.target','input_sha256' => self::inputHash($command),
+                    'result_json' => json_encode($result, JSON_THROW_ON_ERROR),'phase' => 'completed',
+                    'initiator_json' => json_encode(self::businessActor($current), JSON_THROW_ON_ERROR),
+                    'command_input_json' => json_encode($command, JSON_THROW_ON_ERROR),'created_at' => self::now()]);
+                return $result;
+            }
+            if ($target->action !== 'collaboration.target') {
                 throw BusinessException::notFound('DOCUMENT_TARGET_NOT_FOUND', '原点击目标不存在');
             }
             $this->assertBusinessActor($current, $target);
@@ -1295,7 +1321,6 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
             if (RichTextProjection::canonical($command['owner'] ?? null) !== RichTextProjection::canonical(self::ownerArray(DocumentAuthorizationService::reference($document)))) {
                 throw BusinessException::conflict('DOCUMENT_TARGET_BINDING_CHANGED', '点击目标业务对象归属已改变');
             }
-            $result = ['document_id' => $documentId,'request_id' => $requestId,'phase' => 'canceled'];
             if (($command['canceled'] ?? false) === true) {
                 return $result;
             }

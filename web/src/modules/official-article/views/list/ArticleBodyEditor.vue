@@ -691,6 +691,11 @@
         original.documentId,
         original.requestId
       );
+      if (target.phase === 'not_prepared') {
+        message.value =
+          '原保存目标尚未准备成功，未生成业务版本。原请求和本地内容已保留，可明确取消原目标后重新加载。';
+        return;
+      }
       if (target.phase === 'canceled') {
         message.value =
           '原保存目标已取消，未另建正式版本。重新加载会放弃本地未确认内容，请使用明确的取消并重新加载操作。';

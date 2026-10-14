@@ -484,6 +484,10 @@
       )
         return;
       const target = parseSaveTarget(data, documentId, requestId);
+      if (target.phase === 'not_prepared') {
+        emit('denied', 'DOCUMENT_SAVE_TARGET_NOT_PREPARED');
+        return;
+      }
       if (target.phase === 'canceled') {
         emit('denied', 'DOCUMENT_SAVE_TARGET_CANCELED');
         return;

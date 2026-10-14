@@ -48,11 +48,11 @@
         },
         {
             "path": "server/app/modules/official/collaboration/route/app.php",
-            "sha256": "741c3b604eaccd9d40357992a1430a716dde0da232a5d2e128f16dbadeb8253c"
+            "sha256": "01c2474f40f8c6b79db501dbd3e2e890d40662c3431cf7ca702e00729b674a67"
         },
         {
             "path": "server/app/modules/official/document/api/metadata/openapi.php",
-            "sha256": "095798b4e6a6736eafb46f8dff9c620090b90f3e7242e1ce5be7d660cc06fd26"
+            "sha256": "8e9d5cdc83cd71962b32d4b921feca8aa41e1dc459287b4c478e8e43597b9b38"
         },
         {
             "path": "server/app/modules/official/document/route/app.php",

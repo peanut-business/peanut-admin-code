@@ -44714,6 +44714,7 @@
                             "phase": {
                                 "type": "string",
                                 "enum": [
+                                    "not_prepared",
                                     "prepared",
                                     "confirmed",
                                     "consumed",
@@ -44722,15 +44723,18 @@
                             },
                             "target_binary_sha256": {
                                 "type": "string",
-                                "pattern": "^[0-9a-f]{64}$"
+                                "pattern": "^[0-9a-f]{64}$",
+                                "nullable": true
                             },
                             "target_projection_sha256": {
                                 "type": "string",
-                                "pattern": "^[0-9a-f]{64}$"
+                                "pattern": "^[0-9a-f]{64}$",
+                                "nullable": true
                             },
                             "target_progress": {
                                 "type": "integer",
-                                "minimum": 0
+                                "minimum": 0,
+                                "nullable": true
                             },
                             "store_id": {
                                 "type": "string",

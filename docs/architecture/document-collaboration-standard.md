@@ -126,7 +126,7 @@ D1 的真实 PHP 公开编排入口为 `DocumentCommands::freeze/restoreRevision
 
 Node 控制端点 `/internal/collaboration/control/v1/business-barrier` 的 URL 保留，方向 HMAC 域和传输封套采用 v2，业务正文使用协议 2。请求 header、签名正文及计划均绑定真实 Room holder；新进程必须拒绝旧 holder 请求，不能将其回答为 offline。排空结果绑定原 operation、输入摘要、Room、holder、epoch、实际 store_id/state_seq/binary_sha256/Snapshot；进度计数不代替提交证明。同一 holder 无在线房间时仅返回 offline，PHP 在业务锁内采用真实持久化基线并防止新加入。旧 holder 已死亡且业务结果未知时保留未确认状态，通用恢复不解锁或冒充排空。技术提交不能替代业务成功。恢复追加新 CAS 状态/版本/epoch，使用不可变旧 binary 与 matching projection、fresh Y.Doc，并关闭旧连接、卸载旧 native document 后才确认释放。
 
-点击目标先 prepare 保护文件引用，后用真实提交 snapshot 覆盖点击 snapshot 的证明确认；覆盖检查包含删除集合，不能仅比较状态向量或进度计数。公开目标查询只向原操作者在当前版本权限下返回 prepared、confirmed、consumed 或 canceled 及真实已有回执，不返回正文。取消只释放未消费目标的专属引用保护；已开始正式业务保存或已消费的目标不能取消。未知结果复用原请求与点击内容，不能重新加载后悄悄另建目标。confirmed/consumed 目标可在当前完整业务授权下续作原正式保存，无须原 Node 进程仍在线。
+点击目标先 prepare 保护文件引用，后用真实提交 snapshot 覆盖点击 snapshot 的证明确认；覆盖检查包含删除集合，不能仅比较状态向量或进度计数。公开目标查询在当前版本权限下，对不存在准备记录的请求返回 not_prepared，目标摘要、目标进度、提交与版本字段均为 null，不能作为已保存证明；已有目标仅向原操作者返回 prepared、confirmed、consumed 或 canceled 及真实已有回执，不返回正文。取消只释放未消费目标的专属引用保护；尚未准备的请求以原请求身份、真实人员和业务归属持久记录取消，重复取消返回同一 canceled 小回执，迟到的 prepare/register 不能复用该请求。没有快照的取消目标查询摘要与进度字段为 null，不制造提交证明。已开始正式业务保存或已消费的目标不能取消。未知结果复用原请求与点击内容，不能重新加载后悄悄另建目标。confirmed/consumed 目标可在当前完整业务授权下续作原正式保存，无须原 Node 进程仍在线。
 
 归档文档的恢复有一个明确的持久基线分支：只有 Doc 已归档、Room 已关闭、Room 与写授权均已过期、没有待办业务，且数据库正文和 Room 基线一致时，才能用 `closed_persisted` 计划在 PHP 同事务围住加入、恢复状态、推进 epoch 并释放。它不签发 Node 排空证明、不延长旧租约；下一次有权加入仍由新 holder 显式恢复并加载持久草稿。关闭但租约尚有效的房间继续使用原生签名控制，活动房间和未知业务不能走此分支。
 未知结果通过 `official.document.operation` 查询原操作并复用同 key/input；不新造 operation、不按超时解锁。正式 TLS/managed-loader/readiness 和真实数据库/多人/socket/浏览器资格由后续对应入口核验，源码协议或单元替身不证明已完成这些资格。
