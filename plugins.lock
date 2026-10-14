@@ -2175,7 +2175,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "7ffe12e1f648ea8cdbd8add6b83f2bfb4dda8065902c8fb51dd1813407674ad1"
+                "sha256": "191f0e78c37014b56f5c7970ec33b517264804e1d789783a89e46b551e7fe31c"
             },
             "trust": {
                 "channel": "bundled",
@@ -2266,7 +2266,7 @@
                     "package": "@peanut-modules/workflow-web",
                     "version": "5.0.1",
                     "entry": "web/src/modules/peanut-workflow/contribution.ts",
-                    "sha256": "917a7dd97c32897e0e3e6d2a94409bfd68cec954655ffbb7040cdbc2d448d2aa"
+                    "sha256": "645c5fc2d000cbab111918f6670bbef3f0edec32934a99e59d9f1e0ffc9af532"
                 }
             ],
             "modules": [
@@ -2276,7 +2276,7 @@
                 }
             ],
             "manifest": "plugins/peanut.workflow/plugin.json",
-            "manifest_sha256": "35406c8477c49d1841d8abc3d9985792de93d287f925d07f09f84ed585c2a92e"
+            "manifest_sha256": "6783f5de4ed706a8c0d45b537761a17f353f0a13b926a12aacb00b1c4776c194"
         }
     ]
 }

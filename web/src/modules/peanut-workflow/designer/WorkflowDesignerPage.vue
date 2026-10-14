@@ -52,6 +52,7 @@
   const error = ref('');
   const notice = ref('');
   const busy = ref(false);
+  const pageActive = ref(true);
   const conflict = ref(false);
   const serverRevision = ref<number | null>(null);
   const previewSummary = ref('');
@@ -66,12 +67,14 @@
   const previewDepartment = ref('');
   const previewSubjectType = ref('');
   const previewSubjectKey = ref('');
+  const edgeFrom = ref('');
+  const edgeTo = ref('');
   const identity =
     localStorage.getItem(SESSION_KEY) ||
     String(getSessionSnapshot().generation);
   const instanceId = ref(`workflow-${crypto.randomUUID()}`);
   const scopeKey = () =>
-    `peanut.workflow.draft:${location.origin}:${
+    `peanut.workflow.draft:${window.location.origin}:${
       import.meta.env.VITE_API_BASE_URL
     }:${user.tenantName}:${user.id}:${identity}:${moduleKey.value}:${
       workflowKey.value
@@ -90,26 +93,43 @@
   );
   let epoch = 0;
   let controller: AbortController | null = null;
-  const lifecycle = useWorkflowLifecycle(() => {
-    api.dispose();
-    epoch += 1;
-    controller?.abort();
-    history.replace(initial);
-    state.value = history.document;
-    changed.value = false;
-    definition.value = null;
-    definitionScope.value = '';
-    previewSummary.value = '';
-    previewPeople.value = [];
-    issues.value = [];
-    selectedKey.value = '';
-  });
+  let removeBeforeUnloadListener: (() => void) | undefined;
   function sync() {
     state.value = history.document;
     changed.value = history.dirty;
     canUndo.value = history.canUndo;
     canRedo.value = history.canRedo;
   }
+  const lifecycle = useWorkflowLifecycle(() => {
+    pageActive.value = false;
+    epoch += 1;
+    history.replace(initial);
+    sync();
+    moduleKey.value = '';
+    workflowKey.value = '';
+    definition.value = null;
+    definitionScope.value = '';
+    revision.value = null;
+    previewSummary.value = '';
+    previewPeople.value = [];
+    previewInitiator.value = '';
+    previewDepartment.value = '';
+    previewSubjectType.value = '';
+    previewSubjectKey.value = '';
+    issues.value = [];
+    selectedKey.value = '';
+    edgeFrom.value = '';
+    edgeTo.value = '';
+    error.value = '';
+    notice.value = '';
+    busy.value = false;
+    conflict.value = false;
+    serverRevision.value = null;
+    removeBeforeUnloadListener?.();
+    controller?.abort();
+    controller = null;
+    api.dispose();
+  });
   function change(update: (draft: EditorDocument) => void) {
     if (!lifecycle.valid() || !allowedWrite.value || busy.value) return;
     history.update(update);
@@ -136,6 +156,9 @@
     );
     notice.value = '已暂存当前身份的本地草稿，尚未保存到服务器。';
   }
+  const fail = (cause: unknown) => {
+    error.value = cause instanceof Error ? cause.message : '请求失败';
+  };
   function restoreLocal() {
     if (!lifecycle.valid()) return;
     const saved = sessionStorage.getItem(scopeKey());
@@ -147,7 +170,7 @@
       const value: unknown = JSON.parse(saved);
       if (typeof value !== 'object' || value === null || !('document' in value))
         throw new Error('Invalid local draft');
-      const document: unknown = value.document;
+      const { document } = value;
       if (
         typeof document !== 'object' ||
         document === null ||
@@ -171,9 +194,6 @@
       fail(cause);
     }
   }
-  const fail = (cause: unknown) => {
-    error.value = cause instanceof Error ? cause.message : '请求失败';
-  };
   async function load() {
     if (
       busy.value ||
@@ -193,11 +213,13 @@
         return;
       }
     }
+    if (busy.value || !lifecycle.valid()) return;
     busy.value = true;
     error.value = '';
     controller?.abort();
     controller = new AbortController();
-    const current = ++epoch;
+    epoch += 1;
+    const current = epoch;
     const requestedScope = `${moduleKey.value}:${workflowKey.value}`;
     try {
       const result = await api.definition(
@@ -230,6 +252,7 @@
     }
   }
   async function switchDefinition() {
+    if (busy.value || !lifecycle.valid()) return;
     if (changed.value) {
       try {
         await ElMessageBox.confirm(
@@ -241,6 +264,7 @@
         return;
       }
     }
+    if (busy.value || !lifecycle.valid()) return;
     epoch += 1;
     controller?.abort();
     definition.value = null;
@@ -274,7 +298,8 @@
       error.value = '定义已切换，请先读取其草稿修订';
       return;
     }
-    const current = ++epoch;
+    epoch += 1;
+    const current = epoch;
     const valid = () =>
       lifecycle.valid() &&
       current === epoch &&
@@ -318,11 +343,11 @@
       ) {
         conflict.value = true;
         try {
-          const current = await api.definition(
+          const currentDefinition = await api.definition(
             requestedModule,
             requestedWorkflow
           );
-          if (valid()) serverRevision.value = current.draft_revision;
+          if (valid()) serverRevision.value = currentDefinition.draft_revision;
         } catch {
           /* Original conflict remains visible. */
         }
@@ -413,7 +438,7 @@
   }
   async function remove() {
     if (!selected.value) return;
-    const key = selected.value.key;
+    const { key } = selected.value;
     const links = state.value.graph.transitions.filter(
       (edge) => edge.from === key || edge.to === key
     ).length;
@@ -463,8 +488,6 @@
       })
     );
   }
-  const edgeFrom = ref('');
-  const edgeTo = ref('');
   function edgeChange(
     key: string,
     field: keyof WorkflowTransition,
@@ -482,13 +505,17 @@
         edge.max_traversals = value;
     });
   }
-  const beforeUnload = (event: BeforeUnloadEvent) => {
+  function beforeUnload(event: BeforeUnloadEvent) {
     if (changed.value && lifecycle.valid()) {
       event.preventDefault();
       event.returnValue = '';
     }
-  };
-  window.addEventListener('beforeunload', beforeUnload);
+  }
+  if (lifecycle.valid()) {
+    window.addEventListener('beforeunload', beforeUnload);
+    removeBeforeUnloadListener = () =>
+      window.removeEventListener('beforeunload', beforeUnload);
+  }
   onBeforeUnmount(() =>
     window.removeEventListener('beforeunload', beforeUnload)
   );
@@ -506,7 +533,11 @@
 </script>
 
 <template>
-  <section class="workflow-designer" aria-label="工作流设计器">
+  <section
+    v-if="pageActive"
+    class="workflow-designer"
+    aria-label="工作流设计器"
+  >
     <h1>流程设计</h1>
     <el-alert
       v-if="error"
@@ -814,7 +845,15 @@
       ></footer
     >
   </section>
+  <el-alert
+    v-else
+    title="身份已变化，请重新进入工作流设计器。"
+    type="info"
+    :closable="false"
+    role="status"
+  />
 </template>
+
 <style scoped>
   .workflow-designer {
     padding: 20px;

@@ -40,6 +40,7 @@
   const events = shallowRef<WorkflowEvent[]>([]);
   const loading = ref(false);
   const submitting = ref(false);
+  const pageActive = ref(true);
   const error = ref('');
   const notice = ref('');
   const action = ref('');
@@ -58,16 +59,30 @@
   let requestEpoch = 0;
   let controller: AbortController | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
+  let removeVisibilityListener: (() => void) | undefined;
   const lifecycle = useWorkflowLifecycle(() => {
-    api.dispose();
+    pageActive.value = false;
     requestEpoch += 1;
-    controller?.abort();
     if (timer) clearTimeout(timer);
+    timer = null;
+    removeVisibilityListener?.();
     tasks.value = [];
+    count.value = 0;
     instance.value = null;
     events.value = [];
+    selectedTask.value = null;
+    action.value = '';
     comment.value = '';
+    reassignTaskKey.value = '';
+    newAssignee.value = '';
+    error.value = '';
+    notice.value = '';
     dialog.value = false;
+    loading.value = false;
+    submitting.value = false;
+    controller?.abort();
+    controller = null;
+    api.dispose();
   });
   const instanceActions = computed(
     () =>
@@ -259,6 +274,7 @@
     }
   }
   function schedule() {
+    if (!lifecycle.valid()) return;
     timer = setTimeout(async () => {
       if (!document.hidden && !dialog.value && !submitting.value) {
         if (props.instanceKey) await showInstance(props.instanceKey);
@@ -276,7 +292,11 @@
       schedule();
     }
   }
-  document.addEventListener('visibilitychange', visibility);
+  if (lifecycle.valid()) {
+    document.addEventListener('visibilitychange', visibility);
+    removeVisibilityListener = () =>
+      document.removeEventListener('visibilitychange', visibility);
+  }
   onBeforeUnmount(() =>
     document.removeEventListener('visibilitychange', visibility)
   );
@@ -292,7 +312,11 @@
 </script>
 
 <template>
-  <section class="workflow-runtime" aria-label="工作流运行中心">
+  <section
+    v-if="pageActive"
+    class="workflow-runtime"
+    aria-label="工作流运行中心"
+  >
     <h1>流程运行中心</h1>
     <el-alert
       v-if="error"
@@ -498,6 +522,13 @@
       >
     </el-dialog>
   </section>
+  <el-alert
+    v-else
+    title="身份已变化，请重新进入工作流运行中心。"
+    type="info"
+    :closable="false"
+    role="status"
+  />
 </template>
 
 <style scoped>

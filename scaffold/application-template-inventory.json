@@ -2333,7 +2333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "615c206a56e09cc16a4b7f8cabb7bbf72be831c1648cf29a6ddaa0a80f757a58"
+            "source_sha256": "85d48ee58388c87b0a1f5dcc171296cf423d875abaae5ab137fb9fbb49e384d6"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2400,7 +2400,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "35157e81c8954207f0a7efdbc1e53337a6da0f574ce0c03feeaafb45bad53c2a"
+            "source_sha256": "25a0a509a42771542da3768e92d64abe849b559ebfaed99b7fb257380d16bf9e"
         },
         {
             "path": "plugins/official.collaboration/plugin.json",
@@ -2414,7 +2414,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c0802361cdd2bd99b1530223928290ca7320e1d3fd56fed39ad88f711398de7d"
+            "source_sha256": "d133db0d9c22e13aea5a4cd96ea5077ca4f4526003ab547afbf73896315e1543"
         },
         {
             "path": "plugins/official.content-tools/plugin.json",
@@ -2442,7 +2442,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "185c775283f144852cbeb1994d324008f840f52615db3b5c8aa3971e26f644ab"
+            "source_sha256": "5756f06e665b5b3c1a8f3b466f149bd97d6b0b325d49ab0a2651ce397300b412"
         },
         {
             "path": "plugins/official.file/plugin.json",
@@ -2596,7 +2596,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bbac6ff6e617e4826b45a1fdb2fd528112bd14751556ad346e74e9f91e11e8dc"
+            "source_sha256": "40de1fc22ed387bf331c235bf0707c3c2f6db571f7df6452eedfc736e3235799"
         },
         {
             "path": "plugins/official.settings/plugin.json",
@@ -2666,7 +2666,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "35406c8477c49d1841d8abc3d9985792de93d287f925d07f09f84ed585c2a92e"
+            "source_sha256": "6783f5de4ed706a8c0d45b537761a17f353f0a13b926a12aacb00b1c4776c194"
         },
         {
             "path": "release-versions.json",
@@ -10644,7 +10644,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "741c3b604eaccd9d40357992a1430a716dde0da232a5d2e128f16dbadeb8253c"
+            "source_sha256": "01c2474f40f8c6b79db501dbd3e2e890d40662c3431cf7ca702e00729b674a67"
         },
         {
             "path": "server/app/modules/official/collaboration/src/Console/LifecycleCommand.php",
@@ -10924,7 +10924,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4b35a568ec9d3f293050d9043da554bee8999231966057ead39128ee1a959911"
+            "source_sha256": "ec2343a6f2d7031ba973fafbec2b3beeed5a63c2d8410987311703decd20372c"
         },
         {
             "path": "server/app/modules/official/collaboration/src/Service/RuntimeLifecycle.php",
@@ -11148,7 +11148,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "095798b4e6a6736eafb46f8dff9c620090b90f3e7242e1ce5be7d660cc06fd26"
+            "source_sha256": "8e9d5cdc83cd71962b32d4b921feca8aa41e1dc459287b4c478e8e43597b9b38"
         },
         {
             "path": "server/app/modules/official/document/composer.json",
@@ -11694,7 +11694,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3c17393a606d8222fe1bc9843f7553ac9e8b7377b2c48b6509951bb3604455e1"
+            "source_sha256": "bdac4c9a9d7ac16c79182a1fba5205ce83e91e43a811a614e024b07a635010df"
         },
         {
             "path": "server/app/modules/official/file/README.md",
@@ -26836,7 +26836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b76e766ec127bab4c9d67640c1ecd532b920051fb2e0c7717602b7ff1c78a92d"
+            "source_sha256": "5a6c095ba034d8db7f10db44aaf1d0df181d5ea2fc01073f968a15fa1b8c4719"
         },
         {
             "path": "server/docker/scripts/configure-runtime.py",
@@ -27157,7 +27157,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1676ffd32ff2830fcb18840480a1addfdb5944715c01a615524f77ed1c1539cf"
+            "source_sha256": "770aeebff0615667efa0588d37d93d6e5ae19bdaf56cfd8a8693f55e6ea6ee51"
         },
         {
             "path": "server/generated/openapi.json",
@@ -27171,7 +27171,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c716f92dfed53def6bbfa10c21a344c053d373372065acee31a4f7d5b5f8721c"
+            "source_sha256": "88e25eb6c86a3b5a16d21f1a075cfddc5e863bff18e53b6f2e8b701dbac8e815"
         },
         {
             "path": "server/private/storage/.gitkeep",
@@ -34750,7 +34750,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5586f0433c4df3ee46787175199ca10275696922237ea532a77055b1cb7d841e"
+            "source_sha256": "9150fc00adedbece4a662f956d948bc3d3aa6faf75efec4201b788048bfe4f4a"
         },
         {
             "path": "web/src/hooks/chart-option.ts",
@@ -35218,7 +35218,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ad53f7767e46ce77d66d26d35ffd96f28ff0bc9b4b83ca8b7c121819a3ec60ed"
+            "source_sha256": "10c80396225cee1b93172e3c530400e5d268997b5e49e78572556a1a66f3ef08"
         },
         {
             "path": "web/src/modules/official-article/views/list/index.vue",
@@ -35526,7 +35526,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e2ce69ec1ec400108b64456c798a13d5c30dd8ebcb60184e506bb56070a51697"
+            "source_sha256": "7668bea1707d54facf8bd69f205b8b3c7975501ac0802b11fae7df6cc37dc673"
         },
         {
             "path": "web/src/modules/official-document/components/DocumentSurface.vue",
@@ -35540,7 +35540,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b07df26633a067d650ab0946bc613597bda5f025a33cfe831fb480cbf6dc6ad0"
+            "source_sha256": "2e89fe935ec99dd43d5bdb596f5e3a50ea7c124b1841e3e38750ae25fff9d371"
         },
         {
             "path": "web/src/modules/official-document/components/DocumentViewer.vue",
@@ -35638,7 +35638,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a52948a697f7aeeedecd2145015f5631edaaaa593d829f8eb68d0f5b1e071034"
+            "source_sha256": "9f84f4673a20d3be4cb4dd31066c204da8ffc1fd1a9f5066a990d61e616372c1"
         },
         {
             "path": "web/src/modules/official-document/src/viewer.ts",
@@ -37528,7 +37528,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a1351c31429b3cc44b41988d3149907d5e87b813df5e89885e50a86923fe5b81"
+            "source_sha256": "2700c61c0457a5d5a7c9a333c8cc10460c1e6b4dca27a7cdbaf4f685b0c1c2c9"
         },
         {
             "path": "web/src/modules/official-rich-text/src/collaboration/tracker.ts",
@@ -38130,7 +38130,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "917a7dd97c32897e0e3e6d2a94409bfd68cec954655ffbb7040cdbc2d448d2aa"
+            "source_sha256": "645c5fc2d000cbab111918f6670bbef3f0edec32934a99e59d9f1e0ffc9af532"
         },
         {
             "path": "web/src/modules/peanut-workflow/designer/AssignmentRules.vue",
@@ -38186,7 +38186,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "327b992a9b3ecd35c4c41e460a42c672b07c65e5bd18b885509848407111b3d7"
+            "source_sha256": "cc2e8c9c2d0af578511d8e3c5a7461816a81a0de76dfadfe1cff680f93c91512"
         },
         {
             "path": "web/src/modules/peanut-workflow/designer/configuration.ts",
@@ -38270,7 +38270,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d187918cf75bc9a8d173705d049ed389bd11cd6e00fefa993cee3f40a6d8eb29"
+            "source_sha256": "da5bc59fbb99b994efc5186a2fd6ed44167b066ad530cc52e19c0e6fa0021d35"
         },
         {
             "path": "web/src/modules/peanut-workflow/runtime/WorkflowStartButton.vue",
@@ -38326,7 +38326,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1b0ba1a1ee1b469040eec1cdbd99e689549c72ac2fa79f76761f6c41ca2b171f"
+            "source_sha256": "ee6f9889542f16e240513b6c4737a2963dddd30ac70b2c576991ca61f7f2630f"
         },
         {
             "path": "web/src/modules/peanut-workflow/runtime/task-actions.ts",
@@ -39811,6 +39811,20 @@
                 "full"
             ],
             "source_sha256": "3d52f9d8eab762e45939583e8f59c02eac49ba90541d5d986da6a2883e8a69e2"
+        },
+        {
+            "path": "web/tests/Modules/PeanutWorkflow/lifecycle-isolation.test.mjs",
+            "target": "web/tests/Modules/PeanutWorkflow/lifecycle-isolation.test.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "753405538bdf782a9c3bb5255c4f09524fe56b464c97968c2a96bfaf02b4fb59"
         },
         {
             "path": "web/tests/Modules/PeanutWorkflow/transport.test.mjs",
