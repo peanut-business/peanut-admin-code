@@ -1136,7 +1136,7 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
                 if (($original['canceled'] ?? false) === true) {
                     throw BusinessException::conflict('DOCUMENT_TARGET_CANCELED', '已明确放弃的目标不能重新准备');
                 }
-                if (($original['document_auth_revision'] ?? null) !== (int) $document->auth_revision || ($original['owner'] ?? null) !== self::ownerArray($owner)) {
+                if (($original['document_auth_revision'] ?? null) !== (int) $document->auth_revision || RichTextProjection::canonical($original['owner'] ?? null) !== RichTextProjection::canonical(self::ownerArray($owner))) {
                     throw BusinessException::conflict('DOCUMENT_TARGET_BINDING_CHANGED', '点击目标业务授权或归属已改变');
                 }
                 return $original['prepared_result'];
@@ -1181,7 +1181,7 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
                 'target_projection_sha256','binary_base64','structured_content','projector_version','reference_digest','target_progress']));
             $preparation = new ExplicitTargetPreparationInput($frozen);
             if ($preparation->hash() !== $prepared->input_sha256 || ($command['document_auth_revision'] ?? null) !== (int) $document->auth_revision
-                || ($command['owner'] ?? null) !== self::ownerArray($owner)) {
+                || RichTextProjection::canonical($command['owner'] ?? null) !== RichTextProjection::canonical(self::ownerArray($owner))) {
                 throw BusinessException::conflict('DOCUMENT_TARGET_CHANGED', '确认不得改变点击目标或代际');
             }
             if (isset($command['confirmation_sha256'])) {
@@ -1259,7 +1259,7 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
             $proof = self::json($target->result_json);
             if (!isset($command['confirmed']) || ($command['canceled'] ?? false) || ($proof['state_seq'] ?? null) !== $expectedStateSeq
                 || ($command['document_auth_revision'] ?? null) !== (int) $document->auth_revision
-                || ($command['owner'] ?? null) !== self::ownerArray(DocumentAuthorizationService::reference($document))) {
+                || RichTextProjection::canonical($command['owner'] ?? null) !== RichTextProjection::canonical(self::ownerArray(DocumentAuthorizationService::reference($document)))) {
                 throw BusinessException::conflict('DOCUMENT_TARGET_NOT_CONFIRMED', '业务准备不能改变点击目标或授权');
             }
             $hash = self::inputHash([$expectedStateSeq,$reason]);
@@ -1292,7 +1292,7 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
             }
             $this->assertBusinessActor($current, $target);
             $command = self::json($target->command_input_json);
-            if (($command['owner'] ?? null) !== self::ownerArray(DocumentAuthorizationService::reference($document))) {
+            if (RichTextProjection::canonical($command['owner'] ?? null) !== RichTextProjection::canonical(self::ownerArray(DocumentAuthorizationService::reference($document)))) {
                 throw BusinessException::conflict('DOCUMENT_TARGET_BINDING_CHANGED', '点击目标业务对象归属已改变');
             }
             $result = ['document_id' => $documentId,'request_id' => $requestId,'phase' => 'canceled'];
@@ -1349,7 +1349,7 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
             $proof = self::json($target->result_json);
             if (!isset($command['confirmed']) || ($proof['state_seq'] ?? null) !== $expected
                 || ($command['document_auth_revision'] ?? null) !== (int) $document->auth_revision
-                || ($command['owner'] ?? null) !== self::ownerArray(DocumentAuthorizationService::reference($document))) {
+                || RichTextProjection::canonical($command['owner'] ?? null) !== RichTextProjection::canonical(self::ownerArray(DocumentAuthorizationService::reference($document)))) {
                 throw BusinessException::conflict('DOCUMENT_TARGET_NOT_CONFIRMED', '点击目标提交或代际不一致');
             }
             $frozen = new ExplicitTargetPreparationInput($command['frozen']);
@@ -1404,7 +1404,7 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
             'projection_sha256' => hash('sha256', $projection->json),'persisted_at' => $state->persisted_at,'target_progress' => 0];
         $old = DocumentOperation::where('document_id', $document->id)->where('operation_id', $storeId)->lock(true)->find();
         if ($old !== null) {
-            if ($old->action !== 'collaboration.baseline' || self::json($old->result_json) !== $facts) {
+            if ($old->action !== 'collaboration.baseline' || RichTextProjection::canonical(self::json($old->result_json)) !== RichTextProjection::canonical($facts)) {
                 throw BusinessException::conflict('STORE_DUPLICATE_MISMATCH', '基线事实不能改变');
             }
             return $storeId;
