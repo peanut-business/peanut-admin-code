@@ -51,7 +51,12 @@ final readonly class TenantSessionAccessService implements TenantSessionAccess
             throw TenantSessionAccessException::denied();
         }
         return TenantContext::fromValidatedSession(new ValidatedTenantSession(
-            (int) $session['id'], $sessionKey, $tenantId, $accountId, $memberId, $clientKey,
+            (int) $session['id'],
+            $sessionKey,
+            $tenantId,
+            $accountId,
+            $memberId,
+            $clientKey,
             new DateTimeImmutable((string) $session['issued_at'], new DateTimeZone('UTC')),
             $member->authorizationRevision,
         ), $requestId);
@@ -117,6 +122,17 @@ final readonly class TenantSessionAccessService implements TenantSessionAccess
                     'tenant_session',
                     hash('sha256', $sessionKey),
                     ['current' => hash_equals($context->sessionKey, $sessionKey)],
+                );
+                $this->audit->recordRevocation(
+                    $context,
+                    $member->tenantId,
+                    $member->memberId,
+                    'session',
+                    hash('sha256', $sessionKey),
+                    'session_revoked',
+                    ['status' => 'active'],
+                    ['status' => 'revoked'],
+                    hash('sha256', $sessionKey),
                 );
             }
 

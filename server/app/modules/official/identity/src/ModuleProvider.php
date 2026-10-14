@@ -39,6 +39,21 @@ final class ModuleProvider implements ModuleProviderContract
     public function bindings(): array
     {
         return [
+            \PeanutAdmin\Modules\Identity\Console\RevocationFactsCommand::class => static fn(\think\App $app) => new \PeanutAdmin\Modules\Identity\Console\RevocationFactsCommand(
+                $app->make(AuditService::class),
+                static fn() => $app->bound(\PeanutAdmin\Modules\Identity\Contract\RevocationFactDelivery::class) ? $app->make(\PeanutAdmin\Modules\Identity\Contract\RevocationFactDelivery::class) : null,
+                $app->make(\app\common\execution\ExecutionContextStore::class),
+                $app->make(\app\common\execution\CurrentExecutionContext::class),
+            ),
+            \PeanutAdmin\Modules\Identity\Contract\RevocationFacts::class => AuditService::class,
+            AuditService::class => static fn(\think\App $app): AuditService => new AuditService(
+                $app->make(\app\common\execution\CurrentExecutionContext::class),
+                static function (array $fact) use ($app): void {
+                    if ($app->bound(\PeanutAdmin\Modules\Identity\Contract\RevocationFactDelivery::class)) {
+                        $app->make(\PeanutAdmin\Modules\Identity\Contract\RevocationFactDelivery::class)->enqueueRevocation($fact);
+                    }
+                },
+            ),
             \PeanutAdmin\DataPermission\Provider\DepartmentHierarchyProvider::class => \PeanutAdmin\Modules\Identity\DataPermission\Provider\ThinkPhpDepartmentHierarchyProvider::class,
             \PeanutAdmin\DataPermission\Provider\TargetSetMembershipProvider::class => \PeanutAdmin\Modules\Identity\DataPermission\Provider\ThinkPhpTargetSetMembershipProvider::class,
             \PeanutAdmin\Modules\Identity\Contract\WorkflowOrganizationQuery::class => \PeanutAdmin\Modules\Identity\Identity\Query\ThinkPhpWorkflowOrganizationQuery::class,

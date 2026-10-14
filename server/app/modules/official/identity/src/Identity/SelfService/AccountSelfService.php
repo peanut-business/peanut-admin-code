@@ -201,7 +201,7 @@ final readonly class AccountSelfService
                     ->where('credential.identifier_type', 'email')
                     ->where('credential.status', 'active')
                     ->where('account.status', 'active')
-                    ->field(['credential.id', 'credential.secret_hash'])
+                    ->field(['credential.id', 'credential.secret_hash', 'account.security_revision AS account_security_revision'])
                     ->order('credential.id')->lock(true)->find();
                 if ($credential === null) {
                     throw AdminAccessException::conflict(
@@ -304,6 +304,24 @@ final readonly class AccountSelfService
                     targetResourceId: (string) $actor->accountId,
                     metadata: ['revoked_all_sessions' => true],
                 );
+                $cursor = 0;
+                do {
+                    $affected = TenantMember::where('account_id', $actor->accountId)->where('id', '>', $cursor)
+                        ->field('id,tenant_id')->order('id')->limit(100)->select()->toArray();
+                    foreach ($affected as $member) {
+                        $cursor = (int) $member['id'];
+                        $this->audit->recordRevocation(
+                            $actor,
+                            (int) $member['tenant_id'],
+                            $cursor,
+                            'tenant_scope_account',
+                            (string) $actor->accountId,
+                            'credential_changed',
+                            ['account_security_revision' => (int) $credential['account_security_revision']],
+                            ['account_security_revision' => (int) $credential['account_security_revision'] + 1],
+                        );
+                    }
+                } while (count($affected) === 100);
 
                 return null;
             });

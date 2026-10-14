@@ -9,6 +9,7 @@ return [
         'collaboration:lifecycle' => \PeanutAdmin\Modules\Collaboration\Console\LifecycleCommand::class,
         'collaboration:migrate-native' => \PeanutAdmin\Modules\Collaboration\Console\NativeMigrationCommand::class,
         'identity:credential-recover' => \app\command\IdentityCredentialRecovery::class,
+        'identity:revocations' => \PeanutAdmin\Modules\Identity\Console\RevocationFactsCommand::class,
         'workflow:install-managed' => \app\command\WorkflowInstallManaged::class,
         // 平台系统维护仅允许顶层CLI执行，不登记为租户调度命令。
         'import-export:expire' => \PeanutAdmin\Modules\ImportExport\Console\ExpireOperationsCommand::class,

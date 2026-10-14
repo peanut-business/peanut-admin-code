@@ -18,6 +18,7 @@ use PeanutAdmin\Modules\Task\Job\Persistence\Model\TaskJobRecord;
 use Throwable;
 use think\db\BaseQuery;
 use think\db\Raw;
+use think\facade\Db;
 
 final class TaskJobStore
 {
@@ -33,7 +34,7 @@ final class TaskJobStore
 
     public function enqueue(
         int $tenantId,
-        int $memberId,
+        ?int $memberId,
         string $jobKey,
         string $taskType,
         string $handlerKey,
@@ -43,8 +44,15 @@ final class TaskJobStore
         string $requestHash,
         int $maxAttempts,
         int $initialDelaySeconds,
+        string $profile = 'member',
+        ?string $factKey = null,
     ): JobRecord {
         $this->assertStorageMode();
+        if ($profile === 'member' && ($memberId === null || $factKey !== null)
+            || $profile === 'identity_negative_fact' && ($memberId !== null || $factKey === null || $taskType !== 'identity.revocation.propagate' || $handlerKey !== $taskType)
+            || !in_array($profile, ['member', 'identity_negative_fact'], true)) {
+            throw TaskJobException::denied();
+        }
         $created = false;
         $data = $this->tenantData($tenantId, [
             'job_key' => $jobKey, 'task_type' => $taskType, 'handler_key' => $handlerKey,
@@ -53,6 +61,7 @@ final class TaskJobStore
             'request_hash' => $requestHash, 'status' => 'queued', 'max_attempts' => $maxAttempts,
             'available_at' => new Raw("TIMESTAMPADD(SECOND, {$initialDelaySeconds}, UTC_TIMESTAMP(3))"),
             'created_by_member_id' => $memberId,
+            'authorization_profile' => $profile, 'producer_fact_key' => $factKey,
             'created_at' => new Raw('UTC_TIMESTAMP(3)'), 'updated_at' => new Raw('UTC_TIMESTAMP(3)'),
         ]);
         try {
@@ -62,7 +71,9 @@ final class TaskJobStore
             if ($idempotencyKeyHash === null || !$this->isUniqueConflict($exception)) {
                 throw $exception;
             }
-            $existing = $this->idempotentRow($tenantId, $memberId, $taskType, $idempotencyKeyHash, true);
+            $existing = $profile === 'member'
+                ? $this->idempotentRow($tenantId, $memberId, $taskType, $idempotencyKeyHash, true)
+                : $this->query('task_job', $tenantId)->where('authorization_profile', $profile)->where('producer_fact_key', $factKey)->lock(true)->find()?->toArray();
             if ($existing === null || !hash_equals((string) $existing['request_hash'], $requestHash)) {
                 throw TaskJobException::conflict();
             }
@@ -147,6 +158,9 @@ final class TaskJobStore
         if ($row === null) {
             throw TaskJobException::notFound();
         }
+        if (($row['authorization_profile'] ?? 'member') !== 'member') {
+            throw TaskJobException::denied();
+        }
         if ($this->query('task_job', $tenantId)->where('job_key', $jobKey)->where('status', 'queued')
             ->where('revision', $revision)->update([
                 'status' => 'cancelled', 'completed_at' => new Raw('UTC_TIMESTAMP(3)'),
@@ -165,6 +179,9 @@ final class TaskJobStore
         $row = $this->rowByJobKey($tenantId, $jobKey, true);
         if ($row === null) {
             throw TaskJobException::notFound();
+        }
+        if (($row['authorization_profile'] ?? 'member') !== 'member') {
+            throw TaskJobException::denied();
         }
         if ($this->query('task_job', $tenantId)->where('job_key', $jobKey)->where('status', 'dead')
             ->where('revision', $revision)->where('attempt_count', '<', 10)->update([
@@ -221,7 +238,87 @@ final class TaskJobStore
             $attempt,
             (int) $row['max_attempts'],
             $leaseToken,
+            (string) ($row['authorization_profile'] ?? 'member'),
         );
+    }
+
+    /** State belongs to one exact claimed negative job and is append-only/idempotent. */
+    public function negativeState(JobClaim $claim, string $reference): ?array
+    {
+        $this->assertExecutable($claim);
+        if ($claim->profile !== 'identity_negative_fact' || preg_match('/^[0-9a-f]{64}$/D', $reference) !== 1) {
+            throw TaskJobException::denied();
+        }
+        $row = $this->query('task_job_event', $claim->tenantId)->where('job_id', $claim->id)
+            ->where('event_reference', $reference)->find();
+        if ($row === null) {
+            return null;
+        }
+        return $this->payload($row['metadata_json']);
+    }
+
+    public function recordNegativeState(JobClaim $claim, string $reference, array $state): void
+    {
+        $pdo = Db::connect()->getPdo();
+        if (!$pdo instanceof \PDO || !$pdo->inTransaction()
+            || (new TaskJobRecord())->db()->getConnection()->getPdo() !== $pdo
+            || (new TaskJobEventRecord())->db()->getConnection()->getPdo() !== $pdo) {
+            throw TaskJobException::denied();
+        }
+        $this->query('task_job', $claim->tenantId)->where('id', $claim->id)->lock(true)->find();
+        $known = $this->negativeState($claim, $reference);
+        if ($known !== null) {
+            if (self::negativeJson($known) !== self::negativeJson($state)) {
+                throw TaskJobException::conflict();
+            }
+            return;
+        }
+        TaskJobEventRecord::insert($this->tenantData($claim->tenantId, ['job_id' => $claim->id,
+            'event_key' => 'tenant.task.revocation_state', 'actor_member_id' => null, 'event_reference' => $reference,
+            'metadata_json' => json_encode($state, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), 'occurred_at' => new Raw('UTC_TIMESTAMP(3)')]));
+        if (Db::connect()->getPdo() !== $pdo || !$pdo->inTransaction()) {
+            throw TaskJobException::denied();
+        }
+    }
+
+    public function negativeStatus(int $tenantId, string $factId): array
+    {
+        $row = $this->query('task_job', $tenantId)->where('authorization_profile', 'identity_negative_fact')->where('producer_fact_key', $factId)->find()?->toArray();
+        if ($row === null) {
+            return ['status' => 'not_queued'];
+        }
+        $complete = $this->query('task_job_event', $tenantId)->where('job_id', $row['id'])->where('event_key', 'tenant.task.revocation_state')
+            ->whereRaw("JSON_EXTRACT(metadata_json, '$.batches') IS NOT NULL")->order('id', 'desc')->find();
+        $proof = $complete === null ? null : $this->payload($complete['metadata_json']);
+        return ['status' => $row['status'], 'job_key' => $row['job_key'], 'attempt_count' => (int) $row['attempt_count'], 'last_error_code' => $row['last_error_code'],
+            'ack_holder_key' => $proof['holder_key'] ?? null];
+    }
+
+    /** Only the approved negative-fact compensation path can reopen dead claims. */
+    public function retryNegative(int $tenantId, string $factId): void
+    {
+        $row = $this->query('task_job', $tenantId)->where('authorization_profile', 'identity_negative_fact')->where('producer_fact_key', $factId)->lock(true)->find();
+        if ($row !== null && in_array($row['status'], ['dead', 'succeeded'], true) && (int) $row['attempt_count'] < 10) {
+            $this->query('task_job', $tenantId)->where('id', $row['id'])->where('status', $row['status'])->update([
+                'status' => 'queued', 'max_attempts' => new Raw('attempt_count + 1'), 'completed_at' => null, 'available_at' => new Raw('UTC_TIMESTAMP(3)'),
+                'revision' => new Raw('revision + 1'), 'updated_at' => new Raw('UTC_TIMESTAMP(3)')]);
+            $this->insertEvent($tenantId, (int) $row['id'], 'tenant.task.retried', null, ['purpose' => 'identity.revocation.propagate']);
+        }
+    }
+
+    private static function negativeJson(array $value): string
+    {
+        $normalize = static function (mixed $v) use (&$normalize): mixed {
+            if (is_array($v)) {
+                if (!array_is_list($v)) {
+                    ksort($v, SORT_STRING);
+                } foreach ($v as &$item) {
+                    $item = $normalize($item);
+                }
+            }
+            return $v;
+        };
+        return json_encode($normalize($value), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
     }
 
     public function renew(JobClaim $claim, int $leaseSeconds): void
@@ -250,6 +347,8 @@ final class TaskJobStore
             || !is_string($job['lease_token_hash']) || !is_string($attempt['lease_token_hash'])
             || !hash_equals($claim->jobKey, (string) $job['job_key'])
             || !hash_equals($claim->handlerKey, (string) $job['handler_key'])
+            || $claim->profile !== ($job['authorization_profile'] ?? 'member')
+            || !hash_equals($claim->trustedEnvelope, (string) $job['trusted_envelope'])
             || !hash_equals($leaseHash, $job['lease_token_hash'])
             || !hash_equals($leaseHash, $attempt['lease_token_hash'])) {
             throw TaskJobException::stateConflict();

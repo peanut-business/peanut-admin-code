@@ -400,6 +400,7 @@ final readonly class MemberAdminService
         if ($currentlyOwner && !$keepsOwner) {
             $this->assertOwnerRemovalAllowed($activeOwnerMemberIds);
         }
+        $oldRoleIds = array_map('intval', MemberRole::where('tenant_id', $actor->tenantId)->where('tenant_member_id', $memberId)->order('role_id')->column('role_id'));
         MemberRole::where('tenant_id', $actor->tenantId)->where('tenant_member_id', $memberId)->delete();
         $now = $this->now();
         if ($roleIds !== []) {
@@ -423,6 +424,18 @@ final readonly class MemberAdminService
         }
         $this->bumpTenantAuthorization($actor->tenantId, $now);
         $this->recordAudit($actor, 'tenant.member.roles-replaced', 'core.member.role.assign', $memberId);
+        if (array_diff($oldRoleIds, $roleIds) !== []) {
+            $this->audit->recordRevocation(
+                $actor,
+                $actor->tenantId,
+                $memberId,
+                'member',
+                (string) $memberId,
+                'member_roles_removed',
+                ['authorization_revision' => $expectedRevision, 'role_ids' => $oldRoleIds],
+                ['authorization_revision' => $expectedRevision + 1, 'role_ids' => $roleIds],
+            );
+        }
 
         return $this->get($actor->tenantId, $memberId);
     }
@@ -493,6 +506,18 @@ final readonly class MemberAdminService
         }
         $this->bumpTenantAuthorization($actor->tenantId, $now);
         $this->recordAudit($actor, 'tenant.member.' . $nextStatus, $action, $memberId);
+        if (in_array($nextStatus, ['suspended', 'left'], true)) {
+            $this->audit->recordRevocation(
+                $actor,
+                $actor->tenantId,
+                $memberId,
+                'member',
+                (string) $memberId,
+                'member_' . $nextStatus,
+                ['authorization_revision' => $expectedRevision, 'security_revision' => (int) $member['security_revision'], 'status' => $member['status']],
+                ['authorization_revision' => $expectedRevision + 1, 'security_revision' => (int) $member['security_revision'] + 1, 'status' => $nextStatus],
+            );
+        }
 
         return $this->get($actor->tenantId, $memberId);
     }

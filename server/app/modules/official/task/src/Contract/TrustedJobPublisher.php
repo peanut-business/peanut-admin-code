@@ -18,7 +18,54 @@ final readonly class TrustedJobPublisher
         private TaskJobStore $repository,
         private TaskSubmissionRegistry $submissions,
         private TrustedEnvelopeCodec $envelopes,
+        private ?string $negativeSigningKey = null,
     ) {}
+
+    public function publishNegativeFact(array $fact): JobRecord
+    {
+        $type = \PeanutAdmin\Modules\Task\Job\Execution\NegativeFactJobEnvelope::TASK;
+        $provider = $this->submissions->require($type);
+        $pdo = Db::connect()->getPdo();
+        if (!$provider instanceof NegativeFactTaskHandler || !$pdo instanceof \PDO || !$pdo->inTransaction()
+            || $this->negativeSigningKey === null || (new \PeanutAdmin\Modules\Task\Job\Persistence\Model\TaskJobRecord())->db()->getConnection()->getPdo() !== $pdo) {
+            throw TaskJobException::denied();
+        }
+        $submission = $provider->negativeSubmission($fact);
+        if ($submission->handlerKey !== $type || $submission->maxAttempts !== 3 || $submission->initialDelaySeconds !== 0) {
+            throw TaskJobException::denied();
+        }
+        $jobKey = 'job_' . bin2hex(random_bytes(16));
+        $payload = $this->canonicalJson($submission->payload);
+        $envelope = \PeanutAdmin\Modules\Task\Job\Execution\NegativeFactJobEnvelope::issue($fact['tenant_id'], $fact['fact_id'], $fact['fact_sha256'], $jobKey, $this->negativeSigningKey);
+        $result = $this->repository->enqueue(
+            $fact['tenant_id'],
+            null,
+            $jobKey,
+            $type,
+            $type,
+            $payload,
+            $envelope,
+            hash('sha256', $fact['fact_id']),
+            hash('sha256', $payload),
+            3,
+            0,
+            'identity_negative_fact',
+            $fact['fact_id'],
+        );
+        if (Db::connect()->getPdo() !== $pdo || !$pdo->inTransaction()) {
+            throw TaskJobException::denied();
+        }
+        return $result;
+    }
+
+    public function negativeStatus(int $tenantId, string $factId): array
+    {
+        return $this->repository->negativeStatus($tenantId, $factId);
+    }
+    public function retryNegative(int $tenantId, string $factId): void
+    {
+        $this->repository->retryNegative($tenantId, $factId);
+    }
 
     /** Descriptor check only; grants no permission and creates no task/session record. */
     public function assertRegistered(string $taskType, string $resourceKey, string $operation): void

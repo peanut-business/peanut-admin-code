@@ -21,7 +21,27 @@ final class JobExecution
         private readonly Closure $renewLease,
         private readonly Closure $assertLeaseOwned,
         private readonly ?Closure $reauthorize = null,
+        private readonly ?Closure $readNegativeState = null,
+        private readonly ?Closure $writeNegativeState = null,
     ) {}
+
+    public function negativeState(string $reference): ?array
+    {
+        if ($this->readNegativeState === null) {
+            throw new \DomainException('TASK_NEGATIVE_PROFILE_REQUIRED');
+        }
+        $this->assertLeaseOwned();
+        return ($this->readNegativeState)($reference);
+    }
+
+    public function recordNegativeState(string $reference, array $state): void
+    {
+        if ($this->writeNegativeState === null) {
+            throw new \DomainException('TASK_NEGATIVE_PROFILE_REQUIRED');
+        }
+        $this->assertLeaseOwned();
+        ($this->writeNegativeState)($reference, $state);
+    }
 
     /**
      * Adds a current authorization condition owned by an outer execution boundary.
