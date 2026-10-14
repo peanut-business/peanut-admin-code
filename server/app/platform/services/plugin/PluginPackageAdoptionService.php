@@ -8,7 +8,7 @@ use app\platform\exception\plugin\PluginPackageException;
 use app\platform\infrastructure\plugin\PluginLockResolver;
 use app\platform\infrastructure\plugin\PluginPackageSourcePromoter;
 
-/** Adopts a signed private package into development source for the next complete Application Release. */
+/** Adopts a reviewed digest-pinned private package into development source for the next complete Application Release. */
 final readonly class PluginPackageAdoptionService
 {
     /** @param array<string,string> $trustedPublicKeys raw Ed25519 keys from the application's trust configuration */
@@ -22,13 +22,16 @@ final readonly class PluginPackageAdoptionService
         return $promoter->run(fn(): array => $promoter->recover());
     }
 
-    /** Verify both transport digest and trusted signature before a persistent, source-only transaction. */
+    /** Verify the transport digest and any explicitly selected signature before a source-only transaction. */
     public function adopt(string $archivePath, ?string $expectedSha256, ?string $signatureKeyId): array
     {
         $this->development();
-        if (!is_string($expectedSha256) || preg_match('/^[a-f0-9]{64}$/D', $expectedSha256) !== 1
-            || !is_string($signatureKeyId) || $signatureKeyId === '' || !isset($this->trustedPublicKeys[$signatureKeyId])) {
-            throw new PluginPackageException('MODULE_PACKAGE_SOURCE_UNTRUSTED', 'Adoption requires archive SHA-256 and a trusted Ed25519 key.');
+        if (!is_string($expectedSha256) || preg_match('/^[a-f0-9]{64}$/D', $expectedSha256) !== 1) {
+            throw new PluginPackageException('MODULE_PACKAGE_SOURCE_UNTRUSTED', 'Adoption requires the reviewed archive SHA-256.');
+        }
+        if ($signatureKeyId !== null
+            && ($signatureKeyId === '' || !isset($this->trustedPublicKeys[$signatureKeyId]))) {
+            throw new PluginPackageException('MODULE_PACKAGE_SOURCE_UNTRUSTED', 'The explicitly selected signature key must be trusted.');
         }
         $promoter = new PluginPackageSourcePromoter($this->serverRoot);
         return $promoter->run(function () use ($promoter, $archivePath, $expectedSha256, $signatureKeyId): array {

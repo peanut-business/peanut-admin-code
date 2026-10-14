@@ -6294,7 +6294,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b454138e8f665303f128412a1fae2fc807e6f569c9595423d8398a1b6dab8a73"
+            "source_sha256": "a0d15a37ca0605059a41912baec4915230063fd600264a69d331181c47f0f0fc"
         },
         {
             "path": "server/app/command/ModuleCheck.php",
@@ -25031,7 +25031,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e08f370de88bd2ec8ddab9b2f44c994582b0c64e51448053c5960b1c23546d54"
+            "source_sha256": "07de33f43f90bd74ef2230e11c5ce69b802cc239e4147808713abbde6cb56540"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageArchiveService.php",
