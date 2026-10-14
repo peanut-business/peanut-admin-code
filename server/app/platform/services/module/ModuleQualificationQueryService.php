@@ -22,7 +22,7 @@ final readonly class ModuleQualificationQueryService implements ModuleQualificat
 
     public function installedModule(string $moduleKey): ModuleQualification
     {
-        $manifest = $this->registry->requireInstalled($moduleKey);
+        $manifest = $this->registry->requireInstalled($moduleKey, false);
         $pluginKey = Db::name('plugin_module')->where('module_key', $moduleKey)->value('plugin_key');
         return $this->qualification($moduleKey, $manifest, $pluginKey);
     }
@@ -33,7 +33,7 @@ final readonly class ModuleQualificationQueryService implements ModuleQualificat
         if ($keys === []) {
             return [];
         }
-        $manifests = $this->registry->requireInstalledMany($keys);
+        $manifests = $this->registry->requireInstalledMany($keys, false);
         $pluginRows = Db::name('plugin_module')->whereIn('module_key', $keys)
             ->field('module_key,plugin_key')->select()->toArray();
         // plugin_module.module_key is unique; a missing ownership row is an explicit deployment root.
@@ -139,7 +139,7 @@ final readonly class ModuleQualificationQueryService implements ModuleQualificat
             }
             $foundations[$moduleKey] = $row;
         }
-        $this->registry->requireInstalledMany(array_keys($foundations));
+        $this->registry->requireInstalledMany(array_keys($foundations), false);
 
         return $foundations;
     }
