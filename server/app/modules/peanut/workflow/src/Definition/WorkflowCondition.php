@@ -49,6 +49,9 @@ final class WorkflowCondition
             throw WorkflowException::blocked('Nonnullable field.');
         }
         if ($op === 'is_null' || $op === 'is_not_null') {
+            if ($v !== null) {
+                self::compare($v, $v, $spec);
+            }
             return $op === 'is_null' ? $v === null : $v !== null;
         }
         if ($v === null) {
@@ -72,21 +75,29 @@ final class WorkflowCondition
     {
         self::validate($c);
         if (isset($c['all']) || isset($c['any'])) {
-            foreach ($c[isset($c['all']) ? 'all' : 'any'] as $child) { self::registered($child, $fields); }
+            foreach ($c[isset($c['all']) ? 'all' : 'any'] as $child) {
+                self::registered($child, $fields);
+            }
             return;
         }
         $spec = $fields[$c['field']] ?? throw WorkflowException::blocked('Unregistered condition field.');
         $op = $c['operator'];
         if (in_array($op, ['is_null', 'is_not_null'], true)) {
-            if ($c['value'] !== null || !($spec['nullable'] ?? false)) { throw WorkflowException::blocked('Null operators require a nullable field and null operand.'); }
+            if ($c['value'] !== null || !($spec['nullable'] ?? false)) {
+                throw WorkflowException::blocked('Null operators require a nullable field and null operand.');
+            }
             return;
         }
         if (in_array($op, ['gt', 'gte', 'lt', 'lte'], true) && !in_array($spec['type'] ?? null, ['integer', 'decimal', 'datetime'], true)) {
             throw WorkflowException::blocked('Ordered comparison requires a numeric or datetime field.');
         }
         $values = in_array($op, ['in', 'not_in'], true) ? $c['value'] : [$c['value']];
-        if (!is_array($values) || !array_is_list($values) || !$values || count($values) > 100) { throw WorkflowException::blocked('Invalid comparison list.'); }
-        foreach ($values as $value) { self::compare($value, $value, $spec); }
+        if (!is_array($values) || !array_is_list($values) || !$values || count($values) > 100) {
+            throw WorkflowException::blocked('Invalid comparison list.');
+        }
+        foreach ($values as $value) {
+            self::compare($value, $value, $spec);
+        }
     }
 
     private static function compare(mixed $a, mixed $b, array $spec): int
@@ -108,7 +119,9 @@ final class WorkflowCondition
             $normalize = static function (string $value): string {
                 $format = str_contains($value, '.') ? '!Y-m-d\TH:i:s.v\Z' : '!Y-m-d\TH:i:s\Z';
                 $date = \DateTimeImmutable::createFromFormat($format, $value, new \DateTimeZone('UTC'));
-                if ($date === false || \DateTimeImmutable::getLastErrors() !== false) { throw WorkflowException::blocked('Invalid UTC datetime.'); }
+                if ($date === false || \DateTimeImmutable::getLastErrors() !== false) {
+                    throw WorkflowException::blocked('Invalid UTC datetime.');
+                }
                 return $date->format('Y-m-d\TH:i:s.u\Z');
             };
             return strcmp($normalize($a), $normalize($b)) <=> 0;
