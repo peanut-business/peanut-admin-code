@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Build a development source or server-only release from an application.
 set -Eeuo pipefail
+# Release dependencies belong to the isolated build, never caller overrides.
+unset COMPOSER COMPOSER_VENDOR_DIR COMPOSER_BIN_DIR
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)"
 ROOT_DIR="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd -P)"
 APPLICATION_ROOT="$ROOT_DIR"
