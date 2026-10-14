@@ -469,9 +469,13 @@
           onPresenceChanged: (members) => {
             if (valid(current, key)) online.value = members;
           },
-          onRecoveryRequired: () => {
+          onRecoveryRequired: (code) => {
             if (valid(current, key)) {
-              failed('RECOVERY_REQUIRED');
+              failed(
+                /^[A-Z][A-Z0-9_]{0,127}$/.test(code)
+                  ? code
+                  : 'RECOVERY_REQUIRED'
+              );
             }
           },
           onSavedChanged: (saved) => {

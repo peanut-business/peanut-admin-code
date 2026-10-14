@@ -22,7 +22,7 @@ export interface ProviderOptions {
   documentId: number;
   documentName: string;
   ticket: string;
-  onRecoveryRequired: () => void;
+  onRecoveryRequired: (code: string) => void;
   onSavedChanged?: (saved: boolean) => void;
   onReadyChanged?: (ready: boolean) => void;
   onWritableChanged?: (writable: boolean) => void;
@@ -173,7 +173,22 @@ export function createCollaborationProvider(options: ProviderOptions): {
     options.onWritableChanged?.(false);
     options.onSavedChanged?.(false);
     options.onPresenceChanged?.([]);
-    options.onRecoveryRequired();
+    options.onRecoveryRequired(code);
+  };
+  const recoverConnection = ({
+    event,
+  }: {
+    event: { reason: string };
+  }): void => {
+    if (event.reason === 'Connection Timeout') {
+      recover('COLLABORATION_CONNECTION_TIMEOUT');
+      return;
+    }
+    recover(
+      /^[A-Z][A-Z0-9_]{0,127}$/.test(event.reason)
+        ? event.reason
+        : 'COLLABORATION_DISCONNECTED'
+    );
   };
   const queryProgress = (): void => {
     if (closed || frozen || !provider?.isAuthenticated) return;
@@ -370,8 +385,8 @@ export function createCollaborationProvider(options: ProviderOptions): {
       }
     },
     onAuthenticationFailed: () => recover('COLLABORATION_AUTH_FAILED'),
-    onDisconnect: () => recover('COLLABORATION_DISCONNECTED'),
-    onClose: () => recover('COLLABORATION_DISCONNECTED'),
+    onDisconnect: recoverConnection,
+    onClose: recoverConnection,
   });
   document.on('update', onUpdate);
   provider.attach();
