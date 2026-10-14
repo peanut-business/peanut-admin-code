@@ -570,7 +570,8 @@ def main(observation):
             probe=native(server,'status','runtime-status')
             paired=probe.get('native_protocol')==2 and probe.get('php_ready') is True and probe.get('node_ready') is True and probe.get('paired_ready') is True
             states={'active':'ready' if paired and probe.get('ready') is True and probe.get('admission_enabled') is True else 'unknown','prepared':'prepared','draining':'draining','durably_drained':'draining','stopped':'stopped'}
-            answer.update(applied_revision=answer['config_revision'],runtime_state=states.get(probe.get('phase'),'unknown'),checks=[{'key':'signed_runtime','state':'ok' if paired else 'failed'},{'key':'paired_native_runtime','state':'ok' if paired else 'failed'}])
+            state=states.get(probe.get('phase'),'unknown')
+            answer.update(applied_revision=answer['config_revision'],runtime_state=state,restart_required=state!='ready',checks=[{'key':'signed_runtime','state':'ok' if paired else 'failed'},{'key':'paired_native_runtime','state':'ok' if paired else 'failed'}])
     print(json.dumps(answer,sort_keys=True))
 
 
