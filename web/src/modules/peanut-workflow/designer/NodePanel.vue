@@ -9,9 +9,17 @@
   import { AGGREGATION_LABELS, ALLOCATION_LABELS } from '../types';
   import { humanConfig } from './editor-state';
   import AssignmentRules from './AssignmentRules.vue';
+
   const props = defineProps<{ node: WorkflowNode; disabled?: boolean }>();
   const emit = defineEmits<{ (event: 'change', node: WorkflowNode): void }>();
   const human = computed(() => humanConfig(props.node));
+  const showDepartmentLeaderApprovalGuidance = computed(
+    () =>
+      props.node.type === 'approval' &&
+      human.value.allocation_mode === 'multi' &&
+      human.value.aggregation_policy === 'all_approve' &&
+      human.value.assignments.some((rule) => rule.kind === 'department_leaders')
+  );
   function name(label: string) {
     emit('change', { ...props.node, label });
   }
@@ -38,6 +46,7 @@
     config(field, value);
   }
 </script>
+
 <template>
   <section class="node-panel nodrag nopan nowheel" aria-label="节点属性">
     <h3>节点配置</h3><p>节点标识：{{ node.key }}；类型：{{ node.type }}</p>
@@ -89,6 +98,12 @@
               :label="title"
               :value="value" /></el-select
         ></el-form-item>
+        <el-alert
+          v-if="showDepartmentLeaderApprovalGuidance"
+          title="所有必需来源与资格校验通过后，若处理人来源合并去重后只有一名合格审批人，该成员同意即可满足本节点的全员同意条件，不必凑两人；必需来源为空或资格不满足时仍会阻塞。"
+          type="info"
+          :closable="false"
+        />
         <el-alert
           v-if="human.allocation_mode === 'claim'"
           title="候选池只生成一个共享任务；领取后才能处理，不按候选人数计票。"
@@ -149,6 +164,7 @@
     </el-form>
   </section>
 </template>
+
 <style scoped>
   .node-panel {
     padding: 12px;
