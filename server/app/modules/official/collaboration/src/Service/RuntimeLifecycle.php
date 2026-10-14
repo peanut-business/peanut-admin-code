@@ -560,21 +560,34 @@ final readonly class RuntimeLifecycle
                 throw new \DomainException('COLLABORATION_MIGRATION_ROOM_LIMIT');
             }
             $results = [];
+            $originalReceipts = NativeCollaborationProvider::json($runtime->receipt_json)['receipts'] ?? [];
             foreach ($rooms as $observed) {
                 $binding = NativeCollaborationProvider::json($observed->binding_json);
                 if (($binding['tenant_id'] ?? null) !== (int) $observed->tenant_id || ($binding['document_id'] ?? null) !== (int) $observed->document_id
                     || ($binding['instance_id'] ?? null) !== $runtime->instance_id || ($binding['edition'] ?? null) !== $runtime->edition) {
                     throw new \DomainException('COLLABORATION_MIGRATION_BINDING_INVALID');
                 }
+                // The original protocol-1 owner may leave a stopped room active with an expired
+                // lease. Only its exact durable room receipt can establish this legacy stop.
+                $original = array_values(array_filter($originalReceipts, static fn($receipt): bool =>
+                    is_array($receipt) && ($receipt['room_key'] ?? null) === $observed->room_key));
+                $confirmedActiveStop = count($original) === 1
+                    && ($original[0]['lease_epoch'] ?? null) === (int) $observed->lease_epoch
+                    && ($original[0]['state_seq'] ?? null) === (int) $observed->persisted_state_seq
+                    && ($original[0]['accepted_target'] ?? null) === (int) $observed->accepted_through
+                    && ($original[0]['persisted_through'] ?? null) === (int) $observed->persisted_through
+                    && ($original[0]['binary_sha256'] ?? null) === $observed->baseline_sha256
+                    && ($original[0]['store_id'] ?? null) === $observed->last_store_id;
                 $results[] = $this->execution->run(new SystemExecutionContext(new TenantSystemContext($binding['tenant_id'],
                     'collaboration:' . $this->configuration['service_instance_id'], 'collaboration.native-migration', $id)),
-                    function () use ($observed, $binding, $id): array {
+                    function () use ($observed, $binding, $id, $confirmedActiveStop): array {
                         $owner = $binding['owner'];
                         $baseline = $this->documents->migrateCollaborationEpoch($binding['document_id'],
                             new DocumentOwnerReference($owner['module_key'], $owner['object_type'], $owner['object_id'], $owner['slot']),
                             (int) $observed->lease_epoch, 'native-migration:' . hash('sha256', $id . ':' . $observed->room_key));
                         $room = CollaborationRoom::where('id', $observed->id)->lock(true)->find();
-                        if ($room === null || (int) $room->protocol_version !== 1 || $room->status !== 'closed'
+                        if ($room === null || (int) $room->protocol_version !== 1
+                            || $room->status !== 'closed' && !($room->status === 'active' && $confirmedActiveStop)
                             || (int) $room->lease_epoch !== (int) $observed->lease_epoch || strtotime($room->lease_expires_at . ' UTC') >= time()
                             || (int) $room->accepted_through !== (int) $room->persisted_through || (int) $room->pending_update_count !== 0
                             || (int) $room->pending_journal_bytes !== 0

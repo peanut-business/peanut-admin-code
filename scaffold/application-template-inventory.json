@@ -2333,7 +2333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7a12153af2945ef2e52d09dcf230606b3472c37670d47e2a2a4ce1bcbe224974"
+            "source_sha256": "6a350235b39f00f6fa5861623b99d8f1479b1899524e448a85884be7ed7c2ea8"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2414,7 +2414,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "109fd28a9af930d0322857d6003866ab0c9eef914249f9b331345553072e42fe"
+            "source_sha256": "c0802361cdd2bd99b1530223928290ca7320e1d3fd56fed39ad88f711398de7d"
         },
         {
             "path": "plugins/official.content-tools/plugin.json",
@@ -10938,7 +10938,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "390a9245e9accdbc3afc960115420cdde76a6ef0105abfef410b22563b30e5a6"
+            "source_sha256": "9f0fa8e2317bb4edb8791942a65db4a47161dff6f83663b6b9c4a897477d7d05"
         },
         {
             "path": "server/app/modules/official/collaboration/src/Service/ServiceAuthentication.php",
