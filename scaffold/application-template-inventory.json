@@ -2333,7 +2333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9d198680b1e2855a45665f9ac52115da248f4d8a1a40b6e3b837be8fc48ed08b"
+            "source_sha256": "78c688be33176a3f66c00166284512490740dda0ed33691562142869c374a719"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2666,7 +2666,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6783f5de4ed706a8c0d45b537761a17f353f0a13b926a12aacb00b1c4776c194"
+            "source_sha256": "f91e82c8dc6d6c66e42cb0875262f354133c8e8e13658f8ab2c1a5c341359742"
         },
         {
             "path": "release-versions.json",
@@ -38158,7 +38158,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "24c7017c771d5a0e7470f9802d89085e3bbb84a502a243381a204a314135589b"
+            "source_sha256": "014b325653c65332f6f2eba91ab1a3eb7d3d816ebab56cf1b5e8278505e101a8"
         },
         {
             "path": "web/src/modules/peanut-workflow/designer/WorkflowCanvas.vue",
