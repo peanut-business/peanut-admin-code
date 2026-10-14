@@ -836,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a57aac3ed67c580f7ccb16fdfe6070e92a6e98ff905d02c0b193d770dc163ac9"
+            "source_sha256": "4e936af6e9a9a4a4bdd3ba08b6d60c3681b032c3aa24cc4fc1e0ab97931e90f7"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -4768,7 +4768,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "728c0be6039df116e6240d7272e4a0ffea5e1fba029dda26071fb66cfa0762ea"
+            "source_sha256": "3399b52049549c8ce99e1128bf6e99be76284c3d452f54188e040fc61da126ea"
         },
         {
             "path": "server/app/BaseController.php",
@@ -7710,7 +7710,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8e65b7e28c29e436becdad3eff22571e0a457456371bdf0933202a87edecdb1f"
+            "source_sha256": "1eef1a91711bcbe2b99ef526aab2d55b6292016f5560b6a7e9ce24fd72171503"
         },
         {
             "path": "server/app/common/http/SessionRefreshCookie.php",
@@ -25381,7 +25381,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "538f74311ceb298d1adae5e853269b16cfc58d70cc2d83afaad50f999d0fb636"
+            "source_sha256": "438305f5dc81c63f2821f2baacc3f9a9d33b850c081c02a44dd6970139881e99"
         },
         {
             "path": "server/composer.json",
@@ -25535,7 +25535,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2c6fbe749d94c8956447ae9fb9eb94bd8d6a3bfe04baab9f818a00035195a1fc"
+            "source_sha256": "0f2b648f624f9c7406d293f0d49753cde75dfcdbb17654037c6c77e28a138982"
         },
         {
             "path": "server/config/deployment.php",
