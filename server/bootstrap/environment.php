@@ -73,8 +73,20 @@ if (!function_exists('peanutBackendEnvironmentKeys')) {
             'PEANUT_PLUGIN_LOCK',
             'PEANUT_MODULE_KERNEL_VERSION',
             'PEANUT_MODULE_TRUSTED_KEYS_JSON',
-            'RICH_TEXT_COLLABORATION_URL',
-            'RICH_TEXT_COLLABORATION_SECRET',
+            'COLLABORATION_ENABLED',
+            'COLLABORATION_INSTANCE_ID',
+            'COLLABORATION_SERVICE_INSTANCE_ID',
+            'COLLABORATION_SERVICE_KEY_ID',
+            'COLLABORATION_SERVICE_SECRET_FILE',
+            'COLLABORATION_TICKET_SECRET_FILE',
+            'COLLABORATION_CONTROL_ORIGIN',
+            'COLLABORATION_PUBLIC_WSS_URL',
+            'COLLABORATION_CONFIG_REVISION',
+            'COLLABORATION_CONFIG_SHA256',
+            'COLLABORATION_SERVICE_ROOT',
+            'COLLABORATION_COMPOSE_PROJECT',
+            'COLLABORATION_CA_FILE',
+            'COLLABORATION_CA_SHA256',
             'PEANUT_INSTALLATION_MODE',
             'PEANUT_INSTALLATION_SOURCE_MODE',
             'PEANUT_INSTALLATION_SETUP_TOKEN',
@@ -124,7 +136,7 @@ if (!function_exists('peanutBackendEnvironmentKeys')) {
         if (is_array($process)) {
             foreach (array_keys($process) as $name) {
                 if (is_string($name) && preg_match(
-                    '/^PHP_(ENV_NAME|APP_|DB_|JWT_|DEPLOYMENT_MODE$|PUBLIC_DEFAULT_TENANT_FALLBACK$|PLATFORM_|TENANT_|ADMIN_|OWNER_INVITATION_|PEANUT_|ASYNC_|DEFAULT_LANG$|PROJECT_VERSION$)/D',
+                    '/^PHP_(ENV_NAME|APP_|DB_|JWT_|DEPLOYMENT_MODE$|PUBLIC_DEFAULT_TENANT_FALLBACK$|PLATFORM_|TENANT_|ADMIN_|OWNER_INVITATION_|PEANUT_|COLLABORATION_|ASYNC_|DEFAULT_LANG$|PROJECT_VERSION$)/D',
                     $name,
                 ) === 1) {
                     throw new RuntimeException('BACKEND_ENVIRONMENT_LEGACY_PREFIX_FORBIDDEN:' . substr($name, 4));
@@ -181,6 +193,39 @@ if (!function_exists('peanutBackendEnvironmentKeys')) {
             throw new RuntimeException('BACKEND_ENVIRONMENT_PARSE_FAILED');
         }
         peanutApplyEnvironmentFile($values, peanutBackendEnvironmentKeys(), 'BACKEND');
+        // Only these actual consumers receive their own secret; references are relative to this server mount.
+        foreach (['SERVICE', 'TICKET'] as $purpose) {
+            $key = 'COLLABORATION_' . $purpose . '_SECRET';
+            if (getenv($key) !== false || getenv('PHP_' . $key) !== false) {
+                throw new RuntimeException('COLLABORATION_SECRET_AMBIENT_FORBIDDEN');
+            }
+            $reference = $values[$key . '_FILE'] ?? null;
+            if ($reference === null || $reference === '') {
+                continue;
+            }
+            $expectedReference = $purpose === 'SERVICE'
+                ? 'private/collaboration/service/service-secret'
+                : 'private/collaboration/ticket-secret';
+            if ($reference !== $expectedReference) {
+                throw new RuntimeException('COLLABORATION_SECRET_REFERENCE_INVALID');
+            }
+            $secretPath = dirname(__DIR__) . '/' . $reference;
+            $parent = dirname($secretPath);
+            $secretStat = @lstat($secretPath);
+            if (is_link(dirname(__DIR__) . '/private') || is_link(dirname(__DIR__) . '/private/collaboration')
+                || is_link($parent) || is_link($secretPath) || !is_file($secretPath)
+                || !is_array($secretStat) || $secretStat['nlink'] !== 1 || ($secretStat['mode'] & 0777) !== 0600
+                || $secretStat['uid'] !== $stat['uid']) {
+                throw new RuntimeException('COLLABORATION_SECRET_FILE_UNSAFE');
+            }
+            $secret = trim((string) file_get_contents($secretPath));
+            if (strlen($secret) < 32 || strlen($secret) > 4096 || preg_match('/[\r\n\x00]/', $secret)) {
+                throw new RuntimeException('COLLABORATION_SECRET_FILE_INVALID');
+            }
+            putenv($key . '=' . $secret);
+            $_ENV[$key] = $secret;
+            $_SERVER[$key] = $secret;
+        }
 
         $basename = basename($path);
         if ($basename !== '.env') {

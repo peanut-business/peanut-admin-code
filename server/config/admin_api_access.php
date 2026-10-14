@@ -20,11 +20,16 @@ return [
         'POST adminapi/tenant/session/logout',
     ],
     'authenticated' => [
+        // Ticket issuance always revalidates the actual Session and compiled Document owner policy.
+        'POST adminapi/official.collaboration.ticket',
         // File resolves its operation and current Document/File policy inside the use case.
         'POST adminapi/api/v1/files/resolve',
         // Document contextual operations must pass live owner/slot/state authorization in the use case.
         'GET adminapi/official.document.detail',
         'GET adminapi/official.document.capabilities',
+        'GET adminapi/official.document.operation',
+        'GET adminapi/official.document.target',
+        'POST adminapi/official.document.target.cancel',
         'POST adminapi/official.document.solo.save',
         'POST adminapi/official.document.resource.bind',
         'POST adminapi/official.document.version.create',

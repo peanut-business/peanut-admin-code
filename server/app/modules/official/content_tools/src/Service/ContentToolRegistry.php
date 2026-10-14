@@ -27,16 +27,24 @@ final class ContentToolRegistry
         return array_values($this->adapters);
     }
 
-    public function selected(string $id, AuthorizedContentContext $context, string $intent): ?SurfaceAdapterRegistration
+    /** Availability is checked separately: disabled candidates must not cause selection fallback. */
+    public function selected(?string $id, AuthorizedContentContext $context, string $intent): ?SurfaceAdapterRegistration
     {
-        $adapter = $this->adapters[$id] ?? null;
-        if ($adapter === null || !in_array($intent, $adapter->intents, true)
-            || !in_array($context->contentKind, $adapter->contentKinds, true)
-            || ($context->contentKind === 'file_resource'
-                && !in_array($context->verifiedMimeType, $adapter->mimeTypes, true))) {
-            return null;
+        $selected = null;
+        $candidates = $id === null ? $this->adapters : [$this->adapters[$id] ?? null];
+        foreach ($candidates as $adapter) {
+            if ($adapter === null || !in_array($intent, $adapter->intents, true)
+                || !in_array($context->contentKind, $adapter->contentKinds, true)
+                || ($context->contentKind === 'file_resource'
+                    && !in_array($context->verifiedMimeType, $adapter->mimeTypes, true))) {
+                continue;
+            }
+            if ($selected !== null) {
+                return null;
+            }
+            $selected = $adapter;
         }
-        return $adapter;
+        return $selected;
     }
 
     public static function withBuiltins(): self

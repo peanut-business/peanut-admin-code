@@ -109,8 +109,14 @@ else
 fi
 
 cd "$DOCKER_DIR"
-docker compose --env-file .env -f compose.yaml "$@" config --quiet
-docker compose --env-file .env -f compose.yaml "$@" up -d --no-build
+python3 - "$SERVER_DIR" "$@" <<'PY'
+import importlib.util, pathlib, sys
+sys.dont_write_bytecode=True
+server=pathlib.Path(sys.argv[1])
+spec=importlib.util.spec_from_file_location('collaboration_owner',server/'docker/scripts/configure-collaboration.py')
+module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+module.start(server,sys.argv[2:])
+PY
 if [ ! -e "$installed" ]; then
     printf 'Peanut installation bootstrap is active. Read the one-time token from: %s\n' "$DOCKER_DIR/secrets/install-token"
     printf 'Open /install/ on the configured HTTP endpoint. The token value is not printed to logs.\n'

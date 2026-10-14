@@ -36,23 +36,31 @@
         },
         {
             "path": "server/app/modules/official/article/api/metadata/openapi.php",
-            "sha256": "19b338cab841f744697b7b88a96d79a05cc7ca105a6e422ffc4a0f6d58a38f3d"
+            "sha256": "8235aa88d7bbdcf64a98f4b829fa63d2f95347c7fa345270e64241dbc2304d36"
         },
         {
             "path": "server/app/modules/official/article/route/app.php",
-            "sha256": "0cb34c2573caa98fd0dd6614716863c96ec736dabdc1c4f8d3765521f26e2350"
+            "sha256": "44e8e1690b1a1ea9a10b9a2461b9f318b71235eff5252594d82540ba7499dab0"
+        },
+        {
+            "path": "server/app/modules/official/collaboration/api/metadata/openapi.php",
+            "sha256": "fcc5e780750976a07cfe6b61b683707644c63a9aa6b589ea5934697cbdbb617b"
+        },
+        {
+            "path": "server/app/modules/official/collaboration/route/app.php",
+            "sha256": "741c3b604eaccd9d40357992a1430a716dde0da232a5d2e128f16dbadeb8253c"
         },
         {
             "path": "server/app/modules/official/document/api/metadata/openapi.php",
-            "sha256": "6e6e68a5f224313ca2cf3ea41e650f98eb5fbbc20360cd9f3da0d5d5556e9bed"
+            "sha256": "095798b4e6a6736eafb46f8dff9c620090b90f3e7242e1ce5be7d660cc06fd26"
         },
         {
             "path": "server/app/modules/official/document/route/app.php",
-            "sha256": "466bb00f370d1f1eaa37a48c8c905d32b8b179f58b07dee7a50661ff5efaf368"
+            "sha256": "96d509dcd2fc54b8102602b93558b957682f54ff77e472aa412afad05f9f8b0e"
         },
         {
             "path": "server/app/modules/official/file/api/metadata/openapi.php",
-            "sha256": "9b100ef4c7dd62c64cce9a7803a1ab7750a9f34353c0a405d6e8a81b2d1bca72"
+            "sha256": "d17954a16046281d551da50362993aa38d72bdf5ade9bae362186be7645f4430"
         },
         {
             "path": "server/app/modules/official/file/route/app.php",
@@ -148,7 +156,7 @@
         },
         {
             "path": "server/config/admin_api_access.php",
-            "sha256": "7bbb00b18b9b343baed358624018c4973646f6cd5a6f197812586411cfd5eb0e"
+            "sha256": "7ba7a7fcc0d1d292110184a95047c4e9223b4309445a951caba3dab6c17edbdb"
         },
         {
             "path": "server/route/admin.php",
@@ -184,27 +192,27 @@
         ]
     },
     "summary": {
-        "route_count": 403,
-        "generated_api_operations": 357,
+        "route_count": 422,
+        "generated_api_operations": 376,
         "route_only_operations": 46,
-        "complete_operations": 357,
-        "partial_operations": 0,
-        "runtime_routes": 403,
-        "documented_operations": 357,
+        "complete_operations": 365,
+        "partial_operations": 11,
+        "runtime_routes": 422,
+        "documented_operations": 376,
         "undocumented_routes": 46,
-        "automatic_route_metadata": 403,
+        "automatic_route_metadata": 422,
         "requires_owner_contract": 46,
-        "owners": 19,
+        "owners": 20,
         "runtime_inventory": {
-            "total": 403,
+            "total": 422,
             "methods": {
                 "DELETE": 4,
-                "GET": 175,
-                "POST": 218,
+                "GET": 179,
+                "POST": 233,
                 "PUT": 6
             },
             "applications": {
-                "adminapi": 286,
+                "adminapi": 305,
                 "api": 47,
                 "installation": 6,
                 "platform": 64
@@ -215,8 +223,9 @@
                 "application:installation": 6,
                 "application:platform": 58,
                 "module:fixture.workflow-business": 8,
-                "module:official.article": 22,
-                "module:official.document": 8,
+                "module:official.article": 26,
+                "module:official.collaboration": 12,
+                "module:official.document": 11,
                 "module:official.file": 23,
                 "module:official.import-export": 11,
                 "module:official.integration": 12,
@@ -239,8 +248,9 @@
         "application:installation": 6,
         "application:platform": 58,
         "module:fixture.workflow-business": 8,
-        "module:official.article": 22,
-        "module:official.document": 8,
+        "module:official.article": 26,
+        "module:official.collaboration": 12,
+        "module:official.document": 11,
         "module:official.file": 23,
         "module:official.import-export": 11,
         "module:official.integration": 12,
@@ -6262,6 +6272,162 @@
         },
         {
             "method": "GET",
+            "path": "/adminapi/official.article.document.editor",
+            "runtime_path": "/adminapi/official.article.document.editor",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.article"
+            },
+            "controller": "PeanutAdmin\\Modules\\Article\\Controller\\ArticleController",
+            "action": "bodyEditor",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "official.article"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "official.article.edit"
+                }
+            ],
+            "errors": [
+                401,
+                403,
+                404,
+                409,
+                422
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "official.article",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/article/route/app.php",
+                "line": 34
+            },
+            "documented": true,
+            "openapi_operation_id": "articleBodyEditor",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts",
+                "web/src/modules/official-article/generated/openapi.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": []
+            }
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/official.article.document.operation",
+            "runtime_path": "/adminapi/official.article.document.operation",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.article"
+            },
+            "controller": "PeanutAdmin\\Modules\\Article\\Controller\\ArticleController",
+            "action": "bodySaveOperation",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "official.article"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "official.article.edit"
+                }
+            ],
+            "errors": [
+                401,
+                403,
+                404,
+                409,
+                422
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "official.article",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/article/route/app.php",
+                "line": 37
+            },
+            "documented": true,
+            "openapi_operation_id": "articleBodySaveOperation",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts",
+                "web/src/modules/official-article/generated/openapi.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": []
+            }
+        },
+        {
+            "method": "GET",
             "path": "/adminapi/official.article.list",
             "runtime_path": "/adminapi/official.article.list",
             "application": "adminapi",
@@ -6388,7 +6554,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 37
+                "line": 41
             },
             "documented": true,
             "openapi_operation_id": "getRecycledArticle",
@@ -6464,7 +6630,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 36
+                "line": 40
             },
             "documented": true,
             "openapi_operation_id": "listRecycledArticles",
@@ -6624,6 +6790,162 @@
             },
             "documented": true,
             "openapi_operation_id": "documentDetail",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts",
+                "web/src/modules/official-document/generated/openapi.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": []
+            }
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/official.document.operation",
+            "runtime_path": "/adminapi/official.document.operation",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.document"
+            },
+            "controller": "PeanutAdmin\\Modules\\Document\\Controller\\DocumentController",
+            "action": "operation",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "official.document"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "official.document.operation"
+                }
+            ],
+            "errors": [
+                401,
+                403,
+                404,
+                409,
+                422
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "official.document",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/document/route/app.php",
+                "line": 13
+            },
+            "documented": true,
+            "openapi_operation_id": "queryDocumentBusinessOperation",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts",
+                "web/src/modules/official-document/generated/openapi.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": []
+            }
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/official.document.target",
+            "runtime_path": "/adminapi/official.document.target",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.document"
+            },
+            "controller": "PeanutAdmin\\Modules\\Document\\Controller\\DocumentController",
+            "action": "target",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "official.document"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "official.document.target"
+                }
+            ],
+            "errors": [
+                401,
+                403,
+                404,
+                409,
+                422
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "official.document",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/document/route/app.php",
+                "line": 14
+            },
+            "documented": true,
+            "openapi_operation_id": "getDocumentTarget",
             "contract_quality": "complete",
             "sdk_consumers": [
                 "web/src/generated/openapi.d.ts",
@@ -17909,6 +18231,644 @@
         },
         {
             "method": "POST",
+            "path": "/adminapi/internal/collaboration/v1/authorize",
+            "runtime_path": "/adminapi/internal/collaboration/v1/authorize",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.collaboration"
+            },
+            "controller": "PeanutAdmin\\Modules\\Collaboration\\Controller\\InternalController",
+            "action": "authorize",
+            "auth": {
+                "mode": "public",
+                "exception_registration": null
+            },
+            "permissions": [],
+            "errors": [
+                401,
+                403,
+                404,
+                409,
+                422,
+                429,
+                500,
+                503
+            ],
+            "middleware": [
+                {
+                    "class": "PeanutAdmin\\Modules\\Collaboration\\Middleware\\ServiceAuthenticationMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/collaboration/route/app.php",
+                "line": 20
+            },
+            "documented": true,
+            "openapi_operation_id": "authorizeCollaborationConnection",
+            "contract_quality": "partial",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "security_domain"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/internal/collaboration/v1/check",
+            "runtime_path": "/adminapi/internal/collaboration/v1/check",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.collaboration"
+            },
+            "controller": "PeanutAdmin\\Modules\\Collaboration\\Controller\\InternalController",
+            "action": "check",
+            "auth": {
+                "mode": "public",
+                "exception_registration": null
+            },
+            "permissions": [],
+            "errors": [
+                401,
+                403,
+                404,
+                409,
+                422,
+                429,
+                500,
+                503
+            ],
+            "middleware": [
+                {
+                    "class": "PeanutAdmin\\Modules\\Collaboration\\Middleware\\ServiceAuthenticationMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/collaboration/route/app.php",
+                "line": 20
+            },
+            "documented": true,
+            "openapi_operation_id": "checkCollaborationConnection",
+            "contract_quality": "partial",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "security_domain"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/internal/collaboration/v1/lifecycle",
+            "runtime_path": "/adminapi/internal/collaboration/v1/lifecycle",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.collaboration"
+            },
+            "controller": "PeanutAdmin\\Modules\\Collaboration\\Controller\\InternalController",
+            "action": "lifecycle",
+            "auth": {
+                "mode": "public",
+                "exception_registration": null
+            },
+            "permissions": [],
+            "errors": [
+                401,
+                403,
+                404,
+                409,
+                422,
+                429,
+                500,
+                503
+            ],
+            "middleware": [
+                {
+                    "class": "PeanutAdmin\\Modules\\Collaboration\\Middleware\\ServiceAuthenticationMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/collaboration/route/app.php",
+                "line": 20
+            },
+            "documented": true,
+            "openapi_operation_id": "queryCollaborationReadiness",
+            "contract_quality": "partial",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "security_domain"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/internal/collaboration/v1/load",
+            "runtime_path": "/adminapi/internal/collaboration/v1/load",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.collaboration"
+            },
+            "controller": "PeanutAdmin\\Modules\\Collaboration\\Controller\\InternalController",
+            "action": "load",
+            "auth": {
+                "mode": "public",
+                "exception_registration": null
+            },
+            "permissions": [],
+            "errors": [
+                401,
+                403,
+                404,
+                409,
+                422,
+                429,
+                500,
+                503
+            ],
+            "middleware": [
+                {
+                    "class": "PeanutAdmin\\Modules\\Collaboration\\Middleware\\ServiceAuthenticationMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/collaboration/route/app.php",
+                "line": 20
+            },
+            "documented": true,
+            "openapi_operation_id": "loadCollaborationDocument",
+            "contract_quality": "partial",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "security_domain"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/internal/collaboration/v1/receipt",
+            "runtime_path": "/adminapi/internal/collaboration/v1/receipt",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.collaboration"
+            },
+            "controller": "PeanutAdmin\\Modules\\Collaboration\\Controller\\InternalController",
+            "action": "receipt",
+            "auth": {
+                "mode": "public",
+                "exception_registration": null
+            },
+            "permissions": [],
+            "errors": [
+                401,
+                403,
+                404,
+                409,
+                422,
+                429,
+                500,
+                503
+            ],
+            "middleware": [
+                {
+                    "class": "PeanutAdmin\\Modules\\Collaboration\\Middleware\\ServiceAuthenticationMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/collaboration/route/app.php",
+                "line": 20
+            },
+            "documented": true,
+            "openapi_operation_id": "queryCollaborationReceipt",
+            "contract_quality": "partial",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "security_domain"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/internal/collaboration/v1/recovery",
+            "runtime_path": "/adminapi/internal/collaboration/v1/recovery",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.collaboration"
+            },
+            "controller": "PeanutAdmin\\Modules\\Collaboration\\Controller\\InternalController",
+            "action": "recovery",
+            "auth": {
+                "mode": "public",
+                "exception_registration": null
+            },
+            "permissions": [],
+            "errors": [
+                401,
+                403,
+                404,
+                409,
+                422,
+                429,
+                500,
+                503
+            ],
+            "middleware": [
+                {
+                    "class": "PeanutAdmin\\Modules\\Collaboration\\Middleware\\ServiceAuthenticationMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/collaboration/route/app.php",
+                "line": 20
+            },
+            "documented": true,
+            "openapi_operation_id": "recoverCollaborationRoom",
+            "contract_quality": "partial",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "security_domain"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/internal/collaboration/v1/references",
+            "runtime_path": "/adminapi/internal/collaboration/v1/references",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.collaboration"
+            },
+            "controller": "PeanutAdmin\\Modules\\Collaboration\\Controller\\InternalController",
+            "action": "references",
+            "auth": {
+                "mode": "public",
+                "exception_registration": null
+            },
+            "permissions": [],
+            "errors": [
+                401,
+                403,
+                404,
+                409,
+                422,
+                429,
+                500,
+                503
+            ],
+            "middleware": [
+                {
+                    "class": "PeanutAdmin\\Modules\\Collaboration\\Middleware\\ServiceAuthenticationMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/collaboration/route/app.php",
+                "line": 20
+            },
+            "documented": true,
+            "openapi_operation_id": "reserveCollaborationReferences",
+            "contract_quality": "partial",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "security_domain"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/internal/collaboration/v1/revoke",
+            "runtime_path": "/adminapi/internal/collaboration/v1/revoke",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.collaboration"
+            },
+            "controller": "PeanutAdmin\\Modules\\Collaboration\\Controller\\InternalController",
+            "action": "revoke",
+            "auth": {
+                "mode": "public",
+                "exception_registration": null
+            },
+            "permissions": [],
+            "errors": [
+                401,
+                403,
+                404,
+                409,
+                422,
+                429,
+                500,
+                503
+            ],
+            "middleware": [
+                {
+                    "class": "PeanutAdmin\\Modules\\Collaboration\\Middleware\\ServiceAuthenticationMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/collaboration/route/app.php",
+                "line": 20
+            },
+            "documented": true,
+            "openapi_operation_id": "revokeCollaborationConnection",
+            "contract_quality": "partial",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "security_domain"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/internal/collaboration/v1/store",
+            "runtime_path": "/adminapi/internal/collaboration/v1/store",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.collaboration"
+            },
+            "controller": "PeanutAdmin\\Modules\\Collaboration\\Controller\\InternalController",
+            "action": "store",
+            "auth": {
+                "mode": "public",
+                "exception_registration": null
+            },
+            "permissions": [],
+            "errors": [
+                401,
+                403,
+                404,
+                409,
+                422,
+                429,
+                500,
+                503
+            ],
+            "middleware": [
+                {
+                    "class": "PeanutAdmin\\Modules\\Collaboration\\Middleware\\ServiceAuthenticationMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/collaboration/route/app.php",
+                "line": 20
+            },
+            "documented": true,
+            "openapi_operation_id": "storeCollaborationCapture",
+            "contract_quality": "partial",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "security_domain"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/internal/collaboration/v1/target",
+            "runtime_path": "/adminapi/internal/collaboration/v1/target",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.collaboration"
+            },
+            "controller": "PeanutAdmin\\Modules\\Collaboration\\Controller\\InternalController",
+            "action": "target",
+            "auth": {
+                "mode": "public",
+                "exception_registration": null
+            },
+            "permissions": [],
+            "errors": [
+                401,
+                403,
+                404,
+                409,
+                422,
+                429,
+                500,
+                503
+            ],
+            "middleware": [
+                {
+                    "class": "PeanutAdmin\\Modules\\Collaboration\\Middleware\\ServiceAuthenticationMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/collaboration/route/app.php",
+                "line": 20
+            },
+            "documented": true,
+            "openapi_operation_id": "confirmCollaborationTarget",
+            "contract_quality": "partial",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "security_domain"
+                ]
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/internal/collaboration/v1/target/prepare",
+            "runtime_path": "/adminapi/internal/collaboration/v1/target/prepare",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.collaboration"
+            },
+            "controller": "PeanutAdmin\\Modules\\Collaboration\\Controller\\InternalController",
+            "action": "prepareTarget",
+            "auth": {
+                "mode": "public",
+                "exception_registration": null
+            },
+            "permissions": [],
+            "errors": [
+                401,
+                403,
+                404,
+                409,
+                422,
+                429,
+                500,
+                503
+            ],
+            "middleware": [
+                {
+                    "class": "PeanutAdmin\\Modules\\Collaboration\\Middleware\\ServiceAuthenticationMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/collaboration/route/app.php",
+                "line": 22
+            },
+            "documented": true,
+            "openapi_operation_id": "prepareCollaborationTarget",
+            "contract_quality": "partial",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "security_domain"
+                ]
+            }
+        },
+        {
+            "method": "POST",
             "path": "/adminapi/jobs/add",
             "runtime_path": "/adminapi/jobs/add",
             "application": "adminapi",
@@ -19087,7 +20047,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 34
+                "line": 38
             },
             "documented": true,
             "openapi_operation_id": "deleteArticle",
@@ -19169,6 +20129,164 @@
             },
             "documented": true,
             "openapi_operation_id": "ensureArticleBodyDocument",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts",
+                "web/src/modules/official-article/generated/openapi.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": []
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/official.article.document.save",
+            "runtime_path": "/adminapi/official.article.document.save",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.article"
+            },
+            "controller": "PeanutAdmin\\Modules\\Article\\Controller\\ArticleController",
+            "action": "bodySave",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "official.article"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "official.article.edit"
+                }
+            ],
+            "errors": [
+                401,
+                403,
+                404,
+                409,
+                422,
+                503
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "official.article",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/article/route/app.php",
+                "line": 36
+            },
+            "documented": true,
+            "openapi_operation_id": "saveArticleBody",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts",
+                "web/src/modules/official-article/generated/openapi.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": []
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/official.article.document.ticket",
+            "runtime_path": "/adminapi/official.article.document.ticket",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.article"
+            },
+            "controller": "PeanutAdmin\\Modules\\Article\\Controller\\ArticleController",
+            "action": "bodyTicket",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "official.article"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "official.article.edit"
+                }
+            ],
+            "errors": [
+                401,
+                403,
+                404,
+                409,
+                422,
+                503
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "official.article",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/article/route/app.php",
+                "line": 35
+            },
+            "documented": true,
+            "openapi_operation_id": "articleBodyTicket",
             "contract_quality": "complete",
             "sdk_consumers": [
                 "web/src/generated/openapi.d.ts",
@@ -19319,7 +20437,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 39
+                "line": 43
             },
             "documented": true,
             "openapi_operation_id": "forceDeleteArticles",
@@ -19395,7 +20513,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 38
+                "line": 42
             },
             "documented": true,
             "openapi_operation_id": "restoreArticles",
@@ -19472,7 +20590,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 35
+                "line": 39
             },
             "documented": true,
             "openapi_operation_id": "updateArticleStatus",
@@ -19480,6 +20598,82 @@
             "sdk_consumers": [
                 "web/src/generated/openapi.d.ts",
                 "web/src/modules/official-article/generated/openapi.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": []
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/official.collaboration.ticket",
+            "runtime_path": "/adminapi/official.collaboration.ticket",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.collaboration"
+            },
+            "controller": "PeanutAdmin\\Modules\\Collaboration\\Controller\\TicketController",
+            "action": "issue",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "official.collaboration"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "official.collaboration.ticket"
+                }
+            ],
+            "errors": [
+                401,
+                403,
+                404,
+                409,
+                422,
+                429,
+                500,
+                503
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "official.collaboration",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/collaboration/route/app.php",
+                "line": 13
+            },
+            "documented": true,
+            "openapi_operation_id": "issueCollaborationTicket",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts"
             ],
             "documentation": {
                 "status": "documented",
@@ -19550,7 +20744,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/document/route/app.php",
-                "line": 17
+                "line": 20
             },
             "documented": true,
             "openapi_operation_id": "archiveDocument",
@@ -19628,7 +20822,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/document/route/app.php",
-                "line": 14
+                "line": 17
             },
             "documented": true,
             "openapi_operation_id": "bindDocumentResource",
@@ -19706,7 +20900,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/document/route/app.php",
-                "line": 18
+                "line": 21
             },
             "documented": true,
             "openapi_operation_id": "restoreDocument",
@@ -19784,10 +20978,88 @@
             ],
             "source": {
                 "file": "server/app/modules/official/document/route/app.php",
-                "line": 13
+                "line": 16
             },
             "documented": true,
             "openapi_operation_id": "saveSoloDocument",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts",
+                "web/src/modules/official-document/generated/openapi.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": []
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/official.document.target.cancel",
+            "runtime_path": "/adminapi/official.document.target.cancel",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.document"
+            },
+            "controller": "PeanutAdmin\\Modules\\Document\\Controller\\DocumentController",
+            "action": "cancelTarget",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "official.document"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "official.document.target.cancel"
+                }
+            ],
+            "errors": [
+                401,
+                403,
+                404,
+                409,
+                422
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "official.document",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/document/route/app.php",
+                "line": 15
+            },
+            "documented": true,
+            "openapi_operation_id": "cancelDocumentTarget",
             "contract_quality": "complete",
             "sdk_consumers": [
                 "web/src/generated/openapi.d.ts",
@@ -19862,7 +21134,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/document/route/app.php",
-                "line": 15
+                "line": 18
             },
             "documented": true,
             "openapi_operation_id": "createDocumentVersion",
@@ -19940,7 +21212,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/document/route/app.php",
-                "line": 16
+                "line": 19
             },
             "documented": true,
             "openapi_operation_id": "restoreDocumentVersion",

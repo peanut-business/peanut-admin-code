@@ -108,8 +108,100 @@ $articleListParameters[] = ['in' => 'query', 'name' => 'export', 'schema' => ['t
 $categoryPermissionError = ['ARTICLE_CATEGORY_ADMIN_PERMISSION_DENIED'];
 $articlePermissionError = ['ARTICLE_ADMIN_PERMISSION_DENIED'];
 
+$bodyId = ['type' => 'integer', 'minimum' => 1, 'maximum' => 9007199254740991];
+$bodySeq = ['type' => 'integer', 'minimum' => 0, 'maximum' => 9007199254740991];
+$bodyHash = ['type' => 'string', 'pattern' => '^[a-f0-9]{64}$'];
+$bodyKey = ['type' => 'string', 'pattern' => '^[A-Za-z0-9:_-]{1,128}$'];
+$bodyObject = static fn(array $properties, array $required): array => [
+    'type' => 'object', 'additionalProperties' => false, 'properties' => $properties, 'required' => $required,
+];
+$bodyEnvelope = static fn(array $data): array => $bodyObject([
+    'code' => ['type' => 'integer', 'enum' => [20000]], 'msg' => ['type' => 'string'], 'data' => $data,
+], ['code', 'msg', 'data']);
+$bodyOwner = $bodyObject([
+    'module_key' => ['type' => 'string', 'enum' => ['official.article']],
+    'object_type' => ['type' => 'string', 'enum' => ['article']], 'object_id' => ['type' => 'string', 'pattern' => '^[1-9][0-9]*$'],
+    'slot' => ['type' => 'string', 'enum' => ['body']],
+], ['module_key', 'object_type', 'object_id', 'slot']);
+$bodyBinding = $bodyObject([
+    'document_id' => $bodyId, 'revision_id' => $bodyId, 'source_state_seq' => $bodySeq, 'snapshot_sha256' => $bodyHash,
+], ['document_id', 'revision_id', 'source_state_seq', 'snapshot_sha256']);
+$bodySaved = $bodyObject([
+    'article_id' => $bodyId, 'request_id' => $bodyKey, 'phase' => ['type' => 'string', 'enum' => ['completed']],
+    'binding' => $bodyBinding, 'published' => ['type' => 'boolean', 'enum' => [false]],
+], ['article_id', 'request_id', 'phase', 'binding', 'published']);
+$bodySaveProperties = [
+    'id' => $positiveIntegerInput, 'document_id' => $positiveIntegerInput,
+    'expected_state_seq' => ['oneOf' => [$bodySeq, ['type' => 'string', 'pattern' => '^(0|[1-9][0-9]*)$']]],
+    'owner_revision' => $bodyHash, 'request_id' => $bodyKey, 'cid' => $positiveIntegerInput,
+    'title' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 255],
+    'desc' => ['type' => 'string', 'maxLength' => 255], 'abstract' => ['type' => 'string', 'maxLength' => 10000],
+    'image' => ['type' => 'string', 'maxLength' => 2048], 'author' => ['type' => 'string', 'maxLength' => 255],
+    'click_virtual' => ['oneOf' => [$bodySeq, ['type' => 'string', 'pattern' => '^(0|[1-9][0-9]*)$']]],
+    'is_show' => ['oneOf' => [['type' => 'integer', 'enum' => [0]], ['type' => 'string', 'enum' => ['0']]]],
+    'sort' => ['oneOf' => [$bodySeq, ['type' => 'string', 'pattern' => '^(0|[1-9][0-9]*)$']]],
+];
+$bodyEditor = $bodyObject([
+    'document_id' => $bodyId, 'content_kind' => ['type' => 'string', 'enum' => ['rich_text']],
+    'schema_version' => ['type' => 'string'], 'status' => ['type' => 'string', 'enum' => ['active']],
+    'state_seq' => $bodySeq, 'auth_revision' => $bodyId, 'owner' => $bodyOwner, 'authorization_revision' => $bodyHash,
+    'collaboration_enabled' => ['type' => 'boolean'], 'structured_content' => $schemaRef('DocumentStructuredContent'),
+    'digest' => $bodyHash, 'persisted_at' => ['type' => 'string'], 'can_edit' => ['type' => 'boolean', 'enum' => [true]],
+    'can_download_original' => ['type' => 'boolean', 'enum' => [false]], 'capabilities' => $schemaRef('DocumentContentCapabilities'),
+    'article_id' => $bodyId, 'owner_revision' => $bodyHash, 'saved_binding' => $bodyBinding + ['nullable' => true],
+    'article_metadata' => $bodyObject([
+        'cid' => $bodyId, 'title' => ['type' => 'string'], 'desc' => ['type' => 'string'],
+        'abstract' => ['type' => 'string'], 'image' => ['type' => 'string', 'pattern' => '^(|file_[0-9a-f]{32})$'],
+        'image_url' => ['type' => 'string', 'description' => 'Display delivery URL only; never a writable content reference.'], 'author' => ['type' => 'string'],
+        'click_virtual' => $bodySeq, 'sort' => $bodySeq, 'is_show' => ['type' => 'integer', 'enum' => [0, 1]],
+    ], ['cid', 'title', 'desc', 'abstract', 'image', 'image_url', 'author', 'click_virtual', 'sort', 'is_show']),
+], ['document_id', 'content_kind', 'schema_version', 'status', 'state_seq', 'auth_revision', 'owner', 'authorization_revision',
+    'collaboration_enabled', 'structured_content', 'digest', 'persisted_at', 'can_edit', 'can_download_original', 'capabilities', 'article_id', 'owner_revision', 'saved_binding', 'article_metadata']);
+$bodyTicket = $bodyObject([
+    'ticket' => ['type' => 'string'], 'expires_at' => ['type' => 'integer', 'minimum' => 1],
+    'document_id' => $bodyId, 'mode' => ['type' => 'string', 'enum' => ['write']], 'protocol' => ['type' => 'integer', 'enum' => [2]],
+    'owner' => $bodyOwner, 'authorization_revision' => $bodyHash, 'document_name' => ['type' => 'string'],
+    'article_id' => $bodyId, 'owner_revision' => $bodyHash, 'capabilities' => $schemaRef('DocumentContentCapabilities'),
+    'wss_url' => ['type' => 'string', 'format' => 'uri', 'pattern' => '^wss://[^/?#@]+:[0-9]+/collaboration$'],
+    'config_revision' => $bodyId, 'config_sha256' => $bodyHash,
+], ['ticket', 'expires_at', 'document_id', 'mode', 'protocol', 'owner', 'authorization_revision', 'document_name', 'article_id', 'owner_revision', 'capabilities', 'wss_url', 'config_revision', 'config_sha256']);
+$bodyOperation = $bodyObject([
+    'article_id' => $bodyId, 'request_id' => $bodyKey, 'document_id' => $bodyId,
+    'phase' => ['type' => 'string', 'enum' => ['prepared', 'completed']], 'result' => $bodySaved + ['nullable' => true],
+    'continuation' => ['type' => 'string', 'enum' => ['same_request_same_payload'], 'nullable' => true],
+], ['article_id', 'request_id', 'document_id', 'phase', 'result', 'continuation']);
+
 return [
     'paths' => [
+        '/adminapi/official.article.document.editor' => ['get' => $operation(
+            'articleBodyEditor',
+            '读取当前人员获准编辑的既有正文',
+            'ArticleBodyEditorResponse',
+            [$identifierParameter('资讯 ID')],
+            errorStatuses: [404, 409, 422],
+        )],
+        '/adminapi/official.article.document.ticket' => ['post' => $operation(
+            'articleBodyTicket',
+            '签发既有正文写票据（不含部署发现地址）',
+            'ArticleBodyTicketResponse',
+            requestSchema: 'ArticleIdentifierRequest',
+            errorStatuses: [404, 409, 422, 503],
+        )],
+        '/adminapi/official.article.document.save' => ['post' => $operation(
+            'saveArticleBody',
+            '元数据与正文不可变版本原子绑定',
+            'ArticleBodySaveResponse',
+            requestSchema: 'ArticleBodySaveRequest',
+            businessErrors: ['ARTICLE_BODY_SAVE_OWNER_CHANGED', 'ARTICLE_BODY_SAVE_REQUEST_CONFLICT', 'DOCUMENT_SAVE_STATE_CHANGED', 'ARTICLE_PUBLIC_FIXED_VERSION_UNAVAILABLE'],
+            errorStatuses: [404, 409, 422, 503],
+        )],
+        '/adminapi/official.article.document.operation' => ['get' => $operation(
+            'articleBodySaveOperation',
+            '读取原人员的原保存请求；未完成时重放相同输入',
+            'ArticleBodySaveOperationResponse',
+            [$identifierParameter('资讯 ID'), ['in' => 'query', 'name' => 'request_id', 'required' => true, 'schema' => $bodyKey]],
+            errorStatuses: [404, 409, 422],
+        )],
         '/adminapi/official.article.document' => ['post' => [
             'tags' => ['Article'],'operationId' => 'ensureArticleBodyDocument',
             'requestBody' => ['required' => true,'content' => ['application/json' => ['schema' => [
@@ -327,6 +419,11 @@ return [
     ],
     'components' => [
         'schemas' => [
+            'ArticleBodySaveRequest' => $bodyObject($bodySaveProperties, ['id', 'document_id', 'expected_state_seq', 'owner_revision', 'request_id', 'cid', 'title', 'is_show']),
+            'ArticleBodyEditorResponse' => $bodyEnvelope($bodyEditor),
+            'ArticleBodyTicketResponse' => $bodyEnvelope($bodyTicket),
+            'ArticleBodySaveResponse' => $bodyEnvelope($bodySaved),
+            'ArticleBodySaveOperationResponse' => $bodyEnvelope($bodyOperation),
             'ArticlePositiveIntegerInput' => [
                 'description' => '服务端接受正整数或仅含十进制数字的字符串。',
                 'oneOf' => [

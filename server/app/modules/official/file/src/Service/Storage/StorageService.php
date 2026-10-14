@@ -261,8 +261,12 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
         $context = $this->execution->tenantAdmin();
         $this->authorization->requireManagementPermission($context, 'official.file.delete');
         $this->authorization->authorize($context, $object, 'manage');
-        Db::transaction(function () use ($fileKey, $context): void {
-            $this->ownedObjects($context->tenantId)->where('file_key', $fileKey)->lock(true)->find();
+        Db::transaction(function () use ($fileKey, $context, $object): void {
+            $locked = $this->find($this->ownedObjects($context->tenantId)->where('file_key', $fileKey)->lock(true));
+            if ($locked === null || $locked['status'] !== 'ready' || $locked['revision'] != $object['revision']
+                || $locked['object_key'] !== $object['object_key'] || $locked['storage_space_id'] != $object['storage_space_id']) {
+                throw BusinessException::conflict('FILE_REFERENCE_OBJECT_CHANGED', '资源状态或存储绑定已改变');
+            }
             if (FileReference::where('file_key', $fileKey)->lock(true)->find() !== null
                 || FileImmutableSnapshot::where('file_key', $fileKey)->find() !== null
                 || \PeanutAdmin\Modules\File\Model\Storage\FileDerivative::where('source_file_key', $fileKey)->find() !== null
@@ -374,11 +378,28 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
     /** File-internal reference locking/enrichment; never exposed by a cross-module or HTTP contract. */
     public function lockedReferenceObject(TenantContext $context, string $fileKey): array
     {
-        $tenantId = $this->logicalTenantId($context->tenantId);
-        $this->ownedObjects($tenantId)->where('file_key', $fileKey)->lock(true)->find();
+        return $this->lockedAcceptedReferenceObject($context->tenantId, $fileKey);
+    }
+
+    /** File-internal structural read under the caller's accepted-write proof and File object lock. */
+    public function lockedAcceptedReferenceObject(int $logicalTenantId, string $fileKey): array
+    {
+        if ($this->execution->tenantId() !== $logicalTenantId) {
+            throw BusinessException::forbidden('FILE_REFERENCE_TENANT_MISMATCH', '资源引用与当前租户不一致');
+        }
+        $tenantId = $this->logicalTenantId($logicalTenantId);
+        $locked = $this->find($this->ownedObjects($tenantId)->where('file_key', $fileKey)->lock(true));
+        if ($locked === null || $locked['status'] !== 'ready') {
+            throw BusinessException::notFound('FILE_REFERENCE_NOT_FOUND', '引用资源不存在');
+        }
         $object = $this->deliverableObjectForTenant($tenantId, $fileKey);
         if ($object === null) {
             throw BusinessException::notFound('FILE_REFERENCE_NOT_FOUND', '引用资源不存在');
+        }
+        // Enrichment may use an older RR snapshot; every locked File field remains authoritative.
+        $object = [...$object, ...$locked];
+        if (!$this->dataScopePolicy->usesTenantColumn()) {
+            $object['tenant_id'] = $tenantId;
         }
         return $object;
     }

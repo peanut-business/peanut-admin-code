@@ -36,3 +36,18 @@ different derivative File object. Delivery MIME is checked against the server's
 authorized Content Tools capability, so a verified PNG derivative of a JPEG
 source is allowed; an original still must match its source MIME. No original or
 alternate variant is substituted when the requested derivative is unavailable.
+
+Collaboration reserves candidate keys through `FileReferenceCommands` only after
+Document's compiled policy proves the original authenticated references request,
+real connection grant and live owner edit permission. `CollaborationReferenceInput`
+is data, not authority; a digest alone cannot reserve an arbitrary File key.
+Only non-sensitive current Document references may inherit preview. New,
+historical-only and sensitive references require independent File preview permission.
+File-owned `document-collaboration` rows protect deletion before broadcast.
+Explicit clicked targets use separate `document-target` pins before awaiting store;
+they consume only actual current references or verified source reservations.
+Batch transfer and exact captured reservation release require original same-PDO
+Document proofs and commit with content/receipt. Absent/pending references survive
+until an actual epoch fence, and unknown targets retain pins until consumption or
+explicit cancellation. Persisted history references protect consumed targets;
+these methods create no delivery URL or original-download permission.

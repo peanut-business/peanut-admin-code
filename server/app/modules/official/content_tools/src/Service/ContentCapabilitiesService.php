@@ -12,7 +12,8 @@ final readonly class ContentCapabilitiesService
     public function __construct(private ContentToolRegistry $registry) {}
 
     /**
-     * IDs come from explicit application selection, never tenant-provided executable paths.
+     * Explicit application IDs are authoritative; absent IDs require a unique compatible registration.
+     * Selection never comes from tenant-provided executable paths or registration order.
      * Calling code must re-authorize access/save; this result is only a capability snapshot.
      * @return array{contentKind:string,verifiedMimeType:?string,viewerAdapterId:?string,editorAdapterId:?string,canView:bool,canEdit:bool,canDownloadOriginal:bool,state:string,unavailableReason:?string,capabilityRevision:string}
      */
@@ -21,8 +22,8 @@ final readonly class ContentCapabilitiesService
         if (!in_array($intent, ['view', 'edit'], true)) {
             throw new \InvalidArgumentException('CONTENT_INTENT_INVALID');
         }
-        $viewer = $viewerId === null ? null : $this->registry->selected($viewerId, $context, 'view');
-        $editor = $editorId === null ? null : $this->registry->selected($editorId, $context, 'edit');
+        $viewer = $this->registry->selected($viewerId, $context, 'view');
+        $editor = $this->registry->selected($editorId, $context, 'edit');
         $viewReason = $this->unavailable($viewer, $context);
         $editReason = $this->unavailable($editor, $context);
         $canView = $context->canView && $viewer !== null && $viewReason === null;

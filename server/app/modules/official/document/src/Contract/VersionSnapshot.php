@@ -29,4 +29,10 @@ final readonly class VersionSnapshot
             'verified_mime_type' => $this->verifiedMimeType,'references' => $this->references,
             'file_keys' => array_values(array_unique(array_column($this->references, 'file_key')))];
     }
+    /** Fixed business binding; does not authorize publication or turn draft ACK into Save. */
+    public function binding(): array
+    {
+        return ['document_id' => $this->documentId,'revision_id' => $this->revisionId,'source_state_seq' => $this->sourceStateSeq,
+            'snapshot_sha256' => hash('sha256', json_encode(\PeanutAdmin\Modules\RichText\Contract\RichTextProjection::canonical($this->toArray()), JSON_THROW_ON_ERROR))];
+    }
 }

@@ -6,6 +6,7 @@ export { default as parseSurfaceCapabilities } from './capabilities';
 export type {
   AuthorizedPreviewAccess,
   ContentDescriptor,
+  ContentCollaborationBinding,
   ContentKind,
   ContentSurfaceProps,
   ContentToolsContribution,

@@ -18,6 +18,12 @@
       "version": "^1.0"
     }
   ],
+  "optional_dependencies": [
+    {
+      "module_key": "official.collaboration",
+      "version": "^1.0"
+    }
+  ],
   "backend": {
     "provider": "PeanutAdmin\\Modules\\Article\\ModuleProvider",
     "migrations": "database/migrations",
@@ -32,12 +38,14 @@
     "owned_tables": [
       "pa_article_cate",
       "pa_article",
-      "pa_article_collect"
+      "pa_article_collect",
+      "pa_article_body_save"
     ]
   },
   "contracts": {
     "exports": [
       "PeanutAdmin\\Modules\\Article\\Contract\\ArticleAdministration",
+      "PeanutAdmin\\Modules\\Article\\Contract\\ArticleBodySaveInput",
       "PeanutAdmin\\Modules\\Article\\Contract\\ArticleQueries",
       "PeanutAdmin\\Modules\\Article\\Contract\\PublicArticleQueries"
     ],

@@ -4,6 +4,10 @@ import type { Client, ClientOptions } from 'openapi-fetch';
 import type { paths } from '@/generated/openapi';
 
 export interface ModuleApiOperations {
+  articleBodyEditor: paths['/adminapi/official.article.document.editor']['get'];
+  articleBodyTicket: paths['/adminapi/official.article.document.ticket']['post'];
+  saveArticleBody: paths['/adminapi/official.article.document.save']['post'];
+  articleBodySaveOperation: paths['/adminapi/official.article.document.operation']['get'];
   ensureArticleBodyDocument: paths['/adminapi/official.article.document']['post'];
   listArticleCategories: paths['/adminapi/official.article.category.list']['get'];
   listEnabledArticleCategories: paths['/adminapi/official.article.category.all']['get'];
@@ -31,6 +35,10 @@ export interface ModuleApiOperations {
 export function createModuleApi(client: Client<paths>) {
   const pathClient = wrapAsPathBasedClient(client);
   return {
+    articleBodyEditor: pathClient['/adminapi/official.article.document.editor'].GET,
+    articleBodyTicket: pathClient['/adminapi/official.article.document.ticket'].POST,
+    saveArticleBody: pathClient['/adminapi/official.article.document.save'].POST,
+    articleBodySaveOperation: pathClient['/adminapi/official.article.document.operation'].GET,
     ensureArticleBodyDocument: pathClient['/adminapi/official.article.document'].POST,
     listArticleCategories: pathClient['/adminapi/official.article.category.list'].GET,
     listEnabledArticleCategories: pathClient['/adminapi/official.article.category.all'].GET,

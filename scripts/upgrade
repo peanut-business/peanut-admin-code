@@ -301,7 +301,7 @@ function productUpgradeRuntimeFiles(): array
 {
     $files = ['scripts/product-upgrade-host'];
     foreach (['update-plan.php', 'update-database.php', 'update-preparation.py', 'update-recovery.py',
-        'prepare-vendor.sh', 'prepare-vendor.php', 'vendor-state.py'] as $name) {
+        'prepare-vendor.sh', 'prepare-vendor.php', 'vendor-state.py', 'configure-collaboration.py'] as $name) {
         $files[] = 'server/docker/scripts/' . $name;
     }
     return $files;

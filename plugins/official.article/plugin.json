@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "bafc0df3be264b93455954cea32629f752b6641b19b5855d6a7ba05e42ad242b"
+        "sha256": "d04b91f322c6577f7b2ca655bae1af3bf458f6a2111013cb05095e9ff0412e93"
     },
     "trust": {
         "channel": "bundled",
@@ -65,6 +65,10 @@
                             {
                                 "key": "official.article:20260826-namespace-permission-keys",
                                 "sha256": "06c410f96b2833695aea944d207a4b939c3bf7a18c4f2fab6f8e24aaa608af3d"
+                            },
+                            {
+                                "key": "official.article:20261013230000_add_article_document_save_binding",
+                                "sha256": "67e504df714ee1a1d0cc6959506eaa584cfaeb0ea26c3e95597586b5ec2576fe"
                             }
                         ]
                     }

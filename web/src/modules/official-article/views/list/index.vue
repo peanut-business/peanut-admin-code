@@ -143,12 +143,12 @@
                 {{ $t('article.button.edit') }}
               </el-button>
               <el-popconfirm
-                v-permission="['official.article.delete']"
                 :title="$t('article.confirm.delete')"
                 @confirm="onDelete(row)"
               >
                 <template #reference
                   ><el-button
+                    v-permission="['official.article.delete']"
                     link
                     type="danger"
                     size="small"
@@ -175,9 +175,9 @@
         v-model="modalVisible"
         :title="form.id ? $t('article.modal.edit') : $t('article.modal.add')"
         width="900px"
-        :close-on-click-modal="!articleAction.loading.value"
-        :close-on-press-escape="!articleAction.loading.value"
-        :show-close="!articleAction.loading.value"
+        :close-on-click-modal="!articleAction.loading.value && !bodyLocked"
+        :close-on-press-escape="!articleAction.loading.value && !bodyLocked"
+        :show-close="!articleAction.loading.value && !bodyLocked"
         @closed="closeModal"
       >
         <el-alert
@@ -191,6 +191,7 @@
           <el-form-item prop="cid" :label="$t('article.field.cate')">
             <el-select
               v-model="form.cid"
+              :disabled="metadataDisabled"
               :placeholder="$t('article.form.cate.placeholder')"
               style="width: 100%"
               ><el-option
@@ -203,6 +204,7 @@
           <el-form-item prop="title" :label="$t('article.field.title')">
             <el-input
               v-model="form.title"
+              :disabled="metadataDisabled"
               :maxlength="64"
               show-word-limit
               :placeholder="$t('article.form.title.placeholder')"
@@ -210,8 +212,9 @@
           </el-form-item>
           <el-form-item prop="desc" :label="$t('article.field.desc')">
             <el-input
-              type="textarea"
               v-model="form.desc"
+              type="textarea"
+              :disabled="metadataDisabled"
               :maxlength="200"
               show-word-limit
               :autosize="{ minRows: 2, maxRows: 4 }"
@@ -219,8 +222,9 @@
           </el-form-item>
           <el-form-item prop="abstract" :label="$t('article.field.abstract')">
             <el-input
-              type="textarea"
               v-model="form.abstract"
+              type="textarea"
+              :disabled="metadataDisabled"
               :maxlength="200"
               show-word-limit
               :autosize="{ minRows: 2, maxRows: 4 }"
@@ -229,140 +233,94 @@
           <el-form-item prop="image" :label="$t('article.field.image')">
             <el-space alignment="flex-end">
               <el-upload
-                :http-request="
-                  (options: UploadRequestOptions) => uploadFile(10, options)
-                "
+                :key="`${coverCallbacks.key}:upload`"
+                :disabled="metadataDisabled"
+                :http-request="coverCallbacks.upload"
                 :show-file-list="false"
                 accept="image/*"
-                :on-success="onCoverSuccess"
               >
                 <div class="img-uploader">
-                  <img v-if="form.image" :src="form.image" alt="cover" />
+                  <img v-if="coverUrl" :src="coverUrl" alt="cover" />
                   <el-icon v-else><Plus /></el-icon>
                 </div>
               </el-upload>
               <file-picker
+                v-if="!metadataDisabled"
+                :key="`${coverCallbacks.key}:picker`"
                 :type="10"
                 :limit="1"
                 button-text="从素材库选择"
-                @select="onCoverSelected"
+                @select="coverCallbacks.select"
               />
             </el-space>
           </el-form-item>
           <el-form-item prop="author" :label="$t('article.field.author')"
-            ><el-input v-model="form.author"
+            ><el-input v-model="form.author" :disabled="metadataDisabled"
           /></el-form-item>
           <el-form-item prop="sort" :label="$t('article.field.sort')"
-            ><el-input-number v-model="form.sort" :min="0" :max="9999"
+            ><el-input-number
+              v-model="form.sort"
+              :disabled="metadataDisabled"
+              :min="0"
+              :max="9999"
           /></el-form-item>
           <el-form-item
             prop="click_virtual"
             :label="$t('article.field.clickVirtual')"
           >
-            <el-input-number v-model="form.click_virtual" :min="0" />
+            <el-input-number
+              v-model="form.click_virtual"
+              :disabled="metadataDisabled"
+              :min="0"
+            />
           </el-form-item>
           <el-form-item prop="is_show" :label="$t('article.field.isShow')">
             <el-switch
               v-model="form.is_show"
+              disabled
               :active-value="1"
               :inactive-value="0"
             />
           </el-form-item>
           <el-form-item prop="content" :label="$t('article.field.content')">
-            <div class="rich-editor">
-              <div class="rich-editor__toolbar">
-                <el-tooltip content="粗体">
-                  <el-button
-                    size="small"
-                    @mousedown.prevent="formatContent('bold')"
-                    ><b>B</b></el-button
-                  >
-                </el-tooltip>
-                <el-tooltip content="斜体">
-                  <el-button
-                    size="small"
-                    @mousedown.prevent="formatContent('italic')"
-                  >
-                    <i>I</i>
-                  </el-button>
-                </el-tooltip>
-                <el-tooltip content="无序列表">
-                  <el-button
-                    size="small"
-                    @mousedown.prevent="formatContent('insertUnorderedList')"
-                  >
-                    <el-icon><List /></el-icon>
-                  </el-button>
-                </el-tooltip>
-                <el-upload
-                  :http-request="
-                    (options: UploadRequestOptions) => uploadFile(10, options)
-                  "
-                  :show-file-list="false"
-                  accept="image/*"
-                  :before-upload="beforeContentUpload"
-                  :on-success="
-                    (file: FileRecord) => onContentMediaSuccess(file, 'image')
-                  "
-                >
-                  <el-tooltip content="插入图片"
-                    ><el-button size="small" aria-label="插入图片"
-                      ><el-icon><Picture /></el-icon></el-button
-                  ></el-tooltip>
-                </el-upload>
-                <file-picker
-                  :type="10"
-                  :limit="20"
-                  size="mini"
-                  button-text="素材图片"
-                  @open="saveContentRange"
-                  @select="(urls) => onContentMaterialSelected(urls, 'image')"
-                />
-                <el-upload
-                  :http-request="
-                    (options: UploadRequestOptions) => uploadFile(20, options)
-                  "
-                  :show-file-list="false"
-                  accept="video/*"
-                  :before-upload="beforeContentUpload"
-                  :on-success="
-                    (file: FileRecord) => onContentMediaSuccess(file, 'video')
-                  "
-                >
-                  <el-tooltip content="插入视频"
-                    ><el-button size="small" aria-label="插入视频"
-                      ><el-icon><VideoCamera /></el-icon></el-button
-                  ></el-tooltip>
-                </el-upload>
-                <file-picker
-                  :type="20"
-                  :limit="10"
-                  size="mini"
-                  button-text="素材视频"
-                  @open="saveContentRange"
-                  @select="(urls) => onContentMaterialSelected(urls, 'video')"
-                />
-              </div>
-              <div
-                ref="contentEditorRef"
-                class="rich-editor__content"
-                contenteditable="true"
-                @input="onContentInput"
-                @paste.prevent="onContentPaste"
-                @keyup="saveContentRange"
-                @mouseup="saveContentRange"
-              ></div>
-            </div>
+            <ArticleBodyEditor
+              v-if="
+                modalVisible &&
+                form.id &&
+                !form.content.trim() &&
+                form.is_show === 0
+              "
+              ref="bodyEditor"
+              :key="form.id"
+              :article-id="form.id"
+              :context-key="contextKey"
+              @saved="fetchData(pagination.current)"
+              @locked="bodyLocked = $event"
+              @metadata-ready="bodyMetadataReady = $event"
+              @metadata="onMetadataLoaded"
+            />
+            <p v-else-if="form.id && form.content.trim()" role="status">
+              已有 HTML 正文需显式迁移，当前只读；此处不会转换或覆盖原正文。
+            </p>
+            <p v-else role="status">
+              {{
+                form.id
+                  ? '公开资讯请先按原权限下架后编辑正文。'
+                  : '新建资讯暂只创建元数据，正文请在创建后接入。'
+              }}
+            </p>
+            <pre v-if="form.content.trim()">{{ form.content }}</pre>
           </el-form-item>
         </el-form>
         <template #footer
           ><el-button
-            :disabled="articleAction.loading.value"
+            :disabled="articleAction.loading.value || bodyLocked"
             @click="closeModal"
             >取消</el-button
           ><el-button
             type="primary"
             :loading="articleAction.loading.value"
+            :disabled="bodyLocked || (form.id !== 0 && !bodyMetadataReady)"
             @click="onSubmit"
             >确定</el-button
           ></template
@@ -373,7 +331,7 @@
 </template>
 
 <script lang="ts" setup>
-  import { computed, nextTick, reactive, ref } from 'vue';
+  import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
   import { useI18n } from 'vue-i18n';
   import {
     ElMessage,
@@ -381,31 +339,26 @@
     type FormRules,
     type UploadRequestOptions,
   } from 'element-plus';
-  import {
-    List,
-    Picture,
-    Plus,
-    Refresh,
-    Search,
-    VideoCamera,
-  } from '@element-plus/icons-vue';
+  import { Plus, Refresh, Search } from '@element-plus/icons-vue';
   import { useAsyncAction } from '@peanut-admin/vue';
   import useLoading from '@/hooks/loading';
-  import sanitizeRichText from '@/utils/sanitize-rich-text';
+  import { useUserStore } from '@/store';
+  import { getSessionSnapshot } from '@/utils/auth';
   import FilePicker from '@/components/file-picker/index.vue';
   import { uploadFile, type FileRecord } from '@/modules/official-file/api';
   import {
     getArticleList,
     getArticleCateAll,
-    getArticleDetail,
     addArticle,
-    editArticle,
     deleteArticle,
     updateArticleStatus,
     type ArticleRecord,
     type ArticleCreateRequest,
     type ArticleListParams,
+    type ArticleBodyEditor as ArticleEditorMetadata,
+    type ArticleBodyMetadata,
   } from '@/modules/official-article/api';
+  import ArticleBodyEditor from './ArticleBodyEditor.vue';
 
   interface ArticleForm {
     id: number;
@@ -422,6 +375,28 @@
   }
 
   const { t } = useI18n();
+  const user = useUserStore();
+  const generation = ref(getSessionSnapshot().generation);
+  const unsubscribe = user.$subscribe(
+    () => {
+      generation.value = getSessionSnapshot().generation;
+    },
+    { flush: 'sync' }
+  );
+  const contextKey = computed(() =>
+    JSON.stringify([
+      generation.value,
+      user.accountId,
+      user.tenantName,
+      user.role,
+      user.permissions,
+    ])
+  );
+  let disposed = false;
+  let listing: AbortController | undefined;
+  let categories: AbortController | undefined;
+  const active = (controller: AbortController, key: string) =>
+    !disposed && !controller.signal.aborted && key === contextKey.value;
   const articleAction = useAsyncAction(() => t('article.error.request'));
   const { loading, setLoading } = useLoading(true);
   const renderData = ref<ArticleRecord[]>([]);
@@ -455,8 +430,13 @@
   };
 
   const fetchCateOptions = async () => {
+    categories?.abort();
+    const controller = new AbortController();
+    categories = controller;
+    const key = contextKey.value;
     try {
-      const { data } = await getArticleCateAll();
+      const { data } = await getArticleCateAll(controller.signal);
+      if (!active(controller, key)) return;
       cateOptions.value = data.map((item) => ({
         label: item.name,
         value: item.id,
@@ -465,9 +445,12 @@
       // The shared Axios interceptor displays the server error.
     }
   };
-  fetchCateOptions();
 
   const fetchData = async (page = 1) => {
+    listing?.abort();
+    const controller = new AbortController();
+    listing = controller;
+    const key = contextKey.value;
     setLoading(true);
     try {
       const params: ArticleListParams = {
@@ -479,7 +462,8 @@
         page_size: pagination.pageSize,
         page_type: 1,
       };
-      const { data } = await getArticleList(params);
+      const { data } = await getArticleList(params, controller.signal);
+      if (!active(controller, key)) return;
       renderData.value = data.lists;
       pagination.current = data.pageNo;
       pagination.pageSize = data.pageSize;
@@ -487,10 +471,9 @@
     } catch {
       // The shared Axios interceptor displays the server error.
     } finally {
-      setLoading(false);
+      if (listing === controller) setLoading(false);
     }
   };
-  fetchData();
 
   const search = () => fetchData(1);
   const onPageChange = (current: number) => fetchData(current);
@@ -500,9 +483,19 @@
   };
 
   const formRef = ref<FormInstance>();
-  const contentEditorRef = ref<HTMLDivElement>();
-  const contentRange = ref<Range>();
+  const bodyEditor = ref<InstanceType<typeof ArticleBodyEditor>>();
+  const bodyLocked = ref(false);
+  const bodyMetadataReady = ref(false);
+  const coverUrl = ref('');
   const modalVisible = ref(false);
+  const coverGeneration = ref(0);
+  watch(
+    modalVisible,
+    (visible) => {
+      if (!visible) coverGeneration.value += 1;
+    },
+    { flush: 'sync' }
+  );
   const generateForm = (): ArticleForm => ({
     id: 0,
     cid: undefined,
@@ -514,9 +507,44 @@
     content: '',
     click_virtual: 0,
     sort: 0,
-    is_show: 1,
+    is_show: 0,
   });
   const form = ref<ArticleForm>(generateForm());
+  const metadataDisabled = computed(
+    () => bodyLocked.value || (form.value.id !== 0 && !bodyMetadataReady.value)
+  );
+  const onMetadataLoaded = (value: ArticleEditorMetadata) => {
+    if (!modalVisible.value || value.article_id !== form.value.id) return;
+    // Explicit metadata reload also ends any earlier cover intent in this dialog.
+    coverGeneration.value += 1;
+    // Only an explicit initial load/reload replaces the form, from the same row as its CAS baseline.
+    const metadata: ArticleBodyMetadata = value.article_metadata;
+    const {
+      cid,
+      title,
+      desc,
+      abstract,
+      image,
+      image_url: imageUrl,
+      author,
+      click_virtual: clickVirtual,
+      sort,
+      is_show: isShow,
+    } = metadata;
+    coverUrl.value = imageUrl;
+    Object.assign(form.value, {
+      cid,
+      title,
+      desc,
+      abstract,
+      image,
+      author,
+      click_virtual: clickVirtual,
+      sort,
+      is_show: isShow,
+    });
+    formRef.value?.clearValidate();
+  };
 
   const validateRange =
     (min: number, max?: number) =>
@@ -554,155 +582,90 @@
     click_virtual: [{ validator: validateRange(0) }],
   };
 
-  const syncEditor = async () => {
-    await nextTick();
-    if (contentEditorRef.value) {
-      const sanitizedContent = sanitizeRichText(form.value.content);
-      form.value.content = sanitizedContent;
-      contentEditorRef.value.innerHTML = sanitizedContent;
-    }
+  const openAdd = () => {
+    if (bodyLocked.value) return;
+    coverGeneration.value += 1;
+    articleAction.cancel();
+    form.value = generateForm();
+    coverUrl.value = '';
+    bodyMetadataReady.value = false;
+    modalVisible.value = true;
     formRef.value?.clearValidate();
   };
 
-  const readEditorContent = (): string => {
-    const editor = contentEditorRef.value;
-    const content = editor?.innerHTML ?? form.value.content;
-    const sanitizedContent = sanitizeRichText(content);
-    if (editor && editor.innerHTML !== sanitizedContent) {
-      editor.innerHTML = sanitizedContent;
-    }
-    return sanitizedContent;
-  };
-
-  const openAdd = async () => {
+  const openEdit = (record: ArticleRecord) => {
+    if (bodyLocked.value) return;
+    coverGeneration.value += 1;
+    // The list only selects the existing object. Edit metadata/revision are loaded together by the owner editor.
     articleAction.cancel();
-    contentRange.value = undefined;
-    form.value = generateForm();
-    modalVisible.value = true;
-    await syncEditor();
-  };
-
-  const openEdit = async (record: ArticleRecord) => {
-    articleAction.cancel();
-    contentRange.value = undefined;
-    const result = await articleAction.run(({ signal }) =>
-      getArticleDetail(record.id, signal)
-    );
-    if (result.status !== 'completed') return;
-    const { data } = result.data;
+    bodyMetadataReady.value = false;
+    coverUrl.value = record.image || '';
     form.value = {
-      id: data.id,
-      cid: data.cid,
-      title: data.title,
-      desc: data.desc || '',
-      abstract: data.abstract || '',
-      image: data.image || '',
-      author: data.author || '',
-      content: sanitizeRichText(data.content || ''),
-      click_virtual: data.click_virtual || 0,
-      sort: data.sort || 0,
-      is_show: data.is_show,
+      id: record.id,
+      cid: record.cid,
+      title: record.title,
+      desc: record.desc || '',
+      abstract: record.abstract || '',
+      image: '',
+      author: record.author || '',
+      content: record.content || '',
+      click_virtual: record.click_virtual || 0,
+      sort: record.sort || 0,
+      is_show: record.is_show,
     };
     modalVisible.value = true;
-    await syncEditor();
+    formRef.value?.clearValidate();
   };
 
-  const onContentInput = () => {
-    form.value.content = readEditorContent();
-    saveContentRange();
-  };
-
-  const onContentPaste = (event: ClipboardEvent) => {
-    const clipboard = event.clipboardData;
-    if (!clipboard) return;
-    const html = clipboard.getData('text/html');
-    const text = clipboard.getData('text/plain');
-    const safe = html
-      ? sanitizeRichText(html)
-      : sanitizeRichText(text).replace(/\r?\n/g, '<br>');
-    document.execCommand('insertHTML', false, safe);
-    form.value.content = readEditorContent();
-    saveContentRange();
-  };
-
-  const saveContentRange = () => {
-    const editor = contentEditorRef.value;
-    const selection = window.getSelection();
-    if (!editor || !selection?.rangeCount) return;
-    const range = selection.getRangeAt(0);
-    if (editor.contains(range.commonAncestorContainer)) {
-      contentRange.value = range.cloneRange();
+  const applyCover = (file: FileRecord | undefined) => {
+    if (!modalVisible.value || metadataDisabled.value) return false;
+    if (
+      !file ||
+      typeof file.file_key !== 'string' ||
+      !/^file_[0-9a-f]{32}$/.test(file.file_key)
+    ) {
+      ElMessage.warning('素材缺少稳定文件引用，请重新选择。');
+      return false;
     }
-  };
-
-  const beforeContentUpload = () => {
-    saveContentRange();
+    form.value.image = file.file_key;
+    coverUrl.value = file.url;
     return true;
   };
-
-  const formatContent = (command: string) => {
-    contentEditorRef.value?.focus();
-    document.execCommand(command);
-    if (contentEditorRef.value) {
-      form.value.content = readEditorContent();
-    }
-  };
-
-  const onCoverSuccess = (file: FileRecord) => {
-    form.value.image = file.url || file.uri;
-    ElMessage.success(t('article.tip.uploadSuccess'));
-  };
-
-  const onCoverSelected = (urls: string[]) => {
-    form.value.image = urls[0] || '';
-  };
-
-  const insertContentMedia = (url: string, type: 'image' | 'video') => {
-    const editor = contentEditorRef.value;
-    if (!url || !editor) return;
-
-    const media = document.createElement(type === 'image' ? 'img' : 'video');
-    media.setAttribute('src', url);
-    if (type === 'video') {
-      media.setAttribute('controls', 'controls');
-      media.setAttribute('preload', 'metadata');
-    }
-
-    const range = contentRange.value;
-    if (range && editor.contains(range.commonAncestorContainer)) {
-      range.deleteContents();
-      range.insertNode(media);
-      range.setStartAfter(media);
-      range.collapse(true);
-      contentRange.value = range;
-    } else {
-      editor.appendChild(media);
-    }
-    form.value.content = readEditorContent();
-  };
-
-  const onContentMaterialSelected = (
-    urls: string[],
-    type: 'image' | 'video'
-  ) => {
-    urls.forEach((url) => insertContentMedia(url, type));
-  };
-
-  const onContentMediaSuccess = (file: FileRecord, type: 'image' | 'video') => {
-    insertContentMedia(file.url || file.uri, type);
-    ElMessage.success(t('article.tip.uploadSuccess'));
-  };
+  const coverCallbacks = computed(() => {
+    // Each component instance and request retains this originating identity/dialog/owner tuple.
+    const identity = contextKey.value;
+    const dialog = coverGeneration.value;
+    const articleId = form.value.id;
+    const currentCover = () =>
+      !disposed &&
+      identity === contextKey.value &&
+      dialog === coverGeneration.value &&
+      articleId === form.value.id &&
+      modalVisible.value &&
+      !metadataDisabled.value;
+    return {
+      key: JSON.stringify([identity, dialog, articleId]),
+      upload: async (options: UploadRequestOptions) => {
+        if (!currentCover()) throw new Error('ARTICLE_COVER_CONTEXT_CHANGED');
+        const file = await uploadFile(10, options);
+        if (!currentCover()) throw new Error('ARTICLE_COVER_CONTEXT_CHANGED');
+        if (applyCover(file)) ElMessage.success(t('article.tip.uploadSuccess'));
+        return file;
+      },
+      select: (_urls: string[], files: FileRecord[]) => {
+        if (currentCover()) applyCover(files[0]);
+      },
+    };
+  });
 
   const closeModal = () => {
-    if (articleAction.loading.value) return;
+    if (articleAction.loading.value || bodyLocked.value) return;
     articleAction.cancel();
-    contentRange.value = undefined;
     modalVisible.value = false;
   };
 
   const onSubmit = async () => {
     if (articleAction.loading.value) return;
-    form.value.content = readEditorContent();
     const result = await articleAction.run(async ({ signal }) => {
       const valid = await formRef.value?.validate().catch(() => false);
       if (!valid || form.value.cid === undefined) return false;
@@ -720,13 +683,32 @@
         sort,
         is_show: form.value.is_show,
       };
-      return id
-        ? editArticle({ id, ...payload }, signal)
-        : addArticle(payload, signal);
+      if (id) {
+        if (
+          !bodyEditor.value ||
+          !bodyMetadataReady.value ||
+          content.trim() ||
+          form.value.is_show !== 0
+        )
+          return false;
+        // Owner Save binds a fixed Document version; never write legacy HTML.
+        return bodyEditor.value.save({
+          cid,
+          title,
+          desc,
+          abstract,
+          image,
+          author,
+          click_virtual: payload.click_virtual,
+          sort,
+          is_show: 0,
+        });
+      }
+      return addArticle({ ...payload, content: '', is_show: 0 }, signal);
     });
     if (result.status !== 'completed' || !result.data) return;
     ElMessage.success(t('article.message.success'));
-    modalVisible.value = false;
+    if (!form.value.id) modalVisible.value = false;
     await fetchData(pagination.current);
   };
 
@@ -741,6 +723,7 @@
 
   const onStatusChange = async (record: ArticleRecord, value: unknown) => {
     const isShow = value ? 1 : 0;
+    // The original authorized API locks the current row and rejects managed publication.
     const result = await articleAction.run(({ signal }) =>
       updateArticleStatus(record.id, isShow, signal)
     );
@@ -748,6 +731,36 @@
     record.is_show = isShow;
     ElMessage.success(t('article.message.success'));
   };
+  watch(
+    contextKey,
+    () => {
+      coverGeneration.value += 1;
+      listing?.abort();
+      categories?.abort();
+      articleAction.cancel();
+      modalVisible.value = false;
+      bodyLocked.value = false;
+      bodyMetadataReady.value = false;
+      coverUrl.value = '';
+      form.value = generateForm();
+      renderData.value = [];
+      cateOptions.value = [];
+      formModel.value = generateFormModel();
+      pagination.current = 1;
+      pagination.total = 0;
+      fetchCateOptions();
+      fetchData();
+    },
+    { immediate: true, flush: 'sync' }
+  );
+  onBeforeUnmount(() => {
+    disposed = true;
+    coverGeneration.value += 1;
+    listing?.abort();
+    categories?.abort();
+    articleAction.cancel();
+    unsubscribe();
+  });
 </script>
 
 <script lang="ts">
@@ -771,36 +784,6 @@
     img {
       max-width: 100%;
       max-height: 100%;
-    }
-  }
-
-  .rich-editor {
-    width: 100%;
-    overflow: hidden;
-    border: 1px solid var(--el-border-color);
-    border-radius: var(--el-border-radius-small);
-
-    &__toolbar {
-      display: flex;
-      gap: 8px;
-      padding: 8px;
-      background: var(--el-fill-color-light);
-      border-bottom: 1px solid var(--el-border-color);
-    }
-
-    &__content {
-      min-height: 220px;
-      max-height: 420px;
-      padding: 12px;
-      overflow-y: auto;
-      line-height: 1.6;
-      outline: none;
-
-      :deep(img),
-      :deep(video) {
-        max-width: 100%;
-        height: auto;
-      }
     }
   }
 

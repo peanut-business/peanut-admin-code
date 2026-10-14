@@ -33,14 +33,18 @@ final readonly class DocumentAuthorizationService
             || $ambient->tenant->clientKey !== $context->clientKey || !hash_equals($ambient->tenant->sessionKey, $context->sessionKey))) {
             throw BusinessException::forbidden('DOCUMENT_CONTEXT_MISMATCH', '文档与当前可信会话不一致');
         }
-        $current = $this->sessions->revalidateSession(
-            $context->tenantId,
-            $context->accountId,
-            $context->memberId,
-            $context->sessionKey,
-            $context->clientKey,
-            $context->requestId,
-        );
+        try {
+            $current = $this->sessions->revalidateSession(
+                $context->tenantId,
+                $context->accountId,
+                $context->memberId,
+                $context->sessionKey,
+                $context->clientKey,
+                $context->requestId,
+            );
+        } catch (\PeanutAdmin\Modules\Identity\Contract\TenantSessionAccessException) {
+            throw BusinessException::forbidden('DOCUMENT_SESSION_DENIED', '原文档会话已失效');
+        }
         if ($current->authorizationRevision !== $context->authorizationRevision) {
             throw BusinessException::forbidden('DOCUMENT_AUTHORIZATION_STALE', '文档授权已改变');
         }
@@ -56,6 +60,12 @@ final readonly class DocumentAuthorizationService
         $guard = new ModuleGuard($this->modules);
         $guard->assertDeployment($moduleKey);
         $guard->assertTenant($context->tenantId, $moduleKey, new \DateTimeImmutable('now', new \DateTimeZone('UTC')));
+    }
+
+    /** Deployment availability does not confer human or accepted-write authority. */
+    public function requireDeploymentModule(string $moduleKey): void
+    {
+        (new ModuleGuard($this->modules))->assertDeployment($moduleKey);
     }
 
     public function owner(TenantContext $context, DocumentOwnerReference $reference, string $action, bool $lock): \PeanutAdmin\Modules\Document\Contract\DocumentOwnerState
@@ -109,7 +119,8 @@ final readonly class DocumentAuthorizationService
         $owner = $this->owner($context, self::reference($document), $document->status === 'archived' ? 'archive.read' : $action, false);
         $guard = new ModuleGuard($this->modules);
         $moduleState = [$guard->assertDeployment($owner->reference->moduleKey),$guard->assertTenant($context->tenantId, $owner->reference->moduleKey, new \DateTimeImmutable('now', new \DateTimeZone('UTC')))];
-        return hash('sha256', json_encode([$context->authorizationRevision,$document->auth_revision,$document->state_seq,$document->status,
+        // Editing progress belongs to state_seq/CAS receipts, never to a connection's authorization grant.
+        return hash('sha256', json_encode([$context->authorizationRevision,$document->auth_revision,$document->status,
             $this->owners->requirePolicy($owner->reference)->stateRevision($owner),$moduleState], JSON_THROW_ON_ERROR));
     }
 

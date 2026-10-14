@@ -101,6 +101,18 @@ export interface SurfaceAdapterRegistration {
 export interface ContentToolsContribution extends PluginFrontendContribution {
   contentAdapters?: readonly SurfaceAdapterRegistration[];
 }
+export interface ContentCollaborationBinding {
+  protocol: 'yjs/1';
+  document: unknown;
+  generation: string;
+  ready: boolean;
+  /** Local edit permission; a save target may temporarily hold the initiating editor. */
+  writable?: boolean;
+  /** Disconnected local state retained for explicit export; never treated as synced. */
+  frozen?: boolean;
+  saved: boolean;
+}
+
 export interface ContentSurfaceProps {
   content: ContentDescriptor;
   capabilities: SurfaceCapabilities;
@@ -109,4 +121,6 @@ export interface ContentSurfaceProps {
   allowedOperations: readonly ('view' | 'edit' | 'download_original')[];
   callbacks: SurfaceCallbacks;
   registry: import('./registry').default;
+  /** Owner owns the CRDT and its lifetime. Providers validate the document type. */
+  collaborationBinding?: ContentCollaborationBinding;
 }

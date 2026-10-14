@@ -39,6 +39,7 @@ final class ArticleAdministrationService implements ArticleAdministration
         private readonly RichTextResourceService $richText,
         private readonly XlsxExportService $xlsxExport,
         private readonly \PeanutAdmin\Modules\Document\Contract\DocumentCommands $documents,
+        private readonly ArticleBodyService $bodies,
     ) {}
 
     public function lists(TenantContext $context, array $params): PageResult|array
@@ -56,7 +57,36 @@ final class ArticleAdministrationService implements ArticleAdministration
     public function bodyDocument(TenantContext $context, int $id, string $requestId): array
     {
         $this->assertPermission($context, 'official.article.edit');
-        return $this->documents->create($context, new \PeanutAdmin\Modules\Document\Contract\DocumentOwnerReference('official.article', 'article', (string) $id, 'body'), 'rich_text', $requestId);
+        return $this->bodies->ensure($context, $id, $requestId);
+    }
+
+    public function bodyEditor(TenantContext $context, int $id): array
+    {
+        $this->assertPermission($context, 'official.article.edit');
+        return $this->bodies->editor($context, $id);
+    }
+
+    public function bodyTicket(TenantContext $context, int $id): array
+    {
+        $this->assertPermission($context, 'official.article.edit');
+        return $this->bodies->ticket($context, $id);
+    }
+
+    public function bodySave(TenantContext $context, array $input): array
+    {
+        $this->assertPermission($context, 'official.article.edit');
+        return $this->bodies->save(
+            $context,
+            new \PeanutAdmin\Modules\Article\Contract\ArticleBodySaveInput($input),
+            fn(int $cid) => $this->requireCategory($cid, true),
+            fn(TenantContext $current, array $metadata): array => $this->articleWriteData($current, $metadata, false),
+        );
+    }
+
+    public function bodySaveOperation(TenantContext $context, int $id, string $requestId): array
+    {
+        $this->assertPermission($context, 'official.article.edit');
+        return $this->bodies->operation($context, $id, $requestId);
     }
 
     public function add(TenantContext $context, array $params): bool
@@ -81,6 +111,9 @@ final class ArticleAdministrationService implements ArticleAdministration
             if ($article->isEmpty()) {
                 throw BusinessException::notFound('ARTICLE_NOT_FOUND', '资讯不存在');
             }
+            if ($article->body_document_id !== null) {
+                throw BusinessException::conflict('ARTICLE_DOCUMENT_SAVE_REQUIRED', '已接入 Document 的资讯须使用正文保存入口');
+            }
             $article->save($this->articleWriteData($context, $params));
             return true;
         });
@@ -89,7 +122,8 @@ final class ArticleAdministrationService implements ArticleAdministration
     public function delete(TenantContext $context, int $id): bool
     {
         $this->assertPermission($context, 'official.article.delete');
-        return Db::transaction(function () use ($context, $id): bool {
+        return $this->documents->runOwnerLifecycle($context, new \PeanutAdmin\Modules\Document\Contract\DocumentOwnerReference('official.article', 'article', (string) $id, 'body'), 'archive', function () use ($context, $id): bool {
+            $this->assertPermission($context, 'official.article.delete');
             $article = Article::withTrashed()->where('id', $id)->lock(true)->findOrEmpty();
             if ($article->isEmpty()) {
                 throw BusinessException::notFound('ARTICLE_NOT_FOUND', '资讯不存在');
@@ -100,7 +134,6 @@ final class ArticleAdministrationService implements ArticleAdministration
             if (!$article->delete()) {
                 throw new \LogicException('ARTICLE_SOFT_DELETE_FAILED');
             }
-            $this->documents->archiveOwner($context, 'official.article', 'article', (string) $id);
             // 封面和正文中的文件引用仍由文件模块保留；软删除不触发外部清理。
             return true;
         });
@@ -113,6 +146,9 @@ final class ArticleAdministrationService implements ArticleAdministration
             $article = Article::where([])->where('id', $id)->lock(true)->findOrEmpty();
             if ($article->isEmpty()) {
                 throw BusinessException::notFound('ARTICLE_NOT_FOUND', '资讯不存在');
+            }
+            if ($isShow === 1 && $article->body_document_id !== null) {
+                throw BusinessException::conflict('ARTICLE_PUBLIC_FIXED_VERSION_UNAVAILABLE', '固定正文公开解析尚未接入');
             }
             if ((int) $article->is_show !== $isShow) {
                 $article->save(['is_show' => $isShow]);
@@ -137,7 +173,8 @@ final class ArticleAdministrationService implements ArticleAdministration
     {
         $this->assertPermission($context, 'official.article.restore');
         return $this->batch($ids, 'restored', function (int $id) use ($context): string {
-            return Db::transaction(function () use ($context, $id): string {
+            return $this->documents->runOwnerLifecycle($context, new \PeanutAdmin\Modules\Document\Contract\DocumentOwnerReference('official.article', 'article', (string) $id, 'body'), 'restore', function () use ($context, $id): string {
+                $this->assertPermission($context, 'official.article.restore');
                 $article = Article::withTrashed()->where('id', $id)->lock(true)->findOrEmpty();
                 if ($article->isEmpty()) {
                     throw BusinessException::notFound('ARTICLE_NOT_FOUND', '资讯不存在');
@@ -149,7 +186,6 @@ final class ArticleAdministrationService implements ArticleAdministration
                 if (!$article->restore()) {
                     throw new \LogicException('ARTICLE_RESTORE_FAILED');
                 }
-                $this->documents->restoreOwner($context, 'official.article', 'article', (string) $id);
                 return 'restored';
             });
         });
@@ -324,21 +360,24 @@ final class ArticleAdministrationService implements ArticleAdministration
     }
 
     /** @return array<string,mixed> */
-    private function articleWriteData(TenantContext $context, array $params): array
+    private function articleWriteData(TenantContext $context, array $params, bool $includeContent = true): array
     {
         $params = array_intersect_key($params, array_flip(self::WRITE_FIELDS));
-        return [
+        $data = [
             'cid' => (int) $params['cid'],
             'title' => (string) $params['title'],
             'desc' => (string) ($params['desc'] ?? ''),
             'abstract' => (string) ($params['abstract'] ?? ''),
             'image' => $this->assets->forStorage((string) ($params['image'] ?? ''), null, $context),
             'author' => (string) ($params['author'] ?? ''),
-            'content' => $this->richText->forStorage((string) ($params['content'] ?? ''), $context),
             'click_virtual' => (int) ($params['click_virtual'] ?? 0),
             'is_show' => (int) $params['is_show'],
             'sort' => (int) ($params['sort'] ?? 0),
         ];
+        if ($includeContent) {
+            $data['content'] = $this->richText->forStorage((string) ($params['content'] ?? ''), $context);
+        }
+        return $data;
     }
 
     /** @return array<int,string> */

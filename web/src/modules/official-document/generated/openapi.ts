@@ -4,6 +4,9 @@ import type { Client, ClientOptions } from 'openapi-fetch';
 import type { paths } from '@/generated/openapi';
 
 export interface ModuleApiOperations {
+  getDocumentTarget: paths['/adminapi/official.document.target']['get'];
+  cancelDocumentTarget: paths['/adminapi/official.document.target.cancel']['post'];
+  queryDocumentBusinessOperation: paths['/adminapi/official.document.operation']['get'];
   documentDetail: paths['/adminapi/official.document.detail']['get'];
   documentCapabilities: paths['/adminapi/official.document.capabilities']['get'];
   saveSoloDocument: paths['/adminapi/official.document.solo.save']['post'];
@@ -17,6 +20,9 @@ export interface ModuleApiOperations {
 export function createModuleApi(client: Client<paths>) {
   const pathClient = wrapAsPathBasedClient(client);
   return {
+    getDocumentTarget: pathClient['/adminapi/official.document.target'].GET,
+    cancelDocumentTarget: pathClient['/adminapi/official.document.target.cancel'].POST,
+    queryDocumentBusinessOperation: pathClient['/adminapi/official.document.operation'].GET,
     documentDetail: pathClient['/adminapi/official.document.detail'].GET,
     documentCapabilities: pathClient['/adminapi/official.document.capabilities'].GET,
     saveSoloDocument: pathClient['/adminapi/official.document.solo.save'].POST,

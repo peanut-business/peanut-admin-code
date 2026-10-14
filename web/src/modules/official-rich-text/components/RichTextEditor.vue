@@ -32,7 +32,11 @@
       >
     </div>
     <div ref="host" class="rich-text-editor__content" />
-    <p v-if="collaboration?.enabled || collaborationState" role="status"
+    <p
+      v-if="
+        (collaboration?.enabled || collaborationState) && !collaborationBinding
+      "
+      role="status"
       >协同服务尚未可用；未连接、未保存协同状态。</p
     >
   </section>
@@ -42,7 +46,12 @@
   import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
   import { Editor } from '@tiptap/core';
   import DOMPurify from 'dompurify';
-  import type { SurfaceCallbacks } from '@/modules/official-content-tools/src/contracts';
+  import Collaboration from '@tiptap/extension-collaboration';
+  import { Doc } from 'yjs';
+  import type {
+    SurfaceCallbacks,
+    ContentCollaborationBinding,
+  } from '@/modules/official-content-tools/src/contracts';
   import type ContentToolRegistry from '@/modules/official-content-tools/src/registry';
   import {
     DOCUMENT_VERSION,
@@ -62,6 +71,7 @@
       readOnly?: boolean;
       callbacks?: SurfaceCallbacks;
       registry?: ContentToolRegistry;
+      collaborationBinding?: ContentCollaborationBinding;
     }>(),
     { contextKey: 'standalone', readOnly: false, callbacks: () => ({}) }
   );
@@ -79,7 +89,10 @@
   const picking = ref(false);
   let mounted = false;
   let picker: AbortController | undefined;
+  let boundDocument: Doc | undefined;
   const dispose = () => {
+    boundDocument?.off('destroy', dispose);
+    boundDocument = undefined;
     picker?.abort();
     picker = undefined;
     picking.value = false;
@@ -88,7 +101,8 @@
     link.value = '';
   };
   const unavailable = () =>
-    !!props.collaboration?.enabled || !!props.collaborationState;
+    !props.collaborationBinding &&
+    (!!props.collaboration?.enabled || !!props.collaborationState);
   const envelope = (instance: Editor) =>
     parseRichTextDocument({
       schemaVersion: DOCUMENT_VERSION,
@@ -106,16 +120,39 @@
       return;
     }
     try {
+      const binding = props.collaborationBinding;
+      if (
+        binding &&
+        (binding.protocol !== 'yjs/1' || !(binding.document instanceof Doc))
+      ) {
+        throw new Error('RICH_TEXT_COLLABORATION_BINDING_INVALID');
+      }
+      if (binding && !binding.ready && !binding.frozen) return;
+      if (binding?.document instanceof Doc) {
+        boundDocument = binding.document;
+        boundDocument.on('destroy', dispose);
+      }
       const value = parseRichTextDocument(props.modelValue);
       editor.value = new Editor({
         element: host.value,
-        editable: !props.readOnly,
-        extensions: richTextExtensions({
-          callbacks: props.callbacks,
-          registry: props.registry,
-          contextKey: props.contextKey,
-        }),
-        content: value.content,
+        editable: !props.readOnly && binding?.writable !== false,
+        extensions: [
+          ...richTextExtensions({
+            callbacks: props.callbacks,
+            registry: props.registry,
+            contextKey: props.contextKey,
+            collaborative: !!binding,
+          }),
+          ...(binding && binding.document instanceof Doc
+            ? [
+                Collaboration.configure({
+                  document: binding.document,
+                  field: 'default',
+                }),
+              ]
+            : []),
+        ],
+        ...(binding ? {} : { content: value.content }),
         editorProps: {
           attributes: {
             'role': props.readOnly ? 'document' : 'textbox',
@@ -155,6 +192,7 @@
         },
         onUpdate: ({ editor: current }) => {
           if (props.readOnly || unavailable()) return;
+          if (props.collaborationBinding) return;
           try {
             const projection = envelope(current);
             emit('update:modelValue', projection);
@@ -168,6 +206,7 @@
       });
       emit('ready');
     } catch {
+      dispose();
       error.value = '内容结构或旧媒体引用无法识别，未修改原内容';
       emit('error', 'RICH_TEXT_PROJECTION_INVALID');
     }
@@ -177,20 +216,30 @@
     start();
   });
   watch(
-    () => [
-      props.contextKey,
-      props.readOnly,
-      props.collaboration?.enabled,
-      props.collaborationState,
-      props.callbacks,
-      props.registry,
+    [
+      () => props.contextKey,
+      () => props.readOnly,
+      () => props.collaboration?.enabled,
+      () => props.collaborationState,
+      () => props.callbacks,
+      () => props.registry,
+      () => props.collaborationBinding?.document,
+      () => props.collaborationBinding?.generation,
+      () => props.collaborationBinding?.ready,
+      () => props.collaborationBinding?.frozen,
     ],
     start
   );
   watch(
+    () => props.collaborationBinding?.writable,
+    (writable) =>
+      editor.value?.setEditable(!props.readOnly && writable !== false),
+    { flush: 'sync' }
+  );
+  watch(
     () => props.modelValue,
     () => {
-      if (!editor.value) return;
+      if (!editor.value || props.collaborationBinding) return;
       try {
         const value = parseRichTextDocument(props.modelValue);
         if (

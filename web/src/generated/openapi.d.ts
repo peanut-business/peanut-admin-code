@@ -2880,6 +2880,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/adminapi/official.article.document.editor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 读取当前人员获准编辑的既有正文 */
+        get: operations["articleBodyEditor"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.article.document.ticket": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 签发既有正文写票据（不含部署发现地址） */
+        post: operations["articleBodyTicket"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.article.document.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 元数据与正文不可变版本原子绑定 */
+        post: operations["saveArticleBody"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.article.document.operation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 读取原人员的原保存请求；未完成时重放相同输入 */
+        get: operations["articleBodySaveOperation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/adminapi/official.article.document": {
         parameters: {
             query?: never;
@@ -3247,6 +3315,257 @@ export interface paths {
         put?: never;
         /** 永久删除资讯 */
         post: operations["forceDeleteArticles"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.collaboration.ticket": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["issueCollaborationTicket"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/internal/collaboration/v1/authorize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Exact-body transport envelope v2 HMAC/nonce/holder and TLS; business payload protocol 2. Human identity is separately revalidated where required. */
+        post: operations["authorizeCollaborationConnection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/internal/collaboration/v1/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Exact-body transport envelope v2 HMAC/nonce/holder and TLS; business payload protocol 2. Human identity is separately revalidated where required. */
+        post: operations["checkCollaborationConnection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/internal/collaboration/v1/load": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Exact-body transport envelope v2 HMAC/nonce/holder and TLS; business payload protocol 2. Human identity is separately revalidated where required. */
+        post: operations["loadCollaborationDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/internal/collaboration/v1/store": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Exact-body transport envelope v2 HMAC/nonce/holder and TLS; business payload protocol 2. Human identity is separately revalidated where required. */
+        post: operations["storeCollaborationCapture"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/internal/collaboration/v1/receipt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Exact-body transport envelope v2 HMAC/nonce/holder and TLS; business payload protocol 2. Human identity is separately revalidated where required. */
+        post: operations["queryCollaborationReceipt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/internal/collaboration/v1/references": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Exact-body transport envelope v2 HMAC/nonce/holder and TLS; business payload protocol 2. Human identity is separately revalidated where required. */
+        post: operations["reserveCollaborationReferences"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/internal/collaboration/v1/target/prepare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Exact-body transport envelope v2 HMAC/nonce/holder and TLS; business payload protocol 2. Human identity is separately revalidated where required. */
+        post: operations["prepareCollaborationTarget"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/internal/collaboration/v1/target": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Exact-body transport envelope v2 HMAC/nonce/holder and TLS; business payload protocol 2. Human identity is separately revalidated where required. */
+        post: operations["confirmCollaborationTarget"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/internal/collaboration/v1/recovery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Exact-body transport envelope v2 HMAC/nonce/holder and TLS; business payload protocol 2. Human identity is separately revalidated where required. */
+        post: operations["recoverCollaborationRoom"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/internal/collaboration/v1/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Exact-body transport envelope v2 HMAC/nonce/holder and TLS; business payload protocol 2. Human identity is separately revalidated where required. */
+        post: operations["revokeCollaborationConnection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/internal/collaboration/v1/lifecycle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Exact-body transport envelope v2 HMAC/nonce/holder and TLS; business payload protocol 2. Human identity is separately revalidated where required. */
+        post: operations["queryCollaborationReadiness"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.document.target": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getDocumentTarget"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.document.target.cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["cancelDocumentTarget"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.document.operation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["queryDocumentBusinessOperation"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -7311,6 +7630,157 @@ export interface components {
                 [key: string]: components["schemas"]["ApplicationDynamicValue"];
             };
         };
+        ArticleBodySaveRequest: {
+            id: components["schemas"]["ArticlePositiveIntegerInput"];
+            document_id: components["schemas"]["ArticlePositiveIntegerInput"];
+            expected_state_seq: number | string;
+            owner_revision: string;
+            request_id: string;
+            cid: components["schemas"]["ArticlePositiveIntegerInput"];
+            title: string;
+            desc?: string;
+            abstract?: string;
+            image?: string;
+            author?: string;
+            click_virtual?: number | string;
+            is_show: 0 | "0";
+            sort?: number | string;
+        };
+        ArticleBodyEditorResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: {
+                document_id: number;
+                /** @enum {string} */
+                content_kind: "rich_text";
+                schema_version: string;
+                /** @enum {string} */
+                status: "active";
+                state_seq: number;
+                auth_revision: number;
+                owner: {
+                    /** @enum {string} */
+                    module_key: "official.article";
+                    /** @enum {string} */
+                    object_type: "article";
+                    object_id: string;
+                    /** @enum {string} */
+                    slot: "body";
+                };
+                authorization_revision: string;
+                collaboration_enabled: boolean;
+                structured_content: components["schemas"]["DocumentStructuredContent"];
+                digest: string;
+                persisted_at: string;
+                /** @enum {boolean} */
+                can_edit: true;
+                /** @enum {boolean} */
+                can_download_original: false;
+                capabilities: components["schemas"]["DocumentContentCapabilities"];
+                article_id: number;
+                owner_revision: string;
+                saved_binding: {
+                    document_id: number;
+                    revision_id: number;
+                    source_state_seq: number;
+                    snapshot_sha256: string;
+                } | null;
+                article_metadata: {
+                    cid: number;
+                    title: string;
+                    desc: string;
+                    abstract: string;
+                    image: string;
+                    /** @description Display delivery URL only; never a writable content reference. */
+                    image_url: string;
+                    author: string;
+                    click_virtual: number;
+                    sort: number;
+                    /** @enum {integer} */
+                    is_show: 0 | 1;
+                };
+            };
+        };
+        ArticleBodyTicketResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: {
+                ticket: string;
+                expires_at: number;
+                document_id: number;
+                /** @enum {string} */
+                mode: "write";
+                /** @enum {integer} */
+                protocol: 2;
+                owner: {
+                    /** @enum {string} */
+                    module_key: "official.article";
+                    /** @enum {string} */
+                    object_type: "article";
+                    object_id: string;
+                    /** @enum {string} */
+                    slot: "body";
+                };
+                authorization_revision: string;
+                document_name: string;
+                article_id: number;
+                owner_revision: string;
+                capabilities: components["schemas"]["DocumentContentCapabilities"];
+                /** Format: uri */
+                wss_url: string;
+                config_revision: number;
+                config_sha256: string;
+            };
+        };
+        ArticleBodySaveResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: {
+                article_id: number;
+                request_id: string;
+                /** @enum {string} */
+                phase: "completed";
+                binding: {
+                    document_id: number;
+                    revision_id: number;
+                    source_state_seq: number;
+                    snapshot_sha256: string;
+                };
+                /** @enum {boolean} */
+                published: false;
+            };
+        };
+        ArticleBodySaveOperationResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: {
+                article_id: number;
+                request_id: string;
+                document_id: number;
+                /** @enum {string} */
+                phase: "prepared" | "completed";
+                result: {
+                    article_id: number;
+                    request_id: string;
+                    /** @enum {string} */
+                    phase: "completed";
+                    binding: {
+                        document_id: number;
+                        revision_id: number;
+                        source_state_seq: number;
+                        snapshot_sha256: string;
+                    };
+                    /** @enum {boolean} */
+                    published: false;
+                } | null;
+                /** @enum {string|null} */
+                continuation: "same_request_same_payload" | null;
+            };
+        };
         /** @description 服务端接受正整数或仅含十进制数字的字符串。 */
         ArticlePositiveIntegerInput: number | string;
         /**
@@ -7524,6 +7994,251 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        CollaborationTicketResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: {
+                ticket: string;
+                expires_at: number;
+                document_id: number;
+                /** @enum {string} */
+                mode: "read" | "write";
+                /** @enum {integer} */
+                protocol: 2;
+                /** Format: uri */
+                wss_url: string;
+                config_revision: number;
+                config_sha256: string;
+            };
+        };
+        CollaborationConnectionResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: {
+                /** @enum {integer} */
+                protocol: 2;
+                holder_key: string;
+                connection_key: string;
+                room_key: string;
+                lease_epoch: number;
+                /** @enum {string} */
+                mode: "read" | "write";
+                member_id: number;
+                nickname: string;
+                document_id: number;
+                binding: {
+                    instance_id: string;
+                    /** @enum {string} */
+                    edition: "engine" | "standalone" | "multi-tenant";
+                    tenant_id: number;
+                    document_id: number;
+                    owner: {
+                        module_key: string;
+                        object_type: string;
+                        object_id: string;
+                        slot: string;
+                    };
+                };
+                authorization_revision: string;
+                lease_expires_at: number;
+            };
+        };
+        CollaborationLoadResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: {
+                document_id: number;
+                lease_epoch: number;
+                state_seq: number;
+                state_sha256: string;
+                /** @description Canonical base64, at most 4 MiB decoded. PHP verifies bytes/hash; native Yjs owns merging and coverage. */
+                binary_base64: string | null;
+                initialization_required: boolean;
+                structured_content: components["schemas"]["DocumentStructuredContent"];
+                store_id: string | null;
+                binding: {
+                    instance_id: string;
+                    /** @enum {string} */
+                    edition: "engine" | "standalone" | "multi-tenant";
+                    tenant_id: number;
+                    document_id: number;
+                    owner: {
+                        module_key: string;
+                        object_type: string;
+                        object_id: string;
+                        slot: string;
+                    };
+                };
+                holder_key: string;
+                schema_version: string;
+            };
+        };
+        CollaborationStoreResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: {
+                document_id: number;
+                store_id: string;
+                lease_epoch: number;
+                state_seq: number;
+                binary_sha256: string;
+                projection_sha256: string;
+                persisted_at: string;
+                target_progress: number;
+            };
+        };
+        CollaborationReceiptResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: {
+                /** @enum {boolean} */
+                found: false;
+            } | {
+                /** @enum {boolean} */
+                found: true;
+                receipt: {
+                    document_id: number;
+                    store_id: string;
+                    lease_epoch: number;
+                    state_seq: number;
+                    binary_sha256: string;
+                    projection_sha256: string;
+                    persisted_at: string;
+                    target_progress: number;
+                };
+            };
+        };
+        CollaborationReferenceResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: {
+                document_id: number;
+                room_key: string;
+                lease_epoch: number;
+                file_keys: string[];
+                authorization_revision: string;
+                authorized_at_ms: number;
+            };
+        };
+        CollaborationTargetPreparationResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: {
+                document_id: number;
+                request_id: string;
+                target_binary_sha256: string;
+                target_projection_sha256: string;
+                target_progress: number;
+            };
+        };
+        CollaborationTargetResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: {
+                document_id: number;
+                request_id: string;
+                target_binary_sha256: string;
+                target_projection_sha256: string;
+                target_progress: number;
+                store_id: string;
+                state_seq: number;
+                committed_binary_sha256: string;
+            };
+        };
+        CollaborationRecoveryResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: {
+                /** @enum {integer} */
+                protocol: 2;
+                holder_key: string;
+                request_id: string;
+                room_key: string;
+                lease_epoch: number;
+                binding: {
+                    instance_id: string;
+                    /** @enum {string} */
+                    edition: "engine" | "standalone" | "multi-tenant";
+                    tenant_id: number;
+                    document_id: number;
+                    owner: {
+                        module_key: string;
+                        object_type: string;
+                        object_id: string;
+                        slot: string;
+                    };
+                };
+                baseline: {
+                    document_id: number;
+                    lease_epoch: number;
+                    state_seq: number;
+                    state_sha256: string;
+                    /** @description Canonical base64, at most 4 MiB decoded. PHP verifies bytes/hash; native Yjs owns merging and coverage. */
+                    binary_base64: string | null;
+                    initialization_required: boolean;
+                    structured_content: components["schemas"]["DocumentStructuredContent"];
+                    store_id: string | null;
+                    /** @enum {string} */
+                    status: "active" | "archived";
+                };
+            };
+        };
+        CollaborationRevokeResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: {
+                /** @enum {boolean} */
+                revoked: true;
+            };
+        };
+        CollaborationLifecycleResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: {
+                /** @enum {string} */
+                protocol: "peanut.collaboration.lifecycle.v1";
+                /** @enum {integer} */
+                schema_version: 1;
+                /** @enum {integer} */
+                native_protocol: 2;
+                php_ready: boolean;
+                node_ready: boolean;
+                paired_ready: boolean;
+                instance_id: string;
+                /** @enum {string} */
+                edition: "engine" | "standalone" | "multi-tenant";
+                service_instance_id: string;
+                config_revision: number;
+                config_sha256: string;
+                projector_version: string;
+                registry_revision: string;
+                /** @enum {string} */
+                durability_dependency: "mysql";
+                /** @enum {boolean} */
+                file_ledger_ready: true;
+                ready: boolean;
+                admission_enabled: boolean;
+                holder_key: string | null;
+                probe_id: string | null;
+                activation_id: string | null;
+                process_lease_expires_at_ms: number;
+                drain_id: string | null;
+                plan_sha256: string | null;
+                /** @enum {string} */
+                phase: "prepared" | "active" | "draining" | "durably_drained" | "stopped";
+            };
+        };
         DocumentStructuredContent: {
             /** @enum {string} */
             schemaVersion: "peanut.richtext/1";
@@ -7548,6 +8263,13 @@ export interface components {
                 state_seq: number;
                 auth_revision: number;
                 created?: boolean;
+                operation_id?: string;
+                /** @enum {string} */
+                phase?: "completed";
+                lease_epoch?: number;
+                binary_sha256?: string;
+                store_id?: string | null;
+                target_progress?: number;
             };
         };
         DocumentDetailResponse: {
@@ -7600,6 +8322,21 @@ export interface components {
                 revision_no: number;
                 source_state_seq: number;
                 digest: string;
+                /** @enum {string} */
+                content_kind?: "rich_text" | "file_resource";
+                schema_version?: string;
+                /** @enum {string} */
+                status?: "active" | "archiving" | "archived" | "blocked_recovery";
+                state_seq?: number;
+                auth_revision?: number;
+                created?: boolean;
+                operation_id?: string;
+                /** @enum {string} */
+                phase?: "completed";
+                lease_epoch?: number;
+                binary_sha256?: string;
+                store_id?: string | null;
+                target_progress?: number;
             };
         };
         DocumentSaveResponse: {
@@ -7639,6 +8376,112 @@ export interface components {
                     capabilityRevision: string;
                 };
             };
+        };
+        DocumentBusinessOperationResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: {
+                document_id: number;
+                operation_id: string;
+                /** @enum {string} */
+                action: "version.create" | "version.restore" | "archive" | "restore";
+                input_sha256: string;
+                /** @enum {string} */
+                phase: "prepared" | "attention" | "completed";
+                target_progress: number | null;
+                store_id: string | null;
+                state_seq: number | null;
+                binary_sha256: string | null;
+                released: boolean;
+                result: {
+                    document_id: number;
+                    revision_id?: number;
+                    revision_no?: number;
+                    source_state_seq?: number;
+                    digest?: string;
+                    /** @enum {string} */
+                    content_kind?: "rich_text" | "file_resource";
+                    schema_version?: string;
+                    /** @enum {string} */
+                    status: "active" | "archiving" | "archived" | "blocked_recovery";
+                    state_seq: number;
+                    auth_revision: number;
+                    created?: boolean;
+                    operation_id: string;
+                    /** @enum {string} */
+                    phase: "completed";
+                    lease_epoch: number;
+                    binary_sha256: string;
+                    store_id: string | null;
+                    target_progress: number;
+                } | null;
+            };
+        };
+        DocumentTargetResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: {
+                document_id: number;
+                request_id: string;
+                /** @enum {string} */
+                phase: "prepared" | "confirmed" | "consumed" | "canceled";
+                target_binary_sha256: string;
+                target_projection_sha256: string;
+                target_progress: number;
+                store_id: string | null;
+                state_seq: number | null;
+                committed_binary_sha256: string | null;
+                revision_id: number | null;
+            };
+        };
+        DocumentTargetCancelResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: {
+                document_id: number;
+                request_id: string;
+                /** @enum {string} */
+                phase: "canceled";
+            };
+        };
+        DocumentBusinessResult: {
+            document_id: number;
+            revision_id?: number;
+            revision_no?: number;
+            source_state_seq?: number;
+            digest?: string;
+            /** @enum {string} */
+            content_kind?: "rich_text" | "file_resource";
+            schema_version?: string;
+            /** @enum {string} */
+            status: "active" | "archiving" | "archived" | "blocked_recovery";
+            state_seq: number;
+            auth_revision: number;
+            created?: boolean;
+            operation_id: string;
+            /** @enum {string} */
+            phase: "completed";
+            lease_epoch: number;
+            binary_sha256: string;
+            store_id: string | null;
+            target_progress: number;
+        };
+        DocumentContentCapabilities: {
+            /** @enum {string} */
+            contentKind: "rich_text" | "file_resource";
+            verifiedMimeType: string | null;
+            viewerAdapterId: string | null;
+            editorAdapterId: string | null;
+            canView: boolean;
+            canEdit: boolean;
+            canDownloadOriginal: boolean;
+            /** @enum {string} */
+            state: "permission_denied" | "preview_unavailable" | "edit_unsupported" | "service_unavailable" | "read_only" | "available";
+            unavailableReason: string | null;
+            capabilityRevision: string;
         };
         FileImageVariant: {
             variant_key: string;
@@ -7725,6 +8568,13 @@ export interface components {
             url: string;
             preview_state?: string;
             can_download_original?: boolean;
+            verified_mime_type?: string | null;
+            source_sha256?: string | null;
+            capabilities?: {
+                [key: string]: unknown;
+            } | null;
+            preview_unavailable_reason?: string | null;
+            authorization_revision?: string | null;
         };
         FileListPage: {
             lists: components["schemas"]["FileListRecord"][];
@@ -15608,6 +16458,129 @@ export interface operations {
             503: components["responses"]["ErrorResponse"];
         };
     };
+    articleBodyEditor: {
+        parameters: {
+            query: {
+                /**
+                 * @description 资讯 ID
+                 * @example 12
+                 */
+                id: components["schemas"]["ArticlePositiveIntegerInput"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 读取当前人员获准编辑的既有正文成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleBodyEditorResponse"];
+                };
+            };
+            401: components["responses"]["ArticleErrorResponse"];
+            403: components["responses"]["ArticleErrorResponse"];
+            404: components["responses"]["ArticleErrorResponse"];
+            409: components["responses"]["ArticleErrorResponse"];
+            422: components["responses"]["ArticleErrorResponse"];
+        };
+    };
+    articleBodyTicket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticleIdentifierRequest"];
+            };
+        };
+        responses: {
+            /** @description 签发既有正文写票据（不含部署发现地址）成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleBodyTicketResponse"];
+                };
+            };
+            401: components["responses"]["ArticleErrorResponse"];
+            403: components["responses"]["ArticleErrorResponse"];
+            404: components["responses"]["ArticleErrorResponse"];
+            409: components["responses"]["ArticleErrorResponse"];
+            422: components["responses"]["ArticleErrorResponse"];
+            503: components["responses"]["ArticleErrorResponse"];
+        };
+    };
+    saveArticleBody: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticleBodySaveRequest"];
+            };
+        };
+        responses: {
+            /** @description 元数据与正文不可变版本原子绑定成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleBodySaveResponse"];
+                };
+            };
+            401: components["responses"]["ArticleErrorResponse"];
+            403: components["responses"]["ArticleErrorResponse"];
+            404: components["responses"]["ArticleErrorResponse"];
+            409: components["responses"]["ArticleErrorResponse"];
+            422: components["responses"]["ArticleErrorResponse"];
+            503: components["responses"]["ArticleErrorResponse"];
+        };
+    };
+    articleBodySaveOperation: {
+        parameters: {
+            query: {
+                /**
+                 * @description 资讯 ID
+                 * @example 12
+                 */
+                id: components["schemas"]["ArticlePositiveIntegerInput"];
+                request_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 读取原人员的原保存请求；未完成时重放相同输入成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleBodySaveOperationResponse"];
+                };
+            };
+            401: components["responses"]["ArticleErrorResponse"];
+            403: components["responses"]["ArticleErrorResponse"];
+            404: components["responses"]["ArticleErrorResponse"];
+            409: components["responses"]["ArticleErrorResponse"];
+            422: components["responses"]["ArticleErrorResponse"];
+        };
+    };
     ensureArticleBodyDocument: {
         parameters: {
             query?: never;
@@ -16271,6 +17244,686 @@ export interface operations {
             400: components["responses"]["ArticleErrorResponse"];
             401: components["responses"]["ArticleErrorResponse"];
             403: components["responses"]["ArticleErrorResponse"];
+        };
+    };
+    issueCollaborationTicket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    document_id: number;
+                    /** @enum {string} */
+                    mode: "read" | "write";
+                };
+            };
+        };
+        responses: {
+            /** @description Native protocol 2 result. A merged broadcast is not a committed database receipt. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollaborationTicketResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            429: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    authorizeCollaborationConnection: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Collaboration-Protocol": string;
+                "X-Collaboration-Service-Instance": string;
+                "X-Collaboration-Key-Id": string;
+                "X-Collaboration-Holder-Key": string;
+                "X-Collaboration-Timestamp": string;
+                "X-Collaboration-Nonce": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    ticket: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Native protocol 2 result. A merged broadcast is not a committed database receipt. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollaborationConnectionResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            429: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    checkCollaborationConnection: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Collaboration-Protocol": string;
+                "X-Collaboration-Service-Instance": string;
+                "X-Collaboration-Key-Id": string;
+                "X-Collaboration-Holder-Key": string;
+                "X-Collaboration-Timestamp": string;
+                "X-Collaboration-Nonce": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    connection_key: string;
+                    /** @enum {string} */
+                    mode: "read" | "write";
+                };
+            };
+        };
+        responses: {
+            /** @description Native protocol 2 result. A merged broadcast is not a committed database receipt. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollaborationConnectionResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            429: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    loadCollaborationDocument: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Collaboration-Protocol": string;
+                "X-Collaboration-Service-Instance": string;
+                "X-Collaboration-Key-Id": string;
+                "X-Collaboration-Holder-Key": string;
+                "X-Collaboration-Timestamp": string;
+                "X-Collaboration-Nonce": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    room_key: string;
+                    lease_epoch: number;
+                    connection_key: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Native protocol 2 result. A merged broadcast is not a committed database receipt. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollaborationLoadResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            429: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    storeCollaborationCapture: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Collaboration-Protocol": string;
+                "X-Collaboration-Service-Instance": string;
+                "X-Collaboration-Key-Id": string;
+                "X-Collaboration-Holder-Key": string;
+                "X-Collaboration-Timestamp": string;
+                "X-Collaboration-Nonce": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {integer} */
+                    protocol: 2;
+                    instance_id: string;
+                    /** @enum {string} */
+                    edition: "engine" | "standalone" | "multi-tenant";
+                    tenant_id: number;
+                    document_id: number;
+                    owner: {
+                        module_key: string;
+                        object_type: string;
+                        object_id: string;
+                        slot: string;
+                    };
+                    room_key: string;
+                    lease_epoch: number;
+                    service_instance_id: string;
+                    base_state_seq: number;
+                    store_id: string;
+                    target_progress: number;
+                    baseline_sha256: string;
+                    binary_sha256: string;
+                    projector_version: string;
+                    projection_sha256: string;
+                    reference_digest: string;
+                    participants: {
+                        connection_key: string;
+                        authorization_revision: string;
+                        authorized_at_ms: number;
+                    }[];
+                    /** @description Canonical base64, at most 4 MiB decoded. PHP verifies bytes/hash; native Yjs owns merging and coverage. */
+                    binary_base64: string;
+                    structured_content: components["schemas"]["DocumentStructuredContent"];
+                };
+            };
+        };
+        responses: {
+            /** @description Native protocol 2 result. A merged broadcast is not a committed database receipt. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollaborationStoreResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            429: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    queryCollaborationReceipt: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Collaboration-Protocol": string;
+                "X-Collaboration-Service-Instance": string;
+                "X-Collaboration-Key-Id": string;
+                "X-Collaboration-Holder-Key": string;
+                "X-Collaboration-Timestamp": string;
+                "X-Collaboration-Nonce": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    room_key: string;
+                    lease_epoch: number;
+                    store_id: string;
+                    capture_sha256: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Native protocol 2 result. A merged broadcast is not a committed database receipt. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollaborationReceiptResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            429: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    reserveCollaborationReferences: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Collaboration-Protocol": string;
+                "X-Collaboration-Service-Instance": string;
+                "X-Collaboration-Key-Id": string;
+                "X-Collaboration-Holder-Key": string;
+                "X-Collaboration-Timestamp": string;
+                "X-Collaboration-Nonce": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    room_key: string;
+                    lease_epoch: number;
+                    connection_key: string;
+                    file_keys: string[];
+                    request_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Native protocol 2 result. A merged broadcast is not a committed database receipt. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollaborationReferenceResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            429: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    prepareCollaborationTarget: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Collaboration-Protocol": string;
+                "X-Collaboration-Service-Instance": string;
+                "X-Collaboration-Key-Id": string;
+                "X-Collaboration-Holder-Key": string;
+                "X-Collaboration-Timestamp": string;
+                "X-Collaboration-Nonce": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {integer} */
+                    protocol: 2;
+                    connection_key: string;
+                    request_id: string;
+                    target_binary_sha256: string;
+                    target_projection_sha256: string;
+                    /** @description Canonical base64, at most 4 MiB decoded. PHP verifies bytes/hash; native Yjs owns merging and coverage. */
+                    binary_base64: string;
+                    structured_content: components["schemas"]["DocumentStructuredContent"];
+                    projector_version: string;
+                    reference_digest: string;
+                    target_progress: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Native protocol 2 result. A merged broadcast is not a committed database receipt. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollaborationTargetPreparationResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            429: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    confirmCollaborationTarget: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Collaboration-Protocol": string;
+                "X-Collaboration-Service-Instance": string;
+                "X-Collaboration-Key-Id": string;
+                "X-Collaboration-Holder-Key": string;
+                "X-Collaboration-Timestamp": string;
+                "X-Collaboration-Nonce": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {integer} */
+                    protocol: 2;
+                    connection_key: string;
+                    request_id: string;
+                    target_binary_sha256: string;
+                    target_projection_sha256: string;
+                    /** @description Canonical base64, at most 4 MiB decoded. PHP verifies bytes/hash; native Yjs owns merging and coverage. */
+                    binary_base64: string;
+                    structured_content: components["schemas"]["DocumentStructuredContent"];
+                    projector_version: string;
+                    reference_digest: string;
+                    target_progress: number;
+                    store_id: string;
+                    state_seq: number;
+                    committed_binary_sha256: string;
+                    coverage: {
+                        /** @enum {string} */
+                        algorithm: "yjs.snapshotContainsUpdate/13.6.32";
+                        /** @enum {boolean} */
+                        covers_target: true;
+                        /** @description Canonical base64, at most 4 MiB decoded. PHP verifies bytes/hash; native Yjs owns merging and coverage. */
+                        committed_snapshot_base64: string;
+                        /** @description Canonical base64, at most 4 MiB decoded. PHP verifies bytes/hash; native Yjs owns merging and coverage. */
+                        target_snapshot_base64: string;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Native protocol 2 result. A merged broadcast is not a committed database receipt. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollaborationTargetResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            429: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    recoverCollaborationRoom: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Collaboration-Protocol": string;
+                "X-Collaboration-Service-Instance": string;
+                "X-Collaboration-Key-Id": string;
+                "X-Collaboration-Holder-Key": string;
+                "X-Collaboration-Timestamp": string;
+                "X-Collaboration-Nonce": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {integer} */
+                    protocol: 2;
+                    request_id: string;
+                    room_key: string;
+                    lease_epoch: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Native protocol 2 result. A merged broadcast is not a committed database receipt. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollaborationRecoveryResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            429: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    revokeCollaborationConnection: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Collaboration-Protocol": string;
+                "X-Collaboration-Service-Instance": string;
+                "X-Collaboration-Key-Id": string;
+                "X-Collaboration-Holder-Key": string;
+                "X-Collaboration-Timestamp": string;
+                "X-Collaboration-Nonce": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    connection_key: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Native protocol 2 result. A merged broadcast is not a committed database receipt. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollaborationRevokeResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            429: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    queryCollaborationReadiness: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Collaboration-Protocol": string;
+                "X-Collaboration-Service-Instance": string;
+                "X-Collaboration-Key-Id": string;
+                "X-Collaboration-Holder-Key": string;
+                "X-Collaboration-Timestamp": string;
+                "X-Collaboration-Nonce": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    stage: "readiness";
+                } | {
+                    /** @enum {string} */
+                    stage: "paired_probe";
+                    probe_id: string;
+                    full: boolean;
+                    instance_id: string;
+                    /** @enum {string} */
+                    edition: "engine" | "standalone" | "multi-tenant";
+                    service_instance_id: string;
+                    config_revision: number;
+                    config_sha256: string;
+                    projector_version: string;
+                } | {
+                    /** @enum {string} */
+                    stage: "activation_state";
+                    probe_id: string;
+                    activation_id: string;
+                } | {
+                    /** @enum {string} */
+                    stage: "drain_state";
+                    probe_id: string;
+                    drain_id: string;
+                    plan_sha256: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Native protocol 2 result. A merged broadcast is not a committed database receipt. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollaborationLifecycleResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            429: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    getDocumentTarget: {
+        parameters: {
+            query: {
+                document_id: number;
+                request_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current owner-authorized document result. Confirmed versions are immutable and committed, not business approval. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentTargetResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    cancelDocumentTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    document_id: number;
+                    request_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Current owner-authorized document result. Confirmed versions are immutable and committed, not business approval. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentTargetCancelResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    queryDocumentBusinessOperation: {
+        parameters: {
+            query: {
+                document_id: number;
+                operation_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current owner-authorized document result. Confirmed versions are immutable and committed, not business approval. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBusinessOperationResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     documentDetail: {

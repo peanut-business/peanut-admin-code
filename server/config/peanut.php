@@ -23,10 +23,6 @@ return [
         'active_key_id' => env('PEANUT_SETTINGS_ACTIVE_SECRET_KEY_ID', ''),
     ],
     'storage_credential_master_key' => env('PEANUT_STORAGE_CREDENTIAL_MASTER_KEY', ''),
-    'rich_text' => [
-        'collaboration_url' => env('RICH_TEXT_COLLABORATION_URL', ''),
-        'collaboration_secret' => env('RICH_TEXT_COLLABORATION_SECRET', ''),
-    ],
     'installation' => [
         'mode' => env('PEANUT_INSTALLATION_MODE', 'automatic'),
         'setup_token' => env('PEANUT_INSTALLATION_SETUP_TOKEN', ''),

@@ -10,6 +10,9 @@ if (($peanutRouteApplication ?? null) !== 'adminapi') {
 Route::group(function (): void {
     Route::get('official.document.detail', [DocumentController::class,'detail']);
     Route::get('official.document.capabilities', [DocumentController::class,'capabilities']);
+    Route::get('official.document.operation', [DocumentController::class,'operation']);
+    Route::get('official.document.target', [DocumentController::class,'target']);
+    Route::post('official.document.target.cancel', [DocumentController::class,'cancelTarget']);
     Route::post('official.document.solo.save', [DocumentController::class,'soloSave']);
     Route::post('official.document.resource.bind', [DocumentController::class,'bindResource']);
     Route::post('official.document.version.create', [DocumentController::class,'createVersion']);

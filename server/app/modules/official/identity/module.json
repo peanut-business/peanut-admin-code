@@ -62,6 +62,7 @@
       "PeanutAdmin\\Modules\\Identity\\Contract\\WorkflowLegacyOrganizationQuery",
       "PeanutAdmin\\Modules\\Identity\\Contract\\PlatformDirectoryQueries",
       "PeanutAdmin\\Modules\\Identity\\Contract\\TenantModuleStateQueries",
+      "PeanutAdmin\\Modules\\Identity\\Contract\\TenantAuthorizationReadFence",
       "PeanutAdmin\\Modules\\Identity\\DataPermission\\Application\\DataPolicyAdminService",
       "PeanutAdmin\\Modules\\Identity\\DataPermission\\Application\\EffectiveAccessPreviewService",
       "PeanutAdmin\\Modules\\Identity\\DataPermission\\Catalog\\ThinkPhpResourceOperationCatalog",

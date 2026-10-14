@@ -6,3 +6,6 @@ export const RichTextEditor = defineAsyncComponent(
 
 export type { RichTextCollaborationConfig } from '../components/types';
 export type { RichTextDocumentValue } from './document';
+export { createCollaborationProvider } from './collaboration/provider';
+export type { ProviderOptions } from './collaboration/provider';
+export type { ContentCollaborationBinding as CollaborationBinding } from '@/modules/official-content-tools/src/contracts';

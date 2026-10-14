@@ -1,5 +1,11 @@
 # Business documents
 
+`DocumentAcceptedCommitQuery` owns persisted collaboration baselines, original
+store receipts and unfinished business checks. Consumers receive immutable arrays
+within the original tenant transaction, not private Document Models. Instance
+custody checks use a bounded explicit tenant/document pair without locking Doc or
+entering a nested tenant Scope; business row locks retain Doc/State/operation order.
+
 `official.document` owns business-bound document identities, solo projections,
 committed versions and controlled references. A selected business module declares
 its dependency on Document and contributes a `DocumentOwnerPolicy` through its
@@ -22,9 +28,47 @@ the server-fixed owner and body slot and does not convert the legacy Article bod
 
 Solo rich text accepts the public `RichTextProjection` schema owned by RichText.
 It stores a validated JSON projection with CAS and durable request receipts. It
-does not construct Yjs state. Once collaboration is enabled, solo save, freeze,
-restore and lifecycle changes fail closed until the real collaboration persistence
-and save barrier are connected.
+does not construct Yjs state. Once collaboration is enabled, solo save fails closed.
+Explicit version creation consumes a confirmed click-time target by the same
+request ID; it does not drain the room or rewrite the current draft. Version
+restore and lifecycle commands use the native provider's business barrier.
+Its typed plan is a wire binding, not authorization.
+
+## Business barriers
+
+`DocumentAcceptedWriteProvider` owns five technical steps: prepare, drain,
+lockDrained, consume and release. Document owns the business decision and state.
+Prepare locks owner, Doc/state/operation, then Room/barrier; it records the original
+actor and action/input hash and commits before any RPC. Drain fences native writes
+and joins Node's saveMutex to persist the fixed merged capture. Previously lawful
+grant-window updates may commit under service custody after revocation. Durable does not
+mean a frozen version or an archived owner.
+
+Before final mutation, the real current Session/owner decision is repeated between
+Identity read-fence snapshots. The final same-PDO transaction locks those native
+authorization/lifecycle inputs, owner and Doc/state/operation, then consumes the
+provider's original drained target. Versions, current references, immutable
+revision references, audit and operation result commit together. No SQL/owner lock
+is held while waiting for Node. `runOwnerLifecycle` lets the original compiled
+owner service perform its native mutation in that transaction for every slot;
+the callback is not an HTTP input or permission grant.
+
+Restore copies the old verified immutable Yjs binary and its matching projection
+into a new CAS state and appends a new version. It never edits the old version or
+merges old binary into live memory. Archive/restore/rollback advance the epoch and
+closes old connections; a fresh Y.Doc verifies the committed binary/projection,
+and the old SDK document must unload before release permits fresh connections.
+Release occurs after the outer COMMIT. It is confirmed separately from business
+completion; transport uncertainty keeps the room restricted.
+
+`official.document.operation` exposes only the original operation's safe progress
+and result to its original currently authorized actor. Retry the same action/key/
+input after an unknown result. A pending gate is not unlocked by a deadline or
+generic Room recovery, and retries never create a replacement operation. Failed
+authorization may deny diagnostic writes too; the original prepared gate remains.
+Solo reads/commands do not require a configured control endpoint. Collaboration
+commands require the registered HTTPS control ingress and initialized room;
+missing readiness/configuration is an explicit failure, never an empty document.
 
 `DocumentQueries::versionSnapshot()` returns only an already committed immutable
 version and refuses an outer transaction. `confirmed` means committed; it does not
@@ -46,6 +90,25 @@ current actor/session/revision, owner and opaque root identity, with a 120-secon
 monotonic lifetime. No proof crosses requests, containers, jobs or processes.
 Ordinary reads without an external Admin root still work but do not mint proof.
 The existing prohibition on preparing a version in an outer transaction remains.
+
+Business Save consumers use the narrower public owner-purpose entry:
+DocumentQueries::ownerEditor requires the owner's edit action and exact fixed
+owner, while ordinary detail and versionSnapshot keep their view authorization.
+DocumentQueries::ownerSaveSnapshot prepares a committed version with version.create
+authorization and binds that purpose into the same private proof. Its final
+verifyPreparedVersion additionally requires the live Document sequence to equal
+the immutable version's source sequence. Editing a draft after freeze therefore
+cannot silently change or supersede the business Save.
+
+DocumentCommands::runOwnerVersionSave starts a short same-connection transaction
+using the existing Identity current-read fence and original compiled owner policy.
+Its callback receives the freshly authorized TenantContext and locked
+DocumentOwnerState; it must neither wait for RPC nor commit/change the connection.
+The owner persists its own request before external freeze, then prepares the
+snapshot outside a transaction and calls this entry again for atomic owner
+metadata/fixed binding/receipt. VersionSnapshot::binding is a tenant-bound complete
+snapshot digest and immutable version reference, not a permission or publication
+grant. Autosave and accepted durable ACKs do not invoke the owner's Save callback.
 
 Verification may repeat in two transactions during that same action. It repeats
 live session, owner, Document and File authorization and locks owner, Document,
@@ -72,6 +135,21 @@ objects, and its recovery command retries the original account/space configurati
 Real provider failure leaves `cleanup_pending`. Claimed or referenced history is
 protected from recovery and deletion. Document V1 retains versions and prevents an
 owner's permanent deletion while its protected documents remain.
+
+The compiled optional `DocumentAcceptedWriteProvider` verifies native batch custody
+and control, separate from current human owner policy. `DocumentCollaborativeWrites`
+locks the structural owner, Document/state/operation, then invokes the provider's
+Room/grant proof before sorted File locks. Missing providers fail closed. New
+reference reservations also require the original authenticated references body and
+the actual locked Document owner/current edit revision; DTOs are not permission.
+Batch commits use recorded real grant windows rather than minting a revoked
+human session. `DocumentAcceptedCommitQuery::assertStagedAcceptedCommit` reads the
+already locked records on the same default PDO transaction and checks the exact
+operation, full receipt, binary/projection, state sequence and derived references
+before the provider advances its watermark. It neither takes reverse owner locks
+nor depends on Document writes, File or the provider. Its staged proof is not an
+outer-transaction committed ACK. Business barriers separately verify the staged
+operation/result on that same PDO before their exact target is consumed.
 
 Apply the new Document and File snapshot migrations through the native module
 installation/upgrade lifecycle. Existing RichText records, tables and migrations

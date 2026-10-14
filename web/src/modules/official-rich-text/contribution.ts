@@ -15,7 +15,7 @@ const contribution: ContentToolsContribution = {
       intents: ['view', 'edit'],
       environments: ['browser'],
       serviceDependencies: [],
-      supportsCollaboration: false,
+      supportsCollaboration: true,
       unavailableReason: null,
       component: defineAsyncComponent(
         () => import('./components/RichTextSurface.vue')

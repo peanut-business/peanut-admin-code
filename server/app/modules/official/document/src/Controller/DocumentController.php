@@ -24,6 +24,21 @@ class DocumentController extends BaseAdminController
         $in = $this->input(false, ['document_id','revision_id','intent']);
         return $this->data($this->queries->capabilities($this->tenantAdminContext(), $this->id($in, 'document_id'), $this->text($in, 'intent'), isset($in['revision_id']) ? $this->id($in, 'revision_id') : null));
     }
+    public function operation()
+    {
+        $in = $this->input(false, ['document_id','operation_id']);
+        return $this->data($this->queries->businessOperation($this->tenantAdminContext(), $this->id($in, 'document_id'), $this->text($in, 'operation_id')));
+    }
+    public function target()
+    {
+        $in = $this->input(false, ['document_id','request_id']);
+        return $this->data($this->queries->explicitTarget($this->tenantAdminContext(), $this->id($in, 'document_id'), $this->text($in, 'request_id')));
+    }
+    public function cancelTarget()
+    {
+        $in = $this->input(true, ['document_id','request_id']);
+        return $this->data($this->commands->cancelExplicitTarget($this->tenantAdminContext(), $this->id($in, 'document_id'), $this->text($in, 'request_id')));
+    }
     public function soloSave()
     {
         $in = $this->input(true, ['document_id','expected_state_seq','structured_content','request_id']);

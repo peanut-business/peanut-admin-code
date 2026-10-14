@@ -289,6 +289,11 @@ return [
                 'url' => ['type' => 'string'],
                 'preview_state' => ['type' => 'string'],
                 'can_download_original' => ['type' => 'boolean'],
+                'verified_mime_type' => ['type' => 'string', 'nullable' => true],
+                'source_sha256' => ['type' => 'string', 'nullable' => true, 'pattern' => '^[0-9a-f]{64}$'],
+                'capabilities' => ['type' => 'object', 'nullable' => true, 'additionalProperties' => true],
+                'preview_unavailable_reason' => ['type' => 'string', 'nullable' => true],
+                'authorization_revision' => ['type' => 'string', 'nullable' => true],
             ],
         ],
         'FileListPage' => [

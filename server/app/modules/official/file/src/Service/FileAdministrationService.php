@@ -67,12 +67,25 @@ final class FileAdministrationService implements FileAdministration
             ? $item->toArray()
             : (array) $item);
         $lists = $pageResult->items;
+        $objects = [];
+        $fileKeys = array_column($lists, 'file_key');
+        if ($fileKeys !== []) {
+            foreach (FileObject::where([])->whereIn('file_key', $fileKeys)->field('file_key,media_type,sha256')->select()->toArray() as $object) {
+                $objects[(string) $object['file_key']] = $object;
+            }
+        }
         foreach ($lists as &$item) {
             $viewer = match ($type) { FileEnum::IMAGE => 'builtin.image', FileEnum::VIDEO => 'builtin.video', default => null };
             $preview = $this->storage->resolveAuthorized($this->executionContext->tenantAdmin(), (string) $item['file_key'], 'preview', null, null, $viewer);
             $item['url'] = $preview['url'] ?? '';
             $item['preview_state'] = $preview['state'];
             $item['can_download_original'] = $preview['can_download_original'];
+            $object = $objects[(string) $item['file_key']] ?? null;
+            $item['verified_mime_type'] = $object['media_type'] ?? null;
+            $item['source_sha256'] = $object['sha256'] ?? null;
+            $item['capabilities'] = $preview['capabilities'] ?? null;
+            $item['preview_unavailable_reason'] = $preview['capabilities']['unavailableReason'] ?? ($preview['state'] === 'preview_unavailable' ? 'FILE_PREVIEW_UNAVAILABLE' : null);
+            $item['authorization_revision'] = $preview['authorization_revision'] ?? null;
         }
         unset($item);
 

@@ -51,8 +51,8 @@ G0 输出是绑定实际源码与环境的准入回执、精确任务写集、�
 | B1 | official.document 新增模型、增量迁移、owner 策略、rich_text/file_resource、状态/固定版本/绑定/引用、受权 Commands/Queries | G0；文件型集成依赖 R0 | 租户/owner/slot 不变量；不修改旧迁移/旧 ID；同一业务拥有者事务协调 |
 | B2 | official.rich-text 的 Tiptap/Yjs/工具适配、稳定媒体节点、富文本清洗；File picker 复用 | T0、B1 DTO；媒体集成依赖 R0 | 保留旧组件导出；富文本是工具 provider，不承担 Office；JSON 不与 Yjs 双写 |
 | B3 | content-tools 的基础查看器、Office 安全降级、工具会话/能力 UI；文件型绑定存储仍由 B1 owner 修改 | T0、R0；文档封装依赖 B1 | 图片/PDF/音视频有真实受控查看路径；DOCX/XLSX/PPTX/未知格式不可伪装可编辑；无原件下载权不显示替代下载 |
-| C1 | official.collaboration 的 PHP 准入/check/load/store/barrier/revoke、凭据/回放/CAS/幂等/租约；Document 持久化通过公开入口 | B1、R0 | 内部路由/服务身份与业务授权不可绕过，失联 fail-closed |
-| C2 | services/collaboration 的锁定版本 Node/Hocuspocus、房间/协议客户端、写闸门、保存回执、背压、健康与 drain | C1 协议固定；无副作用骨架可提前准备 | 同租户两人真实协同；不直连业务库；读写权限隔离、非持久化广播不报已保存 |
+| C1 | official.collaboration 的 PHP 准入、授权续期、Yjs load、批次 store/回执、目标保存与 revoke；CAS/幂等/epoch 及文件来源权限；Document 持久化通过公开入口 | B1、R0 | 内部路由/服务身份与业务授权不可绕过；心跳不做完整授权，普通文本不逐帧请求 PHP |
+| C2 | 原生 Hocuspocus 4.6.0 增量接认证、共享房间加载、轻量写闸门、合并广播、批量保存及真实提交 Snapshot 回执；锁文件不升级 | C1 协议固定；无副作用骨架可提前准备 | 同租户两人真实协同；不直连业务库；读写权限隔离；SDK 合并确认不冒充入库；旧实现只参考 |
 | D1 | Document/Collaboration 的自动保存、冻结/归档屏障、版本恢复/审计、失败后的受限状态 | B1、C1、C2 | 幂等/CAS/水位确认、固定版本不可变；已接纳合法更新与失权后新写严格区分 |
 | D2 | DocumentEditor/Viewer、File 场景薄封装、SDK 与具体业务 UI；统一委托 ContentEditor/Viewer | B1、B2、B3、D1 | 权限/保存交互完整，身份切换清理；无第二个格式调度器 |
 | E1 | Code 原生可选服务配置、Compose/WSS/内部 API、镜像/协议兼容、健康/停启/升级模板 | C1、C2；部署设计可并行准备 | 默认不启服务不影响旧 APP；启用后真实可用，禁用/恢复不删文档；镜像固定可追溯 |

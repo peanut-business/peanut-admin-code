@@ -13,6 +13,19 @@ use PeanutAdmin\Modules\Document\Contract\DocumentCommands;
 use PeanutAdmin\Modules\Document\Contract\DocumentQueries;
 use PeanutAdmin\Modules\Document\Contract\DocumentOwnerReference;
 use PeanutAdmin\Modules\Document\Contract\VersionSnapshot;
+use PeanutAdmin\Modules\Document\Contract\DocumentCollaborativeWrites;
+use PeanutAdmin\Modules\Document\Contract\AcceptedStoreInput;
+use PeanutAdmin\Modules\Document\Contract\AcceptedWritePlan;
+use PeanutAdmin\Modules\Document\Contract\DurableSaveReceipt;
+use PeanutAdmin\Modules\Document\Contract\BusinessBarrierPlan;
+use PeanutAdmin\Modules\Document\Contract\DrainedBusinessBarrier;
+use PeanutAdmin\Modules\Document\Contract\DocumentBusinessReceipt;
+use PeanutAdmin\Modules\Identity\Contract\TenantAuthorizationReadFence;
+use PeanutAdmin\Modules\File\Contract\AcceptedReferenceTransfer;
+use PeanutAdmin\Modules\File\Contract\CollaborationReferenceInput;
+use PeanutAdmin\Modules\Document\Contract\ExplicitTargetInput;
+use PeanutAdmin\Modules\Document\Contract\ExplicitTargetPreparationInput;
+use PeanutAdmin\Modules\File\Contract\ReservationReleaseInput;
 use PeanutAdmin\Modules\Document\Model\Document;
 use PeanutAdmin\Modules\Document\Model\DocumentState;
 use PeanutAdmin\Modules\Document\Model\DocumentRevision;
@@ -29,9 +42,12 @@ use PeanutAdmin\Modules\ContentTools\Service\ContentCapabilitiesService;
 use think\facade\Db;
 
 /** One native owner/Document transaction per mutation; versions and command receipts are append-only. */
-final readonly class DocumentService implements DocumentCommands, DocumentQueries, FileDocumentReferencePolicy
+final readonly class DocumentService implements DocumentCommands, DocumentQueries, DocumentCollaborativeWrites, FileDocumentReferencePolicy
 {
     private \WeakMap $preparedVersions;
+    private \WeakMap $acceptedTransfers;
+    private \WeakMap $acceptedReleases;
+    private \WeakMap $targetTransfers;
     private const PREPARED_LIFETIME_NANOSECONDS = 120_000_000_000;
 
     public function __construct(
@@ -42,8 +58,14 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
         private AuditContractHost $audit,
         private ContentCapabilitiesService $tools,
         private ExecutionContextStore $execution,
+        private DocumentAcceptedWriteRegistry $acceptedWrites,
+        private DocumentOwnerRegistry $owners,
+        private TenantAuthorizationReadFence $authorizationFence,
     ) {
         $this->preparedVersions = new \WeakMap();
+        $this->acceptedTransfers = new \WeakMap();
+        $this->acceptedReleases = new \WeakMap();
+        $this->targetTransfers = new \WeakMap();
     }
 
     public function create(TenantContext $context, DocumentOwnerReference $owner, string $contentKind, string $requestId, ?string $fileKey = null): array
@@ -146,6 +168,9 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
         if (trim($reason) === '' || mb_strlen($reason) > 255) {
             throw BusinessException::invalid('DOCUMENT_REVISION_REASON_INVALID', '版本原因无效');
         }
+        if ((bool) Document::where('id', $documentId)->value('collaboration_enabled')) {
+            return $this->freezeExplicitTarget($context, $documentId, $expectedStateSeq, $reason, $requestId);
+        }
         return $this->authorization->run($context, function (TenantContext $current) use ($documentId, $expectedStateSeq, $reason, $requestId): array {
             $input = [$expectedStateSeq,$reason];
             $plan = Db::transaction(function () use ($current, $documentId, $expectedStateSeq, $requestId, $input): array {
@@ -199,6 +224,9 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
 
     public function restoreRevision(TenantContext $context, int $documentId, int $revisionId, int $expectedStateSeq, string $requestId): array
     {
+        if ((bool) Document::where('id', $documentId)->value('collaboration_enabled')) {
+            return $this->collaborativeBusiness($context, $documentId, 'version.restore', $requestId, [$revisionId,$expectedStateSeq]);
+        }
         return $this->authorization->run($context, fn(TenantContext $current) => Db::transaction(function () use ($current, $documentId, $revisionId, $expectedStateSeq, $requestId): array {
             $document = $this->authorization->document($current, $documentId, 'edit', true);
             $this->solo($document);
@@ -246,6 +274,9 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
     }
     private function lifecycle(TenantContext $context, int $id, int $expected, string $requestId, string $action): array
     {
+        if ((bool) Document::where('id', $id)->value('collaboration_enabled')) {
+            return $this->collaborativeBusiness($context, $id, $action, $requestId, [$expected]);
+        }
         return $this->authorization->run($context, fn(TenantContext $current) => Db::transaction(function () use ($current, $id, $expected, $requestId, $action): array {
             $document = $this->authorization->document($current, $id, $action, true);
             $this->solo($document);
@@ -264,22 +295,429 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
             return $this->receipt($current, $document, $action, $requestId, $input, $this->summary($document));
         }));
     }
-    public function archiveOwner(TenantContext $context, string $moduleKey, string $objectType, string $objectId): void
+    public function runOwnerLifecycle(TenantContext $context, DocumentOwnerReference $owner, string $action, callable $commitOwner): mixed
     {
-        $this->ownerLifecycle($context, $moduleKey, $objectType, $objectId, 'archive');
-    }
-    public function restoreOwner(TenantContext $context, string $moduleKey, string $objectType, string $objectId): void
-    {
-        $this->ownerLifecycle($context, $moduleKey, $objectType, $objectId, 'restore');
-    }
-    private function ownerLifecycle(TenantContext $context, string $module, string $type, string $id, string $action): void
-    {
-        $this->authorization->run($context, function (TenantContext $current) use ($module, $type, $id, $action): void {
-            $documents = Document::where('owner_module_key', $module)->where('owner_object_type', $type)->where('owner_object_id', $id)->order('id')->select();
-            foreach ($documents as $document) {
-                $this->lifecycle($current, (int) $document->id, (int) $document->auth_revision, 'owner-' . $action . '-' . $document->auth_revision, $action);
+        if (!in_array($action, ['archive','restore'], true)) {
+            throw BusinessException::invalid('DOCUMENT_OWNER_ACTION_INVALID', '归属生命周期动作无效');
+        }
+        $this->outsideTransaction();
+        $state = $this->owners->requirePolicy($owner)->resolveOwner($context, $owner);
+        $already = $state->archived === ($action === 'archive');
+        $authorizationAction = $already ? $action : $action . '.prepare';
+        $prepared = $this->businessTransaction($context, $owner, $authorizationAction, function (TenantContext $current) use ($owner, $action, $already): array {
+            $ownerState = $this->authorization->owner($current, $owner, $already ? $action : $action . '.prepare', true);
+            $documents = $this->ownerDocuments($owner)->lock(true)->select();
+            $out = [];
+            foreach ($documents as $doc) {
+                if ($doc->content_kind === 'rich_text') {
+                    DocumentState::where('document_id', $doc->id)->lock(true)->find();
+                }
+                DocumentOperation::where('document_id', $doc->id)->lock(true)->select();
             }
+            foreach ($documents as $doc) {
+                $pending = DocumentOperation::where('document_id', $doc->id)->where('action', $action)->whereNotNull('barrier_plan_json')
+                    ->whereNull('released_at')->order('id', 'desc')->lock(true)->find();
+                if ($pending !== null) {
+                    $this->assertBusinessActor($current, $pending);
+                    $out[] = ['id' => (int) $doc->id,'operation_id' => $pending->operation_id,'input' => self::json($pending->command_input_json),
+                        'plan' => new BusinessBarrierPlan(self::json($pending->barrier_plan_json)),'completed' => $pending->phase === 'completed'];
+                    continue;
+                }
+                if ($already) {
+                    if ($doc->status !== ($action === 'archive' ? 'archived' : 'active')) {
+                        throw BusinessException::conflict('DOCUMENT_OWNER_LIFECYCLE_INCOMPLETE', '归属与槽位生命周期不一致');
+                    }
+                    continue;
+                }
+                $input = [(int) $doc->auth_revision];
+                $key = 'owner:' . $action . ':' . hash('sha256', $ownerState->revision . ':' . $doc->id . ':' . $doc->auth_revision);
+                $plan = (bool) $doc->collaboration_enabled ? $this->prepareBusiness($current, $doc, $action, $key, $input, $ownerState->revision) : null;
+                $out[] = ['id' => (int) $doc->id,'operation_id' => $key,'input' => $input,'plan' => $plan,'completed' => false];
+            }
+            return ['owner_revision' => $ownerState->revision,'items' => $out];
         });
+        $provider = null;
+        foreach ($prepared['items'] as $item) {
+            if ($item['plan'] !== null && !$item['completed']) {
+                $provider ??= $this->acceptedWrites->requireProvider();
+                $provider->drainBusinessBarrier($item['plan']);
+            }
+        }
+        if (!$already) {
+            $result = $this->businessTransaction($context, $owner, $action . '.prepare', function (TenantContext $current) use ($owner, $action, $commitOwner, $prepared): mixed {
+                $before = $this->authorization->owner($current, $owner, $action . '.prepare', true);
+                if (!hash_equals($before->revision, $prepared['owner_revision'])) {
+                    throw BusinessException::conflict('DOCUMENT_OWNER_REVISION_CONFLICT', '归属在排空期间已改变');
+                }
+                $documents = $this->ownerDocuments($owner)->lock(true)->select();
+                if (array_map(static fn($d): int => (int) $d->id, $documents->all()) !== array_column($prepared['items'], 'id')) {
+                    throw BusinessException::conflict('DOCUMENT_OWNER_SLOTS_CHANGED', '归属槽位在排空期间已改变');
+                }
+                $proofs = [];
+                // Lock every Doc/state/operation before any Room/barrier; File comes last.
+                foreach ($documents as $doc) {
+                    if ($doc->content_kind === 'rich_text') {
+                        DocumentState::where('document_id', $doc->id)->lock(true)->find();
+                    }
+                    DocumentOperation::where('document_id', $doc->id)->lock(true)->select();
+                }
+                foreach ($prepared['items'] as $item) {
+                    if ($item['plan'] !== null) {
+                        $proofs[$item['id']] = $this->acceptedWrites->requireProvider()->lockDrainedBusinessBarrier($current, $item['plan']);
+                    }
+                }
+                $pdo = Db::connect()->getPdo();
+                $result = $commitOwner();
+                if ($pdo !== Db::connect()->getPdo() || !$pdo->inTransaction()) {
+                    throw new \LogicException('DOCUMENT_OWNER_TRANSACTION_CHANGED');
+                }
+                foreach ($documents as $doc) {
+                    $this->authorization->document($current, (int) $doc->id, $action, true);
+                    $item = $prepared['items'][array_search((int) $doc->id, array_column($prepared['items'], 'id'), true)];
+                    if ($item['plan'] !== null) {
+                        $this->finishBusiness($current, $doc, $item['plan'], $proofs[(int) $doc->id], $item['input']);
+                    } else {
+                        $this->casLifecycle($doc, $item['input'][0]);
+                        $doc->save(['status' => $action === 'archive' ? 'archived' : 'active','auth_revision' => (int) $doc->auth_revision + 1,
+                            'archived_at' => $action === 'archive' ? self::now() : null,'update_time' => time()]);
+                        $this->receipt($current, $doc, $action, $item['operation_id'], $item['input'], $this->summary($doc));
+                    }
+                }
+                return $result;
+            });
+        } else {
+            $result = $this->businessTransaction($context, $owner, $authorizationAction, function (TenantContext $current) use ($owner, $authorizationAction, $commitOwner): mixed {
+                $this->authorization->owner($current, $owner, $authorizationAction, true);
+                return $commitOwner();
+            });
+        }
+        foreach ($prepared['items'] as $item) {
+            if ($item['plan'] !== null) {
+                $this->releaseBusiness($context, $item['plan']);
+            }
+        }
+        return $result;
+    }
+
+    private function ownerDocuments(DocumentOwnerReference $owner): \think\db\BaseQuery
+    {
+        return Document::where('owner_module_key', $owner->moduleKey)->where('owner_object_type', $owner->objectType)->where('owner_object_id', $owner->objectId)->order('id');
+    }
+
+    private function outsideTransaction(): void
+    {
+        $pdo = Db::connect()->getPdo();
+        if ($pdo instanceof \PDO && $pdo->inTransaction()) {
+            throw BusinessException::conflict('DOCUMENT_OUTER_TRANSACTION_DENIED', '业务排空必须先提交短准备事务');
+        }
+    }
+
+    /** Native decision remains authoritative; the digest only prevents RR snapshots from missing revocation. */
+    private function businessTransaction(TenantContext $context, DocumentOwnerReference $owner, string $action, callable $operation): mixed
+    {
+        $this->outsideTransaction();
+        return $this->authorization->run($context, function (TenantContext $current) use ($owner, $action, $operation): mixed {
+            $policy = $this->owners->requirePolicy($owner);
+            $permissions = $policy->authorizationPermissionKeys($action);
+            $modules = ['official.document','official.file',$owner->moduleKey];
+            // Collaboration is optional for solo owner slots; include only if installed provider is actually required.
+            if ($this->ownerDocuments($owner)->where('collaboration_enabled', 1)->count() > 0) {
+                $modules[] = 'official.collaboration';
+            }
+            foreach ($modules as $module) {
+                $this->authorization->requireModule($current, $module);
+            }
+            $before = $this->authorizationFence->snapshot($current, $permissions, $modules);
+            $this->authorization->owner($current, $owner, $action, false);
+            if (!hash_equals($before, $this->authorizationFence->snapshot($current, $permissions, $modules))) {
+                throw BusinessException::conflict('DOCUMENT_AUTHORIZATION_CHANGED', '准备期间授权输入改变');
+            }
+            return Db::transaction(function () use ($current, $permissions, $modules, $before, $operation, $action): mixed {
+                // A confirmed immutable target is a business snapshot, not a new room write admission.
+                if ($action !== 'version.create' && in_array('official.collaboration', $modules, true)) {
+                    $this->acceptedWrites->requireProvider()->lockRuntimeAdmission();
+                }
+                try {
+                    $this->authorizationFence->lockAndAssert($current, $permissions, $modules, $before);
+                } catch (\DomainException) {
+                    throw BusinessException::conflict('DOCUMENT_AUTHORIZATION_CHANGED', '当前授权输入已改变');
+                }
+                return $operation($current);
+            });
+        });
+    }
+
+    private static function businessActor(TenantContext $current): array
+    {
+        // The original actor is fixed; a fresh validated session is still required on every continuation.
+        // Session expiry must not make a durable operation permanently unrecoverable for that same actor.
+        return ['tenant_id' => $current->tenantId,'account_id' => $current->accountId,'member_id' => $current->memberId];
+    }
+
+    private function assertBusinessActor(TenantContext $current, DocumentOperation $operation): void
+    {
+        if (RichTextProjection::canonical(self::json($operation->initiator_json)) !== RichTextProjection::canonical(self::businessActor($current))) {
+            throw BusinessException::forbidden('DOCUMENT_BUSINESS_ACTOR_MISMATCH', '业务操作必须由原人员的当前合法登录身份继续');
+        }
+    }
+
+    private function collaborativeBusiness(TenantContext $context, int $id, string $action, string $key, array $input): array
+    {
+        $this->outsideTransaction();
+        self::requestKey($key);
+        $candidate = Document::where('id', $id)->find();
+        if ($candidate === null) {
+            throw BusinessException::notFound('DOCUMENT_NOT_FOUND', '文档不存在');
+        }
+        $owner = DocumentAuthorizationService::reference($candidate);
+        $permissionAction = str_starts_with($action, 'version.') ? 'version.create' : $action;
+        $plan = $this->businessTransaction($context, $owner, $permissionAction, function (TenantContext $current) use ($id, $action, $key, $input, $permissionAction): BusinessBarrierPlan {
+            $doc = $this->authorization->document($current, $id, $permissionAction, true);
+            DocumentState::where('document_id', $id)->lock(true)->find();
+            $old = DocumentOperation::where('document_id', $id)->where('operation_id', $key)->lock(true)->find();
+            if ($old !== null) {
+                if ($old->action !== $action || !hash_equals($old->input_sha256, self::inputHash($input)) || $old->barrier_plan_json === null) {
+                    throw BusinessException::conflict('DOCUMENT_IDEMPOTENCY_CONFLICT', '同一请求标识不能改变动作或内容');
+                }
+                $this->assertBusinessActor($current, $old);
+                return new BusinessBarrierPlan(self::json($old->barrier_plan_json));
+            }
+            if (str_starts_with($action, 'version.')) {
+                $this->cas($doc, $action === 'version.restore' ? $input[1] : $input[0]);
+            } else {
+                $this->casLifecycle($doc, $input[0]);
+            }
+            $ownerState = $this->owners->requirePolicy(DocumentAuthorizationService::reference($doc))->resolveOwner($current, DocumentAuthorizationService::reference($doc), true);
+            return $this->prepareBusiness($current, $doc, $action, $key, $input, $ownerState->revision);
+        });
+        $old = DocumentOperation::where('document_id', $id)->where('operation_id', $key)->find();
+        if ($old->phase !== 'completed') {
+            try {
+                $this->acceptedWrites->requireProvider()->drainBusinessBarrier($plan);
+                $this->businessTransaction($context, $owner, $permissionAction, function (TenantContext $current) use ($id, $plan, $input, $permissionAction): void {
+                    $doc = $this->authorization->document($current, $id, $permissionAction, true);
+                    $state = DocumentState::where('document_id', $id)->lock(true)->find();
+                    $operation = DocumentOperation::where('document_id', $id)->where('operation_id', $plan->data['operation_id'])->lock(true)->find();
+                    $this->assertBusinessActor($current, $operation);
+                    if ($operation->phase === 'completed') {
+                        return;
+                    }
+                    $ownerState = $this->owners->requirePolicy($plan->owner)->resolveOwner($current, $plan->owner, true);
+                    if (!hash_equals($plan->data['owner_revision'], hash('sha256', $ownerState->revision))) {
+                        throw BusinessException::conflict('DOCUMENT_OWNER_REVISION_CONFLICT', '排空期间业务归属改变');
+                    }
+                    $proof = $this->acceptedWrites->requireProvider()->lockDrainedBusinessBarrier($current, $plan);
+                    $this->finishBusiness($current, $doc, $plan, $proof, $input);
+                });
+            } catch (\Throwable $error) {
+                $this->markBusinessAttention($context, $plan, $permissionAction);
+                throw $error;
+            }
+        }
+        return $this->releaseBusiness($context, $plan);
+    }
+
+    private function prepareBusiness(TenantContext $current, Document $doc, string $action, string $key, array $input, string $ownerRevision): BusinessBarrierPlan
+    {
+        self::requestKey($key);
+        $operation = DocumentOperation::create(['tenant_id' => $current->tenantId,'document_id' => $doc->id,'operation_id' => $key,
+            'action' => $action,'input_sha256' => self::inputHash($input),'result_json' => '{}','command_input_json' => json_encode($input, JSON_THROW_ON_ERROR),
+            'phase' => 'prepared','initiator_json' => json_encode(self::businessActor($current), JSON_THROW_ON_ERROR),'created_at' => self::now()]);
+        $plan = $this->acceptedWrites->requireProvider()->prepareBusinessBarrier(
+            $current,
+            (int) $doc->id,
+            DocumentAuthorizationService::reference($doc),
+            $action,
+            $key,
+            self::inputHash($input),
+            (int) $doc->state_seq,
+            (int) $doc->auth_revision,
+            hash('sha256', $ownerRevision),
+        );
+        $operation->save(['barrier_plan_json' => json_encode($plan->data, JSON_THROW_ON_ERROR)]);
+        if ($action === 'archive') {
+            $doc->save(['status' => 'archiving']);
+        }
+        return $plan;
+    }
+
+    private function markBusinessAttention(TenantContext $context, BusinessBarrierPlan $plan, string $action): void
+    {
+        try {
+            $this->businessTransaction($context, $plan->owner, $action, function (TenantContext $current) use ($plan, $action): void {
+                $this->authorization->owner($current, $plan->owner, $action, true);
+                Document::where('id', $plan->data['binding']['document_id'])->lock(true)->find();
+                $op = DocumentOperation::where('document_id', $plan->data['binding']['document_id'])->where('operation_id', $plan->data['operation_id'])->lock(true)->find();
+                $this->assertBusinessActor($current, $op);
+                if ($op->phase !== 'completed') {
+                    $op->save(['phase' => 'attention']);
+                    $this->audit->appendTenantMember(
+                        $current,
+                        'document.business.attention',
+                        'document.' . $plan->data['action'],
+                        'document',
+                        (string) $plan->data['binding']['document_id'],
+                        null,
+                        null,
+                        0,
+                        null,
+                        ['operation_id' => $plan->data['operation_id']],
+                    );
+                }
+            });
+        } catch (\Throwable) {
+            // Revocation can deny even diagnostics. Original prepared ledger/gate remains; never unlock or hide the original failure.
+        }
+    }
+
+    private function casLifecycle(Document $doc, int $expected): void
+    {
+        if ((int) $doc->auth_revision !== $expected) {
+            throw BusinessException::conflict('DOCUMENT_AUTH_REVISION_CONFLICT', '文档生命周期已改变');
+        }
+    }
+
+    private function finishBusiness(TenantContext $current, Document $doc, BusinessBarrierPlan $plan, DrainedBusinessBarrier $proof, array $input): array
+    {
+        $operation = DocumentOperation::where('document_id', $doc->id)->where('operation_id', $plan->data['operation_id'])->lock(true)->find();
+        $state = DocumentState::where('document_id', $doc->id)->lock(true)->find();
+        if ($operation === null || $state === null || $operation->phase === 'completed' || !hash_equals($operation->input_sha256, $plan->data['input_sha256'])
+            || !hash_equals(self::inputHash($input), $operation->input_sha256) || (int) $doc->state_seq !== $proof->stateSeq
+            || (int) $state->state_seq !== $proof->stateSeq || $state->state_sha256 !== $proof->binarySha256
+            || !is_string($state->yjs_state_binary) || hash('sha256', $state->yjs_state_binary) !== $proof->binarySha256
+            || (int) $doc->auth_revision !== $plan->data['base_auth_revision']) {
+            throw BusinessException::conflict('DOCUMENT_BUSINESS_CAS_CONFLICT', '业务提交与排空后的持久状态不一致');
+        }
+        $this->assertBusinessActor($current, $operation);
+        $action = $plan->data['action'];
+        $revisionResult = [];
+        if ($action === 'version.restore') {
+            $revision = $this->revision($doc, $input[0]);
+            $snapshot = $this->snapshotFromRevision($current, $doc, $revision);
+            if ($revision->content_kind !== 'rich_text' || !is_string($revision->yjs_snapshot) || $revision->yjs_snapshot === '' || strlen($revision->yjs_snapshot) > 4194304) {
+                throw BusinessException::conflict('DOCUMENT_VERSION_BINARY_MISSING', '历史版本缺少不可变协作字节');
+            }
+            $projection = RichTextProjection::fromStructured($snapshot->structuredContent);
+            $next = $proof->stateSeq + 1;
+            $doc->save(['state_seq' => $next,'auth_revision' => (int) $doc->auth_revision + 1,
+                'lease_epoch' => $plan->data['lease_epoch'] + 1,'updated_by_member_id' => $current->memberId,'update_time' => time()]);
+            $state->save(['yjs_state_binary' => $revision->yjs_snapshot,'projected_json' => $projection->json,'state_seq' => $next,
+                'state_sha256' => hash('sha256', $revision->yjs_snapshot),'projection_schema_version' => RichTextProjection::SCHEMA,
+                'persisted_at' => self::now(),'last_store_id' => $plan->data['operation_id']]);
+            $this->writeReferences($current, $doc, $projection->fileReferences);
+            $revisionResult = $this->appendRevision($current, $doc, 'restore:' . $revision->id, null);
+        } else {
+            $doc->save(['status' => $action === 'archive' ? 'archived' : 'active','auth_revision' => (int) $doc->auth_revision + 1,
+                'lease_epoch' => $plan->data['lease_epoch'] + 1,'archived_at' => $action === 'archive' ? self::now() : null,
+                'updated_by_member_id' => $current->memberId,'update_time' => time()]);
+        }
+        $result = $this->summary($doc) + $revisionResult + ['operation_id' => $plan->data['operation_id'],'phase' => 'completed',
+            'lease_epoch' => (int) $doc->lease_epoch,'binary_sha256' => $state->state_sha256,
+            'store_id' => $proof->storeId,'target_progress' => $proof->targetProgress];
+        $hash = self::inputHash($result);
+        $operation->save(['phase' => 'completed','result_json' => json_encode($result, JSON_THROW_ON_ERROR),'business_sha256' => $hash]);
+        $this->audit->appendTenantMember(
+            $current,
+            'document.' . $action,
+            'document.' . $action,
+            'document',
+            (string) $doc->id,
+            null,
+            null,
+            1,
+            $result['digest'] ?? $result['binary_sha256'],
+            ['state_seq' => (int) $doc->state_seq,'operation_id' => $plan->data['operation_id'],'barrier_key' => $plan->data['barrier_key']],
+        );
+        $this->acceptedWrites->requireProvider()->consumeBusinessBarrier($proof, new DocumentBusinessReceipt($plan, $result));
+        $this->releaseFencedCollaborationReferences((int) $doc->id, DocumentAuthorizationService::reference($doc), $plan->data['lease_epoch']);
+        return $result;
+    }
+
+    private function releaseBusiness(TenantContext $context, BusinessBarrierPlan $plan): array
+    {
+        $action = str_starts_with($plan->data['action'], 'version.') ? 'version.create' : $plan->data['action'];
+        $result = $this->businessTransaction($context, $plan->owner, $action, function (TenantContext $current) use ($plan): array {
+            $doc = $this->authorization->document($current, $plan->data['binding']['document_id'], str_starts_with($plan->data['action'], 'version.') ? 'version.create' : $plan->data['action'], true);
+            $operation = DocumentOperation::where('document_id', $doc->id)->where('operation_id', $plan->data['operation_id'])->lock(true)->find();
+            if ($operation === null || $operation->phase !== 'completed' || $operation->input_sha256 !== $plan->data['input_sha256']) {
+                throw BusinessException::conflict('DOCUMENT_BUSINESS_PENDING', '业务操作尚未完成，继续原操作');
+            }
+            $this->assertBusinessActor($current, $operation);
+            return ['result' => self::json($operation->result_json),'released' => $operation->released_at !== null];
+        });
+        if ($result['released']) {
+            return $result['result'];
+        }
+        $result = $result['result'];
+        $this->acceptedWrites->requireProvider()->releaseBusinessBarrier($plan, new DocumentBusinessReceipt($plan, $result));
+        $this->businessTransaction($context, $plan->owner, $action, function (TenantContext $current) use ($plan): void {
+            $this->authorization->owner($current, $plan->owner, str_starts_with($plan->data['action'], 'version.') ? 'version.create' : $plan->data['action'], true);
+            Document::where('id', $plan->data['binding']['document_id'])->lock(true)->find();
+            $operation = DocumentOperation::where('document_id', $plan->data['binding']['document_id'])->where('operation_id', $plan->data['operation_id'])->lock(true)->find();
+            $this->assertBusinessActor($current, $operation);
+            $operation->save(['released_at' => self::now()]);
+        });
+        return $result;
+    }
+
+    public function businessOperation(TenantContext $context, int $documentId, string $operationId): array
+    {
+        self::requestKey($operationId);
+        $doc = Document::where('id', $documentId)->find();
+        $op = DocumentOperation::where('document_id', $documentId)->where('operation_id', $operationId)->find();
+        if ($doc === null || $op === null || $op->barrier_plan_json === null && $op->action !== 'version.create') {
+            throw BusinessException::notFound('DOCUMENT_OPERATION_NOT_FOUND', '业务操作不存在');
+        }
+        $owner = DocumentAuthorizationService::reference($doc);
+        $state = $this->owners->requirePolicy($owner)->resolveOwner($context, $owner);
+        $action = str_starts_with($op->action, 'version.') ? 'version.create' : $op->action;
+        if (($action === 'archive' && !$state->archived) || ($action === 'restore' && $state->archived)) {
+            $action .= '.prepare';
+        }
+        return $this->businessTransaction($context, $owner, $action, function (TenantContext $current) use ($documentId, $operationId, $owner, $action): array {
+            $this->authorization->owner($current, $owner, $action, true);
+            $doc = Document::where('id', $documentId)->lock(true)->find();
+            if ($doc === null || DocumentAuthorizationService::reference($doc) != $owner) {
+                throw BusinessException::conflict('DOCUMENT_OPERATION_BINDING_CHANGED', '操作归属已改变');
+            }
+            $op = DocumentOperation::where('document_id', $documentId)->where('operation_id', $operationId)->lock(true)->find();
+            if ($op->action === 'version.create' && $op->barrier_plan_json === null) {
+                $target = DocumentOperation::where('document_id', $documentId)->where('operation_id', 'target:' . hash('sha256', $operationId))->lock(true)->find();
+                if ($target === null) {
+                    throw BusinessException::notFound('DOCUMENT_OPERATION_NOT_FOUND', '点击版本操作不存在');
+                }
+                $this->assertBusinessActor($current, $target);
+            } else {
+                $this->assertBusinessActor($current, $op);
+            }
+            $result = $op->phase === 'completed' ? self::json($op->result_json) : null;
+            return ['document_id' => $documentId,'operation_id' => $operationId,'action' => $op->action,'input_sha256' => $op->input_sha256,
+                'phase' => $op->phase,'target_progress' => $result['target_progress'] ?? null,'store_id' => $result['store_id'] ?? null,
+                'state_seq' => $result['state_seq'] ?? null,'binary_sha256' => $result['binary_sha256'] ?? null,
+                'released' => $op->barrier_plan_json === null || $op->released_at !== null,'result' => $result];
+        });
+    }
+
+    public function explicitTarget(TenantContext $context, int $documentId, string $requestId): array
+    {
+        self::requestKey($requestId);
+        return $this->authorization->run($context, fn(TenantContext $current): array => Db::transaction(function () use ($current, $documentId, $requestId): array {
+            $this->authorization->document($current, $documentId, 'version.create', true);
+            $target = DocumentOperation::where('document_id', $documentId)->where('operation_id', 'target:' . hash('sha256', $requestId))->lock(true)->find();
+            if ($target === null || $target->action !== 'collaboration.target') {
+                throw BusinessException::notFound('DOCUMENT_TARGET_NOT_FOUND', '点击目标不存在');
+            }
+            $this->assertBusinessActor($current, $target);
+            $command = self::json($target->command_input_json);
+            $frozen = $command['frozen'];
+            $proof = self::json($target->result_json);
+            return ['document_id' => $documentId,'request_id' => $requestId,
+                'phase' => ($command['canceled'] ?? false) ? 'canceled' : ($target->phase === 'completed' ? 'consumed' : (isset($command['confirmed']) ? 'confirmed' : 'prepared')),
+                'target_binary_sha256' => $frozen['target_binary_sha256'],'target_projection_sha256' => $frozen['target_projection_sha256'],
+                'target_progress' => $frozen['target_progress'],'store_id' => $proof['store_id'] ?? null,
+                'state_seq' => $proof['state_seq'] ?? null,'committed_binary_sha256' => $proof['committed_binary_sha256'] ?? null,
+                'revision_id' => $command['revision_id'] ?? null];
+        }));
     }
 
     public function detail(TenantContext $context, int $documentId, ?int $revisionId = null): array
@@ -304,20 +742,74 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
         });
     }
 
-    public function versionSnapshot(TenantContext $context, int $documentId, int $revisionId): \PeanutAdmin\Modules\Document\Contract\VersionSnapshot
+    public function runOwnerVersionSave(TenantContext $context, DocumentOwnerReference $owner, callable $commitOwner): mixed
+    {
+        return $this->businessTransaction($context, $owner, 'version.create', function (TenantContext $current) use ($owner, $commitOwner): mixed {
+            $state = $this->authorization->owner($current, $owner, 'version.create', true);
+            $pdo = Db::connect()->getPdo();
+            $result = $commitOwner($current, $state);
+            if ($pdo !== Db::connect()->getPdo() || !$pdo->inTransaction()) {
+                throw new \LogicException('DOCUMENT_OWNER_TRANSACTION_CHANGED');
+            }
+            return $result;
+        });
+    }
+
+    public function ownerEditor(TenantContext $context, int $documentId, DocumentOwnerReference $owner): array
+    {
+        return $this->authorization->run($context, function (TenantContext $current) use ($documentId, $owner): array {
+            $doc = $this->authorization->document($current, $documentId, 'edit');
+            if (DocumentAuthorizationService::reference($doc) != $owner || $doc->content_kind !== 'rich_text') {
+                throw BusinessException::forbidden('DOCUMENT_OWNER_MISMATCH', '正文编辑归属不一致');
+            }
+            $state = DocumentState::where('document_id', $documentId)->find();
+            if ($state === null || (int) $state->state_seq !== (int) $doc->state_seq) {
+                throw BusinessException::conflict('DOCUMENT_STATE_MISSING', '正文持久水位不一致');
+            }
+            $revision = $this->authorization->revision($current, $doc, 'edit');
+            $modules = [];
+            foreach (['official.content-tools','official.rich-text'] as $key) {
+                try {
+                    $this->authorization->requireModule($current, $key);
+                    $modules[] = $key;
+                } catch (\PeanutAdmin\Kernel\Module\ModuleException) {
+                }
+            }
+            $authorized = new AuthorizedContentContext('rich_text', 'application/vnd.peanut.richtext+json', true, true, false, $revision, 'browser', $modules, []);
+            return $this->summary($doc) + ['owner' => self::ownerArray($owner),'authorization_revision' => $revision,
+                'collaboration_enabled' => (bool) $doc->collaboration_enabled,'structured_content' => self::json($state->projected_json),
+                'digest' => $state->state_sha256,'persisted_at' => $state->persisted_at,'can_edit' => true,'can_download_original' => false,
+                'capabilities' => $this->tools->resolve($authorized, 'edit', null, null)];
+        });
+    }
+
+    public function ownerSaveSnapshot(TenantContext $context, int $documentId, int $revisionId, DocumentOwnerReference $owner): VersionSnapshot
+    {
+        return $this->prepareVersion($context, $documentId, $revisionId, 'version.create', $owner);
+    }
+
+    public function versionSnapshot(TenantContext $context, int $documentId, int $revisionId): VersionSnapshot
+    {
+        return $this->prepareVersion($context, $documentId, $revisionId, 'view', null);
+    }
+
+    private function prepareVersion(TenantContext $context, int $documentId, int $revisionId, string $action, ?DocumentOwnerReference $expectedOwner): VersionSnapshot
     {
         // Capture the external lifetime before DocAuth creates its transient nested run.
         $root = $this->execution->current() instanceof AdminExecutionContext ? $this->execution->rootIdentity() : null;
         if (($pdo = Db::connect()->getPdo()) instanceof \PDO && $pdo->inTransaction()) {
             throw BusinessException::conflict('DOCUMENT_VERSION_NOT_COMMITTED', '不可把外层事务中的版本声明为已提交');
         }
-        return $this->authorization->run($context, function (TenantContext $current) use ($documentId, $revisionId, $root) {
-            $document = $this->authorization->document($current, $documentId, 'view');
+        return $this->authorization->run($context, function (TenantContext $current) use ($documentId, $revisionId, $root, $action, $expectedOwner) {
+            $document = $this->authorization->document($current, $documentId, $action);
+            if ($expectedOwner !== null && DocumentAuthorizationService::reference($document) != $expectedOwner) {
+                throw BusinessException::forbidden('DOCUMENT_OWNER_MISMATCH', '保存版本业务归属不一致');
+            }
             $revision = $this->revision($document, $revisionId);
             $snapshot = $this->snapshotFromRevision($current, $document, $revision);
             if ($root !== null && $root === $this->execution->rootIdentity()) {
                 $this->preparedVersions[$snapshot] = [
-                    'root' => $root, 'actor' => self::preparedActor($current), 'owner' => DocumentAuthorizationService::reference($document),
+                    'root' => $root, 'actor' => self::preparedActor($current), 'owner' => DocumentAuthorizationService::reference($document), 'action' => $action,
                     'canonical' => self::snapshotHash($snapshot), 'expires_at' => hrtime(true) + self::PREPARED_LIFETIME_NANOSECONDS,
                 ];
             }
@@ -338,7 +830,10 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
             throw BusinessException::conflict('DOCUMENT_PREPARED_TRANSACTION_REQUIRED', '版本复核必须在业务外层事务内');
         }
         $this->authorization->run($context, function (TenantContext $current) use ($snapshot, $expectedOwner, $proof): void {
-            $document = $this->authorization->document($current, $snapshot->documentId, 'view', true);
+            $document = $this->authorization->document($current, $snapshot->documentId, $proof['action'], true);
+            if ($proof['action'] === 'version.create' && !(bool) $document->collaboration_enabled && (int) $document->state_seq !== $snapshot->sourceStateSeq) {
+                throw BusinessException::conflict('DOCUMENT_SAVE_STATE_CHANGED', '版本确认后正文水位已改变');
+            }
             if (DocumentAuthorizationService::reference($document) != $expectedOwner || $proof['actor'] !== self::preparedActor($current)) {
                 throw BusinessException::forbidden('DOCUMENT_PREPARED_VERSION_DENIED', '文档版本业务归属或身份已改变');
             }
@@ -465,6 +960,603 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
         });
     }
 
+    public function collaborationReferencesForUpdate(TenantContext $context, CollaborationReferenceInput $input): array
+    {
+        $this->requireCollaborationTransaction($context->tenantId, false);
+        return $this->authorization->run($context, function (TenantContext $current) use ($input): array {
+            if ($input->tenantId !== $current->tenantId) {
+                throw BusinessException::forbidden('DOCUMENT_CONTEXT_MISMATCH', '资源接纳与当前租户不一致');
+            }
+            $document = $this->authorization->document($current, $input->documentId, 'edit', true);
+            $this->authorization->requireModule($current, 'official.collaboration');
+            if ($document->content_kind !== 'rich_text' || $document->status !== 'active' || !(bool) $document->collaboration_enabled) {
+                throw BusinessException::forbidden('DOCUMENT_COLLABORATION_KIND_INVALID', '当前文档不允许接纳资源引用');
+            }
+            $revision = $this->authorization->revision($current, $document, 'edit');
+            $this->acceptedWrites->requireProvider()->assertReferenceReservation(
+                $current,
+                $input,
+                DocumentAuthorizationService::reference($document),
+                $revision,
+            );
+            $keys = DocumentFileReference::where('document_id', $input->documentId)->where('usage', 'current')->order('file_key')->column('file_key');
+            return ['authorization_revision' => $revision,
+                'current_file_keys' => array_values(array_unique($keys))];
+        });
+    }
+
+    public function authorizeCollaboration(TenantContext $context, int $documentId, string $mode, bool $enable = false): array
+    {
+        if (!in_array($mode, ['read','write'], true) || $enable && $mode !== 'write') {
+            throw BusinessException::invalid('DOCUMENT_COLLABORATION_MODE_INVALID', '协作模式无效');
+        }
+        $this->requireCollaborationTransaction($context->tenantId, false);
+        return $this->authorization->run($context, function (TenantContext $current) use ($documentId, $mode, $enable): array {
+            $this->authorization->requireModule($current, 'official.collaboration');
+            $document = $this->authorization->document($current, $documentId, $mode === 'write' ? 'edit' : 'view', true);
+            if ($document->content_kind !== 'rich_text' || $document->status !== 'active') {
+                throw BusinessException::conflict('DOCUMENT_COLLABORATION_KIND_INVALID', '当前文档不允许协作');
+            }
+            $state = DocumentState::where('document_id', $documentId)->lock(true)->find();
+            if ($state === null || (int) $state->state_seq !== (int) $document->state_seq) {
+                throw BusinessException::conflict('RECOVERY_REQUIRED', '文档持久状态不完整');
+            }
+            if ($enable && !(bool) $document->collaboration_enabled) {
+                $document->save(['collaboration_enabled' => 1,'lease_epoch' => max(1, (int) $document->lease_epoch)]);
+            }
+            return ['document_id' => $documentId,'tenant_id' => $current->tenantId,
+                'owner' => self::ownerArray(DocumentAuthorizationService::reference($document)),
+                'authorization_revision' => $this->authorization->revision($current, $document, $mode === 'write' ? 'edit' : 'view'),
+                'document_auth_revision' => (int) $document->auth_revision,'state_seq' => (int) $document->state_seq,
+                'state_sha256' => $state->state_sha256,'lease_epoch' => (int) $document->lease_epoch,
+                'collaboration_enabled' => (bool) $document->collaboration_enabled];
+        });
+    }
+
+    public function loadAuthorizedCollaboration(TenantContext $context, int $documentId, DocumentOwnerReference $owner): array
+    {
+        $this->requireCollaborationTransaction($context->tenantId, false);
+        return $this->authorization->run($context, function (TenantContext $current) use ($documentId, $owner): array {
+            $document = $this->authorization->document($current, $documentId, 'view', true);
+            if (DocumentAuthorizationService::reference($document) != $owner || $document->content_kind !== 'rich_text'
+                || !(bool) $document->collaboration_enabled) {
+                throw BusinessException::forbidden('COLLABORATION_DOCUMENT_BINDING_INVALID', '协作读取与当前文档不一致');
+            }
+            $state = DocumentState::where('document_id', $documentId)->lock(true)->find();
+            $this->acceptedWrites->requireProvider()->assertServiceDocument($documentId, $owner);
+            if ($state === null || (int) $state->state_seq !== (int) $document->state_seq) {
+                throw BusinessException::conflict('RECOVERY_REQUIRED', '文档持久状态不完整');
+            }
+            return ['document_id' => $documentId,'state_seq' => (int) $state->state_seq,'state_sha256' => $state->state_sha256,
+                'binary_base64' => $state->yjs_state_binary === null ? null : base64_encode($state->yjs_state_binary),
+                'initialization_required' => $state->yjs_state_binary === null,
+                'structured_content' => self::json($state->projected_json),'schema_version' => $state->projection_schema_version,
+                'lease_epoch' => (int) $document->lease_epoch,'store_id' => $this->baselineReceipt($document, $state)];
+        });
+    }
+
+    public function recoverCollaborationEpoch(int $documentId, DocumentOwnerReference $owner, int $expectedEpoch, string $requestId): array
+    {
+        return $this->advanceCollaborationEpoch($documentId, $owner, $expectedEpoch, $requestId, false);
+    }
+
+    public function migrateCollaborationEpoch(int $documentId, DocumentOwnerReference $owner, int $expectedEpoch, string $requestId): array
+    {
+        if (!$this->execution->current() instanceof \app\common\execution\SystemExecutionContext
+            || $this->execution->current()->operation() !== 'collaboration.native-migration') {
+            throw BusinessException::forbidden('DOCUMENT_NATIVE_MIGRATION_CONTEXT_INVALID', '迁移只接受显式原生owner入口建立的技术执行身份');
+        }
+        return $this->advanceCollaborationEpoch($documentId, $owner, $expectedEpoch, $requestId, true);
+    }
+
+    private function advanceCollaborationEpoch(int $documentId, DocumentOwnerReference $owner, int $expectedEpoch, string $requestId, bool $migration): array
+    {
+        $tenant = $this->execution->current()?->tenantId() ?? 0;
+        $this->requireCollaborationTransaction($tenant, true);
+        // Technical recovery preserves archived ownership as well as active ownership;
+        // it never grants a human join/edit capability or restores an archived document.
+        foreach (['official.document','official.file','official.collaboration',$owner->moduleKey] as $module) {
+            $this->authorization->requireDeploymentModule($module);
+        }
+        $ownerState = $this->owners->requirePolicy($owner)->resolvePersistedOwner($tenant, $owner, true);
+        $document = Document::where('id', $documentId)->lock(true)->find();
+        if ($document === null || $ownerState->tenantId !== $tenant || $ownerState->reference != $owner
+            || DocumentAuthorizationService::reference($document) != $owner || $document->content_kind !== 'rich_text'
+            || !(bool) $document->collaboration_enabled || !in_array($document->status, ['active','archived'], true)
+            || $ownerState->archived !== ($document->status === 'archived')) {
+            throw BusinessException::conflict('DOCUMENT_RECOVERY_BINDING_INVALID', '原文档归属或归档事实不一致');
+        }
+        $state = DocumentState::where('document_id', $documentId)->lock(true)->find();
+        self::requestKey($requestId);
+        $key = ($migration ? 'migration:' : 'recovery:') . hash('sha256', $requestId);
+        $action = $migration ? 'collaboration.migrate' : 'collaboration.recover';
+        $hash = self::inputHash([$expectedEpoch,$requestId,self::ownerArray($owner),$migration]);
+        $existing = DocumentOperation::where('document_id', $documentId)->where('operation_id', $key)->lock(true)->find();
+        if ($existing !== null) {
+            if ($existing->action !== $action || $existing->input_sha256 !== $hash) {
+                throw BusinessException::conflict('DOCUMENT_RECOVERY_IDEMPOTENCY_CONFLICT', '恢复请求不能改变原代际');
+            }
+            return self::json($existing->result_json);
+        }
+        if ((int) $document->lease_epoch !== $expectedEpoch || $state === null
+            || (int) $state->state_seq !== (int) $document->state_seq
+            || DocumentOperation::where('document_id', $documentId)->where('action', '<>', 'collaboration.target')
+                ->where('phase', '<>', 'completed')->lock(true)->find() !== null) {
+            throw BusinessException::conflict('DOCUMENT_RECOVERY_PENDING', '原业务状态未确认，不允许恢复自动解锁');
+        }
+        $document->save(['lease_epoch' => $expectedEpoch + 1]);
+        $result = ['document_id' => $documentId,'lease_epoch' => $expectedEpoch + 1,'state_seq' => (int) $state->state_seq,
+            'state_sha256' => $state->state_sha256,'binary_base64' => $state->yjs_state_binary === null ? null : base64_encode($state->yjs_state_binary),
+            'structured_content' => self::json($state->projected_json),'initialization_required' => $state->yjs_state_binary === null,
+            'store_id' => $this->baselineReceipt($document, $state),'status' => $document->status];
+        DocumentOperation::create(['tenant_id' => $tenant,'document_id' => $documentId,'operation_id' => $key,
+            'action' => $action,'input_sha256' => $hash,'result_json' => json_encode($result, JSON_THROW_ON_ERROR),'created_at' => self::now()]);
+        return $result;
+    }
+
+    public function releaseFencedCollaborationReferences(int $documentId, DocumentOwnerReference $owner, int $oldEpoch): void
+    {
+        $current = $this->execution->current();
+        $tenant = $current?->tenantId() ?? 0;
+        if ($tenant < 1 || (!$current instanceof AdminExecutionContext && !$current instanceof \app\common\execution\SystemExecutionContext)
+            || !Db::connect()->getPdo()->inTransaction()) {
+            throw BusinessException::forbidden('DOCUMENT_FENCE_CONTEXT_INVALID', '引用收口需要真实同一事务身份');
+        }
+        $ownerState = $this->owners->requirePolicy($owner)->resolvePersistedOwner($tenant, $owner, true);
+        $document = Document::where('id', $documentId)->lock(true)->find();
+        if ($document === null || $ownerState->tenantId !== $tenant || $ownerState->reference != $owner
+            || DocumentAuthorizationService::reference($document) != $owner || (int) $document->lease_epoch <= $oldEpoch) {
+            throw BusinessException::forbidden('DOCUMENT_FENCE_BINDING_INVALID', '旧引用代际尚未被真实文档隔离');
+        }
+        $provider = $this->acceptedWrites->requireProvider();
+        $reservations = $provider->fencedReferenceReservations($documentId, $owner, $oldEpoch);
+        $hash = self::inputHash([$documentId,$oldEpoch,$reservations]);
+        $input = new ReservationReleaseInput($tenant, $documentId, $hash);
+        $this->acceptedReleases[$input] = ['scope' => $this->execution->rootIdentity(),'pdo' => Db::connect()->getPdo(),
+            'hash' => $hash,'reservations' => $reservations];
+        $this->references->releaseSettledCollaborationReferences($input);
+        $provider->retireFencedReferences($documentId, $owner, $oldEpoch);
+    }
+
+    public function prepareExplicitTarget(TenantContext $context, int $documentId, DocumentOwnerReference $owner, ExplicitTargetPreparationInput $input): array
+    {
+        $this->requireCollaborationTransaction($context->tenantId, false);
+        return $this->authorization->run($context, function (TenantContext $current) use ($documentId, $owner, $input): array {
+            $document = $this->authorization->document($current, $documentId, 'version.create', true);
+            $this->explicitTargetDocument($document, $owner);
+            $reservations = $this->acceptedWrites->requireProvider()->targetReferenceReservations($current, $documentId, $owner);
+            $key = $input->operationKey();
+            $old = DocumentOperation::where('document_id', $documentId)->where('operation_id', $key)->lock(true)->find();
+            if ($old !== null) {
+                $this->assertBusinessActor($current, $old);
+                if ($old->action !== 'collaboration.target' || $old->input_sha256 !== $input->hash()) {
+                    throw BusinessException::conflict('DOCUMENT_TARGET_IDEMPOTENCY_CONFLICT', '点击目标不可改变');
+                }
+                $original = self::json($old->command_input_json);
+                if (($original['canceled'] ?? false) === true) {
+                    throw BusinessException::conflict('DOCUMENT_TARGET_CANCELED', '已明确放弃的目标不能重新准备');
+                }
+                if (($original['document_auth_revision'] ?? null) !== (int) $document->auth_revision || ($original['owner'] ?? null) !== self::ownerArray($owner)) {
+                    throw BusinessException::conflict('DOCUMENT_TARGET_BINDING_CHANGED', '点击目标业务授权或归属已改变');
+                }
+                return $original['prepared_result'];
+            }
+            if (DocumentOperation::where('document_id', $documentId)->where('action', 'collaboration.target')->where('phase', 'prepared')->count() >= 16) {
+                throw BusinessException::conflict('DOCUMENT_TARGET_BACKPRESSURE', '待处理点击目标过多，须先完成原保存');
+            }
+            $result = ['document_id' => $documentId,'request_id' => $input->tuple['request_id'],
+                'target_binary_sha256' => $input->tuple['target_binary_sha256'],'target_projection_sha256' => $input->tuple['target_projection_sha256'],
+                'target_progress' => $input->tuple['target_progress']];
+            $command = ['frozen' => $input->tuple,'lease_epoch' => (int) $document->lease_epoch,
+                'document_auth_revision' => (int) $document->auth_revision,'owner' => self::ownerArray($owner),'prepared_result' => $result];
+            DocumentOperation::create(['tenant_id' => $current->tenantId,'document_id' => $documentId,'operation_id' => $key,
+                'action' => 'collaboration.target','input_sha256' => $input->hash(),'result_json' => '{}','phase' => 'prepared',
+                'initiator_json' => json_encode(self::businessActor($current), JSON_THROW_ON_ERROR),
+                'command_input_json' => json_encode($command, JSON_THROW_ON_ERROR),'created_at' => self::now()]);
+            $fileInput = $this->targetFileInput($current, $documentId, $input);
+            $this->targetTransfers[$fileInput] = ['root' => $this->execution->rootIdentity(),'pdo' => Db::connect()->getPdo(),
+                'consume' => false,'document' => $document,'reservations' => $reservations];
+            $this->references->reserveExplicitTargetReferences($current, $fileInput);
+            return $result;
+        });
+    }
+
+    public function registerExplicitTarget(TenantContext $context, int $documentId, DocumentOwnerReference $owner, ExplicitTargetInput $input): array
+    {
+        $this->requireCollaborationTransaction($context->tenantId, false);
+        return $this->authorization->run($context, function (TenantContext $current) use ($documentId, $owner, $input): array {
+            $document = $this->authorization->document($current, $documentId, 'version.create', true);
+            $this->explicitTargetDocument($document, $owner);
+            $this->acceptedWrites->requireProvider()->targetReferenceReservations($current, $documentId, $owner);
+            $prepared = DocumentOperation::where('document_id', $documentId)->where('operation_id', $input->operationKey())->lock(true)->find();
+            if ($prepared === null || $prepared->action !== 'collaboration.target') {
+                throw BusinessException::conflict('DOCUMENT_TARGET_NOT_PREPARED', '点击目标必须先占用真实资源');
+            }
+            $this->assertBusinessActor($current, $prepared);
+            $command = self::json($prepared->command_input_json);
+            if (($command['canceled'] ?? false) === true) {
+                throw BusinessException::conflict('DOCUMENT_TARGET_CANCELED', '已明确放弃的目标不能确认');
+            }
+            $frozen = array_intersect_key($input->tuple, array_flip(['protocol','connection_key','request_id','target_binary_sha256',
+                'target_projection_sha256','binary_base64','structured_content','projector_version','reference_digest','target_progress']));
+            $preparation = new ExplicitTargetPreparationInput($frozen);
+            if ($preparation->hash() !== $prepared->input_sha256 || ($command['document_auth_revision'] ?? null) !== (int) $document->auth_revision
+                || ($command['owner'] ?? null) !== self::ownerArray($owner)) {
+                throw BusinessException::conflict('DOCUMENT_TARGET_CHANGED', '确认不得改变点击目标或代际');
+            }
+            if (isset($command['confirmation_sha256'])) {
+                if ($command['confirmation_sha256'] !== $input->hash()) {
+                    throw BusinessException::conflict('DOCUMENT_TARGET_CHANGED', '已确认目标不可重新绑定提交');
+                }
+                return self::json($prepared->result_json);
+            }
+            $store = DocumentOperation::where('document_id', $documentId)->where('operation_id', $input->tuple['store_id'])->lock(true)->find();
+            $receipt = $store === null ? [] : self::json($store->result_json);
+            if ($store === null || !in_array($store->action, ['collaboration.store','collaboration.baseline'], true)
+                || ($receipt['state_seq'] ?? null) !== $input->tuple['state_seq']
+                || ($receipt['lease_epoch'] ?? null) !== $command['lease_epoch']
+                || ($receipt['binary_sha256'] ?? null) !== $input->tuple['committed_binary_sha256']
+                || !isset($receipt['target_progress']) || $receipt['target_progress'] < $input->tuple['target_progress']) {
+                throw BusinessException::conflict('DOCUMENT_TARGET_COMMIT_UNCONFIRMED', '点击目标缺少真实已提交覆盖证明');
+            }
+            // Delete-aware Yjs coverage is the authenticated service's pinned-version attestation.
+            // This stores an explicit immutable target only; the current draft is never rewritten.
+            $result = ['document_id' => $documentId,'request_id' => $input->tuple['request_id'],'store_id' => $input->tuple['store_id'],
+                'state_seq' => $input->tuple['state_seq'],'committed_binary_sha256' => $input->tuple['committed_binary_sha256'],
+                'target_binary_sha256' => $input->tuple['target_binary_sha256'],'target_projection_sha256' => $input->tuple['target_projection_sha256'],
+                'target_progress' => $input->tuple['target_progress']];
+            $command['confirmation_sha256'] = $input->hash();
+            $command['confirmed'] = $input->tuple;
+            $prepared->save(['command_input_json' => json_encode($command, JSON_THROW_ON_ERROR),'result_json' => json_encode($result, JSON_THROW_ON_ERROR)]);
+            return $result;
+        });
+    }
+
+    private function explicitTargetDocument(Document $document, DocumentOwnerReference $owner): void
+    {
+        if (DocumentAuthorizationService::reference($document) != $owner || $document->content_kind !== 'rich_text'
+            || !(bool) $document->collaboration_enabled || $document->status !== 'active') {
+            throw BusinessException::forbidden('DOCUMENT_TARGET_BINDING_INVALID', '点击目标与当前协作文档不一致');
+        }
+    }
+
+    private function targetFileInput(TenantContext $current, int $documentId, ExplicitTargetPreparationInput $input): CollaborationReferenceInput
+    {
+        return new CollaborationReferenceInput($current->tenantId, $documentId,
+            hash('sha256', $documentId . ':' . $input->operationKey()),
+            array_values(array_unique(array_column($input->projection->fileReferences, 'file_key'))), $input->hash());
+    }
+
+    public function explicitTargetReferencesForUpdate(TenantContext $context, CollaborationReferenceInput $input, bool $consume): array
+    {
+        $this->requireCollaborationTransaction($context->tenantId, false);
+        $proof = $this->targetTransfers[$input] ?? null;
+        if ($proof === null || $proof['root'] !== $this->execution->rootIdentity() || $proof['pdo'] !== Db::connect()->getPdo()
+            || $proof['consume'] !== $consume || (int) $proof['document']->id !== $input->documentId || $input->tenantId !== $context->tenantId) {
+            throw BusinessException::forbidden('DOCUMENT_TARGET_REFERENCE_PROOF_INVALID', '点击引用仅可由本次真实目标事务转移');
+        }
+        $document = $proof['document'];
+        return ['current_file_keys' => DocumentFileReference::where('document_id', $document->id)->where('usage', 'current')->column('file_key'),
+            'historical_file_keys' => DocumentFileReference::where('document_id', $document->id)->where('usage', 'revision')->column('file_key'),
+            'reference_digest' => $this->referenceDigest($document),'reservations' => $proof['reservations'],'cancel' => $proof['cancel'] ?? false];
+    }
+
+    public function beginExplicitTargetConsumption(TenantContext $context, int $documentId, int $expectedStateSeq, string $reason, string $requestId): void
+    {
+        $this->requireCollaborationTransaction($context->tenantId, false);
+        self::requestKey($requestId);
+        $this->authorization->run($context, function (TenantContext $current) use ($documentId, $expectedStateSeq, $reason, $requestId): void {
+            $document = $this->authorization->document($current, $documentId, 'version.create', true);
+            if (!(bool) $document->collaboration_enabled) {
+                return;
+            }
+            $target = DocumentOperation::where('document_id', $documentId)->where('operation_id', 'target:' . hash('sha256', $requestId))->lock(true)->find();
+            if ($target === null || $target->action !== 'collaboration.target') {
+                throw BusinessException::conflict('DOCUMENT_TARGET_NOT_CONFIRMED', '业务准备需要原点击目标');
+            }
+            $this->assertBusinessActor($current, $target);
+            $command = self::json($target->command_input_json);
+            $proof = self::json($target->result_json);
+            if (!isset($command['confirmed']) || ($command['canceled'] ?? false) || ($proof['state_seq'] ?? null) !== $expectedStateSeq
+                || ($command['document_auth_revision'] ?? null) !== (int) $document->auth_revision
+                || ($command['owner'] ?? null) !== self::ownerArray(DocumentAuthorizationService::reference($document))) {
+                throw BusinessException::conflict('DOCUMENT_TARGET_NOT_CONFIRMED', '业务准备不能改变点击目标或授权');
+            }
+            $hash = self::inputHash([$expectedStateSeq,$reason]);
+            $op = DocumentOperation::where('document_id', $documentId)->where('operation_id', $requestId)->lock(true)->find();
+            if ($op !== null) {
+                $this->assertBusinessActor($current, $op);
+                if ($op->action !== 'version.create' || $op->input_sha256 !== $hash) {
+                    throw BusinessException::conflict('DOCUMENT_IDEMPOTENCY_CONFLICT', '业务准备请求不能改变');
+                }
+                return;
+            }
+            if ($target->phase !== 'prepared') {
+                throw BusinessException::conflict('DOCUMENT_TARGET_ALREADY_CONSUMED', '点击目标已被正式版本消费');
+            }
+            DocumentOperation::create(['tenant_id' => $current->tenantId,'document_id' => $documentId,'operation_id' => $requestId,
+                'action' => 'version.create','input_sha256' => $hash,'phase' => 'prepared','result_json' => '{}',
+                'initiator_json' => json_encode(self::businessActor($current), JSON_THROW_ON_ERROR),
+                'command_input_json' => json_encode([$expectedStateSeq,$reason], JSON_THROW_ON_ERROR),'created_at' => self::now()]);
+        });
+    }
+
+    public function cancelExplicitTarget(TenantContext $context, int $documentId, string $requestId): array
+    {
+        self::requestKey($requestId);
+        return $this->authorization->run($context, fn(TenantContext $current): array => Db::transaction(function () use ($current, $documentId, $requestId): array {
+            $document = $this->authorization->document($current, $documentId, 'version.create', true);
+            $target = DocumentOperation::where('document_id', $documentId)->where('operation_id', 'target:' . hash('sha256', $requestId))->lock(true)->find();
+            if ($target === null || $target->action !== 'collaboration.target') {
+                throw BusinessException::notFound('DOCUMENT_TARGET_NOT_FOUND', '原点击目标不存在');
+            }
+            $this->assertBusinessActor($current, $target);
+            $command = self::json($target->command_input_json);
+            if (($command['owner'] ?? null) !== self::ownerArray(DocumentAuthorizationService::reference($document))) {
+                throw BusinessException::conflict('DOCUMENT_TARGET_BINDING_CHANGED', '点击目标业务对象归属已改变');
+            }
+            $result = ['document_id' => $documentId,'request_id' => $requestId,'phase' => 'canceled'];
+            if (($command['canceled'] ?? false) === true) {
+                return $result;
+            }
+            if ($target->phase === 'completed' || DocumentOperation::where('document_id', $documentId)->where('operation_id', $requestId)->lock(true)->find() !== null) {
+                throw BusinessException::conflict('DOCUMENT_TARGET_BUSINESS_STARTED', '正式保存已开始或已完成，须查询原业务操作');
+            }
+            $frozen = new ExplicitTargetPreparationInput($command['frozen']);
+            $fileInput = $this->targetFileInput($current, $documentId, $frozen);
+            $this->targetTransfers[$fileInput] = ['root' => $this->execution->rootIdentity(),'pdo' => Db::connect()->getPdo(),
+                'consume' => false,'cancel' => true,'document' => $document,'reservations' => []];
+            $this->references->cancelExplicitTargetReferences($current, $fileInput);
+            $command['canceled'] = true;
+            $target->save(['phase' => 'completed','command_input_json' => json_encode($command, JSON_THROW_ON_ERROR)]);
+            return $result;
+        }));
+    }
+
+    private function freezeExplicitTarget(TenantContext $context, int $id, int $expected, string $reason, string $requestId): array
+    {
+        $this->outsideTransaction();
+        $observed = Document::where('id', $id)->find();
+        if ($observed === null) {
+            throw BusinessException::notFound('DOCUMENT_NOT_FOUND', '文档不存在');
+        }
+        return $this->businessTransaction($context, DocumentAuthorizationService::reference($observed), 'version.create',
+            function (TenantContext $current) use ($id, $expected, $reason, $requestId): array {
+            $document = $this->authorization->document($current, $id, 'version.create', true);
+            $input = [$expected,$reason];
+            self::requestKey($requestId);
+            $op = DocumentOperation::where('document_id', $id)->where('operation_id', $requestId)->lock(true)->find();
+            if ($op !== null && ($op->action !== 'version.create' || $op->input_sha256 !== self::inputHash($input))) {
+                throw BusinessException::conflict('DOCUMENT_IDEMPOTENCY_CONFLICT', '同一正式请求不能改变输入');
+            }
+            if ($op !== null && $op->phase === 'completed') {
+                $originalTarget = DocumentOperation::where('document_id', $id)->where('operation_id', 'target:' . hash('sha256', $requestId))->lock(true)->find();
+                if ($originalTarget === null) {
+                    throw BusinessException::conflict('DOCUMENT_TARGET_NOT_CONFIRMED', '点击目标操作事实不存在');
+                }
+                $this->assertBusinessActor($current, $originalTarget);
+                return self::json($op->result_json);
+            }
+            $target = DocumentOperation::where('document_id', $id)->where('operation_id', 'target:' . hash('sha256', $requestId))->lock(true)->find();
+            if ($target === null || $target->action !== 'collaboration.target' || $target->phase !== 'prepared') {
+                throw BusinessException::conflict('DOCUMENT_TARGET_NOT_CONFIRMED', '正式版本必须消费原点击目标');
+            }
+            $this->assertBusinessActor($current, $target);
+            if ($op !== null) {
+                $this->assertBusinessActor($current, $op);
+            }
+            $command = self::json($target->command_input_json);
+            $proof = self::json($target->result_json);
+            if (!isset($command['confirmed']) || ($proof['state_seq'] ?? null) !== $expected
+                || ($command['document_auth_revision'] ?? null) !== (int) $document->auth_revision
+                || ($command['owner'] ?? null) !== self::ownerArray(DocumentAuthorizationService::reference($document))) {
+                throw BusinessException::conflict('DOCUMENT_TARGET_NOT_CONFIRMED', '点击目标提交或代际不一致');
+            }
+            $frozen = new ExplicitTargetPreparationInput($command['frozen']);
+            $this->explicitTargetDocument($document, DocumentAuthorizationService::reference($document));
+            $number = (int) DocumentRevision::where('document_id', $id)->max('revision_no') + 1;
+            $digest = hash('sha256', json_encode(['rich_text',$expected,$frozen->projection->json,
+                hash('sha256', $frozen->binary),null,null], JSON_THROW_ON_ERROR));
+            $revision = DocumentRevision::create(['tenant_id' => $current->tenantId,'document_id' => $id,'revision_no' => $number,
+                'source_state_seq' => $expected,'content_kind' => 'rich_text','yjs_snapshot' => $frozen->binary,
+                'content_snapshot_json' => $frozen->projection->json,'created_at' => self::now(),'created_by_member_id' => $current->memberId,
+                'reason' => $reason,'snapshot_sha256' => $digest]);
+            foreach ($frozen->projection->fileReferences as $ref) {
+                $this->revisionReference($current, $document, $ref['file_key']);
+            }
+            $fileInput = $this->targetFileInput($current, $id, $frozen);
+            $this->targetTransfers[$fileInput] = ['root' => $this->execution->rootIdentity(),'pdo' => Db::connect()->getPdo(),
+                'consume' => true,'document' => $document,'reservations' => []];
+            $this->references->consumeExplicitTargetReferences($current, $fileInput);
+            $command['revision_id'] = (int) $revision->id;
+            $target->save(['phase' => 'completed','command_input_json' => json_encode($command, JSON_THROW_ON_ERROR)]);
+            return $this->receipt($current, $document, 'version.create', $requestId, $input,
+                array_merge($this->summary($document), ['document_id' => $id,'revision_id' => (int) $revision->id,'revision_no' => $number,'source_state_seq' => $expected,
+                    'digest' => $digest,'operation_id' => $requestId,'phase' => 'completed','lease_epoch' => (int) $document->lease_epoch,
+                    'state_seq' => $expected,'binary_sha256' => $frozen->tuple['target_binary_sha256'],
+                    'store_id' => $proof['store_id'],'target_progress' => $proof['target_progress']]));
+        });
+    }
+
+    /** Confirm only bytes observed under the real owner/Document/state locks; never rewrite the draft. */
+    private function baselineReceipt(Document $document, DocumentState $state): ?string
+    {
+        if ($state->yjs_state_binary === null) {
+            return null;
+        }
+        $projection = RichTextProjection::fromStructured(self::json($state->projected_json));
+        if (!hash_equals((string) $state->state_sha256, hash('sha256', $state->yjs_state_binary))) {
+            throw BusinessException::conflict('RECOVERY_REQUIRED', '已持久正文的真实字节摘要不一致');
+        }
+        if (is_string($state->last_store_id)) {
+            $old = DocumentOperation::where('document_id', $document->id)->where('operation_id', $state->last_store_id)->lock(true)->find();
+            $receipt = $old === null ? [] : self::json($old->result_json);
+            if ($old !== null && in_array($old->action, ['collaboration.store','collaboration.baseline'], true)
+                && ($receipt['state_seq'] ?? null) === (int) $state->state_seq && ($receipt['lease_epoch'] ?? null) === (int) $document->lease_epoch
+                && ($receipt['binary_sha256'] ?? null) === $state->state_sha256 && isset($receipt['target_progress'])) {
+                return $old->operation_id;
+            }
+        }
+        $storeId = 'baseline:' . hash('sha256', json_encode([(int) $document->id,(int) $document->lease_epoch,
+            (int) $state->state_seq,$state->state_sha256], JSON_THROW_ON_ERROR));
+        $facts = ['document_id' => (int) $document->id,'store_id' => $storeId,'lease_epoch' => (int) $document->lease_epoch,
+            'state_seq' => (int) $state->state_seq,'binary_sha256' => $state->state_sha256,
+            'projection_sha256' => hash('sha256', $projection->json),'persisted_at' => $state->persisted_at,'target_progress' => 0];
+        $old = DocumentOperation::where('document_id', $document->id)->where('operation_id', $storeId)->lock(true)->find();
+        if ($old !== null) {
+            if ($old->action !== 'collaboration.baseline' || self::json($old->result_json) !== $facts) {
+                throw BusinessException::conflict('STORE_DUPLICATE_MISMATCH', '基线事实不能改变');
+            }
+            return $storeId;
+        }
+        DocumentOperation::create(['tenant_id' => $document->tenant_id,'document_id' => $document->id,
+            'operation_id' => $storeId,'action' => 'collaboration.baseline','input_sha256' => self::inputHash($facts),
+            'result_json' => json_encode($facts, JSON_THROW_ON_ERROR),
+            'command_input_json' => json_encode(['references' => $projection->fileReferences], JSON_THROW_ON_ERROR),'created_at' => self::now()]);
+        return $storeId;
+    }
+
+    public function collaborationReceipt(int $documentId, DocumentOwnerReference $owner, string $storeId, string $captureHash): ?DurableSaveReceipt
+    {
+        $tenantId = $this->execution->current()?->tenantId() ?? 0;
+        $this->requireCollaborationTransaction($tenantId, true);
+        $this->lockedCollaborationDocument($tenantId, $documentId, $owner);
+        $operation = DocumentOperation::where('document_id', $documentId)->where('operation_id', $storeId)->lock(true)->find();
+        $this->acceptedWrites->requireProvider()->assertServiceDocument($documentId, $owner);
+        if ($operation === null) {
+            return null;
+        }
+        if ($operation->action !== 'collaboration.store' || !hash_equals($operation->input_sha256, $captureHash)) {
+            throw BusinessException::conflict('STORE_DUPLICATE_MISMATCH', '保存编号对应不同的完整输入');
+        }
+        return new DurableSaveReceipt(self::json($operation->result_json));
+    }
+
+    public function commitAccepted(AcceptedStoreInput $input): DurableSaveReceipt
+    {
+        $in = $input->tuple;
+        $this->requireCollaborationTransaction($in['tenant_id'], true);
+        $document = $this->lockedCollaborationDocument($in['tenant_id'], $in['document_id'], $input->owner);
+        $state = DocumentState::where('document_id', $in['document_id'])->lock(true)->find();
+        $operation = DocumentOperation::where('document_id', $in['document_id'])->where('operation_id', $in['store_id'])->lock(true)->find();
+        $provider = $this->acceptedWrites->requireProvider();
+        if ($operation !== null) {
+            $provider->assertServiceDocument($in['document_id'], $input->owner);
+            if ($operation->action !== 'collaboration.store' || !hash_equals($input->hash(), $operation->input_sha256)) {
+                throw BusinessException::conflict('STORE_DUPLICATE_MISMATCH', '重复保存不能改变完整输入');
+            }
+            return new DurableSaveReceipt(self::json($operation->result_json));
+        }
+        $plan = $provider->lockAcceptedCapture($input);
+        if ($state === null || (int) $state->state_seq !== (int) $document->state_seq
+            || (int) $state->state_seq !== $in['base_state_seq'] || !hash_equals($state->state_sha256, $in['baseline_sha256'])) {
+            throw BusinessException::conflict('REVISION_CONFLICT', '保存基线已改变');
+        }
+        $next = $in['base_state_seq'] + 1;
+        $persistedAt = self::now();
+        $document->save(['state_seq' => $next,'lease_epoch' => $in['lease_epoch'],'update_time' => time()]);
+        $state->save(['yjs_state_binary' => $input->binary,'state_seq' => $next,'state_sha256' => $in['binary_sha256'],
+            'projected_json' => $input->projection->json,'projection_schema_version' => RichTextProjection::SCHEMA,
+            'last_store_id' => $in['store_id'],'persisted_at' => $persistedAt]);
+        DocumentFileReference::where('document_id', $in['document_id'])->where('usage', 'current')->delete();
+        foreach ($input->projection->fileReferences as $ref) {
+            DocumentFileReference::create(['tenant_id' => $in['tenant_id'],'document_id' => $in['document_id'],
+                'file_key' => $ref['file_key'],'variant_key' => $ref['variant_key'],'usage' => 'current',
+                'derived_state_seq' => $next,'updated_at' => self::now()]);
+        }
+        $transfer = new AcceptedReferenceTransfer($in['tenant_id'], $in['document_id'], $input->hash());
+        $scope = $this->execution->rootIdentity();
+        $this->acceptedTransfers[$transfer] = ['scope' => $scope,'pdo' => Db::connect()->getPdo(),'plan' => $plan,'document' => $document];
+        $this->references->commitAcceptedDocumentReferences($transfer);
+        $receipt = new DurableSaveReceipt(['document_id' => $in['document_id'],'store_id' => $in['store_id'],
+            'lease_epoch' => $in['lease_epoch'],'state_seq' => $next,'target_progress' => $in['target_progress'],
+            'binary_sha256' => $in['binary_sha256'],'projection_sha256' => $in['projection_sha256'],
+            'persisted_at' => $persistedAt]);
+        DocumentOperation::create(['tenant_id' => $in['tenant_id'],'document_id' => $in['document_id'],
+            'operation_id' => $in['store_id'],'action' => 'collaboration.store','input_sha256' => $input->hash(),
+            'result_json' => json_encode($receipt->data, JSON_THROW_ON_ERROR),
+            'command_input_json' => json_encode(['references' => $input->projection->fileReferences], JSON_THROW_ON_ERROR),'created_at' => self::now()]);
+        $release = new ReservationReleaseInput($in['tenant_id'], $in['document_id'], $input->hash());
+        $this->acceptedReleases[$release] = ['scope' => $scope,'pdo' => Db::connect()->getPdo(),
+            'hash' => $input->hash(),'reservations' => $plan->reservations];
+        $this->references->releaseSettledCollaborationReferences($release);
+        $provider->markPersisted($plan, $receipt);
+        $this->audit->appendTenantSystem(
+            $in['tenant_id'],
+            'document.collaboration.persisted',
+            'document.collaboration.store',
+            $in['store_id'],
+            ['document_id' => $in['document_id'],'state_seq' => $next,
+                'target_progress' => $in['target_progress'],'origin_member_ids' => $plan->originMembers],
+        );
+        return $receipt;
+    }
+
+    public function acceptedReferencesForUpdate(AcceptedReferenceTransfer $input): array
+    {
+        $this->requireCollaborationTransaction($input->tenantId, true);
+        $proof = $this->acceptedTransfers[$input] ?? null;
+        if ($proof === null || $proof['scope'] !== $this->execution->rootIdentity() || $proof['pdo'] !== Db::connect()->getPdo()
+            || !hash_equals($proof['plan']->input->hash(), $input->captureHash)) {
+            throw BusinessException::forbidden('DOCUMENT_ACCEPTED_REFERENCE_PROOF_INVALID', '已接纳引用证明无效');
+        }
+        $plan = $proof['plan'];
+        $document = $proof['document'];
+        $keys = array_values(array_unique(DocumentFileReference::where('document_id', $document->id)->order('file_key')->column('file_key')));
+        return ['file_keys' => $keys,'reference_digest' => $this->referenceDigest($document),'reservations' => $plan->reservations];
+    }
+
+    public function settledReservationsForUpdate(ReservationReleaseInput $input): array
+    {
+        $current = $this->execution->current();
+        if ($current?->tenantId() !== $input->tenantId || (!$current instanceof AdminExecutionContext && !$current instanceof \app\common\execution\SystemExecutionContext)
+            || !Db::connect()->getPdo()->inTransaction()) {
+            throw BusinessException::forbidden('DOCUMENT_RESERVATION_SETTLEMENT_INVALID', '收口需要同一可信事务');
+        }
+        $proof = $this->acceptedReleases[$input] ?? null;
+        if ($proof === null || $proof['scope'] !== $this->execution->rootIdentity() || $proof['pdo'] !== Db::connect()->getPdo()
+            || !hash_equals($proof['hash'], $input->captureHash)) {
+            throw BusinessException::forbidden('DOCUMENT_RESERVATION_SETTLEMENT_INVALID', '资源占用未证明完成');
+        }
+        return ['reservations' => $proof['reservations']];
+    }
+
+    private function lockedCollaborationDocument(int $tenantId, int $documentId, DocumentOwnerReference $owner): Document
+    {
+        foreach (['official.document','official.file','official.collaboration',$owner->moduleKey] as $module) {
+            $this->authorization->requireDeploymentModule($module);
+        }
+        $policy = $this->owners->requirePolicy($owner);
+        $state = $policy->resolvePersistedOwner($tenantId, $owner, true);
+        $document = Document::where('id', $documentId)->lock(true)->find();
+        $archiveDrain = $document !== null && $document->status === 'archiving' && DocumentOperation::where('document_id', $documentId)
+            ->where('action', 'archive')->whereIn('phase', ['prepared','attention'])->whereNotNull('barrier_plan_json')->lock(true)->find() !== null;
+        if ($document === null || $state->tenantId !== $tenantId || $state->reference != $owner
+            || DocumentAuthorizationService::reference($document) != $owner || $state->archived && !$archiveDrain
+            || !in_array($document->status, ['active','archiving'], true) || $document->content_kind !== 'rich_text'
+            || !(bool) $document->collaboration_enabled) {
+            throw BusinessException::conflict('RECOVERY_REQUIRED', '文档归属或生命周期不允许保存协作状态');
+        }
+        return $document;
+    }
+
+    private function requireCollaborationTransaction(int $tenantId, bool $system): void
+    {
+        $current = $this->execution->current();
+        $pdo = Db::connect()->getPdo();
+        if ($tenantId < 1 || $current?->tenantId() !== $tenantId
+            || $system && !$current instanceof \app\common\execution\SystemExecutionContext
+            || !$system && !$current instanceof AdminExecutionContext
+            || !$pdo instanceof \PDO || !$pdo->inTransaction()) {
+            throw BusinessException::conflict('DOCUMENT_COLLABORATION_TRANSACTION_REQUIRED', '协作需要同一可信身份和原生事务');
+        }
+    }
+
+    private static function ownerArray(DocumentOwnerReference $owner): array
+    {
+        return ['module_key' => $owner->moduleKey,'object_type' => $owner->objectType,'object_id' => $owner->objectId,'slot' => $owner->slot];
+    }
+
     private function writeBinding(TenantContext $context, Document $document, array $resource): void
     {
         $data = ['tenant_id' => $context->tenantId,'document_id' => $document->id,'primary_file_key' => $resource['file_key'],'verified_mime_type' => $resource['verified_mime_type'],
@@ -552,8 +1644,18 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
     private function receipt(TenantContext $context, Document $document, string $action, string $requestId, array $input, array $result): array
     {
         self::requestKey($requestId);
-        DocumentOperation::create(['tenant_id' => $context->tenantId,'document_id' => $document->id,'operation_id' => $requestId,'action' => $action,'input_sha256' => self::inputHash($input),
-            'result_json' => json_encode($result, JSON_THROW_ON_ERROR),'created_at' => self::now()]);
+        $prepared = $action === 'version.create' && (bool) $document->collaboration_enabled
+            ? DocumentOperation::where('document_id', $document->id)->where('operation_id', $requestId)->lock(true)->find() : null;
+        if ($prepared !== null) {
+            $this->assertBusinessActor($context, $prepared);
+            if ($prepared->action !== $action || $prepared->phase !== 'prepared' || $prepared->input_sha256 !== self::inputHash($input)) {
+                throw BusinessException::conflict('DOCUMENT_IDEMPOTENCY_CONFLICT', '原业务准备不能改变');
+            }
+            $prepared->save(['phase' => 'completed','result_json' => json_encode($result, JSON_THROW_ON_ERROR)]);
+        } else {
+            DocumentOperation::create(['tenant_id' => $context->tenantId,'document_id' => $document->id,'operation_id' => $requestId,'action' => $action,'input_sha256' => self::inputHash($input),
+                'result_json' => json_encode($result, JSON_THROW_ON_ERROR),'created_at' => self::now()]);
+        }
         $this->audit->appendTenantMember($context, 'document.' . $action, 'document.' . $action, 'document', (string) $document->id, null, null, 1, $result['digest'] ?? null, ['state_seq' => (int) $document->state_seq]);
         return $result;
     }

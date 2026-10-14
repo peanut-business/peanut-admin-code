@@ -9,6 +9,7 @@ final readonly class OutboundHttpRequest
     /**
      * @param array<string,string> $headers
      * @param list<array{name:string,contents:mixed,filename?:string,headers?:array<string,string>}> $multipart
+     * @param bool $directConnection Bypass client/process proxies for private service traffic.
      */
     public function __construct(
         public string $method,
@@ -21,6 +22,8 @@ final readonly class OutboundHttpRequest
         public ?string $sink = null,
         public bool $allowRedirects = false,
         public array $multipart = [],
+        public ?string $caBundleFile = null,
+        public bool $directConnection = false,
     ) {
         if (!in_array(strtoupper($method), ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], true)
             || !str_starts_with($url, 'https://')
@@ -37,6 +40,14 @@ final readonly class OutboundHttpRequest
             if (!is_array($part) || trim((string) ($part['name'] ?? '')) === ''
                 || !array_key_exists('contents', $part)) {
                 throw new \InvalidArgumentException('OUTBOUND_HTTP_MULTIPART_INVALID');
+            }
+        }
+        if ($caBundleFile !== null) {
+            $stat = @lstat($caBundleFile);
+            if (!str_starts_with($caBundleFile, '/') || realpath($caBundleFile) !== $caBundleFile || is_link($caBundleFile)
+                || !is_file($caBundleFile) || !is_readable($caBundleFile) || !is_array($stat) || $stat['nlink'] !== 1
+                || ($stat['mode'] & 0022) !== 0 || $stat['size'] < 1 || $stat['size'] > 1048576) {
+                throw new \InvalidArgumentException('OUTBOUND_HTTP_CA_BUNDLE_INVALID');
             }
         }
     }

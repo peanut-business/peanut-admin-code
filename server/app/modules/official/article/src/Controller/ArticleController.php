@@ -17,6 +17,47 @@ class ArticleController extends BaseAdminController
     use CrudTrait;
 
     protected string $crudClass = ArticleAdministration::class;
+    public function bodyEditor(): Json
+    {
+        $input = $this->bodyInput($this->request->get(), false);
+        return $this->data($this->crud->bodyEditor($this->tenantAdminContext(), $input['id']));
+    }
+
+    public function bodyTicket(): Json
+    {
+        $input = $this->bodyInput($this->request->post(), false);
+        return $this->data($this->crud->bodyTicket($this->tenantAdminContext(), $input['id']));
+    }
+
+    public function bodySave(): Json
+    {
+        return $this->data($this->crud->bodySave($this->tenantAdminContext(), $this->request->post()));
+    }
+
+    public function bodySaveOperation(): Json
+    {
+        $input = $this->bodyInput($this->request->get(), true);
+        return $this->data($this->crud->bodySaveOperation($this->tenantAdminContext(), $input['id'], $input['request_id']));
+    }
+
+    private function bodyInput(array $input, bool $requestId): array
+    {
+        if (array_diff(array_keys($input), $requestId ? ['id', 'request_id'] : ['id']) !== []
+            || $requestId && (!is_string($input['request_id'] ?? null)
+                || preg_match('/^[A-Za-z0-9:_-]{1,128}$/D', $input['request_id']) !== 1)) {
+            throw \app\common\exception\BusinessException::invalid('ARTICLE_DOCUMENT_INPUT_INVALID', '资讯正文输入无效');
+        }
+        $raw = $input['id'] ?? null;
+        if (!is_int($raw) && !(is_string($raw) && preg_match('/^[1-9][0-9]*$/D', $raw) === 1)) {
+            throw \app\common\exception\BusinessException::invalid('ARTICLE_DOCUMENT_INPUT_INVALID', '资讯 ID 无效');
+        }
+        $id = filter_var($raw, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 9007199254740991]]);
+        if ($id === false) {
+            throw \app\common\exception\BusinessException::invalid('ARTICLE_DOCUMENT_INPUT_INVALID', '资讯 ID 无效');
+        }
+        return ['id' => $id] + ($requestId ? ['request_id' => $input['request_id']] : []);
+    }
+
     public function bodyDocument(): Json
     {
         $input = $this->request->post();

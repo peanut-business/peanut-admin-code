@@ -31,6 +31,10 @@ Route::group(function (): void {
     Route::post('official.article.add', [ArticleController::class, 'add']);
     Route::post('official.article.edit', [ArticleController::class, 'edit']);
     Route::post('official.article.document', [ArticleController::class, 'bodyDocument'])->option(['peanut_permission' => 'official.article.edit']);
+    Route::get('official.article.document.editor', [ArticleController::class, 'bodyEditor'])->option(['peanut_permission' => 'official.article.edit']);
+    Route::post('official.article.document.ticket', [ArticleController::class, 'bodyTicket'])->option(['peanut_permission' => 'official.article.edit']);
+    Route::post('official.article.document.save', [ArticleController::class, 'bodySave'])->option(['peanut_permission' => 'official.article.edit']);
+    Route::get('official.article.document.operation', [ArticleController::class, 'bodySaveOperation'])->option(['peanut_permission' => 'official.article.edit']);
     Route::post('official.article.delete', [ArticleController::class, 'delete']);
     Route::post('official.article.update-status', [ArticleController::class, 'updateStatus']);
     Route::get('official.article.recycle.list', [ArticleController::class, 'recycleLists']);

@@ -55,7 +55,7 @@
 1. `state_seq`：每次 **PHP 持久成功**增加的技术保存序号；富文本的 Yjs 自动保存与文件型的受控替换均可推进序号，不能把编辑器界面变化冒充已保存；不等于业务正式版本。
 2. `revision_no`：业务主动冻结的不可变版本序号。工作流送审、签发、发布必须拿 `revision_id` + 校验摘要，不能拿“当前实时正文”隐式代替。正文协同继续编辑不会更改既已送审/发布的版本。
 3. 富文本 PHP 的 Yjs `store` 在文档级串行条件下校验 `(tenant_id, document_id, base_state_seq, store_id, lease_epoch)`，完整 Yjs 二进制和派生内容同事务 CAS；同 `store_id` + 同哈希重复提交返回同一结果，摘要不同拒绝。错误不静默覆盖或合并两个独立 Node 房间快照。
-4. 发版/送审/归档先触发服务端**保存屏障**：停止新写、排空已接受的更新，获得最新持久化 `state_seq`，再在业务事务中固定版本或改变状态并推进 `auth_revision`。保存失败或屏障超时即维持安全受限/待处理状态，不宣称已冻结或已归档。只靠前端“保存”按钮不得制造正式版本。
+4. 发版/送审固定点击时的目标，等待实际入库证明覆盖该目标，再由有权业务操作生成不可变版本；等待期间其他人可以继续编辑，新编辑不进入该次版本。归档和回退停止新写、排空已有编辑并取得真实持久化回执后，才改变状态或恢复正文并推进授权修订及房间 epoch。保存失败或结果未知保持原目标与请求身份，不宣称已冻结或已归档。
 5. 用 Yjs 更新/快照恢复协同状态；不要把 JSON 反复转回 Y.Doc 作为协同主存储（会造成内容重复或合并异常）。JSON/受清洗 HTML 可在保存、预览、导出时投影并携带源 `state_seq`。协同模式下禁止旧 HTTP `edit(document_json, collaboration_state)` 与 Node 对同一正式文档并发双写。
 
 ### 2.4 生命周期及归档
@@ -100,16 +100,36 @@
 
 | 入口 | 请求关键字段 | 响应/保证 |
 | --- | --- | --- |
-| `authorize` | `room, ticket, connection_id, operation=read|write` | 验证签名、受众、到期、jti 单次消费、绑定租户/文档/当前权限/状态/`auth_revision`，返回可信 `principal`, `permissions`, `leaseUntil`; 错误拒绝 |
-| `check` | `room, connection_id, operation, authRevision` | 核**当前**业务对象授权/归档/人员模块状态；撤权拒绝、返回修订；失败不放行 |
-| `load` | `room, service_instance, lease_epoch` | `{state_seq, yjs_binary(base64), checksum, schema_version, authRevision}`；不存在不自动创建独立文档 |
-| `store` | `room, base_state_seq, store_id, lease_epoch, yjs_binary(base64), projected_json, state_vector, checksum` | CAS/幂等持久化后 `{stateSeq,persistedAt,digest}`；不许 Node 持久化直接读写业务库 |
-| `barrier`（Node 控制面与 PHP 编排） | `document_id, expected_auth_revision, operation_id, deadline` | 停止接受新写→drain→返回最后已持久化水位→冻结版本/归档；失败可恢复并明确不完成 |
+| `authorize` | `ticket` | 统一身份、功能和文档授权后返回协议 2 的连接身份、绑定、epoch、权限修订和租约；票据一次消费 |
+| `check` | `connection_key, mode` | 分开进行完整授权续期，返回当前连接 grant；不用于普通编辑逐帧请求或心跳 |
+| `load` | `connection_key, room_key, lease_epoch` | 首次返回最新持久化 Yjs、投影、序号及既有存储身份；不存在不自动创建独立文档 |
+| `store` | 固定合并捕获、原 base/epoch/store_id、参与者授权窗口及摘要 | 同事务保存 Yjs、投影、File 引用及 CAS/幂等回执；Node 不直连业务数据库 |
+| `receipt` | `room_key, lease_epoch, store_id, capture_sha256` | 未知结果查询原捕获；未找到才可重送同一 tuple，不另造存储身份 |
+| `references` | 原连接身份、epoch、新增文件引用及请求身份 | 实际加入者的独立 File 权限和保护预约；普通文本编辑不调用 |
+| `target/prepare` | 原请求身份、点击时固定 Yjs/投影/引用及进度 | 在后续保存前由 File 保护该目标的引用；不写草稿，不授予预览权限 |
+| `target` | 原请求身份、实际提交回执、原点击捕获及签名覆盖证明 | 确认实际提交覆盖已准备目标，不重写草稿；之后自动保存不改变目标 |
+| `drain/release`（Node 控制面与 PHP 编排） | 原 operation/input 摘要、Room、epoch；释放带结果 epoch/status | 归档、回退停新写后保存实际捕获；PHP 锁定真实回执并推进 epoch，Node 关闭旧连接后 fresh load |
 | `revoke`（PHP→Node） | `room, new_auth_revision, reason, event_id` | 可靠失权通知使现有连接按需降权/断开；通知丢失时 `check`/短期租约仍兜底，不能只靠推送 |
 
 服务契约应有统一错误分类：`NOT_FOUND`, `FORBIDDEN`, `MODULE_DISABLED`, `OWNER_ARCHIVED`, `STALE_AUTH_REVISION`, `REVISION_CONFLICT`, `STORE_DUPLICATE_MISMATCH`, `COLLAB_UNAVAILABLE`, `STORE_BACKPRESSURE`, `RECOVERY_REQUIRED`，沿既有 BusinessException / API 语义映射。不能把 DB/网络失败映射成文档为空。
 
 ### 4.2 V1 端点封装与状态返回（Codex 必须同批固化真实类型）
+
+D1 的真实 PHP 公开编排入口为 `DocumentCommands::freeze/restoreRevision/archive/restore/runOwnerLifecycle`。
+正式版本消费同请求身份登记的点击目标，不要求它仍是当前最新草稿，也不为创建版本停止其他人的编辑。归档、回退和恢复才使用房间排空控制；原逐帧接纳日志及其 accepted 水位合同退出当前路线。
+准备与最终提交分别使用短原生事务，网络只位于两个 COMMIT 之外。最终提交仍由当前 Session、原 owner policy 唯一决定资格，并用 Identity 的公开 current-read fence 锁定原权限/模块输入；持久水位、版本、File 引用、审计和原 operation 在同 PDO 原子写入。
+服务请求与响应采用方向分离的 HMAC 传输协议 2。每次 Node 进程启动生成新的 UUIDv4 `holder_key`，与固定部署 `service_instance_id` 分开；签名 canonical 在 instance、service instance、key ID 后绑定 holder。连接授权与首次加载返回该 holder，Room、连接 grant、保存和恢复均核验它。新进程不能继承旧进程尚有效的租约；显式恢复须等待旧 Room 与写连接 grant 到期、核对未完成业务，再推进 epoch。历史协议 1 房间只能在原服务已排空并停止的切换条件满足后迁入，不将历史日志回放到新服务。
+
+实例启用由 PHP 与 Node 对同一配置、进程 holder、配对 probe 和 activation identity 确认。Node 初始关闭加入和写入，PHP 的 prepared 状态或 Compose 健康检查不代表启用成功；只有 PHP 已激活且 Node 核实同一结果才开放。进程租约使用轻量续期，与完整成员及文档授权分开；租约到期关闭准入。协作业务准备与服务保存沿现有 Runtime→Owner/Doc→State/operation→Room 的事务锁入口核对准入及 holder，不让旧进程迟到提交覆盖新状态。实例控制事务不同时持有文档锁；跨租户回执核实退出 Instance 上下文后逐租户执行，再以独立 Instance CAS 固定结果。
+
+实例禁用固定原 drain ID、配置、holder 与有界全房间清单，先围住加入和新写，再等待原生加载、消息及实际 store 完成。持久排空必须核实真实数据库回执及删除集合覆盖；无在线房间不伪造已保存证明。APP 原生 owner 对原计划中的精确 Compose 容器执行停止后，重新 inspect，使用现有服务密钥签发绑定原计划、目标摘要、容器、镜像、挂载、配置与 holder 的私有停机证明，仅由可信顶层 PHP CLI 消费。CLI 不另造部署或签名器。未知结果保留原计划，HTTP 超时不能代替停止；公开 stopped 摘要包含协议、原 drain ID、计划摘要、目标摘要、durably_drained 和房间数量，不暴露私有证明或正文。
+
+Node 控制端点 `/internal/collaboration/control/v1/business-barrier` 的 URL 保留，方向 HMAC 域和传输封套采用 v2，业务正文使用协议 2。请求 header、签名正文及计划均绑定真实 Room holder；新进程必须拒绝旧 holder 请求，不能将其回答为 offline。排空结果绑定原 operation、输入摘要、Room、holder、epoch、实际 store_id/state_seq/binary_sha256/Snapshot；进度计数不代替提交证明。同一 holder 无在线房间时仅返回 offline，PHP 在业务锁内采用真实持久化基线并防止新加入。旧 holder 已死亡且业务结果未知时保留未确认状态，通用恢复不解锁或冒充排空。技术提交不能替代业务成功。恢复追加新 CAS 状态/版本/epoch，使用不可变旧 binary 与 matching projection、fresh Y.Doc，并关闭旧连接、卸载旧 native document 后才确认释放。
+
+点击目标先 prepare 保护文件引用，后用真实提交 snapshot 覆盖点击 snapshot 的证明确认；覆盖检查包含删除集合，不能仅比较状态向量或进度计数。公开目标查询只向原操作者在当前版本权限下返回 prepared、confirmed、consumed 或 canceled 及真实已有回执，不返回正文。取消只释放未消费目标的专属引用保护；已开始正式业务保存或已消费的目标不能取消。未知结果复用原请求与点击内容，不能重新加载后悄悄另建目标。confirmed/consumed 目标可在当前完整业务授权下续作原正式保存，无须原 Node 进程仍在线。
+
+归档文档的恢复有一个明确的持久基线分支：只有 Doc 已归档、Room 已关闭、Room 与写授权均已过期、没有待办业务，且数据库正文和 Room 基线一致时，才能用 `closed_persisted` 计划在 PHP 同事务围住加入、恢复状态、推进 epoch 并释放。它不签发 Node 排空证明、不延长旧租约；下一次有权加入仍由新 holder 显式恢复并加载持久草稿。关闭但租约尚有效的房间继续使用原生签名控制，活动房间和未知业务不能走此分支。
+未知结果通过 `official.document.operation` 查询原操作并复用同 key/input；不新造 operation、不按超时解锁。正式 TLS/managed-loader/readiness 和真实数据库/多人/socket/浏览器资格由后续对应入口核验，源码协议或单元替身不证明已完成这些资格。
 
 以下是**跨组件/跨进程强约束**，`Controller` 适配的最终响应外壳复用 Peanut 现行 API 格式，不自行发明通用响应码：
 
@@ -175,29 +195,39 @@ defineProps<{ documentId: number }>();
 
 1. 浏览器用现有员工/租户登录会话调 PHP `ticket`，票据短期（目标不超过 60 秒）、带 `aud`, `iss`, `instanceId`, `edition`, `tenantId`, `documentId`, `mode`, `authRevision`, `jti`, `exp`；**签名只用于防伪，不能替代实时业务授权**。
 2. Hocuspocus `onAuthenticate` 必须询问 PHP `authorize`，并用可信 Room=`instance/tenant/document` 及 `jti` 防重放结果绑定本连接。Node 不接受用户任意文档名/租户选择并据此跨租户读取。票据过期不等于断开现有授权连接，长期会话由服务端短租约持续复核。
-3. `beforeHandleMessage` 或等效写入闸门对变更检查当前写授权及连接租约，`onChange` 不替代**写入前**拒绝；PHP 的撤权事件驱动立即断开/降权，Node 对新进入的内容/广播亦按最新授权处理。即使失去事件通知，持续的短租约及 `check` 必须拒绝失权写入；PHP 不可达时新连接、新写入默认失败。
+3. 锁定 SDK 的 awaited `beforeSync` 在合并前检查该连接已经取得的写授权、有效期和房间状态；普通文字更新不逐帧请求 PHP，不在 `onChange` 重复完整授权。传输心跳只保活，完整身份、功能及文档授权在加入、续期和状态变化时复核。撤权通知拒绝新写并关闭/降权连接，短租约复核作为有明确检测上限的兜底；不得将周期复核称为即时撤权。授权过期或无法续期则停止新写，重新认证后才恢复。
 4. 在线“谁在编辑”（awareness）只含必要昵称/成员 ID 且以实际鉴权身份绑定，客户端自报名字不被信任。只读和可写连接能力分开；必要时无授权者不订阅正文广播。
 
 ### 6.2 初始化、自动保存与崩溃恢复
 
 - 仅在第一次载入某份文档时 `onLoadDocument` 从 PHP 读取已持久化 Yjs 二进制，缺值时仅在业务已创建且合法的初始文档生成一次 CRDT，禁止每次从 JSON 重建 Y.Doc。
-- `onStoreDocument` 带去抖保存（初始目标 `debounce=2s`, `maxDebounce=10s`；按实际负载验证），通过 PHP CAS/幂等接口提交。HTTP 成功且落库后才对已涵盖本地 state vector 的编辑确认“已保存”；不能把 WebSocket 在线/收到编辑广播冒充持久保存成功。
+- 本轮采用锁定原生 Hocuspocus 的合并、广播和共享房间生命周期：先合并广播，后批量自动保存。广播前可靠记录每条增量仅为未来备选，本轮不实现、不保留第二套长期运行链。
+- `onStoreDocument` 带去抖保存（初始目标 `debounce=2s`, `maxDebounce=10s`；按实际负载验证），在等待 PHP 前固定本次 Yjs 字节、投影、文件引用、批次 ID、原 `state_seq`/epoch 及目标进度。保存期间的新修改继续累积，不能在数据库返回后从已变化的活动文档生成本次提交证明。失败或结果未知保留原批次身份，先查原回执，不换 ID 重复写入。
+- “已合并”与“已保存”分开。SDK 的 `SyncStatus`/`synced` 不证明入库；只有核对 PHP 实际提交回执后，才通过原生 stateless 通道发布与本次固定捕获对应的 Yjs Snapshot。前端用 `Y.snapshotContainsUpdate` 验证本地更新及当前可见草稿的覆盖，包含纯删除，不能仅按 state vector 时钟或发送次数认定保存。
+- 新增文件引用保留来源人员的权限证明和必要资源占用，特殊引用变更可单独核权；普通文本不因此恢复逐帧 PHP 请求。持久化在同一事务内校验文件引用、更新引用索引和草稿、记录幂等回执；不能用最后一位编辑者或 System 身份代替多人批次的来源权限。
+- 显式保存通过原生消息顺序确定房间目标并固定捕获，等待该目标实际入库；已有提交证明覆盖目标时复用原结果。正式历史版本使用该明确目标的不可变 Yjs/投影快照，不把每次自动保存当成历史版本，不新增完整操作回放系统。
+- 回退先隔离旧房间、旧连接和未完成捕获，推进 epoch，再从历史 Yjs 加载新活动房间并重新同步授权成员；不能将旧版本的 update 简单合并进包含后来修改的 Y.Doc。
 - Node 单实例 V1，以单 Room 单活/写租约避免两个 Node 并发覆盖。存储失败时保留待提交状态、受控退避重试和明确 `unsaved` / `read-only` 标记，队列设置上限；达上限禁止继续接受写，不能丢弃写入却显示成功。进程停止应先停止接入、drain，有未确认保存时返回非成功终止状态并留下告警。
 - PHP MySQL 为耐久真相源，Node 本地内存/可选临时队列不作为最终存储。启动后从最新 `state_seq` 加载；旧服务最后写入不得覆盖新 `lease_epoch`。重复 `store_id`/网络结果未知先查持久结果，不盲提交新版本。
+- 未入库的广播修改在突然宕机后可能丢失；本轮恢复只保证最后实际提交的 Yjs 草稿及历史版本，不承诺通过未实现的增量日志重放这些修改。切换旧服务前须先结清其已接纳未持久内容和未完成业务请求，保全原 Yjs、引用、历史及原失败证据，再隔离旧 epoch。
 - 浏览器断线：明确“连接中断/未保存”；V1 先停止可写输入，不承诺离线多端合并。重连需新票据、重新核权、重新同步；权限已撤销则进入只读/拒绝，不偷偷把本地旧变更写回；如果无法无损恢复，提供导出当前本地未提交内容的受控人工恢复路径，明确仅本地草稿而非正式版本。
 - 只配置一项 URL/Secret、身份验不通、owner 缺失、Schema 不兼容、DB 不可用、Node 失联时禁止错误回退到另一个无授权写通道。未启用协作的文档才使用带 `expected_state_seq` 的单人 HTTP 保存；一旦启用协作，禁止自动切回旧 CRUD 双写。
 - 新旧 schema 升级不允许混合读写；服务和 PHP `protocol_version` 握手必须兼容，先完成迁移和服务健康再允许流量，回滚不能使数据库被旧格式覆盖。
 
+原生 stateless 进度协议的最小结果为 `committed { documentId, roomEpoch, stateSeq, captureId, binarySha256, snapshotBase64 }`。Snapshot 必须由该固定捕获的已提交字节生成；客户端只接收自己授权文档/epoch 的结果，拒绝将客户端发来的 `committed` 转播为服务端证明。`progress` 查询可返回既有提交证明，重复/无变化更新和握手不能制造新存储；`save_target { requestId }` 在同连接原生更新发送完后确定服务器目标，固定原请求身份并等待实际回执。计数仅用于展示，不作为持久化覆盖证明。首次同步完成后仍须取得提交证明，不能仅凭 `synced` 显示已保存。
+
+点击捕获与实际自动保存捕获可以不同：后者必须用锁定 Yjs 的 Snapshot 覆盖检查证明包含前者的结构和删除。签名服务请求分别提交 committed_binary_sha256 与 target_binary_sha256/target_projection_sha256，以及点击时冻结的字节、投影和引用。PHP 校验实际回执、服务证明、当前操作者和 File 权限后登记目标；正式版本只使用点击捕获，不能混入等待期间后来接受的编辑。覆盖算法由 Node 执行，不声称 PHP 独立解析 Yjs。
+
 ### 6.3 技术选型确认
 
-V1 建议匹配已在 Code 使用的 `@hocuspocus/provider` 4.x，新增服务端 `@hocuspocus/server` 同主版本；本轮核对客户端 module 声明是 provider `4.6.0`、Tiptap `3.30.0`、Yjs `13.6.32`，而宿主 `web/package.json` 的 Tiptap 精确版本部分为 `3.30.5`。实施者按**最终实际 lock**统一并验证兼容，不据此擅自升级整站。所需服务端 hooks 包括 `onAuthenticate`、`onLoadDocument`、`onStoreDocument`、授权前置处理及断线清理；具体事件参数以锁定版本官方 API 为准。Yjs 二进制持久化为优先，不把 JSON 转换当协同恢复手段。
+本轮从原生 `@hocuspocus/server` **4.6.0** 增量接入，客户端 `@hocuspocus/provider` **4.6.0**、Yjs **13.6.32**，直接和传递依赖均保持当前 lock，不顺带升级或统一传递依赖版本。认证、加载、轻量写入闸门、变化记录、批量保存及进度控制分别使用锁定 SDK 的 `onAuthenticate`、`onLoadDocument`、`beforeSync`、`onChange`、`onStoreDocument`、`onStateless`；具体事件参数核对已安装的精确源码。旧自定义接纳、房间、恢复链及此前提速修改只作为参考，不作为新实现的保留前提。此为已确认目标，源码/运行资格须按实际完成情况单独记录。
 
 ## 7. Docker、Edition、Peanut CLI 与运维合同
 
 ### 7.1 交付结构
 
-- `peanut-collaboration` 是**Code 维护的可选 Node 运行服务**，V1 不因它独立成为容器就新增必须同步维护的 Git 仓库、通用工作流平台或付费第三方服务；建议 Code 源码为 `services/collaboration/`，原生应用模板/生成归属在 Code。PHP 内部 API 和权限逻辑仍在对应 Code 官方模块。
-- 应用沿现有 `server/docker/compose.yaml` 单一职责根配置和生产 include，新增**可选 Compose profile**（示例 `collaboration`）或同一责任所有者的 overlay；不得复制第二份 PHP/MySQL/Nginx 默认部署，不修改现有无协作产品默认启动行为。
+- `peanut-hocuspocus` 是与 `peanut-admin-code` 同级的独立项目，拥有完整服务源码、锁定依赖、独立 Docker 配置与启停入口。以当前 Hocuspocus 4.6.0 原生服务增量接入；PHP 内部 API、统一身份和业务权限仍归 Code 官方模块，前端 SDK 仍归对应模块。服务通过接口认证、加载和保存，不导入、挂载或执行应用 PHP、前端源码，不直连业务 SQL。
+- 服务使用固定 Node 22.23.2 运行镜像并只读挂载本项目程序及锁定依赖，不把 APP 源码烘焙进镜像。应用保留现有 PHP/MySQL/Nginx 配置和可选 TLS/WSS overlay；独立服务使用显式登记的接口网络，不复制应用默认部署，不维护第二套长期协作机制。
 - 服务容器不直接暴露公网 Node 端口；由应用 Nginx 经严格 Host/TLS/WSS 代理 `/collaboration/`，内网只可访问 PHP 内部接口。PHP 内部服务鉴权凭据通过既有受管 secret/env 装配，不入 Git、日志、客户端；镜像使用可复现源、锁及 digest。健康/就绪检查覆盖 Node 进程、PHP 合约可用、必要存储；就绪失败不得让编辑 UI 显示可用。
 - 运行时建议非 root、只读根文件系统、必要临时 tmpfs、资源/连接/请求体限制、重启策略、心跳和审计脱敏。日志携带 instance、room 的受限哈希、trace、保存序号/延迟、错误类别，不记录正文、票据、Secret、临时文件 URL。
 - V1 单 Node 实例为正式支持拓扑；**不要**只通过 `replicas:2` 就宣称横向 HA。后续 Redis 房间同步/租约、节点间状态合并、一致性与保存接管验证后再开放多副本；Redis 可作为未来扩展，而非 V1 强制依赖。
@@ -222,6 +252,8 @@ peanut service collaboration disable [--path APP] # 拒绝新连接/安全 drain
 以上是**待实现目标命令**，不是现行 `peanut 0.3.2` 已支持的选项。其 `create` 先保留 `--edition standalone|multi-tenant` 明确选择；是否纳入可选服务由应用版本化模块/服务 profile 指定，不能在 CLI 中维护一套独立源码/Secret 模板。`enable` 只准备受管清单、环境占位和启用状态；启动/升级仍通过已验收的 APP 原生 Docker/installer/upgrade 流程，正式部署仍需运营 Gate；`disable` 的运行 drain 必须在已获得操作授权的应用服务边界实施，不能直接删除持久卷。
 
 发布/升级：记录服务镜像版本、PHP API protocol、Module 版本、迁移水位、Edition/profile、schema 和回滚前提；生产更新先兼容检查与排空、备份，再服务/PHP/前端按兼容顺序升级。新应用默认协同功能可选且默认关闭，未选择时不安装 Node 常驻服务；启用协同也不要求将 PHP Core 或 Web Core 分裂成新服务。
+
+APP 的生命周期入口保留 `python3 server/docker/scripts/configure-collaboration.py plan|enable|status|disable --app-root <绝对 APP 路径>`；`enable` 仅原子准备非秘密配置，启动仍由 `start.sh` 执行。B 的固定源码需同步其实际协议 2 排空和提交回执消费者后，才可获得运行切换资格；旧接纳日志生命周期回执不证明 B 兼容。实例 gate 在新 ticket/authorize 和业务排空准备前锁定；禁用须复用原 drain 身份及真实存储回执，未知结果不解锁、不强杀。持久最终回执及精确容器停止核验后才关闭 desired。原 stop/升级/配对恢复继续使用同一应用服务入口；未完成协议适配、readiness 或实际排空时明确阻塞相关切换，不能启动两套长期服务。TLS/WSS 及运行验收见 [可选服务说明](../../server/docker/COLLABORATION.md)，源码存在不等于运行资格，CLI E2 须独立核验最终协议。
 
 ## 8. 旧代码迁移与兼容
 

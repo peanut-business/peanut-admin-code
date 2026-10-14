@@ -11,6 +11,7 @@
       :registry="registry"
       :context-key="contextKey"
       :intent="intent"
+      :collaboration-binding="collaborationBinding"
       @ready="emit('ready')"
       @dirty-change="emit('dirty-change', $event)"
       @save-request="requestSave"
@@ -77,6 +78,7 @@
       props.allowedOperations,
       props.intent,
       adapter.value?.id,
+      props.collaborationBinding?.generation,
     ])
   );
   const message = computed(() => {

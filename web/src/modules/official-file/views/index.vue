@@ -190,23 +190,17 @@
                     @click.stop
                     @change="() => toggleCheck(item.id)"
                   />
-                  <img
-                    v-if="activeType === 10"
-                    :src="item.url"
-                    :alt="item.name"
+                  <FileContentViewer
+                    :item="item"
+                    :context-key="contextKey"
+                    :registry="contentRegistry"
+                    compact
                   />
-                  <div v-else class="thumb-icon">
-                    <icon-play-circle v-if="activeType === 20" :size="40" />
-                    <icon-file v-else :size="40" />
-                  </div>
                 </div>
                 <div class="name" :title="item.name">{{ item.name }}</div>
                 <div class="ops">
                   <el-button link size="small" @click="previewFile(item)">
                     {{ $t('systemFile.op.preview') }}
-                  </el-button>
-                  <el-button link size="small" @click="copyUrl(item)">
-                    {{ $t('systemFile.op.copy') }}
                   </el-button>
                   <el-button
                     v-permission="['official.file.rename']"
@@ -245,6 +239,15 @@
         </el-col>
       </el-row>
     </el-card>
+    <el-dialog v-model="previewVisible" title="文件预览" destroy-on-close>
+      <FileContentViewer
+        v-if="previewItem"
+        :key="contextKey"
+        :item="previewItem"
+        :context-key="contextKey"
+        :registry="contentRegistry"
+      />
+    </el-dialog>
     <!-- 分类新增/编辑 -->
     <el-dialog
       v-model="cateModalVisible"
@@ -349,12 +352,15 @@
 </template>
 
 <script lang="ts" setup>
-  import { computed, reactive, ref } from 'vue';
+  import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
   import { useI18n } from 'vue-i18n';
   import { ElMessage } from 'element-plus';
   import type { FormInstance, UploadRequestOptions } from 'element-plus';
   import { Delete, Plus, Search } from '@element-plus/icons-vue';
   import useLoading from '@/hooks/loading';
+  import { useUserStore } from '@/store';
+  import { getSessionSnapshot, isLogin } from '@/utils/auth';
+  import createLockedContentToolRegistry from '@/modules/official-content-tools/src/contributions';
   import {
     getFileCateList,
     addFileCate,
@@ -369,9 +375,30 @@
     type FileCateRecord,
     type FileRecord,
   } from '@/modules/official-file/api';
+  import FileContentViewer from './FileContentViewer.vue';
 
   const { t } = useI18n();
   const { loading, setLoading } = useLoading(false);
+  const user = useUserStore();
+  const sessionGeneration = ref(getSessionSnapshot().generation);
+  const contentRegistry = createLockedContentToolRegistry();
+  const contextKey = computed(() =>
+    JSON.stringify([
+      sessionGeneration.value,
+      user.accountId,
+      user.tenantName,
+      user.role,
+      user.permissions,
+    ])
+  );
+  const unsubscribe = user.$subscribe(
+    () => {
+      sessionGeneration.value = getSessionSnapshot().generation;
+    },
+    { flush: 'sync' }
+  );
+  const previewItem = ref<FileRecord>();
+  const previewVisible = ref(false);
 
   const activeType = ref<FileType>(10);
   const acceptMap: Record<FileType, string> = {
@@ -389,6 +416,7 @@
   );
 
   // ---- 分类 ----
+  let disposed = false;
   const cateList = ref<FileCateRecord[]>([]);
   let cateRequestId = 0;
   const flatCateList = computed(() => {
@@ -405,37 +433,61 @@
   const currentCid = ref<number | ''>('');
 
   const fetchCate = async () => {
+    if (disposed) return;
     const type = activeType.value;
+    const requestContext = contextKey.value;
     cateRequestId += 1;
     const requestId = cateRequestId;
     const { data } = await getFileCateList(type);
-    if (requestId !== cateRequestId || type !== activeType.value) return;
+    if (
+      disposed ||
+      requestId !== cateRequestId ||
+      type !== activeType.value ||
+      requestContext !== contextKey.value
+    )
+      return;
     cateList.value = data;
   };
 
   // ---- 文件 ----
   const renderData = ref<FileRecord[]>([]);
   let fileListRequestId = 0;
+  let fileListController: AbortController | undefined;
   const searchName = ref('');
   const searchSource = ref<number | ''>('');
   const checkedIds = ref<number[]>([]);
   const pagination = reactive({ current: 1, pageSize: 24, total: 0 });
 
   const fetchFiles = async (page = 1) => {
+    if (disposed) return;
+    fileListController?.abort();
+    const controller = new AbortController();
+    fileListController = controller;
+    previewVisible.value = false;
+    previewItem.value = undefined;
     const type = activeType.value;
     fileListRequestId += 1;
     const requestId = fileListRequestId;
+    const requestContext = contextKey.value;
     setLoading(true);
     try {
-      const { data } = await getFileList({
-        type,
-        cid: currentCid.value,
-        name: searchName.value,
-        source: searchSource.value,
-        page_no: page,
-        page_size: pagination.pageSize,
-      });
-      if (requestId !== fileListRequestId || type !== activeType.value) return;
+      const { data } = await getFileList(
+        {
+          type,
+          cid: currentCid.value,
+          name: searchName.value,
+          source: searchSource.value,
+          page_no: page,
+          page_size: pagination.pageSize,
+        },
+        controller.signal
+      );
+      if (
+        requestId !== fileListRequestId ||
+        type !== activeType.value ||
+        requestContext !== contextKey.value
+      )
+        return;
       renderData.value = data.lists;
       pagination.current = data.pageNo;
       pagination.total = data.count;
@@ -450,12 +502,15 @@
   };
 
   const init = async () => {
+    const requestContext = contextKey.value;
     await fetchCate();
+    if (disposed || requestContext !== contextKey.value) return;
     await fetchFiles(1);
   };
   init();
 
   const onTypeChange = async (nextType: string | number) => {
+    fileListController?.abort();
     const type = Number(nextType);
     if (type !== 10 && type !== 20 && type !== 30) return;
     activeType.value = type;
@@ -598,12 +653,48 @@
   };
 
   const previewFile = (item: FileRecord) => {
-    window.open(item.url, '_blank', 'noopener,noreferrer');
+    previewItem.value = item;
+    previewVisible.value = true;
   };
-  const copyUrl = async (item: FileRecord) => {
-    await navigator.clipboard.writeText(item.url);
-    ElMessage.success(t('systemFile.tip.copied'));
-  };
+  watch(
+    contextKey,
+    () => {
+      fileListController?.abort();
+      cateRequestId += 1;
+      fileListRequestId += 1;
+      renderData.value = [];
+      cateList.value = [];
+      currentCid.value = '';
+      checkedIds.value = [];
+      searchName.value = '';
+      searchSource.value = '';
+      pagination.current = 1;
+      pagination.pageSize = 24;
+      pagination.total = 0;
+      cateModalVisible.value = false;
+      cateIsEdit.value = false;
+      Object.assign(cateForm, { id: 0, pid: 0, name: '' });
+      renameModalVisible.value = false;
+      Object.assign(renameForm, { id: 0, name: '' });
+      moveModalVisible.value = false;
+      moveTarget.value = 0;
+      previewVisible.value = false;
+      previewItem.value = undefined;
+      setLoading(false);
+      if (isLogin() && user.accountId !== undefined) init();
+    },
+    { flush: 'sync' }
+  );
+  watch(previewVisible, (visible) => {
+    if (!visible) previewItem.value = undefined;
+  });
+  onBeforeUnmount(() => {
+    disposed = true;
+    fileListController?.abort();
+    unsubscribe();
+    cateRequestId += 1;
+    fileListRequestId += 1;
+  });
 
   // ---- 移动 ----
   const moveModalVisible = ref(false);

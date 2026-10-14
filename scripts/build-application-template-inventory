@@ -75,7 +75,11 @@ function excluded(string $path): bool
     }
     // Both locations contain instance installation state, never template source.
     if (str_starts_with($path, 'server/runtime/installation/')
-        || str_starts_with($path, 'server/private/installation/')) {
+        || str_starts_with($path, 'server/private/installation/')
+        || str_starts_with($path, 'server/private/collaboration/')
+        || str_starts_with($path, 'server/docker/tls/')
+        || $path === 'server/docker/collaboration.env'
+        || $path === 'server/.env.collaboration.lock') {
         return true;
     }
     // The public upgrader ships the existing authenticated upgrade runtime.
@@ -491,7 +495,8 @@ $inventory = [
         '.git/**', '.local/**', '.ops/**', '.env', 'server/.env', '**/vendor/**', '**/node_modules/**',
         '**/dist/**', '**/runtime/**', 'server/private/installation/**', 'server/private/resources/**',
         'server/public/uploads/**', 'server/public/storage/**', 'server/private/storage/**',
-        'server/docker/mysql/**', 'server/docker/secrets/**', 'updates/**', 'backups/**',
+        'server/docker/mysql/**', 'server/docker/secrets/**', 'server/private/collaboration/**',
+        'server/docker/tls/**', 'server/docker/collaboration.env', 'server/.env.collaboration.lock', 'updates/**', 'backups/**',
         '.peanut/application-release.json', 'release-manifest.txt', 'server/public/admin/**',
         'server/public/platform/**', 'server/public/pc/**', 'server/public/mobile/**',
         '**/.cache/**', 'output/**', '*.log', '.DS_Store',

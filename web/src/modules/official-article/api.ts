@@ -2,6 +2,59 @@ import axios from 'axios';
 import type { PageData } from '@/types/global';
 import type { components } from '@/generated/openapi';
 
+export type ArticleBodyEditor =
+  components['schemas']['ArticleBodyEditorResponse']['data'];
+/** Same-row owner metadata: image is writable file_key; image_url is display only. */
+export type ArticleBodyMetadata = ArticleBodyEditor['article_metadata'];
+export type ArticleBodyTicket =
+  components['schemas']['ArticleBodyTicketResponse']['data'];
+export type ArticleBodySaveInput =
+  components['schemas']['ArticleBodySaveRequest'];
+export type ArticleBodySaved =
+  components['schemas']['ArticleBodySaveResponse']['data'];
+export type ArticleBodyOperation =
+  components['schemas']['ArticleBodySaveOperationResponse']['data'];
+
+export const ensureArticleBody = (
+  id: number,
+  requestId: string,
+  signal: AbortSignal
+) =>
+  axios.post<components['schemas']['DocumentMetadataResponse']['data']>(
+    '/adminapi/official.article.document',
+    { id, request_id: requestId },
+    { signal }
+  );
+export const getArticleBodyEditor = (id: number, signal: AbortSignal) =>
+  axios.get<ArticleBodyEditor>('/adminapi/official.article.document.editor', {
+    params: { id },
+    signal,
+  });
+export const getArticleBodyTicket = (id: number, signal: AbortSignal) =>
+  axios.post<ArticleBodyTicket>(
+    '/adminapi/official.article.document.ticket',
+    { id },
+    { signal }
+  );
+export const saveArticleBody = (
+  input: ArticleBodySaveInput,
+  signal: AbortSignal
+) =>
+  axios.post<ArticleBodySaved>(
+    '/adminapi/official.article.document.save',
+    input,
+    { signal }
+  );
+export const getArticleBodyOperation = (
+  id: number,
+  requestId: string,
+  signal: AbortSignal
+) =>
+  axios.get<ArticleBodyOperation>(
+    '/adminapi/official.article.document.operation',
+    { params: { id, request_id: requestId }, signal }
+  );
+
 export type ArticleExportInfo = components['schemas']['ExportPageInfo'];
 export type ArticleExportResult = components['schemas']['ExportFile'];
 export interface ArticleExportRange {
@@ -75,9 +128,10 @@ export function exportArticleCategories(
   });
 }
 
-export function getArticleCateAll() {
+export function getArticleCateAll(signal?: AbortSignal) {
   return axios.get<ArticleCateOption[]>(
-    '/adminapi/official.article.category.all'
+    '/adminapi/official.article.category.all',
+    { signal }
   );
 }
 
@@ -179,9 +233,13 @@ export interface ArticleListParams {
 
 export type ArticleListRes = PageData<ArticleRecord>;
 
-export function getArticleList(params: ArticleListParams = {}) {
+export function getArticleList(
+  params?: ArticleListParams,
+  signal?: AbortSignal
+) {
   return axios.get<ArticleListRes>('/adminapi/official.article.list', {
-    params,
+    params: params ?? {},
+    signal,
   });
 }
 

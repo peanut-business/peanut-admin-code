@@ -4,6 +4,7 @@
     :context-key="contextKey"
     :callbacks="callbacks"
     :registry="registry"
+    :collaboration-binding="collaborationBinding"
     :read-only="intent === 'view' || !capabilities.canEdit"
     @ready="ready"
     @dirty-change="dirty"
@@ -11,7 +12,7 @@
     @error="invalid"
   />
   <button
-    v-if="intent === 'edit' && capabilities.canEdit"
+    v-if="intent === 'edit' && capabilities.canEdit && !collaborationBinding"
     type="button"
     :disabled="!changed || !valid"
     @click="emit('save-request', value)"
@@ -26,6 +27,7 @@
     SurfaceCallbacks,
     SurfaceCapabilities,
     SurfaceIntent,
+    ContentCollaborationBinding,
   } from '@/modules/official-content-tools/src/contracts';
   import type ContentToolRegistry from '@/modules/official-content-tools/src/registry';
   import RichTextEditor from './RichTextEditor.vue';
@@ -38,6 +40,7 @@
     capabilities: SurfaceCapabilities;
     registry: ContentToolRegistry;
     intent: SurfaceIntent;
+    collaborationBinding?: ContentCollaborationBinding;
   }>();
   const emit = defineEmits<{
     (event: 'ready'): void;

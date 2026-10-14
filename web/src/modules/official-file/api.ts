@@ -1,4 +1,8 @@
 import axios from 'axios';
+import type {
+  SurfaceCapabilities,
+  SurfaceState,
+} from '@/modules/official-content-tools/src/contracts';
 import type { UploadProgressEvent, UploadRequestOptions } from 'element-plus';
 
 export interface ListRes<T> {
@@ -50,7 +54,16 @@ export interface FileRecord {
   type: FileType;
   name: string;
   uri: string;
+  /** Short-lived authorized delivery address; never a stable content reference. */
   url: string;
+  file_key?: string;
+  verified_mime_type?: string | null;
+  source_sha256?: string | null;
+  capabilities?: SurfaceCapabilities | null;
+  preview_state?: SurfaceState;
+  preview_unavailable_reason?: string | null;
+  authorization_revision?: string | null;
+  can_download_original?: boolean;
   create_time?: string;
 }
 
@@ -63,9 +76,10 @@ export interface FileListParams {
   page_size?: number;
 }
 
-export function getFileList(params: FileListParams) {
+export function getFileList(params: FileListParams, signal?: AbortSignal) {
   return axios.get<ListRes<FileRecord>>('/adminapi/official.file.list', {
     params,
+    signal,
     timeout: 15_000,
   });
 }

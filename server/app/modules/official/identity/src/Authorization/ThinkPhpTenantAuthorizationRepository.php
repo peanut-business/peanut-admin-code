@@ -5,15 +5,94 @@ declare(strict_types=1);
 namespace PeanutAdmin\Modules\Identity\Authorization;
 
 use JsonException;
+use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Modules\Identity\Module\Model\TenantModule;
+use PeanutAdmin\Modules\Identity\Persistence\Model\Account;
 use PeanutAdmin\Modules\Identity\Persistence\Model\MemberRole;
+use PeanutAdmin\Modules\Identity\Persistence\Model\Permission;
+use PeanutAdmin\Modules\Identity\Persistence\Model\Role;
 use PeanutAdmin\Modules\Identity\Persistence\Model\RolePermission;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Tenant;
 use PeanutAdmin\Modules\Identity\Persistence\Model\TenantMember;
+use PeanutAdmin\Modules\Identity\Persistence\Model\TenantSession;
 use think\db\Raw;
+use think\facade\Db;
 
 final class ThinkPhpTenantAuthorizationRepository implements \PeanutAdmin\Kernel\Authorization\TenantAuthorizationRepository
 {
+    /** Native authority inputs only; the caller retains the existing permission decision. */
+    public function readFence(TenantContext $context, array $permissionKeys, array $moduleKeys, bool $lock): string
+    {
+        if (count($permissionKeys) < 1 || count($permissionKeys) > 32 || count($moduleKeys) < 1 || count($moduleKeys) > 16) {
+            throw new \InvalidArgumentException('IDENTITY_AUTHORIZATION_FENCE_INPUT_INVALID');
+        }
+        foreach ([...$permissionKeys, ...$moduleKeys] as $key) {
+            if (!is_string($key) || preg_match('/^[a-z][a-z0-9_.-]{1,95}$/D', $key) !== 1) {
+                throw new \InvalidArgumentException('IDENTITY_AUTHORIZATION_FENCE_INPUT_INVALID');
+            }
+        }
+        $permissionKeys = array_values(array_unique($permissionKeys));
+        $moduleKeys = array_values(array_unique($moduleKeys));
+        sort($permissionKeys, SORT_STRING);
+        sort($moduleKeys, SORT_STRING);
+        $read = static fn($query): array => $query->lock($lock)->select()->toArray();
+        $mappingQuery = static fn() => Db::name('plugin_module')->whereIn('module_key', $moduleKeys)
+            ->field('module_key,plugin_key,manifest_digest')->order('module_key');
+        $mapping = $mappingQuery()->select()->toArray();
+        $packages = array_values(array_unique(array_column($mapping, 'plugin_key')));
+        sort($packages, SORT_STRING);
+        // lockAndAssert first holds the existing lifecycle package -> installation locks.
+        $facts = [
+            'packages' => $read(Db::name('plugin_installation')->whereIn('plugin_key', $packages)
+                ->field('plugin_key,status,revision')->order('plugin_key')),
+            'installations' => $read(Db::name('module_installation')->whereIn('module_key', $moduleKeys)
+                ->field('module_key,status,revision,installed_version,manifest_digest')->order('module_key')),
+        ];
+        if ($lock) {
+            $mapping = $read($mappingQuery());
+            $currentPackages = array_values(array_unique(array_column($mapping, 'plugin_key')));
+            sort($currentPackages, SORT_STRING);
+            if ($packages !== $currentPackages) {
+                throw new \DomainException('IDENTITY_AUTHORIZATION_PROOF_STALE');
+            }
+        }
+        $facts['mapping'] = $mapping;
+        $facts['tenant'] = $read(Tenant::where('id', $context->tenantId)->field('id,status,security_revision,authorization_revision'));
+        $facts['account'] = $read(Account::where('id', $context->accountId)->field('id,status,security_revision'));
+        $facts['member'] = $read(TenantMember::where('tenant_id', $context->tenantId)->where('id', $context->memberId)
+            ->field('id,tenant_id,account_id,status,security_revision,authorization_revision'));
+        $facts['memberships'] = $read(MemberRole::where('tenant_id', $context->tenantId)->where('tenant_member_id', $context->memberId)
+            ->field('role_id')->order('role_id'));
+        $roleIds = array_column($facts['memberships'], 'role_id');
+        if (count($roleIds) > 64) {
+            throw new \DomainException('IDENTITY_AUTHORIZATION_FENCE_ROLE_LIMIT');
+        }
+        $facts['roles'] = $read(Role::where('tenant_id', $context->tenantId)->whereIn('id', $roleIds)
+            ->field('id,key,status,is_builtin,authorization_revision')->order('id'));
+        $facts['permissions'] = $read(Permission::whereIn('key', $permissionKeys)
+            ->field('id,key,module_key,status')->order('id'));
+        $facts['grants'] = $read(RolePermission::where('tenant_id', $context->tenantId)->whereIn('role_id', $roleIds)
+            ->whereIn('permission_id', array_column($facts['permissions'], 'id'))
+            ->field('role_id,permission_id')->order('role_id,permission_id'));
+        $facts['modules'] = $read(TenantModule::where('tenant_id', $context->tenantId)->whereIn('module_key', $moduleKeys)
+            ->field('module_key,status,authorization_revision,effective_at,expires_at')->order('module_key'));
+        $sessionQuery = static fn() => TenantSession::where('tenant_id', $context->tenantId)
+            ->where('account_id', $context->accountId)->where('tenant_member_id', $context->memberId)
+            ->where('session_key', $context->sessionKey)->where('client_key', $context->clientKey);
+        $facts['session'] = $read($sessionQuery()
+            ->field('id,status,client_key,account_security_revision,tenant_security_revision,member_security_revision,idle_expires_at,absolute_expires_at'));
+        // Current database-clock conditions detect expiry without requiring a revision change.
+        $facts['effective_modules'] = $read(TenantModule::where('tenant_id', $context->tenantId)->whereIn('module_key', $moduleKeys)
+            ->where('status', 'enabled')->where(fn($q) => $q->whereNull('effective_at')->whereOr('effective_at', '<=', new Raw('UTC_TIMESTAMP(3)')))
+            ->where(fn($q) => $q->whereNull('expires_at')->whereOr('expires_at', '>', new Raw('UTC_TIMESTAMP(3)')))
+            ->field('module_key')->order('module_key'));
+        $facts['session_current'] = $read($sessionQuery()->where('status', 'active')
+            ->where('idle_expires_at', '>', new Raw('UTC_TIMESTAMP(3)'))
+            ->where('absolute_expires_at', '>', new Raw('UTC_TIMESTAMP(3)'))->field('id'));
+
+        return hash('sha256', json_encode($facts, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+    }
+
     public function member(int $tenantId, int $memberId): ?array
     {
         $record = TenantMember::where('tenant_id', $tenantId)

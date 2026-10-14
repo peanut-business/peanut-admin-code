@@ -12,6 +12,7 @@ const richTextExtensions = (options: {
   callbacks: SurfaceCallbacks;
   registry?: ContentToolRegistry;
   contextKey: string;
+  collaborative?: boolean;
 }) => {
   const mediaNodes = ['image', 'video', 'audio', 'file', 'media'].map((name) =>
     Node.create({
@@ -133,17 +134,19 @@ const richTextExtensions = (options: {
             : extension
         );
       },
-    }).configure({
-      link: {
-        autolink: false,
-        openOnClick: false,
-        HTMLAttributes: {
-          rel: 'noopener noreferrer',
-          target: '_blank',
-          class: null,
+    })
+      .configure({
+        link: {
+          autolink: false,
+          openOnClick: false,
+          HTMLAttributes: {
+            rel: 'noopener noreferrer',
+            target: '_blank',
+            class: null,
+          },
         },
-      },
-    }),
+      })
+      .configure({ undoRedo: options.collaborative ? false : {} }),
     Extension.create({
       name: 'alignment',
       addGlobalAttributes: () => [

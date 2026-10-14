@@ -80,7 +80,14 @@ final class PublicArticleService implements PublicArticleQueries
 
     public function detail(int $id, int $memberId = 0): array
     {
-        $article = Article::getArticleDetailArr($id);
+        // Guard before the legacy HTML query/counter: a draft or old HTML is never a fixed publication.
+        $article = \think\facade\Db::transaction(static function () use ($id): array {
+            $body = Article::where('id', $id)->where('is_show', 1)->field(['body_document_id'])->lock(true)->find();
+            if ($body !== null && $body->body_document_id !== null) {
+                throw BusinessException::conflict('ARTICLE_PUBLIC_FIXED_VERSION_UNAVAILABLE', '固定正文公开解析尚未接入');
+            }
+            return Article::getArticleDetailArr($id);
+        });
         if ($article === []) {
             return [];
         }

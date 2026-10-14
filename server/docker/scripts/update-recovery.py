@@ -5,6 +5,7 @@ import argparse
 import gzip
 import hashlib
 import hmac
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -16,9 +17,9 @@ import tarfile
 
 SNAPSHOT_NAMES = (".env", "docker/.env", "private/installation/installed.json",
                   "private/installation/baseline.json", "private/installation/deployment.json",
-                  "private/resources/project-resources.json")
+                  "private/resources/project-resources.json", "docker/collaboration.env")
 SNAPSHOT_SET = set(SNAPSHOT_NAMES)
-STORAGE_NAMES = ('public/storage', 'public/uploads', 'private/storage', 'private/installation')
+STORAGE_NAMES = ('public/storage', 'public/uploads', 'private/storage', 'private/installation', 'private/collaboration', 'docker/tls')
 HEX64 = re.compile(r"[a-f0-9]{64}\Z")
 IMAGE_ID = re.compile(r"sha256:[a-f0-9]{64}\Z")
 
@@ -130,8 +131,15 @@ def docker(*args, cwd=None, input=None, input_file=None, output=None, timeout=60
 
 
 def compose(docker_dir, *args, output=None, input=None, input_file=None, timeout=60):
-    return docker("compose", "--env-file", ".env", "-f", "compose.yaml", *args,
+    owner=collaboration_owner()
+    return docker(*owner.compose_arguments(docker_dir.parent)[1:], *args,
                   cwd=docker_dir, output=output, input=input, input_file=input_file, timeout=timeout)
+
+
+def collaboration_owner():
+    spec=importlib.util.spec_from_file_location('collaboration_owner',Path(__file__).parent/'configure-collaboration.py')
+    owner=importlib.util.module_from_spec(spec);spec.loader.exec_module(owner)
+    return owner
 
 
 def instance(args):
@@ -233,6 +241,8 @@ def assert_stopped(server):
     if services != ["mysql"]:
         raise ValueError("business writers are not drained")
     images = {}; containers = {}
+    owner=collaboration_owner()
+    enabled=owner.backend_environment(server).get('COLLABORATION_ENABLED')=='enabled'
     for service in ("php", "nginx", "mysql"):
         ids = compose(docker_dir, "ps", "-a", "-q", service).splitlines()
         discovered = docker("ps", "-a", "--no-trunc", "--filter", f"label=com.docker.compose.project={project}",
@@ -267,6 +277,12 @@ def assert_stopped(server):
     mysql_id = compose(docker_dir, "ps", "-a", "-q", "mysql")
     if running != [mysql_id]:
         raise ValueError("another Compose writer is running")
+    if enabled:
+        service = owner.service_owner(server, 'status')
+        if service['running'] is not False or service['state'] != 'exited':
+            raise ValueError('independent collaboration writer is not stopped')
+        images['collaboration'] = service['image_id']
+        containers['collaboration'] = {'id': service['id'], 'compose_project': service['compose_project']}
     return {"project": project, "images": images, 'containers': containers}
 
 

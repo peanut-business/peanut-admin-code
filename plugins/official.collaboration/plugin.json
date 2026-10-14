@@ -1,0 +1,106 @@
+{
+    "schema_version": 1,
+    "key": "official.collaboration",
+    "version": "1.0.0",
+    "source": {
+        "type": "canonical-contents",
+        "reference": "canonical-plugin-contents-v1",
+        "sha256": "d79806f28ca139fc201e45c50b3f0b5256c7abb45cbbc9417494596f78577a19"
+    },
+    "trust": {
+        "channel": "bundled",
+        "origin": {
+            "type": "repository-contents",
+            "reference": "canonical-plugin-contents-v1"
+        },
+        "archive": {
+            "status": "not-issued",
+            "sha256": null
+        },
+        "signature": {
+            "status": "not-issued",
+            "key_id": null
+        },
+        "sbom": {
+            "status": "not-issued",
+            "sha256": null
+        },
+        "license": {
+            "identifier": "Apache-2.0",
+            "status": "declared"
+        },
+        "qualification": {
+            "status": "bundled-locked",
+            "review": "not-reviewed",
+            "vulnerability_response": "not-configured",
+            "marketplace": "blocked"
+        },
+        "compatibility": {
+            "modules": [
+                {
+                    "key": "official.collaboration",
+                    "version": "1.0.0",
+                    "kernel_constraint": "^1.0",
+                    "dependencies": [
+                        {
+                            "module_key": "official.document",
+                            "version": "^1.0"
+                        },
+                        {
+                            "module_key": "official.file",
+                            "version": "^1.0"
+                        },
+                        {
+                            "module_key": "official.identity",
+                            "version": "4.0.0-rc.24"
+                        },
+                        {
+                            "module_key": "official.rich-text",
+                            "version": "^1.0"
+                        }
+                    ],
+                    "permissions": {
+                        "path": "resources/permissions.json",
+                        "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+                    },
+                    "migrations": {
+                        "reversibility": "verified-backup-required",
+                        "files": [
+                            {
+                                "key": "official.collaboration:20261012120000_create_collaboration_runtime",
+                                "sha256": "0befec8d041ce121f624417fef9df343907b2686e57c8c0a8dde509d556813ac"
+                            },
+                            {
+                                "key": "official.collaboration:20261013120100_add_collaboration_business_barriers",
+                                "sha256": "6cd0d6dab2b08f26371ba97d6887f0e3ae7f7e0b1fcdb3fa3f8a59c54e2f850b"
+                            },
+                            {
+                                "key": "official.collaboration:20261013130000_add_instance_lifecycle",
+                                "sha256": "e876c39e990491ba422ecb9067c8050ed98573b3ee457108de7d8955a084d6bd"
+                            },
+                            {
+                                "key": "official.collaboration:20261014120000_add_native_collaboration_grants",
+                                "sha256": "15a44a7aaa282b9addcc8c7b72cae027197e5f68058244e881ffc48695ac2f18"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "composer": [
+        {
+            "name": "peanut-business/official-collaboration",
+            "version": "1.0.0",
+            "sha256": "3b77ea493d9a74156d17588d5ad058e19dc88b71561bc490847dc378eec474ac"
+        }
+    ],
+    "npm": [],
+    "frontend": [],
+    "modules": [
+        {
+            "key": "official.collaboration",
+            "root": "server/app/modules/official/collaboration"
+        }
+    ]
+}
