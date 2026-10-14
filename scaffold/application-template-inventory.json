@@ -23669,7 +23669,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9d7723420f995d1be2ea2893fc8390b14d0c2854eda084ee2f47aa7c3e0cd5ef"
+            "source_sha256": "01d2117303c62f779ebe7d93c793291941c9412c1bf90667e7a9800563232721"
         },
         {
             "path": "server/app/platform/infrastructure/module/DeploymentModuleInstaller.php",
@@ -24103,7 +24103,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c1dc99de6b5a96c88a73d02e1a8be1c79e22958fb366f8696a4cca55f65f124a"
+            "source_sha256": "c5176a6cb1ca4743ee2ee0ea6c16149f54f6e1588c0d7c71318f65fcb9f28b13"
         },
         {
             "path": "server/app/platform/services/module/PlatformTenantModuleService.php",
