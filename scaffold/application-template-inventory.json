@@ -2332,34 +2332,6 @@
             "source_sha256": "c1224f19a575f989ff97068466f9522fb73ac7094c7cb3ce8b3c5f3e2f8ab3e1"
         },
         {
-            "path": "plugins.lock",
-            "target": "plugins.lock",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "plugins-lock",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "c1224f19a575f989ff97068466f9522fb73ac7094c7cb3ce8b3c5f3e2f8ab3e1"
-        },
-        {
-            "path": "plugins.lock",
-            "target": "plugins.lock",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "plugins-lock",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "c1224f19a575f989ff97068466f9522fb73ac7094c7cb3ce8b3c5f3e2f8ab3e1"
-        },
-        {
             "path": "plugins/fixture.delivery-record/README.md",
             "target": "plugins/fixture.delivery-record/README.md",
             "classification": "excluded",
@@ -2467,34 +2439,6 @@
                 "full"
             ],
             "source_sha256": "eb566b3a1280d1c9423da39fbc8d50f01de8e470b6fd1224782b2a0efac7608d"
-        },
-        {
-            "path": "plugins/official.identity/plugin.json",
-            "target": "plugins/official.identity/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "0af8722e483fb5f4df650959c29ee40bf7057d5211d764ed14b83a6e46ede357"
-        },
-        {
-            "path": "plugins/official.identity/plugin.json",
-            "target": "plugins/official.identity/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "0af8722e483fb5f4df650959c29ee40bf7057d5211d764ed14b83a6e46ede357"
         },
         {
             "path": "plugins/official.identity/plugin.json",
@@ -24720,34 +24664,6 @@
                 "full"
             ],
             "source_sha256": "96608476460c09e095dd5b98acf66568cb1428aab352a73f75c06d5cb48914dd"
-        },
-        {
-            "path": "server/config/console.php",
-            "target": "server/config/console.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "87c6447951797a52fee63e66baa31a53cd27fb310d310b1694436dc8c03fe575"
-        },
-        {
-            "path": "server/config/console.php",
-            "target": "server/config/console.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "87c6447951797a52fee63e66baa31a53cd27fb310d310b1694436dc8c03fe575"
         },
         {
             "path": "server/config/console.php",
