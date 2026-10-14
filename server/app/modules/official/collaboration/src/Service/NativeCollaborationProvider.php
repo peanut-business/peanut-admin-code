@@ -221,8 +221,8 @@ final class NativeCollaborationProvider implements DocumentAcceptedWriteProvider
             || (int) $room->document_id !== $documentId || (int) $connection->lease_epoch !== (int) $room->lease_epoch
             || $connection->status !== 'active' || $connection->mode !== 'write'
             || strtotime($connection->lease_expires_at . ' UTC') * 1000 <= (int) floor(microtime(true) * 1000)
-            || self::json($ticket->issued_identity_json) !== \PeanutAdmin\Modules\Collaboration\Protocol\TicketIdentity::fromCurrentSession($current)->toLedger()
-            || self::json($room->binding_json)['owner'] !== self::ownerArray($owner)) {
+            || RichTextProjection::canonical(self::json($ticket->issued_identity_json)) !== RichTextProjection::canonical(\PeanutAdmin\Modules\Collaboration\Protocol\TicketIdentity::fromCurrentSession($current)->toLedger())
+            || RichTextProjection::canonical(self::json($room->binding_json)['owner']) !== RichTextProjection::canonical(self::ownerArray($owner))) {
             throw BusinessException::forbidden('DOCUMENT_TARGET_ACTOR_INVALID', '点击目标与当前原始人员、文档或代际不一致');
         }
         $reservations = [];
@@ -273,7 +273,7 @@ final class NativeCollaborationProvider implements DocumentAcceptedWriteProvider
         $room = CollaborationRoom::where('document_id', $documentId)->lock(true)->find();
         if ($room === null || $document === null || !$this->lifecycle->ownsRoom($room) || (int) $room->protocol_version !== 2
             || $oldEpoch < 1 || (int) $room->lease_epoch <= $oldEpoch || (int) $document['lease_epoch'] !== (int) $room->lease_epoch
-            || self::json($room->binding_json)['owner'] !== self::ownerArray($owner)) {
+            || RichTextProjection::canonical(self::json($room->binding_json)['owner']) !== RichTextProjection::canonical(self::ownerArray($owner))) {
             throw BusinessException::forbidden('COLLABORATION_REFERENCE_FENCE_INVALID', '旧授权尚未被真实文档和房间代际隔离');
         }
         if ($this->execution->current() instanceof AdminExecutionContext) {
@@ -321,7 +321,7 @@ final class NativeCollaborationProvider implements DocumentAcceptedWriteProvider
         if ($room === null || !$this->lifecycle->ownsRoom($room) || (int) $room->protocol_version !== 2
             || !$local && preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/D', $room->holder_key ?? '') !== 1
             || !($room->status === 'active' || $action === 'restore' && $room->status === 'closed') || (int) $room->lease_epoch < 1
-            || self::json($room->binding_json)['owner'] !== self::ownerArray($owner)) {
+            || RichTextProjection::canonical(self::json($room->binding_json)['owner']) !== RichTextProjection::canonical(self::ownerArray($owner))) {
             throw BusinessException::conflict('COLLAB_UNAVAILABLE', '当前原生房间不可准备业务屏障');
         }
         if ($local) {
