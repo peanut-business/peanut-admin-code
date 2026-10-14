@@ -16,6 +16,13 @@
   import { ref } from 'vue';
   import type { SurfaceCapabilities } from '@/modules/official-content-tools/src/contracts';
   import DocumentSurface from './DocumentSurface.vue';
+  import type {
+    DocumentSurfaceOptions,
+    DocumentDetail,
+    DocumentSaveState,
+    DocumentOperationFeedback,
+  } from '../src/contracts';
+
   const surface = ref<InstanceType<typeof DocumentSurface>>();
   const prepareSaveTarget = (requestId: string) => {
     if (!surface.value) throw new Error('DOCUMENT_COLLABORATION_NOT_READY');
@@ -23,12 +30,6 @@
   };
   const releaseSaveTargetHold = () => surface.value?.releaseSaveTargetHold();
   defineExpose({ prepareSaveTarget, releaseSaveTargetHold });
-  import type {
-    DocumentSurfaceOptions,
-    DocumentDetail,
-    DocumentSaveState,
-    DocumentOperationFeedback,
-  } from '../src/contracts';
 
   const props = withDefaults(
     defineProps<

@@ -90,6 +90,7 @@
   import axios from 'axios';
   import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue';
   import { getSessionSnapshot } from '@/utils/auth';
+  import type { CommittedProof } from '@/modules/official-rich-text/src/collaboration/provider';
   import {
     DocumentOperationRejection,
     queryDocumentOperation,
@@ -104,7 +105,6 @@
     parseSaveTarget,
   } from '../src/operations';
   import type { DocumentBusinessCommand } from '../src/operations';
-  import type { CommittedProof } from '@/modules/official-rich-text/src/collaboration/provider';
   import type {
     DocumentDetail,
     DocumentBusinessAction,
@@ -404,7 +404,7 @@
       if (props.collaborationEnabled) {
         if (!props.prepareSaveTarget) return;
         const currentEpoch = epoch;
-        const contextKey = props.contextKey;
+        const { contextKey } = props;
         busy.value = true;
         try {
           const proof = await props.prepareSaveTarget(key);
@@ -463,7 +463,7 @@
   const observeTarget = async () => {
     const requestId = targetRequestId;
     const originalReason = targetReason;
-    const documentId = props.documentId;
+    const { documentId } = props;
     if (!requestId || !originalReason || busy.value || command.value) return;
     const current = new AbortController();
     controller = current;

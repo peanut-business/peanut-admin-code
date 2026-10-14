@@ -2333,7 +2333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a47aa8a1f6cef562b6870c325092fdf2695818052b4404d8260cffb0e26085b8"
+            "source_sha256": "615c206a56e09cc16a4b7f8cabb7bbf72be831c1648cf29a6ddaa0a80f757a58"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2442,7 +2442,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8584e4eb17b45d9da5e1cdf902fd37e857750c1c98b481aad835730bf51d90a6"
+            "source_sha256": "185c775283f144852cbeb1994d324008f840f52615db3b5c8aa3971e26f644ab"
         },
         {
             "path": "plugins/official.file/plugin.json",
@@ -2596,7 +2596,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f7b2a2b2dd27ba7affb52665081a7397b33ff1068217398ee963fe4d9755baf9"
+            "source_sha256": "bbac6ff6e617e4826b45a1fdb2fd528112bd14751556ad346e74e9f91e11e8dc"
         },
         {
             "path": "plugins/official.settings/plugin.json",
@@ -35512,7 +35512,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ff035066e46c8fdd43e2f626a015033c2ed216e444263a3a42fcb4ace4ff5325"
+            "source_sha256": "4a61c7ae5eb42ebf053cf17bea857c8b97e018a3d0db803b6685e0c5bc69b7a6"
         },
         {
             "path": "web/src/modules/official-document/components/DocumentOperations.vue",
@@ -35526,7 +35526,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c3e7ff4b17d0a66324765121597a5463097c6bb03f9dc4e272d4f139787a6c31"
+            "source_sha256": "e2ce69ec1ec400108b64456c798a13d5c30dd8ebcb60184e506bb56070a51697"
         },
         {
             "path": "web/src/modules/official-document/components/DocumentSurface.vue",
@@ -35540,7 +35540,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "58a73623fdc809b31211b2e020a2ac39c1a6c511fe2cf1a5e4215c663f6c380e"
+            "source_sha256": "b07df26633a067d650ab0946bc613597bda5f025a33cfe831fb480cbf6dc6ad0"
         },
         {
             "path": "web/src/modules/official-document/components/DocumentViewer.vue",
@@ -37542,7 +37542,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2347b763101b3019d69b1e73ac512b52b98ad961c75b10687bdd2603251efed6"
+            "source_sha256": "6b9d8220f2be6dd6836fda68f34fe5d29b79b15a4d45a94dd9fe084ce8e2e214"
         },
         {
             "path": "web/src/modules/official-rich-text/src/document.ts",

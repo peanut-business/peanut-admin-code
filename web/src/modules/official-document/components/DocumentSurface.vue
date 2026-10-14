@@ -477,16 +477,12 @@
           onSavedChanged: (saved) => {
             if (!valid(current, key) || !binding.value || frozen.value) return;
             binding.value = { ...binding.value, saved };
-            emit(
-              'saveState',
-              !active.writable
-                ? 'readonly'
-                : saved
-                ? 'saved'
-                : binding.value.ready
-                ? 'persisting'
-                : 'syncing'
-            );
+            let state: 'readonly' | 'saved' | 'persisting' | 'syncing' =
+              'syncing';
+            if (!active.writable) state = 'readonly';
+            else if (saved) state = 'saved';
+            else if (binding.value.ready) state = 'persisting';
+            emit('saveState', state);
           },
           onReadyChanged: (ready) => {
             if (!valid(current, key) || !binding.value || frozen.value) return;

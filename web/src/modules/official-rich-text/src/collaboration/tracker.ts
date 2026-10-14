@@ -19,8 +19,9 @@ export interface SaveTarget {
 
 export function coversSnapshot(proof: Y.Snapshot, target: Y.Snapshot): boolean {
   return (
-    [...target.sv].every(([client, clock]) => (proof.sv.get(client) ?? 0) >= clock) &&
-    Y.equalDeleteSets(proof.ds, Y.mergeDeleteSets([proof.ds, target.ds]))
+    [...target.sv].every(
+      ([client, clock]) => (proof.sv.get(client) ?? 0) >= clock
+    ) && Y.equalDeleteSets(proof.ds, Y.mergeDeleteSets([proof.ds, target.ds]))
   );
 }
 
@@ -48,7 +49,9 @@ export class LocalEditTracker {
   constructor(
     readonly document: Y.Doc,
     readonly generation: string,
-    private readonly onFailure: () => void = () => {}
+    private readonly onFailure: () => void = () => {
+      // Failure notification is optional; local capture still freezes below.
+    }
   ) {
     this.listener = (bytes, _origin, _doc, transaction) => {
       if (!transaction.local) return;
@@ -81,7 +84,10 @@ export class LocalEditTracker {
     this.pending = this.pending.filter(
       (bytes) => !Y.snapshotContainsUpdate(snapshot, bytes)
     );
-    this.pendingBytes = this.pending.reduce((total, bytes) => total + bytes.length, 0);
+    this.pendingBytes = this.pending.reduce(
+      (total, bytes) => total + bytes.length,
+      0
+    );
   }
 
   captureTarget(): SaveTarget {
