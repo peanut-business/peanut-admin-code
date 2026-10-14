@@ -2333,7 +2333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6a350235b39f00f6fa5861623b99d8f1479b1899524e448a85884be7ed7c2ea8"
+            "source_sha256": "a47aa8a1f6cef562b6870c325092fdf2695818052b4404d8260cffb0e26085b8"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2400,7 +2400,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "43bedbd3e10b2bf2644489592bad991472c69a8687fcfecf8994751bc33c0486"
+            "source_sha256": "35157e81c8954207f0a7efdbc1e53337a6da0f574ce0c03feeaafb45bad53c2a"
         },
         {
             "path": "plugins/official.collaboration/plugin.json",
@@ -35218,7 +35218,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c0a4c0fd1d57fa3498c3a462f4d24bf67767d7167a79cf537cbaf353cdc337ee"
+            "source_sha256": "ad53f7767e46ce77d66d26d35ffd96f28ff0bc9b4b83ca8b7c121819a3ec60ed"
         },
         {
             "path": "web/src/modules/official-article/views/list/index.vue",

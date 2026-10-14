@@ -12,8 +12,8 @@
       开启多人协作
     </el-button>
     <DocumentEditor
-      ref="documentEditor"
       v-if="editor && mountedEditor"
+      ref="documentEditor"
       :document-id="editor.document_id"
       :owner="editor.owner"
       :context-key="context"
@@ -111,6 +111,7 @@
     ArticleBodySaveInput,
     ArticleBodySaved,
   } from '../../api';
+
   type ArticleMetadataInput = Omit<
     ArticleBodySaveInput,
     | 'id'
@@ -421,7 +422,7 @@
       return;
     const original = targetAttempt.value;
     if (original?.collaborative) {
-      const documentId = original.documentId;
+      const { documentId } = original;
       const { controller, key, token } = start();
       try {
         const { data } = await cancelDocumentSaveTarget(
