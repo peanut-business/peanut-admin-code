@@ -23,6 +23,7 @@ use app\common\contract\idempotency\IdempotentCommandExecutor;
 use app\common\contract\module\ModuleQualificationQuery;
 use app\common\services\audit\AuditContractHost;
 use app\common\execution\CurrentExecutionContext;
+use app\common\http\RequestTrace;
 use app\common\execution\ExecutionContextStore;
 use app\common\model\TenantOwnedModel;
 use app\common\infrastructure\http\GuzzleOutboundHttpTransport;
@@ -159,6 +160,7 @@ class AppService extends Service
 {
     public function register(): void
     {
+        $this->registerHttpSqlTiming();
         $this->registerExecutionContext();
         $this->registerAuthentication();
         $this->registerAuthorization();
@@ -166,6 +168,39 @@ class AppService extends Service
         $this->registerPlatform();
         $this->registerApplicationServices();
         $this->registerModules();
+    }
+
+    private function registerHttpSqlTiming(): void
+    {
+        if (PHP_SAPI !== 'fpm-fcgi' || $this->app->runningInConsole() || !function_exists('peanutHttpSqlTimingRequestId')) {
+            return;
+        }
+        $requestId = peanutHttpSqlTimingRequestId();
+        if ($requestId === null) {
+            return;
+        }
+        $database = $this->app->db;
+        // Do not overwrite another listener or retune a connection already created by earlier application code.
+        if ($database->getListen() !== [] || $database->getInstance() !== []) {
+            return;
+        }
+        $configuration = $this->app->config->get('database', []);
+        $connection = $configuration['default'] ?? null;
+        if (!is_string($connection) || !is_array($configuration['connections'][$connection] ?? null)
+            || !RequestTrace::beginSqlTiming($requestId)) {
+            return;
+        }
+        $database->listen(static function (mixed $sql, mixed $seconds): void {
+            RequestTrace::addSqlTime($sql, $seconds);
+        });
+        $configuration['connections'][$connection]['trigger_sql'] = true;
+        $this->app->config->set($configuration, 'database');
+        $this->app->event->listen(\think\event\HttpEnd::class, function (): void {
+            $timing = RequestTrace::finishSqlTiming($this->app->request);
+            if ($timing !== null && peanutHttpSqlTimingRequestId() === $timing['request_id']) {
+                $this->app->log->info('http_sql_timing ' . json_encode($timing, JSON_THROW_ON_ERROR));
+            }
+        });
     }
 
     private function registerExecutionContext(): void

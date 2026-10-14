@@ -79,7 +79,7 @@ return [
             'fields_strict'   => true,
             // 是否需要断线重连
             'break_reconnect' => false,
-            // 监听SQL
+            // Preserve normal debug logging; an owner-selected FPM sample enables this connection only after its safe listener is installed.
             'trigger_sql'     => env('APP_DEBUG', true),
             // 开启字段缓存
             'fields_cache'    => false,

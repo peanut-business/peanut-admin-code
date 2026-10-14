@@ -12,6 +12,20 @@ declare(strict_types=1);
  */
 
 if (!function_exists('peanutBackendEnvironmentKeys')) {
+    /** The sole operator sampling key is local FPM process configuration, never a backend .env or SAPI value. */
+    function peanutHttpSqlTimingRequestId(): ?string
+    {
+        if (PHP_SAPI !== 'fpm-fcgi') {
+            return null;
+        }
+        $selected = getenv('PEANUT_HTTP_SQL_TIMING_REQUEST_ID', true);
+        if (!is_string($selected) || preg_match('/^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/D', $selected) !== 1) {
+            return null;
+        }
+        $header = $_SERVER['HTTP_X_REQUEST_ID'] ?? null;
+        return is_string($header) && hash_equals($selected, trim($header)) ? $selected : null;
+    }
+
     /** @return list<string> */
     function peanutBackendEnvironmentKeys(): array
     {
