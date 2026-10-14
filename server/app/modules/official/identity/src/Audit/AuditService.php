@@ -30,11 +30,14 @@ final readonly class AuditService implements \PeanutAdmin\Kernel\Audit\AuditWrit
             || $sessionFingerprint !== null && preg_match('/^[0-9a-f]{64}$/D', $sessionFingerprint) !== 1) {
             throw new \DomainException('IDENTITY_REVOCATION_PRODUCER_INVALID');
         }
-        foreach ([$before, $after] as $snapshot) {
+        foreach ([$before, $after] as $snapshotIndex => $snapshot) {
             foreach ($snapshot as $key => $value) {
+                $pendingLeave = $snapshotIndex === 0 && $key === 'status' && $value === 'pending'
+                    && $kind === 'member' && $subjectId === (string) $memberId && $reason === 'member_left'
+                    && ($after['status'] ?? null) === 'left';
                 if (!in_array($key, ['security_revision', 'authorization_revision', 'account_security_revision', 'status', 'role_ids', 'permission_ids'], true)
                     || !(is_int($value) && $value >= 0 || is_string($value) && in_array($value, ['active', 'suspended', 'left', 'archived', 'revoked'], true)
-                        || is_array($value) && array_is_list($value) && array_filter($value, static fn($id) => !is_int($id) || $id < 1) === [])) {
+                        || $pendingLeave || is_array($value) && array_is_list($value) && array_filter($value, static fn($id) => !is_int($id) || $id < 1) === [])) {
                     throw new \DomainException('IDENTITY_REVOCATION_SNAPSHOT_INVALID');
                 }
             }
