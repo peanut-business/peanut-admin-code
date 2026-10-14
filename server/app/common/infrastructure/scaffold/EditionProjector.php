@@ -32,14 +32,6 @@ final class EditionProjector
                 continue;
             }
             $content = (string) file_get_contents($absolute);
-            if ($mode === 'none' && $path === 'web/src/modules/official-article/contribution.ts') {
-                $content = $this->removeRange($content, '        // Workflow review route start:', '        // Workflow review route end.');
-            }
-            if ($mode === 'none' && $path === 'web/src/modules/official-article/views/list/index.vue') {
-                $content = $this->removeRange($content, '              <!-- Workflow review entry start:', '              <!-- Workflow review entry end. -->');
-                $content = $this->replaceOnce($content, "  import { useAppStore } from '@/store';\n", '', 'CREATE_APP_ARTICLE_WORKFLOW_IMPORT_INVALID');
-                $content = $this->replaceOnce($content, "  const appStore = useAppStore();\n", '', 'CREATE_APP_ARTICLE_WORKFLOW_STATE_INVALID');
-            }
             if ($mode === 'runtime' && $path === 'web/src/modules/peanut-workflow/contribution.ts') {
                 $content = "export { default } from './runtime/contribution';\n";
             }
