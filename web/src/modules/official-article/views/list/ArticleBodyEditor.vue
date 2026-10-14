@@ -30,28 +30,12 @@
         @error="onEditorError"
       />
     </fieldset>
-    <section v-if="editor" aria-label="正文历史版本查看">
-      <label>
-        已知历史版本 ID
-        <input v-model="historyRevision" type="number" min="1" />
-      </label>
-      <el-button :disabled="busy" @click="viewHistory">查看历史版本</el-button>
-      <el-button v-if="historyRevisionId" @click="historyRevisionId = undefined"
-        >关闭历史查看</el-button
-      >
-      <p v-if="historyMessage" role="status">{{ historyMessage }}</p>
-      <DocumentViewer
-        v-if="historyRevisionId"
-        :document-id="editor.document_id"
-        :owner="editor.owner"
-        :revision-id="historyRevisionId"
-        :context-key="context"
-        :allow-downloads="false"
-        @error="
-          historyMessage = '历史版本不可用，请检查当前查看权限和版本归属。'
-        "
-      />
-    </section>
+    <ArticleBodyHistory
+      v-if="editor"
+      :article-id="articleId"
+      :document-id="editor.document_id"
+      :context-key="context"
+    />
     <el-button
       v-if="collaborationBaseline && !mountedEditor"
       :disabled="busy"
@@ -116,7 +100,6 @@
   import { useUserStore } from '@/store';
   import { getSessionSnapshot } from '@/utils/auth';
   import DocumentEditor from '@/modules/official-document/components/DocumentEditor.vue';
-  import DocumentViewer from '@/modules/official-document/components/DocumentViewer.vue';
   import parseCapabilities from '@/modules/official-content-tools/src/capabilities';
   import {
     queryDocumentSaveTarget,
@@ -138,6 +121,8 @@
     saveArticleBody,
     getArticleBodyOperation,
   } from '../../api';
+
+  import ArticleBodyHistory from './ArticleBodyHistory.vue';
   import type {
     ArticleBodyEditor,
     ArticleBodySaveInput,
@@ -173,6 +158,7 @@
       props.articleId,
       props.contextKey,
       generation.value,
+      user.id,
       user.accountId,
       user.tenantName,
       user.role,
@@ -195,9 +181,6 @@
       (documentOperation.value.state !== 'completed' ||
         !documentOperation.value.released)
   );
-  const historyRevision = ref('');
-  const historyRevisionId = ref<number>();
-  const historyMessage = ref('');
   const saveStateText: Record<DocumentSaveState, string> = {
     idle: '有修改尚未保存',
     syncing: '正在连接并同步正文',
@@ -812,16 +795,6 @@
         '正文恢复尚未确认，业务保存和开启多人协作已暂停；请查询或继续原操作。';
     }
   };
-  const viewHistory = () => {
-    const revisionId = Number(historyRevision.value);
-    if (!Number.isSafeInteger(revisionId) || revisionId < 1 || !editor.value) {
-      historyMessage.value = '请输入当前正文已知的有效历史版本 ID。';
-      return;
-    }
-    historyRevisionId.value = revisionId;
-    historyMessage.value =
-      '历史版本只读查看；当前草稿、资讯正式绑定和发布状态不会改变。';
-  };
   const onEditorError = () => {
     saveState.value = 'error';
     message.value = '正文编辑不可用，请检查当前授权和服务状态。';
@@ -845,9 +818,6 @@
       emit('metadataReady', false);
       detail.value = undefined;
       documentOperation.value = undefined;
-      historyRevision.value = '';
-      historyRevisionId.value = undefined;
-      historyMessage.value = '';
       attempt.value = undefined;
       targetAttempt.value = undefined;
       saved.value = undefined;

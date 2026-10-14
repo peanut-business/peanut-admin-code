@@ -268,10 +268,13 @@ export function exportArticles(
 }
 
 export function getArticleDetail(id: number, signal?: AbortSignal) {
-  return axios.get<ArticleRecord>('/adminapi/official.article.detail', {
-    params: { id },
-    signal,
-  });
+  return axios.get<components['schemas']['ArticleDetailResponse']['data']>(
+    '/adminapi/official.article.detail',
+    {
+      params: { id },
+      signal,
+    }
+  );
 }
 
 export function addArticle(data: ArticleCreateRequest, signal?: AbortSignal) {

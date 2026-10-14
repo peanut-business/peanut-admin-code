@@ -3,6 +3,8 @@ import type { SurfaceCallbacks } from '@/modules/official-content-tools/src/cont
 
 export type DocumentDetail =
   components['schemas']['DocumentDetailResponse']['data'];
+export type DocumentVersionsPage =
+  components['schemas']['DocumentVersionsResponse']['data'];
 export type DocumentCapabilities = Omit<
   components['schemas']['DocumentCapabilitiesResponse']['data'],
   'can_view'

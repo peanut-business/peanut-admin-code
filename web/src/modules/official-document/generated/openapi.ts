@@ -8,6 +8,7 @@ export interface ModuleApiOperations {
   cancelDocumentTarget: paths['/adminapi/official.document.target.cancel']['post'];
   queryDocumentBusinessOperation: paths['/adminapi/official.document.operation']['get'];
   documentDetail: paths['/adminapi/official.document.detail']['get'];
+  documentVersions: paths['/adminapi/official.document.versions']['get'];
   documentCapabilities: paths['/adminapi/official.document.capabilities']['get'];
   saveSoloDocument: paths['/adminapi/official.document.solo.save']['post'];
   bindDocumentResource: paths['/adminapi/official.document.resource.bind']['post'];
@@ -24,6 +25,7 @@ export function createModuleApi(client: Client<paths>) {
     cancelDocumentTarget: pathClient['/adminapi/official.document.target.cancel'].POST,
     queryDocumentBusinessOperation: pathClient['/adminapi/official.document.operation'].GET,
     documentDetail: pathClient['/adminapi/official.document.detail'].GET,
+    documentVersions: pathClient['/adminapi/official.document.versions'].GET,
     documentCapabilities: pathClient['/adminapi/official.document.capabilities'].GET,
     saveSoloDocument: pathClient['/adminapi/official.document.solo.save'].POST,
     bindDocumentResource: pathClient['/adminapi/official.document.resource.bind'].POST,

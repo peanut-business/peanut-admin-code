@@ -5,7 +5,22 @@ import type {
   DocumentCapabilities,
   DocumentSaveReceipt,
   DocumentSaveTargetReceipt,
+  DocumentVersionsPage,
 } from './src/contracts';
+
+export const getDocumentVersions = (
+  documentId: number,
+  beforeRevisionNo: number | undefined,
+  signal: AbortSignal
+) =>
+  axios.get<DocumentVersionsPage>('/adminapi/official.document.versions', {
+    params: {
+      document_id: documentId,
+      limit: 20,
+      before_revision_no: beforeRevisionNo,
+    },
+    signal,
+  });
 
 export const getDocumentDetail = (
   documentId: number,

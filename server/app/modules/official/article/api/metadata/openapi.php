@@ -171,7 +171,7 @@ $bodyOperation = $bodyObject([
     'continuation' => ['type' => 'string', 'enum' => ['same_request_same_payload'], 'nullable' => true],
 ], ['article_id', 'request_id', 'document_id', 'phase', 'result', 'continuation']);
 
-return [
+$articleContract = [
     'paths' => [
         '/adminapi/official.article.document.editor' => ['get' => $operation(
             'articleBodyEditor',
@@ -663,7 +663,7 @@ return [
                     'msg' => ['type' => 'string', 'enum' => ['success']],
                     'data' => [
                         'oneOf' => [
-                            $schemaRef('ArticleRecord'),
+                            $schemaRef('ArticleDetailRecord'),
                             ['type' => 'array', 'maxItems' => 0],
                         ],
                     ],
@@ -745,3 +745,7 @@ return [
         ],
     ],
 ];
+$articleContract['components']['schemas']['ArticleDetailRecord'] = $articleContract['components']['schemas']['ArticleRecord'];
+$articleContract['components']['schemas']['ArticleDetailRecord']['properties']['body_document_id'] = ['type' => 'integer', 'minimum' => 1, 'nullable' => true];
+$articleContract['components']['schemas']['ArticleDetailRecord']['required'][] = 'body_document_id';
+return $articleContract;

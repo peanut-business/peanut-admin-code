@@ -10,6 +10,8 @@ interface DocumentQueries
 {
     /** Metadata/projection only: no Yjs binary, storage address or collaboration ticket. */
     public function detail(TenantContext $context, int $documentId, ?int $revisionId = null): array;
+    /** Committed summaries only; fresh view/archive.read authorization on every bounded page. Rejects outer transactions. */
+    public function versions(TenantContext $context, int $documentId, int $limit = 20, ?int $beforeRevisionNo = null): array;
     public function capabilities(TenantContext $context, int $documentId, string $intent, ?int $revisionId = null): array;
     public function businessOperation(TenantContext $context, int $documentId, string $operationId): array;
     public function explicitTarget(TenantContext $context, int $documentId, string $requestId): array;

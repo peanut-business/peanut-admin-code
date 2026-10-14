@@ -24,6 +24,16 @@ class DocumentController extends BaseAdminController
         $in = $this->input(false, ['document_id','revision_id','intent']);
         return $this->data($this->queries->capabilities($this->tenantAdminContext(), $this->id($in, 'document_id'), $this->text($in, 'intent'), isset($in['revision_id']) ? $this->id($in, 'revision_id') : null));
     }
+    public function versions()
+    {
+        $in = $this->input(false, ['document_id','limit','before_revision_no']);
+        return $this->data($this->queries->versions(
+            $this->tenantAdminContext(),
+            $this->id($in, 'document_id'),
+            array_key_exists('limit', $in) ? $this->id($in, 'limit') : 20,
+            array_key_exists('before_revision_no', $in) ? $this->id($in, 'before_revision_no') : null,
+        ));
+    }
     public function operation()
     {
         $in = $this->input(false, ['document_id','operation_id']);

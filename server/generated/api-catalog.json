@@ -36,7 +36,7 @@
         },
         {
             "path": "server/app/modules/official/article/api/metadata/openapi.php",
-            "sha256": "8235aa88d7bbdcf64a98f4b829fa63d2f95347c7fa345270e64241dbc2304d36"
+            "sha256": "4f554963cf80387d2bd819c4b469dd01b902619b95f36c741bf0c4afd3ffe386"
         },
         {
             "path": "server/app/modules/official/article/route/app.php",
@@ -52,11 +52,11 @@
         },
         {
             "path": "server/app/modules/official/document/api/metadata/openapi.php",
-            "sha256": "8e9d5cdc83cd71962b32d4b921feca8aa41e1dc459287b4c478e8e43597b9b38"
+            "sha256": "7568083e9d382f5e36ac9596c85a2ad176601dd606ad3955ebcf67e647c0e362"
         },
         {
             "path": "server/app/modules/official/document/route/app.php",
-            "sha256": "96d509dcd2fc54b8102602b93558b957682f54ff77e472aa412afad05f9f8b0e"
+            "sha256": "7f83290b7b34f8ada8ecb6bf050254a86de0642818adb305ea85e4159244b556"
         },
         {
             "path": "server/app/modules/official/file/api/metadata/openapi.php",
@@ -156,7 +156,7 @@
         },
         {
             "path": "server/config/admin_api_access.php",
-            "sha256": "7ba7a7fcc0d1d292110184a95047c4e9223b4309445a951caba3dab6c17edbdb"
+            "sha256": "1385feaba5a7145fab0e73e034732157bec6dceb5242eb64184d83db50c79a1b"
         },
         {
             "path": "server/route/admin.php",
@@ -192,27 +192,27 @@
         ]
     },
     "summary": {
-        "route_count": 422,
-        "generated_api_operations": 376,
+        "route_count": 423,
+        "generated_api_operations": 377,
         "route_only_operations": 46,
-        "complete_operations": 365,
+        "complete_operations": 366,
         "partial_operations": 11,
-        "runtime_routes": 422,
-        "documented_operations": 376,
+        "runtime_routes": 423,
+        "documented_operations": 377,
         "undocumented_routes": 46,
-        "automatic_route_metadata": 422,
+        "automatic_route_metadata": 423,
         "requires_owner_contract": 46,
         "owners": 20,
         "runtime_inventory": {
-            "total": 422,
+            "total": 423,
             "methods": {
                 "DELETE": 4,
-                "GET": 179,
+                "GET": 180,
                 "POST": 233,
                 "PUT": 6
             },
             "applications": {
-                "adminapi": 305,
+                "adminapi": 306,
                 "api": 47,
                 "installation": 6,
                 "platform": 64
@@ -225,7 +225,7 @@
                 "module:fixture.workflow-business": 8,
                 "module:official.article": 26,
                 "module:official.collaboration": 12,
-                "module:official.document": 11,
+                "module:official.document": 12,
                 "module:official.file": 23,
                 "module:official.import-export": 11,
                 "module:official.integration": 12,
@@ -250,7 +250,7 @@
         "module:fixture.workflow-business": 8,
         "module:official.article": 26,
         "module:official.collaboration": 12,
-        "module:official.document": 11,
+        "module:official.document": 12,
         "module:official.file": 23,
         "module:official.import-export": 11,
         "module:official.integration": 12,
@@ -6708,7 +6708,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/document/route/app.php",
-                "line": 12
+                "line": 13
             },
             "documented": true,
             "openapi_operation_id": "documentCapabilities",
@@ -6864,7 +6864,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/document/route/app.php",
-                "line": 13
+                "line": 14
             },
             "documented": true,
             "openapi_operation_id": "queryDocumentBusinessOperation",
@@ -6942,10 +6942,88 @@
             ],
             "source": {
                 "file": "server/app/modules/official/document/route/app.php",
-                "line": 14
+                "line": 15
             },
             "documented": true,
             "openapi_operation_id": "getDocumentTarget",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts",
+                "web/src/modules/official-document/generated/openapi.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": []
+            }
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/official.document.versions",
+            "runtime_path": "/adminapi/official.document.versions",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.document"
+            },
+            "controller": "PeanutAdmin\\Modules\\Document\\Controller\\DocumentController",
+            "action": "versions",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "official.document"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "official.document.versions"
+                }
+            ],
+            "errors": [
+                401,
+                403,
+                404,
+                409,
+                422
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "official.document",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/document/route/app.php",
+                "line": 12
+            },
+            "documented": true,
+            "openapi_operation_id": "documentVersions",
             "contract_quality": "complete",
             "sdk_consumers": [
                 "web/src/generated/openapi.d.ts",
@@ -20744,7 +20822,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/document/route/app.php",
-                "line": 20
+                "line": 21
             },
             "documented": true,
             "openapi_operation_id": "archiveDocument",
@@ -20822,7 +20900,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/document/route/app.php",
-                "line": 17
+                "line": 18
             },
             "documented": true,
             "openapi_operation_id": "bindDocumentResource",
@@ -20900,7 +20978,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/document/route/app.php",
-                "line": 21
+                "line": 22
             },
             "documented": true,
             "openapi_operation_id": "restoreDocument",
@@ -20978,7 +21056,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/document/route/app.php",
-                "line": 16
+                "line": 17
             },
             "documented": true,
             "openapi_operation_id": "saveSoloDocument",
@@ -21056,7 +21134,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/document/route/app.php",
-                "line": 15
+                "line": 16
             },
             "documented": true,
             "openapi_operation_id": "cancelDocumentTarget",
@@ -21134,7 +21212,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/document/route/app.php",
-                "line": 18
+                "line": 19
             },
             "documented": true,
             "openapi_operation_id": "createDocumentVersion",
@@ -21212,7 +21290,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/document/route/app.php",
-                "line": 19
+                "line": 20
             },
             "documented": true,
             "openapi_operation_id": "restoreDocumentVersion",

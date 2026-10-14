@@ -26,6 +26,7 @@ return [
         'POST adminapi/api/v1/files/resolve',
         // Document contextual operations must pass live owner/slot/state authorization in the use case.
         'GET adminapi/official.document.detail',
+        'GET adminapi/official.document.versions',
         'GET adminapi/official.document.capabilities',
         'GET adminapi/official.document.operation',
         'GET adminapi/official.document.target',

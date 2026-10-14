@@ -20970,7 +20970,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/document/route/app.php",
-                        "line": 14
+                        "line": 15
                     }
                 },
                 "x-peanut-permissions": [
@@ -21060,7 +21060,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/document/route/app.php",
-                        "line": 15
+                        "line": 16
                     }
                 },
                 "x-peanut-permissions": [
@@ -21144,7 +21144,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/document/route/app.php",
-                        "line": 13
+                        "line": 14
                     }
                 },
                 "x-peanut-permissions": [
@@ -21242,6 +21242,99 @@
                 ]
             }
         },
+        "/adminapi/official.document.versions": {
+            "get": {
+                "tags": [
+                    "Document"
+                ],
+                "operationId": "documentVersions",
+                "parameters": [
+                    {
+                        "name": "document_id",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100,
+                            "default": 20
+                        }
+                    },
+                    {
+                        "name": "before_revision_no",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Current owner-authorized document result. Confirmed versions are immutable and committed, not business approval.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DocumentVersionsResponse"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "adminapi",
+                    "owner": {
+                        "type": "module",
+                        "key": "official.document"
+                    },
+                    "controller": "PeanutAdmin\\Modules\\Document\\Controller\\DocumentController",
+                    "action": "versions",
+                    "permission": null,
+                    "source": {
+                        "file": "server/app/modules/official/document/route/app.php",
+                        "line": 12
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "module_capability",
+                        "key": "official.document"
+                    },
+                    {
+                        "kind": "tenant_action",
+                        "key": "official.document.versions"
+                    }
+                ]
+            }
+        },
         "/adminapi/official.document.capabilities": {
             "get": {
                 "tags": [
@@ -21322,7 +21415,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/document/route/app.php",
-                        "line": 12
+                        "line": 13
                     }
                 },
                 "x-peanut-permissions": [
@@ -21421,7 +21514,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/document/route/app.php",
-                        "line": 16
+                        "line": 17
                     }
                 },
                 "x-peanut-permissions": [
@@ -21521,7 +21614,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/document/route/app.php",
-                        "line": 17
+                        "line": 18
                     }
                 },
                 "x-peanut-permissions": [
@@ -21622,7 +21715,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/document/route/app.php",
-                        "line": 18
+                        "line": 19
                     }
                 },
                 "x-peanut-permissions": [
@@ -21722,7 +21815,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/document/route/app.php",
-                        "line": 19
+                        "line": 20
                     }
                 },
                 "x-peanut-permissions": [
@@ -21817,7 +21910,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/document/route/app.php",
-                        "line": 20
+                        "line": 21
                     }
                 },
                 "x-peanut-permissions": [
@@ -21912,7 +22005,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/document/route/app.php",
-                        "line": 21
+                        "line": 22
                     }
                 },
                 "x-peanut-permissions": [
@@ -42703,7 +42796,7 @@
                     "data": {
                         "oneOf": [
                             {
-                                "$ref": "#/components/schemas/ArticleRecord"
+                                "$ref": "#/components/schemas/ArticleDetailRecord"
                             },
                             {
                                 "type": "array",
@@ -42838,6 +42931,98 @@
                     "msg": "仅回收站资讯可永久删除",
                     "data": {
                         "error_code": "ARTICLE_FORCE_DELETE_REQUIRES_TRASHED"
+                    }
+                }
+            },
+            "ArticleDetailRecord": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "id",
+                    "cid",
+                    "title",
+                    "desc",
+                    "abstract",
+                    "image",
+                    "author",
+                    "content",
+                    "click_virtual",
+                    "click_actual",
+                    "click",
+                    "is_show",
+                    "sort",
+                    "cate_name",
+                    "create_time",
+                    "update_time",
+                    "delete_time",
+                    "body_document_id"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "cid": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "desc": {
+                        "type": "string"
+                    },
+                    "abstract": {
+                        "type": "string"
+                    },
+                    "image": {
+                        "type": "string"
+                    },
+                    "author": {
+                        "type": "string"
+                    },
+                    "content": {
+                        "type": "string"
+                    },
+                    "click_virtual": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "click_actual": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "click": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "is_show": {
+                        "type": "integer",
+                        "enum": [
+                            0,
+                            1
+                        ]
+                    },
+                    "sort": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "cate_name": {
+                        "type": "string"
+                    },
+                    "create_time": {
+                        "$ref": "#/components/schemas/ArticleTimestamp"
+                    },
+                    "update_time": {
+                        "$ref": "#/components/schemas/ArticleTimestamp"
+                    },
+                    "delete_time": {
+                        "$ref": "#/components/schemas/ArticleTimestamp"
+                    },
+                    "body_document_id": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "nullable": true
                     }
                 }
             },
@@ -44490,6 +44675,110 @@
                             "can_download_original",
                             "collaboration_enabled",
                             "capabilities"
+                        ]
+                    }
+                },
+                "required": [
+                    "code",
+                    "msg",
+                    "data"
+                ]
+            },
+            "DocumentVersionsResponse": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "code": {
+                        "type": "integer",
+                        "enum": [
+                            20000
+                        ]
+                    },
+                    "msg": {
+                        "type": "string"
+                    },
+                    "data": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "document_id": {
+                                "type": "integer",
+                                "minimum": 1
+                            },
+                            "owner": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "module_key": {
+                                        "type": "string"
+                                    },
+                                    "object_type": {
+                                        "type": "string"
+                                    },
+                                    "object_id": {
+                                        "type": "string"
+                                    },
+                                    "slot": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "module_key",
+                                    "object_type",
+                                    "object_id",
+                                    "slot"
+                                ]
+                            },
+                            "items": {
+                                "type": "array",
+                                "maxItems": 100,
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "revision_id": {
+                                            "type": "integer",
+                                            "minimum": 1
+                                        },
+                                        "revision_no": {
+                                            "type": "integer",
+                                            "minimum": 1
+                                        },
+                                        "created_at": {
+                                            "type": "string"
+                                        },
+                                        "source_state_seq": {
+                                            "type": "integer",
+                                            "minimum": 0
+                                        },
+                                        "content_kind": {
+                                            "type": "string",
+                                            "enum": [
+                                                "rich_text",
+                                                "file_resource"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "revision_id",
+                                        "revision_no",
+                                        "created_at",
+                                        "source_state_seq",
+                                        "content_kind"
+                                    ]
+                                }
+                            },
+                            "next_before_revision_no": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "nullable": true
+                            }
+                        },
+                        "required": [
+                            "document_id",
+                            "owner",
+                            "items",
+                            "next_before_revision_no"
                         ]
                     }
                 },

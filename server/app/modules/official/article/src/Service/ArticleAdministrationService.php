@@ -311,12 +311,14 @@ final class ArticleAdministrationService implements ArticleAdministration
     private function findRow(int $id, bool $onlyTrashed): array
     {
         $query = $onlyTrashed ? Article::onlyTrashed() : Article::where([]);
-        $article = $query->field(self::articleFields())->where('id', $id)->findOrEmpty();
+        $article = $query->field([...self::articleFields(), 'body_document_id'])->where('id', $id)->findOrEmpty();
         if ($article->isEmpty()) {
             return [];
         }
+        $row = $article->toArray();
+        $row['body_document_id'] = $row['body_document_id'] === null ? null : (int) $row['body_document_id'];
         return $this->formatArticleRow(
-            $article->toArray(),
+            $row,
             $this->categoryNames([(int) $article['cid']], $onlyTrashed),
         );
     }

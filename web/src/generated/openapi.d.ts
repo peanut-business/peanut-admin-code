@@ -3588,6 +3588,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/adminapi/official.document.versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["documentVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/adminapi/official.document.capabilities": {
         parameters: {
             query?: never;
@@ -7953,7 +7969,7 @@ export interface components {
             code: 20000;
             /** @enum {string} */
             msg: "success";
-            data: components["schemas"]["ArticleRecord"] | unknown[];
+            data: components["schemas"]["ArticleDetailRecord"] | unknown[];
         };
         ArticleCategoryDetailResponse: {
             /** @enum {integer} */
@@ -7993,6 +8009,27 @@ export interface components {
             } & {
                 [key: string]: unknown;
             };
+        };
+        ArticleDetailRecord: {
+            id: number;
+            cid: number;
+            title: string;
+            desc: string;
+            abstract: string;
+            image: string;
+            author: string;
+            content: string;
+            click_virtual: number;
+            click_actual: number;
+            click: number;
+            /** @enum {integer} */
+            is_show: 0 | 1;
+            sort: number;
+            cate_name: string;
+            create_time: components["schemas"]["ArticleTimestamp"];
+            update_time: components["schemas"]["ArticleTimestamp"];
+            delete_time: components["schemas"]["ArticleTimestamp"];
+            body_document_id: number | null;
         };
         CollaborationTicketResponse: {
             /** @enum {integer} */
@@ -8375,6 +8412,29 @@ export interface components {
                     unavailableReason: string | null;
                     capabilityRevision: string;
                 };
+            };
+        };
+        DocumentVersionsResponse: {
+            /** @enum {integer} */
+            code: 20000;
+            msg: string;
+            data: {
+                document_id: number;
+                owner: {
+                    module_key: string;
+                    object_type: string;
+                    object_id: string;
+                    slot: string;
+                };
+                items: {
+                    revision_id: number;
+                    revision_no: number;
+                    created_at: string;
+                    source_state_seq: number;
+                    /** @enum {string} */
+                    content_kind: "rich_text" | "file_resource";
+                }[];
+                next_before_revision_no: number | null;
             };
         };
         DocumentBusinessOperationResponse: {
@@ -17945,6 +18005,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DocumentDetailResponse"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    documentVersions: {
+        parameters: {
+            query: {
+                document_id: number;
+                limit?: number;
+                before_revision_no?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current owner-authorized document result. Confirmed versions are immutable and committed, not business approval. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentVersionsResponse"];
                 };
             };
             401: components["responses"]["ErrorResponse"];

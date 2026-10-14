@@ -24,6 +24,11 @@ $detail['properties'] += ['tenant_id' => $id,'owner' => $object(['module_key' =>
     'digest' => $digest,'persisted_at' => $text,'revision_id' => $id,'revision_no' => $id,'source_state_seq' => $seq,'confirmed' => ['type' => 'boolean','enum' => [true]],
     'references' => ['type' => 'array','items' => $reference],'file_keys' => ['type' => 'array','items' => $key]];
 $version = $object(['document_id' => $id,'revision_id' => $id,'revision_no' => $id,'source_state_seq' => $seq,'digest' => $digest], ['document_id','revision_id','revision_no','source_state_seq','digest']);
+$versionSummary = $object(['revision_id' => $id,'revision_no' => $id,'created_at' => $text,'source_state_seq' => $seq,
+    'content_kind' => ['type' => 'string','enum' => ['rich_text','file_resource']]], ['revision_id','revision_no','created_at','source_state_seq','content_kind']);
+$versionPage = $object(['document_id' => $id,'owner' => $detail['properties']['owner'],
+    'items' => ['type' => 'array','maxItems' => 100,'items' => $versionSummary],
+    'next_before_revision_no' => $id + ['nullable' => true]], ['document_id','owner','items','next_before_revision_no']);
 $businessFields = ['operation_id' => $request,'phase' => ['type' => 'string','enum' => ['completed']],
     'lease_epoch' => $id,'binary_sha256' => $digest,'store_id' => $request + ['nullable' => true],'target_progress' => $seq];
 $metadata['properties'] += $businessFields;
@@ -61,10 +66,17 @@ $operation = static function (string $name, string $response, ?array $input = nu
 $parameters = [['name' => 'document_id','in' => 'query','required' => true,'schema' => $id],['name' => 'revision_id','in' => 'query','schema' => $id]];
 $base = ['document_id' => $id,'expected_state_seq' => $seq,'request_id' => $request];
 return ['paths' => [
-    '/adminapi/official.document.target' => ['get' => $operation('getDocumentTarget', 'DocumentTargetResponse', null,
-        [['name' => 'document_id','in' => 'query','required' => true,'schema' => $id],['name' => 'request_id','in' => 'query','required' => true,'schema' => $request]])],
-    '/adminapi/official.document.target.cancel' => ['post' => $operation('cancelDocumentTarget', 'DocumentTargetCancelResponse',
-        $object(['document_id' => $id,'request_id' => $request], ['document_id','request_id']))],
+    '/adminapi/official.document.target' => ['get' => $operation(
+        'getDocumentTarget',
+        'DocumentTargetResponse',
+        null,
+        [['name' => 'document_id','in' => 'query','required' => true,'schema' => $id],['name' => 'request_id','in' => 'query','required' => true,'schema' => $request]],
+    )],
+    '/adminapi/official.document.target.cancel' => ['post' => $operation(
+        'cancelDocumentTarget',
+        'DocumentTargetCancelResponse',
+        $object(['document_id' => $id,'request_id' => $request], ['document_id','request_id']),
+    )],
     '/adminapi/official.document.operation' => ['get' => $operation(
         'queryDocumentBusinessOperation',
         'DocumentBusinessOperationResponse',
@@ -72,6 +84,14 @@ return ['paths' => [
         [['name' => 'document_id','in' => 'query','required' => true,'schema' => $id],['name' => 'operation_id','in' => 'query','required' => true,'schema' => $request]],
     )],
     '/adminapi/official.document.detail' => ['get' => $operation('documentDetail', 'DocumentDetailResponse', null, $parameters)],
+    '/adminapi/official.document.versions' => ['get' => $operation(
+        'documentVersions',
+        'DocumentVersionsResponse',
+        null,
+        [['name' => 'document_id','in' => 'query','required' => true,'schema' => $id],
+            ['name' => 'limit','in' => 'query','schema' => $id + ['maximum' => 100,'default' => 20]],
+            ['name' => 'before_revision_no','in' => 'query','schema' => $id]],
+    )],
     '/adminapi/official.document.capabilities' => ['get' => $operation('documentCapabilities', 'DocumentCapabilitiesResponse', null, [...$parameters,['name' => 'intent','in' => 'query','required' => true,'schema' => ['type' => 'string','enum' => ['view','edit']]]])],
     '/adminapi/official.document.solo.save' => ['post' => $operation('saveSoloDocument', 'DocumentSaveResponse', $object($base + ['structured_content' => $ref('DocumentStructuredContent')], ['document_id','expected_state_seq','request_id','structured_content']))],
     '/adminapi/official.document.resource.bind' => ['post' => $operation('bindDocumentResource', 'DocumentSaveResponse', $object($base + ['file_key' => $key], ['document_id','expected_state_seq','request_id','file_key']))],
@@ -82,13 +102,16 @@ return ['paths' => [
 ], 'components' => ['schemas' => [
     'DocumentStructuredContent' => $structured,'DocumentMetadataResponse' => $envelope($metadata),'DocumentDetailResponse' => $envelope($detail),
     'DocumentVersionResponse' => $envelope($version),'DocumentSaveResponse' => $envelope($save),'DocumentCapabilitiesResponse' => $envelope($capabilities),
+    'DocumentVersionsResponse' => $envelope($versionPage),
     'DocumentBusinessOperationResponse' => $envelope($businessOperation),
-    'DocumentTargetResponse' => $envelope($object(['document_id' => $id,'request_id' => $request,
-        'phase' => ['type' => 'string','enum' => ['not_prepared','prepared','confirmed','consumed','canceled']],
-        'target_binary_sha256' => $digest + ['nullable' => true],'target_projection_sha256' => $digest + ['nullable' => true],'target_progress' => $seq + ['nullable' => true],
-        'store_id' => $request + ['nullable' => true],'state_seq' => $seq + ['nullable' => true],
-        'committed_binary_sha256' => $digest + ['nullable' => true],'revision_id' => $id + ['nullable' => true]],
-        ['document_id','request_id','phase','target_binary_sha256','target_projection_sha256','target_progress','store_id','state_seq','committed_binary_sha256','revision_id'])),
+    'DocumentTargetResponse' => $envelope($object(
+        ['document_id' => $id,'request_id' => $request,
+            'phase' => ['type' => 'string','enum' => ['not_prepared','prepared','confirmed','consumed','canceled']],
+            'target_binary_sha256' => $digest + ['nullable' => true],'target_projection_sha256' => $digest + ['nullable' => true],'target_progress' => $seq + ['nullable' => true],
+            'store_id' => $request + ['nullable' => true],'state_seq' => $seq + ['nullable' => true],
+            'committed_binary_sha256' => $digest + ['nullable' => true],'revision_id' => $id + ['nullable' => true]],
+        ['document_id','request_id','phase','target_binary_sha256','target_projection_sha256','target_progress','store_id','state_seq','committed_binary_sha256','revision_id'],
+    )),
     'DocumentTargetCancelResponse' => $envelope($object(['document_id' => $id,'request_id' => $request,
         'phase' => ['type' => 'string','enum' => ['canceled']]], ['document_id','request_id','phase'])),
     'DocumentBusinessResult' => $businessResult,

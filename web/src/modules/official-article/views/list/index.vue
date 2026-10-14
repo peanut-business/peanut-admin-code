@@ -158,6 +158,13 @@
                   </el-button></template
                 >
               </el-popconfirm>
+              <el-button
+                v-permission="['official.article.detail']"
+                link
+                size="small"
+                @click="openHistory(row)"
+                >正文历史</el-button
+              >
             </el-space></template
           ></el-table-column
         >
@@ -326,6 +333,21 @@
           ></template
         >
       </el-dialog>
+      <el-dialog
+        v-model="historyVisible"
+        title="资讯正文历史"
+        width="900px"
+        @closed="closeHistory"
+      >
+        <p v-if="historyError" role="alert">{{ historyError }}</p>
+        <p v-else-if="historyLoading" role="status">正在核验资讯正文绑定。</p>
+        <ArticleBodyHistory
+          v-else-if="historyBinding"
+          :article-id="historyBinding.articleId"
+          :document-id="historyBinding.documentId"
+          :context-key="contextKey"
+        />
+      </el-dialog>
     </el-card>
   </div>
 </template>
@@ -348,6 +370,7 @@
   import { uploadFile, type FileRecord } from '@/modules/official-file/api';
   import {
     getArticleList,
+    getArticleDetail,
     getArticleCateAll,
     addArticle,
     deleteArticle,
@@ -359,6 +382,7 @@
     type ArticleBodyMetadata,
   } from '@/modules/official-article/api';
   import ArticleBodyEditor from './ArticleBodyEditor.vue';
+  import ArticleBodyHistory from './ArticleBodyHistory.vue';
 
   interface ArticleForm {
     id: number;
@@ -386,6 +410,7 @@
   const contextKey = computed(() =>
     JSON.stringify([
       generation.value,
+      user.id,
       user.accountId,
       user.tenantName,
       user.role,
@@ -398,6 +423,87 @@
   const active = (controller: AbortController, key: string) =>
     !disposed && !controller.signal.aborted && key === contextKey.value;
   const articleAction = useAsyncAction(() => t('article.error.request'));
+  const historyVisible = ref(false);
+  const historyLoading = ref(false);
+  const historyError = ref('');
+  const historyBinding = ref<{ articleId: number; documentId: number }>();
+  let historyRequest: AbortController | undefined;
+  let { generation: historyGeneration } = getSessionSnapshot();
+  const closeHistory = () => {
+    historyRequest?.abort();
+    historyRequest = undefined;
+    historyBinding.value = undefined;
+    historyError.value = '';
+    historyLoading.value = false;
+  };
+  watch(
+    historyVisible,
+    (visible) => {
+      if (!visible) closeHistory();
+    },
+    { flush: 'sync' }
+  );
+  const openHistory = async (record: ArticleRecord) => {
+    closeHistory();
+    historyVisible.value = true;
+    historyLoading.value = true;
+    const controller = new AbortController();
+    historyRequest = controller;
+    const identity = contextKey.value;
+    historyGeneration = getSessionSnapshot().generation;
+    const expectedGeneration = historyGeneration;
+    const liveHistory = () => {
+      if (
+        !active(controller, identity) ||
+        historyRequest !== controller ||
+        !historyVisible.value
+      )
+        return false;
+      if (expectedGeneration !== getSessionSnapshot().generation) {
+        historyVisible.value = false;
+        closeHistory();
+        return false;
+      }
+      return true;
+    };
+    try {
+      const { data } = await getArticleDetail(record.id, controller.signal);
+      if (!liveHistory()) return;
+      if (!data || Array.isArray(data) || data.id !== record.id)
+        throw new Error('ARTICLE_HISTORY_BINDING_INVALID');
+      if (data.body_document_id === null) {
+        historyError.value =
+          '此资讯尚未绑定文档正文；查看历史不会自动创建文档。';
+        return;
+      }
+      if (
+        !Number.isSafeInteger(data.body_document_id) ||
+        data.body_document_id < 1
+      )
+        throw new Error('ARTICLE_HISTORY_BINDING_INVALID');
+      historyBinding.value = {
+        articleId: record.id,
+        documentId: data.body_document_id,
+      };
+    } catch {
+      if (liveHistory())
+        historyError.value = '正文绑定查询失败，请检查当前查看权限和服务状态。';
+    } finally {
+      if (historyRequest === controller) {
+        historyLoading.value = false;
+        historyRequest = undefined;
+      }
+    }
+  };
+  const historyStorage = (event: StorageEvent) => {
+    if (event.storageArea !== null && event.storageArea !== localStorage)
+      return;
+    if (historyGeneration !== getSessionSnapshot().generation) {
+      historyVisible.value = false;
+      closeHistory();
+    }
+  };
+  window.addEventListener('storage', historyStorage);
   const { loading, setLoading } = useLoading(true);
   const renderData = ref<ArticleRecord[]>([]);
   const cateOptions = ref<Array<{ label: string; value: number }>>([]);
@@ -734,6 +840,8 @@
   watch(
     contextKey,
     () => {
+      historyVisible.value = false;
+      closeHistory();
       coverGeneration.value += 1;
       listing?.abort();
       categories?.abort();
@@ -755,6 +863,8 @@
   );
   onBeforeUnmount(() => {
     disposed = true;
+    window.removeEventListener('storage', historyStorage);
+    closeHistory();
     coverGeneration.value += 1;
     listing?.abort();
     categories?.abort();

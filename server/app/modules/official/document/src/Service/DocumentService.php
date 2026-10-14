@@ -725,6 +725,38 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
         }));
     }
 
+    public function versions(TenantContext $context, int $documentId, int $limit = 20, ?int $beforeRevisionNo = null): array
+    {
+        if ($documentId < 1 || $limit < 1 || $limit > 100 || ($beforeRevisionNo !== null && $beforeRevisionNo < 1)) {
+            throw BusinessException::invalid('DOCUMENT_INPUT_INVALID', '历史分页参数无效');
+        }
+        if (($pdo = Db::connect()->getPdo()) instanceof \PDO && $pdo->inTransaction()) {
+            throw BusinessException::conflict('DOCUMENT_VERSION_NOT_COMMITTED', '不可把外层事务中的版本声明为已提交');
+        }
+        return $this->authorization->run($context, function (TenantContext $current) use ($documentId, $limit, $beforeRevisionNo): array {
+            $document = $this->authorization->document($current, $documentId, 'view', false);
+            $query = DocumentRevision::where('tenant_id', $current->tenantId)->where('document_id', $document->id)
+                ->field('id,revision_no,created_at,source_state_seq,content_kind');
+            if ($beforeRevisionNo !== null) {
+                $query->where('revision_no', '<', $beforeRevisionNo);
+            }
+            $rows = $query->order('revision_no', 'desc')->limit($limit + 1)->select()->toArray();
+            $hasMore = count($rows) > $limit;
+            if ($hasMore) {
+                array_pop($rows);
+            }
+            $items = array_map(static fn(array $row): array => [
+                'revision_id' => (int) $row['id'], 'revision_no' => (int) $row['revision_no'],
+                'created_at' => $row['created_at'], 'source_state_seq' => (int) $row['source_state_seq'],
+                'content_kind' => $row['content_kind'],
+            ], $rows);
+            return [
+                'document_id' => (int) $document->id, 'owner' => self::ownerArray(DocumentAuthorizationService::reference($document)),
+                'items' => $items, 'next_before_revision_no' => $hasMore ? $items[array_key_last($items)]['revision_no'] : null,
+            ];
+        });
+    }
+
     public function detail(TenantContext $context, int $documentId, ?int $revisionId = null): array
     {
         return $this->authorization->run($context, function (TenantContext $current) use ($documentId, $revisionId): array {
@@ -1230,9 +1262,13 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
 
     private function targetFileInput(TenantContext $current, int $documentId, ExplicitTargetPreparationInput $input): CollaborationReferenceInput
     {
-        return new CollaborationReferenceInput($current->tenantId, $documentId,
+        return new CollaborationReferenceInput(
+            $current->tenantId,
+            $documentId,
             hash('sha256', $documentId . ':' . $input->operationKey()),
-            array_values(array_unique(array_column($input->projection->fileReferences, 'file_key'))), $input->hash());
+            array_values(array_unique(array_column($input->projection->fileReferences, 'file_key'))),
+            $input->hash(),
+        );
     }
 
     public function explicitTargetReferencesForUpdate(TenantContext $context, CollaborationReferenceInput $input, bool $consume): array
@@ -1345,62 +1381,72 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
         if ($observed === null) {
             throw BusinessException::notFound('DOCUMENT_NOT_FOUND', '文档不存在');
         }
-        return $this->businessTransaction($context, DocumentAuthorizationService::reference($observed), 'version.create',
+        return $this->businessTransaction(
+            $context,
+            DocumentAuthorizationService::reference($observed),
+            'version.create',
             function (TenantContext $current) use ($id, $expected, $reason, $requestId): array {
-            $document = $this->authorization->document($current, $id, 'version.create', true);
-            $input = [$expected,$reason];
-            self::requestKey($requestId);
-            $op = DocumentOperation::where('document_id', $id)->where('operation_id', $requestId)->lock(true)->find();
-            if ($op !== null && ($op->action !== 'version.create' || $op->input_sha256 !== self::inputHash($input))) {
-                throw BusinessException::conflict('DOCUMENT_IDEMPOTENCY_CONFLICT', '同一正式请求不能改变输入');
-            }
-            if ($op !== null && $op->phase === 'completed') {
-                $originalTarget = DocumentOperation::where('document_id', $id)->where('operation_id', 'target:' . hash('sha256', $requestId))->lock(true)->find();
-                if ($originalTarget === null) {
-                    throw BusinessException::conflict('DOCUMENT_TARGET_NOT_CONFIRMED', '点击目标操作事实不存在');
+                $document = $this->authorization->document($current, $id, 'version.create', true);
+                $input = [$expected,$reason];
+                self::requestKey($requestId);
+                $op = DocumentOperation::where('document_id', $id)->where('operation_id', $requestId)->lock(true)->find();
+                if ($op !== null && ($op->action !== 'version.create' || $op->input_sha256 !== self::inputHash($input))) {
+                    throw BusinessException::conflict('DOCUMENT_IDEMPOTENCY_CONFLICT', '同一正式请求不能改变输入');
                 }
-                $this->assertBusinessActor($current, $originalTarget);
-                return self::json($op->result_json);
-            }
-            $target = DocumentOperation::where('document_id', $id)->where('operation_id', 'target:' . hash('sha256', $requestId))->lock(true)->find();
-            if ($target === null || $target->action !== 'collaboration.target' || $target->phase !== 'prepared') {
-                throw BusinessException::conflict('DOCUMENT_TARGET_NOT_CONFIRMED', '正式版本必须消费原点击目标');
-            }
-            $this->assertBusinessActor($current, $target);
-            if ($op !== null) {
-                $this->assertBusinessActor($current, $op);
-            }
-            $command = self::json($target->command_input_json);
-            $proof = self::json($target->result_json);
-            if (!isset($command['confirmed']) || ($proof['state_seq'] ?? null) !== $expected
-                || ($command['document_auth_revision'] ?? null) !== (int) $document->auth_revision
-                || RichTextProjection::canonical($command['owner'] ?? null) !== RichTextProjection::canonical(self::ownerArray(DocumentAuthorizationService::reference($document)))) {
-                throw BusinessException::conflict('DOCUMENT_TARGET_NOT_CONFIRMED', '点击目标提交或代际不一致');
-            }
-            $frozen = new ExplicitTargetPreparationInput($command['frozen']);
-            $this->explicitTargetDocument($document, DocumentAuthorizationService::reference($document));
-            $number = (int) DocumentRevision::where('document_id', $id)->max('revision_no') + 1;
-            $digest = hash('sha256', json_encode(['rich_text',$expected,$frozen->projection->json,
-                hash('sha256', $frozen->binary),null,null], JSON_THROW_ON_ERROR));
-            $revision = DocumentRevision::create(['tenant_id' => $current->tenantId,'document_id' => $id,'revision_no' => $number,
-                'source_state_seq' => $expected,'content_kind' => 'rich_text','yjs_snapshot' => $frozen->binary,
-                'content_snapshot_json' => $frozen->projection->json,'created_at' => self::now(),'created_by_member_id' => $current->memberId,
-                'reason' => $reason,'snapshot_sha256' => $digest]);
-            foreach ($frozen->projection->fileReferences as $ref) {
-                $this->revisionReference($current, $document, $ref['file_key']);
-            }
-            $fileInput = $this->targetFileInput($current, $id, $frozen);
-            $this->targetTransfers[$fileInput] = ['root' => $this->execution->rootIdentity(),'pdo' => Db::connect()->getPdo(),
-                'consume' => true,'document' => $document,'reservations' => []];
-            $this->references->consumeExplicitTargetReferences($current, $fileInput);
-            $command['revision_id'] = (int) $revision->id;
-            $target->save(['phase' => 'completed','command_input_json' => json_encode($command, JSON_THROW_ON_ERROR)]);
-            return $this->receipt($current, $document, 'version.create', $requestId, $input,
-                array_merge($this->summary($document), ['document_id' => $id,'revision_id' => (int) $revision->id,'revision_no' => $number,'source_state_seq' => $expected,
-                    'digest' => $digest,'operation_id' => $requestId,'phase' => 'completed','lease_epoch' => (int) $document->lease_epoch,
-                    'state_seq' => $expected,'binary_sha256' => $frozen->tuple['target_binary_sha256'],
-                    'store_id' => $proof['store_id'],'target_progress' => $proof['target_progress']]));
-        });
+                if ($op !== null && $op->phase === 'completed') {
+                    $originalTarget = DocumentOperation::where('document_id', $id)->where('operation_id', 'target:' . hash('sha256', $requestId))->lock(true)->find();
+                    if ($originalTarget === null) {
+                        throw BusinessException::conflict('DOCUMENT_TARGET_NOT_CONFIRMED', '点击目标操作事实不存在');
+                    }
+                    $this->assertBusinessActor($current, $originalTarget);
+                    return self::json($op->result_json);
+                }
+                $target = DocumentOperation::where('document_id', $id)->where('operation_id', 'target:' . hash('sha256', $requestId))->lock(true)->find();
+                if ($target === null || $target->action !== 'collaboration.target' || $target->phase !== 'prepared') {
+                    throw BusinessException::conflict('DOCUMENT_TARGET_NOT_CONFIRMED', '正式版本必须消费原点击目标');
+                }
+                $this->assertBusinessActor($current, $target);
+                if ($op !== null) {
+                    $this->assertBusinessActor($current, $op);
+                }
+                $command = self::json($target->command_input_json);
+                $proof = self::json($target->result_json);
+                if (!isset($command['confirmed']) || ($proof['state_seq'] ?? null) !== $expected
+                    || ($command['document_auth_revision'] ?? null) !== (int) $document->auth_revision
+                    || RichTextProjection::canonical($command['owner'] ?? null) !== RichTextProjection::canonical(self::ownerArray(DocumentAuthorizationService::reference($document)))) {
+                    throw BusinessException::conflict('DOCUMENT_TARGET_NOT_CONFIRMED', '点击目标提交或代际不一致');
+                }
+                $frozen = new ExplicitTargetPreparationInput($command['frozen']);
+                $this->explicitTargetDocument($document, DocumentAuthorizationService::reference($document));
+                $number = (int) DocumentRevision::where('document_id', $id)->max('revision_no') + 1;
+                $digest = hash('sha256', json_encode(['rich_text',$expected,$frozen->projection->json,
+                    hash('sha256', $frozen->binary),null,null], JSON_THROW_ON_ERROR));
+                $revision = DocumentRevision::create(['tenant_id' => $current->tenantId,'document_id' => $id,'revision_no' => $number,
+                    'source_state_seq' => $expected,'content_kind' => 'rich_text','yjs_snapshot' => $frozen->binary,
+                    'content_snapshot_json' => $frozen->projection->json,'created_at' => self::now(),'created_by_member_id' => $current->memberId,
+                    'reason' => $reason,'snapshot_sha256' => $digest]);
+                foreach ($frozen->projection->fileReferences as $ref) {
+                    $this->revisionReference($current, $document, $ref['file_key']);
+                }
+                $fileInput = $this->targetFileInput($current, $id, $frozen);
+                $this->targetTransfers[$fileInput] = ['root' => $this->execution->rootIdentity(),'pdo' => Db::connect()->getPdo(),
+                    'consume' => true,'document' => $document,'reservations' => []];
+                $this->references->consumeExplicitTargetReferences($current, $fileInput);
+                $command['revision_id'] = (int) $revision->id;
+                $target->save(['phase' => 'completed','command_input_json' => json_encode($command, JSON_THROW_ON_ERROR)]);
+                return $this->receipt(
+                    $current,
+                    $document,
+                    'version.create',
+                    $requestId,
+                    $input,
+                    array_merge($this->summary($document), ['document_id' => $id,'revision_id' => (int) $revision->id,'revision_no' => $number,'source_state_seq' => $expected,
+                        'digest' => $digest,'operation_id' => $requestId,'phase' => 'completed','lease_epoch' => (int) $document->lease_epoch,
+                        'state_seq' => $expected,'binary_sha256' => $frozen->tuple['target_binary_sha256'],
+                        'store_id' => $proof['store_id'],'target_progress' => $proof['target_progress']]),
+                );
+            },
+        );
     }
 
     /** Confirm only bytes observed under the real owner/Document/state locks; never rewrite the draft. */
