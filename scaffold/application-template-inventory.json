@@ -3488,7 +3488,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "510d31dbec40956d3ad81f73d122d4fa3b86cbc4e107ff13da368b78d6dcf65b"
+            "source_sha256": "ce09febb5b639fdc8d0a2ee2a584460d24de1807a5fa7091cd74a41b15bb235c"
         },
         {
             "path": "scripts/prepare-product-release-candidate",
