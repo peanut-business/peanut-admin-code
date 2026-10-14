@@ -17,7 +17,7 @@ Route::post('official.collaboration.ticket', [TicketController::class,'issue'])-
 ]);
 Route::group('internal/collaboration/v1', function (): void {
     foreach (['authorize','check','load','store','receipt','references','target','recovery','revoke','lifecycle'] as $action) {
-        Route::post($action, [InternalController::class,$action]);
+        Route::post($action, [InternalController::class,$action])->completeMatch();
     }
-    Route::post('target/prepare', [InternalController::class,'prepareTarget']);
+    Route::post('target/prepare', [InternalController::class,'prepareTarget'])->completeMatch();
 })->middleware(ServiceAuthenticationMiddleware::class);
