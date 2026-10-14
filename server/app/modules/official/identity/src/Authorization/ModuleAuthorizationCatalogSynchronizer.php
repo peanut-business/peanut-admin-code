@@ -64,7 +64,23 @@ final readonly class ModuleAuthorizationCatalogSynchronizer
         }
         Db::transaction(function () use ($moduleKeys): void {
             $tenantIds = array_map('intval', Db::name('tenant_module')
-                ->whereIn('module_key', $moduleKeys)->lock(true)->distinct(true)->order('tenant_id')->column('tenant_id'));
+                ->whereIn('module_key', $moduleKeys)->distinct(true)->order('tenant_id')->limit(1001)->column('tenant_id'));
+            if (count($tenantIds) > 1000) {
+                throw new \DomainException('MODULE_AUTHORITY_TENANT_SET_LIMIT');
+            }
+            foreach ($tenantIds as $tenantId) {
+                Db::name('tenant')->where('id', $tenantId)->lock(true)->find();
+            }
+            $rowLimit = 1000 * count(array_unique($moduleKeys));
+            $lockedTenantIds = array_map('intval', Db::name('tenant_module')
+                ->whereIn('module_key', $moduleKeys)->lock('FOR UPDATE NOWAIT')->order('tenant_id,module_key')->limit($rowLimit + 1)->column('tenant_id'));
+            if (count($lockedTenantIds) > $rowLimit) {
+                throw new \DomainException('MODULE_AUTHORITY_TENANT_SET_LIMIT');
+            }
+            $lockedTenantIds = array_values(array_unique($lockedTenantIds));
+            if ($tenantIds !== $lockedTenantIds) {
+                throw new \DomainException('MODULE_AUTHORITY_TENANT_SET_CHANGED');
+            }
             Db::name('tenant_module')->whereIn('module_key', $moduleKeys)->update([
                 'authorization_revision' => Db::raw('authorization_revision+1'),
                 'updated_at' => Db::raw('UTC_TIMESTAMP(3)'),

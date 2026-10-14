@@ -112,6 +112,7 @@ final readonly class AccountSelfService
         $avatarUri = $this->avatarUri($avatarUri);
 
         return Db::transaction(function () use ($actor, $displayName, $avatarUri): array {
+            $this->lockAccountAuthority($actor, false);
             $current = $this->profileRow($actor, true);
             if ($current === null) {
                 throw AdminAccessException::conflict(
@@ -188,6 +189,7 @@ final readonly class AccountSelfService
                 $ipAddress,
                 $userAgent,
             ): ?AdminAccessException {
+                $this->lockAccountAuthority($actor, true);
                 $credential = Credential::alias('credential')
                     ->join('account account', 'account.id = credential.account_id')
                     ->join('tenant_member member', 'member.account_id = account.id')
@@ -332,6 +334,48 @@ final readonly class AccountSelfService
         if ($error !== null) {
             throw $error;
         }
+    }
+
+    /** Only these existing writes lock authority; ordinary profile reads remain nonlocking. */
+    private function lockAccountAuthority(TenantContext $actor, bool $allTenants): void
+    {
+        $tenants = $allTenants ? $this->accountTenants($actor->accountId, false) : [$actor->tenantId];
+        foreach ($tenants as $tenantId) {
+            \PeanutAdmin\Modules\Identity\Persistence\Model\Tenant::where('id', $tenantId)->lock(true)->find();
+        }
+        Account::where('id', $actor->accountId)->lock(true)->find();
+        if ($allTenants) {
+            if ($tenants !== $this->accountTenants($actor->accountId, true)) {
+                throw new \DomainException('ACCOUNT_AUTHORITY_TENANT_SET_CHANGED');
+            }
+        } else {
+            TenantMember::where('tenant_id', $actor->tenantId)->where('id', $actor->memberId)->where('account_id', $actor->accountId)->lock(true)->find();
+        }
+    }
+
+    private function accountTenants(int $accountId, bool $lock): array
+    {
+        $cursor = 0;
+        $count = 0;
+        $tenants = [];
+        do {
+            $query = TenantMember::where('account_id', $accountId)->where('id', '>', $cursor)->field('id,tenant_id')->order('id')->limit(100);
+            if ($lock) {
+                $query->lock('FOR UPDATE NOWAIT');
+            }
+            $rows = $query->select()->toArray();
+            foreach ($rows as $row) {
+                $cursor = (int) $row['id'];
+                $tenants[(int) $row['tenant_id']] = true;
+            }
+            $count += count($rows);
+            if ($count > 1000) {
+                throw new \DomainException('ACCOUNT_AUTHORITY_TENANT_SET_TOO_LARGE');
+            }
+        } while (count($rows) === 100);
+        $ids = array_keys($tenants);
+        sort($ids, SORT_NUMERIC);
+        return $ids;
     }
 
     private function displayName(string $displayName): string

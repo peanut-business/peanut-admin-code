@@ -80,6 +80,7 @@ final readonly class RoleAdminService
         int $expectedRevision,
     ): array {
         return $this->transaction(function () use ($actor, $roleId, $name, $description, $expectedRevision): array {
+            $this->lockTenant($actor->tenantId, false);
             $role = $this->requireRole($actor->tenantId, $roleId, true);
             $this->assertRevision($role, $expectedRevision);
             $now = $this->now();
@@ -103,6 +104,7 @@ final readonly class RoleAdminService
     public function archive(TenantContext $actor, int $roleId, int $expectedRevision): array
     {
         return $this->transaction(function () use ($actor, $roleId, $expectedRevision): array {
+            $this->lockTenant($actor->tenantId, false);
             $role = $this->requireRole($actor->tenantId, $roleId, true);
             $this->assertRevision($role, $expectedRevision);
             if ((int) $role['is_builtin'] === 1) {
@@ -147,6 +149,7 @@ final readonly class RoleAdminService
         $permissionKeys = array_values(array_unique($permissionKeys));
 
         return $this->transaction(function () use ($actor, $roleId, $permissionKeys, $expectedRevision): array {
+            $this->lockTenant($actor->tenantId, false);
             $role = $this->requireRole($actor->tenantId, $roleId, true);
             $this->assertRevision($role, $expectedRevision);
             if ((int) $role['is_builtin'] === 1 && $role['key'] === 'core.tenant-owner') {
@@ -283,9 +286,13 @@ final readonly class RoleAdminService
         return $rows;
     }
 
-    private function lockTenant(int $tenantId): void
+    private function lockTenant(int $tenantId, bool $requireActive = true): void
     {
-        if (Tenant::where('id', $tenantId)->where('status', 'active')->lock(true)->value('id') === null) {
+        $query = Tenant::where('id', $tenantId);
+        if ($requireActive) {
+            $query->where('status', 'active');
+        }
+        if ($query->lock(true)->value('id') === null) {
             throw new \PeanutAdmin\Kernel\Authorization\Application\AdminAccessException('TENANT_STATUS_INVALID', 403, 'The tenant is not active.');
         }
     }

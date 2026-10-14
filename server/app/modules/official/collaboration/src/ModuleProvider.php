@@ -71,6 +71,7 @@ final class ModuleProvider implements \PeanutAdmin\Kernel\Module\ModuleProvider,
                 $app->make(\app\common\execution\CurrentExecutionContext::class),
                 (array) ($app->config->has('collaboration') ? $app->config->get('collaboration') : require dirname(__DIR__) . '/config/collaboration.php'),
                 (string) $app->config->get('deployment.mode'),
+                $app->make(\PeanutAdmin\Modules\Document\Contract\DocumentCollaborativeWrites::class),
             ),
         ];
     }

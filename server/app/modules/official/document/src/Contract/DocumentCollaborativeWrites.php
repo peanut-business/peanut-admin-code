@@ -8,6 +8,8 @@ use PeanutAdmin\Kernel\Auth\TenantContext;
 
 interface DocumentCollaborativeWrites
 {
+    /** @return array{status: 'OLD_STALE'|'CURRENT_FRESH'|'UNKNOWN'} Only the claimed negative fact, no Admin/grant/content result. */
+    public function compareRevocationGrant(TenantContext $identity, int $documentId, string $mode, string $issuedRevision, string $factId, string $factHash): array;
     /** Current human authorization; caller holds an outer Admin root and native transaction. */
     public function authorizeCollaboration(TenantContext $context, int $documentId, string $mode, bool $enable = false): array;
     /** No current-human shortcut: compiled provider must prove the accepted exact-byte capture. */

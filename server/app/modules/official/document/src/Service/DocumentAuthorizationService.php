@@ -23,7 +23,128 @@ final readonly class DocumentAuthorizationService
         private ExecutionContextStore $execution,
         private ModuleRuntimeRepository $modules,
         private DocumentOwnerRegistry $owners,
+        private \PeanutAdmin\Modules\Identity\Contract\TenantAuthorizationReadFence $fence,
     ) {}
+
+    /** Locate only server-owned metadata, then retain IAM locks before any Owner/Document lock. */
+    public function prepareGrant(TenantContext $context, int $id, string $action): array
+    {
+        $document = $this->grantMetadata($id);
+        [$permissions, $modules] = $this->authorityScope($document, $action);
+        $pdo = \think\facade\Db::connect()->getPdo();
+        $digest = $this->fence->captureGrant($context, $permissions, $modules);
+        return ['reference' => self::reference($document), 'permissions' => $permissions, 'modules' => $modules,
+            'digest' => $digest, 'pdo' => $pdo, 'action' => $action];
+    }
+
+    /** Closed three-state result. This never creates an Admin root, transaction, grant or content result. */
+    public function compareRevocationGrant(TenantContext $identity, int $id, string $mode, string $issuedRevision, string $factId, string $factHash): array
+    {
+        $this->fence->assertRevocationScope($identity, $factId, $factHash);
+        if (!in_array($mode, ['read', 'write'], true) || preg_match('/^[0-9a-f]{64}$/D', $issuedRevision) !== 1) {
+            return ['status' => 'UNKNOWN'];
+        }
+        try {
+            try {
+                $current = $this->sessions->revalidateSession(
+                    $identity->tenantId,
+                    $identity->accountId,
+                    $identity->memberId,
+                    $identity->sessionKey,
+                    $identity->clientKey,
+                    $identity->requestId,
+                );
+            } catch (\PeanutAdmin\Modules\Identity\Contract\TenantSessionAccessException) {
+                return ['status' => 'OLD_STALE'];
+            }
+            if ($current->authorizationRevision !== $identity->authorizationRevision) {
+                return ['status' => 'UNKNOWN'];
+            }
+            $action = $mode === 'write' ? 'edit' : 'view';
+            $document = $this->grantMetadata($id);
+            [$permissions, $modules] = $this->authorityScope($document, $action);
+            $before = $this->fence->revocationDigest($current, $permissions, $modules, $factId, $factHash);
+            $policy = $this->owners->requirePolicy(self::reference($document));
+            $owner = $policy->resolvePersistedOwner($current->tenantId, self::reference($document), false);
+            $ownerVersion = $policy->stateRevision($owner);
+            $stale = $document->status !== 'active' || $owner->archived || $document->content_kind !== 'rich_text' || !(bool) $document->collaboration_enabled;
+            $permissionDenied = false;
+            if (!$stale) {
+                try {
+                    foreach ($modules as $module) {
+                        $this->requireModule($current, $module);
+                    }
+                    // The same real OwnerPolicy decision used by positive grants, under the original System root.
+                    $policy->authorize($current, $action, $owner);
+                    $revision = $this->composeRevision($current, $document, $action, $before, $owner);
+                } catch (BusinessException $error) {
+                    if ($error->errorCode !== 'ARTICLE_DOCUMENT_DENIED') {
+                        return ['status' => 'UNKNOWN'];
+                    }
+                    $permissionDenied = true;
+                } catch (\PeanutAdmin\Kernel\Module\ModuleException $error) {
+                    if (!in_array($error->errorCode, ['MODULE_TENANT_DISABLED', 'MODULE_TENANT_NOT_EFFECTIVE'], true)) {
+                        return ['status' => 'UNKNOWN'];
+                    }
+                    foreach ($modules as $module) {
+                        $record = $this->modules->tenantModule($current->tenantId, $module);
+                        if ($record === null) {
+                            return ['status' => 'UNKNOWN'];
+                        }
+                        $stale = $stale || $record->status === 'disabled' || !$record->isEffective(new \DateTimeImmutable('now', new \DateTimeZone('UTC')));
+                    }
+                    if (!$stale) {
+                        return ['status' => 'UNKNOWN'];
+                    }
+                }
+            }
+            if ($permissionDenied) {
+                $principal = $this->authorization->principal($current);
+                $denied = false;
+                foreach ($permissions as $permission) {
+                    $decision = $this->authorization->decide($current, $principal, $permission);
+                    if (!$decision->allowed && $decision->reason !== 'PERMISSION_NOT_GRANTED') {
+                        return ['status' => 'UNKNOWN'];
+                    }
+                    $denied = $denied || !$decision->allowed;
+                }
+                if (!$denied) {
+                    return ['status' => 'UNKNOWN'];
+                }
+                $stale = true;
+            }
+            $after = $this->fence->revocationDigest($current, $permissions, $modules, $factId, $factHash);
+            $verified = $this->grantMetadata($id);
+            $verifiedOwner = $policy->resolvePersistedOwner($current->tenantId, self::reference($document), false);
+            if (!hash_equals($before, $after) || $document->toArray() !== $verified->toArray()
+                || $ownerVersion !== $policy->stateRevision($verifiedOwner)) {
+                return ['status' => 'UNKNOWN'];
+            }
+            return ['status' => $stale || !hash_equals($issuedRevision, $revision) ? 'OLD_STALE' : 'CURRENT_FRESH'];
+        } catch (\Throwable) {
+            // Source/fact/identity gates above are not hidden by this classification boundary.
+            return ['status' => 'UNKNOWN'];
+        }
+    }
+
+    private function grantMetadata(int $id): Document
+    {
+        $document = Document::where('id', $id)->field('id,tenant_id,owner_module_key,owner_object_type,owner_object_id,slot,status,auth_revision,content_kind,collaboration_enabled')->find();
+        if ($document === null) {
+            throw BusinessException::notFound('DOCUMENT_NOT_FOUND', '文档不存在');
+        }
+        return $document;
+    }
+
+    private function authorityScope(Document $document, string $action): array
+    {
+        $reference = self::reference($document);
+        $permissions = $this->owners->requirePolicy($reference)->authorizationPermissionKeys($document->status === 'archived' ? 'archive.read' : $action);
+        $modules = array_values(array_unique(['official.document', 'official.collaboration', $reference->moduleKey]));
+        sort($permissions, SORT_STRING);
+        sort($modules, SORT_STRING);
+        return [$permissions, $modules];
+    }
 
     public function run(TenantContext $context, callable $operation): mixed
     {
@@ -114,14 +235,33 @@ final readonly class DocumentAuthorizationService
         return $document;
     }
 
-    public function revision(TenantContext $context, Document $document, string $action = 'view'): string
+    public function revision(TenantContext $context, Document $document, string $action = 'view', ?array $grant = null): string
     {
+        [$permissions, $modules] = $this->authorityScope($document, $action);
+        if ($grant !== null) {
+            if ($grant['pdo'] !== \think\facade\Db::connect()->getPdo() || !$grant['pdo']->inTransaction()
+                || $grant['reference'] != self::reference($document) || $grant['action'] !== $action
+                || $grant['permissions'] !== $permissions || $grant['modules'] !== $modules) {
+                throw new \DomainException('DOCUMENT_GRANT_SCOPE_CHANGED');
+            }
+            $digest = $grant['digest'];
+        } else {
+            $digest = $this->fence->currentDigest($context, $permissions, $modules);
+        }
         $owner = $this->owner($context, self::reference($document), $document->status === 'archived' ? 'archive.read' : $action, false);
+        return $this->composeRevision($context, $document, $action, $digest, $owner);
+    }
+
+    private function composeRevision(TenantContext $context, Document $document, string $action, string $digest, \PeanutAdmin\Modules\Document\Contract\DocumentOwnerState $owner): string
+    {
+        [$permissions, $modules] = $this->authorityScope($document, $action);
         $guard = new ModuleGuard($this->modules);
         $moduleState = [$guard->assertDeployment($owner->reference->moduleKey),$guard->assertTenant($context->tenantId, $owner->reference->moduleKey, new \DateTimeImmutable('now', new \DateTimeZone('UTC')))];
         // Editing progress belongs to state_seq/CAS receipts, never to a connection's authorization grant.
-        return hash('sha256', json_encode([$context->authorizationRevision,$document->auth_revision,$document->status,
-            $this->owners->requirePolicy($owner->reference)->stateRevision($owner),$moduleState], JSON_THROW_ON_ERROR));
+        return hash('sha256', json_encode(['peanut.document.grant-authorization.v1', $context->tenantId, $context->memberId,
+            (int) $document->id, $action, [$owner->reference->moduleKey, $owner->reference->objectType, $owner->reference->objectId, $owner->reference->slot],
+            $permissions, $modules, $digest, $context->authorizationRevision, $document->auth_revision, $document->status,
+            $this->owners->requirePolicy($owner->reference)->stateRevision($owner), $moduleState], JSON_THROW_ON_ERROR));
     }
 
     public static function reference(Document $document): DocumentOwnerReference

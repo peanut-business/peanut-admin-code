@@ -132,8 +132,12 @@ final readonly class CollaborationService implements \PeanutAdmin\Modules\Collab
                     || strtotime($room->lease_expires_at . ' UTC') <= time()) {
                     // Signed details are emitted only after the original ticket and current full actor permission pass.
                     // This transaction has not consumed the ticket; one explicit recovery may reauthorize it.
-                    throw new ApiProblem('RECOVERY_REQUIRED', 409, '房间需要显式恢复',
-                        ['room_key' => $room->room_key,'lease_epoch' => (int) $room->lease_epoch,'binding' => $binding]);
+                    throw new ApiProblem(
+                        'RECOVERY_REQUIRED',
+                        409,
+                        '房间需要显式恢复',
+                        ['room_key' => $room->room_key,'lease_epoch' => (int) $room->lease_epoch,'binding' => $binding],
+                    );
                 }
                 $lockedTicket = CollaborationTicket::where('id', $ticket->id)->lock(true)->find();
                 if ($lockedTicket === null || $lockedTicket->consumed_at !== null || $lockedTicket->revoked_at !== null
@@ -196,13 +200,17 @@ final readonly class CollaborationService implements \PeanutAdmin\Modules\Collab
     {
         $body = $this->input(['room_key','lease_epoch','connection_key']);
         [$connection,$ticket] = $this->connectionTicket(self::text($body, 'connection_key'));
-        return $this->asActor(TicketIdentity::fromLedger(NativeCollaborationProvider::json($ticket->issued_identity_json)),
+        return $this->asActor(
+            TicketIdentity::fromLedger(NativeCollaborationProvider::json($ticket->issued_identity_json)),
             function (TenantContext $actor) use ($body, $connection, $ticket): array {
                 return Db::transaction(function () use ($actor, $body, $connection, $ticket): array {
                     $doc = $this->documents->authorizeCollaboration($actor, (int) $ticket->document_id, 'read');
                     $this->sameTicketDocument($ticket, $doc);
-                    $data = $this->documents->loadAuthorizedCollaboration($actor, (int) $ticket->document_id,
-                        self::owner(NativeCollaborationProvider::json($ticket->owner_reference_json)));
+                    $data = $this->documents->loadAuthorizedCollaboration(
+                        $actor,
+                        (int) $ticket->document_id,
+                        self::owner(NativeCollaborationProvider::json($ticket->owner_reference_json)),
+                    );
                     $room = $this->native->lockedRoom(self::text($body, 'room_key'), self::positive($body, 'lease_epoch'));
                     $this->lockedConnection($connection->connection_key, $room);
                     if ($room->status !== 'active') {
@@ -210,7 +218,8 @@ final readonly class CollaborationService implements \PeanutAdmin\Modules\Collab
                     }
                     return $data + ['binding' => $this->native->roomBinding($room->room_key),'holder_key' => $room->holder_key];
                 });
-            });
+            },
+        );
     }
 
     public function store(): array
@@ -228,8 +237,12 @@ final readonly class CollaborationService implements \PeanutAdmin\Modules\Collab
         $body = $this->input(['room_key','lease_epoch','store_id','capture_sha256']);
         return $this->asRoom(self::text($body, 'room_key'), function (array $binding) use ($body): array {
             return Db::transaction(function () use ($binding, $body): array {
-                $receipt = $this->documents->collaborationReceipt($binding['document_id'], self::owner($binding['owner']),
-                    self::key($body, 'store_id'), self::digest($body, 'capture_sha256'));
+                $receipt = $this->documents->collaborationReceipt(
+                    $binding['document_id'],
+                    self::owner($binding['owner']),
+                    self::key($body, 'store_id'),
+                    self::digest($body, 'capture_sha256'),
+                );
                 return $receipt === null ? ['found' => false] : ['found' => true,'receipt' => $receipt->data];
             });
         });
@@ -247,7 +260,8 @@ final readonly class CollaborationService implements \PeanutAdmin\Modules\Collab
         sort($keys);
         $requestId = self::key($body, 'request_id');
         [$connection,$ticket] = $this->connectionTicket(self::text($body, 'connection_key'));
-        return $this->asActor(TicketIdentity::fromLedger(NativeCollaborationProvider::json($ticket->issued_identity_json)),
+        return $this->asActor(
+            TicketIdentity::fromLedger(NativeCollaborationProvider::json($ticket->issued_identity_json)),
             function (TenantContext $actor) use ($body, $connection, $ticket, $keys, $requestId): array {
                 return Db::transaction(function () use ($actor, $body, $connection, $ticket, $keys, $requestId): array {
                     $this->lifecycle->lockAdmission($this->authentication->current()->holderKey);
@@ -278,40 +292,56 @@ final readonly class CollaborationService implements \PeanutAdmin\Modules\Collab
                             'input_sha256' => self::hash($body),'file_keys_json' => json_encode($keys, JSON_THROW_ON_ERROR),
                             'reservation_key' => $reservationKey,'created_at' => self::date()]);
                         $this->references->reserveCollaborationReferences($actor, new CollaborationReferenceInput(
-                            $actor->tenantId, $doc['document_id'], $reservationKey, $keys, $grantKey));
+                            $actor->tenantId,
+                            $doc['document_id'],
+                            $reservationKey,
+                            $keys,
+                            $grantKey,
+                        ));
                     } else {
                         $now = (int) $old->issued_at_ms;
                     }
                     return ['document_id' => $doc['document_id'],'room_key' => $room->room_key,'lease_epoch' => (int) $room->lease_epoch,
                         'file_keys' => $keys,'authorization_revision' => $doc['authorization_revision'],'authorized_at_ms' => $now];
                 });
-            });
+            },
+        );
     }
 
     public function prepareTarget(): array
     {
         $input = new ExplicitTargetPreparationInput($this->authentication->payload());
         return $this->targetActor($input->tuple['connection_key'], fn(TenantContext $actor, CollaborationTicket $ticket): array =>
-            $this->documents->prepareExplicitTarget($actor, (int) $ticket->document_id,
-                self::owner(NativeCollaborationProvider::json($ticket->owner_reference_json)), $input));
+            $this->documents->prepareExplicitTarget(
+                $actor,
+                (int) $ticket->document_id,
+                self::owner(NativeCollaborationProvider::json($ticket->owner_reference_json)),
+                $input,
+            ));
     }
 
     public function target(): array
     {
         $input = new ExplicitTargetInput($this->authentication->payload());
         return $this->targetActor($input->tuple['connection_key'], fn(TenantContext $actor, CollaborationTicket $ticket): array =>
-            $this->documents->registerExplicitTarget($actor, (int) $ticket->document_id,
-                self::owner(NativeCollaborationProvider::json($ticket->owner_reference_json)), $input));
+            $this->documents->registerExplicitTarget(
+                $actor,
+                (int) $ticket->document_id,
+                self::owner(NativeCollaborationProvider::json($ticket->owner_reference_json)),
+                $input,
+            ));
     }
 
     private function targetActor(string $key, callable $operation): array
     {
         [$connection,$ticket] = $this->connectionTicket($key);
-        return $this->asActor(TicketIdentity::fromLedger(NativeCollaborationProvider::json($ticket->issued_identity_json)),
+        return $this->asActor(
+            TicketIdentity::fromLedger(NativeCollaborationProvider::json($ticket->issued_identity_json)),
             fn(TenantContext $actor): array => Db::transaction(function () use ($actor, $ticket, $operation): array {
                 $this->lifecycle->lockAdmission($this->authentication->current()->holderKey);
                 return $operation($actor, $ticket);
-            }));
+            }),
+        );
     }
 
     public function lifecycle(): array
@@ -332,8 +362,13 @@ final readonly class CollaborationService implements \PeanutAdmin\Modules\Collab
         if ($this->execution->current() !== null) {
             throw BusinessException::forbidden('COLLABORATION_INTERNAL_AUDIENCE_INVALID', '恢复不能覆盖现有身份');
         }
-        return $this->execution->run(new SystemExecutionContext(new TenantSystemContext($binding['tenant_id'],
-            'collaboration:' . $request->serviceInstanceId, 'collaboration.native-recovery', $request->nonce)),
+        return $this->execution->run(
+            new SystemExecutionContext(new TenantSystemContext(
+                $binding['tenant_id'],
+                'collaboration:' . $request->serviceInstanceId,
+                'collaboration.native-recovery',
+                $request->nonce,
+            )),
             function () use ($body, $binding, $requestId, $request): array {
                 return Db::transaction(function () use ($body, $binding, $requestId, $request): array {
                     $this->lifecycle->lockAdmission($this->authentication->current()->holderKey);
@@ -361,12 +396,18 @@ final readonly class CollaborationService implements \PeanutAdmin\Modules\Collab
                         'last_store_sha256' => null,'last_receipt_json' => null,'last_target_progress' => 0,'updated_at' => self::date()]);
                     CollaborationConnection::where('room_id', $room->id)->where('status', 'active')->update(['status' => 'closed']);
                     $this->documents->releaseFencedCollaborationReferences($binding['document_id'], self::owner($binding['owner']), $epoch);
-                    $this->audit->appendTenantSystem($binding['tenant_id'], 'collaboration.room.recovered', 'collaboration.recovery',
-                        $requestId, ['document_id' => $binding['document_id'],'lease_epoch' => $epoch + 1,'state_seq' => $baseline['state_seq']]);
+                    $this->audit->appendTenantSystem(
+                        $binding['tenant_id'],
+                        'collaboration.room.recovered',
+                        'collaboration.recovery',
+                        $requestId,
+                        ['document_id' => $binding['document_id'],'lease_epoch' => $epoch + 1,'state_seq' => $baseline['state_seq']],
+                    );
                     return ['protocol' => 2,'holder_key' => $request->holderKey,'request_id' => $requestId,'room_key' => $room->room_key,'lease_epoch' => $epoch + 1,
                         'binding' => $binding,'baseline' => $baseline];
                 });
-            });
+            },
+        );
     }
 
     private function assertGrantCapacity(CollaborationRoom $room): void
@@ -379,6 +420,15 @@ final readonly class CollaborationService implements \PeanutAdmin\Modules\Collab
 
     private function recordGrant(CollaborationConnection $connection, CollaborationRoom $room, CollaborationTicket $ticket): void
     {
+        $actor = $this->execution->current();
+        $pdo = Db::connect()->getPdo();
+        if (!$actor instanceof AdminExecutionContext || !$pdo instanceof \PDO || !$pdo->inTransaction()
+            || (int) $room->tenant_id !== $actor->tenant->tenantId || (int) $connection->tenant_id !== $actor->tenant->tenantId
+            || (int) $ticket->tenant_id !== $actor->tenant->tenantId || (int) $connection->room_id !== (int) $room->id
+            || (int) $connection->ticket_id !== (int) $ticket->id || (int) $ticket->document_id !== (int) $room->document_id
+            || preg_match('/^[0-9a-f]{64}$/D', (string) $connection->authorization_revision) !== 1) {
+            throw new \DomainException('COLLABORATION_GRANT_TRANSACTION_SCOPE_DENIED');
+        }
         $this->assertGrantCapacity($room);
         $now = (int) floor(microtime(true) * 1000);
         $expires = strtotime($connection->lease_expires_at . ' UTC') * 1000;
@@ -550,7 +600,7 @@ final readonly class CollaborationService implements \PeanutAdmin\Modules\Collab
             || !is_int($this->configuration['room_lease_seconds'] ?? null) || $this->configuration['room_lease_seconds'] < 1 || $this->configuration['room_lease_seconds'] > 60
             || !is_int($this->configuration['connection_lease_seconds'] ?? null) || $this->configuration['connection_lease_seconds'] < 1 || $this->configuration['connection_lease_seconds'] > 30
             || $this->configuration['connection_lease_seconds'] > $this->configuration['room_lease_seconds']
-            ) {
+        ) {
             throw new ApiProblem('COLLAB_UNAVAILABLE', 503, '协作配置不完整或未启用');
         }
     }

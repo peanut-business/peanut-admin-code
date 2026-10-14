@@ -206,8 +206,15 @@ final readonly class MemberAdminService
             throw AdminAccessException::invalid('EMAIL_INVALID', 'The email address is invalid.');
         }
         $this->requireTenantStatus($actor->tenantId, 'active', true);
+        $candidateAccountId = Credential::where('identifier_type', 'email')->where('identifier_normalized', $identifier)->value('account_id');
+        if ($candidateAccountId !== null) {
+            Account::where('id', (int) $candidateAccountId)->lock(true)->find();
+        }
         $credential = Credential::where('identifier_type', 'email')
             ->where('identifier_normalized', $identifier)->lock(true)->field('id,account_id,status')->find()?->toArray();
+        if ($credential !== null && (int) $credential['account_id'] !== (int) $candidateAccountId) {
+            throw AdminAccessException::conflict('MEMBER_ACCOUNT_AUTHORITY_CHANGED', 'The account binding changed while acquiring its authority locks.');
+        }
         if ($credential === null) {
             if ($initialPassword === null || $initialPassword === '') {
                 throw AdminAccessException::invalid(
@@ -293,6 +300,7 @@ final readonly class MemberAdminService
         ?int $primaryDepartmentId,
         int $expectedRevision,
     ): array {
+        Tenant::where('id', $actor->tenantId)->lock(true)->find();
         $member = $this->requireMember($actor->tenantId, $memberId, true);
         if ((int) $member['authorization_revision'] !== $expectedRevision) {
             throw AdminAccessException::revisionMismatch();

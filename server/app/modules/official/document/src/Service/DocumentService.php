@@ -1028,7 +1028,9 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
             throw BusinessException::invalid('DOCUMENT_COLLABORATION_MODE_INVALID', '协作模式无效');
         }
         $this->requireCollaborationTransaction($context->tenantId, false);
-        return $this->authorization->run($context, function (TenantContext $current) use ($documentId, $mode, $enable): array {
+        $action = $mode === 'write' ? 'edit' : 'view';
+        $grant = $this->authorization->prepareGrant($context, $documentId, $action);
+        return $this->authorization->run($context, function (TenantContext $current) use ($documentId, $mode, $enable, $action, $grant): array {
             $this->authorization->requireModule($current, 'official.collaboration');
             $document = $this->authorization->document($current, $documentId, $mode === 'write' ? 'edit' : 'view', true);
             if ($document->content_kind !== 'rich_text' || $document->status !== 'active') {
@@ -1043,11 +1045,16 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
             }
             return ['document_id' => $documentId,'tenant_id' => $current->tenantId,
                 'owner' => self::ownerArray(DocumentAuthorizationService::reference($document)),
-                'authorization_revision' => $this->authorization->revision($current, $document, $mode === 'write' ? 'edit' : 'view'),
+                'authorization_revision' => $this->authorization->revision($current, $document, $action, $grant),
                 'document_auth_revision' => (int) $document->auth_revision,'state_seq' => (int) $document->state_seq,
                 'state_sha256' => $state->state_sha256,'lease_epoch' => (int) $document->lease_epoch,
                 'collaboration_enabled' => (bool) $document->collaboration_enabled];
         });
+    }
+
+    public function compareRevocationGrant(TenantContext $identity, int $documentId, string $mode, string $issuedRevision, string $factId, string $factHash): array
+    {
+        return $this->authorization->compareRevocationGrant($identity, $documentId, $mode, $issuedRevision, $factId, $factHash);
     }
 
     public function loadAuthorizedCollaboration(TenantContext $context, int $documentId, DocumentOwnerReference $owner): array

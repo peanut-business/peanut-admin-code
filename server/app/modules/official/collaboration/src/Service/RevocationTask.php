@@ -35,6 +35,7 @@ final readonly class RevocationTask implements TaskWorkerDefinition, \PeanutAdmi
         private CurrentExecutionContext $execution,
         private array $configuration,
         private string $edition,
+        private \PeanutAdmin\Modules\Document\Contract\DocumentCollaborativeWrites $documents,
     ) {}
 
     public function ownerModuleKey(): string
@@ -165,7 +166,7 @@ final readonly class RevocationTask implements TaskWorkerDefinition, \PeanutAdmi
             $scope = $execution->negativeState($batchKey);
             if ($scope === null) {
                 $rows = $this->connections($fact)->where('connection.id', '>', $cursor)->where('connection.id', '<=', $plan['high_water'])
-                    ->field('connection.id,connection.connection_key,connection.lease_epoch,connection.authorization_revision,ticket.issued_identity_json,room.room_key')
+                    ->field('connection.id,connection.connection_key,connection.lease_epoch,connection.authorization_revision,connection.mode,ticket.document_id,ticket.issued_identity_json,room.room_key,room.protocol_version')
                     ->order('connection.id')->limit(100)->select()->toArray();
                 $targets = [];
                 foreach ($rows as $row) {
@@ -176,15 +177,9 @@ final readonly class RevocationTask implements TaskWorkerDefinition, \PeanutAdmi
                     if ($fact['session_fingerprint'] !== null && !hash_equals($fact['session_fingerprint'], hash('sha256', $identity->sessionKey))) {
                         continue;
                     }
-                    try {
-                        $current = $identity->revalidate($this->sessions, $envelope->jobKey);
-                        $stale = $current->authorizationRevision !== $identity->authorizationRevision;
-                    } catch (TenantSessionAccessException) {
-                        $stale = true;
+                    if ((int) $row['protocol_version'] !== 2 || !in_array($row['mode'], ['read', 'write'], true)) {
+                        throw new RetryableTaskException('REVOCATION_GRANT_VERSION_UNKNOWN');
                     }
-                    if (!$stale) {
-                        continue;
-                    } // Never close a subsequently freshly authorized grant.
                     $target = ['connection_key' => $row['connection_key'], 'room_key' => $row['room_key'], 'lease_epoch' => (int) $row['lease_epoch'],
                         'member_id' => $identity->memberId, 'authorization_revision' => $row['authorization_revision']];
                     foreach (['connection_key', 'room_key', 'authorization_revision'] as $key) {
@@ -195,6 +190,25 @@ final readonly class RevocationTask implements TaskWorkerDefinition, \PeanutAdmi
                     if ($target['lease_epoch'] < 1 || $target['lease_epoch'] > 9007199254740991 || $identity->memberId > 9007199254740991) {
                         throw new \DomainException('REVOCATION_LEDGER_SCOPE_INVALID');
                     }
+                    try {
+                        $current = $identity->revalidate($this->sessions, $envelope->jobKey);
+                        $stale = $current->authorizationRevision !== $identity->authorizationRevision;
+                    } catch (TenantSessionAccessException) {
+                        $stale = true;
+                    }
+                    if (!$stale) {
+                        $execution->assertLeaseOwned();
+                        $decision = $this->documents->compareRevocationGrant($current, (int) $row['document_id'], $row['mode'], $row['authorization_revision'], $fact['fact_id'], $fact['fact_sha256']);
+                        $execution->assertLeaseOwned();
+                        if (($decision['status'] ?? null) === 'OLD_STALE') {
+                            $stale = true;
+                        } elseif (($decision['status'] ?? null) !== 'CURRENT_FRESH') {
+                            throw new RetryableTaskException('REVOCATION_GRANT_AUTHORITY_UNKNOWN');
+                        }
+                    }
+                    if (!$stale) {
+                        continue;
+                    } // Never close a subsequently freshly authorized grant.
                     $targets[] = $target;
                 }
                 $body = ['protocol_version' => 1, 'action' => 'access.invalidate', 'fact_id' => $fact['fact_id'], 'fact_sha256' => $fact['fact_sha256'],
