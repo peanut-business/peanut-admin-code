@@ -205,6 +205,14 @@
   let disposed = false;
   let epoch = 0;
   let request: AbortController | undefined;
+  let initialMetadata:
+    | {
+        data: ArticleBodyEditor;
+        controller: AbortController;
+        key: string;
+        token: number;
+      }
+    | undefined;
   let ensureId = crypto.randomUUID();
   const current = (controller: AbortController, key: string, token: number) =>
     !disposed &&
@@ -212,6 +220,7 @@
     key === context.value &&
     token === epoch;
   const start = () => {
+    initialMetadata = undefined;
     request?.abort();
     const controller = new AbortController();
     request = controller;
@@ -264,8 +273,19 @@
   };
   const resolveMetadata = async (signal: AbortSignal) => {
     const key = context.value;
-    const { data } = await getArticleBodyEditor(props.articleId, signal);
-    if (disposed || signal.aborted || key !== context.value)
+    const token = epoch;
+    // Hand the current load response to its first mount only, never a later authorization.
+    const initial = initialMetadata;
+    initialMetadata = undefined;
+    if (disposed || signal.aborted) throw new Error('ARTICLE_CONTEXT_CHANGED');
+    const data =
+      initial &&
+      initial.key === key &&
+      current(initial.controller, initial.key, initial.token) &&
+      editor.value === initial.data
+        ? initial.data
+        : (await getArticleBodyEditor(props.articleId, signal)).data;
+    if (disposed || signal.aborted || key !== context.value || token !== epoch)
       throw new Error('ARTICLE_CONTEXT_CHANGED');
     validEditor(data);
     verifyBaseline(data);
@@ -397,6 +417,7 @@
       attempt.value = undefined;
       targetAttempt.value = undefined;
       phase.value = 'idle';
+      initialMetadata = { data, controller, key, token };
       mountedEditor.value = true;
       message.value = '正文自动保存为草稿；业务保存才会绑定不可变版本。';
       return true;
@@ -732,6 +753,7 @@
   watch(
     context,
     () => {
+      initialMetadata = undefined;
       epoch += 1;
       request?.abort();
       request = undefined;
@@ -757,6 +779,7 @@
   );
   onBeforeUnmount(() => {
     disposed = true;
+    initialMetadata = undefined;
     epoch += 1;
     request?.abort();
     unsubscribe();
