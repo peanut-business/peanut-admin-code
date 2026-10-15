@@ -60,8 +60,12 @@ function assertNativeMysqlSchemaLease(
     string $registrySha256,
 ): void {
     $common = leaseGit(['-C', $root, 'rev-parse', '--path-format=absolute', '--git-common-dir']);
+    $candidateRoot = leaseGit(['-C', $root, 'rev-parse', '--show-toplevel']);
+    $candidateHead = leaseGit(['-C', $root, 'rev-parse', 'HEAD^{commit}']);
     $expectedProof = $common . '/peanut-admin-resource-leases/leases/' . $metadata['lease'];
     if ($metadata['parent_lease'] !== ''
+        || realpath($candidateRoot) !== $root
+        || !hash_equals($metadata['candidate'], $candidateHead)
         || realpath($metadata['worktree']) !== $root
         || realpath($metadata['candidate_repository']) !== $root
         || realpath($proofPath) !== realpath($expectedProof)
