@@ -45,7 +45,95 @@ try {
         require_once $prepared . '/database/install.php';
         $target = applicationMigrationTargetVersion($prepared, applicationReleaseVersions($prepared));
         $result = $runner->run($files, $target, $identity['application']['version'], true);
-        echo json_encode(['status' => 'completed', 'operation' => 'preflight', 'candidate' => $product['candidate'], 'application' => $result], JSON_THROW_ON_ERROR), PHP_EOL;
+        $modulePreflightStarted = true;
+        $moduleDiagnostic = ['phase' => 'module-preflight', 'code' => 'MODULE_PREFLIGHT_REPORT_INVALID'];
+        $canonicalValue = static function (array $value) use (&$canonicalValue): array {
+            if (!array_is_list($value)) { ksort($value, SORT_STRING); }
+            foreach ($value as $key => $item) {
+                if (is_array($item)) { $value[$key] = $canonicalValue($item); }
+            }
+            return $value;
+        };
+        $canonicalJson = static fn(array $value): string => json_encode($canonicalValue($value), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $commandEnvironment = getenv();
+        if (!is_array($commandEnvironment)) { throw new RuntimeException('module plan environment is unavailable'); }
+        foreach (array_merge(peanutBackendEnvironmentKeys(), peanutTransientInstallationKeys()) as $name) {
+            unset($commandEnvironment[$name]);
+        }
+        $commandEnvironment['PEANUT_SERVER_ENV_FILE'] = $prepared . '/.env';
+        $process = proc_open(
+            [PHP_BINARY, $prepared . '/think', 'plugin:reconcile', '--release-locked', '--plan-only', '--current-server=' . $server],
+            [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes, $prepared, $commandEnvironment,
+        );
+        if (!is_resource($process)) { throw new RuntimeException('module plan could not start'); }
+        $output = stream_get_contents($pipes[1], 8388609);
+        fclose($pipes[1]);
+        $diagnostic = stream_get_contents($pipes[2], 65537);
+        fclose($pipes[2]);
+        $exitCode = proc_close($process);
+        $modules = is_string($output) && strlen($output) <= 8388608 ? json_decode(trim($output), true) : null;
+        $moduleDiagnostic['diagnostic_sha256'] = hash('sha256', (string) $diagnostic);
+        if (is_array($modules)) {
+            $failure = $modules['code'] ?? null;
+            if (isset($modules['plugin_key'])) { $moduleDiagnostic['plugin_key'] = $modules['plugin_key']; }
+            foreach ($modules['packages'] ?? [] as $item) {
+                if (($item['may_apply'] ?? null) === true) { continue; }
+                $moduleDiagnostic['plugin_key'] = $item['key'] ?? '';
+                $failure = $item['code'] ?? $failure;
+                foreach ($item['modules'] ?? [] as $module) {
+                    foreach ($module['preflight_reports'] ?? [] as $report) {
+                        if (($report['may_apply'] ?? null) !== true) {
+                            $moduleDiagnostic['module_key'] = $module['module_key'] ?? '';
+                            $failure = $report['code'] ?? 'UNKNOWN_PRECONDITION';
+                            break 3;
+                        }
+                    }
+                }
+                break;
+            }
+            if (is_string($failure) && preg_match('/\A[A-Z][A-Z0-9_]{0,127}\z/D', $failure) === 1) {
+                $moduleDiagnostic['code'] = $failure;
+            }
+        }
+        $reportSha = is_array($modules) ? ($modules['report_sha256'] ?? null) : null;
+        $unsigned = is_array($modules) ? $modules : [];
+        unset($unsigned['report_sha256']);
+        if ($exitCode !== 0 || !is_array($modules) || ($modules['schema_version'] ?? null) !== 1
+            || ($modules['protocol'] ?? null) !== 'peanut.plugin-reconcile-plan.v1'
+            || ($modules['scope'] ?? null) !== 'release-locked' || ($modules['readonly'] ?? null) !== true
+            || ($modules['complete'] ?? null) !== true
+            || ($modules['status'] ?? null) !== 'ready' || ($modules['may_apply'] ?? null) !== true
+            || ($modules['target_server_root'] ?? null) !== $prepared || ($modules['current_server_root'] ?? null) !== $server
+            || ($modules['target_lock_sha256'] ?? null) !== hash_file('sha256', $prepared . '/plugins.lock')
+            || !is_string($reportSha) || !hash_equals($reportSha, hash('sha256', $canonicalJson($unsigned)))
+            || !is_array($modules['packages'] ?? null) || !array_is_list($modules['packages'])) {
+            throw new RuntimeException('module plan is blocked, unknown or mismatched');
+        }
+        foreach ($modules['packages'] as $item) {
+            if (($item['may_apply'] ?? null) !== true || !in_array($item['action'] ?? null,
+                ['planned_install', 'planned_upgrade', 'planned_unchanged', 'preserve_disabled'], true)) {
+                throw new RuntimeException('module plan contains an unapproved action');
+            }
+        }
+        $selected = array_column($modules['packages'], 'key');
+        $ordered = $selected;
+        sort($ordered, SORT_STRING);
+        if (($modules['selected_package_keys'] ?? null) !== $selected || $selected !== $ordered
+            || count(array_unique($selected)) !== count($selected)
+            || ($modules['action'] ?? null) !== ($selected === [] ? 'planned_noop' : 'planned_reconcile')) {
+            throw new RuntimeException('module plan selection is incomplete');
+        }
+        $moduleEvidence = ['schema_version' => 1, 'protocol' => 'peanut.upgrade-module-preflight.v1',
+            'candidate' => $product['candidate'], 'product_plan_sha256' => $product['plan_sha256'],
+            'native_inputs_sha256' => $planSha, 'target_identity_sha256' => $plan['target']['identity_sha256'],
+            'target_composer_lock_sha256' => hash_file('sha256', $prepared . '/composer.lock'),
+            'database_identity' => ['resource_id' => requiredEnvironment('PEANUT_DATABASE_RESOURCE_ID'),
+                'endpoint_id' => requiredEnvironment('PEANUT_DATABASE_ENDPOINT_ID'), 'database' => (string) $config['database']],
+            'may_apply' => true, 'plan' => $modules];
+        $moduleEvidence['report_sha256'] = hash('sha256', $canonicalJson($moduleEvidence));
+        echo json_encode(['status' => 'completed', 'operation' => 'preflight', 'candidate' => $product['candidate'],
+            'application' => $result, 'modules' => $moduleEvidence], JSON_THROW_ON_ERROR), PHP_EOL;
         exit(0);
     }
     $keyPath = $server . '/private/installation/update-verification.key';
@@ -256,6 +344,15 @@ try {
     }
     echo json_encode($evidence, JSON_THROW_ON_ERROR), PHP_EOL;
 } catch (Throwable $exception) {
+    if (($modulePreflightStarted ?? false) === true) {
+        foreach (['plugin_key', 'module_key'] as $key) {
+            if (isset($moduleDiagnostic[$key]) && (!is_string($moduleDiagnostic[$key])
+                || preg_match('/\A[a-zA-Z0-9_.:-]{1,128}\z/D', $moduleDiagnostic[$key]) !== 1)) {
+                unset($moduleDiagnostic[$key]);
+            }
+        }
+        fwrite(STDERR, 'module-preflight:' . json_encode($moduleDiagnostic, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES) . PHP_EOL);
+    }
     fwrite(STDERR, 'server-update-migration failed: code=' . $exception->getCode()
         . '; diagnostic_sha256=' . hash('sha256', $exception->getMessage()) . PHP_EOL);
     exit($exception->getCode() > 0 && $exception->getCode() <= 125 ? $exception->getCode() : 1);

@@ -92,6 +92,95 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         return $this->withPackageLock($pluginKey, fn(): array => $this->reconcileLocked($pluginKey));
     }
 
+    /** Uses the native lock/manifest/ownership rules, without entering lifecycle mutation or recovery. */
+    public function reconcilePlan(string $pluginKey, bool $preserveDisabled = false): array
+    {
+        return $this->withPackageLock($pluginKey, function () use ($pluginKey, $preserveDisabled): array {
+            $plugin = $this->resolver->require($pluginKey);
+            $this->assertTrustEligible($plugin);
+            $manifests = $this->pluginManifests($plugin);
+            $current = $this->pluginInstallation($pluginKey, false);
+            if (is_array($current) && $current['status'] !== 'active') {
+                throw new PluginLifecycleException('PLUGIN_STATE_INVALID', 'Release plans require an active installation.');
+            }
+            $this->assertPreflightOwnership($plugin, $manifests, is_array($current));
+            if ($preserveDisabled && !is_array($current)) {
+                throw new PluginLifecycleException('PLUGIN_STATE_INVALID', 'A missing package cannot be preserved disabled.');
+            }
+            if (is_array($current) && version_compare($plugin->version, (string) $current['installed_version'], '<')) {
+                throw new PluginLifecycleException('PLUGIN_DOWNGRADE_REJECTED', 'Release plans cannot downgrade a Plugin.');
+            }
+            $action = $preserveDisabled ? 'preserve_disabled' : (!is_array($current) ? 'planned_install'
+                : ($this->sameIdentity($plugin, $current) ? 'planned_unchanged' : 'planned_upgrade'));
+            $willMigrate = in_array($action, ['planned_install', 'planned_upgrade'], true);
+            $modules = [];
+            $mayApply = true;
+            foreach ($manifests as $moduleKey => $manifest) {
+                $files = $this->migrationFiles($plugin->moduleRoots[$moduleKey], $manifest, true);
+                $repairs = $this->migrationRepairMap($moduleKey, $files);
+                $migrations = [];
+                $reports = [];
+                foreach ($files as $key => $path) {
+                    $checksum = hash_file('sha256', $path);
+                    if (!is_string($checksum)) {
+                        throw new PluginLifecycleException('MODULE_MIGRATION_INVALID', "Migration is unreadable: {$key}");
+                    }
+                    $row = Db::name('module_migration')->where('module_key', $moduleKey)
+                        ->where('migration_key', $key)->field('checksum,status')->find();
+                    if ($row !== null && !hash_equals((string) $row['checksum'], $checksum)) {
+                        throw new PluginLifecycleException('MODULE_MIGRATION_CHECKSUM_MISMATCH', "Migration changed: {$key}");
+                    }
+                    $status = $row === null ? 'missing' : (string) $row['status'];
+                    if ($row !== null && $status !== 'applied' && !isset($repairs[$key])) {
+                        throw new PluginLifecycleException('MODULE_MIGRATION_REPAIR_REQUIRED', "Migration requires an append-only repair: {$key}");
+                    }
+                    $pending = $row === null;
+                    // A same-identity/disabled reconcile never executes SQL. Missing ledger entries are not healthy.
+                    if (!$willMigrate && ($pending || ($status !== 'applied'
+                        && Db::name('module_migration')->where('module_key', $moduleKey)
+                            ->where('migration_key', $repairs[$key])->where('status', 'applied')->count() !== 1))) {
+                        throw new PluginLifecycleException('MODULE_MIGRATION_REPAIR_REQUIRED', "Non-migrating package has an incomplete ledger: {$key}");
+                    }
+                    $migrations[] = ['migration_key' => $key, 'sha256' => $checksum, 'ledger_status' => $status,
+                        'repair' => $repairs[$key] ?? null,
+                        'disposition' => $status === 'applied' ? 'already_applied'
+                            : ($row !== null ? 'append_only_repair' : ($willMigrate ? 'planned_apply' : 'not_executed'))];
+                    if (!$willMigrate || !$pending) {
+                        continue;
+                    }
+                    $report = null;
+                    if ($moduleKey === 'peanut.workflow' && $key === \PeanutAdmin\Modules\Workflow\Application\WorkflowUpgradePreflight::MIGRATION_KEY) {
+                        $report = (new \PeanutAdmin\Modules\Workflow\Application\WorkflowUpgradePreflight(new \PeanutAdmin\Modules\Identity\Contract\WorkflowLegacyOrganizationQuery()))->report();
+                    }
+                    if ($moduleKey === 'official.notification' && $key === \PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::MIGRATION_KEY) {
+                        $report = app()->make(\PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::class)->report();
+                    }
+                    if ($report !== null) {
+                        $reports[] = $report;
+                        $mayApply = $mayApply && ($report['may_apply'] ?? null) === true;
+                    }
+                }
+                $known = array_fill_keys(array_keys($files), true);
+                foreach (Db::name('module_migration')->where('module_key', $moduleKey)->column('migration_key') as $key) {
+                    if (!isset($known[(string) $key])) {
+                        throw new PluginLifecycleException('MODULE_MIGRATION_INVALID', 'Ledger contains a migration absent from the target source.');
+                    }
+                }
+                $manifestSha = hash_file('sha256', $plugin->moduleRoots[$moduleKey] . '/module.json');
+                if (!is_string($manifestSha)) {
+                    throw new PluginLifecycleException('PLUGIN_MODULE_MISMATCH', 'Module manifest is unreadable.');
+                }
+                $modules[] = ['module_key' => $moduleKey, 'manifest_sha256' => $manifestSha,
+                    'migrations' => $migrations, 'preflight_reports' => $reports];
+            }
+            usort($modules, static fn(array $left, array $right): int => strcmp($left['module_key'], $right['module_key']));
+            return $plugin->publicIdentity() + ['action' => $action, 'may_apply' => $mayApply,
+                'from_version' => is_array($current) ? (string) $current['installed_version'] : null,
+                'manifest_sha256' => $plugin->manifestDigest, 'modules' => $modules,
+                'observation' => 'read-only interval; execution revalidates all native guards'];
+        });
+    }
+
     private function reconcileLocked(string $pluginKey): array
     {
         $current = $this->pluginInstallation($pluginKey, false);
@@ -511,17 +600,24 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     }
 
     /** @return array<string,string> */
-    private function migrationFiles(string $root, ManifestDocument $manifest): array
+    private function migrationFiles(string $root, ManifestDocument $manifest, bool $requireDeclared = false): array
     {
         $directories = [];
         $backend = $manifest->data['backend'] ?? null;
         if (is_array($backend) && is_string($backend['migrations'] ?? null)) {
             $directories[] = $root . '/' . ltrim($backend['migrations'], '/');
+            if ($requireDeclared && (!is_dir($directories[0]) || !is_readable($directories[0]) || is_link($directories[0]))) {
+                throw new PluginLifecycleException('MODULE_MIGRATION_INVALID', 'Declared migrations are unavailable.');
+            }
         }
         $directories[] = $root . '/database/migrations';
         $files = [];
         $resolvedDirectories = [];
         foreach ($directories as $directory) {
+            if ($requireDeclared && (file_exists($directory) || is_link($directory))
+                && (!is_dir($directory) || !is_readable($directory) || is_link($directory))) {
+                throw new PluginLifecycleException('MODULE_MIGRATION_INVALID', 'Migration directory is unavailable.');
+            }
             $resolved = realpath($directory);
             if ($resolved === false) {
                 continue;

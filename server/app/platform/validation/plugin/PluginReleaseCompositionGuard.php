@@ -49,6 +49,18 @@ final readonly class PluginReleaseCompositionGuard
             $this->catalogs,
         ))->pluginLifecycle();
 
+        $result = $this->compareLocked($current, $target);
+        foreach ($result['checked'] as $item) {
+            if ($item['operation'] === 'upgrade') {
+                $lifecycle->upgrade($item['key'], true);
+            }
+        }
+        return $result;
+    }
+
+    /** Shared read-only composition checks for full roots and verified server lock projections. */
+    public function compareLocked(array $current, array $target): array
+    {
         $checked = [];
         foreach ($this->installedPlugins() as $row) {
             $key = (string) $row['plugin_key'];
@@ -102,9 +114,6 @@ final readonly class PluginReleaseCompositionGuard
                     'PLUGIN_RELEASE_DISABLED_PACKAGE_CHANGE',
                     "A disabled Plugin must be re-enabled before changing its package version: {$key}",
                 );
-            }
-            if ($comparison > 0) {
-                $lifecycle->upgrade($key, true);
             }
             $checked[] = [
                 'key' => $key,

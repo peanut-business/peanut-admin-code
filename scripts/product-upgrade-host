@@ -46,6 +46,21 @@ def run(*args, cwd=None):
     result = subprocess.run([str(a) for a in args], cwd=cwd, stdin=subprocess.DEVNULL,
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=650)
     if result.returncode:
+        for line in result.stderr.decode('utf-8', errors='replace').splitlines():
+            if not line.startswith('module-preflight:') or len(line) > 2048:
+                continue
+            try:
+                diagnostic = json.loads(line[len('module-preflight:'):])
+            except ValueError:
+                continue
+            if diagnostic.get('phase') != 'module-preflight' or not re.fullmatch(r'[A-Z][A-Z0-9_]{0,127}', str(diagnostic.get('code', ''))):
+                continue
+            safe = {'phase': 'module-preflight', 'code': diagnostic['code']}
+            for key in ('plugin_key', 'module_key'):
+                if re.fullmatch(r'[A-Za-z0-9_.:-]{1,128}', str(diagnostic.get(key, ''))): safe[key] = diagnostic[key]
+            if re.fullmatch(r'[a-f0-9]{64}', str(diagnostic.get('diagnostic_sha256', ''))):
+                safe['diagnostic_sha256'] = diagnostic['diagnostic_sha256']
+            raise RuntimeError('module-preflight:' + json.dumps(safe, separators=(',', ':')))
         raise RuntimeError(f'phase command exit={result.returncode}; diagnostic_sha256={hashlib.sha256(result.stderr).hexdigest()}')
     return result.stdout.decode().strip()
 
@@ -122,7 +137,20 @@ def main():
         return record
 
     def db(operation):
-        return php(tools / 'update-database.php', operation, server, workspace)
+        value = php(tools / 'update-database.php', operation, server, workspace)
+        if operation == 'preflight':
+            modules = value.get('modules', {})
+            native = read(workspace / 'plan.json')
+            unsigned = dict(modules); digest = unsigned.pop('report_sha256', None)
+            expected = hashlib.sha256(json.dumps(unsigned, sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()).hexdigest()
+            if value.get('status') != 'completed' or value.get('candidate') != candidate or 'application' not in value \
+                or modules.get('schema_version') != 1 or modules.get('protocol') != 'peanut.upgrade-module-preflight.v1' \
+                or modules.get('may_apply') is not True or modules.get('candidate') != candidate \
+                or modules.get('product_plan_sha256') != plan['plan_sha256'] \
+                or modules.get('native_inputs_sha256') != sha(workspace / 'plan.json') \
+                or modules.get('target_identity_sha256') != native['target']['identity_sha256'] or digest != expected:
+                raise ValueError('module-preflight report is missing or differs from the fixed plan')
+        return value
 
     def health(public=False):
         native('health'); containers = {}

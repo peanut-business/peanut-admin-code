@@ -12,6 +12,9 @@ interface PluginLifecycleCommands
     /** @return array<string,mixed> */
     public function reconcile(string $pluginKey): array;
 
+    /** Reads a release reconcile action without changing installation, catalog or migration state. */
+    public function reconcilePlan(string $pluginKey, bool $preserveDisabled = false): array;
+
     /** @return array<string,mixed> */
     public function upgrade(string $pluginKey, bool $dryRun): array;
 

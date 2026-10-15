@@ -3560,7 +3560,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "32419d3aae6832e57531813d77fdc56a1896c5607dd13492dded3aeb9fc86331"
+            "source_sha256": "02502b28a15c964ac276b93f4544f45e89a8786bec73a5c6ce198bfd37a4ac37"
         },
         {
             "path": "scripts/project-codegraph",
@@ -4670,7 +4670,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8b8035706e9bc8d09503bbffe551ead340de7b23b054858ac3599cfc0881d163"
+            "source_sha256": "566d19c50ec9895f2d65d57d7d41005b1d53cbc86aeef386c551fcc37ac5e208"
         },
         {
             "path": "server/.env.example",
@@ -6574,7 +6574,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c3b6d891409d9be130830d3b6d0af472bfc9c2b69c419cb0e2008d703625427c"
+            "source_sha256": "8ae3213056983255319749018f7db1c4a9086782b9bed6b79f527d157072dabe"
         },
         {
             "path": "server/app/command/PluginReleaseComposition.php",
@@ -7023,7 +7023,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "902e63dd60cc1f14931e0cafcb37074a909cb3479ad21134b2fc4b704a55e5cb"
+            "source_sha256": "a1515bad6cd717c6246d2b2c21eb8eec61de76b06fb385a0bfad6aa09e2b3981"
         },
         {
             "path": "server/app/common/contract/module/TenantModuleCommands.php",
@@ -25031,7 +25031,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f26fb94b536b46714f0ba3164852be9bc4c5c417e420ea7776d42a0d0f13376c"
+            "source_sha256": "bcb2c6e358c7aa76ae522a140454c70c2201409841fa6377791d58ee8e37b8f4"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",
@@ -25269,7 +25269,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0285ac4618424f5a66ac6fe8a75ee47c9afa2f30a2cdc0142773ff230e9fcc42"
+            "source_sha256": "a37831be8002b7208c0109f07e712ded60241891669fddc62a89ded5745b7d36"
         },
         {
             "path": "server/app/platform/value/ops/PairedBackupManifest.php",
@@ -27004,7 +27004,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7d3b4f7ceee0e6505fb84968eef3b867b5e7b2a4f04f138ab26afc8a5ba9aa8c"
+            "source_sha256": "9aa15a6834f863d15e7004a03b8865bea8675452de242a9b9ff967e6333fff6d"
         },
         {
             "path": "server/docker/scripts/update-plan.php",

@@ -175,6 +175,60 @@ function productUpgradeWriteState(string $path, array $state): array
     return $state + ['absolute_path' => $path];
 }
 
+/** Both fresh and reused phase evidence must prove the same complete module-plan capability. */
+function productUpgradeAssertModulePreflight(array $plan, array $evidence): void
+{
+    $modules = $evidence['payload']['database']['modules'] ?? null;
+    $application = $evidence['payload']['database']['application'] ?? null;
+    if (($plan['migration']['module_preflight_protocol'] ?? null) !== 'peanut.upgrade-module-preflight.v1'
+        || ($evidence['phase'] ?? null) !== 'migration-preflight'
+        || ($evidence['status'] ?? null) !== 'completed'
+        || ($evidence['candidate'] ?? null) !== $plan['candidate']
+        || ($evidence['plan_sha256'] ?? null) !== $plan['plan_sha256']
+        || ($evidence['package_manifest_sha256'] ?? null) !== $plan['package']['manifest_sha256']
+        || !is_array($application) || !is_array($modules)
+        || ($modules['schema_version'] ?? null) !== 1
+        || ($modules['protocol'] ?? null) !== 'peanut.upgrade-module-preflight.v1'
+        || ($modules['may_apply'] ?? null) !== true
+        || ($modules['candidate'] ?? null) !== $plan['candidate']
+        || ($modules['product_plan_sha256'] ?? null) !== $plan['plan_sha256']
+        || ($modules['native_inputs_sha256'] ?? null) !== $plan['inputs_sha256']
+        || 'sha256:' . ($modules['target_identity_sha256'] ?? '') !== $plan['package']['manifest_sha256']) {
+        throw new RuntimeException('PRODUCT_UPGRADE_MODULE_PREFLIGHT_REQUIRED');
+    }
+    $digest = $modules['report_sha256'] ?? null;
+    unset($modules['report_sha256']);
+    $native = $modules['plan'] ?? null;
+    if (!is_string($digest) || !hash_equals($digest, hash('sha256', productUpgradeCanonicalJson($modules)))
+        || !is_array($native) || ($native['schema_version'] ?? null) !== 1
+        || ($native['protocol'] ?? null) !== 'peanut.plugin-reconcile-plan.v1'
+        || ($native['scope'] ?? null) !== 'release-locked' || ($native['readonly'] ?? null) !== true
+        || ($native['complete'] ?? null) !== true
+        || ($native['may_apply'] ?? null) !== true || ($native['status'] ?? null) !== 'ready'
+        || !is_array($native['packages'] ?? null) || !array_is_list($native['packages'])) {
+        throw new RuntimeException('PRODUCT_UPGRADE_MODULE_PREFLIGHT_INVALID');
+    }
+    $nativeDigest = $native['report_sha256'] ?? null;
+    unset($native['report_sha256']);
+    if (!is_string($nativeDigest) || !hash_equals($nativeDigest, hash('sha256', productUpgradeCanonicalJson($native)))) {
+        throw new RuntimeException('PRODUCT_UPGRADE_MODULE_PREFLIGHT_INVALID');
+    }
+    foreach ($native['packages'] as $item) {
+        if (($item['may_apply'] ?? null) !== true || !in_array($item['action'] ?? null,
+            ['planned_install', 'planned_upgrade', 'planned_unchanged', 'preserve_disabled'], true)) {
+            throw new RuntimeException('PRODUCT_UPGRADE_MODULE_PREFLIGHT_INVALID');
+        }
+    }
+    $selected = array_column($native['packages'], 'key');
+    $ordered = $selected;
+    sort($ordered, SORT_STRING);
+    if (($native['selected_package_keys'] ?? null) !== $selected || $selected !== $ordered
+        || count(array_unique($selected)) !== count($selected)
+        || ($native['action'] ?? null) !== ($selected === [] ? 'planned_noop' : 'planned_reconcile')) {
+        throw new RuntimeException('PRODUCT_UPGRADE_MODULE_PREFLIGHT_INVALID');
+    }
+}
+
 /** @return array<string,mixed> */
 function productUpgradeReadState(array $plan): array
 {
@@ -289,6 +343,9 @@ function productUpgradeHostPhase(string $packageRoot, string $phase, array $plan
         || !is_array($evidence['payload'] ?? null)
         || $evidence['payload'] === []) {
         throw new RuntimeException('PRODUCT_UPGRADE_HOST_EVIDENCE_INVALID:' . $phase);
+    }
+    if ($phase === 'migration-preflight') {
+        productUpgradeAssertModulePreflight($plan, $evidence);
     }
     return [
         'sha256' => 'sha256:' . hash('sha256', productUpgradeCanonicalJson($evidence)),
@@ -439,6 +496,14 @@ function productUpgradeEnsureHostPhase(
     string $completed,
 ): array {
     if (isset($state['evidence'][$phase])) {
+        if ($phase === 'migration-preflight') {
+            $stored = $state['evidence'][$phase];
+            if (!is_array($stored['payload'] ?? null) || ($stored['sha256'] ?? null)
+                !== 'sha256:' . hash('sha256', productUpgradeCanonicalJson($stored['payload']))) {
+                throw new RuntimeException('PRODUCT_UPGRADE_MODULE_PREFLIGHT_INVALID');
+            }
+            productUpgradeAssertModulePreflight($plan, $stored['payload']);
+        }
         return $state;
     }
     $state['phase_in_progress'] = $phase;
@@ -552,6 +617,9 @@ try {
         $existingPath = $instanceRoot . '/.peanut/upgrades/product-plans/' . $scaffold['candidate'] . '.json';
         if (is_file($existingPath) && !is_link($existingPath)) {
             $existing = productUpgradeReadPlan($instanceRoot, $existingPath);
+            if (($existing['migration']['module_preflight_protocol'] ?? null) !== 'peanut.upgrade-module-preflight.v1') {
+                throw new RuntimeException('PRODUCT_UPGRADE_MODULE_PREFLIGHT_CAPABILITY_REQUIRED');
+            }
             if (($existing['package'] ?? null) !== $packageIdentity
                 || ($existing['scope'] ?? null) !== 'server'
                 || ($existing['inputs_sha256'] ?? null) !== hash_file('sha256', $workspace . '/plan.json')
@@ -605,6 +673,7 @@ try {
                     'files' => $migrationFiles,
                     'execution' => 'bound-prepared-target-container',
                     'module_reconcile' => 'release-locked-before-switch',
+                    'module_preflight_protocol' => 'peanut.upgrade-module-preflight.v1',
                     'recovery' => 'paired-database-public-private-storage-backup',
                 ],
                 'phase_contract' => [
@@ -643,6 +712,16 @@ try {
         }
         $state = productUpgradeReadState($plan);
         if (($plan['scope'] ?? null) !== 'server') { throw new RuntimeException('PRODUCT_UPGRADE_SCOPE_REBIND_FAILED'); }
+        if ($command !== 'recover') {
+            if (($plan['migration']['module_preflight_protocol'] ?? null) !== 'peanut.upgrade-module-preflight.v1') {
+                throw new RuntimeException('PRODUCT_UPGRADE_MODULE_PREFLIGHT_CAPABILITY_REQUIRED');
+            }
+            if (isset($state['evidence']['migration-preflight'])) {
+                productUpgradeAssertModulePreflight($plan, $state['evidence']['migration-preflight']['payload'] ?? []);
+            } elseif ($command === 'verify') {
+                throw new RuntimeException('PRODUCT_UPGRADE_MODULE_PREFLIGHT_REQUIRED');
+            }
+        }
         if ($command === 'apply') {
             if ($plan['status'] !== 'ready' || $state['phase'] === 'blocked') {
                 throw new RuntimeException('PRODUCT_UPGRADE_PLAN_BLOCKED');
