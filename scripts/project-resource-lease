@@ -32,6 +32,17 @@ Examples:
 The registry is local to this repository's Git common directory and is shared by
 all Peanut Admin worktrees. It stores identities only; never pass credentials as
 resource values.
+
+Schema sharing requires a registered lease_policy.shared_access table/primary-key
+contract and one mysql-access JSON resource per mysql-schema. JSON fields are
+schema, operation (read|transaction|ddl|exclusive), complete=true, and tables.
+Each table entry has table, access (read|write), rows ("*" or primary-key tuples).
+Row keys use registered unsigned-decimal primary keys, in registered column order.
+All transaction reads, writes, locking reads, triggers, cascades, unique checks and
+business invariants must be covered; unknown/range/insert effects use whole-table
+scope, or exclusive schema access. Locking reads are writes for this contract.
+This is an execution declaration, not a SQL sandbox. DDL/exclusive uses tables=[].
+Only read/read or disjoint complete table/row sets share; labels never isolate data.
 EOF
 }
 
@@ -140,15 +151,16 @@ validate_resource() {
 # Identity proofs remain in resources.tsv. Only registered schema leases may
 # share these fields; mutable directories, controllers, listeners and writers do not.
 schema_identity_resource() {
-  [[ "${SCHEMA_MODE:-exclusive}" == schema ]] || return 1
+  [[ "${SCHEMA_MODE:-exclusive}" == schema || "${SCHEMA_MODE:-exclusive}" == schema-shared ]] || return 1
   case "$1" in
-    resource-id|database-resource|endpoint|resource-scope|scope|gate|mysql-db|database|registry-sha256|registry-tool-sha256|environment|consumer|host|version) return 0 ;;
+    mysql-schema) [[ "$SCHEMA_MODE" == schema-shared ]] ;;
+    resource-id|database-resource|endpoint|resource-scope|scope|gate|mysql-db|database|mysql-access|registry-sha256|registry-tool-sha256|environment|consumer|host|version) return 0 ;;
     *) return 1 ;;
   esac
 }
 
 # Runs under the existing registry mutex. No database access. Physical endpoint
-# and exact schema, rather than resource aliases, define the exclusive key.
+# and complete physical table/primary-key sets, never aliases, define conflicts.
 mysql_claim_policy() {
   python3 - "$LEASES_DIR" "${PEANUT_RESOURCE_REGISTRY:-}" "$1" "$2" "$3" "${@:4}" <<'PY'
 import hashlib, json, pathlib, re, sys, time
@@ -161,8 +173,16 @@ def resources(items):
         k, v = item.split('=', 1)
         result.setdefault(k, set()).add(v)
     return result
+def object_without_duplicates(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result: fail('duplicate MySQL access JSON field')
+        result[key] = value
+    return result
 requested = resources(args)
 active = []
+active_gates = {}
+expired_scopes = set()
 try:
     lock_holders = {p.read_text().strip() for p in (pathlib.Path(leases).parent/'resources').glob('*/lease')}
 except OSError:
@@ -189,12 +209,23 @@ for path in pathlib.Path(leases).glob('*'):
             or not m['created_at'].isdigit() or not m['expires_at'].isdigit()
             or int(m['created_at']) > time.time() or int(m['expires_at']) <= int(m['created_at'])):
             raise ValueError('invalid lease metadata')
-        if int(m['expires_at']) <= time.time(): continue
-        r = resources(line.split('\t', 2)[1]+'='+line.split('\t', 2)[2] for line in (path/'resources.tsv').read_text().splitlines())
+        expired = int(m['expires_at']) <= time.time()
+        resource_rows = [line.split('\t') for line in (path/'resources.tsv').read_text().splitlines()]
+        if not resource_rows or any(len(row) != 3 or not all(row) for row in resource_rows):
+            raise ValueError('invalid resource fields')
+        if any(row[0] != hashlib.sha256((row[1]+'\t'+row[2]).encode()).hexdigest() for row in resource_rows):
+            raise ValueError('invalid resource digest')
+        r = resources(row[1]+'='+row[2] for row in resource_rows)
+        if expired and not r.get('mysql-access'): continue
+        # Shared leases have no single schema lock directory. Keep their
+        # persisted boundary exclusive after expiry until their owner releases
+        # it; TTL expiry alone cannot prove the old process has stopped.
+        if expired: expired_scopes.add(path.name)
         active.append((path.name, r))
+        active_gates[path.name] = m['gate']
     except (ValueError, OSError, KeyError):
         fail('cannot establish active lease boundary: '+path.name)
-special = bool(requested.get('mysql-schema') or requested.get('mysql-server'))
+special = bool(requested.get('mysql-schema') or requested.get('mysql-server') or requested.get('mysql-access'))
 schema_active = any(r.get('mysql-schema') for _, r in active)
 management = any(requested.get(t) for t in ['port', 'mysql-resource', 'docker-container', 'docker-volume', 'mysql-db', 'database'])
 if not special and (not schema_active or not management):
@@ -239,8 +270,12 @@ if special and requested.get('registry-sha256', set()) != {hashlib.sha256(raw).h
     fail('schema/server registry digest must match current registry')
 for value in requested.get('mysql-server', set()):
     if value not in policies: fail('server endpoint not registered for schema locking')
+    management_set = policies[value]['aliases'] | {'port='+value.rsplit(':', 1)[1]}
+    if any(a.split('=', 1)[1] not in requested.get(a.split('=', 1)[0], set()) for a in management_set):
+        fail('mysql-server requires the complete registered service/container/volume/port lock set')
 schemas = requested.get('mysql-schema', set())
 covered = set()
+schema_databases = {}
 for value in schemas:
     physical, sep, name = value.rpartition('/')
     if not sep or not re.fullmatch(r'[A-Za-z0-9_]{1,64}', name): fail('invalid exact schema key')
@@ -259,8 +294,113 @@ for value in schemas:
             matches.append(d)
     if len(matches) != 1: fail('schema resource/endpoint/allowlist mismatch')
     covered.add(name)
+    schema_databases[value] = matches[0]
 if schemas and (requested.get('mysql-db', set()) != covered or requested.get('database', set()) != covered):
     fail('mysql-db/database proof requires exact schema coverage')
+
+def access_scopes(r, registered=None):
+    """No access declaration on a historical schema lease means exclusive."""
+    result = {}
+    for raw_scope in r.get('mysql-access', set()):
+        if len(raw_scope.encode()) > 65536: fail('MySQL access declaration too large')
+        try: scope = json.loads(raw_scope, object_pairs_hook=object_without_duplicates)
+        except ValueError: fail('invalid MySQL access JSON')
+        if (not isinstance(scope, dict) or set(scope) != {'schema', 'operation', 'complete', 'tables'}
+            or scope['complete'] is not True or not isinstance(scope['schema'], str)
+            or scope['schema'] not in r.get('mysql-schema', set())
+            or scope['schema'] in result or scope['operation'] not in ('read', 'transaction', 'ddl', 'exclusive')
+            or not isinstance(scope['tables'], list)):
+            fail('incomplete/unknown MySQL access scope')
+        key = scope['schema']
+        if not re.fullmatch(r'[a-z][a-z0-9_]{0,63}', key.rpartition('/')[2]):
+            fail('shared schema requires a canonical lowercase registered name')
+        if registered is None:
+            physical, _, name = key.rpartition('/')
+            matches = [d for d in dbs if (d.get('lease_policy') or {}).get('physical_endpoint') == physical
+                       and (d.get('database') == name or any(name in g for g in d.get('synthetic_databases', {}).values()))
+                       and d.get('stable_resource_id') in r.get('resource-id', set()) | r.get('database-resource', set())]
+            if len(matches) != 1: fail('active MySQL scope lacks exact registered schema')
+            database = matches[0]
+        else:
+            database = registered[key]
+        contract = (database.get('lease_policy') or {}).get('shared_access')
+        if (not isinstance(contract, dict) or set(contract) != {'schema_version', 'tables'}
+            or type(contract['schema_version']) is not int or contract['schema_version'] != 1
+            or not isinstance(contract['tables'], dict) or not contract['tables']):
+            fail('schema sharing needs a registered physical table/primary-key contract')
+        table_contracts = contract['tables']
+        for table, identity in table_contracts.items():
+            if (not re.fullmatch(r'[a-z][a-z0-9_]{0,63}', table) or not isinstance(identity, dict)
+                or set(identity) != {'primary_key', 'key_encoding'} or not isinstance(identity['primary_key'], list)
+                or any(not isinstance(c, str) or not re.fullmatch(r'[a-z][a-z0-9_]{0,63}', c) for c in identity['primary_key'])
+                or len(set(identity['primary_key'])) != len(identity['primary_key'])
+                or identity['key_encoding'] != 'unsigned-decimal'):
+                fail('invalid registered physical table/primary-key contract')
+        tables = {}
+        for entry in scope['tables']:
+            if (not isinstance(entry, dict) or set(entry) != {'table', 'access', 'rows'}
+                or not isinstance(entry['table'], str) or entry['table'] not in table_contracts
+                or entry['table'] in tables or entry['access'] not in ('read', 'write')):
+                fail('unknown/duplicate physical table or access operation')
+            rows = entry['rows']
+            primary_key = table_contracts[entry['table']]['primary_key']
+            if rows != '*':
+                if not primary_key or not isinstance(rows, list) or not rows:
+                    fail('unknown/empty row scope must use whole-table access')
+                for row in rows:
+                    if (not isinstance(row, list) or len(row) != len(primary_key)
+                        or any(not isinstance(v, str) or not re.fullmatch(r'0|[1-9][0-9]*', v)
+                               or len(v) > 20 or int(v) > 18446744073709551615 for v in row)):
+                        fail('row scope needs canonical registered unsigned primary-key tuples')
+                rows = {tuple(row) for row in rows}
+            tables[entry['table']] = (entry['access'], rows)
+        op = scope['operation']
+        if (op in ('ddl', 'exclusive') and tables
+            or op in ('read', 'transaction') and not tables
+            or op == 'read' and any(mode != 'read' for mode, _ in tables.values())
+            or op == 'transaction' and not any(mode == 'write' for mode, _ in tables.values())):
+            fail('MySQL operation does not match complete access set')
+        result[key] = (op, tables)
+    return result
+
+scopes = access_scopes(requested, schema_databases)
+for key, database in schema_databases.items():
+    if (database.get('lease_policy') or {}).get('shared_access') is not None and key not in scopes:
+        fail('registered shared schema requires an explicit complete mysql-access declaration')
+if scopes and set(scopes) != schemas:
+    fail('mysql-access requires exact schema coverage; split mixed access contracts')
+
+def conflicts(left, right):
+    if left is None or right is None or left[0] in ('ddl', 'exclusive') or right[0] in ('ddl', 'exclusive'):
+        return True
+    for table in left[1].keys() & right[1].keys():
+        lm, lr = left[1][table]
+        rm, rr = right[1][table]
+        if lm == rm == 'read': continue
+        if lr == '*' or rr == '*' or lr & rr: return True
+    return False
+
+active_scopes = {}
+for lease, r in active:
+    if not r.get('mysql-access'): continue
+    if lease in expired_scopes: continue
+    # Stale registration or missing identity is never a proof of non-conflict.
+    if r.get('registry-sha256') != {hashlib.sha256(raw).hexdigest()}:
+        fail('active shared lease registry digest is stale: '+lease)
+    parsed = access_scopes(r)
+    if set(parsed) != r.get('mysql-schema', set()): fail('active access coverage is incomplete: '+lease)
+    for key in parsed:
+        physical, _, name = key.rpartition('/')
+        matches = [d for d in dbs if (d.get('lease_policy') or {}).get('physical_endpoint') == physical
+                   and (d.get('database') == name or any(name in g for g in d.get('synthetic_databases', {}).values()))
+                   and d.get('stable_resource_id') in r.get('resource-id', set()) | r.get('database-resource', set())]
+        if (len(matches) != 1 or matches[0].get('lease_gate') != active_gates[lease]
+            or (matches[0].get('upstream_endpoint') or {}).get('endpoint_id') not in r.get('endpoint', set())):
+            fail('active shared lease identity/gate/endpoint mismatch: '+lease)
+    names = {key.rpartition('/')[2] for key in parsed}
+    if r.get('mysql-db') != names or r.get('database') != names:
+        fail('active shared lease database coverage mismatch: '+lease)
+    active_scopes[lease] = parsed
 def affected(r, physical):
     policy = policies.get(physical)
     if policy is None: fail('active schema lacks current physical management mapping')
@@ -281,13 +421,19 @@ for physical in endpoints:
         if affected(r, physical): fail('server-exclusive lease conflicts with schema: '+lease)
         same = {v for v in r.get('mysql-schema', set()) if v.rpartition('/')[0] == physical}
         if same:
-            if same & schemas: fail('same physical schema already leased: '+lease)
+            for key in same & schemas:
+                if conflicts(scopes.get(key), active_scopes.get(lease, {}).get(key)):
+                    fail('overlapping/exclusive physical schema access: '+lease)
             count += 1
     if count >= policies[physical]['max_executors']: fail('registered maximum schema runtime executors reached')
 for lease, r in active:
     for value in r.get('mysql-schema', set()):
         if affected(requested, value.rpartition('/')[0]): fail('active schema conflicts with server operation: '+lease)
-print('schema' if schemas else 'exclusive')
+# A mixed exclusive/shared request retains a physical schema lock for every
+# schema; reject it rather than accidentally serializing or weakening a subset.
+shared = [s[0] in ('read', 'transaction') for s in scopes.values()]
+if any(shared) and not all(shared): fail('split shared and exclusive schema leases')
+print('schema-shared' if any(shared) else 'schema' if schemas else 'exclusive')
 PY
 }
 
@@ -479,6 +625,11 @@ case "$COMMAND" in
       printf '%s\n' "$HASH" >> "$SEEN_FILE"
       RESOURCE_DIR="$RESOURCES_DIR/$HASH"
       if schema_identity_resource "$TYPE"; then
+        # An old (even expired) exclusive schema lock must be returned by its
+        # owner before this physical schema can become shared.
+        if [[ "$TYPE" == mysql-schema && ( -e "$RESOURCE_DIR" || -L "$RESOURCE_DIR" ) ]]; then
+          die "exclusive schema lock still exists: $VALUE"
+        fi
         printf '%s\t%s\t%s\n' "$HASH" "$TYPE" "$VALUE" >> "$CLAIM_TMP_DIR/resources.tsv"
         continue
       fi
@@ -621,7 +772,10 @@ case "$COMMAND" in
       while IFS=$'\t' read -r HASH TYPE VALUE; do
         validate_resource "$TYPE=$VALUE"
         [[ "$HASH" == "$(resource_hash "$TYPE" "$VALUE")" ]] || die 'lease resource hash is invalid'
-        schema_identity_resource "$TYPE" && continue
+        if schema_identity_resource "$TYPE"; then
+          [[ "$TYPE" != mysql-schema || ( ! -e "$RESOURCES_DIR/$HASH" && ! -L "$RESOURCES_DIR/$HASH" ) ]] || die 'exclusive schema lock conflicts with shared proof'
+          continue
+        fi
         LOCK_DIR="$RESOURCES_DIR/$HASH"
         [[ -d "$LOCK_DIR" && ! -L "$LOCK_DIR" ]] || die 'lease resource lock is invalid'
         for LOCK_FILE in lease type value; do

@@ -23,13 +23,14 @@ function requiredEnvironment(string $name): string
     return trim($value);
 }
 
-/** Only the explicitly registered development-test schema policy replaces a port lock. */
+/** Only an explicitly registered schema policy replaces a port lock. */
 function mysqlSchemaLeaseResource(array $database, array $endpoint, array $actual): ?string
 {
     $policy = $database['lease_policy'] ?? null;
     if ($policy === null || ($policy['mode'] ?? null) === 'exclusive') { return null; }
     if (!is_array($policy) || ($policy['mode'] ?? null) !== 'schema'
-        || ($policy['max_executors'] ?? null) !== 2
+        || !is_int($policy['max_executors'] ?? null)
+        || $policy['max_executors'] < 1 || $policy['max_executors'] > 8
         || ($policy['physical_endpoint'] ?? null) !== (string) $endpoint['host'] . ':' . (int) $endpoint['port']
         || !is_string($policy['physical_resource_id'] ?? null) || $policy['physical_resource_id'] === ''
         || !is_array($policy['server_resources'] ?? null) || $policy['server_resources'] === []
@@ -38,6 +39,54 @@ function mysqlSchemaLeaseResource(array $database, array $endpoint, array $actua
         throw new RuntimeException('MySQL schema lease policy does not match registered physical endpoint');
     }
     return $policy['physical_endpoint'] . '/' . $actual['database'];
+}
+
+/**
+ * Consume the native policy under its mutex, including the complete transaction
+ * declaration and other owners' scopes. This proves admission, not SQL confinement:
+ * the executing task must cover every read/write and indirect business effect.
+ *
+ * @param array<string,string> $metadata
+ * @param array<string,list<string>> $resources
+ */
+function assertNativeMysqlSchemaLease(
+    string $root,
+    string $proofPath,
+    array $metadata,
+    array $resources,
+    string $resourceId,
+    string $schemaResource,
+    string $endpointId,
+    string $registrySha256,
+): void {
+    $common = leaseGit(['-C', $root, 'rev-parse', '--path-format=absolute', '--git-common-dir']);
+    $expectedProof = $common . '/peanut-admin-resource-leases/leases/' . $metadata['lease'];
+    if ($metadata['parent_lease'] !== ''
+        || realpath($metadata['worktree']) !== $root
+        || realpath($metadata['candidate_repository']) !== $root
+        || realpath($proofPath) !== realpath($expectedProof)
+        || !in_array($resourceId, [...($resources['database-resource'] ?? []), ...($resources['resource-id'] ?? [])], true)
+        || !in_array($schemaResource, $resources['mysql-schema'] ?? [], true)) {
+        throw new RuntimeException('MySQL schema lease 与当前资源/工作树不匹配');
+    }
+    assertLeaseResourceValues($resources, 'registry-sha256', [$registrySha256]);
+    assertLeaseResourceValues($resources, 'endpoint', [$endpointId]);
+    $process = proc_open(
+        ['/bin/bash', $root . '/scripts/project-resource-lease', 'show', '--lease', $metadata['lease'], '--verify-locks'],
+        [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+        $pipes,
+        $root,
+    );
+    if (!is_resource($process)) {
+        throw new RuntimeException('MySQL native lease verifier 不可用');
+    }
+    stream_get_contents($pipes[1]);
+    $error = stream_get_contents($pipes[2]);
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+    if (proc_close($process) !== 0) {
+        throw new RuntimeException('MySQL native lease proof 被拒绝: ' . trim((string) $error));
+    }
 }
 
 /** @return array<string,mixed> */
@@ -930,8 +979,16 @@ function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null)
         $expectedProof = $common . '/peanut-admin-resource-leases/leases/' . $metadata['lease'];
         $schemaResource = mysqlSchemaLeaseResource($database, $endpoint, $actual);
         if ($schemaResource !== null) {
-            assertLeaseResourceValues($resources, 'registry-sha256', [(string) $registrySha256]);
-            assertLeaseResourceValues($resources, 'endpoint', [(string) $endpoint['endpoint_id']]);
+            assertNativeMysqlSchemaLease(
+                (string) $root,
+                $leaseProofPath,
+                $metadata,
+                $resources,
+                $resourceId,
+                $schemaResource,
+                (string) $endpoint['endpoint_id'],
+                (string) $registrySha256,
+            );
         }
         if ($metadata['owner'] !== ($database['owner'] ?? null)
             || realpath($metadata['worktree']) !== $root
@@ -956,6 +1013,28 @@ function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null)
         }
         if (!in_array($deploymentMode, $deploymentModes, true)) {
             throw new RuntimeException("数据库资源 {$resourceId} 不允许 DEPLOYMENT_MODE={$deploymentMode}");
+        }
+        if (isset($database['lease_policy']['shared_access'])) {
+            if ($deploymentTarget !== 'local-development' || $consumer !== 'host') {
+                throw new RuntimeException('shared schema runtime 只允许登记的 local-development Host');
+            }
+            $schemaResource = mysqlSchemaLeaseResource($database, $endpoint, $actual);
+            if ($schemaResource === null || !is_string($database['lease_gate'] ?? null)) {
+                throw new RuntimeException('shared schema runtime 缺少 schema policy/gate');
+            }
+            $leaseProofPath ??= requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
+            $metadata = activeLeaseMetadata($leaseProofPath, $now ?? time(), $database['lease_gate']);
+            $resources = activeLeaseResources($leaseProofPath);
+            assertNativeMysqlSchemaLease(
+                (string) realpath(dirname(__DIR__, 2)),
+                $leaseProofPath,
+                $metadata,
+                $resources,
+                $resourceId,
+                $schemaResource,
+                (string) $endpoint['endpoint_id'],
+                (string) $registrySha256,
+            );
         }
     }
 
