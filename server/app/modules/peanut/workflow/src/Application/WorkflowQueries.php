@@ -170,8 +170,24 @@ final readonly class WorkflowQueries
             throw WorkflowException::definitionInvalid();
         }
         [$row] = $this->visibleInstance($c, $instanceKey);
-        $rows = Db::name('workflow_event')->alias('e')->leftJoin('workflow_node_execution n', 'n.id=e.node_execution_id AND n.tenant_id=e.tenant_id')->where('e.tenant_id', $c->tenantContext->tenantId)->where('e.instance_id', $row['id'])->where('e.sequence_no', '>', $afterSequence)->field('e.sequence_no,e.event_key,n.node_execution_key,e.actor_member_id,e.comment_text,e.metadata_json,e.occurred_at')->order('e.sequence_no')->limit($pageSize)->select()->toArray();
-        return array_map(static fn(array $e): array => ['sequence_no' => (int) $e['sequence_no'], 'event_key' => $e['event_key'], 'node_execution_key' => $e['node_execution_key'], 'actor_member_id' => $e['actor_member_id'] === null ? null : (string) $e['actor_member_id'], 'comment' => $e['comment_text'], 'metadata' => self::decode($e['metadata_json']), 'occurred_at' => self::utc($e['occurred_at'])], $rows);
+        $rows = Db::name('workflow_event')->alias('e')->leftJoin('workflow_node_execution n', 'n.id=e.node_execution_id AND n.tenant_id=e.tenant_id')->where('e.tenant_id', $c->tenantContext->tenantId)->where('e.instance_id', $row['id'])->where('e.sequence_no', '>', $afterSequence)->field('e.sequence_no,e.event_key,n.node_execution_key,e.actor_member_id,e.comment_text,e.metadata_json,e.attachment_snapshots_json,e.occurred_at')->order('e.sequence_no')->limit($pageSize)->select()->toArray();
+        return array_map(static fn(array $e): array => ['sequence_no' => (int) $e['sequence_no'], 'event_key' => $e['event_key'], 'node_execution_key' => $e['node_execution_key'], 'actor_member_id' => $e['actor_member_id'] === null ? null : (string) $e['actor_member_id'], 'comment' => $e['comment_text'], 'metadata' => self::decode($e['metadata_json']), 'attachments' => self::eventAttachments($e['attachment_snapshots_json']), 'occurred_at' => self::utc($e['occurred_at'])], $rows);
+    }
+
+    /** Historical labels are not current File grants or delivery addresses. */
+    private static function eventAttachments(mixed $value): array
+    {
+        $snapshots = self::decode($value);
+        if (!array_is_list($snapshots) || count($snapshots) > 100) {
+            throw WorkflowException::attachmentUnavailable();
+        }
+        return array_map(static function (mixed $snapshot): array {
+            if (!is_array($snapshot) || !is_string($snapshot['file_key'] ?? null) || !is_string($snapshot['name'] ?? null)
+                || !is_string($snapshot['media_type'] ?? null) || !is_int($snapshot['size_bytes'] ?? null) || !is_string($snapshot['sha256'] ?? null)) {
+                throw WorkflowException::attachmentUnavailable();
+            }
+            return (new \PeanutAdmin\Modules\Workflow\Adapter\WorkflowAttachment($snapshot['file_key'], $snapshot['name'], $snapshot['media_type'], $snapshot['size_bytes'], $snapshot['sha256']))->toArray();
+        }, $snapshots);
     }
 
     /** Registered notification producers consume a durable fact; private source-session references never leave this boundary. */

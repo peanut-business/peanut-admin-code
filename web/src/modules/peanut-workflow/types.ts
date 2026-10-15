@@ -157,6 +157,14 @@ export interface WorkflowInstance {
   } | null;
   subject_revision_key: string;
 }
+export interface WorkflowAttachment {
+  file_key: string;
+  name: string;
+  media_type: string;
+  size_bytes: number;
+  sha256: string;
+}
+
 export interface WorkflowEvent {
   sequence_no: number;
   event_key: string;
@@ -164,6 +172,7 @@ export interface WorkflowEvent {
   actor_member_id: string | null;
   comment: string | null;
   metadata: Record<string, unknown>;
+  attachments: WorkflowAttachment[];
   occurred_at: string;
 }
 export interface WorkflowTaskDiagnostics {

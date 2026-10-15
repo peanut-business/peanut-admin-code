@@ -6,6 +6,7 @@ import type { paths } from '@/generated/openapi';
 export interface ModuleApiOperations {
   getWorkflowStartSummary: paths['/adminapi/api/v1/workflow/definitions/{moduleKey}/{workflowKey}/summary']['get'];
   getWorkflowFrozenMaterials: paths['/adminapi/api/v1/workflow/instances/{instanceKey}/materials']['get'];
+  getWorkflowEvents: paths['/adminapi/api/v1/workflow/instances/{instanceKey}/events']['get'];
   getWorkflowNotificationDiagnostics: paths['/adminapi/api/v1/workflow/instances/{instanceKey}/notifications']['get'];
   recoverWorkflowNotification: paths['/adminapi/api/v1/workflow/instances/{instanceKey}/notifications/recover']['post'];
 }
@@ -15,6 +16,7 @@ export function createModuleApi(client: Client<paths>) {
   return {
     getWorkflowStartSummary: pathClient['/adminapi/api/v1/workflow/definitions/{moduleKey}/{workflowKey}/summary'].GET,
     getWorkflowFrozenMaterials: pathClient['/adminapi/api/v1/workflow/instances/{instanceKey}/materials'].GET,
+    getWorkflowEvents: pathClient['/adminapi/api/v1/workflow/instances/{instanceKey}/events'].GET,
     getWorkflowNotificationDiagnostics: pathClient['/adminapi/api/v1/workflow/instances/{instanceKey}/notifications'].GET,
     recoverWorkflowNotification: pathClient['/adminapi/api/v1/workflow/instances/{instanceKey}/notifications/recover'].POST,
   };

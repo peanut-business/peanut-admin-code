@@ -144,6 +144,11 @@ final readonly class ModuleComposition
         foreach ($providers as $providerClass => $provider) {
             $this->app->instance($providerClass, $provider);
         }
+        // Only the selected Workflow + File composition supplies the default source snapshot.
+        if ($workflowSelected && isset($selectedModuleKeys['official.file'])
+            && !$this->app->bound(\PeanutAdmin\Modules\Workflow\Adapter\WorkflowAttachmentResolver::class)) {
+            $this->app->bind(\PeanutAdmin\Modules\Workflow\Adapter\WorkflowAttachmentResolver::class, \PeanutAdmin\Modules\Workflow\Integration\FileWorkflowAttachmentResolver::class);
+        }
         // Optional worker contributions are collected after selected module bindings exist.
         if ($taskSelected && $workflowSelected) {
             foreach ($providers as $provider) {

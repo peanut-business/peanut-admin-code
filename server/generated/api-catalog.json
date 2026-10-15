@@ -144,7 +144,7 @@
         },
         {
             "path": "server/app/modules/peanut/workflow/api/metadata/openapi.php",
-            "sha256": "17012220d00efb5fe820ac5c0b3f31944a638bbc868def4775cf1a348ed6d959"
+            "sha256": "92b3c67805b1b3d5de5624af5dd77a7e72c5aa4ad5612087eee176779de24846"
         },
         {
             "path": "server/app/modules/peanut/workflow/route/app.php",
@@ -193,15 +193,15 @@
     },
     "summary": {
         "route_count": 423,
-        "generated_api_operations": 377,
-        "route_only_operations": 46,
-        "complete_operations": 366,
+        "generated_api_operations": 378,
+        "route_only_operations": 45,
+        "complete_operations": 367,
         "partial_operations": 11,
         "runtime_routes": 423,
-        "documented_operations": 377,
-        "undocumented_routes": 46,
+        "documented_operations": 378,
+        "undocumented_routes": 45,
         "automatic_route_metadata": 423,
-        "requires_owner_contract": 46,
+        "requires_owner_contract": 45,
         "owners": 20,
         "runtime_inventory": {
             "total": 423,
@@ -387,20 +387,6 @@
             "source": {
                 "file": "server/app/modules/peanut/workflow/route/app.php",
                 "line": 28
-            },
-            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
-            "module_fragment": "server/app/modules/peanut/workflow/api/metadata/openapi.php"
-        },
-        {
-            "method": "GET",
-            "path": "/adminapi/api/v1/workflow/instances/{instanceKey}/events",
-            "owner": {
-                "type": "module",
-                "key": "peanut.workflow"
-            },
-            "source": {
-                "file": "server/app/modules/peanut/workflow/route/app.php",
-                "line": 24
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": "server/app/modules/peanut/workflow/api/metadata/openapi.php"
@@ -3283,8 +3269,11 @@
                 }
             ],
             "errors": [
+                400,
                 401,
-                403
+                403,
+                404,
+                409
             ],
             "middleware": [
                 {
@@ -3311,12 +3300,15 @@
                 "file": "server/app/modules/peanut/workflow/route/app.php",
                 "line": 24
             },
-            "documented": false,
-            "openapi_operation_id": null,
-            "contract_quality": "route_only",
-            "sdk_consumers": [],
+            "documented": true,
+            "openapi_operation_id": "getWorkflowEvents",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts",
+                "web/src/modules/peanut-workflow/generated/openapi.ts"
+            ],
             "documentation": {
-                "status": "route_only",
+                "status": "documented",
                 "automatic_metadata": [
                     "route",
                     "owner",
@@ -3326,12 +3318,7 @@
                     "permissions",
                     "source"
                 ],
-                "requires_owner_contract": [
-                    "operationId",
-                    "parameters_or_request_body",
-                    "response_schemas",
-                    "business_errors"
-                ]
+                "requires_owner_contract": []
             }
         },
         {

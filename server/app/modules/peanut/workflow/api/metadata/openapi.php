@@ -32,6 +32,10 @@ return ['paths' => [
         ['in' => 'query', 'name' => 'subject_key', 'required' => true, 'schema' => $text],
     ])],
     '/adminapi/api/v1/workflow/instances/{instanceKey}/materials' => ['get' => $operation('getWorkflowFrozenMaterials', $ref('WorkflowFrozenMaterials'), $instance)],
+    '/adminapi/api/v1/workflow/instances/{instanceKey}/events' => ['get' => $operation('getWorkflowEvents', [
+        'type' => 'object', 'required' => ['items'], 'properties' => ['items' => ['type' => 'array', 'items' => $ref('WorkflowEvent')]],
+    ], [...$instance, ['in' => 'query', 'name' => 'after_sequence', 'schema' => ['type' => 'integer', 'minimum' => 0]],
+        ['in' => 'query', 'name' => 'page_size', 'schema' => $integer + ['maximum' => 100]]])],
     '/adminapi/api/v1/workflow/instances/{instanceKey}/notifications' => ['get' => $operation('getWorkflowNotificationDiagnostics', [
         'type' => 'object', 'required' => ['items'], 'properties' => ['items' => ['type' => 'array', 'items' => $ref('WorkflowNotificationDiagnostic')]],
     ], [...$instance, ['in' => 'query', 'name' => 'page', 'schema' => $integer],
@@ -39,6 +43,16 @@ return ['paths' => [
         ['page' => $integer, 'page_size' => $integer, 'total' => ['type' => 'integer', 'minimum' => 0]])],
     '/adminapi/api/v1/workflow/instances/{instanceKey}/notifications/recover' => ['post' => $recover],
 ], 'components' => ['schemas' => [
+    'WorkflowAttachment' => ['type' => 'object', 'additionalProperties' => false,
+        'description' => 'Persisted event-time metadata only. File preview, original download and management require separate current authorization; a changed source must not be delivered as the historical bytes.',
+        'required' => ['file_key', 'name', 'media_type', 'size_bytes', 'sha256'], 'properties' => [
+            'file_key' => ['type' => 'string', 'pattern' => '^file_[0-9a-f]{32}$'], 'name' => $text + ['minLength' => 1, 'maxLength' => 255],
+            'media_type' => $text, 'size_bytes' => ['type' => 'integer', 'minimum' => 0], 'sha256' => ['type' => 'string', 'pattern' => '^[0-9a-f]{64}$']]],
+    'WorkflowEvent' => ['type' => 'object', 'additionalProperties' => false,
+        'required' => ['sequence_no', 'event_key', 'node_execution_key', 'actor_member_id', 'comment', 'metadata', 'attachments', 'occurred_at'],
+        'properties' => ['sequence_no' => $integer, 'event_key' => $text, 'node_execution_key' => $text + ['nullable' => true],
+            'actor_member_id' => $text + ['nullable' => true], 'comment' => $text + ['nullable' => true], 'metadata' => ['type' => 'object'],
+            'attachments' => ['type' => 'array', 'maxItems' => 100, 'items' => $ref('WorkflowAttachment')], 'occurred_at' => $text]],
     'WorkflowStartSummary' => ['type' => 'object', 'additionalProperties' => false,
         'required' => ['definition_id', 'module_key', 'workflow_key', 'status', 'draft_revision', 'active_version'],
         'properties' => ['definition_id' => $text, 'module_key' => $text, 'workflow_key' => $text,

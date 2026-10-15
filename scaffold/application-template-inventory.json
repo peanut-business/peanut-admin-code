@@ -6742,7 +6742,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d168bece2c08c16235ec05fc571c61b42e0efe28d4bb6a96171f2f8ccf2656aa"
+            "source_sha256": "e67e9333594be9907ba18f665b3da287981da3a0ffa1dac4e0975b73961b9e76"
         },
         {
             "path": "server/app/common/composition/ModuleExtensionService.php",
@@ -23295,7 +23295,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "17012220d00efb5fe820ac5c0b3f31944a638bbc868def4775cf1a348ed6d959"
+            "source_sha256": "92b3c67805b1b3d5de5624af5dd77a7e72c5aa4ad5612087eee176779de24846"
         },
         {
             "path": "server/app/modules/peanut/workflow/composer.json",
@@ -23379,7 +23379,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "32430a0504d083d27e43f5a255e246827e6b7cb4e72e69cea73df87e52a3fb8a"
+            "source_sha256": "5c699ef5c13e6a1d4e1c31fd030e9eecba84237047adac419d65d131a0ed56d9"
         },
         {
             "path": "server/app/modules/peanut/workflow/resources/config-schema.json",
@@ -23687,7 +23687,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bc3805ac985943f3f2e395aabc4a7b9ee676b8e0edd7e7468ce2699c64f84f80"
+            "source_sha256": "f3f611b3b2cb117e3e04ba75f969c2f955dc15960d1abce3fa983e4642114cc5"
         },
         {
             "path": "server/app/modules/peanut/workflow/src/Application/WorkflowUpgradePreflight.php",
@@ -23856,6 +23856,20 @@
                 "full"
             ],
             "source_sha256": "a48c2c861979d65f9ff895eadc96bf8378bae2175a6dc5c0bcf76105bacddc66"
+        },
+        {
+            "path": "server/app/modules/peanut/workflow/src/Integration/FileWorkflowAttachmentResolver.php",
+            "target": "server/app/modules/peanut/workflow/src/Integration/FileWorkflowAttachmentResolver.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "a2b802afe809cc6c52309efe2a52dd4a833f924a03b30f560d9316dc78acbda5"
         },
         {
             "path": "server/app/modules/peanut/workflow/src/Integration/IdentityWorkflowAssignmentResolver.php",
@@ -27157,7 +27171,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3a0d00fc54c01740b21ebafbd57787ae30f54a7557a54f2acd528193f5961e06"
+            "source_sha256": "6c556e8f46ff3af0ef6202693e4501209dc615a7a6afb40343419d0643ce1915"
         },
         {
             "path": "server/generated/openapi.json",
@@ -27171,7 +27185,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a05d94f9f9a977967869a8bbb7b0647c6521afedbc763f953399269e6729ec77"
+            "source_sha256": "5eb69fbef0aa223c2ff85b84f24a3218fc234839d0df185a43d920291d1d3737"
         },
         {
             "path": "server/private/storage/.gitkeep",
@@ -34750,7 +34764,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ed8cea2a9fc4f3da4d03d8f67373370c906875c740dcf26ac5f1c3d676be82b0"
+            "source_sha256": "f388017fbeb6c2b1bb2714e6111deebc56aa46327310ef02fbfb7e0c49953e21"
         },
         {
             "path": "web/src/hooks/chart-option.ts",
@@ -38130,7 +38144,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fdd901f45091e486d1d825f53ccbfa442b3e259bf4e417cd907565564cff954e"
+            "source_sha256": "48b5029e0ea85a8236ad91b745fd5f102410fdde85ea77a42ccb633c2dd2d4c2"
         },
         {
             "path": "web/src/modules/peanut-workflow/contribution.ts",
@@ -38242,7 +38256,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "694981a5dc7be7f362c2d222dc59bee05cfe19947d5f6d1486ca5dbfa6d74f59"
+            "source_sha256": "81e6aad1476d73ad712d1e69270e9a3da1d586492ae6a595215945295cfeb254"
         },
         {
             "path": "web/src/modules/peanut-workflow/host-api.ts",
@@ -38284,7 +38298,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "da5bc59fbb99b994efc5186a2fd6ed44167b066ad530cc52e19c0e6fa0021d35"
+            "source_sha256": "3dba2365b4ed64d7a0c2376a5a9de31cc5a56143790a13d904b82a00b99bfdf8"
         },
         {
             "path": "web/src/modules/peanut-workflow/runtime/WorkflowStartButton.vue",
@@ -38382,7 +38396,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "54afed296d7b649c30967cb1692aa812c7ad28ed07b4434033e328e31c008799"
+            "source_sha256": "dc22294c40b96752ec988147754006242e5ab90f49155795e3943ef1bd988648"
         },
         {
             "path": "web/src/peanut.overrides.ts",

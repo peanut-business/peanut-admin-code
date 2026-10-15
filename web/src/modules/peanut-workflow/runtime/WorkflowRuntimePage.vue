@@ -1,11 +1,23 @@
 <script setup lang="ts">
-  import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue';
+  import {
+    computed,
+    markRaw,
+    onBeforeUnmount,
+    ref,
+    shallowRef,
+    watch,
+  } from 'vue';
+  import type { Component } from 'vue';
+  import { useRouter } from 'vue-router';
+  import { getSessionSnapshot } from '@/utils/auth';
+  import { resolveWorkflowAttachment } from '../api';
   import { createHostWorkflowApi } from '../host-api';
   import type {
     InboxFilter,
     WorkItem,
     WorkflowEvent,
     WorkflowInstance,
+    WorkflowAttachment,
   } from '../types';
   import { useWorkflowTaskForm } from './business-forms';
   import type { TaskActionDetails } from '../api';
@@ -24,6 +36,33 @@
   }>();
   const formProvider = useWorkflowTaskForm();
   const api = createHostWorkflowApi();
+  const router = useRouter();
+  // Exact optional local modules: a Workflow-only application has no File/Content Tools imports.
+  const contentTools = import.meta.glob(
+    '/src/modules/official-content-tools/src/{ContentViewer.vue,contributions.ts,capabilities.ts}'
+  );
+  const fileTools = import.meta.glob(
+    '/src/modules/official-file/optional-runtime/src/contentCallbacks.ts'
+  );
+  const attachmentBusy = ref(false);
+  const attachmentSurface = shallowRef<{
+    viewer: Component;
+    content: Record<string, unknown>;
+    capabilities: Record<string, unknown>;
+    callbacks: Record<string, unknown>;
+    registry: object;
+    contextKey: string;
+    operations: string[];
+  } | null>(null);
+  let attachmentController: AbortController | null = null;
+  let attachmentEpoch = 0;
+  function closeAttachment() {
+    attachmentEpoch += 1;
+    attachmentController?.abort();
+    attachmentController = null;
+    attachmentSurface.value = null;
+    attachmentBusy.value = false;
+  }
   const filter = ref<InboxFilter>('assigned');
   const page = ref(1);
   const count = ref(0);
@@ -61,6 +100,7 @@
   let timer: ReturnType<typeof setTimeout> | null = null;
   let removeVisibilityListener: (() => void) | undefined;
   const lifecycle = useWorkflowLifecycle(() => {
+    closeAttachment();
     pageActive.value = false;
     requestEpoch += 1;
     if (timer) clearTimeout(timer);
@@ -101,6 +141,131 @@
   const fail = (cause: unknown) => {
     error.value = cause instanceof Error ? cause.message : '请求失败';
   };
+  async function accessAttachment(
+    attachment: WorkflowAttachment,
+    sequence: number,
+    operation: 'preview' | 'download_original' | 'manage'
+  ) {
+    if (!lifecycle.valid() || !instance.value) return;
+    closeAttachment();
+    const epoch = attachmentEpoch;
+    const instanceKey = instance.value.instance_key;
+    const { generation, token } = getSessionSnapshot();
+    const abort = new AbortController();
+    attachmentController = abort;
+    const valid = () =>
+      epoch === attachmentEpoch &&
+      !abort.signal.aborted &&
+      lifecycle.valid() &&
+      generation === getSessionSnapshot().generation &&
+      instance.value?.instance_key === instanceKey;
+    attachmentBusy.value = true;
+    error.value = '';
+    try {
+      const access = await resolveWorkflowAttachment(
+        attachment,
+        operation,
+        token,
+        abort.signal
+      );
+      if (!valid()) return;
+      if (operation === 'manage') {
+        // This operates on the current File object, never a fabricated historical FileRecord.
+        await router.push({ name: 'official.file.assets' });
+        return;
+      }
+      const callbacksLoader =
+        fileTools[
+          '/src/modules/official-file/optional-runtime/src/contentCallbacks.ts'
+        ];
+      if (!callbacksLoader) throw new Error('当前应用未安装 File 内容访问能力');
+      const callbackModule = (await callbacksLoader()) as {
+        createFileContentCallbacks: (options: {
+          viewerAdapterId: string;
+          canDownloadOriginal: () => boolean;
+        }) => Record<string, unknown>;
+      };
+      if (!valid()) return;
+      let mime = attachment.media_type;
+      let capabilities: Record<string, unknown> = {};
+      if (operation === 'preview') {
+        const parser =
+          contentTools[
+            '/src/modules/official-content-tools/src/capabilities.ts'
+          ];
+        if (!parser) throw new Error('当前应用未安装内容工具');
+        const capabilityModule = (await parser()) as {
+          default: (value: unknown) => Record<string, unknown>;
+        };
+        capabilities = capabilityModule.default(access.capabilities);
+        if (!valid()) return;
+        if (
+          capabilities.contentKind !== 'file_resource' ||
+          capabilities.canView !== true ||
+          typeof capabilities.verifiedMimeType !== 'string' ||
+          typeof capabilities.viewerAdapterId !== 'string'
+        )
+          throw new Error('当前文件暂无可用的受控预览');
+        mime = capabilities.verifiedMimeType;
+      }
+      const content = {
+        kind: 'file_resource',
+        identity: attachment.file_key,
+        fileKey: attachment.file_key,
+        sourceSha256: attachment.sha256,
+        verifiedMimeType: mime,
+        displayName: attachment.name,
+      };
+      const callbacks = callbackModule.createFileContentCallbacks({
+        viewerAdapterId:
+          typeof capabilities.viewerAdapterId === 'string'
+            ? capabilities.viewerAdapterId
+            : '',
+        canDownloadOriginal: () =>
+          valid() && access.can_download_original === true,
+      });
+      if (operation === 'download_original') {
+        if (typeof callbacks.downloadOriginal !== 'function')
+          throw new Error('当前文件无法下载原件');
+        await callbacks.downloadOriginal(content, abort.signal);
+        return;
+      }
+      const viewerLoader =
+        contentTools[
+          '/src/modules/official-content-tools/src/ContentViewer.vue'
+        ];
+      const registryLoader =
+        contentTools[
+          '/src/modules/official-content-tools/src/contributions.ts'
+        ];
+      if (!viewerLoader || !registryLoader)
+        throw new Error('当前应用未安装内容查看器');
+      const [viewerModule, registryModule] = (await Promise.all([
+        viewerLoader(),
+        registryLoader(),
+      ])) as [{ default: Component }, { default: () => object }];
+      if (!valid()) return;
+      attachmentSurface.value = {
+        viewer: markRaw(viewerModule.default),
+        content,
+        capabilities,
+        callbacks,
+        registry: markRaw(registryModule.default()),
+        contextKey: `${instanceKey}:${sequence}:${attachment.file_key}:${attachment.sha256}:${generation}:${epoch}`,
+        operations:
+          access.can_download_original === true
+            ? ['view', 'download_original']
+            : ['view'],
+      };
+    } catch (cause) {
+      if (valid()) {
+        closeAttachment();
+        fail(cause);
+      }
+    } finally {
+      if (epoch === attachmentEpoch) attachmentBusy.value = false;
+    }
+  }
   async function load() {
     if (!lifecycle.valid()) return;
     controller?.abort();
@@ -136,6 +301,7 @@
   }
   async function showInstance(key: string) {
     if (!lifecycle.valid()) return;
+    closeAttachment();
     controller?.abort();
     controller = new AbortController();
     requestEpoch += 1;
@@ -451,10 +617,66 @@
           :key="event.sequence_no"
           :timestamp="event.occurred_at"
           ><span>{{ event.event_key }} {{ event.actor_member_id || '' }}</span
-          ><p class="safe-text">{{ event.comment }}</p></el-timeline-item
+          ><p class="safe-text">{{ event.comment }}</p>
+          <ul v-if="event.attachments.length">
+            <li
+              v-for="attachment in event.attachments"
+              :key="attachment.file_key"
+            >
+              <span class="safe-text">{{ attachment.name }}</span>
+              <span>（历史附件，{{ attachment.size_bytes }} 字节）</span>
+              <el-button
+                :disabled="attachmentBusy"
+                @click="
+                  accessAttachment(attachment, event.sequence_no, 'preview')
+                "
+                >查看</el-button
+              >
+              <el-button
+                :disabled="attachmentBusy"
+                @click="
+                  accessAttachment(
+                    attachment,
+                    event.sequence_no,
+                    'download_original'
+                  )
+                "
+                >下载历史原件</el-button
+              >
+              <el-button
+                :disabled="attachmentBusy"
+                @click="
+                  accessAttachment(attachment, event.sequence_no, 'manage')
+                "
+                >管理当前文件</el-button
+              >
+            </li>
+          </ul></el-timeline-item
         ></el-timeline
       >
     </section>
+    <el-dialog
+      :model-value="attachmentSurface !== null"
+      title="历史附件"
+      width="min(92vw, 900px)"
+      destroy-on-close
+      @close="closeAttachment"
+    >
+      <component
+        v-if="attachmentSurface"
+        :is="attachmentSurface.viewer"
+        :content="attachmentSurface.content"
+        :capabilities="attachmentSurface.capabilities"
+        :callbacks="attachmentSurface.callbacks"
+        :registry="attachmentSurface.registry"
+        :context-key="attachmentSurface.contextKey"
+        :allowed-operations="attachmentSurface.operations"
+        @error="
+          closeAttachment();
+          error = '受控文件访问失败，请重新核对当前权限。';
+        "
+      />
+    </el-dialog>
     <el-dialog
       v-model="dialog"
       :title="TASK_ACTION_LABELS[action] || INSTANCE_ACTION_LABELS[action]"

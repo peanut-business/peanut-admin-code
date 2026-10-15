@@ -61,13 +61,12 @@
   "tenant": {
     "enableable": true,
     "disable_behavior": "reject_new_operations",
-    "requires": [
-      "official.identity"
-    ]
+    "requires": ["official.identity"]
   },
   "optional_dependencies": [
-    {"module_key": "official.task", "version": "^1.0"},
-    {"module_key": "peanut.artifact-revision", "version": "4.0.0-rc.24"},
-    {"module_key": "official.notification", "version": "^1.0"}
+    { "module_key": "official.file", "version": "^1.0" },
+    { "module_key": "official.task", "version": "^1.0" },
+    { "module_key": "peanut.artifact-revision", "version": "4.0.0-rc.24" },
+    { "module_key": "official.notification", "version": "^1.0" }
   ]
 }

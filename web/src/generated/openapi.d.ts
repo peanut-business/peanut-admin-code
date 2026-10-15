@@ -5986,6 +5986,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/adminapi/api/v1/workflow/instances/{instanceKey}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getWorkflowEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/adminapi/api/v1/workflow/instances/{instanceKey}/notifications": {
         parameters: {
             query?: never;
@@ -10719,6 +10735,24 @@ export interface components {
             code: 20000;
             msg: string;
             data: components["schemas"]["TaskExpressionItem"][];
+        };
+        /** @description Persisted event-time metadata only. File preview, original download and management require separate current authorization; a changed source must not be delivered as the historical bytes. */
+        WorkflowAttachment: {
+            file_key: string;
+            name: string;
+            media_type: string;
+            size_bytes: number;
+            sha256: string;
+        };
+        WorkflowEvent: {
+            sequence_no: number;
+            event_key: string;
+            node_execution_key: string | null;
+            actor_member_id: string | null;
+            comment: string | null;
+            metadata: Record<string, never>;
+            attachments: components["schemas"]["WorkflowAttachment"][];
+            occurred_at: string;
         };
         WorkflowStartSummary: {
             definition_id: string;
@@ -22404,6 +22438,43 @@ export interface operations {
                 content: {
                     "application/json": {
                         data: components["schemas"]["WorkflowFrozenMaterials"];
+                        meta: {
+                            request_id: string;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["WorkflowRuntimeError"];
+            401: components["responses"]["WorkflowRuntimeError"];
+            403: components["responses"]["WorkflowRuntimeError"];
+            404: components["responses"]["WorkflowRuntimeError"];
+            409: components["responses"]["WorkflowRuntimeError"];
+        };
+    };
+    getWorkflowEvents: {
+        parameters: {
+            query?: {
+                after_sequence?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                instanceKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current-authorized Workflow runtime result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            items: components["schemas"]["WorkflowEvent"][];
+                        };
                         meta: {
                             request_id: string;
                         };

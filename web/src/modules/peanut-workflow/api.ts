@@ -8,6 +8,7 @@ import type {
   WorkItem,
   WorkflowDefinition,
   WorkflowEvent,
+  WorkflowAttachment,
   WorkflowInstance,
   WorkflowNode,
   WorkflowScenario,
@@ -190,6 +191,64 @@ export function numberField(value: unknown, name: string): number {
 export function strings(value: unknown, name: string): string[] {
   if (!Array.isArray(value)) throw new Error(`Invalid ${name}`);
   return value.map((item) => textField(item, name));
+}
+
+function parseAttachment(value: unknown): WorkflowAttachment {
+  const row = record(value, 'attachment');
+  const attachment = {
+    file_key: textField(row.file_key, 'attachment.file_key'),
+    name: textField(row.name, 'attachment.name'),
+    media_type: textField(row.media_type, 'attachment.media_type'),
+    size_bytes: numberField(row.size_bytes, 'attachment.size_bytes'),
+    sha256: textField(row.sha256, 'attachment.sha256'),
+  };
+  if (
+    !/^file_[0-9a-f]{32}$/.test(attachment.file_key) ||
+    !/^[0-9a-f]{64}$/.test(attachment.sha256) ||
+    attachment.name.length === 0 ||
+    [...attachment.name].length > 255 ||
+    attachment.name.includes('\u0000') ||
+    !/^[\x21-\x7e]{1,127}$/.test(attachment.media_type)
+  )
+    throw new Error('Invalid historical attachment');
+  return attachment;
+}
+
+/** A historical label never supplies a File grant. Do not retain the returned URL. */
+export async function resolveWorkflowAttachment(
+  attachment: WorkflowAttachment,
+  operation: 'preview' | 'download_original' | 'manage',
+  token: string | null,
+  signal: AbortSignal
+): Promise<Record<string, unknown>> {
+  const response = await fetch('/adminapi/api/v1/files/resolve', {
+    method: 'POST',
+    credentials: 'same-origin',
+    signal,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ file_key: attachment.file_key, operation }),
+  });
+  const envelope = record(await response.json(), 'File access');
+  if (!response.ok || envelope.code !== 20000)
+    throw new Error('当前文件权限不可用');
+  const data = record(envelope.data, 'File access data');
+  if (data.file_key !== attachment.file_key) throw new Error('文件身份已改变');
+  if (operation === 'manage') {
+    if (data.can_manage !== true) throw new Error('当前身份无文件管理权限');
+    return data;
+  }
+  if (data.state !== 'available') throw new Error('当前文件暂无受控访问能力');
+  if (data.source_sha256 !== attachment.sha256)
+    throw new Error('当前文件字节与历史附件不一致，不能作为历史原件访问');
+  if (
+    data.purpose !== operation ||
+    (operation === 'download_original' && data.can_download_original !== true)
+  )
+    throw new Error('当前文件权限不可用');
+  return data;
 }
 function nullableText(value: unknown, name: string): string | null {
   return value === null ? null : textField(value, name);
@@ -847,6 +906,7 @@ export function createWorkflowApi(transport: WorkflowTransport): WorkflowApi {
             ),
             comment: nullableText(row.comment, 'comment'),
             metadata: record(row.metadata, 'metadata'),
+            attachments: list(row.attachments, parseAttachment, 'attachments'),
             occurred_at: textField(row.occurred_at, 'occurred_at'),
           };
         },
