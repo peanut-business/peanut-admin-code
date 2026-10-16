@@ -836,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e1e0573d4a13886ec23b8cc25dc94ed2afda8f2a36a205e38830dbb30ae7690c"
+            "source_sha256": "1ddc1ea79704f70162843a25ee2f9aaf80a58247026adf94986a4d77db18caaf"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -2855,7 +2855,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "66b4857d4c7d94e30eef6f642c29b31e6f099c92d2a8adbb7c32de65f039403e"
+            "source_sha256": "594444c08f027e26d08e29cfe2e14c7aa82f5154a931432844dc06b6b10c74e7"
         },
         {
             "path": "scripts/build-scaffold-release",
@@ -3519,7 +3519,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "469b1ae19ba0cd4e81accd305c93d5382784931a902526603ad6a3ddd59848ba"
+            "source_sha256": "66fcc8c244f553b470072cada2792660ed4da0f2a65725563231e25aeb28e9e8"
         },
         {
             "path": "scripts/prepare-product-release-candidate",
