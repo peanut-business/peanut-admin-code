@@ -212,7 +212,9 @@ try {
             $application,
             RELEASE_APPLICATION_VERSION_TOKEN,
         );
-    } elseif ($createParameters === ['productName','slug','packageIdentity','target','edition','applicationVersion','profile']) {
+    } elseif ($createParameters === ['productName','slug','packageIdentity','target','edition','applicationVersion','profile']
+        || $createParameters === ['productName','slug','packageIdentity','target','edition','applicationVersion','profile','workflow']) {
+        // Keep the current creator's optional workflow default; profile remains the full source template.
         $manifest = $creator->create(
             RELEASE_PRODUCT_TOKEN,
             RELEASE_SLUG_TOKEN,
