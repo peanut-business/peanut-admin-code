@@ -1510,10 +1510,7 @@ final class ScaffoldUpgradeRunner
             throw new RuntimeException('SCAFFOLD_PLUGIN_LOCK_MISSING');
         }
         try {
-            $resolved = (new PluginLockResolver(
-                ScaffoldPathGuard::projectPath($root, 'server'),
-                '../plugins.lock',
-            ))->all();
+            $resolved = PluginLockResolver::forSourceUpgrade($root);
             $lockBytes = file_get_contents($lockPath);
             $lockEndState = $this->regularFileState($lockPath, 'plugins.lock');
             if (!is_string($lockBytes)
