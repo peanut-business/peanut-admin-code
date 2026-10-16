@@ -194,13 +194,18 @@ def source_runtime():
             for service in ('php', 'nginx'): fixed_service(fixed_args, service, quiescence)
             for service in ('php', 'nginx'):
                 detail = fixed_service(fixed_args, service, quiescence)
-                if not detail['State']['Running']:
-                    run(*fixed_args, 'up', '-d', '--wait', '--no-build', '--no-deps', '--force-recreate', '--pull', 'never', service,
-                        cwd=server / 'docker')
-                # Inspect the actual replacement before starting another service or reporting open.
-                if not fixed_service(fixed_args, service, quiescence)['State']['Running']:
-                    raise ValueError('source activation service is not running')
-            for service in ('php', 'nginx'): fixed_service(fixed_args, service, quiescence)
+                # Native Compose also waits for an existing running container without recreating it.
+                recreate = '--no-recreate' if detail['State']['Running'] else '--force-recreate'
+                run(*fixed_args, 'up', '-d', '--wait', '--wait-timeout', '180', '--no-build', '--no-deps', recreate,
+                    '--pull', 'never', service, cwd=server / 'docker')
+                # PHP's native healthcheck confirms its fresh process context before nginx can start.
+                current = fixed_service(fixed_args, service, quiescence)['State']
+                if not current['Running'] or current.get('Health', {}).get('Status') != 'healthy':
+                    raise ValueError('source activation service is not healthy')
+            for service in ('php', 'nginx'):
+                current = fixed_service(fixed_args, service, quiescence)['State']
+                if not current['Running'] or current.get('Health', {}).get('Status') != 'healthy':
+                    raise ValueError('source activation service health changed before open')
         except Exception:
             # Stop only this bound project/working-directory's application services, independent of mutable Compose inputs.
             for service in ('nginx', 'php'):
