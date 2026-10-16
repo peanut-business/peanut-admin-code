@@ -3505,7 +3505,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8d441e1dd43b6666ccf90d82af91eda32e6677bf7c6458533ecf9d640b5a420e"
+            "source_sha256": "9af9a608dbfa6f7f50ef47bb3efde39b6947e7ea400237b2994073cc6652b453"
         },
         {
             "path": "scripts/package-release.sh",
@@ -4768,7 +4768,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3399b52049549c8ce99e1128bf6e99be76284c3d452f54188e040fc61da126ea"
+            "source_sha256": "eebfde82071b96745a65372180071235607b6c2945ede58e0c1098942b224990"
         },
         {
             "path": "server/app/BaseController.php",
@@ -7866,7 +7866,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a6b2145d42528e665ad7ee19108e18e7aa4a8623a027e1e88600ea1573913c5e"
+            "source_sha256": "a2c7d876cd204c6fb01c23dd482b8e48e48aa2163782999e1849c5135576a611"
         },
         {
             "path": "server/app/common/infrastructure/installation/VerifiedServerDeployment.php",
@@ -7880,7 +7880,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "95acc77cfa5b1b765bf8edf5a8d92816c912386ab3e5bc6cd0d6df019a0bf6a5"
+            "source_sha256": "16dbe2ddc30dd0c8b8e65986f456e63f55be2fd845a5584551a2f07bfae817ff"
         },
         {
             "path": "server/app/common/infrastructure/member/MemberApiTenantContextResolver.php",
@@ -9142,7 +9142,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "63efe7077ae92e918d55dcc1225cd9046315ace69ab9a6929924e00241918778"
+            "source_sha256": "473050afecca91800cc22b1b4224def519819fe3b8c0404227fd55951c50220e"
         },
         {
             "path": "server/app/common/value/installation/ApplicationSourceIdentity.php",
@@ -9156,7 +9156,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "42fb20b95694baf360b98b205dcf5314078373e836a379f9a901bafdfcc2e6e3"
+            "source_sha256": "c01979f3567441162d9d04ad2d81abd974715ef2e9c696b896dbc8c6c3aaca87"
         },
         {
             "path": "server/app/common/value/installation/ServerReleaseIdentity.php",
@@ -24807,7 +24807,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "28a174d598e206b17ed84e52c19bf08b99d74e82610cbcca6455a8bed8b21c15"
+            "source_sha256": "534714e896082ccce7a0d4e098af6df61600b6d8bdf96c6bf376dd136a9d243f"
         },
         {
             "path": "server/app/platform/infrastructure/plugin/PluginPackageInstaller.php",
@@ -27158,7 +27158,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "497aac3d2a5349809a9ea71c0e805bb7c6dc6ec919df6d3209f903e5b2d153be"
+            "source_sha256": "54546252b6150cf92d444ce15a3d880e5d496015814fc41bccafefd6f89af9e6"
         },
         {
             "path": "server/docker/scripts/update-preparation.py",
@@ -27214,7 +27214,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "43699b3ac012f6c594f87ac95e08ad01fbe7089b08ced3a945b79c12e24b2420"
+            "source_sha256": "b16ba3e6a6e9be0119332bb53fb475f03df8542944101b9bb8b5a50cb1c275f8"
         },
         {
             "path": "server/docker/tests/test_first_start_vendor.py",

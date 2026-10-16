@@ -128,7 +128,7 @@ final readonly class ReadonlyHttpMount
         $mounts = self::mounts((string) file_get_contents('/proc/self/mountinfo'));
         $directory = self::CHROOT . dirname(self::CONTEXT);
         $pointer = $root . '/runtime/upgrade/verified-deployment/current.json';
-        $identity = $root . '/.peanut/release-identity.json';
+        $identity = $root . '/' . VerifiedServerDeployment::identityPath($root);
         foreach ([$pointer, $identity] as $path) {
             if (is_link($path) || !is_file($path) || !self::effective($mounts, $path)['readonly']) {
                 throw new RuntimeException('HTTP_MOUNT_ADMISSION_UNAVAILABLE');
@@ -217,7 +217,7 @@ final readonly class ReadonlyHttpMount
             || ($context['worker_uid'] ?? null) !== posix_geteuid() || ($context['worker_gid'] ?? null) !== posix_getegid()
             || ($context['root'] ?? null) !== $root || ($context['device'] ?? null) !== $stat['dev']
             || ($context['inode'] ?? null) !== $stat['ino']
-            || ($context['identity_sha256'] ?? null) !== hash_file('sha256', $root . '/.peanut/release-identity.json')
+            || ($context['identity_sha256'] ?? null) !== hash_file('sha256', $root . '/' . VerifiedServerDeployment::identityPath($root))
             || ($context['pointer_sha256'] ?? null) !== hash_file('sha256', $root . '/runtime/upgrade/verified-deployment/current.json')
             || ($context['deployment_sha256'] ?? null) !== (is_file($root . '/private/installation/deployment.json')
                 ? hash_file('sha256', $root . '/private/installation/deployment.json') : null)) {

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import shutil
 import stat
@@ -690,9 +691,163 @@ def verify_archive(archive: Path, expected_sha256: str) -> None:
             raise ValueError('archive plugin projection differs from server release identity')
 
 
+def development_runtime(source: Path, target: Path) -> None:
+    """Opt-in local immutable program projection; never a distributable release."""
+    source = reject_symlinked_path(source).resolve(strict=True)
+    target = reject_symlinked_path(target)
+    reject_nested_paths(source, target, 'development output must be outside the application')
+    if target.exists():
+        raise ValueError('development output must not exist')
+    manifest = document(source, MANIFEST)
+    if manifest.get('protocol') != 'peanut.application-scaffold.v2' or manifest.get('schema_version') != 2:
+        raise ValueError('development runtime requires a real generated APP identity')
+    versions = document(source, 'release-versions.json')
+    if versions.get('schema_version') != 3 or any(
+        not isinstance(row, dict) or set(row) != {'version', 'resolved', 'integrity'}
+        for row in versions.get('core_web', {}).get('packages', {}).values()
+    ):
+        raise ValueError('development runtime requires the native v3 registry dependency identity')
+    # These existing native readers check Edition and v3 dependency provenance. No business bootstrap.
+    identity = subprocess.run(['php', '-r',
+        'require $argv[2]."/server/app/common/value/installation/ApplicationSourceIdentity.php"; '
+        'require $argv[1]."/server/vendor/autoload.php"; '
+        '$s=\\app\\common\\value\\installation\\ApplicationSourceIdentity::loadGeneratedApp($argv[1]."/server"); '
+        'echo json_encode(["application"=>$s->applicationIdentity(),"versions"=>$s->versions(),'
+        '"tenant_bootstrap"=>$s->tenantBootstrapContract($s->applicationIdentity()["edition"])]);',
+        str(source), str(Path(__file__).resolve().parent.parent)], check=True, capture_output=True)
+    declaration = json.loads(identity.stdout)
+    subprocess.run(['node', str(regular_file(source, 'scripts/release-dependency-locks.mjs')),
+                    str(source), '--installed'], check=True, capture_output=True)
+    subprocess.run(['python3', str(regular_file(source, 'server/docker/scripts/vendor-state.py')),
+                    'check', '--server', str(source/'server')], check=True, capture_output=True)
+    subprocess.run(['php', '-r',
+                    'require $argv[2]."/server/app/platform/infrastructure/plugin/PluginLockResolver.php"; '
+                    'require $argv[1]."/server/vendor/autoload.php"; '
+                    '\\app\\platform\\infrastructure\\plugin\\PluginLockResolver::forSourceUpgrade($argv[1]);',
+                   str(source), str(Path(__file__).resolve().parent.parent)],
+                   check=True, capture_output=True)
+    entries = manifest.get('files', [])
+    if not isinstance(entries, list) or not entries:
+        raise ValueError('development APP source inventory is missing')
+    seen = set()
+    baseline_root = safe_relative(manifest.get('ownership', {}).get('baseline_root', ''))
+    if not baseline_root.startswith('.peanut/scaffold-baseline/') or not baseline_root.endswith('/files'):
+        raise ValueError('invalid existing development baseline root')
+    for row in entries:
+        relative = safe_relative(row['path'])
+        if relative.casefold() in seen or row.get('classification') not in ('managed', 'generated-managed', 'app-owned'):
+            raise ValueError('invalid development ownership inventory')
+        seen.add(relative.casefold())
+        if row['classification'] in ('managed', 'generated-managed'):
+            if row.get('baseline_path') != baseline_root + '/' + relative:
+                raise ValueError('invalid development upstream baseline path')
+            baseline = regular_file(source, row['baseline_path'])
+            if hashlib.sha256(baseline.read_bytes()).hexdigest() != row['baseline_sha256']:
+                raise ValueError('development upstream baseline changed')
+    projected = {
+        MANIFEST: 'server/.peanut/application-manifest.json',
+        'release-versions.json': 'server/.peanut/release-versions.json',
+        'RELEASE_METADATA.json': 'server/.peanut/RELEASE_METADATA.json',
+        'resources/project-resources.json': 'server/resources/project-resources.json',
+        'scripts/scaffold-runtime/ReleaseDependencyIdentity.php':
+            'server/docker/scripts/scaffold-runtime/ReleaseDependencyIdentity.php',
+    }
+    # Only these exact native outputs are regenerated; unknown APP program paths stay in the scan.
+    derived = set(projected.values()) | {'server/plugins.lock', 'server/.peanut/development-runtime.json'}
+    source_inputs = set(projected) | {'plugins.lock'}
+    source_plugins = document(source, 'plugins.lock')
+    if source_plugins.get('schema_version') != 1 or not isinstance(source_plugins.get('plugins'), list):
+        raise ValueError('source plugin lock is invalid')
+    for entry in source_plugins['plugins']:
+        key = entry.get('key') if isinstance(entry, dict) else None
+        if not isinstance(key, str) or not re.fullmatch(r'[a-z][a-z0-9.-]*', key):
+            raise ValueError('invalid plugin key in source lock')
+        derived.add(f'server/plugins/{key}/plugin.json')
+        source_inputs.add(safe_relative(entry['manifest']))
+    source_fence = {relative: hashlib.sha256(regular_file(source, relative).read_bytes()).hexdigest()
+                    for relative in source_inputs}
+    # Native instance configuration exclusions match the application inventory contract.
+    runtime_files = {'server/docker/collaboration.env', 'server/.env.collaboration.lock'}
+    runtime_prefixes = (*PROTECTED_RUNTIME_PREFIXES, 'server/docker/tls/')
+    # Ownership baselines describe upstream files; APP additions are also executable program inputs.
+    def program_state() -> dict:
+        server = reject_symlinked_path(source, 'server')
+        if not server.is_dir():
+            raise ValueError('development server source is missing')
+        def walk_error(error):
+            raise error
+        def included(relative: str) -> bool:
+            return (relative != 'server/private' and not relative.startswith('server/private/')
+                    and relative not in derived
+                    and relative not in runtime_files
+                    and allowed_source(relative)
+                    and not any(relative == prefix.rstrip('/') or relative.startswith(prefix)
+                                for prefix in runtime_prefixes))
+        files = {}
+        names = set()
+        for base, directories, filenames in os.walk(server, topdown=True, onerror=walk_error, followlinks=False):
+            for name in list(directories):
+                path = Path(base) / name
+                relative = safe_relative(path.relative_to(source).as_posix())
+                if not included(relative):
+                    directories.remove(name)
+                elif path.is_symlink():
+                    raise ValueError(f'symlink is not a development program input: {relative}')
+            for name in filenames:
+                relative = safe_relative((Path(base) / name).relative_to(source).as_posix())
+                if not included(relative):
+                    continue
+                if relative.casefold() in names:
+                    raise ValueError(f'case-colliding development program input: {relative}')
+                names.add(relative.casefold())
+                path = regular_file(source, relative)
+                files[relative] = {'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+                                   'mode': stat.S_IMODE(path.stat().st_mode)}
+        return files
+    before = program_state()
+    # No private instance configuration, receipt, storage or database bytes enter this projection.
+    target.mkdir(parents=True)
+    for relative, state in before.items():
+        mode = 0o755 if state['mode'] & 0o111 else 0o644
+        copy_checked(source, target, relative, state['sha256'], mode)
+    server = target/'server'
+    source_projection = {}
+    for origin, relative in projected.items():
+        path = regular_file(source, origin)
+        source_projection[origin] = hashlib.sha256(path.read_bytes()).hexdigest()
+        destination = target/relative
+        ensure_new_release_file(destination)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(path, destination)
+        destination.chmod(0o644)
+    plugin = project_server_plugins(source, target)
+    # Install this target's dependencies through the original fixed-lock native entry.
+    # Source installation is evidence of provenance, never a vendor directory to copy.
+    rows = release_rows(target)
+    validate_server_release_rows(rows)
+    value = {'schema_version': 1, 'protocol': 'peanut.development-server-runtime.v1',
+             'environment': 'development', **declaration,
+             'application_manifest_sha256': source_projection[MANIFEST],
+             'source_projection': source_projection, 'plugin_projection': plugin,
+             'files': rows, 'files_sha256': rows_sha256(rows),
+             'core_php': versions['core_php']}
+    if program_state() != before:
+        raise ValueError('development program file set, bytes or modes changed during projection')
+    for relative, sha in source_fence.items():
+        if hashlib.sha256(regular_file(source, relative).read_bytes()).hexdigest() != sha:
+            raise ValueError('development root source changed during projection')
+    for relative, sha in source_projection.items():
+        if hashlib.sha256(regular_file(source, relative).read_bytes()).hexdigest() != sha:
+            raise ValueError('development identity changed during projection')
+    if (server/'.peanut/release-identity.json').exists():
+        raise ValueError('development source cannot already declare a release identity')
+    (server/'.peanut/development-runtime.json').write_text(json.dumps(value, ensure_ascii=False, indent=2)+'\n')
+    (server/'.peanut/development-runtime.json').chmod(0o644)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=('snapshot', 'assemble', 'verify'))
+    parser.add_argument('action', choices=('snapshot', 'assemble', 'verify', 'development-runtime'))
     parser.add_argument('--application-root', type=Path)
     parser.add_argument('--target', type=Path)
     parser.add_argument('--build-root', type=Path)
@@ -715,6 +870,12 @@ def main() -> None:
     destination = args.target.resolve()
     if destination == source or source in destination.parents:
         raise ValueError('output must be outside the application source')
+    if args.action == 'development-runtime':
+        if args.server_only or args.generated_template or args.build_root is not None:
+            raise ValueError('development runtime is separate from release packaging')
+        development_runtime(source, args.target)
+        print('package-files: explicit development runtime projection complete; not a release')
+        return
     manifest, git = snapshot(source, destination, args.generated_template)
     if args.action == 'assemble':
         if args.build_root is None:
