@@ -25,7 +25,7 @@ final class ApplicationSchema extends ContextualCommand
             ->addOption('session', null, Option::VALUE_REQUIRED, 'Workflow Session of the current native resource grant')
             ->addOption('gate', null, Option::VALUE_REQUIRED, 'Gate of the current native resource grant')
             ->addOption('maintenance', null, Option::VALUE_REQUIRED, 'Protected current stop-writer evidence')
-            ->addOption('recovery', null, Option::VALUE_REQUIRED, 'Protected scoped backup and DB2 recovery evidence')
+            ->addOption('recovery', null, Option::VALUE_REQUIRED, 'Protected scoped backup references for external recovery acceptance')
             ->addOption('workspace', null, Option::VALUE_REQUIRED, 'Existing native server-update workspace')
             ->addOption('plan', null, Option::VALUE_REQUIRED, 'Protected preflight plan path')
             ->addOption('result', null, Option::VALUE_REQUIRED, 'Native application-schema result path');

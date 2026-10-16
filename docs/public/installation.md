@@ -42,15 +42,15 @@ PEANUT_INSTALLATION_ENV_FILE=/absolute/private/installation.env php server/datab
 
 ## 开发源码实例的单条应用迁移
 
-`php server/think schema:application ... --scope=source-development` 是显式的开发源码维护入口，协议版本为 `peanut.source-development-schema-plan.v1` / `peanut.source-development-schema-result.v1`。它要求真实 Console Instance 上下文、development/debug、`PEANUT_INSTALLATION_SOURCE_MODE=development`、干净且固定的 Git 来源、已准备的原生依赖，以及明确登记的非生产数据库。server 发行包和 development-runtime 实例不能使用这个 scope；普通 `schema:application` 和 server-update workspace 仍使用各自原入口。
+`php server/think schema:application ... --scope=source-development` 是显式的 Code 开发源码维护入口，协议版本为 `peanut.source-development-schema-plan.v1` / `peanut.source-development-schema-result.v1`。它要求真实 Console Instance 上下文、development/debug、`PEANUT_INSTALLATION_SOURCE_MODE=development`、干净且固定的 Git 来源、已准备的原生依赖，以及明确登记的非生产数据库。生成 APP 的 application-manifest、server 发行和 development-runtime 标记（包括符号链接）均拒绝；普通 `schema:application` 和 server-update workspace 仍使用各自原入口。
 
 此入口目前只处理唯一待执行项 `20261016-module-migration-provenance`，SQL SHA-256 必须为 `d27a6f52dd3e02b9c0c45a804c059f54062a732c9e1a742dfe12e78b80d96cce`。其他应用迁移必须已有 checksum 相同的 applied 记录。预检保留原 application/module 两张账本的完整记录与结构摘要；执行只增加该迁移对应的应用账本行及两个 provenance 列、两个 CHECK，历史模块行的来源保持 NULL，历史 release_version 不重写。已有 partial 结构、缺账的完整后态、failed/applying、checksum 冲突均停止，不重放或补账。缺失的 installed.json / baseline.json 保持缺失，已有文件保持原字节；该入口不建立首次安装身份。
 
-资源 owner 必须通过正常资源授权机制取得绑定本次 owner、thread、Workflow Session、gate、源码 candidate/worktree、登记摘要、endpoint/schema 和 TTL 的原生租约。命令的 `--owner`、`--thread`、`--session`、`--gate` 必须与它一致；`PEANUT_RESOURCE_LEASE_PROOF` 指向原生证明。apply 要求完整 DDL/exclusive 范围并再次执行原生 verify-locks。登记采用 schema 模式、且没有 shared_access 和 mysql-access 声明的既有租约按原生整 schema 独占合同处理；显式 read 声明不能升级为 DDL。计划、回执或文件摘要都不是授权。
+资源 owner 必须通过正常资源授权机制取得绑定本次 owner、thread、Workflow Session、gate、源码 candidate/worktree、登记摘要、endpoint/schema 和 TTL 的原生租约。命令的 `--owner`、`--thread`、`--session`、`--gate` 必须与它一致；`PEANUT_RESOURCE_LEASE_PROOF` 指向原生证明。CLI 在初始化 master 连接前先核源码、登记和原生租约；apply 要求完整 DDL/exclusive 范围并再次执行原生 verify-locks。登记采用 schema 模式、且没有 shared_access 和 mysql-access 声明的既有租约按原生整 schema 独占合同处理；显式 read 声明不能升级为 DDL。计划、回执或文件摘要都不是授权。
 
 执行者另行完成 HTTP、worker 及其他写入者的实际停写、在途操作排空、两张账本的成对备份和可执行恢复准备，再形成下列受保护事实文件。schema named lock 只串行参与该锁的迁移，不能阻止任意业务写入者。工具不会停服务、执行备份/恢复工具、创建租约或续租。
 
-先在登记的 `lease_gate=migration-validation` 数据库执行单次验证。该角色完全由可信资源登记与同名原生 gate 决定，不接受命令行角色开关。首次验证要求已从原库恢复的两表基线与完整性、备份/恢复合同及本次 DDL/exclusive 授权，不循环要求自己先完成资格。原库 apply 则要求另一个 schema 已完成相同源码、相同两表基线的单条迁移及实际恢复验证，再取得原库自己的停写窗口和授权。两个 schema 可在同一个 MySQL 服务上。验证结果仅覆盖应用 schema，不代表模块升级或完整产品数据库合格。
+DB2 先行验证及原库 apply 是**外部执行与独立验收门禁**。执行者先在登记的 `lease_gate=migration-validation` 数据库，以同一源码、实际加载的 Core、固定 SQL 和原库真实两表基线执行唯一迁移，再实际恢复两表并读取核对。协调者必须读取原生执行 Job 的终态、退出码、真实目标 UUID/schema、迁移前后及恢复后摘要，独立验收后才明确派发原库本次 apply；执行者再取得原库自己的停写窗口和授权。两个 schema 可在同一 MySQL 服务上。首次 DB2 操作不循环要求自己先完成资格；`validation_only` 仅描述当前可信资源登记及同名原生 gate。CLI 不认证历史 Job、不自动认定 DB2/恢复通过，也不代替协调者授权。现有执行任务及原生 Job 保存此门禁记录，无需新增签名或调度系统。
 
 所有输入 JSON、引用的原始回执及备份载荷使用 canonical 绝对路径、普通单链接文件、权限 `0600`，owner 为源码目录 owner 或 root；JSON/回执及此两表载荷限 4 MiB。恢复工具本身使用固定普通文件和 SHA-256。事实文件采用以下字段（对象键顺序不影响比较，数组顺序须一致）：
 
@@ -59,12 +59,10 @@ PEANUT_INSTALLATION_ENV_FILE=/absolute/private/installation.env php server/datab
 | 两者共有 | `schema_version: 1`；`source`、`database`、`authority`、`registry_sha256` 原样取本次 preflight 的 `binding`；固定 `migration_sha256`；整数 `observed_at` / `expires_at`（当前有效且不超过原生租约）；非空 `receipts: [{path, sha256}]`，引用实际操作原始回执 |
 | maintenance | `protocol: peanut.source-development-maintenance.v1`；`state: active`；`excluded_writers: [http, workers, other-writers]`，由本次实际停写操作支持 |
 | recovery | `protocol: peanut.source-development-recovery.v1`；`scope: [pa_schema_migration, pa_module_migration]`；`baseline_sha256` 为计划 baseline 的 canonical JSON SHA-256；`source_database`；`backup_payload: {path, sha256}`；`restore_tool: {path, sha256}`；`restore_contract_sha256` 绑定实际两表恢复合同 |
-| validation 数据库 recovery | `status: baseline_restored`，`source_database` 为原库原生身份，schema 与当前验证库不同；回执证明两表基线实际恢复和完整性 |
-| 原库 recovery | `status: restore_verified`，`source_database` 为原库当前原生身份；`qualification_result` 指向验证库已完成 apply 的受保护结果文件；回执证明验证后已按同一工具完成实际恢复。结果还须绑定相同源码/基线、migration-validation 登记及另一个 schema |
 
-`source_database` 与 binding.database 使用同一原生身份结构：`server_uuid`、`server_hostname`、整数 `server_port`、`database`、`transport`。canonical JSON 将对象键递归按字节排序、保持数组顺序，不转义 Unicode 和斜线；摘要不含末尾换行。停写和恢复事实由受授权的资源执行者负责真实性，入口校验其绑定、有效期及引用文件字节，不把自填 JSON 视作已经停写或已经恢复的证明。
+`source_database` 记录原库，使用与 binding.database 相同的原生身份结构：`server_uuid`、`server_hostname`、整数 `server_port`、`database`、`transport`。canonical JSON 将对象键递归按字节排序、保持数组顺序，不转义 Unicode 和斜线；摘要不含末尾换行。入口仅校验当前事实的绑定、有效期及引用文件字节；它不解析载荷来证明内容、不执行恢复工具，也不消费 `qualification_result`。摘要及文件权限不能认证 producer 或证明操作实际完成；受授权的执行者负责真实停写、载荷内容和可恢复性，协调者通过原生 Job/实际读回独立验收，不能用自填 JSON 或自行重算摘要代替。
 
-在已完成环境准备的源码根目录，经登记的项目执行环境运行下列原生命令；先设定本次真实身份变量及绝对私有文件路径，勿直接复制占位值。预检没有数据库持久写入，会取得既有 source product 文件锁和 schema named lock；计划文件由调用者以 `0600` 保存。
+在已完成环境准备的源码根目录，经登记的项目执行环境运行下列原生命令；先设定本次真实身份变量及绝对私有文件路径，勿直接复制占位值。预检没有数据库持久写入，会取得既有 source product 文件锁和 schema named lock；计划文件由调用者以 `0600` 保存。以下 apply 仅在协调者已经明确派发的本次范围内执行；原库命令必须等待上述 DB2 独立验收。
 
 ```sh
 umask 077
@@ -82,6 +80,6 @@ php server/think schema:application verify --scope=source-development \
   --result="$RESULT_PATH"
 ```
 
-每步先核退出码及 JSON；观察计划的 `may_apply=false`，材料齐全的计划可为 true，但 `execution_admitted` 始终 false，apply 会重新核实原生权限、字节和当前数据库。apply 在外层既有 source product 锁、内层既有 schema 锁内使用同一 ThinkORM 默认 master PDO，SQL 后排空结果、确认无事务并核真实后态，再标 applied，解锁前再次核对；完成后输出 `result_path`，其文件原子保存于 `server/private/application-schema/source-development/`。verify 只接受该目录原生结果，重新读取真实后态和旧记录，允许使用当前有效的只读租约；它不执行迁移。结果始终标记 `plugins=not_run`、`product_database=not_verified`。
+每步先核退出码及 JSON；计划不输出 `may_apply`，`execution_admitted` 始终 false，apply 会重新核实当前原生权限、字节和数据库。apply 在外层既有 source product 锁、内层既有 schema 锁内使用同一 ThinkORM 默认 master PDO，SQL 后排空结果、确认无事务并核真实后态，再标 applied。原生 beforeUnlock 最终核验后、仍持同一 PDO 的 schema 锁时，结果文件原子封存于已有忽略规则覆盖的持久目录 `server/private/installation/application-schema/source-development/`，完成后输出 `result_path`；该子目录不创建或替代 installed.json / baseline.json。verify 读取该目录符合协议与摘要的结果，重新核实当前真实后态和旧记录，允许使用当前有效的只读租约；它不执行迁移，也不认证结果文件的历史 producer。所有结果只覆盖本次运行的 application-schema，明确标记 `external_gates=not_evaluated`、`plugins=not_run`、`product_database=not_verified`，不能用作自动 DB2 资格或原库授权。
 
-典型拒绝包括 `APPLICATION_SCHEMA_SOURCE_PENDING_SCOPE_REQUIRED`（待执行集合不符）、`APPLICATION_SCHEMA_PLAN_STALE`（来源/计划绑定变化）、`APPLICATION_SCHEMA_DDL_LEASE_REQUIRED`（无完整 DDL 范围）、`APPLICATION_SCHEMA_VALIDATION_RESULT_REQUIRED`（缺少独立验证/恢复材料）。失败保留原始输出、账本和恢复材料；DDL 可能已提交，不能自动重试或删除 failed/applying 行。成功后再次 apply 也会拒绝，应使用结果路径 verify。该源码入口尚未以真实数据库完成运行资格，不能据此宣布可生产使用。
+典型拒绝包括 `APPLICATION_SCHEMA_SOURCE_PENDING_SCOPE_REQUIRED`（待执行集合不符）、`APPLICATION_SCHEMA_PLAN_STALE`（来源/计划绑定变化）、`APPLICATION_SCHEMA_DDL_LEASE_REQUIRED`（无完整 DDL 范围）、`APPLICATION_SCHEMA_SOURCE_RECOVERY_REFERENCES_REQUIRED`（两表备份引用格式不符或携带已停用的 qualification_result）。失败保留原始输出、账本和恢复材料；DDL 可能已提交，不能自动重试或删除 failed/applying 行。成功后再次 apply 也会拒绝，应使用结果路径 verify。该源码入口尚未以真实数据库完成运行资格，不能据此宣布可生产使用。
