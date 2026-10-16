@@ -681,13 +681,77 @@ def main():
             native = read(workspace / 'plan.json')
             unsigned = dict(modules); digest = unsigned.pop('report_sha256', None)
             expected = hashlib.sha256(json.dumps(unsigned, sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()).hexdigest()
+            deferred = modules.get('may_apply') is False
+            if deferred:
+                files = {}
+                for row in plan['migration']['files']:
+                    match = re.fullmatch(r'server/database/migrations/([0-9]{8}-[a-z0-9][a-z0-9_-]*)\.sql', row['path'])
+                    if not match or not re.fullmatch(r'[a-f0-9]{64}', row['sha256']) or match[1] in files:
+                        raise ValueError('deferred prerequisite target inventory is invalid')
+                    files[match[1]] = row['sha256']
+
+                def prerequisites(rows):
+                    if not isinstance(rows, list) or not rows:
+                        raise ValueError('deferred prerequisites are missing')
+                    result = {}
+                    for row in rows:
+                        if not isinstance(row, dict) or set(row) != {'migration_id', 'sha256', 'reason'} \
+                                or not isinstance(row['migration_id'], str) or row['migration_id'] in result \
+                                or row['reason'] != 'module_migration_provenance_schema' \
+                                or row['migration_id'] not in files or row['sha256'] != files[row['migration_id']]:
+                            raise ValueError('deferred prerequisite differs from target SQL')
+                        result[row['migration_id']] = row
+                    return result
+
+                declared = prerequisites(modules.get('application_prerequisites'))
+                module_plan = modules.get('plan', {})
+                native_unsigned = dict(module_plan); native_digest = native_unsigned.pop('report_sha256', None)
+                native_expected = hashlib.sha256(json.dumps(native_unsigned, sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()).hexdigest()
+                if modules.get('planning_complete') is not True or modules.get('execution_admitted') is not False \
+                        or module_plan.get('schema_version') != 1 or module_plan.get('protocol') != 'peanut.plugin-reconcile-plan.v1' \
+                        or module_plan.get('scope') != 'release-locked' or module_plan.get('readonly') is not True \
+                        or module_plan.get('complete') is not True or module_plan.get('planning_complete') is not True \
+                        or module_plan.get('execution_admitted') is not False \
+                        or module_plan.get('may_apply') is not False or module_plan.get('status') != 'planned' \
+                        or prerequisites(module_plan.get('application_prerequisites')) != declared or native_digest != native_expected \
+                        or not isinstance(module_plan.get('packages'), list):
+                    raise ValueError('deferred module plan is incomplete')
+                collected = {}
+                for item in module_plan['packages']:
+                    if not isinstance(item, dict) or item.get('action') not in ('planned_install', 'planned_upgrade', 'planned_unchanged', 'preserve_disabled'):
+                        raise ValueError('deferred module plan contains an unapproved action')
+                    if item.get('may_apply') is True:
+                        if not isinstance(item.get('modules'), list) or item.get('application_prerequisites', []) != [] \
+                                or any(not isinstance(module, dict) or module.get('may_apply') is not True
+                                       or module.get('application_prerequisites', []) != [] for module in item['modules']):
+                            raise ValueError('ready package contains a deferred or unknown module')
+                        continue
+                    if item.get('may_apply') is not False or item.get('planning_complete') is not True \
+                            or item.get('execution_admitted') is not False or not isinstance(item.get('modules'), list):
+                        raise ValueError('deferred package plan is incomplete')
+                    package_rows = prerequisites(item.get('application_prerequisites')); module_rows = {}
+                    for module in item['modules']:
+                        if not isinstance(module, dict): raise ValueError('deferred module is invalid')
+                        if module.get('may_apply') is True:
+                            if module.get('application_prerequisites', []) != []: raise ValueError('ready module declares deferred prerequisites')
+                            continue
+                        if module.get('may_apply') is not False or module.get('planning_complete') is not True or module.get('execution_admitted') is not False:
+                            raise ValueError('deferred module has another blocker')
+                        module_rows.update(prerequisites(module.get('application_prerequisites')))
+                    if module_rows != package_rows: raise ValueError('deferred package prerequisites differ from modules')
+                    collected.update(package_rows)
+                if collected != declared: raise ValueError('deferred module prerequisites differ from packages')
             if value.get('status') != 'completed' or value.get('candidate') != candidate or 'application' not in value \
                 or modules.get('schema_version') != 1 or modules.get('protocol') != 'peanut.upgrade-module-preflight.v1' \
-                or modules.get('may_apply') is not True or modules.get('candidate') != candidate \
+                or (not deferred and modules.get('may_apply') is not True) or modules.get('candidate') != candidate \
                 or modules.get('product_plan_sha256') != plan['plan_sha256'] \
                 or modules.get('native_inputs_sha256') != sha(workspace / 'plan.json') \
                 or modules.get('target_identity_sha256') != native['target']['identity_sha256'] or digest != expected:
                 raise ValueError('module-preflight report is missing or differs from the fixed plan')
+        elif value.get('status') != 'completed' or value.get('scope') != 'server-release' \
+                or value.get('plugins') != 'reconciled' \
+                or value.get('product_database') != ('migrated' if operation == 'migrate' else 'verified'):
+            raise ValueError('full server-release database completion is required')
         return value
 
     def health(public=False):

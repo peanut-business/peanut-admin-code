@@ -788,52 +788,118 @@ final class InstallationExecutionHost
         return file_exists($path) || is_link($path);
     }
 
-    private function completionReceiptValid(): bool
+    /** Historical installation anchors only; no database, catalog or target-source comparison. */
+    public static function verifiedInstallationFacts(string $serverRoot): array
     {
-        $path = $this->completionMarker();
-        if (!is_file($path) || is_link($path)) {
-            return false;
+        if (realpath($serverRoot) !== $serverRoot) {
+            throw new RuntimeException('APPLICATION_SCHEMA_INSTALLATION_ROOT_INVALID');
         }
-        try {
-            $receipt = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
-        } catch (Throwable) {
-            return false;
-        }
-        if (!is_array($receipt)
-            || ($receipt['schema_version'] ?? null) !== 1
+        $read = static function (string $path): array {
+            $stat = is_file($path) && !is_link($path) ? lstat($path) : false;
+            if (!is_array($stat) || $stat['nlink'] !== 1 || ($stat['mode'] & 0777) !== 0600
+                || $stat['size'] > 4194304) {
+                throw new RuntimeException('APPLICATION_SCHEMA_INSTALLATION_FILE_UNSAFE');
+            }
+            $bytes = file_get_contents($path);
+            if (!is_string($bytes)) {
+                throw new RuntimeException('APPLICATION_SCHEMA_INSTALLATION_FILE_UNAVAILABLE');
+            }
+            $value = json_decode($bytes, true, 512, JSON_THROW_ON_ERROR);
+            if (!is_array($value) || !hash_equals(hash('sha256', $bytes), (string) hash_file('sha256', $path))) {
+                throw new RuntimeException('APPLICATION_SCHEMA_INSTALLATION_FILE_CHANGED');
+            }
+            return ['value' => $value, 'sha256' => hash('sha256', $bytes)];
+        };
+        $receiptFile = $read($serverRoot . '/private/installation/installed.json');
+        $receipt = $receiptFile['value'];
+        if (($receipt['schema_version'] ?? null) !== 1
             || ($receipt['protocol'] ?? null) !== 'peanut.installation-receipt.v1'
             || ($receipt['state'] ?? null) !== 'installed'
             || !in_array($receipt['deployment_mode'] ?? null, ['standalone', 'multi-tenant'], true)
-            || !is_array($receipt['official_modules'] ?? null)
+            || !is_array($receipt['official_modules'] ?? null) || !array_is_list($receipt['official_modules'])
             || !is_array($receipt['release'] ?? null)
             || !is_array($receipt['baseline_manifest'] ?? null)
             || !is_string($receipt['completed_at'] ?? null)
-            || trim($receipt['completed_at']) === '') {
-            return false;
+            || preg_match('/\A[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)?(?:Z|[+-][0-9]{2}:[0-9]{2})\z/D', $receipt['completed_at']) !== 1) {
+            throw new RuntimeException('APPLICATION_SCHEMA_INSTALLATION_RECEIPT_INVALID');
         }
         foreach ($receipt['official_modules'] as $module) {
-            if (!is_string($module) || $module === '') {
-                return false;
+            if (!is_string($module) || preg_match('/\A[a-z][a-z0-9_-]*\.[a-z][a-z0-9_.-]*\z/D', $module) !== 1) {
+                throw new RuntimeException('APPLICATION_SCHEMA_INSTALLATION_MODULES_INVALID');
             }
+        }
+        if (count(array_unique($receipt['official_modules'])) !== count($receipt['official_modules'])) {
+            throw new RuntimeException('APPLICATION_SCHEMA_INSTALLATION_MODULES_INVALID');
         }
         foreach (['source_product_version', 'release_sequence_version', 'scaffold_template'] as $name) {
-            if (!is_string($receipt['release'][$name] ?? null) || $receipt['release'][$name] === '') {
-                return false;
+            if (!is_string($receipt['release'][$name] ?? null)
+                || preg_match('/\A(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?\z/D', $receipt['release'][$name]) !== 1) {
+                throw new RuntimeException('APPLICATION_SCHEMA_INSTALLATION_RELEASE_INVALID');
             }
         }
-        $baseline = $receipt['baseline_manifest'];
-        $baselinePath = $baseline['path'] ?? null;
-        $baselineSha256 = $baseline['sha256'] ?? null;
+        $reference = $receipt['baseline_manifest'];
+        $baselinePath = $reference['path'] ?? null;
+        $baselineSha256 = $reference['sha256'] ?? null;
         if (!in_array($baselinePath, [
             'server/runtime/installation/baseline.json',
             'server/private/installation/baseline.json',
         ], true) || !is_string($baselineSha256)
             || preg_match('/^[a-f0-9]{64}$/D', $baselineSha256) !== 1) {
+            throw new RuntimeException('APPLICATION_SCHEMA_INSTALLATION_BASELINE_INVALID');
+        }
+        // The canonical private baseline remains authoritative after the existing
+        // installation-state migration; a historical path is not a read fallback.
+        $baselineFile = $read($serverRoot . '/private/installation/baseline.json');
+        $baseline = $baselineFile['value'];
+        if (!hash_equals($baselineSha256, $baselineFile['sha256'])
+            || ($baseline['schema_version'] ?? null) !== 1
+            || ($baseline['protocol'] ?? null) !== 'peanut.installation-baseline.v1'
+            || ($baseline['deployment_mode'] ?? null) !== $receipt['deployment_mode']
+            || ($baseline['release'] ?? null) !== $receipt['release']
+            || ($baseline['official_modules'] ?? null) !== $receipt['official_modules']) {
+            throw new RuntimeException('APPLICATION_SCHEMA_INSTALLATION_BASELINE_MISMATCH');
+        }
+        $source = $baseline['source'] ?? null;
+        $required = match (is_array($source) ? ($source['kind'] ?? null) : null) {
+            'server-release' => ['server_release_identity_sha256', 'application_manifest_sha256'],
+            'generated-application' => ['application_manifest_sha256'],
+            'product-source' => ['inventory_sha256', 'edition_profiles_sha256', 'release_versions_sha256'],
+            default => throw new RuntimeException('APPLICATION_SCHEMA_INSTALLATION_SOURCE_INVALID'),
+        };
+        foreach ($required as $field) {
+            if (preg_match('/\A[a-f0-9]{64}\z/D', (string) ($source[$field] ?? '')) !== 1) {
+                throw new RuntimeException('APPLICATION_SCHEMA_INSTALLATION_SOURCE_INVALID');
+            }
+        }
+        $chain = $baseline['database']['migration_chain'] ?? null;
+        if (!is_array($chain) || !array_is_list($chain)
+            || preg_match('/\A[a-f0-9]{64}\z/D', (string) ($baseline['database']['fresh_schema_sha256'] ?? '')) !== 1) {
+            throw new RuntimeException('APPLICATION_SCHEMA_INSTALLATION_CHAIN_INVALID');
+        }
+        $previous = '';
+        foreach ($chain as $migration) {
+            $id = is_array($migration) ? ($migration['id'] ?? null) : null;
+            if (!is_string($id) || preg_match('/\A[0-9]{8}-[a-z0-9][a-z0-9_-]*\z/D', $id) !== 1
+                || strcmp($previous, $id) >= 0
+                || preg_match('/\A[a-f0-9]{64}\z/D', (string) ($migration['sha256'] ?? '')) !== 1) {
+                throw new RuntimeException('APPLICATION_SCHEMA_INSTALLATION_CHAIN_INVALID');
+            }
+            $previous = $id;
+        }
+        return [
+            'receipt_sha256' => $receiptFile['sha256'], 'baseline_sha256' => $baselineFile['sha256'],
+            'receipt' => $receipt, 'baseline' => $baseline,
+        ];
+    }
+
+    private function completionReceiptValid(): bool
+    {
+        try {
+            self::verifiedInstallationFacts($this->serverRoot);
+            return true;
+        } catch (Throwable) {
             return false;
         }
-        $file = $this->baselineMarker();
-        return is_file($file) && !is_link($file)
-            && hash_file('sha256', $file) === $baselineSha256;
     }
 
     private function baselineMarker(): string
