@@ -153,7 +153,7 @@ final class ScaffoldUpgradeRunner
         $pluginProjection = null;
         $pluginTarget = null;
         if (Semver::greaterThanOrEqualTo($from->version(), '3.0.0')) {
-            $pluginProjection = $this->pluginProjection($root);
+            $pluginProjection = $this->pluginProjection($root, sourceApplication: true);
             $targetPlugins = $this->targetPluginIndex($to, $targetParameters, $versionContract);
             $managedUpstreamProofs = $this->managedBundledUpstreamProofs(
                 $root,
@@ -1502,7 +1502,7 @@ final class ScaffoldUpgradeRunner
      *
      * @return array<string,mixed>
      */
-    private function pluginProjection(string $root): array
+    private function pluginProjection(string $root, bool $sourceApplication): array
     {
         $lockPath = ScaffoldPathGuard::projectPath($root, 'plugins.lock');
         $lockState = $this->regularFileState($lockPath, 'plugins.lock');
@@ -1510,10 +1510,13 @@ final class ScaffoldUpgradeRunner
             throw new RuntimeException('SCAFFOLD_PLUGIN_LOCK_MISSING');
         }
         try {
-            $resolved = (new PluginLockResolver(
-                ScaffoldPathGuard::projectPath($root, 'server'),
-                '../plugins.lock',
-            ))->all();
+            // Controlled raw/derived graphs retain the ordinary full-lock verifier.
+            $resolved = $sourceApplication
+                ? PluginLockResolver::forSourceUpgrade($root)
+                : (new PluginLockResolver(
+                    ScaffoldPathGuard::projectPath($root, 'server'),
+                    '../plugins.lock',
+                ))->all();
             $lockBytes = file_get_contents($lockPath);
             $lockEndState = $this->regularFileState($lockPath, 'plugins.lock');
             if (!is_string($lockBytes)
@@ -1879,7 +1882,7 @@ final class ScaffoldUpgradeRunner
             }
             $built = $writer->lock();
             $this->writeFileAtomic($stage . '/plugins.lock', $built['contents'], 0644);
-            $projection = $this->pluginProjection($stage);
+            $projection = $this->pluginProjection($stage, sourceApplication: false);
             $preflight = new ModulePackagePreflight($stage);
             $modules = [];
             foreach ($projection['plugins'] as $key => $plugin) {
@@ -2208,7 +2211,7 @@ final class ScaffoldUpgradeRunner
         }
         // checkLock regenerates the expected raw manifests and lock without replacing them.
         (new PluginArtifactWriter($raw . '/server'))->checkLock();
-        $projection = $this->pluginProjection($raw);
+        $projection = $this->pluginProjection($raw, sourceApplication: false);
         if (array_keys($projection['plugins']) !== array_keys($target)) {
             throw new RuntimeException('SCAFFOLD_RAW_PLUGIN_TARGET_IDENTITY_MISMATCH');
         }
@@ -2385,7 +2388,7 @@ final class ScaffoldUpgradeRunner
         if ($expected === null) {
             return;
         }
-        if (!is_array($expected) || $this->pluginProjection($root) !== $expected) {
+        if (!is_array($expected) || $this->pluginProjection($root, sourceApplication: true) !== $expected) {
             throw new RuntimeException('SCAFFOLD_PLUGIN_PROJECTION_CHANGED');
         }
     }

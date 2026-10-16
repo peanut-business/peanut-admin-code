@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace app\platform\infrastructure\plugin;
 
 use app\common\infrastructure\module\ModuleHostLayoutFactory;
+use app\common\validation\scaffold\ScaffoldPathGuard;
 use app\common\value\installation\ServerReleaseIdentity;
 use app\platform\exception\plugin\PluginLifecycleException;
 use app\platform\value\plugin\PluginDescriptor;
@@ -22,8 +23,49 @@ final class PluginLockResolver
         private readonly string $lockPath,
     ) {}
 
+    /**
+     * Resolve the full application graph for CLI source-upgrade operations only.
+     * Runtime callers retain all() and its backend projection identity checks.
+     *
+     * @return array<string,PluginDescriptor>
+     */
+    public static function forSourceUpgrade(string $projectRoot): array
+    {
+        if (PHP_SAPI !== 'cli') {
+            throw new PluginLifecycleException('PLUGIN_SOURCE_UPGRADE_CLI_REQUIRED', 'Full source resolution requires the CLI source-upgrade entry.');
+        }
+        $root = ScaffoldPathGuard::projectRoot($projectRoot);
+        foreach (['server/composer.json', 'web/package.json', '.peanut/application-manifest.json', 'plugins.lock'] as $path) {
+            ScaffoldPathGuard::existingFileWithin(
+                $root,
+                ScaffoldPathGuard::projectPath($root, $path),
+                'PLUGIN_SOURCE_UPGRADE_ROOT_INVALID',
+            );
+        }
+        $serverRoot = ScaffoldPathGuard::projectPath($root, 'server');
+        $serverIdentity = $serverRoot . '/.peanut/release-identity.json';
+        if (file_exists($serverIdentity) || is_link($serverIdentity)) {
+            throw new PluginLifecycleException('PLUGIN_SOURCE_UPGRADE_ROOT_INVALID', 'A server release cannot be resolved as a source application.');
+        }
+        $resolver = new self($serverRoot, '../plugins.lock');
+        $manifest = $resolver->readJson($root . '/.peanut/application-manifest.json', 'PLUGIN_SOURCE_UPGRADE_ROOT_INVALID');
+        if (($manifest['schema_version'] ?? null) !== 2
+            || ($manifest['protocol'] ?? null) !== 'peanut.application-scaffold.v2'
+            || !is_array($manifest['application'] ?? null)
+            || !is_array($manifest['files'] ?? null)) {
+            throw new PluginLifecycleException('PLUGIN_SOURCE_UPGRADE_ROOT_INVALID', 'Source application metadata is invalid.');
+        }
+        return $resolver->resolve(true);
+    }
+
     /** @return array<string,PluginDescriptor> */
     public function all(): array
+    {
+        return $this->resolve(false);
+    }
+
+    /** @return array<string,PluginDescriptor> */
+    private function resolve(bool $sourceUpgrade): array
     {
         $journal = dirname($this->serverRoot) . '/.local/module-source-adoption/journal.json';
         if (file_exists($journal) || is_link($journal)) {
@@ -35,6 +77,9 @@ final class PluginLockResolver
         $lockPath = $this->absolutePath($this->lockPath, $this->serverRoot);
         $lock = $this->readJson($lockPath, 'PLUGIN_LOCK_INVALID');
         $serverProjection = ($lock['protocol'] ?? null) === 'peanut.server-plugin-lock.v1';
+        if ($sourceUpgrade && $serverProjection) {
+            throw new PluginLifecycleException('PLUGIN_LOCK_INVALID', 'Source upgrade requires the full application Plugin lock.');
+        }
         if ($serverProjection) {
             $expectedPath = realpath($this->serverRoot . '/plugins.lock');
             if ($expectedPath === false || $lockPath !== $expectedPath) {
@@ -48,7 +93,7 @@ final class PluginLockResolver
             }
         } else {
             $serverIdentity = $this->serverRoot . '/.peanut/release-identity.json';
-            if (file_exists($serverIdentity) || is_link($serverIdentity)) {
+            if (!$sourceUpgrade && (file_exists($serverIdentity) || is_link($serverIdentity))) {
                 throw new PluginLifecycleException('PLUGIN_LOCK_INVALID', 'Server release requires its backend Plugin projection.');
             }
             $this->assertExactKeys($lock, ['schema_version', 'plugins'], 'PLUGIN_LOCK_INVALID');
