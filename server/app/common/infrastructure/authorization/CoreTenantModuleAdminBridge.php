@@ -50,13 +50,7 @@ final readonly class CoreTenantModuleAdminBridge
             return [];
         }
 
-        $permissions = array_values(array_unique([
-            ...$this->authorization->permissions(
-                $tenantContext->tenantId,
-                $tenantContext->memberId,
-            )->keys(),
-            ...$this->applicationPermissions($tenantContext),
-        ]));
+        $permissions = $this->basePermissions($tenantContext);
         if ($this->isTenantOwner($tenantContext)) {
             $permissions = array_values(array_unique([
                 ...$permissions,
@@ -69,31 +63,71 @@ final readonly class CoreTenantModuleAdminBridge
     /** @return array{menu:list<array<string,mixed>>,permissions:list<string>} */
     public function accessData(mixed $tenantContext): array
     {
+        $data = $this->accessProjection($tenantContext, false);
+        return ['menu' => $data['menu'], 'permissions' => $data['permissions']];
+    }
+
+    /**
+     * One read-only Admin Shell projection; all qualification inputs are read here.
+     * @return array{menu:list<array<string,mixed>>,permissions:list<string>,registered_permissions:list<string>,registered_system_menu_permissions:list<string>,managed_menu_keys:list<string>}
+     */
+    public function adminShellAccessData(TenantContext $tenantContext): array
+    {
+        return $this->accessProjection($tenantContext, true);
+    }
+
+    /** Local values never survive this call or bypass a later independent qualification. */
+    private function accessProjection(mixed $tenantContext, bool $includeShell): array
+    {
         if (!$tenantContext instanceof TenantContext
             || $tenantContext->tenantId < 1
             || $tenantContext->memberId < 1) {
-            return ['menu' => [], 'permissions' => []];
+            return ['menu' => [], 'permissions' => [], 'registered_permissions' => [],
+                'registered_system_menu_permissions' => [], 'managed_menu_keys' => []];
         }
 
-        $permissions = $this->permissionsOnly($tenantContext);
-        $definitions = $this->menuCatalog->activeDefinitions('tenant');
+        $permissions = $this->basePermissions($tenantContext);
+        $tenantOwner = $this->isTenantOwner($tenantContext);
         $qualification = $this->moduleGovernance->qualification();
         $deploymentModules = array_map(
             static fn($module): string => $module->moduleKey,
             $qualification->installedModules(),
         );
         $tenantModules = $qualification->activeTenantModuleKeys($tenantContext->tenantId);
+        $installed = array_fill_keys($deploymentModules, true);
+        $activeOwners = array_values(array_unique([
+            self::APPLICATION_PERMISSION_OWNER,
+            ...array_filter($tenantModules, static fn(string $key): bool => isset($installed[$key])),
+        ]));
+        $corePermissions = ($tenantOwner || $includeShell) ? $this->registeredCoreTenantPermissions() : [];
+        $registeredPermissions = ($tenantOwner || $includeShell)
+            ? $this->registeredPermissionsForOwners($activeOwners, $corePermissions) : [];
+        if ($tenantOwner) {
+            $permissions = array_values(array_unique([...$permissions, ...$registeredPermissions]));
+        }
+        $definitions = $this->menuCatalog->activeDefinitions('tenant');
         $visible = (new MenuRegistry($definitions))->visible(
             'admin-web',
             static fn(string $moduleKey): bool => in_array($moduleKey, $deploymentModules, true),
             static fn(string $moduleKey): bool => in_array($moduleKey, $tenantModules, true),
             static fn(string $permission): bool => in_array($permission, $permissions, true),
         );
-
-        return [
-            'menu' => $this->serverMenuRecords($visible, $permissions),
+        $nativeRecords = ($includeShell || $visible !== []) ? $this->menuAdministration->records() : [];
+        $data = [
+            'menu' => $visible === [] ? [] : $this->renderServerMenuRecords(
+                $visible,
+                SystemMenu::order('id')->select()->toArray(),
+                $nativeRecords,
+                $permissions,
+            ),
             'permissions' => array_values(array_unique($permissions)),
         ];
+        if ($includeShell) {
+            $data['registered_permissions'] = $registeredPermissions;
+            $data['registered_system_menu_permissions'] = $this->registeredSystemMenuPermissionsForOwners($activeOwners, $corePermissions);
+            $data['managed_menu_keys'] = array_column($nativeRecords, 'key');
+        }
+        return $data;
     }
 
     /** @return list<array<string,mixed>> */
@@ -136,10 +170,7 @@ final readonly class CoreTenantModuleAdminBridge
                 static fn(string $moduleKey): bool => isset($installed[$moduleKey]),
             ),
         ]));
-        return array_values(array_unique([
-            ...$this->identityAuthorization->registeredPermissionKeys($active),
-            ...$this->registeredCoreTenantPermissions(),
-        ]));
+        return $this->registeredPermissionsForOwners($active, $this->registeredCoreTenantPermissions());
     }
 
     /** @return list<string> */
@@ -160,12 +191,41 @@ final readonly class CoreTenantModuleAdminBridge
                 static fn(string $moduleKey): bool => isset($installed[$moduleKey]),
             ),
         ])), true);
+        return $this->registeredSystemMenuPermissionsForOwners(array_keys($active), $this->registeredCoreTenantPermissions());
+    }
+
+    /** Read current grants without retaining them beyond this projection. @return list<string> */
+    private function basePermissions(TenantContext $tenantContext): array
+    {
+        $permissions = array_values(array_unique([
+            ...$this->authorization->permissions(
+                $tenantContext->tenantId,
+                $tenantContext->memberId,
+            )->keys(),
+            ...$this->applicationPermissions($tenantContext),
+        ]));
+        return $permissions;
+    }
+
+    /** @param list<string> $active @param list<string> $corePermissions @return list<string> */
+    private function registeredPermissionsForOwners(array $active, array $corePermissions): array
+    {
+        return array_values(array_unique([
+            ...$this->identityAuthorization->registeredPermissionKeys($active),
+            ...$corePermissions,
+        ]));
+    }
+
+    /** @param list<string> $activeOwners @param list<string> $corePermissions @return list<string> */
+    private function registeredSystemMenuPermissionsForOwners(array $activeOwners, array $corePermissions): array
+    {
+        $active = array_fill_keys($activeOwners, true);
         $permissions = [];
         $menuPermissions = array_map('strval', SystemMenu::where('is_disable', 0)
             ->where('perms', '<>', '')->distinct(true)->column('perms'));
         $states = $this->identityAuthorization->permissionStates($menuPermissions);
         $registeredCorePermissions = array_fill_keys(
-            $this->registeredCoreTenantPermissions(),
+            $corePermissions,
             true,
         );
         foreach ($menuPermissions as $permission) {
@@ -223,8 +283,21 @@ final readonly class CoreTenantModuleAdminBridge
         if ($definitions === []) {
             return [];
         }
-        $legacy = SystemMenu::order('id')->select()->toArray();
-        $nativeRows = array_column($this->menuAdministration->records(), null, 'key');
+        return $this->renderServerMenuRecords(
+            $definitions,
+            SystemMenu::order('id')->select()->toArray(),
+            $this->menuAdministration->records(),
+            $permissions,
+        );
+    }
+
+    /** @param list<MenuDefinition> $definitions @param list<array<string,mixed>> $legacy @param list<array<string,mixed>> $nativeRecords */
+    private function renderServerMenuRecords(array $definitions, array $legacy, array $nativeRecords, ?array $permissions): array
+    {
+        if ($definitions === []) {
+            return [];
+        }
+        $nativeRows = array_column($nativeRecords, null, 'key');
         $presentations = [];
         $ids = [];
         foreach ($definitions as $definition) {
