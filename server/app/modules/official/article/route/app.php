@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use PeanutAdmin\Modules\Article\Controller\ArticleCateController;
 use PeanutAdmin\Modules\Article\Controller\ArticleController;
+use PeanutAdmin\Modules\Article\Controller\HelloController;
 use app\adminapi\http\middleware\AuthMiddleware;
 use app\adminapi\http\middleware\LoginMiddleware;
 use app\adminapi\http\middleware\OperationLogMiddleware;
@@ -15,6 +16,7 @@ if (($peanutRouteApplication ?? null) !== 'adminapi') {
 }
 
 Route::group(function (): void {
+    Route::get('official.article.hello', [HelloController::class, 'index'])->option(['peanut_permission' => 'official.article.list']);
     Route::get('official.article.category.list', [ArticleCateController::class, 'lists']);
     Route::get('official.article.category.all', [ArticleCateController::class, 'all']);
     Route::get('official.article.category.detail', [ArticleCateController::class, 'detail']);
