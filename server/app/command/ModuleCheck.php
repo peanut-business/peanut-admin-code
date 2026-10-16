@@ -15,6 +15,10 @@ use think\facade\Db;
 
 final class ModuleCheck extends ModuleContextualCommand
 {
+    private ?\PDO $preservationPdo = null;
+    private ?array $preservationSelection = null;
+    private ?array $preservationReferenceBatch = null;
+
     protected function configure()
     {
         $this->setName('module:check')->setDescription('Run the read-only Module author preflight')
@@ -30,7 +34,73 @@ final class ModuleCheck extends ModuleContextualCommand
             ->addOption('database-endpoint', null, Option::VALUE_REQUIRED, 'Expected registered endpoint ID')
             ->addOption('database-name', null, Option::VALUE_REQUIRED, 'Expected registered database name')
             ->addOption('candidate', null, Option::VALUE_REQUIRED, 'Exact current Git HEAD for the observation')
-            ->addOption('page-size', null, Option::VALUE_REQUIRED, 'Bounded records per output page', '100');
+            ->addOption('page-size', null, Option::VALUE_REQUIRED, 'Bounded records per output page', '100')
+            ->addOption('document-file-preservation', null, Option::VALUE_NONE, 'Include optional installed Doc/File metadata without enabling business operations')
+            ->addOption('documents', null, Option::VALUE_REQUIRED, 'Explicit document IDs or all within selected tenants')
+            ->addOption('file-scope', null, Option::VALUE_REQUIRED, 'references or all-in-selected-tenants; never instance-global storage');
+    }
+
+    /** Live authorization adapter: modules verify the actual command lifecycle and its private snapshot ownership. */
+    public function assertPreservationReadSnapshot(\PDO $pdo, string $moduleKey): array
+    {
+        $this->assertDevelopmentInstanceMaintenanceAccess();
+        if ($this->getName() !== 'module:check' || $this->preservationPdo !== $pdo || $this->preservationSelection === null
+            || !$pdo->inTransaction() || Db::connect()->getPdo() !== $pdo
+            || $this->getApp()->make(\app\common\execution\CurrentExecutionContext::class) !== $this->executionContext()
+            || !in_array($moduleKey, ['official.document', 'official.file'], true)) {
+            throw new \RuntimeException('PRESERVATION_MODULE_SNAPSHOT_UNAUTHORIZED');
+        }
+        $modules = new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries();
+        $manifest = $this->getApp()->make(\PeanutAdmin\Kernel\Module\CompiledModuleRegistry::class)->requireManifest($moduleKey);
+        $installation = $modules->installationIdentities([$moduleKey])[$moduleKey] ?? null;
+        if (!is_array($installation)
+            || (string) ($installation['installed_version'] ?? '') !== (string) ($manifest->data['version'] ?? '')
+            || (int) ($installation['manifest_schema_version'] ?? 0) !== (int) ($manifest->data['schema_version'] ?? 0)
+            || !hash_equals($manifest->digest, (string) ($installation['manifest_digest'] ?? ''))) {
+            throw new \RuntimeException('PRESERVATION_OPTIONAL_MODULE_IDENTITY_UNKNOWN');
+        }
+        // Identity alone does not prove that the schema migrations were actually applied.
+        $moduleRoot = realpath($manifest->root);
+        $declared = $manifest->data['backend']['migrations'] ?? null;
+        $directory = is_string($declared) ? realpath($manifest->root . '/' . $declared) : false;
+        if ($moduleRoot === false || $directory === false || !str_starts_with($directory . '/', $moduleRoot . '/')
+            || !is_dir($directory) || !is_readable($directory) || is_link($manifest->root . '/' . $declared)) {
+            throw new \RuntimeException('PRESERVATION_OPTIONAL_MODULE_MIGRATIONS_UNKNOWN');
+        }
+        $files = glob($directory . '/*.sql');
+        if (!is_array($files) || $files === []) { throw new \RuntimeException('PRESERVATION_OPTIONAL_MODULE_MIGRATIONS_UNKNOWN'); }
+        sort($files, SORT_STRING);
+        foreach ($files as $file) {
+            $checksum = !is_link($file) && is_readable($file) ? hash_file('sha256', $file) : false;
+            $migration = Db::name('module_migration')->where('module_key', $moduleKey)
+                ->where('migration_key', $moduleKey . ':' . basename($file, '.sql'))->field('checksum,status')->find();
+            if (!is_string($checksum) || !is_array($migration) || ($migration['status'] ?? null) !== 'applied'
+                || !hash_equals($checksum, (string) ($migration['checksum'] ?? ''))) {
+                throw new \RuntimeException('PRESERVATION_OPTIONAL_MODULE_MIGRATIONS_UNKNOWN');
+            }
+        }
+        $states = $modules->installationStates([$moduleKey]);
+        $state = $states[$moduleKey] ?? null;
+        if (!is_array($state) || !in_array($state['status'] ?? null, ['active', 'maintenance'], true)
+            || ($state['last_error_code'] ?? null) !== null || Db::connect()->getPdo() !== $pdo || !$pdo->inTransaction()) {
+            throw new \RuntimeException('PRESERVATION_OPTIONAL_MODULE_UNAVAILABLE');
+        }
+        return $this->preservationSelection + ['module_status' => $state['status']];
+    }
+
+    /** Only the Doc page currently being consumed can authorize a File-owned reference lookup batch. */
+    public function assertPreservationReferenceBatch(\PDO $pdo, array $references): void
+    {
+        $scope = $this->assertPreservationReadSnapshot($pdo, 'official.file');
+        if ($this->preservationReferenceBatch === null || $references !== $this->preservationReferenceBatch || count($references) > 100) {
+            throw new \RuntimeException('PRESERVATION_REFERENCE_BATCH_UNAUTHORIZED');
+        }
+        foreach ($references as $reference) {
+            if (!in_array($reference['tenant_id'] ?? null, $scope['tenants'], true)
+                || ($scope['documents'] !== null && !in_array($reference['document_id'] ?? null, $scope['documents'], true))) {
+                throw new \RuntimeException('PRESERVATION_REFERENCE_SCOPE_INVALID');
+            }
+        }
     }
 
     protected function handle(Input $input, Output $output): int
@@ -120,11 +190,21 @@ final class ModuleCheck extends ModuleContextualCommand
             $tenants = $ids((string) $input->getOption('tenants'));
             $instanceScope = (string) $input->getOption('instances');
             $instances = $instanceScope === 'all' ? null : $ids($instanceScope);
+            $includeDocFile = (bool) $input->getOption('document-file-preservation');
+            $documents = null; $fileScope = null;
+            if ($includeDocFile) {
+                $documentScope = (string) $input->getOption('documents');
+                $documents = $documentScope === 'all' ? null : $ids($documentScope);
+                $fileScope = (string) $input->getOption('file-scope');
+                if (!in_array($fileScope, ['references', 'all-in-selected-tenants'], true)) { throw new \RuntimeException('PRESERVATION_DETAIL_SCOPE_INVALID'); }
+            } elseif ($input->getOption('documents') !== null || $input->getOption('file-scope') !== null) {
+                throw new \RuntimeException('PRESERVATION_DETAIL_SCOPE_INVALID');
+            }
             $limit = (string) $input->getOption('page-size');
             if (preg_match('/\A(?:[1-9]|[1-9][0-9]|100)\z/D', $limit) !== 1) { throw new \RuntimeException('PRESERVATION_DETAIL_SCOPE_INVALID'); }
             $root = dirname(__DIR__, 2);
             $candidate = (string) $input->getOption('candidate');
-            $sourceIdentity = static function () use ($root, $candidate): array {
+            $sourceIdentity = static function () use ($root, $candidate, $includeDocFile): array {
                 if (preg_match('/\A[a-f0-9]{40}\z/D', $candidate) !== 1) { throw new \RuntimeException('PRESERVATION_DETAIL_SOURCE_UNKNOWN'); }
                 $process = proc_open(['git', '-C', dirname($root), 'rev-parse', '--verify', 'HEAD'],
                     [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes);
@@ -138,6 +218,14 @@ final class ModuleCheck extends ModuleContextualCommand
                     $path = $root . '/' . $relative;
                     if (!is_file($path) || is_link($path)) { throw new \RuntimeException('PRESERVATION_DETAIL_SOURCE_UNKNOWN'); }
                     $files[$relative] = hash_file('sha256', $path);
+                }
+                if ($includeDocFile) {
+                    foreach (['app/modules/official/document/src/Contract/DocumentUpgradePreservationQuery.php', 'app/modules/official/document/module.json',
+                        'app/modules/official/file/src/Contract/StorageQualificationQueries.php', 'app/modules/official/file/module.json'] as $relative) {
+                        $path = $root . '/' . $relative;
+                        if (is_link($path)) { throw new \RuntimeException('PRESERVATION_DETAIL_SOURCE_UNKNOWN'); }
+                        $files[$relative] = is_file($path) ? hash_file('sha256', $path) : 'absent';
+                    }
                 }
                 return ['candidate' => $head, 'actual_file_sha256' => $files, 'lock_qualification' => 'not_asserted_by_this_report'];
             };
@@ -169,11 +257,18 @@ final class ModuleCheck extends ModuleContextualCommand
             if (!$pdo->inTransaction()) { throw new \RuntimeException('PRESERVATION_DETAIL_SNAPSHOT_LOST'); }
             $identity = $pdo->query('SELECT DATABASE() AS database_name,@@server_uuid AS server_uuid,CONNECTION_ID() AS connection_id')->fetch(\PDO::FETCH_ASSOC);
             if (($identity['database_name'] ?? null) !== $registered['database']) { throw new \RuntimeException('PRESERVATION_DETAIL_DATABASE_MISMATCH'); }
+            if ($includeDocFile) {
+                $this->preservationPdo = $pdo;
+                $this->preservationSelection = ['tenants' => $tenants, 'documents' => $documents, 'prefix' => (string) $config['prefix'],
+                    'limit' => (int) $limit, 'file_scope' => $fileScope];
+            }
             $emit(['kind' => 'header', 'schema_version' => 1, 'source' => $source, 'started_at' => gmdate(DATE_ATOM),
                 'database' => ['resource_id' => $registered['resource_id'], 'endpoint_id' => $registered['endpoint_id'],
                     'database' => $registered['database'], 'registry_sha256' => $registrySha,
                     'server_uuid' => $identity['server_uuid'], 'connection_id' => (string) $identity['connection_id']],
-                'scope' => ['tenants' => $tenants, 'instances' => $instances ?? 'all_in_selected_tenants', 'definitions' => 'all_in_selected_tenants', 'departments' => 'all_in_selected_tenants'],
+                'scope' => ['tenants' => $tenants, 'instances' => $instances ?? 'all_in_selected_tenants', 'definitions' => 'all_in_selected_tenants', 'departments' => 'all_in_selected_tenants',
+                    'document_file_requested' => $includeDocFile, 'documents' => $includeDocFile ? ($documents ?? 'all_in_selected_tenants') : 'not_requested',
+                    'files' => $fileScope, 'instance_global_resources' => 'excluded'],
                 'snapshot' => 'same PDO; repeatable read; read only; consistent snapshot; no cross-run continuation',
                 'may_apply' => false, 'mapping_correctness_proven' => false, 'preservation_after_upgrade_proven' => false]);
             $queries = [
@@ -198,6 +293,63 @@ final class ModuleCheck extends ModuleContextualCommand
                     $emit(['kind' => 'records', 'module_key' => $module, 'page' => $page]);
                 }
             }
+            $docFileConsistent = true;
+            if ($includeDocFile) {
+                $consume = function (string $module, array $page) use ($emit, &$complete, &$counts, &$totals, &$finished, &$classifications, &$docFileConsistent): void {
+                    $complete = $complete && ($page['complete'] ?? false) === true;
+                    $table = $page['table'];
+                    if (($page['complete'] ?? false) === true) { $totals[$table] = $page['total_rows']; $finished[$table] = ($page['table_finished'] ?? false) === true; }
+                    $counts[$table] = ($page['complete'] ?? false) === true && (!array_key_exists($table, $counts) || $counts[$table] !== null)
+                        ? ($counts[$table] ?? 0) + count($page['records']) : null;
+                    foreach ($page['records'] as $record) {
+                        $key = $record['classification']; $classifications[$key] = ($classifications[$key] ?? 0) + 1;
+                        if ($key === 'unknown') { $docFileConsistent = false; }
+                    }
+                    $emit(['kind' => 'records', 'module_key' => $module, 'page' => $page]);
+                };
+                $file = null;
+                try {
+                    if (!class_exists(\PeanutAdmin\Modules\File\Contract\StorageQualificationQueries::class)) { throw new \RuntimeException('PRESERVATION_OPTIONAL_MODULE_UNAVAILABLE'); }
+                    $this->assertPreservationReadSnapshot($pdo, 'official.file');
+                    $file = $this->getApp()->make(\PeanutAdmin\Modules\File\Contract\StorageQualificationQueries::class);
+                } catch (\Throwable) {
+                    $complete = false; $docFileConsistent = false;
+                    $emit(['kind' => 'optional-module', 'module_key' => 'official.file', 'complete' => false, 'code' => 'FILE_MAINTENANCE_UNAVAILABLE']);
+                }
+                try {
+                    if (!class_exists(\PeanutAdmin\Modules\Document\Contract\DocumentUpgradePreservationQuery::class)) { throw new \RuntimeException('PRESERVATION_OPTIONAL_MODULE_UNAVAILABLE'); }
+                    $document = $this->getApp()->make(\PeanutAdmin\Modules\Document\Contract\DocumentUpgradePreservationQuery::class);
+                    foreach ($document->preservationPages($pdo, (string) $config['prefix'], $tenants, $documents, (int) $limit, $this) as $page) {
+                        $consume('official.document', $page);
+                        $references = [];
+                        foreach ($page['records'] as $record) { foreach ($record['references'] as $reference) { $references[] = $reference; } }
+                        if ($references === []) { continue; }
+                        $this->preservationReferenceBatch = $references;
+                        try {
+                            if ($file === null) { throw new \RuntimeException('PRESERVATION_OPTIONAL_MODULE_UNAVAILABLE'); }
+                            $results = $file->documentReferenceMetadata($pdo, (string) $config['prefix'], $tenants, $references, $this);
+                            if (count($results) !== count($references)) { throw new \RuntimeException('PRESERVATION_REFERENCE_BATCH_INCOMPLETE'); }
+                            foreach ($results as $result) { if ($result['classification'] !== 'metadata_reference_consistent') { $docFileConsistent = false; } }
+                            $emit(['kind' => 'reference-check', 'input_count' => count($references), 'result_count' => count($results), 'results' => $results, 'bytes_verified' => false]);
+                        } catch (\Throwable) {
+                            $complete = false; $docFileConsistent = false;
+                            $emit(['kind' => 'reference-check', 'input_count' => count($references), 'result_count' => null,
+                                'complete' => false, 'code' => 'FILE_REFERENCE_BATCH_UNKNOWN', 'bytes_verified' => false]);
+                        } finally { $this->preservationReferenceBatch = null; }
+                    }
+                } catch (\Throwable) {
+                    $complete = false; $docFileConsistent = false;
+                    $emit(['kind' => 'optional-module', 'module_key' => 'official.document', 'complete' => false, 'code' => 'DOCUMENT_MAINTENANCE_UNAVAILABLE']);
+                }
+                if ($file !== null && $fileScope === 'all-in-selected-tenants') {
+                    try {
+                        foreach ($file->preservationPages($pdo, (string) $config['prefix'], $tenants, (int) $limit, $this) as $page) { $consume('official.file', $page); }
+                    } catch (\Throwable) {
+                        $complete = false; $docFileConsistent = false;
+                        $emit(['kind' => 'optional-module', 'module_key' => 'official.file', 'complete' => false, 'code' => 'FILE_INVENTORY_UNKNOWN']);
+                    }
+                }
+            }
             foreach ($counts as $table => $count) {
                 if ($count === null || (string) $count !== ($totals[$table] ?? null) || !($finished[$table] ?? false)) { $complete = false; }
             }
@@ -206,7 +358,8 @@ final class ModuleCheck extends ModuleContextualCommand
                 throw new \RuntimeException('PRESERVATION_DETAIL_SNAPSHOT_LOST');
             }
             $pdo->rollBack(); $started = false;
-            $emit(['kind' => 'finish', 'complete' => $complete, 'finished_at' => gmdate(DATE_ATOM),
+            $complete = $complete && $docFileConsistent;
+            $emit(['kind' => 'finish', 'complete' => $complete, 'finished_at' => gmdate(DATE_ATOM), 'doc_file_metadata_consistent' => $includeDocFile ? $docFileConsistent : null,
                 'record_counts' => $counts, 'classifications' => $classifications,
                 'may_apply' => false, 'mapping_correctness_proven' => false, 'preservation_after_upgrade_proven' => false,
                 'code' => $complete ? null : 'PRESERVATION_DETAIL_SCHEMA_UNKNOWN']);
@@ -217,6 +370,7 @@ final class ModuleCheck extends ModuleContextualCommand
                 'may_apply' => false, 'mapping_correctness_proven' => false, 'preservation_after_upgrade_proven' => false]);
             return 1;
         } finally {
+            $this->preservationPdo = null; $this->preservationSelection = null; $this->preservationReferenceBatch = null;
             if ($started && $pdo instanceof \PDO && $pdo->inTransaction()) {
                 try { $pdo->rollBack(); }
                 catch (\Throwable) { $emit(['kind' => 'cleanup', 'complete' => false, 'code' => 'PRESERVATION_DETAIL_ROLLBACK_UNCONFIRMED']); }

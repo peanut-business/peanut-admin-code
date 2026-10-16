@@ -6308,7 +6308,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1f630130e83c8763569954a0c827ef07dc494cab702dc700e3dba662c5f0b5c3"
+            "source_sha256": "74d3782c50d416c74a707cbf7930ccc947841ae0ee7a82ff89c1becabfaeac0f"
         },
         {
             "path": "server/app/command/ModuleCreate.php",
@@ -11204,7 +11204,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c4d9a33b6562e7932b690fbad6259c676b4c741bdd6b6d427ca867024e4c4a39"
+            "source_sha256": "b82ae821b3973483babfea893a97dc00bb83fe1e3851fa522f534bf10c76b2a7"
         },
         {
             "path": "server/app/modules/official/document/resources/menus.json",
@@ -11443,6 +11443,20 @@
                 "full"
             ],
             "source_sha256": "6135b76fe3900626a943b132b747204ef7355f0e608b9d8f907bf6b623e3f4c7"
+        },
+        {
+            "path": "server/app/modules/official/document/src/Contract/DocumentUpgradePreservationQuery.php",
+            "target": "server/app/modules/official/document/src/Contract/DocumentUpgradePreservationQuery.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "6058b0c7d5493d4c21f026e065fa85d402c31d5aec9be085499c0026de27ce24"
         },
         {
             "path": "server/app/modules/official/document/src/Contract/DrainedBusinessBarrier.php",
@@ -12142,7 +12156,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d224b8f3266fedbf788664dc2f44674ff59906600ae348d8a687cab5fdc9d925"
+            "source_sha256": "6567d1523aaa234381b837f7cb1a4148ad038dc367ac015eb854fa2cc91fff49"
         },
         {
             "path": "server/app/modules/official/file/src/Controller/FileController.php",
