@@ -27311,7 +27311,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "851730acb2981559209cddd3fe0402b7942e0bec320e131f04657e71ae0f7ec5"
+            "source_sha256": "a1c3b329fd65e4e1d4bc4f7da723653a50ea3f06966d5608de9bb20ca653bb15"
         },
         {
             "path": "server/generated/openapi.json",
@@ -27325,7 +27325,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1a30f7258aecfa4d95364a5a1340e8b9718cfbb196b0f6da9887cf3727f86c8f"
+            "source_sha256": "23dedd59d91f6d41c60b1db8eef885f0c44b414f801e2370387f1bdba9ca7fe0"
         },
         {
             "path": "server/private/storage/.gitkeep",
