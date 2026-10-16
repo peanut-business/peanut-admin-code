@@ -173,6 +173,34 @@ final readonly class CoreTenantModuleAdminBridge
         return $this->registeredPermissionsForOwners($active, $this->registeredCoreTenantPermissions());
     }
 
+    /** A decision checks only its permission owner; menu projections still enumerate the catalog. */
+    public function registeredPermission(int $tenantId, string $permission): bool
+    {
+        if ($tenantId < 1 || $permission === '') {
+            return false;
+        }
+        $state = $this->identityAuthorization->permissionStates([$permission])[$permission] ?? null;
+        if (($state['key'] ?? null) !== $permission || ($state['status'] ?? null) !== 'active') {
+            return false;
+        }
+        $owner = $state['module_key'] ?? null;
+        if ($owner === 'core') {
+            return in_array($permission, CorePermissionCatalog::TENANT, true);
+        }
+        if ($owner === self::APPLICATION_PERMISSION_OWNER) {
+            return true;
+        }
+        if (!is_string($owner) || $owner === '') {
+            return false;
+        }
+        $qualification = $this->moduleGovernance->qualification();
+        if (!in_array($owner, $qualification->activeTenantModuleKeys($tenantId), true)) {
+            return false;
+        }
+        $qualification->installedModule($owner);
+        return true;
+    }
+
     /** @return list<string> */
     public function registeredSystemMenuPermissions(int $tenantId): array
     {
