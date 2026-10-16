@@ -2333,7 +2333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "41aeb670ebfbcfba52a2b2545304e8097080394692e7572abd2293e09904ef78"
+            "source_sha256": "e7f60a6ee9c44ed955c41c920bf616d50026a6131f113170e6e3cde0f7dccedd"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2414,7 +2414,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dc4b023af80c205bd36fb909635ee239f18a08c3e16f23ebcdd1c55f118fa151"
+            "source_sha256": "5a61a1c28d3387edbc0956ec8b27204c3fa2f7a387ddd00814c52c86ec2ce38d"
         },
         {
             "path": "plugins/official.content-tools/plugin.json",
@@ -10602,7 +10602,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "07bb5ae4a60c3b5719b4f5110e6222644e562d3b6ef67727522e719fc8a73008"
+            "source_sha256": "29645a4d4507e0310177a15e8845b594e9a4e0b5b41616b3da811612e6bd0dbd"
         },
         {
             "path": "server/app/modules/official/collaboration/resources/menus.json",

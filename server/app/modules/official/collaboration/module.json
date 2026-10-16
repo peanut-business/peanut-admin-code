@@ -13,6 +13,9 @@
     { "module_key": "official.file", "version": "^1.0" },
     { "module_key": "official.rich-text", "version": "^1.0" }
   ],
+  "optional_dependencies": [
+    { "module_key": "official.task", "version": "^1.0" }
+  ],
   "lifecycle": { "protected": false },
   "backend": {
     "provider": "PeanutAdmin\\Modules\\Collaboration\\ModuleProvider",
