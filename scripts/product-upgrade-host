@@ -98,25 +98,154 @@ def source_runtime():
     def compose(*values):
         return run(*compose_args, *values, cwd=server / 'docker')
 
+    def inspect_container(identifier):
+        # Do not retrieve Config.Env or other credential-bearing container configuration.
+        projection = '{"Id":{{json .Id}},"Image":{{json .Image}},"State":{{json .State}},"Labels":{{json .Config.Labels}},"Mounts":{{json .Mounts}}}'
+        return json.loads(run('docker', 'inspect', '--format', projection, identifier))
+
+    def bind_mounts(detail):
+        return sorted([{'type': 'bind', 'source': mount['Source'], 'target': mount['Destination'],
+                        'read_only': not mount['RW']} for mount in detail['Mounts'] if mount['Type'] == 'bind'],
+                      key=lambda row: (row['target'], row['source']))
+
+    def assert_instance(detail, service, project, expected=None):
+        labels = detail['Labels']
+        if labels.get('com.docker.compose.project') != project or labels.get('com.docker.compose.service') != service \
+                or labels.get('com.docker.compose.project.working_dir') != str(server / 'docker'):
+            raise ValueError('source service project or instance directory changed')
+        mounts = bind_mounts(detail)
+        required = {'php': (str(server), '/run/peanut-owner/server'),
+                    'nginx': (str(server / 'public'), '/var/www/peanut-admin/server/public'),
+                    'mysql': (str(server / 'docker/mysql'), '/var/lib/mysql')}[service]
+        if not any((row['source'], row['target']) == required for row in mounts):
+            raise ValueError('source service mount belongs to another instance')
+        if service == 'php' and not any(row['source'] == str(server) and row['target'] == '/var/www/peanut-http/server'
+                                        and row['read_only'] for row in mounts):
+            raise ValueError('source service readonly program mount changed')
+        if expected is not None and mounts != expected:
+            raise ValueError('source service bind mounts changed after preparation')
+        return mounts
+
+    def prepared_override(quiescence):
+        lines = ['services:']
+        for service in ('php', 'nginx'):
+            image = quiescence['images'][service]
+            if not re.fullmatch(r'sha256:[a-f0-9]{64}', image): raise ValueError('source image identity is not immutable')
+            volumes = quiescence['compose_volumes'][service]
+            # Native !override replaces the entire mount sequence, including tmpfs, rather than merging mutable targets.
+            lines += ['  ' + service + ':', '    image: ' + json.dumps(image), '    pull_policy: never',
+                      '    volumes: !override ' + json.dumps(volumes, separators=(',', ':'))]
+        encoded = ('\n'.join(lines) + '\n').encode()
+        path = workspace / 'source-runtime-compose.override.yaml'
+        if path.exists() or path.is_symlink():
+            sha(path)
+            if path.read_bytes() != encoded: raise ValueError('fixed source Compose override changed')
+        else:
+            temporary = path.with_name('.source-compose-' + os.urandom(8).hex())
+            with temporary.open('xb') as output:
+                os.fchmod(output.fileno(), 0o600); output.write(encoded); output.flush(); os.fsync(output.fileno())
+            os.replace(temporary, path)
+            descriptor = os.open(workspace, os.O_RDONLY)
+            try: os.fsync(descriptor)
+            finally: os.close(descriptor)
+        return [*compose_args, '--project-directory', str(server / 'docker'), '--project-name', quiescence['project'], '-f', str(path)]
+
+    def fixed_service(arguments, service, quiescence):
+        identifiers = run(*arguments, 'ps', '-a', '-q', service, cwd=server / 'docker').splitlines()
+        discovered = run('docker', 'ps', '-a', '--no-trunc', '--filter', 'label=com.docker.compose.project=' + quiescence['project'],
+                         '--filter', 'label=com.docker.compose.service=' + service, '--format', '{{.ID}}').splitlines()
+        if len(identifiers) != 1 or discovered != identifiers: raise ValueError('source service identity is ambiguous')
+        detail = inspect_container(identifiers[0])
+        assert_instance(detail, service, quiescence['project'], quiescence['instance_mounts'][service])
+        if detail['Id'] != identifiers[0] or detail['Image'] != quiescence['images'][service]:
+            raise ValueError('source service image or container identity changed')
+        return detail
+
     phase = args.phase.removeprefix('source-')
     if phase == 'open':
-        if state.get('activation_started') is not True or state.get('phase') != 'opening' \
-                or sha(server / 'private/installation/deployment.json') != state.get('published_head_sha256'):
-            raise ValueError('source activation boundary or head is not current')
-        # The unchanged native root entrypoint revalidates admission and publishes a new process context.
-        for service in ('php', 'nginx'):
-            identifiers = compose('ps', '-a', '-q', service).splitlines()
-            if len(identifiers) != 1: raise ValueError('source activation service identity is ambiguous')
-            detail = json.loads(run('docker', 'inspect', '--format', '{{json .}}', identifiers[0]))
-            if detail['Image'] != state['quiescence']['images'][service]:
-                raise ValueError('source activation image changed')
-            if not detail['State']['Running']:
-                compose('up', '-d', '--wait', '--no-build', '--no-deps', '--force-recreate', service)
+        quiescence = state['quiescence']
+        try:
+            deployment = server / 'private/installation/deployment.json'
+            expected_head = state.get('published_head_sha256', state['binding']['deployment']['head_sha256'])
+            if deployment.exists() or deployment.is_symlink():
+                actual_head = sha(deployment)
+            elif state.get('recovery_admitted') is True and state['binding']['deployment']['head_sha256'] is None and expected_head is None:
+                actual_head = None
+            else:
+                raise ValueError('source activation deployment head is missing')
+            if state.get('activation_started') is not True or state.get('phase') != 'opening' or actual_head != expected_head:
+                raise ValueError('source activation boundary or head is not current')
+            fixed_args = prepared_override(quiescence)
+            planned = json.loads(run(*fixed_args, 'config', '--format', 'json', cwd=server / 'docker'))
+            if planned.get('name') != quiescence['project']: raise ValueError('fixed source project differs from preparation')
+            for service in ('php', 'nginx'):
+                spec = planned['services'][service]
+                expected = quiescence['instance_mounts'][service]
+                planned_binds = sorted([{'type': 'bind', 'source': row['source'], 'target': row['target'],
+                                         'read_only': row.get('read_only', False)} for row in spec['volumes'] if row['type'] == 'bind'],
+                                       key=lambda row: (row['target'], row['source']))
+                if spec['image'] != quiescence['images'][service] or spec.get('pull_policy') != 'never' or planned_binds != expected:
+                    raise ValueError('source startup inputs are not fixed to the original image and mounts')
+            mysql = inspect_container(quiescence['containers']['mysql']['id'])
+            assert_instance(mysql, 'mysql', quiescence['project'])
+            if mysql['Image'] != quiescence['images']['mysql'] or not mysql['State']['Running']:
+                raise ValueError('source database container identity changed before activation')
+            # The unchanged native root entrypoint revalidates admission and publishes a new process context.
+            for service in ('php', 'nginx'): fixed_service(fixed_args, service, quiescence)
+            for service in ('php', 'nginx'):
+                detail = fixed_service(fixed_args, service, quiescence)
+                if not detail['State']['Running']:
+                    run(*fixed_args, 'up', '-d', '--wait', '--no-build', '--no-deps', '--force-recreate', '--pull', 'never', service,
+                        cwd=server / 'docker')
+                # Inspect the actual replacement before starting another service or reporting open.
+                if not fixed_service(fixed_args, service, quiescence)['State']['Running']:
+                    raise ValueError('source activation service is not running')
+            for service in ('php', 'nginx'): fixed_service(fixed_args, service, quiescence)
+        except Exception:
+            # Stop only this bound project/working-directory's application services, independent of mutable Compose inputs.
+            for service in ('nginx', 'php'):
+                identifiers = run('docker', 'ps', '-a', '--no-trunc', '--filter', 'label=com.docker.compose.project=' + quiescence['project'],
+                                  '--filter', 'label=com.docker.compose.service=' + service, '--format', '{{.ID}}').splitlines()
+                for identifier in identifiers:
+                    detail = inspect_container(identifier)
+                    if detail['Labels'].get('com.docker.compose.project.working_dir') == str(server / 'docker'):
+                        run('docker', 'stop', '--time', '60', identifier)
+            raise
     else:
+        initial_config = None
         if phase == 'stop':
             # Independent collaboration service ownership is not transferred to this coordinator.
-            compose('stop', '--timeout', '60', 'nginx', 'php')
+            if state.get('quiescence') is not None and state.get('activation_started') is True:
+                run(*prepared_override(state['quiescence']), 'stop', '--timeout', '60', 'nginx', 'php', cwd=server / 'docker')
+            else:
+                initial_config = json.loads(compose('config', '--format', 'json'))
+                project = initial_config['name']
+                for service in ('php', 'nginx', 'mysql'):
+                    identifiers = compose('ps', '-a', '-q', service).splitlines()
+                    if len(identifiers) != 1: raise ValueError('source stop service identity is ambiguous')
+                    assert_instance(inspect_container(identifiers[0]), service, project)
+                run(*compose_args, '--project-directory', str(server / 'docker'), '--project-name', project,
+                    'stop', '--timeout', '60', 'nginx', 'php', cwd=server / 'docker')
         stopped = recovery.assert_stopped(server)
+        stopped['instance_mounts'] = {}
+        for service in ('php', 'nginx'):
+            detail = inspect_container(stopped['containers'][service]['id'])
+            stopped['instance_mounts'][service] = assert_instance(detail, service, stopped['project'])
+        if state.get('quiescence') is None:
+            initial_config = initial_config or json.loads(compose('config', '--format', 'json'))
+            stopped['compose_volumes'] = {}
+            for service in ('php', 'nginx'):
+                volumes = initial_config['services'][service]['volumes']
+                if any(row['type'] not in ('bind', 'tmpfs') for row in volumes): raise ValueError('source instance volume type is unsupported')
+                for row in volumes:
+                    if row['type'] == 'bind': row.setdefault('bind', {})['create_host_path'] = False
+                planned_binds = sorted([{'type': 'bind', 'source': row['source'], 'target': row['target'],
+                                         'read_only': row.get('read_only', False)} for row in volumes if row['type'] == 'bind'],
+                                       key=lambda row: (row['target'], row['source']))
+                if planned_binds != stopped['instance_mounts'][service]: raise ValueError('source instance configured mounts differ from its real containers')
+                stopped['compose_volumes'][service] = volumes
+        else:
+            stopped['compose_volumes'] = state['quiescence']['compose_volumes']
         if state.get('quiescence') is not None and stopped != state['quiescence']:
             raise ValueError('source runtime container/image binding changed')
         if phase == 'admit':
