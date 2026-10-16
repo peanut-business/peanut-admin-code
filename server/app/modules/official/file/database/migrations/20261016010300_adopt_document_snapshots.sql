@@ -1,0 +1,1 @@
+-- peanut-admin-adopts: {"migration_key":"official.file:20261012051000_add_immutable_document_snapshots","proof_contract":"peanut.file-migration-adoption.v1","sha256":"7b73c0c24f14f4c7f4fc1f75321e009b1a645d7df3f7d653dbb3d018e3b5bdbe"}

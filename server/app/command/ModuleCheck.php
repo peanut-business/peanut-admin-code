@@ -70,15 +70,10 @@ final class ModuleCheck extends ModuleContextualCommand
         $files = glob($directory . '/*.sql');
         if (!is_array($files) || $files === []) { throw new \RuntimeException('PRESERVATION_OPTIONAL_MODULE_MIGRATIONS_UNKNOWN'); }
         sort($files, SORT_STRING);
-        foreach ($files as $file) {
-            $checksum = !is_link($file) && is_readable($file) ? hash_file('sha256', $file) : false;
-            $migration = Db::name('module_migration')->where('module_key', $moduleKey)
-                ->where('migration_key', $moduleKey . ':' . basename($file, '.sql'))->field('checksum,status')->find();
-            if (!is_string($checksum) || !is_array($migration) || ($migration['status'] ?? null) !== 'applied'
-                || !hash_equals($checksum, (string) ($migration['checksum'] ?? ''))) {
-                throw new \RuntimeException('PRESERVATION_OPTIONAL_MODULE_MIGRATIONS_UNKNOWN');
-            }
-        }
+        $migrationFiles = [];
+        foreach ($files as $file) { $migrationFiles[$moduleKey . ':' . basename($file, '.sql')] = $file; }
+        // An adopted requirement is not evidence that historical SQL ran; validate its native provenance and live proof.
+        \app\platform\services\plugin\PluginLifecycleService::assertResolvedMigrationRows($moduleKey, $migrationFiles, $pdo);
         $states = $modules->installationStates([$moduleKey]);
         $state = $states[$moduleKey] ?? null;
         if (!is_array($state) || !in_array($state['status'] ?? null, ['active', 'maintenance'], true)

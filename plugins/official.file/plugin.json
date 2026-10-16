@@ -1,11 +1,11 @@
 {
     "schema_version": 1,
     "key": "official.file",
-    "version": "1.0.14",
+    "version": "1.0.15",
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "1ec103960654b556ee042499ab305213420cbaaf9d1ad63d4d752de6836a77c0"
+        "sha256": "8a58d9ea0869d54ee6f783000fea156adf4c4f566059e85d58e637e1aae608df"
     },
     "trust": {
         "channel": "bundled",
@@ -39,7 +39,7 @@
             "modules": [
                 {
                     "key": "official.file",
-                    "version": "1.0.14",
+                    "version": "1.0.15",
                     "kernel_constraint": "^1.0",
                     "dependencies": [
                         {
@@ -77,6 +77,22 @@
                             {
                                 "key": "official.file:20261012051000_add_immutable_document_snapshots",
                                 "sha256": "7b73c0c24f14f4c7f4fc1f75321e009b1a645d7df3f7d653dbb3d018e3b5bdbe"
+                            },
+                            {
+                                "key": "official.file:20261016010000_adopt_storage_service",
+                                "sha256": "ac9f164162854a61eaebecc58c6108c33af168843c7a18e3a7bd4c2320a641ed"
+                            },
+                            {
+                                "key": "official.file:20261016010100_adopt_image_assets",
+                                "sha256": "285c5695e71e249dd626201e61846f9e8f4d15c2dcaa19c2dd34a03fb4445596"
+                            },
+                            {
+                                "key": "official.file:20261016010200_adopt_controlled_references",
+                                "sha256": "ad598a21b72d97a93005d46dd51353f121bdb3f04e953f5a2711db940209b4a3"
+                            },
+                            {
+                                "key": "official.file:20261016010300_adopt_document_snapshots",
+                                "sha256": "03f0310da23b0c19a8631edce0a07e96ea57a97d781a582ad87c99ab4136cd73"
                             }
                         ]
                     }
