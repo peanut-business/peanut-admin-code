@@ -315,9 +315,11 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_REJECTED', 'Complete migration postconditions or a safe complete pre-state are required.');
             }
         }
+        $notificationForward = $this->prepareNotificationForward($plugin, $manifests, $upgrade);
         $this->beginLifecycle($plugin, $manifests, $upgrade);
         try {
-            $this->applyMigrations($plugin, $manifests);
+            $this->applyMigrations($plugin, $manifests, $notificationForward);
+            if ($notificationForward) { $this->assertNotificationForward($plugin); }
             $this->registerCatalog($plugin, $manifests, $upgrade);
             return $plugin->publicIdentity() + ['operation' => $upgrade ? 'upgraded' : 'installed'];
         } catch (\Throwable $exception) {
@@ -375,14 +377,14 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     }
 
     /** @param array<string,ManifestDocument> $manifests */
-    private function applyMigrations(PluginDescriptor $plugin, array $manifests): void
+    private function applyMigrations(PluginDescriptor $plugin, array $manifests, bool $notificationForward = false): void
     {
         $batch = (int) Db::name('module_migration')->max('batch_no') + 1;
         foreach ($manifests as $moduleKey => $manifest) {
             $files = $this->migrationFiles($plugin->moduleRoots[$moduleKey], $manifest);
             $repairs = $this->migrationRepairMap($moduleKey, $files);
             $adoptions = self::migrationAdoptions($moduleKey, $files, $repairs);
-            $plan = $this->moduleMigrationPlan($plugin, $moduleKey, $manifest, true);
+            $plan = $this->moduleMigrationPlan($plugin, $moduleKey, $manifest, true, $moduleKey === 'official.notification' ? $notificationForward : null);
             if (!$plan['may_apply']) { throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_REJECTED', 'Migration state changed after lifecycle preflight.'); }
             $decisions = array_column($plan['migrations'], null, 'migration_key');
             foreach ($files as $migrationKey => $path) {
@@ -433,6 +435,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                         throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_REJECTED', 'The complete safe pre-state must still hold before executing SQL.');
                     }
                 }
+                if ($notificationForward && $moduleKey === 'official.notification') { $this->assertNotificationForward($plugin); }
                 if ($moduleKey === 'peanut.workflow' && $migrationKey === \PeanutAdmin\Modules\Workflow\Application\WorkflowUpgradePreflight::MIGRATION_KEY) {
                     try { (new \PeanutAdmin\Modules\Workflow\Application\WorkflowUpgradePreflight(new \PeanutAdmin\Modules\Identity\Contract\WorkflowLegacyOrganizationQuery()))->assertMayApply(); }
                     catch (\PeanutAdmin\Modules\Workflow\Application\WorkflowException $exception) { throw new PluginLifecycleException($exception->errorCode, $exception->getMessage()); }
@@ -474,6 +477,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                                 'error_code' => null,
                             ]);
                     });
+                    if ($notificationForward && $moduleKey === 'official.notification') { $this->assertNotificationForward($plugin); }
                 } catch (\Throwable $exception) {
                     Db::name('module_migration')->where('module_key', $moduleKey)
                         ->where('migration_key', $migrationKey)->where('status', 'applying')->update([
@@ -612,6 +616,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             'modules' => $modules, 'may_apply' => $mayApply,
             'workflow_preflight' => $workflowPreflight,
             'notification_preflight' => $notificationPreflight,
+            'notification_forward_schema' => $modules[0]['notification_forward_schema'] ?? null,
+            'notification_forward_admission' => $modules[0]['notification_forward_admission'] ?? null,
             'rollback' => ['automatic' => false, 'requires_verified_backup' => $pending !== []],
             'trust' => $plugin->trustResult(),
         ];
@@ -861,13 +867,222 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         return null;
     }
 
-    private function moduleMigrationPlan(PluginDescriptor $plugin, string $moduleKey, ManifestDocument $manifest, bool $willMigrate): array
+    /** Only an actual installed forward transition uses the legacy contract; fresh installation is unchanged. */
+    private function notificationForwardRequired(PluginDescriptor $plugin): bool
+    {
+        if ($plugin->key !== 'official.notification') { return false; }
+        $current = $this->pluginInstallation($plugin->key, false);
+        if (!is_array($current)) { return false; }
+        if ($current['status'] === 'active') { return !$this->sameIdentity($plugin, $current); }
+        if (!in_array($current['status'], ['installing', 'failed'], true)) { return false; }
+        if (is_file($this->notificationReceiptPath($plugin))) { return true; }
+        // Only the actual fresh-installation host may resume without a prior forward binding.
+        return !app()->make(CurrentExecutionContext::class)->current() instanceof InstallationExecutionContext;
+    }
+
+    private function notificationTarget(PluginDescriptor $plugin): array
+    {
+        $this->resolver->reload(); $actual = $this->resolver->require($plugin->key);
+        if (self::json($actual->publicIdentity()) !== self::json($plugin->publicIdentity()) || $actual->manifestDigest !== $plugin->manifestDigest) {
+            throw new PluginLifecycleException('NOTIFICATION_FORWARD_SOURCE_CHANGED', 'Canonical package changed.');
+        }
+        return ['package' => $actual->publicIdentity(), 'manifest_sha256' => $actual->manifestDigest,
+            'module_manifest_digest' => $this->pluginManifests($actual)['official.notification']->digest,
+            'module_version' => $this->pluginManifests($actual)['official.notification']->data['version'],
+            'module_manifest_sha256' => hash_file('sha256', $actual->moduleRoots['official.notification'] . '/module.json')];
+    }
+
+    /** Called under the original package lock, before beginLifecycle can replace the old installation. */
+    private function prepareNotificationForward(PluginDescriptor $plugin, array $manifests, bool $upgrade): bool
+    {
+        if (!$this->notificationForwardRequired($plugin)) { return false; }
+        $report = app()->make(\PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::class)->forwardSchemaReport();
+        if (($report['may_apply'] ?? null) !== true || ($report['catalog_schema']['may_apply'] ?? null) !== true) {
+            throw new PluginLifecycleException('NOTIFICATION_FORWARD_PRECONDITION_UNKNOWN', 'Complete schema, ledger and catalog prerequisites are required before lifecycle writes.');
+        }
+        $pdo = Db::connect()->getPdo();
+        if (!$pdo instanceof \PDO || $pdo->inTransaction()) { throw new PluginLifecycleException('NOTIFICATION_FORWARD_CONNECTION_UNKNOWN', 'A stable native connection is required.'); }
+        // This preserves T18's existing-instance closed gate. Neither this receipt nor the read-only
+        // report is an admission for external callbacks, DDL, backup or catalog recovery.
+        $admission = self::adoptionAdmission($pdo);
+        $target = $this->notificationTarget($plugin);
+        $instance = self::migrationInstance($pdo);
+        $path = $this->notificationReceiptPath($plugin);
+        Db::transaction(function () use ($plugin, $manifests, $report, $pdo, $admission, $target, $instance, $path, $upgrade): void {
+            $this->tenantStates->lockLifecycleRows(array_keys($manifests), [$plugin->key]);
+            if (Db::connect()->getPdo() !== $pdo || self::json(self::adoptionAdmission($pdo)) !== self::json($admission)) {
+                throw new PluginLifecycleException('NOTIFICATION_FORWARD_ADMISSION_CHANGED', 'Native admission changed.');
+            }
+            $old = $this->notificationInstalledState($plugin, true);
+            if (file_exists($path) || is_link($path)) {
+                $binding = self::readNotificationReceipt($path);
+                $this->assertNotificationBinding($plugin, $binding, $report, $instance, $old);
+                $attempts = $binding['attempts'];
+                if (self::json($attempts[array_key_last($attempts)]['before']) !== self::json($old)
+                    || $attempts[array_key_last($attempts)]['module_status'] !== ($upgrade ? 'upgrading' : 'installing')) {
+                    $previous = $binding;
+                    $binding['attempts'][] = ['before' => $old, 'module_status' => $upgrade ? 'upgrading' : 'installing', 'request_id' => app()->make(CurrentExecutionContext::class)->current()->requestId(), 'created_at' => $this->now()];
+                    self::writeNotificationReceipt($path, $binding, $previous);
+                }
+                return;
+            }
+            if (!is_array($old['plugin']) || $old['plugin']['status'] !== 'active' || count($old['modules']) !== 1
+                || $old['modules'][0]['status'] !== 'active' || count($old['ownership']) !== 1
+                || $old['ownership'][0]['module_key'] !== 'official.notification') {
+                throw new PluginLifecycleException('NOTIFICATION_FORWARD_OLD_IDENTITY_UNKNOWN', 'A new forward operation requires the real active old installation.');
+            }
+            $context = app()->make(CurrentExecutionContext::class)->current();
+            if (!$context instanceof InstanceExecutionContext && !$context instanceof InstallationExecutionContext) {
+                throw new PluginLifecycleException('NOTIFICATION_FORWARD_CONTEXT_UNKNOWN', 'Trusted native lifecycle context is required.');
+            }
+            $binding = ['protocol' => 'peanut.notification-forward-binding.v1', 'instance' => $instance,
+                'old' => $old, 'target' => $target, 'initial_schema_report' => $report,
+                'attempts' => [['before' => $old, 'module_status' => $upgrade ? 'upgrading' : 'installing', 'request_id' => $context->requestId(), 'created_at' => $this->now()]],
+                'admission' => $admission, 'request_id' => $context->requestId(), 'created_at' => $this->now()];
+            self::writeNotificationReceipt($path, $binding);
+            $persisted = self::readNotificationReceipt($path);
+            if (self::json($persisted) !== self::json($binding) || $this->notificationTarget($plugin) !== $target
+                || self::json(self::adoptionAdmission($pdo)) !== self::json($admission)) {
+                throw new PluginLifecycleException('NOTIFICATION_FORWARD_BINDING_CHANGED', 'Old/new binding was not durably preserved.');
+            }
+        });
+        return true;
+    }
+
+    /** Revalidation before each original SQL, after predecessor completion, and before catalog writes. */
+    private function assertNotificationForward(PluginDescriptor $plugin): void
+    {
+        $report = app()->make(\PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::class)->forwardSchemaReport();
+        $pdo = Db::connect()->getPdo();
+        if (!$pdo instanceof \PDO || ($report['may_apply'] ?? null) !== true || ($report['catalog_schema']['may_apply'] ?? null) !== true) {
+            throw new PluginLifecycleException('NOTIFICATION_FORWARD_STATE_CHANGED', 'Complete forward schema and catalog state must remain valid.');
+        }
+        self::adoptionAdmission($pdo);
+        $binding = self::readNotificationReceipt($this->notificationReceiptPath($plugin));
+        $current = $this->notificationInstalledState($plugin, false);
+        $this->assertNotificationBinding($plugin, $binding, $report, self::migrationInstance($pdo), $current);
+    }
+
+    /** Only lifecycle identity columns are persisted; arbitrary extension columns are not copied. */
+    private function notificationInstalledState(PluginDescriptor $plugin, bool $lock): array
+    {
+        $pluginRow = Db::name('plugin_installation')->where('plugin_key', $plugin->key)
+            ->field('plugin_key,installed_version,source,artifact_sha256,lock_digest,composer_identity_json,npm_identity_json,frontend_identity_json,status,revision,installed_at,activated_at,upgraded_at,uninstalled_at,last_error_code,created_at,updated_at');
+        $modules = Db::name('module_installation')->where('module_key', 'official.notification')
+            ->field('module_key,installed_version,manifest_schema_version,manifest_digest,status,revision,installed_at,activated_at,upgraded_at,last_error_code,created_at,updated_at');
+        $ownership = Db::name('plugin_module')->where('plugin_key', $plugin->key)
+            ->field('plugin_key,module_key,module_version,manifest_digest,created_at,updated_at')->order('module_key');
+        $ledger = Db::name('module_migration')->where('module_key', 'official.notification')
+            ->field('migration_key,module_version,checksum,batch_no,status,resolution_kind,started_at,finished_at,error_code')->order('migration_key');
+        if ($lock) { foreach ([$pluginRow, $modules, $ownership, $ledger] as $query) { $query->lock(true); } }
+        return ['plugin' => $pluginRow->find(), 'modules' => $modules->select()->toArray(),
+            'ownership' => $ownership->select()->toArray(), 'ledger' => $ledger->select()->toArray()];
+    }
+
+    private function assertNotificationBinding(PluginDescriptor $plugin, array $binding, array $report, array $instance, array $current): void
+    {
+        if (($binding['protocol'] ?? null) !== 'peanut.notification-forward-binding.v1'
+            || self::json($binding['target'] ?? null) !== self::json($this->notificationTarget($plugin))
+            || self::json($binding['instance'] ?? null) !== self::json($instance)
+            || self::json($binding['initial_schema_report']['legacy'] ?? null) !== self::json($report['legacy'] ?? null)
+            || self::json($binding['initial_schema_report']['catalog_schema'] ?? null) !== self::json($report['catalog_schema'] ?? null)
+            || !is_array($binding['old']['plugin'] ?? null) || count($binding['old']['modules'] ?? []) !== 1
+            || !is_array($binding['attempts'] ?? null) || $binding['attempts'] === []) {
+            throw new PluginLifecycleException('NOTIFICATION_FORWARD_BINDING_MISMATCH', 'Persistent source, instance or preservation binding changed.');
+        }
+        $old = $binding['old']; $lastAttempt = $binding['attempts'][array_key_last($binding['attempts'])];
+        $attempt = $lastAttempt['before'] ?? null; $moduleStatus = $lastAttempt['module_status'] ?? null; $row = $current['plugin'];
+        if (!is_array($attempt) || !in_array($moduleStatus, ['upgrading', 'installing'], true)) {
+            throw new PluginLifecycleException('NOTIFICATION_FORWARD_RECOVERY_IDENTITY_UNKNOWN', 'Bound native transition operation is unavailable.');
+        }
+        if (self::json($current) === self::json($attempt)) { return; }
+        if (!is_array($row) || count($current['modules']) !== 1 || self::json($current['ownership']) !== self::json($old['ownership'])) {
+            throw new PluginLifecycleException('NOTIFICATION_FORWARD_OLD_IDENTITY_CHANGED', 'Installed ownership changed.');
+        }
+        if ($row['status'] === 'active' && !$this->sameIdentity($plugin, $row)) {
+            if (self::json($current) !== self::json($old)) { throw new PluginLifecycleException('NOTIFICATION_FORWARD_OLD_IDENTITY_CHANGED', 'Old installation changed before lifecycle entry.'); }
+            return;
+        }
+        $module = $current['modules'][0]; $prior = $attempt['modules'][0];
+        $steps = $row['status'] === 'installing' ? 1 : ($row['status'] === 'failed' ? 2 : 0);
+        if ($steps === 0 || !$this->sameIdentity($plugin, $row) || (int) $row['revision'] !== (int) $attempt['plugin']['revision'] + $steps
+            || $module['status'] !== ($row['status'] === 'installing' ? $moduleStatus : 'failed') || (int) $module['revision'] !== (int) $prior['revision'] + $steps
+            || $module['installed_version'] !== ($binding['target']['module_version'] ?? null)
+            || $module['manifest_digest'] !== ($binding['target']['module_manifest_digest'] ?? null)) {
+            throw new PluginLifecycleException('NOTIFICATION_FORWARD_RECOVERY_IDENTITY_UNKNOWN', 'Only the bound native transition may resume; unknown or partial states require their original repair path.');
+        }
+    }
+
+    private function notificationReceiptPath(PluginDescriptor $plugin): string
+    {
+        $root = rtrim(root_path(), DIRECTORY_SEPARATOR);
+        foreach ([$root, $root . '/private', $root . '/private/installation'] as $directory) {
+            if (!is_dir($directory) || is_link($directory)) { throw new PluginLifecycleException('NOTIFICATION_FORWARD_RECEIPT_UNAVAILABLE', 'Protected installation directory is unavailable.'); }
+        }
+        $digest = hash('sha256', self::json([$plugin->publicIdentity(), $plugin->manifestDigest]));
+        return $root . '/private/installation/notification-forward/' . $digest . '.json';
+    }
+
+    private static function readNotificationReceipt(string $path): array
+    {
+        $stat = lstat($path); $directory = dirname($path); $parent = lstat($directory);
+        if (!is_array($stat) || !is_array($parent) || is_link($path) || is_link($directory) || !is_file($path)
+            || ($stat['mode'] & 0777) !== 0600 || ($parent['mode'] & 0777) !== 0700 || $stat['nlink'] !== 1
+            || !function_exists('posix_geteuid') || $stat['uid'] !== posix_geteuid() || $parent['uid'] !== posix_geteuid()) {
+            throw new PluginLifecycleException('NOTIFICATION_FORWARD_RECEIPT_UNTRUSTED', 'Protected binding receipt ownership is invalid.');
+        }
+        $data = json_decode((string) file_get_contents($path), true, 64, JSON_THROW_ON_ERROR);
+        if (!is_array($data) || !is_array($data['binding'] ?? null) || !is_string($data['sha256'] ?? null)
+            || !hash_equals($data['sha256'], hash('sha256', self::json($data['binding'])))) {
+            throw new PluginLifecycleException('NOTIFICATION_FORWARD_RECEIPT_UNTRUSTED', 'Protected binding receipt is invalid.');
+        }
+        return $data['binding'];
+    }
+
+    private static function writeNotificationReceipt(string $path, array $binding, ?array $previous = null): void
+    {
+        $directory = dirname($path);
+        if (!file_exists($directory) && !mkdir($directory, 0700)) { throw new PluginLifecycleException('NOTIFICATION_FORWARD_RECEIPT_UNAVAILABLE', 'Cannot create protected receipt directory.'); }
+        $parent = lstat($directory);
+        if (!is_array($parent) || is_link($directory) || ($parent['mode'] & 0777) !== 0700 || !function_exists('posix_geteuid') || $parent['uid'] !== posix_geteuid()
+            || is_link($path)) { throw new PluginLifecycleException('NOTIFICATION_FORWARD_RECEIPT_UNTRUSTED', 'Receipt location is not exclusively owned.'); }
+        if (($previous === null && file_exists($path)) || ($previous !== null && self::json(self::readNotificationReceipt($path)) !== self::json($previous))) { throw new PluginLifecycleException('NOTIFICATION_FORWARD_RECEIPT_CHANGED', 'Receipt changed before the next bound attempt.'); }
+        $temporary = $directory . '/.' . bin2hex(random_bytes(16)) . '.tmp'; $stream = null;
+        try {
+            $stream = fopen($temporary, 'x+b');
+            if ($stream === false || !chmod($temporary, 0600)) { throw new \RuntimeException('RECEIPT_OPEN_FAILED'); }
+            $bytes = self::json(['binding' => $binding, 'sha256' => hash('sha256', self::json($binding))]);
+            $offset = 0;
+            while ($offset < strlen($bytes)) { $n = fwrite($stream, substr($bytes, $offset)); if ($n === false || $n === 0) { throw new \RuntimeException('RECEIPT_WRITE_FAILED'); } $offset += $n; }
+            if (!fflush($stream) || !fsync($stream)) { throw new \RuntimeException('RECEIPT_SYNC_FAILED'); }
+            fclose($stream); $stream = null;
+            if (!rename($temporary, $path)) { throw new \RuntimeException('RECEIPT_RENAME_FAILED'); }
+            $handle = fopen($directory, 'r');
+            if ($handle === false) { throw new \RuntimeException('RECEIPT_DIRECTORY_SYNC_FAILED'); }
+            try { if (!fsync($handle)) { throw new \RuntimeException('RECEIPT_DIRECTORY_SYNC_FAILED'); } } finally { fclose($handle); }
+        } catch (\Throwable) {
+            throw new PluginLifecycleException('NOTIFICATION_FORWARD_RECEIPT_UNAVAILABLE', 'Durable binding could not be recorded; no lifecycle writes are permitted.');
+        } finally {
+            if (is_resource($stream)) { fclose($stream); }
+            if (is_file($temporary) && !is_link($temporary)) { unlink($temporary); }
+        }
+    }
+
+    private function moduleMigrationPlan(PluginDescriptor $plugin, string $moduleKey, ManifestDocument $manifest, bool $willMigrate, ?bool $notificationForwardOverride = null): array
     {
         self::assertMigrationSchema();
         $files = $this->migrationFiles($plugin->moduleRoots[$moduleKey], $manifest, true);
         $repairs = self::migrationRepairMap($moduleKey, $files);
         $adoptions = self::migrationAdoptions($moduleKey, $files, $repairs);
         $migrations = []; $reports = []; $mayApply = true;
+        $notificationForward = $willMigrate && $moduleKey === 'official.notification' && ($notificationForwardOverride ?? $this->notificationForwardRequired($plugin))
+            ? app()->make(\PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::class)->forwardSchemaReport() : null;
+        $notificationAdmission = null;
+        if ($notificationForward !== null) {
+            $mayApply = ($notificationForward['may_apply'] ?? null) === true && ($notificationForward['catalog_schema']['may_apply'] ?? null) === true;
+            try { $notificationAdmission = self::adoptionAdmission(Db::connect()->getPdo()); }
+            catch (PluginLifecycleException $exception) { $notificationAdmission = ['may_apply' => false, 'code' => $exception->errorCode, 'external_writer_exclusion' => 'not_attested']; $mayApply = false; }
+        }
         foreach ($files as $key => $path) {
             if (isset($adoptions['declarations'][$key])) { continue; }
             $checksum = hash_file('sha256', $path);
@@ -896,10 +1111,16 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                     if (!in_array($disposition, ['execute', 'adopt'], true)) { $disposition = 'reject'; }
                 } elseif ($willMigrate && $moduleKey === 'peanut.workflow' && $key === \PeanutAdmin\Modules\Workflow\Application\WorkflowUpgradePreflight::MIGRATION_KEY) {
                     $report = (new \PeanutAdmin\Modules\Workflow\Application\WorkflowUpgradePreflight(new \PeanutAdmin\Modules\Identity\Contract\WorkflowLegacyOrganizationQuery()))->report();
+                } elseif ($notificationForward !== null && $key === \PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::ADOPTION_KEY) {
+                    $report = $notificationForward;
                 } elseif ($willMigrate && $moduleKey === 'official.notification' && $key === \PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::MIGRATION_KEY) {
-                    $report = app()->make(\PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::class)->report();
+                    if (($notificationForward['status'] ?? null) === 'adoption_required') {
+                        $report = ['module_key' => 'official.notification', 'status' => 'pending_predecessor', 'may_apply' => false,
+                            'pending_count' => null, 'code' => 'NOTIFICATION_PRODUCER_PREFLIGHT_AFTER_ADOPTION'];
+                        $disposition = 'after_predecessor';
+                    } else { $report = app()->make(\PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::class)->report(); }
                 }
-                if ($report !== null && ($report['may_apply'] ?? null) !== true) { $disposition = 'reject'; }
+                if ($report !== null && ($report['may_apply'] ?? null) !== true && $disposition !== 'after_predecessor') { $disposition = 'reject'; }
             }
             if ($disposition === 'adopt') {
                 try { $admission = self::adoptionAdmission(Db::connect()->getPdo()); }
@@ -916,7 +1137,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 'module_sql_executed' => ($row['resolution_kind'] ?? null) === 'executed' ? true
                     : (($row['resolution_kind'] ?? null) === 'adopted' ? false : null),
                 'historical_application_migration' => $report['checks']['historical_application_migration'] ?? null,
-                'executes_original_sql' => $row === null && $disposition === 'execute',
+                'executes_original_sql' => $row === null && in_array($disposition, ['execute', 'after_predecessor'], true),
                 'repair' => $repairs[$key] ?? null, 'adoption' => $adoptions['targets'][$key] ?? null,
                 'apply_admission' => $admission, 'disposition' => $disposition];
         }
@@ -926,7 +1147,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             }
         }
         return ['may_apply' => $mayApply, 'migrations' => $migrations, 'preflight_reports' => $reports,
-            'adoption_declarations' => array_values($adoptions['targets'])];
+            'adoption_declarations' => array_values($adoptions['targets']),
+            'notification_forward_schema' => $notificationForward, 'notification_forward_admission' => $notificationAdmission];
     }
 
     private static function assertAdoptionPrerequisites(array $migrations): void

@@ -2333,7 +2333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c0fefc364f3888e96e2dcc7a80feff5009c25870e5cd09a17d2ec732fa5c7fb8"
+            "source_sha256": "9e7ddf214f17f6313d1dc8f1f9c5928ea63edc26c98603a73f67f15da5d2036c"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2526,7 +2526,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5285632889ac2a9b9545eee40c775038c27895e2190af05aaa407e1cbb83d32b"
+            "source_sha256": "bfbbebe27c28df02845505f5a0a7b90db1e173e2b12a4c16e8c842fe253ddf8d"
         },
         {
             "path": "plugins/official.oauth/plugin.json",
@@ -17673,7 +17673,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "79835cfef808dddf3e891458fd7f8ff7ac7e85ca961a1dc363b96e4d22482c03"
+            "source_sha256": "4297b6c7339ba83725db6588640803c034f551b89791543b42d85945042f2b02"
         },
         {
             "path": "server/app/modules/official/notification/src/Contract/VerificationCodeCommands.php",
@@ -25255,7 +25255,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1635e224c12481b0d6fe2d48f21bd23b8b440f735df014209c90258a221b707e"
+            "source_sha256": "97ede3e07d85a00c858e5019d0647dba6eaae7edc36d88679722dbe9a82a03a8"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",
