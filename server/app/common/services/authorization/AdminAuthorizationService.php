@@ -155,14 +155,11 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         }
 
         $bridge = $this->moduleAdmin;
-        $registered = [
-            ...$bridge->registeredPermissions($tenantContext->tenantId),
-        ];
-        $registered = array_values(array_diff(
-            array_unique($registered),
-            InstanceControlPlanePolicy::tenantAdminPermissions(),
-        ));
-        $owned = $bridge->permissionsOnly($tenantContext);
+        $permissionKey = strtolower(trim($accessUri, '/'));
+        $registered = $permissionKey !== '' && $bridge->registeredPermission($tenantContext->tenantId, $permissionKey)
+            && !in_array($permissionKey, InstanceControlPlanePolicy::tenantAdminPermissions(), true)
+            ? [$permissionKey] : [];
+        $owned = $admin->root ? [] : $bridge->permissionsOnly($tenantContext);
         $allowed = $this->permissionPolicy->canAccess(
             $admin->root,
             $accessUri,
