@@ -148,6 +148,7 @@ JSON;
                 $disposition = $present ? 'adopt' : 'execute';
             }
             if ($disposition === 'execute') {
+                $this->assertConstraintNamesAvailable($pdo, $families[$position], $schemas['post'], $names, $checks);
                 // Original immutable SQL explicitly names pa_*; never execute it against another namespace.
                 foreach ($names as $name => $physical) {
                     if ($physical !== 'pa_' . $name) {
@@ -169,12 +170,15 @@ JSON;
             $checks['adoption_no_business_data_write'] = $disposition === 'adopt';
             $checks['adoption_no_ddl'] = $disposition === 'adopt';
             $checks['ddl_exclusion_window_required'] = true;
+            $checks['data_snapshot_scope'] = 'consistent_read_not_external_writer_exclusion';
+            $checks['external_writer_exclusion'] = 'ops_protocol_gate_required_not_attested';
             return $this->result($oldMigrationKey, $disposition, $checks, null);
         } catch (\Throwable $exception) {
             $known = ['CHECK_DATA_MISMATCH', 'FOREIGN_DATA_MISMATCH', 'UNIQUE_DATA_MISMATCH',
                 'FILE_RELATIONSHIP_MISMATCH', 'REFERENCED_KEY_UNKNOWN', 'CHECK_NOT_ENFORCED',
                 'CHECK_SYNTAX_UNKNOWN', 'INDEX_UNKNOWN', 'TABLE_UNKNOWN', 'FOREIGN_SCHEMA_UNKNOWN',
-                'APPLICATION_MIGRATION_LEDGER_INVALID', 'APPLICATION_MIGRATION_RECORD_CONFLICT'];
+                'APPLICATION_MIGRATION_LEDGER_INVALID', 'APPLICATION_MIGRATION_RECORD_CONFLICT',
+                'MIGRATION_CONSTRAINT_NAME_CONFLICT', 'MIGRATION_CONSTRAINT_NAMES_UNKNOWN'];
             $reason = in_array($exception->getMessage(), $known, true) ? $exception->getMessage() : 'FILE_ADOPTION_PROOF_UNKNOWN';
             return $this->result($oldMigrationKey, 'reject', $checks, $reason);
         } finally {
@@ -184,6 +188,45 @@ JSON;
                 return $this->result($oldMigrationKey, 'reject', $checks, 'READ_SNAPSHOT_CLOSE_FAILED');
             }
         }
+    }
+
+    /** MySQL FK/CHECK names are schema-scoped: an absent target family alone is not a safe prestate. */
+    private function assertConstraintNamesAvailable(PDO $pdo, array $tables, array $schemas, array $names, array &$checks): void
+    {
+        $expected = [];
+        foreach ($tables as $table) {
+            foreach (['foreign_keys' => 'FOREIGN KEY', 'checks' => 'CHECK'] as $group => $type) {
+                foreach (array_keys($schemas[$table][$group]) as $name) {
+                    if (isset($expected[$name])) { throw new \RuntimeException('MIGRATION_CONSTRAINT_NAMES_UNKNOWN'); }
+                    $expected[$name] = ['table' => $names[$table], 'type' => $type];
+                }
+            }
+        }
+        if ($expected === []) { throw new \RuntimeException('MIGRATION_CONSTRAINT_NAMES_UNKNOWN'); }
+        ksort($expected, SORT_STRING);
+        // INFORMATION_SCHEMA hides tables without privileges. Empty results are not absence proof
+        // unless direct SELECT/ALL grants establish visibility of this whole schema. Role-only or
+        // unrecognized grants remain unknown; never expose grant text in the proof report.
+        $visible = false; $restricted = false;
+        $databaseScope = self::q($checks['database']) . '.*';
+        foreach ($this->rows($pdo, 'SHOW GRANTS', []) as $grantRow) {
+            $grant = count($grantRow) === 1 ? reset($grantRow) : null;
+            if (is_string($grant) && str_starts_with($grant, 'REVOKE ')) { $restricted = true; }
+            if (!is_string($grant) || preg_match('/\AGRANT (.+) ON (.+) TO /D', $grant, $match) !== 1
+                || !in_array($match[2], ['*.*', $databaseScope], true)) { continue; }
+            $privileges = array_map('trim', explode(',', $match[1]));
+            $visible = $visible || in_array('SELECT', $privileges, true) || in_array('ALL PRIVILEGES', $privileges, true);
+        }
+        if (!$visible || $restricted) { throw new \RuntimeException('MIGRATION_CONSTRAINT_NAMES_UNKNOWN'); }
+        $owners = $this->rows($pdo,
+            'SELECT TABLE_SCHEMA,TABLE_NAME,CONSTRAINT_NAME,CONSTRAINT_TYPE FROM information_schema.TABLE_CONSTRAINTS'
+            . ' WHERE CONSTRAINT_SCHEMA=DATABASE() AND CONSTRAINT_TYPE IN (\'FOREIGN KEY\',\'CHECK\')'
+            . ' AND CONSTRAINT_NAME IN (' . implode(',', array_fill(0, count($expected), '?')) . ')'
+            . ' ORDER BY CONSTRAINT_NAME,TABLE_NAME,CONSTRAINT_TYPE', array_keys($expected));
+        $checks['execute_constraint_names'] = ['whole_schema_visibility' => true, 'expected_owners' => $expected, 'observed_owners' => $owners];
+        // Execute requires every target table to be absent, so even an expected owner here is inconsistent.
+        if ($owners !== []) { throw new \RuntimeException('MIGRATION_CONSTRAINT_NAME_CONFLICT'); }
+        $checks['execute_constraint_names']['all_available'] = true;
     }
 
     private function schema(PDO $pdo, string $table): ?array

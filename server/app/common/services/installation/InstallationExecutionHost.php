@@ -26,6 +26,9 @@ use Throwable;
 final class InstallationExecutionHost
 {
     private const MODES = ['guided', 'automatic'];
+    /** @var resource|null Only execute() owns and releases this native lock. */
+    private $executionLock = null;
+    private ?array $moduleMigrationAdmission = null;
 
     /** @param Closure(CompiledModuleRegistry):ModuleRuntimeRepository $moduleRuntimeFactory */
     public function __construct(
@@ -225,6 +228,7 @@ final class InstallationExecutionHost
     private function execute(array $input): array
     {
         $lock = $this->acquireExecutionLock();
+        $this->executionLock = $lock;
         try {
             if ($this->completionLockPresent()) {
                 throw new InstallationExecutionException(
@@ -262,10 +266,32 @@ final class InstallationExecutionHost
                     $this->migrationTargetVersion(),
                 );
                 $stage = 'install_modules';
-                $modules = $this->installModules(
-                    $moduleKeys,
-                    \installationTenantBootstrapContract($this->serverRoot),
-                );
+                $context = app()->make(\app\common\execution\CurrentExecutionContext::class)->current();
+                if (!$context instanceof \app\common\execution\InstallationExecutionContext) {
+                    throw new RuntimeException('INSTALL_EXECUTION_CONTEXT_REQUIRED');
+                }
+                $stat = fstat($lock);
+                if (!is_array($stat)) { throw new RuntimeException('INSTALL_EXECUTION_LOCK_UNAVAILABLE'); }
+                Db::connect()->query('SELECT 1', [], true);
+                $this->moduleMigrationAdmission = [
+                    'protocol' => 'peanut.installation-module-admission.v1',
+                    'instance_root' => realpath($this->serverRoot),
+                    'request_id' => $context->requestId(), 'operation' => $context->operation(),
+                    'lock_device' => $stat['dev'], 'lock_inode' => $stat['ino'],
+                    'progress_sha256' => $this->fileDigest($this->progressMarker()),
+                    'fresh_schema_sha256' => $this->fileDigest($this->serverRoot . '/database/init.sql'),
+                    'database_identity' => self::migrationDatabaseIdentity($this->pdo()),
+                    'product_writer_boundary' => 'native_installation_execution_lock_before_completion',
+                    'external_writer_exclusion' => 'ops_protocol_gate_required_not_attested',
+                ];
+                try {
+                    $modules = $this->installModules(
+                        $moduleKeys,
+                        \installationTenantBootstrapContract($this->serverRoot),
+                    );
+                } finally {
+                    $this->moduleMigrationAdmission = null;
+                }
                 $stage = 'health';
                 $health = $this->health($moduleKeys);
                 $stage = 'completion_marker';
@@ -300,9 +326,52 @@ final class InstallationExecutionHost
                 throw $failure;
             }
         } finally {
+            $this->moduleMigrationAdmission = null;
+            $this->executionLock = null;
             flock($lock, LOCK_UN);
             fclose($lock);
         }
+    }
+
+    /** Read-only capability of this actual executor, available only inside its held installModules call. */
+    public function migrationAdoptionAdmission(PDO $pdo): array
+    {
+        $admission = $this->moduleMigrationAdmission;
+        $context = app()->make(\app\common\execution\CurrentExecutionContext::class)->current();
+        $path = dirname($this->progressMarker()) . '/execution.lock';
+        $stat = is_resource($this->executionLock) ? fstat($this->executionLock) : false;
+        $physical = is_file($path) && !is_link($path) ? lstat($path) : false;
+        if ($admission === null || !$context instanceof \app\common\execution\InstallationExecutionContext
+            || $context->requestId() !== $admission['request_id'] || $context->operation() !== $admission['operation']
+            || !is_array($stat) || !is_array($physical) || $physical['nlink'] !== 1
+            || $stat['dev'] !== $admission['lock_device'] || $stat['ino'] !== $admission['lock_inode']
+            || $stat['dev'] !== $physical['dev'] || $stat['ino'] !== $physical['ino']
+            || $this->completionLockPresent() || realpath($this->serverRoot) !== $admission['instance_root']
+            || $this->fileDigest($this->progressMarker()) !== $admission['progress_sha256']
+            || $this->fileDigest($this->serverRoot . '/database/init.sql') !== $admission['fresh_schema_sha256']
+            || self::migrationDatabaseIdentity($pdo) !== $admission['database_identity']) {
+            throw new RuntimeException('INSTALL_MODULE_ADOPTION_ADMISSION_REQUIRED');
+        }
+        // execute() retains the private handle until installModules returns, including each DB commit.
+        return $admission;
+    }
+
+    /** Identity comes from the actual native master PDO, never from a supplied window/endpoint declaration. */
+    public static function migrationDatabaseIdentity(PDO $pdo): array
+    {
+        if (Db::connect()->getPdo() !== $pdo) { throw new RuntimeException('INSTALL_DATABASE_CONNECTION_MISMATCH'); }
+        $statement = $pdo->query('SELECT @@server_uuid AS server_uuid,@@hostname AS server_hostname,@@port AS server_port,DATABASE() AS database_name');
+        $row = $statement->fetch(PDO::FETCH_ASSOC); $statement->closeCursor();
+        $transport = $pdo->getAttribute(PDO::ATTR_CONNECTION_STATUS);
+        if (!is_array($row) || preg_match('/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/Di', (string) ($row['server_uuid'] ?? '')) !== 1
+            || !is_string($row['server_hostname'] ?? null) || $row['server_hostname'] === ''
+            || (int) ($row['server_port'] ?? 0) < 1 || (int) $row['server_port'] > 65535
+            || !is_string($row['database_name'] ?? null) || $row['database_name'] === ''
+            || !is_string($transport) || $transport === '') {
+            throw new RuntimeException('INSTALL_DATABASE_IDENTITY_UNAVAILABLE');
+        }
+        return ['server_uuid' => strtolower($row['server_uuid']), 'server_hostname' => $row['server_hostname'],
+            'server_port' => (int) $row['server_port'], 'database' => $row['database_name'], 'transport' => $transport];
     }
 
     /** @return resource */
