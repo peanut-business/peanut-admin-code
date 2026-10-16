@@ -321,7 +321,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "ef20eb3eeaf4a676df642e261280ce5faf59610d3319adacd89a7c0b9f7790f1"
+                "sha256": "48b35f734af4a3cc3c5a2d8a413fc8e2545b3aab4918c8c12cc59be8ccce6082"
             },
             "trust": {
                 "channel": "bundled",
@@ -420,7 +420,7 @@
                 }
             ],
             "manifest": "plugins/official.collaboration/plugin.json",
-            "manifest_sha256": "d133db0d9c22e13aea5a4cd96ea5077ca4f4526003ab547afbf73896315e1543"
+            "manifest_sha256": "dc4b023af80c205bd36fb909635ee239f18a08c3e16f23ebcdd1c55f118fa151"
         },
         {
             "key": "official.content-tools",
@@ -515,7 +515,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "1c0b6ff9b88d485cfacd79be669bbe16627386a13dcabca546e4b42fb35ca05a"
+                "sha256": "f2a4d3f120a97cde182712a9cbeb5997cf6dd1b90a14cca9b687886c2a123e67"
             },
             "trust": {
                 "channel": "bundled",
@@ -620,7 +620,7 @@
                 }
             ],
             "manifest": "plugins/official.document/plugin.json",
-            "manifest_sha256": "d566cb1cbcb47664b80580266ea5a24d6259ac7b6be0845163225d4e8ae7f65f"
+            "manifest_sha256": "2b37cab96b16282f4c60d9a83220134c0c274d95075aee90a9dd57528d7e3f63"
         },
         {
             "key": "official.file",
@@ -628,7 +628,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "d935fde73ab21447aee9bb77e0a95a5413661dadc03e9969dd07c43ef83c8aff"
+                "sha256": "1ec103960654b556ee042499ab305213420cbaaf9d1ad63d4d752de6836a77c0"
             },
             "trust": {
                 "channel": "bundled",
@@ -737,7 +737,7 @@
                 }
             ],
             "manifest": "plugins/official.file/plugin.json",
-            "manifest_sha256": "83483d3448e70cca9015f9066f08826aef9bd2ecbc038e305d6ab1db0e8c96af"
+            "manifest_sha256": "5ace0a2cdf00dd8b99412aff034157c477def19c82977114eaf44306d46662ec"
         },
         {
             "key": "official.identity",
@@ -745,7 +745,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "86c3a949289f4af684a1ca91d67f6bfd9b9cfdf3db48ac31bc9c694ae8ca8298"
+                "sha256": "a970a6d3896ef1c40ac634328d47c3d941be806c19250bf48c4c13b8524c79ce"
             },
             "trust": {
                 "channel": "bundled",
@@ -820,6 +820,10 @@
                                     {
                                         "key": "official.identity:20261012010000_department_leader_member",
                                         "sha256": "909c7bd6885a93cf2975ecbbb108cbbe993bc1e0b47f2590292968a886051532"
+                                    },
+                                    {
+                                        "key": "official.identity:20261015010000_index_revocation_audit_facts",
+                                        "sha256": "eacd6eddd89a9f064688ff45ba67210d896a65bbeaea1448394e7b6df3c271aa"
                                     }
                                 ]
                             }
@@ -843,7 +847,7 @@
                 }
             ],
             "manifest": "plugins/official.identity/plugin.json",
-            "manifest_sha256": "f45f15e3c0fa80ae1a9303fa3f6447dae2154ebf88eec43c6a8b03b215caea6d"
+            "manifest_sha256": "8d545b5f89dffeb9b976539e0aaa8008208549dc9bcd98446324cc5abf2a4682"
         },
         {
             "key": "official.import-export",
@@ -1908,7 +1912,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "b35658df812269b0efc75144c4405052594bc59e45c2f296e5dd0504a98a182d"
+                "sha256": "746fc504fe1bd763ab6690e0aa01f955f6e943207f5932256f28a5bea0e72af5"
             },
             "trust": {
                 "channel": "bundled",
@@ -1964,6 +1968,10 @@
                                     {
                                         "key": "official.task:20260921-adopt-task-job-schema",
                                         "sha256": "f04762aeab007bea0b0c4ce277d8f7781a694b17891f1193f303d0481366f21a"
+                                    },
+                                    {
+                                        "key": "official.task:20261015020000_add_negative_fact_job_profile",
+                                        "sha256": "2217e8a0cfc44e2c4c6c1a76a0413ed2448c5695e32f2a31a6a2a3072f44dbd4"
                                     }
                                 ]
                             }
@@ -2001,7 +2009,7 @@
                 }
             ],
             "manifest": "plugins/official.task/plugin.json",
-            "manifest_sha256": "e42c71e6ae5661656464d0081a2a2b298f3ea7cffd1d345c7f289b7cdfdc8bbf"
+            "manifest_sha256": "2d2008d6ebbb53de51e3215ccf6c1d1bb7a0415f086be924751bbf30635f926c"
         },
         {
             "key": "peanut.artifact-revision",
@@ -2175,7 +2183,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "3d35cc292d3d6d9e6c488acd0e83a4e09ccfcb0fb62a5a33fbfbdec957ce2415"
+                "sha256": "9c4cfb37150417376cafd30dd614b289606a113b82745cf057b24355e5e82c1e"
             },
             "trust": {
                 "channel": "bundled",
@@ -2276,7 +2284,7 @@
                 }
             ],
             "manifest": "plugins/peanut.workflow/plugin.json",
-            "manifest_sha256": "f9ec49dabf989249159a445892cbf46593afac851e678888e3cd7e3942b41e80"
+            "manifest_sha256": "83bd96f98cfefd8a5eac89f1d3b1265519e435c14b31fb21b935202d753736d2"
         }
     ]
 }

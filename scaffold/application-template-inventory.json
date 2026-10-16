@@ -2333,7 +2333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c5f081efc96d2488d31e6eb17bdc4b707102a766586d38ea0bb0efb977e96ec6"
+            "source_sha256": "07bbe02a36ca3782372fb623c8a7ec3f76ca1be6d766b9f3b02c55cbdfdcc719"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2414,7 +2414,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d133db0d9c22e13aea5a4cd96ea5077ca4f4526003ab547afbf73896315e1543"
+            "source_sha256": "dc4b023af80c205bd36fb909635ee239f18a08c3e16f23ebcdd1c55f118fa151"
         },
         {
             "path": "plugins/official.content-tools/plugin.json",
@@ -2442,7 +2442,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d566cb1cbcb47664b80580266ea5a24d6259ac7b6be0845163225d4e8ae7f65f"
+            "source_sha256": "2b37cab96b16282f4c60d9a83220134c0c274d95075aee90a9dd57528d7e3f63"
         },
         {
             "path": "plugins/official.file/plugin.json",
@@ -2456,7 +2456,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "83483d3448e70cca9015f9066f08826aef9bd2ecbc038e305d6ab1db0e8c96af"
+            "source_sha256": "5ace0a2cdf00dd8b99412aff034157c477def19c82977114eaf44306d46662ec"
         },
         {
             "path": "plugins/official.identity/plugin.json",
@@ -2470,7 +2470,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f45f15e3c0fa80ae1a9303fa3f6447dae2154ebf88eec43c6a8b03b215caea6d"
+            "source_sha256": "8d545b5f89dffeb9b976539e0aaa8008208549dc9bcd98446324cc5abf2a4682"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -2624,7 +2624,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e42c71e6ae5661656464d0081a2a2b298f3ea7cffd1d345c7f289b7cdfdc8bbf"
+            "source_sha256": "2d2008d6ebbb53de51e3215ccf6c1d1bb7a0415f086be924751bbf30635f926c"
         },
         {
             "path": "plugins/peanut.artifact-revision/plugin.json",
@@ -2666,7 +2666,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f9ec49dabf989249159a445892cbf46593afac851e678888e3cd7e3942b41e80"
+            "source_sha256": "83bd96f98cfefd8a5eac89f1d3b1265519e435c14b31fb21b935202d753736d2"
         },
         {
             "path": "release-versions.json",
