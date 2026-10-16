@@ -6308,7 +6308,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "eebc674a6b1771b6d72732294394b94d513b8c7d6bde89da391e98aaafa8df1b"
+            "source_sha256": "1f630130e83c8763569954a0c827ef07dc494cab702dc700e3dba662c5f0b5c3"
         },
         {
             "path": "server/app/command/ModuleCreate.php",
@@ -13556,7 +13556,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e8a5210c19108c80aa40a87f44bc676992ee80a617936ac495a95e3e0cb75cad"
+            "source_sha256": "5f14088a0b52314fc57337ac232b94d1a579004fe842e6006e2e89f6772fcf3c"
         },
         {
             "path": "server/app/modules/official/identity/src/Contract/WorkflowOrganizationQuery.php",
@@ -23701,7 +23701,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5b507cc3874abbbf4143c27eb5ea04f7d5d103ace9354ee74a6308d1d6c1d111"
+            "source_sha256": "bbc16a190cb5be003ebe1e681f6964670fd09c1ab5809d8ef8e64df5c37f4900"
         },
         {
             "path": "server/app/modules/peanut/workflow/src/Controller/WorkflowController.php",
