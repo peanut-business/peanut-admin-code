@@ -11,6 +11,7 @@ use think\console\input\Argument;
 use think\console\input\Option;
 use think\console\Output;
 use think\facade\Config;
+use think\facade\Db;
 
 final class ModuleCheck extends ModuleContextualCommand
 {
@@ -21,11 +22,22 @@ final class ModuleCheck extends ModuleContextualCommand
             ->addOption('kernel-version', null, Option::VALUE_REQUIRED, 'Selected Module Kernel version', '')
             ->addOption('package', null, Option::VALUE_REQUIRED, 'Optional Module package tar path', '')
             ->addOption('sha256', null, Option::VALUE_REQUIRED, 'Optional expected package SHA-256', '')
-            ->addOption('runtime-data', null, Option::VALUE_NONE, 'Read module upgrade state under native development-maintenance authorization');
+            ->addOption('runtime-data', null, Option::VALUE_NONE, 'Read module upgrade state under native development-maintenance authorization')
+            ->addOption('preservation-details', null, Option::VALUE_NONE, 'Stream Workflow/Identity preservation observations in one read-only snapshot')
+            ->addOption('tenants', null, Option::VALUE_REQUIRED, 'Explicit comma-separated tenant IDs')
+            ->addOption('instances', null, Option::VALUE_REQUIRED, 'Explicit instance IDs or all within the selected tenants')
+            ->addOption('database-resource', null, Option::VALUE_REQUIRED, 'Expected registered database resource ID')
+            ->addOption('database-endpoint', null, Option::VALUE_REQUIRED, 'Expected registered endpoint ID')
+            ->addOption('database-name', null, Option::VALUE_REQUIRED, 'Expected registered database name')
+            ->addOption('candidate', null, Option::VALUE_REQUIRED, 'Exact current Git HEAD for the observation')
+            ->addOption('page-size', null, Option::VALUE_REQUIRED, 'Bounded records per output page', '100');
     }
 
     protected function handle(Input $input, Output $output): int
     {
+        if ($input->getOption('preservation-details')) {
+            return $this->preservationDetails($input, $output);
+        }
         try {
             if ($input->getOption('runtime-data')) {
                 $this->assertDevelopmentInstanceMaintenanceAccess();
@@ -62,6 +74,153 @@ final class ModuleCheck extends ModuleContextualCommand
                 'checks' => [],
             ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
             return 1;
+        }
+    }
+
+    /** This separate maintenance mode never changes the lightweight runtime-data or lifecycle contracts. */
+    private function preservationDetails(Input $input, Output $output): int
+    {
+        $pdo = null;
+        $started = false;
+        $sequence = 0;
+        $previous = null;
+        $run = bin2hex(random_bytes(16));
+        $canonical = static function (array $value): string {
+            $normalize = static function (array $items) use (&$normalize): array {
+                if (!array_is_list($items)) { ksort($items, SORT_STRING); }
+                foreach ($items as $key => $item) { if (is_array($item)) { $items[$key] = $normalize($item); } }
+                return $items;
+            };
+            return json_encode($normalize($value), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        };
+        $emit = static function (array $value) use ($output, $canonical, $run, &$sequence, &$previous): void {
+            $value = ['protocol' => 'peanut.workflow-preservation-details.v1', 'run_id' => $run,
+                'sequence' => $sequence++, 'previous_sha256' => $previous] + $value;
+            $value['page_sha256'] = hash('sha256', $canonical($value));
+            $output->writeln($canonical($value));
+            $previous = $value['page_sha256'];
+        };
+        try {
+            $this->assertDevelopmentInstanceMaintenanceAccess();
+            if ($this->getName() !== 'module:check' || $input->getArgument('module_key') !== 'peanut.workflow'
+                || $input->getOption('runtime-data') || $input->getOption('package') !== '' || $input->getOption('sha256') !== '') {
+                throw new \RuntimeException('PRESERVATION_DETAIL_SCOPE_INVALID');
+            }
+            $ids = static function (string $value): array {
+                $items = explode(',', $value);
+                if ($value === '' || count($items) > 100 || count(array_unique($items)) !== count($items)) {
+                    throw new \RuntimeException('PRESERVATION_DETAIL_SCOPE_INVALID');
+                }
+                foreach ($items as $id) {
+                    if (preg_match('/\A[1-9][0-9]{0,17}\z/D', $id) !== 1) { throw new \RuntimeException('PRESERVATION_DETAIL_SCOPE_INVALID'); }
+                }
+                usort($items, static fn(string $a, string $b): int => strlen($a) <=> strlen($b) ?: strcmp($a, $b));
+                return $items;
+            };
+            $tenants = $ids((string) $input->getOption('tenants'));
+            $instanceScope = (string) $input->getOption('instances');
+            $instances = $instanceScope === 'all' ? null : $ids($instanceScope);
+            $limit = (string) $input->getOption('page-size');
+            if (preg_match('/\A(?:[1-9]|[1-9][0-9]|100)\z/D', $limit) !== 1) { throw new \RuntimeException('PRESERVATION_DETAIL_SCOPE_INVALID'); }
+            $root = dirname(__DIR__, 2);
+            $candidate = (string) $input->getOption('candidate');
+            $sourceIdentity = static function () use ($root, $candidate): array {
+                if (preg_match('/\A[a-f0-9]{40}\z/D', $candidate) !== 1) { throw new \RuntimeException('PRESERVATION_DETAIL_SOURCE_UNKNOWN'); }
+                $process = proc_open(['git', '-C', dirname($root), 'rev-parse', '--verify', 'HEAD'],
+                    [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes);
+                if (!is_resource($process)) { throw new \RuntimeException('PRESERVATION_DETAIL_SOURCE_UNKNOWN'); }
+                $head = trim((string) stream_get_contents($pipes[1])); fclose($pipes[1]);
+                if (proc_close($process) !== 0 || $head !== $candidate) { throw new \RuntimeException('PRESERVATION_DETAIL_SOURCE_UNKNOWN'); }
+                $files = [];
+                foreach (['app/command/ModuleCheck.php', 'app/modules/peanut/workflow/src/Application/WorkflowUpgradePreflight.php',
+                    'app/modules/peanut/workflow/src/Definition/WorkflowGraph.php', 'app/modules/official/identity/src/Contract/WorkflowLegacyOrganizationQuery.php',
+                    'composer.lock', '../plugins.lock'] as $relative) {
+                    $path = $root . '/' . $relative;
+                    if (!is_file($path) || is_link($path)) { throw new \RuntimeException('PRESERVATION_DETAIL_SOURCE_UNKNOWN'); }
+                    $files[$relative] = hash_file('sha256', $path);
+                }
+                return ['candidate' => $head, 'actual_file_sha256' => $files, 'lock_qualification' => 'not_asserted_by_this_report'];
+            };
+            $source = $sourceIdentity();
+            require_once $root . '/database/environment-guard.php';
+            $registered = guardedDatabaseConfig();
+            projectResourceRegistry($registrySha);
+            if ($registered['resource_id'] !== $input->getOption('database-resource')
+                || $registered['endpoint_id'] !== $input->getOption('database-endpoint')
+                || $registered['database'] !== $input->getOption('database-name') || $registered['environment'] !== 'development') {
+                throw new \RuntimeException('PRESERVATION_DETAIL_DATABASE_MISMATCH');
+            }
+            $connection = Db::connect();
+            $config = $connection->getConfig();
+            if (($config['type'] ?? null) !== 'mysql' || !empty($config['deploy']) || !empty($config['rw_separate'])
+                || !empty($config['break_reconnect']) || (string) $config['hostname'] !== $registered['host']
+                || (string) $config['hostport'] !== $registered['port'] || (string) $config['database'] !== $registered['database']) {
+                throw new \RuntimeException('PRESERVATION_DETAIL_CONNECTION_UNSUPPORTED');
+            }
+            $connection->query('SELECT DATABASE() AS selected_database', [], true);
+            $pdo = $connection->getPdo();
+            if (!$pdo instanceof \PDO || $pdo->getAttribute(\PDO::ATTR_DRIVER_NAME) !== 'mysql'
+                || $pdo->getAttribute(\PDO::ATTR_ERRMODE) !== \PDO::ERRMODE_EXCEPTION || $pdo->inTransaction()) {
+                throw new \RuntimeException('PRESERVATION_DETAIL_CONNECTION_UNSUPPORTED');
+            }
+            $pdo->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY');
+            $pdo->exec('START TRANSACTION WITH CONSISTENT SNAPSHOT');
+            $started = true;
+            if (!$pdo->inTransaction()) { throw new \RuntimeException('PRESERVATION_DETAIL_SNAPSHOT_LOST'); }
+            $identity = $pdo->query('SELECT DATABASE() AS database_name,@@server_uuid AS server_uuid,CONNECTION_ID() AS connection_id')->fetch(\PDO::FETCH_ASSOC);
+            if (($identity['database_name'] ?? null) !== $registered['database']) { throw new \RuntimeException('PRESERVATION_DETAIL_DATABASE_MISMATCH'); }
+            $emit(['kind' => 'header', 'schema_version' => 1, 'source' => $source, 'started_at' => gmdate(DATE_ATOM),
+                'database' => ['resource_id' => $registered['resource_id'], 'endpoint_id' => $registered['endpoint_id'],
+                    'database' => $registered['database'], 'registry_sha256' => $registrySha,
+                    'server_uuid' => $identity['server_uuid'], 'connection_id' => (string) $identity['connection_id']],
+                'scope' => ['tenants' => $tenants, 'instances' => $instances ?? 'all_in_selected_tenants', 'definitions' => 'all_in_selected_tenants', 'departments' => 'all_in_selected_tenants'],
+                'snapshot' => 'same PDO; repeatable read; read only; consistent snapshot; no cross-run continuation',
+                'may_apply' => false, 'mapping_correctness_proven' => false, 'preservation_after_upgrade_proven' => false]);
+            $queries = [
+                'peanut.workflow' => $this->getApp()->make(\PeanutAdmin\Modules\Workflow\Application\WorkflowUpgradePreflight::class)
+                    ->detailPages($pdo, (string) $config['prefix'], $tenants, $instances, (int) $limit, $this->executionContext()),
+                'official.identity' => $this->getApp()->make(\PeanutAdmin\Modules\Identity\Contract\WorkflowLegacyOrganizationQuery::class)
+                    ->detailPages($pdo, (string) $config['prefix'], $tenants, (int) $limit, $this->executionContext()),
+            ];
+            $complete = true; $counts = []; $classifications = []; $totals = []; $finished = [];
+            foreach ($queries as $module => $pages) {
+                foreach ($pages as $page) {
+                    if ($connection->getPdo() !== $pdo || !$pdo->inTransaction()) { throw new \RuntimeException('PRESERVATION_DETAIL_SNAPSHOT_LOST'); }
+                    $complete = $complete && $page['complete'] === true;
+                    $table = $page['table'];
+                    if ($page['complete'] === true) {
+                        $totals[$table] = $page['total_rows'];
+                        $finished[$table] = ($page['table_finished'] ?? false) === true;
+                    }
+                    $counts[$table] = ($page['complete'] === true && (!array_key_exists($table, $counts) || $counts[$table] !== null))
+                        ? ($counts[$table] ?? 0) + count($page['records']) : null;
+                    foreach ($page['records'] as $record) { $key = $record['classification']; $classifications[$key] = ($classifications[$key] ?? 0) + 1; }
+                    $emit(['kind' => 'records', 'module_key' => $module, 'page' => $page]);
+                }
+            }
+            foreach ($counts as $table => $count) {
+                if ($count === null || (string) $count !== ($totals[$table] ?? null) || !($finished[$table] ?? false)) { $complete = false; }
+            }
+            projectResourceRegistry($endRegistrySha);
+            if ($sourceIdentity() !== $source || $endRegistrySha !== $registrySha || $connection->getPdo() !== $pdo || !$pdo->inTransaction()) {
+                throw new \RuntimeException('PRESERVATION_DETAIL_SNAPSHOT_LOST');
+            }
+            $pdo->rollBack(); $started = false;
+            $emit(['kind' => 'finish', 'complete' => $complete, 'finished_at' => gmdate(DATE_ATOM),
+                'record_counts' => $counts, 'classifications' => $classifications,
+                'may_apply' => false, 'mapping_correctness_proven' => false, 'preservation_after_upgrade_proven' => false,
+                'code' => $complete ? null : 'PRESERVATION_DETAIL_SCHEMA_UNKNOWN']);
+            return $complete ? 0 : 1;
+        } catch (\Throwable $exception) {
+            $emit(['kind' => 'finish', 'complete' => false, 'code' => 'PRESERVATION_DETAIL_UNAVAILABLE',
+                'diagnostic_sha256' => hash('sha256', get_class($exception) . ':' . $exception->getMessage()),
+                'may_apply' => false, 'mapping_correctness_proven' => false, 'preservation_after_upgrade_proven' => false]);
+            return 1;
+        } finally {
+            if ($started && $pdo instanceof \PDO && $pdo->inTransaction()) {
+                try { $pdo->rollBack(); }
+                catch (\Throwable) { $emit(['kind' => 'cleanup', 'complete' => false, 'code' => 'PRESERVATION_DETAIL_ROLLBACK_UNCONFIRMED']); }
+            }
         }
     }
 }
