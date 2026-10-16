@@ -39474,7 +39474,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1de6d3d9421eeb07b8a0a70847b088238d5bc7a2809608e25b2e1f0193fe57ab"
+            "source_sha256": "5dc96acd5e04f21cc8e1f674ab5311f440211bcdd4e5e415780e22a76007fbe8"
         },
         {
             "path": "web/src/views/system/dept/locale/en-US.ts",
@@ -39516,7 +39516,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bd6ede3920e229f7b3d80e5cdb9c0bd48c4fc8f56158cb7ec3325660c8635434"
+            "source_sha256": "9053ca55c97b4fb53477b1c35c8d300141280129ae307eb91a6acef19c853c2e"
         },
         {
             "path": "web/src/views/system/dict/components/DataDrawer.vue",

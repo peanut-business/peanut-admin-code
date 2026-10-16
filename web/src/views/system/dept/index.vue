@@ -244,8 +244,11 @@
   const directory = useDepartmentDirectory(getDeptList);
   const tableRevision = ref(0);
   const pickerRevision = ref(0);
-  const isSearch = ref(false);
-  const queryParams = reactive<{ name: string; status: number | '' }>({
+  const isSearch = directory.isSearch;
+  const queryParams = reactive<{
+    name: string;
+    status: number | '' | null | undefined;
+  }>({
     name: '',
     status: '',
   });
@@ -254,10 +257,9 @@
     setLoading(true);
     try {
       tableRevision.value += 1;
-      isSearch.value = !!queryParams.name.trim() || queryParams.status !== '';
       await directory.reset({
-        name: queryParams.name || undefined,
-        status: queryParams.status === '' ? undefined : queryParams.status,
+        name: queryParams.name,
+        status: queryParams.status,
       });
     } finally {
       setLoading(false);

@@ -74,8 +74,9 @@ export function useDepartmentDirectory(
   const busy = ref<Record<number, boolean>>({});
   const error = ref('');
   const lifecycle = createTenantLifecycle();
-  let filters: { name?: string; status?: number | string } = {};
-  let search = false;
+  let filters: { name?: string; status?: number | string | null } = {};
+  const mode = ref<'children' | 'search'>('children');
+  const isSearch = computed(() => mode.value === 'search');
   let identity = getSessionSnapshot().generation;
   const clear = () => {
     lifecycle.invalidate();
@@ -83,6 +84,7 @@ export function useDepartmentDirectory(
     pages.value = {};
     busy.value = {};
     error.value = '';
+    mode.value = 'children';
   };
   const unregister = registerTenantDisposer(
     `department-directory-${crypto.randomUUID()}`,
@@ -104,10 +106,12 @@ export function useDepartmentDirectory(
     try {
       const { data } = await load(
         {
-          mode: search ? 'search' : 'children',
+          mode: mode.value,
           pageNo,
           pageSize: 20,
-          ...(search ? filters : { parent_id: parent }),
+          ...(isSearch.value
+            ? { name: filters.name, status: filters.status ?? undefined }
+            : { parent_id: parent }),
         },
         ticket.signal
       );
@@ -132,8 +136,12 @@ export function useDepartmentDirectory(
   const reset = async (value: typeof filters = {}) => {
     clear();
     identity = getSessionSnapshot().generation;
-    filters = value;
-    search = !!value.name || value.status !== undefined;
+    filters = {
+      name: value.name?.trim() || undefined,
+      status: value.status === '' ? undefined : value.status ?? undefined,
+    };
+    mode.value =
+      filters.name || filters.status !== undefined ? 'search' : 'children';
     await read();
   };
   type Node = DirectoryDepartment & { children: Node[] };
@@ -153,7 +161,7 @@ export function useDepartmentDirectory(
     sort(roots);
     return roots;
   });
-  return { tree, rows, pages, busy, error, read, reset, clear };
+  return { tree, rows, pages, busy, error, isSearch, read, reset, clear };
 }
 
 /** Expansion is independent of selection: disabled ancestors remain navigable. */
@@ -274,7 +282,7 @@ export const DepartmentPicker = defineComponent({
                   if (
                     (event.target as HTMLDetailsElement).open &&
                     row.hasChildren &&
-                    !text.value.trim() &&
+                    !directory.isSearch.value &&
                     !directory.pages.value[row.id]
                   )
                     directory.read(row.id);
@@ -299,7 +307,7 @@ export const DepartmentPicker = defineComponent({
                   ),
                 ]),
                 renderNodes(row.children),
-                !text.value.trim() ? more(row.id) : null,
+                !directory.isSearch.value ? more(row.id) : null,
               ]
             ),
           ])
@@ -337,7 +345,7 @@ export const DepartmentPicker = defineComponent({
           disabled: props.disabled,
           onInput: (event: Event) => {
             text.value = (event.target as HTMLInputElement).value;
-            directory.reset({ name: text.value.trim() || undefined });
+            directory.reset({ name: text.value });
           },
         }),
         props.rootLabel
@@ -360,8 +368,7 @@ export const DepartmentPicker = defineComponent({
               'button',
               {
                 type: 'button',
-                onClick: () =>
-                  directory.reset({ name: text.value.trim() || undefined }),
+                onClick: () => directory.reset({ name: text.value }),
               },
               directory.error.value
             )
