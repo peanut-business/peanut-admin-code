@@ -44,7 +44,10 @@ final class ApplicationCreator
         'server/private/storage',
     ];
 
-    /** @param array{commit:string,tree:string}|null $sourceIdentity */
+    /**
+     * @param array{commit:string,tree:string}|null $sourceIdentity
+     * @param string|null $apiGeneratorPath Explicit installed API tool with source-identical generation inputs.
+     */
     public function __construct(
         private readonly string $sourceRoot,
         private readonly string $inventoryPath,
@@ -52,6 +55,7 @@ final class ApplicationCreator
         private readonly ?string $adoptionManifestPath = null,
         private readonly bool $projectEdition = true,
         private readonly ?array $sourceProvenance = null,
+        private readonly ?string $apiGeneratorPath = null,
     ) {}
 
     /** @return array<string,mixed> */
@@ -1225,6 +1229,38 @@ final class ApplicationCreator
             return $files;
         }
         $generator = ScaffoldPathGuard::existingFileWithin($this->sourceRoot, ScaffoldPathGuard::projectPath($this->sourceRoot, 'scripts/generate-api-contracts.php'), 'CREATE_APP_API_GENERATOR_INVALID');
+        if ($this->apiGeneratorPath !== null) {
+            $toolRoot = ScaffoldPathGuard::projectRoot(dirname($this->apiGeneratorPath, 2));
+            $toolGenerator = ScaffoldPathGuard::existingFileWithin($toolRoot, ScaffoldPathGuard::projectPath($toolRoot, 'scripts/generate-api-contracts.php'), 'CREATE_APP_API_TOOL_INVALID');
+            if ($toolGenerator !== realpath($this->apiGeneratorPath)) {
+                throw new RuntimeException('CREATE_APP_API_TOOL_INVALID');
+            }
+            // Only the installed toolchain moves; generator behavior and all APP inputs stay source-bound.
+            foreach (['scripts/generate-api-contracts.php', 'web/package.json', 'web/pnpm-lock.yaml', 'tools/toolchain.json'] as $relative) {
+                $sourceFile = ScaffoldPathGuard::existingFileWithin($this->sourceRoot, ScaffoldPathGuard::projectPath($this->sourceRoot, $relative), 'CREATE_APP_API_TOOL_INPUT_INVALID');
+                $toolFile = ScaffoldPathGuard::existingFileWithin($toolRoot, ScaffoldPathGuard::projectPath($toolRoot, $relative), 'CREATE_APP_API_TOOL_INPUT_INVALID');
+                $sourceHash = hash_file('sha256', $sourceFile);
+                $toolHash = hash_file('sha256', $toolFile);
+                if (!is_string($sourceHash) || !is_string($toolHash) || !hash_equals($sourceHash, $toolHash)) {
+                    throw new RuntimeException('CREATE_APP_API_TOOL_SOURCE_MISMATCH');
+                }
+            }
+            $installedLock = ScaffoldPathGuard::existingFileWithin($toolRoot, $toolRoot . '/web/node_modules/.pnpm/lock.yaml', 'CREATE_APP_API_TOOL_INSTALL_INVALID');
+            $installedHash = hash_file('sha256', $installedLock);
+            if (!is_string($installedHash) || !hash_equals((string) hash_file('sha256', $toolRoot . '/web/pnpm-lock.yaml'), $installedHash)) {
+                throw new RuntimeException('CREATE_APP_API_TOOL_INSTALL_MISMATCH');
+            }
+            $packagePath = ScaffoldPathGuard::existingFileWithin($toolRoot, $toolRoot . '/web/node_modules/openapi-typescript/package.json', 'CREATE_APP_API_TOOL_INSTALL_INVALID');
+            $package = json_decode((string) file_get_contents($packagePath), true, 512, JSON_THROW_ON_ERROR);
+            $declared = json_decode((string) file_get_contents($toolRoot . '/web/package.json'), true, 512, JSON_THROW_ON_ERROR);
+            $version = $declared['devDependencies']['openapi-typescript'] ?? null;
+            if (!is_string($version) || $version === '' || ($package['name'] ?? null) !== 'openapi-typescript'
+                || ($package['version'] ?? null) !== $version || ($package['bin']['openapi-typescript'] ?? null) !== 'bin/cli.js') {
+                throw new RuntimeException('CREATE_APP_API_TOOL_IDENTITY_MISMATCH');
+            }
+            ScaffoldPathGuard::existingFileWithin(dirname($packagePath), $toolRoot . '/web/node_modules/openapi-typescript/bin/cli.js', 'CREATE_APP_API_TOOL_BINARY_INVALID');
+            $generator = $toolGenerator;
+        }
         $catalog = ScaffoldPathGuard::existingFileWithin($stage, ScaffoldPathGuard::projectPath($stage, $catalogPath), 'CREATE_APP_API_CATALOG_INVALID');
         $openapiPath = ScaffoldPathGuard::existingFileWithin($stage, ScaffoldPathGuard::projectPath($stage, 'server/generated/openapi.json'), 'CREATE_APP_OPENAPI_INVALID');
         $versionPath = ScaffoldPathGuard::existingFileWithin($stage, ScaffoldPathGuard::projectPath($stage, 'release-versions.json'), 'CREATE_APP_VERSION_INPUT_INVALID');

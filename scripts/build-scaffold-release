@@ -190,6 +190,13 @@ try {
     if ($constructorCount >= 5) {
         $creatorArguments[] = $edition !== null;
     }
+    if ($constructorCount >= 7) {
+        if ($constructor->getParameters()[6]->getName() !== 'apiGeneratorPath') {
+            throw new RuntimeException('SCAFFOLD_RELEASE_CREATOR_SIGNATURE_UNSUPPORTED');
+        }
+        $creatorArguments[] = null;
+        $creatorArguments[] = $root . '/scripts/generate-api-contracts.php';
+    }
     $creator = (new ReflectionClass($creatorClass))->newInstanceArgs($creatorArguments);
     $create = new ReflectionMethod($creator, 'create');
     $createParameters = array_map(static fn(ReflectionParameter $parameter): string => $parameter->getName(), $create->getParameters());
