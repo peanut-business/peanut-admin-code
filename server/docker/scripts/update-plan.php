@@ -24,7 +24,7 @@ final class PeanutServerUpdatePlan
         }
         return self::withInstanceLock($server, static function () use ($server, $workspace, $operation, $scope, $pdo, $callback): mixed {
             self::sourceOwner($server);
-            $facts = self::databasePhaseFacts($server, $workspace, $operation, $pdo);
+            $facts = self::databasePhaseFacts($server, $workspace, $operation, $pdo, $scope);
             self::$databaseStage = ['pdo' => $pdo, 'connection' => \think\facade\Db::connect(),
                 'server' => $server, 'workspace' => $workspace, 'operation' => $operation, 'scope' => $scope, 'facts' => $facts];
             try { return $callback($facts); }
@@ -116,13 +116,13 @@ final class PeanutServerUpdatePlan
         if ($stage === null || $stage['pdo'] !== $pdo || \think\facade\Db::connect() !== $stage['connection']
             || $stage['connection']->getPdo() !== $pdo) { throw new RuntimeException('native database stage unavailable'); }
         self::assertHeldDatabaseLock($stage['server']);
-        $facts = self::databasePhaseFacts($stage['server'], $stage['workspace'], $stage['operation'], $pdo);
+        $facts = self::databasePhaseFacts($stage['server'], $stage['workspace'], $stage['operation'], $pdo, $stage['scope']);
         if ($facts !== $stage['facts']) { throw new RuntimeException('native database stage changed'); }
         return $facts;
     }
 
     /** Protected native phase, recovery point, real installed pair and actual master identity. */
-    private static function databasePhaseFacts(string $server, string $workspace, string $operation, PDO $pdo): array
+    private static function databasePhaseFacts(string $server, string $workspace, string $operation, PDO $pdo, string $scope): array
     {
         if (realpath($server) !== $server || realpath($workspace) !== $workspace
             || \think\facade\Db::connect()->getPdo() !== $pdo) { throw new RuntimeException('native database roots or master changed'); }
@@ -135,8 +135,15 @@ final class PeanutServerUpdatePlan
             || ($state['database_recovery_required'] ?? null) !== true
             || !isset($state['evidence']['managed_files'], $state['evidence']['backup'], $state['evidence']['quiesce'])
             || ($state['phase_in_progress'] ?? null) !== ($operation === 'migrate' ? 'migrate' : 'migration-verify')
-            || ($state['activation_started'] ?? null) !== false) { throw new RuntimeException('database phase is not admitted'); }
-        self::assertMaintenance($server, $plan['update_id']);
+            || array_key_exists('recovery_context', $state)) { throw new RuntimeException('database phase is not admitted'); }
+        $completedVerify = $operation === 'verify' && $scope === 'server-release'
+            && ($state['activation_started'] ?? null) === true && ($state['phase'] ?? null) === 'completed';
+        if (!$completedVerify && ($state['activation_started'] ?? null) !== false) { throw new RuntimeException('database mutation window has closed'); }
+        if ($completedVerify) {
+            self::assertCompletedDatabaseVerification($server, $workspace, $product, $state, $plan);
+        } else {
+            self::assertMaintenance($server, $plan['update_id']);
+        }
         self::assertInstallationFingerprints($server, $plan);
         $identityBytes = self::regularBytes($server . '/.peanut/release-identity.json', 'database target identity');
         if (hash('sha256', $identityBytes) !== $plan['target']['identity_sha256']) { throw new RuntimeException('database target changed'); }
@@ -176,13 +183,67 @@ final class PeanutServerUpdatePlan
                 $access = json_decode($access, true, 64, JSON_THROW_ON_ERROR);
                 $ddl = $ddl || (($access['complete'] ?? null) === true && in_array($access['operation'] ?? null, ['ddl', 'exclusive'], true) && ($access['tables'] ?? null) === []);
             }
-            if (isset($resources['mysql-access']) && !$ddl) { throw new RuntimeException('database stage requires full native DDL exclusion'); }
+            if ($operation === 'migrate' && isset($resources['mysql-access']) && !$ddl) { throw new RuntimeException('database stage requires full native DDL exclusion'); }
             $resource['lease'] = array_intersect_key($metadata, array_flip(['lease', 'owner', 'thread', 'candidate']));
         }
         return ['update_id' => $plan['update_id'], 'plan_sha256' => hash_file('sha256', $workspace . '/plan.json'),
             'product_state_sha256' => hash_file('sha256', $product['state_path']), 'target_identity_sha256' => $plan['target']['identity_sha256'],
             'database_identity' => $db, 'resource' => $resource, 'source' => $plan['source'],
-            'backup_sha256' => hash('sha256', $backupBytes), 'maintenance' => self::jsonFile(self::maintenancePath($server), 'maintenance')];
+            'backup_sha256' => hash('sha256', $backupBytes), 'admission_mode' => $completedVerify ? 'readonly-completed' : 'preactivation',
+            'maintenance' => $completedVerify ? null : self::jsonFile(self::maintenancePath($server), 'maintenance')];
+    }
+
+    /** Completed apply reentry and normal verify never reopen a mutation window. */
+    private static function assertCompletedDatabaseVerification(string $server, string $workspace, array $product, array $state, array $plan): void
+    {
+        if (($state['migration_completed'] ?? null) !== true
+            || file_exists(self::maintenancePath($server)) || is_link(self::maintenancePath($server))) {
+            throw new RuntimeException('completed database verification is not admitted');
+        }
+        $phases = [];
+        foreach (['migrate', 'migration-verify', 'activate'] as $phase) {
+            $stored = $state['evidence'][$phase] ?? null;
+            $evidence = is_array($stored) ? ($stored['payload'] ?? null) : null;
+            if (!is_array($evidence) || ($stored['sha256'] ?? null) !== 'sha256:' . hash('sha256', self::databaseCanonical($evidence))
+                || ($evidence['protocol'] ?? null) !== 'peanut.product-upgrade-host-evidence.v1'
+                || ($evidence['status'] ?? null) !== 'completed' || ($evidence['phase'] ?? null) !== $phase
+                || ($evidence['candidate'] ?? null) !== $product['candidate'] || ($evidence['plan_sha256'] ?? null) !== $product['plan_sha256']
+                || ($evidence['package_manifest_sha256'] ?? null) !== $product['package']['manifest_sha256']) {
+                throw new RuntimeException('completed native phase evidence differs');
+            }
+            $phases[$phase] = $evidence['payload'];
+        }
+        $path = $workspace . '/migration.json';
+        $bytes = self::regularBytes($path, 'completed full migration');
+        $signature = trim(self::regularBytes($path . '.hmac', 'completed full migration authentication'));
+        foreach ([$path, $path . '.hmac'] as $file) {
+            if ((fileperms($file) & 0777) !== 0600) { throw new RuntimeException('completed migration record is unsafe'); }
+        }
+        $migration = json_decode($bytes, true, 512, JSON_THROW_ON_ERROR);
+        $recorded = $phases['migrate']['database'] ?? null;
+        if (is_array($recorded)) { unset($recorded['result_path']); }
+        $verified = $phases['migration-verify']['database'] ?? null;
+        if (!hash_equals(hash_hmac('sha256', $bytes, self::verificationKey($server, false)), $signature)
+            || !is_array($migration) || !is_array($recorded) || self::databaseCanonical($recorded) !== self::databaseCanonical($migration)
+            || ($migration['protocol'] ?? null) !== 'peanut.server-update-migration.v1'
+            || ($migration['status'] ?? null) !== 'completed' || ($migration['operation'] ?? null) !== 'migrate'
+            || ($migration['scope'] ?? null) !== 'server-release' || ($migration['plugins'] ?? null) !== 'reconciled'
+            || ($migration['product_database'] ?? null) !== 'migrated' || ($migration['update_id'] ?? null) !== $plan['update_id']
+            || ($migration['plan_sha256'] ?? null) !== $product['inputs_sha256']
+            || !is_array($verified) || ($verified['status'] ?? null) !== 'completed' || ($verified['scope'] ?? null) !== 'server-release'
+            || ($verified['plugins'] ?? null) !== 'reconciled' || ($verified['product_database'] ?? null) !== 'verified'
+            || ($verified['update_id'] ?? null) !== $plan['update_id'] || ($verified['plan_sha256'] ?? null) !== $product['inputs_sha256']) {
+            throw new RuntimeException('completed full migration evidence is missing or mismatched');
+        }
+        $deployment = self::jsonFile(self::deploymentPath($server), 'completed deployment');
+        if (($deployment['protocol'] ?? null) !== 'peanut.server-deployment.v1'
+            || ($deployment['update_id'] ?? null) !== $plan['update_id'] || ($deployment['plan_sha256'] ?? null) !== $product['inputs_sha256']
+            || ($deployment['current_identity_sha256'] ?? null) !== $plan['target']['identity_sha256']
+            || ($deployment['previous_identity_sha256'] ?? null) !== $plan['source']['identity_sha256']
+            || ($deployment['generation'] ?? null) !== $plan['source']['deployment_generation'] + 1) {
+            throw new RuntimeException('completed deployment differs from verified target');
+        }
+        self::assertTrafficReady($server);
     }
 
     private static function assertInstallationFingerprints(string $server, array $plan): void
