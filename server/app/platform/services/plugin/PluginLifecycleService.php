@@ -430,7 +430,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                     if (self::migrationAdoptions($moduleKey, $actualFiles, self::migrationRepairMap($moduleKey, $actualFiles)) !== $adoptions) {
                         throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_SOURCE_CHANGED', 'Canonical declaration changed before SQL execution.');
                     }
-                    $report = app()->make(FileMigrationAdoptionProof::class)->report($migrationKey);
+                    $report = self::fileMigrationProof($migrationKey);
                     if (($report['disposition'] ?? null) !== 'execute' || ($report['may_apply'] ?? null) !== true) {
                         throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_REJECTED', 'The complete safe pre-state must still hold before executing SQL.');
                     }
@@ -788,6 +788,78 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         return $row;
     }
 
+    private static function fileMigrationProof(string $key, ?\PDO $pdo = null): array
+    {
+        // The fixed application owner reader executes inside the File proof's actual snapshot,
+        // not on another Runner connection or from caller-supplied history/provenance data.
+        return app()->make(FileMigrationAdoptionProof::class)->report($key, self::fileApplicationMigrationHistory(...), $pdo);
+    }
+
+    /** Application history is owned here; it never substitutes for the File Module's complete proof. */
+    private static function fileApplicationMigrationHistory(\PDO $pdo, string $moduleKey): array
+    {
+        $hashes = [
+            'official.file:20260823-unify-storage-service' => 'f79c35b2fe8414dc172a81a45183d2a52eadb05833a704149780b36e400ca2d4',
+            'official.file:20260921020000_add_file_image_assets' => '826fa9d8fd841b6834bc5f23cabced30b7ca111de4bb1f629ccbdb8501200cd4',
+            'official.file:20261012030000_add_controlled_file_references' => '005edad54fc0cf06a4eeb6afa7c0e5f374a0bc352eaa088282b2f12932251591',
+            'official.file:20261012051000_add_immutable_document_snapshots' => '7b73c0c24f14f4c7f4fc1f75321e009b1a645d7df3f7d653dbb3d018e3b5bdbe',
+        ];
+        if (!isset($hashes[$moduleKey])) { throw new \RuntimeException('APPLICATION_MIGRATION_LEDGER_INVALID'); }
+        $read = static function (string $sql, array $parameters) use ($pdo): array {
+            if (Db::connect()->getPdo() !== $pdo || !$pdo->inTransaction()) {
+                throw new \RuntimeException('APPLICATION_MIGRATION_HISTORY_PDO_MISMATCH');
+            }
+            $statement = $pdo->prepare($sql); $statement->execute($parameters);
+            $rows = $statement->fetchAll(\PDO::FETCH_ASSOC); $statement->closeCursor();
+            if (Db::connect()->getPdo() !== $pdo || !$pdo->inTransaction()) {
+                throw new \RuntimeException('APPLICATION_MIGRATION_HISTORY_PDO_MISMATCH');
+            }
+            return $rows;
+        };
+        $history = ['historical_application_migration' => null,
+            'historical_application_migration_observation' => 'unknown_ledger_absent'];
+        // This literal is the native ApplicationMigrationRunner ledger, not a Module-owned table.
+        $tables = $read('SELECT ENGINE,TABLE_TYPE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', ['pa_schema_migration']);
+        if ($tables === []) { return $history; }
+        if (count($tables) !== 1 || $tables[0]['ENGINE'] !== 'InnoDB' || $tables[0]['TABLE_TYPE'] !== 'BASE TABLE') {
+            throw new \RuntimeException('APPLICATION_MIGRATION_LEDGER_INVALID');
+        }
+        $columns = $read('SELECT COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,COLUMN_DEFAULT,EXTRA,GENERATION_EXPRESSION FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', ['pa_schema_migration']);
+        $expected = ['migration_id' => ['varchar(190)', null], 'release_version' => ['varchar(32)', null],
+            'checksum' => ['char(64)', null], 'status' => ["enum('applying','applied','failed')", 'applying']];
+        foreach ($columns as $column) {
+            $name = $column['COLUMN_NAME'];
+            if (!isset($expected[$name])) { continue; }
+            if (strtolower($column['COLUMN_TYPE']) !== $expected[$name][0] || $column['IS_NULLABLE'] !== 'NO'
+                || $column['COLUMN_DEFAULT'] !== $expected[$name][1] || $column['EXTRA'] !== '' || $column['GENERATION_EXPRESSION'] !== '') {
+                throw new \RuntimeException('APPLICATION_MIGRATION_LEDGER_INVALID');
+            }
+            unset($expected[$name]);
+        }
+        $primary = $read("SELECT COLUMN_NAME,NON_UNIQUE,SUB_PART,INDEX_TYPE,IS_VISIBLE FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='pa_schema_migration' AND INDEX_NAME='PRIMARY' ORDER BY SEQ_IN_INDEX", []);
+        if ($expected !== [] || count($primary) !== 1 || $primary[0]['COLUMN_NAME'] !== 'migration_id'
+            || (int) $primary[0]['NON_UNIQUE'] !== 0 || $primary[0]['SUB_PART'] !== null
+            || $primary[0]['INDEX_TYPE'] !== 'BTREE' || $primary[0]['IS_VISIBLE'] !== 'YES') {
+            throw new \RuntimeException('APPLICATION_MIGRATION_LEDGER_INVALID');
+        }
+        $id = substr($moduleKey, strlen('official.file:'));
+        $records = $read('SELECT migration_id,release_version,checksum,status FROM pa_schema_migration WHERE migration_id=?', [$id]);
+        $history['historical_application_migration_observation'] = 'unknown_record_absent';
+        if ($records === []) { return $history; }
+        $row = $records[0];
+        if (count($records) !== 1 || $row['migration_id'] !== $id || !is_string($row['release_version'])
+            || preg_match('/^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.+-]+)?$/D', $row['release_version']) !== 1
+            || !is_string($row['checksum']) || !hash_equals($hashes[$moduleKey], $row['checksum'])
+            || $row['status'] !== 'applied') {
+            throw new \RuntimeException('APPLICATION_MIGRATION_RECORD_CONFLICT');
+        }
+        $history['historical_application_migration'] = ['source' => 'application-migration-ledger',
+            'migration_id' => $row['migration_id'], 'release_version' => $row['release_version'],
+            'checksum' => $row['checksum'], 'status' => 'applied', 'claim' => 'recorded_applied'];
+        $history['historical_application_migration_observation'] = 'recorded_applied';
+        return $history;
+    }
+
     private static function assertAdopted(array $row, array $declaration, \PDO $pdo, string $pluginKey): array
     {
         try { $proof = json_decode((string) ($row['provenance_json'] ?? ''), true, 64, JSON_THROW_ON_ERROR); }
@@ -825,7 +897,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_PROVENANCE_INVALID', 'Adoption source identity is incomplete.');
             }
         }
-        $current = app()->make(FileMigrationAdoptionProof::class)->report($declaration['migration_key'], $pdo->inTransaction() ? $pdo : null);
+        $current = self::fileMigrationProof($declaration['migration_key'], $pdo->inTransaction() ? $pdo : null);
         if (($current['disposition'] ?? null) !== 'adopt' || ($current['may_apply'] ?? null) !== true || Db::connect()->getPdo() !== $pdo) {
             throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_DRIFT', 'Adopted migration postconditions no longer hold.');
         }
@@ -1106,7 +1178,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             } else {
                 $disposition = $willMigrate ? 'execute' : 'reject';
                 if (isset($adoptions['targets'][$key])) {
-                    $report = app()->make(FileMigrationAdoptionProof::class)->report($key);
+                    $report = self::fileMigrationProof($key);
                     $disposition = $willMigrate && ($report['may_apply'] ?? null) === true ? ($report['disposition'] ?? 'reject') : 'reject';
                     if (!in_array($disposition, ['execute', 'adopt'], true)) { $disposition = 'reject'; }
                 } elseif ($willMigrate && $moduleKey === 'peanut.workflow' && $key === \PeanutAdmin\Modules\Workflow\Application\WorkflowUpgradePreflight::MIGRATION_KEY) {
@@ -1199,7 +1271,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             $key = $declaration['migration_key'];
             $row = Db::name('module_migration')->where('module_key', $moduleKey)->where('migration_key', $key)->lock(true)->find();
             if ($row !== null) { throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_CONFLICT', 'Migration ledger changed after preflight.'); }
-            $proof = app()->make(FileMigrationAdoptionProof::class)->report($key, $pdo);
+            $proof = self::fileMigrationProof($key, $pdo);
             if (($proof['disposition'] ?? null) !== 'adopt' || ($proof['may_apply'] ?? null) !== true) {
                 throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_REJECTED', 'Complete File postconditions are required.');
             }
@@ -1222,7 +1294,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 'started_at' => $now, 'finished_at' => $now, 'error_code' => null]);
             app()->make(AuditService::class)->appendPlatformEvent('module.migration.adopted', 'adopt', 'success', null,
                 null, null, 'module_migration', $key, $context->requestId(), $context->requestId(), null, null, null, null, self::json($provenance));
-            $after = app()->make(FileMigrationAdoptionProof::class)->report($key, $pdo);
+            $after = self::fileMigrationProof($key, $pdo);
             if (self::json($proof) !== self::json($after) || Db::connect()->getPdo() !== $pdo || !$pdo->inTransaction()
                 || self::json(self::adoptionAdmission($pdo)) !== self::json($admission)) {
                 throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_DRIFT', 'Observed File proof, transaction or native admission changed during adoption.');
