@@ -24,24 +24,40 @@ final readonly class NotificationUpgradePreflight
             'status' => 'unknown', 'pending_count' => null, 'may_apply' => false,
             'code' => 'NOTIFICATION_UPGRADE_STATE_UNKNOWN',
         ];
-        $context = $this->contexts->current();
-        if (!$context instanceof InstanceExecutionContext && !$context instanceof InstallationExecutionContext) {
-            return $unknown;
-        }
         $pdo = null;
         $started = false;
+        $phase = 'execution_context';
         try {
+            $context = $this->contexts->current();
+            if (!$context instanceof InstanceExecutionContext && !$context instanceof InstallationExecutionContext) {
+                return $unknown + ['reason' => 'EXECUTION_CONTEXT_UNAVAILABLE', 'phase' => $phase];
+            }
+            $phase = 'connection';
             $pdo = Db::connect()->getPdo();
-            if (!$pdo instanceof PDO || $pdo->inTransaction()) { return $unknown; }
+            if (!$pdo instanceof PDO) {
+                return $unknown + ['reason' => 'CONNECTION_UNAVAILABLE', 'phase' => $phase];
+            }
+            if ($pdo->inTransaction()) {
+                return $unknown + ['reason' => 'TRANSACTION_ALREADY_ACTIVE', 'phase' => $phase];
+            }
+            $phase = 'transaction_read_only';
             $pdo->exec('SET TRANSACTION READ ONLY');
+            $phase = 'transaction_begin';
             $pdo->beginTransaction();
             $started = true;
+            $phase = 'outbox_schema';
             $table = Db::name('notification_outbox')->getTable();
             $exists = Db::query('SELECT COUNT(*) AS n FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$table]);
-            if ((int) ($exists[0]['n'] ?? 0) !== 1) { return $unknown; }
+            if ((int) ($exists[0]['n'] ?? 0) !== 1) {
+                return $unknown + ['reason' => 'OUTBOX_SCHEMA_UNAVAILABLE', 'phase' => $phase];
+            }
+            $phase = 'pending_count';
             $pending = (int) Db::name('notification_outbox')->whereIn('status', ['pending', 'queued', 'processing', 'retryable'])->count();
-            $invalid = (int) Db::name('notification_outbox')->whereNotIn('status', ['pending', 'queued', 'processing', 'retryable', 'delivered', 'failed'])->count();
-            if ($invalid !== 0) { return $unknown; }
+            $phase = 'status_validation';
+            $invalid = (int) Db::name('notification_outbox')->whereNotIn('status', ['pending', 'queued', 'processing', 'retryable', 'delivered', 'permanent_failed'])->count();
+            if ($invalid !== 0) {
+                return $unknown + ['reason' => 'OUTBOX_STATUS_UNRECOGNIZED', 'phase' => $phase];
+            }
             return [
                 'schema_version' => 1, 'module_key' => 'official.notification',
                 'status' => $pending === 0 ? 'ready' : 'blocked',
@@ -50,7 +66,7 @@ final readonly class NotificationUpgradePreflight
                 'runtime_safe_window_required' => true,
             ];
         } catch (\Throwable) {
-            return $unknown;
+            return $unknown + ['reason' => 'PREFLIGHT_OPERATION_FAILED', 'phase' => $phase];
         } finally {
             if ($started && $pdo instanceof PDO && $pdo->inTransaction()) { $pdo->rollBack(); }
         }
