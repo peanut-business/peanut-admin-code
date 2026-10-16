@@ -26,7 +26,7 @@ final readonly class VerifiedServerDeployment
 
     public static function read(App $app): self
     {
-        $started = RequestTrace::beginDeploymentTiming();
+        $started = class_exists(RequestTrace::class, false) ? RequestTrace::beginDeploymentTiming() : null;
         try {
             $root = rtrim($app->getRootPath(), '/');
             foreach (['maintenance.json', 'current-update.json'] as $guard) {
@@ -68,7 +68,9 @@ final readonly class VerifiedServerDeployment
             }
             return new self($root, $record, $httpMount);
         } finally {
-            RequestTrace::finishDeploymentReadTiming($started);
+            if ($started !== null) {
+                RequestTrace::finishDeploymentReadTiming($started);
+            }
         }
     }
 
@@ -144,7 +146,7 @@ final readonly class VerifiedServerDeployment
 
     public function registry(): CompiledModuleRegistry
     {
-        $started = RequestTrace::beginDeploymentTiming();
+        $started = class_exists(RequestTrace::class, false) ? RequestTrace::beginDeploymentTiming() : null;
         try {
             $record = $this->record['registry'];
             $modules = [];
@@ -168,7 +170,9 @@ final readonly class VerifiedServerDeployment
                 $record['revision'],
             );
         } finally {
-            RequestTrace::finishRegistryRestoreTiming($started);
+            if ($started !== null) {
+                RequestTrace::finishRegistryRestoreTiming($started);
+            }
         }
     }
 
