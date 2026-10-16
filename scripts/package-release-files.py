@@ -176,8 +176,9 @@ def released_dependencies(root: Path) -> dict:
 
 
 def copy_checked(root: Path, target: Path, relative: str, digest: str, mode: int,
-                 git_blob: str | None = None, git_hash: str = 'sha1') -> None:
-    if not allowed_source(relative):
+                 git_blob: str | None = None, git_hash: str = 'sha1',
+                 approved_archives: set[str] | None = None) -> None:
+    if not allowed_source(relative) and relative not in (approved_archives or set()):
         raise ValueError(f'installed dependency, secret or runtime data in manifest: {relative}')
     source = regular_file(root, relative)
     data = source.read_bytes()
@@ -266,12 +267,37 @@ def validate_release_metadata(source: Path, manifest: dict, versions: dict) -> N
         raise ValueError('application release metadata differs from application identity')
 
 
-def snapshot(root: Path, target: Path, generated_template: bool) -> tuple[dict, dict]:
+def internal_contract():
+    # Lazy import: the contract imports this module's file policy itself.
+    import importlib.util
+    import sys
+    sys.dont_write_bytecode = True
+    spec = importlib.util.spec_from_file_location('internal_candidate_contract', Path(__file__).with_name('internal_candidate_contract.py'))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def snapshot(root: Path, target: Path, generated_template: bool, internal: bool = False) -> tuple[dict, dict]:
     if target.exists() or target.is_symlink():
         raise ValueError('snapshot destination must not exist')
     root = root.resolve(strict=True)
     manifest = document(root, MANIFEST)
-    commit, tree, tracked, blobs, git_hash = application_git(root, manifest, generated_template)
+    sealed = None
+    approved_archives = set()
+    if internal:
+        sealed = internal_contract().verify(root)
+        marker = document(root, '.peanut/internal-candidate.json')
+        if len(marker.get('core_web', {})) != 6:
+            raise ValueError('complete internal APP requires seven inputs')
+        tracked = sorted([*sealed['source_files'], '.peanut/internal-candidate.json'])
+        commit, tree, blobs, git_hash = None, None, {}, 'sha1'
+        approved_archives.update(sealed['archive_paths'])
+        # Original archive baselines are immutable and independently checked below.
+        approved_archives.update(row['baseline_path'] for row in manifest['files']
+                                 if row.get('baseline_path') and row['path'].endswith('.tgz'))
+    else:
+        commit, tree, tracked, blobs, git_hash = application_git(root, manifest, generated_template)
     if MANIFEST not in tracked:
         raise ValueError('application manifest is not committed')
     if manifest.get('protocol') != 'peanut.application-scaffold.v2' or not manifest.get('files'):
@@ -299,7 +325,7 @@ def snapshot(root: Path, target: Path, generated_template: bool) -> tuple[dict, 
     for client in CLIENTS:
         if not any(p.startswith(client + '/') and p.endswith(('.vue', '.ts', '.js')) for p in paths):
             raise ValueError(f'frontend development source is missing: {client}')
-    versions = released_dependencies(root)
+    versions = document(root, 'release-versions.json') if internal else released_dependencies(root)
     validate_release_metadata(root, manifest, versions)
     if not set(paths).issubset(tracked):
         raise ValueError('application ownership manifest names uncommitted files')
@@ -328,7 +354,7 @@ def snapshot(root: Path, target: Path, generated_template: bool) -> tuple[dict, 
             if baseline != baseline_root + '/' + relative or baseline not in tracked:
                 raise ValueError(f'invalid source baseline: {relative}')
             copy_checked(root, target, baseline, entry['baseline_sha256'], 0o644,
-                         blobs.get(baseline), git_hash)
+                         blobs.get(baseline), git_hash, approved_archives)
     # The committed APP tree, rather than the immutable upstream baseline,
     # supplies the actual release bytes, including app-owned additions.
     for relative in tracked:
@@ -336,9 +362,15 @@ def snapshot(root: Path, target: Path, generated_template: bool) -> tuple[dict, 
             continue
         source = regular_file(root, relative)
         mode = 0o755 if source.stat().st_mode & 0o111 else 0o644
-        copy_checked(root, target, relative, hashlib.sha256(source.read_bytes()).hexdigest(), mode,
-                     blobs.get(relative), git_hash)
-    return manifest, {'kind': 'generated-template' if generated_template else 'application',
+        expected_digest = (sealed['source_files'][relative]['sha256'] if sealed and relative != '.peanut/internal-candidate.json'
+                           else sealed['candidate_marker']['sha256'] if sealed else hashlib.sha256(source.read_bytes()).hexdigest())
+        if sealed and relative != '.peanut/internal-candidate.json' and mode != sealed['source_files'][relative]['mode']:
+            raise ValueError('internal projected mode changed during snapshot')
+        copy_checked(root, target, relative, expected_digest, mode,
+                     blobs.get(relative), git_hash, approved_archives)
+    if internal:
+        internal_contract().verify(target)
+    return manifest, {'kind': 'internal-candidate' if internal else 'generated-template' if generated_template else 'application',
                       'commit': commit, 'tree': tree, 'tracked': tracked}
 
 
@@ -520,6 +552,12 @@ def application_release_identity(source: Path, target: Path, manifest: dict, git
         'upstream': manifest['generation_source'], 'template': manifest['template'],
         'files': rows, 'files_sha256': rows_sha256(rows),
     }
+    if git['kind'] == 'internal-candidate':
+        contract = internal_contract()
+        marker = document(source, contract.MARKER)
+        identity['application'].update({'scope': 'internal-candidate', 'formal_release_eligible': False,
+                                        'candidate_marker': {'path': contract.MARKER, 'sha256': contract.digest(regular_file(source, contract.MARKER))},
+                                        'projection': marker['projection'], 'selection': marker['selection']})
     path = target / '.peanut/application-release.json'
     if path.exists():
         raise ValueError('application source already contains a release identity')
@@ -852,10 +890,13 @@ def main() -> None:
     parser.add_argument('--target', type=Path)
     parser.add_argument('--build-root', type=Path)
     parser.add_argument('--generated-template', action='store_true')
+    parser.add_argument('--internal-candidate', action='store_true')
     parser.add_argument('--server-only', action='store_true')
     parser.add_argument('--archive', type=Path)
     parser.add_argument('--expected-sha256')
     args = parser.parse_args()
+    if args.internal_candidate and (args.generated_template or args.server_only or args.action not in ('snapshot', 'assemble')):
+        raise ValueError('internal candidate requires complete APP snapshot/assemble')
     if args.action == 'verify':
         if args.archive is None or args.expected_sha256 is None:
             raise ValueError('verify needs --archive and --expected-sha256 from a trusted channel')
@@ -876,7 +917,7 @@ def main() -> None:
         development_runtime(source, args.target)
         print('package-files: explicit development runtime projection complete; not a release')
         return
-    manifest, git = snapshot(source, destination, args.generated_template)
+    manifest, git = snapshot(source, destination, args.generated_template, args.internal_candidate)
     if args.action == 'assemble':
         if args.build_root is None:
             raise ValueError('assemble needs --build-root')
@@ -914,6 +955,8 @@ def main() -> None:
             # The development archive keeps application source and the upstream
             # baseline for later APP customization and scaffold upgrades.
             application_release_identity(source, destination, manifest, git)
+            if args.internal_candidate:
+                internal_contract().verify_assembled(destination)
     print(f'package-files: {args.action} completed; no application/upgrade qualification claimed')
 
 

@@ -9,7 +9,7 @@ use app\common\value\scaffold\VersionContract;
 
 function internalCandidateUsage(): never
 {
-    fwrite(STDERR, "Usage: php scripts/build-internal-edition-candidate --source-commit=<full-sha> --edition=<standalone|multi-tenant> --core-inputs=<absolute-release-core-inputs.json> --output=<absent-absolute-directory>\n");
+    fwrite(STDERR, "Usage: php scripts/build-internal-edition-candidate --source-commit=<full-sha> --edition=<standalone|multi-tenant> --profile=full --workflow=full --core-inputs=<absolute-release-core-inputs.json> --output=<absent-absolute-directory>\n");
     exit(64);
 }
 
@@ -229,8 +229,13 @@ function internalCandidateLockRows(string $lockPath): string
         $rows[] = implode("\0", [
             (string) ($package['name'] ?? ''),
             (string) ($package['version'] ?? ''),
+            (string) ($package['source']['type'] ?? ''),
+            (string) ($package['source']['url'] ?? ''),
             (string) ($package['source']['reference'] ?? ''),
+            (string) ($package['dist']['type'] ?? ''),
+            (string) ($package['dist']['url'] ?? ''),
             (string) ($package['dist']['reference'] ?? ''),
+            (string) ($package['dist']['shasum'] ?? ''),
         ]);
     }
     sort($rows, SORT_STRING);
@@ -290,6 +295,84 @@ function internalCandidateProjectCore(string $application, array $core, string $
         throw new RuntimeException('INTERNAL_CANDIDATE_CORE_LOCK_IDENTITY_INVALID');
     }
     return $lockAfter;
+}
+
+/** Carry all six immutable Web inputs; native managers resolve actual consumers only.
+ * @return array{packages:array<string,mixed>,third_party_locks:array<string,string>}
+ */
+function internalCandidateProjectWeb(string $application, array $core, string $receipt, string $toolRoot): array
+{
+    $web = $core['inputs']['core_web'] ?? null;
+    $suffixes = ['client', 'vue', 'ui-vue', 'nuxt', 'uniapp', 'testing'];
+    if (!is_array($web) || array_keys($web['packages'] ?? []) !== array_map(static fn(string $s): string => '@peanut-admin/' . $s, $suffixes)
+        || ($web['source_type'] ?? null) !== 'git'
+        || ($web['source_reference'] ?? null) !== ($core['inputs']['sources']['web']['commit'] ?? null)
+        || preg_match('/^[a-f0-9]{40}$/D', (string) ($web['source_reference'] ?? '')) !== 1) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_WEB_INPUTS_INVALID');
+    }
+    $lockTool = $toolRoot . '/scripts/release-dependency-locks.mjs';
+    $before = json_decode(internalCandidateRun(['node', $lockTool, $application, '--third-party-only', '--tool-root=' . $toolRoot]), true, 512, JSON_THROW_ON_ERROR);
+    $packages = [];
+    foreach ($web['packages'] as $name => $identity) {
+        $suffix = substr($name, strlen('@peanut-admin/'));
+        $path = $identity['archive'] ?? '';
+        if (($identity['version'] ?? null) !== $core['inputs']['core_php']['resolved_version']
+            || $path !== 'packages/core-web/peanut-admin-' . $suffix . '-' . $identity['version'] . '.tgz') {
+            throw new RuntimeException('INTERNAL_CANDIDATE_WEB_ARCHIVE_IDENTITY_INVALID');
+        }
+        $input = dirname($receipt) . '/' . $path;
+        internalCandidatePath($input, false, true);
+        if (!hash_equals((string) ($identity['sha256'] ?? ''), (string) hash_file('sha256', $input))) {
+            throw new RuntimeException('INTERNAL_CANDIDATE_WEB_ARCHIVE_DIGEST_INVALID');
+        }
+        $destination = $application . '/' . $path;
+        if (file_exists($destination)) {
+            internalCandidatePath($destination, false, true);
+            if (!unlink($destination)) {
+                throw new RuntimeException('INTERNAL_CANDIDATE_WEB_ARCHIVE_REPLACE_FAILED');
+            }
+        }
+        internalCandidateCopyFile($input, $destination);
+        $packages[$name] = $identity + ['integrity' => 'sha512-' . base64_encode(hash_file('sha512', $input, true)), 'consumers' => []];
+    }
+    foreach (['web', 'platform', 'pc', 'uniapp'] as $client) {
+        $path = $application . '/' . $client . '/package.json';
+        $manifest = internalCandidateReadJson($path);
+        foreach (['dependencies', 'devDependencies', 'optionalDependencies'] as $section) {
+            foreach (($manifest[$section] ?? []) as $name => $specifier) {
+                if (!str_starts_with($name, '@peanut-admin/')) {
+                    continue;
+                }
+                if (!isset($packages[$name])) {
+                    throw new RuntimeException('INTERNAL_CANDIDATE_WEB_PACKAGE_UNKNOWN');
+                }
+                $manifest[$section][$name] = 'file:../' . $packages[$name]['archive'];
+                $packages[$name]['consumers'][] = $client;
+            }
+        }
+        internalCandidateWriteJson($path, $manifest);
+    }
+    $versions = internalCandidateReadJson($application . '/release-versions.json');
+    $versions['core_php'] = $core['inputs']['core_php'];
+    $versions['core_web'] = $web;
+    internalCandidateWriteJson($application . '/release-versions.json', $versions);
+    // These are native lock generation operations, not hand-edited lock data.
+    // Lifecycle hooks are disabled; none may install the APP or touch a database.
+    internalCandidateRun(['pnpm', '--dir', $application . '/web', 'install', '--lockfile-only', '--ignore-scripts'], $application, ['HUSKY' => '0']);
+    foreach (['platform', 'pc', 'uniapp'] as $client) {
+        internalCandidateRun(['npm', '--prefix', $application . '/' . $client, 'install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund'], $application, ['HUSKY' => '0']);
+    }
+    $after = json_decode(internalCandidateRun(['node', $lockTool, $application, '--third-party-only', '--tool-root=' . $toolRoot]), true, 512, JSON_THROW_ON_ERROR);
+    if ($before !== $after) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_WEB_THIRD_PARTY_LOCK_CHANGED');
+    }
+    internalCandidateRun(['node', $lockTool, $application, '--internal-candidate', '--tool-root=' . $toolRoot]);
+    foreach ($packages as &$identity) {
+        $identity['consumers'] = array_values(array_unique($identity['consumers']));
+        $identity['consumption'] = $identity['consumers'] === [] ? 'carried-not-consumed' : 'selected-client-dependency';
+    }
+    unset($identity);
+    return ['packages' => $packages, 'third_party_locks' => $after];
 }
 
 /**
@@ -432,19 +515,20 @@ function internalCandidateMain(array $argv): void
 
     $options = [];
     foreach (array_slice($argv, 1) as $argument) {
-        if (preg_match('/^--(source-commit|edition|core-inputs|output)=(.+)$/D', $argument, $matches) !== 1
+        if (preg_match('/^--(source-commit|edition|profile|workflow|core-inputs|output)=(.+)$/D', $argument, $matches) !== 1
             || isset($options[$matches[1]])) {
             internalCandidateUsage();
         }
         $options[$matches[1]] = $matches[2];
     }
-    foreach (['source-commit', 'edition', 'core-inputs', 'output'] as $required) {
+    foreach (['source-commit', 'edition', 'profile', 'workflow', 'core-inputs', 'output'] as $required) {
         if (!isset($options[$required])) {
             internalCandidateUsage();
         }
     }
     if (preg_match('/^[a-f0-9]{40}$/D', $options['source-commit']) !== 1
         || !in_array($options['edition'], ['standalone', 'multi-tenant'], true)
+        || $options['profile'] !== 'full' || $options['workflow'] !== 'full'
         || !str_starts_with($options['core-inputs'], '/')
         || !str_starts_with($options['output'], '/')
         || file_exists($options['output'])
@@ -487,6 +571,11 @@ function internalCandidateMain(array $argv): void
             || trim(internalCandidateRun(['git', '-C', $source, 'status', '--porcelain=v1', '--untracked-files=all'])) !== '') {
             throw new RuntimeException('INTERNAL_CANDIDATE_SOURCE_IDENTITY_MISMATCH');
         }
+        foreach (['build-internal-edition-candidate', 'internal_candidate_contract.py', 'package-release.sh', 'package-release-files.py', 'release-dependency-locks.mjs'] as $tool) {
+            if (hash_file('sha256', $source . '/scripts/' . $tool) !== hash_file('sha256', $root . '/scripts/' . $tool)) {
+                throw new RuntimeException('INTERNAL_CANDIDATE_TOOL_SOURCE_MISMATCH: ' . $tool);
+            }
+        }
 
         require $source . '/server/app/common/value/scaffold/VersionContract.php';
         require $source . '/server/app/common/validation/scaffold/ScaffoldPathGuard.php';
@@ -519,13 +608,15 @@ function internalCandidateMain(array $argv): void
             $application,
             $options['edition'],
             $versions->sourceProductVersion(),
-            'full',
+            $options['profile'],
+            $options['workflow'],
         );
         // Preserve the original generated source and baseline, including empty-storage placeholders.
         $contractTool = $root . '/scripts/internal_candidate_contract.py';
         $captured = $temporary . '/original-tree.json';
         internalCandidateRun(['python3', $contractTool, 'capture', $application, $captured]);
         $lockAfter = internalCandidateProjectCore($application, $core, $temporary);
+        $web = internalCandidateProjectWeb($application, $core, $options['core-inputs'], $root);
         $coreDescriptor = [
             'package' => $core['inputs']['core_php']['package'],
             'constraint' => $core['inputs']['core_php']['resolved_version'],
@@ -536,7 +627,11 @@ function internalCandidateMain(array $argv): void
             'sha1' => $core['archive_sha1'],
         ];
         $coreDescriptorPath = $temporary . '/core-descriptor.json';
-        internalCandidateWriteJson($coreDescriptorPath, $coreDescriptor);
+        $selection = ['edition' => $options['edition'], 'profile' => $options['profile'], 'workflow' => $options['workflow'],
+            'clients' => ['Admin', 'Platform', 'PC SPA', 'UniApp H5']];
+        internalCandidateWriteJson($coreDescriptorPath, ['core' => $coreDescriptor, 'core_web' => $web['packages'],
+            'web_source_reference' => $core['inputs']['core_web']['source_reference'],
+            'core_inputs_sha256' => hash_file('sha256', $options['core-inputs']), 'selection' => $selection]);
         $sealed = json_decode(internalCandidateRun([
             'python3', $contractTool, 'seal', $application, $captured, $coreDescriptorPath,
         ]), true, 512, JSON_THROW_ON_ERROR);
@@ -545,14 +640,21 @@ function internalCandidateMain(array $argv): void
         $archiveRoot = 'peanut-admin-internal-' . $versions->sourceProductVersion() . '-' . $options['edition'];
         $archiveName = $archiveRoot . '.tar.gz';
         $archive = $temporary . '/' . $archiveName;
-        (new DeterministicEditionArchive())->write($application, $archiveRoot, $archive);
+        $assembled = $temporary . '/' . $archiveRoot;
+        internalCandidateRun(['bash', $source . '/scripts/package-release.sh', $assembled,
+            '--application-root=' . $application, '--internal-candidate', '--directory-only'], $source,
+            ['COMPOSER_HOME' => $temporary . '/composer-home', 'COMPOSER_CACHE_DIR' => getenv('COMPOSER_CACHE_DIR') ?: $temporary . '/composer-cache', 'HUSKY' => '0']);
+        $installedProof = internalCandidateReadJson($assembled . '.dependency-proof.json');
+        (new DeterministicEditionArchive())->write($assembled, $archiveRoot, $archive);
         $candidateManifest = [
             'schema_version' => 1,
             'protocol' => 'peanut.internal-edition-candidate.v1',
             'scope' => 'internal-candidate',
             'status' => 'internal-build-input-not-formal-release',
-            'qualification_scope' => 'backend-native-dependencies-only',
-            'frontend' => ['state' => 'original-declared-inputs-preserved-not-installed-or-rebuilt'],
+            'qualification_scope' => 'complete-app-source-and-four-browser-builds-not-runtime-qualified',
+            'selection' => $selection,
+            'frontend' => ['state' => 'native-frozen-installs-origin-verified-and-four-clients-built',
+                'core_packages' => $web['packages'], 'installed_proof' => $installedProof],
             'product' => ['name' => 'Peanut Admin', 'version' => $versions->sourceProductVersion()],
             'edition' => $manifest['edition'],
             'source' => [
@@ -562,12 +664,16 @@ function internalCandidateMain(array $argv): void
                 'inventory_sha256' => hash_file('sha256', $source . '/scaffold/application-template-inventory.json'),
             ],
             'core_php_archive' => $coreDescriptor,
+            'core_web_archives' => $web['packages'],
             'candidate_marker' => $sealed['candidate_marker'],
             'projection' => $sealed['projection'],
             'build_tool_inputs' => [
                 'builder_sha256' => hash_file('sha256', __FILE__),
                 'contract_sha256' => hash_file('sha256', $contractTool),
                 'core_receipt_sha256' => hash_file('sha256', $options['core-inputs']),
+                'package_release_sha256' => hash_file('sha256', $source . '/scripts/package-release.sh'),
+                'package_release_files_sha256' => hash_file('sha256', $source . '/scripts/package-release-files.py'),
+                'dependency_locks_tool_sha256' => hash_file('sha256', $source . '/scripts/release-dependency-locks.mjs'),
             ],
             'dependency_locks' => [
                 'server/composer.lock' => hash_file('sha256', $application . '/server/composer.lock'),
@@ -576,6 +682,7 @@ function internalCandidateMain(array $argv): void
                 'pc/package-lock.json' => hash_file('sha256', $application . '/pc/package-lock.json'),
                 'uniapp/package-lock.json' => hash_file('sha256', $application . '/uniapp/package-lock.json'),
                 'third_party_composer_rows_sha256' => $lockAfter,
+                'third_party_web_locks_sha256' => $web['third_party_locks'],
             ],
             'application' => [
                 'digest_scope' => 'original-generated-baseline-preserved-projection-recorded-separately',
@@ -583,6 +690,7 @@ function internalCandidateMain(array $argv): void
                 'managed_tree_sha256' => $manifest['digests']['managed_tree_sha256'],
                 'app_owned_tree_sha256' => $manifest['digests']['app_owned_tree_sha256'],
                 'file_count' => count($manifest['files']),
+                'release_identity_sha256' => hash_file('sha256', $assembled . '/.peanut/application-release.json'),
             ],
             'archive' => [
                 'filename' => $archiveName,
@@ -593,9 +701,12 @@ function internalCandidateMain(array $argv): void
             ],
             'formal_release' => [
                 'eligible' => false,
-                'reason' => 'internal candidate uses carried Core ZIP and is not a public edition installer',
+                'reason' => 'internal candidate carries seven fixed Core archives; no public release or runtime qualification',
             ],
         ];
+        $expectedManifest = $temporary . '/candidate-manifest.json';
+        internalCandidateWriteJson($expectedManifest, $candidateManifest);
+        internalCandidateRun(['python3', $contractTool, 'verify-assembled', $assembled, $expectedManifest]);
         if (!mkdir($options['output'], 0775, true)) {
             throw new RuntimeException('INTERNAL_CANDIDATE_OUTPUT_CREATE_FAILED');
         }
