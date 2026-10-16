@@ -3,7 +3,7 @@
   "key": "official.file",
   "name": "File and Media",
   "description": "Tenant-owned media library, uploads and private file metadata.",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "kernel_constraint": "^1.0",
   "license": "Apache-2.0",
   "php_package": "peanut-business/official-file",
@@ -49,6 +49,7 @@
   },
   "contracts": {
     "exports": [
+      "PeanutAdmin\\Modules\\File\\Contract\\FileMigrationAdoptionProof",
       "PeanutAdmin\\Modules\\File\\Contract\\StorageQualificationQueries",
       "PeanutAdmin\\Modules\\File\\Contract\\FileAdministration",
       "PeanutAdmin\\Modules\\File\\Contract\\FileUploads",

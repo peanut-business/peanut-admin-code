@@ -2333,7 +2333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4e265411582927499d17a16ba518da14500dac116d852ef1dc802c8beb7def36"
+            "source_sha256": "f61e63451bed7153b0fbbaeb5650735d084846ded53681f0da4837dce6e675d0"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2456,7 +2456,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5ace0a2cdf00dd8b99412aff034157c477def19c82977114eaf44306d46662ec"
+            "source_sha256": "7c454160de21d1c2c6b263bd04c392afe646bc3697c2b88b62ef1f471307739b"
         },
         {
             "path": "plugins/official.identity/plugin.json",
@@ -6308,7 +6308,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "74d3782c50d416c74a707cbf7930ccc947841ae0ee7a82ff89c1becabfaeac0f"
+            "source_sha256": "898ce447abb446a7243e190523dcbd5c7f03615a87a60c44e36cf6043829491d"
         },
         {
             "path": "server/app/command/ModuleCreate.php",
@@ -11865,6 +11865,62 @@
             "source_sha256": "7b73c0c24f14f4c7f4fc1f75321e009b1a645d7df3f7d653dbb3d018e3b5bdbe"
         },
         {
+            "path": "server/app/modules/official/file/database/migrations/20261016010000_adopt_storage_service.sql",
+            "target": "server/app/modules/official/file/database/migrations/20261016010000_adopt_storage_service.sql",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "ac9f164162854a61eaebecc58c6108c33af168843c7a18e3a7bd4c2320a641ed"
+        },
+        {
+            "path": "server/app/modules/official/file/database/migrations/20261016010100_adopt_image_assets.sql",
+            "target": "server/app/modules/official/file/database/migrations/20261016010100_adopt_image_assets.sql",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "285c5695e71e249dd626201e61846f9e8f4d15c2dcaa19c2dd34a03fb4445596"
+        },
+        {
+            "path": "server/app/modules/official/file/database/migrations/20261016010200_adopt_controlled_references.sql",
+            "target": "server/app/modules/official/file/database/migrations/20261016010200_adopt_controlled_references.sql",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "ad598a21b72d97a93005d46dd51353f121bdb3f04e953f5a2711db940209b4a3"
+        },
+        {
+            "path": "server/app/modules/official/file/database/migrations/20261016010300_adopt_document_snapshots.sql",
+            "target": "server/app/modules/official/file/database/migrations/20261016010300_adopt_document_snapshots.sql",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "03f0310da23b0c19a8631edce0a07e96ea57a97d781a582ad87c99ab4136cd73"
+        },
+        {
             "path": "server/app/modules/official/file/module.json",
             "target": "server/app/modules/official/file/module.json",
             "classification": "managed",
@@ -11876,7 +11932,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "24c1aca5456a5a03b4da73a506d3ea0ba8d183bd75be527dec893bea3e1f7090"
+            "source_sha256": "348268236203b4c55748f57ef1e747fd2cf1f9da8718d27f2f8006590e35427b"
         },
         {
             "path": "server/app/modules/official/file/resources/menus.json",
@@ -12101,6 +12157,20 @@
                 "full"
             ],
             "source_sha256": "352eddbd8261eaa56c5ec6b7cb796166b121f7a9bd51ed2289f8369cd5c61afd"
+        },
+        {
+            "path": "server/app/modules/official/file/src/Contract/FileMigrationAdoptionProof.php",
+            "target": "server/app/modules/official/file/src/Contract/FileMigrationAdoptionProof.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "f5fe0792f2995ec15ea60f0d275cab8e4f32e48da0fd8583ef234de20ca3106a"
         },
         {
             "path": "server/app/modules/official/file/src/Contract/FileReferenceCommands.php",
@@ -25185,7 +25255,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bcb2c6e358c7aa76ae522a140454c70c2201409841fa6377791d58ee8e37b8f4"
+            "source_sha256": "50881467a66e88b3af9e0c5ad63b28412aeadd940f07571844dbb8c5bdac53c4"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",
@@ -25997,7 +26067,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6eba4de7df5278f1fc960ff2ee5a1ae26abf3e1cdfdcad9e5785841895cb97dc"
+            "source_sha256": "b0570792275de5d02c415b91f9178cdff885e588f6f5c090cafad310eaad6223"
         },
         {
             "path": "server/database/install.php",
@@ -26740,6 +26810,20 @@
                 "full"
             ],
             "source_sha256": "06c5e8cad88139ba64cbd498765082a52df43e947370ddf2add1de956788ba5f"
+        },
+        {
+            "path": "server/database/migrations/20261016-module-migration-provenance.sql",
+            "target": "server/database/migrations/20261016-module-migration-provenance.sql",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "d27a6f52dd3e02b9c0c45a804c059f54062a732c9e1a742dfe12e78b80d96cce"
         },
         {
             "path": "server/database/schema/KernelSchema.php",

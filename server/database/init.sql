@@ -1168,10 +1168,14 @@ CREATE TABLE `pa_module_migration` (
   `status` VARCHAR(24) NOT NULL,
   `started_at` DATETIME(3) NOT NULL,
   `finished_at` DATETIME(3) NULL,
+  `resolution_kind` VARCHAR(16) NULL DEFAULT NULL,
+  `provenance_json` JSON NULL,
   `error_code` VARCHAR(96) NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_module_migration` (`module_key`, `migration_key`),
   KEY `idx_module_migration_batch` (`batch_no`, `status`),
+  CONSTRAINT `chk_module_migration_resolution` CHECK (`resolution_kind` IS NULL OR `resolution_kind` IN ('executed','adopted')),
+  CONSTRAINT `chk_module_migration_provenance` CHECK ((`resolution_kind` <=> 'adopted') = (`provenance_json` IS NOT NULL)),
   CONSTRAINT `chk_module_migration_status` CHECK (`status` IN (
     'applying','applied','rolled_back','failed'
   ))
