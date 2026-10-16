@@ -115,8 +115,11 @@ final class PeanutServerUpdatePlan
     /** The installed receipt and initial baseline are immutable anchors, never successor manifests. */
     public static function applicationDeployment(string $root, array $identity, string $runtimeSha): array
     {
-        self::assertInstalledInstance($root, $identity);
-        $baseline = self::jsonFile($root . '/private/installation/baseline.json', 'installed APP baseline');
+        if (($identity['protocol'] ?? null) !== 'peanut.development-server-runtime.v1'
+            || ($identity['schema_version'] ?? null) !== 1 || preg_match('/^[a-f0-9]{64}$/D', $runtimeSha) !== 1) {
+            throw new RuntimeException('source runtime requires its development identity');
+        }
+        $baseline = self::installedBaseline($root, $identity);
         $initial = $baseline['source']['application_manifest_sha256'] ?? null;
         if (($baseline['source']['kind'] ?? null) !== 'generated-application'
             || !is_string($initial) || preg_match('/^[a-f0-9]{64}$/D', $initial) !== 1) {
@@ -1102,7 +1105,7 @@ final class PeanutServerUpdatePlan
 
     /** @param array<string,mixed> $plan */
     /** @param array<string,mixed> $identity */
-    private static function assertInstalledInstance(string $serverRoot, array $identity): void
+    private static function installedBaseline(string $serverRoot, array $identity): array
     {
         self::assertOrdinaryParents($serverRoot, 'private/installation/installed.json');
         $receipt = self::jsonFile($serverRoot . '/private/installation/installed.json', 'installed instance receipt');
@@ -1122,9 +1125,19 @@ final class PeanutServerUpdatePlan
             throw new RuntimeException('installed instance baseline differs from receipt');
         }
         $baseline = json_decode($baselineBytes, true, 512, JSON_THROW_ON_ERROR);
-        if (!is_array($baseline) || ($baseline['protocol'] ?? null) !== 'peanut.installation-baseline.v1'
-            || ($baseline['deployment_mode'] ?? null) !== $receipt['deployment_mode']
-            || ($baseline['source']['kind'] ?? null) !== 'server-release'
+        if (!is_array($baseline) || ($baseline['schema_version'] ?? null) !== 1
+            || ($baseline['protocol'] ?? null) !== 'peanut.installation-baseline.v1'
+            || ($baseline['deployment_mode'] ?? null) !== $receipt['deployment_mode']) {
+            throw new RuntimeException('installed instance baseline identity is invalid');
+        }
+        return $baseline;
+    }
+
+    /** Server-release callers retain their own source kind and identity field. */
+    private static function assertInstalledInstance(string $serverRoot, array $identity): void
+    {
+        $baseline = self::installedBaseline($serverRoot, $identity);
+        if (($baseline['source']['kind'] ?? null) !== 'server-release'
             || preg_match('/^[a-f0-9]{64}$/D', (string) ($baseline['source']['server_release_identity_sha256'] ?? '')) !== 1) {
             throw new RuntimeException('installed instance baseline identity is invalid');
         }

@@ -13,6 +13,8 @@ import sys
 
 
 RECEIPT = ".peanut-complete.json"
+SEMVER = r'(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?'
+CORE_ARCHIVE = r'\.\./(packages/core-php/peanut-admin-core-(' + SEMVER + r')\.zip)'
 
 
 def digest(path):
@@ -73,7 +75,91 @@ def inventory(vendor):
     return dict(sorted(result.items()))
 
 
-def check_lock(server):
+def local_archives(server, inputs=None):
+    """Only the native Core zip may use a local dist, with independent canonical proof."""
+    lock = json.loads((server / 'composer.lock').read_text())
+    result = {}
+    proof = None
+    if inputs is not None:
+        ordinary(inputs)
+        if inputs != server / '.vendor-inputs.json' or server.resolve() != server or server.stat().st_mode & 0o077 \
+                or inputs.stat().st_mode & 0o777 != 0o600 or inputs.stat().st_uid not in (0, os.geteuid()):
+            raise ValueError('dependency input proof is not protected')
+        proof = json.loads(inputs.read_text())
+        workspace = server.parents[2]
+        component = server.parent.parent.name
+        authority_path = workspace / ('tool-inputs.json' if component == 'tools' else 'source-runtime.json')
+        key = 'inputs' if component == 'tools' else 'vendor_target_inputs'
+        if component not in ('tools', 'dependencies') or server.parent.name != 'prepared' \
+                or workspace.resolve() != workspace or workspace.stat().st_mode & 0o077:
+            raise ValueError('dependency proof is outside its protected transaction')
+        ordinary_parents(workspace, authority_path.name); ordinary(authority_path)
+        if authority_path.stat().st_mode & 0o777 != 0o600 or authority_path.stat().st_uid not in (0, os.geteuid()):
+            raise ValueError('dependency authority is not protected')
+        authority = json.loads(authority_path.read_text())
+        if component == 'dependencies':
+            checksum = authority.pop('state_sha256', None)
+            canonical = json.dumps(authority, sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()
+            if authority.get('protocol') != 'peanut.source-runtime-transition.v1' or checksum != hashlib.sha256(canonical).hexdigest() \
+                    or authority.get('activation_started') is not False or authority.get('binding', {}).get('workspace') != str(workspace):
+                raise ValueError('dependency transaction checkpoint is invalid')
+        elif authority.get('protocol') != 'peanut.source-tools-inputs.v1':
+            raise ValueError('tool dependency authority is invalid')
+        declared = authority.get(key, {})
+        if proof.get('protocol') != 'peanut.source-vendor-inputs.v1' or proof.get('server_root') != str(server) \
+                or proof.get('composer_sha256') != digest(server / 'composer.json') \
+                or proof.get('lock_sha256') != digest(server / 'composer.lock') \
+                or any(proof.get(field) != declared.get(field) for field in ('server_root', 'composer_sha256', 'lock_sha256', 'archives')):
+            raise ValueError('dependency input proof differs from its transaction inputs')
+    for package in lock['packages']:
+        dist = package.get('dist') or {}
+        url = str(dist.get('url', ''))
+        if not url or url.startswith('https://'):
+            continue
+        match = re.fullmatch(CORE_ARCHIVE, url)
+        if package.get('name') != 'peanut-admin/core' or dist.get('type') != 'zip' or match is None:
+            raise ValueError('only the canonical native Core archive may be local')
+        relative = match.group(1)
+        reference = (package.get('source') or {}).get('reference')
+        if not re.fullmatch(r'[a-f0-9]{40}', str(reference)) or dist.get('reference') != reference \
+                or (package.get('source') or {}).get('type') != 'git' \
+                or not str((package.get('source') or {}).get('url', '')).startswith('https://'):
+            raise ValueError('local Core source identity is invalid')
+        root = server.parent
+        if root.resolve() != root or root.is_symlink():
+            raise ValueError('Core archive root is not canonical')
+        ordinary_parents(root, relative)
+        archive = root / relative
+        ordinary(archive)
+        if proof is not None:
+            expected = proof.get('archives', {}).get(relative)
+        else:
+            for name in ('.peanut/application-manifest.json', 'release-versions.json'):
+                ordinary_parents(root, name); ordinary(root / name)
+            manifest = json.loads((root / '.peanut/application-manifest.json').read_text())
+            versions = json.loads((root / 'release-versions.json').read_text())
+            core = versions.get('core_php', {})
+            entries = [row for row in manifest.get('files', []) if row.get('path') == relative]
+            if manifest.get('protocol') != 'peanut.application-scaffold.v2' or versions.get('protocol') != 'peanut.release-versions.v3' \
+                    or len(entries) != 1 or entries[0].get('classification') != 'managed' \
+                    or core.get('package') != package['name'] or core.get('resolved_version') != package['version'] \
+                    or core.get('source_reference') != reference or core.get('source_url') != package['source']['url']:
+                raise ValueError('Core archive is not bound to the application declaration')
+            expected = {'sha256': entries[0].get('sha256'), 'sha1': dist.get('shasum'),
+                        'source_reference': reference, 'version': package['version']}
+        actual = {'sha256': digest(archive), 'sha1': hashlib.sha1(archive.read_bytes()).hexdigest(),
+                  'source_reference': reference, 'version': package['version']}
+        if expected != actual or not re.fullmatch(r'[a-f0-9]{40}', str(dist.get('shasum', ''))) \
+                or actual['sha1'] != dist['shasum'] or match.group(2) != package['version'] \
+                or archive.stat().st_mode & 0o777 != 0o644:
+            raise ValueError('Core archive digest, version or mode differs from canonical inputs')
+        result[relative] = actual
+    if proof is not None and (proof.get('archives') or {}) != result:
+        raise ValueError('dependency proof contains missing or extra archives')
+    return result
+
+
+def check_lock(server, inputs=None):
     composer, lock = server / "composer.json", server / "composer.lock"
     ordinary(composer)
     ordinary(lock)
@@ -85,8 +171,11 @@ def check_lock(server):
             raise ValueError("locked package identity is invalid")
         for source in ("dist", "source"):
             value = package.get(source)
-            if value and not str(value.get("url", "")).startswith("https://"):
+            if value and not str(value.get("url", "")).startswith("https://") and not (
+                    source == 'dist' and package['name'] == 'peanut-admin/core'
+                    and re.fullmatch(CORE_ARCHIVE, str(value.get('url', '')))):
                 raise ValueError("locked package has a non-HTTPS source")
+    local_archives(server, inputs)
     return digest(composer), digest(lock), {p["name"]: p["version"] for p in data["packages"]}
 
 
@@ -102,6 +191,30 @@ def check_installed(server, expected):
     actual = {p.get("name"): p.get("version") for p in packages}
     if len(actual) != len(packages) or actual != expected:
         raise ValueError("installed Composer packages differ from composer.lock")
+    locked = [p for p in json.loads((server / 'composer.lock').read_text())['packages'] if p['name'] == 'peanut-admin/core']
+    core = [p for p in packages if p.get('name') == 'peanut-admin/core']
+    if len(locked) != 1 or len(core) != 1 or core[0].get('source') != locked[0].get('source') \
+            or (core[0].get('dist') or {}).get('reference') != (locked[0].get('dist') or {}).get('reference'):
+        raise ValueError('installed Core source differs from the fixed lock')
+
+
+def freeze_tool_metadata(server, inputs):
+    # Freeze only generated Composer metadata, after a genuine fixed-lock install.
+    # Package code is independently installed, never copied from the APP vendor.
+    if inputs is None or server.parent.parent.name != 'tools': return
+    authority = json.loads((server.parents[2] / 'tool-inputs.json').read_text())['inputs']
+    for relative in authority['tool_metadata']:
+        if relative != 'autoload.php' and not re.fullmatch(r'composer/(?:(?:autoload_[A-Za-z0-9_]+|installed|platform_check)\.php|installed\.json)', relative):
+            raise ValueError('invalid frozen Composer metadata path')
+        source = server / '.tool-metadata' / relative
+        proof = authority['files']['.tool-metadata/' + relative]
+        ordinary_parents(server, '.tool-metadata/' + relative); ordinary(source)
+        target = server / 'vendor' / relative
+        ordinary_parents(server / 'vendor', relative); ordinary(target)
+        if digest(source) != proof['sha256'] or stat.S_IMODE(source.stat().st_mode) != proof['mode']:
+            raise ValueError('frozen tool metadata differs from its input authority')
+        with target.open('wb') as output:
+            os.fchmod(output.fileno(), proof['mode']); output.write(source.read_bytes()); output.flush(); os.fsync(output.fileno())
 
 
 def main():
@@ -109,6 +222,7 @@ def main():
     parser.add_argument("operation", choices=("seal", "check", "stage"))
     parser.add_argument("--server", type=Path, required=True)
     parser.add_argument("--destination", type=Path)
+    parser.add_argument('--inputs', type=Path)
     args = parser.parse_args()
     server = args.server
     if server.is_symlink() or not server.is_dir():
@@ -165,19 +279,50 @@ def main():
         target = destination / identity_relative
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(identity_path, target)
+        archives = local_archives(server, args.inputs)
+        for relative, proof in archives.items():
+            target_archive = destination.parent / relative
+            ordinary_parents(destination.parent, relative)
+            target_archive.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            if target_archive.exists() or target_archive.is_symlink():
+                raise ValueError('dependency archive staging path is occupied')
+            shutil.copy2(server.parent / relative, target_archive)
+            if digest(target_archive) != proof['sha256']:
+                raise ValueError('dependency archive changed while staging')
+        if archives:
+            for relative in ('.peanut/application-manifest.json', 'release-versions.json'):
+                ordinary_parents(server.parent, relative); ordinary(server.parent / relative)
+                target = destination.parent / relative
+                target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+                shutil.copy2(server.parent / relative, target)
         check_lock(destination)
         print(json.dumps({"status": "staged", "file_count": len(files)}))
         return
-    composer_sha, lock_sha, packages = check_lock(server)
+    composer_sha, lock_sha, packages = check_lock(server, args.inputs)
     check_installed(server, packages)
+    if args.operation == 'seal':
+        freeze_tool_metadata(server, args.inputs)
+        check_installed(server, packages)
     vendor = server / "vendor"
     manifest = inventory(vendor)
+    archives = local_archives(server, args.inputs)
+    installed = json.loads((vendor / 'composer/installed.json').read_text())
+    installed = installed['packages'] if isinstance(installed, dict) else installed
+    if archives:
+        locked = next(p for p in json.loads((server / 'composer.lock').read_text())['packages'] if p['name'] == 'peanut-admin/core')
+        actual = [p for p in installed if p.get('name') == 'peanut-admin/core']
+        if len(actual) != 1 or actual[0].get('source') != locked.get('source') \
+                or (actual[0].get('dist') or {}).get('reference') != locked['dist']['reference']:
+            raise ValueError('installed local Core source differs from its lock')
+    expected = {'protocol': 'peanut.composer-install.v1', 'composer_sha256': composer_sha,
+                'lock_sha256': lock_sha, 'files': manifest}
+    if archives:
+        expected['local_archives'] = archives
     receipt_path = vendor / RECEIPT
     if args.operation == "seal":
         if receipt_path.exists() or receipt_path.is_symlink():
             raise ValueError("vendor already has a receipt; prepare into an empty directory")
-        payload = {"protocol": "peanut.composer-install.v1", "composer_sha256": composer_sha,
-                   "lock_sha256": lock_sha, "files": manifest}
+        payload = expected
         temp = vendor / (RECEIPT + ".tmp")
         descriptor = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(descriptor, "w") as output:
@@ -193,8 +338,7 @@ def main():
     else:
         ordinary(receipt_path)
         payload = json.loads(receipt_path.read_text())
-        if payload != {"protocol": "peanut.composer-install.v1", "composer_sha256": composer_sha,
-                       "lock_sha256": lock_sha, "files": manifest}:
+        if payload != expected:
             raise ValueError("vendor installation is incomplete or changed")
     print(json.dumps({"status": "complete", "lock_sha256": lock_sha, "file_count": len(manifest)}))
 
