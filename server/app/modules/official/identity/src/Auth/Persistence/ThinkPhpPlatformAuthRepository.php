@@ -52,12 +52,22 @@ final class ThinkPhpPlatformAuthRepository implements PlatformAuthRepository
                 'account.security_revision' => 'account_security_revision', 'operator.id' => 'operator_id',
                 'operator.status' => 'operator_status', 'operator.security_revision' => 'operator_security_revision',
             ]);
+        $candidate = $forUpdate ? (clone $query)->find() : null;
         if ($forUpdate) {
+            if ($candidate !== null) {
+                Account::where('id', $candidate['account_id'])->lock(true)->find();
+            }
             $query->lock(true);
         }
         $row = $query->find();
         if ($row === null) {
             return null;
+        }
+
+        if ($forUpdate && ($candidate === null || (int) $row['account_id'] !== (int) $candidate['account_id']
+            || (int) $row['credential_id'] !== (int) $candidate['credential_id']
+            || (int) $row['operator_id'] !== (int) $candidate['operator_id'])) {
+            throw new \DomainException('AUTH_CREDENTIAL_BINDING_CHANGED');
         }
 
         return new PlatformAuthPrincipal(
@@ -221,12 +231,24 @@ final class ThinkPhpPlatformAuthRepository implements PlatformAuthRepository
                 'operator.status' => 'operator_status',
                 'operator.security_revision' => 'current_operator_security_revision',
             ]);
+        $candidate = $forUpdate ? (clone $query)->find() : null;
         if ($forUpdate) {
+            if ($candidate !== null) {
+                Account::where('id', $candidate['account_id'])->lock(true)->find();
+                PlatformSession::where('id', $candidate['session_id'])->lock(true)->find();
+            }
             $query->lock(true);
         }
         $row = $query->find();
         if ($row === null) {
             return null;
+        }
+
+        if ($forUpdate && ($candidate === null || (int) $row['account_id'] !== (int) $candidate['account_id']
+            || (int) $row['session_id'] !== (int) $candidate['session_id']
+            || (int) $row['token_id'] !== (int) $candidate['token_id']
+            || (int) $row['platform_operator_id'] !== (int) $candidate['platform_operator_id'])) {
+            throw new \DomainException('AUTH_SESSION_BINDING_CHANGED');
         }
 
         return new PlatformSessionAuthenticationRecord(

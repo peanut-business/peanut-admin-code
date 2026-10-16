@@ -25,6 +25,7 @@ final readonly class LocalWorker
         /** Host-owned lifecycle, invoked only after signed claim reauthorization. */
         private Closure $executeAuthorizedJob,
         private int $leaseSeconds = 60,
+        private ?string $negativeSigningKey = null,
     ) {
         if ($tenantId < 1
             || preg_match('/^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$/D', $workerId) !== 1
@@ -45,29 +46,57 @@ final readonly class LocalWorker
         try {
             $this->repository->assertExecutable($claim);
             $handler = $this->handlers->require($claim->handlerKey);
-            $authorization = new JobAuthorizationFence($this->authorization, $claim);
-            $authorization->handle(
-                function ($context, $envelope) use ($claim, $handler, $authorization): void {
+            $authorization = new JobAuthorizationFence($this->authorization, $claim, $this->negativeSigningKey);
+            if ($claim->profile === NegativeFactJobEnvelope::PROFILE) {
+                if (!$handler instanceof \PeanutAdmin\Modules\Task\Contract\NegativeFactTaskHandler) {
+                    throw TaskJobException::denied();
+                }
+                $envelope = $authorization->negativeEnvelope();
+                ($this->executeAuthorizedJob)($envelope, $claim, function () use ($envelope, $claim, $handler, $authorization): void {
+                    $authorization->assertNegativeAuthorized($handler);
                     $execution = new JobExecution(
                         $claim->jobKey,
                         $claim->tenantId,
                         $claim->attemptNumber,
                         $claim->payload,
-                        function () use ($claim): void {
-                            Db::transaction(function () use ($claim): void {
-                                $this->renew($claim);
-                                $this->repository->assertExecutable($claim);
-                            });
-                        },
+                        fn() => Db::transaction(function () use ($claim): void {
+                            $this->renew($claim);
+                            $this->repository->assertExecutable($claim);
+                        }),
                         fn() => $this->repository->assertExecutable($claim),
-                        fn() => $authorization->assertAuthorized(),
+                        fn() => $authorization->assertNegativeAuthorized($handler),
+                        fn(string $reference) => $this->repository->negativeState($claim, $reference),
+                        fn(string $reference, array $state) => Db::transaction(fn() => $this->repository->recordNegativeState($claim, $reference, $state)),
                     );
-                    ($this->executeAuthorizedJob)($context, $claim, function () use ($handler, $context, $execution): void {
-                        $handler->handle($context, $execution);
-                        $execution->assertLeaseOwned();
-                    });
-                },
-            );
+                    $handler->handleNegativeFact($envelope, $execution);
+                    $execution->assertLeaseOwned();
+                });
+            } elseif ($claim->profile === 'member') {
+                $authorization->handle(
+                    function ($context, $envelope) use ($claim, $handler, $authorization): void {
+                        $execution = new JobExecution(
+                            $claim->jobKey,
+                            $claim->tenantId,
+                            $claim->attemptNumber,
+                            $claim->payload,
+                            function () use ($claim): void {
+                                Db::transaction(function () use ($claim): void {
+                                    $this->renew($claim);
+                                    $this->repository->assertExecutable($claim);
+                                });
+                            },
+                            fn() => $this->repository->assertExecutable($claim),
+                            fn() => $authorization->assertAuthorized(),
+                        );
+                        ($this->executeAuthorizedJob)($context, $claim, function () use ($handler, $context, $execution): void {
+                            $handler->handle($context, $execution);
+                            $execution->assertLeaseOwned();
+                        });
+                    },
+                );
+            } else {
+                throw TaskJobException::denied();
+            }
         } catch (LeaseLostException) {
             return 'lease_lost';
         } catch (RetryableTaskException $exception) {

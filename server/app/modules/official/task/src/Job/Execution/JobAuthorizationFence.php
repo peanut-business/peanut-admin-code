@@ -17,7 +17,31 @@ final readonly class JobAuthorizationFence
     public function __construct(
         private JobHandlerAdapter $authorization,
         private JobClaim $claim,
+        private ?string $negativeSigningKey = null,
     ) {}
+
+    public function negativeEnvelope(): NegativeFactJobEnvelope
+    {
+        if ($this->claim->profile !== NegativeFactJobEnvelope::PROFILE || $this->negativeSigningKey === null) {
+            throw TaskJobException::denied();
+        }
+        $envelope = NegativeFactJobEnvelope::verify($this->claim->trustedEnvelope, $this->negativeSigningKey);
+        $payload = $this->claim->payload;
+        ksort($payload, SORT_STRING);
+        if ($envelope->tenantId !== $this->claim->tenantId || $envelope->jobKey !== $this->claim->jobKey
+            || $this->claim->handlerKey !== NegativeFactJobEnvelope::TASK
+            || $payload !== ['fact_id' => $envelope->factId, 'fact_sha256' => $envelope->factHash, 'purpose' => NegativeFactJobEnvelope::PURPOSE, 'tenant_id' => $envelope->tenantId]) {
+            throw TaskJobException::denied();
+        }
+        return $envelope;
+    }
+
+    public function assertNegativeAuthorized(\PeanutAdmin\Modules\Task\Contract\NegativeFactTaskHandler $handler): NegativeFactJobEnvelope
+    {
+        $envelope = $this->negativeEnvelope();
+        $handler->validateNegativeFact($envelope);
+        return $envelope;
+    }
 
     /**
      * @template T

@@ -19,7 +19,12 @@ final class ModuleProvider implements \PeanutAdmin\Kernel\Module\ModuleProvider,
 
     public function bindings(): array
     {
-        return [\PeanutAdmin\Modules\Collaboration\Contract\CollaborationTickets::class => CollaborationService::class,
+        return [
+            \PeanutAdmin\Modules\Collaboration\Service\AccessInvalidationClient::class => static fn(App $app) => new \PeanutAdmin\Modules\Collaboration\Service\AccessInvalidationClient(
+                $app->make(\app\common\contract\http\OutboundHttpTransport::class),
+                (array) ($app->config->has('collaboration') ? $app->config->get('collaboration') : require dirname(__DIR__) . '/config/collaboration.php'),
+            ),
+            \PeanutAdmin\Modules\Collaboration\Contract\CollaborationTickets::class => CollaborationService::class,
             \PeanutAdmin\Modules\Collaboration\Service\RuntimeLifecycle::class => static fn(App $app) => new \PeanutAdmin\Modules\Collaboration\Service\RuntimeLifecycle(
                 $app->make(ExecutionContextStore::class),
                 $app->make(\PeanutAdmin\Kernel\Module\ModuleRuntimeRepository::class),
@@ -54,8 +59,30 @@ final class ModuleProvider implements \PeanutAdmin\Kernel\Module\ModuleProvider,
             )];
     }
 
+    /** Host calls this only when Task and Collaboration are both compiled selections. */
+    public function taskWorkerBindings(): array
+    {
+        return [\PeanutAdmin\Modules\Identity\Contract\RevocationFactDelivery::class => \PeanutAdmin\Modules\Collaboration\Service\RevocationTask::class,
+            \PeanutAdmin\Modules\Collaboration\Service\RevocationTask::class => static fn(App $app) => new \PeanutAdmin\Modules\Collaboration\Service\RevocationTask(
+                $app->make(\PeanutAdmin\Modules\Identity\Contract\RevocationFacts::class),
+                static fn() => $app->bound(\PeanutAdmin\Modules\Task\Contract\TaskJobRuntime::class) ? $app->make(\PeanutAdmin\Modules\Task\Contract\TaskJobRuntime::class) : null,
+                $app->make(\PeanutAdmin\Modules\Identity\Contract\TenantSessionAccess::class),
+                $app->make(\PeanutAdmin\Modules\Collaboration\Service\AccessInvalidationClient::class),
+                $app->make(\app\common\execution\CurrentExecutionContext::class),
+                (array) ($app->config->has('collaboration') ? $app->config->get('collaboration') : require dirname(__DIR__) . '/config/collaboration.php'),
+                (string) $app->config->get('deployment.mode'),
+                $app->make(\PeanutAdmin\Modules\Document\Contract\DocumentCollaborativeWrites::class),
+            ),
+        ];
+    }
+
     public function acceptedWriteProvider(): string
     {
         return NativeCollaborationProvider::class;
+    }
+
+    public function taskWorkerDefinitions(): array
+    {
+        return [\PeanutAdmin\Modules\Collaboration\Service\RevocationTask::class];
     }
 }

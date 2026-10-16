@@ -6742,7 +6742,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e67e9333594be9907ba18f665b3da287981da3a0ffa1dac4e0975b73961b9e76"
+            "source_sha256": "5b359665936cbc5bcb778fd6e6f1267dbc940fcef5c2ee22d876ddcf306db265"
         },
         {
             "path": "server/app/common/composition/ModuleExtensionService.php",
@@ -7766,7 +7766,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "beaf0bb6093ae62369cf037f40908198fa7b608470f337c29a439da8a86477ea"
+            "source_sha256": "4055d70069a9fd967e3e4a0ee24c53965ba76a313786cac9b2c9d7f5f1a4b184"
         },
         {
             "path": "server/app/common/infrastructure/audit/OperationLogProjection.php",
@@ -10854,7 +10854,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "28e1b4bf0f704046b4730c4b5cc88b0adc0a0290e984e9d950e0f00f2cdac1cd"
+            "source_sha256": "dee74d23358636ffa90c63ad9337e638e1edb15870090f7344eae6c944dbe4e0"
         },
         {
             "path": "server/app/modules/official/collaboration/src/Protocol/ServiceRequest.php",
@@ -10885,6 +10885,20 @@
             "source_sha256": "85b43b00461d3a22689f4e494e876ec33cc90343975b8721a6b99ee50da0788b"
         },
         {
+            "path": "server/app/modules/official/collaboration/src/Service/AccessInvalidationClient.php",
+            "target": "server/app/modules/official/collaboration/src/Service/AccessInvalidationClient.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "0409ba9a7c4ecc803ef63ad067f30465e035396ecd743dfc0f950e13d9670ad2"
+        },
+        {
             "path": "server/app/modules/official/collaboration/src/Service/BusinessControlClient.php",
             "target": "server/app/modules/official/collaboration/src/Service/BusinessControlClient.php",
             "classification": "managed",
@@ -10910,7 +10924,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e886dd2550e07ab1bf08b6385d9217eedaefa3a0ae04ed746305a1c2efc062c1"
+            "source_sha256": "fc6cc169a20f4c4b4be61126a7c06486047bc5fe8fd2219aee21e3d1368365db"
         },
         {
             "path": "server/app/modules/official/collaboration/src/Service/NativeCollaborationProvider.php",
@@ -10925,6 +10939,20 @@
                 "full"
             ],
             "source_sha256": "ec2343a6f2d7031ba973fafbec2b3beeed5a63c2d8410987311703decd20372c"
+        },
+        {
+            "path": "server/app/modules/official/collaboration/src/Service/RevocationTask.php",
+            "target": "server/app/modules/official/collaboration/src/Service/RevocationTask.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "6e16362e27e8b7b59c7c75edbb04ad1733b268d4e44c8222580c6c6328750baa"
         },
         {
             "path": "server/app/modules/official/collaboration/src/Service/RuntimeLifecycle.php",
@@ -11358,7 +11386,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e46864eab1ab0960197803b35f764d4d314d925ea9fae97b40d31630118a135a"
+            "source_sha256": "ce5f156da2af251eefdf7cb324320fa0e3be7c79ddd1f0a7cb0d1c510186275d"
         },
         {
             "path": "server/app/modules/official/document/src/Contract/DocumentCommands.php",
@@ -11680,7 +11708,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "127f038194df0710e53ff07bab85237903a6dadfcbeb8c74c26347f3616f0c8f"
+            "source_sha256": "10782f3b100a6e22f65dc2b4cb11214dc879f2a0821b603abcfe90f587e57dd1"
         },
         {
             "path": "server/app/modules/official/document/src/Service/DocumentOwnerRegistry.php",
@@ -11708,7 +11736,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "683e38f8f64321c7d68ebe235ce8f28eb799dbf88817fed016a9fe1111f0a5da"
+            "source_sha256": "4c500586200842ecd546cdc3d0cdc262b1948245c44d25bb7233735fb41d3c8d"
         },
         {
             "path": "server/app/modules/official/file/README.md",
@@ -12733,6 +12761,20 @@
             "source_sha256": "909c7bd6885a93cf2975ecbbb108cbbe993bc1e0b47f2590292968a886051532"
         },
         {
+            "path": "server/app/modules/official/identity/database/migrations/20261015010000_index_revocation_audit_facts.sql",
+            "target": "server/app/modules/official/identity/database/migrations/20261015010000_index_revocation_audit_facts.sql",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "eacd6eddd89a9f064688ff45ba67210d896a65bbeaea1448394e7b6df3c271aa"
+        },
+        {
             "path": "server/app/modules/official/identity/module.json",
             "target": "server/app/modules/official/identity/module.json",
             "classification": "managed",
@@ -12744,7 +12786,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "72191a93fb9a5d3fc0bfa1585db4d2ef5933f48cf04a401878e12750e8fed6df"
+            "source_sha256": "26493eae1a701b745baace24ed9808fc30bdc17719ca0d74d1e6b1e9b56a7231"
         },
         {
             "path": "server/app/modules/official/identity/src/Audit/AuditService.php",
@@ -12758,7 +12800,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "17e178939bd99a356fedef6a93ed5f6fe711be0c18807552144ab6044c4bf247"
+            "source_sha256": "2437a84a1452bf5497cab288599d0c40710129e230fba51a73219ad9bfcd4c04"
         },
         {
             "path": "server/app/modules/official/identity/src/Audit/Diagnostic/ThinkPhpPlatformAuditDiagnosticQuery.php",
@@ -12884,7 +12926,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7a113e1f96e8b3fc8c3faa01acce9c4c2eac1bd6b9c083ac1e12018542772192"
+            "source_sha256": "4902886d5edccc781b4c00e6738d94a1754fa568c12b5c22df58b13cec6468ab"
         },
         {
             "path": "server/app/modules/official/identity/src/Auth/Persistence/ThinkPhpTenantAuthRepository.php",
@@ -12898,7 +12940,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a212213821b218af51757986567ff0f18701f1227a6ddf7e83869da5a516157d"
+            "source_sha256": "ba79193a35fec80b3da7b8a7c36d1e46eb63d1b20708739d2f35105945e86622"
         },
         {
             "path": "server/app/modules/official/identity/src/Auth/PlatformAuthPrincipal.php",
@@ -13080,7 +13122,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "374707e5f4972024d03ae738820c0b212c90152e88fee112931dbc3beae3f9a0"
+            "source_sha256": "074434b148b03d057df8f19baaa6b6781cbdb0bb5205f75ee16aaa5ab174a8fc"
         },
         {
             "path": "server/app/modules/official/identity/src/Auth/TenantTokenPair.php",
@@ -13108,7 +13150,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "902baeab8340c08073876d30f4699c9a687f611a8b0a4018ecfb3c07821d7dc4"
+            "source_sha256": "8175f94a6dd5043a1f3ea12bb256d331f6587fbadcd1cc451f2069c6ad474f6c"
         },
         {
             "path": "server/app/modules/official/identity/src/Authorization/CatalogLifecycleService.php",
@@ -13262,7 +13304,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "67d7f0ffedf8e2c29f48a122c87b5c456d2b76d9645a38a8d2caeaf9c895505d"
+            "source_sha256": "821fac80a5afd3deb23304c67820f6d9a2f5ce308456524e2a302c66661aa37e"
         },
         {
             "path": "server/app/modules/official/identity/src/Authorization/Persistence/Schema/AuthorizationSchema.php",
@@ -13319,6 +13361,20 @@
                 "full"
             ],
             "source_sha256": "f6c43a87f562d722190364848081f4bd3cb2d74acb9f033d4120ae4c04d9fddd"
+        },
+        {
+            "path": "server/app/modules/official/identity/src/Console/RevocationFactsCommand.php",
+            "target": "server/app/modules/official/identity/src/Console/RevocationFactsCommand.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "dbdfff11fc47637a0c6a4cb423c26ecab5308493963a212a8b3f14904a465275"
         },
         {
             "path": "server/app/modules/official/identity/src/Context/Persistence/ThinkPhpSystemTenantResolver.php",
@@ -13419,6 +13475,34 @@
             "source_sha256": "7e80bb8f0cf01ee87fb078b9fb7d25fed9fd0c4892be407a74c46c6e4ba3e731"
         },
         {
+            "path": "server/app/modules/official/identity/src/Contract/RevocationFactDelivery.php",
+            "target": "server/app/modules/official/identity/src/Contract/RevocationFactDelivery.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "1e0452f29c64bdd752411560d19d50b3186c81207f66440a5d80bb4c7bedd0eb"
+        },
+        {
+            "path": "server/app/modules/official/identity/src/Contract/RevocationFacts.php",
+            "target": "server/app/modules/official/identity/src/Contract/RevocationFacts.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "de1407ece6f2e67c53930eb99ecb49dc1fff531cd6d6b95d920ed9d91b7a1776"
+        },
+        {
             "path": "server/app/modules/official/identity/src/Contract/TenantAuditDiagnosticQuery.php",
             "target": "server/app/modules/official/identity/src/Contract/TenantAuditDiagnosticQuery.php",
             "classification": "managed",
@@ -13472,7 +13556,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "872b779a88e0da3a8c10a6accd554511392bf86187c6073fdcfd22a529dea5ab"
+            "source_sha256": "f32600aa8672fe216f017fb14933264769ac4aa1fad1871d4b35943d660341e2"
         },
         {
             "path": "server/app/modules/official/identity/src/Contract/TenantIdentityQuery.php",
@@ -13850,7 +13934,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4d737f3ef19049f686c16e48c6a31aa5fd5c75d77671b586b156a169041354db"
+            "source_sha256": "3cab43e1750381a2f33ad72e0e8ed32745398218155c61cea51201cba75472d3"
         },
         {
             "path": "server/app/modules/official/identity/src/Invitation/OneTimeInvitationToken.php",
@@ -13990,7 +14074,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "906b3737aca0e279681b4f7856933cef15af62383acf462fb7abe30ee9980ca7"
+            "source_sha256": "61f3c7af8e30ca2fa4f50f02cb7959a8a25ff52afb04164b215ee2bf3a4d0e68"
         },
         {
             "path": "server/app/modules/official/identity/src/Membership/Query/ThinkPhpTenantMemberDirectory.php",
@@ -14144,7 +14228,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f21f3065ba93098b7f6402537a73e59fc98c123c91ac5d6f156c68fb807d1260"
+            "source_sha256": "78d5bf81bc16703eb61fec92b6dd80ada4f9130b3825776a3eb144c754a43b80"
         },
         {
             "path": "server/app/modules/official/identity/src/ModuleProvider.php",
@@ -14158,7 +14242,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fae515473fd1d53011deb7035c6fe2a5b3cda8ed7c265741377c64d5d8bb48ee"
+            "source_sha256": "0ae6a6a522b125fba47617789964bb4d4570bab1ae49c2f010441254b9b70eca"
         },
         {
             "path": "server/app/modules/official/identity/src/Organization/Application/DepartmentAdminService.php",
@@ -21995,6 +22079,20 @@
             "source_sha256": "f04762aeab007bea0b0c4ce277d8f7781a694b17891f1193f303d0481366f21a"
         },
         {
+            "path": "server/app/modules/official/task/database/migrations/20261015020000_add_negative_fact_job_profile.sql",
+            "target": "server/app/modules/official/task/database/migrations/20261015020000_add_negative_fact_job_profile.sql",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "2217e8a0cfc44e2c4c6c1a76a0413ed2448c5695e32f2a31a6a2a3072f44dbd4"
+        },
+        {
             "path": "server/app/modules/official/task/job/README.md",
             "target": "server/app/modules/official/task/job/README.md",
             "classification": "managed",
@@ -22020,7 +22118,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dceca235f32dcc87a61b0611263a97763cf616565234bab542e0f9d7ccb73fe9"
+            "source_sha256": "dca3bfcc811187c920ca46bb37db74f8a1309d11a6342c56e6edd2cbc6ccb1e6"
         },
         {
             "path": "server/app/modules/official/task/resources/menus.json",
@@ -22090,7 +22188,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c2385b1865d33319bdc613afc77843ebf498e451a2df9664d8c63bce7e639d2c"
+            "source_sha256": "339be59a109a59c657da651cd0b205a67f77cf16d2095e6657bd37d76aa6e575"
         },
         {
             "path": "server/app/modules/official/task/src/Contract/JobRecord.php",
@@ -22119,6 +22217,20 @@
                 "full"
             ],
             "source_sha256": "cabd989cca1903fa2ad29cd4ba18cea19b00f80c7a40a1bb08b16d6115dc22be"
+        },
+        {
+            "path": "server/app/modules/official/task/src/Contract/NegativeFactTaskHandler.php",
+            "target": "server/app/modules/official/task/src/Contract/NegativeFactTaskHandler.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "77d59600e75ddcfb1ba8e003a611f699edc0498b3c1c8f79d67265c86747c1aa"
         },
         {
             "path": "server/app/modules/official/task/src/Contract/RetryableTaskException.php",
@@ -22300,7 +22412,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "daf8c280b42c8513980693937e8fc3ee05be21d64cf4765da78bd19491c4fd98"
+            "source_sha256": "d782f90634c1873f41acb0d45f8ea40bf8c0546f6fa98640ee515de2daaf154e"
         },
         {
             "path": "server/app/modules/official/task/src/Controller/CrontabController.php",
@@ -22342,7 +22454,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f0e36be6390ee62ea2ab5932f7225823c15215e5f6ab0ee4cd30936295b9d7b0"
+            "source_sha256": "fd912cbf96222b1f7ffbe524f1c4773c81c7d4cc65413e75ccfe8b77bf26c11b"
         },
         {
             "path": "server/app/modules/official/task/src/Job/Application/TaskJobException.php",
@@ -22370,7 +22482,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d36a4b966a40040e232bc9e9b1efe4df66c0d432041ea2cba36c624cf11ffa04"
+            "source_sha256": "a869d8937bedee7d55726cae3a8a0ac401b00874d1286569e0e280c0eeea9793"
         },
         {
             "path": "server/app/modules/official/task/src/Job/Execution/JobAuthorizationFence.php",
@@ -22384,7 +22496,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1f539a836382d25281298f8b5eb08d61229b72e090e317cb196f1e541b59f1e6"
+            "source_sha256": "0256a53b957200b22da35cc49ee75c59a7651a786590c60030002cae2442cffa"
         },
         {
             "path": "server/app/modules/official/task/src/Job/Execution/JobClaim.php",
@@ -22398,7 +22510,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "050c86ded6d2eddda8fcc056b11ecb79f107a87a2865d5cad7b97f52445ed429"
+            "source_sha256": "480e455a48f8bfc40901e95c74c58100ebd75a52061c2754f083702f13ae505e"
         },
         {
             "path": "server/app/modules/official/task/src/Job/Execution/LocalWorker.php",
@@ -22412,7 +22524,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1a5d294f4891edf3f77aeef8f4d4dde04ab7b5ea53d4673b21662006fe30640f"
+            "source_sha256": "88d72b54e6168918eda576058207d8680eb0d3d6a57ece87cc9f94e49d7b3462"
+        },
+        {
+            "path": "server/app/modules/official/task/src/Job/Execution/NegativeFactJobEnvelope.php",
+            "target": "server/app/modules/official/task/src/Job/Execution/NegativeFactJobEnvelope.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "bf41f9eb78afc43bfed579d657e4b5a8d78f960b352811aa94f0bb910ce12d94"
         },
         {
             "path": "server/app/modules/official/task/src/Job/Execution/TaskHandlerRegistry.php",
@@ -22496,7 +22622,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "aa534fda4b765f8331e8baa2a29c8b3bbbb60b9122d7cdc27cd85074cf0de43e"
+            "source_sha256": "2f9894b7eeba518b1deb3a62cfb3b2cb4766920ebd3ea785d5aa17b75646cfef"
         },
         {
             "path": "server/app/modules/official/task/src/Job/Submission/TaskSubmissionRegistry.php",
@@ -25535,7 +25661,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6cdd4df332d854315419580d5f64657c68c8b57d3f48d8ffb95945b90d006b35"
+            "source_sha256": "445e5f524484918621b7d4ae7b9bd436b016542ce651a867623c85fd8cfa3619"
         },
         {
             "path": "server/config/cookie.php",

@@ -80,6 +80,7 @@ final readonly class RoleAdminService
         int $expectedRevision,
     ): array {
         return $this->transaction(function () use ($actor, $roleId, $name, $description, $expectedRevision): array {
+            $this->lockTenant($actor->tenantId, false);
             $role = $this->requireRole($actor->tenantId, $roleId, true);
             $this->assertRevision($role, $expectedRevision);
             $now = $this->now();
@@ -103,6 +104,7 @@ final readonly class RoleAdminService
     public function archive(TenantContext $actor, int $roleId, int $expectedRevision): array
     {
         return $this->transaction(function () use ($actor, $roleId, $expectedRevision): array {
+            $this->lockTenant($actor->tenantId, false);
             $role = $this->requireRole($actor->tenantId, $roleId, true);
             $this->assertRevision($role, $expectedRevision);
             if ((int) $role['is_builtin'] === 1) {
@@ -123,6 +125,13 @@ final readonly class RoleAdminService
             }
             $this->bumpTenant($actor->tenantId, $now);
             $this->recordAudit($actor, 'tenant.role.archived', 'core.role.archive', $roleId);
+            $this->recordRoleRevocations(
+                $actor,
+                $roleId,
+                'role_archived',
+                ['authorization_revision' => $expectedRevision, 'status' => $role['status']],
+                ['authorization_revision' => $expectedRevision + 1, 'status' => 'archived'],
+            );
 
             return $this->get($actor->tenantId, $roleId);
         });
@@ -140,6 +149,7 @@ final readonly class RoleAdminService
         $permissionKeys = array_values(array_unique($permissionKeys));
 
         return $this->transaction(function () use ($actor, $roleId, $permissionKeys, $expectedRevision): array {
+            $this->lockTenant($actor->tenantId, false);
             $role = $this->requireRole($actor->tenantId, $roleId, true);
             $this->assertRevision($role, $expectedRevision);
             if ((int) $role['is_builtin'] === 1 && $role['key'] === 'core.tenant-owner') {
@@ -155,6 +165,8 @@ final readonly class RoleAdminService
                     'A permission is retired, belongs to the platform, or its module is unavailable.',
                 );
             }
+            $oldPermissionIds = array_map('intval', RolePermission::where('tenant_id', $actor->tenantId)->where('role_id', $roleId)->order('permission_id')->column('permission_id'));
+            $newPermissionIds = array_map(static fn(array $p): int => (int) $p['id'], $permissions);
             RolePermission::where('tenant_id', $actor->tenantId)->where('role_id', $roleId)->delete();
             $now = $this->now();
             if ($permissions !== []) {
@@ -183,6 +195,15 @@ final readonly class RoleAdminService
                 'core.role.permission.assign',
                 $roleId,
             );
+            if (array_diff($oldPermissionIds, $newPermissionIds) !== []) {
+                $this->recordRoleRevocations(
+                    $actor,
+                    $roleId,
+                    'role_permissions_removed',
+                    ['authorization_revision' => $expectedRevision, 'permission_ids' => $oldPermissionIds],
+                    ['authorization_revision' => $expectedRevision + 1, 'permission_ids' => $newPermissionIds],
+                );
+            }
 
             return $this->get($actor->tenantId, $roleId);
         });
@@ -265,9 +286,13 @@ final readonly class RoleAdminService
         return $rows;
     }
 
-    private function lockTenant(int $tenantId): void
+    private function lockTenant(int $tenantId, bool $requireActive = true): void
     {
-        if (Tenant::where('id', $tenantId)->where('status', 'active')->lock(true)->value('id') === null) {
+        $query = Tenant::where('id', $tenantId);
+        if ($requireActive) {
+            $query->where('status', 'active');
+        }
+        if ($query->lock(true)->value('id') === null) {
             throw new \PeanutAdmin\Kernel\Authorization\Application\AdminAccessException('TENANT_STATUS_INVALID', 403, 'The tenant is not active.');
         }
     }
@@ -278,6 +303,19 @@ final readonly class RoleAdminService
             'authorization_revision' => new Raw('authorization_revision + 1'),
             'updated_at' => $now,
         ]);
+    }
+
+    private function recordRoleRevocations(TenantContext $actor, int $roleId, string $reason, array $before, array $after): void
+    {
+        $cursor = 0;
+        do {
+            $members = \PeanutAdmin\Modules\Identity\Persistence\Model\MemberRole::where('tenant_id', $actor->tenantId)
+                ->where('role_id', $roleId)->where('tenant_member_id', '>', $cursor)->order('tenant_member_id')->limit(100)->column('tenant_member_id');
+            foreach ($members as $memberId) {
+                $cursor = (int) $memberId;
+                $this->audit->recordRevocation($actor, $actor->tenantId, $cursor, 'role', (string) $roleId, $reason, $before, $after);
+            }
+        } while (count($members) === 100);
     }
 
     private function recordAudit(TenantContext $actor, string $eventType, string $action, int $roleId): void

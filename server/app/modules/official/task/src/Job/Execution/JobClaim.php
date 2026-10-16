@@ -17,5 +17,6 @@ final readonly class JobClaim
         public int $attemptNumber,
         public int $maxAttempts,
         public string $leaseToken,
+        public string $profile = 'member',
     ) {}
 }

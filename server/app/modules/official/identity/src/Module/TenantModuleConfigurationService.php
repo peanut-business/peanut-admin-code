@@ -128,6 +128,7 @@ final readonly class TenantModuleConfigurationService
         $guard->assertTenant($actor->tenantId, $moduleKey, new DateTimeImmutable('now', new DateTimeZone('UTC')));
 
         return Db::transaction(function () use ($actor, $moduleKey, $config, $expectedRevision): array {
+            Tenant::where('id', $actor->tenantId)->lock(true)->find();
             $current = $this->row($actor->tenantId, $moduleKey, true);
             if ((int) $current['config_revision'] !== $expectedRevision) {
                 throw AdminAccessException::revisionMismatch();

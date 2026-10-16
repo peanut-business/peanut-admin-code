@@ -51,7 +51,12 @@ final readonly class TenantSessionAccessService implements TenantSessionAccess
             throw TenantSessionAccessException::denied();
         }
         return TenantContext::fromValidatedSession(new ValidatedTenantSession(
-            (int) $session['id'], $sessionKey, $tenantId, $accountId, $memberId, $clientKey,
+            (int) $session['id'],
+            $sessionKey,
+            $tenantId,
+            $accountId,
+            $memberId,
+            $clientKey,
             new DateTimeImmutable((string) $session['issued_at'], new DateTimeZone('UTC')),
             $member->authorizationRevision,
         ), $requestId);
@@ -81,6 +86,9 @@ final readonly class TenantSessionAccessService implements TenantSessionAccess
         }
 
         return Db::transaction(function () use ($context, $sessionKey): TenantSessionSummary {
+            \PeanutAdmin\Modules\Identity\Persistence\Model\Tenant::where('id', $context->tenantId)->lock(true)->find();
+            \PeanutAdmin\Modules\Identity\Persistence\Model\Account::where('id', $context->accountId)->lock(true)->find();
+            \PeanutAdmin\Modules\Identity\Persistence\Model\TenantMember::where('tenant_id', $context->tenantId)->where('id', $context->memberId)->lock(true)->find();
             $member = $this->assertActor($context);
             $row = TenantSession::where('tenant_id', $member->tenantId)
                 ->where('account_id', $member->accountId)
@@ -117,6 +125,17 @@ final readonly class TenantSessionAccessService implements TenantSessionAccess
                     'tenant_session',
                     hash('sha256', $sessionKey),
                     ['current' => hash_equals($context->sessionKey, $sessionKey)],
+                );
+                $this->audit->recordRevocation(
+                    $context,
+                    $member->tenantId,
+                    $member->memberId,
+                    'session',
+                    hash('sha256', $sessionKey),
+                    'session_revoked',
+                    ['status' => 'active'],
+                    ['status' => 'revoked'],
+                    hash('sha256', $sessionKey),
                 );
             }
 

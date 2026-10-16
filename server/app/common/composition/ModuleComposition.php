@@ -118,6 +118,24 @@ final readonly class ModuleComposition
             throw new ModuleException('MODULE_CONTENT_TOOL_UNAVAILABLE', 'Content tool contributions require the selected Content Tools Module.');
         }
         $bindings = ModuleProviderBindings::collect(array_values($providers));
+        // This optional Task capability is loaded only for the compiled two-module selection.
+        if ($taskSelected && isset($selectedModuleKeys['official.collaboration'])) {
+            $provider = $providers[\PeanutAdmin\Modules\Collaboration\ModuleProvider::class] ?? null;
+            if (!$provider instanceof \PeanutAdmin\Modules\Collaboration\ModuleProvider) {
+                throw new ModuleException('MODULE_TASK_WORKER_INVALID', 'Collaboration worker provider is invalid.');
+            }
+            foreach ($provider->taskWorkerBindings() as $abstract => $concrete) {
+                if (!is_string($abstract) || (!interface_exists($abstract) && !class_exists($abstract))
+                    || (!is_string($concrete) && !$concrete instanceof \Closure)
+                    || is_string($concrete) && (!class_exists($concrete) || !is_a($concrete, $abstract, true))) {
+                    throw new ModuleException('MODULE_BINDING_INVALID', 'Collaboration Task binding is invalid.');
+                }
+                if (isset($bindings[$abstract])) {
+                    throw new ModuleException('MODULE_BINDING_CONFLICT', "Module binding is duplicated: {$abstract}");
+                }
+                $bindings[$abstract] = $concrete;
+            }
+        }
         $this->assertAliasGraphIsAcyclic($bindings);
         foreach ($bindings as $abstract => $concrete) {
             if ($this->app->bound($abstract)) {
@@ -165,6 +183,15 @@ final readonly class ModuleComposition
                 }
             }
         }
+        if ($taskSelected && isset($selectedModuleKeys['official.collaboration'])) {
+            foreach ($providers[\PeanutAdmin\Modules\Collaboration\ModuleProvider::class]->taskWorkerDefinitions() as $definition) {
+                if (!is_string($definition) || !is_a($definition, TaskWorkerDefinition::class, true)
+                    || !is_a($definition, TaskWorkerContributor::class, true)) {
+                    throw new ModuleException('MODULE_TASK_WORKER_INVALID', 'Collaboration worker contribution is invalid.');
+                }
+                $taskWorkers[] = ['module_key' => 'official.collaboration', 'definition' => $definition];
+            }
+        }
         $taskRegistry = new TaskWorkerDefinitionRegistry($taskWorkers);
         $this->app->instance(TaskWorkerDefinitionRegistry::class, $taskRegistry);
         if ($contentRegistry !== null) {
@@ -209,7 +236,9 @@ final readonly class ModuleComposition
                 $producers = $this->app->make(\PeanutAdmin\Modules\Notification\Contract\NotificationProducerRegistry::class);
                 foreach ($contributors as $provider) {
                     if (method_exists($provider, 'notificationProducers')) {
-                        foreach ($provider->notificationProducers($this->app) as $producer) { $producers->register($producer); }
+                        foreach ($provider->notificationProducers($this->app) as $producer) {
+                            $producers->register($producer);
+                        }
                     }
                 }
             }

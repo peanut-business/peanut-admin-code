@@ -34,6 +34,8 @@
   },
   "contracts": {
     "exports": [
+      "PeanutAdmin\\Modules\\Task\\Contract\\NegativeFactTaskHandler",
+      "PeanutAdmin\\Modules\\Task\\Job\\Execution\\NegativeFactJobEnvelope",
       "PeanutAdmin\\Modules\\Task\\Service\\TaskWorkerDefinitionRegistry",
       "PeanutAdmin\\Modules\\Task\\Contract\\TaskBootstrapCommands",
       "PeanutAdmin\\Modules\\Task\\Contract\\TaskDiagnosticQuery",

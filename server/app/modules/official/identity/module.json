@@ -58,6 +58,8 @@
   },
   "contracts": {
     "exports": [
+      "PeanutAdmin\\Modules\\Identity\\Contract\\RevocationFacts",
+      "PeanutAdmin\\Modules\\Identity\\Contract\\RevocationFactDelivery",
       "PeanutAdmin\\Modules\\Identity\\Contract\\WorkflowOrganizationQuery",
       "PeanutAdmin\\Modules\\Identity\\Contract\\WorkflowLegacyOrganizationQuery",
       "PeanutAdmin\\Modules\\Identity\\Contract\\PlatformDirectoryQueries",

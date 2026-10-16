@@ -198,6 +198,24 @@ defineProps<{ documentId: number }>();
 3. 锁定 SDK 的 awaited `beforeSync` 在合并前检查该连接已经取得的写授权、有效期和房间状态；普通文字更新不逐帧请求 PHP，不在 `onChange` 重复完整授权。传输心跳只保活，完整身份、功能及文档授权在加入、续期和状态变化时复核。撤权通知拒绝新写并关闭/降权连接，短租约复核作为有明确检测上限的兜底；不得将周期复核称为即时撤权。授权过期或无法续期则停止新写，重新认证后才恢复。
 4. 在线“谁在编辑”（awareness）只含必要昵称/成员 ID 且以实际鉴权身份绑定，客户端自报名字不被信任。只读和可写连接能力分开；必要时无授权者不订阅正文广播。
 
+#### 可靠负向授权事实与定向失效
+
+Identity 成员 suspend/left、成员角色减少、角色权限减少或归档、独立 Session 撤销、密码变更导致的账户会话撤销，沿原事务产生 `identity.revocation.fact`。事实复用 Identity 审计主键/冻结 JSON 和独立 `revocation_` ID，固定前后修订/负向差集、实际受影响 tenant/member、原 actor provenance、来源请求与摘要；不使用后来变化的角色关系重构旧事实，不把原 session/token/password 写入任务。账户影响多个租户时逐 tenant/member 冻结；本切片不声明覆盖未知全局 Account disabled、Platform 或 credential-recovery 写路径。
+
+已注册的可选消费者在同一真实 PDO/外事务中加入官方 Task；异常向上传播，不能提交身份变更却丢事实。消费者缺失时不伪造 queued，事实可由部署 owner 显式 `php think identity:revocations --tenant=<id> --after=<audit-id> --limit=20` 有界发现并补投。`--repair` 仅为该专用 profile 的 dead/旧 holder 完成记录增加一个剩余尝试（总计上限10），不重置原 attempt、fact 或目标身份。该命令无 Node RPC、不登记自动调度、不授普通 HTTP/租户任务维护权限。
+
+唯一 Task profile 为 `identity_negative_fact`，purpose/handler 固定 `identity.revocation.propagate`。授权来自已提交 Identity 事实、专用签名域和原 Task claim，不来自失效 actor session。普通 member profile 的 creator 非空/FK、Core 签名和现行 reauthorize 保持；只有负向 profile 可以有 NULL 技术 creator，原 actor 仅留审计引用，不伪造成员。worker 每个批次/RPC/ACK提交重新核 fact/hash、tenant、purpose、jobKey、attempt、lease、模块及当前 holder；租约丢失不能追加 ACK。
+
+正向 ticket/authorize/check/renew 在同一原生 PDO/外事务内按 Runtime admission → IAM lifecycle/package/installation → Tenant/Account/Member/Role/Permission/Session → Owner/Document/State → Room/Connection/Grant 持锁。仅以服务端 OwnerPolicy 的权限、模块和对象绑定捕获原生 IAM 摘要，锁定重读相等后执行真实 Admin 权限决定；IAM 锁保留至外事务完成。原事务外 snapshot 合同不变。现有 64 位 SHA256 `authorization_revision` 统一使用 `peanut.document.grant-authorization.v1` 域，绑定 tenant/member、文档、owner/action、所需权限/模块、原生 IAM fence、Document/Owner 修订。Role/tenant 修订推进使撤权→恢复仍改变摘要，不按 opaque hash 数值排序。
+
+PHP 仅从 Collaboration 自己的可信 ticket/connection ledger 选择同 tenant、冻结 member 的旧 grant，按 connection ID 有界分页。专用 System fact/job/attempt 范围下只读真实 Session、当前权限及 Owner/Document 生命周期，并以前后相同原生 IAM 摘要和对象绑定确认观察：`OLD_STALE` 加入精确旧 tuple，`CURRENT_FRESH` 排除真正重新授权后的相同摘要，`UNKNOWN` 保留 pending/retry，不能用空 ACK 代替未完成选取。协议2的历史授权摘要与新算法不同则按旧 grant 处理；版本未知、账本缺失或查询异常均失败关闭。首次选取的 high-water、每批精确 connection/room/epoch/member/authorization_revision 集合、scope digest 与 ACK 写入原 Task event，重试复用。新 holder 使用新的目标计划/ACK，不能继承旧 holder 证明；Node 只匹配当前连接的完整旧 tuple，后续 renew 的新摘要不被旧 scope 关闭。历史 accepted capture 仍使用原持久 grant/hash/时间窗口/holder/epoch 证明，不能改用当前人类权限重验或丢弃已接纳内容。普通 grant lease 仍是独立兜底，不恢复逐帧 PHP 鉴权。
+
+Node 负向协议为 `POST /internal/collaboration/access/v1/invalidate`，payload/HTTP protocol 均为1，签名域 `peanut.collaboration.access-invalidation-v1.request.v1` / `.response.v1`，与 drain/release/operator 域隔离。沿现有服务密钥、instance/service/key-id/holder 前缀、nonce/timestamp、method/path及请求/响应 body hash验证。请求字段精确为 `protocol_version,action,fact_id,fact_sha256,tenant_id,subject,negative_action,revision_reference_sha256,operation_id,instance_id,service_instance_id,holder_key,targets,scope_digest`；subject 为 `kind,id,member_id`，每个 target 为 `connection_key,room_key,lease_epoch,member_id,authorization_revision`，每批最多100。scope digest 是删除 scope_digest 字段后递归按对象键排序的 JSON SHA256。只允许 invalidate_old_grant；不得赋权、重入房间、恢复写、修改正文或释放 Document 屏障。
+
+Node 先拒绝匹配旧 grant 的新写并关闭连接，再回复经过认证的 ACK；完整旧 tuple 已不在当前 holder 中时可回复 no_matching_connection，不能因此关闭相同 key 下后来更新的授权。跨租户/成员、来源不符和旧 holder 拒绝；空 targets 仍绑定冻结 subject/member 与当前 holder，不是未发送成功。ACK 字段精确为 `protocol_version,fact_id,fact_sha256,operation_id,instance_id,service_instance_id,holder_key,scope_digest,outcome,processed_at,matched_count,closed_count`；outcome 为 applied 或 no_matching_connection，时间为 UTC ISO8601 毫秒。重复事实/目标同摘要返回同一结果；改摘要拒绝。PHP 只将有效、当前绑定的 ACK 持久关联事实，超时/非200/签名错/失联/retry/dead保持未确认。
+
+occurred_at 在事务内写入，不作为准确 T0。上述独立命令对30秒仍未确认的记录持久记 `identity.revocation.overdue_candidate`，明确使用 precommit_occurred_at 的保守候选依据；它不是已测 commit SLA。健康条件下 T1−T0≤5秒、T3−T0≤30秒和随后5秒检测仍是需要真实 APP/Worker/Node/DB及部署配置证明的资格目标，当前 NOT_QUALIFIED。本切片为 PHP 源实现；Node消费者、迁移执行、真实 ACK、并发授权/撤权与时效运行断言未验证。
+
 ### 6.2 初始化、自动保存与崩溃恢复
 
 - 仅在第一次载入某份文档时 `onLoadDocument` 从 PHP 读取已持久化 Yjs 二进制，缺值时仅在业务已创建且合法的初始文档生成一次 CRDT，禁止每次从 JSON 重建 Y.Doc。

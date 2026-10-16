@@ -57,6 +57,7 @@ final readonly class ThinkPhpTaskJobRuntime implements TaskJobRuntime
             $this->repository,
             new TaskSubmissionRegistry($providers),
             $this->envelopes(),
+            $this->signingKey,
         );
     }
 
@@ -103,18 +104,20 @@ final readonly class ThinkPhpTaskJobRuntime implements TaskJobRuntime
             $this->repository,
             new TaskHandlerRegistry($handlers),
             new JobHandlerAdapter($this->envelopes(), new TaskAuthorizationRouter($definitions)),
-            function (AuthorizedOperationContext $context, JobClaim $claim, Closure $handle): void {
-                if (!$this->executionContexts->isEmpty() || $context->tenantContext->tenantId !== $claim->tenantId) {
+            function (AuthorizedOperationContext|\PeanutAdmin\Modules\Task\Job\Execution\NegativeFactJobEnvelope $context, JobClaim $claim, Closure $handle): void {
+                $negative = $context instanceof \PeanutAdmin\Modules\Task\Job\Execution\NegativeFactJobEnvelope;
+                if (!$this->executionContexts->isEmpty() || ($negative ? $context->tenantId : $context->tenantContext->tenantId) !== $claim->tenantId) {
                     throw new \DomainException('TASK_EXECUTION_ROOT_REQUIRED');
                 }
                 $this->executionContexts->run(
                     new SystemExecutionContext(
-                        new TenantSystemContext($claim->tenantId, 'task-worker', 'async.worker', $claim->jobKey),
+                        new TenantSystemContext($claim->tenantId, 'task-worker', $negative ? 'identity.revocation.propagate' : 'async.worker', $claim->jobKey),
                         new SystemExecutionMetadata($claim->jobKey, $claim->attemptNumber, $claim->handlerKey),
                     ),
                     $handle,
                 );
             },
+            negativeSigningKey: $this->signingKey,
         );
 
         $processed = 0;
