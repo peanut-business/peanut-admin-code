@@ -725,7 +725,13 @@ class AppService extends Service
             throw new \RuntimeException('PLUGIN_LOCK_INVALID');
         }
         $releasePath = $serverRoot . '/.peanut/release-identity.json';
-        $registry = !$this->app->runningInConsole() && (file_exists($releasePath) || is_link($releasePath))
+        if (\app\common\value\installation\ApplicationSourceIdentity::hasRuntime($serverRoot)
+            && Config::get('peanut.environment', '') !== 'development') {
+            throw new \RuntimeException('APPLICATION_DEVELOPMENT_RUNTIME_ENVIRONMENT_INVALID');
+        }
+        $developmentReadonly = \app\common\value\installation\ApplicationSourceIdentity::hasRuntime($serverRoot)
+            && \app\common\infrastructure\installation\ReadonlyHttpMount::active($serverRoot);
+        $registry = !$this->app->runningInConsole() && (file_exists($releasePath) || is_link($releasePath) || $developmentReadonly)
             ? $this->app->make(\app\common\infrastructure\installation\VerifiedServerDeployment::class)->registry()
             : (new ModuleDefinitionRegistryFactory($serverRoot))->fromPluginLock(
                 new PluginLockResolver($serverRoot, $lockPath),

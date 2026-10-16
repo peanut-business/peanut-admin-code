@@ -261,9 +261,9 @@ final class PeanutServerUpdatePlan
             }
             $token = trim(self::regularBytes($serverRoot . '/docker/secrets/install-token', 'initial setup token'));
             require_once $serverRoot . '/vendor/autoload.php';
-            $identity = \app\common\value\installation\ServerReleaseIdentity::load($serverRoot);
+            $identity = self::runtimeIdentity($serverRoot);
             $application = new \think\App($serverRoot);
-            $application->instance(\app\common\value\installation\ServerReleaseIdentity::class, $identity);
+            $application->instance($identity::class, $identity);
             return (new \app\common\services\installation\InstallationConfigurationHost($serverRoot))->publishPending($token);
         });
     }
@@ -306,7 +306,7 @@ final class PeanutServerUpdatePlan
                     || (file_exists($deploymentPath) && !is_file($deploymentPath))) {
                     throw new RuntimeException('installation state is unsafe for initial traffic');
                 }
-                if ($serverRelease && file_exists($installedPath)) {
+                if ($serverRelease && ($identity['protocol'] ?? null) !== 'peanut.development-server-runtime.v1' && file_exists($installedPath)) {
                     self::deploymentState($serverRoot, $identity, $identityDigest);
                 } elseif (file_exists($deploymentPath)) {
                     throw new RuntimeException('source or uninstalled instance has server deployment state');
@@ -360,6 +360,12 @@ final class PeanutServerUpdatePlan
     /** @return array{0:array<string,mixed>,1:string,2:bool} */
     private static function startupIdentity(string $serverRoot): array
     {
+        $development = $serverRoot . '/.peanut/development-runtime.json';
+        if (file_exists($development) || is_link($development)) {
+            require_once $serverRoot . '/vendor/autoload.php';
+            $source = \app\common\value\installation\ApplicationSourceIdentity::loadRuntime($serverRoot);
+            return [$source->document(), $source->identitySha256(), true];
+        }
         $identityPath = $serverRoot . '/.peanut/release-identity.json';
         if (file_exists($identityPath) || is_link($identityPath)) {
             $identityBytes = self::regularBytes($identityPath, 'server release identity');
@@ -565,11 +571,14 @@ final class PeanutServerUpdatePlan
         chdir($serverRoot);
         self::assertAdmissionBoundary($serverRoot);
         require_once $serverRoot . '/vendor/autoload.php';
-        $identity = \app\common\value\installation\ServerReleaseIdentity::load($serverRoot);
+        $identity = self::runtimeIdentity($serverRoot);
+        if ($identity instanceof \app\common\value\installation\ApplicationSourceIdentity) {
+            self::assertDevelopmentInstalledInstance($serverRoot, $identity);
+        }
         $verified = hrtime(true);
         require_once $serverRoot . '/database/install.php';
         $application = new \think\App($serverRoot);
-        $application->instance(\app\common\value\installation\ServerReleaseIdentity::class, $identity);
+        $application->instance($identity::class, $identity);
         $application->initialize();
         $compiled = hrtime(true);
         $host = $application->make(\app\common\services\installation\InstallationExecutionHost::class);
@@ -618,11 +627,16 @@ final class PeanutServerUpdatePlan
         $started = hrtime(true);
         self::assertAdmissionBoundary($serverRoot);
         require_once $serverRoot . '/vendor/autoload.php';
-        $identity = \app\common\value\installation\ServerReleaseIdentity::load($serverRoot);
+        $identity = self::runtimeIdentity($serverRoot);
+        if ($identity instanceof \app\common\value\installation\ApplicationSourceIdentity) {
+            // Development projection adopts only an already installed APP; it has no guided bootstrap.
+            self::nativeRuntimeHealth($serverRoot);
+            return;
+        }
         $verified = hrtime(true);
         require_once $serverRoot . '/database/install.php';
         $application = new \think\App($serverRoot);
-        $application->instance(\app\common\value\installation\ServerReleaseIdentity::class, $identity);
+        $application->instance($identity::class, $identity);
         $application->initialize();
         $compiled = hrtime(true);
         \app\common\infrastructure\installation\VerifiedServerDeployment::publish($application, $identity);
@@ -632,7 +646,7 @@ final class PeanutServerUpdatePlan
     private static function writeAdmissionReceipt(
         string $serverRoot,
         \think\App $application,
-        \app\common\value\installation\ServerReleaseIdentity $identity,
+        \app\common\value\installation\ServerReleaseIdentity|\app\common\value\installation\ApplicationSourceIdentity $identity,
         int $started,
         int $verified,
         int $compiled,
@@ -649,6 +663,13 @@ final class PeanutServerUpdatePlan
             'runtime_health_ms' => ($healthy - $compiled) / 1000000,
             'publication_ms' => (hrtime(true) - $healthy) / 1000000,
         ]);
+    }
+
+    private static function runtimeIdentity(string $serverRoot): \app\common\value\installation\ServerReleaseIdentity|\app\common\value\installation\ApplicationSourceIdentity
+    {
+        return \app\common\value\installation\ApplicationSourceIdentity::hasRuntime($serverRoot)
+            ? \app\common\value\installation\ApplicationSourceIdentity::loadRuntime($serverRoot)
+            : \app\common\value\installation\ServerReleaseIdentity::load($serverRoot);
     }
 
     /** @param array<string,mixed> $plan @param array<string,mixed> $journal @return array<string,mixed> */
@@ -699,6 +720,38 @@ final class PeanutServerUpdatePlan
             throw new RuntimeException('private update verification key is invalid');
         }
         return $key;
+    }
+
+    private static function assertDevelopmentInstalledInstance(
+        string $serverRoot,
+        \app\common\value\installation\ApplicationSourceIdentity $identity,
+    ): void {
+        self::assertOrdinaryParents($serverRoot, 'private/installation/installed.json');
+        $receipt = json_decode(self::regularBytes($serverRoot . '/private/installation/installed.json', 'installed APP receipt'), true, 512, JSON_THROW_ON_ERROR);
+        $edition = $identity->applicationIdentity()['edition'];
+        if (!is_array($receipt) || ($receipt['schema_version'] ?? null) !== 1
+            || ($receipt['protocol'] ?? null) !== 'peanut.installation-receipt.v1'
+            || ($receipt['state'] ?? null) !== 'installed'
+            || ($receipt['deployment_mode'] ?? null) !== $edition
+            || ($receipt['baseline_manifest']['path'] ?? null) !== 'server/private/installation/baseline.json') {
+            throw new RuntimeException('development runtime requires the same installed APP receipt');
+        }
+        self::assertOrdinaryParents($serverRoot, 'private/installation/baseline.json');
+        $bytes = self::regularBytes($serverRoot . '/private/installation/baseline.json', 'installed APP baseline');
+        $expected = $receipt['baseline_manifest']['sha256'] ?? null;
+        if (!is_string($expected) || preg_match('/^[a-f0-9]{64}$/D', $expected) !== 1
+            || !hash_equals($expected, hash('sha256', $bytes))) {
+            throw new RuntimeException('installed APP baseline differs from receipt');
+        }
+        $baseline = json_decode($bytes, true, 512, JSON_THROW_ON_ERROR);
+        if (!is_array($baseline) || ($baseline['schema_version'] ?? null) !== 1
+            || ($baseline['protocol'] ?? null) !== 'peanut.installation-baseline.v1'
+            || ($baseline['deployment_mode'] ?? null) !== $edition
+            || ($baseline['source']['kind'] ?? null) !== 'generated-application'
+            || !is_string($baseline['source']['application_manifest_sha256'] ?? null)
+            || !hash_equals($identity->manifestSha256(), $baseline['source']['application_manifest_sha256'])) {
+            throw new RuntimeException('installed APP baseline does not match the development projection');
+        }
     }
 
     /** @param array<string,mixed> $plan */

@@ -119,12 +119,20 @@ def main():
             raise ValueError("new ordinary staging directory is required")
         if destination.parent.is_symlink() or not destination.parent.is_dir() or destination.parent.resolve() != destination.parent:
             raise ValueError("staging parent is unsafe")
-        identity_path = server / ".peanut/release-identity.json"
-        ordinary_parents(server, ".peanut/release-identity.json")
+        development = server / ".peanut/development-runtime.json"
+        development_runtime = development.exists() or development.is_symlink()
+        if development_runtime and ((server / ".peanut/release-identity.json").exists() or (server / ".peanut/release-identity.json").is_symlink()):
+            raise ValueError("runtime identity conflicts with a release identity")
+        identity_relative = ".peanut/development-runtime.json" if development_runtime else ".peanut/release-identity.json"
+        identity_path = server / identity_relative
+        ordinary_parents(server, identity_relative)
         ordinary(identity_path)
         identity = json.loads(identity_path.read_text())
-        if identity.get("schema_version") != 1 or identity.get("protocol") != "peanut.server-release.v1" or not isinstance(identity.get("application"), dict):
+        protocol = "peanut.development-server-runtime.v1" if development_runtime else "peanut.server-release.v1"
+        if identity.get("schema_version") != 1 or identity.get("protocol") != protocol or not isinstance(identity.get("application"), dict):
             raise ValueError("server release identity is invalid")
+        if development_runtime and identity.get("environment") != "development":
+            raise ValueError("development runtime environment is invalid")
         files = identity.get("files")
         if not isinstance(files, list) or not files:
             raise ValueError("release file list is invalid")
@@ -154,7 +162,7 @@ def main():
             os.chmod(target, mode)
             if digest(target) != expected_sha:
                 raise ValueError("release program changed during staging")
-        target = destination / ".peanut/release-identity.json"
+        target = destination / identity_relative
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(identity_path, target)
         check_lock(destination)

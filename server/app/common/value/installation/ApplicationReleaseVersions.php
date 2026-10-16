@@ -107,6 +107,9 @@ final readonly class ApplicationReleaseVersions
     /** Read the running instance version from the declared server or source layout. */
     public static function runningVersion(string $serverRoot): string
     {
+        if (ApplicationSourceIdentity::hasRuntime($serverRoot)) {
+            return ApplicationSourceIdentity::load($serverRoot)->versions()['release_sequence_version'];
+        }
         $identityPath = $serverRoot . '/.peanut/release-identity.json';
         if (file_exists($identityPath) || is_link($identityPath)) {
             $version = ServerReleaseIdentity::resolve($serverRoot)->versions()['release_sequence_version'];
@@ -150,7 +153,9 @@ final readonly class ApplicationReleaseVersions
 
     private static function assertV3Dependencies(mixed $php, mixed $web, string $root): void
     {
-        require_once dirname(__DIR__, 5) . '/scripts/scaffold-runtime/ReleaseDependencyIdentity.php';
+        $source = dirname(__DIR__, 5) . '/scripts/scaffold-runtime/ReleaseDependencyIdentity.php';
+        $projected = dirname(__DIR__, 4) . '/docker/scripts/scaffold-runtime/ReleaseDependencyIdentity.php';
+        require_once ApplicationSourceIdentity::hasRuntime(dirname(__DIR__, 4)) ? $projected : $source;
         ReleaseDependencyIdentity::validate(
             $php,
             $web,
