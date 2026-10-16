@@ -987,7 +987,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1ee5609667595762451ad7a381076dfb1501763a6ecdebd15302584fcb0f71c1"
+            "source_sha256": "1b2ce8ec4c532678d27dbc3496c39f7edb4d9c8d2f04fd7dac1f00a2c2c37221"
         },
         {
             "path": "docs/public/module-development.md",
@@ -6210,7 +6210,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cf41dd0663575a036c275f9816cecc3a05e770f463210b23b97e7926faefd13a"
+            "source_sha256": "b61564925503d88dc32132d2d5674a68ae52f20f247adca8af97829f64f40509"
         },
         {
             "path": "server/app/command/BundlePack.php",
@@ -8834,7 +8834,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "27dcb10b80b29eb59365ab96bd4cc20c4f96e831565521fb5e44847594aace66"
+            "source_sha256": "4616f0993050e171dd7c2a6cea059bed915ec037e5cf6c995fa30ec5ae21302f"
         },
         {
             "path": "server/app/common/services/upgrade/ApplicationSchemaHost.php",
@@ -8848,7 +8848,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "81de506af345b69a30413517fe1e29fe23f2407222af9579ee92531a342cc403"
+            "source_sha256": "0e717959f2462d6158be652aa9bef25a08187f15625e2cda159089fd447caed1"
         },
         {
             "path": "server/app/common/support/ExportPageInfo.php",
