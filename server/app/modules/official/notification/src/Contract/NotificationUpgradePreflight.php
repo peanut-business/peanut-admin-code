@@ -33,7 +33,12 @@ final readonly class NotificationUpgradePreflight
                 return $unknown + ['reason' => 'EXECUTION_CONTEXT_UNAVAILABLE', 'phase' => $phase];
             }
             $phase = 'connection';
-            $pdo = Db::connect()->getPdo();
+            $connection = Db::connect();
+            // getPdo() observes the current link; a native query initializes a lazy connection.
+            if ($connection->getPdo() === false) {
+                $connection->query('SELECT 1', [], true);
+            }
+            $pdo = $connection->getPdo();
             if (!$pdo instanceof PDO) {
                 return $unknown + ['reason' => 'CONNECTION_UNAVAILABLE', 'phase' => $phase];
             }
