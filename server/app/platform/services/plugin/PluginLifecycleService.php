@@ -652,7 +652,10 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         if (count($constraints) !== 2) { throw new PluginLifecycleException('MODULE_MIGRATION_PROVENANCE_SCHEMA_REQUIRED', 'Provenance CHECK constraints are missing.'); }
         foreach ($constraints as $row) {
             $clause = strtolower((string) preg_replace('/\s+|`|_utf8mb4/', '', $row['CHECK_CLAUSE']));
-            if (($row['ENFORCED'] ?? null) !== 'YES' || ($expected[$row['CONSTRAINT_NAME']] ?? null) !== $clause) {
+            $required = $expected[$row['CONSTRAINT_NAME']] ?? null;
+            // Admit only complete fixed predicates, including MySQL's escaped-delimiter metadata rendering.
+            if (($row['ENFORCED'] ?? null) !== 'YES' || !is_string($required)
+                || !in_array($clause, [$required, str_replace("'", "\\'", $required)], true)) {
                 throw new PluginLifecycleException('MODULE_MIGRATION_PROVENANCE_SCHEMA_REQUIRED', 'Provenance CHECK semantics differ from the application schema.');
             }
         }
