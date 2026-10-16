@@ -3505,7 +3505,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f1aebcd4035b3f698c37e986b2ade5533a6aa6864d28c1e43e184a44d220a854"
+            "source_sha256": "8ec4290b07e527d1cb87164de9ee0d9e3ee92491139be7b66332bba55ace2dbd"
         },
         {
             "path": "scripts/package-release.sh",
@@ -24807,7 +24807,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "28a174d598e206b17ed84e52c19bf08b99d74e82610cbcca6455a8bed8b21c15"
+            "source_sha256": "534714e896082ccce7a0d4e098af6df61600b6d8bdf96c6bf376dd136a9d243f"
         },
         {
             "path": "server/app/platform/infrastructure/plugin/PluginPackageInstaller.php",

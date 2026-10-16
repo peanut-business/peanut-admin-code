@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import shutil
 import stat
@@ -719,11 +720,12 @@ def development_runtime(source: Path, target: Path) -> None:
                     str(source), '--installed'], check=True, capture_output=True)
     subprocess.run(['python3', str(regular_file(source, 'server/docker/scripts/vendor-state.py')),
                     'check', '--server', str(source/'server')], check=True, capture_output=True)
-    subprocess.run(['php', '-r', 'require $argv[1]."/server/vendor/autoload.php"; '
-                    '(new \\app\\platform\\infrastructure\\plugin\\PluginLockResolver('
-                    '$argv[1]."/server","../plugins.lock"))->all();', str(source)],
+    subprocess.run(['php', '-r',
+                    'require $argv[2]."/server/app/platform/infrastructure/plugin/PluginLockResolver.php"; '
+                    'require $argv[1]."/server/vendor/autoload.php"; '
+                    '\\app\\platform\\infrastructure\\plugin\\PluginLockResolver::forSourceUpgrade($argv[1]);',
+                   str(source), str(Path(__file__).resolve().parent.parent)],
                    check=True, capture_output=True)
-    before = {}
     entries = manifest.get('files', [])
     if not isinstance(entries, list) or not entries:
         raise ValueError('development APP source inventory is missing')
@@ -742,14 +744,46 @@ def development_runtime(source: Path, target: Path) -> None:
             baseline = regular_file(source, row['baseline_path'])
             if hashlib.sha256(baseline.read_bytes()).hexdigest() != row['baseline_sha256']:
                 raise ValueError('development upstream baseline changed')
-        if relative.startswith('server/') and not relative.startswith('server/private/') and allowed_source(relative) and not any(relative.startswith(prefix) for prefix in PROTECTED_RUNTIME_PREFIXES):
-            path = regular_file(source, relative)
-            before[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+    # Ownership baselines describe upstream files; APP additions are also executable program inputs.
+    def program_state() -> dict:
+        server = reject_symlinked_path(source, 'server')
+        if not server.is_dir():
+            raise ValueError('development server source is missing')
+        def walk_error(error):
+            raise error
+        def included(relative: str) -> bool:
+            return (relative != 'server/private' and not relative.startswith('server/private/')
+                    and relative != 'server/.peanut/development-runtime.json'
+                    and allowed_source(relative)
+                    and not any(relative == prefix.rstrip('/') or relative.startswith(prefix)
+                                for prefix in PROTECTED_RUNTIME_PREFIXES))
+        files = {}
+        names = set()
+        for base, directories, filenames in os.walk(server, topdown=True, onerror=walk_error, followlinks=False):
+            for name in list(directories):
+                path = Path(base) / name
+                relative = safe_relative(path.relative_to(source).as_posix())
+                if not included(relative):
+                    directories.remove(name)
+                elif path.is_symlink():
+                    raise ValueError(f'symlink is not a development program input: {relative}')
+            for name in filenames:
+                relative = safe_relative((Path(base) / name).relative_to(source).as_posix())
+                if not included(relative):
+                    continue
+                if relative.casefold() in names:
+                    raise ValueError(f'case-colliding development program input: {relative}')
+                names.add(relative.casefold())
+                path = regular_file(source, relative)
+                files[relative] = {'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+                                   'mode': stat.S_IMODE(path.stat().st_mode)}
+        return files
+    before = program_state()
     # No private instance configuration, receipt, storage or database bytes enter this projection.
     target.mkdir(parents=True)
-    for relative, sha in before.items():
-        mode = 0o755 if regular_file(source, relative).stat().st_mode & 0o111 else 0o644
-        copy_checked(source, target, relative, sha, mode)
+    for relative, state in before.items():
+        mode = 0o755 if state['mode'] & 0o111 else 0o644
+        copy_checked(source, target, relative, state['sha256'], mode)
     server = target/'server'
     projected = {
         MANIFEST: 'server/.peanut/application-manifest.json',
@@ -779,9 +813,8 @@ def development_runtime(source: Path, target: Path) -> None:
              'source_projection': source_projection, 'plugin_projection': plugin,
              'files': rows, 'files_sha256': rows_sha256(rows),
              'core_php': versions['core_php']}
-    for relative, sha in before.items():
-        if hashlib.sha256(regular_file(source, relative).read_bytes()).hexdigest() != sha:
-            raise ValueError('development source changed during projection')
+    if program_state() != before:
+        raise ValueError('development program file set, bytes or modes changed during projection')
     for relative, sha in source_projection.items():
         if hashlib.sha256(regular_file(source, relative).read_bytes()).hexdigest() != sha:
             raise ValueError('development identity changed during projection')

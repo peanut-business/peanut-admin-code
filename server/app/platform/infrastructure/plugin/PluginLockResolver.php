@@ -6,6 +6,7 @@ namespace app\platform\infrastructure\plugin;
 
 use app\common\infrastructure\module\ModuleHostLayoutFactory;
 use app\common\validation\scaffold\ScaffoldPathGuard;
+use app\common\value\installation\ApplicationSourceIdentity;
 use app\common\value\installation\ServerReleaseIdentity;
 use app\platform\exception\plugin\PluginLifecycleException;
 use app\platform\value\plugin\PluginDescriptor;
@@ -86,15 +87,17 @@ final class PluginLockResolver
                 throw new PluginLifecycleException('PLUGIN_LOCK_INVALID', 'Server Plugin projection path is invalid.');
             }
             $this->assertExactKeys($lock, ['schema_version', 'protocol', 'plugins'], 'PLUGIN_LOCK_INVALID');
-            $identity = ServerReleaseIdentity::resolve($this->serverRoot);
+            $identity = ApplicationSourceIdentity::hasRuntime($this->serverRoot)
+                ? ApplicationSourceIdentity::load($this->serverRoot)
+                : ServerReleaseIdentity::resolve($this->serverRoot);
             $projectedDigest = $identity->projectedPluginLockSha256();
             if (!hash_equals($projectedDigest, (string) hash_file('sha256', $lockPath))) {
-                throw new PluginLifecycleException('PLUGIN_ARTIFACT_MISMATCH', 'Server Plugin projection differs from release identity.');
+                throw new PluginLifecycleException('PLUGIN_ARTIFACT_MISMATCH', 'Server Plugin projection differs from its runtime identity.');
             }
         } else {
             $serverIdentity = $this->serverRoot . '/.peanut/release-identity.json';
-            if (!$sourceUpgrade && (file_exists($serverIdentity) || is_link($serverIdentity))) {
-                throw new PluginLifecycleException('PLUGIN_LOCK_INVALID', 'Server release requires its backend Plugin projection.');
+            if (!$sourceUpgrade && (ApplicationSourceIdentity::hasRuntime($this->serverRoot) || file_exists($serverIdentity) || is_link($serverIdentity))) {
+                throw new PluginLifecycleException('PLUGIN_LOCK_INVALID', 'Server runtime requires its backend Plugin projection.');
             }
             $this->assertExactKeys($lock, ['schema_version', 'plugins'], 'PLUGIN_LOCK_INVALID');
         }
