@@ -511,7 +511,9 @@ final class ApplicationSchemaHost
         foreach ($expected as $name => $clause) {
             $row = $fact['checks'][$name];
             $normalized = strtolower(str_replace(['`',' ',"\n",'_utf8mb4'], '', $row['CHECK_CLAUSE']));
-            if ($row['ENFORCED'] !== 'YES' || $normalized !== $clause) { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_PROVENANCE_DIFFERENT'); }
+            // MySQL metadata may escape literal delimiters; admit only the complete
+            // expected rendering, never strip arbitrary backslashes from a clause.
+            if ($row['ENFORCED'] !== 'YES' || !in_array($normalized, [$clause, str_replace("'", "\\'", $clause)], true)) { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_PROVENANCE_DIFFERENT'); }
         }
         self::prestateZero($pdo, "SELECT COUNT(*) FROM pa_module_migration WHERE NOT ((resolution_kind IS NULL OR resolution_kind IN ('executed','adopted')) AND ((resolution_kind<=>'adopted')=(provenance_json IS NOT NULL)))");
         return ['shape' => 'exact_noop'];
@@ -876,13 +878,15 @@ final class ApplicationSchemaHost
         self::prestateUnique($shape, ['id']); self::prestateUnique($shape, ['module_key', 'migration_key']);
         $status = $shape['checks']['chk_module_migration_status'] ?? null;
         $normal = static fn(string $clause): string => trim(strtolower((string) preg_replace('/\s+|`|_utf8mb4/', '', $clause)), '()');
+        $expected = $normal("status IN ('applying','applied','rolled_back','failed')");
+        // Compare two closed metadata renderings of this exact status predicate.
         if (!is_array($status) || $status['ENFORCED'] !== 'YES'
-            || $normal($status['CHECK_CLAUSE']) !== $normal("status IN ('applying','applied','rolled_back','failed')")) {
+            || !in_array($normal($status['CHECK_CLAUSE']), [$expected, str_replace("'", "\\'", $expected)], true)) {
             throw new RuntimeException('APPLICATION_SCHEMA_MODULE_SHAPE_UNKNOWN');
         }
         $query = $pdo->query("SELECT COUNT(*) FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE (CONSTRAINT_SCHEMA=DATABASE() AND TABLE_NAME='pa_module_migration') OR (UNIQUE_CONSTRAINT_SCHEMA=DATABASE() AND REFERENCED_TABLE_NAME='pa_module_migration')");
         if ((int) $query->fetchColumn() !== 0) { throw new RuntimeException('APPLICATION_SCHEMA_MODULE_FOREIGN_KEY_UNKNOWN'); }
-        $shape['checks']['chk_module_migration_status']['CHECK_CLAUSE'] = $normal($status['CHECK_CLAUSE']);
+        $shape['checks']['chk_module_migration_status']['CHECK_CLAUSE'] = $expected;
         return $shape;
     }
 
