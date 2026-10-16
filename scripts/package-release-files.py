@@ -744,6 +744,28 @@ def development_runtime(source: Path, target: Path) -> None:
             baseline = regular_file(source, row['baseline_path'])
             if hashlib.sha256(baseline.read_bytes()).hexdigest() != row['baseline_sha256']:
                 raise ValueError('development upstream baseline changed')
+    projected = {
+        MANIFEST: 'server/.peanut/application-manifest.json',
+        'release-versions.json': 'server/.peanut/release-versions.json',
+        'RELEASE_METADATA.json': 'server/.peanut/RELEASE_METADATA.json',
+        'resources/project-resources.json': 'server/resources/project-resources.json',
+        'scripts/scaffold-runtime/ReleaseDependencyIdentity.php':
+            'server/docker/scripts/scaffold-runtime/ReleaseDependencyIdentity.php',
+    }
+    # Only these exact native outputs are regenerated; unknown APP program paths stay in the scan.
+    derived = set(projected.values()) | {'server/plugins.lock', 'server/.peanut/development-runtime.json'}
+    source_inputs = set(projected) | {'plugins.lock'}
+    source_plugins = document(source, 'plugins.lock')
+    if source_plugins.get('schema_version') != 1 or not isinstance(source_plugins.get('plugins'), list):
+        raise ValueError('source plugin lock is invalid')
+    for entry in source_plugins['plugins']:
+        key = entry.get('key') if isinstance(entry, dict) else None
+        if not isinstance(key, str) or not re.fullmatch(r'[a-z][a-z0-9.-]*', key):
+            raise ValueError('invalid plugin key in source lock')
+        derived.add(f'server/plugins/{key}/plugin.json')
+        source_inputs.add(safe_relative(entry['manifest']))
+    source_fence = {relative: hashlib.sha256(regular_file(source, relative).read_bytes()).hexdigest()
+                    for relative in source_inputs}
     # Ownership baselines describe upstream files; APP additions are also executable program inputs.
     def program_state() -> dict:
         server = reject_symlinked_path(source, 'server')
@@ -753,7 +775,7 @@ def development_runtime(source: Path, target: Path) -> None:
             raise error
         def included(relative: str) -> bool:
             return (relative != 'server/private' and not relative.startswith('server/private/')
-                    and relative != 'server/.peanut/development-runtime.json'
+                    and relative not in derived
                     and allowed_source(relative)
                     and not any(relative == prefix.rstrip('/') or relative.startswith(prefix)
                                 for prefix in PROTECTED_RUNTIME_PREFIXES))
@@ -785,14 +807,6 @@ def development_runtime(source: Path, target: Path) -> None:
         mode = 0o755 if state['mode'] & 0o111 else 0o644
         copy_checked(source, target, relative, state['sha256'], mode)
     server = target/'server'
-    projected = {
-        MANIFEST: 'server/.peanut/application-manifest.json',
-        'release-versions.json': 'server/.peanut/release-versions.json',
-        'RELEASE_METADATA.json': 'server/.peanut/RELEASE_METADATA.json',
-        'resources/project-resources.json': 'server/resources/project-resources.json',
-        'scripts/scaffold-runtime/ReleaseDependencyIdentity.php':
-            'server/docker/scripts/scaffold-runtime/ReleaseDependencyIdentity.php',
-    }
     source_projection = {}
     for origin, relative in projected.items():
         path = regular_file(source, origin)
@@ -815,6 +829,9 @@ def development_runtime(source: Path, target: Path) -> None:
              'core_php': versions['core_php']}
     if program_state() != before:
         raise ValueError('development program file set, bytes or modes changed during projection')
+    for relative, sha in source_fence.items():
+        if hashlib.sha256(regular_file(source, relative).read_bytes()).hexdigest() != sha:
+            raise ValueError('development root source changed during projection')
     for relative, sha in source_projection.items():
         if hashlib.sha256(regular_file(source, relative).read_bytes()).hexdigest() != sha:
             raise ValueError('development identity changed during projection')
