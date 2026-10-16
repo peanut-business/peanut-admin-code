@@ -5,14 +5,14 @@ declare(strict_types=1);
 require_once dirname(__DIR__, 2) . '/route/registry_source.php';
 
 use app\adminapi\http\middleware\AuthMiddleware;
-use app\adminapi\service\AdminApiAccessRegistry;
+use app\adminapi\infrastructure\AdminApiAccessRegistry;
 use app\common\execution\AdminExecutionContext;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use app\common\http\ApiProblem;
-use app\common\service\authorization\AdminAuthorizationService;
+use app\common\services\authorization\AdminAuthorizationService;
 use PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy;
-use app\common\service\permission\RegisteredAdminPermissionPolicy;
+use app\common\policy\permission\RegisteredAdminPermissionPolicy;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 
@@ -129,6 +129,10 @@ $authenticatedWrongMethod = new class {
     public function method(): string
     {
         return 'POST';
+    }
+    public function rule(): ?object
+    {
+        return null;
     }
 };
 $wrongMethodDenial = problemPayload(static fn() => $executionContexts->run(
