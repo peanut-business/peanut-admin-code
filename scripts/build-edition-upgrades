@@ -11,7 +11,7 @@ const EDITION_UPGRADE_STRICT_SEMVER = '/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1
 
 function editionUpgradeUsage(): never
 {
-    fwrite(STDERR, "Usage: php scripts/build-edition-upgrades --version=<semver> --minimum-source-version=<semver> --source-commit=<full-sha> --output=<absolute-directory> [--internal-core-inputs=<absolute-release-core-inputs.json>] [--adoption-source-version=<semver> --adoption-source-commit=<full-sha>] [--check]\n");
+    fwrite(STDERR, "Usage: php scripts/build-edition-upgrades --version=<semver> --minimum-source-version=<semver> --source-commit=<full-sha> --output=<absolute-directory> [--workflow=none|runtime|full] [--internal-core-inputs=<absolute-release-core-inputs.json>] [--adoption-source-version=<semver> --adoption-source-commit=<full-sha>] [--check]\n");
     exit(64);
 }
 
@@ -91,7 +91,7 @@ foreach (array_slice($argv, 1) as $argument) {
         $check = true;
         continue;
     }
-    if (preg_match('/^--(version|minimum-source-version|source-commit|output|internal-core-inputs|adoption-source-version|adoption-source-commit)=(.+)$/D', $argument, $matches) !== 1
+    if (preg_match('/^--(version|minimum-source-version|source-commit|output|workflow|internal-core-inputs|adoption-source-version|adoption-source-commit)=(.+)$/D', $argument, $matches) !== 1
         || isset($options[$matches[1]])) {
         editionUpgradeUsage();
     }
@@ -109,7 +109,8 @@ foreach (['version', 'minimum-source-version'] as $versionOption) {
 }
 if (Semver::greaterThanOrEqualTo($options['minimum-source-version'], $options['version'])
     || preg_match('/^[a-f0-9]{40}$/D', $options['source-commit']) !== 1
-    || !str_starts_with($options['output'], '/')) {
+    || !str_starts_with($options['output'], '/')
+    || (isset($options['workflow']) && !in_array($options['workflow'], ['none', 'runtime', 'full'], true))) {
     editionUpgradeUsage();
 }
 $hasAdoptionVersion = isset($options['adoption-source-version']);
@@ -163,6 +164,9 @@ try {
             '--output=' . $target,
             '--edition=' . $edition,
         ];
+        if (isset($options['workflow'])) {
+            $scaffoldCommand[] = '--workflow=' . $options['workflow'];
+        }
         if (isset($options['internal-core-inputs'])) {
             $scaffoldCommand[] = '--internal-core-inputs=' . $options['internal-core-inputs'];
         }
@@ -171,7 +175,8 @@ try {
         $targetManifest = json_decode((string) file_get_contents($targetManifestPath), true, 512, JSON_THROW_ON_ERROR);
         if (($targetManifest['edition']['name'] ?? null) !== $edition
             || ($targetManifest['release']['source_commit'] ?? null) !== $commit
-            || ($targetManifest['release']['source_tree'] ?? null) !== $tree) {
+            || ($targetManifest['release']['source_tree'] ?? null) !== $tree
+            || (isset($options['workflow']) && ($targetManifest['release']['workflow'] ?? null) !== $options['workflow'])) {
             throw new RuntimeException('EDITION_UPGRADE_TARGET_IDENTITY_INVALID');
         }
         $internalProjection = $targetManifest['internal_core_projection'] ?? null;
@@ -230,7 +235,8 @@ try {
         }
         usort($migrations, static fn(array $left, array $right): int => strcmp($left['path'], $right['path']));
 
-        $archiveRoot = 'peanut-admin-' . $options['version'] . '-' . $edition . '-upgrade';
+        $archiveRoot = 'peanut-admin-' . $options['version'] . '-' . $edition
+            . (isset($options['workflow']) ? '-workflow-' . $options['workflow'] : '') . '-upgrade';
         $package = $temporary . '/' . $archiveRoot;
         if (!mkdir($package, 0700, true) || !rename($target, $package . '/target')) {
             throw new RuntimeException('EDITION_UPGRADE_STAGE_FAILED');
@@ -376,6 +382,9 @@ try {
                 'bytes' => filesize($archive),
             ],
         ];
+        if (isset($options['workflow'])) {
+            $artifact['workflow'] = $options['workflow'];
+        }
         if ($internalProjection !== null) {
             $artifact['scope'] = 'internal-upgrade-candidate';
             $artifact['formal_release_eligible'] = false;
