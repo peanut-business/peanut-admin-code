@@ -2333,7 +2333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9e7ddf214f17f6313d1dc8f1f9c5928ea63edc26c98603a73f67f15da5d2036c"
+            "source_sha256": "18e739a28974c995d867baa0179433891c736634e96d5c1bc430700f960c2c97"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2456,7 +2456,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6282e5fa58dfc5e7b2fead561fc149be17680186f5290cfcc0452a18701d3cc4"
+            "source_sha256": "03a6df189b5d85b4abd9eb897a6d6b1061a59d092ec9589d7f0ebe6240f2a3b4"
         },
         {
             "path": "plugins/official.identity/plugin.json",
@@ -12170,7 +12170,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f0b5615193d2ebafc27d23d953e7f95d7d0dbb3a9706d0d1baec781f65b718dd"
+            "source_sha256": "e70c3988d6ca47f98cb3029ef78a313ef9af570315f880e44c4eb512cc7654c0"
         },
         {
             "path": "server/app/modules/official/file/src/Contract/FileReferenceCommands.php",
@@ -25255,7 +25255,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "97ede3e07d85a00c858e5019d0647dba6eaae7edc36d88679722dbe9a82a03a8"
+            "source_sha256": "a196d36572818e6b091f39fecf7c80579244fcc76f9451c47718082f816da9db"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",

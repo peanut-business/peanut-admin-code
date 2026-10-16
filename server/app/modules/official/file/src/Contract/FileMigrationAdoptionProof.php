@@ -20,12 +20,6 @@ final readonly class FileMigrationAdoptionProof
         'official.file:20261012030000_add_controlled_file_references',
         'official.file:20261012051000_add_immutable_document_snapshots',
     ];
-    private const MIGRATION_SHA256 = [
-        'f79c35b2fe8414dc172a81a45183d2a52eadb05833a704149780b36e400ca2d4',
-        '826fa9d8fd841b6834bc5f23cabced30b7ca111de4bb1f629ccbdb8501200cd4',
-        '005edad54fc0cf06a4eeb6afa7c0e5f374a0bc352eaa088282b2f12932251591',
-        '7b73c0c24f14f4c7f4fc1f75321e009b1a645d7df3f7d653dbb3d018e3b5bdbe',
-    ];
 
     // Frozen semantic declarations from d0f01eb's init.sql and the four original SQL files.
     private const SCHEMAS = <<<'JSON'
@@ -34,7 +28,8 @@ JSON;
 
     public function __construct(private CurrentExecutionContext $contexts) {}
 
-    public function report(string $oldMigrationKey, ?PDO $expectedPdo = null): array
+    /** The application owner supplies this source-bound reader; it runs inside this exact PDO snapshot. */
+    public function report(string $oldMigrationKey, \Closure $applicationHistory, ?PDO $expectedPdo = null): array
     {
         $checks = [];
         $pdo = null;
@@ -67,7 +62,12 @@ JSON;
             }
             $checks['database'] = (string) $pdo->query('SELECT DATABASE()')->fetchColumn();
             if ($checks['database'] === '') { throw new \RuntimeException('DATABASE_UNKNOWN'); }
-            $this->historicalApplicationMigration($pdo, $oldMigrationKey, $position, $checks);
+            $history = $applicationHistory($pdo, $oldMigrationKey);
+            if (!is_array($history) || array_keys($history) !== ['historical_application_migration', 'historical_application_migration_observation']
+                || !in_array($history['historical_application_migration_observation'], ['unknown_ledger_absent', 'unknown_record_absent', 'recorded_applied'], true)) {
+                throw new \RuntimeException('APPLICATION_MIGRATION_LEDGER_INVALID');
+            }
+            $checks += $history;
             $schemas = json_decode(self::SCHEMAS, true, 512, JSON_THROW_ON_ERROR);
             $names = [];
             foreach (array_keys($schemas['post']) as $name) {
@@ -177,7 +177,7 @@ JSON;
             $known = ['CHECK_DATA_MISMATCH', 'FOREIGN_DATA_MISMATCH', 'UNIQUE_DATA_MISMATCH',
                 'FILE_RELATIONSHIP_MISMATCH', 'REFERENCED_KEY_UNKNOWN', 'CHECK_NOT_ENFORCED',
                 'CHECK_SYNTAX_UNKNOWN', 'INDEX_UNKNOWN', 'TABLE_UNKNOWN', 'FOREIGN_SCHEMA_UNKNOWN',
-                'APPLICATION_MIGRATION_LEDGER_INVALID', 'APPLICATION_MIGRATION_RECORD_CONFLICT',
+                'APPLICATION_MIGRATION_LEDGER_INVALID', 'APPLICATION_MIGRATION_RECORD_CONFLICT', 'APPLICATION_MIGRATION_HISTORY_PDO_MISMATCH',
                 'MIGRATION_CONSTRAINT_NAME_CONFLICT', 'MIGRATION_CONSTRAINT_NAMES_UNKNOWN'];
             $reason = in_array($exception->getMessage(), $known, true) ? $exception->getMessage() : 'FILE_ADOPTION_PROOF_UNKNOWN';
             return $this->result($oldMigrationKey, 'reject', $checks, $reason);
@@ -350,54 +350,6 @@ JSON;
     {
         $statement = $pdo->prepare($sql); $statement->execute($parameters);
         $rows = $statement->fetchAll(PDO::FETCH_ASSOC); $statement->closeCursor(); return $rows;
-    }
-
-    /** Application history is a distinct claim; it never substitutes for Module adoption proof. */
-    private function historicalApplicationMigration(PDO $pdo, string $moduleKey, int $position, array &$checks): void
-    {
-        $checks['historical_application_migration'] = null;
-        $checks['historical_application_migration_observation'] = 'unknown_ledger_absent';
-        // ApplicationMigrationRunner uses this literal name, independently of Module table prefixes.
-        $tables = $this->rows($pdo, 'SELECT ENGINE,TABLE_TYPE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', ['pa_schema_migration']);
-        if ($tables === []) { return; }
-        $checks['historical_application_migration_observation'] = 'ledger_present_unverified';
-        if (count($tables) !== 1 || $tables[0]['ENGINE'] !== 'InnoDB' || $tables[0]['TABLE_TYPE'] !== 'BASE TABLE') {
-            throw new \RuntimeException('APPLICATION_MIGRATION_LEDGER_INVALID');
-        }
-        $columns = $this->rows($pdo, 'SELECT COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,COLUMN_DEFAULT,EXTRA,GENERATION_EXPRESSION FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', ['pa_schema_migration']);
-        $expected = ['migration_id' => ['varchar(190)', null], 'release_version' => ['varchar(32)', null],
-            'checksum' => ['char(64)', null], 'status' => ["enum('applying','applied','failed')", 'applying']];
-        foreach ($columns as $column) {
-            $name = $column['COLUMN_NAME'];
-            if (!isset($expected[$name])) { continue; }
-            if (strtolower($column['COLUMN_TYPE']) !== $expected[$name][0] || $column['IS_NULLABLE'] !== 'NO'
-                || $column['COLUMN_DEFAULT'] !== $expected[$name][1] || $column['EXTRA'] !== '' || $column['GENERATION_EXPRESSION'] !== '') {
-                throw new \RuntimeException('APPLICATION_MIGRATION_LEDGER_INVALID');
-            }
-            unset($expected[$name]);
-        }
-        $primary = $this->rows($pdo, "SELECT COLUMN_NAME,NON_UNIQUE,SUB_PART,INDEX_TYPE,IS_VISIBLE FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='pa_schema_migration' AND INDEX_NAME='PRIMARY' ORDER BY SEQ_IN_INDEX", []);
-        if ($expected !== [] || count($primary) !== 1 || $primary[0]['COLUMN_NAME'] !== 'migration_id'
-            || (int) $primary[0]['NON_UNIQUE'] !== 0 || $primary[0]['SUB_PART'] !== null
-            || $primary[0]['INDEX_TYPE'] !== 'BTREE' || $primary[0]['IS_VISIBLE'] !== 'YES') {
-            throw new \RuntimeException('APPLICATION_MIGRATION_LEDGER_INVALID');
-        }
-        $id = substr($moduleKey, strlen('official.file:'));
-        $records = $this->rows($pdo, 'SELECT migration_id,release_version,checksum,status FROM pa_schema_migration WHERE migration_id=?', [$id]);
-        $checks['historical_application_migration_observation'] = 'unknown_record_absent';
-        if ($records === []) { return; }
-        $checks['historical_application_migration_observation'] = 'record_conflict';
-        $row = $records[0];
-        if (count($records) !== 1 || $row['migration_id'] !== $id || !is_string($row['release_version'])
-            || preg_match('/^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.+-]+)?$/D', $row['release_version']) !== 1
-            || !is_string($row['checksum']) || !hash_equals(self::MIGRATION_SHA256[$position], $row['checksum'])
-            || $row['status'] !== 'applied') {
-            throw new \RuntimeException('APPLICATION_MIGRATION_RECORD_CONFLICT');
-        }
-        $checks['historical_application_migration'] = ['source' => 'application-migration-ledger',
-            'migration_id' => $row['migration_id'], 'release_version' => $row['release_version'],
-            'checksum' => $row['checksum'], 'status' => 'applied', 'claim' => 'recorded_applied'];
-        $checks['historical_application_migration_observation'] = 'recorded_applied';
     }
 
     private function count(PDO $pdo, string $sql): int
