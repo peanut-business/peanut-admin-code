@@ -13,6 +13,7 @@ from pathlib import Path, PurePosixPath
 PROTOCOL = "peanut.internal-edition-candidate.v1"
 MARKER = ".peanut/internal-candidate.json"
 ROOT = Path(__file__).resolve().parent
+sys.dont_write_bytecode = True
 _spec = importlib.util.spec_from_file_location("release_file_policy", ROOT / "package-release-files.py")
 _policy = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_policy)
@@ -54,7 +55,7 @@ def document(path: Path) -> dict:
     return value
 
 
-def tree(root: Path, core_path: str | None = None) -> dict:
+def tree(root: Path, archive_paths: set[str] | None = None) -> dict:
     require(root.is_dir() and not root.is_symlink(), "ROOT_INVALID")
     result = {}
     original_manifest = root / ".peanut/application-manifest.json"
@@ -69,12 +70,12 @@ def tree(root: Path, core_path: str | None = None) -> dict:
             continue
         source = file(root, name)
         logical = name.split("/files/", 1)[1] if name.startswith(".peanut/scaffold-baseline/") and "/files/" in name else name
-        # Internal backend qualification preserves immutable declared frontend
-        # inputs, but does not install them or claim a formal browser package.
+        # Baseline archives retain their original digest. Projected archives
+        # are accepted only at the exact marker-bound paths, never by suffix.
         original_frontend_archive = bool(re.fullmatch(
             r"packages/core-web/peanut-admin-(client|vue|ui-vue|nuxt|uniapp|testing)-[0-9A-Za-z.+-]+\.tgz", logical
         )) and declared.get(logical) == digest(source)
-        require(name == core_path or _policy.allowed_source(name) or original_frontend_archive,
+        require(name in (archive_paths or set()) or _policy.allowed_source(name) or original_frontend_archive,
                 "FORBIDDEN_SOURCE:" + name)
         if name != MARKER:
             result[name] = {"sha256": digest(source), "mode": stat.S_IMODE(source.stat().st_mode)}
@@ -86,10 +87,32 @@ def tree_digest(value: dict) -> str:
 
 
 def allowed_projection(name: str) -> bool:
-    return name in {"server/composer.json", "server/composer.lock", "plugins.lock"} or bool(
+    return name in {"server/composer.json", "server/composer.lock", "plugins.lock", "release-versions.json",
+                   *[f"{client}/{filename}" for client, filename in
+                     (("web", "pnpm-lock.yaml"), ("platform", "package-lock.json"),
+                      ("pc", "package-lock.json"), ("uniapp", "package-lock.json"))],
+                   *[f"{client}/package.json" for client in ("web", "platform", "pc", "uniapp")]} or bool(
         re.fullmatch(r"server/app/modules/[a-z0-9_-]+/[a-z0-9_-]+/composer\.json", name)
         or re.fullmatch(r"plugins/[a-z0-9._-]+/plugin\.json", name)
     )
+
+
+def archives(marker: dict) -> dict[str, dict]:
+    core = marker.get("core")
+    require(isinstance(core, dict), "CORE_REQUIRED")
+    result = {relative(core.get("path_in_archive")): core}
+    web = marker.get("core_web")
+    if web is not None:
+        require(isinstance(web, dict) and len(web) == 6, "WEB_INPUTS_REQUIRED")
+        for suffix in ("client", "vue", "ui-vue", "nuxt", "uniapp", "testing"):
+            row = web.get("@peanut-admin/" + suffix)
+            require(isinstance(row, dict), "WEB_PACKAGE_MISSING")
+            name = relative(row.get("archive"))
+            require(name == f"packages/core-web/peanut-admin-{suffix}-{row.get('version')}.tgz"
+                    and re.fullmatch(r"[0-9a-f]{64}", str(row.get("sha256", ""))) is not None,
+                    "WEB_ARCHIVE_INVALID")
+            result[name] = row
+    return result
 
 
 def verify(root: Path, expected: dict | None = None) -> dict:
@@ -105,7 +128,14 @@ def verify(root: Path, expected: dict | None = None) -> dict:
             and isinstance(core.get("resolved_version"), str)
             and re.fullmatch(r"[0-9a-f]{40}", str(core.get("source_reference", ""))) is not None, "CORE_IDENTITY_INVALID")
     require(digest(file(root, core_path)) == core.get("sha256"), "CORE_DIGEST_MISMATCH")
-    current = tree(root, core_path)
+    inputs = archives(marker)
+    for name, row in inputs.items():
+        require(digest(file(root, name)) == row.get("sha256"), "ARCHIVE_DIGEST_MISMATCH:" + name)
+        if name.endswith(".tgz"):
+            import base64
+            expected_sri = "sha512-" + base64.b64encode(hashlib.sha512(file(root, name).read_bytes()).digest()).decode()
+            require(row.get("integrity") == expected_sri, "ARCHIVE_SRI_MISMATCH")
+    current = tree(root, set(inputs))
     projection = marker.get("projection")
     require(isinstance(projection, dict), "PROJECTION_REQUIRED")
     require(tree_digest(current) == projection.get("projected_tree_sha256"), "PROJECTED_TREE_MISMATCH")
@@ -117,13 +147,17 @@ def verify(root: Path, expected: dict | None = None) -> dict:
     for row in changes:
         require(isinstance(row, dict), "PROJECTION_ROW_INVALID")
         name = relative(row.get("path"))
-        require(name not in seen and allowed_projection(name), "PROJECTION_PATH_INVALID")
+        require(name not in seen and (allowed_projection(name) or name in inputs), "PROJECTION_PATH_INVALID")
         seen.add(name)
         require(current.get(name) == row.get("after") and isinstance(row.get("before"), dict), "PROJECTION_DIGEST_MISMATCH")
         original[name] = row["before"]
-    require(len(additions) == 1 and additions[0].get("path") == core_path, "ADDITIONS_INVALID")
-    require(current.get(core_path) == additions[0].get("after") and core_path not in seen, "ADDITION_DIGEST_MISMATCH")
-    original.pop(core_path)
+    for row in additions:
+        require(isinstance(row, dict), "ADDITION_INVALID")
+        name = relative(row.get("path"))
+        require(name in inputs and name not in seen and current.get(name) == row.get("after"), "ADDITION_DIGEST_MISMATCH")
+        seen.add(name)
+        original.pop(name)
+    require(core_path in seen, "CORE_ADDITION_REQUIRED")
     require(tree_digest(original) == projection.get("original_tree_sha256"), "ORIGINAL_TREE_MISMATCH")
     manifest_path = file(root, ".peanut/application-manifest.json")
     require(digest(manifest_path) == marker.get("original_manifest_sha256"), "ORIGINAL_MANIFEST_MISMATCH")
@@ -134,6 +168,21 @@ def verify(root: Path, expected: dict | None = None) -> dict:
     for row in rows:
         name = relative(row.get("path"))
         require(original.get(name) == {"sha256": row.get("sha256"), "mode": row.get("mode")}, "SOURCE_BASELINE_MISMATCH:" + name)
+        if row.get("classification") in ("managed", "generated-managed"):
+            baseline = relative(row.get("baseline_path"))
+            require(digest(file(root, baseline)) == row.get("baseline_sha256"), "IMMUTABLE_BASELINE_MISMATCH:" + name)
+    if marker.get("core_web") is not None:
+        require(marker.get("source_files") == current, "SEALED_SOURCE_INVENTORY_MISMATCH")
+        selection = marker.get("selection", {})
+        require(selection == {"edition": manifest.get("application", {}).get("edition"), "profile": "full", "workflow": "full",
+                              "clients": ["Admin", "Platform", "PC SPA", "UniApp H5"]}, "SELECTION_INVALID")
+        require(re.fullmatch(r"[0-9a-f]{64}", str(marker.get("core_inputs_sha256", ""))) is not None, "INPUT_RECEIPT_DIGEST_INVALID")
+        versions = document(file(root, "release-versions.json"))
+        require(versions.get("core_php", {}).get("source_reference") == core["source_reference"]
+                and versions.get("core_web", {}).get("source_reference") == marker.get("web_source_reference"), "PROJECTED_VERSIONS_MISMATCH")
+        for package, row in marker["core_web"].items():
+            require(versions.get("core_web", {}).get("packages", {}).get(package) ==
+                    {k: row[k] for k in ("version", "archive", "sha256")}, "WEB_VERSION_IDENTITY_MISMATCH")
     composer = document(file(root, "server/composer.json"))
     lock = document(file(root, "server/composer.lock"))
     require(composer.get("require", {}).get("peanut-admin/core") == core["resolved_version"], "CORE_REQUIRE_MISMATCH")
@@ -155,40 +204,103 @@ def verify(root: Path, expected: dict | None = None) -> dict:
         require(expected.get("protocol") == PROTOCOL and expected.get("scope") == "internal-candidate", "EXTERNAL_SCOPE_MISMATCH")
         require(expected.get("candidate_marker") == {"path": MARKER, "sha256": digest(marker_path)}, "EXTERNAL_MARKER_MISMATCH")
         require(expected.get("projection") == projection and expected.get("core_php_archive") == core, "EXTERNAL_PROJECTION_MISMATCH")
+        if marker.get("core_web") is not None:
+            require(expected.get("core_web_archives") == marker["core_web"]
+                    and expected.get("selection") == marker["selection"]
+                    and expected.get("build_tool_inputs", {}).get("core_receipt_sha256") == marker["core_inputs_sha256"], "EXTERNAL_SEVEN_INPUT_MISMATCH")
         require(expected.get("source", {}).get("commit") == marker["generation_source"].get("commit")
                 and expected.get("source", {}).get("tree") == marker["generation_source"].get("tree")
                 and expected.get("edition") == manifest.get("edition"), "EXTERNAL_SOURCE_MISMATCH")
         for name, value in expected.get("dependency_locks", {}).items():
-            if name == "third_party_composer_rows_sha256":
+            if name.startswith("third_party_"):
                 continue
             require(digest(file(root, name)) == value, "LOCK_DIGEST_MISMATCH")
     return {"status": "verified-internal-candidate", "candidate_marker": {"path": MARKER, "sha256": digest(marker_path)},
-            "projection": projection, "source_file_count": len(rows), "nested_core_manifests": modules}
+            "projection": projection, "source_file_count": len(rows), "nested_core_manifests": modules,
+            "source_files": current, "archive_paths": sorted(inputs)}
 
 
 def seal(root: Path, captured: Path, core_file: Path) -> dict:
     before = document(captured)
-    core = document(core_file)
+    descriptor = document(core_file)
+    core = descriptor.get("core", descriptor)
     name = relative(core.get("path_in_archive"))
-    after = tree(root, name)
+    inputs = archives(descriptor if "core" in descriptor else {"core": core})
+    after = tree(root, set(inputs))
     require(set(before) <= set(after), "SOURCE_REMOVAL_REJECTED")
-    require(set(after) - set(before) == {name}, "UNEXPECTED_ADDITION")
+    require(set(after) - set(before) <= set(inputs) and name in set(after) - set(before), "UNEXPECTED_ADDITION")
     changes = []
     for path, previous in before.items():
         if previous != after[path]:
-            require(allowed_projection(path), "UNEXPECTED_PROJECTION:" + path)
+            require(allowed_projection(path) or path in inputs, "UNEXPECTED_PROJECTION:" + path)
             changes.append({"path": path, "before": previous, "after": after[path]})
     manifest_file = file(root, ".peanut/application-manifest.json")
     marker = {"schema_version": 1, "protocol": PROTOCOL, "scope": "internal-candidate", "formal_release_eligible": False,
               "generation_source": document(manifest_file)["generation_source"], "original_manifest_sha256": digest(manifest_file),
               "core": core, "projection": {"original_tree_sha256": tree_digest(before), "projected_tree_sha256": tree_digest(after),
-              "changes": changes, "additions": [{"path": name, "after": after[name]}]}}
+              "changes": changes, "additions": [{"path": p, "after": after[p]} for p in sorted(set(after) - set(before))]}}
+    if "core_web" in descriptor:
+        marker.update({k: descriptor[k] for k in ("core_web", "web_source_reference", "core_inputs_sha256", "selection")})
+        marker["source_files"] = after
     path = root / MARKER
     with path.open("x") as target:
         json.dump(marker, target, ensure_ascii=False, indent=2)
         target.write("\n")
     path.chmod(0o644)
     return verify(root)
+
+
+def verify_assembled(root: Path, expected: dict | None = None) -> dict:
+    """A complete APP has browser outputs; its sealed source is still exact."""
+    marker = document(file(root, MARKER))
+    identity_name = ".peanut/application-release.json"
+    identity = document(file(root, identity_name))
+    require(identity.get("protocol") == "peanut.application-release.v1"
+            and identity.get("application", {}).get("scope") == "internal-candidate"
+            and identity["application"].get("formal_release_eligible") is False, "ASSEMBLED_IDENTITY_INVALID")
+    paths = set()
+    for path in root.rglob("*"):
+        require(not path.is_symlink(), "ASSEMBLED_SYMLINK_REJECTED")
+        name = path.relative_to(root).as_posix()
+        require(name.casefold() not in paths, "ASSEMBLED_CASE_COLLISION")
+        paths.add(name.casefold())
+    rows = _policy.release_rows(root)
+    rows = [row for row in rows if row["path"] != identity_name]
+    require(rows == identity.get("files") and _policy.rows_sha256(rows) == identity.get("files_sha256"), "ASSEMBLED_TREE_MISMATCH")
+    actual = {r["path"]: {k: r[k] for k in ("sha256", "mode")} for r in rows}
+    sealed = marker.get("source_files")
+    require(isinstance(sealed, dict) and sealed, "SEALED_SOURCE_REQUIRED")
+    for name, row in sealed.items():
+        require(actual.get(name) == row, "ASSEMBLED_SOURCE_CHANGED:" + name)
+    prefixes = ("server/public/admin/", "server/public/platform/", "server/public/pc/", "server/public/mobile/")
+    for name in set(actual) - set(sealed) - {MARKER, "release-manifest.txt"}:
+        prefix = next((p for p in prefixes if name.startswith(p)), None)
+        asset = name[len(prefix):] if prefix else ""
+        require(bool(asset) and _policy.allowed_source(asset)
+                and PurePosixPath(asset).parts[0] not in {"storage", "private", "server", "scripts"}
+                and not any(part.startswith(".") for part in PurePosixPath(asset).parts)
+                and re.search(r"\.(?:php[0-9]*|phtml|phar|cgi|pl|py|sh)(?:\.|$)", asset, re.I) is None,
+                "ASSEMBLED_EXTRA_FILE:" + name)
+    for prefix in prefixes:
+        require(prefix + "index.html" in actual, "BROWSER_ENTRY_MISSING:" + prefix)
+    require(identity["application"].get("candidate_marker") == {"path": MARKER, "sha256": digest(file(root, MARKER))}, "ASSEMBLED_MARKER_MISMATCH")
+    require(identity["application"].get("manifest_sha256") == marker.get("original_manifest_sha256")
+            and identity["application"].get("projection") == marker.get("projection")
+            and identity["application"].get("selection") == marker.get("selection"), "ASSEMBLED_ORIGINAL_IDENTITY_MISMATCH")
+    if expected is not None:
+        require(expected.get("application", {}).get("release_identity_sha256") == digest(file(root, identity_name)), "EXTERNAL_ASSEMBLED_IDENTITY_MISMATCH")
+    # Verify the source contract in a source-only view without weakening tree().
+    import tempfile
+    import shutil
+    with tempfile.TemporaryDirectory(prefix="peanut-internal-verify-") as temporary:
+        source = Path(temporary)
+        for name in [*sealed, MARKER]:
+            target = source / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(file(root, name), target)
+            target.chmod(actual[name]["mode"])
+        result = verify(source, expected)
+    return {**result, "status": "verified-complete-internal-app", "application_release_sha256": digest(file(root, identity_name))}
 
 
 if __name__ == "__main__":
@@ -203,6 +315,8 @@ if __name__ == "__main__":
             print(json.dumps(seal(root, Path(arguments[0]), Path(arguments[1]))))
         elif command == "verify" and len(arguments) <= 1:
             print(json.dumps(verify(root, document(Path(arguments[0])) if arguments else None)))
+        elif command == "verify-assembled" and len(arguments) <= 1:
+            print(json.dumps(verify_assembled(root, document(Path(arguments[0])) if arguments else None)))
         else:
             raise ValueError("INTERNAL_CANDIDATE_COMMAND_INVALID")
     except (ValueError, OSError, KeyError, TypeError) as error:

@@ -836,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4e936af6e9a9a4a4bdd3ba08b6d60c3681b032c3aa24cc4fc1e0ab97931e90f7"
+            "source_sha256": "e1e0573d4a13886ec23b8cc25dc94ed2afda8f2a36a205e38830dbb30ae7690c"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -2855,7 +2855,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bfeddaa5d7a24df8da6bbccc5392d35764a030372430aed7fca4498743f4cf3f"
+            "source_sha256": "66b4857d4c7d94e30eef6f642c29b31e6f099c92d2a8adbb7c32de65f039403e"
         },
         {
             "path": "scripts/build-scaffold-release",
@@ -3289,7 +3289,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "93f81670fc75229f6b84362cdb102234256a5f98091c8c55358a215d2ac1a783"
+            "source_sha256": "69699587235d94510bb0d9d0c52f466b893ea89372ce1e39ae9871fa620b7c87"
         },
         {
             "path": "scripts/local-client-dev",
@@ -3505,7 +3505,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9af9a608dbfa6f7f50ef47bb3efde39b6947e7ea400237b2994073cc6652b453"
+            "source_sha256": "d4cc2922af0e9bbab96a83b6c52535d11c31f92913cd147388110fa6c80473d1"
         },
         {
             "path": "scripts/package-release.sh",
@@ -3519,7 +3519,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ce09febb5b639fdc8d0a2ee2a584460d24de1807a5fa7091cd74a41b15bb235c"
+            "source_sha256": "469b1ae19ba0cd4e81accd305c93d5382784931a902526603ad6a3ddd59848ba"
         },
         {
             "path": "scripts/prepare-product-release-candidate",
@@ -3670,7 +3670,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6727f775aa929231799dd8194ed7e0a7b1cf0728140129cb7809992186315407"
+            "source_sha256": "b5ab4c4c875e41ac9f80d45478f86686ab7448e3e91d046c864f5017ca3d5b7d"
         },
         {
             "path": "scripts/release-metadata-version.cjs",

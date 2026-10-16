@@ -3,6 +3,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, realpathSync, lstatSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { spawnSync } from 'node:child_process';
 import { dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -121,7 +122,7 @@ export function lockedYamlParser(toolRoot) {
 }
 
 /** read 只读取指定源码/锁；Git 候选检查传入 git-show，绝不执行候选中的代码。 */
-export function verifyDependencyLocks(versions, read, parseYaml) {
+export function verifyDependencyLocks(versions, read, parseYaml, internal = false) {
   const mode = dependencyMode(versions);
   const json = (path) => JSON.parse(String(read(path)));
   const p = versions.core_php,
@@ -143,7 +144,7 @@ export function verifyDependencyLocks(versions, read, parseYaml) {
   )
     fail('Composer manifest/lock/provenance');
   if (
-    mode === 'registry' &&
+    (mode === 'registry' || internal) &&
     (Object.values(composer.repositories ?? {}).some(
       (x) => x?.type === 'path'
     ) ||
@@ -163,15 +164,16 @@ export function verifyDependencyLocks(versions, read, parseYaml) {
   for (const [client, suffixes] of Object.entries(required)) {
     const manifest = json(`${client}/package.json`);
     if (
-      mode === 'registry' &&
-      Object.values({
+      (mode === 'registry' || internal) &&
+      Object.entries({
         ...manifest.dependencies,
         ...manifest.devDependencies,
         ...manifest.optionalDependencies,
       }).some(
-        (value) =>
+        ([name, value]) =>
           typeof value !== 'string' ||
-          /^(?:file:|link:|workspace:|\/|\.\.?\/)/.test(value)
+          (/^(?:file:|link:|workspace:|\/|\.\.?\/)/.test(value) &&
+            !(internal && name.startsWith('@peanut-admin/')))
       )
     )
       fail(`${client} local dependency`);
@@ -191,7 +193,7 @@ export function verifyDependencyLocks(versions, read, parseYaml) {
       )
         fail(`${client}:${name} declaration`);
     }
-    if (mode === 'archive') continue; // 开发静态合同继续检查实际 tgz；不冒充原生安装验收。
+    if (mode === 'archive' && !internal) continue;
     if (client === 'web') {
       if (typeof parseYaml !== 'function')
         fail('locked YAML parser required for native pnpm lock');
@@ -209,19 +211,22 @@ export function verifyDependencyLocks(versions, read, parseYaml) {
           importer?.optionalDependencies?.[name];
         if (
           reference?.specifier !== specifier ||
-          String(reference?.version).split('(')[0] !== packages[name].version
+          String(reference?.version).split('(')[0] !==
+            (mode === 'archive' ? `file:../${packages[name].archive}` : packages[name].version)
         )
           fail(`pnpm importer:${name}`);
       }
       for (const [key, value] of Object.entries(lock.packages ?? {})) {
         if (!key.startsWith('@peanut-admin/')) continue;
-        const name = key.slice(0, key.lastIndexOf('@')),
+        const name = coreWebPackages.find((name) => key.startsWith(`${name}@`)),
           i = packages[name];
         if (
           !i ||
-          key !== `${name}@${i.version}` ||
-          value.resolution?.integrity !== i.integrity ||
-          (value.resolution?.tarball && value.resolution.tarball !== i.resolved)
+          key !== `${name}@${mode === 'archive' ? `file:../${i.archive}` : i.version}` ||
+          value.resolution?.integrity !== (mode === 'archive' ? archiveIntegrity(read, i) : i.integrity) ||
+          (mode === 'archive'
+            ? value.resolution?.tarball !== `file:../${i.archive}`
+            : value.resolution?.tarball && value.resolution.tarball !== i.resolved)
         )
           fail(`pnpm resolution:${key}`);
         checked.push(`${client}:${name}`);
@@ -251,8 +256,8 @@ export function verifyDependencyLocks(versions, read, parseYaml) {
           !i ||
           value.link ||
           value.version !== i.version ||
-          value.resolved !== i.resolved ||
-          value.integrity !== i.integrity
+          value.resolved !== (mode === 'archive' ? `file:../${i.archive}` : i.resolved) ||
+          value.integrity !== (mode === 'archive' ? archiveIntegrity(read, i) : i.integrity)
         )
           fail(`${client} npm resolution:${name}`);
         checked.push(`${client}:${name}`);
@@ -271,11 +276,88 @@ export function verifyDependencyLocks(versions, read, parseYaml) {
     mode,
     checked,
     proof:
-      mode === 'registry'
+      mode === 'registry' || internal
         ? 'native-lock-identity'
         : 'development-archive-identity',
     published: false,
   };
+}
+
+function archiveIntegrity(read, identity) {
+  const bytes = read(identity.archive);
+  if (createHash('sha256').update(bytes).digest('hex') !== identity.sha256)
+    fail('archive SHA-256');
+  return `sha512-${createHash('sha512').update(bytes).digest('base64')}`;
+}
+
+/** Native lock identity rows, excluding only Core; no lock rewriting. */
+export function thirdPartyLocks(read, parseYaml) {
+  const result = {};
+  for (const client of ['web', 'platform', 'pc', 'uniapp']) {
+    const lock = client === 'web'
+      ? parseYaml(String(read('web/pnpm-lock.yaml')))
+      : JSON.parse(String(read(`${client}/package-lock.json`)));
+    const rows = [];
+    for (const [key, value] of Object.entries(lock.packages ?? {})) {
+      if (!key || key.startsWith('@peanut-admin/') || /(?:^|\/)node_modules\/@peanut-admin\//.test(key)) continue;
+      // Peer-context paths may change when Core is projected; third-party
+      // package name/version and native origin/integrity must not change.
+      const name = client === 'web' ? key.split('(')[0]
+        : key.slice(key.lastIndexOf('node_modules/') + 13);
+      rows.push(JSON.stringify([name, value.version ?? null,
+        value.resolution ?? { resolved: value.resolved ?? null, integrity: value.integrity ?? null }]));
+    }
+    rows.sort();
+    result[client] = createHash('sha256').update(JSON.stringify(rows)).digest('hex');
+  }
+  return result;
+}
+
+/** Compare every regular archive payload byte with the contained installation.
+ * Python's stdlib reads archives without extracting or executing package code.
+ */
+function verifyArchivePayload(archive, location, kind, name, version) {
+  const program = String.raw`
+import hashlib,json,os,pathlib,stat,sys,tarfile,zipfile
+archive,location,kind,name,version=sys.argv[1:]
+root=pathlib.Path(location).resolve(strict=True)
+if kind=='tgz':
+    source=tarfile.open(archive,'r:gz')
+    entries=[]
+    for item in source.getmembers():
+        if item.isdir(): continue
+        if not item.isfile() or not item.name.startswith('package/'): raise ValueError('unsafe tar entry')
+        entries.append((item.name[8:],source.extractfile(item).read()))
+else:
+    source=zipfile.ZipFile(archive)
+    entries=[]
+    for item in source.infolist():
+        if item.is_dir(): continue
+        if stat.S_ISLNK(item.external_attr>>16): raise ValueError('unsafe zip entry')
+        entries.append((item.filename,source.read(item)))
+    # Composer ZIPs may contain one repository prefix.
+    if not any(p=='composer.json' for p,_ in entries):
+        prefixes={p.split('/')[0] for p,_ in entries}
+        if len(prefixes)!=1: raise ValueError('zip root')
+        entries=[(p.split('/',1)[1],b) for p,b in entries]
+seen=set()
+for relative,data in entries:
+    p=pathlib.PurePosixPath(relative)
+    if p.is_absolute() or '..' in p.parts or str(p)!=relative or relative in seen: raise ValueError('archive path')
+    seen.add(relative)
+    actual=root.joinpath(*p.parts)
+    if actual.is_symlink() or not actual.is_file() or not actual.resolve().is_relative_to(root): raise ValueError('installed path')
+    if actual.read_bytes()!=data: raise ValueError('installed payload differs: '+relative)
+for actual in root.rglob('*'):
+    if actual.is_symlink(): raise ValueError('installed payload symlink')
+    if actual.is_file() and actual.relative_to(root).as_posix() not in seen: raise ValueError('unexpected installed payload file')
+manifest=json.loads((root/('package.json' if kind=='tgz' else 'composer.json')).read_text())
+if manifest.get('name')!=name or (kind=='tgz' and manifest.get('version')!=version): raise ValueError('archive manifest')
+print(json.dumps(manifest))
+`;
+  const result = spawnSync('python3', ['-c', program, archive, location, kind, name, version], { encoding: 'utf8' });
+  if (result.status !== 0) fail(`installed archive payload:${name}: ${result.stderr?.trim()}`);
+  return JSON.parse(result.stdout);
 }
 
 /** 只解析真实安装位置；pnpm目录内链接合法，发布候选不得借用应用外源码。 */
@@ -345,10 +427,17 @@ export function verifyInstalledPhp(applicationRoot, expected) {
 }
 
 /** 开发archive模式保持本地Core连接；registry候选严格核实际PHP/Web安装位置。 */
-export function verifyInstalledDependencies(applicationRoot, document) {
+export function verifyInstalledDependencies(applicationRoot, document, internal = false) {
   const root = realpathSync(applicationRoot),
-    independent = dependencyMode(document) === 'registry';
+    independent = dependencyMode(document) === 'registry' || internal;
   const php = independent ? verifyInstalledPhp(root, document.core_php) : null;
+  if (internal) {
+    const marker = JSON.parse(readFileSync(resolve(root, '.peanut/internal-candidate.json')));
+    const locked = JSON.parse(readFileSync(resolve(root, 'server/composer.lock'))).packages.find((p) => p.name === 'peanut-admin/core');
+    if (locked?.dist?.url !== `../${marker.core.path_in_archive}` || locked?.dist?.shasum !== marker.core.sha1)
+      fail('PHP internal archive origin');
+    verifyArchivePayload(resolve(root, marker.core.path_in_archive), resolve(root, php.path), 'zip', 'peanut-admin/core', document.core_php.resolved_version);
+  }
   const web = [];
   for (const client of ['web', 'platform', 'pc', 'uniapp']) {
     const manifest = JSON.parse(
@@ -370,11 +459,23 @@ export function verifyInstalledDependencies(applicationRoot, document) {
         installed.version !== document.core_web.packages[name]?.version
       )
         fail(`${client} installed:${name}`);
+      if (internal) {
+        const identity = document.core_web.packages[name];
+        const payload = verifyArchivePayload(resolve(root, identity.archive), dirname(actual), 'tgz', name, identity.version);
+        for (const [peer, constraint] of Object.entries(payload.peerDependencies ?? {})) {
+          if (!peer.startsWith('@peanut-admin/')) continue;
+          const selected = document.core_web.packages[peer];
+          const declaration = { ...manifest.dependencies, ...manifest.devDependencies, ...manifest.optionalDependencies }[peer];
+          if (!selected || constraint !== selected.version || declaration !== `file:../${selected.archive}`)
+            fail(`${client}:${name} unresolved Core peer:${peer}`);
+        }
+      }
       web.push({
         client,
         package: name,
         version: installed.version,
         contained: actual.startsWith(root + sep),
+        ...(internal ? { archive: document.core_web.packages[name].archive, proof: 'archive-payload-bytes-and-contained-location' } : {}),
       });
     }
   }
@@ -395,9 +496,9 @@ if (
 ) {
   try {
     const args = process.argv.slice(2);
-    if (!args[0] || args.length > 2 || (args[1] && args[1] !== '--installed'))
+    if (!args[0] || args.slice(1).some((arg) => !['--installed', '--internal-candidate', '--third-party-only'].includes(arg) && !arg.startsWith('--tool-root=')))
       throw new Error(
-        'Usage: release-dependency-locks.mjs <application-root> [--installed]'
+        'Usage: release-dependency-locks.mjs <application-root> [--installed] [--internal-candidate] [--third-party-only] [--tool-root=<root>]'
       );
     const root = realpathSync(args[0]);
     const read = (relative) => {
@@ -407,21 +508,29 @@ if (
       return readFileSync(path);
     };
     const document = JSON.parse(read('release-versions.json'));
+    const internal = args.includes('--internal-candidate');
+    if (internal && dependencyMode(document) !== 'archive') fail('internal candidate requires carried archives');
+    const toolRoot = args.find((arg) => arg.startsWith('--tool-root='))?.slice(12) ?? root;
+    const parseYaml = (internal || args.includes('--third-party-only') || dependencyMode(document) === 'registry')
+      ? lockedYamlParser(toolRoot) : undefined;
+    if (args.includes('--third-party-only')) {
+      console.log(JSON.stringify(thirdPartyLocks(read, parseYaml)));
+      process.exit(0);
+    }
     const result = verifyDependencyLocks(
       document,
       read,
-      dependencyMode(document) === 'registry'
-        ? lockedYamlParser(root)
-        : undefined
+      parseYaml,
+      internal
     );
     const installed =
-      args[1] === '--installed'
-        ? verifyInstalledDependencies(root, document)
+      args.includes('--installed')
+        ? verifyInstalledDependencies(root, document, internal)
         : null;
     console.log(
       JSON.stringify({
         ...result,
-        installed_manifests_checked: args[1] === '--installed',
+        installed_manifests_checked: args.includes('--installed'),
         installed,
       })
     );
