@@ -4,6 +4,7 @@ services:
   php:
     image: ${PHP_IMAGE:?set PHP_IMAGE in server/docker/.env}
     restart: unless-stopped
+    stop_signal: SIGTERM
     # The owner verifies non-dumpable FPM workers through their actual /proc paths.
     # Workers must still have zero effective/permitted/inheritable/ambient capabilities.
     cap_add:

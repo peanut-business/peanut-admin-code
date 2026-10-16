@@ -26878,7 +26878,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dfe8cff5fa8d6f08786acd636d4624d9e065f801ef1e819ce0697156079f7d70"
+            "source_sha256": "36aef016b35336b790d20c8fd4b00d513b1e9a971bee9fb6210026efeea83a5b"
         },
         {
             "path": "server/docker/conf/crontab",
