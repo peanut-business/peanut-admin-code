@@ -37,6 +37,7 @@ final class ApplicationSchemaHost
     public static function migrationPrestate(PDO $pdo, array $migration, array $precedingPending = [], bool $planning = false): array
     {
         [$id, $sql, $sha] = self::prestateIdentity($migration);
+        $constraintNames = self::prestateConstraintNames($pdo, $id);
         $before = [];
         foreach ($precedingPending as $row) {
             if (!is_array($row)) { throw new RuntimeException('APPLICATION_SCHEMA_PREDECESSOR_IDENTITY_REQUIRED'); }
@@ -162,7 +163,61 @@ final class ApplicationSchemaHost
         ksort($deferred, SORT_STRING);
         return ['migration_id' => $id, 'sha256' => $sha, 'status' => $deferred === [] ? 'ready' : 'deferred',
             'complete_preconditions_proven' => $deferred === [], 'application_prerequisites' => array_values($deferred),
-            'proof' => $proof, 'tables' => $facts, 'readonly' => true];
+            'proof' => $proof, 'constraint_names' => $constraintNames, 'tables' => $facts, 'readonly' => true];
+    }
+
+    /** Schema-scoped names in the fixed SQL, including dynamic ALTER strings. */
+    private static function prestateConstraintNames(PDO $pdo, string $id): array
+    {
+        // All nine immutable inputs are enumerated. Index/unique names are table
+        // scoped and checked separately. These SQL files create no persistent FK.
+        $expected = match ($id) {
+            '20260909-notification-sms-reservation' => ['chk_notice_sms_reservation_active' => ['table' => 'pa_notice_log', 'existing' => false]],
+            '20261007-auth-client-schema' => ['chk_tenant_session_client' => ['table' => 'pa_tenant_session', 'existing' => true]],
+            '20261016-module-migration-provenance' => [
+                'chk_module_migration_resolution' => ['table' => 'pa_module_migration', 'existing' => true],
+                'chk_module_migration_provenance' => ['table' => 'pa_module_migration', 'existing' => true],
+            ],
+            '20261004-group-default-navigation', '20261004-menu-stable-identities',
+            '20261007-readiness-permission', '20261012-align-department-canonical-permissions',
+            '20261012-align-platform-ops-permission-ownership', '20261012-repair-seeded-permission-parents' => [],
+            default => throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_SQL_UNKNOWN'),
+        };
+        // The assertion CHECKs belong to session-local temporary tables, not the
+        // persistent schema namespace; their predicates are proved by the CTEs.
+        $temporary = match ($id) {
+            '20261012-align-department-canonical-permissions' => ['chk_dept_permission_assertion', 'chk_dept_action_assertion'],
+            '20261012-align-platform-ops-permission-ownership' => ['chk_platform_ops_permission_owner_assertion'],
+            default => [],
+        };
+        if ($expected === []) { return ['persistent' => [], 'temporary_checks' => $temporary]; }
+        $database = (string) $pdo->query('SELECT DATABASE()')->fetchColumn();
+        if (preg_match('/\A[A-Za-z0-9_]+\z/D', $database) !== 1) { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_CONSTRAINT_VISIBILITY_UNKNOWN'); }
+        // Match the native File proof: INFORMATION_SCHEMA alone can hide owners.
+        // Direct whole-schema SELECT/ALL grants establish visibility; role-only,
+        // unrecognized or partially revoked grants cannot prove name absence.
+        $visible = false; $restricted = false;
+        foreach ($pdo->query('SHOW GRANTS')->fetchAll(PDO::FETCH_NUM) as $row) {
+            $grant = count($row) === 1 ? $row[0] : null;
+            if (is_string($grant) && str_starts_with($grant, 'REVOKE ')) { $restricted = true; }
+            if (!is_string($grant) || preg_match('/\AGRANT (.+) ON (.+) TO /D', $grant, $match) !== 1
+                || !in_array($match[2], ['*.*', '`' . $database . '`.*'], true)) { continue; }
+            $privileges = array_map('trim', explode(',', $match[1]));
+            $visible = $visible || in_array('SELECT', $privileges, true) || in_array('ALL PRIVILEGES', $privileges, true);
+        }
+        if (!$visible || $restricted) { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_CONSTRAINT_VISIBILITY_UNKNOWN'); }
+        $query = $pdo->prepare("SELECT TABLE_NAME,CONSTRAINT_NAME,CONSTRAINT_TYPE FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA=DATABASE() AND CONSTRAINT_TYPE IN ('CHECK','FOREIGN KEY') AND CONSTRAINT_NAME IN ("
+            . implode(',', array_fill(0, count($expected), '?')) . ') ORDER BY CONSTRAINT_NAME,TABLE_NAME,CONSTRAINT_TYPE');
+        $query->execute(array_keys($expected)); $owners = $query->fetchAll(PDO::FETCH_ASSOC); $seen = [];
+        foreach ($owners as $row) {
+            $name = $row['CONSTRAINT_NAME']; $owner = $expected[$name] ?? null;
+            if (!is_array($owner) || !$owner['existing'] || $row['CONSTRAINT_TYPE'] !== 'CHECK'
+                || $row['TABLE_NAME'] !== $owner['table'] || isset($seen[$name])) { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_CONSTRAINT_NAME_CONFLICT'); }
+            $seen[$name] = true;
+        }
+        // Existing provenance names still require the exact complete no-op shape;
+        // the auth CHECK is replaced only on its expected owner, after row proof.
+        return ['whole_schema_visibility' => true, 'persistent' => $expected, 'observed_owners' => $owners, 'temporary_checks' => $temporary];
     }
 
     private static function prestateIdentity(array $migration): array

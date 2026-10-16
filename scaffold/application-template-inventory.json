@@ -8848,7 +8848,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6cdc4edd94960d65cb3409e91b97559e45c75ecdbc281aef69f27364ea79b95e"
+            "source_sha256": "81de506af345b69a30413517fe1e29fe23f2407222af9579ee92531a342cc403"
         },
         {
             "path": "server/app/common/support/ExportPageInfo.php",
@@ -27284,7 +27284,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ca11a33c14f669f8af8fecee268e34759687a2c7d309624d95a52264fd4d649f"
+            "source_sha256": "896b02d865f3ddb75c01d670b369f3dcebaa314cc7495edfe82742ca25136d24"
         },
         {
             "path": "server/docker/scripts/update-preparation.py",
