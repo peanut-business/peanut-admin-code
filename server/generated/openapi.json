@@ -6300,10 +6300,52 @@
                 "parameters": [
                     {
                         "in": "query",
+                        "name": "mode",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "children",
+                                "search",
+                                "resolve"
+                            ]
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "pageNo",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "pageSize",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "parent_id",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    },
+                    {
+                        "in": "query",
                         "name": "name",
                         "required": false,
                         "schema": {
-                            "type": "string"
+                            "type": "string",
+                            "maxLength": 120
                         }
                     },
                     {
@@ -6316,6 +6358,15 @@
                                 0,
                                 1
                             ]
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "ids",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "description": "Resolve only: comma-separated positive ids, at most pageSize."
                         }
                     }
                 ],
@@ -6343,9 +6394,195 @@
                                             "type": "string"
                                         },
                                         "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/components/schemas/Department"
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": [
+                                                "lists",
+                                                "ancestors",
+                                                "count",
+                                                "pageNo",
+                                                "pageSize",
+                                                "hasMore"
+                                            ],
+                                            "properties": {
+                                                "lists": {
+                                                    "type": "array",
+                                                    "maxItems": 100,
+                                                    "items": {
+                                                        "type": "object",
+                                                        "additionalProperties": false,
+                                                        "required": [
+                                                            "id",
+                                                            "pid",
+                                                            "name",
+                                                            "sort",
+                                                            "status",
+                                                            "status_desc",
+                                                            "realStatus",
+                                                            "structuralOnly",
+                                                            "selectable",
+                                                            "hasChildren"
+                                                        ],
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer"
+                                                            },
+                                                            "pid": {
+                                                                "type": "integer"
+                                                            },
+                                                            "name": {
+                                                                "type": "string"
+                                                            },
+                                                            "sort": {
+                                                                "type": "integer"
+                                                            },
+                                                            "status": {
+                                                                "type": "integer",
+                                                                "enum": [
+                                                                    -1,
+                                                                    0,
+                                                                    1
+                                                                ]
+                                                            },
+                                                            "status_desc": {
+                                                                "type": "string"
+                                                            },
+                                                            "realStatus": {
+                                                                "type": "string",
+                                                                "enum": [
+                                                                    "active",
+                                                                    "disabled",
+                                                                    "archived"
+                                                                ]
+                                                            },
+                                                            "structuralOnly": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "selectable": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "hasChildren": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "code": {
+                                                                "type": "string"
+                                                            },
+                                                            "leader": {
+                                                                "type": "string"
+                                                            },
+                                                            "mobile": {
+                                                                "type": "string"
+                                                            },
+                                                            "revision": {
+                                                                "type": "integer"
+                                                            },
+                                                            "create_time": {
+                                                                "type": "string",
+                                                                "format": "date-time"
+                                                            },
+                                                            "update_time": {
+                                                                "type": "string",
+                                                                "format": "date-time"
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                "ancestors": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "additionalProperties": false,
+                                                        "required": [
+                                                            "id",
+                                                            "pid",
+                                                            "name",
+                                                            "sort",
+                                                            "status",
+                                                            "status_desc",
+                                                            "realStatus",
+                                                            "structuralOnly",
+                                                            "selectable",
+                                                            "hasChildren"
+                                                        ],
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer"
+                                                            },
+                                                            "pid": {
+                                                                "type": "integer"
+                                                            },
+                                                            "name": {
+                                                                "type": "string"
+                                                            },
+                                                            "sort": {
+                                                                "type": "integer"
+                                                            },
+                                                            "status": {
+                                                                "type": "integer",
+                                                                "enum": [
+                                                                    -1,
+                                                                    0,
+                                                                    1
+                                                                ]
+                                                            },
+                                                            "status_desc": {
+                                                                "type": "string"
+                                                            },
+                                                            "realStatus": {
+                                                                "type": "string",
+                                                                "enum": [
+                                                                    "active",
+                                                                    "disabled",
+                                                                    "archived"
+                                                                ]
+                                                            },
+                                                            "structuralOnly": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "selectable": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "hasChildren": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "code": {
+                                                                "type": "string"
+                                                            },
+                                                            "leader": {
+                                                                "type": "string"
+                                                            },
+                                                            "mobile": {
+                                                                "type": "string"
+                                                            },
+                                                            "revision": {
+                                                                "type": "integer"
+                                                            },
+                                                            "create_time": {
+                                                                "type": "string",
+                                                                "format": "date-time"
+                                                            },
+                                                            "update_time": {
+                                                                "type": "string",
+                                                                "format": "date-time"
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                "count": {
+                                                    "type": "integer"
+                                                },
+                                                "pageNo": {
+                                                    "type": "integer",
+                                                    "minimum": 1
+                                                },
+                                                "pageSize": {
+                                                    "type": "integer",
+                                                    "minimum": 1,
+                                                    "maximum": 100
+                                                },
+                                                "hasMore": {
+                                                    "type": "boolean"
+                                                }
                                             }
                                         }
                                     }
@@ -6353,10 +6590,19 @@
                             }
                         }
                     },
+                    "400": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
                     "401": {
                         "$ref": "#/components/responses/ErrorResponse"
                     },
                     "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
                         "$ref": "#/components/responses/ErrorResponse"
                     }
                 },
@@ -6393,7 +6639,79 @@
                     "Departments"
                 ],
                 "operationId": "listActiveDepartments",
-                "parameters": [],
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "mode",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "children",
+                                "search",
+                                "resolve"
+                            ]
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "pageNo",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "pageSize",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "parent_id",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "name",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 120
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "status",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "enum": [
+                                0,
+                                1
+                            ]
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "ids",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "description": "Resolve only: comma-separated positive ids, at most pageSize."
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "成功",
@@ -6418,9 +6736,195 @@
                                             "type": "string"
                                         },
                                         "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/components/schemas/Department"
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": [
+                                                "lists",
+                                                "ancestors",
+                                                "count",
+                                                "pageNo",
+                                                "pageSize",
+                                                "hasMore"
+                                            ],
+                                            "properties": {
+                                                "lists": {
+                                                    "type": "array",
+                                                    "maxItems": 100,
+                                                    "items": {
+                                                        "type": "object",
+                                                        "additionalProperties": false,
+                                                        "required": [
+                                                            "id",
+                                                            "pid",
+                                                            "name",
+                                                            "sort",
+                                                            "status",
+                                                            "status_desc",
+                                                            "realStatus",
+                                                            "structuralOnly",
+                                                            "selectable",
+                                                            "hasChildren"
+                                                        ],
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer"
+                                                            },
+                                                            "pid": {
+                                                                "type": "integer"
+                                                            },
+                                                            "name": {
+                                                                "type": "string"
+                                                            },
+                                                            "sort": {
+                                                                "type": "integer"
+                                                            },
+                                                            "status": {
+                                                                "type": "integer",
+                                                                "enum": [
+                                                                    -1,
+                                                                    0,
+                                                                    1
+                                                                ]
+                                                            },
+                                                            "status_desc": {
+                                                                "type": "string"
+                                                            },
+                                                            "realStatus": {
+                                                                "type": "string",
+                                                                "enum": [
+                                                                    "active",
+                                                                    "disabled",
+                                                                    "archived"
+                                                                ]
+                                                            },
+                                                            "structuralOnly": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "selectable": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "hasChildren": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "code": {
+                                                                "type": "string"
+                                                            },
+                                                            "leader": {
+                                                                "type": "string"
+                                                            },
+                                                            "mobile": {
+                                                                "type": "string"
+                                                            },
+                                                            "revision": {
+                                                                "type": "integer"
+                                                            },
+                                                            "create_time": {
+                                                                "type": "string",
+                                                                "format": "date-time"
+                                                            },
+                                                            "update_time": {
+                                                                "type": "string",
+                                                                "format": "date-time"
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                "ancestors": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "additionalProperties": false,
+                                                        "required": [
+                                                            "id",
+                                                            "pid",
+                                                            "name",
+                                                            "sort",
+                                                            "status",
+                                                            "status_desc",
+                                                            "realStatus",
+                                                            "structuralOnly",
+                                                            "selectable",
+                                                            "hasChildren"
+                                                        ],
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer"
+                                                            },
+                                                            "pid": {
+                                                                "type": "integer"
+                                                            },
+                                                            "name": {
+                                                                "type": "string"
+                                                            },
+                                                            "sort": {
+                                                                "type": "integer"
+                                                            },
+                                                            "status": {
+                                                                "type": "integer",
+                                                                "enum": [
+                                                                    -1,
+                                                                    0,
+                                                                    1
+                                                                ]
+                                                            },
+                                                            "status_desc": {
+                                                                "type": "string"
+                                                            },
+                                                            "realStatus": {
+                                                                "type": "string",
+                                                                "enum": [
+                                                                    "active",
+                                                                    "disabled",
+                                                                    "archived"
+                                                                ]
+                                                            },
+                                                            "structuralOnly": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "selectable": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "hasChildren": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "code": {
+                                                                "type": "string"
+                                                            },
+                                                            "leader": {
+                                                                "type": "string"
+                                                            },
+                                                            "mobile": {
+                                                                "type": "string"
+                                                            },
+                                                            "revision": {
+                                                                "type": "integer"
+                                                            },
+                                                            "create_time": {
+                                                                "type": "string",
+                                                                "format": "date-time"
+                                                            },
+                                                            "update_time": {
+                                                                "type": "string",
+                                                                "format": "date-time"
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                "count": {
+                                                    "type": "integer"
+                                                },
+                                                "pageNo": {
+                                                    "type": "integer",
+                                                    "minimum": 1
+                                                },
+                                                "pageSize": {
+                                                    "type": "integer",
+                                                    "minimum": 1,
+                                                    "maximum": 100
+                                                },
+                                                "hasMore": {
+                                                    "type": "boolean"
+                                                }
                                             }
                                         }
                                     }
@@ -6428,10 +6932,19 @@
                             }
                         }
                     },
+                    "400": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
                     "401": {
                         "$ref": "#/components/responses/ErrorResponse"
                     },
                     "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
                         "$ref": "#/components/responses/ErrorResponse"
                     }
                 },
@@ -6468,7 +6981,78 @@
                     "Departments"
                 ],
                 "operationId": "listDepartmentLeaderOptions",
-                "parameters": [],
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "mode",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "search",
+                                "resolve"
+                            ]
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "pageNo",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "pageSize",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "parent_id",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "name",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 120
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "status",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "enum": [
+                                0,
+                                1
+                            ]
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "ids",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "description": "Resolve only: comma-separated positive ids, at most pageSize."
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "成功",
@@ -6493,21 +7077,194 @@
                                             "type": "string"
                                         },
                                         "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "object",
-                                                "additionalProperties": false,
-                                                "required": [
-                                                    "id",
-                                                    "name"
-                                                ],
-                                                "properties": {
-                                                    "id": {
-                                                        "type": "integer"
-                                                    },
-                                                    "name": {
-                                                        "type": "string"
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": [
+                                                "lists",
+                                                "ancestors",
+                                                "count",
+                                                "pageNo",
+                                                "pageSize",
+                                                "hasMore"
+                                            ],
+                                            "properties": {
+                                                "lists": {
+                                                    "type": "array",
+                                                    "maxItems": 100,
+                                                    "items": {
+                                                        "type": "object",
+                                                        "additionalProperties": false,
+                                                        "required": [
+                                                            "id",
+                                                            "pid",
+                                                            "name",
+                                                            "sort",
+                                                            "status",
+                                                            "status_desc",
+                                                            "realStatus",
+                                                            "structuralOnly",
+                                                            "selectable",
+                                                            "hasChildren"
+                                                        ],
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer"
+                                                            },
+                                                            "pid": {
+                                                                "type": "integer"
+                                                            },
+                                                            "name": {
+                                                                "type": "string"
+                                                            },
+                                                            "sort": {
+                                                                "type": "integer"
+                                                            },
+                                                            "status": {
+                                                                "type": "integer",
+                                                                "enum": [
+                                                                    -1,
+                                                                    0,
+                                                                    1
+                                                                ]
+                                                            },
+                                                            "status_desc": {
+                                                                "type": "string"
+                                                            },
+                                                            "realStatus": {
+                                                                "type": "string",
+                                                                "enum": [
+                                                                    "active",
+                                                                    "disabled",
+                                                                    "archived"
+                                                                ]
+                                                            },
+                                                            "structuralOnly": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "selectable": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "hasChildren": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "code": {
+                                                                "type": "string"
+                                                            },
+                                                            "leader": {
+                                                                "type": "string"
+                                                            },
+                                                            "mobile": {
+                                                                "type": "string"
+                                                            },
+                                                            "revision": {
+                                                                "type": "integer"
+                                                            },
+                                                            "create_time": {
+                                                                "type": "string",
+                                                                "format": "date-time"
+                                                            },
+                                                            "update_time": {
+                                                                "type": "string",
+                                                                "format": "date-time"
+                                                            }
+                                                        }
                                                     }
+                                                },
+                                                "ancestors": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object",
+                                                        "additionalProperties": false,
+                                                        "required": [
+                                                            "id",
+                                                            "pid",
+                                                            "name",
+                                                            "sort",
+                                                            "status",
+                                                            "status_desc",
+                                                            "realStatus",
+                                                            "structuralOnly",
+                                                            "selectable",
+                                                            "hasChildren"
+                                                        ],
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer"
+                                                            },
+                                                            "pid": {
+                                                                "type": "integer"
+                                                            },
+                                                            "name": {
+                                                                "type": "string"
+                                                            },
+                                                            "sort": {
+                                                                "type": "integer"
+                                                            },
+                                                            "status": {
+                                                                "type": "integer",
+                                                                "enum": [
+                                                                    -1,
+                                                                    0,
+                                                                    1
+                                                                ]
+                                                            },
+                                                            "status_desc": {
+                                                                "type": "string"
+                                                            },
+                                                            "realStatus": {
+                                                                "type": "string",
+                                                                "enum": [
+                                                                    "active",
+                                                                    "disabled",
+                                                                    "archived"
+                                                                ]
+                                                            },
+                                                            "structuralOnly": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "selectable": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "hasChildren": {
+                                                                "type": "boolean"
+                                                            },
+                                                            "code": {
+                                                                "type": "string"
+                                                            },
+                                                            "leader": {
+                                                                "type": "string"
+                                                            },
+                                                            "mobile": {
+                                                                "type": "string"
+                                                            },
+                                                            "revision": {
+                                                                "type": "integer"
+                                                            },
+                                                            "create_time": {
+                                                                "type": "string",
+                                                                "format": "date-time"
+                                                            },
+                                                            "update_time": {
+                                                                "type": "string",
+                                                                "format": "date-time"
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                "count": {
+                                                    "type": "integer"
+                                                },
+                                                "pageNo": {
+                                                    "type": "integer",
+                                                    "minimum": 1
+                                                },
+                                                "pageSize": {
+                                                    "type": "integer",
+                                                    "minimum": 1,
+                                                    "maximum": 100
+                                                },
+                                                "hasMore": {
+                                                    "type": "boolean"
                                                 }
                                             }
                                         }
@@ -6516,10 +7273,19 @@
                             }
                         }
                     },
+                    "400": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
                     "401": {
                         "$ref": "#/components/responses/ErrorResponse"
                     },
                     "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
                         "$ref": "#/components/responses/ErrorResponse"
                     }
                 },

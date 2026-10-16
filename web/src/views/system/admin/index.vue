@@ -245,10 +245,9 @@
         </el-form-item>
 
         <el-form-item prop="dept_id" :label="$t('systemAdmin.field.dept')">
-          <el-tree-select
+          <DepartmentPicker
             v-model="form.dept_id"
-            :data="deptOptions"
-            :props="{ value: 'id', label: 'name', children: 'children' }"
+            :key="departmentPickerRevision"
             multiple
             clearable
             :placeholder="$t('systemAdmin.field.dept.placeholder')"
@@ -444,7 +443,7 @@
   } from '@/api/password-policy';
   import { uploadFile, type FileRecord } from '@/modules/official-file/api';
   import { getRoleAll } from '@/api/system/role';
-  import { getDeptAll, type DeptRecord } from '@/api/system/dept';
+  import { DepartmentPicker } from '../dept/parent-options';
   import { getJobsAll } from '@/api/system/jobs';
   import {
     addAdmin,
@@ -474,7 +473,7 @@
   };
   const roleOptions = ref<{ value: number; label: string }[]>([]);
   const jobsOptions = ref<{ value: number; label: string }[]>([]);
-  const deptOptions = ref<DeptRecord[]>([]);
+  const departmentPickerRevision = ref(0);
 
   const queryParams = reactive({
     account: '',
@@ -511,16 +510,11 @@
   };
 
   const loadOptions = async () => {
-    const [roles, departments, jobs] = await Promise.all([
-      getRoleAll(),
-      getDeptAll(),
-      getJobsAll(),
-    ]);
+    const [roles, jobs] = await Promise.all([getRoleAll(), getJobsAll()]);
     roleOptions.value = roles.data.map((item) => ({
       value: item.id,
       label: item.name,
     }));
-    deptOptions.value = departments.data;
     jobsOptions.value = jobs.data.map((item) => ({
       value: item.id,
       label: item.name,
@@ -688,6 +682,7 @@
   };
 
   const handleAdd = () => {
+    departmentPickerRevision.value += 1;
     loadPasswordPolicy();
     isEdit.value = false;
     resetForm();
@@ -698,6 +693,7 @@
     await loadPasswordPolicy();
     isEdit.value = true;
     const { data } = await getAdminDetail(record.id);
+    departmentPickerRevision.value += 1;
     resetForm({
       id: data.id,
       account: data.account,

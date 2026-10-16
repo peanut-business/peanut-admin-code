@@ -15,7 +15,7 @@ use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
 use think\facade\Db;
 
-/** Compatibility department tree backed by native pa_department. */
+/** Bounded department directory backed by native Identity queries. */
 final class DeptApplicationService
 {
     public function __construct(
@@ -37,27 +37,73 @@ final class DeptApplicationService
 
     public function lists(TenantContext $context, array $params = []): array
     {
-        $items = $this->service()->list($context->tenantId, new PageRequest(1, 100))['items'];
-        $items = array_values(array_filter($items, static fn(array $row): bool =>
-            (empty($params['name']) || str_contains((string) $row['name'], trim((string) $params['name'])))
-            && (!isset($params['status']) || $params['status'] === '' || self::statusInt($row['status']) === (int) $params['status'])));
-        return self::buildTree(array_map([self::class, 'compat'], $items));
+        return $this->directory($context, $params, false, false);
     }
 
-    public function all(TenantContext $context): array
+    public function all(TenantContext $context, array $params = []): array
     {
-        return self::lists($context, ['status' => 1]);
+        return $this->directory($context, $params, true, false);
     }
 
-    public function leaderDept(TenantContext $context): array
+    public function leaderDept(TenantContext $context, array $params = []): array
     {
-        $flat = [];
-        foreach ($this->service()->list($context->tenantId, new PageRequest(1, 100))['items'] as $row) {
-            if ($row['status'] === 'active') {
-                $flat[] = ['id' => (int) $row['id'], 'name' => $row['name']];
-            }
+        return $this->directory($context, $params, true, true);
+    }
+
+    private function directory(TenantContext $context, array $params, bool $activeOnly, bool $flat): array
+    {
+        $invalid = static fn() => BusinessException::invalid('DEPARTMENT_DIRECTORY_INVALID', '部门目录需要明确的模式和有界分页参数');
+        if (array_diff(array_keys($params), ['mode', 'parent_id', 'name', 'status', 'ids', 'pageNo', 'pageSize']) !== []) { throw $invalid(); }
+        $integer = static function (mixed $value, int $min, int $max) use ($invalid): int {
+            if ((!is_int($value) && !is_string($value)) || !preg_match('/^(0|[1-9][0-9]*)$/D', (string) $value)
+                || filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => $min, 'max_range' => $max]]) === false) { throw $invalid(); }
+            return (int) $value;
+        };
+        $pageNo = $integer($params['pageNo'] ?? null, 1, PHP_INT_MAX);
+        $pageSize = $integer($params['pageSize'] ?? null, 1, 100);
+        if (($pageNo - 1) > intdiv(PHP_INT_MAX, $pageSize)) { throw $invalid(); }
+        $mode = $params['mode'] ?? null;
+        if (!in_array($mode, ['children', 'search', 'resolve'], true) || ($flat && $mode === 'children')) { throw $invalid(); }
+        $name = $params['name'] ?? '';
+        if (!is_string($name) || mb_strlen($name) > 120) { throw $invalid(); }
+        $name = trim($name);
+        $status = null;
+        if (array_key_exists('status', $params)) {
+            if (!in_array($params['status'], [0, 1, '0', '1'], true)) { throw $invalid(); }
+            $status = (int) $params['status'] === 1 ? 'active' : 'disabled';
         }
-        return $flat;
+        $parent = 0;
+        $ids = [];
+        if ($mode === 'children') {
+            $parent = $integer($params['parent_id'] ?? null, 0, PHP_INT_MAX);
+            if ($name !== '' || $status !== null || isset($params['ids'])) { throw $invalid(); }
+        } elseif (isset($params['parent_id'])) { throw $invalid(); }
+        if ($mode === 'resolve') {
+            if (!is_string($params['ids'] ?? null) || $name !== '' || $status !== null || $pageNo !== 1) { throw $invalid(); }
+            $parts = explode(',', $params['ids']);
+            if (count($parts) > $pageSize) { throw $invalid(); }
+            $ids = array_values(array_unique(array_map(fn($id): int => $integer($id, 1, PHP_INT_MAX), $parts)));
+        } elseif (isset($params['ids'])) { throw $invalid(); }
+        if ($activeOnly && $status === 'disabled') { throw $invalid(); }
+        $result = $this->departments->directory($context->tenantId, new PageRequest($pageNo, $pageSize), $mode, $parent, $name, $status, $ids, $activeOnly, $flat);
+        $project = static function (array $row): array {
+            $item = ['id' => $row['id'], 'pid' => $row['parent_id'] ?? 0,
+            'name' => $row['name'], 'sort' => $row['sort_order'], 'realStatus' => $row['status'],
+            'status' => $row['status'] === 'active' ? 1 : ($row['status'] === 'disabled' ? 0 : -1),
+            'status_desc' => match ($row['status']) { 'active' => '正常', 'disabled' => '停用', default => '已归档' },
+            'structuralOnly' => $row['structuralOnly'], 'selectable' => $row['selectable'], 'hasChildren' => $row['hasChildren']]
+            + array_intersect_key($row, array_flip(['code', 'leader', 'mobile', 'revision']));
+            foreach (['created_at' => 'create_time', 'updated_at' => 'update_time'] as $source => $target) {
+                if (isset($row[$source])) {
+                    $item[$target] = (new DateTimeImmutable((string) $row[$source], new DateTimeZone('UTC')))->format('Y-m-d\TH:i:s.v\Z');
+                }
+            }
+            return $item;
+        };
+        return ['lists' => array_map($project, $result['items']), 'ancestors' => array_map($project, $result['ancestors']),
+            'count' => $result['total'], 'pageNo' => $pageNo, 'pageSize' => $pageSize,
+            'hasMore' => ($pageNo - 1) * $pageSize < $result['total']
+                && count($result['items']) < $result['total'] - ($pageNo - 1) * $pageSize];
     }
 
     public function detail(TenantContext $context, int $id): array
@@ -159,19 +205,6 @@ final class DeptApplicationService
             'is_disable' => self::statusInt($row['status']) === 1 ? 0 : 1,
             'status_desc' => self::statusInt($row['status']) === 1 ? '正常' : '停用', 'revision' => (int) $row['revision'],
             'create_time' => $createdAt, 'update_time' => $updatedAt];
-    }
-
-    private static function buildTree(array $data, int $pid = 0, int $level = 0): array
-    {
-        $tree = [];
-        foreach ($data as $item) {
-            if ($item['pid'] === $pid) {
-                $item['level'] = $level;
-                $item['children'] = self::buildTree($data, $item['id'], $level + 1);
-                $tree[] = $item;
-            }
-        }
-        return $tree;
     }
 
     private static function statusInt(string $status): int

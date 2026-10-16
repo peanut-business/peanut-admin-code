@@ -43,6 +43,83 @@ final readonly class DepartmentAdminService
         return $row === null ? throw AdminAccessException::notFound() : $this->normalize($row);
     }
 
+    /** A page of matches and its bounded ancestor closure; ancestors never affect total. */
+    public function directory(int $tenantId, PageRequest $page, string $mode, int $parentId, string $name, ?string $status, array $ids, bool $activeOnly, bool $flat): array
+    {
+        $query = Department::where('tenant_id', $tenantId);
+        if ($mode === 'children') {
+            if ($parentId > 0 && $this->get($tenantId, $parentId)['status'] === 'archived') {
+                throw AdminAccessException::invalid('DEPARTMENT_ARCHIVED', 'Cannot browse archived departments.');
+            }
+            $parentId === 0 ? $query->whereNull('parent_id') : $query->where('parent_id', $parentId);
+            if ($activeOnly) { $query->whereIn('status', ['active', 'disabled']); }
+        } elseif ($mode === 'resolve') {
+            $query->whereIn('id', $ids);
+        } else {
+            if ($name !== '') { $query->whereRaw('LOCATE(?, name) > 0', [$name]); }
+            if ($status !== null) { $query->where('status', $status); }
+            if ($activeOnly) { $query->where('status', 'active'); }
+        }
+        if ($flat) { $query->where('status', 'active'); }
+        $total = (int) (clone $query)->count();
+        $rows = $query->field('id,parent_id,code,name,leader,mobile,sort_order,status,revision,created_at,updated_at')
+            ->order('sort_order')->order('id')->limit($page->offset(), $page->pageSize)->select()->toArray();
+        $matches = array_column($rows, null, 'id');
+        $known = $matches;
+        $pending = $rows;
+        // At most one batched query per depth, never one query per department.
+        for ($depth = 0; $pending !== [] && $depth < self::MAX_DEPTH; ++$depth) {
+            $parents = [];
+            foreach ($pending as $row) {
+                if ($row['parent_id'] !== null && !isset($known[(int) $row['parent_id']])) {
+                    $parents[(int) $row['parent_id']] = true;
+                }
+            }
+            if ($parents === []) { break; }
+            $pending = Department::where('tenant_id', $tenantId)->whereIn('id', array_keys($parents))
+                ->field('id,parent_id,name,sort_order,status')->select()->toArray();
+            if (count($pending) !== count($parents)) {
+                throw AdminAccessException::conflict('DEPARTMENT_PATH_INVALID', 'Department parent is missing from this tenant.');
+            }
+            foreach ($pending as $row) {
+                if ($row['status'] === 'archived') {
+                    throw AdminAccessException::conflict('DEPARTMENT_PATH_INVALID', 'Archived ancestor in department path.');
+                }
+                $known[(int) $row['id']] = $row;
+            }
+        }
+        foreach ($matches as $row) {
+            $seen = [];
+            for ($depth = 1; ; ++$depth) {
+                $id = (int) $row['id'];
+                if ($depth > self::MAX_DEPTH || isset($seen[$id])) {
+                    throw AdminAccessException::conflict('DEPARTMENT_PATH_INVALID', 'Department path exceeds depth or contains a cycle.');
+                }
+                $seen[$id] = true;
+                if ($depth > 1 && $row['status'] === 'archived') {
+                    throw AdminAccessException::conflict('DEPARTMENT_PATH_INVALID', 'Archived ancestor in department path.');
+                }
+                if ($row['parent_id'] === null) { break; }
+                $row = $known[(int) $row['parent_id']] ?? throw AdminAccessException::conflict('DEPARTMENT_PATH_INVALID', 'Incomplete department path.');
+            }
+        }
+        $children = [];
+        if ($known !== []) {
+            $childQuery = Department::where('tenant_id', $tenantId)->whereIn('parent_id', array_keys($known));
+            if ($activeOnly) { $childQuery->whereIn('status', ['active', 'disabled']); }
+            $children = array_fill_keys($childQuery->group('parent_id')->column('parent_id'), true);
+        }
+        $project = static function (array $row, bool $structural) use ($children): array {
+            $item = ['id' => (int) $row['id'], 'parent_id' => $row['parent_id'] === null ? null : (int) $row['parent_id'],
+                'name' => $row['name'], 'status' => $row['status'], 'sort_order' => (int) $row['sort_order'],
+                'structuralOnly' => $structural, 'selectable' => !$structural && $row['status'] === 'active',
+                'hasChildren' => isset($children[(int) $row['id']])];
+            return $structural ? $item : $item + array_intersect_key($row, array_flip(['code', 'leader', 'mobile', 'revision', 'created_at', 'updated_at']));
+        };
+        return ['items' => array_values(array_map(fn(array $r): array => $project($r, $activeOnly && $r['status'] !== 'active'), $matches)),
+            'ancestors' => array_values(array_map(fn(array $r): array => $project($r, true), array_diff_key($known, $matches))), 'total' => $total];
+    }
+
     public function setStatus(TenantContext $actor, int $departmentId, int $expectedRevision, bool $active): void
     {
         $this->transaction(function () use ($actor, $departmentId, $expectedRevision, $active): void {

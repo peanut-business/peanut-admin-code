@@ -13066,64 +13066,15 @@ export interface operations {
     };
     listDepartments: {
         parameters: {
-            query?: {
+            query: {
+                mode: "children" | "search" | "resolve";
+                pageNo: number;
+                pageSize: number;
+                parent_id?: number;
                 name?: string;
                 status?: 0 | 1;
+                ids?: string;
             };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @enum {integer} */
-                        code: 20000;
-                        msg: string;
-                        data: components["schemas"]["Department"][];
-                    };
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    listActiveDepartments: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 成功 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @enum {integer} */
-                        code: 20000;
-                        msg: string;
-                        data: components["schemas"]["Department"][];
-                    };
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    listDepartmentLeaderOptions: {
-        parameters: {
-            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -13141,14 +13092,237 @@ export interface operations {
                         code: 20000;
                         msg: string;
                         data: {
-                            id: number;
-                            name: string;
-                        }[];
+                            lists: {
+                                id: number;
+                                pid: number;
+                                name: string;
+                                sort: number;
+                                /** @enum {integer} */
+                                status: -1 | 0 | 1;
+                                status_desc: string;
+                                /** @enum {string} */
+                                realStatus: "active" | "disabled" | "archived";
+                                structuralOnly: boolean;
+                                selectable: boolean;
+                                hasChildren: boolean;
+                                code?: string;
+                                leader?: string;
+                                mobile?: string;
+                                revision?: number;
+                                /** Format: date-time */
+                                create_time?: string;
+                                /** Format: date-time */
+                                update_time?: string;
+                            }[];
+                            ancestors: {
+                                id: number;
+                                pid: number;
+                                name: string;
+                                sort: number;
+                                /** @enum {integer} */
+                                status: -1 | 0 | 1;
+                                status_desc: string;
+                                /** @enum {string} */
+                                realStatus: "active" | "disabled" | "archived";
+                                structuralOnly: boolean;
+                                selectable: boolean;
+                                hasChildren: boolean;
+                                code?: string;
+                                leader?: string;
+                                mobile?: string;
+                                revision?: number;
+                                /** Format: date-time */
+                                create_time?: string;
+                                /** Format: date-time */
+                                update_time?: string;
+                            }[];
+                            count: number;
+                            pageNo: number;
+                            pageSize: number;
+                            hasMore: boolean;
+                        };
                     };
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    listActiveDepartments: {
+        parameters: {
+            query: {
+                mode: "children" | "search" | "resolve";
+                pageNo: number;
+                pageSize: number;
+                parent_id?: number;
+                name?: string;
+                status?: 0 | 1;
+                ids?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            lists: {
+                                id: number;
+                                pid: number;
+                                name: string;
+                                sort: number;
+                                /** @enum {integer} */
+                                status: -1 | 0 | 1;
+                                status_desc: string;
+                                /** @enum {string} */
+                                realStatus: "active" | "disabled" | "archived";
+                                structuralOnly: boolean;
+                                selectable: boolean;
+                                hasChildren: boolean;
+                                code?: string;
+                                leader?: string;
+                                mobile?: string;
+                                revision?: number;
+                                /** Format: date-time */
+                                create_time?: string;
+                                /** Format: date-time */
+                                update_time?: string;
+                            }[];
+                            ancestors: {
+                                id: number;
+                                pid: number;
+                                name: string;
+                                sort: number;
+                                /** @enum {integer} */
+                                status: -1 | 0 | 1;
+                                status_desc: string;
+                                /** @enum {string} */
+                                realStatus: "active" | "disabled" | "archived";
+                                structuralOnly: boolean;
+                                selectable: boolean;
+                                hasChildren: boolean;
+                                code?: string;
+                                leader?: string;
+                                mobile?: string;
+                                revision?: number;
+                                /** Format: date-time */
+                                create_time?: string;
+                                /** Format: date-time */
+                                update_time?: string;
+                            }[];
+                            count: number;
+                            pageNo: number;
+                            pageSize: number;
+                            hasMore: boolean;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    listDepartmentLeaderOptions: {
+        parameters: {
+            query: {
+                mode: "search" | "resolve";
+                pageNo: number;
+                pageSize: number;
+                parent_id?: number;
+                name?: string;
+                status?: 0 | 1;
+                ids?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            lists: {
+                                id: number;
+                                pid: number;
+                                name: string;
+                                sort: number;
+                                /** @enum {integer} */
+                                status: -1 | 0 | 1;
+                                status_desc: string;
+                                /** @enum {string} */
+                                realStatus: "active" | "disabled" | "archived";
+                                structuralOnly: boolean;
+                                selectable: boolean;
+                                hasChildren: boolean;
+                                code?: string;
+                                leader?: string;
+                                mobile?: string;
+                                revision?: number;
+                                /** Format: date-time */
+                                create_time?: string;
+                                /** Format: date-time */
+                                update_time?: string;
+                            }[];
+                            ancestors: {
+                                id: number;
+                                pid: number;
+                                name: string;
+                                sort: number;
+                                /** @enum {integer} */
+                                status: -1 | 0 | 1;
+                                status_desc: string;
+                                /** @enum {string} */
+                                realStatus: "active" | "disabled" | "archived";
+                                structuralOnly: boolean;
+                                selectable: boolean;
+                                hasChildren: boolean;
+                                code?: string;
+                                leader?: string;
+                                mobile?: string;
+                                revision?: number;
+                                /** Format: date-time */
+                                create_time?: string;
+                                /** Format: date-time */
+                                update_time?: string;
+                            }[];
+                            count: number;
+                            pageNo: number;
+                            pageSize: number;
+                            hasMore: boolean;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
         };
     };
     getDepartment: {

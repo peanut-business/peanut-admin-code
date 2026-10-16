@@ -19,25 +19,47 @@ export interface DeptRecord {
 export type DeptForm = Partial<DeptRecord> & { id?: number };
 
 export interface DeptListParams {
+  mode: 'children' | 'search' | 'resolve';
+  pageNo: number;
+  pageSize: number;
+  parent_id?: number;
+  ids?: string;
   name?: string;
   status?: number | string;
 }
 
-/** 树形全量列表（含禁用项，供后台管理） */
-export function getDeptList(params?: DeptListParams) {
-  return axios.get<DeptRecord[]>('/adminapi/dept/lists', { params });
+export interface DirectoryDepartment
+  extends Omit<DeptRecord, 'leader' | 'mobile' | 'is_disable'> {
+  leader?: string;
+  mobile?: string;
+  realStatus: 'active' | 'disabled' | 'archived';
+  structuralOnly: boolean;
+  selectable: boolean;
+  hasChildren: boolean;
 }
 
-/** 正常部门树，供上级部门选择器 */
-export function getDeptAll() {
-  return axios.get<DeptRecord[]>('/adminapi/dept/all');
+export interface DepartmentPage {
+  lists: DirectoryDepartment[];
+  ancestors: DirectoryDepartment[];
+  count: number;
+  pageNo: number;
+  pageSize: number;
+  hasMore: boolean;
 }
 
-/** 正常部门扁平列表，供管理员所属部门选择器 */
-export function getLeaderDept() {
-  return axios.get<Pick<DeptRecord, 'id' | 'name'>[]>(
-    '/adminapi/dept/leaderDept'
-  );
+/** One bounded directory page. Ancestors are structural context, not matches. */
+export function getDeptList(params: DeptListParams, signal?: AbortSignal) {
+  return axios.get<DepartmentPage>('/adminapi/dept/lists', { params, signal });
+}
+
+/** Active selections with expandable disabled structural containers. */
+export function getDeptAll(params: DeptListParams, signal?: AbortSignal) {
+  return axios.get<DepartmentPage>('/adminapi/dept/all', { params, signal });
+}
+
+/** Bounded active flat page; mode is search or resolve. */
+export function getLeaderDept(params: DeptListParams) {
+  return axios.get<DepartmentPage>('/adminapi/dept/leaderDept', { params });
 }
 
 export function getDeptDetail(id: number) {

@@ -581,15 +581,40 @@ $add($paths, 'POST', '/adminapi/role/edit', $operation('updateAdminRole', 'Admin
 $add($paths, 'POST', '/adminapi/role/delete', $operation('archiveAdminRole', 'AdminRoles', $mutation + ['404' => $error, '409' => $error], requestBody: $idBody));
 
 // 部门与岗位。
-$departmentList = ['type' => 'array', 'items' => $ref('Department')];
+$directoryNode = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['id', 'pid', 'name', 'sort', 'status', 'status_desc', 'realStatus', 'structuralOnly', 'selectable', 'hasChildren'],
+    'properties' => [
+        'id' => ['type' => 'integer'], 'pid' => ['type' => 'integer'], 'name' => ['type' => 'string'], 'sort' => ['type' => 'integer'],
+        'status' => ['type' => 'integer', 'enum' => [-1, 0, 1]], 'status_desc' => ['type' => 'string'],
+        'realStatus' => ['type' => 'string', 'enum' => ['active', 'disabled', 'archived']],
+        'structuralOnly' => ['type' => 'boolean'], 'selectable' => ['type' => 'boolean'], 'hasChildren' => ['type' => 'boolean'],
+        'code' => ['type' => 'string'], 'leader' => ['type' => 'string'], 'mobile' => ['type' => 'string'],
+        'revision' => ['type' => 'integer'], 'create_time' => ['type' => 'string', 'format' => 'date-time'], 'update_time' => ['type' => 'string', 'format' => 'date-time'],
+    ]];
+$departmentList = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['lists', 'ancestors', 'count', 'pageNo', 'pageSize', 'hasMore'],
+    'properties' => ['lists' => ['type' => 'array', 'maxItems' => 100, 'items' => $directoryNode],
+        'ancestors' => ['type' => 'array', 'items' => $directoryNode], 'count' => ['type' => 'integer'],
+        'pageNo' => ['type' => 'integer', 'minimum' => 1], 'pageSize' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 100],
+        'hasMore' => ['type' => 'boolean']]];
+$directoryParams = [
+    $query('mode', ['type' => 'string', 'enum' => ['children', 'search', 'resolve']], true),
+    $query('pageNo', ['type' => 'integer', 'minimum' => 1], true),
+    $query('pageSize', ['type' => 'integer', 'minimum' => 1, 'maximum' => 100], true),
+    $query('parent_id', ['type' => 'integer', 'minimum' => 0]), $query('name', ['type' => 'string', 'maxLength' => 120]),
+    $query('status', ['type' => 'integer', 'enum' => [0, 1]]), $query('ids', ['type' => 'string', 'description' => 'Resolve only: comma-separated positive ids, at most pageSize.']),
+];
+$directoryResponses = ['200' => $success($departmentList), '400' => $error, '401' => $error, '403' => $error, '404' => $error, '409' => $error];
 $add($paths, 'GET', '/adminapi/dept/lists', $operation(
     'listDepartments',
     'Departments',
-    ['200' => $success($departmentList), '401' => $error, '403' => $error],
-    [$query('name', ['type' => 'string']), $query('status', ['type' => 'integer', 'enum' => [0, 1]])],
+    $directoryResponses,
+    $directoryParams,
 ));
-$add($paths, 'GET', '/adminapi/dept/all', $operation('listActiveDepartments', 'Departments', ['200' => $success($departmentList), '401' => $error, '403' => $error]));
-$add($paths, 'GET', '/adminapi/dept/leaderDept', $operation('listDepartmentLeaderOptions', 'Departments', ['200' => $success(['type' => 'array', 'items' => ['type' => 'object', 'additionalProperties' => false, 'required' => ['id', 'name'], 'properties' => ['id' => ['type' => 'integer'], 'name' => ['type' => 'string']]]]), '401' => $error, '403' => $error]));
+$add($paths, 'GET', '/adminapi/dept/all', $operation('listActiveDepartments', 'Departments', $directoryResponses, $directoryParams));
+$flatDirectoryParams = $directoryParams;
+$flatDirectoryParams[0] = $query('mode', ['type' => 'string', 'enum' => ['search', 'resolve']], true);
+$add($paths, 'GET', '/adminapi/dept/leaderDept', $operation('listDepartmentLeaderOptions', 'Departments', $directoryResponses, $flatDirectoryParams));
 $add($paths, 'GET', '/adminapi/dept/detail', $operation('getDepartment', 'Departments', $ok('Department'), $idQuery));
 foreach (['add' => 'createDepartment', 'edit' => 'updateDepartment'] as $route => $operationId) {
     $add($paths, 'POST', '/adminapi/dept/' . $route, $operation($operationId, 'Departments', $mutation + ['404' => $error, '409' => $error], requestBody: $jsonBody($ref('DepartmentWriteRequest'))));

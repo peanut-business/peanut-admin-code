@@ -8,7 +8,7 @@
         },
         {
             "path": "server/app/api/metadata/application/adminapi.php",
-            "sha256": "ddca7b23f58f9c9eb2c78e881a0deb5735121d18999a3eb56a6d2cf84c554123"
+            "sha256": "c4329527c7c82535a2dd333d044b553591f83b10c3810c30b54c2301348090b8"
         },
         {
             "path": "server/app/api/metadata/application/common.php",
@@ -4302,8 +4302,11 @@
                 }
             ],
             "errors": [
+                400,
                 401,
-                403
+                403,
+                404,
+                409
             ],
             "middleware": [
                 {
@@ -4428,8 +4431,11 @@
                 }
             ],
             "errors": [
+                400,
                 401,
-                403
+                403,
+                404,
+                409
             ],
             "middleware": [
                 {
@@ -4491,8 +4497,11 @@
                 }
             ],
             "errors": [
+                400,
                 401,
-                403
+                403,
+                404,
+                409
             ],
             "middleware": [
                 {

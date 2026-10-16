@@ -49,22 +49,36 @@
               <template #icon><Plus /></template>
               {{ $t('systemDept.operation.create') }}
             </el-button>
-            <el-button @click="toggleExpand">
-              {{ $t('systemDept.operation.expand') }}
-            </el-button>
+            <span>按层展开，每次最多20项</span>
           </el-space>
         </el-col>
       </el-row>
       <el-table
-        :key="isExpanded ? 'expanded' : 'collapsed'"
+        :key="tableRevision"
         row-key="id"
         :loading="loading"
-        :data="renderData"
+        :data="directory.tree.value"
         border
-        :default-expand-all="isExpanded"
-        :tree-props="{ children: 'children' }"
+        :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
+        @expand-change="expandDepartment"
       >
-        <el-table-column prop="name" :label="$t('systemDept.columns.name')" />
+        <el-table-column prop="name" :label="$t('systemDept.columns.name')">
+          <template #default="{ row }">
+            {{ row.name }} <span v-if="row.structuralOnly">（路径）</span>
+            <el-button
+              v-if="!isSearch && row.hasChildren"
+              link
+              @click="loadChildren(row.id)"
+              >展开子部门</el-button
+            >
+            <el-button
+              v-if="!isSearch && directory.pages.value[row.id]?.hasMore"
+              link
+              @click="loadChildren(row.id, true)"
+              >加载下一页</el-button
+            >
+          </template>
+        </el-table-column>
         <el-table-column :label="$t('systemDept.columns.status')" width="110">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'danger'">{{
@@ -90,7 +104,7 @@
           width="220"
         >
           <template #default="{ row }">
-            <el-space>
+            <el-space v-if="!row.structuralOnly">
               <el-button
                 v-permission="['core.department.create']"
                 link
@@ -123,6 +137,18 @@
           </template>
         </el-table-column>
       </el-table>
+      <div
+        >匹配 {{ directory.pages.value[0]?.count ?? 0 }} 项；祖先路径不计数</div
+      >
+      <el-button
+        v-if="directory.pages.value[0]?.hasMore"
+        :loading="directory.busy.value[0]"
+        @click="directory.read(0, true)"
+        >加载下一页</el-button
+      >
+      <el-button v-if="directory.error.value" @click="fetchData">{{
+        directory.error.value
+      }}</el-button>
     </el-card>
 
     <el-dialog
@@ -136,11 +162,10 @@
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
         <el-form-item prop="pid" :label="$t('systemDept.field.pid')">
-          <el-tree-select
+          <DepartmentPicker
             v-model="form.pid"
-            :data="parentTree"
-            :props="{ value: 'id', label: 'name', children: 'children' }"
-            :placeholder="$t('systemDept.field.pid.placeholder')"
+            :key="pickerRevision"
+            :root-label="$t('systemDept.field.pid.root')"
             :disabled="isRootDepartmentEdit || (isEdit && !canMoveDepartment)"
           />
         </el-form-item>
@@ -199,27 +224,27 @@
   import useLoading from '@/hooks/loading';
   import {
     getDeptList,
-    getDeptAll,
     getDeptDetail,
     addDept,
     editDept,
     deleteDept,
-    type DeptRecord,
     type DeptForm,
+    type DirectoryDepartment,
   } from '@/api/system/dept';
   import { hasPermission } from '@/hooks/permission';
   import {
-    buildParentDepartmentOptions,
+    DepartmentPicker,
+    useDepartmentDirectory,
     initialParentDepartmentId,
     ROOT_DEPARTMENT_ID,
   } from './parent-options';
 
   const { t } = useI18n();
   const { loading, setLoading } = useLoading(true);
-  const renderData = ref<DeptRecord[]>([]);
-  const deptOptions = ref<DeptRecord[]>([]);
-  const expandedKeys = ref<number[]>([]);
-  const isExpanded = ref(true);
+  const directory = useDepartmentDirectory(getDeptList);
+  const tableRevision = ref(0);
+  const pickerRevision = ref(0);
+  const isSearch = ref(false);
   const queryParams = reactive<{ name: string; status: number | '' }>({
     name: '',
     status: '',
@@ -228,14 +253,12 @@
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data } = await getDeptList({
+      tableRevision.value += 1;
+      isSearch.value = !!queryParams.name.trim() || queryParams.status !== '';
+      await directory.reset({
         name: queryParams.name || undefined,
         status: queryParams.status === '' ? undefined : queryParams.status,
       });
-      renderData.value = data;
-      if (isExpanded.value) {
-        expandedKeys.value = collectIds(data);
-      }
     } finally {
       setLoading(false);
     }
@@ -247,12 +270,10 @@
     fetchData();
   };
 
-  const collectIds = (nodes: DeptRecord[]): number[] =>
-    nodes.flatMap((node) => [node.id, ...collectIds(node.children || [])]);
-
-  const toggleExpand = () => {
-    isExpanded.value = !isExpanded.value;
-    expandedKeys.value = isExpanded.value ? collectIds(renderData.value) : [];
+  const loadChildren = (id: number, next = false) => directory.read(id, next);
+  const expandDepartment = (row: DirectoryDepartment, expanded: boolean) => {
+    if (expanded && !isSearch.value && !directory.pages.value[row.id])
+      loadChildren(row.id);
   };
 
   const formatTime = (value?: number | string): string => {
@@ -264,19 +285,6 @@
   };
 
   fetchData();
-
-  // ---- 上级部门选择树：顶级选项 + 正常部门 ----
-  const parentTree = computed(() =>
-    buildParentDepartmentOptions(
-      deptOptions.value,
-      t('systemDept.field.pid.root')
-    )
-  );
-
-  const loadDeptOptions = async () => {
-    const { data } = await getDeptAll();
-    deptOptions.value = data;
-  };
 
   // ---- 弹窗 & 表单 ----
   const modalVisible = ref(false);
@@ -322,22 +330,20 @@
     Object.assign(form, defaultForm(), patch);
   };
 
-  const handleAdd = async (parent?: DeptRecord) => {
+  const handleAdd = async (parent?: DirectoryDepartment) => {
     isEdit.value = false;
     isRootDepartmentEdit.value = false;
     originalParentDepartmentId.value = undefined;
-    await loadDeptOptions();
+    pickerRevision.value += 1;
     resetForm({ pid: initialParentDepartmentId(parent?.id) });
     modalVisible.value = true;
   };
 
-  const handleEdit = async (record: DeptRecord) => {
+  const handleEdit = async (record: DirectoryDepartment) => {
     isEdit.value = true;
     isRootDepartmentEdit.value = record.pid === ROOT_DEPARTMENT_ID;
-    const [{ data }] = await Promise.all([
-      getDeptDetail(record.id),
-      loadDeptOptions(),
-    ]);
+    const { data } = await getDeptDetail(record.id);
+    pickerRevision.value += 1;
     resetForm({ ...data, children: undefined });
     originalParentDepartmentId.value = data.pid;
     modalVisible.value = true;
@@ -366,7 +372,7 @@
     }
   };
 
-  const handleDelete = async (record: DeptRecord) => {
+  const handleDelete = async (record: DirectoryDepartment) => {
     await deleteDept(record.id);
     ElMessage.success(t('systemDept.tip.success'));
     await fetchData();
