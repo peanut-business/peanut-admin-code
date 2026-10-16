@@ -39,3 +39,49 @@ PEANUT_INSTALLATION_ENV_FILE=/absolute/private/installation.env php server/datab
 首次安装的 `executing.json`、`baseline.json`、`installed.json` 和执行锁保存在实例自己的 `server/private/installation/` 持久目录，不属于发行包。旧版本若将这些记录放在 `server/runtime/installation/`，必须先停用旧应用写入者，并在同时挂载旧 runtime 卷与新 installation 卷的可信维护环境中，以拥有两个状态目录的应用进程 UID 显式使用可信维护工具 `php scripts/migrate-installation-state --server-root=/absolute/path/to/product-root/server`，核对输出的逐文件 SHA-256 和 `server/private/installation/migration.json`，再准备升级。该维护工具不随 server-only 包分发。迁移先写 `pending` 记录，在目标卷内逐文件核对原字节并原子发布，接着将旧目录改名为 `server/runtime/installation.migrated/` 留作恢复材料，最后把记录标为 `complete`；中断时可按同一记录重试。旧回执中记录的 `server/runtime/installation/` 路径是历史安装时的位置。两边记录不一致、旧执行锁被占用或迁移备份路径冲突时会拒绝，须先人工核对实例，不能重新安装来补回身份。普通安装状态查询不会自动迁移，`pending` 时也会阻断安装。
 
 如果正式 Release 尚未给出该版本的完整附件清单与摘要、已公开固定依赖或明确的目标 Edition 配置，本页只能作为安装合同，不能宣称该版本可正式安装。
+
+## 开发源码实例的单条应用迁移
+
+`php server/think schema:application ... --scope=source-development` 是显式的开发源码维护入口，协议版本为 `peanut.source-development-schema-plan.v1` / `peanut.source-development-schema-result.v1`。它要求真实 Console Instance 上下文、development/debug、`PEANUT_INSTALLATION_SOURCE_MODE=development`、干净且固定的 Git 来源、已准备的原生依赖，以及明确登记的非生产数据库。server 发行包和 development-runtime 实例不能使用这个 scope；普通 `schema:application` 和 server-update workspace 仍使用各自原入口。
+
+此入口目前只处理唯一待执行项 `20261016-module-migration-provenance`，SQL SHA-256 必须为 `d27a6f52dd3e02b9c0c45a804c059f54062a732c9e1a742dfe12e78b80d96cce`。其他应用迁移必须已有 checksum 相同的 applied 记录。预检保留原 application/module 两张账本的完整记录与结构摘要；执行只增加该迁移对应的应用账本行及两个 provenance 列、两个 CHECK，历史模块行的来源保持 NULL，历史 release_version 不重写。已有 partial 结构、缺账的完整后态、failed/applying、checksum 冲突均停止，不重放或补账。缺失的 installed.json / baseline.json 保持缺失，已有文件保持原字节；该入口不建立首次安装身份。
+
+资源 owner 必须通过正常资源授权机制取得绑定本次 owner、thread、Workflow Session、gate、源码 candidate/worktree、登记摘要、endpoint/schema 和 TTL 的原生租约。命令的 `--owner`、`--thread`、`--session`、`--gate` 必须与它一致；`PEANUT_RESOURCE_LEASE_PROOF` 指向原生证明。apply 要求完整 DDL/exclusive 范围并再次执行原生 verify-locks。登记采用 schema 模式、且没有 shared_access 和 mysql-access 声明的既有租约按原生整 schema 独占合同处理；显式 read 声明不能升级为 DDL。计划、回执或文件摘要都不是授权。
+
+执行者另行完成 HTTP、worker 及其他写入者的实际停写、在途操作排空、两张账本的成对备份和可执行恢复准备，再形成下列受保护事实文件。schema named lock 只串行参与该锁的迁移，不能阻止任意业务写入者。工具不会停服务、执行备份/恢复工具、创建租约或续租。
+
+先在登记的 `lease_gate=migration-validation` 数据库执行单次验证。该角色完全由可信资源登记与同名原生 gate 决定，不接受命令行角色开关。首次验证要求已从原库恢复的两表基线与完整性、备份/恢复合同及本次 DDL/exclusive 授权，不循环要求自己先完成资格。原库 apply 则要求另一个 schema 已完成相同源码、相同两表基线的单条迁移及实际恢复验证，再取得原库自己的停写窗口和授权。两个 schema 可在同一个 MySQL 服务上。验证结果仅覆盖应用 schema，不代表模块升级或完整产品数据库合格。
+
+所有输入 JSON、引用的原始回执及备份载荷使用 canonical 绝对路径、普通单链接文件、权限 `0600`，owner 为源码目录 owner 或 root；JSON/回执及此两表载荷限 4 MiB。恢复工具本身使用固定普通文件和 SHA-256。事实文件采用以下字段（对象键顺序不影响比较，数组顺序须一致）：
+
+| 文件 | 必需字段 |
+| --- | --- |
+| 两者共有 | `schema_version: 1`；`source`、`database`、`authority`、`registry_sha256` 原样取本次 preflight 的 `binding`；固定 `migration_sha256`；整数 `observed_at` / `expires_at`（当前有效且不超过原生租约）；非空 `receipts: [{path, sha256}]`，引用实际操作原始回执 |
+| maintenance | `protocol: peanut.source-development-maintenance.v1`；`state: active`；`excluded_writers: [http, workers, other-writers]`，由本次实际停写操作支持 |
+| recovery | `protocol: peanut.source-development-recovery.v1`；`scope: [pa_schema_migration, pa_module_migration]`；`baseline_sha256` 为计划 baseline 的 canonical JSON SHA-256；`source_database`；`backup_payload: {path, sha256}`；`restore_tool: {path, sha256}`；`restore_contract_sha256` 绑定实际两表恢复合同 |
+| validation 数据库 recovery | `status: baseline_restored`，`source_database` 为原库原生身份，schema 与当前验证库不同；回执证明两表基线实际恢复和完整性 |
+| 原库 recovery | `status: restore_verified`，`source_database` 为原库当前原生身份；`qualification_result` 指向验证库已完成 apply 的受保护结果文件；回执证明验证后已按同一工具完成实际恢复。结果还须绑定相同源码/基线、migration-validation 登记及另一个 schema |
+
+`source_database` 与 binding.database 使用同一原生身份结构：`server_uuid`、`server_hostname`、整数 `server_port`、`database`、`transport`。canonical JSON 将对象键递归按字节排序、保持数组顺序，不转义 Unicode 和斜线；摘要不含末尾换行。停写和恢复事实由受授权的资源执行者负责真实性，入口校验其绑定、有效期及引用文件字节，不把自填 JSON 视作已经停写或已经恢复的证明。
+
+在已完成环境准备的源码根目录，经登记的项目执行环境运行下列原生命令；先设定本次真实身份变量及绝对私有文件路径，勿直接复制占位值。预检没有数据库持久写入，会取得既有 source product 文件锁和 schema named lock；计划文件由调用者以 `0600` 保存。
+
+```sh
+umask 077
+php server/think schema:application preflight --scope=source-development \
+  --owner="$OWNER" --thread="$THREAD" --session="$SESSION" --gate="$GATE" > "$OBSERVATION"
+# 从观察结果绑定实际停写与恢复材料后，生成可供 apply 核对的计划。
+php server/think schema:application preflight --scope=source-development \
+  --owner="$OWNER" --thread="$THREAD" --session="$SESSION" --gate="$GATE" \
+  --maintenance="$MAINTENANCE" --recovery="$RECOVERY" > "$PLAN"
+php server/think schema:application apply --scope=source-development \
+  --owner="$OWNER" --thread="$THREAD" --session="$SESSION" --gate="$GATE" \
+  --plan="$PLAN" --maintenance="$MAINTENANCE" --recovery="$RECOVERY"
+php server/think schema:application verify --scope=source-development \
+  --owner="$OWNER" --thread="$THREAD" --session="$SESSION" --gate="$GATE" \
+  --result="$RESULT_PATH"
+```
+
+每步先核退出码及 JSON；观察计划的 `may_apply=false`，材料齐全的计划可为 true，但 `execution_admitted` 始终 false，apply 会重新核实原生权限、字节和当前数据库。apply 在外层既有 source product 锁、内层既有 schema 锁内使用同一 ThinkORM 默认 master PDO，SQL 后排空结果、确认无事务并核真实后态，再标 applied，解锁前再次核对；完成后输出 `result_path`，其文件原子保存于 `server/private/application-schema/source-development/`。verify 只接受该目录原生结果，重新读取真实后态和旧记录，允许使用当前有效的只读租约；它不执行迁移。结果始终标记 `plugins=not_run`、`product_database=not_verified`。
+
+典型拒绝包括 `APPLICATION_SCHEMA_SOURCE_PENDING_SCOPE_REQUIRED`（待执行集合不符）、`APPLICATION_SCHEMA_PLAN_STALE`（来源/计划绑定变化）、`APPLICATION_SCHEMA_DDL_LEASE_REQUIRED`（无完整 DDL 范围）、`APPLICATION_SCHEMA_VALIDATION_RESULT_REQUIRED`（缺少独立验证/恢复材料）。失败保留原始输出、账本和恢复材料；DDL 可能已提交，不能自动重试或删除 failed/applying 行。成功后再次 apply 也会拒绝，应使用结果路径 verify。该源码入口尚未以真实数据库完成运行资格，不能据此宣布可生产使用。

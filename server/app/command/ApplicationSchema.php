@@ -19,6 +19,13 @@ final class ApplicationSchema extends ContextualCommand
     {
         $this->setName('schema:application')->setDescription('Inspect or execute the bound application SQL stage')
             ->addArgument('operation', Argument::REQUIRED, 'preflight, apply or verify')
+            ->addOption('scope', null, Option::VALUE_REQUIRED, 'Explicit source-development maintenance scope', '')
+            ->addOption('owner', null, Option::VALUE_REQUIRED, 'Owner of the current native resource grant')
+            ->addOption('thread', null, Option::VALUE_REQUIRED, 'Thread of the current native resource grant')
+            ->addOption('session', null, Option::VALUE_REQUIRED, 'Workflow Session of the current native resource grant')
+            ->addOption('gate', null, Option::VALUE_REQUIRED, 'Gate of the current native resource grant')
+            ->addOption('maintenance', null, Option::VALUE_REQUIRED, 'Protected current stop-writer evidence')
+            ->addOption('recovery', null, Option::VALUE_REQUIRED, 'Protected scoped backup and DB2 recovery evidence')
             ->addOption('workspace', null, Option::VALUE_REQUIRED, 'Existing native server-update workspace')
             ->addOption('plan', null, Option::VALUE_REQUIRED, 'Protected preflight plan path')
             ->addOption('result', null, Option::VALUE_REQUIRED, 'Native application-schema result path');
@@ -38,6 +45,24 @@ final class ApplicationSchema extends ContextualCommand
             $result = (string) $input->getOption('result');
             $workspace = (string) $input->getOption('workspace');
             $host = new ApplicationSchemaHost(dirname(__DIR__, 2));
+            $scope = (string) $input->getOption('scope');
+            if ($scope !== '') {
+                $guard = \app\common\validation\instance\InstanceToolAccessGuard::fromConfiguredValue($this->getApp()->config->get('deployment.mode'));
+                if ($scope !== 'source-development' || $workspace !== ''
+                    || !$guard->allowsCliDevelopmentMaintenance($this->getApp()->config->get('peanut.environment'),
+                        $this->getApp()->isDebug(), $this->executionContext(), $this->getName(), $this->establishedInstanceContext())) {
+                    throw new \RuntimeException('APPLICATION_SCHEMA_SOURCE_CONTEXT_REQUIRED');
+                }
+                $authority = [];
+                foreach (['owner', 'thread', 'session', 'gate'] as $key) { $authority[$key] = (string) $input->getOption($key); }
+                $report = $host->sourceDevelopment($operation, $authority, $plan, $result,
+                    (string) $input->getOption('maintenance'), (string) $input->getOption('recovery'));
+                $output->writeln(json_encode($report, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+                return ($report['status'] ?? null) === 'blocked' ? 2 : 0;
+            }
+            foreach (['owner', 'thread', 'session', 'gate', 'maintenance', 'recovery'] as $key) {
+                if ((string) $input->getOption($key) !== '') { throw new \RuntimeException('APPLICATION_SCHEMA_ARGUMENTS_INVALID'); }
+            }
             $report = match (true) {
                 $workspace !== '' && $plan === '' && $result === '' => $host->serverStage($operation, $workspace),
                 $workspace === '' && $operation === 'preflight' && $plan === '' && $result === '' => $host->preflight(),

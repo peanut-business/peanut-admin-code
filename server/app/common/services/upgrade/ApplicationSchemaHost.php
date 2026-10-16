@@ -15,6 +15,7 @@ final class ApplicationSchemaHost
 {
     private const PROTOCOL = 'peanut.application-schema-plan.v1';
     private const RESULT_PROTOCOL = 'peanut.application-schema-result.v1';
+    private ?string $sourceConnectionId = null;
 
     /** Immutable SQL understood by the source-specific read-only proofs below. */
     private const PRESTATE_SQL = [
@@ -514,6 +515,459 @@ final class ApplicationSchemaHost
         }
         self::prestateZero($pdo, "SELECT COUNT(*) FROM pa_module_migration WHERE NOT ((resolution_kind IS NULL OR resolution_kind IN ('executed','adopted')) AND ((resolution_kind<=>'adopted')=(provenance_json IS NOT NULL)))");
         return ['shape' => 'exact_noop'];
+    }
+
+    /** Native source maintenance; facts never substitute for the current resource grant. */
+    public function sourceDevelopment(string $operation, array $actor, string $planPath, string $resultPath, string $maintenancePath, string $recoveryPath): array
+    {
+        if (!in_array($operation, ['preflight', 'apply', 'verify'], true)
+            || ($operation === 'preflight' && ($planPath !== '' || $resultPath !== ''))
+            || ($operation === 'apply' && ($planPath === '' || $resultPath !== ''))
+            || (($maintenancePath === '') !== ($recoveryPath === ''))
+            || ($operation === 'verify' && ($resultPath === '' || $planPath !== '' || $maintenancePath !== '' || $recoveryPath !== ''))) {
+            throw new RuntimeException('APPLICATION_SCHEMA_ARGUMENTS_INVALID');
+        }
+        $context = app()->make(\app\common\execution\CurrentExecutionContext::class)->current();
+        if (!$context instanceof \app\common\execution\InstanceExecutionContext
+            || $context->operation() !== 'console.schema:application' || $context->instance->actorKey !== 'console' || PHP_SAPI !== 'cli'
+            || config('peanut.environment') !== 'development' || !app()->isDebug()
+            || !\installationSourceDevelopmentMode($this->serverRoot)
+            || file_exists($this->serverRoot . '/.peanut/release-identity.json')
+            || file_exists($this->serverRoot . '/.peanut/development-runtime.json')
+            || !in_array(config('deployment.mode'), ['standalone', 'multi-tenant'], true)) {
+            throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_CONTEXT_REQUIRED');
+        }
+        foreach (['owner', 'thread', 'session', 'gate'] as $key) {
+            if (!is_string($actor[$key] ?? null) || trim($actor[$key]) === '' || preg_match('/[\x00-\x1f]/', $actor[$key])) {
+                throw new RuntimeException('APPLICATION_SCHEMA_NATIVE_ACTOR_REQUIRED');
+            }
+        }
+        $config = \guardedDatabaseConfig();
+        $connection = \think\facade\Db::connect();
+        foreach (['hostname' => 'host', 'hostport' => 'port', 'database' => 'database', 'username' => 'user', 'password' => 'password'] as $native => $guarded) {
+            if ((string) $connection->getConfig($native) !== (string) $config[$guarded]) { throw new RuntimeException('APPLICATION_SCHEMA_MASTER_MISMATCH'); }
+        }
+        if ($connection->getConfig('break_reconnect') !== false || (int) $connection->getConfig('deploy') !== 0
+            || $connection->getConfig('prefix') !== 'pa_') { throw new RuntimeException('APPLICATION_SCHEMA_MASTER_MISMATCH'); }
+        $connection->query('SELECT CONNECTION_ID()', [], true);
+        $pdo = $connection->getPdo();
+        if (!$pdo instanceof PDO || $pdo->inTransaction()) { throw new RuntimeException('APPLICATION_SCHEMA_MASTER_MISMATCH'); }
+        $facts = fn(): array => $this->sourceDevelopmentFacts($pdo, $connection, $actor, $context->requestId(), $operation === 'apply');
+        $initial = $facts();
+        $files = \applicationMigrationFiles($this->serverRoot . '/database');
+        $versions = \applicationReleaseVersions($this->serverRoot);
+        $target = \applicationMigrationTargetVersion($this->serverRoot, $versions);
+        $runner = new ApplicationMigrationRunner($config, $pdo);
+        if ($operation === 'preflight') {
+            return \app\common\infrastructure\scaffold\ScaffoldUpgradeRunner::sourceProductLock(dirname($this->serverRoot),
+                function () use ($runner, $pdo, $initial, $facts, $files, $target, $versions, $maintenancePath, $recoveryPath): array {
+                    $plan = null;
+                    $runner->run($files, $target, $versions['release_sequence_version'], true, null,
+                        function (PDO $actual, array $selection) use ($pdo, $initial, $facts, $files, $target, $versions, $maintenancePath, $recoveryPath, &$plan): void {
+                            if ($actual !== $pdo) { throw new RuntimeException('APPLICATION_SCHEMA_MASTER_MISMATCH'); }
+                            $plan = $this->sourceDevelopmentPlan($pdo, $initial, $facts, $files, $target, $versions, $maintenancePath, $recoveryPath);
+                            if ($selection['pending'] !== $plan['baseline']['pending']) { throw new RuntimeException('APPLICATION_SCHEMA_LEDGER_CHANGED'); }
+                        });
+                    return $plan;
+                });
+        }
+        if ($operation === 'verify' && (realpath(dirname($resultPath)) !== $this->serverRoot . '/private/application-schema/source-development'
+            || preg_match('/\Aresult-[a-f0-9]{32}\.json\z/D', basename($resultPath)) !== 1)) { throw new RuntimeException('APPLICATION_SCHEMA_RESULT_ORIGIN_INVALID'); }
+        $expected = $this->sourceProtectedJson($operation === 'apply' ? $planPath : $resultPath);
+        $this->assertSourceDocument($expected, $operation === 'apply' ? 'peanut.source-development-schema-plan.v1' : 'peanut.source-development-schema-result.v1');
+        return \app\common\infrastructure\scaffold\ScaffoldUpgradeRunner::sourceProductLock(dirname($this->serverRoot),
+            function () use ($operation, $pdo, $runner, $files, $target, $versions, $expected, $facts, $initial, $maintenancePath, $recoveryPath): array {
+                $current = $facts();
+                if ($current !== $initial) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_DRIFT'); }
+                $binding = $expected['binding'] ?? null;
+                if (!is_array($binding) || !$this->sourceSame($binding['source'] ?? null, $current['source'])
+                    || !$this->sourceSame($binding['database'] ?? null, $current['database'])
+                    || !$this->sourceSame($binding['installation_originals'] ?? null, $current['installation_originals'])
+                    || ($binding['registry_sha256'] ?? null) !== $current['registry_sha256']) {
+                    throw new RuntimeException('APPLICATION_SCHEMA_PLAN_STALE');
+                }
+                if ($operation === 'apply' && (!$this->sourceSame($binding, $current) || ($expected['may_apply'] ?? null) !== true)) {
+                    throw new RuntimeException('APPLICATION_SCHEMA_PLAN_STALE');
+                }
+                $baseline = $expected['baseline'] ?? null;
+                if (!is_array($baseline)) { throw new RuntimeException('APPLICATION_SCHEMA_DOCUMENT_INVALID'); }
+                $recheck = function () use ($facts, $initial): void {
+                    \app\common\infrastructure\scaffold\ScaffoldUpgradeRunner::sourceProductLock(dirname($this->serverRoot), static fn() => null);
+                    if ($facts() !== $initial) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_DRIFT'); }
+                };
+                $proofs = [];
+                if ($operation === 'apply') {
+                    $proofs = $this->sourceDevelopmentEvidence($current, $maintenancePath, $recoveryPath, $baseline);
+                    if (!$this->sourceSame($expected['evidence'] ?? null, $proofs)) { throw new RuntimeException('APPLICATION_SCHEMA_PLAN_STALE'); }
+                }
+                $before = function (PDO $actual, array $migration) use ($pdo, $baseline, $recheck, $current, $maintenancePath, $recoveryPath, $proofs): void {
+                    $recheck();
+                    if ($actual !== $pdo || $this->sourceDevelopmentEvidence($current, $maintenancePath, $recoveryPath, $baseline) !== $proofs) {
+                        throw new RuntimeException('APPLICATION_SCHEMA_WINDOW_CHANGED');
+                    }
+                    $this->assertSourceBaseline($pdo, $baseline, false);
+                    $proof = self::migrationPrestate($pdo, $migration, [], false);
+                    if (($proof['proof']['shape'] ?? null) !== 'before_additions') { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_PROVENANCE_PARTIAL'); }
+                };
+                $after = function (PDO $actual, array $migration) use ($pdo, $baseline, $recheck, $current, $maintenancePath, $recoveryPath, $proofs): void {
+                    $recheck();
+                    if ($actual !== $pdo || $this->sourceDevelopmentEvidence($current, $maintenancePath, $recoveryPath, $baseline) !== $proofs) {
+                        throw new RuntimeException('APPLICATION_SCHEMA_WINDOW_CHANGED');
+                    }
+                    $this->assertSourceBaseline($pdo, $baseline, true);
+                };
+                $migration = $runner->run($files, $target, $versions['release_sequence_version'], $operation === 'verify',
+                    $operation === 'apply' ? $before : null,
+                    function (PDO $actual, array $selection) use ($pdo, $baseline, $recheck, $operation, $current, $maintenancePath, $recoveryPath, $proofs): void {
+                        $recheck();
+                        if ($actual !== $pdo || $selection['pending'] !== []) { throw new RuntimeException('APPLICATION_SCHEMA_VERIFY_INCOMPLETE'); }
+                        if ($operation === 'apply' && $selection['applied'] !== ['20261016-module-migration-provenance']) { throw new RuntimeException('APPLICATION_SCHEMA_APPLIED_USE_VERIFY'); }
+                        if ($operation === 'apply' && $this->sourceDevelopmentEvidence($current, $maintenancePath, $recoveryPath, $baseline) !== $proofs) {
+                            throw new RuntimeException('APPLICATION_SCHEMA_WINDOW_CHANGED');
+                        }
+                        $this->assertSourceBaseline($pdo, $baseline, true, true);
+                    }, $operation === 'apply' ? $after : null);
+                $record = ['schema_version' => 1, 'protocol' => 'peanut.source-development-schema-result.v1',
+                    'scope' => 'application-schema', 'maintenance_scope' => 'source-development', 'status' => 'completed',
+                    'operation' => $operation, 'binding' => $current, 'baseline' => $baseline, 'application' => $migration,
+                    'validation_only' => $current['validation_only'],
+                    'validation_inputs' => $operation === 'apply' ? ($proofs['recovery']['validation_inputs'] ?? null) : ($expected['validation_inputs'] ?? null),
+                    'plugins' => 'not_run', 'product_database' => 'not_verified'];
+                $record['document_sha256'] = $this->digest($record);
+                if ($operation === 'apply') { $record['result_path'] = $this->saveSourceResult($record); }
+                return $record;
+            });
+    }
+
+    private function sourceDevelopmentPlan(PDO $pdo, array $binding, callable $facts, array $files, string $target, array $versions, string $maintenancePath, string $recoveryPath): array
+    {
+        $baseline = $this->sourceBaseline($pdo, $files, $target, $versions['release_sequence_version']);
+        if ($baseline['pending'] !== ['20261016-module-migration-provenance']) {
+            throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_PENDING_SCOPE_REQUIRED');
+        }
+        $file = $this->serverRoot . '/database/migrations/20261016-module-migration-provenance.sql';
+        $proof = self::migrationPrestate($pdo, ['id' => basename($file, '.sql'), 'sql' => (string) file_get_contents($file), 'checksum' => hash_file('sha256', $file)], [], false);
+        if (($proof['proof']['shape'] ?? null) !== 'before_additions') { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_PROVENANCE_PARTIAL'); }
+        \app\common\infrastructure\scaffold\ScaffoldUpgradeRunner::sourceProductLock(dirname($this->serverRoot), static fn() => null);
+        if ($facts() !== $binding) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_DRIFT'); }
+        $evidence = $maintenancePath !== '' && $recoveryPath !== '' ? $this->sourceDevelopmentEvidence($binding, $maintenancePath, $recoveryPath, $baseline) : null;
+        $plan = ['schema_version' => 1, 'protocol' => 'peanut.source-development-schema-plan.v1',
+            'scope' => 'application-schema', 'maintenance_scope' => 'source-development', 'status' => 'planned',
+            'binding' => $binding, 'baseline' => $baseline, 'evidence' => $evidence, 'may_apply' => $evidence !== null,
+            'validation_only' => $binding['validation_only'],
+            'execution_admitted' => false, 'plugins' => 'not_run', 'product_database' => 'not_verified'];
+        $plan['document_sha256'] = $this->digest($plan);
+        return $plan;
+    }
+
+    private function sourceDevelopmentFacts(PDO $pdo, object $connection, array $actor, string $requestId, bool $ddl): array
+    {
+        $context = app()->make(\app\common\execution\CurrentExecutionContext::class)->current();
+        if (!$context instanceof \app\common\execution\InstanceExecutionContext || $context->requestId() !== $requestId
+            || $context->operation() !== 'console.schema:application' || $pdo->inTransaction()
+            || \think\facade\Db::connect() !== $connection || $connection->getPdo() !== $pdo) { throw new RuntimeException('APPLICATION_SCHEMA_MASTER_MISMATCH'); }
+        $root = dirname($this->serverRoot);
+        $owner = fileowner($root);
+        if (!is_int($owner) || !function_exists('posix_geteuid') || !in_array(posix_geteuid(), [0, $owner], true)) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_OWNER_REQUIRED'); }
+        $head = \leaseGit(['-C', $root, 'rev-parse', 'HEAD^{commit}']);
+        if (\leaseGit(['-C', $root, 'status', '--porcelain', '--untracked-files=normal']) !== '') { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_DIRTY'); }
+        $registry = \projectResourceRegistry($registrySha);
+        $config = \guardedDatabaseConfig();
+        $deployment = \deploymentTargetContract($config['deployment_target']);
+        if ($config['environment'] !== 'development' || str_contains($config['deployment_target'], 'production')
+            || !in_array($deployment['resource_environment'], ['development', 'development-test', 'local-multi-tenant-demo', 'local-standalone-demo'], true)) {
+            throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_RESOURCE_REQUIRED');
+        }
+        $database = \registeredDatabase($registry, $config['resource_id']);
+        $endpoint = \registeredDatabaseEndpoint($database, $config['consumer']);
+        $schema = \mysqlSchemaLeaseResource($database, $endpoint, $config);
+        if ($schema === null) { throw new RuntimeException('APPLICATION_SCHEMA_NATIVE_SCHEMA_LEASE_REQUIRED'); }
+        $path = \requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
+        $meta = \activeLeaseMetadata($path, time(), $actor['gate']); $resources = \activeLeaseResources($path);
+        if ($meta['owner'] !== $actor['owner'] || $meta['thread'] !== $actor['thread'] || $meta['candidate'] !== $head
+            || $meta['gate'] !== ($database['lease_gate'] ?? null)
+            || !in_array($actor['session'], $resources['workflow-session'] ?? [], true)) { throw new RuntimeException('APPLICATION_SCHEMA_NATIVE_ACTOR_MISMATCH'); }
+        \assertNativeMysqlSchemaLease($root, $path, $meta, $resources, $config['resource_id'], $schema, $config['endpoint_id'], $registrySha);
+        // The existing native policy defines a schema lease without shared_access
+        // and without mysql-access declarations as whole-schema exclusive.
+        $legacyExclusive = !isset($database['lease_policy']['shared_access']) && !isset($resources['mysql-access']);
+        $access = $legacyExclusive; $nativeOperation = $legacyExclusive ? 'exclusive' : null;
+        foreach ($resources['mysql-access'] ?? [] as $value) {
+            $value = json_decode($value, true, 64, JSON_THROW_ON_ERROR);
+            if (($value['schema'] ?? null) === $schema) { $nativeOperation = $value['operation'] ?? null; }
+            $access = $access || (($value['schema'] ?? null) === $schema && ($value['complete'] ?? null) === true
+                && in_array($value['operation'] ?? null, ['ddl', 'exclusive'], true) && ($value['tables'] ?? null) === []);
+        }
+        if ($ddl && !$access) { throw new RuntimeException('APPLICATION_SCHEMA_DDL_LEASE_REQUIRED'); }
+        $sourceFiles = [];
+        foreach (\applicationMigrationFiles($this->serverRoot . '/database') as $file) { $sourceFiles[basename($file)] = $this->fileDigest($file); }
+        foreach (['release-versions.json', 'plugins.lock', 'server/composer.lock', 'server/vendor/composer/installed.json'] as $file) { $sourceFiles[$file] = $this->fileDigest($root . '/' . $file); }
+        $core = dirname((string) (new \ReflectionClass(\PeanutAdmin\Kernel\Module\ModuleProvider::class))->getFileName(), 4);
+        $iterator = new \RecursiveIteratorIterator(new \RecursiveCallbackFilterIterator(new \RecursiveDirectoryIterator($core, \FilesystemIterator::SKIP_DOTS),
+            static fn($item): bool => !in_array($item->getFilename(), ['.git', '.local', 'vendor', 'tests', 'node_modules'], true)));
+        foreach ($iterator as $file) {
+            if ($file->isLink()) { throw new RuntimeException('APPLICATION_SCHEMA_CORE_IDENTITY_INVALID'); }
+            if ($file->isFile() && ($file->getExtension() === 'php' || $file->getFilename() === 'composer.json')) {
+                $sourceFiles['core/' . substr($file->getPathname(), strlen($core) + 1)] = $this->fileDigest($file->getPathname());
+            }
+        }
+        ksort($sourceFiles, SORT_STRING);
+        $originals = [];
+        foreach (['installed.json', 'baseline.json'] as $name) {
+            $file = $this->serverRoot . '/private/installation/' . $name;
+            $originals[$name] = file_exists($file) || is_link($file) ? $this->fileDigest($file) : null;
+        }
+        $connectionId = (string) $pdo->query('SELECT CONNECTION_ID()')->fetchColumn();
+        if ($this->sourceConnectionId !== null && $this->sourceConnectionId !== $connectionId) { throw new RuntimeException('APPLICATION_SCHEMA_MASTER_MISMATCH'); }
+        $this->sourceConnectionId = $connectionId;
+        return ['source' => ['root' => $root, 'head' => $head, 'tree' => \leaseGit(['-C', $root, 'rev-parse', 'HEAD^{tree}']),
+                'files_sha256' => $this->digest($sourceFiles), 'php_binary_sha256' => $this->fileDigest(PHP_BINARY)],
+            'database' => InstallationExecutionHost::migrationDatabaseIdentity($pdo),
+            'environment_sha256' => $this->fileDigest(\peanutBackendEnvironmentPath()),
+            'installation_originals' => $originals,
+            'registry_sha256' => $registrySha,
+            'resource_id' => $config['resource_id'], 'endpoint_id' => $config['endpoint_id'],
+            'validation_only' => $database['lease_gate'] === 'migration-validation',
+            'authority' => ['lease' => $meta['lease'], 'owner' => $meta['owner'], 'thread' => $meta['thread'], 'gate' => $meta['gate'],
+                'session' => $actor['session'], 'created_at' => $meta['created_at'], 'expires_at' => $meta['expires_at'],
+                'operation' => $nativeOperation,
+                'resources_sha256' => hash_file('sha256', $path . '/resources.tsv')]];
+    }
+
+    /** Receipts are scope-bound operational facts, never a replacement for the native grant. */
+    private function sourceDevelopmentEvidence(array $binding, string $maintenancePath, string $recoveryPath, array $baseline): array
+    {
+        $out = [];
+        foreach (['maintenance' => $maintenancePath, 'recovery' => $recoveryPath] as $kind => $path) {
+            $value = $this->sourceProtectedJson($path);
+            if (($value['schema_version'] ?? null) !== 1 || ($value['protocol'] ?? null) !== 'peanut.source-development-' . $kind . '.v1'
+                || !$this->sourceSame($value['source'] ?? null, $binding['source']) || !$this->sourceSame($value['database'] ?? null, $binding['database'])
+                || !$this->sourceSame($value['authority'] ?? null, $binding['authority']) || ($value['registry_sha256'] ?? null) !== $binding['registry_sha256']
+                || ($value['migration_sha256'] ?? null) !== self::PRESTATE_SQL['20261016-module-migration-provenance']
+                || !is_int($value['observed_at'] ?? null) || !is_int($value['expires_at'] ?? null)
+                || $value['observed_at'] > time() || $value['expires_at'] <= time() || $value['expires_at'] > (int) $binding['authority']['expires_at']
+                || !is_array($value['receipts'] ?? null) || $value['receipts'] === []) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_EVIDENCE_REQUIRED'); }
+            if ($kind === 'maintenance' && (($value['state'] ?? null) !== 'active'
+                || ($value['excluded_writers'] ?? null) !== ['http', 'workers', 'other-writers'])) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_WINDOW_REQUIRED'); }
+            if ($kind === 'recovery') { $this->sourceRecoveryEvidence($value, $binding, $baseline); }
+            foreach ($value['receipts'] as $receipt) {
+                $receiptPath = $receipt['path'] ?? '';
+                $this->sourceProtectedFile($receiptPath);
+                if (($receipt['sha256'] ?? null) !== $this->fileDigest($receiptPath)) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_EVIDENCE_CHANGED'); }
+            }
+            $out[$kind] = ['path' => $path, 'sha256' => $this->fileDigest($path)];
+            if ($kind === 'recovery') {
+                $out[$kind]['validation_inputs'] = array_intersect_key($value,
+                    array_flip(['source_database', 'baseline_sha256', 'backup_payload', 'restore_tool', 'restore_contract_sha256']));
+            }
+        }
+        return $out;
+    }
+
+    private function sourceRecoveryEvidence(array $value, array $binding, array $baseline): void
+    {
+        if (($value['scope'] ?? null) !== ['pa_schema_migration', 'pa_module_migration']
+            || ($value['baseline_sha256'] ?? null) !== $this->digest($baseline)
+            || !is_array($value['source_database'] ?? null) || !$this->sourceDatabaseIdentity($value['source_database'])
+            || preg_match('/\A[a-f0-9]{64}\z/D', (string) ($value['restore_contract_sha256'] ?? '')) !== 1) {
+            throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_RECOVERY_REQUIRED');
+        }
+        foreach (['backup_payload', 'restore_tool'] as $key) {
+            $file = $value[$key]['path'] ?? '';
+            if (!is_string($file) || realpath($file) !== $file || ($value[$key]['sha256'] ?? null) !== $this->fileDigest($file)) {
+                throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_RECOVERY_CHANGED');
+            }
+            if ($key === 'backup_payload') { $this->sourceProtectedFile($file); }
+        }
+        if ($binding['validation_only']) {
+            if (($value['status'] ?? null) !== 'baseline_restored'
+                || ($value['source_database']['database'] ?? null) === $binding['database']['database']) {
+                throw new RuntimeException('APPLICATION_SCHEMA_VALIDATION_BASELINE_REQUIRED');
+            }
+            return;
+        }
+        $qualificationPath = $value['qualification_result'] ?? '';
+        if (!is_string($qualificationPath)) { throw new RuntimeException('APPLICATION_SCHEMA_VALIDATION_RESULT_REQUIRED'); }
+        $qualification = $this->sourceProtectedJson($qualificationPath);
+        $this->assertSourceDocument($qualification, 'peanut.source-development-schema-result.v1');
+        $registry = \projectResourceRegistry();
+        $validation = \registeredDatabase($registry, (string) ($qualification['binding']['resource_id'] ?? ''));
+        $validationDb = $qualification['binding']['database'] ?? null;
+        if (($value['status'] ?? null) !== 'restore_verified' || !$this->sourceSame($value['source_database'] ?? null, $binding['database'])
+            || ($qualification['validation_only'] ?? null) !== true || ($qualification['status'] ?? null) !== 'completed'
+            || ($qualification['operation'] ?? null) !== 'apply' || ($validation['lease_gate'] ?? null) !== 'migration-validation'
+            || !is_array($validationDb) || ($validationDb['database'] ?? null) !== ($validation['database'] ?? null)
+            || !$this->sourceDatabaseIdentity($validationDb)
+            || ($validationDb['database'] ?? null) === $binding['database']['database']
+            || !$this->sourceSame($qualification['binding']['source'] ?? null, $binding['source'])
+            || !$this->sourceSame($qualification['baseline'] ?? null, $baseline)
+            || ($qualification['application']['applied'] ?? null) !== ['20261016-module-migration-provenance']
+            || ($qualification['application']['pending'] ?? null) !== []
+            || !$this->sourceSame($qualification['validation_inputs']['source_database'] ?? null, $binding['database'])
+            || ($qualification['binding']['validation_only'] ?? null) !== true
+            || ($qualification['binding']['authority']['gate'] ?? null) !== 'migration-validation'
+            || ($qualification['validation_inputs']['restore_tool']['sha256'] ?? null) !== $value['restore_tool']['sha256']) {
+            throw new RuntimeException('APPLICATION_SCHEMA_VALIDATION_RESULT_REQUIRED');
+        }
+    }
+
+    private function sourceDatabaseIdentity(array $identity): bool
+    {
+        $keys = array_keys($identity); sort($keys, SORT_STRING);
+        return $keys === ['database', 'server_hostname', 'server_port', 'server_uuid', 'transport']
+            && preg_match('/\A[A-Za-z0-9_]+\z/D', (string) $identity['database']) === 1
+            && preg_match('/\A[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}\z/Di', (string) $identity['server_uuid']) === 1
+            && is_int($identity['server_port']) && $identity['server_port'] > 0 && $identity['server_port'] <= 65535
+            && is_string($identity['server_hostname']) && $identity['server_hostname'] !== ''
+            && is_string($identity['transport']) && $identity['transport'] !== '';
+    }
+
+    private function sourceBaseline(PDO $pdo, array $files, string $target, string $default): array
+    {
+        $ledgerShape = $this->sourceLedgerShape($pdo);
+        $ledger = $pdo->query('SELECT * FROM pa_schema_migration ORDER BY migration_id')->fetchAll(PDO::FETCH_ASSOC);
+        $byId = array_column($ledger, null, 'migration_id'); $pending = []; $selected = [];
+        foreach ($files as $file) {
+            $sql = (string) file_get_contents($file); $identity = ApplicationMigrationRunner::releaseIdentity($sql, $default);
+            if ($identity['peanut_release'] && version_compare($identity['release_version'], $target, '>')) { continue; }
+            $id = basename($file, '.sql'); $sha = hash('sha256', $sql); $selected[$id] = $sha;
+            if (!isset($byId[$id])) { $pending[] = $id; continue; }
+            if ($byId[$id]['status'] !== 'applied' || $byId[$id]['checksum'] !== $sha) { throw new RuntimeException('APPLICATION_SCHEMA_LEDGER_CONFLICT'); }
+            // Historical release_version is deliberately preserved, as in the runner.
+        }
+        if (array_diff(array_keys($byId), array_keys($selected)) !== []) { throw new RuntimeException('APPLICATION_SCHEMA_LEDGER_CONFLICT'); }
+        $moduleRows = $pdo->query('SELECT * FROM pa_module_migration ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($moduleRows as $row) { if ($row['status'] !== 'applied') { throw new RuntimeException('APPLICATION_SCHEMA_MODULE_LEDGER_INCOMPLETE'); } }
+        $columns = $pdo->query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='pa_module_migration' ORDER BY ORDINAL_POSITION")->fetchAll(PDO::FETCH_COLUMN);
+        $shape = $this->sourceModuleShape($pdo);
+        return ['pending' => $pending, 'selected' => $selected, 'target' => $target, 'default_release' => $default,
+            'application_rows_sha256' => $this->digest($ledger), 'application_rows_count' => count($ledger),
+            'application_shape_sha256' => $this->digest($ledgerShape),
+            'module_rows_sha256' => $this->digest($moduleRows), 'module_rows_count' => count($moduleRows), 'module_columns' => $columns,
+            'module_shape_sha256' => $this->digest($shape)];
+    }
+
+    private function assertSourceBaseline(PDO $pdo, array $baseline, bool $after, bool $applied = false): void
+    {
+        $id = '20261016-module-migration-provenance';
+        if (($baseline['pending'] ?? null) !== [$id] || ($baseline['selected'][$id] ?? null) !== self::PRESTATE_SQL[$id]) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_PENDING_SCOPE_REQUIRED'); }
+        $ledger = $pdo->query('SELECT * FROM pa_schema_migration ORDER BY migration_id')->fetchAll(PDO::FETCH_ASSOC);
+        if ($this->digest($this->sourceLedgerShape($pdo)) !== $baseline['application_shape_sha256']) { throw new RuntimeException('APPLICATION_SCHEMA_LEDGER_SHAPE_CHANGED'); }
+        $targetRows = array_values(array_filter($ledger, static fn(array $row): bool => $row['migration_id'] === $id));
+        $old = array_values(array_filter($ledger, static fn(array $row): bool => $row['migration_id'] !== $id));
+        if ($this->digest($old) !== $baseline['application_rows_sha256'] || count($old) !== $baseline['application_rows_count']
+            || (!$after && $targetRows !== []) || ($after && (count($targetRows) !== 1 || $targetRows[0]['checksum'] !== self::PRESTATE_SQL[$id]
+                || $targetRows[0]['status'] !== ($applied ? 'applied' : 'applying') || $targetRows[0]['release_version'] !== '5.0.2'
+                || $targetRows[0]['error_code'] !== null || ($applied ? $targetRows[0]['finished_at'] === null : $targetRows[0]['finished_at'] !== null)))) { throw new RuntimeException('APPLICATION_SCHEMA_LEDGER_CHANGED'); }
+        $rows = $pdo->query('SELECT * FROM pa_module_migration ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
+        $oldRows = [];
+        foreach ($rows as $row) {
+            if ($after && (($row['resolution_kind'] ?? null) !== null || ($row['provenance_json'] ?? null) !== null)) { throw new RuntimeException('APPLICATION_SCHEMA_MODULE_ORIGIN_CHANGED'); }
+            $oldRows[] = array_intersect_key($row, array_fill_keys($baseline['module_columns'], true));
+        }
+        if (count($rows) !== $baseline['module_rows_count'] || $this->digest($oldRows) !== $baseline['module_rows_sha256']) { throw new RuntimeException('APPLICATION_SCHEMA_MODULE_LEDGER_CHANGED'); }
+        $shape = $this->sourceModuleShape($pdo);
+        unset($shape['columns']['resolution_kind'], $shape['columns']['provenance_json'],
+            $shape['checks']['chk_module_migration_resolution'], $shape['checks']['chk_module_migration_provenance']);
+        if ($this->digest($shape) !== $baseline['module_shape_sha256']) { throw new RuntimeException('APPLICATION_SCHEMA_MODULE_SHAPE_CHANGED'); }
+        if ($after) {
+            $shape = self::prestateProvenance($pdo, self::prestateTable($pdo, 'pa_module_migration'));
+            if ($shape['shape'] !== 'exact_noop') { throw new RuntimeException('APPLICATION_SCHEMA_POSTSTATE_INCOMPLETE'); }
+        }
+    }
+
+    private function sourceModuleShape(PDO $pdo): array
+    {
+        $shape = self::prestateTable($pdo, 'pa_module_migration');
+        $oldColumns = ['id', 'module_key', 'migration_key', 'module_version', 'checksum', 'batch_no', 'status', 'started_at', 'finished_at', 'error_code'];
+        if (!in_array(array_keys($shape['columns']), [$oldColumns, [...$oldColumns, 'resolution_kind', 'provenance_json']], true)) {
+            throw new RuntimeException('APPLICATION_SCHEMA_MODULE_SHAPE_UNKNOWN');
+        }
+        self::prestateColumnShape('pa_module_migration', $shape['columns']);
+        self::prestateConstraintShape('pa_module_migration', $shape);
+        self::prestateUnique($shape, ['id']); self::prestateUnique($shape, ['module_key', 'migration_key']);
+        $status = $shape['checks']['chk_module_migration_status'] ?? null;
+        $normal = static fn(string $clause): string => trim(strtolower((string) preg_replace('/\s+|`|_utf8mb4/', '', $clause)), '()');
+        if (!is_array($status) || $status['ENFORCED'] !== 'YES'
+            || $normal($status['CHECK_CLAUSE']) !== $normal("status IN ('applying','applied','rolled_back','failed')")) {
+            throw new RuntimeException('APPLICATION_SCHEMA_MODULE_SHAPE_UNKNOWN');
+        }
+        $query = $pdo->query("SELECT COUNT(*) FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE (CONSTRAINT_SCHEMA=DATABASE() AND TABLE_NAME='pa_module_migration') OR (UNIQUE_CONSTRAINT_SCHEMA=DATABASE() AND REFERENCED_TABLE_NAME='pa_module_migration')");
+        if ((int) $query->fetchColumn() !== 0) { throw new RuntimeException('APPLICATION_SCHEMA_MODULE_FOREIGN_KEY_UNKNOWN'); }
+        $shape['checks']['chk_module_migration_status']['CHECK_CLAUSE'] = $normal($status['CHECK_CLAUSE']);
+        return $shape;
+    }
+
+    private function sourceLedgerShape(PDO $pdo): array
+    {
+        $shape = self::prestateTable($pdo, 'pa_schema_migration');
+        if (array_keys($shape['columns']) !== ['migration_id', 'release_version', 'checksum', 'status', 'started_at', 'finished_at', 'error_code']) {
+            throw new RuntimeException('APPLICATION_SCHEMA_LEDGER_SHAPE_UNKNOWN');
+        }
+        $columns = $shape['columns']; $status = $columns['status']; unset($columns['status']);
+        self::prestateColumnShape('pa_schema_migration', $columns);
+        if (strtolower($status['COLUMN_TYPE']) !== "enum('applying','applied','failed')" || $status['IS_NULLABLE'] !== 'NO'
+            || $status['COLUMN_DEFAULT'] !== 'applying' || $status['EXTRA'] !== '') { throw new RuntimeException('APPLICATION_SCHEMA_LEDGER_SHAPE_UNKNOWN'); }
+        self::prestateConstraintShape('pa_schema_migration', $shape);
+        self::prestateUnique($shape, ['migration_id']);
+        $count = $pdo->query("SELECT COUNT(*) FROM information_schema.REFERENTIAL_CONSTRAINTS WHERE (CONSTRAINT_SCHEMA=DATABASE() AND TABLE_NAME='pa_schema_migration') OR (UNIQUE_CONSTRAINT_SCHEMA=DATABASE() AND REFERENCED_TABLE_NAME='pa_schema_migration')")->fetchColumn();
+        if ((int) $count !== 0) { throw new RuntimeException('APPLICATION_SCHEMA_LEDGER_FOREIGN_KEY_UNKNOWN'); }
+        return $shape;
+    }
+
+    private function sourceSame(mixed $left, mixed $right): bool
+    {
+        return is_array($left) && is_array($right) ? $this->canonical($left) === $this->canonical($right) : $left === $right;
+    }
+
+    private function assertSourceDocument(array $document, string $protocol): void
+    {
+        $sha = $document['document_sha256'] ?? null; unset($document['document_sha256']);
+        if (($document['protocol'] ?? null) !== $protocol || ($document['schema_version'] ?? null) !== 1
+            || ($document['scope'] ?? null) !== 'application-schema' || ($document['maintenance_scope'] ?? null) !== 'source-development'
+            || ($document['plugins'] ?? null) !== 'not_run' || ($document['product_database'] ?? null) !== 'not_verified'
+            || !is_string($sha) || !hash_equals($sha, $this->digest($document))) { throw new RuntimeException('APPLICATION_SCHEMA_DOCUMENT_INVALID'); }
+    }
+
+    private function sourceProtectedFile(string $path): void
+    {
+        $stat = @lstat($path); $owner = fileowner($this->serverRoot);
+        if (!str_starts_with($path, '/') || realpath($path) !== $path || !is_file($path) || is_link($path)
+            || !is_array($stat) || $stat['nlink'] !== 1 || ($stat['mode'] & 0777) !== 0600
+            || !in_array($stat['uid'], [0, $owner], true) || $stat['size'] > 4194304
+            || !function_exists('posix_geteuid') || !in_array(posix_geteuid(), [0, $owner], true)) {
+            throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_DOCUMENT_UNSAFE');
+        }
+    }
+
+    private function sourceProtectedJson(string $path): array
+    {
+        $this->sourceProtectedFile($path);
+        return $this->protectedJson($path);
+    }
+
+    private function saveSourceResult(array $record): string
+    {
+        $directory = $this->serverRoot . '/private/application-schema/source-development';
+        $parent = $this->serverRoot;
+        foreach (['private', 'application-schema', 'source-development'] as $part) {
+            $parent .= '/' . $part;
+            if ((!is_dir($parent) && !mkdir($parent, 0700)) || realpath($parent) !== $parent || is_link($parent)
+                || !in_array(fileowner($parent), [0, fileowner($this->serverRoot)], true) || (fileperms($parent) & 0022) !== 0) {
+                throw new RuntimeException('APPLICATION_SCHEMA_RESULT_DIRECTORY_UNSAFE');
+            }
+        }
+        if ((fileperms($directory) & 0777) !== 0700) { throw new RuntimeException('APPLICATION_SCHEMA_RESULT_DIRECTORY_UNSAFE'); }
+        $path = $directory . '/result-' . bin2hex(random_bytes(16)) . '.json'; $tmp = $path . '.tmp';
+        $stream = fopen($tmp, 'x'); $bytes = $this->canonical($record) . "\n";
+        if ($stream === false || !chmod($tmp, 0600) || fwrite($stream, $bytes) !== strlen($bytes) || !fflush($stream) || !fsync($stream)) { throw new RuntimeException('APPLICATION_SCHEMA_RESULT_WRITE_FAILED'); }
+        fclose($stream);
+        if (!rename($tmp, $path)) { throw new RuntimeException('APPLICATION_SCHEMA_RESULT_WRITE_FAILED'); }
+        $handle = fopen($directory, 'r');
+        if ($handle === false || !fsync($handle)) { throw new RuntimeException('APPLICATION_SCHEMA_RESULT_WRITE_FAILED'); }
+        fclose($handle);
+        $this->sourceProtectedFile($path);
+        return $path;
     }
 
     public function __construct(private readonly string $serverRoot)

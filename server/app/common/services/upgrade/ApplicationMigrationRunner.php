@@ -36,7 +36,7 @@ final class ApplicationMigrationRunner
      * @param list<string> $files
      * @return array{status:string,target_version:string,applied:list<string>,pending:list<string>}
      */
-    public function run(array $files, string $targetVersion, string $defaultReleaseVersion, bool $dryRun = false, ?callable $beforeMigration = null, ?callable $beforeUnlock = null): array
+    public function run(array $files, string $targetVersion, string $defaultReleaseVersion, bool $dryRun = false, ?callable $beforeMigration = null, ?callable $beforeUnlock = null, ?callable $afterMigration = null): array
     {
         $pdo = $this->connection();
         $exists = (int) $pdo->query(
@@ -102,6 +102,10 @@ final class ApplicationMigrationRunner
                         throw new RuntimeException('MIGRATION_TRANSACTION_INCOMPLETE: ' . $migration['id']);
                     }
                     $this->assertLock($pdo, $lockName);
+                    if ($afterMigration !== null) {
+                        $afterMigration($pdo, $migration);
+                        $this->assertLock($pdo, $lockName);
+                    }
                     $pdo->prepare(
                         "UPDATE pa_schema_migration SET status='applied',finished_at=?,error_code=NULL WHERE migration_id=?",
                     )->execute([gmdate('Y-m-d H:i:s'), $migration['id']]);
