@@ -692,7 +692,8 @@ final class ScaffoldUpgradeRunner
                     if ($state['present']) {
                         $backup = ScaffoldPathGuard::existingFileWithin(dirname($manifestPath), dirname($manifestPath) . '/' . $state['backup'], 'SCAFFOLD_RECOVERY_BACKUP_INVALID');
                         $content = file_get_contents($backup);
-                        if (!is_string($content) || !hash_equals($state['sha256'], hash('sha256', $content))) {
+                        if (!is_string($content) || !hash_equals($state['sha256'], hash('sha256', $content))
+                            || (fileperms($backup) & 0777) !== 0600) {
                             throw new RuntimeException('SCAFFOLD_RECOVERY_BACKUP_DRIFT');
                         }
                         $this->writeFileAtomic($target, $content, (int) $state['mode']);
@@ -3636,6 +3637,8 @@ final class ScaffoldUpgradeRunner
             $this->runtimePointer($state, $state['phase']);
             return $state;
         }
+        $state['vendor_preflight_sha256'] = $this->runtimeHost($state, 'vendor-preflight')['sha256'];
+        $state = $this->runtimeSave($path, $state);
         $this->runtimePointer($state, 'preparing');
         $observation = $this->runtimeHost($state, 'stop');
         $state['quiescence'] = $observation['quiescence'];
@@ -3860,6 +3863,57 @@ final class ScaffoldUpgradeRunner
         }
         $derived = array_values(array_unique([...$this->runtimeDerived($state['binding']['old_runtime']),
             ...(isset($state['prepared_identity']) ? $this->runtimeDerived($state['prepared_identity']) : [])]));
+        // Validate every recovery input before any source write or vendor rename; writes still recheck their own input.
+        $checkPreimages = function (string $base, array $files, string $prefix) use ($root): void {
+            foreach ($files as $relative => $old) {
+                if (!is_string($relative) || !is_array($old) || !is_bool($old['present'] ?? null)) {
+                    throw new RuntimeException('SOURCE_RUNTIME_RECOVERY_PREIMAGE_INVALID');
+                }
+                $target = ScaffoldPathGuard::projectPath($root, $relative);
+                $this->regularFileState($target, $relative);
+                for ($parent = dirname($target); $parent !== $root; $parent = dirname($parent)) {
+                    if ((file_exists($parent) || is_link($parent)) && (!is_dir($parent) || realpath($parent) !== $parent)) {
+                        throw new RuntimeException('SOURCE_RUNTIME_RECOVERY_PARENT_INVALID');
+                    }
+                }
+                if (!$old['present']) {
+                    if (($old['sha256'] ?? null) !== null || ($old['mode'] ?? null) !== null || ($old['backup'] ?? null) !== null) {
+                        throw new RuntimeException('SOURCE_RUNTIME_RECOVERY_ABSENCE_INVALID');
+                    }
+                    $absent = ScaffoldPathGuard::projectPath($base, $prefix . $relative);
+                    if (file_exists($absent) || is_link($absent)) { throw new RuntimeException('SOURCE_RUNTIME_RECOVERY_ABSENCE_INVALID'); }
+                    continue;
+                }
+                if (($old['backup'] ?? null) !== $prefix . $relative || !is_int($old['mode'] ?? null)
+                    || $old['mode'] < 0 || $old['mode'] > 0777 || preg_match('/^[a-f0-9]{64}$/D', (string) ($old['sha256'] ?? '')) !== 1) {
+                    throw new RuntimeException('SOURCE_RUNTIME_RECOVERY_PREIMAGE_INVALID');
+                }
+                $backup = ScaffoldPathGuard::projectPath($base, $old['backup']);
+                ScaffoldPathGuard::existingFileWithin($base, $backup, 'SOURCE_RUNTIME_RECOVERY_BACKUP_INVALID');
+                if (realpath($backup) !== $backup || hash_file('sha256', $backup) !== $old['sha256'] || (fileperms($backup) & 0777) !== 0600) {
+                    throw new RuntimeException('SOURCE_RUNTIME_RECOVERY_BACKUP_DRIFT');
+                }
+            }
+        };
+        $plan = $this->runtimePackage($root, $state);
+        if ($state['source_recovery'] !== null) {
+            $expected = '.peanut/upgrades/backups/' . ($plan['candidate'] ?? '') . '/recovery.json';
+            $manifest = ScaffoldPathGuard::projectPath($root, $state['source_recovery']);
+            $recovery = $this->runtimeRead($manifest);
+            if ($plan === null || $state['source_recovery'] !== $expected || hash_file('sha256', $manifest) !== $state['source_recovery_sha256']
+                || (fileperms($manifest) & 0777) !== 0600 || ($recovery['schema_version'] ?? null) !== 2
+                || ($recovery['protocol'] ?? null) !== 'peanut.scaffold-recovery.v2' || ($recovery['candidate'] ?? null) !== $plan['candidate']
+                || !is_array($recovery['files'] ?? null)
+                || ($recovery['pre_tree_sha256'] ?? null) !== 'sha256:' . hash('sha256', self::canonicalJson($recovery['files']))) {
+                throw new RuntimeException('SOURCE_RUNTIME_RECOVERY_DRIFT');
+            }
+            $checkPreimages(dirname($manifest), $recovery['files'], 'files/');
+        } elseif ($plan !== null) { throw new RuntimeException('SOURCE_RUNTIME_RECOVERY_PREIMAGE_MISSING'); }
+        if (!is_array($state['backups'] ?? null)
+            || (isset($state['published_head_sha256']) && !isset($state['backups']['server/private/installation/deployment.json']))) {
+            throw new RuntimeException('SOURCE_RUNTIME_RECOVERY_PREIMAGE_MISSING');
+        }
+        $checkPreimages(dirname($path), $state['backups'], 'recovery/');
         foreach ($derived as $relative) {
             $actual = $this->regularFileState(ScaffoldPathGuard::projectPath($root, $relative), $relative);
             $backup = $state['backups'][$relative] ?? ['present' => false, 'sha256' => null, 'mode' => null];
@@ -3886,7 +3940,7 @@ final class ScaffoldUpgradeRunner
             $target = ScaffoldPathGuard::projectPath($root, $relative);
             if ($old['present']) {
                 $backup = ScaffoldPathGuard::existingFileWithin(dirname($path), dirname($path) . '/' . $old['backup'], 'SOURCE_RUNTIME_RECOVERY_BACKUP_INVALID');
-                if (hash_file('sha256', $backup) !== $old['sha256']) { throw new RuntimeException('SOURCE_RUNTIME_RECOVERY_BACKUP_DRIFT'); }
+                if (hash_file('sha256', $backup) !== $old['sha256'] || (fileperms($backup) & 0777) !== 0600) { throw new RuntimeException('SOURCE_RUNTIME_RECOVERY_BACKUP_DRIFT'); }
                 $this->writeFileAtomic($target, (string) file_get_contents($backup), $old['mode']);
             } elseif (file_exists($target) || is_link($target)) {
                 $this->regularFileState($target, $relative);
@@ -3910,7 +3964,7 @@ final class ScaffoldUpgradeRunner
             $previous = null;
             if ($old['present']) {
                 $backup = ScaffoldPathGuard::existingFileWithin(dirname($path), dirname($path) . '/' . $old['backup'], 'SOURCE_RUNTIME_HEAD_PREIMAGE_INVALID');
-                if (hash_file('sha256', $backup) !== $old['sha256']) { throw new RuntimeException('SOURCE_RUNTIME_HEAD_PREIMAGE_CHANGED'); }
+                if (hash_file('sha256', $backup) !== $old['sha256'] || (fileperms($backup) & 0777) !== 0600) { throw new RuntimeException('SOURCE_RUNTIME_HEAD_PREIMAGE_CHANGED'); }
                 $previous = (string) file_get_contents($backup);
             }
             $restored = \PeanutServerUpdatePlan::recoverApplicationDeployment($root . '/server', $state['published_head_sha256'], $previous);

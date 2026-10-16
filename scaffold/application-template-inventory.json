@@ -3560,7 +3560,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "185e4b4cbb17b5b7eeef2be2f8393ad91989e24cb66953faad8217717b4c7486"
+            "source_sha256": "5cbeb6a8b0082e8052282358df3063bd70e7e0e940fdb2d64dda03a11a822035"
         },
         {
             "path": "scripts/project-codegraph",
@@ -3809,7 +3809,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4ddc8ee49cfd61ec9df36dcbb603a144f8c4f8c8bc15ae8703a11bc079906788"
+            "source_sha256": "6bd84742b53cdba5eba8ae479a5434c2bb6b1f3d4e9c03be3a480a80b17ff47a"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",
@@ -27158,7 +27158,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7de22004babe1888f29748be168397cc2021238f98908e5c3ec036ceaae3df0e"
+            "source_sha256": "40f513e072b6b1bdfaadfca3e207fdd141221d0f90c4dd75086048c77767066a"
         },
         {
             "path": "server/docker/scripts/update-preparation.py",

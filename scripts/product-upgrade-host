@@ -71,6 +71,7 @@ def run(*args, cwd=None):
 
 def dependency_tree(root):
     """Exact process-interruption proof, including directory modes and walk failures."""
+    if root.resolve() != root or root.is_symlink(): raise ValueError('unsafe dependency path')
     if not root.exists() and not root.is_symlink(): return None
     if root.resolve() != root or root.is_symlink() or not root.is_dir(): raise ValueError('unsafe dependency directory')
     files, directories = {}, {}
@@ -91,6 +92,7 @@ def dependency_tree(root):
 
 
 def dependency_record(path, value):
+    if path.parent.resolve() != path.parent: raise ValueError('linked dependency record parent')
     if path.exists() or path.is_symlink():
         if read(path, True) != value: raise ValueError('immutable dependency record changed')
     else: write(path, value)
@@ -194,19 +196,35 @@ def source_tools(root, workspace, check, expected=None):
 
 def source_vendor(root, workspace, state, phase):
     trusted = workspace / 'trusted'; server = root / 'server'
+    helper = trusted / 'server/docker/scripts/vendor-state.py'
+    preflight_path = workspace / 'recovery/vendor-preflight.json'
+    def original_pair(source):
+        run(sys.executable, helper, 'check', '--server', source)
+        return {'tree': dependency_tree(source / 'vendor'), 'composer_sha256': sha(source / 'composer.json'),
+                'lock_sha256': sha(source / 'composer.lock'), 'composer_mode': source.joinpath('composer.json').stat().st_mode & 0o777,
+                'lock_mode': source.joinpath('composer.lock').stat().st_mode & 0o777}
+    if phase == 'vendor-preflight':
+        if state.get('vendor_preflight_sha256') is not None and sha(preflight_path) != state['vendor_preflight_sha256']:
+            raise ValueError('pre-pending vendor proof changed')
+        sources = sorted({server, Path(state['binding']['tool_root']) / 'server'})
+        document = {'transition_id': state['transition_id'], 'servers': {str(source): original_pair(source) for source in sources}}
+        dependency_record(preflight_path, document)
+        return {'sha256': sha(preflight_path)}
     spec = importlib.util.spec_from_file_location('source_vendor_quiescence', trusted / 'server/docker/scripts/update-recovery.py')
     recovery = importlib.util.module_from_spec(spec); spec.loader.exec_module(recovery)
     observed = recovery.assert_stopped(server)
     if observed != {key: state['quiescence'][key] for key in observed}:
         raise ValueError('vendor operation lost its exact stopped-container/image proof')
-    helper = trusted / 'server/docker/scripts/vendor-state.py'
     old_path = workspace / 'recovery/vendor-original.json'
     current, backup = server / 'vendor', workspace / 'recovery/old-vendor'
     staged, quarantine = workspace / 'dependencies/prepared/server/vendor', workspace / 'recovery/new-vendor'
     if phase == 'vendor-record':
-        run(sys.executable, helper, 'check', '--server', server)
-        document = {'transition_id': state['transition_id'], 'tree': dependency_tree(current),
-                    'composer_sha256': sha(server / 'composer.json'), 'lock_sha256': sha(server / 'composer.lock')}
+        if sha(preflight_path) != state['vendor_preflight_sha256']: raise ValueError('pre-pending vendor proof changed')
+        preflight = read(preflight_path, True)
+        sources = sorted({server, Path(state['binding']['tool_root']) / 'server'})
+        if preflight != {'transition_id': state['transition_id'], 'servers': {str(source): original_pair(source) for source in sources}}:
+            raise ValueError('original APP or tool dependencies drifted after pre-pending verification')
+        document = {'transition_id': state['transition_id'], **preflight['servers'][str(server)]}
         dependency_record(old_path, document)
         return {'sha256': sha(old_path)}
     if sha(old_path) != state['vendor_original_sha256']: raise ValueError('original vendor proof changed')
@@ -244,6 +262,20 @@ def source_vendor(root, workspace, state, phase):
     if not state.get('vendor_intent'):
         if dependency_tree(current) != old['tree'] or dependency_tree(backup) is not None or dependency_tree(quarantine) is not None:
             raise ValueError('vendor changed before adoption intent')
+        staged_tree = dependency_tree(staged)
+        if proof_path.exists() or proof_path.is_symlink():
+            proof = read(proof_path, True)
+            if (state.get('vendor_target_sha256') is not None and sha(proof_path) != state['vendor_target_sha256']) \
+                    or proof.get('transition_id') != state['transition_id'] or proof.get('inputs') != state.get('vendor_target_inputs') \
+                    or type(proof.get('reuse')) is not bool:
+                raise ValueError('unactivated vendor stage is not bound to this transaction')
+            if proof['reuse']:
+                if staged_tree is not None or proof['tree'] != old['tree']: raise ValueError('unexpected staged vendor for reuse')
+            else:
+                if staged_tree is None or staged_tree != proof['tree']: raise ValueError('unactivated vendor stage changed')
+                run(sys.executable, helper, 'check', '--server', staged.parent, '--inputs', staged.parent / '.vendor-inputs.json')
+        elif staged_tree is not None or state.get('vendor_target_sha256') is not None:
+            raise ValueError('incomplete or unauthenticated vendor stage; no tree was changed')
         return {'status': 'original'}
     if sha(proof_path) != state['vendor_target_sha256']: raise ValueError('target dependency proof changed')
     target = read(proof_path, True)
@@ -303,7 +335,7 @@ def source_vendor(root, workspace, state, phase):
 def source_runtime():
     parser = argparse.ArgumentParser()
     parser.add_argument('phase', choices=('source-stop', 'source-check', 'source-project', 'source-open', 'source-admit',
-        'source-tools', 'source-tools-check', 'source-vendor-record', 'source-vendor-stage', 'source-vendor-switch',
+        'source-tools', 'source-tools-check', 'source-vendor-preflight', 'source-vendor-record', 'source-vendor-stage', 'source-vendor-switch',
         'source-vendor-recover', 'source-vendor-check', 'source-vendor-paired'))
     parser.add_argument('--instance-root', type=Path, required=True)
     parser.add_argument('--workspace', type=Path, required=True)
@@ -342,13 +374,18 @@ def source_runtime():
             raise ValueError('source maintenance fixed tool changed')
     if args.phase.startswith('source-vendor-'):
         if state['activation_started']: raise ValueError('vendor mutation after activation is forbidden')
-        pending = read(root / 'server/runtime/upgrade/source-transition.json')
         head = root / 'server/private/installation/deployment.json'
         actual = sha(head) if head.exists() or head.is_symlink() else None
         expected = state.get('published_head_sha256', state['binding']['deployment']['head_sha256'])
-        if pending.get('transition_id') != state['transition_id'] or pending.get('activation_started') is not False \
-                or pending.get('binding_sha256') != hashlib.sha256(json.dumps(state['binding'], sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()).hexdigest() \
-                or actual != expected:
+        pending_path = root / 'server/runtime/upgrade/source-transition.json'
+        pending = read(pending_path) if pending_path.exists() or pending_path.is_symlink() else None
+        preflight = args.phase == 'source-vendor-preflight'
+        if actual != expected or (preflight and state['phase'] not in ('tools-prepared', 'preparing')):
+            raise ValueError('vendor operation lost its unactivated head or preparation phase')
+        if preflight and (pending is None or pending.get('phase') in ('opened', 'recovered')):
+            pass
+        elif pending is None or pending.get('transition_id') != state['transition_id'] or pending.get('activation_started') is not False \
+                or pending.get('binding_sha256') != hashlib.sha256(json.dumps(state['binding'], sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()).hexdigest():
             raise ValueError('vendor operation is not bound to the current unactivated head')
         result = source_vendor(root, workspace, state, args.phase.removeprefix('source-'))
         print(json.dumps({'phase': args.phase.removeprefix('source-'), 'transition_id': state['transition_id'], **result})); return
