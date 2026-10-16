@@ -32929,7 +32929,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "df4addec2b5fff70b234c13d006f7c9822d1a59c3ff925cf8e3c97ecfefc9e79"
+            "source_sha256": "fea0d85bf5eeb89a5776cc8fb8ae57df2f16b46e60e6c8279f1e28a27286aaad"
         },
         {
             "path": "uniapp/package-lock.json",
