@@ -607,6 +607,7 @@ function internalCandidateMain(array $argv): void
             $source,
             $source . '/scaffold/application-template-inventory.json',
             ['commit' => $commit, 'tree' => $tree],
+            apiGeneratorPath: $root . '/scripts/generate-api-contracts.php',
         ))->create(
             'Peanut Admin',
             'peanut-admin',
@@ -680,6 +681,11 @@ function internalCandidateMain(array $argv): void
                 'package_release_sha256' => hash_file('sha256', $source . '/scripts/package-release.sh'),
                 'package_release_files_sha256' => hash_file('sha256', $source . '/scripts/package-release-files.py'),
                 'dependency_locks_tool_sha256' => hash_file('sha256', $source . '/scripts/release-dependency-locks.mjs'),
+                // ApplicationCreator already requires source-identical inputs
+                // and the matching installed lock/package before using this tool.
+                'api_generator_sha256' => hash_file('sha256', $root . '/scripts/generate-api-contracts.php'),
+                'api_generator_dependency_lock_sha256' => hash_file('sha256', $root . '/web/pnpm-lock.yaml'),
+                'api_generator_package_version' => internalCandidateReadJson($root . '/web/package.json')['devDependencies']['openapi-typescript'],
             ],
             'dependency_locks' => [
                 'server/composer.lock' => hash_file('sha256', $application . '/server/composer.lock'),

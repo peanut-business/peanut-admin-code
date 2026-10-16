@@ -836,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1ddc1ea79704f70162843a25ee2f9aaf80a58247026adf94986a4d77db18caaf"
+            "source_sha256": "32d2317988559eaf1e9a1397dab36116c95134ee33a8ca935e7fa8a6c2779bce"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -2855,7 +2855,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "594444c08f027e26d08e29cfe2e14c7aa82f5154a931432844dc06b6b10c74e7"
+            "source_sha256": "7f6f378797048734538c056a03d36f9b655e06a0f5f2235ca5e6290b95bd64aa"
         },
         {
             "path": "scripts/build-scaffold-release",
