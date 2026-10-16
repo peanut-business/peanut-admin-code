@@ -766,6 +766,9 @@ def development_runtime(source: Path, target: Path) -> None:
         source_inputs.add(safe_relative(entry['manifest']))
     source_fence = {relative: hashlib.sha256(regular_file(source, relative).read_bytes()).hexdigest()
                     for relative in source_inputs}
+    # Native instance configuration exclusions match the application inventory contract.
+    runtime_files = {'server/docker/collaboration.env', 'server/.env.collaboration.lock'}
+    runtime_prefixes = (*PROTECTED_RUNTIME_PREFIXES, 'server/docker/tls/')
     # Ownership baselines describe upstream files; APP additions are also executable program inputs.
     def program_state() -> dict:
         server = reject_symlinked_path(source, 'server')
@@ -776,9 +779,10 @@ def development_runtime(source: Path, target: Path) -> None:
         def included(relative: str) -> bool:
             return (relative != 'server/private' and not relative.startswith('server/private/')
                     and relative not in derived
+                    and relative not in runtime_files
                     and allowed_source(relative)
                     and not any(relative == prefix.rstrip('/') or relative.startswith(prefix)
-                                for prefix in PROTECTED_RUNTIME_PREFIXES))
+                                for prefix in runtime_prefixes))
         files = {}
         names = set()
         for base, directories, filenames in os.walk(server, topdown=True, onerror=walk_error, followlinks=False):
