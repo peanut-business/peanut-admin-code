@@ -86,9 +86,9 @@ final readonly class NotificationUpgradePreflight
 
     /**
      * Structural admission only; no maintenance window, backup or empty-queue attestation.
-     * @param \Closure(PDO):array $ledgerReader Fixed platform-owned reader, invoked inside this snapshot.
+     * @param \Closure(PDO, 'ledger'|'parent_keys'|'catalog_schema'):array $platformPreflight Fixed platform prerequisites inside this snapshot.
      */
-    public function forwardSchemaReport(\Closure $ledgerReader): array
+    public function forwardSchemaReport(\Closure $platformPreflight): array
     {
         $pdo = null; $started = false; $phase = 'context';
         try {
@@ -116,7 +116,7 @@ final readonly class NotificationUpgradePreflight
                     throw new \RuntimeException('NOTIFICATION_FORWARD_SOURCE_CHANGED');
                 }
             }
-            $ledger = $ledgerReader($pdo);
+            $ledger = $platformPreflight($pdo, 'ledger');
             $rows = array_column($ledger, null, 'migration_key');
             foreach ($rows as $key => $row) {
                 if (!isset(self::SQL_SHA256[$key]) || $row['checksum'] !== self::SQL_SHA256[$key] || $row['status'] !== 'applied') {
@@ -143,7 +143,7 @@ final readonly class NotificationUpgradePreflight
             if (!$produced && self::tableSchema($pdo, 'pa_notification_task_actor') !== null) {
                 throw new \RuntimeException('NOTIFICATION_FORWARD_PRODUCER_COLLISION');
             }
-            self::parentKeys($pdo);
+            $platformPreflight($pdo, 'parent_keys');
             if (!$adopted) {
                 // FK and CHECK names are schema-scoped, including constraints on unrelated tables.
                 foreach (self::forwardSchemas($pdo, true) as $schema) {
@@ -173,7 +173,7 @@ final readonly class NotificationUpgradePreflight
                 'may_apply' => true, 'structural_admission_only' => true, 'ledger' => $ledger,
                 'schema_sha256' => hash('sha256', self::canonical($observed)), 'legacy' => $legacy,
                 'producer_preflight' => ['status' => 'not_evaluated', 'may_apply' => false, 'pending_count' => null],
-                'external_writer_exclusion' => 'not_attested', 'backup_admission' => 'not_attested', 'catalog_schema' => self::catalogSchema($pdo)];
+                'external_writer_exclusion' => 'not_attested', 'backup_admission' => 'not_attested', 'catalog_schema' => $platformPreflight($pdo, 'catalog_schema')];
         } catch (\Throwable) {
             return ['module_key' => 'official.notification', 'status' => 'unknown', 'may_apply' => false,
                 'code' => 'NOTIFICATION_FORWARD_STATE_UNKNOWN', 'phase' => $phase,
@@ -288,24 +288,6 @@ final readonly class NotificationUpgradePreflight
         return $schema;
     }
 
-    private static function parentKeys(PDO $pdo): void
-    {
-        foreach (['pa_tenant' => ['id'], 'pa_tenant_member' => ['tenant_id', 'id']] as $table => $columns) {
-            $tableRows = self::readRows($pdo, 'SELECT TABLE_TYPE,ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$table]);
-            if (count($tableRows) !== 1 || $tableRows[0]['TABLE_TYPE'] !== 'BASE TABLE' || $tableRows[0]['ENGINE'] !== 'InnoDB') { throw new \RuntimeException('NOTIFICATION_FORWARD_PARENT_UNKNOWN'); }
-            $actual = array_column(self::readRows($pdo, 'SELECT COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$table]), null, 'COLUMN_NAME');
-            foreach ($columns as $column) {
-                if (($actual[$column]['COLUMN_TYPE'] ?? null) !== 'bigint unsigned' || ($actual[$column]['IS_NULLABLE'] ?? null) !== 'NO') { throw new \RuntimeException('NOTIFICATION_FORWARD_PARENT_KEY_UNKNOWN'); }
-            }
-            $keys = [];
-            foreach (self::readRows($pdo, 'SELECT INDEX_NAME,COLUMN_NAME,SUB_PART FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND NON_UNIQUE=0 ORDER BY INDEX_NAME,SEQ_IN_INDEX', [$table]) as $row) {
-                if ($row['SUB_PART'] !== null) { continue; }
-                $keys[$row['INDEX_NAME']][] = $row['COLUMN_NAME'];
-            }
-            if (!in_array($columns, $keys, true)) { throw new \RuntimeException('NOTIFICATION_FORWARD_PARENT_KEY_UNKNOWN'); }
-        }
-    }
-
     private static function readRows(PDO $pdo, string $sql, array $parameters = []): array
     {
         $statement = $pdo->prepare($sql); $statement->execute($parameters); return $statement->fetchAll(PDO::FETCH_ASSOC);
@@ -319,76 +301,6 @@ final readonly class NotificationUpgradePreflight
             foreach ($item as &$child) { $child = $sort($child); } unset($child); return $item;
         };
         return json_encode($sort($value), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-    }
-
-    /** Catalog schema prerequisites, not proof of catalog business acceptance or backup readiness. */
-    private static function catalogSchema(PDO $pdo): array
-    {
-        $required = [
-            'pa_permission' => 'id,key,module_key,type,name,risk_level,status,manifest_version,retired_at,created_at,updated_at',
-            'pa_data_condition_definition' => 'id,key,module_key,category,target_mode,config_schema_json,status,manifest_version,manifest_digest,created_at,updated_at',
-            'pa_target_type' => 'module_key,status,updated_at',
-            'pa_protected_resource' => 'id,key,module_key,status,retired_at,updated_at',
-            'pa_resource_operation' => 'id,protected_resource_id,operation,status,updated_at',
-            'pa_resource_operation_permission' => 'resource_operation_id',
-            'pa_resource_operation_target_type' => 'id,resource_operation_id,status',
-            'pa_resource_operation_condition' => 'id,resource_operation_id,status',
-            'pa_menu_definition' => 'id,key,module_key,scope,parent_key,type,name,route_name,route_path,component_key,icon,sort_order,required_permission_id,client_keys_json,status,is_show,is_cache,is_disable,manifest_digest,upstream_defaults_json,menu_conflict_json,created_at,updated_at',
-            'pa_setting_definition' => 'id,module_key,setting_key,status,revision,definition_digest,updated_at',
-            'pa_module_installation' => 'module_key,installed_version,manifest_schema_version,manifest_digest,status,revision,installed_at,activated_at,upgraded_at,last_error_code,created_at,updated_at',
-            'pa_plugin_installation' => 'plugin_key,installed_version,source,artifact_sha256,lock_digest,composer_identity_json,npm_identity_json,frontend_identity_json,status,revision,installed_at,activated_at,upgraded_at,uninstalled_at,last_error_code,created_at,updated_at',
-            'pa_plugin_module' => 'plugin_key,module_key,module_version,manifest_digest,created_at,updated_at',
-            'pa_module_migration' => 'module_key,migration_key,module_version,checksum,batch_no,status,resolution_kind,provenance_json,started_at,finished_at,error_code',
-        ];
-        $optional = self::readRows($pdo, 'SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', ['pa_reference_code_set']);
-        if ($optional !== []) { $required['pa_reference_code_set'] = 'id,module_key,set_key,lifecycle,revision,definition_digest,updated_at'; }
-        $observed = [];
-        $canonicalSql = (string) file_get_contents(dirname(__DIR__, 6) . '/database/init.sql');
-        $canonicalSql .= "\n" . \PeanutAdmin\Kernel\Persistence\Schema\KernelSchema::createSql('pa_permission');
-        if ($optional !== []) { $canonicalSql .= "\n" . file_get_contents(dirname(__DIR__, 3) . '/reference_codes/database/migrations/20260921-adopt-reference-codes-schema.sql'); }
-        foreach ($required as $table => $columns) {
-            $rows = self::readRows($pdo, 'SELECT COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,COLUMN_DEFAULT,EXTRA,COLLATION_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY ORDINAL_POSITION', [$table]);
-            if (array_diff(explode(',', $columns), array_column($rows, 'COLUMN_NAME')) !== []) {
-                return ['may_apply' => false, 'code' => 'NOTIFICATION_FORWARD_CATALOG_SCHEMA_UNAVAILABLE'];
-            }
-            if (!preg_match('/CREATE TABLE(?: IF NOT EXISTS)? `' . $table . '`\s*\((.*?)\)\s*ENGINE/s', $canonicalSql, $definition)) {
-                return ['may_apply' => false, 'code' => 'NOTIFICATION_FORWARD_CATALOG_CONTRACT_UNKNOWN'];
-            }
-            $actual = array_column($rows, null, 'COLUMN_NAME');
-            foreach (explode(',', $columns) as $column) {
-                if (!preg_match('/^\s*`' . $column . '`\s+([A-Z]+(?:\([^)]*\))?(?: UNSIGNED)?)([^\n]*)/m', $definition[1], $expected)) {
-                    return ['may_apply' => false, 'code' => 'NOTIFICATION_FORWARD_CATALOG_CONTRACT_UNKNOWN'];
-                }
-                preg_match('/DEFAULT (?:\x27([^\x27]*)\x27|([0-9]+))/', $expected[2], $default);
-                preg_match('/COLLATE[= ]+([a-z0-9_]+)/', $expected[2], $collation);
-                $nullable = !str_contains($expected[2], 'NOT NULL');
-                $value = isset($default[1]) && $default[1] !== '' ? $default[1] : ($default[2] ?? null);
-                if (strtolower($expected[1]) !== strtolower($actual[$column]['COLUMN_TYPE'])
-                    || $nullable !== ($actual[$column]['IS_NULLABLE'] === 'YES') || $value !== $actual[$column]['COLUMN_DEFAULT']
-                    || strtolower(trim($actual[$column]['EXTRA'])) !== (str_contains($expected[2], 'AUTO_INCREMENT') ? 'auto_increment' : '')
-                    || (isset($collation[1]) && $collation[1] !== $actual[$column]['COLLATION_NAME'])) {
-                    return ['may_apply' => false, 'code' => 'NOTIFICATION_FORWARD_CATALOG_SCHEMA_MISMATCH'];
-                }
-            }
-            $engine = self::readRows($pdo, 'SELECT TABLE_TYPE,ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$table]);
-            if (count($engine) !== 1 || $engine[0]['TABLE_TYPE'] !== 'BASE TABLE' || $engine[0]['ENGINE'] !== 'InnoDB') {
-                return ['may_apply' => false, 'code' => 'NOTIFICATION_FORWARD_CATALOG_ENGINE_UNSUPPORTED'];
-            }
-            $unique = [];
-            foreach (self::readRows($pdo, 'SELECT INDEX_NAME,COLUMN_NAME,SUB_PART FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND NON_UNIQUE=0 ORDER BY INDEX_NAME,SEQ_IN_INDEX', [$table]) as $index) {
-                $unique[$index['INDEX_NAME']][] = $index['SUB_PART'] === null ? $index['COLUMN_NAME'] : null;
-            }
-            preg_match_all('/(?:PRIMARY KEY|UNIQUE KEY `[^`]+`) \(([^)]+)\)/', $definition[1], $keys);
-            foreach ($keys[1] as $key) {
-                $names = self::columnNames($key);
-                if (array_diff($names, explode(',', $columns)) === [] && !in_array($names, $unique, true)) {
-                    return ['may_apply' => false, 'code' => 'NOTIFICATION_FORWARD_CATALOG_KEY_MISMATCH'];
-                }
-            }
-            $observed[$table] = ['columns' => $rows, 'unique_keys' => $unique];
-        }
-        return ['may_apply' => true, 'required_schema_sha256' => hash('sha256', self::canonical($observed)),
-            'scope' => 'required_column_types_and_keys; catalog data conflicts and runtime admission remain independent'];
     }
 
     private static function expression(string $sql): array

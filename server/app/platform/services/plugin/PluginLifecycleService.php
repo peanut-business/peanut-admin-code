@@ -964,23 +964,132 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             'module_manifest_sha256' => hash_file('sha256', $actual->moduleRoots['official.notification'] . '/module.json')];
     }
 
-    /** Read the platform-owned ledger inside the proof's native read-only snapshot. */
+    /** Platform-owned prerequisites run only inside the Module proof's actual read-only snapshot. */
     private static function notificationForwardSchemaReport(): array
     {
         return app()->make(\PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::class)->forwardSchemaReport(
-            static function (\PDO $pdo): array {
-                if (Db::connect()->getPdo() !== $pdo || !$pdo->inTransaction()) {
-                    throw new PluginLifecycleException('NOTIFICATION_FORWARD_SNAPSHOT_CHANGED', 'The native proof snapshot is required for ledger reads.');
+            static function (\PDO $pdo, string $operation): array {
+                $read = static function (string $sql, array $parameters = []) use ($pdo): array {
+                    if (Db::connect()->getPdo() !== $pdo || !$pdo->inTransaction()) {
+                        throw new PluginLifecycleException('NOTIFICATION_FORWARD_SNAPSHOT_CHANGED', 'The native proof snapshot is required for platform reads.');
+                    }
+                    $statement = $pdo->prepare($sql); $statement->execute($parameters);
+                    $rows = $statement->fetchAll(\PDO::FETCH_ASSOC); $statement->closeCursor();
+                    if (Db::connect()->getPdo() !== $pdo || !$pdo->inTransaction()) {
+                        throw new PluginLifecycleException('NOTIFICATION_FORWARD_SNAPSHOT_CHANGED', 'The native proof snapshot changed during platform reads.');
+                    }
+                    return $rows;
+                };
+                switch ($operation) {
+                    case 'ledger':
+                        return $read('SELECT migration_key,checksum,status FROM pa_module_migration WHERE module_key=? ORDER BY migration_key', ['official.notification']);
+                    case 'parent_keys':
+                        self::notificationForwardParentKeys($read);
+                        return [];
+                    case 'catalog_schema':
+                        return self::notificationForwardCatalogSchema($read);
+                    default:
+                        throw new PluginLifecycleException('NOTIFICATION_FORWARD_OPERATION_UNKNOWN', 'The fixed native prerequisite operation is unknown.');
                 }
-                $statement = $pdo->prepare('SELECT migration_key,checksum,status FROM pa_module_migration WHERE module_key=? ORDER BY migration_key');
-                $statement->execute(['official.notification']);
-                $rows = $statement->fetchAll(\PDO::FETCH_ASSOC);
-                if (Db::connect()->getPdo() !== $pdo || !$pdo->inTransaction()) {
-                    throw new PluginLifecycleException('NOTIFICATION_FORWARD_SNAPSHOT_CHANGED', 'The native proof snapshot changed during ledger reads.');
-                }
-                return $rows;
             },
         );
+    }
+
+    private static function notificationForwardParentKeys(\Closure $read): void
+    {
+        foreach (['pa_tenant' => ['id'], 'pa_tenant_member' => ['tenant_id', 'id']] as $table => $columns) {
+            $tableRows = $read('SELECT TABLE_TYPE,ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$table]);
+            if (count($tableRows) !== 1 || $tableRows[0]['TABLE_TYPE'] !== 'BASE TABLE' || $tableRows[0]['ENGINE'] !== 'InnoDB') { throw new \RuntimeException('NOTIFICATION_FORWARD_PARENT_UNKNOWN'); }
+            $actual = array_column($read('SELECT COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$table]), null, 'COLUMN_NAME');
+            foreach ($columns as $column) {
+                if (($actual[$column]['COLUMN_TYPE'] ?? null) !== 'bigint unsigned' || ($actual[$column]['IS_NULLABLE'] ?? null) !== 'NO') { throw new \RuntimeException('NOTIFICATION_FORWARD_PARENT_KEY_UNKNOWN'); }
+            }
+            $keys = [];
+            foreach ($read('SELECT INDEX_NAME,COLUMN_NAME,SUB_PART FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND NON_UNIQUE=0 ORDER BY INDEX_NAME,SEQ_IN_INDEX', [$table]) as $row) {
+                if ($row['SUB_PART'] !== null) { continue; }
+                $keys[$row['INDEX_NAME']][] = $row['COLUMN_NAME'];
+            }
+            if (!in_array($columns, $keys, true)) { throw new \RuntimeException('NOTIFICATION_FORWARD_PARENT_KEY_UNKNOWN'); }
+        }
+    }
+
+    /** Catalog schema prerequisites, not proof of catalog business acceptance or backup readiness. */
+    private static function notificationForwardCatalogSchema(\Closure $read): array
+    {
+        $columnNames = static function (string $list): array {
+            $result = [];
+            foreach (explode(',', $list) as $column) {
+                if (!preg_match('/^`([a-z_]+)`$/D', trim($column), $m)) { throw new \RuntimeException('NOTIFICATION_FORWARD_INDEX_UNKNOWN'); }
+                $result[] = $m[1];
+            }
+            return $result;
+        };
+        $required = [
+            'pa_permission' => 'id,key,module_key,type,name,risk_level,status,manifest_version,retired_at,created_at,updated_at',
+            'pa_data_condition_definition' => 'id,key,module_key,category,target_mode,config_schema_json,status,manifest_version,manifest_digest,created_at,updated_at',
+            'pa_target_type' => 'module_key,status,updated_at',
+            'pa_protected_resource' => 'id,key,module_key,status,retired_at,updated_at',
+            'pa_resource_operation' => 'id,protected_resource_id,operation,status,updated_at',
+            'pa_resource_operation_permission' => 'resource_operation_id',
+            'pa_resource_operation_target_type' => 'id,resource_operation_id,status',
+            'pa_resource_operation_condition' => 'id,resource_operation_id,status',
+            'pa_menu_definition' => 'id,key,module_key,scope,parent_key,type,name,route_name,route_path,component_key,icon,sort_order,required_permission_id,client_keys_json,status,is_show,is_cache,is_disable,manifest_digest,upstream_defaults_json,menu_conflict_json,created_at,updated_at',
+            'pa_setting_definition' => 'id,module_key,setting_key,status,revision,definition_digest,updated_at',
+            'pa_module_installation' => 'module_key,installed_version,manifest_schema_version,manifest_digest,status,revision,installed_at,activated_at,upgraded_at,last_error_code,created_at,updated_at',
+            'pa_plugin_installation' => 'plugin_key,installed_version,source,artifact_sha256,lock_digest,composer_identity_json,npm_identity_json,frontend_identity_json,status,revision,installed_at,activated_at,upgraded_at,uninstalled_at,last_error_code,created_at,updated_at',
+            'pa_plugin_module' => 'plugin_key,module_key,module_version,manifest_digest,created_at,updated_at',
+            'pa_module_migration' => 'module_key,migration_key,module_version,checksum,batch_no,status,resolution_kind,provenance_json,started_at,finished_at,error_code',
+        ];
+        $optional = $read('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', ['pa_reference_code_set']);
+        if ($optional !== []) { $required['pa_reference_code_set'] = 'id,module_key,set_key,lifecycle,revision,definition_digest,updated_at'; }
+        $observed = [];
+        $serverRoot = dirname(__DIR__, 4);
+        $canonicalSql = (string) file_get_contents($serverRoot . '/database/init.sql');
+        $canonicalSql .= "\n" . \PeanutAdmin\Kernel\Persistence\Schema\KernelSchema::createSql('pa_permission');
+        if ($optional !== []) { $canonicalSql .= "\n" . file_get_contents($serverRoot . '/app/modules/official/reference_codes/database/migrations/20260921-adopt-reference-codes-schema.sql'); }
+        foreach ($required as $table => $columns) {
+            $rows = $read('SELECT COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,COLUMN_DEFAULT,EXTRA,COLLATION_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY ORDINAL_POSITION', [$table]);
+            if (array_diff(explode(',', $columns), array_column($rows, 'COLUMN_NAME')) !== []) {
+                return ['may_apply' => false, 'code' => 'NOTIFICATION_FORWARD_CATALOG_SCHEMA_UNAVAILABLE'];
+            }
+            if (!preg_match('/CREATE TABLE(?: IF NOT EXISTS)? `' . $table . '`\s*\((.*?)\)\s*ENGINE/s', $canonicalSql, $definition)) {
+                return ['may_apply' => false, 'code' => 'NOTIFICATION_FORWARD_CATALOG_CONTRACT_UNKNOWN'];
+            }
+            $actual = array_column($rows, null, 'COLUMN_NAME');
+            foreach (explode(',', $columns) as $column) {
+                if (!preg_match('/^\s*`' . $column . '`\s+([A-Z]+(?:\([^)]*\))?(?: UNSIGNED)?)([^\n]*)/m', $definition[1], $expected)) {
+                    return ['may_apply' => false, 'code' => 'NOTIFICATION_FORWARD_CATALOG_CONTRACT_UNKNOWN'];
+                }
+                preg_match('/DEFAULT (?:\x27([^\x27]*)\x27|([0-9]+))/', $expected[2], $default);
+                preg_match('/COLLATE[= ]+([a-z0-9_]+)/', $expected[2], $collation);
+                $nullable = !str_contains($expected[2], 'NOT NULL');
+                $value = isset($default[1]) && $default[1] !== '' ? $default[1] : ($default[2] ?? null);
+                if (strtolower($expected[1]) !== strtolower($actual[$column]['COLUMN_TYPE'])
+                    || $nullable !== ($actual[$column]['IS_NULLABLE'] === 'YES') || $value !== $actual[$column]['COLUMN_DEFAULT']
+                    || strtolower(trim($actual[$column]['EXTRA'])) !== (str_contains($expected[2], 'AUTO_INCREMENT') ? 'auto_increment' : '')
+                    || (isset($collation[1]) && $collation[1] !== $actual[$column]['COLLATION_NAME'])) {
+                    return ['may_apply' => false, 'code' => 'NOTIFICATION_FORWARD_CATALOG_SCHEMA_MISMATCH'];
+                }
+            }
+            $engine = $read('SELECT TABLE_TYPE,ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$table]);
+            if (count($engine) !== 1 || $engine[0]['TABLE_TYPE'] !== 'BASE TABLE' || $engine[0]['ENGINE'] !== 'InnoDB') {
+                return ['may_apply' => false, 'code' => 'NOTIFICATION_FORWARD_CATALOG_ENGINE_UNSUPPORTED'];
+            }
+            $unique = [];
+            foreach ($read('SELECT INDEX_NAME,COLUMN_NAME,SUB_PART FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND NON_UNIQUE=0 ORDER BY INDEX_NAME,SEQ_IN_INDEX', [$table]) as $index) {
+                $unique[$index['INDEX_NAME']][] = $index['SUB_PART'] === null ? $index['COLUMN_NAME'] : null;
+            }
+            preg_match_all('/(?:PRIMARY KEY|UNIQUE KEY `[^`]+`) \(([^)]+)\)/', $definition[1], $keys);
+            foreach ($keys[1] as $key) {
+                $names = $columnNames($key);
+                if (array_diff($names, explode(',', $columns)) === [] && !in_array($names, $unique, true)) {
+                    return ['may_apply' => false, 'code' => 'NOTIFICATION_FORWARD_CATALOG_KEY_MISMATCH'];
+                }
+            }
+            $observed[$table] = ['columns' => $rows, 'unique_keys' => $unique];
+        }
+        return ['may_apply' => true, 'required_schema_sha256' => hash('sha256', json_encode(self::canonicalJsonValue($observed), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)),
+            'scope' => 'required_column_types_and_keys; catalog data conflicts and runtime admission remain independent'];
     }
 
     /** Called under the original package lock, before beginLifecycle can replace the old installation. */
