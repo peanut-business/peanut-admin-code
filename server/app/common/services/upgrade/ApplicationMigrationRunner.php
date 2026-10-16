@@ -17,11 +17,18 @@ use Throwable;
  */
 final class ApplicationMigrationRunner
 {
+    private readonly ?object $nativeConnection;
+    private ?string $connectionId = null;
+
     /** @param array{host:string,port:string,database:string,user:string,password:string} $database */
-    public function __construct(private readonly array $database)
+    public function __construct(private readonly array $database, private readonly ?PDO $masterPdo = null)
     {
         if (preg_match('/^[A-Za-z0-9_]+$/D', $database['database'] ?? '') !== 1) {
             throw new RuntimeException('DB_NAME 只能包含字母、数字和下划线');
+        }
+        $this->nativeConnection = $masterPdo === null ? null : \think\facade\Db::connect();
+        if ($masterPdo !== null) {
+            $this->assertConnection($masterPdo);
         }
     }
 
@@ -29,7 +36,7 @@ final class ApplicationMigrationRunner
      * @param list<string> $files
      * @return array{status:string,target_version:string,applied:list<string>,pending:list<string>}
      */
-    public function run(array $files, string $targetVersion, string $defaultReleaseVersion, bool $dryRun = false): array
+    public function run(array $files, string $targetVersion, string $defaultReleaseVersion, bool $dryRun = false, ?callable $beforeMigration = null, ?callable $beforeUnlock = null): array
     {
         $pdo = $this->connection();
         $exists = (int) $pdo->query(
@@ -47,18 +54,27 @@ final class ApplicationMigrationRunner
         }
 
         try {
+            $this->assertLock($pdo, $lockName);
             $pending = $this->pending($pdo, $files, $targetVersion, $defaultReleaseVersion);
             if ($dryRun) {
-                return [
+                $result = [
                     'status' => $pending === [] ? 'up_to_date' : 'ready',
                     'target_version' => $targetVersion,
                     'applied' => [],
                     'pending' => array_column($pending, 'id'),
                 ];
+                $this->complete($pdo, $lockName, $result, $beforeUnlock);
+                return $result;
             }
 
             $applied = [];
             foreach ($pending as $migration) {
+                $this->assertLock($pdo, $lockName);
+                if ($beforeMigration !== null) {
+                    $beforeMigration($pdo, $migration);
+                }
+                // Admission failures occur before the durable applying marker.
+                $this->assertLock($pdo, $lockName);
                 $now = gmdate('Y-m-d H:i:s');
                 $pdo->prepare(
                     'INSERT INTO pa_schema_migration (migration_id,release_version,checksum,status,started_at,finished_at,error_code) VALUES (?,?,?,?,?,NULL,NULL) '
@@ -85,6 +101,7 @@ final class ApplicationMigrationRunner
                     if ($pdo->inTransaction()) {
                         throw new RuntimeException('MIGRATION_TRANSACTION_INCOMPLETE: ' . $migration['id']);
                     }
+                    $this->assertLock($pdo, $lockName);
                     $pdo->prepare(
                         "UPDATE pa_schema_migration SET status='applied',finished_at=?,error_code=NULL WHERE migration_id=?",
                     )->execute([gmdate('Y-m-d H:i:s'), $migration['id']]);
@@ -108,14 +125,53 @@ final class ApplicationMigrationRunner
                 }
             }
 
-            return [
+            $result = [
                 'status' => $applied === [] ? 'up_to_date' : 'applied',
                 'target_version' => $targetVersion,
                 'applied' => $applied,
                 'pending' => [],
             ];
+            $this->complete($pdo, $lockName, $result, $beforeUnlock);
+            return $result;
         } finally {
             $pdo->prepare('SELECT RELEASE_LOCK(?)')->execute([$lockName]);
+        }
+    }
+
+    private function complete(PDO $pdo, string $lockName, array $result, ?callable $beforeUnlock): void
+    {
+        $this->assertLock($pdo, $lockName);
+        if ($beforeUnlock !== null) {
+            $beforeUnlock($pdo, $result);
+        }
+        $this->assertLock($pdo, $lockName);
+    }
+
+    private function assertConnection(PDO $pdo): void
+    {
+        if ($pdo->inTransaction()) {
+            throw new RuntimeException('MIGRATION_OUTER_TRANSACTION_FORBIDDEN');
+        }
+        if ($this->masterPdo !== null && ($pdo !== $this->masterPdo
+            || \think\facade\Db::connect() !== $this->nativeConnection
+            || $this->nativeConnection->getPdo() !== $pdo)) {
+            throw new RuntimeException('MIGRATION_NATIVE_MASTER_CHANGED');
+        }
+        $identity = $pdo->query('SELECT CONNECTION_ID() AS connection_id, DATABASE() AS database_name')->fetch(PDO::FETCH_ASSOC);
+        if (!is_array($identity) || ($identity['database_name'] ?? null) !== $this->database['database']
+            || ($this->connectionId !== null && $this->connectionId !== (string) $identity['connection_id'])) {
+            throw new RuntimeException('MIGRATION_CONNECTION_IDENTITY_CHANGED');
+        }
+        $this->connectionId = (string) $identity['connection_id'];
+    }
+
+    private function assertLock(PDO $pdo, string $lockName): void
+    {
+        $this->assertConnection($pdo);
+        $statement = $pdo->prepare('SELECT IS_USED_LOCK(?) = CONNECTION_ID()');
+        $statement->execute([$lockName]);
+        if ((int) $statement->fetchColumn() !== 1) {
+            throw new RuntimeException('MIGRATION_SCHEMA_LOCK_LOST');
         }
     }
 
@@ -229,6 +285,11 @@ final class ApplicationMigrationRunner
 
     private function connection(): PDO
     {
+        if ($this->masterPdo !== null) {
+            $this->assertConnection($this->masterPdo);
+            return $this->masterPdo;
+        }
+        $this->connectionId = null;
         return new PDO(
             sprintf(
                 'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',

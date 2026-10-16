@@ -14,11 +14,63 @@ use think\console\input\Option;
 use think\console\Output;
 use think\facade\Config;
 use think\facade\Db;
+use PDO;
+use think\App;
 
 /** Reconciles either the canonical official set or the full release replacement set. */
 final class PluginReconcile extends ModuleContextualCommand
 {
     use PluginCommandSupport;
+
+    /** Continues the release on the held native connection through the normal command lifecycle. */
+    public static function reconcileInProcess(App $app, PDO $pdo): array
+    {
+        self::assertNativeAdmission($pdo);
+        $result = self::callInProcess($app, $pdo, ['--release-locked']);
+        self::assertNativeAdmission($pdo);
+        return $result;
+    }
+
+    /** Reads the same full release selection without launching a second application process. */
+    public static function planInProcess(App $app, PDO $pdo, string $currentServer): array
+    {
+        return self::callInProcess($app, $pdo, ['--release-locked', '--plan-only', '--current-server=' . $currentServer]);
+    }
+
+    private static function assertNativeAdmission(PDO $pdo): void
+    {
+        if (Db::connect()->getPdo() !== $pdo || $pdo->inTransaction()
+            || !class_exists('PeanutServerUpdatePlan', false)) {
+            throw new \RuntimeException('PLUGIN_RECONCILE_NATIVE_ADMISSION_REQUIRED');
+        }
+        $admission = \PeanutServerUpdatePlan::databaseMigrationAdmission($pdo);
+        if (($admission['schema_version'] ?? null) !== 1 || ($admission['scope'] ?? null) !== 'server-release') {
+            throw new \RuntimeException('PLUGIN_RECONCILE_NATIVE_ADMISSION_REQUIRED');
+        }
+    }
+
+    private static function callInProcess(App $app, PDO $pdo, array $arguments): array
+    {
+        $connection = Db::connect();
+        if ($connection->getPdo() !== $pdo || $pdo->inTransaction()) {
+            throw new \RuntimeException('PLUGIN_RECONCILE_NATIVE_MASTER_CHANGED');
+        }
+        $command = $app->console->find('plugin:reconcile');
+        if (!$command instanceof self || $command->getApp() !== $app) {
+            throw new \RuntimeException('PLUGIN_RECONCILE_COMMAND_UNAVAILABLE');
+        }
+        $output = new Output('buffer');
+        $exitCode = $command->run(new Input(['plugin:reconcile', ...$arguments]), $output);
+        $bytes = trim($output->fetch());
+        if (Db::connect() !== $connection || $connection->getPdo() !== $pdo || $pdo->inTransaction()) {
+            throw new \RuntimeException('PLUGIN_RECONCILE_NATIVE_MASTER_CHANGED');
+        }
+        $result = json_decode($bytes, true, 128, JSON_THROW_ON_ERROR);
+        if (!is_array($result) || ($exitCode !== 0 && !isset($result['protocol']))) {
+            throw new \RuntimeException('PLUGIN_RECONCILE_FAILED: ' . (is_array($result) ? (string) ($result['error'] ?? 'UNKNOWN') : 'INVALID_RESULT'));
+        }
+        return $result;
+    }
 
     /** Declares mutually exclusive reconciliation scopes so deployments cannot select arbitrary Plugin keys. */
     protected function configure()
@@ -108,6 +160,7 @@ final class PluginReconcile extends ModuleContextualCommand
     {
         $report = ['schema_version' => 1, 'protocol' => 'peanut.plugin-reconcile-plan.v1',
             'scope' => 'release-locked', 'readonly' => true, 'may_apply' => false, 'packages' => [],
+            'execution_admitted' => false,
             'complete' => false, 'observation_started_at' => gmdate(DATE_ATOM)];
         try {
             if (!$validScope) {
@@ -140,6 +193,8 @@ final class PluginReconcile extends ModuleContextualCommand
             sort($keys, SORT_STRING);
             $report['selected_package_keys'] = $keys;
             $report['may_apply'] = true;
+            $report['planning_complete'] = true;
+            $prerequisites = [];
             $service = $this->pluginLifecycle();
             foreach ($keys as $key) {
                 try {
@@ -151,6 +206,10 @@ final class PluginReconcile extends ModuleContextualCommand
                 }
                 $report['packages'][] = $item;
                 $report['may_apply'] = $report['may_apply'] && ($item['may_apply'] ?? null) === true;
+                $report['planning_complete'] = $report['planning_complete'] && ($item['planning_complete'] ?? $item['may_apply'] ?? false) === true;
+                foreach ($item['application_prerequisites'] ?? [] as $prerequisite) {
+                    $prerequisites[$prerequisite['migration_id']] = $prerequisite;
+                }
             }
             $report['action'] = $keys === [] ? 'planned_noop' : 'planned_reconcile';
             if (hash_file('sha256', $lockPath) !== $report['target_lock_sha256']
@@ -158,6 +217,7 @@ final class PluginReconcile extends ModuleContextualCommand
                 throw new PluginLifecycleException('MODULE_PACKAGE_RECOVERY_REQUIRED', 'Release locks changed during observation.');
             }
             $report['complete'] = true;
+            $report['application_prerequisites'] = array_values($prerequisites);
         } catch (PluginLifecycleException $exception) {
             $report['may_apply'] = false;
             $report['code'] = $exception->errorCode;
@@ -169,7 +229,8 @@ final class PluginReconcile extends ModuleContextualCommand
             $report['may_apply'] = false;
             $report['code'] = 'UNKNOWN_PRECONDITION';
         }
-        $report['status'] = $report['may_apply'] ? 'ready' : 'blocked';
+        $report['status'] = $report['may_apply'] ? 'ready'
+            : (($report['complete'] && ($report['planning_complete'] ?? false) && ($report['application_prerequisites'] ?? []) !== []) ? 'planned' : 'blocked');
         $report['observation_completed_at'] = gmdate(DATE_ATOM);
         $report['observation'] = 'bounded non-atomic read interval on old database; execution-time guards remain required';
         $report['report_sha256'] = hash('sha256', $this->canonicalPlan($report));

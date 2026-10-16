@@ -43,6 +43,7 @@ return [
         'plugin:make'      => \app\command\PluginMake::class,
         'plugin:lock'      => \app\command\PluginLock::class,
         'plugin:upgrade'   => \app\command\PluginUpgrade::class,
+        'schema:application' => \app\command\ApplicationSchema::class,
         'plugin:rollback'  => \app\command\PluginRollback::class,
         'plugin:uninstall' => \app\command\PluginUninstall::class,
         'tenant-module:apply-profile' => \app\command\TenantModuleProfile::class,

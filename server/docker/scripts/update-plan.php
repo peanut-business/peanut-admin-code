@@ -12,6 +12,234 @@ final class PeanutServerUpdatePlan
     private const RUNTIME_DIR = 'runtime/upgrade';
     public const APPLICATION_DEPLOYMENT = 'peanut.application-deployment.v1';
     private static array $instanceLocks = [];
+    private static ?array $databaseStage = null;
+    private static ?array $applicationPlanning = null;
+
+    /** The database host owns this lock, rather than inheriting a parent's claim. */
+    public static function withDatabaseMigration(string $server, string $workspace, string $operation, string $scope, PDO $pdo, callable $callback): mixed
+    {
+        if (!in_array($scope, ['server-release', 'application-schema'], true)
+            || !in_array($operation, ['migrate', 'verify'], true) || self::$databaseStage !== null) {
+            throw new RuntimeException('invalid native database stage');
+        }
+        return self::withInstanceLock($server, static function () use ($server, $workspace, $operation, $scope, $pdo, $callback): mixed {
+            self::sourceOwner($server);
+            $facts = self::databasePhaseFacts($server, $workspace, $operation, $pdo);
+            self::$databaseStage = ['pdo' => $pdo, 'connection' => \think\facade\Db::connect(),
+                'server' => $server, 'workspace' => $workspace, 'operation' => $operation, 'scope' => $scope, 'facts' => $facts];
+            try { return $callback($facts); }
+            finally { self::$databaseStage = null; }
+        });
+    }
+
+    /** Read-only planning has no execution admission and never acquires a file lock. */
+    public static function withServerApplicationPlanning(string $server, string $workspace, PDO $pdo, array $files, array $selection, callable $callback): mixed
+    {
+        if (self::$applicationPlanning !== null || self::$databaseStage !== null) { throw new RuntimeException('nested database planning'); }
+        [$product, $state] = self::productBinding($workspace);
+        self::assertDatabaseProductPaths($server, $workspace, $product);
+        $plan = self::plan($workspace);
+        $prepared = $workspace . '/prepared/server';
+        if (realpath($server) !== $server || realpath($workspace) !== $workspace
+            || ($product['scope'] ?? null) !== 'server' || ($product['instance_root'] ?? null) . '/server' !== $server
+            || ($state['phase_in_progress'] ?? null) !== 'migration-preflight'
+            || ($product['inputs_sha256'] ?? null) !== hash_file('sha256', $workspace . '/plan.json')
+            || ($product['candidate'] ?? null) !== $plan['update_id']
+            || \think\facade\Db::connect()->getPdo() !== $pdo || $pdo->inTransaction()) {
+            throw new RuntimeException('server planning is not bound to its native phase');
+        }
+        self::assertPreparedServer($workspace, $plan);
+        self::assertInstallationFingerprints($server, $plan);
+        $identity = self::identity(self::jsonFile($prepared . '/.peanut/release-identity.json', 'prepared identity'), true);
+        $expected = [];
+        foreach ($identity['files'] as $row) {
+            if (preg_match('#^server/database/migrations/[0-9]{8}-[a-z0-9][a-z0-9_-]*\.sql$#D', $row['path']) === 1) {
+                $expected[$prepared . '/' . substr($row['path'], 7)] = $row['sha256'];
+            }
+        }
+        ksort($expected, SORT_STRING);
+        if ($files !== array_keys($expected)) { throw new RuntimeException('planning application chain differs from target'); }
+        foreach ($expected as $file => $sha) {
+            if (is_link($file) || !is_file($file) || hash_file('sha256', $file) !== $sha) { throw new RuntimeException('planning migration changed'); }
+        }
+        self::$applicationPlanning = ['pdo' => $pdo, 'connection' => \think\facade\Db::connect(), 'server' => $server,
+            'workspace' => $workspace, 'plan_sha256' => hash_file('sha256', $workspace . '/plan.json'),
+            'product_state_sha256' => hash_file('sha256', $product['state_path']), 'files' => $expected, 'pending' => $selection['pending']];
+        try { return $callback(); }
+        finally { self::$applicationPlanning = null; }
+    }
+
+    public static function pendingModuleProvenanceMigration(PDO $pdo): ?array
+    {
+        $scope = self::$applicationPlanning;
+        if ($scope === null) { return null; }
+        [$product, $state] = self::productBinding($scope['workspace']);
+        if ($scope['pdo'] !== $pdo || \think\facade\Db::connect() !== $scope['connection']
+            || $scope['connection']->getPdo() !== $pdo
+            || ($state['phase_in_progress'] ?? null) !== 'migration-preflight'
+            || hash_file('sha256', $scope['workspace'] . '/plan.json') !== $scope['plan_sha256']
+            || hash_file('sha256', $product['state_path']) !== $scope['product_state_sha256']) {
+            throw new RuntimeException('native planning identity changed');
+        }
+        $id = '20261016-module-migration-provenance';
+        if (!in_array($id, $scope['pending'], true)) { return null; }
+        $file = $scope['workspace'] . '/prepared/server/database/migrations/' . $id . '.sql';
+        $sha = $scope['files'][$file] ?? null;
+        if (!is_string($sha) || hash_file('sha256', $file) !== $sha) { throw new RuntimeException('pending provenance migration changed'); }
+        $row = $pdo->prepare('SELECT status FROM pa_schema_migration WHERE migration_id=?'); $row->execute([$id]);
+        if ($row->fetchColumn() !== false) { throw new RuntimeException('pending provenance ledger changed'); }
+        return ['migration_id' => $id, 'sha256' => $sha, 'reason' => 'module_migration_provenance_schema'];
+    }
+
+    /** This accessor cannot create admission: only the verified held native stage can. */
+    public static function databaseMigrationAdmission(PDO $pdo): array
+    {
+        $stage = self::$databaseStage;
+        if ($stage === null || $stage['scope'] !== 'server-release' || $stage['operation'] !== 'migrate') { throw new RuntimeException('native database admission unavailable'); }
+        $facts = self::assertDatabaseMigrationStage($pdo);
+        $lockName = 'peanut_migrate_' . substr(hash('sha256', $facts['database_identity']['database']), 0, 48);
+        $lock = $pdo->prepare('SELECT IS_USED_LOCK(?)=CONNECTION_ID()'); $lock->execute([$lockName]);
+        if ((int) $lock->fetchColumn() !== 1) { throw new RuntimeException('native schema lock is not held'); }
+        $admission = ['schema_version' => 1, 'scope' => 'server-release', 'instance_root' => $stage['server'],
+            'source_instance_root' => $stage['server'], 'workspace' => $stage['workspace'],
+            'plan_sha256' => $facts['plan_sha256'], 'update_id' => $facts['update_id'],
+            'target_identity_sha256' => $facts['target_identity_sha256'], 'database_identity' => $facts['database_identity'],
+            'source' => $facts['source'], 'backup_sha256' => $facts['backup_sha256'],
+            'maintenance' => $facts['maintenance'], 'resource' => $facts['resource']];
+        $admission['admission_digest'] = hash('sha256', self::databaseCanonical($admission));
+        return $admission;
+    }
+
+    public static function assertDatabaseMigrationStage(PDO $pdo): array
+    {
+        $stage = self::$databaseStage;
+        if ($stage === null || $stage['pdo'] !== $pdo || \think\facade\Db::connect() !== $stage['connection']
+            || $stage['connection']->getPdo() !== $pdo) { throw new RuntimeException('native database stage unavailable'); }
+        self::assertHeldDatabaseLock($stage['server']);
+        $facts = self::databasePhaseFacts($stage['server'], $stage['workspace'], $stage['operation'], $pdo);
+        if ($facts !== $stage['facts']) { throw new RuntimeException('native database stage changed'); }
+        return $facts;
+    }
+
+    /** Protected native phase, recovery point, real installed pair and actual master identity. */
+    private static function databasePhaseFacts(string $server, string $workspace, string $operation, PDO $pdo): array
+    {
+        if (realpath($server) !== $server || realpath($workspace) !== $workspace
+            || \think\facade\Db::connect()->getPdo() !== $pdo) { throw new RuntimeException('native database roots or master changed'); }
+        [$product, $state] = self::productBinding($workspace);
+        self::assertDatabaseProductPaths($server, $workspace, $product);
+        $plan = self::plan($workspace);
+        if (($product['scope'] ?? null) !== 'server' || ($product['instance_root'] ?? null) . '/server' !== $server
+            || ($product['inputs_sha256'] ?? null) !== hash_file('sha256', $workspace . '/plan.json')
+            || ($product['candidate'] ?? null) !== $plan['update_id']
+            || ($state['database_recovery_required'] ?? null) !== true
+            || !isset($state['evidence']['managed_files'], $state['evidence']['backup'], $state['evidence']['quiesce'])
+            || ($state['phase_in_progress'] ?? null) !== ($operation === 'migrate' ? 'migrate' : 'migration-verify')
+            || ($state['activation_started'] ?? null) !== false) { throw new RuntimeException('database phase is not admitted'); }
+        self::assertMaintenance($server, $plan['update_id']);
+        self::assertInstallationFingerprints($server, $plan);
+        $identityBytes = self::regularBytes($server . '/.peanut/release-identity.json', 'database target identity');
+        if (hash('sha256', $identityBytes) !== $plan['target']['identity_sha256']) { throw new RuntimeException('database target changed'); }
+        $identity = self::identity(json_decode($identityBytes, true, 512, JSON_THROW_ON_ERROR), true);
+        foreach ($identity['files'] as $row) {
+            self::assertOrdinaryParents($server, substr($row['path'], 7));
+            $file = self::actualPath($server, $row['path']);
+            if (hash('sha256', self::regularBytes($file, 'database target file')) !== $row['sha256']) { throw new RuntimeException('database target bytes changed'); }
+        }
+        $backupBytes = self::regularBytes($workspace . '/backup.json', 'database recovery point');
+        $backup = json_decode($backupBytes, true, 256, JSON_THROW_ON_ERROR);
+        $key = self::verificationKey($server, false);
+        $signature = trim(self::regularBytes($workspace . '/backup.json.hmac', 'database recovery authentication'));
+        $config = guardedDatabaseConfig();
+        $resource = ['resource_id' => $config['resource_id'], 'endpoint_id' => $config['endpoint_id'], 'database' => $config['database']];
+        $db = \app\common\services\installation\InstallationExecutionHost::migrationDatabaseIdentity($pdo);
+        if (!hash_equals(hash_hmac('sha256', $backupBytes, $key), $signature)
+            || ($backup['product_plan_sha256'] ?? null) !== $product['plan_sha256']
+            || ($backup['plan_sha256'] ?? null) !== hash_file('sha256', $workspace . '/plan.json')
+            || ($backup['update_id'] ?? null) !== $plan['update_id']
+            || self::databaseCanonical($backup['database_identity'] ?? []) !== self::databaseCanonical($resource)
+            || ($backup['mysql_identity']['server_uuid'] ?? null) !== $db['server_uuid'] || $db['database'] !== $config['database']
+            || ($backup['snapshots']['private/installation/installed.json'] ?? null) !== $plan['source']['installed_receipt_sha256']
+            || ($backup['snapshots']['private/installation/baseline.json'] ?? null) !== $plan['source']['baseline_sha256']
+            || !is_file($workspace . '/recovery/database.sql.gz') || is_link($workspace . '/recovery/database.sql.gz')
+            || ($backup['database_dump_sha256'] ?? null) !== hash_file('sha256', $workspace . '/recovery/database.sql.gz')
+            || ($state['evidence']['backup']['payload']['payload']['backup_sha256'] ?? null) !== hash('sha256', $backupBytes)
+            || ($state['evidence']['quiesce']['payload']['payload']['write_gate'] ?? null) !== 'closed'
+            || ($state['evidence']['quiesce']['payload']['payload']['backup_sha256'] ?? null) !== hash('sha256', $backupBytes)) {
+            throw new RuntimeException('database recovery or resource binding changed');
+        }
+        $proofPath = getenv('PEANUT_RESOURCE_LEASE_PROOF');
+        if (is_string($proofPath) && $proofPath !== '') {
+            $metadata = activeLeaseMetadata($proofPath, time(), null); $resources = activeLeaseResources($proofPath);
+            $ddl = false;
+            foreach ($resources['mysql-access'] ?? [] as $access) {
+                $access = json_decode($access, true, 64, JSON_THROW_ON_ERROR);
+                $ddl = $ddl || (($access['complete'] ?? null) === true && in_array($access['operation'] ?? null, ['ddl', 'exclusive'], true) && ($access['tables'] ?? null) === []);
+            }
+            if (isset($resources['mysql-access']) && !$ddl) { throw new RuntimeException('database stage requires full native DDL exclusion'); }
+            $resource['lease'] = array_intersect_key($metadata, array_flip(['lease', 'owner', 'thread', 'candidate']));
+        }
+        return ['update_id' => $plan['update_id'], 'plan_sha256' => hash_file('sha256', $workspace . '/plan.json'),
+            'product_state_sha256' => hash_file('sha256', $product['state_path']), 'target_identity_sha256' => $plan['target']['identity_sha256'],
+            'database_identity' => $db, 'resource' => $resource, 'source' => $plan['source'],
+            'backup_sha256' => hash('sha256', $backupBytes), 'maintenance' => self::jsonFile(self::maintenancePath($server), 'maintenance')];
+    }
+
+    private static function assertInstallationFingerprints(string $server, array $plan): void
+    {
+        \app\common\services\installation\InstallationExecutionHost::verifiedInstallationFacts($server);
+        foreach (['installed.json' => 'installed_receipt_sha256', 'baseline.json' => 'baseline_sha256'] as $file => $field) {
+            if (hash('sha256', self::regularBytes($server . '/private/installation/' . $file, 'installed source')) !== ($plan['source'][$field] ?? null)) {
+                throw new RuntimeException('installed source originals changed');
+            }
+        }
+    }
+
+    private static function assertDatabaseProductPaths(string $server, string $workspace, array $product): void
+    {
+        $binding = self::jsonFile($workspace . '/product-binding.json', 'database product binding');
+        $root = dirname($server);
+        $candidate = $product['candidate'] ?? '';
+        if (($binding['plan_path'] ?? null) !== $root . '/.peanut/upgrades/product-plans/' . $candidate . '.json'
+            || ($product['state_path'] ?? null) !== $root . '/.peanut/upgrades/product-state/' . $candidate . '.json') {
+            throw new RuntimeException('database binding is outside native product records');
+        }
+        $owner = fileowner($server);
+        foreach ([$workspace . '/product-binding.json', $workspace . '/plan.json', $binding['plan_path'], $product['state_path']] as $path) {
+            $stat = @lstat($path);
+            if (realpath($path) !== $path || !is_file($path) || is_link($path) || !is_array($stat)
+                || $stat['nlink'] !== 1 || ($stat['mode'] & 0777) !== 0600 || !in_array($stat['uid'], [0, $owner], true)) {
+                throw new RuntimeException('native database phase record is unsafe');
+            }
+        }
+        if ((fileperms($workspace) & 0022) !== 0) { throw new RuntimeException('native database workspace permits unrelated writers'); }
+    }
+
+    private static function assertHeldDatabaseLock(string $server): void
+    {
+        $runtime = $server . '/' . self::RUNTIME_DIR;
+        $held = self::$instanceLocks[$runtime] ?? null;
+        $stat = @lstat($runtime . '/update.lock');
+        $open = is_array($held) && is_resource($held['handle']) ? fstat($held['handle']) : false;
+        if (!is_array($held) || $held['pid'] !== getmypid() || ($held['transferred'] ?? false)
+            || !is_array($stat) || !is_array($open) || is_link($runtime . '/update.lock')
+            || $open['ino'] !== $stat['ino'] || $open['dev'] !== $stat['dev']) { throw new RuntimeException('native database update lock changed'); }
+    }
+
+    private static function databaseCanonical(array $value): string
+    {
+        $normalize = static function (array $items) use (&$normalize): array {
+            if (!array_is_list($items)) { ksort($items, SORT_STRING); }
+            foreach ($items as $key => $item) { if (is_array($item)) { $items[$key] = $normalize($item); } }
+            return $items;
+        };
+        return json_encode($normalize($value), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
+    public static function databaseVerificationKey(string $server): string
+    {
+        return self::verificationKey($server, false);
+    }
 
     public static function withSourceInstanceLock(string $root, callable $operation): mixed
     {
@@ -926,7 +1154,8 @@ final class PeanutServerUpdatePlan
     {
         self::assertNoLegacyMaintenanceKey($serverRoot);
         $directory = $serverRoot . '/private/maintenance';
-        self::ensureDirectory($directory, 0700);
+        if ($create) { self::ensureDirectory($directory, 0700); }
+        if (!is_dir($directory) || is_link($directory)) { throw new RuntimeException('private maintenance directory is unavailable'); }
         $owner = fileowner($serverRoot);
         $stat = lstat($directory);
         $parent = lstat($serverRoot . '/private');

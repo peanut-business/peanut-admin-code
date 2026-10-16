@@ -126,9 +126,15 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             $willMigrate = in_array($action, ['planned_install', 'planned_upgrade'], true);
             $modules = [];
             $mayApply = true;
+            $planningComplete = true;
+            $prerequisites = [];
             foreach ($manifests as $moduleKey => $manifest) {
                 $migrationPlan = $this->moduleMigrationPlan($plugin, $moduleKey, $manifest, $willMigrate);
                 $mayApply = $mayApply && $migrationPlan['may_apply'];
+                $planningComplete = $planningComplete && ($migrationPlan['planning_complete'] ?? $migrationPlan['may_apply']);
+                foreach ($migrationPlan['application_prerequisites'] ?? [] as $prerequisite) {
+                    $prerequisites[$prerequisite['migration_id']] = $prerequisite;
+                }
                 $manifestSha = hash_file('sha256', $plugin->moduleRoots[$moduleKey] . '/module.json');
                 if (!is_string($manifestSha)) {
                     throw new PluginLifecycleException('PLUGIN_MODULE_MISMATCH', 'Module manifest is unreadable.');
@@ -137,6 +143,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             }
             usort($modules, static fn(array $left, array $right): int => strcmp($left['module_key'], $right['module_key']));
             return $plugin->publicIdentity() + ['action' => $action, 'may_apply' => $mayApply,
+                'planning_complete' => $planningComplete, 'application_prerequisites' => array_values($prerequisites),
+                'status' => $mayApply ? 'ready' : ($planningComplete ? 'planned' : 'blocked'), 'execution_admitted' => false,
                 'from_version' => is_array($current) ? (string) $current['installed_version'] : null,
                 'manifest_sha256' => $plugin->manifestDigest, 'modules' => $modules,
                 'observation' => 'read-only interval; execution revalidates all native guards'];
@@ -650,6 +658,30 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         }
     }
 
+    /** Only the native full-server planning scope may observe this exact future schema. */
+    private static function pendingProvenancePrerequisite(): ?array
+    {
+        $pdo = Db::connect()->getPdo();
+        if (!$pdo instanceof \PDO || !class_exists('PeanutServerUpdatePlan', false)) { return null; }
+        $prerequisite = \PeanutServerUpdatePlan::pendingModuleProvenanceMigration($pdo);
+        if ($prerequisite === null) { return null; }
+        if (($prerequisite['migration_id'] ?? null) !== '20261016-module-migration-provenance'
+            || ($prerequisite['reason'] ?? null) !== 'module_migration_provenance_schema'
+            || preg_match('/^[a-f0-9]{64}$/D', (string) ($prerequisite['sha256'] ?? '')) !== 1) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_PROVENANCE_SCHEMA_REQUIRED', 'Native application prerequisite is invalid.');
+        }
+        $statement = $pdo->prepare('SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME IN (?,?)');
+        $statement->execute([Db::name('module_migration')->getTable(), 'resolution_kind', 'provenance_json']);
+        $columns = (int) $statement->fetchColumn();
+        $statement = $pdo->prepare('SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA=DATABASE() AND TABLE_NAME=? AND CONSTRAINT_NAME IN (?,?)');
+        $statement->execute([Db::name('module_migration')->getTable(), 'chk_module_migration_resolution', 'chk_module_migration_provenance']);
+        $constraints = (int) $statement->fetchColumn();
+        if ($columns !== 0 || $constraints !== 0) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_PROVENANCE_SCHEMA_REQUIRED', 'Partial or different provenance schema cannot be deferred.');
+        }
+        return $prerequisite;
+    }
+
     /** @return array{targets:array<string,array<string,string>>,declarations:array<string,string>} */
     private static function migrationAdoptions(string $moduleKey, array $files, array $repairs): array
     {
@@ -869,14 +901,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             || !is_array($proof['instance'] ?? null)
             || self::json($proof['instance']) !== self::json(self::migrationInstance($pdo, $proof['instance']))
             || !is_array($proof['apply_admission'] ?? null)
-            || ($proof['apply_admission']['protocol'] ?? null) !== 'peanut.installation-module-admission.v1'
-            || ($proof['apply_admission']['request_id'] ?? null) !== ($proof['operation_id'] ?? null)
-            || ($proof['apply_admission']['operation'] ?? null) !== ($proof['operation'] ?? null)
-            || ($proof['apply_admission']['instance_root'] ?? null) !== realpath(root_path())
-            || ($proof['apply_admission']['progress_sha256'] ?? null) !== ($proof['instance']['installation_execution']['marker_sha256'] ?? null)
-            || ($proof['apply_admission']['fresh_schema_sha256'] ?? null) !== ($proof['instance']['fresh_schema_sha256'] ?? null)
-            || self::json($proof['apply_admission']['database_identity'] ?? null) !== self::json($proof['instance']['database_identity'] ?? null)
-            || ($proof['apply_admission']['external_writer_exclusion'] ?? null) !== 'ops_protocol_gate_required_not_attested'
+            || !self::recordedAdoptionAdmission($proof)
             || !is_array($proof['evidence'] ?? null) || ($proof['evidence']['disposition'] ?? null) !== 'adopt'
             || ($proof['evidence']['may_apply'] ?? null) !== true
             || ($proof['evidence']['migration_key'] ?? null) !== $declaration['migration_key']
@@ -906,6 +931,32 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_DRIFT', 'Recorded application migration provenance changed.');
         }
         return $current;
+    }
+
+    private static function recordedAdoptionAdmission(array $proof): bool
+    {
+        $admission = $proof['apply_admission'];
+        if (self::json($admission['database_identity'] ?? null) !== self::json($proof['instance']['database_identity'] ?? null)) { return false; }
+        if (($admission['scope'] ?? null) === 'server-release') {
+            if (($admission['schema_version'] ?? null) !== 1
+                || !in_array(realpath(root_path()), [$admission['instance_root'] ?? null, $admission['source_instance_root'] ?? null], true)) { return false; }
+            foreach (['plan_sha256', 'target_identity_sha256', 'backup_sha256', 'admission_digest'] as $field) {
+                if (preg_match('/^[a-f0-9]{64}$/D', (string) ($admission[$field] ?? '')) !== 1) { return false; }
+            }
+            if (!is_string($admission['workspace'] ?? null) || $admission['workspace'] === ''
+                || !is_string($admission['update_id'] ?? null) || $admission['update_id'] === ''
+                || !isset($admission['maintenance'])) { return false; }
+            $digest = $admission['admission_digest']; unset($admission['admission_digest']);
+            return hash_equals($digest, hash('sha256', json_encode(self::canonicalJsonValue($admission),
+                JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)));
+        }
+        return ($admission['instance_root'] ?? null) === realpath(root_path())
+            && ($admission['protocol'] ?? null) === 'peanut.installation-module-admission.v1'
+            && ($admission['request_id'] ?? null) === ($proof['operation_id'] ?? null)
+            && ($admission['operation'] ?? null) === ($proof['operation'] ?? null)
+            && ($admission['progress_sha256'] ?? null) === ($proof['instance']['installation_execution']['marker_sha256'] ?? null)
+            && ($admission['fresh_schema_sha256'] ?? null) === ($proof['instance']['fresh_schema_sha256'] ?? null)
+            && ($admission['external_writer_exclusion'] ?? null) === 'ops_protocol_gate_required_not_attested';
     }
 
     /** Preservation readers use the same declaration/provenance rules; no historical execution claim is inferred. */
@@ -1049,7 +1100,14 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         if ($optional !== []) { $canonicalSql .= "\n" . file_get_contents($serverRoot . '/app/modules/official/reference_codes/database/migrations/20260921-adopt-reference-codes-schema.sql'); }
         foreach ($required as $table => $columns) {
             $rows = $read('SELECT COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,COLUMN_DEFAULT,EXTRA,COLLATION_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY ORDINAL_POSITION', [$table]);
-            if (array_diff(explode(',', $columns), array_column($rows, 'COLUMN_NAME')) !== []) {
+            $missing = array_values(array_diff(explode(',', $columns), array_column($rows, 'COLUMN_NAME')));
+            if ($table === 'pa_module_migration' && $missing === ['resolution_kind', 'provenance_json']
+                && self::pendingProvenancePrerequisite() !== null) {
+                // The plan still checks every existing column/key; execution requires the real DDL first.
+                $columns = implode(',', array_diff(explode(',', $columns), $missing));
+                $missing = [];
+            }
+            if ($missing !== []) {
                 return ['may_apply' => false, 'code' => 'NOTIFICATION_FORWARD_CATALOG_SCHEMA_UNAVAILABLE'];
             }
             if (!preg_match('/CREATE TABLE(?: IF NOT EXISTS)? `' . $table . '`\s*\((.*?)\)\s*ENGINE/s', $canonicalSql, $definition)) {
@@ -1270,7 +1328,12 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
 
     private function moduleMigrationPlan(PluginDescriptor $plugin, string $moduleKey, ManifestDocument $manifest, bool $willMigrate, ?bool $notificationForwardOverride = null): array
     {
-        self::assertMigrationSchema();
+        $prerequisite = null;
+        try { self::assertMigrationSchema(); }
+        catch (PluginLifecycleException $exception) {
+            if ($exception->errorCode !== 'MODULE_MIGRATION_PROVENANCE_SCHEMA_REQUIRED'
+                || ($prerequisite = self::pendingProvenancePrerequisite()) === null) { throw $exception; }
+        }
         $files = $this->migrationFiles($plugin->moduleRoots[$moduleKey], $manifest, true);
         $repairs = self::migrationRepairMap($moduleKey, $files);
         $adoptions = self::migrationAdoptions($moduleKey, $files, $repairs);
@@ -1281,7 +1344,15 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         if ($notificationForward !== null) {
             $mayApply = ($notificationForward['may_apply'] ?? null) === true && ($notificationForward['catalog_schema']['may_apply'] ?? null) === true;
             try { $notificationAdmission = self::adoptionAdmission(Db::connect()->getPdo()); }
-            catch (PluginLifecycleException $exception) { $notificationAdmission = ['may_apply' => false, 'code' => $exception->errorCode, 'external_writer_exclusion' => 'not_attested']; $mayApply = false; }
+            catch (PluginLifecycleException $exception) {
+                if ($prerequisite !== null && $exception->errorCode === 'MODULE_MIGRATION_ADOPTION_WINDOW_REQUIRED') {
+                    $notificationAdmission = ['may_apply' => false, 'execution_admitted' => false, 'status' => 'planned',
+                        'code' => 'MODULE_MIGRATION_ADMISSION_DEFERRED', 'application_prerequisites' => [$prerequisite]];
+                } else {
+                    $notificationAdmission = ['may_apply' => false, 'code' => $exception->errorCode, 'external_writer_exclusion' => 'not_attested'];
+                    $mayApply = false;
+                }
+            }
         }
         foreach ($files as $key => $path) {
             if (isset($adoptions['declarations'][$key])) { continue; }
@@ -1325,9 +1396,14 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             if ($disposition === 'adopt') {
                 try { $admission = self::adoptionAdmission(Db::connect()->getPdo()); }
                 catch (PluginLifecycleException $exception) {
-                    $admission = ['may_apply' => false, 'code' => $exception->errorCode,
-                        'external_writer_exclusion' => 'ops_protocol_gate_required_not_attested'];
-                    $disposition = 'reject';
+                    if ($prerequisite !== null && $exception->errorCode === 'MODULE_MIGRATION_ADOPTION_WINDOW_REQUIRED') {
+                        $admission = ['may_apply' => false, 'execution_admitted' => false, 'status' => 'planned',
+                            'code' => 'MODULE_MIGRATION_ADMISSION_DEFERRED', 'application_prerequisites' => [$prerequisite]];
+                    } else {
+                        $admission = ['may_apply' => false, 'code' => $exception->errorCode,
+                            'external_writer_exclusion' => 'ops_protocol_gate_required_not_attested'];
+                        $disposition = 'reject';
+                    }
                 }
             }
             if ($report !== null) { $reports[] = $report; }
@@ -1346,7 +1422,10 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 throw new PluginLifecycleException('MODULE_MIGRATION_INVALID', 'Ledger contains an absent SQL or a falsely executed adoption declaration.');
             }
         }
-        return ['may_apply' => $mayApply, 'migrations' => $migrations, 'preflight_reports' => $reports,
+        return ['may_apply' => $mayApply && $prerequisite === null, 'planning_complete' => $mayApply,
+            'status' => !$mayApply ? 'blocked' : ($prerequisite === null ? 'ready' : 'planned'), 'execution_admitted' => false,
+            'application_prerequisites' => $prerequisite === null ? [] : [$prerequisite],
+            'migrations' => $migrations, 'preflight_reports' => $reports,
             'adoption_declarations' => array_values($adoptions['targets']),
             'notification_forward_schema' => $notificationForward, 'notification_forward_admission' => $notificationAdmission];
     }
@@ -1363,11 +1442,22 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
 
     private static function adoptionAdmission(\PDO $pdo): array
     {
-        // Existing maintenance HTTP gates do not prove CLI/worker/external-writer exclusion and
-        // expose no held owner admission here. Do not replace that prerequisite with marker JSON.
         if (!app()->make(CurrentExecutionContext::class)->current() instanceof InstallationExecutionContext) {
-            throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_WINDOW_REQUIRED',
-                'This instance command has no held native adoption admission. Ops must establish writer/DDL exclusion; package locks and snapshots are insufficient.');
+            try {
+                if (Db::connect()->getPdo() !== $pdo || !class_exists('PeanutServerUpdatePlan', false)) {
+                    throw new \RuntimeException('NATIVE_SERVER_ADMISSION_UNAVAILABLE');
+                }
+                $admission = \PeanutServerUpdatePlan::databaseMigrationAdmission($pdo);
+                if (($admission['schema_version'] ?? null) !== 1 || ($admission['scope'] ?? null) !== 'server-release'
+                    || ($admission['instance_root'] ?? null) !== realpath(root_path())
+                    || self::json($admission['database_identity'] ?? null) !== self::json(InstallationExecutionHost::migrationDatabaseIdentity($pdo))) {
+                    throw new \RuntimeException('NATIVE_SERVER_ADMISSION_INVALID');
+                }
+                return $admission;
+            } catch (\Throwable) {
+                throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_WINDOW_REQUIRED',
+                    'A held native server release admission bound to the actual master database is required.');
+            }
         }
         try { return app()->make(InstallationExecutionHost::class)->migrationAdoptionAdmission($pdo); }
         catch (\Throwable) {

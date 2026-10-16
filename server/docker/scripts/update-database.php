@@ -3,13 +3,13 @@
 
 declare(strict_types=1);
 
-// This adapter calls the same native migration runner and module reconciler
-// used by the product upgrader. It only selects a server release's SQL chain.
-try {
-    if (count($argv) !== 4 || !in_array($argv[1], ['preflight', 'migrate', 'verify'], true)) {
-        throw new RuntimeException('Usage: update-database.php preflight|migrate|verify INSTANCE_SERVER WORKSPACE');
-    }
-    [$unused, $operation, $server, $workspace] = $argv;
+require_once __DIR__ . '/update-plan.php';
+
+/** Requiring the host never runs a phase; application-only callers share its admission. */
+function peanutServerDatabaseStage(string $operation, string $server, string $workspace, string $scope = 'server-release'): array
+{
+    if (!in_array($operation, ['preflight', 'migrate', 'verify'], true)
+        || !in_array($scope, ['server-release', 'application-schema'], true)) { throw new RuntimeException('invalid database stage'); }
     if (!str_starts_with($server, '/') || !str_starts_with($workspace, '/')
         || realpath($server) !== $server || realpath($workspace) !== $workspace) {
         throw new RuntimeException('server and workspace must be canonical directories');
@@ -23,13 +23,13 @@ try {
         || $product['inputs_sha256'] !== $planSha || $product['candidate'] !== $plan['update_id']) {
         throw new RuntimeException('database phase inputs differ from the product plan');
     }
+    $targetServer = $operation === 'preflight' ? $workspace . '/prepared/server' : $server;
+    $runtimeServer = $scope === 'application-schema' && class_exists(\think\App::class, false) ? $server : $targetServer;
+    [$app, $config, $pdo] = peanutServerDatabaseMaster($runtimeServer);
+    require_once $runtimeServer . '/database/install.php';
     if ($operation === 'preflight') {
         if ($productState['phase_in_progress'] !== 'migration-preflight') { throw new RuntimeException('product preflight phase is not active'); }
         $prepared = $workspace . '/prepared/server';
-        putenv('PEANUT_SERVER_ENV_FILE=' . $prepared . '/.env');
-        require_once $prepared . '/vendor/autoload.php';
-        require_once $prepared . '/database/environment-guard.php';
-        require_once $prepared . '/app/common/services/upgrade/ApplicationMigrationRunner.php';
         $identity = json_decode((string) file_get_contents($prepared . '/.peanut/release-identity.json'), true, 512, JSON_THROW_ON_ERROR);
         if (hash_file('sha256', $prepared . '/.peanut/release-identity.json') !== $plan['target']['identity_sha256']) { throw new RuntimeException('prepared migration identity differs'); }
         $files = [];
@@ -41,81 +41,40 @@ try {
         }
         sort($files, SORT_STRING);
         $config = guardedDatabaseConfig();
-        $runner = new \app\common\services\upgrade\ApplicationMigrationRunner($config);
-        require_once $prepared . '/database/install.php';
+        $runner = new \app\common\services\upgrade\ApplicationMigrationRunner($config, $pdo);
         $target = applicationMigrationTargetVersion($prepared, applicationReleaseVersions($prepared));
         $result = $runner->run($files, $target, $identity['application']['version'], true);
-        $modulePreflightStarted = true;
-        $moduleDiagnostic = ['phase' => 'module-preflight', 'code' => 'MODULE_PREFLIGHT_REPORT_INVALID'];
-        $canonicalValue = static function (array $value) use (&$canonicalValue): array {
-            if (!array_is_list($value)) { ksort($value, SORT_STRING); }
-            foreach ($value as $key => $item) {
-                if (is_array($item)) { $value[$key] = $canonicalValue($item); }
-            }
-            return $value;
-        };
-        $canonicalJson = static fn(array $value): string => json_encode($canonicalValue($value), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        $commandEnvironment = getenv();
-        if (!is_array($commandEnvironment)) { throw new RuntimeException('module plan environment is unavailable'); }
-        foreach (array_merge(peanutBackendEnvironmentKeys(), peanutTransientInstallationKeys()) as $name) {
-            unset($commandEnvironment[$name]);
-        }
-        $commandEnvironment['PEANUT_SERVER_ENV_FILE'] = $prepared . '/.env';
-        $process = proc_open(
-            [PHP_BINARY, $prepared . '/think', 'plugin:reconcile', '--release-locked', '--plan-only', '--current-server=' . $server],
-            [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
-            $pipes, $prepared, $commandEnvironment,
-        );
-        if (!is_resource($process)) { throw new RuntimeException('module plan could not start'); }
-        $output = stream_get_contents($pipes[1], 8388609);
-        fclose($pipes[1]);
-        $diagnostic = stream_get_contents($pipes[2], 65537);
-        fclose($pipes[2]);
-        $exitCode = proc_close($process);
-        $modules = is_string($output) && strlen($output) <= 8388608 ? json_decode(trim($output), true) : null;
-        $moduleDiagnostic['diagnostic_sha256'] = hash('sha256', (string) $diagnostic);
-        if (is_array($modules)) {
-            $failure = $modules['code'] ?? null;
-            if (isset($modules['plugin_key'])) { $moduleDiagnostic['plugin_key'] = $modules['plugin_key']; }
-            foreach ($modules['packages'] ?? [] as $item) {
-                if (($item['may_apply'] ?? null) === true) { continue; }
-                $moduleDiagnostic['plugin_key'] = $item['key'] ?? '';
-                $failure = $item['code'] ?? $failure;
-                foreach ($item['modules'] ?? [] as $module) {
-                    foreach ($module['preflight_reports'] ?? [] as $report) {
-                        if (($report['may_apply'] ?? null) !== true) {
-                            $moduleDiagnostic['module_key'] = $module['module_key'] ?? '';
-                            $failure = $report['code'] ?? 'UNKNOWN_PRECONDITION';
-                            break 3;
-                        }
-                    }
-                }
-                break;
-            }
-            if (is_string($failure) && preg_match('/\A[A-Z][A-Z0-9_]{0,127}\z/D', $failure) === 1) {
-                $moduleDiagnostic['code'] = $failure;
-            }
+        $proofs = peanutServerDatabasePrestates($pdo, $files, $result);
+        $modules = PeanutServerUpdatePlan::withServerApplicationPlanning($server, $workspace, $pdo, $files, $result,
+            static fn(): array => $scope === 'server-release'
+                ? \app\command\PluginReconcile::planInProcess($app, $pdo, $server) : []);
+        if ($scope === 'application-schema') {
+            return ['status' => 'completed', 'scope' => $scope, 'operation' => 'preflight', 'application' => $result,
+                'prestates' => $proofs, 'plugins' => 'not_run', 'product_database' => 'not_verified', 'execution_admitted' => false];
         }
         $reportSha = is_array($modules) ? ($modules['report_sha256'] ?? null) : null;
         $unsigned = is_array($modules) ? $modules : [];
         unset($unsigned['report_sha256']);
-        if ($exitCode !== 0 || !is_array($modules) || ($modules['schema_version'] ?? null) !== 1
+        $deferred = ($modules['may_apply'] ?? null) === false && ($modules['status'] ?? null) === 'planned'
+            && ($modules['planning_complete'] ?? null) === true && ($modules['execution_admitted'] ?? null) === false;
+        if (!is_array($modules) || ($modules['schema_version'] ?? null) !== 1
             || ($modules['protocol'] ?? null) !== 'peanut.plugin-reconcile-plan.v1'
             || ($modules['scope'] ?? null) !== 'release-locked' || ($modules['readonly'] ?? null) !== true
             || ($modules['complete'] ?? null) !== true
-            || ($modules['status'] ?? null) !== 'ready' || ($modules['may_apply'] ?? null) !== true
+            || (!$deferred && (($modules['status'] ?? null) !== 'ready' || ($modules['may_apply'] ?? null) !== true))
             || ($modules['target_server_root'] ?? null) !== $prepared || ($modules['current_server_root'] ?? null) !== $server
             || ($modules['target_lock_sha256'] ?? null) !== hash_file('sha256', $prepared . '/plugins.lock')
-            || !is_string($reportSha) || !hash_equals($reportSha, hash('sha256', $canonicalJson($unsigned)))
+            || !is_string($reportSha) || !hash_equals($reportSha, hash('sha256', peanutServerDatabaseCanonical($unsigned)))
             || !is_array($modules['packages'] ?? null) || !array_is_list($modules['packages'])) {
             throw new RuntimeException('module plan is blocked, unknown or mismatched');
         }
         foreach ($modules['packages'] as $item) {
-            if (($item['may_apply'] ?? null) !== true || !in_array($item['action'] ?? null,
+            if ((!$deferred && ($item['may_apply'] ?? null) !== true) || !in_array($item['action'] ?? null,
                 ['planned_install', 'planned_upgrade', 'planned_unchanged', 'preserve_disabled'], true)) {
                 throw new RuntimeException('module plan contains an unapproved action');
             }
         }
+        peanutServerDatabaseDeferredPlan($modules, $files, $deferred);
         $selected = array_column($modules['packages'], 'key');
         $ordered = $selected;
         sort($ordered, SORT_STRING);
@@ -130,22 +89,15 @@ try {
             'target_composer_lock_sha256' => hash_file('sha256', $prepared . '/composer.lock'),
             'database_identity' => ['resource_id' => requiredEnvironment('PEANUT_DATABASE_RESOURCE_ID'),
                 'endpoint_id' => requiredEnvironment('PEANUT_DATABASE_ENDPOINT_ID'), 'database' => (string) $config['database']],
-            'may_apply' => true, 'plan' => $modules];
-        $moduleEvidence['report_sha256'] = hash('sha256', $canonicalJson($moduleEvidence));
-        echo json_encode(['status' => 'completed', 'operation' => 'preflight', 'candidate' => $product['candidate'],
-            'application' => $result, 'modules' => $moduleEvidence], JSON_THROW_ON_ERROR), PHP_EOL;
-        exit(0);
+            'may_apply' => !$deferred, 'planning_complete' => true, 'execution_admitted' => false,
+            'application_prerequisites' => $modules['application_prerequisites'] ?? [], 'plan' => $modules];
+        $moduleEvidence['report_sha256'] = hash('sha256', peanutServerDatabaseCanonical($moduleEvidence));
+        return ['status' => 'completed', 'operation' => 'preflight', 'scope' => $scope, 'candidate' => $product['candidate'],
+            'application' => $result, 'prestates' => $proofs, 'modules' => $moduleEvidence];
     }
-    $keyPath = $server . '/private/installation/update-verification.key';
-    $keyStat = lstat($keyPath);
-    if (!is_file($keyPath) || is_link($keyPath) || !is_array($keyStat)
-        || ($keyStat['nlink'] ?? 0) !== 1 || ($keyStat['mode'] & 0777) !== 0600) {
-        throw new RuntimeException('private update verification key is unsafe');
-    }
-    $verificationKey = trim((string) file_get_contents($keyPath));
-    if (preg_match('/^[a-f0-9]{64}$/D', $verificationKey) !== 1) {
-        throw new RuntimeException('private update verification key is invalid');
-    }
+    return PeanutServerUpdatePlan::withDatabaseMigration($server, $workspace, $operation, $scope, $pdo,
+        static function (array $facts) use ($app, $config, $pdo, $scope, $server, $workspace, $operation, $plan, $planSha, $productState): array {
+    $verificationKey = PeanutServerUpdatePlan::databaseVerificationKey($server);
     $assertSigned = static function (string $path) use ($verificationKey): void {
         $signaturePath = $path . '.hmac';
         foreach ([$path, $signaturePath] as $file) {
@@ -217,7 +169,7 @@ try {
         || ($backup['database_dump_sha256'] ?? null) !== hash_file('sha256', $workspace . '/recovery/database.sql.gz')) {
         throw new RuntimeException('migration database differs from the bound recovery point');
     }
-    $pdo = guardedConnection($config);
+    // The verified native default master remains the only server-update PDO.
     $uuid = strtolower((string) $pdo->query('SELECT @@server_uuid')->fetchColumn());
     if ($uuid === '' || $uuid !== ($backup['mysql_identity']['server_uuid'] ?? null)) {
         throw new RuntimeException('migration is connected to another MySQL server');
@@ -226,17 +178,21 @@ try {
         'host' => (string) $config['host'], 'port' => (string) $config['port'],
         'database' => (string) $config['database'], 'user' => (string) $config['user'],
         'password' => (string) $config['password'],
-    ]);
+    ], $pdo);
     $version = (string) $identity['application']['version'];
     require_once $server . '/database/install.php';
     $migrationTargetVersion = applicationMigrationTargetVersion($server, applicationReleaseVersions($server));
-    $migrationPath = $workspace . '/migration.json';
+    $migrationPath = $workspace . ($scope === 'server-release' ? '/migration.json' : '/application-schema.json');
+    $migrationProtocol = $scope === 'server-release' ? 'peanut.server-update-migration.v1' : 'peanut.application-schema-result.v1';
     $replayed = false;
+    $previous = null;
     if ($operation === 'migrate') {
         if (file_exists($migrationPath) || is_link($migrationPath)) {
             $assertSigned($migrationPath);
             $previous = json_decode((string) file_get_contents($migrationPath), true, 128, JSON_THROW_ON_ERROR);
-            if (($previous['protocol'] ?? null) !== 'peanut.server-update-migration.v1'
+            if (($previous['protocol'] ?? null) !== $migrationProtocol
+                || ($previous['scope'] ?? null) !== $scope
+                || ($scope === 'server-release' && (($previous['plugins'] ?? null) !== 'reconciled' || ($previous['product_database'] ?? null) !== 'migrated'))
                 || ($previous['status'] ?? null) !== 'completed' || ($previous['update_id'] ?? null) !== $plan['update_id']
                 || ($previous['plan_sha256'] ?? null) !== $planSha
                 || ($previous['backup_sha256'] ?? null) !== hash_file('sha256', $workspace . '/backup.json')) {
@@ -245,7 +201,9 @@ try {
             $replayed = true;
         }
         if (!$replayed) {
-            $intent = ['protocol' => 'peanut.server-update-migration.v1', 'status' => 'started',
+            $selection = $runner->run($files, $migrationTargetVersion, $version, true);
+            peanutServerDatabasePrestates($pdo, $files, $selection);
+            $intent = ['protocol' => $migrationProtocol, 'scope' => $scope, 'status' => 'started',
                 'update_id' => $plan['update_id'], 'plan_sha256' => $planSha,
                 'database_identity' => $databaseIdentity, 'backup_sha256' => hash_file('sha256', $workspace . '/backup.json')];
             $bytes = json_encode($intent, JSON_THROW_ON_ERROR);
@@ -259,68 +217,51 @@ try {
     } else {
         $assertSigned($migrationPath);
         $previous = json_decode((string) file_get_contents($migrationPath), true, 128, JSON_THROW_ON_ERROR);
-        if (($previous['protocol'] ?? null) !== 'peanut.server-update-migration.v1'
-            || ($previous['status'] ?? null) !== 'completed'
+        if (($previous['protocol'] ?? null) !== $migrationProtocol
+            || ($previous['scope'] ?? null) !== $scope
+                || ($scope === 'server-release' && (($previous['plugins'] ?? null) !== 'reconciled' || ($previous['product_database'] ?? null) !== 'migrated'))
+                || ($previous['status'] ?? null) !== 'completed'
             || ($previous['update_id'] ?? null) !== $plan['update_id']
             || ($previous['plan_sha256'] ?? null) !== $planSha
             || ($previous['backup_sha256'] ?? null) !== hash_file('sha256', $workspace . '/backup.json')) {
             throw new RuntimeException('native migration result is missing or bound to another recovery point');
         }
     }
-    $migration = $runner->run($files, $migrationTargetVersion, $version, $operation === 'verify' || $replayed);
-    if (($operation === 'verify' || $replayed) && $migration['pending'] !== []) {
-        // The native runner selects applicable migrations and checks immutable
-        // checksums. Missing ledger rows must not disappear from verification.
-        throw new RuntimeException('application migration ledger is incomplete');
-    }
+    $modules = null;
+    $readOnly = $operation === 'verify' || $replayed;
+    $migration = $runner->run($files, $migrationTargetVersion, $version, $readOnly,
+        $readOnly ? null : static function (PDO $actual, array $migration) use ($pdo, $scope): void {
+            if ($actual !== $pdo) { throw new RuntimeException('native migration master changed'); }
+            PeanutServerUpdatePlan::assertDatabaseMigrationStage($pdo);
+            if ($scope === 'server-release') { PeanutServerUpdatePlan::databaseMigrationAdmission($pdo); }
+            \app\common\services\upgrade\ApplicationSchemaHost::migrationPrestate($pdo, $migration, [], false);
+        },
+        static function (PDO $actual, array $migration) use ($pdo, $app, $scope, $readOnly, $previous, &$modules): void {
+            if ($actual !== $pdo || $migration['pending'] !== []) { throw new RuntimeException('application migration ledger is incomplete'); }
+            PeanutServerUpdatePlan::assertDatabaseMigrationStage($pdo);
+            if ($scope !== 'server-release') { return; }
+            if (!$readOnly) { $modules = \app\command\PluginReconcile::reconcileInProcess($app, $pdo); }
+            if ((int) $pdo->query("SELECT COUNT(*) FROM pa_module_migration WHERE status <> 'applied'")->fetchColumn() !== 0) {
+                throw new RuntimeException('module migration ledger is incomplete');
+            }
+            if ($readOnly && ($previous['module_state_sha256'] ?? null) !== peanutServerDatabaseModuleState($pdo)) {
+                throw new RuntimeException('module migration or installation state changed');
+            }
+        });
     $ids = array_map(static fn(string $file): string => basename($file, '.sql'), $files);
     $statuses = $runner->statuses($ids);
-    if ($operation === 'migrate' && !$replayed) {
-        // The child bootstrap must load its own controlled file, rather than
-        // inheriting the managed values already loaded by this adapter.
-        $commandEnvironment = getenv();
-        if (!is_array($commandEnvironment)) {
-            throw new RuntimeException('module reconciliation environment is unavailable');
-        }
-        foreach (array_merge(peanutBackendEnvironmentKeys(), peanutTransientInstallationKeys()) as $name) {
-            unset($commandEnvironment[$name]);
-        }
-        $process = proc_open(
-            [PHP_BINARY, $server . '/think', 'plugin:reconcile', '--release-locked'],
-            [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
-            $pipes,
-            $server,
-            $commandEnvironment,
-        );
-        if (!is_resource($process)) {
-            throw new RuntimeException('module reconciliation could not start');
-        }
-        $output = stream_get_contents($pipes[1]);
-        fclose($pipes[1]);
-        $diagnostic = stream_get_contents($pipes[2]);
-        fclose($pipes[2]);
-        $exitCode = proc_close($process);
-        $result = is_string($output) ? json_decode(trim($output), true) : null;
-        if ($exitCode !== 0 || !is_array($result) || isset($result['error'])) {
-            throw new RuntimeException('module reconciliation failed with exit ' . $exitCode
-                . '; stderr_sha256=' . hash('sha256', (string) $diagnostic), $exitCode > 0 ? $exitCode : 1);
-        }
-    } else {
-        foreach ($statuses as $status) {
-            if ($status !== 'applied') {
-                throw new RuntimeException('application migration ledger is incomplete');
-            }
-        }
-        $incomplete = (int) $pdo->query("SELECT COUNT(*) FROM pa_module_migration WHERE status <> 'applied'")->fetchColumn();
-        if ($incomplete !== 0) {
-            throw new RuntimeException('module migration ledger is incomplete');
-        }
-    }
     $evidence = ['status' => 'completed', 'operation' => $operation, 'update_id' => $plan['update_id'],
         'plan_sha256' => $planSha, 'database_identity' => $databaseIdentity,
         'application' => $migration, 'application_statuses' => $statuses];
+    $evidence['scope'] = $scope;
+    $evidence['plugins'] = $scope === 'server-release' ? 'reconciled' : 'not_run';
+    $evidence['product_database'] = $scope === 'server-release' ? ($operation === 'verify' ? 'verified' : 'migrated') : 'not_verified';
+    if ($scope === 'server-release') {
+        $evidence['module_state_sha256'] = peanutServerDatabaseModuleState($pdo);
+        $evidence['modules'] = $modules ?? $previous['modules'] ?? null;
+    }
     if ($operation === 'migrate' && !$replayed) {
-        $evidence['protocol'] = 'peanut.server-update-migration.v1';
+        $evidence['protocol'] = $migrationProtocol;
         $evidence['backup_sha256'] = hash_file('sha256', $workspace . '/backup.json');
         $temporary = $migrationPath . '.complete';
         $stream = fopen($temporary, 'x');
@@ -342,18 +283,120 @@ try {
         }
         fclose($stream);
     }
-    echo json_encode($evidence, JSON_THROW_ON_ERROR), PHP_EOL;
-} catch (Throwable $exception) {
-    if (($modulePreflightStarted ?? false) === true) {
-        foreach (['plugin_key', 'module_key'] as $key) {
-            if (isset($moduleDiagnostic[$key]) && (!is_string($moduleDiagnostic[$key])
-                || preg_match('/\A[a-zA-Z0-9_.:-]{1,128}\z/D', $moduleDiagnostic[$key]) !== 1)) {
-                unset($moduleDiagnostic[$key]);
-            }
-        }
-        fwrite(STDERR, 'module-preflight:' . json_encode($moduleDiagnostic, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES) . PHP_EOL);
+    return $evidence + ['result_path' => $migrationPath];
+    });
+}
+
+/** Use ThinkORM's existing default master and reject configuration drift or reconnect. */
+function peanutServerDatabaseMaster(string $server): array
+{
+    if (!class_exists(\think\App::class, false)) {
+        putenv('PEANUT_SERVER_ENV_FILE=' . $server . '/.env');
+        require_once $server . '/bootstrap/environment.php';
+        require_once $server . '/vendor/autoload.php';
+        $app = new \think\App($server . '/');
+        $app->console;
+    } else {
+        $app = app();
+        if (realpath($app->getRootPath()) !== $server) { throw new RuntimeException('database host is bound to another App'); }
+        $app->console;
     }
-    fwrite(STDERR, 'server-update-migration failed: code=' . $exception->getCode()
-        . '; diagnostic_sha256=' . hash('sha256', $exception->getMessage()) . PHP_EOL);
-    exit($exception->getCode() > 0 && $exception->getCode() <= 125 ? $exception->getCode() : 1);
+    require_once $server . '/database/environment-guard.php';
+    $config = guardedDatabaseConfig();
+    $connection = \think\facade\Db::connect();
+    foreach (['hostname' => 'host', 'hostport' => 'port', 'database' => 'database', 'username' => 'user', 'password' => 'password'] as $native => $guarded) {
+        if ((string) $connection->getConfig($native) !== (string) $config[$guarded]) { throw new RuntimeException('default database differs from registered master'); }
+    }
+    if ((int) $connection->getConfig('deploy') !== 0 || $connection->getConfig('break_reconnect') !== false
+        || $connection->getConfig('prefix') !== 'pa_') { throw new RuntimeException('native migration master policy differs'); }
+    $connection->query('SELECT CONNECTION_ID() AS connection_id, DATABASE() AS database_name', [], true);
+    $pdo = $connection->getPdo();
+    if (!$pdo instanceof PDO || $pdo->inTransaction() || \think\facade\Db::connect() !== $connection) { throw new RuntimeException('native migration master unavailable'); }
+    $actual = \app\common\services\installation\InstallationExecutionHost::migrationDatabaseIdentity($pdo);
+    if ($actual['database'] !== $config['database']) { throw new RuntimeException('native migration database changed'); }
+    return [$app, $config, $pdo];
+}
+
+function peanutServerDatabasePrestates(PDO $pdo, array $files, array $selection): array
+{
+    $proofs = []; $preceding = [];
+    foreach ($files as $file) {
+        $id = basename($file, '.sql');
+        if (!in_array($id, $selection['pending'], true)) { continue; }
+        $sql = (string) file_get_contents($file);
+        $migration = ['id' => $id, 'file' => $file, 'sql' => $sql, 'checksum' => hash('sha256', $sql)];
+        $proofs[] = \app\common\services\upgrade\ApplicationSchemaHost::migrationPrestate($pdo, $migration, $preceding, true);
+        $preceding[] = $migration;
+    }
+    return $proofs;
+}
+
+/** Deferral is a complete plan of one canonical future schema, never an unknown gate. */
+function peanutServerDatabaseDeferredPlan(array $plan, array $files, bool $deferred): void
+{
+    $allowed = [];
+    foreach ($files as $file) { $allowed[basename($file, '.sql')] = hash_file('sha256', $file); }
+    $normalize = static function (mixed $rows) use ($allowed): array {
+        if (!is_array($rows) || !array_is_list($rows) || $rows === []) { throw new RuntimeException('missing module application prerequisite'); }
+        $result = [];
+        foreach ($rows as $row) {
+            $id = is_array($row) ? ($row['migration_id'] ?? null) : null;
+            if (!is_string($id) || $id !== '20261016-module-migration-provenance' || count($row) !== 3 || isset($result[$id])
+                || ($row['reason'] ?? null) !== 'module_migration_provenance_schema' || ($row['sha256'] ?? null) !== ($allowed[$id] ?? null)) {
+                throw new RuntimeException('unknown module application prerequisite');
+            }
+            $result[$id] = $row;
+        }
+        ksort($result, SORT_STRING); return $result;
+    };
+    $collected = [];
+    foreach ($plan['packages'] as $item) {
+        if (!is_array($item['modules'] ?? null)) { throw new RuntimeException('incomplete module plan'); }
+        $children = [];
+        foreach ($item['modules'] as $module) {
+            if (($module['may_apply'] ?? null) === true && ($module['application_prerequisites'] ?? []) === []) { continue; }
+            if (!$deferred || ($module['may_apply'] ?? null) !== false || ($module['planning_complete'] ?? null) !== true
+                || ($module['status'] ?? null) !== 'planned' || ($module['execution_admitted'] ?? null) !== false) { throw new RuntimeException('unknown module precondition'); }
+            $children += $normalize($module['application_prerequisites'] ?? null);
+        }
+        if (($item['may_apply'] ?? null) === true && $children === [] && ($item['application_prerequisites'] ?? []) === []) { continue; }
+        if (!$deferred || ($item['may_apply'] ?? null) !== false || ($item['planning_complete'] ?? null) !== true
+            || ($item['execution_admitted'] ?? null) !== false || ($item['status'] ?? null) !== 'planned'
+            || $children !== $normalize($item['application_prerequisites'] ?? null)) { throw new RuntimeException('incomplete deferred package plan'); }
+        $collected += $children;
+    }
+    if (($deferred && $collected !== $normalize($plan['application_prerequisites'] ?? null))
+        || (!$deferred && ($collected !== [] || ($plan['application_prerequisites'] ?? []) !== []))) { throw new RuntimeException('incomplete deferred module plan'); }
+}
+
+function peanutServerDatabaseModuleState(PDO $pdo): string
+{
+    $state = [];
+    foreach (['pa_module_migration' => 'module_key,migration_key', 'pa_plugin_installation' => 'plugin_key', 'pa_plugin_module' => 'module_key'] as $table => $order) {
+        $state[$table] = $pdo->query('SELECT * FROM ' . $table . ' ORDER BY ' . $order)->fetchAll(PDO::FETCH_ASSOC);
+    }
+    return hash('sha256', peanutServerDatabaseCanonical($state));
+}
+
+function peanutServerDatabaseCanonical(array $value): string
+{
+    $normalize = static function (array $items) use (&$normalize): array {
+        if (!array_is_list($items)) { ksort($items, SORT_STRING); }
+        foreach ($items as $key => $item) { if (is_array($item)) { $items[$key] = $normalize($item); } }
+        return $items;
+    };
+    return json_encode($normalize($value), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+}
+
+if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
+    try {
+        if (count($argv) !== 4) { throw new RuntimeException('Usage: update-database.php preflight|migrate|verify INSTANCE_SERVER WORKSPACE'); }
+        echo json_encode(peanutServerDatabaseStage($argv[1], $argv[2], $argv[3]), JSON_THROW_ON_ERROR), PHP_EOL;
+    } catch (Throwable $exception) {
+        fwrite(STDERR, 'module-preflight:' . json_encode(['phase' => 'module-preflight', 'code' => 'MODULE_PREFLIGHT_REPORT_INVALID',
+            'diagnostic_sha256' => hash('sha256', $exception->getMessage())], JSON_THROW_ON_ERROR) . PHP_EOL);
+        fwrite(STDERR, 'server-update-migration failed: code=' . $exception->getCode()
+            . '; diagnostic_sha256=' . hash('sha256', $exception->getMessage()) . PHP_EOL);
+        exit($exception->getCode() > 0 && $exception->getCode() <= 125 ? $exception->getCode() : 1);
+    }
 }

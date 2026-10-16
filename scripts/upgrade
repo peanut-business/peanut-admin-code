@@ -308,7 +308,37 @@ function productUpgradeWriteState(string $path, array $state): array
     return $state + ['absolute_path' => $path];
 }
 
-/** Both fresh and reused phase evidence must prove the same complete module-plan capability. */
+/** Only named, target-bound application SQL may defer module execution admission. */
+function productUpgradeApplicationPrerequisites(array $plan, mixed $rows): array
+{
+    if (!is_array($rows) || !array_is_list($rows) || $rows === []) {
+        throw new RuntimeException('PRODUCT_UPGRADE_MODULE_PREFLIGHT_INVALID');
+    }
+    $files = [];
+    foreach ($plan['migration']['files'] ?? [] as $file) {
+        $path = $file['path'] ?? null;
+        if (!is_string($path) || preg_match('#^server/database/migrations/([0-9]{8}-[a-z0-9][a-z0-9_-]*)\.sql$#D', $path, $match) !== 1
+            || !is_string($file['sha256'] ?? null) || preg_match('/^[a-f0-9]{64}$/D', $file['sha256']) !== 1
+            || isset($files[$match[1]])) {
+            throw new RuntimeException('PRODUCT_UPGRADE_MODULE_PREFLIGHT_INVALID');
+        }
+        $files[$match[1]] = $file['sha256'];
+    }
+    $bound = [];
+    foreach ($rows as $row) {
+        $id = is_array($row) ? ($row['migration_id'] ?? null) : null;
+        if (!is_array($row) || count($row) !== 3 || !is_string($id) || isset($bound[$id])
+            || ($row['reason'] ?? null) !== 'module_migration_provenance_schema'
+            || !isset($files[$id]) || ($row['sha256'] ?? null) !== $files[$id]) {
+            throw new RuntimeException('PRODUCT_UPGRADE_MODULE_PREFLIGHT_INVALID');
+        }
+        $bound[$id] = ['migration_id' => $id, 'sha256' => $files[$id], 'reason' => 'module_migration_provenance_schema'];
+    }
+    ksort($bound, SORT_STRING);
+    return array_values($bound);
+}
+
+/** Both fresh and reused phase evidence must prove a complete plan, never inferred execution admission. */
 function productUpgradeAssertModulePreflight(array $plan, array $evidence): void
 {
     $modules = $evidence['payload']['database']['modules'] ?? null;
@@ -322,7 +352,6 @@ function productUpgradeAssertModulePreflight(array $plan, array $evidence): void
         || !is_array($application) || !is_array($modules)
         || ($modules['schema_version'] ?? null) !== 1
         || ($modules['protocol'] ?? null) !== 'peanut.upgrade-module-preflight.v1'
-        || ($modules['may_apply'] ?? null) !== true
         || ($modules['candidate'] ?? null) !== $plan['candidate']
         || ($modules['product_plan_sha256'] ?? null) !== $plan['plan_sha256']
         || ($modules['native_inputs_sha256'] ?? null) !== $plan['inputs_sha256']
@@ -337,7 +366,6 @@ function productUpgradeAssertModulePreflight(array $plan, array $evidence): void
         || ($native['protocol'] ?? null) !== 'peanut.plugin-reconcile-plan.v1'
         || ($native['scope'] ?? null) !== 'release-locked' || ($native['readonly'] ?? null) !== true
         || ($native['complete'] ?? null) !== true
-        || ($native['may_apply'] ?? null) !== true || ($native['status'] ?? null) !== 'ready'
         || !is_array($native['packages'] ?? null) || !array_is_list($native['packages'])) {
         throw new RuntimeException('PRODUCT_UPGRADE_MODULE_PREFLIGHT_INVALID');
     }
@@ -346,11 +374,77 @@ function productUpgradeAssertModulePreflight(array $plan, array $evidence): void
     if (!is_string($nativeDigest) || !hash_equals($nativeDigest, hash('sha256', productUpgradeCanonicalJson($native)))) {
         throw new RuntimeException('PRODUCT_UPGRADE_MODULE_PREFLIGHT_INVALID');
     }
+    $deferred = ($modules['may_apply'] ?? null) === false;
+    $prerequisites = [];
+    if ($deferred) {
+        $prerequisites = productUpgradeApplicationPrerequisites($plan, $modules['application_prerequisites'] ?? null);
+        if (($modules['planning_complete'] ?? null) !== true || ($modules['execution_admitted'] ?? null) !== false
+            || ($native['may_apply'] ?? null) !== false || ($native['status'] ?? null) !== 'planned'
+            || ($native['planning_complete'] ?? null) !== true || ($native['execution_admitted'] ?? null) !== false
+            || productUpgradeApplicationPrerequisites($plan, $native['application_prerequisites'] ?? null) !== $prerequisites) {
+            throw new RuntimeException('PRODUCT_UPGRADE_MODULE_PREFLIGHT_INVALID');
+        }
+    } elseif (($modules['may_apply'] ?? null) !== true || ($native['may_apply'] ?? null) !== true
+        || ($native['status'] ?? null) !== 'ready') {
+        throw new RuntimeException('PRODUCT_UPGRADE_MODULE_PREFLIGHT_INVALID');
+    }
+    $packagePrerequisites = [];
     foreach ($native['packages'] as $item) {
-        if (($item['may_apply'] ?? null) !== true || !in_array($item['action'] ?? null,
+        if (!is_array($item) || !in_array($item['action'] ?? null,
             ['planned_install', 'planned_upgrade', 'planned_unchanged', 'preserve_disabled'], true)) {
             throw new RuntimeException('PRODUCT_UPGRADE_MODULE_PREFLIGHT_INVALID');
         }
+        if (($item['may_apply'] ?? null) === true) {
+            if ($deferred) {
+                if (!is_array($item['modules'] ?? null) || !array_is_list($item['modules'])
+                    || ($item['application_prerequisites'] ?? []) !== []) {
+                    throw new RuntimeException('PRODUCT_UPGRADE_MODULE_PREFLIGHT_INVALID');
+                }
+                foreach ($item['modules'] as $module) {
+                    if (!is_array($module) || ($module['may_apply'] ?? null) !== true
+                        || ($module['application_prerequisites'] ?? []) !== []) {
+                        throw new RuntimeException('PRODUCT_UPGRADE_MODULE_PREFLIGHT_INVALID');
+                    }
+                }
+            }
+            continue;
+        }
+        if (!$deferred || ($item['may_apply'] ?? null) !== false || ($item['planning_complete'] ?? null) !== true
+            || ($item['execution_admitted'] ?? null) !== false) {
+            throw new RuntimeException('PRODUCT_UPGRADE_MODULE_PREFLIGHT_INVALID');
+        }
+        $itemPrerequisites = productUpgradeApplicationPrerequisites($plan, $item['application_prerequisites'] ?? null);
+        if (!is_array($item['modules'] ?? null) || !array_is_list($item['modules'])) {
+            throw new RuntimeException('PRODUCT_UPGRADE_MODULE_PREFLIGHT_INVALID');
+        }
+        $modulePrerequisites = [];
+        foreach ($item['modules'] as $module) {
+            if (!is_array($module)) { throw new RuntimeException('PRODUCT_UPGRADE_MODULE_PREFLIGHT_INVALID'); }
+            if (($module['may_apply'] ?? null) === true) {
+                if (($module['application_prerequisites'] ?? []) !== []) {
+                    throw new RuntimeException('PRODUCT_UPGRADE_MODULE_PREFLIGHT_INVALID');
+                }
+                continue;
+            }
+            if (($module['may_apply'] ?? null) !== false || ($module['planning_complete'] ?? null) !== true
+                || ($module['execution_admitted'] ?? null) !== false) {
+                throw new RuntimeException('PRODUCT_UPGRADE_MODULE_PREFLIGHT_INVALID');
+            }
+            foreach (productUpgradeApplicationPrerequisites($plan, $module['application_prerequisites'] ?? null) as $row) {
+                $modulePrerequisites[$row['migration_id']] = $row;
+            }
+        }
+        ksort($modulePrerequisites, SORT_STRING);
+        if (array_values($modulePrerequisites) !== $itemPrerequisites) {
+            throw new RuntimeException('PRODUCT_UPGRADE_MODULE_PREFLIGHT_INVALID');
+        }
+        foreach ($itemPrerequisites as $row) {
+            $packagePrerequisites[$row['migration_id']] = $row;
+        }
+    }
+    ksort($packagePrerequisites, SORT_STRING);
+    if ($deferred && array_values($packagePrerequisites) !== $prerequisites) {
+        throw new RuntimeException('PRODUCT_UPGRADE_MODULE_PREFLIGHT_INVALID');
     }
     $selected = array_column($native['packages'], 'key');
     $ordered = $selected;
@@ -359,6 +453,18 @@ function productUpgradeAssertModulePreflight(array $plan, array $evidence): void
         || count(array_unique($selected)) !== count($selected)
         || ($native['action'] ?? null) !== ($selected === [] ? 'planned_noop' : 'planned_reconcile')) {
         throw new RuntimeException('PRODUCT_UPGRADE_MODULE_PREFLIGHT_INVALID');
+    }
+}
+
+/** Application-only evidence cannot complete a full server-release database phase. */
+function productUpgradeAssertDatabaseCompletion(string $phase, array $evidence): void
+{
+    $database = $evidence['payload']['database'] ?? null;
+    if (!is_array($database) || ($database['status'] ?? null) !== 'completed'
+        || ($database['scope'] ?? null) !== 'server-release'
+        || ($database['plugins'] ?? null) !== 'reconciled'
+        || ($database['product_database'] ?? null) !== ($phase === 'migrate' ? 'migrated' : 'verified')) {
+        throw new RuntimeException('PRODUCT_UPGRADE_DATABASE_COMPLETION_REQUIRED');
     }
 }
 
@@ -401,6 +507,16 @@ function productUpgradeReadState(array $plan): array
     unset($state['state_sha256']);
     if (!hash_equals($digest, 'sha256:' . hash('sha256', productUpgradeCanonicalJson($state)))) {
         throw new RuntimeException('PRODUCT_UPGRADE_STATE_INVALID');
+    }
+    foreach (['migrate', 'migration-verify'] as $phase) {
+        if (isset($state['evidence'][$phase])) {
+            $stored = $state['evidence'][$phase];
+            if (!is_array($stored['payload'] ?? null) || ($stored['sha256'] ?? null)
+                !== 'sha256:' . hash('sha256', productUpgradeCanonicalJson($stored['payload']))) {
+                throw new RuntimeException('PRODUCT_UPGRADE_DATABASE_COMPLETION_REQUIRED');
+            }
+            productUpgradeAssertDatabaseCompletion($phase, $stored['payload']);
+        }
     }
     return $state + ['state_sha256' => $digest, 'absolute_path' => $path];
 }
@@ -479,6 +595,8 @@ function productUpgradeHostPhase(string $packageRoot, string $phase, array $plan
     }
     if ($phase === 'migration-preflight') {
         productUpgradeAssertModulePreflight($plan, $evidence);
+    } elseif (in_array($phase, ['migrate', 'migration-verify'], true)) {
+        productUpgradeAssertDatabaseCompletion($phase, $evidence);
     }
     return [
         'sha256' => 'sha256:' . hash('sha256', productUpgradeCanonicalJson($evidence)),
