@@ -91,6 +91,8 @@ final readonly class StorageQualificationQueries
                     // Historical source_revision is a captured fact; never require today's mutable source revision to match it.
                 }
             }
+            $result['object_ready'] = ($object['status'] ?? null) === 'ready';
+            if (!$result['object_ready']) { $result['code'] = 'FILE_REFERENCE_OBJECT_NOT_READY'; }
             $result['classification'] = $result['code'] === null ? 'metadata_reference_consistent' : 'unknown'; $results[] = $result;
         }
         return $results;

@@ -6308,7 +6308,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "98dc0f3cd86ea47d6cba22b30fcfe9fb2f71ae492106d795785f18db70c5995f"
+            "source_sha256": "74d3782c50d416c74a707cbf7930ccc947841ae0ee7a82ff89c1becabfaeac0f"
         },
         {
             "path": "server/app/command/ModuleCreate.php",
@@ -12156,7 +12156,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0e178bf297643512cbe2e370191767f085147068af1c42848089d763fccb9057"
+            "source_sha256": "6567d1523aaa234381b837f7cb1a4148ad038dc367ac015eb854fa2cc91fff49"
         },
         {
             "path": "server/app/modules/official/file/src/Controller/FileController.php",

@@ -50,7 +50,36 @@ final class ModuleCheck extends ModuleContextualCommand
             || !in_array($moduleKey, ['official.document', 'official.file'], true)) {
             throw new \RuntimeException('PRESERVATION_MODULE_SNAPSHOT_UNAUTHORIZED');
         }
-        $states = (new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries())->installationStates([$moduleKey]);
+        $modules = new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries();
+        $manifest = $this->getApp()->make(\PeanutAdmin\Kernel\Module\CompiledModuleRegistry::class)->requireManifest($moduleKey);
+        $installation = $modules->installationIdentities([$moduleKey])[$moduleKey] ?? null;
+        if (!is_array($installation)
+            || (string) ($installation['installed_version'] ?? '') !== (string) ($manifest->data['version'] ?? '')
+            || (int) ($installation['manifest_schema_version'] ?? 0) !== (int) ($manifest->data['schema_version'] ?? 0)
+            || !hash_equals($manifest->digest, (string) ($installation['manifest_digest'] ?? ''))) {
+            throw new \RuntimeException('PRESERVATION_OPTIONAL_MODULE_IDENTITY_UNKNOWN');
+        }
+        // Identity alone does not prove that the schema migrations were actually applied.
+        $moduleRoot = realpath($manifest->root);
+        $declared = $manifest->data['backend']['migrations'] ?? null;
+        $directory = is_string($declared) ? realpath($manifest->root . '/' . $declared) : false;
+        if ($moduleRoot === false || $directory === false || !str_starts_with($directory . '/', $moduleRoot . '/')
+            || !is_dir($directory) || !is_readable($directory) || is_link($manifest->root . '/' . $declared)) {
+            throw new \RuntimeException('PRESERVATION_OPTIONAL_MODULE_MIGRATIONS_UNKNOWN');
+        }
+        $files = glob($directory . '/*.sql');
+        if (!is_array($files) || $files === []) { throw new \RuntimeException('PRESERVATION_OPTIONAL_MODULE_MIGRATIONS_UNKNOWN'); }
+        sort($files, SORT_STRING);
+        foreach ($files as $file) {
+            $checksum = !is_link($file) && is_readable($file) ? hash_file('sha256', $file) : false;
+            $migration = Db::name('module_migration')->where('module_key', $moduleKey)
+                ->where('migration_key', $moduleKey . ':' . basename($file, '.sql'))->field('checksum,status')->find();
+            if (!is_string($checksum) || !is_array($migration) || ($migration['status'] ?? null) !== 'applied'
+                || !hash_equals($checksum, (string) ($migration['checksum'] ?? ''))) {
+                throw new \RuntimeException('PRESERVATION_OPTIONAL_MODULE_MIGRATIONS_UNKNOWN');
+            }
+        }
+        $states = $modules->installationStates([$moduleKey]);
         $state = $states[$moduleKey] ?? null;
         if (!is_array($state) || !in_array($state['status'] ?? null, ['active', 'maintenance'], true)
             || ($state['last_error_code'] ?? null) !== null || Db::connect()->getPdo() !== $pdo || !$pdo->inTransaction()) {
