@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "b35658df812269b0efc75144c4405052594bc59e45c2f296e5dd0504a98a182d"
+        "sha256": "746fc504fe1bd763ab6690e0aa01f955f6e943207f5932256f28a5bea0e72af5"
     },
     "trust": {
         "channel": "bundled",
@@ -61,6 +61,10 @@
                             {
                                 "key": "official.task:20260921-adopt-task-job-schema",
                                 "sha256": "f04762aeab007bea0b0c4ce277d8f7781a694b17891f1193f303d0481366f21a"
+                            },
+                            {
+                                "key": "official.task:20261015020000_add_negative_fact_job_profile",
+                                "sha256": "2217e8a0cfc44e2c4c6c1a76a0413ed2448c5695e32f2a31a6a2a3072f44dbd4"
                             }
                         ]
                     }

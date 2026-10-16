@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "86c3a949289f4af684a1ca91d67f6bfd9b9cfdf3db48ac31bc9c694ae8ca8298"
+        "sha256": "a970a6d3896ef1c40ac634328d47c3d941be806c19250bf48c4c13b8524c79ce"
     },
     "trust": {
         "channel": "bundled",
@@ -80,6 +80,10 @@
                             {
                                 "key": "official.identity:20261012010000_department_leader_member",
                                 "sha256": "909c7bd6885a93cf2975ecbbb108cbbe993bc1e0b47f2590292968a886051532"
+                            },
+                            {
+                                "key": "official.identity:20261015010000_index_revocation_audit_facts",
+                                "sha256": "eacd6eddd89a9f064688ff45ba67210d896a65bbeaea1448394e7b6df3c271aa"
                             }
                         ]
                     }
