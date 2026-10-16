@@ -212,7 +212,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "f286783a65c2f5858d6aa7b058c8177b2e6118d97b39f13ba20643d68feb9e88"
+                "sha256": "d473421322d565615dafed1b33c6c3b2e486a3d1e7c298994289f4c53b2dc83b"
             },
             "trust": {
                 "channel": "bundled",
@@ -313,7 +313,7 @@
                 }
             ],
             "manifest": "plugins/official.article/plugin.json",
-            "manifest_sha256": "0ae80b7a9a6cca2ecdb32e4dd6d1ea72786e989c5b63028191e59e71acb5d767"
+            "manifest_sha256": "0570c114ab67973ea73d99ed4a5c44905401d3a526a82540a4c37b192bccbafb"
         },
         {
             "key": "official.collaboration",

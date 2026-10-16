@@ -2333,7 +2333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "07bbe02a36ca3782372fb623c8a7ec3f76ca1be6d766b9f3b02c55cbdfdcc719"
+            "source_sha256": "41aeb670ebfbcfba52a2b2545304e8097080394692e7572abd2293e09904ef78"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2400,7 +2400,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0ae80b7a9a6cca2ecdb32e4dd6d1ea72786e989c5b63028191e59e71acb5d767"
+            "source_sha256": "0570c114ab67973ea73d99ed4a5c44905401d3a526a82540a4c37b192bccbafb"
         },
         {
             "path": "plugins/official.collaboration/plugin.json",
@@ -10182,7 +10182,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "44e8e1690b1a1ea9a10b9a2461b9f318b71235eff5252594d82540ba7499dab0"
+            "source_sha256": "b48309f3babc46c3b15144dbb12f4de884709a84b336ab8909f9421d83ccf39d"
         },
         {
             "path": "server/app/modules/official/article/src/Contract/ArticleAdministration.php",
@@ -10281,6 +10281,20 @@
                 "full"
             ],
             "source_sha256": "a2374dc013302ab756fd1e00ec9cbf52cf2e37d984110f8e03ae1b14e3760b83"
+        },
+        {
+            "path": "server/app/modules/official/article/src/Controller/HelloController.php",
+            "target": "server/app/modules/official/article/src/Controller/HelloController.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "b222c222198e6f87176b42644006b4ab550b9304ebd74dd80daab4d96aff7e5a"
         },
         {
             "path": "server/app/modules/official/article/src/Model/Article.php",
