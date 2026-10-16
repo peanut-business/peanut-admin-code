@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.0.1",
+    "template_version": "5.0.2",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
