@@ -53,6 +53,7 @@
     "exports": [
       "PeanutAdmin\\Modules\\Document\\Contract\\DocumentCommands",
       "PeanutAdmin\\Modules\\Document\\Contract\\DocumentQueries",
+      "PeanutAdmin\\Modules\\Document\\Contract\\DocumentUpgradePreservationQuery",
       "PeanutAdmin\\Modules\\Document\\Contract\\DocumentOwnerReference",
       "PeanutAdmin\\Modules\\Document\\Contract\\DocumentOwnerState",
       "PeanutAdmin\\Modules\\Document\\Contract\\DocumentOwnerPolicy",
