@@ -10,6 +10,218 @@ final class PeanutServerUpdatePlan
     private const JOURNAL_PROTOCOL = 'peanut.server-file-intents.v1';
     private const MAINTENANCE_PROTOCOL = 'peanut.server-update-maintenance.v1';
     private const RUNTIME_DIR = 'runtime/upgrade';
+    public const APPLICATION_DEPLOYMENT = 'peanut.application-deployment.v1';
+    private static array $instanceLocks = [];
+
+    public static function withSourceInstanceLock(string $root, callable $operation): mixed
+    {
+        return self::withInstanceLock($root, $operation);
+    }
+
+    public static function sourceAdmissionHandoff(string $root, callable $operation): mixed
+    {
+        $runtime = $root . '/runtime/upgrade';
+        $held = self::$instanceLocks[$runtime] ?? null;
+        if ($held === null || $held['pid'] !== getmypid() || ($held['transferred'] ?? false)) { throw new RuntimeException('source admission requires its real instance lock'); }
+        $stat = lstat($runtime . '/update.lock'); $open = fstat($held['handle']);
+        if (is_link($runtime . '/update.lock') || $stat['ino'] !== $open['ino'] || $stat['dev'] !== $open['dev']) { throw new RuntimeException('source admission lock changed'); }
+        self::$instanceLocks[$runtime]['transferred'] = true;
+        flock($held['handle'], LOCK_UN);
+        try { return $operation(); }
+        finally {
+            if (!flock($held['handle'], LOCK_EX | LOCK_NB)) { throw new RuntimeException('cannot reclaim source instance lock after admission'); }
+            $stat = lstat($runtime . '/update.lock');
+            if (is_link($runtime . '/update.lock') || $stat['ino'] !== $open['ino'] || $stat['dev'] !== $open['dev']) { throw new RuntimeException('source admission lock inode changed'); }
+            self::$instanceLocks[$runtime]['transferred'] = false;
+        }
+    }
+
+    private static function sourceChildAdmission(string $root, string $workspace): array
+    {
+        return self::withInstanceLock($root, static function () use ($root, $workspace): array {
+            self::sourceOwner($root);
+            $path = $workspace . '/source-runtime.json';
+            $state = self::jsonFile($path, 'source checkpoint');
+            $sha = $state['state_sha256'] ?? null; unset($state['state_sha256']);
+            $normalize = static function (mixed $value) use (&$normalize): mixed {
+                if (!is_array($value)) { return $value; }
+                if (!array_is_list($value)) { ksort($value, SORT_STRING); }
+                foreach ($value as $key => $child) { $value[$key] = $normalize($child); }
+                return $value;
+            };
+            $pending = self::sourcePending($root);
+            $head = self::deploymentPath($root);
+            $actualHead = file_exists($head) || is_link($head) ? hash('sha256', self::regularBytes($head, 'application deployment')) : null;
+            $expectedRuntime = $state['phase'] === 'recovered' ? $state['binding']['old_runtime_sha256'] : $state['prepared_identity_sha256'];
+            if (realpath($path) !== $path || (fileperms($path) & 0777) !== 0600 || (fileperms($workspace) & 0077) !== 0
+                || !in_array(fileowner($path), [0, fileowner($root)], true)
+                || ($state['protocol'] ?? null) !== 'peanut.source-runtime-transition.v1'
+                || $sha !== hash('sha256', json_encode($normalize($state), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR))
+                || ($state['binding']['instance_root'] ?? null) . '/server' !== $root || $state['binding']['workspace'] !== $workspace
+                || ($state['activation_started'] ?? null) !== false || !in_array($state['phase'], ['head-published', 'recovered'], true)
+                || ($pending['transition_id'] ?? null) !== $state['transition_id']
+                || hash_file('sha256', __FILE__) !== ($state['binding']['tools']['server/docker/scripts/update-plan.php'] ?? null)
+                || hash_file('sha256', $root . '/private/installation/installed.json') !== $state['binding']['deployment']['installed_receipt_sha256']
+                || hash_file('sha256', $root . '/private/installation/baseline.json') !== $state['binding']['deployment']['baseline_sha256']
+                || $actualHead !== ($state['published_head_sha256'] ?? $state['binding']['deployment']['head_sha256'])
+                || hash_file('sha256', $root . '/.peanut/development-runtime.json') !== $expectedRuntime) {
+                throw new RuntimeException('source child admission is not bound to its current owner checkpoint');
+            }
+            self::admitSourceRuntime($root);
+            return ['status' => 'admitted', 'transition_id' => $state['transition_id']];
+        });
+    }
+
+    public static function sourcePending(string $root): ?array
+    {
+        $path = $root . '/runtime/upgrade/source-transition.json';
+        if (!file_exists($path) && !is_link($path)) { return null; }
+        self::regularBytes($path, 'source transition pointer');
+        $value = self::jsonFile($path, 'source transition pointer');
+        if (($value['protocol'] ?? null) !== 'peanut.source-runtime-pointer.v1'
+            || !is_string($value['checkpoint'] ?? null) || !is_string($value['transition_id'] ?? null)
+            || (fileperms($path) & 0022) !== 0 || !in_array(fileowner($path), [0, fileowner($root)], true)) {
+            throw new RuntimeException('source transition pointer is unsafe');
+        }
+        return $value;
+    }
+
+    public static function publishSourcePending(string $root, array $value): void
+    {
+        self::sourceOwner($root);
+        $previous = self::sourcePending($root);
+        if ($previous !== null && $previous['transition_id'] !== $value['transition_id']) {
+            $deployment = self::deploymentPath($root);
+            $current = file_exists($deployment) || is_link($deployment) ? hash('sha256', self::regularBytes($deployment, 'application deployment')) : null;
+            if (!in_array($previous['phase'] ?? null, ['opened', 'recovered'], true)
+                || ($previous['deployment_sha256'] ?? null) !== $current) {
+                throw new RuntimeException('another source transition is pending');
+            }
+        }
+        if (($value['phase'] ?? null) !== 'opened') { self::revokeTraffic($root); }
+        self::writeJson($root . '/runtime/upgrade/source-transition.json', ['protocol' => 'peanut.source-runtime-pointer.v1'] + $value);
+        chmod($root . '/runtime/upgrade/source-transition.json', 0644);
+    }
+
+    public static function sourceOwner(string $root): void
+    {
+        if (PHP_SAPI !== 'cli' || !function_exists('posix_geteuid')
+            || !in_array(posix_geteuid(), [0, fileowner($root)], true)) {
+            throw new RuntimeException('source runtime requires its deployment owner');
+        }
+        self::assertNoLegacyMaintenanceKey($root);
+    }
+
+    /** The installed receipt and initial baseline are immutable anchors, never successor manifests. */
+    public static function applicationDeployment(string $root, array $identity, string $runtimeSha): array
+    {
+        self::assertInstalledInstance($root, $identity);
+        $baseline = self::jsonFile($root . '/private/installation/baseline.json', 'installed APP baseline');
+        $initial = $baseline['source']['application_manifest_sha256'] ?? null;
+        if (($baseline['source']['kind'] ?? null) !== 'generated-application'
+            || !is_string($initial) || preg_match('/^[a-f0-9]{64}$/D', $initial) !== 1) {
+            throw new RuntimeException('source runtime requires a generated APP installation');
+        }
+        $anchors = ['installed_receipt_sha256' => hash_file('sha256', $root . '/private/installation/installed.json'),
+            'baseline_sha256' => hash_file('sha256', $root . '/private/installation/baseline.json')];
+        $path = self::deploymentPath($root);
+        if (!file_exists($path) && !is_link($path)) {
+            if (($identity['application_manifest_sha256'] ?? null) !== $initial) {
+                throw new RuntimeException('initial APP projection does not match its installation baseline');
+            }
+            return $anchors + ['head_sha256' => null, 'source_generation' => 0, 'runtime_revision' => 0,
+                'initial_source' => ['kind' => 'application-manifest', 'sha256' => $initial],
+                'current_source' => ['kind' => 'application-manifest', 'sha256' => $initial],
+                'current_runtime' => ['kind' => 'development-runtime', 'sha256' => $runtimeSha]];
+        }
+        $bytes = self::regularBytes($path, 'application deployment');
+        $state = json_decode($bytes, true, 512, JSON_THROW_ON_ERROR);
+        if (($state['protocol'] ?? null) !== self::APPLICATION_DEPLOYMENT || ($state['schema_version'] ?? null) !== 1
+            || ($state['installed_receipt_sha256'] ?? null) !== $anchors['installed_receipt_sha256']
+            || ($state['baseline_sha256'] ?? null) !== $anchors['baseline_sha256']
+            || ($state['initial_source'] ?? null) !== ['kind' => 'application-manifest', 'sha256' => $initial]
+            || ($state['current_source'] ?? null) !== ['kind' => 'application-manifest', 'sha256' => $identity['application_manifest_sha256']]
+            || ($state['current_runtime'] ?? null) !== ['kind' => 'development-runtime', 'sha256' => $runtimeSha]
+            || ($state['application'] ?? null) !== array_intersect_key($identity['application'], array_flip(['slug', 'edition', 'package_identity']))
+            || !is_int($state['source_generation'] ?? null) || $state['source_generation'] < 0
+            || !is_int($state['runtime_revision'] ?? null) || $state['runtime_revision'] < 1) {
+            throw new RuntimeException('application deployment chain does not match this runtime');
+        }
+        $state['head_sha256'] = hash('sha256', $bytes);
+        return $state;
+    }
+
+    private static function protectApplicationDeployment(string $root): void
+    {
+        self::sourceOwner($root);
+        $directory = $root . '/private/installation';
+        self::assertOrdinaryParents($root, 'private/installation/deployment.json');
+        // This native startup runs after install-permissions and before FPM; the rw mount alone is insufficient.
+        if (!chown($directory, fileowner($root)) || !chmod($directory, 0750)) {
+            throw new RuntimeException('cannot protect the canonical deployment directory');
+        }
+        foreach (['deployment.json', 'deployment-history'] as $name) {
+            $path = $directory . '/' . $name;
+            if (file_exists($path) || is_link($path)) {
+                if (is_link($path) || !chown($path, fileowner($root)) || !chmod($path, is_dir($path) ? 0750 : 0644)) {
+                    throw new RuntimeException('cannot protect application deployment history');
+                }
+            }
+        }
+    }
+
+    public static function publishApplicationDeployment(string $root, ?string $expected, array $state): string
+    {
+        self::sourceOwner($root);
+        $path = self::deploymentPath($root);
+        $bytes = file_exists($path) || is_link($path) ? self::regularBytes($path, 'application deployment') : null;
+        $actual = $bytes === null ? null : hash('sha256', $bytes);
+        $new = json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
+        if ($actual === hash('sha256', $new)) { return $actual; }
+        if ($actual !== $expected || ($state['protocol'] ?? null) !== self::APPLICATION_DEPLOYMENT
+            || ($state['previous_head_sha256'] ?? null) !== $expected) {
+            throw new RuntimeException('application deployment CAS failed');
+        }
+        self::protectApplicationDeployment($root);
+        if ($bytes !== null) {
+            $history = $root . '/private/installation/deployment-history/' . $actual . '.json';
+            if (file_exists($history) || is_link($history)) {
+                if (self::regularBytes($history, 'deployment predecessor') !== $bytes) {
+                    throw new RuntimeException('application deployment predecessor changed');
+                }
+            } else { self::durableFile($history, $bytes, 0644); }
+        }
+        self::durableFile($path, $new, 0644);
+        self::protectApplicationDeployment($root);
+        return hash('sha256', $new);
+    }
+
+    public static function admitSourceRuntime(string $root): void
+    {
+        self::sourceOwner($root);
+        self::revokeTraffic($root);
+        self::nativeRuntimeHealth($root);
+    }
+
+    /** Roll back only this unactivated head; retain its bytes as immutable failure history. */
+    public static function recoverApplicationDeployment(string $root, string $expected, ?string $previous): ?string
+    {
+        self::sourceOwner($root);
+        $path = self::deploymentPath($root);
+        $actual = file_exists($path) || is_link($path) ? self::regularBytes($path, 'application deployment') : null;
+        $before = $previous === null ? null : hash('sha256', $previous);
+        if (($actual === null ? null : hash('sha256', $actual)) === $before) { return $before; }
+        if ($actual === null || hash('sha256', $actual) !== $expected) { throw new RuntimeException('application recovery head CAS failed'); }
+        $history = $root . '/private/installation/deployment-history/' . $expected . '.json';
+        if (file_exists($history) || is_link($history)) {
+            if (self::regularBytes($history, 'unactivated deployment history') !== $actual) { throw new RuntimeException('application recovery history changed'); }
+        } else { self::durableFile($history, $actual, 0644); }
+        if ($previous === null) {
+            if (!unlink($path)) { throw new RuntimeException('cannot recover initial deployment absence'); }
+            self::syncDirectory(dirname($path));
+        } else { self::durableFile($path, $previous, 0644); }
+        return $before;
+    }
 
     /** @var list<string> */
     private const PROTECTED_PREFIXES = [
@@ -38,7 +250,7 @@ final class PeanutServerUpdatePlan
             'plan',
             'files-apply', 'files-verify', 'files-recover', 'files-verify-recovery',
             'hold', 'health', 'publish', 'open',
-            'initialize-traffic', 'initialize-owner-traffic', 'close-startup-traffic', 'publish-startup-configuration',
+            'initialize-traffic', 'initialize-owner-traffic', 'close-startup-traffic', 'publish-startup-configuration', 'source-admit',
         ], true)) {
             self::usage();
         }
@@ -80,6 +292,7 @@ final class PeanutServerUpdatePlan
                 'initialize-owner-traffic' => self::initializeTraffic($options['instance-server'], true),
                 'close-startup-traffic' => self::closeStartupTraffic($options['instance-server']),
                 'publish-startup-configuration' => self::publishStartupConfiguration($options['instance-server']),
+                'source-admit' => self::sourceChildAdmission($options['instance-server'], $options['workspace']),
             };
             echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), PHP_EOL;
             return 0;
@@ -288,6 +501,17 @@ final class PeanutServerUpdatePlan
             throw new RuntimeException('readonly startup requires its native root owner');
         }
         return self::withInstanceLock($serverRoot, static function () use ($serverRoot, $ownerStartup): array {
+            $source = self::sourcePending($serverRoot);
+            $sourceDeployment = self::deploymentPath($serverRoot);
+            $sourceDeploymentSha = file_exists($sourceDeployment) || is_link($sourceDeployment)
+                ? hash('sha256', self::regularBytes($sourceDeployment, 'application deployment')) : null;
+            if ($source !== null && (!in_array($source['phase'] ?? null, ['opening', 'opened'], true)
+                || ($source['activation_started'] ?? null) !== true
+                || ($source['deployment_sha256'] ?? null) !== $sourceDeploymentSha
+                || ($source['runtime_sha256'] ?? null) !== hash_file('sha256', $serverRoot . '/.peanut/development-runtime.json'))) {
+                self::revokeTraffic($serverRoot);
+                throw new RuntimeException('source runtime transition is incomplete');
+            }
             $maintenance = self::maintenancePath($serverRoot);
             $pointer = self::currentPointerPath($serverRoot);
             if (file_exists($maintenance) || is_link($maintenance)
@@ -306,7 +530,10 @@ final class PeanutServerUpdatePlan
                     || (file_exists($deploymentPath) && !is_file($deploymentPath))) {
                     throw new RuntimeException('installation state is unsafe for initial traffic');
                 }
-                if ($serverRelease && ($identity['protocol'] ?? null) !== 'peanut.development-server-runtime.v1' && file_exists($installedPath)) {
+                if (($identity['protocol'] ?? null) === 'peanut.development-server-runtime.v1') {
+                    self::applicationDeployment($serverRoot, $identity, $identityDigest);
+                    if (file_exists(self::deploymentPath($serverRoot))) { self::protectApplicationDeployment($serverRoot); }
+                } elseif ($serverRelease && file_exists($installedPath)) {
                     self::deploymentState($serverRoot, $identity, $identityDigest);
                 } elseif (file_exists($deploymentPath)) {
                     throw new RuntimeException('source or uninstalled instance has server deployment state');
@@ -744,6 +971,10 @@ final class PeanutServerUpdatePlan
             throw new RuntimeException('installed APP baseline differs from receipt');
         }
         $baseline = json_decode($bytes, true, 512, JSON_THROW_ON_ERROR);
+        if (file_exists(self::deploymentPath($serverRoot)) || is_link(self::deploymentPath($serverRoot))) {
+            self::applicationDeployment($serverRoot, $identity->document(), $identity->identitySha256());
+            return;
+        }
         if (!is_array($baseline) || ($baseline['schema_version'] ?? null) !== 1
             || ($baseline['protocol'] ?? null) !== 'peanut.installation-baseline.v1'
             || ($baseline['deployment_mode'] ?? null) !== $edition
@@ -1365,9 +1596,20 @@ final class PeanutServerUpdatePlan
     }
 
     /** @return array<string,mixed> */
-    private static function withInstanceLock(string $serverRoot, callable $callback): array
+    private static function withInstanceLock(string $serverRoot, callable $callback): mixed
     {
         $runtime = self::ensureRuntimeDirectory($serverRoot);
+        if (isset(self::$instanceLocks[$runtime])) {
+            $held = self::$instanceLocks[$runtime];
+            $stat = @lstat($runtime . '/update.lock');
+            $open = fstat($held['handle']);
+            if ($held['pid'] !== getmypid() || ($held['transferred'] ?? false) || !is_array($stat) || is_link($runtime . '/update.lock')
+                || $open['ino'] !== $stat['ino'] || $open['dev'] !== $stat['dev']) {
+                throw new RuntimeException('server update lock changed');
+            }
+            return $callback();
+        }
+        if (is_link($runtime . '/update.lock')) { throw new RuntimeException('server update lock is linked'); }
         $lock = fopen($runtime . '/update.lock', 'c');
         if (!is_resource($lock)) {
             throw new RuntimeException('cannot open server update lock');
@@ -1376,9 +1618,11 @@ final class PeanutServerUpdatePlan
             fclose($lock);
             throw new RuntimeException('another server update process holds the instance lock');
         }
+        self::$instanceLocks[$runtime] = ['handle' => $lock, 'pid' => getmypid()];
         try {
             return $callback();
         } finally {
+            unset(self::$instanceLocks[$runtime]);
             flock($lock, LOCK_UN);
             fclose($lock);
         }

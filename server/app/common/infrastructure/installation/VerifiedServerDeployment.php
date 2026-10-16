@@ -30,6 +30,21 @@ final readonly class VerifiedServerDeployment
         $started = class_exists(RequestTrace::class, false) ? RequestTrace::beginDeploymentTiming() : null;
         try {
             $root = rtrim($app->getRootPath(), '/');
+            $sourcePending = $root . '/runtime/upgrade/source-transition.json';
+            if (file_exists($sourcePending) || is_link($sourcePending)) {
+                self::assertProtectedPath($root, 'runtime/upgrade/source-transition.json');
+                $source = self::json(self::bytes($sourcePending));
+                $sourceDeployment = $root . '/private/installation/deployment.json';
+                $sourceDeploymentSha = file_exists($sourceDeployment) || is_link($sourceDeployment)
+                    ? hash('sha256', self::bytes($sourceDeployment)) : null;
+                if (($source['protocol'] ?? null) !== 'peanut.source-runtime-pointer.v1'
+                    || !in_array($source['phase'] ?? null, ['opening', 'opened'], true)
+                    || ($source['activation_started'] ?? null) !== true
+                    || ($source['deployment_sha256'] ?? null) !== $sourceDeploymentSha
+                    || ($source['runtime_sha256'] ?? null) !== hash('sha256', self::bytes($root . '/.peanut/development-runtime.json'))) {
+                    throw new RuntimeException('SERVER_DEPLOYMENT_SOURCE_TRANSITION_CLOSED');
+                }
+            }
             foreach (['maintenance.json', 'current-update.json'] as $guard) {
                 $path = $root . '/runtime/upgrade/' . $guard;
                 if (file_exists($path) || is_link($path)) {
@@ -255,6 +270,11 @@ final readonly class VerifiedServerDeployment
                 }
             }
             $path = $root . '/private/installation/' . $file;
+            if ($key === 'deployment' && (file_exists($path) || is_link($path))
+                && (self::json(self::bytes($path))['protocol'] ?? null) === 'peanut.application-deployment.v1') {
+                // Installation is an rw submount: its canonical head additionally requires owner DAC protection.
+                self::assertProtectedPath($root, 'private/installation/deployment.json');
+            }
             $binding[$key] = file_exists($path) || is_link($path) ? hash('sha256', self::bytes($path)) : null;
         }
         return $binding;
