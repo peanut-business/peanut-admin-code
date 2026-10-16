@@ -315,7 +315,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_REJECTED', 'Complete migration postconditions or a safe complete pre-state are required.');
             }
         }
-        $notificationForward = $this->prepareNotificationForward($plugin, $manifests);
+        $notificationForward = $this->prepareNotificationForward($plugin, $manifests, $upgrade);
         $this->beginLifecycle($plugin, $manifests, $upgrade);
         try {
             $this->applyMigrations($plugin, $manifests, $notificationForward);
@@ -893,7 +893,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     }
 
     /** Called under the original package lock, before beginLifecycle can replace the old installation. */
-    private function prepareNotificationForward(PluginDescriptor $plugin, array $manifests): bool
+    private function prepareNotificationForward(PluginDescriptor $plugin, array $manifests, bool $upgrade): bool
     {
         if (!$this->notificationForwardRequired($plugin)) { return false; }
         $report = app()->make(\PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::class)->forwardSchemaReport();
@@ -908,7 +908,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         $target = $this->notificationTarget($plugin);
         $instance = self::migrationInstance($pdo);
         $path = $this->notificationReceiptPath($plugin);
-        Db::transaction(function () use ($plugin, $manifests, $report, $pdo, $admission, $target, $instance, $path): void {
+        Db::transaction(function () use ($plugin, $manifests, $report, $pdo, $admission, $target, $instance, $path, $upgrade): void {
             $this->tenantStates->lockLifecycleRows(array_keys($manifests), [$plugin->key]);
             if (Db::connect()->getPdo() !== $pdo || self::json(self::adoptionAdmission($pdo)) !== self::json($admission)) {
                 throw new PluginLifecycleException('NOTIFICATION_FORWARD_ADMISSION_CHANGED', 'Native admission changed.');
@@ -918,9 +918,10 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 $binding = self::readNotificationReceipt($path);
                 $this->assertNotificationBinding($plugin, $binding, $report, $instance, $old);
                 $attempts = $binding['attempts'];
-                if (self::json($attempts[array_key_last($attempts)]['before']) !== self::json($old)) {
+                if (self::json($attempts[array_key_last($attempts)]['before']) !== self::json($old)
+                    || $attempts[array_key_last($attempts)]['module_status'] !== ($upgrade ? 'upgrading' : 'installing')) {
                     $previous = $binding;
-                    $binding['attempts'][] = ['before' => $old, 'request_id' => app()->make(CurrentExecutionContext::class)->current()->requestId(), 'created_at' => $this->now()];
+                    $binding['attempts'][] = ['before' => $old, 'module_status' => $upgrade ? 'upgrading' : 'installing', 'request_id' => app()->make(CurrentExecutionContext::class)->current()->requestId(), 'created_at' => $this->now()];
                     self::writeNotificationReceipt($path, $binding, $previous);
                 }
                 return;
@@ -936,7 +937,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             }
             $binding = ['protocol' => 'peanut.notification-forward-binding.v1', 'instance' => $instance,
                 'old' => $old, 'target' => $target, 'initial_schema_report' => $report,
-                'attempts' => [['before' => $old, 'request_id' => $context->requestId(), 'created_at' => $this->now()]],
+                'attempts' => [['before' => $old, 'module_status' => $upgrade ? 'upgrading' : 'installing', 'request_id' => $context->requestId(), 'created_at' => $this->now()]],
                 'admission' => $admission, 'request_id' => $context->requestId(), 'created_at' => $this->now()];
             self::writeNotificationReceipt($path, $binding);
             $persisted = self::readNotificationReceipt($path);
@@ -989,7 +990,11 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             || !is_array($binding['attempts'] ?? null) || $binding['attempts'] === []) {
             throw new PluginLifecycleException('NOTIFICATION_FORWARD_BINDING_MISMATCH', 'Persistent source, instance or preservation binding changed.');
         }
-        $old = $binding['old']; $attempt = $binding['attempts'][array_key_last($binding['attempts'])]['before']; $row = $current['plugin'];
+        $old = $binding['old']; $lastAttempt = $binding['attempts'][array_key_last($binding['attempts'])];
+        $attempt = $lastAttempt['before'] ?? null; $moduleStatus = $lastAttempt['module_status'] ?? null; $row = $current['plugin'];
+        if (!is_array($attempt) || !in_array($moduleStatus, ['upgrading', 'installing'], true)) {
+            throw new PluginLifecycleException('NOTIFICATION_FORWARD_RECOVERY_IDENTITY_UNKNOWN', 'Bound native transition operation is unavailable.');
+        }
         if (self::json($current) === self::json($attempt)) { return; }
         if (!is_array($row) || count($current['modules']) !== 1 || self::json($current['ownership']) !== self::json($old['ownership'])) {
             throw new PluginLifecycleException('NOTIFICATION_FORWARD_OLD_IDENTITY_CHANGED', 'Installed ownership changed.');
@@ -1001,7 +1006,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         $module = $current['modules'][0]; $prior = $attempt['modules'][0];
         $steps = $row['status'] === 'installing' ? 1 : ($row['status'] === 'failed' ? 2 : 0);
         if ($steps === 0 || !$this->sameIdentity($plugin, $row) || (int) $row['revision'] !== (int) $attempt['plugin']['revision'] + $steps
-            || $module['status'] !== ($row['status'] === 'installing' ? 'upgrading' : 'failed') || (int) $module['revision'] !== (int) $prior['revision'] + $steps
+            || $module['status'] !== ($row['status'] === 'installing' ? $moduleStatus : 'failed') || (int) $module['revision'] !== (int) $prior['revision'] + $steps
             || $module['installed_version'] !== ($binding['target']['module_version'] ?? null)
             || $module['manifest_digest'] !== ($binding['target']['module_manifest_digest'] ?? null)) {
             throw new PluginLifecycleException('NOTIFICATION_FORWARD_RECOVERY_IDENTITY_UNKNOWN', 'Only the bound native transition may resume; unknown or partial states require their original repair path.');

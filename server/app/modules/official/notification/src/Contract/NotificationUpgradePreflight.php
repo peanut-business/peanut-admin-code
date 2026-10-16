@@ -362,6 +362,7 @@ final readonly class NotificationUpgradePreflight
                 $value = isset($default[1]) && $default[1] !== '' ? $default[1] : ($default[2] ?? null);
                 if (strtolower($expected[1]) !== strtolower($actual[$column]['COLUMN_TYPE'])
                     || $nullable !== ($actual[$column]['IS_NULLABLE'] === 'YES') || $value !== $actual[$column]['COLUMN_DEFAULT']
+                    || strtolower(trim($actual[$column]['EXTRA'])) !== (str_contains($expected[2], 'AUTO_INCREMENT') ? 'auto_increment' : '')
                     || (isset($collation[1]) && $collation[1] !== $actual[$column]['COLLATION_NAME'])) {
                     return ['may_apply' => false, 'code' => 'NOTIFICATION_FORWARD_CATALOG_SCHEMA_MISMATCH'];
                 }
