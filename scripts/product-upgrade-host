@@ -11,6 +11,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import stat
 import sys
 import urllib.request
 
@@ -24,14 +25,17 @@ def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def read(path):
+def read(path, protected=False):
     sha(path)
+    if protected and (path.resolve() != path or path.stat().st_mode & 0o777 != 0o600
+                      or path.stat().st_uid not in (0, os.geteuid())):
+        raise ValueError('dependency record is not protected')
     return json.loads(path.read_text())
 
 
 def write(path, value):
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    temporary = path.with_name(path.name + '.next')
+    temporary = path.with_name(path.name + '.next-' + os.urandom(8).hex())
     with temporary.open('xb') as output:
         os.fchmod(output.fileno(), 0o600)
         output.write(json.dumps(value, sort_keys=True).encode())
@@ -65,17 +69,266 @@ def run(*args, cwd=None):
     return result.stdout.decode().strip()
 
 
+def dependency_tree(root):
+    """Exact process-interruption proof, including directory modes and walk failures."""
+    if not root.exists() and not root.is_symlink(): return None
+    if root.resolve() != root or root.is_symlink() or not root.is_dir(): raise ValueError('unsafe dependency directory')
+    files, directories = {}, {}
+    def failed(error): raise error
+    for base, dirs, names in os.walk(root, followlinks=False, onerror=failed):
+        directory = Path(base)
+        for child in [directory, *(directory / name for name in dirs)]:
+            if child.is_symlink() or not child.is_dir() or child.stat().st_dev != root.stat().st_dev:
+                raise ValueError('linked or mounted dependency directory')
+        info = directory.stat()
+        directories[directory.relative_to(root).as_posix()] = [stat.S_IMODE(info.st_mode), info.st_uid, info.st_gid]
+        for name in names:
+            path = directory / name; info = path.lstat()
+            if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_dev != root.stat().st_dev:
+                raise ValueError('unsafe dependency file')
+            files[path.relative_to(root).as_posix()] = [sha(path), stat.S_IMODE(info.st_mode), info.st_uid, info.st_gid]
+    return {'files': dict(sorted(files.items())), 'directories': dict(sorted(directories.items()))}
+
+
+def dependency_record(path, value):
+    if path.exists() or path.is_symlink():
+        if read(path, True) != value: raise ValueError('immutable dependency record changed')
+    else: write(path, value)
+
+
+def dependency_inputs(workspace, inputs):
+    server = Path(inputs['server_root'])
+    if server not in (workspace / 'tools/prepared/server', workspace / 'dependencies/prepared/server'):
+        raise ValueError('dependency stage is outside its fixed workspace')
+    for directory in (server.parent.parent, server.parent, server):
+        directory.mkdir(exist_ok=True, mode=0o700)
+        if directory.resolve() != directory or directory.is_symlink() or directory.stat().st_mode & 0o077:
+            raise ValueError('dependency staging directory is not private')
+    for relative, proof in inputs['files'].items():
+        if relative.startswith('/') or any(p in ('', '.', '..') for p in relative.split('/')) or '\\' in relative:
+            raise ValueError('unsafe dependency input path')
+        source = Path(proof['source']); target = server / relative
+        if source.resolve() != source or sha(source) != proof['sha256'] or source.stat().st_mode & 0o777 != proof['mode']:
+            raise ValueError('dependency source input changed')
+        target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        if target.parent.resolve() != target.parent: raise ValueError('linked dependency stage parent')
+        if target.exists() or target.is_symlink():
+            if sha(target) != proof['sha256'] or target.stat().st_mode & 0o777 != proof['mode']:
+                raise ValueError('dependency staging input changed')
+        else:
+            with target.open('xb') as output:
+                os.fchmod(output.fileno(), proof['mode']); output.write(source.read_bytes()); output.flush(); os.fsync(output.fileno())
+    for relative, proof in (inputs['archives'] or {}).items():
+        source = Path(inputs['source_root']) / relative; target = server.parent / relative
+        if source.resolve() != source or sha(source) != proof['sha256'] or source.stat().st_mode & 0o777 != 0o644:
+            raise ValueError('canonical dependency archive changed')
+        target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        if target.parent.resolve() != target.parent: raise ValueError('linked archive staging parent')
+        if target.exists() or target.is_symlink():
+            if sha(target) != proof['sha256']: raise ValueError('staged archive changed')
+        else:
+            with target.open('xb') as output:
+                os.fchmod(output.fileno(), 0o644); output.write(source.read_bytes()); output.flush(); os.fsync(output.fileno())
+    proof = {key: inputs[key] for key in ('server_root', 'composer_sha256', 'lock_sha256', 'archives')}
+    dependency_record(server / '.vendor-inputs.json', {'protocol': 'peanut.source-vendor-inputs.v1', **proof})
+    return server
+
+
+def source_tools(root, workspace, check, expected=None):
+    authority = workspace / 'tool-inputs.json'; inputs = read(authority, True)
+    if authority.stat().st_mode & 0o777 != 0o600 or inputs.get('protocol') != 'peanut.source-tools-inputs.v1' \
+            or inputs['instance_root'] != str(root) or inputs['workspace'] != str(workspace):
+        raise ValueError('tool bundle input authority is invalid')
+    trusted = workspace / 'trusted'
+    for relative, digest in inputs['tools'].items():
+        if sha(trusted / relative) != digest or (trusted / relative).stat().st_mode & 0o777 != inputs['tool_modes'][relative]:
+            raise ValueError('frozen tool program changed')
+    receipt = workspace / 'tools/bundle.json'
+    server = workspace / 'tools/prepared/server'
+    helper = trusted / 'server/docker/scripts/vendor-state.py'
+    if receipt.exists() or receipt.is_symlink():
+        if receipt.stat().st_mode & 0o777 != 0o600: raise ValueError('tool receipt mode changed')
+        document = read(receipt, True)
+        if expected is not None and sha(receipt) != expected: raise ValueError('tool bundle receipt changed')
+        if document['input_sha256'] != sha(authority) or dependency_tree(server.parent) != document['tree']:
+            raise ValueError('independent tool bundle changed')
+    else:
+        if check or expected is not None: raise ValueError('complete independent tool bundle is required')
+        server = dependency_inputs(workspace, inputs['inputs'])
+        # Resolve and authenticate the existing instance image before any pending/write boundary.
+        spec = importlib.util.spec_from_file_location('tool_compose', trusted / 'server/docker/scripts/configure-collaboration.py')
+        owner = importlib.util.module_from_spec(spec); spec.loader.exec_module(owner)
+        ids = run(*owner.compose_arguments(root / 'server'), 'ps', '-a', '-q', 'php', cwd=root / 'server/docker').splitlines()
+        if len(ids) != 1: raise ValueError('tool preparation PHP identity is ambiguous')
+        detail = json.loads(run('docker', 'inspect', '--format',
+            '{"Image":{{json .Image}},"Labels":{{json .Config.Labels}},"Mounts":{{json .Mounts}}}', ids[0]))
+        labels = detail['Labels']
+        if labels.get('com.docker.compose.service') != 'php' or labels.get('com.docker.compose.project.working_dir') != str(root / 'server/docker') \
+                or not re.fullmatch(r'sha256:[a-f0-9]{64}', detail['Image']) \
+                or sum(m.get('Type') == 'bind' and m.get('Source') == str(root / 'server')
+                       and m.get('Destination') == '/run/peanut-owner/server' for m in detail['Mounts']) != 1 \
+                or sum(m.get('Type') == 'bind' and m.get('Source') == str(root / 'server')
+                       and m.get('Destination') == '/var/www/peanut-http/server' and m.get('RW') is False for m in detail['Mounts']) != 1:
+            raise ValueError('tool preparation image belongs to another instance')
+        config = json.loads(run(*owner.compose_arguments(root / 'server'), 'config', '--format', 'json', cwd=root / 'server/docker'))
+        discovered = run('docker', 'ps', '-a', '--no-trunc', '--filter', 'label=com.docker.compose.project=' + config['name'],
+                         '--filter', 'label=com.docker.compose.service=php', '--format', '{{.ID}}').splitlines()
+        planned = config['services']['php']['volumes']
+        expected_binds = sorted((v['source'], v['target'], v.get('read_only', False)) for v in planned if v['type'] == 'bind')
+        actual_binds = sorted((v['Source'], v['Destination'], not v['RW']) for v in detail['Mounts'] if v['Type'] == 'bind')
+        if labels.get('com.docker.compose.project') != config['name'] or discovered != ids \
+                or any(v['type'] not in ('bind', 'tmpfs') for v in planned) or actual_binds != expected_binds:
+            raise ValueError('tool preparation project or complete mounts differ from the native instance')
+        build = {'input_sha256': sha(authority), 'image': detail['Image'], 'project': labels['com.docker.compose.project']}
+        dependency_record(workspace / 'tools/build.json', build)
+        run('sh', trusted / 'server/docker/scripts/prepare-vendor.sh', 'prepared', server, build['image'])
+        for relative, proof in inputs['loaded_vendor'].items():
+            path = server / 'vendor' / relative
+            if path.resolve() != path or sha(path) != proof['sha256'] or path.stat().st_mode & 0o777 != proof['mode']:
+                raise ValueError('independently installed tool dependency differs from a loaded dependency')
+        document = {**build, 'tree': dependency_tree(server.parent)}
+        dependency_record(receipt, document)
+    run(sys.executable, helper, 'check', '--server', server, '--inputs', server / '.vendor-inputs.json')
+    return {'tool_bundle_sha256': sha(receipt), 'tool_image': document['image'], 'tool_project': document['project']}
+
+
+def source_vendor(root, workspace, state, phase):
+    trusted = workspace / 'trusted'; server = root / 'server'
+    spec = importlib.util.spec_from_file_location('source_vendor_quiescence', trusted / 'server/docker/scripts/update-recovery.py')
+    recovery = importlib.util.module_from_spec(spec); spec.loader.exec_module(recovery)
+    observed = recovery.assert_stopped(server)
+    if observed != {key: state['quiescence'][key] for key in observed}:
+        raise ValueError('vendor operation lost its exact stopped-container/image proof')
+    helper = trusted / 'server/docker/scripts/vendor-state.py'
+    old_path = workspace / 'recovery/vendor-original.json'
+    current, backup = server / 'vendor', workspace / 'recovery/old-vendor'
+    staged, quarantine = workspace / 'dependencies/prepared/server/vendor', workspace / 'recovery/new-vendor'
+    if phase == 'vendor-record':
+        run(sys.executable, helper, 'check', '--server', server)
+        document = {'transition_id': state['transition_id'], 'tree': dependency_tree(current),
+                    'composer_sha256': sha(server / 'composer.json'), 'lock_sha256': sha(server / 'composer.lock')}
+        dependency_record(old_path, document)
+        return {'sha256': sha(old_path)}
+    if sha(old_path) != state['vendor_original_sha256']: raise ValueError('original vendor proof changed')
+    old = read(old_path, True)
+    if old['transition_id'] != state['transition_id']: raise ValueError('vendor preimage belongs to another transaction')
+    if phase == 'vendor-paired':
+        if dependency_tree(current) != old['tree'] or sha(server / 'composer.json') != old['composer_sha256'] \
+                or sha(server / 'composer.lock') != old['lock_sha256']:
+            raise ValueError('restored source and vendor are not the original pair')
+        run(sys.executable, helper, 'check', '--server', server)
+        return {'status': 'paired'}
+    proof_path = workspace / 'dependencies/proof.json'
+    if phase == 'vendor-stage':
+        if sha(server / 'composer.json') != state['vendor_target_inputs']['composer_sha256'] \
+                or sha(server / 'composer.lock') != state['vendor_target_inputs']['lock_sha256']:
+            raise ValueError('applied dependency inputs differ from verified source')
+        if proof_path.exists() or proof_path.is_symlink():
+            proof = read(proof_path, True)
+            actual = dependency_tree(current if proof['reuse'] else staged)
+            if proof['transition_id'] != state['transition_id'] or proof['inputs'] != state['vendor_target_inputs'] or actual != proof['tree']:
+                raise ValueError('complete target dependency stage changed')
+        else:
+            reuse = old['composer_sha256'] == sha(server / 'composer.json') and old['lock_sha256'] == sha(server / 'composer.lock')
+            if reuse:
+                if dependency_tree(current) != old['tree'] or dependency_tree(staged) is not None:
+                    raise ValueError('unchanged vendor no longer matches its complete preimage')
+                run(sys.executable, helper, 'check', '--server', server)
+            else:
+                target = dependency_inputs(workspace, state['vendor_target_inputs'])
+                run('sh', trusted / 'server/docker/scripts/prepare-vendor.sh', 'prepared', target, state['quiescence']['images']['php'])
+            proof = {'transition_id': state['transition_id'], 'inputs': state['vendor_target_inputs'],
+                     'reuse': reuse, 'tree': dependency_tree(current if reuse else staged)}
+            dependency_record(proof_path, proof)
+        return {'sha256': sha(proof_path), 'reuse': proof['reuse']}
+    if not state.get('vendor_intent'):
+        if dependency_tree(current) != old['tree'] or dependency_tree(backup) is not None or dependency_tree(quarantine) is not None:
+            raise ValueError('vendor changed before adoption intent')
+        return {'status': 'original'}
+    if sha(proof_path) != state['vendor_target_sha256']: raise ValueError('target dependency proof changed')
+    target = read(proof_path, True)
+    if target['transition_id'] != state['transition_id']: raise ValueError('target vendor belongs to another transaction')
+    for directory in (server, backup.parent, staged.parent, quarantine.parent):
+        if directory.resolve() != directory or not directory.is_dir() or directory.stat().st_dev != server.stat().st_dev:
+            raise ValueError('vendor rename parents are not on one ordinary filesystem')
+    for directory in (current, backup, staged, quarantine):
+        if directory.exists() and directory.stat().st_dev != server.stat().st_dev:
+            raise ValueError('vendor is a different filesystem or mount')
+    # Component proofs work while source/lock/vendor are mixed; full installation checks follow pairing.
+    physical = tuple(dependency_tree(p) for p in (current, backup, staged, quarantine))
+    O, N = old['tree'], target['tree']
+    forward = ((O, None, N, None), (None, O, N, None), (N, O, None, None))
+    reverse = ((None, O, None, N), (O, None, None, N))
+    if physical not in (*forward, *reverse): raise ValueError('unknown vendor physical state; no tree was changed')
+    journal_path = workspace / 'dependency-switch.json'
+    identity = {'transition_id': state['transition_id'], 'old_proof_sha256': state['vendor_original_sha256'],
+                'target_proof_sha256': state['vendor_target_sha256'], 'plan_sha256': state['binding']['plan_sha256']}
+    if journal_path.exists() or journal_path.is_symlink():
+        journal = read(journal_path, True)
+        if any(journal.get(k) != v for k, v in identity.items()): raise ValueError('vendor intent belongs to another transaction')
+        allowed = {('forward', 'started'): forward, ('forward', 'completed'): (forward[2],),
+                   ('reverse', 'started'): (*forward, *reverse), ('reverse', 'recovered'): (forward[0], reverse[1])}
+        if physical not in allowed.get((journal.get('direction'), journal.get('status')), ()):
+            raise ValueError('vendor journal and physical state disagree')
+    else:
+        if physical != forward[0]: raise ValueError('vendor moved without its durable intent')
+        if phase == 'vendor-check': return {'status': 'original'}
+        journal = {**identity, 'direction': 'forward', 'status': 'started'}; write(journal_path, journal)
+    spec = importlib.util.spec_from_file_location('native_vendor_moves', trusted / 'server/docker/scripts/update-preparation.py')
+    native = importlib.util.module_from_spec(spec); spec.loader.exec_module(native)
+    if phase == 'vendor-switch':
+        if state['activation_started'] or journal['direction'] != 'forward' or physical not in forward:
+            raise ValueError('vendor forward adoption is no longer allowed')
+        if physical == forward[0]: native.move(current, backup)
+        physical = tuple(dependency_tree(p) for p in (current, backup, staged, quarantine))
+        if physical == forward[1]: native.move(staged, current)
+        if tuple(dependency_tree(p) for p in (current, backup, staged, quarantine)) != forward[2]:
+            raise ValueError('vendor switch did not reach the exact target state')
+        run(sys.executable, helper, 'check', '--server', server)
+        journal['status'] = 'completed'; write(journal_path, journal)
+        return {'status': 'adopted'}
+    if phase == 'vendor-recover':
+        if state['activation_started']: raise ValueError('vendor recovery after activation is forbidden')
+        journal['direction'] = 'reverse'; journal['status'] = 'started'; write(journal_path, journal)
+        if physical == forward[2]: native.move(current, quarantine)
+        physical = tuple(dependency_tree(p) for p in (current, backup, staged, quarantine))
+        if physical in (forward[1], reverse[0]): native.move(backup, current)
+        physical = tuple(dependency_tree(p) for p in (current, backup, staged, quarantine))
+        if physical not in (forward[0], reverse[1]): raise ValueError('vendor recovery did not restore its exact preimage')
+        journal['status'] = 'recovered'; write(journal_path, journal)
+        return {'status': 'restored'}
+    return {'status': 'checked'}
+
+
 def source_runtime():
     parser = argparse.ArgumentParser()
-    parser.add_argument('phase', choices=('source-stop', 'source-check', 'source-project', 'source-open', 'source-admit'))
+    parser.add_argument('phase', choices=('source-stop', 'source-check', 'source-project', 'source-open', 'source-admit',
+        'source-tools', 'source-tools-check', 'source-vendor-record', 'source-vendor-stage', 'source-vendor-switch',
+        'source-vendor-recover', 'source-vendor-check', 'source-vendor-paired'))
     parser.add_argument('--instance-root', type=Path, required=True)
     parser.add_argument('--workspace', type=Path, required=True)
+    parser.add_argument('--receipt-sha256')
     args = parser.parse_args()
     root, workspace = args.instance_root, args.workspace
     for path in (root, workspace):
         if not path.is_absolute() or path.resolve() != path or path.is_symlink():
             raise ValueError('source maintenance paths are not canonical')
     checkpoint = workspace / 'source-runtime.json'
+    if args.phase in ('source-tools', 'source-tools-check'):
+        expected = args.receipt_sha256
+        identity = sha(workspace / 'tool-inputs.json')
+        if checkpoint.exists() or checkpoint.is_symlink():
+            state = read(checkpoint, True); checksum = state.pop('state_sha256', None)
+            canonical = json.dumps(state, sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()
+            binding = state.get('binding', {})
+            if checksum != hashlib.sha256(canonical).hexdigest() or state.get('protocol') != 'peanut.source-runtime-transition.v1' \
+                    or binding.get('instance_root') != str(root) or binding.get('workspace') != str(workspace) \
+                    or workspace.stat().st_mode & 0o077 or sha(workspace / 'tool-inputs.json') != binding.get('tool_inputs_sha256') \
+                    or (expected is not None and expected != binding.get('tool_bundle_sha256')):
+                raise ValueError('tool check is not bound to its source transaction')
+            expected = binding['tool_bundle_sha256']; identity = state['transition_id']
+        result = source_tools(root, workspace, args.phase == 'source-tools-check', expected)
+        print(json.dumps({'phase': args.phase.removeprefix('source-'), 'transition_id': identity, **result})); return
     state = read(checkpoint)
     recorded = state.pop('state_sha256', None)
     canonical = json.dumps(state, sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()
@@ -87,6 +340,18 @@ def source_runtime():
     for relative, digest in state['binding']['tools'].items():
         if sha(trusted / relative) != digest:
             raise ValueError('source maintenance fixed tool changed')
+    if args.phase.startswith('source-vendor-'):
+        if state['activation_started']: raise ValueError('vendor mutation after activation is forbidden')
+        pending = read(root / 'server/runtime/upgrade/source-transition.json')
+        head = root / 'server/private/installation/deployment.json'
+        actual = sha(head) if head.exists() or head.is_symlink() else None
+        expected = state.get('published_head_sha256', state['binding']['deployment']['head_sha256'])
+        if pending.get('transition_id') != state['transition_id'] or pending.get('activation_started') is not False \
+                or pending.get('binding_sha256') != hashlib.sha256(json.dumps(state['binding'], sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()).hexdigest() \
+                or actual != expected:
+            raise ValueError('vendor operation is not bound to the current unactivated head')
+        result = source_vendor(root, workspace, state, args.phase.removeprefix('source-'))
+        print(json.dumps({'phase': args.phase.removeprefix('source-'), 'transition_id': state['transition_id'], **result})); return
     tools = trusted / 'server/docker/scripts'
     spec = importlib.util.spec_from_file_location('source_recovery', tools / 'update-recovery.py')
     recovery = importlib.util.module_from_spec(spec); spec.loader.exec_module(recovery)

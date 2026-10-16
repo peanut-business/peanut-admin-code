@@ -15,9 +15,23 @@ printf '%s' "$php_image" | grep -Eq '^(sha256:[a-f0-9]{64}|[A-Za-z0-9][A-Za-z0-9
 }
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 command -v python3 >/dev/null 2>&1 || { echo 'python3 is required for vendor verification' >&2; exit 1; }
-if python3 "$script_dir/vendor-state.py" check --server "$server"; then
+set --
+if [ -f "$server/.vendor-inputs.json" ] || [ -L "$server/.vendor-inputs.json" ]; then
+    set -- --inputs "$server/.vendor-inputs.json"
+fi
+if python3 "$script_dir/vendor-state.py" check --server "$server" "$@"; then
     exit 0
 fi
+python3 - "$script_dir/vendor-state.py" "$server" <<'PY'
+import importlib.util
+from pathlib import Path
+import sys
+sys.dont_write_bytecode = True
+spec = importlib.util.spec_from_file_location('native_vendor_inputs', sys.argv[1])
+module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+server = Path(sys.argv[2]); proof = server / '.vendor-inputs.json'
+module.check_lock(server, proof if proof.exists() or proof.is_symlink() else None)
+PY
 if [ -e "$server/vendor" ] || [ -L "$server/vendor" ]; then
     echo 'vendor is present but incomplete or damaged' >&2
 else
@@ -35,7 +49,9 @@ work=$server
 if [ "$mode" = start ]; then
     runtime="$server/runtime"
     [ -d "$runtime" ] && [ ! -L "$runtime" ] || { echo 'runtime staging root is unsafe' >&2; exit 1; }
-    work="$runtime/vendor-stage-$$"
+    staging="$runtime/vendor-stage-$$"
+    mkdir -m 700 -- "$staging"
+    work="$staging/server"
     python3 "$script_dir/vendor-state.py" stage --server "$server" --destination "$work"
 else
     [ ! -L "$server/vendor" ] || { echo 'prepared vendor is unsafe' >&2; exit 1; }
@@ -43,9 +59,27 @@ else
         rm -r -- "$server/vendor"
     fi
 fi
-
-if ! docker run --rm --network bridge \
-    --mount "type=bind,src=$work,dst=/srv" --workdir /srv --entrypoint /bin/sh "$php_image" -ec '
+archive_mount=$(python3 - "$script_dir/vendor-state.py" "$work" <<'PY'
+import importlib.util
+from pathlib import Path
+import sys
+sys.dont_write_bytecode = True
+spec = importlib.util.spec_from_file_location('native_vendor', sys.argv[1])
+module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+server = Path(sys.argv[2]); proof = server / '.vendor-inputs.json'
+inputs = proof if proof.exists() or proof.is_symlink() else None
+module.check_lock(server, inputs)
+archives = module.local_archives(server, inputs)
+if len(archives) > 1: raise ValueError('only one canonical Core archive is supported')
+for relative in archives:
+    source = server.parent / relative
+    if ',' in str(source) or any(ord(c) < 32 for c in str(source)): raise ValueError('ambiguous archive mount')
+    print('type=bind,src=' + str(source) + ',dst=/' + relative + ',readonly')
+PY
+)
+set -- docker run --rm --network bridge --mount "type=bind,src=$work,dst=/srv"
+if [ -n "$archive_mount" ]; then set -- "$@" --mount "$archive_mount"; fi
+if ! "$@" --workdir /srv --entrypoint /bin/sh "$php_image" -ec '
       composer --version --no-ansi | grep -Eq "^Composer version 2[.]10[.]2 "
       printf "%s  %s\n" 5ee7125f8a30a34d246cefdc0bc85b8a783b28f2aec968994118512350d28027 /usr/local/bin/composer | sha256sum -c -
       COMPOSER_ALLOW_SUPERUSER=1 composer validate --no-check-publish
@@ -56,8 +90,10 @@ if ! docker run --rm --network bridge \
 then
     exit 1
 fi
-python3 "$script_dir/vendor-state.py" seal --server "$work"
-python3 "$script_dir/vendor-state.py" check --server "$work"
+set --
+if [ -f "$work/.vendor-inputs.json" ] || [ -L "$work/.vendor-inputs.json" ]; then set -- --inputs "$work/.vendor-inputs.json"; fi
+python3 "$script_dir/vendor-state.py" seal --server "$work" "$@"
+python3 "$script_dir/vendor-state.py" check --server "$work" "$@"
 
 if [ "$mode" = start ]; then
     old="$runtime/vendor-previous-$$"
@@ -71,5 +107,5 @@ if [ "$mode" = start ]; then
         exit 1
     fi
     python3 "$script_dir/vendor-state.py" check --server "$server"
-    rm -r -- "$work"
+    rm -r -- "$staging"
 fi

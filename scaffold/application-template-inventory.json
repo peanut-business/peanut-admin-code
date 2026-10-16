@@ -3560,7 +3560,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3dde1b4470a9c6978aace2db3ab24864a8a6b1b94dbe251781c28449fe889408"
+            "source_sha256": "185e4b4cbb17b5b7eeef2be2f8393ad91989e24cb66953faad8217717b4c7486"
         },
         {
             "path": "scripts/project-codegraph",
@@ -3809,7 +3809,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e8455fcaed74681f89ca4274ef1b3cf2206746afdfbee9399a39738db449e59a"
+            "source_sha256": "4ddc8ee49cfd61ec9df36dcbb603a144f8c4f8c8bc15ae8703a11bc079906788"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",
@@ -4670,7 +4670,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ce06726a62b6cc2dc7a96490fbb48693f01f1599c6ee7607991c08f4530cc265"
+            "source_sha256": "d761e825d123bef325fc2e0d3264981cef38adf5839c2500ce8d20a612ad98df"
         },
         {
             "path": "server/.env.example",
@@ -27060,7 +27060,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "018e9f48137902eeef7fbb030832255901a80ec6dd17a41772b6ac898565ca96"
+            "source_sha256": "e374ff9752131f69fa96a1da2db6560de18a8063928d6be672bfea1aed16f738"
         },
         {
             "path": "server/docker/scripts/provision-database.php",
@@ -27214,7 +27214,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b16ba3e6a6e9be0119332bb53fb475f03df8542944101b9bb8b5a50cb1c275f8"
+            "source_sha256": "1abe47d81783fd732131c8ad0b564d5292c2147fc64d42ea6c74f7b6f2fb5e1f"
         },
         {
             "path": "server/docker/tests/test_first_start_vendor.py",

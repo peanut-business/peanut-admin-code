@@ -46,7 +46,7 @@ if (!$nativeEntry && !$serverScope) {
             foreach ($binding['tools'] as $relative => $sha) {
                 $fixed = $fixedRoot . '/' . $relative;
                 if (realpath($fixed) !== $fixed || !is_file($fixed) || lstat($fixed)['nlink'] !== 1
-                    || hash_file('sha256', $fixed) !== $sha) { throw new RuntimeException('SOURCE_RUNTIME_FIXED_TOOL_CHANGED'); }
+                    || hash_file('sha256', $fixed) !== $sha || (fileperms($fixed) & 0777) !== $binding['tool_modes'][$relative]) { throw new RuntimeException('SOURCE_RUNTIME_FIXED_TOOL_CHANGED'); }
             }
             if ($toolRoot !== $fixedRoot) {
                 $process = proc_open([PHP_BINARY, $fixedRoot . '/scripts/upgrade', ...array_slice($argv, 1)],
@@ -54,6 +54,21 @@ if (!$nativeEntry && !$serverScope) {
                 if (!is_resource($process)) { throw new RuntimeException('SOURCE_RUNTIME_FIXED_ENTRY_UNAVAILABLE'); }
                 $code = proc_close($process); exit($code < 0 ? 1 : $code);
             }
+            $toolServer = $binding['workspace'] . '/tools/prepared/server';
+            if (($binding['tool_autoload'] ?? null) !== $toolServer . '/vendor/autoload.php'
+                || ($binding['tool_vendor_root'] ?? null) !== $toolServer . '/vendor'
+                || ($binding['tool_source_root'] ?? null) !== dirname($toolServer)
+                || hash_file('sha256', $binding['workspace'] . '/tool-inputs.json') !== $binding['tool_inputs_sha256']) {
+                throw new RuntimeException('SOURCE_RUNTIME_INDEPENDENT_TOOL_BINDING_INVALID');
+            }
+            $process = proc_open(['python3', $fixedRoot . '/scripts/product-upgrade-host', 'source-tools-check',
+                '--instance-root=' . $binding['instance_root'], '--workspace=' . $binding['workspace'],
+                '--receipt-sha256=' . $binding['tool_bundle_sha256']],
+                [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+            if (!is_resource($process)) { throw new RuntimeException('SOURCE_RUNTIME_TOOL_PROOF_UNAVAILABLE'); }
+            stream_get_contents($pipes[1]); $diagnostic = stream_get_contents($pipes[2]);
+            fclose($pipes[1]); fclose($pipes[2]);
+            if (proc_close($process) !== 0) { throw new RuntimeException('SOURCE_RUNTIME_TOOL_PROOF_FAILED:' . hash('sha256', $diagnostic)); }
             foreach ($binding['tool_dependencies'] as $file => $proof) {
                 if (realpath($file) !== $file || !is_file($file) || lstat($file)['nlink'] !== 1
                     || hash_file('sha256', $file) !== $proof['sha256'] || (fileperms($file) & 0777) !== $proof['mode']) {
@@ -76,8 +91,23 @@ if ($frozenSource === null) { require_once $installedAutoload; }
 else {
     // Configure Composer's public loader from the pinned installed metadata; APP autoload files use frozen bytes.
     $vendor = dirname($installedAutoload);
-    require_once $vendor . '/composer/ClassLoader.php';
-    if (is_file($vendor . '/composer/platform_check.php')) { require $vendor . '/composer/platform_check.php'; }
+    $bundle = json_decode((string) file_get_contents($frozenSource['binding']['workspace'] . '/tools/bundle.json'), true, 512, JSON_THROW_ON_ERROR);
+    $checked = static function (string $path) use ($frozenSource, $toolRoot, $vendor, $bundle): string {
+        if (str_starts_with($path, $vendor . '/')) {
+            $proof = $bundle['tree']['files']['server/vendor/' . substr($path, strlen($vendor) + 1)] ?? null;
+        } elseif (str_starts_with($path, $toolRoot . '/')) {
+            $relative = substr($path, strlen($toolRoot) + 1);
+            $proof = isset($frozenSource['binding']['tools'][$relative])
+                ? [$frozenSource['binding']['tools'][$relative], $frozenSource['binding']['tool_modes'][$relative]] : null;
+        } else { $proof = null; }
+        if ($proof === null || realpath($path) !== $path || !is_file($path) || lstat($path)['nlink'] !== 1
+            || hash_file('sha256', $path) !== $proof[0] || (fileperms($path) & 0777) !== $proof[1]) {
+            throw new RuntimeException('SOURCE_RUNTIME_AUTOLOAD_OUTSIDE_FROZEN_CLOSURE');
+        }
+        return $path;
+    };
+    require_once $checked($vendor . '/composer/ClassLoader.php');
+    if (is_file($vendor . '/composer/platform_check.php')) { require $checked($vendor . '/composer/platform_check.php'); }
     $map = static function (string $path) use ($frozenSource, $toolRoot): string {
         $parts = [];
         foreach (explode('/', $path) as $part) {
@@ -86,25 +116,36 @@ else {
         }
         $path = '/' . implode('/', $parts);
         $original = $frozenSource['binding']['tool_root'];
-        if (str_starts_with($path, $original . '/') && !str_starts_with($path, $original . '/server/vendor/')) {
-            $relative = substr($path, strlen($original) + 1);
+        $bundleSource = $frozenSource['binding']['tool_source_root'];
+        $bundleVendor = $frozenSource['binding']['tool_vendor_root'];
+        if ($path === $bundleVendor || str_starts_with($path, $bundleVendor . '/')) { return $path; }
+        if ($path === $original . '/server/vendor' || str_starts_with($path, $original . '/server/vendor/')) {
+            throw new RuntimeException('SOURCE_RUNTIME_LIVE_VENDOR_AUTOLOAD_REJECTED');
+        }
+        foreach ([$bundleSource, $original] as $source) {
+            if (!str_starts_with($path, $source . '/')) { continue; }
+            $relative = substr($path, strlen($source) + 1);
             foreach ($frozenSource['binding']['tools'] as $fixed => $_) {
                 if ($fixed === $relative || str_starts_with($fixed, rtrim($relative, '/') . '/')) { return $toolRoot . '/' . $relative; }
             }
         }
-        return $path;
+        throw new RuntimeException('SOURCE_RUNTIME_UNBOUND_AUTOLOAD_PATH');
     };
     $loader = new \Composer\Autoload\ClassLoader($vendor);
-    foreach (require $vendor . '/composer/autoload_namespaces.php' as $prefix => $paths) { $loader->set($prefix, array_map($map, $paths)); }
-    foreach (require $vendor . '/composer/autoload_psr4.php' as $prefix => $paths) { $loader->setPsr4($prefix, array_map($map, $paths)); }
-    $classes = require $vendor . '/composer/autoload_classmap.php';
+    foreach (require $checked($vendor . '/composer/autoload_namespaces.php') as $prefix => $paths) { $loader->set($prefix, array_map($map, $paths)); }
+    foreach (require $checked($vendor . '/composer/autoload_psr4.php') as $prefix => $paths) { $loader->setPsr4($prefix, array_map($map, $paths)); }
+    $classes = require $checked($vendor . '/composer/autoload_classmap.php');
     foreach ($classes as &$classFile) { $classFile = $map($classFile); } unset($classFile);
-    $loader->addClassMap($classes); $loader->register(true);
+    $loader->addClassMap($classes);
+    spl_autoload_register(static function (string $class) use ($loader, $checked): void {
+        $path = $loader->findFile($class);
+        if ($path !== false) { require_once $checked($path); }
+    }, true, true);
     if (is_file($vendor . '/composer/autoload_files.php')) {
-        foreach (require $vendor . '/composer/autoload_files.php' as $file) { require_once $map($file); }
+        foreach (require $checked($vendor . '/composer/autoload_files.php') as $file) { require_once $checked($map($file)); }
     }
     foreach ($frozenSource['binding']['php_files'] as $relative) {
-        if ($relative !== 'scripts/upgrade') { require_once $toolRoot . '/' . $relative; }
+        if ($relative !== 'scripts/upgrade') { require_once $checked($toolRoot . '/' . $relative); }
     }
 }
 foreach ($serverScope ? [['/scripts/scaffold-runtime/ScaffoldPathGuard.php']] : [
@@ -645,6 +686,13 @@ if ($runtimeCommand) {
     try {
         $root = ScaffoldPathGuard::projectRoot($options['instance-root']);
         $result = (new ScaffoldUpgradeRunner())->runtimeCommand($command, $root, $options, $toolRoot);
+        if (($result['status'] ?? null) === 'tools-prepared' && in_array($command, ['runtime-prepare', 'runtime-refreeze'], true)) {
+            // No APP pending/write boundary exists yet. Reenter only after all parent locks were released.
+            $process = proc_open([PHP_BINARY, $options['workspace'] . '/trusted/scripts/upgrade', ...array_slice($argv, 1)],
+                [0 => STDIN, 1 => STDOUT, 2 => STDERR], $pipes);
+            if (!is_resource($process)) { throw new RuntimeException('SOURCE_RUNTIME_TOOL_REENTRY_UNAVAILABLE'); }
+            $code = proc_close($process); exit($code < 0 ? 1 : $code);
+        }
         fwrite(STDOUT, json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
         exit(0);
     } catch (Throwable $error) {
