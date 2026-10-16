@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace app\common\infrastructure\installation;
 
+use app\common\http\RequestTrace;
 use app\common\infrastructure\module\ModuleHostLayoutFactory;
 use app\common\value\installation\ServerReleaseIdentity;
 use PeanutAdmin\Kernel\Module\CompiledModuleRegistry;
@@ -25,45 +26,52 @@ final readonly class VerifiedServerDeployment
 
     public static function read(App $app): self
     {
-        $root = rtrim($app->getRootPath(), '/');
-        foreach (['maintenance.json', 'current-update.json'] as $guard) {
-            $path = $root . '/runtime/upgrade/' . $guard;
-            if (file_exists($path) || is_link($path)) {
+        $started = class_exists(RequestTrace::class, false) ? RequestTrace::beginDeploymentTiming() : null;
+        try {
+            $root = rtrim($app->getRootPath(), '/');
+            foreach (['maintenance.json', 'current-update.json'] as $guard) {
+                $path = $root . '/runtime/upgrade/' . $guard;
+                if (file_exists($path) || is_link($path)) {
+                    throw new RuntimeException('SERVER_DEPLOYMENT_TRAFFIC_CLOSED');
+                }
+            }
+            if (!is_file($root . '/runtime/upgrade/.traffic-ready')) {
                 throw new RuntimeException('SERVER_DEPLOYMENT_TRAFFIC_CLOSED');
             }
+            $httpMount = ReadonlyHttpMount::active($root) ? ReadonlyHttpMount::read($root) : null;
+            if ($httpMount === null) {
+                ReadonlyHttpMount::assertUnprivilegedWorker($root);
+            }
+            self::assertProtectedPath($root, 'runtime/upgrade/.traffic-ready', $httpMount);
+            if (self::bytes($root . '/runtime/upgrade/.traffic-ready') !== "peanut.server-traffic-ready.v1\n") {
+                throw new RuntimeException('SERVER_DEPLOYMENT_TRAFFIC_CLOSED');
+            }
+            self::assertProtectedPath($root, 'runtime/upgrade/verified-deployment/current.json', $httpMount);
+            $pointer = self::json(self::bytes($root . self::DIRECTORY . '/current.json'));
+            if (($pointer['format'] ?? null) !== self::FORMAT
+                || !is_string($pointer['key'] ?? null)
+                || preg_match('/^[a-f0-9]{64}$/D', $pointer['key']) !== 1
+                || !is_string($pointer['sha256'] ?? null)) {
+                throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_INVALID');
+            }
+            $store = self::store($app);
+            $file = $store->getCacheKey($pointer['key']);
+            self::assertProtectedPath($root, substr($file, strlen($root) + 1), $httpMount);
+            if (!hash_equals($pointer['sha256'], hash('sha256', self::bytes($file)))) {
+                throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_INVALID');
+            }
+            $record = $store->get($pointer['key']);
+            if (!is_array($record) || ($record['format'] ?? null) !== self::FORMAT
+                || ($record['binding'] ?? null) !== self::binding($root, $app->config->get('modules', []), $httpMount)
+                || !is_array($record['identity'] ?? null) || !is_array($record['registry'] ?? null)) {
+                throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_MISMATCH');
+            }
+            return new self($root, $record, $httpMount);
+        } finally {
+            if ($started !== null) {
+                RequestTrace::finishDeploymentReadTiming($started);
+            }
         }
-        if (!is_file($root . '/runtime/upgrade/.traffic-ready')) {
-            throw new RuntimeException('SERVER_DEPLOYMENT_TRAFFIC_CLOSED');
-        }
-        $httpMount = ReadonlyHttpMount::active($root) ? ReadonlyHttpMount::read($root) : null;
-        if ($httpMount === null) {
-            ReadonlyHttpMount::assertUnprivilegedWorker($root);
-        }
-        self::assertProtectedPath($root, 'runtime/upgrade/.traffic-ready', $httpMount);
-        if (self::bytes($root . '/runtime/upgrade/.traffic-ready') !== "peanut.server-traffic-ready.v1\n") {
-            throw new RuntimeException('SERVER_DEPLOYMENT_TRAFFIC_CLOSED');
-        }
-        self::assertProtectedPath($root, 'runtime/upgrade/verified-deployment/current.json', $httpMount);
-        $pointer = self::json(self::bytes($root . self::DIRECTORY . '/current.json'));
-        if (($pointer['format'] ?? null) !== self::FORMAT
-            || !is_string($pointer['key'] ?? null)
-            || preg_match('/^[a-f0-9]{64}$/D', $pointer['key']) !== 1
-            || !is_string($pointer['sha256'] ?? null)) {
-            throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_INVALID');
-        }
-        $store = self::store($app);
-        $file = $store->getCacheKey($pointer['key']);
-        self::assertProtectedPath($root, substr($file, strlen($root) + 1), $httpMount);
-        if (!hash_equals($pointer['sha256'], hash('sha256', self::bytes($file)))) {
-            throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_INVALID');
-        }
-        $record = $store->get($pointer['key']);
-        if (!is_array($record) || ($record['format'] ?? null) !== self::FORMAT
-            || ($record['binding'] ?? null) !== self::binding($root, $app->config->get('modules', []), $httpMount)
-            || !is_array($record['identity'] ?? null) || !is_array($record['registry'] ?? null)) {
-            throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_MISMATCH');
-        }
-        return new self($root, $record, $httpMount);
     }
 
     /** Called only under the updater's exclusive instance lock, before granting traffic. */
@@ -138,27 +146,34 @@ final readonly class VerifiedServerDeployment
 
     public function registry(): CompiledModuleRegistry
     {
-        $record = $this->record['registry'];
-        $modules = [];
-        $roots = [];
-        foreach ($record['modules'] as $item) {
-            if (!is_array($item) || !is_string($item['root'] ?? null) || !is_string($item['json'] ?? null)) {
-                throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_INVALID');
+        $started = class_exists(RequestTrace::class, false) ? RequestTrace::beginDeploymentTiming() : null;
+        try {
+            $record = $this->record['registry'];
+            $modules = [];
+            $roots = [];
+            foreach ($record['modules'] as $item) {
+                if (!is_array($item) || !is_string($item['root'] ?? null) || !is_string($item['json'] ?? null)) {
+                    throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_INVALID');
+                }
+                self::assertProtectedPath($this->serverRoot, $item['root'] . '/module.json', $this->httpMount);
+                $data = self::json($item['json']);
+                $object = json_decode($item['json'], false, 512, JSON_THROW_ON_ERROR);
+                $modules[] = ManifestDocument::fromDecodedJson($this->serverRoot . '/' . $item['root'], $data, $object);
+                $roots[$data['key']] = $this->serverRoot . '/' . $item['root'];
             }
-            self::assertProtectedPath($this->serverRoot, $item['root'] . '/module.json', $this->httpMount);
-            $data = self::json($item['json']);
-            $object = json_decode($item['json'], false, 512, JSON_THROW_ON_ERROR);
-            $modules[] = ManifestDocument::fromDecodedJson($this->serverRoot . '/' . $item['root'], $data, $object);
-            $roots[$data['key']] = $this->serverRoot . '/' . $item['root'];
+            ModuleHostLayoutFactory::registerRuntimeAutoload($roots, $this->serverRoot);
+            return new CompiledModuleRegistry(
+                $modules,
+                $record['targetTypeOwners'],
+                $record['ownedTableOwners'],
+                $record['menus'],
+                $record['revision'],
+            );
+        } finally {
+            if ($started !== null) {
+                RequestTrace::finishRegistryRestoreTiming($started);
+            }
         }
-        ModuleHostLayoutFactory::registerRuntimeAutoload($roots, $this->serverRoot);
-        return new CompiledModuleRegistry(
-            $modules,
-            $record['targetTypeOwners'],
-            $record['ownedTableOwners'],
-            $record['menus'],
-            $record['revision'],
-        );
     }
 
     /** Source and dependencies must be immutable to the application user before executing Composer. */
