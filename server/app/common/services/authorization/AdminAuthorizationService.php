@@ -80,10 +80,16 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
             return new AdminAccessData([], []);
         }
         $bridge = $this->moduleAdmin;
-        $native = $bridge->accessData($tenantContext);
+        $native = $bridge->adminShellAccessData($tenantContext);
         $permissions = $native['permissions'];
         $menus = array_values(array_replace(
-            array_column($this->compatibilityMenus($tenantContext, $admin, $permissions), null, 'menu_key'),
+            array_column($this->compatibilityMenus(
+                $tenantContext,
+                $admin,
+                $permissions,
+                $native['registered_system_menu_permissions'],
+                $native['managed_menu_keys'],
+            ), null, 'menu_key'),
             array_column($native['menu'], null, 'menu_key'),
         ));
         if (!InstanceToolAccessGuard::fromConfiguredValue(config('deployment.mode'))->allows()) {
@@ -103,7 +109,7 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         return new AdminAccessData(
             menu: linear_to_tree($menus, 'children', 'menu_key', 'parent_key'),
             permissions: $admin->root
-                ? $bridge->registeredPermissions($tenantContext->tenantId)
+                ? $native['registered_permissions']
                 : array_values(array_unique($permissions)),
         );
     }
@@ -240,17 +246,18 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         return $this->moduleAdmin->accessData($tenantContext)['menu'];
     }
 
-    /** @param list<string> $permissions */
+    /** @param list<string> $permissions @param list<string> $registered @param list<string> $managedMenuKeys */
     private function compatibilityMenus(
         TenantContext $tenantContext,
         AdminPrincipal $admin,
         array $permissions,
+        array $registered,
+        array $managedMenuKeys,
     ): array {
         if (!$this->validContext($tenantContext, $admin)) {
             return [];
         }
 
-        $registered = $this->moduleAdmin->registeredSystemMenuPermissions($tenantContext->tenantId);
         $visiblePermissions = $admin->root
             ? $registered
             : array_values(array_intersect($permissions, $registered));
@@ -262,7 +269,7 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
                 $query->where('perms', '')->whereOr('perms', 'in', $visiblePermissions ?: ['__none__']);
             });
 
-        $nativeKeys = array_fill_keys($this->moduleAdmin->managedMenuKeys(), true);
+        $nativeKeys = array_fill_keys($managedMenuKeys, true);
         return array_values(array_filter(
             $query->order(['sort' => 'desc', 'id' => 'asc'])->select()->toArray(),
             static fn(array $row): bool => !isset($nativeKeys[$row['menu_key']]),
