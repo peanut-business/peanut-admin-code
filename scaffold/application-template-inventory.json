@@ -7710,7 +7710,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1eef1a91711bcbe2b99ef526aab2d55b6292016f5560b6a7e9ce24fd72171503"
+            "source_sha256": "442b6142a9a0db8605217fff7b6eb06ab2f39b8b083ffb2ffe69b058586454d6"
         },
         {
             "path": "server/app/common/http/SessionRefreshCookie.php",
@@ -7880,7 +7880,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ed321af1f504cde6f1d3d5e689ac375a185fe17f715bc1f808af5ae980a8b0c7"
+            "source_sha256": "f478785219328c4151881d9b7c99f115b99db0f5b13907830f1dacc96e5ad507"
         },
         {
             "path": "server/app/common/infrastructure/member/MemberApiTenantContextResolver.php",

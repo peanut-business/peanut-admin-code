@@ -11,7 +11,7 @@ final class RequestTrace
 {
     /** @var \WeakMap<object,string>|null */
     private static ?\WeakMap $requestIds = null;
-    /** @var array{request_id:string,count:int,sql_seconds:float,coverage_start:string,started_at_nanoseconds:int|float}|null */
+    /** @var array{request_id:string,count:int,sql_seconds:float,deployment_read_calls:int,deployment_read_seconds:float,registry_restore_calls:int,registry_restore_seconds:float,coverage_start:string,started_at_nanoseconds:int|float}|null */
     private static ?array $sqlTiming = null;
 
     /** FPM creates its final Request after AppService registration; retain only this selected request's scalar totals. */
@@ -21,8 +21,44 @@ final class RequestTrace
             || preg_match('/^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/D', $requestId) !== 1) {
             return false;
         }
-        self::$sqlTiming = ['request_id' => $requestId, 'count' => 0, 'sql_seconds' => 0.0, 'coverage_start' => 'AppService.register.before_composition', 'started_at_nanoseconds' => hrtime(true)];
+        self::$sqlTiming = [
+            'request_id' => $requestId,
+            'count' => 0,
+            'sql_seconds' => 0.0,
+            'deployment_read_calls' => 0,
+            'deployment_read_seconds' => 0.0,
+            'registry_restore_calls' => 0,
+            'registry_restore_seconds' => 0.0,
+            'coverage_start' => 'AppService.register.before_composition',
+            'started_at_nanoseconds' => hrtime(true),
+        ];
         return true;
+    }
+
+    /** No clock or context lookup for unselected requests; these stages may overlap SQL totals. */
+    public static function beginDeploymentTiming(): int|float|null
+    {
+        return self::$sqlTiming === null ? null : hrtime(true);
+    }
+
+    /** Aggregate only scalars, including when deployment admission throws. */
+    public static function finishDeploymentReadTiming(int|float|null $started): void
+    {
+        if ($started === null || self::$sqlTiming === null) {
+            return;
+        }
+        self::$sqlTiming['deployment_read_calls'] += 1;
+        self::$sqlTiming['deployment_read_seconds'] += (hrtime(true) - $started) / 1_000_000_000;
+    }
+
+    /** Aggregate only scalars; registry restoration is not a mutually exclusive SQL span. */
+    public static function finishRegistryRestoreTiming(int|float|null $started): void
+    {
+        if ($started === null || self::$sqlTiming === null) {
+            return;
+        }
+        self::$sqlTiming['registry_restore_calls'] += 1;
+        self::$sqlTiming['registry_restore_seconds'] += (hrtime(true) - $started) / 1_000_000_000;
     }
 
     /** No SQL or parameters leave this callback; native timing is prepare/bind/execute seconds, before result fetching. */
@@ -40,7 +76,7 @@ final class RequestTrace
         self::$sqlTiming['sql_seconds'] += $seconds;
     }
 
-    /** @return array{request_id:string,count:int,sql_seconds:float,coverage_start:string,coverage_elapsed_seconds:float}|null */
+    /** @return array{request_id:string,count:int,sql_seconds:float,deployment_read_calls:int,deployment_read_seconds:float,registry_restore_calls:int,registry_restore_seconds:float,coverage_start:string,coverage_elapsed_seconds:float}|null */
     public static function finishSqlTiming(object $request): ?array
     {
         $timing = self::$sqlTiming;
