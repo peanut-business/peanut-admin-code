@@ -964,11 +964,30 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             'module_manifest_sha256' => hash_file('sha256', $actual->moduleRoots['official.notification'] . '/module.json')];
     }
 
+    /** Read the platform-owned ledger inside the proof's native read-only snapshot. */
+    private static function notificationForwardSchemaReport(): array
+    {
+        return app()->make(\PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::class)->forwardSchemaReport(
+            static function (\PDO $pdo): array {
+                if (Db::connect()->getPdo() !== $pdo || !$pdo->inTransaction()) {
+                    throw new PluginLifecycleException('NOTIFICATION_FORWARD_SNAPSHOT_CHANGED', 'The native proof snapshot is required for ledger reads.');
+                }
+                $statement = $pdo->prepare('SELECT migration_key,checksum,status FROM pa_module_migration WHERE module_key=? ORDER BY migration_key');
+                $statement->execute(['official.notification']);
+                $rows = $statement->fetchAll(\PDO::FETCH_ASSOC);
+                if (Db::connect()->getPdo() !== $pdo || !$pdo->inTransaction()) {
+                    throw new PluginLifecycleException('NOTIFICATION_FORWARD_SNAPSHOT_CHANGED', 'The native proof snapshot changed during ledger reads.');
+                }
+                return $rows;
+            },
+        );
+    }
+
     /** Called under the original package lock, before beginLifecycle can replace the old installation. */
     private function prepareNotificationForward(PluginDescriptor $plugin, array $manifests, bool $upgrade): bool
     {
         if (!$this->notificationForwardRequired($plugin)) { return false; }
-        $report = app()->make(\PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::class)->forwardSchemaReport();
+        $report = self::notificationForwardSchemaReport();
         if (($report['may_apply'] ?? null) !== true || ($report['catalog_schema']['may_apply'] ?? null) !== true) {
             throw new PluginLifecycleException('NOTIFICATION_FORWARD_PRECONDITION_UNKNOWN', 'Complete schema, ledger and catalog prerequisites are required before lifecycle writes.');
         }
@@ -1024,7 +1043,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     /** Revalidation before each original SQL, after predecessor completion, and before catalog writes. */
     private function assertNotificationForward(PluginDescriptor $plugin): void
     {
-        $report = app()->make(\PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::class)->forwardSchemaReport();
+        $report = self::notificationForwardSchemaReport();
         $pdo = Db::connect()->getPdo();
         if (!$pdo instanceof \PDO || ($report['may_apply'] ?? null) !== true || ($report['catalog_schema']['may_apply'] ?? null) !== true) {
             throw new PluginLifecycleException('NOTIFICATION_FORWARD_STATE_CHANGED', 'Complete forward schema and catalog state must remain valid.');
@@ -1148,7 +1167,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         $adoptions = self::migrationAdoptions($moduleKey, $files, $repairs);
         $migrations = []; $reports = []; $mayApply = true;
         $notificationForward = $willMigrate && $moduleKey === 'official.notification' && ($notificationForwardOverride ?? $this->notificationForwardRequired($plugin))
-            ? app()->make(\PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::class)->forwardSchemaReport() : null;
+            ? self::notificationForwardSchemaReport() : null;
         $notificationAdmission = null;
         if ($notificationForward !== null) {
             $mayApply = ($notificationForward['may_apply'] ?? null) === true && ($notificationForward['catalog_schema']['may_apply'] ?? null) === true;

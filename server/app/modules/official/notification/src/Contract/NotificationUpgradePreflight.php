@@ -84,8 +84,11 @@ final readonly class NotificationUpgradePreflight
         self::MIGRATION_KEY => '7c01bc1bf1f309e879ff3014f89418157abbce45374a58064d1a6dc94fca07ce',
     ];
 
-    /** Structural admission only. It never attests a maintenance window, backup or an empty queue. */
-    public function forwardSchemaReport(): array
+    /**
+     * Structural admission only; no maintenance window, backup or empty-queue attestation.
+     * @param \Closure(PDO):array $ledgerReader Fixed platform-owned reader, invoked inside this snapshot.
+     */
+    public function forwardSchemaReport(\Closure $ledgerReader): array
     {
         $pdo = null; $started = false; $phase = 'context';
         try {
@@ -113,7 +116,7 @@ final readonly class NotificationUpgradePreflight
                     throw new \RuntimeException('NOTIFICATION_FORWARD_SOURCE_CHANGED');
                 }
             }
-            $ledger = self::readRows($pdo, 'SELECT migration_key,checksum,status FROM pa_module_migration WHERE module_key=? ORDER BY migration_key', ['official.notification']);
+            $ledger = $ledgerReader($pdo);
             $rows = array_column($ledger, null, 'migration_key');
             foreach ($rows as $key => $row) {
                 if (!isset(self::SQL_SHA256[$key]) || $row['checksum'] !== self::SQL_SHA256[$key] || $row['status'] !== 'applied') {
