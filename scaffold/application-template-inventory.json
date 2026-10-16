@@ -2333,7 +2333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "26d77aa8d7e912117a0dc62b45376ad51ddd0ad665a7c10a6708a437fc7cfbc1"
+            "source_sha256": "4d7f7e4fd78c15a71ac60b954599ec8222a266e96ee9f276e63a654dc8ce053e"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2470,7 +2470,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8d545b5f89dffeb9b976539e0aaa8008208549dc9bcd98446324cc5abf2a4682"
+            "source_sha256": "f1f9ca0c7cc9d03dea87b14e1178fcb3bb857ec0ffeee49c095d45753508a2d4"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -2526,7 +2526,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7cc0b4454332e489888ea51145eb920e3da21338988c2b08584ec92aafde7c4f"
+            "source_sha256": "5a463b7bb757b1769b4797152f87ece0a0d3e39472b9e64a433abd45bd056c73"
         },
         {
             "path": "plugins/official.oauth/plugin.json",
@@ -6742,7 +6742,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5b359665936cbc5bcb778fd6e6f1267dbc940fcef5c2ee22d876ddcf306db265"
+            "source_sha256": "ebf40265d224a106bdb93fec1a18d0ce395b3e644c23e307d12169cc4fb47804"
         },
         {
             "path": "server/app/common/composition/ModuleExtensionService.php",
@@ -13374,7 +13374,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f6c43a87f562d722190364848081f4bd3cb2d74acb9f033d4120ae4c04d9fddd"
+            "source_sha256": "9bc6934ac7cdcd2486bfa89f4168d3a41d8d01b41bd7d0d9398cb8d8d8cd0b20"
         },
         {
             "path": "server/app/modules/official/identity/src/Console/RevocationFactsCommand.php",
@@ -18317,7 +18317,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bcd1cef3e4237a9cbd51c8daf94a4472f31cf084ba0eb56dceadc1a928f090f7"
+            "source_sha256": "f5f1d67934962d420cb8258c14ff26610138ac01de3911b7786e33984734f3ed"
         },
         {
             "path": "server/app/modules/official/notification/src/Service/NotificationAdminApplicationService.php",

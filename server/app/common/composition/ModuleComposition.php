@@ -117,7 +117,43 @@ final readonly class ModuleComposition
         } elseif ($contentAdapters !== []) {
             throw new ModuleException('MODULE_CONTENT_TOOL_UNAVAILABLE', 'Content tool contributions require the selected Content Tools Module.');
         }
+        $contributors = [];
+        if ($workflowSelected) {
+            foreach ($providers as $provider) {
+                if ($provider instanceof \PeanutAdmin\Modules\Workflow\Integration\WorkflowScenarioContributor) {
+                    $contributors[] = $provider;
+                }
+            }
+        }
         $bindings = ModuleProviderBindings::collect(array_values($providers));
+        if ($workflowSelected) {
+            if (isset($bindings[\PeanutAdmin\Modules\Workflow\Integration\WorkflowScenarioRegistry::class])) {
+                throw new ModuleException('MODULE_BINDING_CONFLICT', 'Workflow Scenario registry belongs to the composition root.');
+            }
+            $bindings[\PeanutAdmin\Modules\Workflow\Integration\WorkflowScenarioRegistry::class] = static function (App $app) use ($contributors) {
+                $scenarios = new \PeanutAdmin\Modules\Workflow\Integration\WorkflowScenarioRegistry();
+                foreach ($contributors as $provider) {
+                    $provider->registerWorkflowScenarios($scenarios, $app);
+                }
+                return $scenarios;
+            };
+        }
+        if (isset($selectedModuleKeys['official.notification'])) {
+            if (isset($bindings[\PeanutAdmin\Modules\Notification\Contract\NotificationProducerRegistry::class])) {
+                throw new ModuleException('MODULE_BINDING_CONFLICT', 'Notification producer registry belongs to the composition root.');
+            }
+            $bindings[\PeanutAdmin\Modules\Notification\Contract\NotificationProducerRegistry::class] = static function (App $app) use ($contributors) {
+                $producers = new \PeanutAdmin\Modules\Notification\Contract\NotificationProducerRegistry();
+                foreach ($contributors as $provider) {
+                    if (method_exists($provider, 'notificationProducers')) {
+                        foreach ($provider->notificationProducers($app) as $producer) {
+                            $producers->register($producer);
+                        }
+                    }
+                }
+                return $producers;
+            };
+        }
         // This optional Task capability is loaded only for the compiled two-module selection.
         if ($taskSelected && isset($selectedModuleKeys['official.collaboration'])) {
             $provider = $providers[\PeanutAdmin\Modules\Collaboration\ModuleProvider::class] ?? null;
@@ -222,35 +258,14 @@ final readonly class ModuleComposition
         $this->app->instance(\PeanutAdmin\DataPermission\Target\TargetResolverRegistry::class, $dataPermissions->targetResolvers);
         $this->app->instance(\PeanutAdmin\DataPermission\Target\TargetCatalogProviderRegistry::class, $dataPermissions->targetCatalogProviders);
         $this->app->instance(\PeanutAdmin\DataPermission\Provider\SharedMasterScopeProviderRegistry::class, $dataPermissions->sharedMasterProviders);
-        if ($workflowSelected) {
-            $scenarios = new \PeanutAdmin\Modules\Workflow\Integration\WorkflowScenarioRegistry();
-            $contributors = [];
-            foreach ($providers as $provider) {
-                if ($provider instanceof \PeanutAdmin\Modules\Workflow\Integration\WorkflowScenarioContributor) {
-                    $provider->registerWorkflowScenarios($scenarios, $this->app);
-                    $contributors[] = $provider;
-                }
-            }
-            $this->app->instance(\PeanutAdmin\Modules\Workflow\Integration\WorkflowScenarioRegistry::class, $scenarios);
-            if ($this->app->bound(\PeanutAdmin\Modules\Notification\Contract\NotificationProducerRegistry::class)) {
-                $producers = $this->app->make(\PeanutAdmin\Modules\Notification\Contract\NotificationProducerRegistry::class);
+        if ($workflowSelected && $taskSelected) {
+            $this->app->bind(\PeanutAdmin\Modules\Task\Contract\TrustedJobPublisher::class, function () use ($contributors) {
+                $submissions = [];
                 foreach ($contributors as $provider) {
-                    if (method_exists($provider, 'notificationProducers')) {
-                        foreach ($provider->notificationProducers($this->app) as $producer) {
-                            $producers->register($producer);
-                        }
-                    }
+                    array_push($submissions, ...$provider->workflowTaskSubmissions($this->app));
                 }
-            }
-            if ($taskSelected) {
-                $this->app->bind(\PeanutAdmin\Modules\Task\Contract\TrustedJobPublisher::class, function () use ($contributors) {
-                    $submissions = [];
-                    foreach ($contributors as $provider) {
-                        array_push($submissions, ...$provider->workflowTaskSubmissions($this->app));
-                    }
-                    return $this->app->make(\PeanutAdmin\Modules\Task\Contract\TaskJobRuntime::class)->publisher(...$submissions);
-                });
-            }
+                return $this->app->make(\PeanutAdmin\Modules\Task\Contract\TaskJobRuntime::class)->publisher(...$submissions);
+            });
         }
     }
 

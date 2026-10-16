@@ -20,6 +20,10 @@ use think\facade\Db;
 
 final class ThinkPhpTenantAuthorizationRepository implements \PeanutAdmin\Kernel\Authorization\TenantAuthorizationRepository
 {
+    private const AVAILABLE_MODULE_CONDITION = "tenant_module.status = 'enabled' AND installation.status = 'active'"
+        . ' AND (tenant_module.effective_at IS NULL OR tenant_module.effective_at <= UTC_TIMESTAMP(3))'
+        . ' AND (tenant_module.expires_at IS NULL OR tenant_module.expires_at > UTC_TIMESTAMP(3))';
+
     /** Native authority inputs only; the caller retains the existing permission decision. */
     public function readFence(TenantContext $context, array $permissionKeys, array $moduleKeys, bool $lock): string
     {
@@ -169,6 +173,7 @@ final class ThinkPhpTenantAuthorizationRepository implements \PeanutAdmin\Kernel
                 'tenant_module.effective_at', 'tenant_module.expires_at',
                 'installation.status' => 'installation_status', 'installation.revision' => 'installation_revision',
             ])
+            ->fieldRaw('CASE WHEN ' . self::AVAILABLE_MODULE_CONDITION . ' THEN 1 ELSE 0 END AS permission_available')
             ->order('tenant_module.module_key')
             ->select()
             ->toArray();
@@ -204,18 +209,10 @@ final class ThinkPhpTenantAuthorizationRepository implements \PeanutAdmin\Kernel
             $availableModules = TenantModule::alias('tenant_module')
                 ->join(
                     'module_installation installation',
-                    "installation.module_key = tenant_module.module_key AND installation.status = 'active'",
+                    'installation.module_key = tenant_module.module_key',
                 )
                 ->where('tenant_module.tenant_id', $tenantId)
-                ->where('tenant_module.status', 'enabled')
-                ->where(function ($query): void {
-                    $query->whereNull('tenant_module.effective_at')
-                        ->whereOr('tenant_module.effective_at', '<=', new Raw('UTC_TIMESTAMP(3)'));
-                })
-                ->where(function ($query): void {
-                    $query->whereNull('tenant_module.expires_at')
-                        ->whereOr('tenant_module.expires_at', '>', new Raw('UTC_TIMESTAMP(3)'));
-                })
+                ->whereRaw(self::AVAILABLE_MODULE_CONDITION)
                 ->column('tenant_module.module_key');
             $permissions = RolePermission::alias('role_permission')
                 ->join('permission permission', "permission.id = role_permission.permission_id AND permission.status = 'active'")

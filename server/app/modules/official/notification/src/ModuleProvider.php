@@ -46,7 +46,6 @@ final class ModuleProvider implements ModuleProviderContract, TaskWorkerContribu
     public function bindings(): array
     {
         return [
-            \PeanutAdmin\Modules\Notification\Contract\NotificationProducerRegistry::class => fn() => new \PeanutAdmin\Modules\Notification\Contract\NotificationProducerRegistry(),
             NoticeSmsSender::class => fn(App $app): NoticeSmsSender => new ApplicationNoticeSmsSender(
                 $app->make(CurrentExecutionContext::class),
                 $app->make(NoticeChannelService::class),
