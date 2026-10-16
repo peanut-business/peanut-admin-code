@@ -63,14 +63,33 @@ mkdir -p "$output_parent"
 lock_dir="$OUTPUT_DIR.packaging-lock"
 mkdir "$lock_dir" || die 'another packaging operation owns this output'
 work=""
+package_completed=0
 cleanup() {
-  [[ -z "$work" ]] || rm -rf -- "$work"
-  rmdir -- "$lock_dir"
+  local status=$?
+  # A signal/early exit is never success merely because the previous command
+  # returned zero. Only the end-of-pipeline marker permits cleanup.
+  rmdir -- "$lock_dir" || { if [[ "$status" == 0 ]]; then status=1; fi; }
+  if [[ "$INTERNAL_CANDIDATE" == 1 && -n "$work" && ( "$status" != 0 || "$package_completed" != 1 ) ]]; then
+    # mktemp created this directory as 0700. Retain the real snapshot/build,
+    # native PM locks, installed dependencies and origin-proof attempt; none
+    # are source or distributable release inputs. Do not print environment.
+    (umask 077; printf 'status=failed-unqualified-private-diagnostics\nexit_code=%s\ncompleted=%s\nowner_uid=%s\nowner_pid=%s\nbuild=%s\nlifecycle_owner=invoking-build-Session-owner; retain-until-explicit-diagnosis-and-cleanup\n' \
+      "$status" "$package_completed" "$UID" "$$" "${build:-not-created}" > "$work/failure-context.txt") || true
+    printf 'package-release: FAILURE_RETAINED: %s; owner_uid=%s; owner_pid=%s; cleanup=invoking-build-Session-owner-after-diagnosis\n' \
+      "$work" "$UID" "$$" >&2
+  else
+    [[ -z "$work" ]] || rm -rf -- "$work"
+  fi
+  return "$status"
 }
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 work="$(mktemp -d "$output_parent/.peanut-package.XXXXXX")"
+if [[ "$INTERNAL_CANDIDATE" == 1 ]]; then
+  printf 'package-release: PRIVATE_STAGING: %s; owner_uid=%s; owner_pid=%s; lifecycle_owner=invoking-build-Session-owner\n' \
+    "$work" "$UID" "$$" >&2
+fi
 build="$work/build"
 stage="$work/assembled"
 server_stage="$work/assembled-server"
@@ -158,3 +177,4 @@ if [[ "$DIRECTORY_ONLY" != 1 ]]; then
   fi
 fi
 printf 'release bundle: %s\nValidate the external release manifest and archive SHA-256 before deployment. Product acceptance is separate.\n' "$OUTPUT_DIR"
+package_completed=1

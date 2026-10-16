@@ -553,6 +553,12 @@ function internalCandidateMain(array $argv): void
     if (!mkdir($temporary, 0700, true)) {
         throw new RuntimeException('INTERNAL_CANDIDATE_TEMP_FAILED');
     }
+    $completed = false;
+    // Emit the actual private root before child work so even an uncatchable
+    // termination leaves a durable Job-log pointer to the retained state.
+    fwrite(STDERR, 'INTERNAL_CANDIDATE_PRIVATE_STAGING: ' . $temporary
+        . '; owner_uid=' . (function_exists('posix_geteuid') ? (string) posix_geteuid() : 'unavailable')
+        . '; owner_pid=' . getmypid() . '; lifecycle_owner=invoking-build-Session-owner' . "\n");
 
     try {
         $source = $temporary . '/source';
@@ -729,8 +735,34 @@ function internalCandidateMain(array $argv): void
             'archive' => $candidateManifest['archive'],
             'manifest_sha256' => hash_file('sha256', rtrim($options['output'], '/') . '/' . $archiveName . '.manifest.json'),
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
+        $completed = true;
     } finally {
-        internalCandidateDelete($temporary);
+        if ($completed) {
+            internalCandidateDelete($temporary);
+        } else {
+            // This 0700 directory belongs to this invocation, never to the
+            // distributable APP. Keep native locks, installed trees and any
+            // nested packager failure state for the actual build owner.
+            try {
+                internalCandidateWriteJson($temporary . '/failure-context.json', [
+                    'status' => 'failed-unqualified-private-diagnostics',
+                    'owner_uid' => function_exists('posix_geteuid') ? posix_geteuid() : null,
+                    'owner_pid' => getmypid(),
+                    'lifecycle_owner' => 'invoking build Session owner; retain until explicit diagnosis and cleanup',
+                    'source' => ['commit' => $commit, 'tree' => $tree],
+                    'temporary_root' => $temporary,
+                    'application' => $temporary . '/application',
+                    'packaging_workspaces' => array_values(glob($temporary . '/.peanut-package.*', GLOB_ONLYDIR) ?: []),
+                ], 0600);
+            } catch (Throwable) {
+                // A full disk or another diagnostics write error must not
+                // replace the original failure or delete its native state.
+                fwrite(STDERR, "INTERNAL_CANDIDATE_FAILURE_CONTEXT_WRITE_FAILED\n");
+            }
+            fwrite(STDERR, 'INTERNAL_CANDIDATE_FAILURE_RETAINED: ' . $temporary
+                . '; owner_uid=' . (function_exists('posix_geteuid') ? (string) posix_geteuid() : 'unavailable')
+                . '; owner_pid=' . getmypid() . '; cleanup=invoking-build-Session-owner-after-diagnosis' . "\n");
+        }
     }
 }
 
