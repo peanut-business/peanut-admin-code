@@ -65,7 +65,109 @@ def run(*args, cwd=None):
     return result.stdout.decode().strip()
 
 
+def source_runtime():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('phase', choices=('source-stop', 'source-check', 'source-project', 'source-open', 'source-admit'))
+    parser.add_argument('--instance-root', type=Path, required=True)
+    parser.add_argument('--workspace', type=Path, required=True)
+    args = parser.parse_args()
+    root, workspace = args.instance_root, args.workspace
+    for path in (root, workspace):
+        if not path.is_absolute() or path.resolve() != path or path.is_symlink():
+            raise ValueError('source maintenance paths are not canonical')
+    checkpoint = workspace / 'source-runtime.json'
+    state = read(checkpoint)
+    recorded = state.pop('state_sha256', None)
+    canonical = json.dumps(state, sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()
+    if recorded != hashlib.sha256(canonical).hexdigest() or state.get('protocol') != 'peanut.source-runtime-transition.v1' \
+            or state['binding']['instance_root'] != str(root) or state['binding']['workspace'] != str(workspace) \
+            or checkpoint.stat().st_mode & 0o777 != 0o600 or workspace.stat().st_mode & 0o077:
+        raise ValueError('source maintenance checkpoint is not protected or bound')
+    trusted = workspace / 'trusted'
+    for relative, digest in state['binding']['tools'].items():
+        if sha(trusted / relative) != digest:
+            raise ValueError('source maintenance fixed tool changed')
+    tools = trusted / 'server/docker/scripts'
+    spec = importlib.util.spec_from_file_location('source_recovery', tools / 'update-recovery.py')
+    recovery = importlib.util.module_from_spec(spec); spec.loader.exec_module(recovery)
+    spec = importlib.util.spec_from_file_location('source_collaboration', tools / 'configure-collaboration.py')
+    collaboration = importlib.util.module_from_spec(spec); spec.loader.exec_module(collaboration)
+    server = root / 'server'
+    compose_args = collaboration.compose_arguments(server)
+
+    def compose(*values):
+        return run(*compose_args, *values, cwd=server / 'docker')
+
+    phase = args.phase.removeprefix('source-')
+    if phase == 'open':
+        if state.get('activation_started') is not True or state.get('phase') != 'opening' \
+                or sha(server / 'private/installation/deployment.json') != state.get('published_head_sha256'):
+            raise ValueError('source activation boundary or head is not current')
+        # The unchanged native root entrypoint revalidates admission and publishes a new process context.
+        for service in ('php', 'nginx'):
+            identifiers = compose('ps', '-a', '-q', service).splitlines()
+            if len(identifiers) != 1: raise ValueError('source activation service identity is ambiguous')
+            detail = json.loads(run('docker', 'inspect', '--format', '{{json .}}', identifiers[0]))
+            if detail['Image'] != state['quiescence']['images'][service]:
+                raise ValueError('source activation image changed')
+            if not detail['State']['Running']:
+                compose('up', '-d', '--wait', '--no-build', '--no-deps', '--force-recreate', service)
+    else:
+        if phase == 'stop':
+            # Independent collaboration service ownership is not transferred to this coordinator.
+            compose('stop', '--timeout', '60', 'nginx', 'php')
+        stopped = recovery.assert_stopped(server)
+        if state.get('quiescence') is not None and stopped != state['quiescence']:
+            raise ValueError('source runtime container/image binding changed')
+        if phase == 'admit':
+            run('docker', 'run', '--rm', '--network', 'container:' + compose('ps', '-q', 'mysql'),
+                '--mount', f'type=bind,src={root},dst={root}', '--mount', f'type=bind,src={workspace},dst={workspace}',
+                '--entrypoint', 'php', state['quiescence']['images']['php'], tools / 'update-plan.php', 'source-admit',
+                '--instance-server=' + str(server), '--workspace=' + str(workspace))
+        if phase == 'project':
+            target = workspace / 'prepared'
+            if not target.exists():
+                run(sys.executable, trusted / 'scripts/package-release-files.py', 'development-runtime',
+                    '--application-root', root, '--target', target, cwd=root)
+            elif not (target / 'server/.peanut/development-runtime.json').is_file():
+                raise ValueError('incomplete projection is retained; recover before a new prepare')
+            sha(target / 'server/.peanut/development-runtime.json')
+        if phase == 'project' or (phase == 'check' and state['phase'] in ('runtime-prepared', 'runtime-installed', 'head-published', 'admitted')):
+            spec = importlib.util.spec_from_file_location('source_producer', trusted / 'scripts/package-release-files.py')
+            producer = importlib.util.module_from_spec(spec); spec.loader.exec_module(producer)
+            identity = read(workspace / 'prepared/server/.peanut/development-runtime.json')
+            derived = {'server/.peanut/application-manifest.json', 'server/.peanut/release-versions.json',
+                'server/.peanut/RELEASE_METADATA.json', 'server/resources/project-resources.json',
+                'server/docker/scripts/scaffold-runtime/ReleaseDependencyIdentity.php', 'server/plugins.lock',
+                'server/.peanut/development-runtime.json'}
+            for document in (identity, state['binding']['old_runtime']):
+                for plugin in document['plugin_projection']['plugins']:
+                    if not re.fullmatch(r'[a-z][a-z0-9.-]*', plugin['key']): raise ValueError('invalid projected plugin key')
+                    derived.add('server/plugins/' + plugin['key'] + '/plugin.json')
+            prefixes = (*producer.PROTECTED_RUNTIME_PREFIXES, 'server/private/', 'server/docker/tls/')
+            def included(relative):
+                return relative not in derived and relative not in ('server/docker/collaboration.env', 'server/.env.collaboration.lock') \
+                    and producer.allowed_source(relative) and not any(relative == prefix.rstrip('/') or relative.startswith(prefix) for prefix in prefixes)
+            actual = {}
+            def walk_error(error): raise error
+            for base, directories, files in os.walk(server, topdown=True, onerror=walk_error, followlinks=False):
+                for name in list(directories):
+                    path = Path(base) / name; relative = path.relative_to(root).as_posix()
+                    if not included(relative): directories.remove(name)
+                    elif path.is_symlink(): raise ValueError('linked source program directory')
+                for name in files:
+                    path = Path(base) / name; relative = path.relative_to(root).as_posix()
+                    if included(relative): actual[relative] = [sha(path), path.stat().st_mode & 0o777]
+            expected = {row['path']: [row['sha256'], row['mode']] for row in identity['files'] if row['path'] not in derived}
+            if actual != expected: raise ValueError('complete source program set, digest or mode changed after projection')
+    result = {'phase': phase, 'transition_id': state['transition_id']}
+    if phase != 'open': result['quiescence'] = stopped
+    print(json.dumps(result, separators=(',', ':')))
+
+
 def main():
+    if len(sys.argv) > 1 and sys.argv[1].startswith('source-'):
+        return source_runtime()
     parser = argparse.ArgumentParser()
     parser.add_argument('phase', choices=('prepare', 'migration-preflight', 'backup', 'quiesce', 'migrate', 'switch',
         'reload-safe', 'migration-verify', 'health', 'activate', 'recover', 'resume-old', 'recovery-verify'))

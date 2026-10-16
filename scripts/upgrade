@@ -11,13 +11,102 @@ $nativeEntry = str_ends_with(__FILE__, '/server/docker/scripts/upgrade');
 $toolRoot = $nativeEntry ? dirname(__DIR__, 3) : dirname(__DIR__);
 $runtimeRoot = $nativeEntry ? dirname(__DIR__) : $toolRoot;
 $serverScope = in_array('--scope=server', $argv, true);
+$frozenSource = null;
+if (!$nativeEntry && !$serverScope) {
+    $early = [];
+    foreach (array_slice($argv, 2) as $argument) {
+        if (preg_match('/^--(instance-root|workspace|transition)=(.+)$/D', $argument, $match)) { $early[$match[1]] = $match[2]; }
+    }
+    $checkpoint = $early['transition'] ?? (isset($early['workspace']) ? $early['workspace'] . '/source-runtime.json' : null);
+    if ($checkpoint === null && isset($early['instance-root']) && realpath($early['instance-root']) === $early['instance-root']) {
+        $pointer = $early['instance-root'] . '/server/runtime/upgrade/source-transition.json';
+        if (is_file($pointer) && !is_link($pointer)) {
+            $pending = json_decode((string) file_get_contents($pointer), true);
+            if (!in_array($pending['phase'] ?? null, ['opened', 'recovered'], true)) { $checkpoint = $pending['checkpoint'] ?? null; }
+        }
+    }
+    if (basename($toolRoot) === 'trusted' && is_file(dirname($toolRoot) . '/source-runtime.json')) {
+        $checkpoint = dirname($toolRoot) . '/source-runtime.json';
+    }
+    if ($checkpoint !== null && is_file($checkpoint)) {
+        try {
+            if (realpath($checkpoint) !== $checkpoint || (fileperms($checkpoint) & 0777) !== 0600
+                || (fileperms(dirname($checkpoint)) & 0077) !== 0) { throw new RuntimeException('SOURCE_RUNTIME_BOOTSTRAP_UNSAFE'); }
+            $context = json_decode((string) file_get_contents($checkpoint), true, 512, JSON_THROW_ON_ERROR);
+            $stateSha = $context['state_sha256'] ?? null; unset($context['state_sha256']);
+            $binding = $context['binding'];
+            if (($context['protocol'] ?? null) !== 'peanut.source-runtime-transition.v1'
+                || $stateSha !== hash('sha256', productUpgradeCanonicalJson($context))
+                || $binding['workspace'] !== dirname($checkpoint)
+                || ($early['instance-root'] ?? null) !== $binding['instance_root']
+                || !in_array(fileowner($checkpoint), [0, fileowner($binding['instance_root'] . '/server')], true)) {
+                throw new RuntimeException('SOURCE_RUNTIME_BOOTSTRAP_INVALID');
+            }
+            $fixedRoot = $binding['workspace'] . '/trusted';
+            foreach ($binding['tools'] as $relative => $sha) {
+                $fixed = $fixedRoot . '/' . $relative;
+                if (realpath($fixed) !== $fixed || !is_file($fixed) || lstat($fixed)['nlink'] !== 1
+                    || hash_file('sha256', $fixed) !== $sha) { throw new RuntimeException('SOURCE_RUNTIME_FIXED_TOOL_CHANGED'); }
+            }
+            if ($toolRoot !== $fixedRoot) {
+                $process = proc_open([PHP_BINARY, $fixedRoot . '/scripts/upgrade', ...array_slice($argv, 1)],
+                    [0 => STDIN, 1 => STDOUT, 2 => STDERR], $pipes);
+                if (!is_resource($process)) { throw new RuntimeException('SOURCE_RUNTIME_FIXED_ENTRY_UNAVAILABLE'); }
+                $code = proc_close($process); exit($code < 0 ? 1 : $code);
+            }
+            foreach ($binding['tool_dependencies'] as $file => $proof) {
+                if (realpath($file) !== $file || !is_file($file) || lstat($file)['nlink'] !== 1
+                    || hash_file('sha256', $file) !== $proof['sha256'] || (fileperms($file) & 0777) !== $proof['mode']) {
+                    throw new RuntimeException('SOURCE_RUNTIME_TOOL_DEPENDENCY_CHANGED');
+                }
+            }
+            $frozenSource = $context;
+        } catch (Throwable $error) {
+            fwrite(STDERR, $error->getMessage() . "\n"); exit(1);
+        }
+    }
+}
 // 可信入口使用其自身已安装的Composer/Core；不能从尚未校验完整性的目标包加载依赖。
-$installedAutoload = $toolRoot . '/server/vendor/autoload.php';
+$installedAutoload = $frozenSource['binding']['tool_autoload'] ?? $toolRoot . '/server/vendor/autoload.php';
 if (!is_file($installedAutoload)) {
     fwrite(STDERR, json_encode(['status' => 'error', 'error' => 'PRODUCT_UPGRADE_DEPENDENCIES_MISSING'], JSON_THROW_ON_ERROR) . "\n");
     exit(1);
 }
-require_once $installedAutoload;
+if ($frozenSource === null) { require_once $installedAutoload; }
+else {
+    // Configure Composer's public loader from the pinned installed metadata; APP autoload files use frozen bytes.
+    $vendor = dirname($installedAutoload);
+    require_once $vendor . '/composer/ClassLoader.php';
+    if (is_file($vendor . '/composer/platform_check.php')) { require $vendor . '/composer/platform_check.php'; }
+    $map = static function (string $path) use ($frozenSource, $toolRoot): string {
+        $parts = [];
+        foreach (explode('/', $path) as $part) {
+            if ($part === '' || $part === '.') { continue; }
+            if ($part === '..') { array_pop($parts); } else { $parts[] = $part; }
+        }
+        $path = '/' . implode('/', $parts);
+        $original = $frozenSource['binding']['tool_root'];
+        if (str_starts_with($path, $original . '/') && !str_starts_with($path, $original . '/server/vendor/')) {
+            $relative = substr($path, strlen($original) + 1);
+            foreach ($frozenSource['binding']['tools'] as $fixed => $_) {
+                if ($fixed === $relative || str_starts_with($fixed, rtrim($relative, '/') . '/')) { return $toolRoot . '/' . $relative; }
+            }
+        }
+        return $path;
+    };
+    $loader = new \Composer\Autoload\ClassLoader($vendor);
+    foreach (require $vendor . '/composer/autoload_namespaces.php' as $prefix => $paths) { $loader->set($prefix, array_map($map, $paths)); }
+    foreach (require $vendor . '/composer/autoload_psr4.php' as $prefix => $paths) { $loader->setPsr4($prefix, array_map($map, $paths)); }
+    $classes = require $vendor . '/composer/autoload_classmap.php';
+    foreach ($classes as &$classFile) { $classFile = $map($classFile); } unset($classFile);
+    $loader->addClassMap($classes); $loader->register(true);
+    if (is_file($vendor . '/composer/autoload_files.php')) {
+        foreach (require $vendor . '/composer/autoload_files.php' as $file) { require_once $map($file); }
+    }
+    foreach ($frozenSource['binding']['php_files'] as $relative) {
+        if ($relative !== 'scripts/upgrade') { require_once $toolRoot . '/' . $relative; }
+    }
+}
 foreach ($serverScope ? [['/scripts/scaffold-runtime/ScaffoldPathGuard.php']] : [
     ['/scripts/scaffold-runtime/ScaffoldPathGuard.php'],
     ['/scripts/scaffold-runtime/ScaffoldManifest.php'],
@@ -60,6 +149,9 @@ function productUpgradeUsage(): never
         . "  php scripts/upgrade apply|verify|recover --scope=source --instance-root=<development-app> --package=<full-upstream-package> --plan=<absolute-scaffold-plan>\n"
         . "  php scripts/upgrade plan --scope=server --instance-root=<mounted-app> --package=<workspace> --archive=<app-server-release> --expected-sha256=<trusted-sha256>\n"
         . "  php scripts/upgrade apply|verify|recover --scope=server --instance-root=<mounted-app> --package=<workspace> --plan=<absolute-product-plan>\n"
+        . "  runtime-prepare --scope=source --instance-root=APP --workspace=W --package=PKG --plan=SOURCE_PLAN --expect-head=SHA|none --expect-generation=N\n"
+        . "  runtime-transition|runtime-open|runtime-recover --scope=source --instance-root=APP --workspace=W --transition=W/source-runtime.json\n"
+        . "  runtime-refreeze --scope=source --instance-root=APP --workspace=W --expect-head=SHA|none --expect-generation=N\n"
         . "  server apply alone accepts --stop-before=health|activate; source scope changes source only.\n");
     exit(64);
 }
@@ -524,16 +616,41 @@ function productUpgradeRefreshHostPhase(string $packageRoot, array $plan, array 
 }
 
 $command = $argv[1] ?? null;
-if (!in_array($command, ['plan', 'apply', 'verify', 'recover'], true)) {
+if (!in_array($command, ['plan', 'apply', 'verify', 'recover', 'runtime-prepare', 'runtime-transition', 'runtime-open', 'runtime-recover', 'runtime-refreeze'], true)) {
     productUpgradeUsage();
 }
 $options = [];
 foreach (array_slice($argv, 2) as $argument) {
-    if (preg_match('/^--(instance-root|package|plan|stop-before|scope|archive|expected-sha256)=(.+)$/D', $argument, $matches) !== 1
+    if (preg_match('/^--(instance-root|package|plan|stop-before|scope|archive|expected-sha256|workspace|transition|expect-head|expect-generation)=(.+)$/D', $argument, $matches) !== 1
         || isset($options[$matches[1]])) {
         productUpgradeUsage();
     }
     $options[$matches[1]] = $matches[2];
+}
+$runtimeCommand = str_starts_with($command, 'runtime-');
+if ($runtimeCommand) {
+    $required = ['instance-root', 'workspace', 'scope'];
+    $required = array_merge($required, match ($command) {
+        'runtime-prepare' => ['package', 'plan', 'expect-head', 'expect-generation'],
+        'runtime-refreeze' => ['expect-head', 'expect-generation'],
+        default => ['transition'],
+    });
+    $actual = array_keys($options); sort($actual); sort($required);
+    if ($actual !== $required || ($options['scope'] ?? null) !== 'source' || $nativeEntry
+        || (isset($options['expect-head']) && $options['expect-head'] !== 'none' && preg_match('/^[a-f0-9]{64}$/D', $options['expect-head']) !== 1)
+        || (isset($options['expect-generation']) && preg_match('/^(0|[1-9][0-9]*)$/D', $options['expect-generation']) !== 1)
+        || (isset($options['transition']) && $options['transition'] !== $options['workspace'] . '/source-runtime.json')) {
+        productUpgradeUsage();
+    }
+    try {
+        $root = ScaffoldPathGuard::projectRoot($options['instance-root']);
+        $result = (new ScaffoldUpgradeRunner())->runtimeCommand($command, $root, $options, $toolRoot);
+        fwrite(STDOUT, json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n");
+        exit(0);
+    } catch (Throwable $error) {
+        fwrite(STDERR, json_encode(['status' => 'error', 'error' => $error->getMessage()], JSON_THROW_ON_ERROR) . "\n");
+        exit(1);
+    }
 }
 $required = ['instance-root', 'package'];
 if (!isset($options['scope'])) { productUpgradeUsage(); }
@@ -562,7 +679,7 @@ if ($actual !== $expected) {
 $lock = null;
 try {
     $instanceRoot = ScaffoldPathGuard::projectRoot($options['instance-root']);
-    $lock = productUpgradeAcquireLock($instanceRoot);
+    $lock = $options['scope'] === 'server' ? productUpgradeAcquireLock($instanceRoot) : null;
     $packageRoot = realpath($options['package']);
     if (!is_string($packageRoot)) {
         throw new RuntimeException('PRODUCT_UPGRADE_PACKAGE_NOT_FOUND');
@@ -570,6 +687,7 @@ try {
     if ($options['scope'] === 'source' && $nativeEntry) { throw new RuntimeException('PRODUCT_UPGRADE_SOURCE_REQUIRES_FULL_APPLICATION_TOOLS'); }
 
     if (($options['scope'] ?? 'source') === 'source') {
+        $result = ScaffoldUpgradeRunner::sourceProductLock($instanceRoot, function () use ($instanceRoot, $packageRoot, $command, $options): array {
         $runner = new ScaffoldUpgradeRunner();
         $packageService = new EditionUpgradePackage();
         if ($command === 'plan') {
@@ -585,9 +703,11 @@ try {
             }
             $result = $runner->{$command}($instanceRoot, $options['plan']);
         }
+        return $result;
+        });
         $result['scope'] = 'source';
         $result['source_only'] = true;
-        productUpgradeReleaseLock($lock);
+        if ($lock !== null) { productUpgradeReleaseLock($lock); }
         $lock = null;
         fwrite(STDOUT, json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n");
         exit(($result['status'] ?? null) === 'blocked' ? 2 : 0);
