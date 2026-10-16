@@ -3643,7 +3643,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f87ecbf98f785858c3cbc8c882e20b608f2d5857164e0085d46b70715fed30dc"
+            "source_sha256": "25878a5f70c6719ef55ff09e6f5e9e7a4c682c6cc3819bc95bf1321b73d6e7e9"
         },
         {
             "path": "scripts/publish-github-release",
