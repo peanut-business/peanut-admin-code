@@ -11008,7 +11008,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9f0fa8e2317bb4edb8791942a65db4a47161dff6f83663b6b9c4a897477d7d05"
+            "source_sha256": "77b3e584711fed978165c02708d672ffeaf023f21b33a8cc7938b3e510224a42"
         },
         {
             "path": "server/app/modules/official/collaboration/src/Service/ServiceAuthentication.php",
@@ -26920,7 +26920,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d665d164084f5d60b1e22b5012f8d6c4bc41cec879d49ed065f1791c33a61d30"
+            "source_sha256": "d8f9cd42c00122b8a1c4fbfd8791ea295705eefb36adc38e94749e16aa712ad7"
         },
         {
             "path": "server/docker/Dockerfile",
@@ -27046,7 +27046,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "18e467a7a40518f92469a273589c4a2c3d390ccf8be4803c234c699fdd5dbb17"
+            "source_sha256": "99acb3fd2b318a1694276e2e9fb8a7e7a530053e5da78b74b4c0ae69a387b616"
         },
         {
             "path": "server/docker/conf/nginx.conf",
@@ -27116,7 +27116,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "23bf3ab60697ad54fbf2d6ddd632e6f2b6b750161d3ebf8fad7627e736ed0784"
+            "source_sha256": "7dde11c8ad69695f0afb797fd86b63e286f0cf38cba39683ed0a455a03fbccb5"
         },
         {
             "path": "server/docker/scripts/configure-runtime.py",
