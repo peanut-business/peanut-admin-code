@@ -11,6 +11,7 @@ Usage:
     --lease <run-id> --owner <owner> [--thread <thread-id>] \
     --candidate <40-hex-commit> [--candidate-repository <absolute-path>] \
     [--parent-lease <lease-id>] \
+    [--role collaboration-read-existing --operation-contract <canonical-json>] \
     --gate <gate-name> [--ttl <seconds>] \
     --resource <type=value> [--resource <type=value> ...]
   scripts/project-resource-lease renew --lease <run-id> --owner <owner> [--ttl <seconds>]
@@ -43,6 +44,13 @@ business invariants must be covered; unknown/range/insert effects use whole-tabl
 scope, or exclusive schema access. Locking reads are writes for this contract.
 This is an execution declaration, not a SQL sandbox. DDL/exclusive uses tables=[].
 Only read/read or disjoint complete table/row sets share; labels never isolate data.
+
+collaboration-read-existing is a closed, same-owner/thread observation role, not
+schema sharing. It requires a real runtime parent, independently owns its source
+worktree, and accepts only its fixed operation contract (no --resource arguments).
+The parent retains every runtime lock and its original candidate. An observer
+record, including an expired one, prevents parent release until its owner safely
+finishes the observation and explicitly releases the child; prune never removes it.
 EOF
 }
 
@@ -515,7 +523,9 @@ active_child_lease() {
     child_id="$(metadata_value "$child_dir/metadata.tsv" lease)"
     [[ "$child_id" != "$parent_lease" ]] || continue
     child_parent="$(metadata_value "$child_dir/metadata.tsv" parent_lease 2>/dev/null || true)"
-    if [[ "$child_parent" == "$parent_lease" ]] && ! lease_expired "$child_dir"; then
+    if [[ "$child_parent" == "$parent_lease" ]] && {
+      ! lease_expired "$child_dir" || lease_has_resource "$child_dir" lease-role collaboration-read-existing;
+    }; then
       printf '%s\n' "$child_id"
       shopt -u nullglob
       return 0
@@ -525,8 +535,154 @@ active_child_lease() {
   return 1
 }
 
+read_lease_role() {
+  local lease_dir="$1" role_count contract_count hash type value lock_dir field created expires now parent_expires
+  LEASE_ROLE=""; OPERATION_CONTRACT=""
+  role_count="$(awk -F '\t' '$2=="lease-role" {n++} END {print n+0}' "$lease_dir/resources.tsv")"
+  contract_count="$(awk -F '\t' '$2=="operation-contract" {n++} END {print n+0}' "$lease_dir/resources.tsv")"
+  if [[ "$role_count" == 0 && "$contract_count" == 0 ]]; then return; fi
+  [[ "$role_count" == 1 && "$contract_count" == 1 ]] || die 'invalid observation role resources'
+  LEASE_ROLE="$(awk -F '\t' '$2=="lease-role" {print $3}' "$lease_dir/resources.tsv")"
+  OPERATION_CONTRACT="$(awk -F '\t' '$2=="operation-contract" {print $3}' "$lease_dir/resources.tsv")"
+  [[ "$LEASE_ROLE" == collaboration-read-existing ]] || die 'unsupported lease role'
+  [[ "$(awk -F '\t' '$2!="lease-role" && $2!="operation-contract" && $2!="gate" && $2!="worktree" {n++} END {print n+0}' "$lease_dir/resources.tsv")" == 0 \
+    && "$(wc -l < "$lease_dir/resources.tsv" | tr -d ' ')" == 4 ]] || die 'observer cannot own runtime resources'
+  [[ "$(metadata_value "$lease_dir/metadata.tsv" gate)" == collaboration-runtime-observation \
+    && -n "$(metadata_value "$lease_dir/metadata.tsv" parent_lease)" ]] || die 'observer requires its dedicated gate and real parent'
+  lease_has_resource "$lease_dir" gate collaboration-runtime-observation || die 'observer gate resource mismatch'
+  lease_has_resource "$lease_dir" worktree "$(metadata_value "$lease_dir/metadata.tsv" worktree)" || die 'observer must own its source worktree'
+  [[ ! -L "$lease_dir" && ! -L "$lease_dir/metadata.tsv" && ! -L "$lease_dir/resources.tsv" ]] || die 'observer proof must be regular'
+  awk -F '\t' '
+    BEGIN {split("lease owner thread candidate candidate_repository parent_lease gate worktree created_at expires_at status", keys, " "); for (i in keys) allowed[keys[i]]=1}
+    NF!=2 || !($1 in allowed) || seen[$1]++ || $2=="" {bad=1}
+    END {exit bad || NR!=11 ? 1 : 0}
+  ' "$lease_dir/metadata.tsv" || die 'observer metadata schema invalid'
+  [[ "$(metadata_value "$lease_dir/metadata.tsv" status)" == ACTIVE \
+    && "$(metadata_value "$lease_dir/metadata.tsv" lease)" == "$(basename "$lease_dir")" ]] || die 'observer identity/status invalid'
+  created="$(metadata_value "$lease_dir/metadata.tsv" created_at)"
+  expires="$(metadata_value "$lease_dir/metadata.tsv" expires_at)"; now="$(date +%s)"
+  [[ "$created" =~ ^[0-9]+$ && "$expires" =~ ^[0-9]+$ \
+    && "$created" -le "$now" && "$expires" -gt "$now" && "$expires" -gt "$created" ]] || die 'observer expired or invalid'
+  validate_lease_id "$(metadata_value "$lease_dir/metadata.tsv" parent_lease)"
+  parent_expires="$(metadata_value "$LEASES_DIR/$(metadata_value "$lease_dir/metadata.tsv" parent_lease)/metadata.tsv" expires_at)"
+  [[ "$parent_expires" =~ ^[0-9]+$ && "$expires" -le "$parent_expires" ]] || die 'observer TTL exceeds runtime parent'
+  awk -F '\t' 'NF!=3 || $1=="" || $2=="" || $3=="" || seen[$1]++ {bad=1} END {exit bad ? 1 : 0}' \
+    "$lease_dir/resources.tsv" || die 'observer resource schema invalid'
+  while IFS=$'\t' read -r hash type value; do
+    validate_resource "$type=$value"
+    [[ "$hash" == "$(resource_hash "$type" "$value")" ]] || die 'observer resource digest mismatch'
+    lock_dir="$RESOURCES_DIR/$hash"
+    [[ -d "$lock_dir" && ! -L "$lock_dir" ]] || die 'observer own lock missing'
+    for field in lease type value; do [[ -f "$lock_dir/$field" && ! -L "$lock_dir/$field" ]] || die 'observer own lock invalid'; done
+    [[ "$(cat "$lock_dir/lease")" == "$(metadata_value "$lease_dir/metadata.tsv" lease)" \
+      && "$(cat "$lock_dir/type")" == "$type" && "$(cat "$lock_dir/value")" == "$value" ]] || die 'observer own lock ownership mismatch'
+  done < "$lease_dir/resources.tsv"
+}
+
+# Runs only under the existing registry mutex. It proves the independently held
+# runtime authority and the bounded source operation; the JSON never grants a DB.
+validate_observation_parent_locked() {
+  local parent_lease="$1" candidate="$2" candidate_repository="$3" worktree="$4" contract="$5"
+  python3 - "$LEASES_DIR" "${PEANUT_RESOURCE_REGISTRY:-}" "$parent_lease" "$candidate" "$candidate_repository" "$worktree" "$contract" <<'PY' || die 'observation parent contract rejected'
+import hashlib, json, pathlib, re, subprocess, sys
+leases, registry_path, parent_id, candidate, source_root, worktree, raw_contract = sys.argv[1:]
+def fail(message): raise SystemExit('resource-lease: observer '+message)
+def unique(pairs):
+    result = {}
+    for k,v in pairs:
+        if k in result: fail('duplicate contract field')
+        result[k] = v
+    return result
+def git(root, *args):
+    try: return subprocess.check_output(['git','-C',root,*args], stderr=subprocess.DEVNULL, text=True).strip()
+    except (OSError, subprocess.CalledProcessError): fail('Git identity unavailable')
+def exact_path(value):
+    p = pathlib.Path(value)
+    return p.is_absolute() and str(p.resolve()) == value
+try: contract = json.loads(raw_contract, object_pairs_hook=unique)
+except (ValueError, TypeError): fail('invalid operation contract')
+keys = {'protocol','operation','resource_id','endpoint_id','database','environment','consumer',
+        'resource_scope','gate','registry_sha256','credential_ref','instance_id','service_instance_id','source_tree'}
+if not isinstance(contract, dict) or set(contract) != keys: fail('operation contract fields mismatch')
+if raw_contract != json.dumps(contract, sort_keys=True, separators=(',',':'), ensure_ascii=False): fail('contract is not canonical JSON')
+if any(not isinstance(v,str) or not v for k,v in contract.items() if k not in ('instance_id','service_instance_id')): fail('invalid contract value')
+if (contract['protocol'] != 'peanut.collaboration-observation-authorization.v1'
+    or contract['operation'] != 'collaboration-runtime-read-existing'
+    or contract['environment'] != 'acceptance' or contract['consumer'] != 'host'
+    or not re.fullmatch(r'[A-Za-z0-9_]{1,64}',contract['database'])): fail('operation is not the closed acceptance read')
+identities = [contract['instance_id'],contract['service_instance_id']]
+if any(x is not None for x in identities) and not all(isinstance(x,str) and re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._:-]{0,127}',x) for x in identities): fail('instance/service must be independently paired or both null')
+lease_root = pathlib.Path(leases)
+parent = lease_root / parent_id
+metadata = dict(line.split('\t') for line in (parent/'metadata.tsv').read_text().splitlines())
+runtime_root = metadata['candidate_repository']
+if (not exact_path(source_root) or source_root != worktree
+    or git(source_root,'rev-parse','--show-toplevel') != source_root
+    or git(source_root,'rev-parse','HEAD') != candidate
+    or git(source_root,'rev-parse','HEAD^{tree}') != contract['source_tree']
+    or git(source_root,'status','--porcelain=v1','--untracked-files=no')): fail('source candidate/worktree drift')
+if (not exact_path(runtime_root) or runtime_root != metadata['worktree']
+    or git(runtime_root,'rev-parse','--show-toplevel') != runtime_root
+    or git(runtime_root,'rev-parse','HEAD') != metadata['candidate']
+    or git(runtime_root,'status','--porcelain=v1','--untracked-files=no')): fail('runtime candidate/worktree drift')
+expected_common = str(lease_root.parent.parent.resolve())
+for root in [source_root,runtime_root]:
+    if git(root,'rev-parse','--path-format=absolute','--git-common-dir') != expected_common: fail('foreign candidate Git registry')
+resources = {}
+for line in (parent/'resources.tsv').read_text().splitlines():
+    parts = line.split('\t')
+    if len(parts) != 3: fail('invalid parent resource record')
+    digest,kind,value = parts
+    if (not re.fullmatch(r'[a-z][a-z0-9_-]{0,31}',kind) or not value
+        or digest != hashlib.sha256((kind+'\t'+value).encode()).hexdigest()): fail('parent resource digest mismatch')
+    values = resources.setdefault(kind,set())
+    if value in values: fail('duplicate parent resource')
+    values.add(value)
+    lock = lease_root.parent/'resources'/digest
+    if lock.is_symlink() or not lock.is_dir(): fail('parent physical lock missing')
+    for field,expected in [('lease',parent_id),('type',kind),('value',value)]:
+        p = lock/field
+        if p.is_symlink() or not p.is_file() or p.read_text().removesuffix('\n') != expected: fail('parent physical lock ownership mismatch')
+path = pathlib.Path(registry_path)
+if not exact_path(registry_path) or not path.is_file(): fail('explicit registry required')
+raw = path.read_bytes()
+try: registry = json.loads(raw, object_pairs_hook=unique)
+except ValueError: fail('invalid resource registry')
+if (registry.get('schema_version') != 1 or registry.get('project_id') != 'peanut-admin'
+    or registry.get('authority',{}).get('role') != 'maintainer'
+    or hashlib.sha256(raw).hexdigest() != contract['registry_sha256']): fail('registry identity/digest mismatch')
+matches = [x for x in registry.get('resources',{}).get('databases',[]) if x.get('stable_resource_id') == contract['resource_id']]
+if len(matches) != 1: fail('resource is not uniquely registered')
+d = matches[0]; endpoint = d.get('upstream_endpoint',{}); policy = d.get('lease_policy',{})
+if (not isinstance(d.get('synthetic_databases',{}).get('standalone'),list)
+    or d.get('application_runtime') is not True or d.get('service_type') != 'mysql'
+    or d.get('version') != '8.4.10' or d.get('fallback') != 'none'
+    or 'acceptance' not in d.get('environments',[])
+    or contract['database'] not in d.get('synthetic_databases',{}).get('standalone',[])
+    or policy.get('mode') != 'schema' or 'shared_access' in policy
+    or endpoint.get('endpoint_id') != contract['endpoint_id'] or 'host' not in endpoint.get('consumers',[])
+    or policy.get('physical_endpoint') != str(endpoint.get('host'))+':'+str(endpoint.get('port'))
+    or d.get('resource_scope') != contract['resource_scope'] or d.get('lease_gate') != contract['gate']
+    or d.get('credential_ref') != contract['credential_ref'] or metadata['gate'] != contract['gate']): fail('operation exceeds registered runtime authority')
+schema = policy['physical_endpoint']+'/'+contract['database']
+for kind,expected in [('database',{contract['database']}),('mysql-db',{contract['database']}),
+                      ('mysql-schema',{schema}),('environment',{'acceptance'}),
+                      ('resource-scope',{contract['resource_scope']}),('registry-sha256',{contract['registry_sha256']}),
+                      ('worktree',{runtime_root})]:
+    if resources.get(kind) != expected: fail('parent '+kind+' scope mismatch')
+if (contract['resource_id'] not in resources.get('resource-id',set())
+    or contract['endpoint_id'] not in resources.get('endpoint',set())
+    or not resources.get('consumer') or not resources['consumer'] <= {'host','container'}): fail('parent physical resource/route mismatch')
+PY
+  local parent_resources=() hash type value
+  while IFS=$'\t' read -r hash type value; do parent_resources+=("$type=$value"); done < "$LEASES_DIR/$parent_lease/resources.tsv"
+  mysql_claim_policy "$parent_lease" "$(metadata_value "$LEASES_DIR/$parent_lease/metadata.tsv" gate)" verify "${parent_resources[@]}" >/dev/null \
+    || die 'observer parent native MySQL authority rejected'
+}
+
 validate_parent_lease_locked() {
   local parent_lease="$1" owner="$2" thread_id="$3" candidate="$4" candidate_repository="$5" worktree="$6"
+  local role="${7:-}" contract="${8:-}"
   local parent_dir="$LEASES_DIR/$parent_lease"
   [[ -d "$parent_dir" && -f "$parent_dir/metadata.tsv" ]] || die "parent lease does not exist: $parent_lease"
   [[ ! -L "$parent_dir" && ! -L "$parent_dir/metadata.tsv" && -f "$parent_dir/resources.tsv" && ! -L "$parent_dir/resources.tsv" ]] || die "parent lease proof is invalid: $parent_lease"
@@ -547,6 +703,11 @@ validate_parent_lease_locked() {
   ! lease_expired "$parent_dir" || die "parent lease is expired: $parent_lease"
   [[ "$(metadata_value "$parent_dir/metadata.tsv" owner)" == "$owner" ]] || die "parent lease belongs to another owner: $parent_lease"
   [[ "$(metadata_value "$parent_dir/metadata.tsv" thread)" == "$thread_id" ]] || die "parent lease belongs to another thread: $parent_lease"
+  if [[ -n "$role" ]]; then
+    [[ "$role" == collaboration-read-existing && -n "$contract" ]] || die 'invalid parent observation role'
+    validate_observation_parent_locked "$parent_lease" "$candidate" "$candidate_repository" "$worktree" "$contract"
+    return
+  fi
   [[ "$(metadata_value "$parent_dir/metadata.tsv" candidate)" == "$candidate" ]] || die "parent lease candidate mismatch: $parent_lease"
   [[ "$(metadata_value "$parent_dir/metadata.tsv" candidate_repository)" == "$candidate_repository" ]] || die "parent lease candidate repository mismatch: $parent_lease"
   [[ "$(metadata_value "$parent_dir/metadata.tsv" worktree)" == "$worktree" ]] || die "parent lease worktree mismatch: $parent_lease"
@@ -573,6 +734,9 @@ release_lease_locked() {
   if [[ -n "$expected_owner" && "$owner" != "$expected_owner" ]]; then
     die "lease $lease_id belongs to $owner, not $expected_owner"
   fi
+  if lease_has_resource "$lease_dir" lease-role collaboration-read-existing; then
+    [[ -n "$expected_owner" ]] || die 'observer requires explicit owner release after safe completion'
+  fi
   child_lease="$(active_child_lease "$lease_id" || true)"
   [[ -z "$child_lease" ]] || die "lease $lease_id has active child lease $child_lease"
   while IFS=$'\t' read -r hash type value; do
@@ -594,6 +758,8 @@ case "$COMMAND" in
     CANDIDATE=""
     CANDIDATE_REPOSITORY="$REPO_ROOT"
     PARENT_LEASE=""
+    LEASE_ROLE=""
+    OPERATION_CONTRACT=""
     GATE=""
     TTL=14400
     RESOURCES=()
@@ -605,6 +771,8 @@ case "$COMMAND" in
         --candidate) [[ $# -ge 2 ]] || die '--candidate requires a value'; CANDIDATE="$2"; shift 2 ;;
         --candidate-repository) [[ $# -ge 2 ]] || die '--candidate-repository requires a value'; CANDIDATE_REPOSITORY="$2"; shift 2 ;;
         --parent-lease) [[ $# -ge 2 ]] || die '--parent-lease requires a value'; PARENT_LEASE="$2"; shift 2 ;;
+        --role) [[ $# -ge 2 ]] || die '--role requires a value'; LEASE_ROLE="$2"; shift 2 ;;
+        --operation-contract) [[ $# -ge 2 ]] || die '--operation-contract requires a value'; OPERATION_CONTRACT="$2"; shift 2 ;;
         --gate) [[ $# -ge 2 ]] || die '--gate requires a value'; GATE="$2"; shift 2 ;;
         --ttl) [[ $# -ge 2 ]] || die '--ttl requires a value'; TTL="$2"; shift 2 ;;
         --resource) [[ $# -ge 2 ]] || die '--resource requires a value'; RESOURCES+=("$2"); shift 2 ;;
@@ -631,18 +799,27 @@ case "$COMMAND" in
       [[ "$PARENT_LEASE" != "$LEASE_ID" ]] || die 'parent lease must differ from child lease'
     fi
     WORKTREE="$(cd "$REPO_ROOT" && pwd -P)"
+    for resource in "${RESOURCES[@]}"; do
+      [[ "${resource%%=*}" != lease-role && "${resource%%=*}" != operation-contract ]] || die 'reserved observation fields require --role'
+    done
+    if [[ -n "$LEASE_ROLE" || -n "$OPERATION_CONTRACT" ]]; then
+      [[ "$LEASE_ROLE" == collaboration-read-existing && -n "$OPERATION_CONTRACT" \
+        && -n "$PARENT_LEASE" && "$GATE" == collaboration-runtime-observation \
+        && "${#RESOURCES[@]}" == 0 ]] || die 'observer requires dedicated role/parent/gate/contract and no resource arguments'
+      RESOURCES+=("lease-role=$LEASE_ROLE" "operation-contract=$OPERATION_CONTRACT")
+    fi
     RESOURCES+=("gate=$GATE")
-    if [[ -z "$PARENT_LEASE" ]]; then
+    if [[ -z "$PARENT_LEASE" || -n "$LEASE_ROLE" ]]; then
       RESOURCES+=("worktree=$WORKTREE")
     fi
     for resource in "${RESOURCES[@]}"; do
       validate_resource "$resource"
-      [[ -z "$PARENT_LEASE" || "${resource%%=*}" != worktree ]] || die 'child lease must not claim a direct worktree resource'
+      [[ -z "$PARENT_LEASE" || -n "$LEASE_ROLE" || "${resource%%=*}" != worktree ]] || die 'ordinary child lease must not claim a direct worktree resource'
     done
 
     acquire_mutex
     if [[ -n "$PARENT_LEASE" ]]; then
-      validate_parent_lease_locked "$PARENT_LEASE" "$OWNER" "$THREAD_ID" "$CANDIDATE" "$CANDIDATE_REPOSITORY" "$WORKTREE"
+      validate_parent_lease_locked "$PARENT_LEASE" "$OWNER" "$THREAD_ID" "$CANDIDATE" "$CANDIDATE_REPOSITORY" "$WORKTREE" "$LEASE_ROLE" "$OPERATION_CONTRACT"
     fi
     SCHEMA_MODE="$(mysql_claim_policy "$LEASE_ID" "$GATE" claim "${RESOURCES[@]}")" || die 'MySQL lease policy rejected claim'
     LEASE_DIR="$LEASES_DIR/$LEASE_ID"
@@ -720,6 +897,7 @@ case "$COMMAND" in
     [[ "$(metadata_value "$LEASE_DIR/metadata.tsv" owner)" == "$OWNER" ]] || die "lease $LEASE_ID belongs to another owner"
     ! lease_expired "$LEASE_DIR" || die "lease is expired: $LEASE_ID"
     PARENT_LEASE="$(metadata_value "$LEASE_DIR/metadata.tsv" parent_lease)"
+    read_lease_role "$LEASE_DIR"
     if awk -F '\t' '$2 == "mysql-schema" {found=1} END {exit found ? 0 : 1}' "$LEASE_DIR/resources.tsv"; then
       SCHEMA_PROOFS=()
       while IFS=$'\t' read -r HASH TYPE VALUE; do SCHEMA_PROOFS+=("$TYPE=$VALUE"); done < "$LEASE_DIR/resources.tsv"
@@ -732,7 +910,7 @@ case "$COMMAND" in
         "$(metadata_value "$LEASE_DIR/metadata.tsv" thread)" \
         "$(metadata_value "$LEASE_DIR/metadata.tsv" candidate)" \
         "$(metadata_value "$LEASE_DIR/metadata.tsv" candidate_repository)" \
-        "$(metadata_value "$LEASE_DIR/metadata.tsv" worktree)"
+        "$(metadata_value "$LEASE_DIR/metadata.tsv" worktree)" "$LEASE_ROLE" "$OPERATION_CONTRACT"
       PARENT_EXPIRES="$(metadata_value "$LEASES_DIR/$PARENT_LEASE/metadata.tsv" expires_at)"
       [[ "$EXPIRES_AT" -le "$PARENT_EXPIRES" ]] || EXPIRES_AT="$PARENT_EXPIRES"
     fi
@@ -782,6 +960,8 @@ case "$COMMAND" in
     [[ -d "$LEASE_DIR" ]] || die "lease does not exist: $LEASE_ID"
     PARENT_LEASE="$(metadata_value "$LEASE_DIR/metadata.tsv" parent_lease 2>/dev/null || true)"
     if [[ -n "$PARENT_LEASE" || "$VERIFY_LOCKS" == 1 ]] || awk -F '\t' '$2 == "mysql-schema" {found=1} END {exit found ? 0 : 1}' "$LEASE_DIR/resources.tsv"; then acquire_mutex; fi
+    read_lease_role "$LEASE_DIR"
+    if [[ -n "$LEASE_ROLE" ]]; then VERIFY_LOCKS=1; fi
     if [[ -n "$PARENT_LEASE" ]]; then
       validate_parent_lease_locked \
         "$PARENT_LEASE" \
@@ -789,7 +969,7 @@ case "$COMMAND" in
         "$(metadata_value "$LEASE_DIR/metadata.tsv" thread)" \
         "$(metadata_value "$LEASE_DIR/metadata.tsv" candidate)" \
         "$(metadata_value "$LEASE_DIR/metadata.tsv" candidate_repository)" \
-        "$(metadata_value "$LEASE_DIR/metadata.tsv" worktree)"
+        "$(metadata_value "$LEASE_DIR/metadata.tsv" worktree)" "$LEASE_ROLE" "$OPERATION_CONTRACT"
     fi
     SCHEMA_MODE=exclusive
     if awk -F '\t' '$2 == "mysql-schema" {found=1} END {exit found ? 0 : 1}' "$LEASE_DIR/resources.tsv"; then
@@ -834,7 +1014,7 @@ case "$COMMAND" in
     cat "$LEASE_DIR/metadata.tsv"
     printf 'resources\n'
     awk -F '\t' '{printf "%s\t%s\n", $2, $3}' "$LEASE_DIR/resources.tsv"
-    if [[ -n "$PARENT_LEASE" ]]; then
+    if [[ -n "$PARENT_LEASE" && -z "$LEASE_ROLE" ]]; then
       printf 'worktree\t%s\n' "$(metadata_value "$LEASE_DIR/metadata.tsv" worktree)"
     fi
     if [[ -n "$PARENT_LEASE" || "$VERIFY_LOCKS" == 1 ]]; then release_mutex; fi
@@ -848,6 +1028,8 @@ case "$COMMAND" in
     for LEASE_DIR in "$LEASES_DIR"/*; do
       [[ -d "$LEASE_DIR" && -f "$LEASE_DIR/metadata.tsv" ]] || continue
       if lease_expired "$LEASE_DIR"; then
+        # Expiry cannot prove the observer's SQL process has terminated.
+        if lease_has_resource "$LEASE_DIR" lease-role collaboration-read-existing; then continue; fi
         LEASE_ID="$(metadata_value "$LEASE_DIR/metadata.tsv" lease)"
         if [[ -z "$(active_child_lease "$LEASE_ID" || true)" ]]; then
           release_lease_locked "$LEASE_ID"

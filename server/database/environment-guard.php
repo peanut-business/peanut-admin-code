@@ -1057,8 +1057,10 @@ function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null)
 /**
  * Closed acceptance observation of persisted collaboration metadata, not a runtime
  * deployment target or a general SQL interface. The caller must bind independently
- * known identities in its own native lease; a discovered instance cannot authorize
- * the subsequent room queries. No connection, SQL callback or transaction escapes.
+ * known identities in its own native observation role; a discovered instance cannot
+ * authorize room queries. The real same-subject runtime parent retains its original
+ * candidate and physical locks; the child separately owns the reviewed source.
+ * No connection, SQL callback or transaction escapes.
  *
  * @param array{owner:string,thread:string,candidate:string,instance_id:?string,service_instance_id:?string} $actor
  * @return array<string,mixed>
@@ -1116,27 +1118,72 @@ function observeRegisteredCollaborationRuntime(array $actor): array
     }
     $proof = requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
     $authorize = static function () use ($root, $proof, $actor, $database, $endpoint, $resourceId, $schema, $registrySha256, $name): array {
-        $metadata = activeLeaseMetadata($proof, time(), $database['lease_gate']);
+        $metadata = activeLeaseMetadata($proof, time(), 'collaboration-runtime-observation');
         $resources = activeLeaseResources($proof);
+        $common = leaseGit(['-C', $root, 'rev-parse', '--path-format=absolute', '--git-common-dir']);
+        if ($metadata['parent_lease'] === '' || realpath($root) !== $root
+            || realpath($metadata['candidate_repository']) !== $root || realpath($metadata['worktree']) !== $root
+            || leaseGit(['-C', $root, 'rev-parse', '--show-toplevel']) !== $root
+            || leaseGit(['-C', $root, 'rev-parse', 'HEAD']) !== $metadata['candidate']
+            || realpath($proof) !== $common . '/peanut-admin-resource-leases/leases/' . $metadata['lease']) {
+            throw new RuntimeException('COLLABORATION_OBSERVATION_SOURCE_PROOF_MISMATCH');
+        }
         foreach (['owner', 'thread', 'candidate'] as $key) {
             if ($metadata[$key] !== $actor[$key]) {
                 throw new RuntimeException('COLLABORATION_OBSERVATION_NATIVE_ACTOR_MISMATCH');
             }
         }
-        foreach (['database' => $name, 'mysql-db' => $name, 'resource-id' => $resourceId,
-            'environment' => 'acceptance', 'consumer' => 'host', 'resource-scope' => $database['resource_scope'],
-            'operation' => 'collaboration-runtime-read-existing', 'credential-ref' => $database['credential_ref'],
-            'observation-instance' => $actor['instance_id'] ?? 'unconfirmed',
-            'observation-service' => $actor['service_instance_id'] ?? 'unconfirmed'] as $type => $value) {
-            assertLeaseResourceValues($resources, $type, [$value]);
+        if (array_keys($resources) !== ['gate','lease-role','operation-contract','worktree']) {
+            throw new RuntimeException('COLLABORATION_OBSERVATION_ROLE_SCOPE_INVALID');
         }
-        assertLeaseResourceValues($resources, 'candidate-tree', [leaseGit(['-C', $root, 'rev-parse', 'HEAD^{tree}'])]);
+        $contract = ['protocol' => 'peanut.collaboration-observation-authorization.v1',
+            'operation' => 'collaboration-runtime-read-existing', 'resource_id' => $resourceId,
+            'endpoint_id' => $endpoint['endpoint_id'], 'database' => $name, 'environment' => 'acceptance', 'consumer' => 'host',
+            'resource_scope' => $database['resource_scope'], 'gate' => $database['lease_gate'],
+            'registry_sha256' => $registrySha256, 'credential_ref' => $database['credential_ref'],
+            'instance_id' => $actor['instance_id'], 'service_instance_id' => $actor['service_instance_id'],
+            'source_tree' => leaseGit(['-C', $root, 'rev-parse', 'HEAD^{tree}'])];
+        ksort($contract, SORT_STRING);
+        assertLeaseResourceValues($resources, 'gate', ['collaboration-runtime-observation']);
+        assertLeaseResourceValues($resources, 'worktree', [$root]);
+        assertLeaseResourceValues($resources, 'lease-role', ['collaboration-read-existing']);
+        assertLeaseResourceValues($resources, 'operation-contract', [json_encode($contract, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)]);
+        $parentProof = $common . '/peanut-admin-resource-leases/leases/' . $metadata['parent_lease'];
+        $parent = activeLeaseMetadata($parentProof, time(), $database['lease_gate']);
+        $parentResources = activeLeaseResources($parentProof);
+        if ($parent['parent_lease'] !== '' || $parent['owner'] !== $actor['owner'] || $parent['thread'] !== $actor['thread']
+            || (int) $metadata['expires_at'] > (int) $parent['expires_at']
+            || realpath($parent['candidate_repository']) !== $parent['candidate_repository']
+            || $parent['worktree'] !== $parent['candidate_repository']
+            || leaseGit(['-C', $parent['worktree'], 'rev-parse', '--show-toplevel']) !== $parent['worktree']
+            || leaseGit(['-C', $parent['worktree'], 'rev-parse', '--path-format=absolute', '--git-common-dir']) !== $common
+            || leaseGit(['-C', $parent['worktree'], 'rev-parse', 'HEAD']) !== $parent['candidate']
+            || !in_array($resourceId, $parentResources['resource-id'] ?? [], true)
+            || !in_array($endpoint['endpoint_id'], $parentResources['endpoint'] ?? [], true)) {
+            throw new RuntimeException('COLLABORATION_OBSERVATION_RUNTIME_AUTHORITY_MISMATCH');
+        }
+        foreach (['database' => $name, 'mysql-db' => $name, 'mysql-schema' => $schema,
+            'environment' => 'acceptance', 'registry-sha256' => $registrySha256,
+            'resource-scope' => $database['resource_scope']] as $type => $value) {
+            assertLeaseResourceValues($parentResources, $type, [$value]);
+        }
         if (leaseGit(['-C', $root, 'status', '--porcelain=v1', '--untracked-files=no']) !== '') {
             throw new RuntimeException('COLLABORATION_OBSERVATION_SOURCE_CHANGED');
         }
-        assertNativeMysqlSchemaLease($root, $proof, $metadata, $resources, $resourceId, $schema,
-            (string) $endpoint['endpoint_id'], (string) $registrySha256);
-        return $metadata;
+        // Native producer rechecks both identities and every parent/child lock in
+        // one mutex. Ordinary assertNativeMysqlSchemaLease remains parentless.
+        $process = proc_open(['/bin/bash', $root . '/scripts/project-resource-lease', 'show', '--lease', $metadata['lease'], '--verify-locks'],
+            [1 => ['pipe','w'], 2 => ['pipe','w']], $pipes, $root);
+        if (!is_resource($process)) {
+            throw new RuntimeException('COLLABORATION_OBSERVATION_NATIVE_VERIFIER_UNAVAILABLE');
+        }
+        stream_get_contents($pipes[1]);
+        $error = stream_get_contents($pipes[2]);
+        fclose($pipes[1]); fclose($pipes[2]);
+        if (proc_close($process) !== 0) {
+            throw new RuntimeException('COLLABORATION_OBSERVATION_NATIVE_PROOF_REJECTED: ' . trim((string) $error));
+        }
+        return $metadata + ['runtime_candidate' => $parent['candidate'], 'runtime_worktree' => $parent['worktree']];
     };
     $metadata = $authorize(); // Complete admission before opening any database connection.
     $pdo = null;
@@ -1198,6 +1245,7 @@ SQL;
         $result = ['protocol' => 'peanut.collaboration-runtime-observation.v1', 'operation_environment' => 'acceptance',
             'resource_id' => $resourceId, 'endpoint_id' => $endpoint['endpoint_id'], 'scope' => $database['resource_scope'],
             'candidate' => $actor['candidate'], 'lease' => $metadata['lease'], 'owner' => $actor['owner'], 'thread' => $actor['thread'],
+            'runtime_candidate' => $metadata['runtime_candidate'], 'runtime_worktree' => $metadata['runtime_worktree'],
             'registry_sha256' => $registrySha256, 'identity' => $identity, 'runtime' => $runtime,
             'expected_server_uuid' => null, 'server_uuid_verification' => 'observed_only_no_expected_identity_asserted',
             'credential_permissions' => 'Not asserted SELECT-only; this closed operation executes fixed reads only.',
