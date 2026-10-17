@@ -149,7 +149,7 @@ def validate_configuration(data, server, service_required=True):
     if type(data['config_revision']) is not int or data['config_revision'] < 1 or not IMAGE.fullmatch(data['image']):
         raise ValueError('COLLABORATION_IMAGE_REVISION_INVALID')
     root = Path(data['service_root'])
-    if not root.is_absolute() or root.resolve() != root or root.is_symlink() or not (root / 'scripts/service.py').is_file() or not (root / 'docker/compose.yaml').is_file():
+    if not root.is_absolute() or root.resolve() != root or root.is_symlink() or not (root / 'compose.yaml').is_file():
         raise ValueError('COLLABORATION_INDEPENDENT_SERVICE_REQUIRED')
     if not re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,62}', data['compose_project']) or not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}', data['network']):
         raise ValueError('COLLABORATION_INDEPENDENT_SERVICE_BINDING_INVALID')
@@ -349,30 +349,96 @@ def publish_independent_service(server, data, node, owner):
                     'COLLABORATION_KEY_ID','COLLABORATION_EDITION','COLLABORATION_PHP_ORIGIN','COLLABORATION_CONFIG_REVISION','COLLABORATION_CONFIG_SHA256')
     runtime = {key: node[key] for key in runtime_keys}
     runtime.update(COLLABORATION_PHP_TIMEOUT_MS='20000', COLLABORATION_LISTEN_ADDRESS='0.0.0.0', COLLABORATION_LISTEN_PORT='1234')
-    deployment = {'COMPOSE_PROJECT_NAME': data['compose_project'], 'COLLABORATION_PROGRAM_ROOT': '.',
-                  'COLLABORATION_SECRET_DIRECTORY': 'private/collaboration/service',
-                  'COLLABORATION_RUNTIME_ENV_FILE': 'private/runtime.env', 'COLLABORATION_NETWORK': data['network']}
-    atomic(root / 'private/runtime.env', ''.join(key+'='+str(value)+'\n' for key,value in runtime.items()).encode())
-    atomic(root / 'private/docker.env', ''.join(key+'='+str(value)+'\n' for key,value in deployment.items()).encode())
+    deployment = {'COMPOSE_PROJECT_NAME': data['compose_project'], 'COLLABORATION_NETWORK': data['network']}
+    deployment.update(runtime)
+    atomic(root / '.env', ''.join(key+'='+str(value)+'\n' for key,value in deployment.items()).encode())
 
 
 def service_owner(server, action, receipt=None, original=None):
     values = backend_environment(server)
     root = Path(values.get('COLLABORATION_SERVICE_ROOT', ''))
-    if not root.is_absolute() or root.resolve() != root or root.is_symlink() or not (root / 'scripts/service.py').is_file():
+    if not root.is_absolute() or root.resolve() != root or root.is_symlink() or not (root / 'compose.yaml').is_file():
         raise ValueError('COLLABORATION_INDEPENDENT_SERVICE_REQUIRED')
-    arguments = [sys.executable, str(root / 'scripts/service.py'), action, '--environment', 'private/docker.env']
-    if receipt is not None: arguments += ['--durable-receipt', base64.b64encode(owner_canonical(receipt)).decode()]
-    if original is not None: arguments += ['--original-container', base64.b64encode(owner_canonical(original)).decode()]
-    answer = json.loads(run(server, arguments, timeout=180 if action == 'start' else 40))
-    if answer.get('compose_project') != values.get('COLLABORATION_COMPOSE_PROJECT') or answer.get('compose_working_dir') != str(root / 'docker'):
+    configuration = environment(root / '.env')
+    for path in (root / 'private', root / 'private/collaboration', root / SERVICE_DIRECTORY):
+        if path.is_symlink() or path.resolve() != path or not path.is_dir() or path.stat().st_mode & 0o022:
+            raise ValueError('COLLABORATION_INDEPENDENT_PRIVATE_DIRECTORY_INVALID')
+    expected = {'COMPOSE_PROJECT_NAME': values.get('COLLABORATION_COMPOSE_PROJECT'),
+                'COLLABORATION_INSTANCE_ID': values.get('COLLABORATION_INSTANCE_ID'),
+                'COLLABORATION_SERVICE_INSTANCE_ID': values.get('COLLABORATION_SERVICE_INSTANCE_ID'),
+                'COLLABORATION_CONFIG_REVISION': values.get('COLLABORATION_CONFIG_REVISION'),
+                'COLLABORATION_CONFIG_SHA256': values.get('COLLABORATION_CONFIG_SHA256'),
+                'COLLABORATION_KEY_ID': values.get('COLLABORATION_SERVICE_KEY_ID'),
+                'COLLABORATION_EDITION': values.get('DEPLOYMENT_MODE'),
+                'COLLABORATION_CA_SHA256': values.get('COLLABORATION_CA_SHA256')}
+    if any(not value or configuration.get(key) != value for key, value in expected.items()):
         raise RuntimeError('COLLABORATION_INDEPENDENT_OWNER_UNCONFIRMED')
-    return answer
+    runtime_keys = {'COLLABORATION_PHP_ORIGIN', 'COLLABORATION_PHP_TIMEOUT_MS',
+                    'COLLABORATION_LISTEN_ADDRESS', 'COLLABORATION_LISTEN_PORT', 'COLLABORATION_NETWORK'}
+    if set(configuration) != set(expected) | runtime_keys or not re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,62}', configuration['COMPOSE_PROJECT_NAME']):
+        raise ValueError('COLLABORATION_INDEPENDENT_CONFIGURATION_INVALID')
+    if not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}', configuration['COLLABORATION_NETWORK']):
+        raise ValueError('COLLABORATION_INDEPENDENT_CONFIGURATION_INVALID')
+    if not (root / 'dist/src/main.js').is_file() or not (root / 'node_modules/@hocuspocus/server').is_dir():
+        raise ValueError('COLLABORATION_INDEPENDENT_PROGRAM_NOT_PREPARED')
+    # The APP consumes the same standard Compose file as manual deployments.
+    # Pin its observed .env values for this subprocess so ambient variables cannot
+    # change the application-bound instance while it is being managed.
+    compose_environment = os.environ.copy()
+    compose_environment.update(configuration)
+    arguments = ['docker', 'compose', '--project-directory', str(root),
+                 '--env-file', str(root / '.env'), '-f', str(root / 'compose.yaml')]
+    image = 'node:22.23.2-bookworm-slim@sha256:48e4b67d85f87bd551df43704e24d252f56cc5f8e9718841aace50f19948f0f9'
+
+    def command(parts, timeout=40):
+        return run(server, parts, timeout=timeout, cwd=root, env=compose_environment)
+
+    def inspect():
+        ids = command(arguments + ['ps', '-a', '-q', 'collaboration']).splitlines()
+        if len(ids) != 1:
+            raise RuntimeError('COLLABORATION_CONTAINER_IDENTITY_UNKNOWN')
+        detail = json.loads(command(['docker', 'inspect', '--format', '{{json .}}', ids[0]]))
+        state, labels = detail['State'], detail['Config']['Labels']
+        discovered = command(['docker', 'ps', '-a', '--no-trunc', '--filter',
+                              'label=com.docker.compose.project=' + configuration['COMPOSE_PROJECT_NAME'],
+                              '--filter', 'label=com.docker.compose.service=collaboration', '--format', '{{.ID}}']).splitlines()
+        image_id = command(['docker', 'image', 'inspect', '--format', '{{.Id}}', image]).strip()
+        required = [(str(root), '/srv/peanut-hocuspocus'),
+                    (str(root / 'private/collaboration/service'), '/run/peanut-collaboration')]
+        mounts = [mount for mount in detail['Mounts'] if mount.get('Type') == 'bind']
+        if discovered != ids or detail['Id'] != ids[0] or detail['Image'] != image_id or len(mounts) != 2 or any(not any(m['Source'] == source and m['Destination'] == destination and m['RW'] is False for m in mounts) for source, destination in required):
+            raise RuntimeError('COLLABORATION_CONTAINER_BINDING_UNCONFIRMED')
+        if labels.get('com.docker.compose.project') != configuration['COMPOSE_PROJECT_NAME'] or labels.get('com.docker.compose.service') != 'collaboration' or labels.get('com.docker.compose.project.working_dir') != str(root) or state.get('OOMKilled') is not False or state.get('Paused') is not False or state.get('Restarting') is not False or type(state.get('Running')) is not bool:
+            raise RuntimeError('COLLABORATION_CONTAINER_STATE_UNCONFIRMED')
+        if state['Status'] != ('running' if state['Running'] else 'exited') or not state['Running'] and state.get('ExitCode') != 0:
+            raise RuntimeError('COLLABORATION_CONTAINER_STATE_UNCONFIRMED')
+        return {'id': detail['Id'], 'image_id': image_id, 'compose_project': configuration['COMPOSE_PROJECT_NAME'],
+                'compose_service': 'collaboration', 'compose_working_dir': str(root),
+                'program_mount': {'source': str(root), 'destination': '/srv/peanut-hocuspocus', 'read_only': True},
+                'service_mount': {'source': required[1][0], 'destination': required[1][1], 'read_only': True},
+                'state': state['Status'], 'running': state['Running']}
+
+    command(arguments + ['config', '--quiet'])
+    if action == 'start':
+        command(arguments + ['up', '-d', '--wait', '--no-build', '--no-deps', 'collaboration'], timeout=120)
+        return inspect()
+    before = inspect()
+    if action == 'status':
+        return before
+    if action != 'stop' or original != container_identity(before) or not isinstance(receipt, dict) or set(receipt) != {'protocol', 'drain_id', 'plan_sha256', 'targets_sha256', 'durably_drained', 'room_count'} or receipt.get('protocol') != 2 or receipt.get('durably_drained') is not True or type(receipt.get('room_count')) is not int or receipt['room_count'] < 0:
+        raise ValueError('COLLABORATION_ORIGINAL_DURABLE_DRAIN_REQUIRED')
+    if not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', receipt.get('drain_id', '')) or any(not isinstance(receipt.get(key), str) or not re.fullmatch(r'[a-f0-9]{64}', receipt[key]) for key in ('plan_sha256', 'targets_sha256')):
+        raise ValueError('COLLABORATION_ORIGINAL_DURABLE_DRAIN_REQUIRED')
+    command(arguments + ['stop', '--timeout', '-1', 'collaboration'])
+    after = inspect()
+    if after['running'] or container_identity(after) != original:
+        raise RuntimeError('COLLABORATION_ORIGINAL_STOP_UNCONFIRMED')
+    return after
 
 
-def run(server, arguments, timeout=40):
+def run(server, arguments, timeout=40, cwd=None, env=None):
     try:
-        process = subprocess.run(arguments, cwd=server / 'docker', stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
+        process = subprocess.run(arguments, cwd=cwd or server / 'docker', env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
     except subprocess.TimeoutExpired:
         # The observer cannot confirm native effects; never retry or expose captured output.
         raise RuntimeError('COLLABORATION_NATIVE_COMMAND_UNCONFIRMED') from None
@@ -518,8 +584,8 @@ def disable(server, drain_id, preserve_desired=False, invoke=None, observation=N
     receipt_keys={'protocol','drain_id','plan_sha256','targets_sha256','durably_drained','room_count'}
     if not isinstance(receipt,dict) or set(receipt)!=receipt_keys or receipt['protocol']!=2 or receipt['drain_id']!=drain_id or receipt['plan_sha256']!=plan_sha or receipt['durably_drained'] is not True or type(receipt['room_count']) is not int or receipt['room_count']<0 or any(not isinstance(receipt[key],str) or not re.fullmatch(r'[a-f0-9]{64}',receipt[key]) for key in ('plan_sha256','targets_sha256')):
         raise RuntimeError('COLLABORATION_DRAIN_UNCONFIRMED')
-    # The independent service owns its fixed container; it refuses a stop without
-    # the same durable receipt and original container, and never implicitly kills.
+    # The APP consumes Compose only after confirming the same durable receipt and
+    # original independent container; it never implicitly kills the service.
     after=service_owner(server, 'stop', receipt=receipt, original=owner)
     if after.get('running') is not False or container_identity(after)!=owner:
         raise RuntimeError('COLLABORATION_ORIGINAL_OWNER_CONTAINER_REQUIRED')
