@@ -3632,6 +3632,20 @@
             "source_sha256": "83f04c3ebc5dba91e3554fbdbd1cdac4305cefb87167e96c4ddb7b14b727f983"
         },
         {
+            "path": "scripts/project-resource-mysql-metadata",
+            "target": "scripts/project-resource-mysql-metadata",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "eca0f350907a2ef269dcd1e762d82e9d2cc3e61a1e9d5e918dd17313ae6e30e0"
+        },
+        {
             "path": "scripts/project-resource-registry",
             "target": "scripts/project-resource-registry",
             "classification": "managed",
