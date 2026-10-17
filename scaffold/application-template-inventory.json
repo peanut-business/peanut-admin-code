@@ -2333,7 +2333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4fb84859b460d60b153b7f5c773dd134fe830adf9c251377383e71671c83c1a5"
+            "source_sha256": "d6babd45e0f3c4a746b8af88439b7520609e3631fba2a5c33c9ff9530a958dad"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2526,7 +2526,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3e270743630649c0a0cebc64702ba6355080eac4847092d4f1e526b3b88af1ad"
+            "source_sha256": "b91a3aec135ce9044195462993385821b664dfbb807ea17cfffa0420499d0fe3"
         },
         {
             "path": "plugins/official.oauth/plugin.json",
@@ -17701,7 +17701,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fc36e6d7975cb188aa59decdc38bc880e511da4b7a1536b47484429a91ef5cd0"
+            "source_sha256": "a1c03ef8d082e159b537074e55922bbc8eb748b66207af15c81731d46a02b2d5"
         },
         {
             "path": "server/app/modules/official/notification/src/Contract/VerificationCodeCommands.php",

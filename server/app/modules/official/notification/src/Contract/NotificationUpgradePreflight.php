@@ -282,7 +282,7 @@ final readonly class NotificationUpgradePreflight
         }
         foreach (self::readRows($pdo, "SELECT t.CONSTRAINT_NAME,c.CHECK_CLAUSE,t.ENFORCED FROM information_schema.TABLE_CONSTRAINTS t JOIN information_schema.CHECK_CONSTRAINTS c ON c.CONSTRAINT_SCHEMA=t.CONSTRAINT_SCHEMA AND c.CONSTRAINT_NAME=t.CONSTRAINT_NAME WHERE t.TABLE_SCHEMA=DATABASE() AND t.TABLE_NAME=? AND t.CONSTRAINT_TYPE='CHECK'", [$table]) as $row) {
             if ($row['ENFORCED'] !== 'YES') { throw new \RuntimeException('NOTIFICATION_FORWARD_CHECK_UNENFORCED'); }
-            $schema['checks'][$row['CONSTRAINT_NAME']] = $owned ? self::expression($row['CHECK_CLAUSE']) : $row['CHECK_CLAUSE'];
+            $schema['checks'][$row['CONSTRAINT_NAME']] = $owned ? self::expression($row['CHECK_CLAUSE'], true) : $row['CHECK_CLAUSE'];
         }
         if (self::readRows($pdo, 'SELECT TRIGGER_NAME FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND EVENT_OBJECT_TABLE=?', [$table]) !== []) { throw new \RuntimeException('NOTIFICATION_FORWARD_TRIGGER_UNKNOWN'); }
         return $schema;
@@ -303,8 +303,14 @@ final readonly class NotificationUpgradePreflight
         return json_encode($sort($value), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
-    private static function expression(string $sql): array
+    private static function expression(string $sql, bool $metadata = false): array
     {
+        // MySQL CHECK_CLAUSE can escape literal delimiters and double backslashes.
+        // Decode that metadata rendering once; the complete expression must still
+        // parse and equal the immutable migration's expression tree below.
+        if ($metadata && str_contains($sql, "\\'")) {
+            $sql = strtr($sql, ["\\\\" => "\\", "\\'" => "'"]);
+        }
         $tokens = []; $offset = 0;
         while ($offset < strlen($sql)) {
             if (preg_match('/\G\s+/A', $sql, $m, 0, $offset)) { $offset += strlen($m[0]); continue; }
