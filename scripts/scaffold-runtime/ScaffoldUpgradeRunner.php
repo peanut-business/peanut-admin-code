@@ -13,6 +13,7 @@ use app\platform\exception\plugin\PluginLifecycleException;
 use app\platform\infrastructure\plugin\PluginLockResolver;
 use app\platform\infrastructure\plugin\PluginArtifactWriter;
 use app\platform\validation\module\StrictVersionConstraintMatcher;
+use app\platform\validation\module\OpisManifestSchemaValidator;
 use app\platform\validation\plugin\ModulePackagePreflight;
 use RuntimeException;
 use Throwable;
@@ -1932,7 +1933,7 @@ final class ScaffoldUpgradeRunner
             $built = $writer->lock();
             $this->writeFileAtomic($stage . '/plugins.lock', $built['contents'], 0644);
             $projection = $this->pluginProjection($stage, sourceApplication: false);
-            $preflight = new ModulePackagePreflight($stage);
+            $preflight = new ModulePackagePreflight($stage, $this->targetModuleSchemaValidator($release, $stage));
             $modules = [];
             foreach ($projection['plugins'] as $key => $plugin) {
                 foreach ($plugin['module_keys'] as $moduleKey) {
@@ -1986,6 +1987,95 @@ final class ScaffoldUpgradeRunner
         } finally {
             $this->removePluginProjectionStage($stage);
         }
+    }
+
+    /**
+     * Bootstrap target validation from authenticated data, without loading target PHP.
+     * The whole projected graph (including retained customer Modules) uses this schema.
+     */
+    private function targetModuleSchemaValidator(ScaffoldManifest $release, string $stage): OpisManifestSchemaValidator
+    {
+        $files = $release->files();
+        $read = static function (string $path) use ($release, $files): string {
+            $file = $files[$path] ?? null;
+            if (!is_array($file) || ($file['policy'] ?? null) !== 'managed') {
+                throw new RuntimeException('SCAFFOLD_TARGET_MODULE_SCHEMA_INPUT_MISSING: ' . $path);
+            }
+            $raw = file_get_contents($release->artifactPath($file));
+            if (!is_string($raw) || !hash_equals($file['template_sha256'], hash('sha256', $raw))) {
+                throw new RuntimeException('SCAFFOLD_ARTIFACT_DIGEST_MISMATCH: ' . $path);
+            }
+            return $raw;
+        };
+        $versions = $this->normalizeVersionContractDocument($read('release-versions.json'), 'SCAFFOLD_TARGET_MODULE_SCHEMA_VERSION_INVALID');
+        $lock = json_decode($read('server/composer.lock'), true, 512, JSON_THROW_ON_ERROR);
+        $cores = array_values(array_filter($lock['packages'] ?? [], static fn(array $package): bool => ($package['name'] ?? null) === 'peanut-admin/core'));
+        $identity = $versions['core_php'];
+        $version = is_array($identity) ? $identity['resolved_version'] : $identity;
+        $core = count($cores) === 1 ? $cores[0] : null;
+        $reference = $core['source']['reference'] ?? null;
+        if ($versions['source_product_version'] !== $release->version()
+            || !is_array($core) || ($core['version'] ?? null) !== $version
+            || !is_string($reference) || preg_match('/^[a-f0-9]{40}$/D', $reference) !== 1
+            || ($core['source']['type'] ?? null) !== 'git'
+            || (is_array($identity) && (($identity['source_reference'] ?? null) !== $reference
+                || ($identity['source_url'] ?? null) !== ($core['source']['url'] ?? null)))) {
+            throw new RuntimeException('SCAFFOLD_TARGET_MODULE_SCHEMA_CORE_IDENTITY_INVALID');
+        }
+
+        $url = $core['dist']['url'] ?? '';
+        if (is_string($url) && str_starts_with($url, '../packages/core-php/')) {
+            $archivePath = substr($url, 3);
+            if ($archivePath !== 'packages/core-php/peanut-admin-core-' . $version . '.zip'
+                || ($core['dist']['type'] ?? null) !== 'zip'
+                || ($core['dist']['reference'] ?? null) !== $reference
+                || !is_string($core['dist']['shasum'] ?? null)
+                || preg_match('/^[a-f0-9]{40}$/D', $core['dist']['shasum']) !== 1) {
+                throw new RuntimeException('SCAFFOLD_TARGET_MODULE_SCHEMA_ARCHIVE_IDENTITY_INVALID');
+            }
+            // Read and hash before opening the archive; never extract or autoload it.
+            $archiveBytes = $read($archivePath);
+            if (!hash_equals($core['dist']['shasum'], sha1($archiveBytes))) {
+                throw new RuntimeException('SCAFFOLD_TARGET_MODULE_SCHEMA_ARCHIVE_DIGEST_MISMATCH');
+            }
+            $archive = new \PharData($release->artifactPath($files[$archivePath]));
+            $entry = static function (string $path) use ($archive): string {
+                if (!isset($archive[$path]) || !$archive[$path]->isFile() || $archive[$path]->isLink()
+                    || $archive[$path]->getSize() > 1048576) {
+                    throw new RuntimeException('SCAFFOLD_TARGET_MODULE_SCHEMA_ARCHIVE_ENTRY_INVALID: ' . $path);
+                }
+                return $archive[$path]->getContent();
+            };
+            $composer = json_decode($entry('core/composer.json'), true, 512, JSON_THROW_ON_ERROR);
+            if (($composer['name'] ?? null) !== 'peanut-admin/core'
+                || ($composer['autoload']['psr-4']['PeanutAdmin\\Kernel\\'] ?? null) !== 'kernel/src/'
+                || (isset($composer['version']) && $composer['version'] !== $version)) {
+                throw new RuntimeException('SCAFFOLD_TARGET_MODULE_SCHEMA_ARCHIVE_PACKAGE_INVALID');
+            }
+            $schema = $entry('core/kernel/resources/schemas/module-manifest.schema.json');
+            if (!hash_equals(hash('sha256', $archiveBytes), hash_file('sha256', $release->artifactPath($files[$archivePath])))) {
+                throw new RuntimeException('SCAFFOLD_TARGET_MODULE_SCHEMA_ARCHIVE_CHANGED');
+            }
+        } else {
+            // Registry releases can use the running validator only for that exact Core.
+            if (!\Composer\InstalledVersions::isInstalled('peanut-admin/core')
+                || ltrim((string) \Composer\InstalledVersions::getPrettyVersion('peanut-admin/core'), 'v') !== $version
+                || \Composer\InstalledVersions::getReference('peanut-admin/core') !== $reference) {
+                throw new RuntimeException('SCAFFOLD_TARGET_MODULE_SCHEMA_UNAVAILABLE: target Core archive or exact installed Core required');
+            }
+            $kernelRoot = dirname((new \ReflectionClass(\PeanutAdmin\Kernel\Module\ModuleProvider::class))->getFileName(), 3);
+            $installedRoot = realpath((string) \Composer\InstalledVersions::getInstallPath('peanut-admin/core'));
+            if ($installedRoot === false || realpath(dirname($kernelRoot)) !== $installedRoot) {
+                throw new RuntimeException('SCAFFOLD_TARGET_MODULE_SCHEMA_INSTALLED_IDENTITY_INVALID');
+            }
+            $schema = file_get_contents($kernelRoot . '/resources/schemas/module-manifest.schema.json');
+        }
+        if (!is_string($schema) || !is_object(json_decode($schema, false, 512, JSON_THROW_ON_ERROR))) {
+            throw new RuntimeException('SCAFFOLD_TARGET_MODULE_SCHEMA_INVALID');
+        }
+        $schemaPath = $stage . '/target-module-manifest.schema.json';
+        $this->writeFileAtomic($schemaPath, $schema, 0600);
+        return new OpisManifestSchemaValidator($schemaPath);
     }
 
     /**

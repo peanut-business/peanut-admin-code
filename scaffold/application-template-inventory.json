@@ -3809,7 +3809,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6bd84742b53cdba5eba8ae479a5434c2bb6b1f3d4e9c03be3a480a80b17ff47a"
+            "source_sha256": "6a42509a27d10da38582cec774081e24a8e233905a3244275eb09e0b0147dcdf"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",
@@ -25507,7 +25507,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7b8ee80289bb69fba3e1e9821fb9c22e60d6830223ddf9ad56c968982e43681a"
+            "source_sha256": "ba6321b9262d32e772818a566631d72507e568d56d3a009f8b6032b919fbb5c2"
         },
         {
             "path": "server/app/platform/validation/plugin/PluginReleaseCompositionGuard.php",

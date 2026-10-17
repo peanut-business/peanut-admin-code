@@ -11,6 +11,7 @@ use app\platform\validation\module\StrictVersionConstraintMatcher;
 use app\platform\value\plugin\ModuleFrontendLayout;
 use PeanutAdmin\Kernel\Module\ManifestDocument;
 use PeanutAdmin\Kernel\Module\ManifestLoader;
+use PeanutAdmin\Kernel\Module\ManifestSchemaValidator;
 use PeanutAdmin\Kernel\Module\ModuleHostLayout;
 use PeanutAdmin\Kernel\Module\ModuleKey;
 
@@ -18,10 +19,12 @@ use PeanutAdmin\Kernel\Module\ModuleKey;
 final readonly class ModulePackagePreflight
 {
     private ModuleHostLayout $layout;
+    private ManifestSchemaValidator $manifestValidator;
 
-    public function __construct(private string $projectRoot)
+    public function __construct(private string $projectRoot, ?ManifestSchemaValidator $manifestValidator = null)
     {
         $this->layout = ModuleHostLayoutFactory::pathLayout();
+        $this->manifestValidator = $manifestValidator ?? new OpisManifestSchemaValidator($this->moduleSchema());
     }
 
     /**
@@ -42,7 +45,7 @@ final readonly class ModulePackagePreflight
         $backendRoot = $this->projectRoot . '/' . $backendRelative;
         try {
             $manifest = (new ManifestLoader())->load($backendRoot);
-            (new OpisManifestSchemaValidator($this->moduleSchema()))->assertValid($manifest->object);
+            $this->manifestValidator->assertValid($manifest->object);
         } catch (\Throwable $exception) {
             throw new PluginPackageException('MODULE_PACKAGE_MANIFEST_INVALID', 'Module manifest validation failed.', 0, $exception);
         }
