@@ -349,9 +349,9 @@ def publish_independent_service(server, data, node, owner):
                     'COLLABORATION_KEY_ID','COLLABORATION_EDITION','COLLABORATION_PHP_ORIGIN','COLLABORATION_CONFIG_REVISION','COLLABORATION_CONFIG_SHA256')
     runtime = {key: node[key] for key in runtime_keys}
     runtime.update(COLLABORATION_PHP_TIMEOUT_MS='20000', COLLABORATION_LISTEN_ADDRESS='0.0.0.0', COLLABORATION_LISTEN_PORT='1234')
-    deployment = {'COMPOSE_PROJECT_NAME': data['compose_project'], 'COLLABORATION_PROGRAM_ROOT': str(root),
-                  'COLLABORATION_SECRET_DIRECTORY': str(root / 'private/collaboration/service'),
-                  'COLLABORATION_RUNTIME_ENV_FILE': str(root / 'private/runtime.env'), 'COLLABORATION_NETWORK': data['network']}
+    deployment = {'COMPOSE_PROJECT_NAME': data['compose_project'], 'COLLABORATION_PROGRAM_ROOT': '.',
+                  'COLLABORATION_SECRET_DIRECTORY': 'private/collaboration/service',
+                  'COLLABORATION_RUNTIME_ENV_FILE': 'private/runtime.env', 'COLLABORATION_NETWORK': data['network']}
     atomic(root / 'private/runtime.env', ''.join(key+'='+str(value)+'\n' for key,value in runtime.items()).encode())
     atomic(root / 'private/docker.env', ''.join(key+'='+str(value)+'\n' for key,value in deployment.items()).encode())
 
@@ -361,7 +361,7 @@ def service_owner(server, action, receipt=None, original=None):
     root = Path(values.get('COLLABORATION_SERVICE_ROOT', ''))
     if not root.is_absolute() or root.resolve() != root or root.is_symlink() or not (root / 'scripts/service.py').is_file():
         raise ValueError('COLLABORATION_INDEPENDENT_SERVICE_REQUIRED')
-    arguments = [sys.executable, str(root / 'scripts/service.py'), action, '--environment', str(root / 'private/docker.env')]
+    arguments = [sys.executable, str(root / 'scripts/service.py'), action, '--environment', 'private/docker.env']
     if receipt is not None: arguments += ['--durable-receipt', base64.b64encode(owner_canonical(receipt)).decode()]
     if original is not None: arguments += ['--original-container', base64.b64encode(owner_canonical(original)).decode()]
     answer = json.loads(run(server, arguments, timeout=180 if action == 'start' else 40))
