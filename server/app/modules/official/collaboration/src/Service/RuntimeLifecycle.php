@@ -90,7 +90,7 @@ final readonly class RuntimeLifecycle
         if (!in_array($row->phase, ['active','draining'], true) || ($plan['candidate']['holder_key'] ?? null) !== $holder
             || !isset($plan['activation'])) throw new \DomainException('COLLABORATION_STORE_CUSTODY_CHANGED');
     }
-    public function readiness(): array
+    public function readiness(bool $allowUnprepared = false): array
     {
         $c = $this->configuration;
         if (($c['enabled'] ?? false) !== true || ($c['config_revision'] ?? 0) < 1
@@ -119,6 +119,7 @@ final readonly class RuntimeLifecycle
         }
         $row = $this->query()->find();
         if ($row === null) {
+            if ($allowUnprepared) return $this->identity() + ['native_protocol' => 2,'phase' => 'unprepared','php_ready' => true];
             throw new \DomainException('COLLABORATION_RUNTIME_NOT_PREPARED');
         }
         $this->bound($row);
@@ -174,7 +175,7 @@ final readonly class RuntimeLifecycle
         }
         $keys = array_keys($body); sort($keys);
         $expected = match ($stage) {
-            'paired_probe' => ['config_revision','config_sha256','edition','full','instance_id','probe_id','projector_version','service_instance_id','stage'],
+            'paired_probe', 'paired_start' => ['config_revision','config_sha256','edition','full','instance_id','probe_id','projector_version','service_instance_id','stage'],
             'activation_state' => ['activation_id','probe_id','stage'],
             'drain_state' => ['drain_id','plan_sha256','probe_id','stage'],
             default => [],
@@ -182,24 +183,34 @@ final readonly class RuntimeLifecycle
         if ($keys !== $expected || preg_match('/^[A-Za-z0-9_-]{1,128}$/D', $body['probe_id'] ?? '') !== 1) {
             throw new \DomainException('COLLABORATION_LIFECYCLE_INPUT_INVALID');
         }
-        if ($stage === 'paired_probe') {
+        if (in_array($stage, ['paired_probe','paired_start'], true)) {
             foreach ($this->identity() as $key => $value) {
                 if (($body[$key] ?? null) !== $value) throw new \DomainException('COLLABORATION_CONFIGURATION_STALE');
             }
             if (!is_bool($body['full'])) throw new \DomainException('COLLABORATION_LIFECYCLE_INPUT_INVALID');
             $observed = $this->query()->find();
-            if ($observed === null) throw new \DomainException('COLLABORATION_RUNTIME_NOT_PREPARED');
-            $observedPlan = $this->plan($observed);
-            if ($body['full'] || ($observedPlan['registry_revision'] ?? null) !== $this->registry->revision
-                || ($observedPlan['candidate']['holder_key'] ?? null) !== $holder) $this->readiness();
+            if ($observed === null && $stage !== 'paired_start') throw new \DomainException('COLLABORATION_RUNTIME_NOT_PREPARED');
+            $observedPlan = $observed === null ? [] : $this->plan($observed);
+            if ($observed === null || $body['full'] || ($observedPlan['registry_revision'] ?? null) !== $this->registry->revision
+                || ($observedPlan['candidate']['holder_key'] ?? null) !== $holder) $this->readiness($stage === 'paired_start');
         }
         return $this->instance(fn(): array => Db::transaction(function () use ($body, $holder, $stage): array {
             $row = $this->query()->lock(true)->find();
+            if ($row === null && $stage === 'paired_start') {
+                // Only the authenticated, exact configured service may prepare a
+                // fresh instance. A concurrent insert remains fenced by its unique key.
+                $this->assertExpiredCustody();
+                $row = CollaborationRuntimeState::create([
+                    'instance_id' => $this->configuration['instance_id'],'edition' => $this->edition,
+                    'config_revision' => $this->configuration['config_revision'],'config_sha256' => $this->configuration['config_sha256'],
+                    'phase' => 'prepared','drain_id' => null,'plan_json' => null,'receipt_json' => null,'updated_at' => gmdate('Y-m-d H:i:s'),
+                ]);
+            }
             if ($row === null) throw new \DomainException('COLLABORATION_RUNTIME_NOT_PREPARED');
             $this->bound($row);
             $plan = $this->plan($row);
             $now = (int) floor(microtime(true) * 1000);
-            if ($stage === 'paired_probe') {
+            if (in_array($stage, ['paired_probe','paired_start'], true)) {
                 $candidate = $this->identity() + ['holder_key' => $holder,'probe_id' => $body['probe_id']];
                 if (self::hash($plan['candidate'] ?? []) !== self::hash($candidate)) {
                     if (!in_array($row->phase, ['prepared','active'], true) || isset($plan['drain'])
@@ -209,6 +220,15 @@ final readonly class RuntimeLifecycle
                     $row->phase = 'prepared';
                 }
                 if (!in_array($row->phase, ['prepared','active','draining','durably_drained'], true)) throw new \DomainException('COLLABORATION_RUNTIME_STOPPED');
+                if ($stage === 'paired_start' && $row->phase === 'prepared') {
+                    // Never clear an original drain, adopt another live holder,
+                    // or turn an unresolved business operation into a fresh start.
+                    if ($row->drain_id !== null || isset($plan['drain'])) throw new \DomainException('COLLABORATION_ORIGINAL_DRAIN_REQUIRED');
+                    $this->assertExpiredCustody();
+                    $activationId = $body['probe_id'];
+                    $plan['activation'] = ['activation_id' => $activationId,'input_sha256' => self::hash($candidate + ['activation_id' => $activationId])];
+                    $row->phase = 'active';
+                }
                 $plan['process_lease_expires_at_ms'] = $now + $this->configuration['room_lease_seconds'] * 1000;
                 $plan['registry_revision'] = $this->registry->revision;
                 $row->save(['phase' => $row->phase,'plan_json' => json_encode($plan, JSON_THROW_ON_ERROR),'updated_at' => gmdate('Y-m-d H:i:s')]);
@@ -482,7 +502,7 @@ final readonly class RuntimeLifecycle
             || !is_string($working) || strlen($working) > 4096 || !str_starts_with($working, '/') || !str_ends_with($working, '/docker')
             || str_contains($working, "\0") || str_contains($working, '//') || preg_match('~/(?:\.|\.\.)(?:/|$)~D', $working)
             || $mountKeys !== ['destination','read_only','source'] || ($mount['destination'] ?? null) !== '/run/peanut-collaboration'
-            || ($mount['read_only'] ?? null) !== true || ($mount['source'] ?? null) !== substr($working, 0, -7) . '/private/collaboration/service'
+            || ($mount['read_only'] ?? null) !== true || ($mount['source'] ?? null) !== substr($working, 0, -7) . '/certs'
             || $programKeys !== ['destination','read_only','source'] || ($program['destination'] ?? null) !== '/srv/peanut-hocuspocus'
             || ($program['read_only'] ?? null) !== true || ($program['source'] ?? null) !== substr($working, 0, -7)) {
             throw new \DomainException('COLLABORATION_OWNER_CONTAINER_INVALID');

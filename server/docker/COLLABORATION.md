@@ -4,7 +4,7 @@ The default `compose.yaml` remains PHP, Nginx and MySQL. The optional
 `compose.collaboration.yaml` overlay owns only the application's TLS/WSS ingress.
 The sibling `peanut-hocuspocus` project owns the complete Node service source,
 locked dependencies, fixed runtime image, readonly program mount and independent
-Docker start/status/stop entry. It accesses this application solely through its
+`docker/compose.yaml` and `docker/.env` configuration. It accesses this application solely through its
 authenticated HTTPS APIs; no PHP/frontend source or database is mounted into Node.
 No configure command builds or pulls images.
 
@@ -22,10 +22,20 @@ disable/new-revision enable chain, not an implicit repair or second configuratio
 
 Use `collaboration-configuration.example.json` as the non-secret input. Its
 `service_root`, `compose_project` and `network` explicitly bind the independent
-service and registered interface network. The service's `scripts/service.py`
-consumes its own private environment and Docker configuration. The APP's native
-configuration entry is a thin lifecycle consumer: PHP still authorizes activation
-and confirms durable drain; the independent service alone operates its container.
+service and registered interface network. The independent service uses ordinary
+`docker compose up -d`, `docker compose ps` and `docker compose logs` commands
+from its `docker/` directory. Its `docker/.env.example` documents all configuration fields;
+program and key directory mounts use fixed repository-relative paths in Compose.
+There is no service-side Python wrapper or separate docker/runtime environment file.
+The deployment owner first copies that template to `docker/.env` (0600) and
+assigns `COLLABORATION_PORT` to an explicitly approved host port. The container
+always listens on the locked Hocuspocus default port 80; the host port maps to 80
+without changing the application's `collaboration:80` upstream. No configure
+command chooses a host port or switches network targets automatically.
+The APP's native configuration entry publishes that same `docker/.env` and consumes that
+same Compose file. PHP still authorizes activation and confirms durable drain;
+the APP verifies the independent container and original durable receipt before
+issuing its native Compose stop and confirming the signed stop proof.
 Select
 exact instance/Edition/service/key identity, the next configuration revision,
 private PHP and Node HTTPS origins on container-only port 8443, the WSS hostname
@@ -41,8 +51,19 @@ access; HTTP still has a readonly program mount. No command creates a CA or
 changes host/browser trust. Clients must trust the registered CA normally.
 Enable places the verified public CA at `private/collaboration/service/ca.pem`
 (0644). This directory contains exactly the service key and public CA, and is
-bound readonly as `/run/peanut-collaboration` for Node. PHP uses the same canonical
-key and CA; the ticket key remains outside Node's mount.
+used by PHP. The independent service receives only the service key and public CA
+in its own repository's sibling `certs/` directory, bound readonly as
+`/run/peanut-collaboration` for Node; the ticket key remains outside Node's mount.
+The service has no document data volume: persistence stays in the application's
+existing database and local directory mounts through its API, with no Node-side copy.
+
+The independent service's Compose working directory is `<service_root>/docker`,
+with the readonly program mount source equal to `<service_root>`. The stop proof
+binds the key directory to `<service_root>/certs`. Before
+adopting this source layout for an existing instance, finish its original drain
+and stop under its original owner; do not reinterpret an unresolved old container
+proof or restart it to manufacture a new identity. Historical instance files and
+fixed proofs remain untouched until that normal deployment handoff.
 
 An already prepared instance with the former flat key/CA layout must first close
 HTTP admission and stop its own Node/PHP/Nginx through the existing owner chain.
@@ -79,6 +100,22 @@ health. Continue disable with that same drain id. Without collaboration it retai
 the original three-service behavior, including guided first installation.
 Readiness identifies `durability_dependency=mysql` and the File reference/reservation
 ledger prerequisite. It proves no external object-storage connectivity.
+
+The independent service can also start directly with `cd docker && docker compose up -d`.
+Its existing signed lifecycle API now accepts `paired_start`: the configured service
+validates the installed modules, durable schema, exact instance/configuration and
+current process custody before the backend atomically prepares and activates that
+process. The returned activation is reused by the same holder/probe; a concurrent
+or expired foreign holder still requires the existing custody checks. The Node
+consumer verifies the signed response and lease before opening admission. This
+handshake does not store a document or create a new save request.
+
+An outstanding drain or a stopped instance is never silently reset by this API.
+Original business operations, capture identities and retry limits remain intact.
+Backend unavailability keeps new admission closed when the process lease cannot
+be confirmed; pending content is not represented as durably saved. The APP's
+deployment start remains an optional application deployment operation, not a
+prerequisite that a standalone service must invoke or use to recreate PHP.
 
 All responses use `peanut.collaboration.lifecycle.v1`; status without probe is
 `not_probed`. No public plan/status contains secrets, URLs or shell commands.

@@ -15,7 +15,7 @@ server {
         fastcgi_pass php:9000;
     }
     location ~ ^/internal/collaboration/(?:control/v1/business-barrier|operator/v1/lifecycle)$ {
-        proxy_pass http://collaboration:1234;
+        proxy_pass http://collaboration:80;
         proxy_read_timeout 45s;
         proxy_set_header Cookie "";
         proxy_set_header Authorization "";
@@ -32,7 +32,7 @@ server {
     location ^~ /adminapi/ { return 404; }
     if ($host != ${COLLABORATION_WSS_HOSTNAME}) { return 421; }
     location ~ ^/collaboration/?$ {
-        proxy_pass http://collaboration:1234;
+        proxy_pass http://collaboration:80;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
