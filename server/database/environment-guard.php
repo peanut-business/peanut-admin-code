@@ -1054,6 +1054,224 @@ function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null)
     ];
 }
 
+/**
+ * Closed acceptance observation of persisted collaboration metadata, not a runtime
+ * deployment target or a general SQL interface. The caller must bind independently
+ * known identities in its own native lease; a discovered instance cannot authorize
+ * the subsequent room queries. No connection, SQL callback or transaction escapes.
+ *
+ * @param array{owner:string,thread:string,candidate:string,instance_id:?string,service_instance_id:?string} $actor
+ * @return array<string,mixed>
+ */
+function observeRegisteredCollaborationRuntime(array $actor): array
+{
+    $keys = array_keys($actor);
+    sort($keys, SORT_STRING);
+    if (PHP_SAPI !== 'cli'
+        || $keys !== ['candidate', 'instance_id', 'owner', 'service_instance_id', 'thread']
+        || !is_string($actor['owner']) || $actor['owner'] === ''
+        || !is_string($actor['thread']) || $actor['thread'] === ''
+        || !is_string($actor['candidate']) || preg_match('/^[a-f0-9]{40}$/D', $actor['candidate']) !== 1) {
+        throw new RuntimeException('COLLABORATION_OBSERVATION_ACTOR_INVALID');
+    }
+    $confirmed = $actor['instance_id'] !== null && $actor['service_instance_id'] !== null;
+    foreach (['instance_id', 'service_instance_id'] as $key) {
+        if (($actor[$key] !== null && (!is_string($actor[$key])
+                || preg_match('/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/D', $actor[$key]) !== 1))
+            || (($actor[$key] !== null) !== $confirmed)) {
+            throw new RuntimeException('COLLABORATION_OBSERVATION_INSTANCE_BINDING_INVALID');
+        }
+    }
+    $root = (string) realpath(dirname(__DIR__, 2));
+    $registry = projectResourceRegistry($registrySha256);
+    $resourceId = requiredEnvironment('PEANUT_DATABASE_RESOURCE_ID');
+    $database = registeredDatabase($registry, $resourceId);
+    $endpoint = registeredDatabaseEndpoint($database, 'host');
+    $name = requiredEnvironment('DB_NAME');
+    if (($registry['authority']['role'] ?? null) !== 'maintainer'
+        || !in_array('acceptance', $database['environments'] ?? [], true)
+        || ($database['application_runtime'] ?? null) !== true
+        || ($database['service_type'] ?? null) !== 'mysql' || ($database['fallback'] ?? null) !== 'none'
+        || ($database['version'] ?? null) !== '8.4.10'
+        || !is_string($database['credential_ref'] ?? null) || $database['credential_ref'] === ''
+        || !in_array($name, $database['synthetic_databases']['standalone'] ?? [], true)
+        || preg_match('/^[A-Za-z0-9_]{1,64}$/D', $name) !== 1
+        || !is_string($database['resource_scope'] ?? null) || $database['resource_scope'] === ''
+        || !is_string($database['lease_gate'] ?? null) || $database['lease_gate'] === ''
+        || isset($database['lease_policy']['shared_access'])
+        || requiredEnvironment('APP_ENV') !== 'development'
+        || requiredEnvironment('PEANUT_DEPLOYMENT_TARGET') !== 'local-development'
+        || requiredEnvironment('DEPLOYMENT_MODE') !== 'standalone'
+        || requiredEnvironment('PEANUT_DATABASE_CONSUMER') !== 'host'
+        || requiredEnvironment('PEANUT_DATABASE_ENDPOINT_ID') !== (string) $endpoint['endpoint_id']
+        || requiredEnvironment('DB_HOST') !== (string) $endpoint['host']
+        || requiredEnvironment('DB_PORT') !== (string) $endpoint['port']) {
+        throw new RuntimeException('COLLABORATION_OBSERVATION_REGISTERED_TARGET_INVALID');
+    }
+    $config = ['host' => (string) $endpoint['host'], 'port' => (string) $endpoint['port'],
+        'database' => $name, 'user' => requiredEnvironment('DB_USER'), 'password' => requiredEnvironment('DB_PASS')];
+    $schema = mysqlSchemaLeaseResource($database, $endpoint, $config);
+    if ($schema === null) {
+        throw new RuntimeException('COLLABORATION_OBSERVATION_SCHEMA_POLICY_REQUIRED');
+    }
+    $proof = requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
+    $authorize = static function () use ($root, $proof, $actor, $database, $endpoint, $resourceId, $schema, $registrySha256, $name): array {
+        $metadata = activeLeaseMetadata($proof, time(), $database['lease_gate']);
+        $resources = activeLeaseResources($proof);
+        foreach (['owner', 'thread', 'candidate'] as $key) {
+            if ($metadata[$key] !== $actor[$key]) {
+                throw new RuntimeException('COLLABORATION_OBSERVATION_NATIVE_ACTOR_MISMATCH');
+            }
+        }
+        foreach (['database' => $name, 'mysql-db' => $name, 'resource-id' => $resourceId,
+            'environment' => 'acceptance', 'consumer' => 'host', 'resource-scope' => $database['resource_scope'],
+            'operation' => 'collaboration-runtime-read-existing', 'credential-ref' => $database['credential_ref'],
+            'observation-instance' => $actor['instance_id'] ?? 'unconfirmed',
+            'observation-service' => $actor['service_instance_id'] ?? 'unconfirmed'] as $type => $value) {
+            assertLeaseResourceValues($resources, $type, [$value]);
+        }
+        assertLeaseResourceValues($resources, 'candidate-tree', [leaseGit(['-C', $root, 'rev-parse', 'HEAD^{tree}'])]);
+        if (leaseGit(['-C', $root, 'status', '--porcelain=v1', '--untracked-files=no']) !== '') {
+            throw new RuntimeException('COLLABORATION_OBSERVATION_SOURCE_CHANGED');
+        }
+        assertNativeMysqlSchemaLease($root, $proof, $metadata, $resources, $resourceId, $schema,
+            (string) $endpoint['endpoint_id'], (string) $registrySha256);
+        return $metadata;
+    };
+    $metadata = $authorize(); // Complete admission before opening any database connection.
+    $pdo = null;
+    try {
+        $pdo = guardedConnection($config);
+        $pdo->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+        $pdo->exec('START TRANSACTION WITH CONSISTENT SNAPSHOT, READ ONLY');
+        $identity = $pdo->query('SELECT DATABASE() AS database_name,@@server_uuid AS server_uuid,@@version AS version,UTC_TIMESTAMP(3) AS observed_at')->fetch(PDO::FETCH_ASSOC);
+        if (!is_array($identity) || $identity['database_name'] !== $name
+            || !is_string($identity['server_uuid'])
+            || preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D', $identity['server_uuid']) !== 1
+            || $identity['version'] !== $database['version']) {
+            throw new RuntimeException('COLLABORATION_OBSERVATION_DATABASE_IDENTITY_MISMATCH');
+        }
+        // All identifiers and expressions below are source constants; only values bind.
+        $columns = [
+            'pa_collaboration_runtime' => ['instance_id','edition','phase','config_revision','config_sha256','drain_id','updated_at','plan_json','receipt_json'],
+            'pa_collaboration_room' => ['id','tenant_id','document_id','instance_id','edition','protocol_version','room_key','service_instance_id','holder_key','lease_epoch','lease_expires_at','status','accepted_through','persisted_through','pending_update_count','persisted_state_seq','baseline_sha256','last_target_progress','last_store_id','last_store_sha256','updated_at'],
+            'pa_collaboration_barrier' => ['room_id','tenant_id','barrier_key','lease_epoch','status','created_at','expires_at','released_at','committed_state_seq','business_sha256','business_plan_json','drained_receipt_json','business_result_json'],
+            'pa_document_operation' => ['tenant_id','document_id','operation_id','action','phase','input_sha256','business_sha256','created_at','released_at','result_json'],
+        ];
+        $schemaEvidence = [];
+        $checkColumns = static function (string $table) use ($pdo, $columns, $name, &$schemaEvidence): void {
+            $wanted = $columns[$table];
+            $query = $pdo->prepare('SELECT COLUMN_NAME,DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=? AND TABLE_NAME=? AND COLUMN_NAME IN (' . implode(',', array_fill(0, count($wanted), '?')) . ') ORDER BY ORDINAL_POSITION');
+            $query->execute([$name, $table, ...$wanted]);
+            $actual = $query->fetchAll(PDO::FETCH_ASSOC);
+            $query->closeCursor();
+            if (array_diff($wanted, array_column($actual, 'COLUMN_NAME')) !== []) {
+                throw new RuntimeException('COLLABORATION_OBSERVATION_SCHEMA_GAP: ' . $table);
+            }
+            foreach ($actual as $column) {
+                if (str_ends_with($column['COLUMN_NAME'], '_json') && $column['DATA_TYPE'] !== 'json') {
+                    throw new RuntimeException('COLLABORATION_OBSERVATION_SCHEMA_TYPE_GAP: ' . $table);
+                }
+            }
+            $schemaEvidence[$table] = $actual;
+        };
+        $checkColumns('pa_collaboration_runtime');
+        $runtimeSql = <<<'SQL'
+SELECT instance_id,edition,phase,config_revision,config_sha256,drain_id,updated_at,
+ JSON_VALUE(plan_json,'$.candidate.service_instance_id' ERROR ON ERROR) AS service_instance_id,
+ JSON_VALUE(plan_json,'$.candidate.holder_key' ERROR ON ERROR) AS holder_key,
+ JSON_VALUE(plan_json,'$.candidate.probe_id' ERROR ON ERROR) AS probe_id,
+ JSON_VALUE(plan_json,'$.activation.activation_id' ERROR ON ERROR) AS activation_id,
+ JSON_VALUE(plan_json,'$.process_lease_expires_at_ms' RETURNING UNSIGNED ERROR ON ERROR) AS process_lease_expires_at_ms,
+ JSON_VALUE(receipt_json,'$.protocol' ERROR ON ERROR) AS receipt_protocol,
+ JSON_VALUE(receipt_json,'$.drain_id' ERROR ON ERROR) AS receipt_drain_id,
+ JSON_VALUE(receipt_json,'$.plan_sha256' ERROR ON ERROR) AS receipt_plan_sha256,
+ JSON_VALUE(receipt_json,'$.targets_sha256' ERROR ON ERROR) AS receipt_targets_sha256,
+ JSON_VALUE(receipt_json,'$.durably_drained' ERROR ON ERROR) AS durably_drained,
+ JSON_VALUE(receipt_json,'$.room_count' RETURNING UNSIGNED ERROR ON ERROR) AS receipt_room_count
+FROM pa_collaboration_runtime WHERE edition='standalone'
+SQL;
+        $runtimeQuery = $pdo->prepare($runtimeSql . ($confirmed ? ' AND instance_id=?' : '') . ' ORDER BY instance_id LIMIT 2');
+        $runtimeQuery->execute($confirmed ? [$actor['instance_id']] : []);
+        $runtime = $runtimeQuery->fetchAll(PDO::FETCH_ASSOC);
+        $runtimeQuery->closeCursor();
+        $result = ['protocol' => 'peanut.collaboration-runtime-observation.v1', 'operation_environment' => 'acceptance',
+            'resource_id' => $resourceId, 'endpoint_id' => $endpoint['endpoint_id'], 'scope' => $database['resource_scope'],
+            'candidate' => $actor['candidate'], 'lease' => $metadata['lease'], 'owner' => $actor['owner'], 'thread' => $actor['thread'],
+            'registry_sha256' => $registrySha256, 'identity' => $identity, 'runtime' => $runtime,
+            'expected_server_uuid' => null, 'server_uuid_verification' => 'observed_only_no_expected_identity_asserted',
+            'credential_permissions' => 'Not asserted SELECT-only; this closed operation executes fixed reads only.',
+            'runtime_observed_count' => count($runtime), 'runtime_limit' => 2,
+            'status' => 'identity_confirmation_required', 'associated_queries' => 'not_run',
+            'proof_limit' => 'Persisted metadata only; Node memory, loaded code, captures and original failure/operation budgets remain unknown.'];
+        if ($confirmed) {
+            if (count($runtime) !== 1 || $runtime[0]['instance_id'] !== $actor['instance_id']
+                || $runtime[0]['service_instance_id'] !== $actor['service_instance_id']) {
+                throw new RuntimeException('COLLABORATION_OBSERVATION_EXPECTED_INSTANCE_MISMATCH');
+            }
+            foreach (['pa_collaboration_room','pa_collaboration_barrier','pa_document_operation'] as $table) {
+                $checkColumns($table);
+            }
+            $queries = [
+                'rooms' => <<<'SQL'
+SELECT id,tenant_id,document_id,room_key,service_instance_id,holder_key,lease_epoch,lease_expires_at,status,
+ accepted_through,persisted_through,pending_update_count,persisted_state_seq,baseline_sha256,last_target_progress,
+ last_store_id,last_store_sha256,updated_at
+FROM pa_collaboration_room WHERE instance_id=? AND edition='standalone' AND protocol_version=2 ORDER BY id LIMIT 10001
+SQL,
+                'unreleased_barriers' => <<<'SQL'
+SELECT B.barrier_key,B.lease_epoch,B.status,B.created_at,B.expires_at,B.released_at,B.committed_state_seq,B.business_sha256,
+ JSON_VALUE(B.business_plan_json,'$.operation_id' ERROR ON ERROR) AS operation_id,
+ JSON_VALUE(B.business_plan_json,'$.input_sha256' ERROR ON ERROR) AS input_sha256,
+ JSON_VALUE(B.business_plan_json,'$.holder_key' ERROR ON ERROR) AS holder_key,
+ JSON_VALUE(B.business_plan_json,'$.lease_epoch' RETURNING UNSIGNED ERROR ON ERROR) AS business_lease_epoch,
+ JSON_VALUE(B.business_plan_json,'$.deadline' ERROR ON ERROR) AS deadline,
+ SHA2(CAST(B.drained_receipt_json AS CHAR),256) AS drained_receipt_sql_sha256,
+ SHA2(CAST(B.business_result_json AS CHAR),256) AS business_result_sql_sha256
+FROM pa_collaboration_barrier B JOIN pa_collaboration_room R ON B.room_id=R.id AND B.tenant_id=R.tenant_id
+WHERE R.instance_id=? AND R.edition='standalone' AND R.protocol_version=2
+ AND B.business_plan_json IS NOT NULL AND B.released_at IS NULL ORDER BY B.tenant_id,B.room_id,B.barrier_key LIMIT 10001
+SQL,
+                'pending_operations' => <<<'SQL'
+SELECT O.operation_id,O.action,O.phase,O.input_sha256,O.business_sha256,O.created_at,O.released_at,
+ SHA2(CAST(O.result_json AS CHAR),256) AS result_sql_sha256,
+ CASE WHEN O.action='collaboration.store' THEN JSON_VALUE(O.result_json,'$.store_id' ERROR ON ERROR) END AS store_id,
+ CASE WHEN O.action='collaboration.store' THEN JSON_VALUE(O.result_json,'$.lease_epoch' RETURNING UNSIGNED ERROR ON ERROR) END AS lease_epoch,
+ CASE WHEN O.action='collaboration.store' THEN JSON_VALUE(O.result_json,'$.state_seq' RETURNING UNSIGNED ERROR ON ERROR) END AS state_seq,
+ CASE WHEN O.action='collaboration.store' THEN JSON_VALUE(O.result_json,'$.target_progress' RETURNING UNSIGNED ERROR ON ERROR) END AS target_progress,
+ CASE WHEN O.action='collaboration.store' THEN JSON_VALUE(O.result_json,'$.binary_sha256' ERROR ON ERROR) END AS binary_sha256
+FROM pa_document_operation O WHERE O.action<>'collaboration.target' AND O.phase<>'completed'
+ AND EXISTS (SELECT 1 FROM pa_collaboration_room R WHERE R.tenant_id=O.tenant_id AND R.document_id=O.document_id
+ AND R.instance_id=? AND R.edition='standalone' AND R.protocol_version=2)
+ORDER BY O.tenant_id,O.document_id,O.operation_id LIMIT 10001
+SQL,
+            ];
+            foreach ($queries as $key => $sql) {
+                $query = $pdo->prepare($sql);
+                $query->execute([$actor['instance_id']]);
+                $rows = $query->fetchAll(PDO::FETCH_ASSOC);
+                $query->closeCursor();
+                if (count($rows) >= 10001) {
+                    throw new RuntimeException('COLLABORATION_OBSERVATION_RESULT_LIMIT: ' . $key);
+                }
+                $result[$key] = ['count' => count($rows), 'rows_sha256' => hash('sha256', json_encode($rows, JSON_THROW_ON_ERROR)), 'rows' => $rows];
+            }
+            $result['room_service_mismatch_count'] = count(array_filter($result['rooms']['rows'],
+                static fn(array $row): bool => $row['service_instance_id'] !== $actor['service_instance_id']));
+            $result['status'] = 'persisted_metadata_observed';
+            $result['associated_queries'] = 'fixed_projection_only';
+        }
+        $result['schema_columns'] = $schemaEvidence;
+        $authorize(); // Expiry or source/lease drift invalidates the observation.
+        return $result;
+    } finally {
+        if ($pdo instanceof PDO && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        $pdo = null;
+    }
+}
+
 function guardedConnection(array $config): PDO
 {
     return new PDO(

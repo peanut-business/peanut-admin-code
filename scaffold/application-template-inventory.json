@@ -26081,7 +26081,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "30bc0e6906feb74767c6030b1b2b2df13e691aed3822947569812cc941015b0a"
+            "source_sha256": "5342d4f08c25f31d1b3667ddfedce9220ee3fe8659fb7b934984a682003f6a75"
         },
         {
             "path": "server/database/init.sql",
