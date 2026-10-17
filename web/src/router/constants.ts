@@ -1,7 +1,7 @@
 export const WHITE_LIST = [
   { name: 'notFound', children: [] },
   { name: 'login', children: [] },
-  { name: 'installation', children: [] },
+  { name: 'install', children: [] },
 ];
 
 export const NOT_FOUND = {
@@ -10,7 +10,7 @@ export const NOT_FOUND = {
 
 export const REDIRECT_ROUTE_NAME = 'Redirect';
 
-export const INSTALLATION_ROUTE_NAME = 'installation';
+export const INSTALLATION_ROUTE_NAME = 'install';
 
 export const DEFAULT_ROUTE_NAME = 'Workplace';
 

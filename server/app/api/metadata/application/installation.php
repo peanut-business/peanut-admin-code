@@ -91,6 +91,13 @@ $schemas = [
             'state' => ['type' => 'string', 'enum' => ['blocked', 'uninstalled', 'installed']],
             'code' => ['type' => 'string'], 'retryable' => ['type' => 'boolean'],
             'health' => $nullableDynamicMap,
+            'category' => ['type' => 'string', 'enum' => ['prerequisite', 'partial', 'installed_fault', 'unknown', 'installed']],
+            'stage' => ['type' => 'string'], 'reason' => ['type' => 'string'], 'remedy' => ['type' => 'string'],
+            'writes' => $dynamicMap, 'safe_retry' => ['type' => 'boolean'],
+            'completion_lock' => ['type' => 'string'],
+            'permissions_verified' => ['type' => 'boolean'],
+            'permissions_missing_or_unconfirmed' => ['type' => 'array', 'items' => ['type' => 'string']],
+            'database_check' => ['type' => 'string'], 'permission_remedy' => ['type' => 'string', 'nullable' => true],
         ],
     ],
     'InstallationEntryStatus' => [
@@ -135,6 +142,20 @@ $schemas = [
 ];
 
 $paths = [
+    '/installapi/page' => ['get' => $operation(
+        'getInstallPage', 'Installation', [
+            '200' => ['description' => 'Uninstalled instance installer document.', 'content' => ['text/html' => ['schema' => ['type' => 'string']]]],
+            '404' => ['description' => 'Physical completion lock exists.'],
+        ], description: 'PHP owner checks the original completion lock before serving HTML; no private state is mounted into Nginx.',
+    )],
+    '/installapi/environment' => ['get' => $operation(
+        'getInstallEnvironment', 'Installation', ['200' => $success($dynamicMap), '503' => $error],
+        description: '配置前只读环境检查；不连接数据库、不写配置或安装身份。',
+    )],
+    '/installapi/database-check' => ['get' => $operation(
+        'checkInstallDatabase', 'Installation', ['200' => $success($ref('InstallationStatus')), '503' => $error],
+        description: '只读连接、空库、身份和精确有效权限检查；未知权限不视为通过。执行安装前服务器重复检查。',
+    )],
     '/installapi/password-policy' => ['get' => $operation(
         'getPasswordPolicy',
         'Installation',

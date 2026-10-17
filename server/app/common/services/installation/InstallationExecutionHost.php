@@ -59,8 +59,101 @@ final class InstallationExecutionHost
         ];
     }
 
+    /** Environment inspection precedes instance configuration and database use. */
+    public function environment(): array
+    {
+        $report = (new InstallationPreflightHost($this->serverRoot))->inspect(false);
+        return $report + ['stage' => 'environment', 'writes' => ['outcome' => 'none'],
+            'safe_retry' => true, 'completion_lock_present' => $this->completionLockPresent()];
+    }
+
+    /** Read-only permission admission on the framework's actual master PDO. */
+    public function databaseCheck(): array
+    {
+        $status = $this->status();
+        if ($status['state'] !== 'uninstalled' || !$status['safe_retry']) {
+            return $status + ['permissions_verified' => false];
+        }
+        try {
+            $connection = Db::connect();
+            $connection->query('SELECT 1', [], true);
+            $pdo = $connection->getPdo();
+            if (!$pdo instanceof PDO || $pdo->inTransaction()) {
+                throw new RuntimeException('INSTALL_DATABASE_CONNECTION_UNAVAILABLE');
+            }
+            $database = $pdo->query('SELECT DATABASE()')->fetchColumn();
+            if (!is_string($database) || $database === '') {
+                throw new RuntimeException('INSTALL_DATABASE_IDENTITY_UNKNOWN');
+            }
+            $registered = \loadConfig($this->serverRoot);
+            $actualConfig = $connection->getConfig();
+            if ($database !== $registered['DB_NAME']
+                || ($actualConfig['database'] ?? null) !== $registered['DB_NAME']
+                || ($actualConfig['hostname'] ?? null) !== $registered['DB_HOST']
+                || (string) ($actualConfig['hostport'] ?? '') !== (string) $registered['DB_PORT']) {
+                throw new RuntimeException('INSTALL_DATABASE_CONNECTION_MISMATCH');
+            }
+            $required = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'ALTER', 'DROP', 'INDEX', 'REFERENCES', 'CREATE TEMPORARY TABLES'];
+            $observed = [];
+            $scope = '`' . str_replace('`', '``', $database) . '`.*';
+            foreach ($pdo->query('SHOW GRANTS FOR CURRENT_USER()')->fetchAll(PDO::FETCH_NUM) as $row) {
+                // Roles, wildcard schema patterns and unrecognised grants are
+                // never guessed into effective permission. They remain unknown.
+                if (!preg_match('/^GRANT (.+) ON (.+) TO /D', $row[0], $match)
+                    || !in_array($match[2], ['*.*', $scope], true)) {
+                    continue;
+                }
+                if ($match[1] === 'ALL PRIVILEGES') {
+                    $observed = $required;
+                    break;
+                }
+                $observed = array_merge($observed, explode(', ', $match[1]));
+            }
+            $missing = array_values(array_diff($required, $observed));
+            return $status + ['permissions_verified' => $missing === [], 'permissions_missing_or_unconfirmed' => $missing,
+                'database_check' => $missing === [] ? 'ready' : 'blocked',
+                'permission_remedy' => $missing === [] ? null : '请资源 owner 核对目标库的精确有效权限；本检查不授权或写入数据库。'];
+        } catch (Throwable) {
+            return [...$status, 'category' => 'unknown', 'stage' => 'database_check',
+                'reason' => 'INSTALL_DATABASE_PERMISSIONS_UNKNOWN', 'safe_retry' => false,
+                'permissions_verified' => false, 'database_check' => 'unknown',
+                'remedy' => '核对实际连接、库身份及权限后重新检查；没有执行安装或授予权限。'];
+        }
+    }
+
     /** @return array<string,mixed> */
     public function status(): array
+    {
+        $status = $this->inspectStatus();
+        $code = (string) ($status['code'] ?? 'INSTALL_STATE_UNKNOWN');
+        $locked = $this->completionLockPresent();
+        $localMarkers = file_exists($this->progressMarker()) || is_link($this->progressMarker())
+            || file_exists($this->baselineMarker()) || is_link($this->baselineMarker());
+        $partial = $localMarkers
+            || in_array($code, ['INSTALL_PARTIAL_STATE_REQUIRES_REBUILD', 'INSTALL_BASELINE_WITHOUT_COMPLETION_LOCK'], true);
+        $existingInstallation = $locked || $code === 'INSTALL_COMPLETION_LOCK_MISSING';
+        $unknown = str_contains($code, 'UNAVAILABLE');
+        $category = $status['state'] === 'installed' ? 'installed'
+            : ($existingInstallation ? 'installed_fault' : ($unknown ? 'unknown' : ($partial ? 'partial' : 'prerequisite')));
+        return $status + [
+            'category' => $category,
+            'stage' => $existingInstallation ? 'runtime' : ($partial ? 'execution'
+                : ($code === 'INSTALL_PREFLIGHT_BLOCKED' ? 'environment' : 'database_check')),
+            'reason' => $code,
+            'remedy' => $existingInstallation
+                ? '恢复现有实例配置或数据库；不要删除完成锁来修复运行故障。'
+                : ($partial ? '保留现有数据库、baseline 和执行记录，核对部分完成事实后由资源 owner 处理；不自动清库或重建身份。'
+                    : '按环境、配置和数据库检查的具体诊断修复后重新检查。'),
+            'writes' => ['status_request' => 'none', 'database_existing_state' => $category === 'partial' ? 'nonempty_or_partial' : ($existingInstallation ? 'installed_or_faulted' : 'see_status'), 'completion_lock_present' => $locked,
+                'residual_origin' => $localMarkers ? 'local_markers_present_identity_not_inferred' : 'unconfirmed_existing_database_origin',
+                'progress_present' => is_file($this->progressMarker()), 'baseline_present' => is_file($this->baselineMarker())],
+            'safe_retry' => !$locked && !$partial && $status['state'] === 'uninstalled',
+            'completion_lock' => 'server/private/installation/installed.json',
+        ];
+    }
+
+    /** No status request creates, replaces or removes installation anchors. */
+    private function inspectStatus(): array
     {
         $tenantBootstrap = \installationTenantBootstrapContract($this->serverRoot);
         $preflight = (new InstallationPreflightHost($this->serverRoot))->inspect();
@@ -72,6 +165,10 @@ final class InstallationExecutionHost
             'official_modules' => $this->officialModules(),
         ];
         $complete = $this->completionLockPresent();
+        if (!$complete && (file_exists($this->baselineMarker()) || is_link($this->baselineMarker()))) {
+            return [...$base, 'state' => 'blocked', 'code' => 'INSTALL_BASELINE_WITHOUT_COMPLETION_LOCK',
+                'retryable' => false, 'health' => null];
+        }
         if (($preflight['status'] ?? null) !== 'ready') {
             return [
                 ...$base,
@@ -250,11 +347,21 @@ final class InstallationExecutionHost
                     (string) $status['code'],
                     $status['retryable']
                         ? '安装前置条件暂未满足。'
-                        : '目标包含未完成安装残留，必须由资源 owner 重建后再安装。',
+                        : '目标包含安装身份或未完成残留，保留原数据并由资源 owner 核对，不能自动重建。',
                     409,
+                    null,
+                    array_intersect_key($status, array_flip(['category', 'stage', 'reason', 'remedy', 'writes', 'safe_retry'])),
                 );
             }
 
+            $databaseCheck = $this->databaseCheck();
+            if (($databaseCheck['permissions_verified'] ?? false) !== true) {
+                throw new InstallationExecutionException('INSTALL_DATABASE_PERMISSIONS_UNKNOWN',
+                    '数据库有效安装权限未确认，尚未执行安装。', 409, null,
+                    ['stage' => 'database_check', 'reason' => 'INSTALL_DATABASE_PERMISSIONS_UNKNOWN',
+                        'remedy' => '由资源 owner 核对精确库权限后重新检查。',
+                        'writes' => ['database' => 'none'], 'safe_retry' => true]);
+            }
             [$credentials, $moduleKeys] = $this->normalizeInput($input);
             $this->writeProgressMarker($moduleKeys);
             $stage = 'fresh_database';
@@ -311,9 +418,14 @@ final class InstallationExecutionHost
             } catch (Throwable $exception) {
                 $failure = new InstallationExecutionException(
                     'INSTALL_EXECUTION_FAILED',
-                    '安装执行失败；若目标已产生表，请由资源 owner 重建目标后重试。',
+                    '安装执行失败；保留已写入的数据和安装记录，核对失败阶段后处理。',
                     409,
                     $exception,
+                    ['category' => 'partial', 'stage' => $stage, 'reason' => 'INSTALL_EXECUTION_FAILED',
+                        'remedy' => '核对该阶段日志、数据库和执行记录；不得直接重放、清库或覆盖身份。',
+                        'writes' => ['progress_marker' => true, 'database' => 'may_have_partial_writes',
+                            'completion_lock_present' => $this->completionLockPresent()],
+                        'safe_retry' => false],
                 );
                 \logInstallationFailure($this->serverRoot, $stage, $failure->errorCode, $failure);
                 try {

@@ -25,9 +25,9 @@ const router = createRouter({
       },
     },
     {
-      path: '/installation',
-      name: 'installation',
-      component: () => import('@/views/installation/index.vue'),
+      path: '/install',
+      name: 'install',
+      component: () => import('@/views/install/index.vue'),
       meta: {
         requiresAuth: false,
         hideInMenu: true,

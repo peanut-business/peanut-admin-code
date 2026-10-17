@@ -398,6 +398,7 @@ final class InstallationConfigurationHost
             $this->serverRoot . '/private/resources/configuration.json',
             $this->serverRoot . '/private/installation/installed.json',
             $this->serverRoot . '/private/installation/executing.json',
+            $this->serverRoot . '/private/installation/baseline.json',
             $this->serverRoot . '/runtime/installation/installed.json',
             $this->serverRoot . '/runtime/installation/executing.json',
         ] as $path) {

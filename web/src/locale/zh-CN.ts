@@ -1,5 +1,5 @@
 import localeLogin from '@/views/login/locale/zh-CN';
-import localeInstallation from '@/views/installation/locale/zh-CN';
+import localeInstallation from '@/views/install/locale/zh-CN';
 
 import localeWorkplace from '@/views/dashboard/workplace/locale/zh-CN';
 import localeUserSetting from '@/views/user/setting/locale/zh-CN';

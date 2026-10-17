@@ -10,7 +10,57 @@
         <span>{{ brandStore.website.name }}</span>
       </header>
 
-      <template v-if="loading">
+      <el-steps :active="stage" finish-status="success">
+        <el-step v-for="title in ['协议', '环境探针', '配置', '数据库复查', '执行', '完成登录']" :key="title" :title="title" />
+      </el-steps>
+      <el-alert v-if="errorMessage" :title="errorMessage" type="error" :closable="false" />
+      <pre v-if="diagnostic">{{ JSON.stringify(diagnostic, null, 2) }}</pre>
+      <div v-if="stage === 4">
+        <el-button :loading="refreshing" @click="refreshStatus">重新读取执行状态</el-button>
+        <el-button :disabled="!canRecheckDatabase" :loading="refreshing" @click="inspectDatabase">确认未写入后重新检查数据库</el-button>
+      </div>
+      <section v-if="stage === 0">
+        <h2>使用协议</h2>
+        <p>项目按 Apache License 2.0 提供，请阅读项目 LICENSE。安装将向已登记的空目标写入数据库结构、初始账号和所选模块，并保存安装完成回执。</p>
+        <p>安装不提供自动清库、覆写身份或部分失败后的盲目重试。</p>
+        <el-checkbox v-model="agreed">我已阅读协议并确认安装范围</el-checkbox>
+        <el-button :disabled="!agreed" :loading="refreshing" @click="inspectEnvironment">同意并检查环境</el-button>
+      </section>
+      <section v-else-if="stage === 1">
+        <h2>环境探针</h2>
+        <div v-for="check in environment?.checks" :key="check.id || check.code"><strong>{{ check.status }} · {{ check.reason }}</strong><p>{{ check.remediation }}</p></div>
+        <el-button :loading="refreshing" @click="inspectEnvironment">重新检查</el-button>
+        <el-button :disabled="environment?.status !== 'ready'" @click="readConfiguration">继续配置</el-button>
+      </section>
+      <section v-else-if="stage === 2">
+        <h2>实例配置</h2>
+        <p>已有配置只读保留；连接与凭据来自本实例登记资源。</p>
+        <el-input v-model="form.setupToken" type="password" show-password placeholder="Setup Token" autocomplete="off" />
+        <template v-if="!configuration?.configured">
+          <el-select v-model="configurationInput.deployment_target"><el-option v-for="target in configuration?.deployment_targets || []" :key="target" :label="target" :value="target" /></el-select>
+          <el-input v-model="configurationInput.database_name" placeholder="本实例登记的数据库名" />
+          <el-input v-model="configurationInput.platform_hosts" placeholder="Platform Hosts（多租户）" />
+          <el-input v-model="configurationInput.tenant_admin_hosts" placeholder="Tenant Admin Hosts（多租户）" />
+          <el-button :loading="refreshing" :disabled="!form.setupToken.trim()" @click="saveConfiguration">保存配置</el-button>
+        </template>
+        <p v-if="configuration?.state === 'pending'">配置待实例正常发布，请重新读取确认，不重复提交。</p>
+        <el-button :loading="refreshing" @click="readConfiguration">重新读取配置</el-button>
+        <el-button :disabled="!configuration?.configured" @click="inspectDatabase">检查数据库与权限</el-button>
+      </section>
+      <section v-else-if="stage === 3">
+        <h2>数据库连接与权限复查</h2>
+        <p>{{ databaseReport?.reason }} · {{ databaseReport?.remedy }}</p>
+        <p>未确认权限：{{ databaseReport?.permissions_missing_or_unconfirmed?.join(', ') || '无' }}</p>
+        <pre>{{ JSON.stringify(databaseReport?.writes, null, 2) }}</pre>
+        <el-button :loading="refreshing" @click="inspectDatabase">重新检查</el-button>
+        <el-button :disabled="!databaseReady" @click="stage = 4">继续执行</el-button>
+      </section>
+      <section v-else-if="stage === 5">
+        <h2>安装完成</h2>
+        <p>完成锁为 server/private/installation/installed.json。正常启动或数据库故障不会删除它。手动删除该锁只重新开放入口，既有数据和 baseline 仍阻止重新初始化。</p>
+        <el-button type="primary" @click="goToLogin">前往登录</el-button>
+      </section>
+      <template v-else-if="loading">
         <el-skeleton :rows="8" animated />
       </template>
 
@@ -76,15 +126,7 @@
           <p>{{ $t('installation.subtitle') }}</p>
         </div>
 
-        <el-steps
-          :active="1"
-          finish-status="success"
-          class="installation-steps"
-        >
-          <el-step :title="$t('installation.step.preflight')" />
-          <el-step :title="$t('installation.step.identity')" />
-          <el-step :title="$t('installation.step.install')" />
-        </el-steps>
+        <p>服务器在执行前重新核对空库、安装身份、完成锁与权限。请求超时后先读取状态，不直接重复提交。</p>
 
         <el-alert
           class="preflight-alert"
@@ -235,17 +277,19 @@
   import { useRouter } from 'vue-router';
   import { ElMessage, type FormInstance, type FormRules } from 'element-plus';
   import {
+    checkInstallDatabase, configureInstall, getInstallConfiguration, getInstallEnvironment, InstallRequestError,
+    type InstallationConfiguration, type InstallationPreflight,
     executeInstallation,
     type InstallationModuleOption,
     type InstallationPreflightCheck,
     type InstallationStatus,
-  } from '@/api/installation';
+  } from '@/api/install';
   import {
     bootstrapInstallationStatus,
     installationStatus,
     loadInstallationDiagnostics,
     markInstallationInstalled,
-  } from '@/core/installation';
+  } from '@/core/install';
   import { useBrandStore } from '@/store';
   import {
     getPasswordPolicy,
@@ -269,6 +313,34 @@
   const refreshing = ref(false);
   const submitting = ref(false);
   const errorMessage = ref('');
+  const stage = ref(0);
+  const agreed = ref(false);
+  const diagnostic = ref<Record<string, unknown> | null>(null);
+  const environment = ref<InstallationPreflight | null>(null);
+  const configuration = ref<InstallationConfiguration | null>(null);
+  const databaseReport = ref<InstallationStatus | null>(null);
+  const canRecheckDatabase = ref(false);
+  const configurationInput = reactive({ deployment_target: 'local-production-preview', database_name: '', platform_hosts: '', tenant_admin_hosts: '' });
+  const databaseReady = computed(() => databaseReport.value?.state === 'uninstalled' && databaseReport.value.safe_retry === true && databaseReport.value.permissions_verified === true);
+  async function installationStep(name: string, action: () => Promise<void>) {
+    if (refreshing.value) return;
+    refreshing.value = true; errorMessage.value = ''; diagnostic.value = null;
+    try { await action(); } catch (error) {
+      errorMessage.value = errorText(error);
+      const failure = error as { response?: { data?: { data?: Record<string, unknown> } } };
+      diagnostic.value = failure.response?.data?.data || (error instanceof InstallRequestError ? error.diagnostic : { category: 'unknown', stage: name, reason: 'REQUEST_FAILED', remedy: '恢复服务后重新读取状态，不直接重复执行。', writes: { outcome: 'unknown' }, safe_retry: false });
+    } finally { refreshing.value = false; }
+  }
+  async function inspectEnvironment() { stage.value = 1; environment.value = null; await installationStep('environment', async () => { environment.value = await getInstallEnvironment(); }); }
+  async function readConfiguration() { await installationStep('configuration', async () => { configuration.value = await getInstallConfiguration(); stage.value = 2; }); }
+  async function saveConfiguration() { await installationStep('configuration', async () => { await configureInstall(form.setupToken, configurationInput); configuration.value = await getInstallConfiguration(); }); }
+  async function inspectDatabase() {
+    stage.value = 3; databaseReport.value = null;
+    await installationStep('database_check', async () => {
+      databaseReport.value = await checkInstallDatabase(); installationStatus.value = databaseReport.value;
+      await loadPasswordPolicy(); loading.value = false;
+    });
+  }
   const passwordPolicy = ref<PasswordPolicy | null>(null);
   const passwordPolicyError = ref('');
   const passwordHint = computed(() =>
@@ -491,7 +563,7 @@
   async function redirectIfNotGuided() {
     const status = currentStatus.value;
     if (status?.state === 'installed') {
-      await router.replace({ name: 'login' });
+      stage.value = 5;
     }
   }
 
@@ -500,9 +572,16 @@
     refreshing.value = true;
     errorMessage.value = '';
     try {
-      await loadInstallationDiagnostics(true);
-      await bootstrapInstallationStatus(true);
+      canRecheckDatabase.value = false;
+      const refreshed = await loadInstallationDiagnostics(true);
+      canRecheckDatabase.value = refreshed.state === 'uninstalled' && refreshed.safe_retry === true;
+      const entry = await bootstrapInstallationStatus(true);
+      if (entry.installed !== false) canRecheckDatabase.value = false;
       await redirectIfNotGuided();
+    } catch (error) {
+      canRecheckDatabase.value = false;
+      errorMessage.value = errorText(error);
+      diagnostic.value = { category: 'unknown', stage: 'status', reason: 'STATUS_UNAVAILABLE', remedy: '恢复服务后重新读取；不能把失败视为尚未安装。', writes: { status_request: 'none', execution: 'unknown' }, safe_retry: false };
     } finally {
       refreshing.value = false;
     }
@@ -528,7 +607,7 @@
   }
 
   async function submit() {
-    if (submitting.value || !readyForForm.value) return;
+    if (submitting.value || !readyForForm.value || !databaseReady.value) return;
     if (!passwordPolicy.value) {
       await loadPasswordPolicy();
       if (!passwordPolicy.value) {
@@ -539,6 +618,7 @@
     const valid = await installationForm.value?.validate().catch(() => false);
     if (!valid) return;
     submitting.value = true;
+    canRecheckDatabase.value = false;
     errorMessage.value = '';
     const setupToken = form.setupToken.trim();
     const payload = {
@@ -557,29 +637,19 @@
       form.platform_password = '';
       markInstallationInstalled();
       ElMessage.success(t('installation.success'));
-      await router.replace({ name: 'login' });
+      stage.value = 5;
     } catch (error) {
       errorMessage.value = errorText(error);
+      databaseReport.value = null;
+      const failure = error as { response?: { data?: { data?: Record<string, unknown> } } };
+      diagnostic.value = failure.response?.data?.data || { category: 'unknown', stage: 'execution', reason: 'EXECUTION_RESPONSE_UNCONFIRMED', remedy: '重新读取执行状态，不能直接重放。', writes: { outcome: 'unknown' }, safe_retry: false };
     } finally {
       submitting.value = false;
     }
   }
 
-  onMounted(async () => {
-    await loadPasswordPolicy();
-    await bootstrapInstallationStatus();
-    try {
-      await loadInstallationDiagnostics();
-    } catch {
-      installationStatus.value = {
-        state: 'blocked',
-        mode: 'guided',
-        deployment_mode: 'standalone',
-        preflight: null,
-      } satisfies InstallationStatus;
-    }
+  onMounted(() => {
     loading.value = false;
-    await redirectIfNotGuided();
   });
 
   onUnmounted(() => {

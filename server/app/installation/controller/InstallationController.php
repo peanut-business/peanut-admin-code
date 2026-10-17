@@ -29,6 +29,29 @@ final class InstallationController extends BaseController
         return $this->data($this->configuration->status());
     }
 
+    /** The PHP owner observes the original lock; the proxy needs no private mount. */
+    public function page()
+    {
+        if ($this->host->isInstalled()) {
+            return \think\Response::create('', 'html', 404)->header(['Cache-Control' => 'no-store']);
+        }
+        $html = file_get_contents($this->app->getRootPath() . 'public/install/index.html');
+        if (!is_string($html)) {
+            throw new \RuntimeException('INSTALL_PAGE_UNAVAILABLE');
+        }
+        return \think\Response::create($html, 'html')->header(['Cache-Control' => 'no-store']);
+    }
+
+    public function environment()
+    {
+        return $this->data($this->host->environment());
+    }
+
+    public function databaseCheck()
+    {
+        return $this->data($this->host->databaseCheck());
+    }
+
     /** Public limits only; shares the same resolved implementation as credential writes. */
     public function passwordPolicy(PasswordPolicy $passwords)
     {

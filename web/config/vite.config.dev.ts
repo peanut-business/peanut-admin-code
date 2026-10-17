@@ -123,6 +123,13 @@ export default defineConfig((configEnv) => {
           strict: true,
         },
         proxy: {
+          // Installer documents must pass the server's physical-lock gate,
+          // including direct Vite access before its SPA history fallback.
+          '^/(?:admin/)?install(?:ation)?(?:/|$)': {
+            target: apiProxyTarget,
+            changeOrigin: false,
+            headers: proxyHeaders,
+          },
           '/adminapi': {
             target: apiProxyTarget,
             changeOrigin: false,

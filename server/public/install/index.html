@@ -7,8 +7,11 @@ input,select{width:100%;box-sizing:border-box;padding:10px}button{margin-top:18p
 pre{white-space:pre-wrap;background:#f6f6f6;padding:14px;border-radius:8px}.warn{color:#8a4b00}
 </style></head><body>
 <h1>Peanut Admin 首次安装</h1>
+<nav id="steps">协议 → 环境探针 → 配置 → 数据库复查 → 执行 → 完成登录</nav>
+<section id="agreement"><h2>1. 使用协议</h2><p>本项目按 Apache License 2.0 提供，请阅读项目 LICENSE。首次安装将向已登记的空数据库写入结构、账号和模块，并保存完成回执。不会自动清库、覆盖身份或重放部分失败。</p><label><input id="agree" type="checkbox" style="width:auto">我已阅读协议并确认安装范围</label><button id="environment" disabled>同意并检查环境</button></section>
+<section id="environmentPanel" hidden><h2>2. 环境探针</h2><pre id="environmentResult"></pre><button id="environmentRetry">重新检查</button><button id="configurationNext" disabled>继续配置</button></section>
 <p class="warn">Setup Token 只用于本次首次配置和安装。数据库业务账号与应用密钥由系统生成；MySQL root 密码不会进入应用配置。</p>
-<fieldset><legend>实例配置</legend>
+<fieldset id="configurationPanel" hidden><legend>3. 实例配置</legend>
 <label>Setup Token</label><input id="token" autocomplete="off">
 <label>部署环境</label><select id="deploymentTarget">
 <option value="local-production-preview">本机生产预览</option>
@@ -19,37 +22,62 @@ pre{white-space:pre-wrap;background:#f6f6f6;padding:14px;border-radius:8px}.warn
 <label>Platform Hosts（多租户必填，逗号分隔）</label><input id="platformHosts" autocomplete="off" placeholder="platform.example.com">
 <label>Tenant Admin Hosts（多租户必填，逗号分隔）</label><input id="tenantAdminHosts" autocomplete="off" placeholder="admin.example.com">
 <button id="configure" type="button">保存实例配置</button>
+<button id="configurationRefresh" type="button">重新读取配置</button>
+<button id="database" type="button" disabled>数据库连接与权限复查</button>
 </fieldset>
-<fieldset><legend>管理员</legend>
+<section id="databasePanel" hidden><h2>4. 数据库连接与权限复查</h2><pre id="databaseResult"></pre><button id="databaseRetry">重新检查</button><button id="executionNext" disabled>继续执行</button></section>
+<fieldset id="executionPanel" hidden><legend>5. 执行安装</legend>
+<p>服务器在执行前再次检查完成锁、空库、身份和权限。请求超时后先读取状态，不直接重复提交。</p>
 <label>管理员邮箱</label><input id="adminEmail" type="email">
 <label>管理员密码</label><input id="adminPassword" type="password" autocomplete="new-password">
 <label>平台管理员邮箱（多租户）</label><input id="platformEmail" type="email">
 <label>平台管理员密码（多租户）</label><input id="platformPassword" type="password" autocomplete="new-password">
 <button id="install" type="button">执行数据库安装</button>
+<button id="executionRefresh" type="button">读取执行状态</button>
+<button id="executionDatabaseRecheck" type="button" disabled>确认未写入后重新检查数据库</button>
 </fieldset>
+<section id="completePanel" hidden><h2>6. 安装完成</h2><p>完成锁：server/private/installation/installed.json。正常启动或数据库故障不会删除它。手删该锁只开放入口，已有数据、baseline 和部分残留仍阻止重新初始化。</p><a href="/admin/login">前往登录</a></section>
 <h2>当前状态</h2><pre id="status">读取中…</pre>
 <script>
 const $=id=>document.getElementById(id)
 const status=$('status')
 const headers=()=>({'Content-Type':'application/json','Authorization':'Bearer '+$('token').value})
+let configuration=null, installation=null, databaseReady=false, executing=false
+function show(id){for(const panel of ['agreement','environmentPanel','configurationPanel','databasePanel','executionPanel','completePanel'])$(panel).hidden=panel!==id}
+function failure(error,stage){const detail=error?.diagnostic||{category:'unknown',stage,reason:'REQUEST_FAILED',remedy:'恢复连接后重新读取状态；不要重复执行。',writes:{outcome:'unknown'},safe_retry:false};status.textContent=JSON.stringify(detail,null,2);return detail}
 async function jsonRequest(url,options={}){
  const response=await fetch(url,{credentials:'same-origin',...options})
  const data=await response.json()
- if(!response.ok) throw new Error(JSON.stringify(data,null,2))
+ if(!response.ok||data.code!==20000){const error=new Error(data.msg||'请求失败');error.diagnostic=data.data;throw error}
  return data.data
 }
 async function refresh(){
+ $('executionDatabaseRecheck').disabled=true
  try{
-  const configuration=await jsonRequest('/installapi/configuration')
-  let installation=null
+  configuration=await jsonRequest('/installapi/configuration')
+  installation=null
   if(configuration.configured){
-   try{installation=await jsonRequest('/installapi/status')}catch(error){installation={state:'reloading',message:String(error)}}
+   try{installation=await jsonRequest('/installapi/status')}catch(error){installation={category:'unknown',stage:'status',reason:'STATUS_UNAVAILABLE',safe_retry:false}}
   }
   status.textContent=JSON.stringify({configuration,installation},null,2)
   $('configure').disabled=configuration.configured||configuration.state==='installed'||configuration.state==='pending'
-  $('install').disabled=installation?.state!=='uninstalled'
- }catch(error){status.textContent=String(error)}
+  $('database').disabled=!configuration.configured
+  if(installation?.state==='installed')show('completePanel')
+  $('executionDatabaseRecheck').disabled=!(installation?.state==='uninstalled'&&installation?.safe_retry===true)
+ }catch(error){failure(error,'configuration')}
 }
+$('agree').addEventListener('change',()=>{$('environment').disabled=!$('agree').checked})
+async function environment(){show('environmentPanel');$('configurationNext').disabled=true;try{const report=await jsonRequest('/installapi/environment');$('environmentResult').textContent=JSON.stringify(report,null,2);$('configurationNext').disabled=report.status!=='ready'}catch(error){failure(error,'environment')}}
+$('environment').addEventListener('click',environment)
+$('environmentRetry').addEventListener('click',environment)
+$('configurationNext').addEventListener('click',async()=>{show('configurationPanel');await refresh()})
+$('configurationRefresh').addEventListener('click',refresh)
+async function database(){show('databasePanel');databaseReady=false;$('executionNext').disabled=true;try{installation=await jsonRequest('/installapi/database-check');$('databaseResult').textContent=JSON.stringify(installation,null,2);databaseReady=installation.state==='uninstalled'&&installation.safe_retry===true&&installation.permissions_verified===true;$('executionNext').disabled=!databaseReady}catch(error){failure(error,'database_check')}}
+$('database').addEventListener('click',database)
+$('databaseRetry').addEventListener('click',database)
+$('executionNext').addEventListener('click',()=>{show('executionPanel');$('install').disabled=!databaseReady})
+$('executionRefresh').addEventListener('click',refresh)
+$('executionDatabaseRecheck').addEventListener('click',database)
 $('configure').addEventListener('click',async()=>{
  try{
   const body={
@@ -59,20 +87,21 @@ $('configure').addEventListener('click',async()=>{
    tenant_admin_hosts:$('tenantAdminHosts').value
   }
   status.textContent=JSON.stringify(await jsonRequest('/installapi/configure',{method:'POST',headers:headers(),body:JSON.stringify(body)}),null,2)
-  await new Promise(resolve=>setTimeout(resolve,3500))
   await refresh()
- }catch(error){status.textContent=String(error)}
+ }catch(error){failure(error,'configuration')}
 })
 $('install').addEventListener('click',async()=>{
+ if(executing||!databaseReady)return
+ executing=true;databaseReady=false;$('install').disabled=true
+ $('executionDatabaseRecheck').disabled=true
  try{
   const body={admin_email:$('adminEmail').value,admin_password:$('adminPassword').value}
   if($('platformEmail').value) body.platform_email=$('platformEmail').value
   if($('platformPassword').value) body.platform_password=$('platformPassword').value
   status.textContent=JSON.stringify(await jsonRequest('/installapi/execute',{method:'POST',headers:headers(),body:JSON.stringify(body)}),null,2)
-  await new Promise(resolve=>setTimeout(resolve,3500))
-  await refresh()
- }catch(error){status.textContent=String(error)}
+  $('adminPassword').value='';$('platformPassword').value='';$('token').value=''
+  show('completePanel')
+ }catch(error){failure(error,'execution')}
+ finally{executing=false}
 })
-refresh()
-setInterval(refresh,3000)
 </script></body></html>
