@@ -305,11 +305,16 @@ final readonly class NotificationUpgradePreflight
 
     private static function expression(string $sql, bool $metadata = false): array
     {
-        // MySQL CHECK_CLAUSE can escape literal delimiters and double backslashes.
-        // Decode that metadata rendering once; the complete expression must still
-        // parse and equal the immutable migration's expression tree below.
-        if ($metadata && str_contains($sql, "\\'")) {
-            $sql = strtr($sql, ["\\\\" => "\\", "\\'" => "'"]);
+        // Admit either plain metadata without backslashes, or the fully escaped
+        // rendering observed from MySQL. Exact whole-expression roundtrip rejects
+        // mixed delimiters, odd slash counts and unknown escape sequences.
+        if ($metadata) {
+            $decoded = strtr($sql, ["\\\\" => "\\", "\\'" => "'"]);
+            if (strtr($decoded, ["\\" => "\\\\", "'" => "\\'"]) === $sql) {
+                $sql = $decoded;
+            } elseif (str_contains($sql, "\\")) {
+                throw new \RuntimeException('CHECK_SYNTAX_UNKNOWN');
+            }
         }
         $tokens = []; $offset = 0;
         while ($offset < strlen($sql)) {
