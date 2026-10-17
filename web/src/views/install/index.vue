@@ -15,6 +15,10 @@
       </el-steps>
       <el-alert v-if="errorMessage" :title="errorMessage" type="error" :closable="false" />
       <pre v-if="diagnostic">{{ JSON.stringify(diagnostic, null, 2) }}</pre>
+      <div v-if="stage === 4">
+        <el-button :loading="refreshing" @click="refreshStatus">重新读取执行状态</el-button>
+        <el-button :disabled="!canRecheckDatabase" :loading="refreshing" @click="inspectDatabase">确认未写入后重新检查数据库</el-button>
+      </div>
       <section v-if="stage === 0">
         <h2>使用协议</h2>
         <p>项目按 Apache License 2.0 提供，请阅读项目 LICENSE。安装将向已登记的空目标写入数据库结构、初始账号和所选模块，并保存安装完成回执。</p>
@@ -315,6 +319,7 @@
   const environment = ref<InstallationPreflight | null>(null);
   const configuration = ref<InstallationConfiguration | null>(null);
   const databaseReport = ref<InstallationStatus | null>(null);
+  const canRecheckDatabase = ref(false);
   const configurationInput = reactive({ deployment_target: 'local-production-preview', database_name: '', platform_hosts: '', tenant_admin_hosts: '' });
   const databaseReady = computed(() => databaseReport.value?.state === 'uninstalled' && databaseReport.value.safe_retry === true && databaseReport.value.permissions_verified === true);
   async function installationStep(name: string, action: () => Promise<void>) {
@@ -567,10 +572,14 @@
     refreshing.value = true;
     errorMessage.value = '';
     try {
-      await loadInstallationDiagnostics(true);
-      await bootstrapInstallationStatus(true);
+      canRecheckDatabase.value = false;
+      const refreshed = await loadInstallationDiagnostics(true);
+      canRecheckDatabase.value = refreshed.state === 'uninstalled' && refreshed.safe_retry === true;
+      const entry = await bootstrapInstallationStatus(true);
+      if (entry.installed !== false) canRecheckDatabase.value = false;
       await redirectIfNotGuided();
     } catch (error) {
+      canRecheckDatabase.value = false;
       errorMessage.value = errorText(error);
       diagnostic.value = { category: 'unknown', stage: 'status', reason: 'STATUS_UNAVAILABLE', remedy: '恢复服务后重新读取；不能把失败视为尚未安装。', writes: { status_request: 'none', execution: 'unknown' }, safe_retry: false };
     } finally {
@@ -609,6 +618,7 @@
     const valid = await installationForm.value?.validate().catch(() => false);
     if (!valid) return;
     submitting.value = true;
+    canRecheckDatabase.value = false;
     errorMessage.value = '';
     const setupToken = form.setupToken.trim();
     const payload = {

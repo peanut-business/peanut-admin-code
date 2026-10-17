@@ -34,6 +34,7 @@ pre{white-space:pre-wrap;background:#f6f6f6;padding:14px;border-radius:8px}.warn
 <label>平台管理员密码（多租户）</label><input id="platformPassword" type="password" autocomplete="new-password">
 <button id="install" type="button">执行数据库安装</button>
 <button id="executionRefresh" type="button">读取执行状态</button>
+<button id="executionDatabaseRecheck" type="button" disabled>确认未写入后重新检查数据库</button>
 </fieldset>
 <section id="completePanel" hidden><h2>6. 安装完成</h2><p>完成锁：server/private/installation/installed.json。正常启动或数据库故障不会删除它。手删该锁只开放入口，已有数据、baseline 和部分残留仍阻止重新初始化。</p><a href="/admin/login">前往登录</a></section>
 <h2>当前状态</h2><pre id="status">读取中…</pre>
@@ -51,6 +52,7 @@ async function jsonRequest(url,options={}){
  return data.data
 }
 async function refresh(){
+ $('executionDatabaseRecheck').disabled=true
  try{
   configuration=await jsonRequest('/installapi/configuration')
   installation=null
@@ -61,6 +63,7 @@ async function refresh(){
   $('configure').disabled=configuration.configured||configuration.state==='installed'||configuration.state==='pending'
   $('database').disabled=!configuration.configured
   if(installation?.state==='installed')show('completePanel')
+  $('executionDatabaseRecheck').disabled=!(installation?.state==='uninstalled'&&installation?.safe_retry===true)
  }catch(error){failure(error,'configuration')}
 }
 $('agree').addEventListener('change',()=>{$('environment').disabled=!$('agree').checked})
@@ -74,6 +77,7 @@ $('database').addEventListener('click',database)
 $('databaseRetry').addEventListener('click',database)
 $('executionNext').addEventListener('click',()=>{show('executionPanel');$('install').disabled=!databaseReady})
 $('executionRefresh').addEventListener('click',refresh)
+$('executionDatabaseRecheck').addEventListener('click',database)
 $('configure').addEventListener('click',async()=>{
  try{
   const body={
@@ -89,6 +93,7 @@ $('configure').addEventListener('click',async()=>{
 $('install').addEventListener('click',async()=>{
  if(executing||!databaseReady)return
  executing=true;databaseReady=false;$('install').disabled=true
+ $('executionDatabaseRecheck').disabled=true
  try{
   const body={admin_email:$('adminEmail').value,admin_password:$('adminPassword').value}
   if($('platformEmail').value) body.platform_email=$('platformEmail').value

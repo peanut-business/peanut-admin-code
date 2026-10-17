@@ -142,6 +142,12 @@ $schemas = [
 ];
 
 $paths = [
+    '/installapi/page' => ['get' => $operation(
+        'getInstallPage', 'Installation', [
+            '200' => ['description' => 'Uninstalled instance installer document.', 'content' => ['text/html' => ['schema' => ['type' => 'string']]]],
+            '404' => ['description' => 'Physical completion lock exists.'],
+        ], description: 'PHP owner checks the original completion lock before serving HTML; no private state is mounted into Nginx.',
+    )],
     '/installapi/environment' => ['get' => $operation(
         'getInstallEnvironment', 'Installation', ['200' => $success($dynamicMap), '503' => $error],
         description: '配置前只读环境检查；不连接数据库、不写配置或安装身份。',

@@ -127,21 +127,25 @@ final class InstallationExecutionHost
         $status = $this->inspectStatus();
         $code = (string) ($status['code'] ?? 'INSTALL_STATE_UNKNOWN');
         $locked = $this->completionLockPresent();
-        $partial = file_exists($this->progressMarker()) || is_link($this->progressMarker())
+        $localMarkers = file_exists($this->progressMarker()) || is_link($this->progressMarker())
             || file_exists($this->baselineMarker()) || is_link($this->baselineMarker());
+        $partial = $localMarkers
+            || in_array($code, ['INSTALL_PARTIAL_STATE_REQUIRES_REBUILD', 'INSTALL_BASELINE_WITHOUT_COMPLETION_LOCK'], true);
+        $existingInstallation = $locked || $code === 'INSTALL_COMPLETION_LOCK_MISSING';
         $unknown = str_contains($code, 'UNAVAILABLE');
         $category = $status['state'] === 'installed' ? 'installed'
-            : ($locked ? 'installed_fault' : ($unknown ? 'unknown' : ($partial ? 'partial' : 'prerequisite')));
+            : ($existingInstallation ? 'installed_fault' : ($unknown ? 'unknown' : ($partial ? 'partial' : 'prerequisite')));
         return $status + [
             'category' => $category,
-            'stage' => $locked ? 'runtime' : ($partial ? 'execution'
+            'stage' => $existingInstallation ? 'runtime' : ($partial ? 'execution'
                 : ($code === 'INSTALL_PREFLIGHT_BLOCKED' ? 'environment' : 'database_check')),
             'reason' => $code,
-            'remedy' => $locked
+            'remedy' => $existingInstallation
                 ? '恢复现有实例配置或数据库；不要删除完成锁来修复运行故障。'
                 : ($partial ? '保留现有数据库、baseline 和执行记录，核对部分完成事实后由资源 owner 处理；不自动清库或重建身份。'
                     : '按环境、配置和数据库检查的具体诊断修复后重新检查。'),
-            'writes' => ['status_request' => 'none', 'completion_lock_present' => $locked,
+            'writes' => ['status_request' => 'none', 'database_existing_state' => $category === 'partial' ? 'nonempty_or_partial' : ($existingInstallation ? 'installed_or_faulted' : 'see_status'), 'completion_lock_present' => $locked,
+                'residual_origin' => $localMarkers ? 'local_markers_present_identity_not_inferred' : 'unconfirmed_existing_database_origin',
                 'progress_present' => is_file($this->progressMarker()), 'baseline_present' => is_file($this->baselineMarker())],
             'safe_retry' => !$locked && !$partial && $status['state'] === 'uninstalled',
             'completion_lock' => 'server/private/installation/installed.json',

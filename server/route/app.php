@@ -7,6 +7,7 @@ use app\installation\controller\InstallationController;
 use think\facade\Route;
 
 if (($peanutRouteApplication ?? null) === 'installation') {
+    Route::get('page', [InstallationController::class, 'page']);
     Route::get('environment', [InstallationController::class, 'environment']);
     Route::get('database-check', [InstallationController::class, 'databaseCheck']);
     Route::get('password-policy', [InstallationController::class, 'passwordPolicy']);

@@ -231,7 +231,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 21
+                        "line": 22
                     }
                 },
                 "x-peanut-permissions": []
@@ -3621,7 +3621,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 22
+                        "line": 23
                     }
                 },
                 "x-peanut-permissions": []
@@ -16705,6 +16705,47 @@
                 ]
             }
         },
+        "/installapi/page": {
+            "get": {
+                "tags": [
+                    "Installation"
+                ],
+                "operationId": "getInstallPage",
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "Uninstalled instance installer document.",
+                        "content": {
+                            "text/html": {
+                                "schema": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Physical completion lock exists."
+                    }
+                },
+                "description": "PHP owner checks the original completion lock before serving HTML; no private state is mounted into Nginx.",
+                "security": [],
+                "x-peanut-route": {
+                    "application": "installation",
+                    "owner": {
+                        "type": "application",
+                        "key": "installation"
+                    },
+                    "controller": "app\\installation\\controller\\InstallationController",
+                    "action": "page",
+                    "permission": null,
+                    "source": {
+                        "file": "server/route/app.php",
+                        "line": 10
+                    }
+                },
+                "x-peanut-permissions": []
+            }
+        },
         "/installapi/environment": {
             "get": {
                 "tags": [
@@ -16763,7 +16804,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 10
+                        "line": 11
                     }
                 },
                 "x-peanut-permissions": []
@@ -16824,7 +16865,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 11
+                        "line": 12
                     }
                 },
                 "x-peanut-permissions": []
@@ -16904,7 +16945,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 12
+                        "line": 13
                     }
                 },
                 "x-peanut-permissions": []
@@ -16965,7 +17006,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 13
+                        "line": 14
                     }
                 },
                 "x-peanut-permissions": []
@@ -17061,7 +17102,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 14
+                        "line": 15
                     }
                 },
                 "x-peanut-permissions": []
@@ -17122,7 +17163,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 15
+                        "line": 16
                     }
                 },
                 "x-peanut-permissions": []
@@ -17180,7 +17221,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 16
+                        "line": 17
                     }
                 },
                 "x-peanut-permissions": []
@@ -17285,7 +17326,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 17
+                        "line": 18
                     }
                 },
                 "x-peanut-permissions": []
