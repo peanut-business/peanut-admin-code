@@ -1,0 +1,355 @@
+#!/usr/bin/env python3
+"""One fixed T22 metadata operation. Never claims, renews or releases a lease."""
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import stat
+import subprocess
+import sys
+import time
+
+OPERATION = 't00022-install-metadata-read'
+TASK = 'TASKS/plan/queue/T00022.json'
+DESCRIPTOR = 'resources/operations/t00022-install-metadata-read.json'
+REGISTRY_SHA = 'd3e5750dcf42ff7cded667d4b5e1f716eba91b509d55ba08dfe7dc3ea00cae57'
+DATABASE = 'peanut_admin_fresh_mt_20261016_01a143b9'
+RESOURCE = 'peanut-admin-fresh-mt-20261016-01a143b9-mysql84'
+TOOLING = RESOURCE + '-remote-admin-cli'
+GATE = 'fresh-mt-functional-01a143b9'
+SCHEMA = '192.168.192.2:20183/' + DATABASE
+OUTPUT = Path('/Users/xing/.codex/visualizations/2026/10/16/01a143b9-914f-7262-8a80-a63df8209b5e/T22-install-metadata-read/RETURN.json')
+ROOT = Path(__file__).resolve().parent.parent
+
+
+class Blocked(Exception):
+    pass
+
+
+class FixedArguments(argparse.ArgumentParser):
+    def error(self, message):
+        self.exit(2, '{"status":"UNKNOWN","reason":"ARGUMENT_CONTRACT_REJECTED"}\n')
+
+
+def need(ok, code):
+    if not ok:
+        raise Blocked(code)
+
+
+def digest(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def local(argv, registry_path=None):
+    env = dict(os.environ)
+    for key in list(env):
+        if key.startswith(('GIT_', 'PYTHON', 'MYSQL', 'MARIADB', 'DOCKER_')) or key in ('BASH_ENV', 'ENV', 'PEANUT_RESOURCE_REGISTRY'):
+            env.pop(key)
+    env['PATH'] = str(Path(sys.executable).parent) + ':/usr/bin:/bin:/usr/sbin:/sbin'
+    env['GIT_OPTIONAL_LOCKS'] = '0'
+    if registry_path is not None:
+        env['PEANUT_RESOURCE_REGISTRY'] = str(registry_path)
+    result = subprocess.run(argv, cwd=ROOT, capture_output=True, timeout=15, env=env)
+    need(result.returncode == 0, 'LOCAL_NATIVE_COMMAND_REJECTED')
+    need(len(result.stdout) <= 4 * 1024 * 1024, 'LOCAL_OUTPUT_BOUND')
+    return result.stdout
+
+
+def git(root, *args):
+    return local(['/usr/bin/git', '-C', str(root), *args])
+
+
+def regular(path, private=False):
+    need(path.is_absolute() and not path.is_symlink() and path.resolve() == path, 'INPUT_PATH_UNSAFE')
+    s = path.lstat()
+    need(stat.S_ISREG(s.st_mode) and s.st_nlink == 1 and s.st_size <= 4 * 1024 * 1024, 'INPUT_FILE_UNSAFE')
+    if private:
+        need(s.st_uid == os.getuid() and stat.S_IMODE(s.st_mode) == 0o600, 'PRIVATE_INPUT_UNSAFE')
+    return path.read_bytes()
+
+
+def committed(root, ref, name):
+    path = root / name
+    data = regular(path)
+    need(data == git(root, 'show', ref + ':' + name), 'COMMITTED_INPUT_DRIFT')
+    return data
+
+
+def resources_in(value):
+    if isinstance(value, dict):
+        if 'stable_resource_id' in value:
+            yield value
+        for child in value.values():
+            yield from resources_in(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from resources_in(child)
+
+
+def admission(lease):
+    need(re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,63}', lease), 'LEASE_ID_INVALID')
+    need(Path.cwd().resolve() == ROOT and not Path(__file__).is_symlink(), 'OWN_CHECKOUT_REQUIRED')
+    need(not git(ROOT, 'status', '--porcelain'), 'CANDIDATE_NOT_CLEAN')
+    head = git(ROOT, 'rev-parse', 'HEAD').decode().strip()
+    tool = ROOT / 'scripts/project-resource-registry'
+    # This existing native resolver verifies the Project mapping and registry
+    # committed bytes. No caller can supply another descriptor/Project root.
+    project_registry = Path(local(['/usr/bin/python3', str(tool), 'maintainer-source', '--sha256', REGISTRY_SHA]).decode().strip())
+    project = project_registry.parent.parent
+    task_raw = committed(project, 'HEAD', TASK)
+    task = json.loads(task_raw)['result']['execution']['metadata_read_admission']
+    need(task['operation_id'] == OPERATION and task['descriptor_path'] == DESCRIPTOR, 'TASK_OPERATION_MISMATCH')
+    need(task['explicit_START'] is True and task['runtime_budget']['metadata_read_granted'] == 1,
+         'RUNTIME_START_NOT_GRANTED')
+    accepted = task['accepted_project_commit']
+    need(isinstance(accepted, str) and re.fullmatch(r'[0-9a-f]{40}', accepted), 'UNBOUND_PROJECT_COMMIT')
+    local(['/usr/bin/git', '-C', str(project), 'merge-base', '--is-ancestor', accepted, 'HEAD'])
+    raw = committed(project, accepted, DESCRIPTOR)
+    blob = git(project, 'rev-parse', accepted + ':' + DESCRIPTOR).decode().strip()
+    need(blob == task['descriptor_blob'] and digest(raw) == task['descriptor_sha256'], 'DESCRIPTOR_BINDING_MISMATCH')
+    d = json.loads(raw)
+    self_raw = regular(Path(__file__))
+    self_blob = git(ROOT, 'rev-parse', 'HEAD:scripts/project-resource-mysql-metadata').decode().strip()
+    need(d['schema_version'] == 1 and d['operation_id'] == OPERATION
+         and d['authority_task'] == TASK + '#/result/execution/metadata_read_admission', 'DESCRIPTOR_OPERATION_MISMATCH')
+    need(task['runtime_candidate'] == d['runtime_candidate'] == head, 'RUNTIME_CANDIDATE_MISMATCH')
+    need(task['runner_blob'] == d['runner']['blob'] == self_blob
+         and task['runner_sha256'] == d['runner']['sha256'] == digest(self_raw), 'RUNNER_BINDING_MISMATCH')
+    source_candidate = task['runner_candidate']
+    need(isinstance(source_candidate, str) and re.fullmatch(r'[0-9a-f]{40}', source_candidate)
+         and source_candidate == d['runner']['candidate'], 'RUNNER_ORIGIN_UNBOUND')
+    local(['/usr/bin/git', '-C', str(ROOT), 'merge-base', '--is-ancestor', source_candidate, head])
+    need(git(ROOT, 'rev-parse', source_candidate + ':scripts/project-resource-mysql-metadata').decode().strip() == self_blob,
+         'RUNNER_ORIGIN_BLOB_MISMATCH')
+    need(task['runtime_owner'] == d['owner'] and task['runtime_thread'] == d['thread'], 'RUNTIME_ACTOR_MISMATCH')
+    need(d['runtime_authorization']['explicit_START'] is True
+         and d['runtime_authorization']['read_budget'] == 1, 'DESCRIPTOR_START_NOT_GRANTED')
+    registry_raw = committed(project, 'HEAD', 'resources/project-resources.json')
+    need(digest(registry_raw) == REGISTRY_SHA == d['registry']['sha256'], 'REGISTRY_DRIFT')
+    items = list(resources_in(json.loads(registry_raw)))
+    def item(key):
+        rows = [r for r in items if r['stable_resource_id'] == key]
+        need(len(rows) == 1, 'REGISTERED_ID_NOT_UNIQUE')
+        return rows[0]
+    database, parent = item(RESOURCE), item(TOOLING)
+    need(d['registry']['database_resource_id'] == RESOURCE and d['registry']['tooling_resource_id'] == TOOLING
+         and d['registry']['schema'] == database['database'] == DATABASE
+         and d['registry']['physical_resource_id'] == database['physical_resource_id'] == 'peanut-admin-mysql84-development'
+         and d['registry']['application_resource_id'] == 'peanut-admin-fresh-mt-20261016-01a143b9-app', 'EXACT_TARGET_MISMATCH')
+    need(database['lease_policy']['mode'] == 'schema' and 'shared_access' not in database['lease_policy']
+         and database['lease_policy']['physical_endpoint'] == d['registry']['endpoint'] == SCHEMA.rpartition('/')[0], 'SCHEMA_EXCLUSIVE_CONTRACT_REQUIRED')
+    need(parent['ssh_alias'] == 'mac-14' and parent['container_name'] == 'peanut-admin-mysql84-development'
+         and parent['ssh_command'] == '/usr/bin/ssh' and parent['docker_command'] == '/usr/local/bin/docker'
+         and parent['mysql_command'] == '/usr/bin/mysql' and parent['database_resource_id'] == RESOURCE, 'PARENT_TRANSPORT_DRIFT')
+    need(d['transport']['credential_refs']['admin'] == 'existing container MYSQL_ROOT_PASSWORD; no value read/print/transfer'
+         and d['transport']['credential_refs']['ordinary'] == 'mac-14:/Users/xing/.config/peanut-admin/development-db.env'
+         and database['credential_ref'].startswith(d['transport']['credential_refs']['ordinary'] + ';'), 'CREDENTIAL_REF_DRIFT')
+    native = ROOT / 'scripts/project-resource-lease'
+    need(digest(regular(native)) == d['native_authority']['tool_sha256']
+         and d['native_authority']['gate'] == database['lease_gate'] == GATE, 'NATIVE_TOOL_DRIFT')
+    route = d['transport']['ordinary_installation_consumer_route']
+    # Only an independently accepted actual native host route is supported.
+    # A container/root probe is never substituted for the installation consumer.
+    need(route['state'] == 'VERIFIED_CURRENT_INSTALLATION_CONSUMER_ROUTE'
+         and route.get('kind') == 'mac14-native-host-tcp'
+         and route.get('mysql_command') == '/usr/bin/mysql'
+         and route.get('evidence'), 'ORDINARY_CONSUMER_ROUTE_UNKNOWN_OR_UNSUPPORTED')
+    def witness(binding, kind):
+        need(isinstance(binding, dict) and set(binding) == {'path', 'sha256'}, 'WITNESS_BINDING_REQUIRED')
+        data = regular(Path(binding['path']), private=True)
+        need(digest(data) == binding['sha256'], 'WITNESS_BYTES_CHANGED')
+        value = json.loads(data)
+        need(value['operation_id'] == OPERATION and value['kind'] == kind, 'WITNESS_KIND_MISMATCH')
+        return value
+    route_witness = witness(route['evidence'], 'actual_installation_consumer_route')
+    need(route_witness['route'] == {'kind': 'mac14-native-host-tcp', 'host': 'mac-14',
+         'mysql_command': '/usr/bin/mysql', 'endpoint': '192.168.192.2:20183',
+         'credential_ref': d['transport']['credential_refs']['ordinary']}, 'CONSUMER_WITNESS_ROUTE_MISMATCH')
+    deadline = d['transport']['deadline']
+    need(deadline['state'] == 'VERIFIED' and deadline['seconds'] == 20
+         and deadline.get('remote_python') == '/usr/bin/python3'
+         and deadline.get('container_timeout') == '/usr/bin/timeout'
+         and deadline.get('evidence'), 'REMOTE_LIFETIME_CAPABILITY_UNKNOWN')
+    deadline_witness = witness(deadline['evidence'], 'remote_metadata_lifetime_capability')
+    need(deadline_witness['capability'] == {'remote_python': '/usr/bin/python3',
+         'container_timeout': '/usr/bin/timeout', 'seconds': 20, 'termination_confirmed': True},
+         'DEADLINE_WITNESS_MISMATCH')
+    need(d['output']['path'] == str(OUTPUT), 'OUTPUT_BINDING_MISMATCH')
+    common = Path(git(ROOT, 'rev-parse', '--path-format=absolute', '--git-common-dir').decode().strip())
+    proof = common / 'peanut-admin-resource-leases/leases' / lease
+    frozen = [regular(proof / name) for name in ['metadata.tsv', 'resources.tsv']]
+    def verify(minimum_ttl=50):
+        need(git(ROOT, 'rev-parse', 'HEAD').decode().strip() == head
+             and digest(regular(native)) == d['native_authority']['tool_sha256']
+             and digest(regular(Path(__file__))) == digest(self_raw)
+             and committed(project, 'HEAD', TASK) == task_raw
+             and regular(project_registry) == registry_raw, 'AUTHORITY_OR_TOOL_CHANGED')
+        need([regular(proof / name) for name in ['metadata.tsv', 'resources.tsv']] == frozen, 'LEASE_PROOF_CHANGED')
+        meta = dict(line.split('\t') for line in frozen[0].decode().splitlines())
+        need(meta['owner'] == d['owner'] and meta['thread'] == d['thread'] and meta['candidate'] == head
+             and meta['gate'] == GATE and meta['parent_lease'] == '' and meta['status'] == 'ACTIVE'
+             and Path(meta['candidate_repository']).resolve() == ROOT and Path(meta['worktree']).resolve() == ROOT,
+             'NATIVE_ACTOR_PROOF_MISMATCH')
+        need(int(meta['expires_at']) - time.time() >= minimum_ttl, 'LEASE_TTL_TOO_SHORT')
+        pairs = set()
+        for line in frozen[1].decode().splitlines():
+            h, key, value = line.split('\t')
+            need(h == digest((key + '\t' + value).encode()), 'RESOURCE_PROOF_INVALID')
+            pairs.add((key, value))
+        required = {('resource-id', RESOURCE), ('endpoint', database['upstream_endpoint']['endpoint_id']),
+                    ('registry-sha256', REGISTRY_SHA), ('mysql-schema', SCHEMA), ('output-dir', str(OUTPUT.parent))}
+        need(required <= pairs and not any(k == 'mysql-access' for k, _ in pairs), 'ORIGINAL_SCHEMA_EXCLUSIVE_PROOF_REQUIRED')
+        local(['/bin/bash', str(native), 'show', '--lease', lease, '--verify-locks'], project_registry)
+    verify(120)
+    return d, verify, {'project_commit': accepted, 'descriptor_blob': blob, 'descriptor_sha256': digest(raw),
+                       'runner_blob': self_blob, 'runner_sha256': digest(self_raw), 'task_sha256': digest(task_raw),
+                       'registry_sha256': REGISTRY_SHA, 'candidate': head, 'owner': d['owner'], 'thread': d['thread'], 'lease': lease}
+
+
+# The only remote program. Neither descriptor text nor caller data becomes SQL,
+# shell code, paths or client arguments. Its output contains normalized facts only.
+REMOTE = r'''
+import os,json,re,stat,subprocess,sys,hashlib
+schema='peanut_admin_fresh_mt_20261016_01a143b9'
+required={'SELECT','INSERT','UPDATE','DELETE','CREATE','ALTER','DROP','INDEX','REFERENCES','CREATE TEMPORARY TABLES'}
+mode=sys.argv[1]
+mysql=['/usr/bin/mysql','--no-defaults','--no-login-paths','--connect-timeout=5','--batch','--raw','--skip-column-names']
+env={'PATH':'/usr/bin:/bin','HOME':os.path.expanduser('~'),'LANG':'C','LC_ALL':'C'}
+if mode=='admin':
+ query="SELECT JSON_OBJECT('server_uuid',@@server_uuid,'hostname',@@hostname,'port',@@port,'version',VERSION(),'principal',CURRENT_USER(),'schema_exists',(SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME='peanut_admin_fresh_mt_20261016_01a143b9'),'table_count',(SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA='peanut_admin_fresh_mt_20261016_01a143b9'),'partial_revokes',@@GLOBAL.partial_revokes);"
+ shell='MYSQL_PWD=${MYSQL_ROOT_PASSWORD:?}; export MYSQL_PWD; exec /usr/bin/timeout -k 2s 20s /usr/bin/mysql --no-defaults --no-login-paths --connect-timeout=5 --batch --raw --skip-column-names -uroot'
+ cmd=['/usr/local/bin/docker','exec','-i','peanut-admin-mysql84-development','/bin/sh','-c',shell]
+elif mode=='ordinary':
+ path='/Users/xing/.config/peanut-admin/development-db.env'
+ fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW)
+ st=os.fstat(fd)
+ if not stat.S_ISREG(st.st_mode) or st.st_nlink!=1 or st.st_uid!=os.getuid() or stat.S_IMODE(st.st_mode)!=0o600 or st.st_size>16384:raise ValueError()
+ with os.fdopen(fd) as f:lines=f.read().splitlines()
+ values={}
+ for line in lines:
+  if not line.strip() or line.lstrip().startswith('#'):continue
+  m=re.fullmatch(r'([A-Z][A-Z0-9_]*)=(.*)',line)
+  if not m or m[1] in values:raise ValueError()
+  value=m[2]
+  if value.startswith("'") and value.endswith("'"):value=value[1:-1]
+  if not value or any(c in value for c in "\r\n\x00'\"`$\\"):raise ValueError()
+  values[m[1]]=value
+ if values['DB_USER']!='peanut_admin_development':raise ValueError()
+ if 'DB_HOST' in values and values['DB_HOST']!='192.168.192.2':raise ValueError()
+ if 'DB_PORT' in values and values['DB_PORT']!='20183':raise ValueError()
+ env['MYSQL_PWD']=values['DB_PASS']
+ cmd=mysql+['--protocol=TCP','-h192.168.192.2','-P20183','-u'+values['DB_USER']]
+ query="SELECT JSON_OBJECT('server_uuid',@@server_uuid,'hostname',@@hostname,'port',@@port,'version',VERSION(),'principal',CURRENT_USER(),'role',CURRENT_ROLE(),'mandatory_roles',@@GLOBAL.mandatory_roles,'partial_revokes',@@GLOBAL.partial_revokes); SHOW GRANTS FOR CURRENT_USER();"
+else:raise ValueError()
+try:
+ result=subprocess.run(cmd,input=query.encode(),stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,env=env,timeout=25)
+except subprocess.TimeoutExpired:
+ print(json.dumps({'status':'UNKNOWN','reason':'REMOTE_CLIENT_LIFETIME_UNCONFIRMED','actual_process_terminal':False}));sys.exit(2)
+if result.returncode!=0 or len(result.stdout)>65536:raise ValueError()
+lines=result.stdout.decode().splitlines()
+identity=json.loads(lines[0])
+if not re.fullmatch(r'[0-9a-f-]{36}',identity['server_uuid']) or identity['version']!='8.4.10':raise ValueError()
+if mode=='admin':
+ if len(lines)!=1 or identity['schema_exists'] not in (0,1) or type(identity['table_count'])!=int or identity['table_count']<0:raise ValueError()
+ # Presence is affirmative. A zero visible count is not proof of absence
+ # without live metadata visibility; the runner never invents that proof.
+ output={'status':'observed','metadata':identity,'existence':True if identity['schema_exists']==1 else 'UNKNOWN','table_count_semantics':'visible_metadata_count_only','absence_visibility':'UNKNOWN'}
+else:
+ grants=[];supported=True;effective=set()
+ for line in lines[1:]:
+  m=re.fullmatch(r"GRANT ([A-Z_ ,]+) ON (.+) TO (?:`peanut_admin_development`@`%`|'peanut_admin_development'@'%')( WITH GRANT OPTION)?",line)
+  if not m:supported=False;continue
+  target=m[2];privileges=m[1].split(', ')
+  if len(target)>256 or any(not re.fullmatch(r'[A-Z_ ]+',v) for v in privileges):raise ValueError()
+  raw='`'+schema+'`.*';escaped='`'+schema.replace('_',r'\_')+'`.*'
+  exact=raw if identity['partial_revokes'] else escaped
+  if target in ('*.*',exact):
+   normalized={'scope':'global'} if target=='*.*' else {'scope':'literal_schema','schema':schema}
+   effective.update(required if privileges==['ALL PRIVILEGES'] else required.intersection(privileges))
+  else:
+   normalized={'scope':'UNKNOWN','target_sha256':hashlib.sha256(target.encode()).hexdigest()};supported=False
+  grants.append({'privileges':privileges,'target':normalized,'grantable':line.endswith(' WITH GRANT OPTION')})
+ role_clear=identity['role']=='NONE' and identity['mandatory_roles']==''
+ output={'status':'observed','metadata':identity,'direct_privileges':grants,'effective_privileges':sorted(effective) if supported and role_clear else 'UNKNOWN','effective_semantics':'direct-only-no-roles' if supported and role_clear else 'UNKNOWN'}
+output['actual_process_terminal']=True
+print(json.dumps(output,separators=(',',':')))
+'''
+
+
+def observe(mode):
+    # -I/-S suppress interpreter user startup hooks. The native mysql clients
+    # suppress default/login/init configuration. Passwords never reach argv.
+    argv = ['/usr/bin/ssh', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes', '-o', 'ConnectTimeout=5',
+            'mac-14', '/usr/bin/python3', '-I', '-S', '-', mode]
+    try:
+        r = subprocess.run(argv, input=REMOTE.encode(), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                           timeout=40, start_new_session=True)
+    except subprocess.TimeoutExpired:
+        raise Blocked('TRANSPORT_UNCERTAIN_KEEP_LEASE')
+    need(r.returncode == 0 and len(r.stdout) <= 65536, 'REMOTE_RESULT_UNCONFIRMED_KEEP_LEASE')
+    value = json.loads(r.stdout)
+    need(value.get('actual_process_terminal') is True and value.get('status') == 'observed', 'REMOTE_LIFETIME_UNCONFIRMED_KEEP_LEASE')
+    return value
+
+
+def main():
+    parser = FixedArguments(description=__doc__)
+    parser.add_argument('--operation', choices=[OPERATION], required=True)
+    parser.add_argument('--lease', required=True)
+    args = parser.parse_args()
+    fd = None
+    receipt = {'operation_id': OPERATION, 'status': 'UNKNOWN', 'actual_process_terminal': True,
+               'remote_started': False, 'lease_released_by_runner': False, 'installation_permission': False}
+    try:
+        d, verify, authority = admission(args.lease)
+        parent = OUTPUT.parent
+        s = parent.lstat()
+        need(parent.resolve() == parent and stat.S_ISDIR(s.st_mode) and s.st_uid == os.getuid()
+             and stat.S_IMODE(s.st_mode) == 0o700, 'PRIVATE_OUTPUT_DIRECTORY_REQUIRED')
+        # An existing receipt consumes this operation. No retries or overwrite.
+        fd = os.open(OUTPUT, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        receipt['authority'] = authority
+        def save():
+            data = (json.dumps(receipt, separators=(',', ':')) + '\n').encode()
+            need(len(data) <= 65536, 'RECEIPT_BOUND')
+            os.lseek(fd, 0, os.SEEK_SET)
+            os.ftruncate(fd, 0)
+            offset = 0
+            while offset < len(data):
+                offset += os.write(fd, data[offset:])
+            os.fsync(fd)
+        for mode in ['admin', 'ordinary']:
+            verify()
+            receipt.update(remote_started=True, actual_process_terminal=False, current_phase=mode)
+            save()
+            receipt[mode] = observe(mode)
+            receipt['actual_process_terminal'] = True
+            verify()
+            save()
+        need(receipt['admin']['metadata']['server_uuid'] == receipt['ordinary']['metadata']['server_uuid'], 'SERVER_IDENTITY_MISMATCH')
+        need(receipt['ordinary']['metadata']['principal'] == 'peanut_admin_development@%', 'ORDINARY_PRINCIPAL_UNEXPECTED')
+        receipt.update(status='metadata_snapshot_only', observation_time=int(time.time()),
+                       safe_for_owner_to_consider_native_release=True, current_phase='complete')
+        save()
+        print(json.dumps({'status': receipt['status'], 'output': str(OUTPUT), 'sha256': digest(OUTPUT.read_bytes()),
+                          'installation_permission': False, 'lease_released_by_runner': False}))
+        return 0
+    except Exception as error:
+        # No underlying exception, stderr, credential or raw grant escapes.
+        code = str(error) if isinstance(error, Blocked) else 'UNCONFIRMED_NATIVE_METADATA_FAILURE'
+        receipt.update(status='UNKNOWN', reason=code, safe_for_owner_to_consider_native_release=not receipt['remote_started'])
+        if fd is not None:
+            data = (json.dumps(receipt, separators=(',', ':')) + '\n').encode()
+            os.lseek(fd, 0, os.SEEK_SET); os.ftruncate(fd, 0); os.write(fd, data); os.fsync(fd)
+        print(json.dumps({'status': 'UNKNOWN', 'reason': code, 'remote_started': receipt['remote_started'],
+                          'actual_process_terminal': receipt['actual_process_terminal'], 'lease_released_by_runner': False}))
+        return 2
+    finally:
+        if fd is not None:
+            os.close(fd)
+
+
+if __name__ == '__main__':
+    sys.exit(main())
