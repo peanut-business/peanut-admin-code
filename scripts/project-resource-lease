@@ -914,6 +914,17 @@ case "$COMMAND" in
       PARENT_EXPIRES="$(metadata_value "$LEASES_DIR/$PARENT_LEASE/metadata.tsv" expires_at)"
       [[ "$EXPIRES_AT" -le "$PARENT_EXPIRES" ]] || EXPIRES_AT="$PARENT_EXPIRES"
     fi
+    # Renewing the runtime holder must not shorten a previously granted observer
+    # window. Ordinary children retain their existing renewal semantics.
+    for CHILD_DIR in "$LEASES_DIR"/*; do
+      [[ -d "$CHILD_DIR" && -f "$CHILD_DIR/metadata.tsv" ]] || continue
+      if [[ "$(metadata_value "$CHILD_DIR/metadata.tsv" parent_lease)" == "$LEASE_ID" ]] \
+        && lease_has_resource "$CHILD_DIR" lease-role collaboration-read-existing; then
+        CHILD_EXPIRES="$(metadata_value "$CHILD_DIR/metadata.tsv" expires_at)"
+        [[ "$CHILD_EXPIRES" =~ ^[0-9]+$ && "$EXPIRES_AT" -ge "$CHILD_EXPIRES" ]] \
+          || die 'runtime renewal cannot shorten an existing observer window'
+      fi
+    done
     awk -F '\t' -v expires="$EXPIRES_AT" 'BEGIN{OFS="\t"} $1=="expires_at"{$2=expires} {print}' "$LEASE_DIR/metadata.tsv" > "$TMP_METADATA"
     mv "$TMP_METADATA" "$LEASE_DIR/metadata.tsv"
     release_mutex

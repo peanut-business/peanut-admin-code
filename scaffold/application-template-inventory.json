@@ -3629,7 +3629,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e92c80506a56dd345d772f8618d9f4e79a62ac53e00282f272df053991041ccd"
+            "source_sha256": "bba140c74597ab6758d724304b2a414ef740e0c80236ec311868ad2397db5c9c"
         },
         {
             "path": "scripts/project-resource-registry",
