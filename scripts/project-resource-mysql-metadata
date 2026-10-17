@@ -173,13 +173,17 @@ def admission(lease):
          'mysql_command': '/usr/bin/mysql', 'endpoint': '192.168.192.2:20183',
          'credential_ref': d['transport']['credential_refs']['ordinary']}, 'CONSUMER_WITNESS_ROUTE_MISMATCH')
     deadline = d['transport']['deadline']
-    need(deadline['state'] == 'VERIFIED' and deadline['seconds'] == 20
+    need(deadline['state'] == 'VERIFIED' and deadline['soft_seconds'] == 20
+         and deadline['kill_grace_seconds'] == 2 and deadline['terminal_confirmation_seconds'] == 25
+         and deadline['ssh_timeout_seconds'] == 40
          and deadline.get('remote_python') == '/usr/bin/python3'
          and deadline.get('container_timeout') == '/usr/bin/timeout'
          and deadline.get('evidence'), 'REMOTE_LIFETIME_CAPABILITY_UNKNOWN')
     deadline_witness = witness(deadline['evidence'], 'remote_metadata_lifetime_capability')
     need(deadline_witness['capability'] == {'remote_python': '/usr/bin/python3',
-         'container_timeout': '/usr/bin/timeout', 'seconds': 20, 'termination_confirmed': True},
+         'container_timeout': '/usr/bin/timeout', 'modes': ['admin', 'ordinary'],
+         'soft_seconds': 20, 'kill_grace_seconds': 2, 'terminal_confirmation_seconds': 25,
+         'ssh_timeout_seconds': 40, 'termination_confirmed': True},
          'DEADLINE_WITNESS_MISMATCH')
     need(d['output']['path'] == str(OUTPUT), 'OUTPUT_BINDING_MISMATCH')
     common = Path(git(ROOT, 'rev-parse', '--path-format=absolute', '--git-common-dir').decode().strip())
@@ -207,6 +211,8 @@ def admission(lease):
                     ('registry-sha256', REGISTRY_SHA), ('mysql-schema', SCHEMA), ('output-dir', str(OUTPUT.parent))}
         need(required <= pairs and not any(k == 'mysql-access' for k, _ in pairs), 'ORIGINAL_SCHEMA_EXCLUSIVE_PROOF_REQUIRED')
         local(['/bin/bash', str(native), 'show', '--lease', lease, '--verify-locks'], project_registry)
+        need(int(meta['expires_at']) - time.time() >= minimum_ttl, 'LEASE_TTL_TOO_SHORT_AFTER_NATIVE_VERIFY')
+        return int(meta['expires_at'])
     verify(120)
     return d, verify, {'project_commit': accepted, 'descriptor_blob': blob, 'descriptor_sha256': digest(raw),
                        'runner_blob': self_blob, 'runner_sha256': digest(self_raw), 'task_sha256': digest(task_raw),
@@ -249,7 +255,26 @@ elif mode=='ordinary':
  query="SELECT JSON_OBJECT('server_uuid',@@server_uuid,'hostname',@@hostname,'port',@@port,'version',VERSION(),'principal',CURRENT_USER(),'role',CURRENT_ROLE(),'mandatory_roles',@@GLOBAL.mandatory_roles,'partial_revokes',@@GLOBAL.partial_revokes); SHOW GRANTS FOR CURRENT_USER();"
 else:raise ValueError()
 try:
- result=subprocess.run(cmd,input=query.encode(),stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,env=env,timeout=25)
+ if mode=='admin':
+  # The container client receives TERM at20s and KILL after2s. Docker's
+  # returned terminal result must be observed within the25s confirmation cap.
+  result=subprocess.run(cmd,input=query.encode(),stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,env=env,timeout=25)
+ else:
+  # Apply the same20s soft deadline and2s TERM grace to the actual native
+  # ordinary client, not merely a25s wait around an otherwise unbounded client.
+  client=subprocess.Popen(cmd,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,env=env)
+  try:
+   data,_=client.communicate(query.encode(),timeout=20)
+   result=subprocess.CompletedProcess(cmd,client.returncode,data)
+  except subprocess.TimeoutExpired:
+   client.terminate()
+   try:client.communicate(timeout=2)
+   except subprocess.TimeoutExpired:
+    client.kill()
+    try:client.communicate(timeout=3)
+    except subprocess.TimeoutExpired:
+     print(json.dumps({'status':'UNKNOWN','reason':'REMOTE_CLIENT_TERMINAL_UNCONFIRMED','actual_process_terminal':False}));sys.exit(2)
+   print(json.dumps({'status':'UNKNOWN','reason':'REMOTE_CLIENT_SOFT_DEADLINE','actual_process_terminal':True}));sys.exit(2)
 except subprocess.TimeoutExpired:
  print(json.dumps({'status':'UNKNOWN','reason':'REMOTE_CLIENT_LIFETIME_UNCONFIRMED','actual_process_terminal':False}));sys.exit(2)
 if result.returncode!=0 or len(result.stdout)>65536:raise ValueError()
@@ -326,9 +351,10 @@ def main():
                 offset += os.write(fd, data[offset:])
             os.fsync(fd)
         for mode in ['admin', 'ordinary']:
-            verify()
+            expires_at = verify()
             receipt.update(remote_started=True, actual_process_terminal=False, current_phase=mode)
             save()
+            need(expires_at - time.time() >= 50, 'LEASE_TTL_TOO_SHORT_BEFORE_DISPATCH')
             receipt[mode] = observe(mode)
             receipt['actual_process_terminal'] = True
             verify()
