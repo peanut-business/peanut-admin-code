@@ -20,6 +20,12 @@ server {
         proxy_set_header Cookie "";
         proxy_set_header Authorization "";
     }
+    location = /internal/collaboration/access/v1/invalidate {
+        proxy_pass http://collaboration:80;
+        proxy_read_timeout 45s;
+        proxy_set_header Cookie "";
+        proxy_set_header Authorization "";
+    }
     location / { return 404; }
 }
 server {
