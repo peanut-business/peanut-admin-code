@@ -479,12 +479,12 @@ final readonly class RuntimeLifecycle
             || preg_match('/^sha256:[a-f0-9]{64}$/D', $container['image_id'] ?? '') !== 1
             || preg_match('/^[a-z0-9][a-z0-9_-]{0,62}$/D', $container['compose_project'] ?? '') !== 1
             || ($container['compose_service'] ?? null) !== 'collaboration'
-            || !is_string($working) || strlen($working) > 4096 || !str_starts_with($working, '/') || $working === '/' || str_ends_with($working, '/')
+            || !is_string($working) || strlen($working) > 4096 || !str_starts_with($working, '/') || !str_ends_with($working, '/docker')
             || str_contains($working, "\0") || str_contains($working, '//') || preg_match('~/(?:\.|\.\.)(?:/|$)~D', $working)
             || $mountKeys !== ['destination','read_only','source'] || ($mount['destination'] ?? null) !== '/run/peanut-collaboration'
-            || ($mount['read_only'] ?? null) !== true || ($mount['source'] ?? null) !== $working . '/private/collaboration/service'
+            || ($mount['read_only'] ?? null) !== true || ($mount['source'] ?? null) !== substr($working, 0, -7) . '/certs'
             || $programKeys !== ['destination','read_only','source'] || ($program['destination'] ?? null) !== '/srv/peanut-hocuspocus'
-            || ($program['read_only'] ?? null) !== true || ($program['source'] ?? null) !== $working) {
+            || ($program['read_only'] ?? null) !== true || ($program['source'] ?? null) !== substr($working, 0, -7)) {
             throw new \DomainException('COLLABORATION_OWNER_CONTAINER_INVALID');
         }
     }

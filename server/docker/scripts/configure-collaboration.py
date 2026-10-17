@@ -149,7 +149,7 @@ def validate_configuration(data, server, service_required=True):
     if type(data['config_revision']) is not int or data['config_revision'] < 1 or not IMAGE.fullmatch(data['image']):
         raise ValueError('COLLABORATION_IMAGE_REVISION_INVALID')
     root = Path(data['service_root'])
-    if not root.is_absolute() or root.resolve() != root or root.is_symlink() or not (root / 'compose.yaml').is_file():
+    if not root.is_absolute() or root.resolve() != root or root.is_symlink() or not (root / 'docker/compose.yaml').is_file():
         raise ValueError('COLLABORATION_INDEPENDENT_SERVICE_REQUIRED')
     if not re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,62}', data['compose_project']) or not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}', data['network']):
         raise ValueError('COLLABORATION_INDEPENDENT_SERVICE_BINDING_INVALID')
@@ -337,30 +337,35 @@ def compose_arguments(server):
 
 def publish_independent_service(server, data, node, owner):
     root = Path(data['service_root'])
-    for path in (root / 'private', root / 'private/collaboration', root / 'private/collaboration/service'):
-        if not path.exists(): path.mkdir(mode=0o700)
+    # Host exposure belongs to this deployment, not to the PHP identity protocol.
+    # Require its explicit local assignment before publishing any service files.
+    port = environment(root / 'docker/.env').get('COLLABORATION_PORT', '')
+    if not re.fullmatch(r'[0-9]{1,5}', port) or not 1 <= int(port) <= 65535:
+        raise ValueError('COLLABORATION_SERVICE_PORT_REQUIRED')
+    for path in (root / 'docker', root / 'certs'):
+        if not path.exists(): path.mkdir(mode=0o755)
         if path.is_symlink() or path.resolve() != path or not path.is_dir() or path.stat().st_mode & 0o022:
             raise ValueError('COLLABORATION_INDEPENDENT_PRIVATE_DIRECTORY_INVALID')
     # The existing application identity/key remains unchanged; the independent
     # service gets only its own service key and CA, never the ticket key or SQL credentials.
     for name, private in (('service-secret', True), ('ca.pem', False)):
-        atomic(root / 'private/collaboration/service' / name, (server / SERVICE_DIRECTORY / name).read_bytes(), owner=owner, private=private)
+        atomic(root / 'certs' / name, (server / SERVICE_DIRECTORY / name).read_bytes(), owner=owner, private=private)
     runtime_keys = ('COLLABORATION_INSTANCE_ID','COLLABORATION_SERVICE_INSTANCE_ID','COLLABORATION_CA_SHA256',
                     'COLLABORATION_KEY_ID','COLLABORATION_EDITION','COLLABORATION_PHP_ORIGIN','COLLABORATION_CONFIG_REVISION','COLLABORATION_CONFIG_SHA256')
     runtime = {key: node[key] for key in runtime_keys}
-    runtime.update(COLLABORATION_PHP_TIMEOUT_MS='20000', COLLABORATION_LISTEN_ADDRESS='0.0.0.0', COLLABORATION_LISTEN_PORT='1234')
-    deployment = {'COMPOSE_PROJECT_NAME': data['compose_project'], 'COLLABORATION_NETWORK': data['network']}
+    deployment = {'COMPOSE_PROJECT_NAME': data['compose_project'], 'COLLABORATION_NETWORK': data['network'],
+                  'COLLABORATION_PORT': port}
     deployment.update(runtime)
-    atomic(root / '.env', ''.join(key+'='+str(value)+'\n' for key,value in deployment.items()).encode())
+    atomic(root / 'docker/.env', ''.join(key+'='+str(value)+'\n' for key,value in deployment.items()).encode())
 
 
 def service_owner(server, action, receipt=None, original=None):
     values = backend_environment(server)
     root = Path(values.get('COLLABORATION_SERVICE_ROOT', ''))
-    if not root.is_absolute() or root.resolve() != root or root.is_symlink() or not (root / 'compose.yaml').is_file():
+    if not root.is_absolute() or root.resolve() != root or root.is_symlink() or not (root / 'docker/compose.yaml').is_file():
         raise ValueError('COLLABORATION_INDEPENDENT_SERVICE_REQUIRED')
-    configuration = environment(root / '.env')
-    for path in (root / 'private', root / 'private/collaboration', root / SERVICE_DIRECTORY):
+    configuration = environment(root / 'docker/.env')
+    for path in (root / 'docker', root / 'certs'):
         if path.is_symlink() or path.resolve() != path or not path.is_dir() or path.stat().st_mode & 0o022:
             raise ValueError('COLLABORATION_INDEPENDENT_PRIVATE_DIRECTORY_INVALID')
     expected = {'COMPOSE_PROJECT_NAME': values.get('COLLABORATION_COMPOSE_PROJECT'),
@@ -373,12 +378,14 @@ def service_owner(server, action, receipt=None, original=None):
                 'COLLABORATION_CA_SHA256': values.get('COLLABORATION_CA_SHA256')}
     if any(not value or configuration.get(key) != value for key, value in expected.items()):
         raise RuntimeError('COLLABORATION_INDEPENDENT_OWNER_UNCONFIRMED')
-    runtime_keys = {'COLLABORATION_PHP_ORIGIN', 'COLLABORATION_PHP_TIMEOUT_MS',
-                    'COLLABORATION_LISTEN_ADDRESS', 'COLLABORATION_LISTEN_PORT', 'COLLABORATION_NETWORK'}
+    runtime_keys = {'COLLABORATION_PHP_ORIGIN', 'COLLABORATION_NETWORK', 'COLLABORATION_PORT'}
     if set(configuration) != set(expected) | runtime_keys or not re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,62}', configuration['COMPOSE_PROJECT_NAME']):
         raise ValueError('COLLABORATION_INDEPENDENT_CONFIGURATION_INVALID')
     if not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}', configuration['COLLABORATION_NETWORK']):
         raise ValueError('COLLABORATION_INDEPENDENT_CONFIGURATION_INVALID')
+    port = configuration['COLLABORATION_PORT']
+    if not re.fullmatch(r'[0-9]{1,5}', port) or not 1 <= int(port) <= 65535:
+        raise ValueError('COLLABORATION_SERVICE_PORT_REQUIRED')
     if not (root / 'dist/src/main.js').is_file() or not (root / 'node_modules/@hocuspocus/server').is_dir():
         raise ValueError('COLLABORATION_INDEPENDENT_PROGRAM_NOT_PREPARED')
     # The APP consumes the same standard Compose file as manual deployments.
@@ -386,12 +393,12 @@ def service_owner(server, action, receipt=None, original=None):
     # change the application-bound instance while it is being managed.
     compose_environment = os.environ.copy()
     compose_environment.update(configuration)
-    arguments = ['docker', 'compose', '--project-directory', str(root),
-                 '--env-file', str(root / '.env'), '-f', str(root / 'compose.yaml')]
+    arguments = ['docker', 'compose', '--project-directory', str(root / 'docker'),
+                 '--env-file', str(root / 'docker/.env'), '-f', str(root / 'docker/compose.yaml')]
     image = 'node:22.23.2-bookworm-slim@sha256:48e4b67d85f87bd551df43704e24d252f56cc5f8e9718841aace50f19948f0f9'
 
     def command(parts, timeout=40):
-        return run(server, parts, timeout=timeout, cwd=root, env=compose_environment)
+        return run(server, parts, timeout=timeout, cwd=root / 'docker', env=compose_environment)
 
     def inspect():
         ids = command(arguments + ['ps', '-a', '-q', 'collaboration']).splitlines()
@@ -404,16 +411,16 @@ def service_owner(server, action, receipt=None, original=None):
                               '--filter', 'label=com.docker.compose.service=collaboration', '--format', '{{.ID}}']).splitlines()
         image_id = command(['docker', 'image', 'inspect', '--format', '{{.Id}}', image]).strip()
         required = [(str(root), '/srv/peanut-hocuspocus'),
-                    (str(root / 'private/collaboration/service'), '/run/peanut-collaboration')]
+                    (str(root / 'certs'), '/run/peanut-collaboration')]
         mounts = [mount for mount in detail['Mounts'] if mount.get('Type') == 'bind']
         if discovered != ids or detail['Id'] != ids[0] or detail['Image'] != image_id or len(mounts) != 2 or any(not any(m['Source'] == source and m['Destination'] == destination and m['RW'] is False for m in mounts) for source, destination in required):
             raise RuntimeError('COLLABORATION_CONTAINER_BINDING_UNCONFIRMED')
-        if labels.get('com.docker.compose.project') != configuration['COMPOSE_PROJECT_NAME'] or labels.get('com.docker.compose.service') != 'collaboration' or labels.get('com.docker.compose.project.working_dir') != str(root) or state.get('OOMKilled') is not False or state.get('Paused') is not False or state.get('Restarting') is not False or type(state.get('Running')) is not bool:
+        if labels.get('com.docker.compose.project') != configuration['COMPOSE_PROJECT_NAME'] or labels.get('com.docker.compose.service') != 'collaboration' or labels.get('com.docker.compose.project.working_dir') != str(root / 'docker') or state.get('OOMKilled') is not False or state.get('Paused') is not False or state.get('Restarting') is not False or type(state.get('Running')) is not bool:
             raise RuntimeError('COLLABORATION_CONTAINER_STATE_UNCONFIRMED')
         if state['Status'] != ('running' if state['Running'] else 'exited') or not state['Running'] and state.get('ExitCode') != 0:
             raise RuntimeError('COLLABORATION_CONTAINER_STATE_UNCONFIRMED')
         return {'id': detail['Id'], 'image_id': image_id, 'compose_project': configuration['COMPOSE_PROJECT_NAME'],
-                'compose_service': 'collaboration', 'compose_working_dir': str(root),
+                'compose_service': 'collaboration', 'compose_working_dir': str(root / 'docker'),
                 'program_mount': {'source': str(root), 'destination': '/srv/peanut-hocuspocus', 'read_only': True},
                 'service_mount': {'source': required[1][0], 'destination': required[1][1], 'read_only': True},
                 'state': state['Status'], 'running': state['Running']}

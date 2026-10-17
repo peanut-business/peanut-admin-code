@@ -4,7 +4,7 @@ The default `compose.yaml` remains PHP, Nginx and MySQL. The optional
 `compose.collaboration.yaml` overlay owns only the application's TLS/WSS ingress.
 The sibling `peanut-hocuspocus` project owns the complete Node service source,
 locked dependencies, fixed runtime image, readonly program mount and independent
-root `compose.yaml` and `.env` configuration. It accesses this application solely through its
+`docker/compose.yaml` and `docker/.env` configuration. It accesses this application solely through its
 authenticated HTTPS APIs; no PHP/frontend source or database is mounted into Node.
 No configure command builds or pulls images.
 
@@ -24,10 +24,15 @@ Use `collaboration-configuration.example.json` as the non-secret input. Its
 `service_root`, `compose_project` and `network` explicitly bind the independent
 service and registered interface network. The independent service uses ordinary
 `docker compose up -d`, `docker compose ps` and `docker compose logs` commands
-from its repository root. Its `.env.example` documents all configuration fields;
+from its `docker/` directory. Its `docker/.env.example` documents all configuration fields;
 program and key directory mounts use fixed repository-relative paths in Compose.
 There is no service-side Python wrapper or separate docker/runtime environment file.
-The APP's native configuration entry publishes that same `.env` and consumes that
+The deployment owner first copies that template to `docker/.env` (0600) and
+assigns `COLLABORATION_PORT` to an explicitly approved host port. The container
+always listens on the locked Hocuspocus default port 80; the host port maps to 80
+without changing the application's `collaboration:80` upstream. No configure
+command chooses a host port or switches network targets automatically.
+The APP's native configuration entry publishes that same `docker/.env` and consumes that
 same Compose file. PHP still authorizes activation and confirms durable drain;
 the APP verifies the independent container and original durable receipt before
 issuing its native Compose stop and confirming the signed stop proof.
@@ -46,12 +51,15 @@ access; HTTP still has a readonly program mount. No command creates a CA or
 changes host/browser trust. Clients must trust the registered CA normally.
 Enable places the verified public CA at `private/collaboration/service/ca.pem`
 (0644). This directory contains exactly the service key and public CA, and is
-bound readonly as `/run/peanut-collaboration` for Node. PHP uses the same canonical
-key and CA; the ticket key remains outside Node's mount.
+used by PHP. The independent service receives only the service key and public CA
+in its own repository's sibling `certs/` directory, bound readonly as
+`/run/peanut-collaboration` for Node; the ticket key remains outside Node's mount.
+The service has no document data volume: persistence stays in the application's
+existing database and local directory mounts through its API, with no Node-side copy.
 
-The independent service's Compose working directory is its repository root,
-which must equal its readonly program mount source. The stop proof binds its
-key directory to that same root plus `/private/collaboration/service`. Before
+The independent service's Compose working directory is `<service_root>/docker`,
+with the readonly program mount source equal to `<service_root>`. The stop proof
+binds the key directory to `<service_root>/certs`. Before
 adopting this source layout for an existing instance, finish its original drain
 and stop under its original owner; do not reinterpret an unresolved old container
 proof or restart it to manufacture a new identity. Historical instance files and
