@@ -3643,7 +3643,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cf3c5ee0d5c4c6fa671b33c5b1965a4c2e47dc56018912c8efe97422dae4d7f0"
+            "source_sha256": "f65c53e69db7639165293000195ea05e49a14865cad876d6c34389927b6a3838"
         },
         {
             "path": "scripts/project-resource-registry",
