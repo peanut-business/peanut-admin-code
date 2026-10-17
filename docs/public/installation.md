@@ -34,7 +34,9 @@ PEANUT_INSTALLATION_ENV_FILE=/absolute/private/installation.env php server/datab
 
 已安装 server-only 实例先用可信摘要执行 `server/docker/scripts/update.sh plan --archive=/absolute/new-server.tar.gz --expected-sha256=<64位SHA-256> --workspace=/absolute/empty-workspace`，再执行 `server/docker/scripts/update.sh apply --workspace=/absolute/empty-workspace`。目标依赖先在 workspace 内按锁准备，失败时旧服务仍运行。进入维护后停止 PHP/Nginx，保存同实例数据库、公共 storage/uploads、私有 storage、安装身份及配置的配对恢复材料，再替换程序与依赖，执行应用和模块原生迁移，私有健康核验成功后开放流量。激活前使用 `server/docker/scripts/update.sh recover --workspace=/absolute/same-workspace` 成对恢复；激活后拒绝自动旧库回灌。运行配方变化时当前入口仍拒绝 apply，须先完成兼容镜像的独立准备与绑定。真实数据库/容器更新和恢复尚待登记的非生产实例串行验证。
 
-`server/private/installation/installed.json` 同时是安装完成回执与物理防重装锁。只要该路径存在，即使数据库被清空、不可达或回执内容损坏，安装入口也拒绝再次初始化；先由资源 owner 核对并恢复原实例，不删除锁来重装。
+`server/private/installation/installed.json` 同时是安装完成回执与物理防重装锁。只要该路径存在，即使数据库被清空、不可达或回执内容损坏，安装入口也拒绝再次初始化。安装完成后 `/install`、`/install/`、`/install/index.html` 及管理端安装页面由服务器返回真实 HTTP 404；执行 API 仍明确拒绝重复安装。只有用户手动删除该指定锁才会重新开放入口；删锁不授权清库、覆盖配置或重新生成安装身份。已有数据库、`baseline.json`、执行记录或部分完成残留仍会阻止首次安装，须保留事实交由资源 owner 核对。正常启动和数据库故障不会自动删除锁。
+
+安装向导依次完成协议确认、环境探针、实例配置、数据库连接与权限复查、执行、完成登录。环境检查在配置之前进行；配置发布待完成时只重新读取状态，不重复提交。数据库检查不会授予权限或写入业务数据，不能确认的有效权限按 unknown 阻断；执行前重新核对。状态响应区分前置条件未满足、部分执行、已安装运行故障与无法确认，并返回 `stage`、`reason`、`remedy`、`writes`、`safe_retry`。请求失败不代表未安装，不能据此重放执行。外部页面及前端源码入口使用 `install`，内部安装 Host 与持久身份目录继续按其真实职责保留 `installation` 命名。
 
 首次安装的 `executing.json`、`baseline.json`、`installed.json` 和执行锁保存在实例自己的 `server/private/installation/` 持久目录，不属于发行包。旧版本若将这些记录放在 `server/runtime/installation/`，必须先停用旧应用写入者，并在同时挂载旧 runtime 卷与新 installation 卷的可信维护环境中，以拥有两个状态目录的应用进程 UID 显式使用可信维护工具 `php scripts/migrate-installation-state --server-root=/absolute/path/to/product-root/server`，核对输出的逐文件 SHA-256 和 `server/private/installation/migration.json`，再准备升级。该维护工具不随 server-only 包分发。迁移先写 `pending` 记录，在目标卷内逐文件核对原字节并原子发布，接着将旧目录改名为 `server/runtime/installation.migrated/` 留作恢复材料，最后把记录标为 `complete`；中断时可按同一记录重试。旧回执中记录的 `server/runtime/installation/` 路径是历史安装时的位置。两边记录不一致、旧执行锁被占用或迁移备份路径冲突时会拒绝，须先人工核对实例，不能重新安装来补回身份。普通安装状态查询不会自动迁移，`pending` 时也会阻断安装。
 

@@ -1,4 +1,4 @@
-import { installationClient } from './installation';
+import { installationClient } from './install';
 
 export interface PasswordPolicy {
   minimum_length: number;

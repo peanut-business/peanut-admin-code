@@ -4,7 +4,7 @@ import {
   type InstallationDeploymentMode,
   type InstallationEntryStatus,
   type InstallationStatus,
-} from '@/api/installation';
+} from '@/api/install';
 
 export const installationStatus = ref<InstallationStatus | null>(null);
 
@@ -34,10 +34,10 @@ export function bootstrapInstallationStatus(
     })
     .catch(() => {
       const status = {
-        installed: false,
+        installed: null,
+        state: 'unknown',
         deployment_mode: configuredDeploymentMode(),
       } satisfies InstallationEntryStatus;
-      entryStatus.value = status;
       return status;
     })
     .finally(() => {
@@ -55,7 +55,7 @@ export function loadInstallationDiagnostics(
     return Promise.resolve(installationStatus.value);
   }
   if (!pendingDiagnostics) {
-    pendingDiagnostics = import('@/api/installation')
+    pendingDiagnostics = import('@/api/install')
       .then(({ getInstallationStatus }) => getInstallationStatus())
       .then((status) => {
         installationStatus.value = status;

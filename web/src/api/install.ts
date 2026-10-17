@@ -46,10 +46,40 @@ export interface InstallationStatus {
   code?: string;
   retryable?: boolean;
   health?: InstallationHealth | null;
+  category?: 'prerequisite' | 'partial' | 'installed_fault' | 'unknown' | 'installed';
+  stage?: string;
+  reason?: string;
+  remedy?: string;
+  writes?: Record<string, unknown>;
+  safe_retry?: boolean;
+  permissions_verified?: boolean;
+  permissions_missing_or_unconfirmed?: string[];
+}
+
+export interface InstallationConfiguration {
+  state: string;
+  code: string;
+  configured: boolean;
+  application: { edition: string; name: string };
+  deployment_targets?: string[];
+}
+
+export interface InstallationConfigurationInput {
+  deployment_target: string;
+  database_name: string;
+  platform_hosts: string;
+  tenant_admin_hosts: string;
+}
+
+export class InstallRequestError extends Error {
+  constructor(message: string, public readonly diagnostic: Record<string, unknown>) {
+    super(message);
+  }
 }
 
 export interface InstallationEntryStatus {
-  installed: boolean;
+  installed: boolean | null;
+  state?: 'unknown';
   deployment_mode: InstallationDeploymentMode;
 }
 
@@ -129,13 +159,32 @@ function unwrap(response: AxiosResponse<unknown>): unknown {
     throw new Error('Installation API returned an invalid response.');
   }
   if (body.code !== 20000) {
-    throw new Error(
+    throw new InstallRequestError(
       typeof body.msg === 'string'
         ? body.msg
-        : 'Installation API returned an error.'
+        : 'Installation API returned an error.',
+      isRecord(body.data) ? body.data : {}
     );
   }
   return body.data;
+}
+
+export async function getInstallEnvironment(): Promise<InstallationPreflight> {
+  return unwrap(await installationClient.get('/installapi/environment')) as InstallationPreflight;
+}
+
+export async function getInstallConfiguration(): Promise<InstallationConfiguration> {
+  return unwrap(await installationClient.get('/installapi/configuration')) as InstallationConfiguration;
+}
+
+export async function configureInstall(token: string, input: InstallationConfigurationInput) {
+  return unwrap(await installationClient.post('/installapi/configure', input, {
+    headers: { Authorization: `Bearer ${token.trim()}` },
+  }));
+}
+
+export async function checkInstallDatabase(): Promise<InstallationStatus> {
+  return normalizeStatus(unwrap(await installationClient.get('/installapi/database-check')));
 }
 
 function normalizeStatus(value: unknown): InstallationStatus {
@@ -240,6 +289,7 @@ export async function executeInstallation(
     '/installapi/execute',
     requestPayload,
     {
+      timeout: 600_000,
       headers: {
         Authorization: `Bearer ${setupToken.trim()}`,
       },

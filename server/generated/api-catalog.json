@@ -16,7 +16,7 @@
         },
         {
             "path": "server/app/api/metadata/application/installation.php",
-            "sha256": "e9ee4760ecca556bab4fc6eedb052762ded8306f4128334fd9c20a7097d3ad28"
+            "sha256": "4cd918fb914895d23720287ecfe993a1c0a287c45f4aff171f7be59ad492a9d2"
         },
         {
             "path": "server/app/api/metadata/application/platform.php",
@@ -40,7 +40,7 @@
         },
         {
             "path": "server/app/modules/official/article/route/app.php",
-            "sha256": "44e8e1690b1a1ea9a10b9a2461b9f318b71235eff5252594d82540ba7499dab0"
+            "sha256": "b48309f3babc46c3b15144dbb12f4de884709a84b336ab8909f9421d83ccf39d"
         },
         {
             "path": "server/app/modules/official/collaboration/api/metadata/openapi.php",
@@ -164,7 +164,7 @@
         },
         {
             "path": "server/route/app.php",
-            "sha256": "34aab8d08d453b7746d40ba20c11c9296576b801c10a42cebdce4d06c2fcf280"
+            "sha256": "3f59988a0ea7eec7efce7b08f6a3c2418c65241816c6ef68f9024d2e79e39316"
         },
         {
             "path": "server/route/platform.php",
@@ -192,38 +192,38 @@
         ]
     },
     "summary": {
-        "route_count": 423,
-        "generated_api_operations": 378,
-        "route_only_operations": 45,
-        "complete_operations": 367,
+        "route_count": 426,
+        "generated_api_operations": 380,
+        "route_only_operations": 46,
+        "complete_operations": 369,
         "partial_operations": 11,
-        "runtime_routes": 423,
-        "documented_operations": 378,
-        "undocumented_routes": 45,
-        "automatic_route_metadata": 423,
-        "requires_owner_contract": 45,
+        "runtime_routes": 426,
+        "documented_operations": 380,
+        "undocumented_routes": 46,
+        "automatic_route_metadata": 426,
+        "requires_owner_contract": 46,
         "owners": 20,
         "runtime_inventory": {
-            "total": 423,
+            "total": 426,
             "methods": {
                 "DELETE": 4,
-                "GET": 180,
+                "GET": 183,
                 "POST": 233,
                 "PUT": 6
             },
             "applications": {
-                "adminapi": 306,
+                "adminapi": 307,
                 "api": 47,
-                "installation": 6,
+                "installation": 8,
                 "platform": 64
             },
             "owners": {
                 "application:adminapi": 92,
                 "application:api": 18,
-                "application:installation": 6,
+                "application:installation": 8,
                 "application:platform": 58,
                 "module:fixture.workflow-business": 8,
-                "module:official.article": 26,
+                "module:official.article": 27,
                 "module:official.collaboration": 12,
                 "module:official.document": 12,
                 "module:official.file": 23,
@@ -245,10 +245,10 @@
     "owners": {
         "application:adminapi": 92,
         "application:api": 18,
-        "application:installation": 6,
+        "application:installation": 8,
         "application:platform": 58,
         "module:fixture.workflow-business": 8,
-        "module:official.article": 26,
+        "module:official.article": 27,
         "module:official.collaboration": 12,
         "module:official.document": 12,
         "module:official.file": 23,
@@ -390,6 +390,20 @@
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": "server/app/modules/peanut/workflow/api/metadata/openapi.php"
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/official.article.hello",
+            "owner": {
+                "type": "module",
+                "key": "official.article"
+            },
+            "source": {
+                "file": "server/app/modules/official/article/route/app.php",
+                "line": 19
+            },
+            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
+            "module_fragment": "server/app/modules/official/article/api/metadata/openapi.php"
         },
         {
             "method": "GET",
@@ -5866,7 +5880,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 19
+                "line": 21
             },
             "documented": true,
             "openapi_operation_id": "listEnabledArticleCategories",
@@ -5941,7 +5955,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 20
+                "line": 22
             },
             "documented": true,
             "openapi_operation_id": "getArticleCategory",
@@ -6017,7 +6031,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 18
+                "line": 20
             },
             "documented": true,
             "openapi_operation_id": "listArticleCategories",
@@ -6092,7 +6106,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 26
+                "line": 28
             },
             "documented": true,
             "openapi_operation_id": "getRecycledArticleCategory",
@@ -6168,7 +6182,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 25
+                "line": 27
             },
             "documented": true,
             "openapi_operation_id": "listRecycledArticleCategories",
@@ -6243,7 +6257,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 30
+                "line": 32
             },
             "documented": true,
             "openapi_operation_id": "getAdminArticle",
@@ -6321,7 +6335,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 34
+                "line": 36
             },
             "documented": true,
             "openapi_operation_id": "articleBodyEditor",
@@ -6399,7 +6413,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 37
+                "line": 39
             },
             "documented": true,
             "openapi_operation_id": "articleBodySaveOperation",
@@ -6420,6 +6434,83 @@
                     "source"
                 ],
                 "requires_owner_contract": []
+            }
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/official.article.hello",
+            "runtime_path": "/adminapi/official.article.hello",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.article"
+            },
+            "controller": "PeanutAdmin\\Modules\\Article\\Controller\\HelloController",
+            "action": "index",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "official.article"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "official.article.list"
+                }
+            ],
+            "errors": [
+                401,
+                403
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "official.article",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/article/route/app.php",
+                "line": 19
+            },
+            "documented": false,
+            "openapi_operation_id": null,
+            "contract_quality": "route_only",
+            "sdk_consumers": [],
+            "documentation": {
+                "status": "route_only",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": [
+                    "operationId",
+                    "parameters_or_request_body",
+                    "response_schemas",
+                    "business_errors"
+                ]
             }
         },
         {
@@ -6475,7 +6566,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 29
+                "line": 31
             },
             "documented": true,
             "openapi_operation_id": "listAdminArticles",
@@ -6550,7 +6641,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 41
+                "line": 43
             },
             "documented": true,
             "openapi_operation_id": "getRecycledArticle",
@@ -6626,7 +6717,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 40
+                "line": 42
             },
             "documented": true,
             "openapi_operation_id": "listRecycledArticles",
@@ -11776,10 +11867,54 @@
             "middleware": [],
             "source": {
                 "file": "server/route/app.php",
-                "line": 11
+                "line": 13
             },
             "documented": true,
             "openapi_operation_id": "getInstallationConfiguration",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": []
+            }
+        },
+        {
+            "method": "GET",
+            "path": "/installapi/database-check",
+            "runtime_path": "/installapi/database-check",
+            "application": "installation",
+            "owner": {
+                "type": "application",
+                "key": "installation"
+            },
+            "controller": "app\\installation\\controller\\InstallationController",
+            "action": "databaseCheck",
+            "auth": {
+                "mode": "public",
+                "exception_registration": null
+            },
+            "permissions": [],
+            "errors": [
+                503
+            ],
+            "middleware": [],
+            "source": {
+                "file": "server/route/app.php",
+                "line": 11
+            },
+            "documented": true,
+            "openapi_operation_id": "checkInstallDatabase",
             "contract_quality": "complete",
             "sdk_consumers": [
                 "web/src/generated/openapi.d.ts"
@@ -11818,10 +11953,54 @@
             "middleware": [],
             "source": {
                 "file": "server/route/app.php",
-                "line": 14
+                "line": 16
             },
             "documented": true,
             "openapi_operation_id": "getInstallationEntryStatus",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": []
+            }
+        },
+        {
+            "method": "GET",
+            "path": "/installapi/environment",
+            "runtime_path": "/installapi/environment",
+            "application": "installation",
+            "owner": {
+                "type": "application",
+                "key": "installation"
+            },
+            "controller": "app\\installation\\controller\\InstallationController",
+            "action": "environment",
+            "auth": {
+                "mode": "public",
+                "exception_registration": null
+            },
+            "permissions": [],
+            "errors": [
+                503
+            ],
+            "middleware": [],
+            "source": {
+                "file": "server/route/app.php",
+                "line": 10
+            },
+            "documented": true,
+            "openapi_operation_id": "getInstallEnvironment",
             "contract_quality": "complete",
             "sdk_consumers": [
                 "web/src/generated/openapi.d.ts"
@@ -11860,7 +12039,7 @@
             "middleware": [],
             "source": {
                 "file": "server/route/app.php",
-                "line": 10
+                "line": 12
             },
             "documented": true,
             "openapi_operation_id": "getPasswordPolicy",
@@ -11904,7 +12083,7 @@
             "middleware": [],
             "source": {
                 "file": "server/route/app.php",
-                "line": 13
+                "line": 15
             },
             "documented": true,
             "openapi_operation_id": "getInstallationStatus",
@@ -19584,7 +19763,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 31
+                "line": 33
             },
             "documented": true,
             "openapi_operation_id": "createArticle",
@@ -19660,7 +19839,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 21
+                "line": 23
             },
             "documented": true,
             "openapi_operation_id": "createArticleCategory",
@@ -19738,7 +19917,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 23
+                "line": 25
             },
             "documented": true,
             "openapi_operation_id": "deleteArticleCategory",
@@ -19815,7 +19994,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 22
+                "line": 24
             },
             "documented": true,
             "openapi_operation_id": "updateArticleCategory",
@@ -19891,7 +20070,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 28
+                "line": 30
             },
             "documented": true,
             "openapi_operation_id": "forceDeleteArticleCategories",
@@ -19967,7 +20146,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 27
+                "line": 29
             },
             "documented": true,
             "openapi_operation_id": "restoreArticleCategories",
@@ -20044,7 +20223,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 24
+                "line": 26
             },
             "documented": true,
             "openapi_operation_id": "updateArticleCategoryStatus",
@@ -20121,7 +20300,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 38
+                "line": 40
             },
             "documented": true,
             "openapi_operation_id": "deleteArticle",
@@ -20199,7 +20378,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 33
+                "line": 35
             },
             "documented": true,
             "openapi_operation_id": "ensureArticleBodyDocument",
@@ -20278,7 +20457,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 36
+                "line": 38
             },
             "documented": true,
             "openapi_operation_id": "saveArticleBody",
@@ -20357,7 +20536,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 35
+                "line": 37
             },
             "documented": true,
             "openapi_operation_id": "articleBodyTicket",
@@ -20435,7 +20614,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 32
+                "line": 34
             },
             "documented": true,
             "openapi_operation_id": "updateArticle",
@@ -20511,7 +20690,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 43
+                "line": 45
             },
             "documented": true,
             "openapi_operation_id": "forceDeleteArticles",
@@ -20587,7 +20766,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 42
+                "line": 44
             },
             "documented": true,
             "openapi_operation_id": "restoreArticles",
@@ -20664,7 +20843,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/article/route/app.php",
-                "line": 39
+                "line": 41
             },
             "documented": true,
             "openapi_operation_id": "updateArticleStatus",
@@ -25373,7 +25552,7 @@
             "middleware": [],
             "source": {
                 "file": "server/route/app.php",
-                "line": 19
+                "line": 21
             },
             "documented": true,
             "openapi_operation_id": "userLogin",
@@ -25415,7 +25594,7 @@
             "middleware": [],
             "source": {
                 "file": "server/route/app.php",
-                "line": 20
+                "line": 22
             },
             "documented": true,
             "openapi_operation_id": "adminLogout",
@@ -26843,7 +27022,7 @@
             "middleware": [],
             "source": {
                 "file": "server/route/app.php",
-                "line": 12
+                "line": 14
             },
             "documented": true,
             "openapi_operation_id": "configureInstallation",
@@ -26891,7 +27070,7 @@
             "middleware": [],
             "source": {
                 "file": "server/route/app.php",
-                "line": 15
+                "line": 17
             },
             "documented": true,
             "openapi_operation_id": "executeGuidedInstallation",

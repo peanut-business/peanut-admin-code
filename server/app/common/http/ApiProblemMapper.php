@@ -79,6 +79,7 @@ final class ApiProblemMapper
                 $exception->errorCode,
                 $exception->httpStatus,
                 $exception->getMessage(),
+                $exception->details(),
             ),
             $exception instanceof OpsConsoleException => (new ApiProblem(
                 $exception->problemCode,

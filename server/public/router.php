@@ -14,6 +14,26 @@
 $requestPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 $requestPath = rawurldecode($requestPath);
 
+// The completion receipt is also the physical lock. No database probe may
+// reopen the installer, including when that database is unavailable.
+$installPage = preg_match('#^/(?:admin/)?install(?:/|$)#', $requestPath) === 1;
+$installLock = dirname(__DIR__) . '/private/installation/installed.json';
+if ($installPage && (file_exists($installLock) || is_link($installLock))) {
+    http_response_code(404);
+    header('Cache-Control: no-store');
+    return true;
+}
+if (preg_match('#^/(?:admin/)?installation(?:/|$)#', $requestPath) === 1) {
+    http_response_code(404);
+    return true;
+}
+if ($installPage) {
+    header('Content-Type: text/html; charset=utf-8');
+    header('Cache-Control: no-store');
+    readfile(__DIR__ . '/install/index.html');
+    return true;
+}
+
 if ($requestPath === '/') {
     header('Location: /admin/', true, 302);
     return true;

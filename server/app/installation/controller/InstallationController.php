@@ -29,6 +29,16 @@ final class InstallationController extends BaseController
         return $this->data($this->configuration->status());
     }
 
+    public function environment()
+    {
+        return $this->data($this->host->environment());
+    }
+
+    public function databaseCheck()
+    {
+        return $this->data($this->host->databaseCheck());
+    }
+
     /** Public limits only; shares the same resolved implementation as credential writes. */
     public function passwordPolicy(PasswordPolicy $passwords)
     {

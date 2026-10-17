@@ -231,7 +231,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 19
+                        "line": 21
                     }
                 },
                 "x-peanut-permissions": []
@@ -3621,7 +3621,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 20
+                        "line": 22
                     }
                 },
                 "x-peanut-permissions": []
@@ -16705,6 +16705,131 @@
                 ]
             }
         },
+        "/installapi/environment": {
+            "get": {
+                "tags": [
+                    "Installation"
+                ],
+                "operationId": "getInstallEnvironment",
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "$ref": "#/components/schemas/ApplicationDynamicValue"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "description": "配置前只读环境检查；不连接数据库、不写配置或安装身份。",
+                "security": [],
+                "x-peanut-route": {
+                    "application": "installation",
+                    "owner": {
+                        "type": "application",
+                        "key": "installation"
+                    },
+                    "controller": "app\\installation\\controller\\InstallationController",
+                    "action": "environment",
+                    "permission": null,
+                    "source": {
+                        "file": "server/route/app.php",
+                        "line": 10
+                    }
+                },
+                "x-peanut-permissions": []
+            }
+        },
+        "/installapi/database-check": {
+            "get": {
+                "tags": [
+                    "Installation"
+                ],
+                "operationId": "checkInstallDatabase",
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/InstallationStatus"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "503": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "description": "只读连接、空库、身份和精确有效权限检查；未知权限不视为通过。执行安装前服务器重复检查。",
+                "security": [],
+                "x-peanut-route": {
+                    "application": "installation",
+                    "owner": {
+                        "type": "application",
+                        "key": "installation"
+                    },
+                    "controller": "app\\installation\\controller\\InstallationController",
+                    "action": "databaseCheck",
+                    "permission": null,
+                    "source": {
+                        "file": "server/route/app.php",
+                        "line": 11
+                    }
+                },
+                "x-peanut-permissions": []
+            }
+        },
         "/installapi/password-policy": {
             "get": {
                 "tags": [
@@ -16779,7 +16904,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 10
+                        "line": 12
                     }
                 },
                 "x-peanut-permissions": []
@@ -16840,7 +16965,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 11
+                        "line": 13
                     }
                 },
                 "x-peanut-permissions": []
@@ -16936,7 +17061,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 12
+                        "line": 14
                     }
                 },
                 "x-peanut-permissions": []
@@ -16997,7 +17122,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 13
+                        "line": 15
                     }
                 },
                 "x-peanut-permissions": []
@@ -17055,7 +17180,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 14
+                        "line": 16
                     }
                 },
                 "x-peanut-permissions": []
@@ -17160,7 +17285,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/route/app.php",
-                        "line": 15
+                        "line": 17
                     }
                 },
                 "x-peanut-permissions": []
@@ -17228,7 +17353,7 @@
                     "permission": "official.article.edit",
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 34
+                        "line": 36
                     }
                 },
                 "x-peanut-permissions": [
@@ -17307,7 +17432,7 @@
                     "permission": "official.article.edit",
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 35
+                        "line": 37
                     }
                 },
                 "x-peanut-permissions": [
@@ -17392,7 +17517,7 @@
                     "permission": "official.article.edit",
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 36
+                        "line": 38
                     }
                 },
                 "x-peanut-permissions": [
@@ -17478,7 +17603,7 @@
                     "permission": "official.article.edit",
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 37
+                        "line": 39
                     }
                 },
                 "x-peanut-permissions": [
@@ -17567,7 +17692,7 @@
                     "permission": "official.article.edit",
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 33
+                        "line": 35
                     }
                 },
                 "x-peanut-permissions": [
@@ -17753,7 +17878,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 18
+                        "line": 20
                     }
                 },
                 "x-peanut-permissions": [
@@ -17813,7 +17938,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 19
+                        "line": 21
                     }
                 },
                 "x-peanut-permissions": [
@@ -17884,7 +18009,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 20
+                        "line": 22
                     }
                 },
                 "x-peanut-permissions": [
@@ -17957,7 +18082,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 21
+                        "line": 23
                     }
                 },
                 "x-peanut-permissions": [
@@ -18034,7 +18159,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 22
+                        "line": 24
                     }
                 },
                 "x-peanut-permissions": [
@@ -18115,7 +18240,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 23
+                        "line": 25
                     }
                 },
                 "x-peanut-permissions": [
@@ -18192,7 +18317,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 24
+                        "line": 26
                     }
                 },
                 "x-peanut-permissions": [
@@ -18378,7 +18503,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 25
+                        "line": 27
                     }
                 },
                 "x-peanut-permissions": [
@@ -18449,7 +18574,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 26
+                        "line": 28
                     }
                 },
                 "x-peanut-permissions": [
@@ -18523,7 +18648,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 27
+                        "line": 29
                     }
                 },
                 "x-peanut-permissions": [
@@ -18597,7 +18722,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 28
+                        "line": 30
                     }
                 },
                 "x-peanut-permissions": [
@@ -18790,7 +18915,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 29
+                        "line": 31
                     }
                 },
                 "x-peanut-permissions": [
@@ -18861,7 +18986,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 30
+                        "line": 32
                     }
                 },
                 "x-peanut-permissions": [
@@ -18938,7 +19063,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 31
+                        "line": 33
                     }
                 },
                 "x-peanut-permissions": [
@@ -19019,7 +19144,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 32
+                        "line": 34
                     }
                 },
                 "x-peanut-permissions": [
@@ -19096,7 +19221,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 38
+                        "line": 40
                     }
                 },
                 "x-peanut-permissions": [
@@ -19173,7 +19298,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 39
+                        "line": 41
                     }
                 },
                 "x-peanut-permissions": [
@@ -19366,7 +19491,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 40
+                        "line": 42
                     }
                 },
                 "x-peanut-permissions": [
@@ -19437,7 +19562,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 41
+                        "line": 43
                     }
                 },
                 "x-peanut-permissions": [
@@ -19511,7 +19636,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 42
+                        "line": 44
                     }
                 },
                 "x-peanut-permissions": [
@@ -19585,7 +19710,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
-                        "line": 43
+                        "line": 45
                     }
                 },
                 "x-peanut-permissions": [
@@ -42174,6 +42299,53 @@
                         "additionalProperties": {
                             "$ref": "#/components/schemas/ApplicationDynamicValue"
                         },
+                        "nullable": true
+                    },
+                    "category": {
+                        "type": "string",
+                        "enum": [
+                            "prerequisite",
+                            "partial",
+                            "installed_fault",
+                            "unknown",
+                            "installed"
+                        ]
+                    },
+                    "stage": {
+                        "type": "string"
+                    },
+                    "reason": {
+                        "type": "string"
+                    },
+                    "remedy": {
+                        "type": "string"
+                    },
+                    "writes": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "$ref": "#/components/schemas/ApplicationDynamicValue"
+                        }
+                    },
+                    "safe_retry": {
+                        "type": "boolean"
+                    },
+                    "completion_lock": {
+                        "type": "string"
+                    },
+                    "permissions_verified": {
+                        "type": "boolean"
+                    },
+                    "permissions_missing_or_unconfirmed": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "database_check": {
+                        "type": "string"
+                    },
+                    "permission_remedy": {
+                        "type": "string",
                         "nullable": true
                     }
                 }

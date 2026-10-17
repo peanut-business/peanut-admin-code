@@ -58,7 +58,7 @@ final class InstallationPreflightHost
      *   resource:array{environment:string,deployment_target:string,resource_id:string,endpoint_id:string,consumer:string}|null
      * }
      */
-    public function inspect(): array
+    public function inspect(bool $includeResource = true): array
     {
         $checks = [
             $this->phpVersionCheck(),
@@ -68,8 +68,11 @@ final class InstallationPreflightHost
         foreach (self::WRITABLE_DIRECTORIES as $id => $relativePath) {
             $checks[] = $this->directoryCheck($id, $relativePath);
         }
-        [$resourceCheck, $resource] = $this->resourceCheck();
-        $checks[] = $resourceCheck;
+        $resource = null;
+        if ($includeResource) {
+            [$resourceCheck, $resource] = $this->resourceCheck();
+            $checks[] = $resourceCheck;
+        }
 
         $failed = array_values(array_filter(
             $checks,

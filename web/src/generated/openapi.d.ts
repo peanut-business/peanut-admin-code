@@ -2778,6 +2778,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/installapi/environment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 配置前只读环境检查；不连接数据库、不写配置或安装身份。 */
+        get: operations["getInstallEnvironment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/installapi/database-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description 只读连接、空库、身份和精确有效权限检查；未知权限不视为通过。执行安装前服务器重复检查。 */
+        get: operations["checkInstallDatabase"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/installapi/password-policy": {
         parameters: {
             query?: never;
@@ -7616,6 +7650,20 @@ export interface components {
             health: {
                 [key: string]: components["schemas"]["ApplicationDynamicValue"];
             } | null;
+            /** @enum {string} */
+            category?: "prerequisite" | "partial" | "installed_fault" | "unknown" | "installed";
+            stage?: string;
+            reason?: string;
+            remedy?: string;
+            writes?: {
+                [key: string]: components["schemas"]["ApplicationDynamicValue"];
+            };
+            safe_retry?: boolean;
+            completion_lock?: string;
+            permissions_verified?: boolean;
+            permissions_missing_or_unconfirmed?: string[];
+            database_check?: string;
+            permission_remedy?: string | null;
         };
         InstallationEntryStatus: {
             installed: boolean;
@@ -16551,6 +16599,60 @@ export interface operations {
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getInstallEnvironment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            [key: string]: components["schemas"]["ApplicationDynamicValue"];
+                        };
+                    };
+                };
+            };
+            503: components["responses"]["ErrorResponse"];
+        };
+    };
+    checkInstallDatabase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["InstallationStatus"];
+                    };
+                };
+            };
+            503: components["responses"]["ErrorResponse"];
         };
     };
     getPasswordPolicy: {
