@@ -5,7 +5,7 @@ import type { paths } from '@/generated/openapi';
 
 export interface ModuleApiOperations {
   articleBodyEditor: paths['/adminapi/official.article.document.editor']['get'];
-  articleBodyTicket: paths['/adminapi/official.article.document.ticket']['post'];
+  articleBodyTransport: paths['/adminapi/official.article.document.transport']['post'];
   saveArticleBody: paths['/adminapi/official.article.document.save']['post'];
   articleBodySaveOperation: paths['/adminapi/official.article.document.operation']['get'];
   ensureArticleBodyDocument: paths['/adminapi/official.article.document']['post'];
@@ -36,7 +36,7 @@ export function createModuleApi(client: Client<paths>) {
   const pathClient = wrapAsPathBasedClient(client);
   return {
     articleBodyEditor: pathClient['/adminapi/official.article.document.editor'].GET,
-    articleBodyTicket: pathClient['/adminapi/official.article.document.ticket'].POST,
+    articleBodyTransport: pathClient['/adminapi/official.article.document.transport'].POST,
     saveArticleBody: pathClient['/adminapi/official.article.document.save'].POST,
     articleBodySaveOperation: pathClient['/adminapi/official.article.document.operation'].GET,
     ensureArticleBodyDocument: pathClient['/adminapi/official.article.document'].POST,

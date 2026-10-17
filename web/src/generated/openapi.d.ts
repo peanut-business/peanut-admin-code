@@ -2948,7 +2948,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.article.document.ticket": {
+    "/adminapi/official.article.document.transport": {
         parameters: {
             query?: never;
             header?: never;
@@ -2958,7 +2958,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** 签发既有正文写票据（不含部署发现地址） */
-        post: operations["articleBodyTicket"];
+        post: operations["articleBodyTransport"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3372,7 +3372,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/adminapi/official.collaboration.ticket": {
+    "/adminapi/official.collaboration.transport": {
         parameters: {
             query?: never;
             header?: never;
@@ -3381,7 +3381,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["issueCollaborationTicket"];
+        post: operations["resolveCollaborationTransport"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3552,23 +3552,6 @@ export interface paths {
         put?: never;
         /** @description Exact-body transport envelope v2 HMAC/nonce/holder and TLS; business payload protocol 2. Human identity is separately revalidated where required. */
         post: operations["revokeCollaborationConnection"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/adminapi/internal/collaboration/v1/lifecycle": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Exact-body transport envelope v2 HMAC/nonce/holder and TLS; business payload protocol 2. Human identity is separately revalidated where required. */
-        post: operations["queryCollaborationReadiness"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7799,13 +7782,11 @@ export interface components {
                 };
             };
         };
-        ArticleBodyTicketResponse: {
+        ArticleBodyTransportResponse: {
             /** @enum {integer} */
             code: 20000;
             msg: string;
             data: {
-                ticket: string;
-                expires_at: number;
                 document_id: number;
                 /** @enum {string} */
                 mode: "write";
@@ -7827,8 +7808,6 @@ export interface components {
                 capabilities: components["schemas"]["DocumentContentCapabilities"];
                 /** Format: uri */
                 wss_url: string;
-                config_revision: number;
-                config_sha256: string;
             };
         };
         ArticleBodySaveResponse: {
@@ -8112,13 +8091,12 @@ export interface components {
             delete_time: components["schemas"]["ArticleTimestamp"];
             body_document_id: number | null;
         };
-        CollaborationTicketResponse: {
+        CollaborationTransportResponse: {
             /** @enum {integer} */
             code: 20000;
             msg: string;
             data: {
-                ticket: string;
-                expires_at: number;
+                document_name: string;
                 document_id: number;
                 /** @enum {string} */
                 mode: "read" | "write";
@@ -8126,8 +8104,6 @@ export interface components {
                 protocol: 2;
                 /** Format: uri */
                 wss_url: string;
-                config_revision: number;
-                config_sha256: string;
             };
         };
         CollaborationConnectionResponse: {
@@ -8317,44 +8293,6 @@ export interface components {
             data: {
                 /** @enum {boolean} */
                 revoked: true;
-            };
-        };
-        CollaborationLifecycleResponse: {
-            /** @enum {integer} */
-            code: 20000;
-            msg: string;
-            data: {
-                /** @enum {string} */
-                protocol: "peanut.collaboration.lifecycle.v1";
-                /** @enum {integer} */
-                schema_version: 1;
-                /** @enum {integer} */
-                native_protocol: 2;
-                php_ready: boolean;
-                node_ready: boolean;
-                paired_ready: boolean;
-                instance_id: string;
-                /** @enum {string} */
-                edition: "engine" | "standalone" | "multi-tenant";
-                service_instance_id: string;
-                config_revision: number;
-                config_sha256: string;
-                projector_version: string;
-                registry_revision: string;
-                /** @enum {string} */
-                durability_dependency: "mysql";
-                /** @enum {boolean} */
-                file_ledger_ready: true;
-                ready: boolean;
-                admission_enabled: boolean;
-                holder_key: string | null;
-                probe_id: string | null;
-                activation_id: string | null;
-                process_lease_expires_at_ms: number;
-                drain_id: string | null;
-                plan_sha256: string | null;
-                /** @enum {string} */
-                phase: "prepared" | "active" | "draining" | "durably_drained" | "stopped";
             };
         };
         DocumentStructuredContent: {
@@ -16903,7 +16841,7 @@ export interface operations {
             422: components["responses"]["ArticleErrorResponse"];
         };
     };
-    articleBodyTicket: {
+    articleBodyTransport: {
         parameters: {
             query?: never;
             header?: never;
@@ -16922,7 +16860,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ArticleBodyTicketResponse"];
+                    "application/json": components["schemas"]["ArticleBodyTransportResponse"];
                 };
             };
             401: components["responses"]["ArticleErrorResponse"];
@@ -17660,7 +17598,7 @@ export interface operations {
             403: components["responses"]["ArticleErrorResponse"];
         };
     };
-    issueCollaborationTicket: {
+    resolveCollaborationTransport: {
         parameters: {
             query?: never;
             header?: never;
@@ -17683,7 +17621,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CollaborationTicketResponse"];
+                    "application/json": components["schemas"]["CollaborationTransportResponse"];
                 };
             };
             401: components["responses"]["ErrorResponse"];
@@ -17713,7 +17651,8 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    ticket: string;
+                    token: string;
+                    document_name: string;
                 };
             };
         };
@@ -18175,71 +18114,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CollaborationRevokeResponse"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-            429: components["responses"]["ErrorResponse"];
-            500: components["responses"]["ErrorResponse"];
-            503: components["responses"]["ErrorResponse"];
-        };
-    };
-    queryCollaborationReadiness: {
-        parameters: {
-            query?: never;
-            header: {
-                "X-Collaboration-Protocol": string;
-                "X-Collaboration-Service-Instance": string;
-                "X-Collaboration-Key-Id": string;
-                "X-Collaboration-Holder-Key": string;
-                "X-Collaboration-Timestamp": string;
-                "X-Collaboration-Nonce": string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @enum {string} */
-                    stage: "readiness";
-                } | {
-                    /** @enum {string} */
-                    stage: "paired_probe";
-                    probe_id: string;
-                    full: boolean;
-                    instance_id: string;
-                    /** @enum {string} */
-                    edition: "engine" | "standalone" | "multi-tenant";
-                    service_instance_id: string;
-                    config_revision: number;
-                    config_sha256: string;
-                    projector_version: string;
-                } | {
-                    /** @enum {string} */
-                    stage: "activation_state";
-                    probe_id: string;
-                    activation_id: string;
-                } | {
-                    /** @enum {string} */
-                    stage: "drain_state";
-                    probe_id: string;
-                    drain_id: string;
-                    plan_sha256: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Native protocol 2 result. A merged broadcast is not a committed database receipt. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CollaborationLifecycleResponse"];
                 };
             };
             401: components["responses"]["ErrorResponse"];
