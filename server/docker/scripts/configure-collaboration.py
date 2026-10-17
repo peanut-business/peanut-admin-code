@@ -248,13 +248,6 @@ def run(server, arguments):
     return process.stdout.decode()
 
 
-def require_safe_shutdown(server):
-    if backend_environment(server).get('COLLABORATION_ENABLED', 'disabled') != 'disabled':
-        # A process signal is not durable proof. No controllable, authenticated
-        # native shutdown receipt adapter is available here; do not stop writers.
-        raise RuntimeError('COLLABORATION_NATIVE_SAFE_SHUTDOWN_UNCONFIRMED')
-
-
 def start(server, extra=()):
     # Application deployment only. Node starts independently from its own config.
     arguments = compose_arguments(server) + list(extra)
@@ -263,13 +256,13 @@ def start(server, extra=()):
 
 
 def stop(server):
-    require_safe_shutdown(server)
+    # This composition contains APP services and ingress, not the independent Node.
     run(server, compose_arguments(server) + ['stop'])
 
 
 def execute():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=('plan', 'enable', 'status', 'disable'))
+    parser.add_argument('action', choices=('plan', 'enable', 'status'))
     parser.add_argument('--app-root', type=Path, required=True)
     parser.add_argument('--configuration', type=Path)
     parser.add_argument('--expected-revision', type=int)
@@ -281,17 +274,13 @@ def execute():
                 raise ValueError('COLLABORATION_CONFIGURATION_REQUIRED')
             ordinary(args.configuration)
             answer = enable(server, json.loads(args.configuration.read_text()), args.expected_revision)
-        elif args.action == 'disable':
-            require_safe_shutdown(server)
-            answer = result(args.action, values)
         else:
             if args.configuration is not None:
                 ordinary(args.configuration); validate_configuration(json.loads(args.configuration.read_text()), server)
             answer = result(args.action, values)
         print(json.dumps(answer, sort_keys=True)); return 0
     except (OSError, ValueError, TypeError, KeyError, RuntimeError, subprocess.SubprocessError) as error:
-        code = 'COLLABORATION_NATIVE_SAFE_SHUTDOWN_UNCONFIRMED' if str(error) == 'COLLABORATION_NATIVE_SAFE_SHUTDOWN_UNCONFIRMED' else 'COLLABORATION_CONFIGURATION_UNCONFIRMED'
-        print(json.dumps({'protocol': PROTOCOL, 'schema_version': 1, 'error_code': code, 'runtime_state': 'unknown'}))
+        print(json.dumps({'protocol': PROTOCOL, 'schema_version': 1, 'error_code': 'COLLABORATION_CONFIGURATION_UNCONFIRMED', 'runtime_state': 'unknown'}))
         return 4 if isinstance(error, RuntimeError) else 2
 
 

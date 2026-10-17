@@ -233,9 +233,7 @@ def storage_archive(path):
 
 
 def assert_stopped(server):
-    # Independent Node rooms may still hold unsaved content. This adapter has
-    # no authenticated native shutdown receipt; refuse before any recovery work.
-    collaboration_owner().require_safe_shutdown(server)
+    # Check the APP writer boundary; independent Node custody is not transferred.
     docker_dir = server / "docker"
     project = env(docker_dir / ".env").get("COMPOSE_PROJECT_NAME", "")
     if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,62}", project):

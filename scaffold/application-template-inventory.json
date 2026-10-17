@@ -3560,7 +3560,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d799111621c7cfb3c70167ea1701c719777c8e5ac96071973613ae03a0205174"
+            "source_sha256": "c4b3657ff6ef01b4679fa0957e897fa95c802f702890535d47ffda436b8a8153"
         },
         {
             "path": "scripts/project-codegraph",
@@ -10532,7 +10532,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fbaab5c60e8431352cdcf73ea89a19a038c7c26f455ceda2482dd9f6f2425bba"
+            "source_sha256": "88149b719b21df9633db3fdbce2676028ef8895e7040d0bba5bd77b1ae419901"
         },
         {
             "path": "server/app/modules/official/collaboration/api/metadata/openapi.php",
@@ -26892,7 +26892,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ed6267770b14c7e9ac96441dd71c401e3a7c56b77539cc4f7aec3934b6f15c6e"
+            "source_sha256": "66fb733ad5e69378b0a7029bbd798aca422b14e68f45689018e11b6086986fa9"
         },
         {
             "path": "server/docker/Dockerfile",
@@ -27074,7 +27074,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3db82ea7e0582c6ba61e28baaf494a3fc8604ef1e6c9195590c0f6781c6a60fa"
+            "source_sha256": "0463df223d21280b438b347d259d446bfeed26bc568ce6f8a38c8e5bc1ecaa3d"
         },
         {
             "path": "server/docker/scripts/configure-runtime.py",
@@ -27270,7 +27270,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "71e376e8e18e5fb19a3b873749243af799263e725443165bfac8a68a4d2ae246"
+            "source_sha256": "c58f0e88bbac7676984093f51ff7b9d5abbf0ac0db772fb1a7af6dbba2badf09"
         },
         {
             "path": "server/docker/scripts/update.sh",

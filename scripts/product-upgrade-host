@@ -395,7 +395,6 @@ def source_runtime():
     spec = importlib.util.spec_from_file_location('source_collaboration', tools / 'configure-collaboration.py')
     collaboration = importlib.util.module_from_spec(spec); spec.loader.exec_module(collaboration)
     server = root / 'server'
-    collaboration.require_safe_shutdown(server)
     compose_args = collaboration.compose_arguments(server)
 
     def compose(*values):
@@ -626,9 +625,8 @@ def main():
         or plan['state_path'] != str(args.state) or state['phase_in_progress'] != phase:
         raise ValueError('phase differs from the sole product plan/state')
     server = root / 'server'; docker_dir = server / 'docker'
-    # A healthy process/container is not evidence that its rooms are durable.
-    # Until a native shutdown receipt adapter exists, stop before runtime effects.
-    collaboration.require_safe_shutdown(server)
+    # This coordinator owns the APP composition, not the independent Node process.
+    # Its normal writer hold and recovery checks remain below.
     environment = recovery.env(docker_dir / '.env')
     images = {}
     for service in ('php', 'nginx', 'mysql'):

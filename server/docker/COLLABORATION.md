@@ -63,17 +63,19 @@ instructions before starting. The APP's existing `start.sh` starts only its
 PHP/Nginx/MySQL composition and optional ingress. It does not start Node or make
 Node's startup depend on an application deployment command.
 
-Stopping requires protection for pending actions, unsaved rooms and unknown
-save outcomes. A signal or an exited container alone is not a durable drain
-receipt. This application's stop, disable and product-upgrade/recovery adapters
-currently lack a controllable authenticated native shutdown receipt consumer.
-For a configured enabled instance they therefore fail closed with
-`COLLABORATION_NATIVE_SAFE_SHUTDOWN_UNCONFIRMED`, before stopping writers or
-performing recovery. They do not fabricate a drain proof, force-kill Node,
-change desired state, or recreate PHP to obtain approval. Ordinary shutdown and
-upgrade of an enabled instance remain blocked until that adapter is implemented
-and the original owner confirms its native safe drain. Disabling an environment
-flag manually is not a shutdown proof and must not be used to bypass this limit.
+Application stop, upgrade and recovery manage only the APP composition. Enabling
+the external collaboration endpoint does not require stopping Node or obtaining
+a Node shutdown receipt. The APP's writer hold, container/mount identity checks,
+and database backup/recovery protections remain in force. Backend downtime leaves
+Node listening: new connections require backend authorization, existing grants
+expire or fail renewal, and unconfirmed content remains protected in memory.
+
+Only the independent service owner stops or recreates Node. Its native signal
+drain must join pending work and obtain actual save acknowledgments; failed or
+unknown saves prevent successful drain. APP shutdown is not proof of Node drain,
+and an environment flag never clears room fences or unresolved captures. There
+is no APP command to stop or disable the independent Node process; configuration
+publication and service lifecycle are separate responsibilities.
 
 Existing unresolved instances retain their original owner, saved identities,
 receipts and failure budgets. Do not adopt or restart an unknown process to

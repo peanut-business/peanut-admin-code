@@ -142,8 +142,11 @@ Process shutdown uses Node's local signal drain: stop new frames, join existing
 loading/pending message work, and commit fixed captures through the same saveMutex.
 A failed or unknown capture prevents successful shutdown. Business room barriers,
 explicit target pins and actual database receipts remain authoritative; stopping
-never invents a commit or unlocks unknown work. Application adapters which cannot
-prove safe stopping must fail closed before disabling/upgrading an enabled service.
+never invents a commit or unlocks unknown work. Application deployment manages
+only its own composition and preserves its writer-hold and recovery checks; it
+does not stop the independent Node service or require a Node shutdown receipt.
+Backend downtime leaves Node listening and protects its unconfirmed captures.
+The independent service owner remains responsible for Node's actual safe drain.
 There is no global operator endpoint or PHP lifecycle CLI.
 
 Source, syntax and metadata alone do not prove SQL migrations, real WSS, storage,

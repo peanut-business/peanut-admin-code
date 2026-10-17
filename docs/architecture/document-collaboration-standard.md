@@ -264,14 +264,13 @@ CLI **不自己实现第二套 Compose 或升级状态机**；只编排 Code 已
 peanut service collaboration plan [--path APP]    # 只读：显示可选组件、Edition、配置缺口、版本/冲突
 peanut service collaboration enable [--path APP]  # 显式启用：调用应用原生配置计划/原子落地，不触碰运行服务
 peanut service collaboration status [--path APP]  # 读取启用/运行合同和健康；不得将未探测当健康
-peanut service collaboration disable [--path APP] # 拒绝新连接/安全 drain，保留正文和审计，需明确操作权限
 ```
 
-以上是**待实现目标命令**，不是现行 `peanut 0.3.2` 已支持的选项。其 `create` 先保留 `--edition standalone|multi-tenant` 明确选择；是否纳入可选服务由应用版本化模块/服务 profile 指定，不能在 CLI 中维护一套独立源码/Secret 模板。`enable` 只准备受管清单、环境占位和启用状态；启动/升级仍通过已验收的 APP 原生 Docker/installer/upgrade 流程，正式部署仍需运营 Gate；`disable` 的运行 drain 必须在已获得操作授权的应用服务边界实施，不能直接删除持久卷。
+以上是**待实现目标命令**，不是现行 `peanut 0.3.2` 已支持的选项。其 `create` 先保留 `--edition standalone|multi-tenant` 明确选择；是否纳入可选服务由应用版本化模块/服务 profile 指定，不能在 CLI 中维护一套独立源码/Secret 模板。`enable` 只发布配置与端点信息，不编排 Node 运行；APP 自身启动/升级沿用原生 Docker/installer/upgrade 流程，Node 由其独立 Compose 和服务 owner 管理。APP 配置命令不承担 Node 停服或禁用，正式部署仍需对应运营 Gate，不能直接删除持久卷。
 
 发布/升级：记录服务镜像版本、PHP API protocol、Module 版本、迁移水位、Edition/profile、schema 和回滚前提；生产更新先兼容检查与排空、备份，再服务/PHP/前端按兼容顺序升级。新应用默认协同功能可选且默认关闭，未选择时不安装 Node 常驻服务；启用协同也不要求将 PHP Core 或 Web Core 分裂成新服务。
 
-APP 的可选配置入口为 `python3 server/docker/scripts/configure-collaboration.py plan|enable|status|disable --app-root <绝对 APP 路径>`，只负责直接配置与应用启停适配；启动不调用全局 runtime 登记、配对 probe、prepare/activate 或进程准入。Node 由自己的信号排空路径安全停止，保留房间业务屏障、真实保存回执与未知结果保护。尚不能证明安全停止时，应用停止/禁用/升级入口须明确失败关闭，不强杀服务或删除数据。TLS/WSS 及运行验收见 [可选服务说明](../../server/docker/COLLABORATION.md)，源码存在不等于运行资格。
+APP 的可选配置入口为 `python3 server/docker/scripts/configure-collaboration.py plan|enable|status --app-root <绝对 APP 路径>`，负责配置发布与读取；应用启停适配只操作自身 Compose，不调用全局 runtime 登记、配对 probe、prepare/activate 或进程准入。启用外部协作端点不要求普通 APP 部署、停止或升级先停 Node。应用自身的停写、容器与挂载身份、数据库备份恢复校验继续保留。后端暂不可用时 Node 保持监听、拒绝无法鉴权的新连接，并按授权有效期与保存保护处理已有连接。Node 自身停止仍由服务 owner 走原生信号排空、真实保存回执与房间屏障；失败或未知不能强停、清空 capture 或宣称已保存。TLS/WSS 及运行验收见 [可选服务说明](../../server/docker/COLLABORATION.md)，源码存在不等于运行资格。
 
 ## 8. 旧代码迁移与兼容
 
