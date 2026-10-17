@@ -66,10 +66,10 @@ final class ArticleAdministrationService implements ArticleAdministration
         return $this->bodies->editor($context, $id);
     }
 
-    public function bodyTicket(TenantContext $context, int $id): array
+    public function bodyTransport(TenantContext $context, int $id): array
     {
         $this->assertPermission($context, 'official.article.edit');
-        return $this->bodies->ticket($context, $id);
+        return $this->bodies->transport($context, $id);
     }
 
     public function bodySave(TenantContext $context, array $input): array

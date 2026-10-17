@@ -433,10 +433,6 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
                 throw BusinessException::conflict('DOCUMENT_AUTHORIZATION_CHANGED', '准备期间授权输入改变');
             }
             return Db::transaction(function () use ($current, $permissions, $modules, $before, $operation, $action): mixed {
-                // A confirmed immutable target is a business snapshot, not a new room write admission.
-                if ($action !== 'version.create' && in_array('official.collaboration', $modules, true)) {
-                    $this->acceptedWrites->requireProvider()->lockRuntimeAdmission();
-                }
                 try {
                     $this->authorizationFence->lockAndAssert($current, $permissions, $modules, $before);
                 } catch (\DomainException) {

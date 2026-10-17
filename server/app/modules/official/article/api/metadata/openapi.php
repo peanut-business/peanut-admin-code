@@ -157,14 +157,12 @@ $bodyEditor = $bodyObject([
     ], ['cid', 'title', 'desc', 'abstract', 'image', 'image_url', 'author', 'click_virtual', 'sort', 'is_show']),
 ], ['document_id', 'content_kind', 'schema_version', 'status', 'state_seq', 'auth_revision', 'owner', 'authorization_revision',
     'collaboration_enabled', 'structured_content', 'digest', 'persisted_at', 'can_edit', 'can_download_original', 'capabilities', 'article_id', 'owner_revision', 'saved_binding', 'article_metadata']);
-$bodyTicket = $bodyObject([
-    'ticket' => ['type' => 'string'], 'expires_at' => ['type' => 'integer', 'minimum' => 1],
+$bodyTransport = $bodyObject([
     'document_id' => $bodyId, 'mode' => ['type' => 'string', 'enum' => ['write']], 'protocol' => ['type' => 'integer', 'enum' => [2]],
     'owner' => $bodyOwner, 'authorization_revision' => $bodyHash, 'document_name' => ['type' => 'string'],
     'article_id' => $bodyId, 'owner_revision' => $bodyHash, 'capabilities' => $schemaRef('DocumentContentCapabilities'),
     'wss_url' => ['type' => 'string', 'format' => 'uri', 'pattern' => '^wss://[^/?#@]+:[0-9]+/collaboration$'],
-    'config_revision' => $bodyId, 'config_sha256' => $bodyHash,
-], ['ticket', 'expires_at', 'document_id', 'mode', 'protocol', 'owner', 'authorization_revision', 'document_name', 'article_id', 'owner_revision', 'capabilities', 'wss_url', 'config_revision', 'config_sha256']);
+], ['document_id', 'mode', 'protocol', 'owner', 'authorization_revision', 'document_name', 'article_id', 'owner_revision', 'capabilities', 'wss_url']);
 $bodyOperation = $bodyObject([
     'article_id' => $bodyId, 'request_id' => $bodyKey, 'document_id' => $bodyId,
     'phase' => ['type' => 'string', 'enum' => ['prepared', 'completed']], 'result' => $bodySaved + ['nullable' => true],
@@ -180,10 +178,10 @@ $articleContract = [
             [$identifierParameter('资讯 ID')],
             errorStatuses: [404, 409, 422],
         )],
-        '/adminapi/official.article.document.ticket' => ['post' => $operation(
-            'articleBodyTicket',
+        '/adminapi/official.article.document.transport' => ['post' => $operation(
+            'articleBodyTransport',
             '签发既有正文写票据（不含部署发现地址）',
-            'ArticleBodyTicketResponse',
+            'ArticleBodyTransportResponse',
             requestSchema: 'ArticleIdentifierRequest',
             errorStatuses: [404, 409, 422, 503],
         )],
@@ -421,7 +419,7 @@ $articleContract = [
         'schemas' => [
             'ArticleBodySaveRequest' => $bodyObject($bodySaveProperties, ['id', 'document_id', 'expected_state_seq', 'owner_revision', 'request_id', 'cid', 'title', 'is_show']),
             'ArticleBodyEditorResponse' => $bodyEnvelope($bodyEditor),
-            'ArticleBodyTicketResponse' => $bodyEnvelope($bodyTicket),
+            'ArticleBodyTransportResponse' => $bodyEnvelope($bodyTransport),
             'ArticleBodySaveResponse' => $bodyEnvelope($bodySaved),
             'ArticleBodySaveOperationResponse' => $bodyEnvelope($bodyOperation),
             'ArticlePositiveIntegerInput' => [

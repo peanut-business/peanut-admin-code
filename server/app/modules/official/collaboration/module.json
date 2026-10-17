@@ -39,8 +39,7 @@
   },
   "contracts": {
     "exports": [
-      "PeanutAdmin\\Modules\\Collaboration\\Contract\\CollaborationTickets",
-      "PeanutAdmin\\Modules\\Collaboration\\Service\\RuntimeLifecycle"
+      "PeanutAdmin\\Modules\\Collaboration\\Contract\\CollaborationTransports"
     ],
     "events": []
   },

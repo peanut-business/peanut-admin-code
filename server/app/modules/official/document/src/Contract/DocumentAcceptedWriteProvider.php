@@ -9,8 +9,6 @@ use PeanutAdmin\Modules\File\Contract\CollaborationReferenceInput;
 
 interface DocumentAcceptedWriteProvider
 {
-    /** Instance gate precedes owner/Document locks for new business preparation only; accepted commits remain legal. */
-    public function lockRuntimeAdmission(): void;
     /** Live human/owner edit locks precede provider Room/grant and File locks. DTO alone grants nothing. */
     public function assertReferenceReservation(
         TenantContext $current,

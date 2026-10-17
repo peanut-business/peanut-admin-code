@@ -8,7 +8,7 @@ use app\common\execution\CurrentExecutionContext;
 use PeanutAdmin\Kernel\Async\VerifiedJobEnvelope;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
 use PeanutAdmin\Modules\Collaboration\Model\CollaborationConnection;
-use PeanutAdmin\Modules\Collaboration\Model\CollaborationRuntimeState;
+use PeanutAdmin\Modules\Collaboration\Model\CollaborationRoom;
 use PeanutAdmin\Modules\Collaboration\Protocol\TicketIdentity;
 use PeanutAdmin\Modules\Identity\Contract\RevocationFacts;
 use PeanutAdmin\Modules\Identity\Contract\RevocationFactDelivery;
@@ -250,14 +250,18 @@ final readonly class RevocationTask implements TaskWorkerDefinition, \PeanutAdmi
 
     private function currentHolder(): string
     {
-        $runtime = CollaborationRuntimeState::where('instance_id', $this->configuration['instance_id'])->where('edition', $this->edition)->find();
-        if ($runtime === null || !in_array($runtime->phase, ['active', 'draining'], true)) {
+        // Signed room admission, rather than a global deployment phase, records custody.
+        // Instance discovery deliberately bypasses Tenant scope but remains application/service-bound.
+        $holders = CollaborationRoom::withoutTenantScope()->where('instance_id', $this->configuration['instance_id'])
+            ->where('edition', $this->edition)->where('service_instance_id', $this->configuration['service_instance_id'])
+            ->where('status', '<>', 'closed')->where('lease_expires_at', '>', gmdate('Y-m-d H:i:s'))
+            ->group('holder_key')->limit(2)->column('holder_key');
+        if (count($holders) !== 1) {
             throw new RetryableTaskException('REVOCATION_HOLDER_UNAVAILABLE');
         }
-        $plan = NativeCollaborationProvider::json($runtime->plan_json);
-        $holder = $plan['candidate']['holder_key'] ?? null;
+        $holder = reset($holders);
         if (!is_string($holder) || preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/D', $holder) !== 1
-            || ($plan['candidate']['service_instance_id'] ?? null) !== $this->configuration['service_instance_id']) {
+        ) {
             throw new RetryableTaskException('REVOCATION_HOLDER_UNAVAILABLE');
         }
         return $holder;

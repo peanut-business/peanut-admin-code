@@ -1,146 +1,82 @@
-# Optional collaboration lifecycle
+# Optional collaboration deployment
 
-The default `compose.yaml` remains PHP, Nginx and MySQL. The optional
-`compose.collaboration.yaml` overlay owns only the application's TLS/WSS ingress.
-The sibling `peanut-hocuspocus` project owns the complete Node service source,
-locked dependencies, fixed runtime image, readonly program mount and independent
-`docker/compose.yaml` and `docker/.env` configuration. It accesses this application solely through its
-authenticated HTTPS APIs; no PHP/frontend source or database is mounted into Node.
-No configure command builds or pulls images.
+The default `compose.yaml` contains PHP, Nginx and MySQL. The optional
+`compose.collaboration.yaml` overlay adds the application's verified HTTPS/WSS
+ingress. The independent `peanut-hocuspocus` repository owns the Node program,
+its lockfile, build and `docker/compose.yaml`. Node reads its configuration and
+listens directly. It does not prepare or activate PHP, invoke a PHP container,
+or obtain a global process activation before starting.
 
-The managed configuration derives the public URL as
-wss://<wss_hostname>:<wss_port>/collaboration, with a validated DNS/IPv4 hostname
-and the explicitly registered port. It persists COLLABORATION_PUBLIC_WSS_URL in
-the same atomic backend configuration revision/digest. The backend loader and
-Collaboration Module consume this field; Article never reads private environment
-files. Current actor-authorized ticket issuance returns wss_url, config_revision
-and config_sha256 with the existing ticket/expiry/binding. Missing, malformed or
-stale transport configuration refuses issuance; there is no localhost or control
-origin fallback. Enable/plan/status lifecycle responses do not expose the URL.
-An already enabled old configuration missing the field requires the normal
-disable/new-revision enable chain, not an implicit repair or second configuration.
+Node uses the application's same-origin HTTPS operation family at
+`/adminapi/internal/collaboration/v1/`. Authorization sends
+`{token, document_name}` with the user's original native token. PHP validates
+the token, tenant, document and current permissions. Internal requests use the
+configured HMAC service secret and verified TLS. Per-room business barriers,
+durable saves, receipts and recovery remain part of document operations; they
+do not grant a global deployment activation.
 
-Use `collaboration-configuration.example.json` as the non-secret input. Its
-`service_root`, `compose_project` and `network` explicitly bind the independent
-service and registered interface network. The independent service uses ordinary
-`docker compose up -d`, `docker compose ps` and `docker compose logs` commands
-from its `docker/` directory. Its `docker/.env.example` documents all configuration fields;
-program and key directory mounts use fixed repository-relative paths in Compose.
-There is no service-side Python wrapper or separate docker/runtime environment file.
-The deployment owner first copies that template to `docker/.env` (0600) and
-assigns `COLLABORATION_PORT` to an explicitly approved host port. The container
-always listens on the locked Hocuspocus default port 80; the host port maps to 80
-without changing the application's `collaboration:80` upstream. No configure
-command chooses a host port or switches network targets automatically.
-The APP's native configuration entry publishes that same `docker/.env` and consumes that
-same Compose file. PHP still authorizes activation and confirms durable drain;
-the APP verifies the independent container and original durable receipt before
-issuing its native Compose stop and confirming the signed stop proof.
-Select
-exact instance/Edition/service/key identity, the next configuration revision,
-private PHP and Node HTTPS origins on container-only port 8443, the WSS hostname
-and a registered host bind/port. Their hostnames become this instance's private
-Nginx network aliases. The certificate must cover both private names and the
-WSS hostname. Provide your own project-local `docker/tls/certificate.pem`,
-`private-key.pem`, `ca.pem`, plus `private/collaboration/service/service-secret`
-and `private/collaboration/ticket-secret`. Secret/key files must be ordinary,
-single-link mode 0600 and service keys must contain 32–4096 bytes;
-do not commit them. The loader rejects links, ambient literals and wrong owners.
-The existing native permission preparation gives only PHP and Node UID 33 read
-access; HTTP still has a readonly program mount. No command creates a CA or
-changes host/browser trust. Clients must trust the registered CA normally.
-Enable places the verified public CA at `private/collaboration/service/ca.pem`
-(0644). This directory contains exactly the service key and public CA, and is
-used by PHP. The independent service receives only the service key and public CA
-in its own repository's sibling `certs/` directory, bound readonly as
-`/run/peanut-collaboration` for Node; the ticket key remains outside Node's mount.
-The service has no document data volume: persistence stays in the application's
-existing database and local directory mounts through its API, with no Node-side copy.
+Use `collaboration-configuration.example.json` as an input template. Its `secret`
+is a directly configured private string of 32–4096 UTF-8 bytes, without newline,
+carriage return or NUL. Store the completed input as an ordinary, single-link
+0600 file; never commit it or print it. No service-secret file or ticket-secret
+file is required. The same secret is published as `COLLABORATION_SECRET` to PHP
+and Node. Instance, service instance and key identities remain explicit.
 
-The independent service's Compose working directory is `<service_root>/docker`,
-with the readonly program mount source equal to `<service_root>`. The stop proof
-binds the key directory to `<service_root>/certs`. Before
-adopting this source layout for an existing instance, finish its original drain
-and stop under its original owner; do not reinterpret an unresolved old container
-proof or restart it to manufacture a new identity. Historical instance files and
-fixed proofs remain untouched until that normal deployment handoff.
+Select the independent `service_root`, Compose project and registered interface
+network. First copy that service's `docker/.env.example` to `docker/.env` (0600)
+and assign its explicit `COLLABORATION_PORT`. Node's internal port remains 80;
+the host port is an independent deployment choice. The program mount is the
+service repository root, relative to its `docker/` directory; the only other
+mount is its readonly `certs/` directory. There are no named volumes, application
+source mounts or Node document copies. Persistence stays behind the PHP APIs.
 
-An already prepared instance with the former flat key/CA layout must first close
-HTTP admission and stop its own Node/PHP/Nginx through the existing owner chain.
-After adopting the program, run the same `enable` command with the original
-configuration and `--expected-revision` equal to its current revision. Under the
-original lock, the owner verifies the unchanged configuration binding, closes
-admission, renames the original key and CA into the service directory, and CAS
-publishes only the two internal file references. Material, key identity,
-configuration revision/digest and lifecycle row remain unchanged. No key is
-regenerated or copied. An interrupted publication is retried with the same
-configuration/current revision and the one remaining key location; both old and
-new keys, links or unexpected directory contents are rejected. The runtime loader
-accepts only the canonical layout.
+Provide the application's `server/docker/tls/certificate.pem`, `private-key.pem`
+and `ca.pem`. The private key must be 0600; the public CA must be 0444 or 0644.
+The certificate must cover the configured PHP/control names and WSS hostname.
+Both private origins use HTTPS on container-only port 8443; do not expose it as
+a host port. Record the exact public CA SHA-256 as `ca_sha256`. Configuration
+publication copies that public bundle to the application's
+`private/collaboration/service/ca.pem` and the service's `certs/ca.pem`, both 0644.
+The normal application permission preparation retains PHP UID 33 access. The
+Node container runs as UID 33 and only needs its public CA, with readable parent
+directories. No command creates a CA, disables certificate verification or
+changes host/browser trust. Clients must trust the selected CA normally.
 
 ```sh
-python3 server/docker/scripts/configure-collaboration.py plan --app-root /absolute/app
-python3 server/docker/scripts/configure-collaboration.py enable --app-root /absolute/app --configuration /absolute/non-secret-configuration.json --expected-revision 0
-server/docker/scripts/start.sh
-python3 server/docker/scripts/configure-collaboration.py status --app-root /absolute/app --probe
-python3 server/docker/scripts/configure-collaboration.py disable --app-root /absolute/app --drain-id original-stable-id
+python3 server/docker/scripts/configure-collaboration.py plan --app-root /absolute/app --configuration /absolute/private-configuration.json
+python3 server/docker/scripts/configure-collaboration.py enable --app-root /absolute/app --configuration /absolute/private-configuration.json --expected-revision 0
+python3 server/docker/scripts/configure-collaboration.py status --app-root /absolute/app
 ```
 
-Enable publishes private profile configuration before a CAS-protected backend
-commit point, with lock, file/parent fsync and rename. Existing HTTP admission is
-closed through the original deployment owner before that backend publication;
-enable does not reload or start services. Consumers reject revision
-or digest mismatch after an interrupted write. Enable is prepare-only. Start is
-the existing deployment entry, recreates PHP through its original entrypoint to
-validate and publish the actual configuration binding, and requires installed
-compatible migrations and real signed readiness before enabling admission. When
-an original drain is pending, start restores only its exact configured Node
-instance and original id/hash; it does not activate or require admission-ready
-health. Continue disable with that same drain id. Without collaboration it retains
-the original three-service behavior, including guided first installation.
-Readiness identifies `durability_dependency=mysql` and the File reference/reservation
-ledger prerequisite. It proves no external object-storage connectivity.
+These commands publish or inspect configuration only. They do not start, stop,
+reload, probe, build or pull services. Backend revision/digest fields protect
+the application's configuration publication with compare-and-swap; Node has no
+configuration revision/digest requirement. An already enabled configuration can
+only be repeated unchanged. Interrupted publication is not runtime readiness.
+Plan/status report `runtime_state=not_observed`; errors never include secret
+values or captured subprocess output.
 
-The independent service can also start directly with `cd docker && docker compose up -d`.
-Its existing signed lifecycle API now accepts `paired_start`: the configured service
-validates the installed modules, durable schema, exact instance/configuration and
-current process custody before the backend atomically prepares and activates that
-process. The returned activation is reused by the same holder/probe; a concurrent
-or expired foreign holder still requires the existing custody checks. The Node
-consumer verifies the signed response and lease before opening admission. This
-handshake does not store a document or create a new save request.
+The independent service uses ordinary owner-invoked Compose commands from its
+own `docker/` directory: `docker compose up -d`, `docker compose ps` and
+`docker compose logs`. Prepare its dependencies and build using its own locked
+instructions before starting. The APP's existing `start.sh` starts only its
+PHP/Nginx/MySQL composition and optional ingress. It does not start Node or make
+Node's startup depend on an application deployment command.
 
-An outstanding drain or a stopped instance is never silently reset by this API.
-Original business operations, capture identities and retry limits remain intact.
-Backend unavailability keeps new admission closed when the process lease cannot
-be confirmed; pending content is not represented as durably saved. The APP's
-deployment start remains an optional application deployment operation, not a
-prerequisite that a standalone service must invoke or use to recreate PHP.
+Stopping requires protection for pending actions, unsaved rooms and unknown
+save outcomes. A signal or an exited container alone is not a durable drain
+receipt. This application's stop, disable and product-upgrade/recovery adapters
+currently lack a controllable authenticated native shutdown receipt consumer.
+For a configured enabled instance they therefore fail closed with
+`COLLABORATION_NATIVE_SAFE_SHUTDOWN_UNCONFIRMED`, before stopping writers or
+performing recovery. They do not fabricate a drain proof, force-kill Node,
+change desired state, or recreate PHP to obtain approval. Ordinary shutdown and
+upgrade of an enabled instance remain blocked until that adapter is implemented
+and the original owner confirms its native safe drain. Disabling an environment
+flag manually is not a shutdown proof and must not be used to bypass this limit.
 
-All responses use `peanut.collaboration.lifecycle.v1`; status without probe is
-`not_probed`. No public plan/status contains secrets, URLs or shell commands.
-`desired_enabled` is a boolean when the configuration was safely observed. It is
-null only for a failed, unobserved configuration result: runtime is `unknown`,
-`desired_configuration` is an unknown check and `configuration_unobserved` is a
-gap. Native error exit codes 2 (invalid input/configuration), 3 (missing reference)
-and 4 (unconfirmed runtime) retain that result. Success, prepared, ready and
-disabled results always have a boolean. Safely observed errors retain the actual
-configuration identity/revision/hash and any verified original drain evidence.
-Disable closes the durable gate, drains every recorded Room, checks exact original
-receipts, then confirms native stop before changing desired state. Unknown or
-timeout outcomes retain the original id/hash/targets and desired configuration.
-Retry that original id; never delete volumes or force-stop to fabricate completion.
-After desired state changes to disabled, ordinary HTTP remains closed and the
-response reports `restart_required=true` with no applied revision. Run the normal
-start entry to refresh PHP and restore ordinary HTTP through its original owner.
-Unprobed status for this configured disabled instance conservatively retains
-`restart_required=true`; it does not attest that the HTTP refresh already ran.
-The ordinary stop and product upgrade entries preserve desired state, and the
-paired upgrade recovery point includes profile environment and instance TLS/secret
-directories. Root/user operational authorization still governs actual deployment.
-
-Record the public CA SHA-256 in `ca_sha256`; its source file must be mode 0444 or
-0644. Enable copies that same verified public bundle to the shared service
-directory used by PHP and Node. Only collaboration control requests select
-it through the existing HTTP request contract; unrelated outbound HTTPS retains
-the platform default verified CA set. No APP-wide curl/OpenSSL trust override is used.
+Existing unresolved instances retain their original owner, saved identities,
+receipts and failure budgets. Do not adopt or restart an unknown process to
+manufacture a new identity. Historical migrations, stored evidence and existing
+recovery snapshots remain unchanged; source changes do not establish runtime
+switching or release qualification.

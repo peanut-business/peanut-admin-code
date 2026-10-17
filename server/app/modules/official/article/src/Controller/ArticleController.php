@@ -23,10 +23,10 @@ class ArticleController extends BaseAdminController
         return $this->data($this->crud->bodyEditor($this->tenantAdminContext(), $input['id']));
     }
 
-    public function bodyTicket(): Json
+    public function bodyTransport(): Json
     {
         $input = $this->bodyInput($this->request->post(), false);
-        return $this->data($this->crud->bodyTicket($this->tenantAdminContext(), $input['id']));
+        return $this->data($this->crud->bodyTransport($this->tenantAdminContext(), $input['id']));
     }
 
     public function bodySave(): Json

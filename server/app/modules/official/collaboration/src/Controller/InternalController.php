@@ -44,10 +44,6 @@ final class InternalController extends \app\BaseController
     {
         return $this->protocol($this->collaboration->target());
     }
-    public function lifecycle()
-    {
-        return $this->protocol($this->collaboration->lifecycle());
-    }
     public function revoke()
     {
         return $this->protocol($this->collaboration->revoke());

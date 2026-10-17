@@ -233,6 +233,9 @@ def storage_archive(path):
 
 
 def assert_stopped(server):
+    # Independent Node rooms may still hold unsaved content. This adapter has
+    # no authenticated native shutdown receipt; refuse before any recovery work.
+    collaboration_owner().require_safe_shutdown(server)
     docker_dir = server / "docker"
     project = env(docker_dir / ".env").get("COMPOSE_PROJECT_NAME", "")
     if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,62}", project):
@@ -241,8 +244,6 @@ def assert_stopped(server):
     if services != ["mysql"]:
         raise ValueError("business writers are not drained")
     images = {}; containers = {}
-    owner=collaboration_owner()
-    enabled=owner.backend_environment(server).get('COLLABORATION_ENABLED')=='enabled'
     for service in ("php", "nginx", "mysql"):
         ids = compose(docker_dir, "ps", "-a", "-q", service).splitlines()
         discovered = docker("ps", "-a", "--no-trunc", "--filter", f"label=com.docker.compose.project={project}",
@@ -277,12 +278,6 @@ def assert_stopped(server):
     mysql_id = compose(docker_dir, "ps", "-a", "-q", "mysql")
     if running != [mysql_id]:
         raise ValueError("another Compose writer is running")
-    if enabled:
-        service = owner.service_owner(server, 'status')
-        if service['running'] is not False or service['state'] != 'exited':
-            raise ValueError('independent collaboration writer is not stopped')
-        images['collaboration'] = service['image_id']
-        containers['collaboration'] = {'id': service['id'], 'compose_project': service['compose_project']}
     return {"project": project, "images": images, 'containers': containers}
 
 
