@@ -1062,7 +1062,7 @@ function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null)
  * candidate and physical locks; the child separately owns the reviewed source.
  * No connection, SQL callback or transaction escapes.
  *
- * @param array{owner:string,thread:string,candidate:string,instance_id:?string,service_instance_id:?string} $actor
+ * @param array{owner:string,thread:string,candidate:string,instance_id:?string,service_instance_id:?string,receipt_path:string} $actor
  * @return array<string,mixed>
  */
 function observeRegisteredCollaborationRuntime(array $actor): array
@@ -1070,11 +1070,20 @@ function observeRegisteredCollaborationRuntime(array $actor): array
     $keys = array_keys($actor);
     sort($keys, SORT_STRING);
     if (PHP_SAPI !== 'cli'
-        || $keys !== ['candidate', 'instance_id', 'owner', 'service_instance_id', 'thread']
+        || $keys !== ['candidate', 'instance_id', 'owner', 'receipt_path', 'service_instance_id', 'thread']
         || !is_string($actor['owner']) || $actor['owner'] === ''
         || !is_string($actor['thread']) || $actor['thread'] === ''
-        || !is_string($actor['candidate']) || preg_match('/^[a-f0-9]{40}$/D', $actor['candidate']) !== 1) {
+        || !is_string($actor['candidate']) || preg_match('/^[a-f0-9]{40}$/D', $actor['candidate']) !== 1
+        || !is_string($actor['receipt_path']) || !isLexicallyAbsolutePath($actor['receipt_path'])
+        || realpath(dirname($actor['receipt_path'])) !== dirname($actor['receipt_path'])
+        || preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.json$/D', basename($actor['receipt_path'])) !== 1
+        || file_exists($actor['receipt_path']) || is_link($actor['receipt_path'])) {
         throw new RuntimeException('COLLABORATION_OBSERVATION_ACTOR_INVALID');
+    }
+    foreach (['pcntl_alarm','pcntl_signal','pcntl_signal_get_handler','pcntl_async_signals','posix_geteuid','fsync'] as $capability) {
+        if (!function_exists($capability)) {
+            throw new RuntimeException('COLLABORATION_OBSERVATION_WINDOW_CAPABILITY_REQUIRED');
+        }
     }
     $confirmed = $actor['instance_id'] !== null && $actor['service_instance_id'] !== null;
     foreach (['instance_id', 'service_instance_id'] as $key) {
@@ -1117,7 +1126,9 @@ function observeRegisteredCollaborationRuntime(array $actor): array
         throw new RuntimeException('COLLABORATION_OBSERVATION_SCHEMA_POLICY_REQUIRED');
     }
     $proof = requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
-    $authorize = static function () use ($root, $proof, $actor, $database, $endpoint, $resourceId, $schema, $registrySha256, $name): array {
+    $windowHandle = null;
+    $windowDeadline = null;
+    $authorize = static function () use ($root, $proof, $actor, $database, $endpoint, $resourceId, $schema, $registrySha256, $name, &$windowHandle, &$windowDeadline): array {
         $metadata = activeLeaseMetadata($proof, time(), 'collaboration-runtime-observation');
         $resources = activeLeaseResources($proof);
         $common = leaseGit(['-C', $root, 'rev-parse', '--path-format=absolute', '--git-common-dir']);
@@ -1142,7 +1153,7 @@ function observeRegisteredCollaborationRuntime(array $actor): array
             'resource_scope' => $database['resource_scope'], 'gate' => $database['lease_gate'],
             'registry_sha256' => $registrySha256, 'credential_ref' => $database['credential_ref'],
             'instance_id' => $actor['instance_id'], 'service_instance_id' => $actor['service_instance_id'],
-            'source_tree' => leaseGit(['-C', $root, 'rev-parse', 'HEAD^{tree}'])];
+            'source_tree' => leaseGit(['-C', $root, 'rev-parse', 'HEAD^{tree}']), 'receipt_path' => $actor['receipt_path']];
         ksort($contract, SORT_STRING);
         assertLeaseResourceValues($resources, 'gate', ['collaboration-runtime-observation']);
         assertLeaseResourceValues($resources, 'worktree', [$root]);
@@ -1167,31 +1178,178 @@ function observeRegisteredCollaborationRuntime(array $actor): array
             'resource-scope' => $database['resource_scope']] as $type => $value) {
             assertLeaseResourceValues($parentResources, $type, [$value]);
         }
+        $outputs = $parentResources['output-dir'] ?? [];
+        if (count($outputs) !== 1 || realpath($outputs[0]) !== $outputs[0]
+            || !str_starts_with($actor['receipt_path'], rtrim($outputs[0], '/') . '/')) {
+            throw new RuntimeException('COLLABORATION_OBSERVATION_RECEIPT_SCOPE_INVALID');
+        }
+        $requiredUntil = $windowDeadline ?? microtime(true) + 45;
+        if ((int) $metadata['expires_at'] <= $requiredUntil || (int) $parent['expires_at'] <= $requiredUntil) {
+            throw new RuntimeException('COLLABORATION_OBSERVATION_WINDOW_EXCEEDS_AUTHORITY');
+        }
         if (leaseGit(['-C', $root, 'status', '--porcelain=v1', '--untracked-files=no']) !== '') {
             throw new RuntimeException('COLLABORATION_OBSERVATION_SOURCE_CHANGED');
         }
         // Native producer rechecks both identities and every parent/child lock in
         // one mutex. Ordinary assertNativeMysqlSchemaLease remains parentless.
-        $process = proc_open(['/bin/bash', $root . '/scripts/project-resource-lease', 'show', '--lease', $metadata['lease'], '--verify-locks'],
-            [1 => ['pipe','w'], 2 => ['pipe','w']], $pipes, $root);
+        $command = ['/bin/bash', $root . '/scripts/project-resource-lease', 'show', '--lease', $metadata['lease'], '--verify-locks'];
+        $descriptors = [1 => ['pipe','w'], 2 => ['pipe','w']];
+        if (is_resource($windowHandle)) {
+            $command[] = '--observer-window';
+            $descriptors[3] = $windowHandle;
+        }
+        $process = proc_open($command, $descriptors, $pipes, $root);
         if (!is_resource($process)) {
             throw new RuntimeException('COLLABORATION_OBSERVATION_NATIVE_VERIFIER_UNAVAILABLE');
         }
-        stream_get_contents($pipes[1]);
-        $error = stream_get_contents($pipes[2]);
-        fclose($pipes[1]); fclose($pipes[2]);
-        if (proc_close($process) !== 0) {
-            throw new RuntimeException('COLLABORATION_OBSERVATION_NATIVE_PROOF_REJECTED: ' . trim((string) $error));
+        try {
+            stream_get_contents($pipes[1]);
+            $error = stream_get_contents($pipes[2]);
+        } catch (Throwable $error) {
+            proc_terminate($process);
+            throw $error;
+        } finally {
+            fclose($pipes[1]); fclose($pipes[2]);
+            $exit = proc_close($process);
+        }
+        if ($exit !== 0) {
+            throw new RuntimeException('COLLABORATION_OBSERVATION_NATIVE_PROOF_REJECTED');
         }
         return $metadata + ['runtime_candidate' => $parent['candidate'], 'runtime_worktree' => $parent['worktree']];
     };
     $metadata = $authorize(); // Complete admission before opening any database connection.
+    $common = leaseGit(['-C', $root, 'rev-parse', '--path-format=absolute', '--git-common-dir']);
+    $mutex = $common . '/peanut-admin-resource-leases/mutex';
+    if (realpath(dirname($mutex)) !== dirname($mutex)) {
+        throw new RuntimeException('COLLABORATION_OBSERVATION_MUTEX_NAMESPACE_INVALID');
+    }
+    $previousAlarm = pcntl_alarm(0);
+    if ($previousAlarm > 0) {
+        pcntl_alarm($previousAlarm);
+        throw new RuntimeException('COLLABORATION_OBSERVATION_EXISTING_ALARM');
+    }
     $pdo = null;
+    $mutexIdentity = null;
+    $receiptHandle = null;
+    $receiptDirectoryHandle = null;
+    $receiptIdentity = null;
+    $signalHandlers = [];
+    $previousAsync = pcntl_async_signals();
+    $previousReadTimeout = null;
+    $observation = null;
+    $failure = null;
+    $stage = 'acquire_mutex';
+    $selectAttempts = 0;
+    $selectCompleted = 0;
+    $connected = false;
+    $receiptHash = null;
+    $closing = false;
+    $interruptDelivered = false;
+    $ownsMutex = static function () use ($mutex, &$windowHandle, &$mutexIdentity): bool {
+        clearstatcache(true, $mutex); clearstatcache(true, $mutex . '/pid');
+        $directory = @lstat($mutex); $named = @lstat($mutex . '/pid');
+        $open = is_resource($windowHandle) ? fstat($windowHandle) : false;
+        return is_array($mutexIdentity) && is_array($directory) && is_array($named) && is_array($open)
+            && !is_link($mutex) && !is_link($mutex . '/pid') && $open['nlink'] === 1
+            && $directory['dev'] === $mutexIdentity['dev'] && $directory['ino'] === $mutexIdentity['ino']
+            && $open['dev'] === $named['dev'] && $open['ino'] === $named['ino']
+            && $open['uid'] === posix_geteuid() && ($open['mode'] & 0777) === 0600
+            && trim((string) @file_get_contents($mutex . '/pid')) === (string) getmypid();
+    };
+    $checkWindow = static function () use (&$windowDeadline, $ownsMutex): void {
+        if ($windowDeadline === null || microtime(true) >= $windowDeadline || !$ownsMutex()) {
+            throw new RuntimeException('COLLABORATION_OBSERVATION_WINDOW_EXPIRED_OR_CHANGED');
+        }
+    };
     try {
-        $pdo = guardedConnection($config);
+        // Same mkdir/PID protocol and namespace as every historical producer.
+        // Only this PHP process executes SQL; there is no surviving worker child.
+        for ($attempt = 0; $attempt < 100; $attempt++) {
+            $mask = umask(0077);
+            try { $created = @mkdir($mutex, 0700); }
+            finally { umask($mask); }
+            if ($created) {
+                $mutexIdentity = lstat($mutex);
+                $mask = umask(0077);
+                try { $windowHandle = @fopen($mutex . '/pid', 'x+b'); }
+                finally { umask($mask); }
+                if (!is_resource($windowHandle)) {
+                    throw new RuntimeException('COLLABORATION_OBSERVATION_MUTEX_PID_OPEN_FAILED');
+                }
+                $pid = getmypid() . "\n";
+                if (fwrite($windowHandle, $pid) !== strlen($pid) || !fflush($windowHandle) || !$ownsMutex()) {
+                    throw new RuntimeException('COLLABORATION_OBSERVATION_MUTEX_PID_INVALID');
+                }
+                break;
+            }
+            // Do not remove an unknown/stale holder here. Normal native preflight
+            // owns stale-lock recovery; a failed acquisition never cleans others.
+            usleep(50000);
+        }
+        if (!is_resource($windowHandle)) {
+            throw new RuntimeException('COLLABORATION_OBSERVATION_MUTEX_BUSY_OR_UNAVAILABLE');
+        }
+        $windowDeadline = microtime(true) + 30;
+        foreach ([SIGALRM, SIGTERM, SIGINT, SIGHUP] as $signal) {
+            $signalHandlers[$signal] = pcntl_signal_get_handler($signal);
+            pcntl_signal($signal, static function (int $received) use (&$closing, &$interruptDelivered, &$failure): void {
+                if ($closing || $interruptDelivered) {
+                    $failure ??= new RuntimeException('COLLABORATION_OBSERVATION_INTERRUPTED_DURING_CLOSE');
+                    return;
+                }
+                $interruptDelivered = true;
+                throw new RuntimeException($received === SIGALRM
+                    ? 'COLLABORATION_OBSERVATION_WINDOW_TIMEOUT' : 'COLLABORATION_OBSERVATION_INTERRUPTED');
+            }, false);
+        }
+        pcntl_async_signals(true);
+        pcntl_alarm(30);
+        $stage = 'locked_authorization';
+        $metadata = $authorize();
+        $checkWindow();
+        $stage = 'open_receipt';
+        $receiptDirectoryHandle = @fopen(dirname($actor['receipt_path']), 'r');
+        if (!is_resource($receiptDirectoryHandle)) {
+            throw new RuntimeException('COLLABORATION_OBSERVATION_RECEIPT_DIRECTORY_UNAVAILABLE');
+        }
+        $mask = umask(0077);
+        try { $receiptHandle = @fopen($actor['receipt_path'], 'x+b'); }
+        finally { umask($mask); }
+        if (!is_resource($receiptHandle)) {
+            throw new RuntimeException('COLLABORATION_OBSERVATION_RECEIPT_OPEN_FAILED');
+        }
+        $receiptIdentity = fstat($receiptHandle);
+        $namedReceipt = lstat($actor['receipt_path']);
+        if (is_link($actor['receipt_path']) || $receiptIdentity['nlink'] !== 1
+            || $receiptIdentity['dev'] !== $namedReceipt['dev'] || $receiptIdentity['ino'] !== $namedReceipt['ino']
+            || $receiptIdentity['uid'] !== posix_geteuid() || ($receiptIdentity['mode'] & 0777) !== 0600) {
+            throw new RuntimeException('COLLABORATION_OBSERVATION_RECEIPT_ENTITY_INVALID');
+        }
+        $receiptDirectory = fstat($receiptDirectoryHandle);
+        $namedDirectory = lstat(dirname($actor['receipt_path']));
+        if ($receiptDirectory['dev'] !== $namedDirectory['dev'] || $receiptDirectory['ino'] !== $namedDirectory['ino']
+            || realpath(dirname($actor['receipt_path'])) !== dirname($actor['receipt_path'])
+            || !fflush($receiptHandle) || !fsync($receiptHandle) || !fsync($receiptDirectoryHandle)) {
+            throw new RuntimeException('COLLABORATION_OBSERVATION_RECEIPT_DIRECTORY_CHANGED');
+        }
+        // These bound connection/read/query limits complement the process alarm;
+        // alarm availability alone is not a hard bound on blocking PDO I/O.
+        $previousReadTimeout = ini_set('mysqlnd.net_read_timeout', '3');
+        if ($previousReadTimeout === false) {
+            throw new RuntimeException('COLLABORATION_OBSERVATION_READ_TIMEOUT_UNAVAILABLE');
+        }
+        $stage = 'connect';
+        $checkWindow();
+        $pdo = guardedConnection($config, 3);
+        $connected = true;
+        $checkWindow();
+        $pdo->exec('SET SESSION MAX_EXECUTION_TIME=2000');
         $pdo->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
         $pdo->exec('START TRANSACTION WITH CONSISTENT SNAPSHOT, READ ONLY');
+        $stage = 'database_identity';
+        $checkWindow(); $selectAttempts++;
         $identity = $pdo->query('SELECT DATABASE() AS database_name,@@server_uuid AS server_uuid,@@version AS version,UTC_TIMESTAMP(3) AS observed_at')->fetch(PDO::FETCH_ASSOC);
+        $selectCompleted++; $checkWindow();
         if (!is_array($identity) || $identity['database_name'] !== $name
             || !is_string($identity['server_uuid'])
             || preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/D', $identity['server_uuid']) !== 1
@@ -1206,12 +1364,16 @@ function observeRegisteredCollaborationRuntime(array $actor): array
             'pa_document_operation' => ['tenant_id','document_id','operation_id','action','phase','input_sha256','business_sha256','created_at','released_at','result_json'],
         ];
         $schemaEvidence = [];
-        $checkColumns = static function (string $table) use ($pdo, $columns, $name, &$schemaEvidence): void {
+        $checkColumns = static function (string $table) use ($pdo, $columns, $name, &$schemaEvidence, $checkWindow, &$stage, &$selectAttempts, &$selectCompleted): void {
+            $stage = 'columns_' . $table;
+            $checkWindow();
             $wanted = $columns[$table];
             $query = $pdo->prepare('SELECT COLUMN_NAME,DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=? AND TABLE_NAME=? AND COLUMN_NAME IN (' . implode(',', array_fill(0, count($wanted), '?')) . ') ORDER BY ORDINAL_POSITION');
+            $checkWindow(); $selectAttempts++;
             $query->execute([$name, $table, ...$wanted]);
             $actual = $query->fetchAll(PDO::FETCH_ASSOC);
             $query->closeCursor();
+            $selectCompleted++; $checkWindow();
             if (array_diff($wanted, array_column($actual, 'COLUMN_NAME')) !== []) {
                 throw new RuntimeException('COLLABORATION_OBSERVATION_SCHEMA_GAP: ' . $table);
             }
@@ -1239,9 +1401,11 @@ SELECT instance_id,edition,phase,config_revision,config_sha256,drain_id,updated_
 FROM pa_collaboration_runtime WHERE edition='standalone'
 SQL;
         $runtimeQuery = $pdo->prepare($runtimeSql . ($confirmed ? ' AND instance_id=?' : '') . ' ORDER BY instance_id LIMIT 2');
+        $stage = 'runtime'; $checkWindow(); $selectAttempts++;
         $runtimeQuery->execute($confirmed ? [$actor['instance_id']] : []);
         $runtime = $runtimeQuery->fetchAll(PDO::FETCH_ASSOC);
         $runtimeQuery->closeCursor();
+        $selectCompleted++; $checkWindow();
         $result = ['protocol' => 'peanut.collaboration-runtime-observation.v1', 'operation_environment' => 'acceptance',
             'resource_id' => $resourceId, 'endpoint_id' => $endpoint['endpoint_id'], 'scope' => $database['resource_scope'],
             'candidate' => $actor['candidate'], 'lease' => $metadata['lease'], 'owner' => $actor['owner'], 'thread' => $actor['thread'],
@@ -1295,10 +1459,13 @@ ORDER BY O.tenant_id,O.document_id,O.operation_id LIMIT 10001
 SQL,
             ];
             foreach ($queries as $key => $sql) {
+                $stage = $key; $checkWindow();
                 $query = $pdo->prepare($sql);
+                $checkWindow(); $selectAttempts++;
                 $query->execute([$actor['instance_id']]);
                 $rows = $query->fetchAll(PDO::FETCH_ASSOC);
                 $query->closeCursor();
+                $selectCompleted++; $checkWindow();
                 if (count($rows) >= 10001) {
                     throw new RuntimeException('COLLABORATION_OBSERVATION_RESULT_LIMIT: ' . $key);
                 }
@@ -1310,18 +1477,147 @@ SQL,
             $result['associated_queries'] = 'fixed_projection_only';
         }
         $result['schema_columns'] = $schemaEvidence;
+        $stage = 'final_authorization'; $checkWindow();
         $authorize(); // Expiry or source/lease drift invalidates the observation.
-        return $result;
+        $checkWindow();
+        $observation = $result;
+        $closing = true;
+    } catch (Throwable $error) {
+        $closing = true;
+        $failure = $error;
     } finally {
-        if ($pdo instanceof PDO && $pdo->inTransaction()) {
-            $pdo->rollBack();
+        // During cleanup, signals mark failure without escaping the close/receipt/
+        // unlock sequence. A SIGKILL leaves the native PID lock for stale recovery
+        // only after this actual SQL client process has terminated.
+        pcntl_async_signals(false);
+        pcntl_alarm(0);
+        foreach (array_keys($signalHandlers) as $signal) {
+            pcntl_signal($signal, static function () use (&$failure): void {
+                $failure ??= new RuntimeException('COLLABORATION_OBSERVATION_INTERRUPTED_DURING_CLOSE');
+            }, false);
         }
-        $pdo = null;
+        pcntl_async_signals(true);
+        foreach ([$runtimeQuery ?? null, $query ?? null] as $statement) {
+            try { if ($statement instanceof PDOStatement) { $statement->closeCursor(); } }
+            catch (Throwable $closeError) { $failure ??= $closeError; }
+        }
+        unset($runtimeQuery, $query, $statement, $checkColumns);
+        try {
+            if ($pdo instanceof PDO && $pdo->inTransaction()) { $pdo->rollBack(); }
+        } catch (Throwable $closeError) { $failure ??= $closeError; }
+        finally { $pdo = null; }
+        if ($previousReadTimeout !== null && $previousReadTimeout !== false) {
+            ini_set('mysqlnd.net_read_timeout', $previousReadTimeout);
+        }
+        if (is_resource($windowHandle)) {
+            try { $checkWindow(); } catch (Throwable $deadlineError) { $failure ??= $deadlineError; }
+        }
+        try {
+            if (is_resource($receiptHandle)) {
+                $payload = ['protocol' => 'peanut.collaboration-observation-receipt.v1',
+                    'status' => $failure === null ? 'metadata_recorded' : 'failed', 'candidate' => $actor['candidate'],
+                    'runtime_candidate' => $metadata['runtime_candidate'], 'owner' => $actor['owner'], 'thread' => $actor['thread'],
+                    'lease' => $metadata['lease'], 'SQL_client_pid' => getmypid(), 'database_connected' => $connected,
+                    'window_release' => 'not_yet_released_at_durable_record',
+                    'this_invocation_select_attempts' => $selectAttempts, 'this_invocation_select_completed' => $selectCompleted,
+                    'failed_stage' => $failure === null ? null : $stage,
+                    'error_class' => $failure === null ? null : get_class($failure),
+                    'error_code' => $failure === null ? null : (string) $failure->getCode(),
+                    'error_reason' => $failure instanceof RuntimeException && str_starts_with($failure->getMessage(), 'COLLABORATION_OBSERVATION_')
+                        ? $failure->getMessage() : null,
+                    'observation' => $failure === null ? $observation : null];
+                $bytes = json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n";
+                $offset = 0;
+                while ($offset < strlen($bytes)) {
+                    $written = fwrite($receiptHandle, substr($bytes, $offset));
+                    if ($written === false || $written === 0) { throw new RuntimeException('COLLABORATION_OBSERVATION_RECEIPT_WRITE_FAILED'); }
+                    $offset += $written;
+                }
+                if (!fflush($receiptHandle) || !fsync($receiptHandle)) {
+                    throw new RuntimeException('COLLABORATION_OBSERVATION_RECEIPT_SYNC_FAILED');
+                }
+                clearstatcache(true, $actor['receipt_path']);
+                $named = lstat($actor['receipt_path']); $open = fstat($receiptHandle);
+                if (is_link($actor['receipt_path']) || $open['nlink'] !== 1
+                    || $open['dev'] !== $receiptIdentity['dev'] || $open['ino'] !== $receiptIdentity['ino']
+                    || $open['dev'] !== $named['dev'] || $open['ino'] !== $named['ino'] || $open['size'] !== strlen($bytes)
+                    || $open['uid'] !== posix_geteuid() || ($open['mode'] & 0777) !== 0600) {
+                    throw new RuntimeException('COLLABORATION_OBSERVATION_RECEIPT_CHANGED');
+                }
+                rewind($receiptHandle);
+                $receiptHash = hash('sha256', $bytes);
+                if (!hash_equals($receiptHash, hash('sha256', (string) stream_get_contents($receiptHandle)))) {
+                    throw new RuntimeException('COLLABORATION_OBSERVATION_RECEIPT_READBACK_FAILED');
+                }
+                clearstatcache(true, dirname($actor['receipt_path']));
+                $namedDirectory = lstat(dirname($actor['receipt_path']));
+                $openDirectory = fstat($receiptDirectoryHandle);
+                if ($openDirectory['dev'] !== $namedDirectory['dev'] || $openDirectory['ino'] !== $namedDirectory['ino']
+                    || $openDirectory['dev'] !== $receiptDirectory['dev'] || $openDirectory['ino'] !== $receiptDirectory['ino']
+                    || realpath(dirname($actor['receipt_path'])) !== dirname($actor['receipt_path'])
+                    || !fsync($receiptDirectoryHandle)) {
+                    throw new RuntimeException('COLLABORATION_OBSERVATION_RECEIPT_DIRECTORY_SYNC_FAILED');
+                }
+            }
+        } catch (Throwable $receiptError) { $failure = $receiptError; $receiptHash = null; }
+        finally {
+            if (is_resource($windowHandle)) {
+                try { $checkWindow(); } catch (Throwable $deadlineError) { $failure ??= $deadlineError; }
+            }
+            if (is_resource($receiptHandle)) {
+                try { fclose($receiptHandle); } catch (Throwable $closeError) { $failure ??= $closeError; }
+            }
+            if (is_resource($receiptDirectoryHandle)) {
+                try { fclose($receiptDirectoryHandle); } catch (Throwable $closeError) { $failure ??= $closeError; }
+            }
+            if (is_resource($windowHandle)) {
+                if ($ownsMutex()) {
+                    $releasedPid = false;
+                    try {
+                        $releasedPid = unlink($mutex . '/pid');
+                        if (!$releasedPid) { throw new RuntimeException('COLLABORATION_OBSERVATION_MUTEX_PID_RELEASE_FAILED'); }
+                    } catch (Throwable $releaseError) { $failure ??= $releaseError; }
+                    try { fclose($windowHandle); } catch (Throwable $closeError) { $failure ??= $closeError; }
+                    $windowHandle = null;
+                    clearstatcache(true, $mutex);
+                    $directory = @lstat($mutex);
+                    if ($releasedPid && is_array($directory) && !is_link($mutex)
+                        && $directory['dev'] === $mutexIdentity['dev'] && $directory['ino'] === $mutexIdentity['ino']
+                        && !file_exists($mutex . '/pid')) {
+                        try {
+                            if (!rmdir($mutex)) { throw new RuntimeException('COLLABORATION_OBSERVATION_MUTEX_RELEASE_FAILED'); }
+                        } catch (Throwable $releaseError) { $failure ??= $releaseError; }
+                    } else { $failure ??= new RuntimeException('COLLABORATION_OBSERVATION_MUTEX_ENTITY_CHANGED'); }
+                } else {
+                    try { fclose($windowHandle); } catch (Throwable $closeError) { $failure ??= $closeError; }
+                    $windowHandle = null;
+                    $failure ??= new RuntimeException('COLLABORATION_OBSERVATION_MUTEX_ENTITY_CHANGED');
+                }
+            } elseif ($mutexIdentity !== null) {
+                // Only an empty directory just created by this process may be
+                // removed after PID-file creation failed.
+                clearstatcache(true, $mutex); $directory = @lstat($mutex);
+                if (is_array($directory) && !is_link($mutex) && $directory['dev'] === $mutexIdentity['dev']
+                    && $directory['ino'] === $mutexIdentity['ino'] && !file_exists($mutex . '/pid')) { @rmdir($mutex); }
+            }
+            foreach ($signalHandlers as $signal => $handler) { pcntl_signal($signal, $handler, false); }
+            pcntl_async_signals($previousAsync);
+        }
     }
+    if ($failure !== null || $observation === null || $receiptHash === null) {
+        throw new RuntimeException('COLLABORATION_OBSERVATION_FAILED; receipt is not a successful observation', 0, $failure);
+    }
+    return $observation + ['receipt_path' => $actor['receipt_path'], 'receipt_sha256' => $receiptHash];
 }
 
-function guardedConnection(array $config): PDO
+function guardedConnection(array $config, ?int $connectTimeout = null): PDO
 {
+    $options = [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC, PDO::ATTR_EMULATE_PREPARES => false];
+    if ($connectTimeout !== null) {
+        if ($connectTimeout < 1 || $connectTimeout > 5) { throw new RuntimeException('Invalid bounded connection timeout'); }
+        $options[PDO::ATTR_TIMEOUT] = $connectTimeout;
+    }
     return new PDO(
         sprintf(
             'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
@@ -1331,11 +1627,7 @@ function guardedConnection(array $config): PDO
         ),
         $config['user'],
         $config['password'],
-        [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES => false,
-        ],
+        $options,
     );
 }
 

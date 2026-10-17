@@ -3629,7 +3629,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bba140c74597ab6758d724304b2a414ef740e0c80236ec311868ad2397db5c9c"
+            "source_sha256": "eb0d79822227dee5e2a8b46334368bb3c503dda3bf193826cfe2ce3a23179aff"
         },
         {
             "path": "scripts/project-resource-registry",
@@ -26081,7 +26081,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2e6df8377971ad6ae4216ef788b00f002daf5eb1d9e8431558f7112992022e4f"
+            "source_sha256": "9654607379cdc609b19f835b331f774d82160a7ba915cb800ece8312dfca8c2d"
         },
         {
             "path": "server/database/init.sql",

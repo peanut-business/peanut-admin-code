@@ -78,6 +78,7 @@ umask 077
 mkdir -p "$LEASES_DIR" "$RESOURCES_DIR"
 
 LOCK_HELD=0
+OBSERVATION_WINDOW_CHILD=0
 CLAIM_TMP_DIR=""
 CREATED_RESOURCES_FILE=""
 SEEN_FILE=""
@@ -114,6 +115,27 @@ trap cleanup EXIT INT TERM
 
 acquire_mutex() {
   local attempt holder
+  if [[ "$OBSERVATION_WINDOW_CHILD" == 1 ]]; then
+    # Only the fixed read-only show mode can reuse its actual PHP parent's lock.
+    # Descriptor 3 is the private PID-file capability created by that PHP API.
+    python3 - "$MUTEX_DIR" "$$" "$PPID" <<'PY' || die 'observation mutex context rejected'
+import os, pathlib, stat, subprocess, sys
+directory, verifier_pid, php_pid = sys.argv[1:]
+p = pathlib.Path(directory); identity = p/'pid'
+if str(p.resolve()) != directory or p.is_symlink() or not p.is_dir() or identity.is_symlink() or not identity.is_file():
+    raise SystemExit('resource-lease: missing observation mutex')
+actual_parent = subprocess.check_output(['/bin/ps','-p',verifier_pid,'-o','ppid='],text=True).strip()
+fd = os.fstat(3); named = identity.stat()
+if (os.getppid() != int(verifier_pid) or actual_parent != php_pid
+    or not stat.S_ISREG(fd.st_mode) or fd.st_nlink != 1 or fd.st_uid != os.geteuid() or stat.S_IMODE(fd.st_mode) != 0o600
+    or (fd.st_dev,fd.st_ino) != (named.st_dev,named.st_ino)
+    or os.pread(3,64,0).decode().strip() != php_pid
+    or identity.read_text().strip() != php_pid):
+    raise SystemExit('resource-lease: observation mutex is not held by actual PHP parent')
+os.kill(int(php_pid),0)
+PY
+    return
+  fi
   for attempt in $(seq 1 100); do
     if mkdir "$MUTEX_DIR" 2>/dev/null; then
       printf '%s\n' "$$" > "$MUTEX_DIR/pid"
@@ -602,7 +624,7 @@ def exact_path(value):
 try: contract = json.loads(raw_contract, object_pairs_hook=unique)
 except (ValueError, TypeError): fail('invalid operation contract')
 keys = {'protocol','operation','resource_id','endpoint_id','database','environment','consumer',
-        'resource_scope','gate','registry_sha256','credential_ref','instance_id','service_instance_id','source_tree'}
+        'resource_scope','gate','registry_sha256','credential_ref','instance_id','service_instance_id','source_tree','receipt_path'}
 if not isinstance(contract, dict) or set(contract) != keys: fail('operation contract fields mismatch')
 if raw_contract != json.dumps(contract, sort_keys=True, separators=(',',':'), ensure_ascii=False): fail('contract is not canonical JSON')
 if any(not isinstance(v,str) or not v for k,v in contract.items() if k not in ('instance_id','service_instance_id')): fail('invalid contract value')
@@ -638,11 +660,6 @@ for line in (parent/'resources.tsv').read_text().splitlines():
     values = resources.setdefault(kind,set())
     if value in values: fail('duplicate parent resource')
     values.add(value)
-    lock = lease_root.parent/'resources'/digest
-    if lock.is_symlink() or not lock.is_dir(): fail('parent physical lock missing')
-    for field,expected in [('lease',parent_id),('type',kind),('value',value)]:
-        p = lock/field
-        if p.is_symlink() or not p.is_file() or p.read_text().removesuffix('\n') != expected: fail('parent physical lock ownership mismatch')
 path = pathlib.Path(registry_path)
 if not exact_path(registry_path) or not path.is_file(): fail('explicit registry required')
 raw = path.read_bytes()
@@ -673,11 +690,37 @@ for kind,expected in [('database',{contract['database']}),('mysql-db',{contract[
 if (contract['resource_id'] not in resources.get('resource-id',set())
     or contract['endpoint_id'] not in resources.get('endpoint',set())
     or not resources.get('consumer') or not resources['consumer'] <= {'host','container'}): fail('parent physical resource/route mismatch')
+outputs = resources.get('output-dir',set())
+receipt = pathlib.Path(contract['receipt_path'])
+if len(outputs) != 1: fail('parent output authority must be exact')
+output = next(iter(outputs))
+if (not exact_path(output) or not pathlib.Path(output).is_dir()
+    or not receipt.is_absolute() or not exact_path(str(receipt.parent)) or not receipt.parent.is_dir()
+    or re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.json',receipt.name) is None
+    or receipt.is_symlink()): fail('invalid private observation receipt path')
+try: receipt.parent.relative_to(output)
+except ValueError: fail('receipt exceeds real parent output authority')
+if receipt.exists() and (not receipt.is_file() or receipt.stat().st_nlink != 1): fail('unsafe existing observation receipt')
 PY
-  local parent_resources=() hash type value
+  local parent_resources=() hash type value lock_dir lock_file SCHEMA_MODE
   while IFS=$'\t' read -r hash type value; do parent_resources+=("$type=$value"); done < "$LEASES_DIR/$parent_lease/resources.tsv"
-  mysql_claim_policy "$parent_lease" "$(metadata_value "$LEASES_DIR/$parent_lease/metadata.tsv" gate)" verify "${parent_resources[@]}" >/dev/null \
+  SCHEMA_MODE="$(mysql_claim_policy "$parent_lease" "$(metadata_value "$LEASES_DIR/$parent_lease/metadata.tsv" gate)" verify "${parent_resources[@]}")" \
     || die 'observer parent native MySQL authority rejected'
+  [[ "$SCHEMA_MODE" == schema ]] || die 'observer requires an exclusively held registered schema'
+  while IFS=$'\t' read -r hash type value; do
+    validate_resource "$type=$value"
+    [[ "$hash" == "$(resource_hash "$type" "$value")" ]] || die 'observer parent resource digest mismatch'
+    # Schema identity evidence is not a second physical lock. Use the same native
+    # classification as claim/show, only after the complete schema policy passed.
+    if schema_identity_resource "$type"; then continue; fi
+    lock_dir="$RESOURCES_DIR/$hash"
+    [[ -d "$lock_dir" && ! -L "$lock_dir" ]] || die 'observer parent physical lock missing'
+    for lock_file in lease type value; do
+      [[ -f "$lock_dir/$lock_file" && ! -L "$lock_dir/$lock_file" ]] || die 'observer parent physical lock invalid'
+    done
+    [[ "$(cat "$lock_dir/lease")" == "$parent_lease" && "$(cat "$lock_dir/type")" == "$type" \
+      && "$(cat "$lock_dir/value")" == "$value" ]] || die 'observer parent physical lock ownership mismatch'
+  done < "$LEASES_DIR/$parent_lease/resources.tsv"
 }
 
 validate_parent_lease_locked() {
@@ -965,13 +1008,16 @@ case "$COMMAND" in
   show)
     LEASE_ID=""
     VERIFY_LOCKS=0
-    if [[ $# -eq 3 && "${3:-}" == --verify-locks ]]; then VERIFY_LOCKS=1; set -- "$1" "$2"; fi
+    if [[ $# -eq 4 && "${3:-}" == --verify-locks && "${4:-}" == --observer-window ]]; then
+      VERIFY_LOCKS=1; OBSERVATION_WINDOW_CHILD=1; set -- "$1" "$2"
+    elif [[ $# -eq 3 && "${3:-}" == --verify-locks ]]; then VERIFY_LOCKS=1; set -- "$1" "$2"; fi
     [[ "${1:-}" == '--lease' && -n "${2:-}" && $# -eq 2 ]] || die 'show requires --lease <run-id> [--verify-locks]'
     LEASE_ID="$2"; validate_lease_id "$LEASE_ID"; LEASE_DIR="$LEASES_DIR/$LEASE_ID"
     [[ -d "$LEASE_DIR" ]] || die "lease does not exist: $LEASE_ID"
     PARENT_LEASE="$(metadata_value "$LEASE_DIR/metadata.tsv" parent_lease 2>/dev/null || true)"
     if [[ -n "$PARENT_LEASE" || "$VERIFY_LOCKS" == 1 ]] || awk -F '\t' '$2 == "mysql-schema" {found=1} END {exit found ? 0 : 1}' "$LEASE_DIR/resources.tsv"; then acquire_mutex; fi
     read_lease_role "$LEASE_DIR"
+    [[ "$OBSERVATION_WINDOW_CHILD" == 0 || "$LEASE_ROLE" == collaboration-read-existing ]] || die 'mutex reuse is only for the closed observation role'
     if [[ -n "$LEASE_ROLE" ]]; then VERIFY_LOCKS=1; fi
     if [[ -n "$PARENT_LEASE" ]]; then
       validate_parent_lease_locked \
