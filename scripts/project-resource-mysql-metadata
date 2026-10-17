@@ -22,6 +22,7 @@ GATE = 'fresh-mt-functional-01a143b9'
 SCHEMA = '192.168.192.2:20183/' + DATABASE
 OUTPUT = Path('/Users/xing/.codex/visualizations/2026/10/16/01a143b9-914f-7262-8a80-a63df8209b5e/T22-install-metadata-read/RETURN.json')
 ROOT = Path(__file__).resolve().parent.parent
+PROJECT = Path('/Users/xing/Documents/peanut/peanut-admin-project')
 
 
 class Blocked(Exception):
@@ -96,11 +97,14 @@ def admission(lease):
     tool = ROOT / 'scripts/project-resource-registry'
     # This existing native resolver verifies the Project mapping and registry
     # committed bytes. No caller can supply another descriptor/Project root.
-    project_registry = Path(local(['/usr/bin/python3', str(tool), 'maintainer-source', '--sha256', REGISTRY_SHA]).decode().strip())
+    project_registry = Path(local(['/usr/bin/python3', str(tool), 'maintainer-source', '--sha256', REGISTRY_SHA],
+                                  PROJECT / 'resources/project-resources.json').decode().strip())
     project = project_registry.parent.parent
+    need(project == PROJECT and project_registry == PROJECT / 'resources/project-resources.json', 'FIXED_PROJECT_AUTHORITY_REQUIRED')
     task_raw = committed(project, 'HEAD', TASK)
     task = json.loads(task_raw)['result']['execution']['metadata_read_admission']
-    need(task['operation_id'] == OPERATION and task['descriptor_path'] == DESCRIPTOR, 'TASK_OPERATION_MISMATCH')
+    need(task['operation_id'] == OPERATION and task['descriptor_path'] == DESCRIPTOR
+         and task['runner_path'] == 'scripts/project-resource-mysql-metadata', 'TASK_OPERATION_MISMATCH')
     need(task['explicit_START'] is True and task['runtime_budget']['metadata_read_granted'] == 1,
          'RUNTIME_START_NOT_GRANTED')
     accepted = task['accepted_project_commit']
@@ -113,6 +117,7 @@ def admission(lease):
     self_raw = regular(Path(__file__))
     self_blob = git(ROOT, 'rev-parse', 'HEAD:scripts/project-resource-mysql-metadata').decode().strip()
     need(d['schema_version'] == 1 and d['operation_id'] == OPERATION
+         and d['runner']['path'] == 'scripts/project-resource-mysql-metadata'
          and d['authority_task'] == TASK + '#/result/execution/metadata_read_admission', 'DESCRIPTOR_OPERATION_MISMATCH')
     need(task['runtime_candidate'] == d['runtime_candidate'] == head, 'RUNTIME_CANDIDATE_MISMATCH')
     need(task['runner_blob'] == d['runner']['blob'] == self_blob
