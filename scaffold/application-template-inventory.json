@@ -576,7 +576,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "72cdac07c7a4e06e096a11021f90b6569108d3fea5968c3d81e881801f3ec7d2"
+            "source_sha256": "017ce86492ea67727e6d30bda94bb7d0ed1ae3b0628902042f6a6910b5a0fbcc"
         },
         {
             "path": "deploy/nginx/peanut-admin.conf",
@@ -590,7 +590,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0b8656eb2090420baee40695a7620fd6c1117082d30eec7b2e795b5984616fdd"
+            "source_sha256": "1ca8b6383b8567ac57b521aa534a0fae4dea0d1a2183a130bb9cf6ada7b473d5"
         },
         {
             "path": "deploy/tests/deploy-release-candidate-contract.sh",
@@ -987,7 +987,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1b2ce8ec4c532678d27dbc3496c39f7edb4d9c8d2f04fd7dac1f00a2c2c37221"
+            "source_sha256": "6ef29bbdbe9642207846555f07dbb582ac8f1845447e170cdbafd05c95bd64c7"
         },
         {
             "path": "docs/public/module-development.md",
@@ -5874,7 +5874,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e9ee4760ecca556bab4fc6eedb052762ded8306f4128334fd9c20a7097d3ad28"
+            "source_sha256": "f4a9b5f3f91ab27660d3832ae01e03e5f86cd59c47adf800ee1d1626d23f5210"
         },
         {
             "path": "server/app/api/metadata/application/platform.php",
@@ -7430,7 +7430,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "01714cd1d97a4a95ef50b7a78e96c8dde3220d958be305303d87bb2b19c1880f"
+            "source_sha256": "cd9f540ba2e555fd02d10098b7b26bac2a3bb4746aa3854f16fd845149462cc4"
         },
         {
             "path": "server/app/common/exception/module/ModuleScaffoldException.php",
@@ -7668,7 +7668,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "eb90462c3303311f69c7304073b311cf33ae5e03700777626a9d3cf9a7bc9a50"
+            "source_sha256": "34a5b3d4d7beed52a80f42f51a6420b2fe05e0563b70a0dbb59ded93ace5d8f6"
         },
         {
             "path": "server/app/common/http/HostApiProblemRenderer.php",
@@ -8763,7 +8763,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7b29fcaf05d230de1c6e5f25c1a513019f2aec0fdd786d4d04f7ef45236f44aa"
+            "source_sha256": "b830631f0805daeecef598a3f488b2966996dba0da2115c29b405b2c6984b9e4"
         },
         {
             "path": "server/app/common/services/installation/InstallationExecutionHost.php",
@@ -8777,7 +8777,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1d57fc9f705a01d19b5ae3bad6a88902a0ad54db7c7b016a60037975ba817e33"
+            "source_sha256": "2522154c26f10d2a8f43969b25605b316ec9ebb50e05c0a74d9ddd0d6d6892cd"
         },
         {
             "path": "server/app/common/services/installation/InstallationPreflightHost.php",
@@ -8791,7 +8791,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d282c946ec47ae60a4f24a16778e31071ae0cfd7ac510c0a6d2d347e408bd2e8"
+            "source_sha256": "2718baec4d77f6271746c2e78132635870716ee5bf863fcc40d2654a07e63ecb"
         },
         {
             "path": "server/app/common/services/notice/NoticeChannelService.php",
@@ -9324,7 +9324,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6fb07299996820b0078ac9a240d4ade4347bb46cffc53d9d58162413cb1daf61"
+            "source_sha256": "d32823fb39dff29795e296000d1b997cd1bdaff195bd86b56859d51a202b4c42"
         },
         {
             "path": "server/app/installation/http/middleware/InstallationExecutionMiddleware.php",
@@ -27060,7 +27060,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d6a968005c4a7efeea0605303356711533eee1c37cd842ef2d2c51bcd6da0fdc"
+            "source_sha256": "6c738062df06cea5f01211a80422b311edc7775d0387aee5c6e5eb23a14cec92"
         },
         {
             "path": "server/docker/conf/php-fpm.conf",
@@ -27437,7 +27437,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a1c3b329fd65e4e1d4bc4f7da723653a50ea3f06966d5608de9bb20ca653bb15"
+            "source_sha256": "ac30d1467c90e49dd05e2eb7c448ecb0c106bbcdc338427fce8eb07165ab4954"
         },
         {
             "path": "server/generated/openapi.json",
@@ -27451,7 +27451,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "23dedd59d91f6d41c60b1db8eef885f0c44b414f801e2370387f1bdba9ca7fe0"
+            "source_sha256": "1bd9b2671dabea993ff4d0f3ce51ebccccb9ded79e67fc1ed152cb6869d981e2"
         },
         {
             "path": "server/private/storage/.gitkeep",
@@ -27633,7 +27633,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2259776f1b3ea2b8dbbad7c1b681b4826255cabf7b71558a71ddb9d04bdadd26"
+            "source_sha256": "8467e58b54f73122e5009c368594d40e34967286f3020c09fe1ad0f18f1d3476"
         },
         {
             "path": "server/public/robots.txt",
@@ -27661,7 +27661,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "88c2bfb8bac5a865961c76e6e484778ddc2b19e7bcac8ba98d1929b13a7d209f"
+            "source_sha256": "da8590cc6727385f971e09651f7b5564aeef1ee3417191a21e46379dd315eb68"
         },
         {
             "path": "server/public/static/.gitignore",
@@ -28151,7 +28151,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "34aab8d08d453b7746d40ba20c11c9296576b801c10a42cebdce4d06c2fcf280"
+            "source_sha256": "ac7d44995703d608fb09b4e3b78bb82e7b82933120d9a9f9dd822908bf56b6bc"
         },
         {
             "path": "server/route/platform.php",
@@ -34161,7 +34161,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e945980cc5c2a7b89c6e255caebb8890d2cfd8b7d867ca80782eeaeb4427a271"
+            "source_sha256": "77eb410e5914d12d833cbea1457750299e4edf0e86c00e9f6f62a3e6cdd0c265"
         },
         {
             "path": "web/config/vite.config.prod.ts",
@@ -34416,8 +34416,8 @@
             "source_sha256": "759dc36de881e1c01124beffe6e6b7ac735977adc49656b46a754c28508b6eed"
         },
         {
-            "path": "web/src/api/installation.ts",
-            "target": "web/src/api/installation.ts",
+            "path": "web/src/api/install.ts",
+            "target": "web/src/api/install.ts",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -34427,7 +34427,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4762294be2e92763ba9e602a0eece8ab60821b351d9c0efbe06cf505daa406b9"
+            "source_sha256": "80ee88f648221bde7ca0f10f56e73e61012de964898bae266dca78a1c3d65c42"
         },
         {
             "path": "web/src/api/interceptor.ts",
@@ -34455,7 +34455,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bc5e796114486bc27e953fb76785f41eab3323e629d2b4e438c075b4f2fcf4ec"
+            "source_sha256": "d4e7525427fb166ba2397d9d0c4f87d820332e44079cd8ffb2ff13713be4f96b"
         },
         {
             "path": "web/src/api/readiness.ts",
@@ -34920,8 +34920,8 @@
             "source_sha256": "0f694eef455e3d70ca98b6137eb3204f534336c27cf63e326ed0d2ae135e0e29"
         },
         {
-            "path": "web/src/core/installation.ts",
-            "target": "web/src/core/installation.ts",
+            "path": "web/src/core/install.ts",
+            "target": "web/src/core/install.ts",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -34931,7 +34931,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "063e2e35d775f8aeb3bf2c4413058f63e85108d05694e346ee946d7272f7ff6d"
+            "source_sha256": "aededc415a1dd5c4e919faf5e6c176ff190471fefdd267e29d9336af57b5bd99"
         },
         {
             "path": "web/src/core/runtime.ts",
@@ -35030,7 +35030,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "095c6832ee43e421f3a5e72f78510979ce6d77b5170c70975d486ae376c72576"
+            "source_sha256": "5380f69017d2acaafbb962ef88deb86e7f271a1a8a85ba3704589221fe5f9ab8"
         },
         {
             "path": "web/src/hooks/chart-option.ts",
@@ -35198,7 +35198,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5df232c845293aa7156a95456ca2eeee5725ad698d0d9269bc4cba97df30c545"
+            "source_sha256": "99ba8ad2bc29c18c4f99494db959bde29b589888a8b047b765a538cbe8657d6c"
         },
         {
             "path": "web/src/locale/en-US/settings.ts",
@@ -35240,7 +35240,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4772e865f0393c5ffb54a0b854cddf7e394aafeae98c6f167bf9bd27daf3ad34"
+            "source_sha256": "653cf86982355e4a2f01d7472a1986d0ab6460e2bd24dca18cc182e7290fee71"
         },
         {
             "path": "web/src/locale/zh-CN/settings.ts",
@@ -38704,7 +38704,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a99bd5addf09b0ab9fc889e81387f4d9b19ac2ee4fbed508862eed9f236ad66f"
+            "source_sha256": "933808a4c16561a9aa44cbac4fe6601c727e3191a24eb3e481e3c1fed366fe06"
         },
         {
             "path": "web/src/router/guard/index.ts",
@@ -38718,11 +38718,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "14211c87274bc4472c96c3830926f9ab7b0a6a0d6652a2b2f80a0bf9d2b1d07a"
+            "source_sha256": "ac4ed4c6409ec2ae33372a73acd1d50d62d06ba846e2079686bf3db3ab787b9c"
         },
         {
-            "path": "web/src/router/guard/installation.ts",
-            "target": "web/src/router/guard/installation.ts",
+            "path": "web/src/router/guard/install.ts",
+            "target": "web/src/router/guard/install.ts",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -38732,7 +38732,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "66bb8874093d21fb8f2740b203a4321650860e69d89b23d064e07ad3172c9a03"
+            "source_sha256": "6d7083d5123549cc620438e97eacc558b6aed568bb1288a421f0f177054f18d6"
         },
         {
             "path": "web/src/router/guard/permission.ts",
@@ -38774,7 +38774,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "532ba2678a27d1d5f1356d2e1cd316cb7a2f867143e12952940e50c9ff4f117e"
+            "source_sha256": "acc1f12658cbd40ae0fd2b16c9f77379fbc1ab69b8b145d9e5b808928a6c32f3"
         },
         {
             "path": "web/src/router/routes/base.ts",
@@ -39505,8 +39505,8 @@
             "source_sha256": "e31fdab91c46112db9b2b558fbfff480be5088c660523d9fb7e6e3dc738429b0"
         },
         {
-            "path": "web/src/views/installation/index.vue",
-            "target": "web/src/views/installation/index.vue",
+            "path": "web/src/views/install/index.vue",
+            "target": "web/src/views/install/index.vue",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -39516,11 +39516,11 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fc9d3485b063214944d287c124b1411007d7e80722d2d42250626c9960fb7f6b"
+            "source_sha256": "0c0f97e5c62ca43c3345660c6ce46ce8f8bf34e97504ecca21262cec021644df"
         },
         {
-            "path": "web/src/views/installation/locale/en-US.ts",
-            "target": "web/src/views/installation/locale/en-US.ts",
+            "path": "web/src/views/install/locale/en-US.ts",
+            "target": "web/src/views/install/locale/en-US.ts",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
@@ -39533,8 +39533,8 @@
             "source_sha256": "0a947b5a438375579f35a9a5ddee5bad5c895b87ebd696ee3bf55f2964b830f4"
         },
         {
-            "path": "web/src/views/installation/locale/zh-CN.ts",
-            "target": "web/src/views/installation/locale/zh-CN.ts",
+            "path": "web/src/views/install/locale/zh-CN.ts",
+            "target": "web/src/views/install/locale/zh-CN.ts",
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
