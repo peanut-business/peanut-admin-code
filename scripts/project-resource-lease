@@ -187,12 +187,13 @@ validate_resource() {
 
 # One closed maintenance handoff. Authority comes from accepted governance and
 # native OS execution permissions; owner/environment strings only check binding.
-# Every phase runs under the original mutex. No process, network or DB operation.
-tls_custody_phase() {
-  python3 - "$1" "$REGISTRY_ROOT" "$AUTHORITY_REPOSITORY" "$AUTHORITY_COMMIT" "$TASK_PATH" "$CUSTODY_RECEIPT" \
+# Replace Bash before taking the mutex: its PID is the actual Python writer PID,
+# including fsync and lock replacement. No child process writes the registry.
+tls_custody_transfer() {
+  exec python3 - "$REGISTRY_ROOT" "$AUTHORITY_REPOSITORY" "$AUTHORITY_COMMIT" "$TASK_PATH" "$CUSTODY_RECEIPT" \
     "$LEASE_ID" "$OWNER" "$THREAD_ID" "$CANDIDATE" "$WORKTREE" "$GATE" "$TTL" "${RESOURCES[@]}" <<'PY'
-import hashlib, json, os, pathlib, re, stat, subprocess, sys
-phase, root, project, commit, task, receipt, lease, owner, thread, candidate, worktree, gate, ttl, *resources = sys.argv[1:]
+import hashlib, json, os, pathlib, re, runpy, stat, subprocess, sys, time
+root, project, commit, task, receipt, lease, owner, thread, candidate, worktree, gate, ttl, *resources = sys.argv[1:]
 root = pathlib.Path(root)
 old_id = 'document-content-039-tls-consumer-6c28b9b3-01a133f7'
 parent_id = 'document-content-039-controller-6c28b9b3-01a133f7'
@@ -241,6 +242,14 @@ def replace_json(p, value):
     create_json(temporary,value)
     os.replace(temporary,p); sync_directory(p.parent)
 directory(project); directory(root); directory(worktree)
+registry_helper = pathlib.Path(worktree)/'scripts/project-resource-registry'
+if read(registry_helper) != subprocess.check_output(['git','-C',worktree,'show',candidate+':scripts/project-resource-registry']):
+    fail('registered Project resolver source drift')
+# Reuse the existing registered primary/common-dir + tracked repos.yaml mapping.
+# An arbitrary clone with the same origin/local dev cannot supply authority.
+registered = runpy.run_path(str(registry_helper),run_name='tls_custody_registry')['maintainer_source'](
+    digest(os.environ.get('PEANUT_RESOURCE_REGISTRY','')))
+if str(registered.parent.parent) != project: fail('authority is not the registered Project checkout')
 if git('rev-parse','--show-toplevel') != project: fail('authority must be a repository root')
 if not re.fullmatch('[0-9a-f]{40}',commit) or task != 'TASKS/plan/queue/T00018.json': fail('unbound governance input')
 if git('remote','get-url','origin') not in ('git@github.com:peanut-business/peanut-admin-project.git','https://github.com/peanut-business/peanut-admin-project.git'):
@@ -268,7 +277,7 @@ if (os.environ.get('PEANUT_RESOURCE_REGISTRY') != registry or 'registry-sha256='
     or 'ca-sha256='+cert not in resources or 'docker-container=peanut-hocuspocus-doc039-collaboration-1' not in resources
     or not ({'docker-project=peanut-hocuspocus-doc039','compose-project=peanut-hocuspocus-doc039'} & set(resources))):
     fail('missing current registry/CA/exact container and compose protection')
-if (lease == old_id or successor['gate'] != 'document-content-039-acceptance'
+if (lease != 'doc039-tls-custody-01a143b9' or successor['gate'] != 'document-content-039-acceptance'
     or subprocess.check_output(['git','-C',worktree,'rev-parse','HEAD'],text=True).strip() != candidate):
     fail('successor candidate/gate mismatch')
 script_bytes = subprocess.check_output(['git','-C',worktree,'show',candidate+':scripts/project-resource-lease'])
@@ -295,8 +304,10 @@ def verify_old():
     m = metadata(old_dir/'metadata.tsv')
     if (m['owner'],m['thread'],m['parent_lease']) != (old_owner,old_owner,parent_id): fail('old relation drift')
     parent = metadata(root/'leases'/parent_id/'metadata.tsv')
-    if (parent['lease'] != parent_id or parent['owner'] != old_owner or parent['thread'] != old_owner
-        or any(parent[k] != m[k] for k in ('candidate','candidate_repository','worktree'))): fail('parent relation drift')
+    expected_parent = dict(m,lease=parent_id,parent_lease='',gate='document-content-039',
+                           created_at='1791956278',expires_at='1791970678')
+    if parent != expected_parent or parent['status'] != 'ACTIVE' or int(parent['expires_at']) > time.time():
+        fail('original parent generation/status drift')
     rows = [x.split('\t') for x in read(old_dir/'resources.tsv').decode().splitlines()]
     if {t+'='+v for h,t,v in rows} != expected_old or len(rows) != 3: fail('old resource scope drift')
     locks = old['physical_locks']
@@ -312,80 +323,161 @@ def verify_old():
     for f in (root/'leases').glob('*/metadata.tsv'):
         if metadata(f).get('parent_lease') == old_id: fail('dependent lease exists')
     return rows
-if phase == 'prepare':
-    if p.exists() or p.is_symlink() or marker.exists() or marker.is_symlink(): fail('existing attempt; reconcile, never replay')
+# The PID in the original mutex is this actual writer (Bash was exec-replaced).
+# Git/resolver children above are read-only and run before any registry mutation.
+mutex = root/'mutex'
+held = False
+mutex_identity = None
+for attempt in range(100):
+    try: mutex.mkdir(mode=0o700)
+    except FileExistsError:
+        try:
+            holder = read(mutex/'pid').decode().strip()
+            if not holder.isdecimal(): fail('invalid existing mutex PID')
+            try: os.kill(int(holder),0)
+            except ProcessLookupError:
+                (mutex/'pid').unlink(); mutex.rmdir()
+                continue
+        except FileNotFoundError:
+            # An owner may still be publishing its PID. Never steal that gap.
+            pass
+        time.sleep(0.05)
+        continue
+    fd = os.open(mutex/'pid',os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+    with os.fdopen(fd,'wb') as f:
+        f.write((str(os.getpid())+'\n').encode()); f.flush(); os.fsync(f.fileno())
+    sync_directory(mutex)
+    s = mutex.stat(); mutex_identity = (s.st_dev,s.st_ino)
+    held = True
+    break
+if not held: fail('registry is busy')
+created_locks = []
+new_dir = root/'leases'/lease
+staging = root/'leases'/('.claim-'+lease+'-'+str(os.getpid()))
+preserve = False
+staging_created = False
+published = False
+try:
+    if p.exists() or p.is_symlink() or marker.exists() or marker.is_symlink():
+        fail('existing attempt; reconcile, never replay')
     rows = verify_old()
+    # This finite coordination prerequisite does not teach immutable old scripts
+    # to read our journal. Their cleanup remains forbidden throughout the window
+    # and throughout unresolved PREPARED; absence of the accepted window blocks.
+    window = c.get('cleanup_producer_window')
+    if (not isinstance(window,dict) or window.get('status') != 'EXCLUSIVE_ACCEPTED'
+        or window.get('scope') != 'all-known-lease-cleanup-producers'
+        or window.get('old_cleanup_quiescent') is not True
+        or window.get('legacy_cleanup_prohibited_until') != 'custody-resolved'
+        or window.get('actor_native_thread') != actor_id
+        or window.get('producer_candidate') != candidate
+        or window.get('producer_script_sha256') != hashlib.sha256(script_bytes).hexdigest()):
+        fail('UNBOUND: no accepted finite cleanup-producer window')
+    window_ref = window.get('evidence_ref')
+    if (not isinstance(window_ref,dict) or set(window_ref) != {'absolute_path','sha256'}
+        or not re.fullmatch('[0-9a-f]{64}',window_ref['sha256'])
+        or digest(window_ref['absolute_path']) != window_ref['sha256']):
+        fail('cleanup-producer window evidence drift')
+    terminal_refs = window.get('known_producer_terminal_receipts')
+    if not isinstance(terminal_refs,list) or not terminal_refs: fail('UNBOUND: missing known cleanup producer receipts')
+    for ref in terminal_refs:
+        if (not isinstance(ref,dict) or set(ref) != {'absolute_path','sha256'}
+            or not re.fullmatch('[0-9a-f]{64}',ref['sha256']) or digest(ref['absolute_path']) != ref['sha256']):
+            fail('known cleanup producer receipt drift')
+    if new_dir.exists() or new_dir.is_symlink() or staging.exists() or staging.is_symlink():
+        fail('successor already exists')
+    new_rows = []
+    for resource in resources:
+        t,v = resource.split('=',1)
+        h = hashlib.sha256((t+'\t'+v).encode()).hexdigest()
+        d = root/'resources'/h
+        if d.exists() or d.is_symlink():
+            if resource not in overlap: fail('normal bundle resource conflict')
+            directory(d)  # verify_old checked all three bytes/hashes.
+        new_rows.append((h,t,v))
+    parent_bytes = read(root/'leases'/parent_id/'metadata.tsv')
     before = dict(state='PREPARED',authority_commit=commit,task=task,actor=actor_id,successor=actual,
                   old_child=old,old_metadata=read(old_dir/'metadata.tsv').decode(),
                   old_resources=read(old_dir/'resources.tsv').decode(),
+                  parent_metadata=parent_bytes.decode(),parent_metadata_sha256=hashlib.sha256(parent_bytes).hexdigest(),
                   old_locks={h:{k:read(root/'resources'/h/k).decode() for k in ('lease','type','value')} for h,t,v in rows},
-                  writer_reconciliation=w,evidence=c['evidence'],receipt_path=receipt)
-    create_json(p,before); create_json(marker,before)
-elif phase == 'transfer':
-    before = decode(read(marker))
-    if before.get('state') != 'PREPARED' or before['authority_commit'] != commit or before['successor'] != actual:
-        fail('attempt identity drift')
-    if read(p) != read(marker): fail('prepared receipt drift')
-    rows = verify_old()
-    new_dir = directory(root/'leases'/lease)
-    m = metadata(new_dir/'metadata.tsv')
-    for k,v in actual.items():
-        if k == 'ttl': continue
-        if m.get(k) != str(v): fail('published successor metadata mismatch')
-    if m.get('parent_lease') != '' or m.get('status') != 'ACTIVE': fail('invalid successor status/parent')
-    new_rows = [x.split('\t') for x in read(new_dir/'resources.tsv').decode().splitlines()]
-    if len(new_rows) != len(resources) or {t+'='+v for h,t,v in new_rows} != set(resources):
-        fail('published successor resources mismatch')
-    # Persist declarations and all newly acquired locks before switching either
-    # overlap. A crash must never leave a lock pointing at non-durable metadata.
-    files = [new_dir/'metadata.tsv',new_dir/'resources.tsv']
+                  writer_reconciliation=w,evidence=c['evidence'],receipt_path=receipt,
+                  cleanup_producer_window=window)
+    # Journal first: even a failure publishing the external receipt is fenced.
+    create_json(marker,before); create_json(p,before)
+    staging.mkdir(mode=0o700); staging_created = True
+    def write_file(path, raw):
+        fd = os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+        with os.fdopen(fd,'wb') as f:
+            f.write(raw); f.flush(); os.fsync(f.fileno())
+    now = int(time.time())
+    expected_metadata = dict(lease=lease,owner=owner,thread=thread,candidate=candidate,
+        candidate_repository=worktree,parent_lease='',gate=gate,worktree=worktree,
+        created_at=str(now),expires_at=str(now+int(ttl)),status='ACTIVE')
     for h,t,v in new_rows:
-        if hashlib.sha256((t+'\t'+v).encode()).hexdigest() != h: fail('successor resource hash mismatch')
-        d = directory(root/'resources'/h)
-        expected_holder = old_id if t+'='+v in overlap else lease
-        for key,value in [('lease',expected_holder),('type',t),('value',v)]:
-            f = d/key
-            if read(f) != (value+'\n').encode(): fail('published successor lock mismatch')
-            files.append(f)
+        if t+'='+v in overlap: continue
+        d = root/'resources'/h
+        d.mkdir(mode=0o700); created_locks.append(d)
+        for key,value in [('lease',lease),('type',t),('value',v)]:
+            write_file(d/key,(value+'\n').encode())
         sync_directory(d)
-    for f in files:
-        fd = os.open(f,os.O_RDONLY)
-        try: os.fsync(fd)
-        finally: os.close(fd)
-    sync_directory(new_dir); sync_directory(root/'leases'); sync_directory(root/'resources')
-    # New declarations/non-overlap locks have been normally published. Preserve
-    # them on any failure from this point, including interruption between locks.
+    # Same ordinary claim metadata/resource format, staging publication and full
+    # physical-lock readback; parameter/resource validation is shared with claim.
+    write_file(staging/'metadata.tsv',''.join(k+'\t'+v+'\n' for k,v in expected_metadata.items()).encode())
+    write_file(staging/'resources.tsv',''.join(h+'\t'+t+'\t'+v+'\n' for h,t,v in new_rows).encode())
+    sync_directory(staging)
+    os.rename(staging,new_dir); staging_created = False; published = True
+    sync_directory(root/'leases'); sync_directory(root/'resources')
+    if metadata(new_dir/'metadata.tsv') != expected_metadata: fail('successor metadata mismatch')
+    if read(root/'leases'/parent_id/'metadata.tsv') != parent_bytes: fail('parent generation drift')
+    verify_old()
+    # From here, preserve all successor declarations/locks on any failure. The
+    # journal also blocks current release/prune on both exact participant IDs.
+    preserve = True
     for h,t,v in rows:
         if t+'='+v not in overlap: continue
         lock = root/'resources'/h/'lease'; tmp = lock.parent/'.custody-lease'
-        fd = os.open(tmp,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
-        with os.fdopen(fd,'wb') as f:
-            f.write((lease+'\n').encode()); f.flush(); os.fsync(f.fileno())
+        write_file(tmp,(lease+'\n').encode())
         os.replace(tmp,lock); sync_directory(lock.parent)
-elif phase == 'commit':
-    before = decode(read(marker))
-    if before.get('state') != 'PREPARED' or before['authority_commit'] != commit or before['successor'] != actual:
-        fail('attempt identity drift')
+    if metadata(new_dir/'metadata.tsv') != expected_metadata: fail('published successor metadata drift')
+    if read(new_dir/'resources.tsv') != ''.join(h+'\t'+t+'\t'+v+'\n' for h,t,v in new_rows).encode():
+        fail('published successor declarations drift')
+    for h,t,v in new_rows:
+        d = directory(root/'resources'/h)
+        for key,value in [('lease',lease),('type',t),('value',v)]:
+            if read(d/key) != (value+'\n').encode(): fail('published successor lock mismatch')
     if digest(old_dir/'metadata.tsv') != old['metadata_sha256'] or digest(old_dir/'resources.tsv') != old['resources_sha256']:
         fail('old declaration drift before disposition')
-    # Shell has read back every successor declaration and physical lock.
-    for h,t,v in [x.split('\t') for x in read(old_dir/'resources.tsv').decode().splitlines()]:
+    if read(root/'leases'/parent_id/'metadata.tsv') != parent_bytes: fail('parent drift before disposition')
+    for h,t,v in rows:
+        if t+'='+v in overlap: continue
         d = root/'resources'/h
-        if t+'='+v in overlap:
-            if read(d/'lease') != (lease+'\n').encode(): fail('successor overlap not protected')
-        else:
-            if read(d/'lease') != (old_id+'\n').encode(): fail('old gate ownership drift')
-            for key in ('lease','type','value'): (d/key).unlink()
-            d.rmdir()
+        for key,value in [('lease',old_id),('type',t),('value',v)]:
+            if read(d/key) != (value+'\n').encode(): fail('old gate drift')
+        for key in ('lease','type','value'): (d/key).unlink()
+        d.rmdir()
     for name in ('metadata.tsv','resources.tsv'): (old_dir/name).unlink()
     old_dir.rmdir(); sync_directory(root/'leases'); sync_directory(root/'resources')
-    after = dict(before,state='COMMITTED',successor_metadata_sha256=digest(root/'leases'/lease/'metadata.tsv'),
-                 successor_resources_sha256=digest(root/'leases'/lease/'resources.tsv'))
-    # Both receipts always remain valid JSON. The permanent journal blocks every
-    # later attempt, including a different output path after an interruption.
-    for target in (p,marker):
-        replace_json(target,after)
-else: fail('unknown phase')
+    after = dict(before,state='COMMITTED',successor_metadata_sha256=digest(new_dir/'metadata.tsv'),
+                 successor_resources_sha256=digest(new_dir/'resources.tsv'))
+    replace_json(p,after); replace_json(marker,after)
+    print('lease='+lease+'\nowner='+owner+'\nstate=COMMITTED')
+finally:
+    if not preserve:
+        # Only new objects from this attempt, before any overlap can point here.
+        for d in created_locks:
+            for key in ('lease','type','value'):
+                if (d/key).exists(): (d/key).unlink()
+            d.rmdir()
+        for d,owned in ((staging,staging_created),(new_dir,published)):
+            if owned:
+                for name in ('metadata.tsv','resources.tsv'):
+                    if (d/name).exists(): (d/name).unlink()
+                d.rmdir()
+    if held:
+        s = mutex.stat()
+        if (s.st_dev,s.st_ino) == mutex_identity and read(mutex/'pid') == (str(os.getpid())+'\n').encode():
+            (mutex/'pid').unlink(); mutex.rmdir()
 PY
 }
 
@@ -980,8 +1072,40 @@ validate_parent_lease_locked() {
   done < "$parent_dir/resources.tsv"
 }
 
+custody_prepared_protects() {
+  local status
+  case "$1" in
+    document-content-039-tls-consumer-6c28b9b3-01a133f7|document-content-039-controller-6c28b9b3-01a133f7|doc039-tls-custody-01a143b9) ;;
+    *) return 1 ;;
+  esac
+  if python3 - "$REGISTRY_ROOT/.doc039-tls-custody-transfer.json" <<'PY'
+import json, os, pathlib, stat, sys
+p = pathlib.Path(sys.argv[1])
+if not p.exists() and not p.is_symlink(): raise SystemExit(42)
+try:
+    s = p.lstat()
+    if (not stat.S_ISREG(s.st_mode) or s.st_nlink != 1 or s.st_uid != os.geteuid()
+        or s.st_mode & 0o022): raise ValueError('unsafe journal')
+    d = json.loads(p.read_bytes())
+    complete = (d['state'] == 'COMMITTED'
+                and d['old_child']['lease'] == 'document-content-039-tls-consumer-6c28b9b3-01a133f7'
+                and d['successor']['lease'] == 'doc039-tls-custody-01a143b9')
+except (OSError, ValueError, KeyError, TypeError): complete = False
+raise SystemExit(42 if complete else 0)
+PY
+  then return 0
+  else
+    status=$?
+    # Only the explicit no-protection result permits mutation. Missing Python,
+    # unreadable/corrupt state or any other diagnostic error fails closed.
+    [[ "$status" == 42 ]] && return 1
+    return 0
+  fi
+}
+
 release_lease_locked() {
   local lease_id="$1" expected_owner="${2:-}" lease_dir owner hash type value resource_dir child_lease
+  if custody_prepared_protects "$lease_id"; then die 'unresolved TLS custody protects this exact lease; reconcile before cleanup'; fi
   lease_dir="$LEASES_DIR/$lease_id"
   [[ -d "$lease_dir" ]] || die "lease does not exist: $lease_id"
   owner="$(metadata_value "$lease_dir/metadata.tsv" owner)"
@@ -1081,12 +1205,14 @@ case "$COMMAND" in
       [[ -z "$PARENT_LEASE" || -n "$LEASE_ROLE" || "${resource%%=*}" != worktree ]] || die 'ordinary child lease must not claim a direct worktree resource'
     done
 
-    acquire_mutex
     if [[ "$COMMAND" == 039-tls-custody-transfer ]]; then
       [[ -z "$PARENT_LEASE" && -z "$LEASE_ROLE" && -z "$OPERATION_CONTRACT" \
         && "$CANDIDATE_REPOSITORY" == "$WORKTREE" ]] || die 'custody successor must be a normal independent bundle in its actual worktree'
-      tls_custody_phase prepare || die 'custody preparation rejected'
+      tls_custody_transfer
+      die 'custody exec did not replace the shell'
     fi
+    acquire_mutex
+    if custody_prepared_protects "$LEASE_ID"; then die 'unresolved TLS custody forbids a new claim for this participant'; fi
     if [[ -n "$PARENT_LEASE" ]]; then
       validate_parent_lease_locked "$PARENT_LEASE" "$OWNER" "$THREAD_ID" "$CANDIDATE" "$CANDIDATE_REPOSITORY" "$WORKTREE" "$LEASE_ROLE" "$OPERATION_CONTRACT"
     fi
@@ -1127,13 +1253,6 @@ case "$COMMAND" in
       fi
       if [[ -d "$RESOURCE_DIR" ]]; then
         HOLDER="$(cat "$RESOURCE_DIR/lease" 2>/dev/null || printf 'unknown')"
-        if [[ "$COMMAND" == 039-tls-custody-transfer \
-          && "$HOLDER" == document-content-039-tls-consumer-6c28b9b3-01a133f7 \
-          && ( "$resource" == resource-id=peanut-document-content-039-tls-local-20261013 \
-            || "$resource" == certificate-sha256=0e17729939cac29054abad8c77296d3cee4550cd7f6a62acb62be224b482f2ae ) ]]; then
-          printf '%s\t%s\t%s\n' "$HASH" "$TYPE" "$VALUE" >> "$CLAIM_TMP_DIR/resources.tsv"
-          continue
-        fi
         die "resource conflict: $TYPE=$VALUE is held by lease $HOLDER"
       fi
       mkdir "$RESOURCE_DIR"
@@ -1151,13 +1270,6 @@ case "$COMMAND" in
     # Keep this newly published directory in rollback scope until its actual
     # declarations and required locks have been read back under the same mutex.
     CLAIM_TMP_DIR="$LEASE_DIR"
-    if [[ "$COMMAND" == 039-tls-custody-transfer ]]; then
-      # Once a physical lock can point here, ordinary claim rollback must never
-      # delete this successor or its locks. The durable journal fences retries.
-      CLAIM_TMP_DIR=""
-      rm -f "$CREATED_RESOURCES_FILE"; CREATED_RESOURCES_FILE=""
-      tls_custody_phase transfer || die 'custody transfer incomplete; preserve and reconcile PREPARED'
-    fi
     [[ -f "$LEASE_DIR/metadata.tsv" && ! -L "$LEASE_DIR/metadata.tsv" \
       && -f "$LEASE_DIR/resources.tsv" && ! -L "$LEASE_DIR/resources.tsv" \
       && "$(metadata_value "$LEASE_DIR/metadata.tsv" lease)" == "$LEASE_ID" \
@@ -1184,9 +1296,6 @@ case "$COMMAND" in
     CLAIM_TMP_DIR=""
     rm -f "$CREATED_RESOURCES_FILE"
     CREATED_RESOURCES_FILE=""
-    if [[ "$COMMAND" == 039-tls-custody-transfer ]]; then
-      tls_custody_phase commit || die 'custody completion incomplete; preserve and reconcile PREPARED'
-    fi
     release_mutex
     printf 'lease=%s\nowner=%s\ncandidate=%s\ngate=%s\nexpires_at=%s\n' "$LEASE_ID" "$OWNER" "$CANDIDATE" "$GATE" "$EXPIRES_AT"
     ;;
@@ -1204,6 +1313,7 @@ case "$COMMAND" in
     validate_lease_id "$LEASE_ID"; validate_owner "$OWNER"
     [[ "$TTL" =~ ^[0-9]+$ && "$TTL" -ge 60 && "$TTL" -le 86400 ]] || die 'ttl must be 60-86400 seconds'
     acquire_mutex
+    if custody_prepared_protects "$LEASE_ID"; then die 'unresolved TLS custody forbids participant renewal'; fi
     LEASE_DIR="$LEASES_DIR/$LEASE_ID"
     [[ -d "$LEASE_DIR" ]] || die "lease does not exist: $LEASE_ID"
     [[ "$(metadata_value "$LEASE_DIR/metadata.tsv" owner)" == "$OWNER" ]] || die "lease $LEASE_ID belongs to another owner"
@@ -1357,6 +1467,7 @@ case "$COMMAND" in
         # Expiry cannot prove the observer's SQL process has terminated.
         if lease_has_resource "$LEASE_DIR" lease-role collaboration-read-existing; then continue; fi
         LEASE_ID="$(metadata_value "$LEASE_DIR/metadata.tsv" lease)"
+        if custody_prepared_protects "$LEASE_ID"; then continue; fi
         if [[ -z "$(active_child_lease "$LEASE_ID" || true)" ]]; then
           release_lease_locked "$LEASE_ID"
           COUNT=$((COUNT + 1))
