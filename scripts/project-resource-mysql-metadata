@@ -183,7 +183,7 @@ def admission(lease):
     need(deadline_witness['capability'] == {'remote_python': '/usr/bin/python3',
          'container_timeout': '/usr/bin/timeout', 'modes': ['admin', 'ordinary'],
          'soft_seconds': 20, 'kill_grace_seconds': 2, 'terminal_confirmation_seconds': 25,
-         'ssh_timeout_seconds': 40, 'termination_confirmed': True},
+         'ssh_timeout_seconds': 40, 'terminal_handling_basis': 'reviewed_source_and_tools_identity'},
          'DEADLINE_WITNESS_MISMATCH')
     need(d['output']['path'] == str(OUTPUT), 'OUTPUT_BINDING_MISMATCH')
     common = Path(git(ROOT, 'rev-parse', '--path-format=absolute', '--git-common-dir').decode().strip())
