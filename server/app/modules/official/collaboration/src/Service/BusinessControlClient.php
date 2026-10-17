@@ -15,7 +15,6 @@ use think\facade\Db;
 final readonly class BusinessControlClient
 {
     private const PATH = '/internal/collaboration/control/v1/business-barrier';
-    private const OPERATOR_PATH = '/internal/collaboration/operator/v1/lifecycle';
 
     public function __construct(private OutboundHttpTransport $http, private array $configuration) {}
 
@@ -48,19 +47,10 @@ final readonly class BusinessControlClient
         return $response;
     }
 
-    public function operator(array $input): array
+    private function exchange(array $input): array
     {
-        $reply = $this->exchange($input, self::OPERATOR_PATH, 'operator');
-        foreach (['holder_key','probe_id','instance_id','edition','service_instance_id','config_revision','config_sha256','projector_version'] as $key) {
-            if (($reply[$key] ?? null) !== ($input[$key] ?? null)) {
-                throw new \DomainException('COLLABORATION_OPERATOR_BINDING_INVALID');
-            }
-        }
-        return $reply;
-    }
-
-    private function exchange(array $input, string $path = self::PATH, string $domain = 'control'): array
-    {
+        $path = self::PATH;
+        $domain = 'control';
         $pdo = Db::connect()->getPdo();
         if ($pdo instanceof \PDO && $pdo->inTransaction()) {
             throw new \LogicException('COLLABORATION_CONTROL_TRANSACTION_DENIED');

@@ -91,8 +91,7 @@ if (!function_exists('peanutBackendEnvironmentKeys')) {
             'COLLABORATION_INSTANCE_ID',
             'COLLABORATION_SERVICE_INSTANCE_ID',
             'COLLABORATION_SERVICE_KEY_ID',
-            'COLLABORATION_SERVICE_SECRET_FILE',
-            'COLLABORATION_TICKET_SECRET_FILE',
+            'COLLABORATION_SECRET',
             'COLLABORATION_CONTROL_ORIGIN',
             'COLLABORATION_PUBLIC_WSS_URL',
             'COLLABORATION_CONFIG_REVISION',
@@ -207,38 +206,11 @@ if (!function_exists('peanutBackendEnvironmentKeys')) {
             throw new RuntimeException('BACKEND_ENVIRONMENT_PARSE_FAILED');
         }
         peanutApplyEnvironmentFile($values, peanutBackendEnvironmentKeys(), 'BACKEND');
-        // Only these actual consumers receive their own secret; references are relative to this server mount.
-        foreach (['SERVICE', 'TICKET'] as $purpose) {
-            $key = 'COLLABORATION_' . $purpose . '_SECRET';
-            if (getenv($key) !== false || getenv('PHP_' . $key) !== false) {
-                throw new RuntimeException('COLLABORATION_SECRET_AMBIENT_FORBIDDEN');
-            }
-            $reference = $values[$key . '_FILE'] ?? null;
-            if ($reference === null || $reference === '') {
-                continue;
-            }
-            $expectedReference = $purpose === 'SERVICE'
-                ? 'private/collaboration/service/service-secret'
-                : 'private/collaboration/ticket-secret';
-            if ($reference !== $expectedReference) {
-                throw new RuntimeException('COLLABORATION_SECRET_REFERENCE_INVALID');
-            }
-            $secretPath = dirname(__DIR__) . '/' . $reference;
-            $parent = dirname($secretPath);
-            $secretStat = @lstat($secretPath);
-            if (is_link(dirname(__DIR__) . '/private') || is_link(dirname(__DIR__) . '/private/collaboration')
-                || is_link($parent) || is_link($secretPath) || !is_file($secretPath)
-                || !is_array($secretStat) || $secretStat['nlink'] !== 1 || ($secretStat['mode'] & 0777) !== 0600
-                || $secretStat['uid'] !== $stat['uid']) {
-                throw new RuntimeException('COLLABORATION_SECRET_FILE_UNSAFE');
-            }
-            $secret = trim((string) file_get_contents($secretPath));
-            if (strlen($secret) < 32 || strlen($secret) > 4096 || preg_match('/[\r\n\x00]/', $secret)) {
-                throw new RuntimeException('COLLABORATION_SECRET_FILE_INVALID');
-            }
-            putenv($key . '=' . $secret);
-            $_ENV[$key] = $secret;
-            $_SERVER[$key] = $secret;
+        // The protected backend .env owns the service key, independently of user tokens.
+        $secret = $values['COLLABORATION_SECRET'] ?? '';
+        if ($secret !== '' && (strlen($secret) < 32 || strlen($secret) > 4096
+            || preg_match('/[\r\n\x00]/', $secret))) {
+            throw new RuntimeException('COLLABORATION_SECRET_INVALID');
         }
 
         $basename = basename($path);

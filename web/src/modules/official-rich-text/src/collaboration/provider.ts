@@ -21,7 +21,7 @@ export interface ProviderOptions {
   url: string;
   documentId: number;
   documentName: string;
-  ticket: string;
+  token: string;
   onRecoveryRequired: (code: string) => void;
   onSavedChanged?: (saved: boolean) => void;
   onReadyChanged?: (ready: boolean) => void;
@@ -95,7 +95,7 @@ export function createCollaborationProvider(options: ProviderOptions): {
     !Number.isSafeInteger(options.documentId) ||
     options.documentId < 1 ||
     !options.documentName ||
-    !options.ticket
+    !options.token
   )
     throw new Error('TRUSTED_PROVIDER_CONFIGURATION_REQUIRED');
   const document = new Y.Doc({ gc: false });
@@ -340,7 +340,7 @@ export function createCollaborationProvider(options: ProviderOptions): {
     awareness: null,
     flushDelay: 50,
     forceSyncInterval: false,
-    token: options.ticket,
+    token: options.token,
     onAuthenticated: ({ scope }) => {
       if (closed || frozen) return;
       if (ready && writeScope !== (scope === 'read-write')) {

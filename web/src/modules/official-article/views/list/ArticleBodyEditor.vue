@@ -117,7 +117,7 @@
   import {
     ensureArticleBody,
     getArticleBodyEditor,
-    getArticleBodyTicket,
+    getArticleBodyTransport,
     saveArticleBody,
     getArticleBodyOperation,
   } from '../../api';
@@ -339,11 +339,11 @@
     signal: AbortSignal
   ): Promise<AuthorizedDocumentTransport> => {
     const key = context.value;
-    const { data } = await getArticleBodyTicket(props.articleId, signal);
+    const { data } = await getArticleBodyTransport(props.articleId, signal);
     if (disposed || signal.aborted || key !== context.value)
       throw new Error('ARTICLE_CONTEXT_CHANGED');
     const selected = parseCapabilities(capabilities.capabilities);
-    const ticketCapabilities = parseCapabilities(data.capabilities);
+    const transportCapabilities = parseCapabilities(data.capabilities);
     if (
       data.article_id !== props.articleId ||
       data.document_id !== metadata.document_id ||
@@ -353,17 +353,11 @@
       data.owner.slot !== 'body' ||
       data.owner_revision !== ownerBaseline.value ||
       data.authorization_revision !== metadata.authorization_revision ||
-      ticketCapabilities.capabilityRevision !== selected.capabilityRevision ||
+      transportCapabilities.capabilityRevision !== selected.capabilityRevision ||
       data.mode !== 'write' ||
       data.protocol !== 2 ||
-      !data.ticket ||
       !data.document_name ||
-      !/^wss:\/\/[^/?#@]+:[0-9]+\/collaboration$/.test(data.wss_url) ||
-      !Number.isSafeInteger(data.config_revision) ||
-      data.config_revision < 1 ||
-      !/^[a-f0-9]{64}$/.test(data.config_sha256) ||
-      !Number.isSafeInteger(data.expires_at) ||
-      data.expires_at <= Date.now()
+      !/^wss:\/\/[^/?#@]+:[0-9]+\/collaboration$/.test(data.wss_url)
     )
       throw new Error('ARTICLE_TRANSPORT_INVALID');
     return {
@@ -374,8 +368,6 @@
       mode: data.mode,
       url: data.wss_url,
       documentName: data.document_name,
-      ticket: data.ticket,
-      expiresAt: data.expires_at,
     };
   };
   const loadMetadata = async (discardMetadata: boolean) => {
@@ -537,8 +529,8 @@
       await nextTick();
       if (!current(controller, key, token)) return;
       try {
-        // This owner-authorized command initializes PHP state; only a fresh later ticket is used.
-        await getArticleBodyTicket(props.articleId, controller.signal);
+        // This owner-authorized command initializes PHP state; only a fresh later transport is used.
+        await getArticleBodyTransport(props.articleId, controller.signal);
       } catch {
         // A failed response does not establish whether the server committed the mode change.
         if (current(controller, key, token)) collaborationUnknown.value = true;

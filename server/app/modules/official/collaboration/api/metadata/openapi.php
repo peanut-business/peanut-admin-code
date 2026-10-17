@@ -45,23 +45,6 @@ $targetReply = ['document_id' => $id,'request_id' => $key,'target_binary_sha256'
 $coverage = $object(['algorithm' => ['type' => 'string','enum' => ['yjs.snapshotContainsUpdate/13.6.32']],
     'covers_target' => ['type' => 'boolean','enum' => [true]],'committed_snapshot_base64' => $binary,'target_snapshot_base64' => $binary]);
 $target = $object($frozen + ['store_id' => $key,'state_seq' => $seq,'committed_binary_sha256' => $digest,'coverage' => $coverage]);
-$readiness = $object(['protocol' => ['type' => 'string','enum' => ['peanut.collaboration.lifecycle.v1']],'schema_version' => ['type' => 'integer','enum' => [1]],
-    'native_protocol' => $protocol,'php_ready' => $bool,'node_ready' => $bool,'paired_ready' => $bool,
-    'instance_id' => $key,'edition' => $binding['properties']['edition'],'service_instance_id' => $key,'config_revision' => $id,'config_sha256' => $digest,
-    'projector_version' => $projector,'registry_revision' => $digest,'durability_dependency' => ['type' => 'string','enum' => ['mysql']],
-    'file_ledger_ready' => ['type' => 'boolean','enum' => [true]],'ready' => $bool,'admission_enabled' => $bool,
-    'holder_key' => $holder + ['nullable' => true],'probe_id' => $key + ['nullable' => true],
-    'activation_id' => $key + ['nullable' => true],'process_lease_expires_at_ms' => $seq,
-    'drain_id' => $key + ['nullable' => true],'plan_sha256' => $digest + ['nullable' => true],
-    'phase' => ['type' => 'string','enum' => ['prepared','active','draining','durably_drained','stopped']]]);
-$lifecycleRequest = ['oneOf' => [
-    $object(['stage' => ['type' => 'string','enum' => ['readiness']]]),
-    $object(['stage' => ['type' => 'string','enum' => ['paired_probe']],'probe_id' => $key,'full' => $bool,
-        'instance_id' => $key,'edition' => $binding['properties']['edition'],'service_instance_id' => $key,
-        'config_revision' => $id,'config_sha256' => $digest,'projector_version' => $projector]),
-    $object(['stage' => ['type' => 'string','enum' => ['activation_state']],'probe_id' => $key,'activation_id' => $key]),
-    $object(['stage' => ['type' => 'string','enum' => ['drain_state']],'probe_id' => $key,'drain_id' => $key,'plan_sha256' => $digest]),
-]];
 $operation = static function (string $name, array $input, string $response, bool $internal = true) use ($ref): array {
     $out = ['tags' => ['Collaboration'],'operationId' => $name,'requestBody' => ['required' => true,
         'content' => ['application/json' => ['schema' => $input]]],'responses' => ['200' => [
@@ -81,8 +64,8 @@ $operation = static function (string $name, array $input, string $response, bool
     return $out;
 };
 return ['paths' => [
-    '/adminapi/official.collaboration.ticket' => ['post' => $operation('issueCollaborationTicket', $object(['document_id' => $id,'mode' => $mode]), 'CollaborationTicketResponse', false)],
-    '/adminapi/internal/collaboration/v1/authorize' => ['post' => $operation('authorizeCollaborationConnection', $object(['ticket' => $text]), 'CollaborationConnectionResponse')],
+    '/adminapi/official.collaboration.transport' => ['post' => $operation('resolveCollaborationTransport', $object(['document_id' => $id,'mode' => $mode]), 'CollaborationTransportResponse', false)],
+    '/adminapi/internal/collaboration/v1/authorize' => ['post' => $operation('authorizeCollaborationConnection', $object(['token' => $text,'document_name' => $text]), 'CollaborationConnectionResponse')],
     '/adminapi/internal/collaboration/v1/check' => ['post' => $operation('checkCollaborationConnection', $object(['connection_key' => $digest,'mode' => $mode]), 'CollaborationConnectionResponse')],
     '/adminapi/internal/collaboration/v1/load' => ['post' => $operation('loadCollaborationDocument', $object($room + ['connection_key' => $digest]), 'CollaborationLoadResponse')],
     '/adminapi/internal/collaboration/v1/store' => ['post' => $operation('storeCollaborationCapture', $store, 'CollaborationStoreResponse')],
@@ -92,11 +75,10 @@ return ['paths' => [
     '/adminapi/internal/collaboration/v1/target' => ['post' => $operation('confirmCollaborationTarget', $target, 'CollaborationTargetResponse')],
     '/adminapi/internal/collaboration/v1/recovery' => ['post' => $operation('recoverCollaborationRoom', $object(['protocol' => $protocol,'request_id' => $key] + $room), 'CollaborationRecoveryResponse')],
     '/adminapi/internal/collaboration/v1/revoke' => ['post' => $operation('revokeCollaborationConnection', $object(['connection_key' => $digest]), 'CollaborationRevokeResponse')],
-    '/adminapi/internal/collaboration/v1/lifecycle' => ['post' => $operation('queryCollaborationReadiness', $lifecycleRequest, 'CollaborationLifecycleResponse')],
 ], 'components' => ['securitySchemes' => ['CollaborationServiceHmac' => ['type' => 'apiKey','in' => 'header','name' => 'X-Collaboration-Signature',
     'description' => 'Exact transport envelope v2 HMAC binds the real process holder. Service custody is not a human capability.']], 'schemas' => [
-    'CollaborationTicketResponse' => $envelope($object(['ticket' => $text,'expires_at' => $id,'document_id' => $id,'mode' => $mode,'protocol' => $protocol,
-        'wss_url' => ['type' => 'string','format' => 'uri','pattern' => '^wss://[^/?#@]+:[0-9]+/collaboration$'],'config_revision' => $id,'config_sha256' => $digest])),
+    'CollaborationTransportResponse' => $envelope($object(['document_name' => $text,'document_id' => $id,'mode' => $mode,'protocol' => $protocol,
+        'wss_url' => ['type' => 'string','format' => 'uri','pattern' => '^wss://[^/?#@]+:[0-9]+/collaboration$']])),
     'CollaborationConnectionResponse' => $envelope($connection),'CollaborationLoadResponse' => $envelope($load),'CollaborationStoreResponse' => $envelope($receipt),
     'CollaborationReceiptResponse' => $envelope(['oneOf' => [$object(['found' => ['type' => 'boolean','enum' => [false]]]),
         $object(['found' => ['type' => 'boolean','enum' => [true]],'receipt' => $receipt])]]),
@@ -106,5 +88,4 @@ return ['paths' => [
     'CollaborationRecoveryResponse' => $envelope($object(['protocol' => $protocol,'holder_key' => $holder,'request_id' => $key] + $room + ['binding' => $binding,
         'baseline' => $object($baseline + ['status' => ['type' => 'string','enum' => ['active','archived']]])])),
     'CollaborationRevokeResponse' => $envelope($object(['revoked' => ['type' => 'boolean','enum' => [true]]])),
-    'CollaborationLifecycleResponse' => $envelope($readiness),
 ]]];

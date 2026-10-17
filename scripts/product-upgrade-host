@@ -395,6 +395,7 @@ def source_runtime():
     spec = importlib.util.spec_from_file_location('source_collaboration', tools / 'configure-collaboration.py')
     collaboration = importlib.util.module_from_spec(spec); spec.loader.exec_module(collaboration)
     server = root / 'server'
+    collaboration.require_safe_shutdown(server)
     compose_args = collaboration.compose_arguments(server)
 
     def compose(*values):
@@ -624,18 +625,17 @@ def main():
     if product != plan or plan.get('scope') != 'server' or plan['instance_root'] != str(root) or plan['package']['root'] != str(package) \
         or plan['state_path'] != str(args.state) or state['phase_in_progress'] != phase:
         raise ValueError('phase differs from the sole product plan/state')
-    server = root / 'server'; docker_dir = server / 'docker'; environment = recovery.env(docker_dir / '.env')
+    server = root / 'server'; docker_dir = server / 'docker'
+    # A healthy process/container is not evidence that its rooms are durable.
+    # Until a native shutdown receipt adapter exists, stop before runtime effects.
+    collaboration.require_safe_shutdown(server)
+    environment = recovery.env(docker_dir / '.env')
     images = {}
     for service in ('php', 'nginx', 'mysql'):
         reference = environment.get(service.upper() + '_IMAGE', '')
         if not re.fullmatch(r'(sha256:[a-f0-9]{64}|[A-Za-z0-9][A-Za-z0-9._:/-]{0,160}@sha256:[a-f0-9]{64})', reference):
             raise ValueError('runtime image must be prepared and immutable')
         images[service] = run('docker', 'image', 'inspect', '--format', '{{.Id}}', reference)
-    collaboration_enabled=collaboration.backend_environment(server).get('COLLABORATION_ENABLED')=='enabled'
-    if collaboration_enabled:
-        reference=collaboration.environment(docker_dir/'collaboration.env')['COLLABORATION_IMAGE']
-        if not collaboration.IMAGE.fullmatch(reference): raise ValueError('collaboration image is not fixed')
-        images['collaboration']=run('docker','image','inspect','--format','{{.Id}}',reference)
     candidate = plan['candidate']; prepared = workspace / 'prepared'; target = prepared / 'server'
     arguments = argparse.Namespace(server=server, workspace=workspace); record_path = workspace / 'prepared.json'
 
@@ -655,13 +655,6 @@ def main():
     def stopped(): return recovery.assert_stopped(server)
 
     def hold():
-        if collaboration_enabled:
-            drain_id='upgrade-'+hashlib.sha256(candidate.encode()).hexdigest()[:32]
-            def lifecycle(action):
-                value=php(server/'think','collaboration:lifecycle',action,'--drain-id='+drain_id)
-                if value.get('protocol')!=collaboration.PROTOCOL or value.get('ok') is not True: raise ValueError('collaboration owner result is unconfirmed')
-                return value['data']
-            collaboration.disable(server,drain_id,True,lifecycle)
         native('hold'); compose('stop', '--timeout', '60', 'nginx', 'php'); return stopped()
 
     def preparation(operation):
@@ -763,15 +756,6 @@ def main():
             if detail['Image'] != images[service] or detail['State']['Running'] != (service in ('mysql', 'php') or public):
                 raise ValueError('runtime service or image differs from plan')
             containers[service] = {'id': detail['Id'], 'image': detail['Image']}
-        if collaboration_enabled:
-            service = collaboration.service_owner(server, 'status')
-            if service['image_id'] != images['collaboration'] or service['running'] is not public:
-                raise ValueError('independent collaboration service differs from plan')
-            containers['collaboration'] = {'id': service['id'], 'image': service['image_id'],
-                                         'compose_project': service['compose_project']}
-        if public and collaboration_enabled:
-            paired=collaboration.native(server,'status','runtime-status')
-            if paired.get('ready') is not True: raise ValueError('signed collaboration readiness is unconfirmed')
         if public:
             bind = environment.get('HTTP_BIND', ''); port = environment.get('HTTP_PORT', '')
             if bind == '0.0.0.0': bind = '127.0.0.1'
@@ -830,8 +814,7 @@ def main():
             native('publish')
             native('open')
             compose('up', '-d', '--wait', '--no-build', '--no-deps', '--force-recreate', 'php')
-            if collaboration_enabled: collaboration.start(server)
-            else: compose('up', '-d', '--wait', '--no-build', '--no-deps', '--force-recreate', 'nginx')
+            compose('up', '-d', '--wait', '--no-build', '--no-deps', '--force-recreate', 'nginx')
             payload = health(True)
         except Exception:
             try: native('hold')
@@ -848,8 +831,7 @@ def main():
         try:
             native('health'); native('open')
             compose('up', '-d', '--wait', '--no-build', '--no-deps', '--force-recreate', 'php')
-            if collaboration_enabled: collaboration.start(server)
-            else: compose('up', '-d', '--wait', '--no-build', '--no-deps', '--force-recreate', 'nginx')
+            compose('up', '-d', '--wait', '--no-build', '--no-deps', '--force-recreate', 'nginx')
             payload = health(True); payload['resumed_old_runtime'] = True
         except Exception:
             try: native('hold')

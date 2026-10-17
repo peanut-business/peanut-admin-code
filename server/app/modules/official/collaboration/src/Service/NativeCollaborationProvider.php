@@ -43,11 +43,6 @@ final class NativeCollaborationProvider implements DocumentAcceptedWriteProvider
         $this->businessProofs = new \WeakMap();
     }
 
-    public function lockRuntimeAdmission(): void
-    {
-        $this->lifecycle->lockAdmission();
-    }
-
     /** This unscoped preflight establishes Scope only from a signed service and existing room identity. */
     public function roomBinding(string $roomKey): array
     {

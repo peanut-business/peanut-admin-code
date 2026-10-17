@@ -17409,12 +17409,12 @@
                 ]
             }
         },
-        "/adminapi/official.article.document.ticket": {
+        "/adminapi/official.article.document.transport": {
             "post": {
                 "tags": [
                     "Article"
                 ],
-                "operationId": "articleBodyTicket",
+                "operationId": "articleBodyTransport",
                 "summary": "签发既有正文写票据（不含部署发现地址）",
                 "parameters": [],
                 "responses": {
@@ -17423,7 +17423,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/ArticleBodyTicketResponse"
+                                    "$ref": "#/components/schemas/ArticleBodyTransportResponse"
                                 }
                             }
                         }
@@ -17469,7 +17469,7 @@
                         "key": "official.article"
                     },
                     "controller": "PeanutAdmin\\Modules\\Article\\Controller\\ArticleController",
-                    "action": "bodyTicket",
+                    "action": "bodyTransport",
                     "permission": "official.article.edit",
                     "source": {
                         "file": "server/app/modules/official/article/route/app.php",
@@ -19766,12 +19766,12 @@
                 ]
             }
         },
-        "/adminapi/official.collaboration.ticket": {
+        "/adminapi/official.collaboration.transport": {
             "post": {
                 "tags": [
                     "Collaboration"
                 ],
-                "operationId": "issueCollaborationTicket",
+                "operationId": "resolveCollaborationTransport",
                 "requestBody": {
                     "required": true,
                     "content": {
@@ -19806,7 +19806,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/CollaborationTicketResponse"
+                                    "$ref": "#/components/schemas/CollaborationTransportResponse"
                                 }
                             }
                         }
@@ -19847,8 +19847,8 @@
                         "type": "module",
                         "key": "official.collaboration"
                     },
-                    "controller": "PeanutAdmin\\Modules\\Collaboration\\Controller\\TicketController",
-                    "action": "issue",
+                    "controller": "PeanutAdmin\\Modules\\Collaboration\\Controller\\TransportController",
+                    "action": "resolve",
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/collaboration/route/app.php",
@@ -19862,7 +19862,7 @@
                     },
                     {
                         "kind": "tenant_action",
-                        "key": "official.collaboration.ticket"
+                        "key": "official.collaboration.transport"
                     }
                 ]
             }
@@ -19881,12 +19881,16 @@
                                 "type": "object",
                                 "additionalProperties": false,
                                 "properties": {
-                                    "ticket": {
+                                    "token": {
+                                        "type": "string"
+                                    },
+                                    "document_name": {
                                         "type": "string"
                                     }
                                 },
                                 "required": [
-                                    "ticket"
+                                    "token",
+                                    "document_name"
                                 ]
                             }
                         }
@@ -21570,260 +21574,6 @@
                     },
                     "controller": "PeanutAdmin\\Modules\\Collaboration\\Controller\\InternalController",
                     "action": "revoke",
-                    "permission": null,
-                    "source": {
-                        "file": "server/app/modules/official/collaboration/route/app.php",
-                        "line": 20
-                    }
-                },
-                "x-peanut-permissions": []
-            }
-        },
-        "/adminapi/internal/collaboration/v1/lifecycle": {
-            "post": {
-                "tags": [
-                    "Collaboration"
-                ],
-                "operationId": "queryCollaborationReadiness",
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "oneOf": [
-                                    {
-                                        "type": "object",
-                                        "additionalProperties": false,
-                                        "properties": {
-                                            "stage": {
-                                                "type": "string",
-                                                "enum": [
-                                                    "readiness"
-                                                ]
-                                            }
-                                        },
-                                        "required": [
-                                            "stage"
-                                        ]
-                                    },
-                                    {
-                                        "type": "object",
-                                        "additionalProperties": false,
-                                        "properties": {
-                                            "stage": {
-                                                "type": "string",
-                                                "enum": [
-                                                    "paired_probe"
-                                                ]
-                                            },
-                                            "probe_id": {
-                                                "type": "string",
-                                                "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
-                                            },
-                                            "full": {
-                                                "type": "boolean"
-                                            },
-                                            "instance_id": {
-                                                "type": "string",
-                                                "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
-                                            },
-                                            "edition": {
-                                                "type": "string",
-                                                "enum": [
-                                                    "engine",
-                                                    "standalone",
-                                                    "multi-tenant"
-                                                ]
-                                            },
-                                            "service_instance_id": {
-                                                "type": "string",
-                                                "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
-                                            },
-                                            "config_revision": {
-                                                "type": "integer",
-                                                "minimum": 1
-                                            },
-                                            "config_sha256": {
-                                                "type": "string",
-                                                "pattern": "^[0-9a-f]{64}$"
-                                            },
-                                            "projector_version": {
-                                                "type": "string",
-                                                "pattern": "^[A-Za-z0-9_.:/-]{1,64}$"
-                                            }
-                                        },
-                                        "required": [
-                                            "stage",
-                                            "probe_id",
-                                            "full",
-                                            "instance_id",
-                                            "edition",
-                                            "service_instance_id",
-                                            "config_revision",
-                                            "config_sha256",
-                                            "projector_version"
-                                        ]
-                                    },
-                                    {
-                                        "type": "object",
-                                        "additionalProperties": false,
-                                        "properties": {
-                                            "stage": {
-                                                "type": "string",
-                                                "enum": [
-                                                    "activation_state"
-                                                ]
-                                            },
-                                            "probe_id": {
-                                                "type": "string",
-                                                "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
-                                            },
-                                            "activation_id": {
-                                                "type": "string",
-                                                "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
-                                            }
-                                        },
-                                        "required": [
-                                            "stage",
-                                            "probe_id",
-                                            "activation_id"
-                                        ]
-                                    },
-                                    {
-                                        "type": "object",
-                                        "additionalProperties": false,
-                                        "properties": {
-                                            "stage": {
-                                                "type": "string",
-                                                "enum": [
-                                                    "drain_state"
-                                                ]
-                                            },
-                                            "probe_id": {
-                                                "type": "string",
-                                                "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
-                                            },
-                                            "drain_id": {
-                                                "type": "string",
-                                                "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
-                                            },
-                                            "plan_sha256": {
-                                                "type": "string",
-                                                "pattern": "^[0-9a-f]{64}$"
-                                            }
-                                        },
-                                        "required": [
-                                            "stage",
-                                            "probe_id",
-                                            "drain_id",
-                                            "plan_sha256"
-                                        ]
-                                    }
-                                ]
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "Native protocol 2 result. A merged broadcast is not a committed database receipt.",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/CollaborationLifecycleResponse"
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "$ref": "#/components/responses/ErrorResponse"
-                    },
-                    "403": {
-                        "$ref": "#/components/responses/ErrorResponse"
-                    },
-                    "404": {
-                        "$ref": "#/components/responses/ErrorResponse"
-                    },
-                    "409": {
-                        "$ref": "#/components/responses/ErrorResponse"
-                    },
-                    "422": {
-                        "$ref": "#/components/responses/ErrorResponse"
-                    },
-                    "429": {
-                        "$ref": "#/components/responses/ErrorResponse"
-                    },
-                    "500": {
-                        "$ref": "#/components/responses/ErrorResponse"
-                    },
-                    "503": {
-                        "$ref": "#/components/responses/ErrorResponse"
-                    }
-                },
-                "security": [
-                    {
-                        "CollaborationServiceHmac": []
-                    }
-                ],
-                "description": "Exact-body transport envelope v2 HMAC/nonce/holder and TLS; business payload protocol 2. Human identity is separately revalidated where required.",
-                "parameters": [
-                    {
-                        "name": "X-Collaboration-Protocol",
-                        "in": "header",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "name": "X-Collaboration-Service-Instance",
-                        "in": "header",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "name": "X-Collaboration-Key-Id",
-                        "in": "header",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "name": "X-Collaboration-Holder-Key",
-                        "in": "header",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "name": "X-Collaboration-Timestamp",
-                        "in": "header",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "name": "X-Collaboration-Nonce",
-                        "in": "header",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "x-peanut-route": {
-                    "application": "adminapi",
-                    "owner": {
-                        "type": "module",
-                        "key": "official.collaboration"
-                    },
-                    "controller": "PeanutAdmin\\Modules\\Collaboration\\Controller\\InternalController",
-                    "action": "lifecycle",
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/collaboration/route/app.php",
@@ -42888,7 +42638,7 @@
                     "data"
                 ]
             },
-            "ArticleBodyTicketResponse": {
+            "ArticleBodyTransportResponse": {
                 "type": "object",
                 "additionalProperties": false,
                 "properties": {
@@ -42905,13 +42655,6 @@
                         "type": "object",
                         "additionalProperties": false,
                         "properties": {
-                            "ticket": {
-                                "type": "string"
-                            },
-                            "expires_at": {
-                                "type": "integer",
-                                "minimum": 1
-                            },
                             "document_id": {
                                 "type": "integer",
                                 "minimum": 1,
@@ -42986,20 +42729,9 @@
                                 "type": "string",
                                 "format": "uri",
                                 "pattern": "^wss://[^/?#@]+:[0-9]+/collaboration$"
-                            },
-                            "config_revision": {
-                                "type": "integer",
-                                "minimum": 1,
-                                "maximum": 9007199254740991
-                            },
-                            "config_sha256": {
-                                "type": "string",
-                                "pattern": "^[a-f0-9]{64}$"
                             }
                         },
                         "required": [
-                            "ticket",
-                            "expires_at",
                             "document_id",
                             "mode",
                             "protocol",
@@ -43009,9 +42741,7 @@
                             "article_id",
                             "owner_revision",
                             "capabilities",
-                            "wss_url",
-                            "config_revision",
-                            "config_sha256"
+                            "wss_url"
                         ]
                     }
                 },
@@ -44127,7 +43857,7 @@
                     }
                 }
             },
-            "CollaborationTicketResponse": {
+            "CollaborationTransportResponse": {
                 "type": "object",
                 "additionalProperties": false,
                 "properties": {
@@ -44144,12 +43874,8 @@
                         "type": "object",
                         "additionalProperties": false,
                         "properties": {
-                            "ticket": {
+                            "document_name": {
                                 "type": "string"
-                            },
-                            "expires_at": {
-                                "type": "integer",
-                                "minimum": 1
                             },
                             "document_id": {
                                 "type": "integer",
@@ -44172,25 +43898,14 @@
                                 "type": "string",
                                 "format": "uri",
                                 "pattern": "^wss://[^/?#@]+:[0-9]+/collaboration$"
-                            },
-                            "config_revision": {
-                                "type": "integer",
-                                "minimum": 1
-                            },
-                            "config_sha256": {
-                                "type": "string",
-                                "pattern": "^[0-9a-f]{64}$"
                             }
                         },
                         "required": [
-                            "ticket",
-                            "expires_at",
+                            "document_name",
                             "document_id",
                             "mode",
                             "protocol",
-                            "wss_url",
-                            "config_revision",
-                            "config_sha256"
+                            "wss_url"
                         ]
                     }
                 },
@@ -45033,174 +44748,6 @@
                         },
                         "required": [
                             "revoked"
-                        ]
-                    }
-                },
-                "required": [
-                    "code",
-                    "msg",
-                    "data"
-                ]
-            },
-            "CollaborationLifecycleResponse": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                    "code": {
-                        "type": "integer",
-                        "enum": [
-                            20000
-                        ]
-                    },
-                    "msg": {
-                        "type": "string"
-                    },
-                    "data": {
-                        "type": "object",
-                        "additionalProperties": false,
-                        "properties": {
-                            "protocol": {
-                                "type": "string",
-                                "enum": [
-                                    "peanut.collaboration.lifecycle.v1"
-                                ]
-                            },
-                            "schema_version": {
-                                "type": "integer",
-                                "enum": [
-                                    1
-                                ]
-                            },
-                            "native_protocol": {
-                                "type": "integer",
-                                "enum": [
-                                    2
-                                ]
-                            },
-                            "php_ready": {
-                                "type": "boolean"
-                            },
-                            "node_ready": {
-                                "type": "boolean"
-                            },
-                            "paired_ready": {
-                                "type": "boolean"
-                            },
-                            "instance_id": {
-                                "type": "string",
-                                "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
-                            },
-                            "edition": {
-                                "type": "string",
-                                "enum": [
-                                    "engine",
-                                    "standalone",
-                                    "multi-tenant"
-                                ]
-                            },
-                            "service_instance_id": {
-                                "type": "string",
-                                "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
-                            },
-                            "config_revision": {
-                                "type": "integer",
-                                "minimum": 1
-                            },
-                            "config_sha256": {
-                                "type": "string",
-                                "pattern": "^[0-9a-f]{64}$"
-                            },
-                            "projector_version": {
-                                "type": "string",
-                                "pattern": "^[A-Za-z0-9_.:/-]{1,64}$"
-                            },
-                            "registry_revision": {
-                                "type": "string",
-                                "pattern": "^[0-9a-f]{64}$"
-                            },
-                            "durability_dependency": {
-                                "type": "string",
-                                "enum": [
-                                    "mysql"
-                                ]
-                            },
-                            "file_ledger_ready": {
-                                "type": "boolean",
-                                "enum": [
-                                    true
-                                ]
-                            },
-                            "ready": {
-                                "type": "boolean"
-                            },
-                            "admission_enabled": {
-                                "type": "boolean"
-                            },
-                            "holder_key": {
-                                "type": "string",
-                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-                                "nullable": true
-                            },
-                            "probe_id": {
-                                "type": "string",
-                                "pattern": "^[A-Za-z0-9_.:-]{1,128}$",
-                                "nullable": true
-                            },
-                            "activation_id": {
-                                "type": "string",
-                                "pattern": "^[A-Za-z0-9_.:-]{1,128}$",
-                                "nullable": true
-                            },
-                            "process_lease_expires_at_ms": {
-                                "type": "integer",
-                                "minimum": 0
-                            },
-                            "drain_id": {
-                                "type": "string",
-                                "pattern": "^[A-Za-z0-9_.:-]{1,128}$",
-                                "nullable": true
-                            },
-                            "plan_sha256": {
-                                "type": "string",
-                                "pattern": "^[0-9a-f]{64}$",
-                                "nullable": true
-                            },
-                            "phase": {
-                                "type": "string",
-                                "enum": [
-                                    "prepared",
-                                    "active",
-                                    "draining",
-                                    "durably_drained",
-                                    "stopped"
-                                ]
-                            }
-                        },
-                        "required": [
-                            "protocol",
-                            "schema_version",
-                            "native_protocol",
-                            "php_ready",
-                            "node_ready",
-                            "paired_ready",
-                            "instance_id",
-                            "edition",
-                            "service_instance_id",
-                            "config_revision",
-                            "config_sha256",
-                            "projector_version",
-                            "registry_revision",
-                            "durability_dependency",
-                            "file_ledger_ready",
-                            "ready",
-                            "admission_enabled",
-                            "holder_key",
-                            "probe_id",
-                            "activation_id",
-                            "process_lease_expires_at_ms",
-                            "drain_id",
-                            "plan_sha256",
-                            "phase"
                         ]
                     }
                 },

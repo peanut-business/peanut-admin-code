@@ -13,7 +13,7 @@ interface ArticleAdministration
     /** Server fixes the supported owner type/slot; no client-provided ownership or implicit legacy conversion. */
     public function bodyDocument(TenantContext $context, int $id, string $requestId): array;
     public function bodyEditor(TenantContext $context, int $id): array;
-    public function bodyTicket(TenantContext $context, int $id): array;
+    public function bodyTransport(TenantContext $context, int $id): array;
     public function bodySave(TenantContext $context, array $input): array;
     public function bodySaveOperation(TenantContext $context, int $id, string $requestId): array;
     /** Normal page; export=1 returns ExportPageInfo, export=2 returns the private ExportFile. */

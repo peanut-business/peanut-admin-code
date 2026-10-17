@@ -74,19 +74,19 @@ final readonly class ArticleBodyService
         });
     }
 
-    public function ticket(TenantContext $context, int $id): array
+    public function transport(TenantContext $context, int $id): array
     {
         $editor = $this->editor($context, $id);
         $guard = new \PeanutAdmin\Kernel\Module\ModuleGuard($this->app->make(\PeanutAdmin\Kernel\Module\ModuleRuntimeRepository::class));
         $guard->assertDeployment('official.collaboration');
         $guard->assertTenant($context->tenantId, 'official.collaboration', new \DateTimeImmutable('now', new \DateTimeZone('UTC')));
         // Lazy optional public provider: a solo APP never constructs an unconfigured collaboration client.
-        $ticket = $this->app->make(\PeanutAdmin\Modules\Collaboration\Contract\CollaborationTickets::class)->ownerTicket($context, $editor['document_id'], self::owner($id));
+        $transport = $this->app->make(\PeanutAdmin\Modules\Collaboration\Contract\CollaborationTransports::class)->ownerTransport($context, $editor['document_id'], self::owner($id));
         $fresh = $this->editor($context, $id);
-        if ($fresh['document_id'] !== $ticket['document_id'] || $fresh['authorization_revision'] !== $ticket['authorization_revision']) {
-            throw BusinessException::conflict('ARTICLE_DOCUMENT_CONTEXT_CHANGED', '票据签发期间正文授权已改变');
+        if ($fresh['document_id'] !== $transport['document_id'] || $fresh['authorization_revision'] !== $transport['authorization_revision']) {
+            throw BusinessException::conflict('ARTICLE_DOCUMENT_CONTEXT_CHANGED', '协作传输准备期间正文授权已改变');
         }
-        return $ticket + ['article_id' => $id,'owner_revision' => $fresh['owner_revision'],'capabilities' => $fresh['capabilities']];
+        return $transport + ['article_id' => $id,'owner_revision' => $fresh['owner_revision'],'capabilities' => $fresh['capabilities']];
     }
 
     public function save(TenantContext $context, ArticleBodySaveInput $input, callable $validateCategory, callable $metadata): array

@@ -53,8 +53,6 @@ export interface AuthorizedDocumentTransport {
   mode: 'write';
   url: string;
   documentName: string;
-  ticket: string;
-  expiresAt: number;
 }
 export interface DocumentSurfaceOptions {
   documentId: number;

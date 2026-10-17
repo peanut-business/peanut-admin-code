@@ -6,8 +6,8 @@ export type ArticleBodyEditor =
   components['schemas']['ArticleBodyEditorResponse']['data'];
 /** Same-row owner metadata: image is writable file_key; image_url is display only. */
 export type ArticleBodyMetadata = ArticleBodyEditor['article_metadata'];
-export type ArticleBodyTicket =
-  components['schemas']['ArticleBodyTicketResponse']['data'];
+export type ArticleBodyTransport =
+  components['schemas']['ArticleBodyTransportResponse']['data'];
 export type ArticleBodySaveInput =
   components['schemas']['ArticleBodySaveRequest'];
 export type ArticleBodySaved =
@@ -30,9 +30,9 @@ export const getArticleBodyEditor = (id: number, signal: AbortSignal) =>
     params: { id },
     signal,
   });
-export const getArticleBodyTicket = (id: number, signal: AbortSignal) =>
-  axios.post<ArticleBodyTicket>(
-    '/adminapi/official.article.document.ticket',
+export const getArticleBodyTransport = (id: number, signal: AbortSignal) =>
+  axios.post<ArticleBodyTransport>(
+    '/adminapi/official.article.document.transport',
     { id },
     { signal }
   );

@@ -34,7 +34,7 @@ final class ServiceAuthentication
         }
         $this->requireConfiguration();
         if ($method !== 'POST'
-            || preg_match('~^/adminapi/internal/collaboration/v1/(authorize|check|load|store|receipt|references|target(?:/prepare)?|recovery|revoke|lifecycle)$~D', $path) !== 1
+            || preg_match('~^/adminapi/internal/collaboration/v1/(authorize|check|load|store|receipt|references|target(?:/prepare)?|recovery|revoke)$~D', $path) !== 1
             || strlen($rawBody) > $this->configuration['max_request_bytes']) {
             throw BusinessException::invalid('COLLABORATION_SERVICE_REQUEST_INVALID', '内部请求格式无效');
         }

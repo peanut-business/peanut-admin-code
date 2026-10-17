@@ -86,7 +86,7 @@
 | `official.document.detail` | `document_id`、可选 `revision_id` | 当前获准元数据 + 派生 JSON + `stateSeq/revisionId`；只读 API 不返回二进制状态或签发 WebSocket 凭据 |
 | `official.document.version.create` | `document_id, expected_state_seq, reason, idempotency_key` | `{revisionId,revisionNo,sourceStateSeq,digest}`；先保存屏障；正常业务模块决定何时使用 |
 | `official.document.archive` / `restore` | `document_id, expected_auth_revision, request_id` | 归档/恢复结果，受主管业务模块生命周期动作协调；不提供脱离业务状态的任意归档 |
-| `official.collaboration.ticket` | `document_id, requested_mode: read|write` | `{enabled,url,room,token,expiresAt,authRevision}`；必须重新核编辑/查看权限；返回短期一次性票据，Secret 不返客户端 |
+| `official.collaboration.transport` | `document_id, mode: read|write` | 返回 `wss_url, document_name, document_id, mode, protocol`；重新核编辑/查看权限，不签发协作凭据 |
 | `official.document.solo.save` | `document_id, expected_state_seq, structured_content, request_id` | 仅 `rich_text` 单人模式；保存后 `{stateSeq,persistedAt}`；启用协同时禁止此路径双写 |
 | `official.document.resource.bind`（目标 Command） | `document_id, file_key, expected_state_seq, request_id` | 仅文件型：校验 owner/文件引用授权和文件真实 MIME/哈希，CAS 绑定新受控资源修订，历史冻结版本不能被改写 |
 | `official.document.capabilities`（目标 Query） | `document_id, intent=view|edit, revision_id?` | 服务端返回可信已装适配器、可用状态及查看/编辑/原件下载三种独立权限；不接受前端声明授权 |
@@ -100,7 +100,7 @@
 
 | 入口 | 请求关键字段 | 响应/保证 |
 | --- | --- | --- |
-| `authorize` | `ticket` | 统一身份、功能和文档授权后返回协议 2 的连接身份、绑定、epoch、权限修订和租约；票据一次消费 |
+| `authorize` | `token, document_name` | 后端验证原生 Session/Member、租户和文档权限后返回可信连接身份、Binding、epoch、实际模式、权限修订和租约；输入全部不可信 |
 | `check` | `connection_key, mode` | 分开进行完整授权续期，返回当前连接 grant；不用于普通编辑逐帧请求或心跳 |
 | `load` | `connection_key, room_key, lease_epoch` | 首次返回最新持久化 Yjs、投影、序号及既有存储身份；不存在不自动创建独立文档 |
 | `store` | 固定合并捕获、原 base/epoch/store_id、参与者授权窗口及摘要 | 同事务保存 Yjs、投影、File 引用及 CAS/幂等回执；Node 不直连业务数据库 |
@@ -120,9 +120,9 @@ D1 的真实 PHP 公开编排入口为 `DocumentCommands::freeze/restoreRevision
 准备与最终提交分别使用短原生事务，网络只位于两个 COMMIT 之外。最终提交仍由当前 Session、原 owner policy 唯一决定资格，并用 Identity 的公开 current-read fence 锁定原权限/模块输入；持久水位、版本、File 引用、审计和原 operation 在同 PDO 原子写入。
 服务请求与响应采用方向分离的 HMAC 传输协议 2。每次 Node 进程启动生成新的 UUIDv4 `holder_key`，与固定部署 `service_instance_id` 分开；签名 canonical 在 instance、service instance、key ID 后绑定 holder。连接授权与首次加载返回该 holder，Room、连接 grant、保存和恢复均核验它。新进程不能继承旧进程尚有效的租约；显式恢复须等待旧 Room 与写连接 grant 到期、核对未完成业务，再推进 epoch。历史协议 1 房间只能在原服务已排空并停止的切换条件满足后迁入，不将历史日志回放到新服务。
 
-实例启用由 PHP 与 Node 对同一配置、进程 holder、配对 probe 和 activation identity 确认。Node 初始关闭加入和写入，PHP 的 prepared 状态或 Compose 健康检查不代表启用成功；只有 PHP 已激活且 Node 核实同一结果才开放。进程租约使用轻量续期，与完整成员及文档授权分开；租约到期关闭准入。协作业务准备与服务保存沿现有 Runtime→Owner/Doc→State/operation→Room 的事务锁入口核对准入及 holder，不让旧进程迟到提交覆盖新状态。实例控制事务不同时持有文档锁；跨租户回执核实退出 Instance 上下文后逐租户执行，再以独立 Instance CAS 固定结果。
+Node 验证本地直接配置后监听，不依赖 PHP/数据库的全局注册、prepare/activate、配对启动或进程准入租约。服务 Secret 是至少 32 字节的直接字符串，不能返给浏览器。Room 的 holder、epoch、短租约、连接 grant 和真实保存回执继续限定业务写入；协作业务准备与保存沿 IAM→Owner/Doc→State/operation→Room/Connection/Grant 事务路径核验。网络调用仍在 SQL 事务之外，业务屏障和未知结果保护保持。
 
-实例禁用固定原 drain ID、配置、holder 与有界全房间清单，先围住加入和新写，再等待原生加载、消息及实际 store 完成。持久排空必须核实真实数据库回执及删除集合覆盖；无在线房间不伪造已保存证明。APP 原生 owner 对原计划中的精确 Compose 容器执行停止后，重新 inspect，使用现有服务密钥签发绑定原计划、目标摘要、容器、镜像、挂载、配置与 holder 的私有停机证明，仅由可信顶层 PHP CLI 消费。CLI 不另造部署或签名器。未知结果保留原计划，HTTP 超时不能代替停止；公开 stopped 摘要包含协议、原 drain ID、计划摘要、目标摘要、durably_drained 和房间数量，不暴露私有证明或正文。
+实例停止由 Node 本地信号路径关闭新连接/写入，并等待已接收消息、加载和实际保存完成；只有真实数据库回执才能证明持久保存。原业务房间屏障、epoch、显式目标及未知结果保护继续有效，不以全局生命周期表、operator HTTP 或 PHP CLI 停机证明控制启动。未完成或结果未知时保持失败关闭，不能强杀或清除原内容。应用适配器尚未具备可证明安全停止的接入时，只阻止依赖该动作的停止/禁用/升级。
 
 Node 控制端点 `/internal/collaboration/control/v1/business-barrier` 的 URL 保留，方向 HMAC 域和传输封套采用 v2，业务正文使用协议 2。请求 header、签名正文及计划均绑定真实 Room holder；新进程必须拒绝旧 holder 请求，不能将其回答为 offline。排空结果绑定原 operation、输入摘要、Room、holder、epoch、实际 store_id/state_seq/binary_sha256/Snapshot；进度计数不代替提交证明。同一 holder 无在线房间时仅返回 offline，PHP 在业务锁内采用真实持久化基线并防止新加入。旧 holder 已死亡且业务结果未知时保留未确认状态，通用恢复不解锁或冒充排空。技术提交不能替代业务成功。恢复追加新 CAS 状态/版本/epoch，使用不可变旧 binary 与 matching projection、fresh Y.Doc，并关闭旧连接、卸载旧 native document 后才确认释放。
 
@@ -138,7 +138,7 @@ Node 控制端点 `/internal/collaboration/control/v1/business-barrier` 的 URL 
 interface OwnerRef { moduleKey: string; objectType: string; objectId: string }
 interface DocumentStateRef { documentId: number; tenantId: number; stateSeq: number; authRevision: number }
 interface FrozenDocumentVersion { revisionId: number; revisionNo: number; sourceStateSeq: number; digest: string }
-interface CollaborationTicket { enabled: boolean; url: string; room: string; token: string; expiresAt: string; authRevision: number }
+interface CollaborationTransport { wss_url: string; document_name: string; document_id: number; mode: "read" | "write"; protocol: 2 }
 interface DurableSaveAck { documentId: number; storeId: string; stateSeq: number; digest: string; persistedAt: string }
 ```
 
@@ -147,7 +147,7 @@ interface DurableSaveAck { documentId: number; storeId: string; stateSeq: number
 - Node 内网 `authorize` 响应中至少有 `tenantId, documentId, memberId, mode, authRevision, leaseUntil, connectionId`；`store` 必须有 `{room, leaseEpoch, baseStateSeq, storeId, checksum, stateBinaryBase64, contentProjection}` 并返回 `DurableSaveAck`；`load` 提供 `{room, leaseEpoch, stateSeq, checksum, stateBinaryBase64, schemaVersion}`。这些字段由相同服务身份、租户+文档主键绑定，不能跨不同 room 复用 `storeId`。
 - `ContentProjection` 标记 `schemaVersion`、源 `stateSeq` 和投影器版本，确保服务器验证内容深度/大小/媒体节点/URL 安全与 `stateBinary` 对应关系。不接受 Node 传入未经校验的任意 HTML 作为正式富文本；如果仅能产生不可信投影，则把投影状态标为待修复并禁止发布/冻结，不覆盖权威 Yjs 二进制。
 - 持久化响应**不等于 WebSocket 广播响应**：Hocuspocus Provider 不天然将 PHP DB commit 序号回传 Vue。`DocumentEditor` 需要明确的持久水位回执通道或受权轮询查询，并把它与本地已编辑状态向量关联；只有 PHP 确认覆盖本地修改后才显示“已保存”。服务宕机、网络未知时显示“未确认”，重新查询回执而非虚构成功。
-- `ticket` 不放 URL query 参数、可索引页面、日志或浏览器持久存储；仅在受控连接鉴权机制中临时传入。内部服务凭据、nonce、时钟偏差/重放窗及轮换策略须随同 Node/PHP 原生配置保持一致；时间字段使用明确 UTC ISO8601 或现行标准格式，不让 PHP 与 Node 靠本地时区推算。
+- 原生用户 token 只经受控连接鉴权传输，不放 URL query、可索引页面或日志，不额外复制到协作存储。内部服务凭据、nonce、时钟偏差/重放窗及轮换策略须随同 Node/PHP 原生配置保持一致；时间字段使用明确 UTC ISO8601 或现行标准格式，不让 PHP 与 Node 靠本地时区推算。
 
 ## 5. Vue 标准组件合同
 
@@ -193,8 +193,8 @@ defineProps<{ documentId: number }>();
 
 ### 6.1 连接与权限
 
-1. 浏览器用现有员工/租户登录会话调 PHP `ticket`，票据短期（目标不超过 60 秒）、带 `aud`, `iss`, `instanceId`, `edition`, `tenantId`, `documentId`, `mode`, `authRevision`, `jti`, `exp`；**签名只用于防伪，不能替代实时业务授权**。
-2. Hocuspocus `onAuthenticate` 必须询问 PHP `authorize`，并用可信 Room=`instance/tenant/document` 及 `jti` 防重放结果绑定本连接。Node 不接受用户任意文档名/租户选择并据此跨租户读取。票据过期不等于断开现有授权连接，长期会话由服务端短租约持续复核。
+1. 浏览器通过现有登录会话请求 PHP `transport` 元数据，并把原生用户 token 交给 Hocuspocus。PHP 不签发协作票据，不把 token 放入 Room 名或返回元数据。
+2. Hocuspocus `onAuthenticate` 调用 PHP `authorize`，输入为 `{token,document_name}`。文档名各字段全部作为不可信请求处理；配置核对、`TenantAuthService::context`、租户相等及实际文档授权共同产生可信 Room/Binding 和实际连接模式。后续连接引用服务端 Session 账本，短房间/连接租约持续复核真实权限。
 3. 锁定 SDK 的 awaited `beforeSync` 在合并前检查该连接已经取得的写授权、有效期和房间状态；普通文字更新不逐帧请求 PHP，不在 `onChange` 重复完整授权。传输心跳只保活，完整身份、功能及文档授权在加入、续期和状态变化时复核。撤权通知拒绝新写并关闭/降权连接，短租约复核作为有明确检测上限的兜底；不得将周期复核称为即时撤权。授权过期或无法续期则停止新写，重新认证后才恢复。
 4. 在线“谁在编辑”（awareness）只含必要昵称/成员 ID 且以实际鉴权身份绑定，客户端自报名字不被信任。只读和可写连接能力分开；必要时无授权者不订阅正文广播。
 
@@ -206,9 +206,9 @@ Identity 成员 suspend/left、成员角色减少、角色权限减少或归档�
 
 唯一 Task profile 为 `identity_negative_fact`，purpose/handler 固定 `identity.revocation.propagate`。授权来自已提交 Identity 事实、专用签名域和原 Task claim，不来自失效 actor session。普通 member profile 的 creator 非空/FK、Core 签名和现行 reauthorize 保持；只有负向 profile 可以有 NULL 技术 creator，原 actor 仅留审计引用，不伪造成员。worker 每个批次/RPC/ACK提交重新核 fact/hash、tenant、purpose、jobKey、attempt、lease、模块及当前 holder；租约丢失不能追加 ACK。
 
-正向 ticket/authorize/check/renew 在同一原生 PDO/外事务内按 Runtime admission → IAM lifecycle/package/installation → Tenant/Account/Member/Role/Permission/Session → Owner/Document/State → Room/Connection/Grant 持锁。仅以服务端 OwnerPolicy 的权限、模块和对象绑定捕获原生 IAM 摘要，锁定重读相等后执行真实 Admin 权限决定；IAM 锁保留至外事务完成。原事务外 snapshot 合同不变。现有 64 位 SHA256 `authorization_revision` 统一使用 `peanut.document.grant-authorization.v1` 域，绑定 tenant/member、文档、owner/action、所需权限/模块、原生 IAM fence、Document/Owner 修订。Role/tenant 修订推进使撤权→恢复仍改变摘要，不按 opaque hash 数值排序。
+正向 transport/authorize/check/renew 在同一原生 PDO/外事务内按 IAM lifecycle/package/installation → Tenant/Account/Member/Role/Permission/Session → Owner/Document/State → Room/Connection/Grant 持锁。仅以服务端 OwnerPolicy 的权限、模块和对象绑定捕获原生 IAM 摘要，锁定重读相等后执行真实 Admin 权限决定；IAM 锁保留至外事务完成。原事务外 snapshot 合同不变。现有 64 位 SHA256 `authorization_revision` 统一使用 `peanut.document.grant-authorization.v1` 域，绑定 tenant/member、文档、owner/action、所需权限/模块、原生 IAM fence、Document/Owner 修订。Role/tenant 修订推进使撤权→恢复仍改变摘要，不按 opaque hash 数值排序。
 
-PHP 仅从 Collaboration 自己的可信 ticket/connection ledger 选择同 tenant、冻结 member 的旧 grant，按 connection ID 有界分页。专用 System fact/job/attempt 范围下只读真实 Session、当前权限及 Owner/Document 生命周期，并以前后相同原生 IAM 摘要和对象绑定确认观察：`OLD_STALE` 加入精确旧 tuple，`CURRENT_FRESH` 排除真正重新授权后的相同摘要，`UNKNOWN` 保留 pending/retry，不能用空 ACK 代替未完成选取。协议2的历史授权摘要与新算法不同则按旧 grant 处理；版本未知、账本缺失或查询异常均失败关闭。首次选取的 high-water、每批精确 connection/room/epoch/member/authorization_revision 集合、scope digest 与 ACK 写入原 Task event，重试复用。新 holder 使用新的目标计划/ACK，不能继承旧 holder 证明；Node 只匹配当前连接的完整旧 tuple，后续 renew 的新摘要不被旧 scope 关闭。历史 accepted capture 仍使用原持久 grant/hash/时间窗口/holder/epoch 证明，不能改用当前人类权限重验或丢弃已接纳内容。普通 grant lease 仍是独立兜底，不恢复逐帧 PHP 鉴权。
+PHP 仅从 Collaboration 自己的可信 Session/connection ledger 选择同 tenant、冻结 member 的旧 grant，按 connection ID 有界分页。专用 System fact/job/attempt 范围下只读真实 Session、当前权限及 Owner/Document 生命周期，并以前后相同原生 IAM 摘要和对象绑定确认观察：`OLD_STALE` 加入精确旧 tuple，`CURRENT_FRESH` 排除真正重新授权后的相同摘要，`UNKNOWN` 保留 pending/retry，不能用空 ACK 代替未完成选取。协议2的历史授权摘要与新算法不同则按旧 grant 处理；版本未知、账本缺失或查询异常均失败关闭。首次选取的 high-water、每批精确 connection/room/epoch/member/authorization_revision 集合、scope digest 与 ACK 写入原 Task event，重试复用。新 holder 使用新的目标计划/ACK，不能继承旧 holder 证明；Node 只匹配当前连接的完整旧 tuple，后续 renew 的新摘要不被旧 scope 关闭。历史 accepted capture 仍使用原持久 grant/hash/时间窗口/holder/epoch 证明，不能改用当前人类权限重验或丢弃已接纳内容。普通 grant lease 仍是独立兜底，不恢复逐帧 PHP 鉴权。
 
 Node 负向协议为 `POST /internal/collaboration/access/v1/invalidate`，payload/HTTP protocol 均为1，签名域 `peanut.collaboration.access-invalidation-v1.request.v1` / `.response.v1`，与 drain/release/operator 域隔离。沿现有服务密钥、instance/service/key-id/holder 前缀、nonce/timestamp、method/path及请求/响应 body hash验证。请求字段精确为 `protocol_version,action,fact_id,fact_sha256,tenant_id,subject,negative_action,revision_reference_sha256,operation_id,instance_id,service_instance_id,holder_key,targets,scope_digest`；subject 为 `kind,id,member_id`，每个 target 为 `connection_key,room_key,lease_epoch,member_id,authorization_revision`，每批最多100。scope digest 是删除 scope_digest 字段后递归按对象键排序的 JSON SHA256。只允许 invalidate_old_grant；不得赋权、重入房间、恢复写、修改正文或释放 Document 屏障。
 
@@ -271,7 +271,7 @@ peanut service collaboration disable [--path APP] # 拒绝新连接/安全 drain
 
 发布/升级：记录服务镜像版本、PHP API protocol、Module 版本、迁移水位、Edition/profile、schema 和回滚前提；生产更新先兼容检查与排空、备份，再服务/PHP/前端按兼容顺序升级。新应用默认协同功能可选且默认关闭，未选择时不安装 Node 常驻服务；启用协同也不要求将 PHP Core 或 Web Core 分裂成新服务。
 
-APP 的生命周期入口保留 `python3 server/docker/scripts/configure-collaboration.py plan|enable|status|disable --app-root <绝对 APP 路径>`；`enable` 仅原子准备非秘密配置，启动仍由 `start.sh` 执行。B 的固定源码需同步其实际协议 2 排空和提交回执消费者后，才可获得运行切换资格；旧接纳日志生命周期回执不证明 B 兼容。实例 gate 在新 ticket/authorize 和业务排空准备前锁定；禁用须复用原 drain 身份及真实存储回执，未知结果不解锁、不强杀。持久最终回执及精确容器停止核验后才关闭 desired。原 stop/升级/配对恢复继续使用同一应用服务入口；未完成协议适配、readiness 或实际排空时明确阻塞相关切换，不能启动两套长期服务。TLS/WSS 及运行验收见 [可选服务说明](../../server/docker/COLLABORATION.md)，源码存在不等于运行资格，CLI E2 须独立核验最终协议。
+APP 的可选配置入口为 `python3 server/docker/scripts/configure-collaboration.py plan|enable|status|disable --app-root <绝对 APP 路径>`，只负责直接配置与应用启停适配；启动不调用全局 runtime 登记、配对 probe、prepare/activate 或进程准入。Node 由自己的信号排空路径安全停止，保留房间业务屏障、真实保存回执与未知结果保护。尚不能证明安全停止时，应用停止/禁用/升级入口须明确失败关闭，不强杀服务或删除数据。TLS/WSS 及运行验收见 [可选服务说明](../../server/docker/COLLABORATION.md)，源码存在不等于运行资格。
 
 ## 8. 旧代码迁移与兼容
 

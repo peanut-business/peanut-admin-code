@@ -456,16 +456,14 @@
           !sameOwner(transport.owner, data.owner) ||
           transport.authorizationRevision !== data.authorization_revision ||
           transport.capabilityRevision !== capabilities.capabilityRevision ||
-          transport.mode !== 'write' ||
-          !Number.isFinite(transport.expiresAt) ||
-          transport.expiresAt <= Date.now()
+          transport.mode !== 'write'
         )
           throw new Error('DOCUMENT_TRANSPORT_INVALID');
         const active = createCollaborationProvider({
           url: transport.url,
           documentId: data.document_id,
           documentName: transport.documentName,
-          ticket: transport.ticket,
+          token: getSessionSnapshot().token ?? '',
           onPresenceChanged: (members) => {
             if (valid(current, key)) online.value = members;
           },

@@ -36,19 +36,19 @@
         },
         {
             "path": "server/app/modules/official/article/api/metadata/openapi.php",
-            "sha256": "4f554963cf80387d2bd819c4b469dd01b902619b95f36c741bf0c4afd3ffe386"
+            "sha256": "c02bba0e0c28b019e51e93d38bc33a452aad01a720375ff15c56c146d8f10e32"
         },
         {
             "path": "server/app/modules/official/article/route/app.php",
-            "sha256": "b48309f3babc46c3b15144dbb12f4de884709a84b336ab8909f9421d83ccf39d"
+            "sha256": "53bd295f03b911d563c23843edc68060e1b10ba17280dfbc07f99863d3eb9f13"
         },
         {
             "path": "server/app/modules/official/collaboration/api/metadata/openapi.php",
-            "sha256": "fcc5e780750976a07cfe6b61b683707644c63a9aa6b589ea5934697cbdbb617b"
+            "sha256": "5cd42044bef2dd041a8e2a72e0fe22872eb03a3088bfc7d947ff6fd22bf6ad08"
         },
         {
             "path": "server/app/modules/official/collaboration/route/app.php",
-            "sha256": "01c2474f40f8c6b79db501dbd3e2e890d40662c3431cf7ca702e00729b674a67"
+            "sha256": "878376e0138189ab5a424e43a299982a757a130befc98bc2a6e6c7cbeb6a161c"
         },
         {
             "path": "server/app/modules/official/document/api/metadata/openapi.php",
@@ -192,27 +192,27 @@
         ]
     },
     "summary": {
-        "route_count": 427,
-        "generated_api_operations": 381,
+        "route_count": 426,
+        "generated_api_operations": 380,
         "route_only_operations": 46,
         "complete_operations": 369,
-        "partial_operations": 12,
-        "runtime_routes": 427,
-        "documented_operations": 381,
+        "partial_operations": 11,
+        "runtime_routes": 426,
+        "documented_operations": 380,
         "undocumented_routes": 46,
-        "automatic_route_metadata": 427,
+        "automatic_route_metadata": 426,
         "requires_owner_contract": 46,
         "owners": 20,
         "runtime_inventory": {
-            "total": 427,
+            "total": 426,
             "methods": {
                 "DELETE": 4,
                 "GET": 184,
-                "POST": 233,
+                "POST": 232,
                 "PUT": 6
             },
             "applications": {
-                "adminapi": 307,
+                "adminapi": 306,
                 "api": 47,
                 "installation": 9,
                 "platform": 64
@@ -224,7 +224,7 @@
                 "application:platform": 58,
                 "module:fixture.workflow-business": 8,
                 "module:official.article": 27,
-                "module:official.collaboration": 12,
+                "module:official.collaboration": 11,
                 "module:official.document": 12,
                 "module:official.file": 23,
                 "module:official.import-export": 11,
@@ -249,7 +249,7 @@
         "application:platform": 58,
         "module:fixture.workflow-business": 8,
         "module:official.article": 27,
-        "module:official.collaboration": 12,
+        "module:official.collaboration": 11,
         "module:official.document": 12,
         "module:official.file": 23,
         "module:official.import-export": 11,
@@ -18646,64 +18646,6 @@
         },
         {
             "method": "POST",
-            "path": "/adminapi/internal/collaboration/v1/lifecycle",
-            "runtime_path": "/adminapi/internal/collaboration/v1/lifecycle",
-            "application": "adminapi",
-            "owner": {
-                "type": "module",
-                "key": "official.collaboration"
-            },
-            "controller": "PeanutAdmin\\Modules\\Collaboration\\Controller\\InternalController",
-            "action": "lifecycle",
-            "auth": {
-                "mode": "public",
-                "exception_registration": null
-            },
-            "permissions": [],
-            "errors": [
-                401,
-                403,
-                404,
-                409,
-                422,
-                429,
-                500,
-                503
-            ],
-            "middleware": [
-                {
-                    "class": "PeanutAdmin\\Modules\\Collaboration\\Middleware\\ServiceAuthenticationMiddleware",
-                    "arguments": []
-                }
-            ],
-            "source": {
-                "file": "server/app/modules/official/collaboration/route/app.php",
-                "line": 20
-            },
-            "documented": true,
-            "openapi_operation_id": "queryCollaborationReadiness",
-            "contract_quality": "partial",
-            "sdk_consumers": [
-                "web/src/generated/openapi.d.ts"
-            ],
-            "documentation": {
-                "status": "documented",
-                "automatic_metadata": [
-                    "route",
-                    "owner",
-                    "controller",
-                    "middleware",
-                    "auth",
-                    "permissions",
-                    "source"
-                ],
-                "requires_owner_contract": [
-                    "security_domain"
-                ]
-            }
-        },
-        {
-            "method": "POST",
             "path": "/adminapi/internal/collaboration/v1/load",
             "runtime_path": "/adminapi/internal/collaboration/v1/load",
             "application": "adminapi",
@@ -20528,15 +20470,15 @@
         },
         {
             "method": "POST",
-            "path": "/adminapi/official.article.document.ticket",
-            "runtime_path": "/adminapi/official.article.document.ticket",
+            "path": "/adminapi/official.article.document.transport",
+            "runtime_path": "/adminapi/official.article.document.transport",
             "application": "adminapi",
             "owner": {
                 "type": "module",
                 "key": "official.article"
             },
             "controller": "PeanutAdmin\\Modules\\Article\\Controller\\ArticleController",
-            "action": "bodyTicket",
+            "action": "bodyTransport",
             "auth": {
                 "mode": "tenant_permission",
                 "exception_registration": null
@@ -20585,7 +20527,7 @@
                 "line": 37
             },
             "documented": true,
-            "openapi_operation_id": "articleBodyTicket",
+            "openapi_operation_id": "articleBodyTransport",
             "contract_quality": "complete",
             "sdk_consumers": [
                 "web/src/generated/openapi.d.ts",
@@ -20914,15 +20856,15 @@
         },
         {
             "method": "POST",
-            "path": "/adminapi/official.collaboration.ticket",
-            "runtime_path": "/adminapi/official.collaboration.ticket",
+            "path": "/adminapi/official.collaboration.transport",
+            "runtime_path": "/adminapi/official.collaboration.transport",
             "application": "adminapi",
             "owner": {
                 "type": "module",
                 "key": "official.collaboration"
             },
-            "controller": "PeanutAdmin\\Modules\\Collaboration\\Controller\\TicketController",
-            "action": "issue",
+            "controller": "PeanutAdmin\\Modules\\Collaboration\\Controller\\TransportController",
+            "action": "resolve",
             "auth": {
                 "mode": "tenant_permission",
                 "exception_registration": null
@@ -20934,7 +20876,7 @@
                 },
                 {
                     "kind": "tenant_action",
-                    "key": "official.collaboration.ticket"
+                    "key": "official.collaboration.transport"
                 }
             ],
             "errors": [
@@ -20969,7 +20911,7 @@
                 "line": 13
             },
             "documented": true,
-            "openapi_operation_id": "issueCollaborationTicket",
+            "openapi_operation_id": "resolveCollaborationTransport",
             "contract_quality": "complete",
             "sdk_consumers": [
                 "web/src/generated/openapi.d.ts"

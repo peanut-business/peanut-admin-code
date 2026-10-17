@@ -6,7 +6,7 @@ server {
     ssl_certificate_key /run/peanut-collaboration-tls/private-key.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
     client_max_body_size 32m;
-    location ~ ^/adminapi/internal/collaboration/v1/(?:authorize|check|load|store|receipt|references|target(?:/prepare)?|lifecycle|recovery|revoke)$ {
+    location ~ ^/adminapi/internal/collaboration/v1/(?:authorize|check|load|store|receipt|references|target(?:/prepare)?|recovery|revoke)$ {
         include fastcgi_params;
         fastcgi_param SCRIPT_FILENAME /server/public/index.php;
         fastcgi_param QUERY_STRING s=$uri;
@@ -14,7 +14,13 @@ server {
         fastcgi_read_timeout 45s;
         fastcgi_pass php:9000;
     }
-    location ~ ^/internal/collaboration/(?:control/v1/business-barrier|operator/v1/lifecycle)$ {
+    location = /internal/collaboration/control/v1/business-barrier {
+        proxy_pass http://collaboration:80;
+        proxy_read_timeout 45s;
+        proxy_set_header Cookie "";
+        proxy_set_header Authorization "";
+    }
+    location = /internal/collaboration/access/v1/invalidate {
         proxy_pass http://collaboration:80;
         proxy_read_timeout 45s;
         proxy_set_header Cookie "";

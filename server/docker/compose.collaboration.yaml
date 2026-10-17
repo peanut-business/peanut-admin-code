@@ -1,4 +1,4 @@
-# Explicit overlay; compose.yaml retains its three default services.
+# Explicit ingress only; Node starts through its independent standard Compose file.
 services:
   nginx:
     ports:
