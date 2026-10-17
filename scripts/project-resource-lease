@@ -79,6 +79,7 @@ mkdir -p "$LEASES_DIR" "$RESOURCES_DIR"
 
 LOCK_HELD=0
 OBSERVATION_WINDOW_CHILD=0
+COMMAND_COMPLETED=0
 CLAIM_TMP_DIR=""
 CREATED_RESOURCES_FILE=""
 SEEN_FILE=""
@@ -92,6 +93,9 @@ remove_resource_dir() {
 
 cleanup() {
   local status=$?
+  # Bash 3.2 can enter EXIT with status 0 after a fatal nounset expansion.
+  # Only reaching the normal dispatch end (or explicit help) permits success.
+  if [[ "$status" == 0 && "$COMMAND_COMPLETED" != 1 ]]; then status=1; fi
   if [[ -n "$CREATED_RESOURCES_FILE" && -f "$CREATED_RESOURCES_FILE" ]]; then
     while IFS= read -r resource_dir; do
       [[ -n "$resource_dir" ]] && remove_resource_dir "$resource_dir"
@@ -819,7 +823,7 @@ case "$COMMAND" in
         --gate) [[ $# -ge 2 ]] || die '--gate requires a value'; GATE="$2"; shift 2 ;;
         --ttl) [[ $# -ge 2 ]] || die '--ttl requires a value'; TTL="$2"; shift 2 ;;
         --resource) [[ $# -ge 2 ]] || die '--resource requires a value'; RESOURCES+=("$2"); shift 2 ;;
-        --help|-h) usage; exit 0 ;;
+        --help|-h) usage; COMMAND_COMPLETED=1; exit 0 ;;
         *) die "unknown claim option: $1" ;;
       esac
     done
@@ -842,7 +846,7 @@ case "$COMMAND" in
       [[ "$PARENT_LEASE" != "$LEASE_ID" ]] || die 'parent lease must differ from child lease'
     fi
     WORKTREE="$(cd "$REPO_ROOT" && pwd -P)"
-    for resource in "${RESOURCES[@]}"; do
+    for resource in ${RESOURCES[@]+"${RESOURCES[@]}"}; do
       [[ "${resource%%=*}" != lease-role && "${resource%%=*}" != operation-contract ]] || die 'reserved observation fields require --role'
     done
     if [[ -n "$LEASE_ROLE" || -n "$OPERATION_CONTRACT" ]]; then
@@ -915,6 +919,32 @@ case "$COMMAND" in
     printf 'lease\t%s\nowner\t%s\nthread\t%s\ncandidate\t%s\ncandidate_repository\t%s\nparent_lease\t%s\ngate\t%s\nworktree\t%s\ncreated_at\t%s\nexpires_at\t%s\nstatus\tACTIVE\n' \
       "$LEASE_ID" "$OWNER" "$THREAD_ID" "$CANDIDATE" "$CANDIDATE_REPOSITORY" "$PARENT_LEASE" "$GATE" "$WORKTREE" "$NOW" "$EXPIRES_AT" > "$CLAIM_TMP_DIR/metadata.tsv"
     mv "$CLAIM_TMP_DIR" "$LEASE_DIR"
+    # Keep this newly published directory in rollback scope until its actual
+    # declarations and required locks have been read back under the same mutex.
+    CLAIM_TMP_DIR="$LEASE_DIR"
+    [[ -f "$LEASE_DIR/metadata.tsv" && ! -L "$LEASE_DIR/metadata.tsv" \
+      && -f "$LEASE_DIR/resources.tsv" && ! -L "$LEASE_DIR/resources.tsv" \
+      && "$(metadata_value "$LEASE_DIR/metadata.tsv" lease)" == "$LEASE_ID" \
+      && "$(metadata_value "$LEASE_DIR/metadata.tsv" owner)" == "$OWNER" \
+      && "$(metadata_value "$LEASE_DIR/metadata.tsv" thread)" == "$THREAD_ID" \
+      && "$(metadata_value "$LEASE_DIR/metadata.tsv" candidate)" == "$CANDIDATE" \
+      && "$(metadata_value "$LEASE_DIR/metadata.tsv" candidate_repository)" == "$CANDIDATE_REPOSITORY" \
+      && "$(metadata_value "$LEASE_DIR/metadata.tsv" parent_lease)" == "$PARENT_LEASE" \
+      && "$(metadata_value "$LEASE_DIR/metadata.tsv" gate)" == "$GATE" \
+      && "$(metadata_value "$LEASE_DIR/metadata.tsv" worktree)" == "$WORKTREE" \
+      && "$(metadata_value "$LEASE_DIR/metadata.tsv" status)" == ACTIVE ]] || die 'published claim metadata mismatch'
+    for resource in "${RESOURCES[@]}"; do
+      TYPE="${resource%%=*}"; VALUE="${resource#*=}"; HASH="$(resource_hash "$TYPE" "$VALUE")"
+      lease_has_resource "$LEASE_DIR" "$TYPE" "$VALUE" || die 'published claim resource missing'
+      if schema_identity_resource "$TYPE"; then continue; fi
+      RESOURCE_DIR="$RESOURCES_DIR/$HASH"
+      [[ -d "$RESOURCE_DIR" && ! -L "$RESOURCE_DIR" ]] || die 'published claim lock missing'
+      for LOCK_FILE in lease type value; do
+        [[ -f "$RESOURCE_DIR/$LOCK_FILE" && ! -L "$RESOURCE_DIR/$LOCK_FILE" ]] || die 'published claim lock invalid'
+      done
+      [[ "$(cat "$RESOURCE_DIR/lease")" == "$LEASE_ID" && "$(cat "$RESOURCE_DIR/type")" == "$TYPE" \
+        && "$(cat "$RESOURCE_DIR/value")" == "$VALUE" ]] || die 'published claim lock ownership mismatch'
+    done
     CLAIM_TMP_DIR=""
     rm -f "$CREATED_RESOURCES_FILE"
     CREATED_RESOURCES_FILE=""
@@ -1105,3 +1135,4 @@ case "$COMMAND" in
     die "unknown command: $COMMAND"
     ;;
 esac
+COMMAND_COMPLETED=1
