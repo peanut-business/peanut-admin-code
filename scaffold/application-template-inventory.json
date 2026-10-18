@@ -836,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bfd0fccfd0871215a2352ebaff16d3da00290698f6147a94e3e2e87a6495ea2c"
+            "source_sha256": "cb54215fe497a613c4b24864395d86a30743f7a58bba14a71039c9660e0c30c2"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -25311,7 +25311,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "aa9891b2e7d28f4eb5d44ea18fb6e96098e978fe69126deb21d7bb14bfc57832"
+            "source_sha256": "2f82cd1806e9445960430a4cd7519246cf9293577089ddcdc67f98ffc523978c"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",
