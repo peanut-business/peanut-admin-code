@@ -103,10 +103,15 @@ function projectResourceRegistry(?string &$registrySha256 = null): array
     $serverRegistryPath = $serverRoot . '/resources/project-resources.json';
     $instanceRegistryPath = $serverRoot . '/private/resources/project-resources.json';
     $serverOnly = file_exists($serverIdentityPath) || is_link($serverIdentityPath);
-    if ($serverOnly) {
-        $expectedProjectId = ServerReleaseIdentity::resolve($serverRoot)->applicationSlug();
+    $developmentRuntime = ApplicationSourceIdentity::hasRuntime($serverRoot);
+    if ($serverOnly || $developmentRuntime) {
+        // Verify the existing projection rather than treating it as a release.
+        // loadRuntime also rejects simultaneous development/release identities.
+        $expectedProjectId = $developmentRuntime
+            ? ApplicationSourceIdentity::loadRuntime($serverRoot)->applicationSlug()
+            : ServerReleaseIdentity::resolve($serverRoot)->applicationSlug();
         if ($explicitPath !== false && trim($explicitPath) !== '') {
-            throw new RuntimeException('server-only APP 不允许通过环境变量读取外部资源登记');
+            throw new RuntimeException('APP 运行实例不允许通过环境变量读取外部资源登记');
         }
         if (file_exists($instanceRegistryPath) || is_link($instanceRegistryPath)) {
             if (!is_file($instanceRegistryPath) || is_link($instanceRegistryPath)) {
@@ -160,7 +165,7 @@ function projectResourceRegistry(?string &$registrySha256 = null): array
         if (!hash_equals($expectedProjectId, $registry['project_id'])) {
             throw new RuntimeException('应用资源登记与当前 APP 身份不匹配');
         }
-    } elseif ($serverOnly || $expectedProjectId !== 'peanut-admin'
+    } elseif ($serverOnly || $developmentRuntime || $expectedProjectId !== 'peanut-admin'
         || $explicitPath === false || trim($explicitPath) === ''
         || $registry['project_id'] !== 'peanut-admin') {
         throw new RuntimeException('维护者登记只允许在 Code 维护入口显式使用');
