@@ -97,6 +97,11 @@ write_client_environment() (
         printf 'NUXT_DEV_PROXY_TARGET=http://%s:%s/api\n' "$api_host" "$php_port"
         printf 'NUXT_DEV_PROXY_ORIGIN=http://%s:%s\n' "$api_host" "$php_port"
         printf '%s\n' 'VITE_OPEN_BROWSER=false' 'VITEPRESS_DISABLE_GIT=true'
+        deployment_mode=$(awk -F= '$1 == "DEPLOYMENT_MODE" { print $2; exit }' "$backend_env")
+        case "$deployment_mode" in
+            standalone|multi-tenant) printf 'VITE_DEPLOYMENT_MODE=%s\n' "$deployment_mode" ;;
+            *) die 'backend DEPLOYMENT_MODE must be standalone or multi-tenant' ;;
+        esac
     } > "$temporary"
     chmod 600 "$temporary"
     mv "$temporary" "$target"

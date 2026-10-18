@@ -3,7 +3,7 @@
 set -eu
 
 repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-env_file="$repo_dir/.local/stack.env"
+env_file="$repo_dir/.local/host-client.env"
 component=${1:-}
 [ -n "$component" ] || { printf 'Usage: %s {web|platform|pc|mobile|docs} [--env-file path] [--dry-run] [-- extra args]\n' "$0" >&2; exit 2; }
 shift
