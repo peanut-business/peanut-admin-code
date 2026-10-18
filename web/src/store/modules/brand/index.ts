@@ -18,10 +18,20 @@ const IMAGE_FIELDS: (keyof WebsiteConfig)[] = [
 
 function normalizeWebsite(website: WebsiteConfig): WebsiteConfig {
   const normalized = { ...defaultBrand.website, ...website } as WebsiteConfig;
+  const baseUrl = import.meta.env.BASE_URL.replace(/\/$/, '');
   IMAGE_FIELDS.forEach((field) => {
-    const value = normalized[field];
-    if (value && !value.startsWith('/') && !value.startsWith('http')) {
-      normalized[field] = `/${value}`;
+    const value = website[field];
+    const fallbackValue = defaultBrand.website[field];
+    const resolvedValue =
+      typeof value === 'string' && value.trim() ? value : fallbackValue;
+    if (
+      resolvedValue &&
+      !resolvedValue.startsWith('/') &&
+      !resolvedValue.startsWith('http')
+    ) {
+      normalized[field] = `${baseUrl}/${resolvedValue}`;
+    } else {
+      normalized[field] = resolvedValue;
     }
   });
   return normalized;
