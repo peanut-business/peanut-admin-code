@@ -248,6 +248,11 @@ proposal=pathlib.Path(a['proposal'])
 if proposal != base/'PROPOSED-PATH.json' or sha(read(proposal))!='163c87de91a819f60427794788d0cb10dbdf7f009222f39a5490c8167ec227fb': fail('approved proposal drift')
 review=decode(read(review_path))
 if (review.get('status')!='PASS' or review.get('reviewer') in (None,'',actor) or review.get('candidate')!=git(source,'rev-parse','HEAD') or review.get('helper_sha256')!=sha(read(source/'scripts/project-resource-lease')) or review.get('client_sha256')!=sha(read(base/'inspect-old039.mjs'))): fail('independent review missing or stale')
+# The actual primary dev writer must carry the same protection before custody.
+# Historical immutable candidates are evidence, not authorized prune writers.
+primary=root.parent.parent
+if git(primary,'branch','--show-current')!='dev' or read(primary/'scripts/project-resource-lease')!=read(source/'scripts/project-resource-lease') or subprocess.check_output(['git','-C',str(primary),'show','HEAD:scripts/project-resource-lease'])!=read(source/'scripts/project-resource-lease'): fail('primary dev writer has not adopted reviewed protection')
+if subprocess.run(['git','-C',str(primary),'merge-base','--is-ancestor',git(source,'rev-parse','HEAD'),'HEAD'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode: fail('reviewed candidate is not integrated into actual primary dev')
 mutex=root/'mutex';journal=root/'.doc039-retirement-custody.json';receipt=base/'CUSTODY-RETURN.json'
 held=False;identity=None;before={};after={};prepared=False;committed=False
 try:
@@ -1263,8 +1268,20 @@ PY
   fi
 }
 
+# These exact old-runtime bundles require their real owner's explicit release.
+# Expiry, absent journal, PREPARED and COMMITTED never prove a safe consumer exit.
+retirement_requires_explicit_release() {
+  case "$1" in
+    runtime-039-fixed501a-01a143b9|doc039-tls-custody-01a143b9) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 release_lease_locked() {
   local lease_id="$1" expected_owner="${2:-}" lease_dir owner hash type value resource_dir child_lease
+  if [[ -z "$expected_owner" ]] && retirement_requires_explicit_release "$lease_id"; then
+    die 'old 039 retirement requires explicit owner release after safe consumer exit'
+  fi
   if custody_prepared_protects "$lease_id"; then die 'unresolved TLS custody protects this exact lease; reconcile before cleanup'; fi
   lease_dir="$LEASES_DIR/$lease_id"
   [[ -d "$lease_dir" ]] || die "lease does not exist: $lease_id"
@@ -1632,6 +1649,7 @@ case "$COMMAND" in
         # Expiry cannot prove the observer's SQL process has terminated.
         if lease_has_resource "$LEASE_DIR" lease-role collaboration-read-existing; then continue; fi
         LEASE_ID="$(metadata_value "$LEASE_DIR/metadata.tsv" lease)"
+        if retirement_requires_explicit_release "$LEASE_ID"; then continue; fi
         if custody_prepared_protects "$LEASE_ID"; then continue; fi
         if [[ -z "$(active_child_lease "$LEASE_ID" || true)" ]]; then
           release_lease_locked "$LEASE_ID"
