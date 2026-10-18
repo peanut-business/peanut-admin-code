@@ -7589,12 +7589,36 @@ export interface components {
             configured: boolean;
             application: components["schemas"]["InstallationApplicationIdentity"];
             deployment_targets?: string[];
+            database_resources?: {
+                resource_id: string;
+                database_name: string;
+                environments: string[];
+                endpoints: {
+                    /** @enum {string} */
+                    consumer: "host" | "container";
+                    host: string;
+                    port: number;
+                }[];
+            }[];
         };
-        /** @description 数据库业务账号和应用密钥由安装配置器生成；多租户部署必须提供 Platform/Tenant Admin Host。 */
+        /** @description bundled 生成内置数据库账号；registered 选择 APP 自有登记端点并使用已有普通账号。仅发布私有配置，不连接、建库或授权；实际权限由后续 PDO 检查。多租户必须提供 Platform/Tenant Admin Host。 */
         InstallationConfigureRequest: {
             /** @enum {string} */
-            deployment_target: "local-production-preview" | "production" | "production-candidate";
+            deployment_target: "local-development" | "local-production-preview" | "local-multi-tenant-demo" | "production" | "production-candidate";
+            /**
+             * @default bundled
+             * @enum {string}
+             */
+            database_source: "bundled" | "registered";
             database_name?: string;
+            /** @description registered 来源必须选择当前 APP 自有登记中的唯一数据库。 */
+            database_resource_id?: string;
+            /** @enum {string} */
+            database_consumer?: "host" | "container";
+            /** @description 已有普通数据库账号，不修改账号或权限。 */
+            database_user?: string;
+            /** Format: password */
+            database_password?: string;
             platform_hosts?: string;
             tenant_admin_hosts?: string;
         };

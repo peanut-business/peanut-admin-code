@@ -836,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dbb6218edd1efa4eabe08124cf04ac38636d1786ab56a1fc6fbae06d8c0f4ac1"
+            "source_sha256": "706bd6515e6c3b7c227e483cf5966fd8c806f8ec6d8b0eab3213847635979dcd"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -5888,7 +5888,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f4a9b5f3f91ab27660d3832ae01e03e5f86cd59c47adf800ee1d1626d23f5210"
+            "source_sha256": "a0756238867ae025830745e103ab90c6d3f63f2e5595c562d748e3e1d075f4c6"
         },
         {
             "path": "server/app/api/metadata/application/platform.php",
@@ -8847,7 +8847,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b830631f0805daeecef598a3f488b2966996dba0da2115c29b405b2c6984b9e4"
+            "source_sha256": "bb338d25f2f97f9343efeaf96ecf2330cf4fa47d0b52f58d959832ec0cd72966"
         },
         {
             "path": "server/app/common/services/installation/InstallationExecutionHost.php",
@@ -25675,7 +25675,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ee91e6fa8b1d9f7a61471e9c5fc407a26226fa0f54258f63aa5a03431326a657"
+            "source_sha256": "b8ce6cfdebcd3ab10e88fbdd2221db96023b468ee4725277cf4add65d98ff477"
         },
         {
             "path": "server/composer.json",
@@ -26109,7 +26109,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ac9fc0d155a8030d0bc8e62236407c40489efd9cdc65a3cb06cdf3e040258775"
+            "source_sha256": "373172e3c7102d4fd6e78d20f15e8bd1b16cc748e87ea6753a69d955292f1e7d"
         },
         {
             "path": "server/database/init.sql",
@@ -26882,6 +26882,20 @@
             "source_sha256": "d27a6f52dd3e02b9c0c45a804c059f54062a732c9e1a742dfe12e78b80d96cce"
         },
         {
+            "path": "server/database/resource-registry.php",
+            "target": "server/database/resource-registry.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "5064dd1433e99f6579700528780e83ee1459e819259e17131f5cdf8c5351f636"
+        },
+        {
             "path": "server/database/schema/KernelSchema.php",
             "target": "server/database/schema/KernelSchema.php",
             "classification": "managed",
@@ -27158,7 +27172,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "34c9ec369e4f17bfd42c2e5c6fbfea2c0f6c2477750ccca463f0e08b21ea3ab0"
+            "source_sha256": "37f8c6341484278262fb20247b4893d60b75a3c21334a2c5ade79397403cba2b"
         },
         {
             "path": "server/docker/scripts/prepare-install-permissions.sh",
@@ -27214,7 +27228,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a5d7e98fe5a3a5149d92109e2c766493ea8f26a83c88732f4c04709c1814fa58"
+            "source_sha256": "3630a08f63e37a44201760d19e365f62703641dab4dbbc1aba1ccb785100cf0f"
         },
         {
             "path": "server/docker/scripts/recover.sh",
@@ -27298,7 +27312,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "896b02d865f3ddb75c01d670b369f3dcebaa314cc7495edfe82742ca25136d24"
+            "source_sha256": "db25bb5650b2d27166669e75d5baed792779f628cd668d6adf337fce0ac1a482"
         },
         {
             "path": "server/docker/scripts/update-preparation.py",
@@ -27451,7 +27465,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "945d78695e2484ca475b580c0ca5ab5023d60ef1e6befec06f0e5234c45e3036"
+            "source_sha256": "410c7dde8b639f0979467e3e73fa0528bb3222ccb3ba1c10822e4930ec3fca89"
         },
         {
             "path": "server/generated/openapi.json",
@@ -27465,7 +27479,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d6b6ce6a2ab59c270dd519d3e3b5e395d589752c0bb7e1d7f4a2eac0c8a305dd"
+            "source_sha256": "61f9b94ab8916992f8a5a9feb84ec529edebfa91cc6b53aacb000a18cb115426"
         },
         {
             "path": "server/private/storage/.gitkeep",
@@ -27647,7 +27661,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8467e58b54f73122e5009c368594d40e34967286f3020c09fe1ad0f18f1d3476"
+            "source_sha256": "e83ba07c3635aecf9fac52a171091dc04b245816fa55bb08b7eb481cc2aea928"
         },
         {
             "path": "server/public/robots.txt",
@@ -34441,7 +34455,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "633a7d58b8c18a242d0b78433a50cab4ad79f4493152305bb2f8aa396c3fa63b"
+            "source_sha256": "04b075b089d661e4a589f8aef0c152c5658a792a1bdbf1302d1e653ffe8b9e0b"
         },
         {
             "path": "web/src/api/interceptor.ts",
@@ -35044,7 +35058,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6e3a51152050cc4e95723580c7acf48e50d1a5044c0c95b1a8bffe2adda1b736"
+            "source_sha256": "386fc42f5daea0791ac0f5a2201c433593ba1036b50bcd148f46e6735db81b3c"
         },
         {
             "path": "web/src/hooks/chart-option.ts",
@@ -39530,7 +39544,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0c0f97e5c62ca43c3345660c6ce46ce8f8bf34e97504ecca21262cec021644df"
+            "source_sha256": "a0ee483aade7b2ec92c57fc3f8f77c5b646680c19c57b78ee70cc7985283bcb6"
         },
         {
             "path": "web/src/views/install/locale/en-US.ts",
