@@ -270,7 +270,8 @@ try:
  visit(raw_registry)
  required_ids={'peanut-document-content-039-mysql84-20261012','peanut-document-content-039-mysql84-tunnel-20261013','peanut-document-content-039-docker-single-20261013','peanut-document-content-039-hocuspocus-standalone-20261014','peanut-document-content-039-tls-local-20261013'}
  if not required_ids<=registered.keys(): fail('registered old resource missing')
- if registered['peanut-document-content-039-mysql84-20261012']['database']!='peanut_admin_development_doc039_single_20261012' or registered['peanut-document-content-039-hocuspocus-standalone-20261014']['compose_project']!='peanut-hocuspocus-doc039': fail('registered old identity changed')
+ db=registered['peanut-document-content-039-mysql84-20261012']
+ if (db.get('synthetic_databases',{}).get('standalone')!=['peanut_admin_development_doc039_single_20261012'] or db.get('lease_policy',{}).get('physical_endpoint')!='192.168.192.2:20183' or db.get('lease_gate')!='document-content-039-acceptance' or registered['peanut-document-content-039-hocuspocus-standalone-20261014']['compose_project']!='peanut-hocuspocus-doc039'): fail('registered old identity changed')
  all_rows={};now=int(time.time())
  for lease,(owner,candidate,worktree,mh,rh) in specs.items():
   directory=safe(root/'leases'/lease,True);mb=read(directory/'metadata.tsv');rb=read(directory/'resources.tsv');m=meta(mb)
