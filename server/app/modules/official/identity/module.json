@@ -74,6 +74,7 @@
       "PeanutAdmin\\Modules\\Identity\\Audit\\GovernanceAuditFilter",
       "PeanutAdmin\\Modules\\Identity\\Audit\\GovernanceAuditMetadata",
       "PeanutAdmin\\Modules\\Identity\\Auth\\AuthCredential",
+      "PeanutAdmin\\Modules\\Identity\\Auth\\AuthClientSchemaMigrationProof",
       "PeanutAdmin\\Modules\\Identity\\Auth\\LoginChallengeRecord",
       "PeanutAdmin\\Modules\\Identity\\Auth\\PlatformAuthPrincipal",
       "PeanutAdmin\\Modules\\Identity\\Auth\\PlatformAuthService",
