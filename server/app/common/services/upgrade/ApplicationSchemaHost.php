@@ -9,6 +9,7 @@ use app\common\value\installation\ApplicationSourceIdentity;
 use app\common\value\installation\ServerReleaseIdentity;
 use app\platform\infrastructure\plugin\PluginLockResolver;
 use app\platform\services\plugin\PluginLifecycleService;
+use PeanutAdmin\Modules\Identity\Auth\AuthClientSchemaMigrationProof;
 use PDO;
 use RuntimeException;
 
@@ -40,7 +41,6 @@ final class ApplicationSchemaHost
     public static function migrationPrestate(PDO $pdo, array $migration, array $precedingPending = [], bool $planning = false): array
     {
         [$id, $sql, $sha] = self::prestateIdentity($migration);
-        $constraintNames = self::prestateConstraintNames($pdo, $id);
         $before = [];
         foreach ($precedingPending as $row) {
             if (!is_array($row)) { throw new RuntimeException('APPLICATION_SCHEMA_PREDECESSOR_IDENTITY_REQUIRED'); }
@@ -50,13 +50,37 @@ final class ApplicationSchemaHost
             }
             $before[$previousId] = $previousSha;
         }
+        if ($id === '20261007-auth-client-schema') {
+            if (!class_exists(AuthClientSchemaMigrationProof::class)) {
+                throw new RuntimeException('APPLICATION_SCHEMA_AUTH_CONTRACT_UNAVAILABLE');
+            }
+            $names = self::prestateConstraintNames($pdo, $id);
+            // This SQL changes only the named CHECK/index. Identity owns its
+            // necessary client predicate and target metadata, not a whole-row hash.
+            try { $before = AuthClientSchemaMigrationProof::before($pdo); }
+            catch (RuntimeException $exception) {
+                $code = match ($exception->getMessage()) {
+                    'IDENTITY_AUTH_CLIENT_PROOF_TARGET_UNSUPPORTED' => 'APPLICATION_SCHEMA_AUTH_TARGET_UNSUPPORTED',
+                    'IDENTITY_AUTH_CLIENT_PROOF_CLIENT_PRESTATE_INVALID' => 'APPLICATION_SCHEMA_AUTH_CLIENT_PRESTATE_INVALID',
+                    default => null,
+                };
+                // Observation/driver/unknown failures abort the entire read;
+                // only these two completed business observations are blocked items.
+                if ($code === null || $exception->getPrevious() !== null) { throw $exception; }
+                throw new RuntimeException($code, 0, $exception);
+            }
+            return ['migration_id' => $id, 'sha256' => $sha, 'status' => 'ready',
+                'complete_preconditions_proven' => true, 'application_prerequisites' => [],
+                'proof' => ['contract' => AuthClientSchemaMigrationProof::class, 'before' => $before],
+                'constraint_names' => $names, 'tables' => [], 'readonly' => true];
+        }
+        $constraintNames = self::prestateConstraintNames($pdo, $id);
         $menu = ['id','pid','type','name','icon','sort','perms','paths','component','is_cache','is_show','is_disable'];
         $definition = ['id','key','module_key','scope','parent_key','type','name','route_name','route_path','component_key','icon','sort_order','required_permission_id','client_keys_json','status'];
         $required = match ($id) {
             '20260909-notification-sms-reservation' => ['pa_notice_log' => ['id','tenant_id','channel','receiver','scene_id','status','send_time','verify_code_hash']],
             '20261004-group-default-navigation' => ['pa_system_menu' => $menu, 'pa_menu_definition' => $definition, 'pa_permission' => ['id','key']],
             '20261004-menu-stable-identities' => ['pa_system_menu' => [...$menu,'upstream_defaults_json','menu_conflict_json'], 'pa_menu_definition' => [...$definition,'upstream_defaults_json','menu_conflict_json']],
-            '20261007-auth-client-schema' => ['pa_tenant_session' => ['client_key'], 'pa_auth_security_event' => ['ip_address','occurred_at']],
             '20261007-readiness-permission', '20261012-align-platform-ops-permission-ownership' => ['pa_permission' => ['id','key','module_key','type','name','description','risk_level','status','manifest_version','created_at','updated_at','retired_at']],
             '20261012-align-department-canonical-permissions' => [
                 'pa_system_menu' => [...$menu,'menu_key','parent_key','module_key','upstream_defaults_json','menu_conflict_json'],
@@ -137,11 +161,6 @@ final class ApplicationSchemaHost
             $proof['stable_matches'] = self::prestateCount($pdo, $with . 'SELECT COUNT(*) FROM menu_identity_unique');
             $proof['custom_matches'] = self::prestateCount($pdo, $with . 'SELECT COUNT(*) FROM pa_system_menu m LEFT JOIN menu_identity_unique u ON u.id=m.id WHERE u.id IS NULL');
             self::prestateZero($pdo, "SELECT COUNT(*) FROM pa_system_menu WHERE id>=4294967295 OR id<1 OR pid<0 OR pid>4294967295");
-        } elseif ($id === '20261007-auth-client-schema') {
-            self::prestateZero($pdo, "SELECT COUNT(*) FROM pa_tenant_session WHERE NOT (CHAR_LENGTH(client_key) BETWEEN 1 AND 64 AND REGEXP_LIKE(client_key,'^[a-z]','c') AND NOT REGEXP_LIKE(client_key,'[^a-z0-9-]','c')) OR client_key IS NULL");
-            $proof['client_check_rows'] = self::prestateCount($pdo, 'SELECT COUNT(*) FROM pa_tenant_session');
-            // The immutable SQL deliberately replaces a differently shaped named index.
-            $proof['auth_ip_index'] = $facts['pa_auth_security_event']['indexes']['idx_auth_event_ip'] ?? [];
         } elseif ($id === '20261007-readiness-permission') {
             self::prestateZero($pdo, "SELECT COUNT(*) FROM pa_permission WHERE `key`='readiness/checklist' AND (module_key<>'peanut.admin' OR type<>'api')");
             $proof['catalog_matches'] = self::prestateCount($pdo, "SELECT COUNT(*) FROM pa_permission WHERE `key`='readiness/checklist'");
@@ -610,28 +629,47 @@ final class ApplicationSchemaHost
                     $proofs = $this->sourceDevelopmentEvidence($current, $maintenancePath, $recoveryPath, $baseline);
                     if (!$this->sourceSame($expected['evidence'] ?? null, $proofs)) { throw new RuntimeException('APPLICATION_SCHEMA_PLAN_STALE'); }
                 }
-                $completed = [];
-                $before = function (PDO $actual, array $migration) use ($pdo, $baseline, $recheck, $current, $maintenancePath, $recoveryPath, $proofs, &$completed): void {
+                $completed = []; $businessBefore = []; $businessPoststates = [];
+                $before = function (PDO $actual, array $migration) use ($pdo, $baseline, $recheck, $current, $maintenancePath, $recoveryPath, $proofs, &$completed, &$businessBefore): void {
                     $recheck();
                     if ($actual !== $pdo || $this->sourceDevelopmentEvidence($current, $maintenancePath, $recoveryPath, $baseline) !== $proofs) {
                         throw new RuntimeException('APPLICATION_SCHEMA_WINDOW_CHANGED');
                     }
                     $this->assertSourceBaseline($pdo, $baseline, $completed, $migration, 'before');
                     $proof = self::migrationPrestate($pdo, $migration, [], false);
-                    if (($proof['proof']['shape'] ?? null) !== 'before_additions') { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_PROVENANCE_PARTIAL'); }
+                    if ($migration['id'] === '20261007-auth-client-schema') {
+                        $businessBefore[$migration['id']] = $proof['proof']['before'];
+                    } elseif ($migration['id'] === '20261016-module-migration-provenance') {
+                        if (($proof['proof']['shape'] ?? null) !== 'before_additions') { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_PROVENANCE_PARTIAL'); }
+                    } else { throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_POSTSTATE_REQUIRED'); }
+                    $recheck();
                 };
-                $after = function (PDO $actual, array $migration) use ($pdo, $baseline, $recheck, $current, $maintenancePath, $recoveryPath, $proofs, &$completed): void {
+                $after = function (PDO $actual, array $migration) use ($pdo, $baseline, $recheck, $current, $maintenancePath, $recoveryPath, $proofs, &$completed, &$businessBefore, &$businessPoststates): void {
                     $recheck();
                     if ($actual !== $pdo || $this->sourceDevelopmentEvidence($current, $maintenancePath, $recoveryPath, $baseline) !== $proofs) {
                         throw new RuntimeException('APPLICATION_SCHEMA_WINDOW_CHANGED');
                     }
                     $this->assertSourceBaseline($pdo, $baseline, $completed, $migration, 'after');
+                    if ($migration['id'] === '20261007-auth-client-schema') {
+                        $before = $businessBefore[$migration['id']] ?? null;
+                        if (!is_array($before)) { throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_PROOF_REQUIRED'); }
+                        $observed = AuthClientSchemaMigrationProof::after($pdo, $before);
+                        if (($observed['target_metadata_verified'] ?? null) !== true || !is_array($observed['tables'] ?? null)
+                            || !is_array($observed['client_check'] ?? null) || !is_array($observed['ip_index'] ?? null)) {
+                            throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_POSTSTATE_REQUIRED');
+                        }
+                        $businessPoststates[$migration['id']] = ['contract' => AuthClientSchemaMigrationProof::class,
+                            'scope' => 'target-schema-metadata', 'sha256' => $migration['checksum'], 'target_metadata_sha256' => $this->digest(
+                                array_intersect_key($observed, array_flip(['tables', 'client_check', 'ip_index'])))];
+                        unset($businessBefore[$migration['id']]);
+                    }
+                    $recheck();
                     $completed[] = $migration['id'];
                 };
                 $record = null;
                 $runner->run($files, $target, $versions['release_sequence_version'], $operation === 'verify',
                     $operation === 'apply' ? $before : null,
-                    function (PDO $actual, array $selection) use ($pdo, $baseline, $recheck, $operation, $current, $maintenancePath, $recoveryPath, $proofs, $expected, &$record): void {
+                    function (PDO $actual, array $selection) use ($pdo, $baseline, $recheck, $operation, $current, $maintenancePath, $recoveryPath, $proofs, $expected, &$record, &$businessPoststates): void {
                         $recheck();
                         if ($actual !== $pdo || $selection['pending'] !== []) { throw new RuntimeException('APPLICATION_SCHEMA_VERIFY_INCOMPLETE'); }
                         if ($operation === 'apply' && $selection['applied'] !== $baseline['pending']) { throw new RuntimeException('APPLICATION_SCHEMA_APPLIED_USE_VERIFY'); }
@@ -639,9 +677,21 @@ final class ApplicationSchemaHost
                             throw new RuntimeException('APPLICATION_SCHEMA_WINDOW_CHANGED');
                         }
                         $this->assertSourceBaseline($pdo, $baseline, $baseline['pending'], null, 'completed');
+                        if (in_array('20261007-auth-client-schema', $baseline['pending'], true)) {
+                            if ($operation === 'verify') {
+                                $businessPoststates = $expected['business_poststates'] ?? [];
+                                $observed = AuthClientSchemaMigrationProof::before($pdo);
+                                if (($businessPoststates['20261007-auth-client-schema']['target_metadata_sha256'] ?? null) !== $this->digest(
+                                    array_intersect_key($observed, array_flip(['tables', 'client_check', 'ip_index'])))) {
+                                    throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_POSTSTATE_REQUIRED');
+                                }
+                            } elseif (!isset($businessPoststates['20261007-auth-client-schema'])) {
+                                throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_PROOF_REQUIRED');
+                            }
+                        }
                         $record = ['schema_version' => 1, 'protocol' => 'peanut.source-development-schema-result.v1',
                             'scope' => 'application-schema', 'maintenance_scope' => 'source-development', 'status' => 'completed',
-                            'operation' => $operation, 'binding' => $current, 'baseline' => $baseline, 'application' => $selection,
+                            'operation' => $operation, 'binding' => $current, 'baseline' => $baseline, 'application' => $selection, 'business_poststates' => $businessPoststates,
                             'validation_only' => $current['validation_only'],
                             'recovery_references' => $operation === 'apply' ? ($proofs['recovery']['references'] ?? null) : ($expected['recovery_references'] ?? null),
                             'external_gates' => 'not_evaluated',
@@ -678,8 +728,12 @@ final class ApplicationSchemaHost
                     'diagnostic_sha256' => hash('sha256', $exception->getMessage()), 'readonly' => true];
                 $blocked = true;
             }
-            $poststate = $id === '20261016-module-migration-provenance' ? 'exact_provenance_shape' : 'business_preservation_contract_required';
-            if ($poststate !== 'exact_provenance_shape') {
+            $poststate = match ($id) {
+                '20261016-module-migration-provenance' => 'exact_provenance_shape',
+                '20261007-auth-client-schema' => AuthClientSchemaMigrationProof::class,
+                default => 'business_preservation_contract_required',
+            };
+            if ($poststate === 'business_preservation_contract_required') {
                 $requirements[] = ['migration_id' => $id, 'code' => 'APPLICATION_SCHEMA_BUSINESS_POSTSTATE_REQUIRED'];
             }
             $chain[] = ['migration_id' => $id, 'sha256' => $migration['checksum'],

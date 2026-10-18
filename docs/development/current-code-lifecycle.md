@@ -133,6 +133,8 @@ app/event.php保留AppInit、HttpRun、HttpEnd、LogLevel和LogWrite项，但默
 
 源码阶段账本按原有序链核对已完成前缀、当前 applying 与尚未执行项，逐条使用 SQL 真实发行身份；旧历史的完整原行保持不变。该核对不替代业务后态或恢复准入，当前多条待迁移链仍在这些合同齐备前拒绝 apply。
 
+认证 CHECK／IP 索引迁移没有行 DML，由 Identity 的公开业务证明检查必要 client 前态、原目标定义及精确目标后态。公共宿主在 SQL 前后调用同一证明，只封存目标元数据摘要，不扫描令牌或事件原行，不因无关自定义列或触发器拒绝；两条 DDL 之间仍须保留实际失败与恢复边界。
+
 File 四条 canonical adoption 目标若按既有证明选择执行原 SQL，官方执行器在标记 applied 前再次调用原 File 证明，必须观察到完整后态并返回 adopt；证明失败保留 failed 事实。此检查覆盖原证明的结构与数据不变量，逐原行保全、触发器影响及恢复范围仍须由实际迁移合同和维护窗口覆盖。
 
 完整上游升级包的 manifest 固定 `upgrader.scope=source`，只携带源码预检与 Scaffold 工具，不携带运行实例的数据库或宿主升级驱动；迁移源码仍按 append-only 清单核完整性。运行实例只消费 APP 自身发行的 server 包。
