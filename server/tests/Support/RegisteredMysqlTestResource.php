@@ -256,7 +256,14 @@ final class RegisteredMysqlTestResource
             $scope = str_replace('<run_id>', $runId, $resource['namespace']);
         }
         $gate = $p0e ? 'p0e-runtime-qualification' : ($resource['lease_gate'] ?? null);
-        if ((!$p0e && ($resource['application_runtime'] ?? null) !== true)
+        // Match the native environment guard's isolated development-test contract.
+        // Registration and the same actual owner must agree before any connection.
+        $developmentTest = $environment['PEANUT_DATABASE_ENVIRONMENT'] === 'development-test'
+            && ($resource['application_runtime'] ?? null) === false
+            && ($resource['lifecycle'] ?? null) === 'ephemeral'
+            && ($resource['owner'] ?? null) === $environment['PEANUT_DATABASE_LEASE_OWNER']
+            && ($lease['metadata']['parent_lease'] ?? null) === '';
+        if ((!$p0e && !$developmentTest && ($resource['application_runtime'] ?? null) !== true)
             || ($resource['service_type'] ?? null) !== 'mysql'
             || ($resource['fallback'] ?? null) !== 'none'
             || !is_string($version) || preg_match('/^8\.4(?:\.[0-9]+)?$/D', $version) !== 1
