@@ -131,7 +131,7 @@ ensure_env() {
         {
             printf '%s\n' 'APP_ENV=development'
             printf '%s\n' 'APP_DEBUG=true'
-            printf '%s\n' 'DEPLOYMENT_MODE=standalone'
+            printf '%s\n' 'DEPLOYMENT_MODE=multi-tenant'
         } > "$backend_env"
         chmod 600 "$backend_env"
         printf 'Created backend environment in %s\n' "$backend_env"
@@ -142,7 +142,8 @@ ensure_env() {
     set_env_value "$backend_env" APP_DEBUG true
     set_env_value "$backend_env" PEANUT_INSTALLATION_SOURCE_MODE development
     set_env_value "$backend_env" PEANUT_DEPLOYMENT_TARGET local-development
-    set_env_value "$backend_env" DEPLOYMENT_MODE standalone
+    # Respect an explicitly selected Edition; source development defaults to MT.
+    set_env_default "$backend_env" DEPLOYMENT_MODE multi-tenant
     set_env_value "$backend_env" DB_PREFIX pa_
     grep -q '^JWT_SECRET=..' "$backend_env" || set_env_value "$backend_env" JWT_SECRET "$(make_secret 32)"
     grep -q '^ASYNC_SIGNING_KEY=..' "$backend_env" || set_env_value "$backend_env" ASYNC_SIGNING_KEY "$(make_secret 32)"
