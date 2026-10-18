@@ -16,6 +16,7 @@ Usage:
     --resource <type=value> [--resource <type=value> ...]
   scripts/project-resource-lease renew --lease <run-id> --owner <owner> [--ttl <seconds>]
   scripts/project-resource-lease release --lease <run-id> --owner <owner>
+  scripts/project-resource-lease 039-retirement-custody --review-receipt <private-json>
   scripts/project-resource-lease 039-tls-custody-transfer <normal claim options> \
     --authority-repository <Project-root> --authority-commit <40-hex> \
     --task-path TASKS/plan/queue/T00018.json --receipt <fixed-private-path>
@@ -183,6 +184,144 @@ validate_resource() {
   value="${resource#*=}"
   [[ "$type" =~ ^[a-z][a-z0-9_-]{0,31}$ ]] || die "invalid resource type: $type"
   [[ -n "$value" && "$value" != *$'\n'* && "$value" != *$'\t'* ]] || die "resource value must be non-empty and contain no tabs/newlines: $type"
+}
+
+# Exact, Human-approved retirement of the two still-protected old 039 bundles.
+# No resource is released/reclaimed and no Workflow Session is resumed.
+retirement_custody() {
+  exec python3 - "$REGISTRY_ROOT" "$REPO_ROOT" "$1" <<'PY'
+import hashlib, json, os, pathlib, stat, subprocess, sys, time
+root, source, review_path = map(pathlib.Path, sys.argv[1:])
+actor = '01a143b9-914f-7262-8a80-a63df8209b5e'
+project = pathlib.Path('/Users/xing/Documents/peanut/peanut-admin-project')
+registry = project/'resources/project-resources.json'
+base = pathlib.Path('/Users/xing/.codex/visualizations/2026/10/16')/actor/'039-retirement-20261018/native-retirement-path'
+approval = project/'.local/evidence/scaffold-completion-01a141d3/retirement/039-closeout-dispatch.json'
+approval_sha = 'b21998839bfb4b1dc04034ded6af0c90127172173e45df7e87946b99d970bd8e'
+registry_sha = 'a26e8008b7349efd933cdfd9eab7eb60c517adaff4912f7be4bde971d7990124'
+specs = {
+ 'runtime-039-fixed501a-01a143b9': ('wc_sess_7KIOVawdddc69rNr', '501a9cdef34ce4b7ee39fe782da33904f1cfd513', '/Users/xing/Documents/peanut/.webcodex-managed-worktrees/doc039-operator-01a143b9', '3afe2fada08257f84b91ee498fe2a6ce126db18ea5df566b2961b5ef77dd7e55', '56bb244c0d355053f9e594e3885070d34fb72e9fd7bc575964d0ff5732835897'),
+ 'doc039-tls-custody-01a143b9': (actor, '0f1101760f83b3dfd4d7368f5b2ca6af12e97281', '/Users/xing/Documents/peanut/.webcodex-managed-worktrees/doc039-read-existing-01a143b9', '612e351ab1871febcfd3bf59d672669e5a66ecd46673926dd618af0e9ed3cf17', '15d9ef41eb4de2e070319978e136143e249389f24afb7939f70de6172f82e521')
+}
+def fail(message): raise SystemExit('resource-lease: 039 retirement '+message)
+def sha(raw): return hashlib.sha256(raw).hexdigest()
+def safe(p, directory=False):
+ p = pathlib.Path(p)
+ if not p.is_absolute() or str(p.resolve()) != str(p): fail('unsafe path')
+ s = p.stat()
+ if s.st_uid != os.geteuid() or s.st_mode & 0o022 or (not directory and (not stat.S_ISREG(s.st_mode) or s.st_nlink != 1)) or (directory and not stat.S_ISDIR(s.st_mode)): fail('unsafe owner/type/mode')
+ return p
+def read(p): return safe(p).read_bytes()
+def unique(pairs):
+ result = {}
+ for k,v in pairs:
+  if k in result: fail('duplicate field')
+  result[k] = v
+ return result
+def decode(raw): return json.loads(raw, object_pairs_hook=unique)
+def meta(raw): return unique([line.split('\t',1) for line in raw.decode().splitlines()])
+def sync(p):
+ fd=os.open(p,os.O_RDONLY)
+ try: os.fsync(fd)
+ finally: os.close(fd)
+def create(p, raw):
+ fd=os.open(p,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+ with os.fdopen(fd,'wb') as f: f.write(raw);f.flush();os.fsync(f.fileno())
+ sync(p.parent)
+def encoded(value): return (json.dumps(value,ensure_ascii=False,sort_keys=True)+'\n').encode()
+def replace(p, raw):
+ tmp=p.with_name(p.name+'.039-retirement-'+str(os.getpid()))
+ create(tmp,raw);os.replace(tmp,p);sync(p.parent)
+def git(p,*args): return subprocess.check_output(['git','-C',str(p),*args],text=True).strip()
+if os.geteuid()!=501 or os.environ.get('CODEX_THREAD_ID')!=actor: fail('wrong actual native actor')
+safe(root,True);safe(source,True);safe(base,True);safe(project,True)
+common=pathlib.Path(git(source,'rev-parse','--git-common-dir'))
+if not common.is_absolute(): common=source/common
+if common.resolve()/ 'peanut-admin-resource-leases' != root or git(source,'remote','get-url','origin')!='git@github.com:peanut-business/peanut-admin-code.git': fail('wrong Code common-dir/origin')
+if os.environ.get('PEANUT_RESOURCE_REGISTRY')!=str(registry) or sha(read(registry))!=registry_sha: fail('current registry drift')
+resolver=source/'scripts/project-resource-registry'
+import runpy
+if pathlib.Path(runpy.run_path(str(resolver),run_name='retirement_registry')['maintainer_source'](registry_sha)).resolve()!=registry: fail('wrong registered Project source')
+a=decode(read(approval))['approval']
+if sha(json.dumps(a,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode())!=approval_sha or a['human_reply']!='对，你这样说我就明白了。允许。': fail('Human approval drift')
+proposal=pathlib.Path(a['proposal'])
+if proposal != base/'PROPOSED-PATH.json' or sha(read(proposal))!='163c87de91a819f60427794788d0cb10dbdf7f009222f39a5490c8167ec227fb': fail('approved proposal drift')
+review=decode(read(review_path))
+if (review.get('status')!='PASS' or review.get('reviewer') in (None,'',actor) or review.get('candidate')!=git(source,'rev-parse','HEAD') or review.get('helper_sha256')!=sha(read(source/'scripts/project-resource-lease')) or review.get('client_sha256')!=sha(read(base/'inspect-old039.mjs'))): fail('independent review missing or stale')
+mutex=root/'mutex';journal=root/'.doc039-retirement-custody.json';receipt=base/'CUSTODY-RETURN.json'
+held=False;identity=None;before={};after={};prepared=False;committed=False
+try:
+ try: mutex.mkdir(mode=0o700)
+ except FileExistsError: fail('existing mutex busy; no stale-lock removal')
+ held=True;identity=(mutex.stat().st_dev,mutex.stat().st_ino);create(mutex/'pid',(str(os.getpid())+'\n').encode())
+ if journal.exists() or journal.is_symlink() or receipt.exists(): fail('existing retirement attempt; reconcile, never replay')
+ raw_registry=decode(read(registry));registered={}
+ def visit(v):
+  if isinstance(v,dict):
+   if 'stable_resource_id' in v: registered[v['stable_resource_id']]=v
+   for x in v.values(): visit(x)
+  elif isinstance(v,list):
+   for x in v: visit(x)
+ visit(raw_registry)
+ required_ids={'peanut-document-content-039-mysql84-20261012','peanut-document-content-039-mysql84-tunnel-20261013','peanut-document-content-039-docker-single-20261013','peanut-document-content-039-hocuspocus-standalone-20261014','peanut-document-content-039-tls-local-20261013'}
+ if not required_ids<=registered.keys(): fail('registered old resource missing')
+ if registered['peanut-document-content-039-mysql84-20261012']['database']!='peanut_admin_development_doc039_single_20261012' or registered['peanut-document-content-039-hocuspocus-standalone-20261014']['compose_project']!='peanut-hocuspocus-doc039': fail('registered old identity changed')
+ all_rows={};now=int(time.time())
+ for lease,(owner,candidate,worktree,mh,rh) in specs.items():
+  directory=safe(root/'leases'/lease,True);mb=read(directory/'metadata.tsv');rb=read(directory/'resources.tsv');m=meta(mb)
+  if sha(mb)!=mh or sha(rb)!=rh: fail('exact record digest drift: '+lease)
+  if (m['lease'],m['owner'],m['thread'],m['candidate'],m['worktree'],m['candidate_repository'],m['parent_lease'],m['status'])!=(lease,owner,actor,candidate,worktree,worktree,'','ACTIVE') or int(m['expires_at'])>now: fail('record identity/status drift')
+  if git(safe(worktree,True),'rev-parse','HEAD')!=candidate or git(worktree,'status','--porcelain','--','scripts/project-resource-lease'): fail('old fixed candidate/cwd drift')
+  rows=[line.split('\t') for line in rb.decode().splitlines()];all_rows[lease]=rows
+  if len(rows)!=len({r[0] for r in rows}) or any(len(r)!=3 or sha((r[1]+'\t'+r[2]).encode())!=r[0] for r in rows): fail('invalid resource rows')
+  before[lease]={'metadata':mb,'resources':rb}
+  n=dict(m,owner=actor,expires_at=str(now+3600))
+  after[lease]=''.join(k+'\t'+n[k]+'\n' for k in m).encode()
+ for p in (root/'leases').iterdir():
+  if p.name.startswith('.'): continue
+  m=meta(read(safe(p,True)/'metadata.tsv'))
+  if p.name not in specs and (m.get('parent_lease') in specs or m.get('owner') not in (actor,)): fail('other owner/child present')
+ locks={}
+ for p in (root/'resources').iterdir():
+  safe(p,True);holder=read(p/'lease').decode().strip()
+  if holder not in specs: continue
+  t=read(p/'type').decode().strip();v=read(p/'value').decode().strip()
+  if p.name!=sha((t+'\t'+v).encode()) or [p.name,t,v] not in all_rows[holder]: fail('owned physical lock drift')
+  locks[p.name]={'lease':holder,'type':t,'value':v}
+ for lease,rows in all_rows.items():
+  for h,t,v in rows:
+   p=root/'resources'/h
+   if p.exists() and read(p/'lease').decode().strip() not in specs: fail('foreign resource lock')
+   required=(lease.startswith('doc039-tls-') or t in ('mysql-schema','port','docker-container','application-root','candidate-role','workflow-session','worktree','output-dir'))
+   if required and (h not in locks or locks[h]['lease']!=lease): fail('required physical protection missing')
+ info=decode(subprocess.check_output(['docker','inspect','--format','{"id":{{json .Id}},"name":{{json .Name}},"state":{{json .State.Status}},"started":{{json .State.StartedAt}},"restart":{{json .RestartCount}},"cmd":{{json .Config.Cmd}}}','peanut-hocuspocus-doc039-collaboration-1']))
+ if info!={'id':'d34a95c60567b9b1520db5c1e9ab2cecbac626afafdd951e03c77264b39f2ba2','name':'/peanut-hocuspocus-doc039-collaboration-1','state':'running','started':'2026-10-17T05:21:07.957542167Z','restart':0,'cmd':['node','dist/src/main.js']}: fail('old actual container drift')
+ backup=base/'custody-original-records';backup.mkdir(mode=0o700)
+ for lease,files in before.items():
+  p=backup/lease;p.mkdir(mode=0o700)
+  create(p/'metadata.tsv',files['metadata']);create(p/'resources.tsv',files['resources'])
+ j={'schema':'doc039-retirement-custody/v1','state':'PREPARED','actor':actor,'uid':os.geteuid(),'writer_pid':os.getpid(),'approval_sha256':approval_sha,'registry_sha256':registry_sha,'review_sha256':sha(read(review_path)),'retirement_only':True,'closed_session_provenance':'wc_sess_7KIOVawdddc69rNr remains Closed; no borrowed write permission','container':info,'physical_locks':locks,'before':{k:{'metadata_sha256':sha(v['metadata']),'resources_sha256':sha(v['resources'])} for k,v in before.items()},'after':{k:sha(v) for k,v in after.items()},'backup':str(backup),'expires_at':now+3600}
+ create(journal,encoded(j));prepared=True
+ for lease,raw in after.items(): replace(root/'leases'/lease/'metadata.tsv',raw)
+ for lease,files in before.items():
+  if read(root/'leases'/lease/'metadata.tsv')!=after[lease] or read(root/'leases'/lease/'resources.tsv')!=files['resources']: fail('post-write record mismatch')
+ for h,v in locks.items():
+  p=root/'resources'/h
+  if any(read(p/k).decode().strip()!=v[k] for k in ('lease','type','value')): fail('post-write lock drift')
+ j['state']='COMMITTED';replace(journal,encoded(j));committed=True
+ create(receipt,encoded(j));print('state=COMMITTED\nleases=2\nresource_locks_released=0\nowner='+actor)
+except BaseException:
+ if prepared and not committed:
+  for lease,files in before.items():
+   p=root/'leases'/lease/'metadata.tsv'
+   if read(p) not in (files['metadata'],after[lease]): fail('rollback refuses unexpected metadata')
+   if read(p)!=files['metadata']: replace(p,files['metadata'])
+  # PREPARED remains a protective stop; never authorize diagnostics after failure.
+ raise
+finally:
+ if held and (mutex.stat().st_dev,mutex.stat().st_ino)==identity and read(mutex/'pid')==(str(os.getpid())+'\n').encode():
+  (mutex/'pid').unlink();mutex.rmdir()
+PY
 }
 
 # One closed maintenance handoff. Authority comes from accepted governance and
@@ -1075,6 +1214,27 @@ validate_parent_lease_locked() {
 custody_prepared_protects() {
   local status
   case "$1" in
+    runtime-039-fixed501a-01a143b9|doc039-tls-custody-01a143b9)
+      if [[ -e "$REGISTRY_ROOT/.doc039-retirement-custody.json" || -L "$REGISTRY_ROOT/.doc039-retirement-custody.json" ]]; then
+        if python3 - "$REGISTRY_ROOT/.doc039-retirement-custody.json" <<'PY'
+import json, os, pathlib, stat, sys
+p=pathlib.Path(sys.argv[1])
+try:
+ s=p.lstat();d=json.loads(p.read_bytes())
+ ok=(stat.S_ISREG(s.st_mode) and s.st_uid==os.geteuid() and s.st_nlink==1 and not s.st_mode & 0o022
+     and d.get('state')=='COMMITTED' and d.get('schema')=='doc039-retirement-custody/v1'
+     and d.get('actor')=='01a143b9-914f-7262-8a80-a63df8209b5e')
+except (OSError, ValueError, TypeError): ok=False
+raise SystemExit(42 if ok else 0)
+PY
+        then return 0
+        else
+          status=$?
+          [[ "$status" == 42 ]] || return 0
+        fi
+      fi ;;
+  esac
+  case "$1" in
     document-content-039-tls-consumer-6c28b9b3-01a133f7|document-content-039-controller-6c28b9b3-01a133f7|doc039-tls-custody-01a143b9) ;;
     *) return 1 ;;
   esac
@@ -1129,6 +1289,11 @@ release_lease_locked() {
 }
 
 case "$COMMAND" in
+  039-retirement-custody)
+    [[ "$#" == 2 && "$1" == --review-receipt ]] || die '039 retirement requires --review-receipt <private-json>'
+    retirement_custody "$2"
+    die 'retirement exec did not replace shell'
+    ;;
   claim|039-tls-custody-transfer)
     LEASE_ID=""
     OWNER=""
