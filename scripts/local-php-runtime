@@ -107,6 +107,22 @@ start_runtime() {
     PEANUT_SERVER_ENV_FILE="$backend_env" "$php_bin" "$repo_dir/server/database/environment-guard.php" --current >/dev/null \
         || die "selected database environment is not current"
 
+    if [ "$foreground_runtime" -eq 1 ]; then
+        cd "$repo_dir/server"
+        exec env \
+            PEANUT_SERVER_ENV_FILE="$backend_env" \
+            HTTP_PROXY= HTTPS_PROXY= ALL_PROXY= http_proxy= https_proxy= all_proxy= \
+            NO_PROXY="127.0.0.1,localhost,192.168.192.2" \
+            no_proxy="127.0.0.1,localhost,192.168.192.2" \
+            "$php_bin" \
+            -d upload_max_filesize=200M \
+            -d post_max_size=210M \
+            -d max_file_uploads=20 \
+            -S "127.0.0.1:$port" \
+            -t "$repo_dir/server/public" \
+            "$repo_dir/server/public/router.php"
+    fi
+
     if is_running; then
         if is_owned_process; then
             if health_check; then
@@ -210,6 +226,8 @@ status_runtime() {
 }
 
 command=${1:-}
+foreground_runtime=0
+[ "$command" = foreground ] && foreground_runtime=1
 [ $# -gt 0 ] && shift
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -224,10 +242,10 @@ done
 case "$log_lines" in ''|*[!0-9]*) die '--log-lines must be a positive integer' ;; esac
 
 case "$command" in
-    start) start_runtime ;;
+    start|foreground) start_runtime ;;
     stop) stop_runtime ;;
     restart) stop_runtime; start_runtime ;;
     status) status_runtime ;;
     logs) [ -f "$log_file" ] || die "log does not exist: $log_file"; tail -n "$log_lines" "$log_file" ;;
-    *) printf 'Usage: %s {start|stop|restart|status|logs} [--env-file path] [--backend-env path] [--pid-file path] [--log-file path] [--log-lines n]\n' "$0" >&2; exit 2 ;;
+    *) printf 'Usage: %s {start|foreground|stop|restart|status|logs} [--env-file path] [--backend-env path] [--pid-file path] [--log-file path] [--log-lines n]\n' "$0" >&2; exit 2 ;;
 esac
