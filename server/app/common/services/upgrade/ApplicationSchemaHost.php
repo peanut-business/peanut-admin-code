@@ -610,21 +610,23 @@ final class ApplicationSchemaHost
                     $proofs = $this->sourceDevelopmentEvidence($current, $maintenancePath, $recoveryPath, $baseline);
                     if (!$this->sourceSame($expected['evidence'] ?? null, $proofs)) { throw new RuntimeException('APPLICATION_SCHEMA_PLAN_STALE'); }
                 }
-                $before = function (PDO $actual, array $migration) use ($pdo, $baseline, $recheck, $current, $maintenancePath, $recoveryPath, $proofs): void {
+                $completed = [];
+                $before = function (PDO $actual, array $migration) use ($pdo, $baseline, $recheck, $current, $maintenancePath, $recoveryPath, $proofs, &$completed): void {
                     $recheck();
                     if ($actual !== $pdo || $this->sourceDevelopmentEvidence($current, $maintenancePath, $recoveryPath, $baseline) !== $proofs) {
                         throw new RuntimeException('APPLICATION_SCHEMA_WINDOW_CHANGED');
                     }
-                    $this->assertSourceBaseline($pdo, $baseline, false);
+                    $this->assertSourceBaseline($pdo, $baseline, $completed, $migration, 'before');
                     $proof = self::migrationPrestate($pdo, $migration, [], false);
                     if (($proof['proof']['shape'] ?? null) !== 'before_additions') { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_PROVENANCE_PARTIAL'); }
                 };
-                $after = function (PDO $actual, array $migration) use ($pdo, $baseline, $recheck, $current, $maintenancePath, $recoveryPath, $proofs): void {
+                $after = function (PDO $actual, array $migration) use ($pdo, $baseline, $recheck, $current, $maintenancePath, $recoveryPath, $proofs, &$completed): void {
                     $recheck();
                     if ($actual !== $pdo || $this->sourceDevelopmentEvidence($current, $maintenancePath, $recoveryPath, $baseline) !== $proofs) {
                         throw new RuntimeException('APPLICATION_SCHEMA_WINDOW_CHANGED');
                     }
-                    $this->assertSourceBaseline($pdo, $baseline, true);
+                    $this->assertSourceBaseline($pdo, $baseline, $completed, $migration, 'after');
+                    $completed[] = $migration['id'];
                 };
                 $record = null;
                 $runner->run($files, $target, $versions['release_sequence_version'], $operation === 'verify',
@@ -632,11 +634,11 @@ final class ApplicationSchemaHost
                     function (PDO $actual, array $selection) use ($pdo, $baseline, $recheck, $operation, $current, $maintenancePath, $recoveryPath, $proofs, $expected, &$record): void {
                         $recheck();
                         if ($actual !== $pdo || $selection['pending'] !== []) { throw new RuntimeException('APPLICATION_SCHEMA_VERIFY_INCOMPLETE'); }
-                        if ($operation === 'apply' && $selection['applied'] !== ['20261016-module-migration-provenance']) { throw new RuntimeException('APPLICATION_SCHEMA_APPLIED_USE_VERIFY'); }
+                        if ($operation === 'apply' && $selection['applied'] !== $baseline['pending']) { throw new RuntimeException('APPLICATION_SCHEMA_APPLIED_USE_VERIFY'); }
                         if ($operation === 'apply' && $this->sourceDevelopmentEvidence($current, $maintenancePath, $recoveryPath, $baseline) !== $proofs) {
                             throw new RuntimeException('APPLICATION_SCHEMA_WINDOW_CHANGED');
                         }
-                        $this->assertSourceBaseline($pdo, $baseline, true, true);
+                        $this->assertSourceBaseline($pdo, $baseline, $baseline['pending'], null, 'completed');
                         $record = ['schema_version' => 1, 'protocol' => 'peanut.source-development-schema-result.v1',
                             'scope' => 'application-schema', 'maintenance_scope' => 'source-development', 'status' => 'completed',
                             'operation' => $operation, 'binding' => $current, 'baseline' => $baseline, 'application' => $selection,
@@ -855,11 +857,12 @@ final class ApplicationSchemaHost
     {
         $ledgerShape = $this->sourceLedgerShape($pdo);
         $ledger = $pdo->query('SELECT * FROM pa_schema_migration ORDER BY migration_id')->fetchAll(PDO::FETCH_ASSOC);
-        $byId = array_column($ledger, null, 'migration_id'); $pending = []; $selected = [];
+        $byId = array_column($ledger, null, 'migration_id'); $pending = []; $selected = []; $releaseVersions = [];
         foreach ($files as $file) {
             $sql = (string) file_get_contents($file); $identity = ApplicationMigrationRunner::releaseIdentity($sql, $default);
             if ($identity['peanut_release'] && version_compare($identity['release_version'], $target, '>')) { continue; }
             $id = basename($file, '.sql'); $sha = hash('sha256', $sql); $selected[$id] = $sha;
+            $releaseVersions[$id] = $identity['release_version'];
             if (!isset($byId[$id])) { $pending[] = $id; continue; }
             if ($byId[$id]['status'] !== 'applied' || $byId[$id]['checksum'] !== $sha) { throw new RuntimeException('APPLICATION_SCHEMA_LEDGER_CONFLICT'); }
             // Historical release_version is deliberately preserved, as in the runner.
@@ -881,7 +884,7 @@ final class ApplicationSchemaHost
         foreach ($moduleRows as $row) { if ($row['status'] !== 'applied') { throw new RuntimeException('APPLICATION_SCHEMA_MODULE_LEDGER_INCOMPLETE'); } }
         $columns = $pdo->query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='pa_module_migration' ORDER BY ORDINAL_POSITION")->fetchAll(PDO::FETCH_COLUMN);
         $shape = $this->sourceModuleShape($pdo);
-        return ['pending' => $pending, 'selected' => $selected, 'target' => $target, 'default_release' => $default,
+        return ['pending' => $pending, 'selected' => $selected, 'release_versions' => $releaseVersions, 'target' => $target, 'default_release' => $default,
             'historical_transferred' => $historical,
             'application_rows_sha256' => $this->digest($ledger), 'application_rows_count' => count($ledger),
             'application_shape_sha256' => $this->digest($ledgerShape),
@@ -889,30 +892,64 @@ final class ApplicationSchemaHost
             'module_shape_sha256' => $this->digest($shape)];
     }
 
-    private function assertSourceBaseline(PDO $pdo, array $baseline, bool $after, bool $applied = false): void
+    /** Preserve original history and only the exact, ordered execution prefix. */
+    private function assertSourceBaseline(PDO $pdo, array $baseline, array $completed, ?array $migration, string $phase): void
     {
-        $id = '20261016-module-migration-provenance';
-        if (($baseline['pending'] ?? null) !== [$id] || ($baseline['selected'][$id] ?? null) !== self::PRESTATE_SQL[$id]) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_PENDING_SCOPE_REQUIRED'); }
+        $pending = $baseline['pending'] ?? null;
+        if (!is_array($pending) || !array_is_list($pending) || $pending === []
+            || !in_array($phase, ['before', 'after', 'completed'], true)
+            || $completed !== array_slice($pending, 0, count($completed))) {
+            throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_PENDING_SCOPE_REQUIRED');
+        }
+        foreach ($pending as $id) {
+            if (!is_string($id) || !isset(self::PRESTATE_SQL[$id]) || ($baseline['selected'][$id] ?? null) !== self::PRESTATE_SQL[$id]
+                || !is_string($baseline['release_versions'][$id] ?? null)) {
+                throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_PENDING_SCOPE_REQUIRED');
+            }
+        }
+        if ($phase === 'completed') {
+            if ($migration !== null || $completed !== $pending) { throw new RuntimeException('APPLICATION_SCHEMA_EXECUTION_PREFIX_CHANGED'); }
+        } elseif ($migration === null || ($pending[count($completed)] ?? null) !== ($migration['id'] ?? null)
+            || ($baseline['selected'][$migration['id']] ?? null) !== ($migration['checksum'] ?? null)
+            || ($baseline['release_versions'][$migration['id']] ?? null) !== ($migration['release_version'] ?? null)) {
+            throw new RuntimeException('APPLICATION_SCHEMA_EXECUTION_PREFIX_CHANGED');
+        }
         $ledger = $pdo->query('SELECT * FROM pa_schema_migration ORDER BY migration_id')->fetchAll(PDO::FETCH_ASSOC);
         if ($this->digest($this->sourceLedgerShape($pdo)) !== $baseline['application_shape_sha256']) { throw new RuntimeException('APPLICATION_SCHEMA_LEDGER_SHAPE_CHANGED'); }
-        $targetRows = array_values(array_filter($ledger, static fn(array $row): bool => $row['migration_id'] === $id));
-        $old = array_values(array_filter($ledger, static fn(array $row): bool => $row['migration_id'] !== $id));
-        if ($this->digest($old) !== $baseline['application_rows_sha256'] || count($old) !== $baseline['application_rows_count']
-            || (!$after && $targetRows !== []) || ($after && (count($targetRows) !== 1 || $targetRows[0]['checksum'] !== self::PRESTATE_SQL[$id]
-                || $targetRows[0]['status'] !== ($applied ? 'applied' : 'applying') || $targetRows[0]['release_version'] !== '5.0.2'
-                || $targetRows[0]['error_code'] !== null || ($applied ? $targetRows[0]['finished_at'] === null : $targetRows[0]['finished_at'] !== null)))) { throw new RuntimeException('APPLICATION_SCHEMA_LEDGER_CHANGED'); }
+        $old = array_values(array_filter($ledger, static fn(array $row): bool => !in_array($row['migration_id'], $pending, true)));
+        if ($this->digest($old) !== $baseline['application_rows_sha256'] || count($old) !== $baseline['application_rows_count']) {
+            throw new RuntimeException('APPLICATION_SCHEMA_LEDGER_CHANGED');
+        }
+        $byId = array_column($ledger, null, 'migration_id');
+        foreach ($pending as $id) {
+            $state = in_array($id, $completed, true) ? 'applied' : ($phase === 'after' && $id === $migration['id'] ? 'applying' : null);
+            $row = $byId[$id] ?? null;
+            if ($state === null) {
+                if ($row !== null) { throw new RuntimeException('APPLICATION_SCHEMA_EXECUTION_PREFIX_CHANGED'); }
+                continue;
+            }
+            if ($row === null || $row['checksum'] !== $baseline['selected'][$id] || $row['status'] !== $state
+                || $row['release_version'] !== $baseline['release_versions'][$id] || $row['error_code'] !== null
+                || $row['started_at'] === null || ($state === 'applied' ? $row['finished_at'] === null : $row['finished_at'] !== null)) {
+                throw new RuntimeException('APPLICATION_SCHEMA_LEDGER_CHANGED');
+            }
+        }
+        $provenance = in_array('20261016-module-migration-provenance', $completed, true)
+            || ($phase === 'after' && $migration['id'] === '20261016-module-migration-provenance');
         $rows = $pdo->query('SELECT * FROM pa_module_migration ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
         $oldRows = [];
         foreach ($rows as $row) {
-            if ($after && (($row['resolution_kind'] ?? null) !== null || ($row['provenance_json'] ?? null) !== null)) { throw new RuntimeException('APPLICATION_SCHEMA_MODULE_ORIGIN_CHANGED'); }
+            if ($provenance && (($row['resolution_kind'] ?? null) !== null || ($row['provenance_json'] ?? null) !== null)) { throw new RuntimeException('APPLICATION_SCHEMA_MODULE_ORIGIN_CHANGED'); }
             $oldRows[] = array_intersect_key($row, array_fill_keys($baseline['module_columns'], true));
         }
         if (count($rows) !== $baseline['module_rows_count'] || $this->digest($oldRows) !== $baseline['module_rows_sha256']) { throw new RuntimeException('APPLICATION_SCHEMA_MODULE_LEDGER_CHANGED'); }
         $shape = $this->sourceModuleShape($pdo);
-        unset($shape['columns']['resolution_kind'], $shape['columns']['provenance_json'],
-            $shape['checks']['chk_module_migration_resolution'], $shape['checks']['chk_module_migration_provenance']);
+        if ($provenance) {
+            unset($shape['columns']['resolution_kind'], $shape['columns']['provenance_json'],
+                $shape['checks']['chk_module_migration_resolution'], $shape['checks']['chk_module_migration_provenance']);
+        }
         if ($this->digest($shape) !== $baseline['module_shape_sha256']) { throw new RuntimeException('APPLICATION_SCHEMA_MODULE_SHAPE_CHANGED'); }
-        if ($after) {
+        if ($provenance) {
             $shape = self::prestateProvenance($pdo, self::prestateTable($pdo, 'pa_module_migration'));
             if ($shape['shape'] !== 'exact_noop') { throw new RuntimeException('APPLICATION_SCHEMA_POSTSTATE_INCOMPLETE'); }
         }

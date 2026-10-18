@@ -131,6 +131,8 @@ app/event.php保留AppInit、HttpRun、HttpEnd、LogLevel和LogWrite项，但默
 
 源码开发 preflight 按真实 pending 顺序列出逐条来源、前置证明和后继依赖；缺少业务终态保全或完整恢复覆盖时，计划仍不授予执行权限。原仅覆盖模块迁移来源字段的两账本恢复合同不能用于包含菜单、权限、通知或认证数据变化的链。已迁移归属的 File 应用历史，只在原不可变 SQL、现行 canonical adoption 声明和原账本 key／checksum／applied 一致时识别为历史保留；不删除原行、不把它记入模块账本、不以历史记录代替当前 File 数据证明。未知额外历史继续拒绝。
 
+源码阶段账本按原有序链核对已完成前缀、当前 applying 与尚未执行项，逐条使用 SQL 真实发行身份；旧历史的完整原行保持不变。该核对不替代业务后态或恢复准入，当前多条待迁移链仍在这些合同齐备前拒绝 apply。
+
 File 四条 canonical adoption 目标若按既有证明选择执行原 SQL，官方执行器在标记 applied 前再次调用原 File 证明，必须观察到完整后态并返回 adopt；证明失败保留 failed 事实。此检查覆盖原证明的结构与数据不变量，逐原行保全、触发器影响及恢复范围仍须由实际迁移合同和维护窗口覆盖。
 
 完整上游升级包的 manifest 固定 `upgrader.scope=source`，只携带源码预检与 Scaffold 工具，不携带运行实例的数据库或宿主升级驱动；迁移源码仍按 append-only 清单核完整性。运行实例只消费 APP 自身发行的 server 包。
