@@ -189,9 +189,15 @@ fi
 installation_mode=$(sed -n 's/^PEANUT_INSTALLATION_MODE=//p' "$FINAL_ENV" | tail -n 1)
 case "$installation_mode" in
   guided)
-    if [ ! -f private/resources/database-provisioned.json ]; then
-        php docker/scripts/provision-database.php --server-root="$SERVER_ROOT" --docker-env="$DOCKER_ENV"
-    fi
+    database_source=$(sed -n 's/^PEANUT_DATABASE_SOURCE=//p' "$FINAL_ENV" | tail -n 1)
+    case "$database_source" in
+      bundled)
+        if [ ! -f private/resources/database-provisioned.json ]; then
+            php docker/scripts/provision-database.php --server-root="$SERVER_ROOT" --docker-env="$DOCKER_ENV"
+        fi ;;
+      registered) : ;; # The existing account/database is checked by the real application PDO.
+      *) echo "database source must be bundled or registered" >&2; exit 1 ;;
+    esac
     write_installing_env
     export PEANUT_SERVER_ENV_FILE="$INSTALLING_ENV"
     php database/environment-guard.php --wait=60

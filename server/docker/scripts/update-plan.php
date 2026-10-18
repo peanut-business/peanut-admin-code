@@ -542,22 +542,22 @@ final class PeanutServerUpdatePlan
             'plan',
             'files-apply', 'files-verify', 'files-recover', 'files-verify-recovery',
             'hold', 'health', 'publish', 'open',
-            'initialize-traffic', 'initialize-owner-traffic', 'close-startup-traffic', 'publish-startup-configuration', 'source-admit',
+            'initialize-traffic', 'initialize-owner-traffic', 'close-startup-traffic', 'publish-startup-configuration', 'configure-startup', 'source-admit',
         ], true)) {
             self::usage();
         }
         $options = [];
         foreach (array_slice($argv, 2) as $argument) {
-            if (preg_match('/^--(instance-server|archive|expected-sha256|workspace)=(.+)$/D', $argument, $matches) !== 1
+            if (preg_match('/^--(instance-server|archive|expected-sha256|workspace|configuration-input)=(.+)$/D', $argument, $matches) !== 1
                 || isset($options[$matches[1]])) {
                 self::usage();
             }
             $options[$matches[1]] = $matches[2];
         }
         $command = $argv[1];
-        $requiredOptions = $command === 'plan'
+        $requiredOptions = $command === 'configure-startup' ? ['instance-server', 'configuration-input'] : ($command === 'plan'
             ? ['instance-server', 'archive', 'expected-sha256', 'workspace']
-            : (in_array($command, ['initialize-traffic', 'initialize-owner-traffic', 'close-startup-traffic', 'publish-startup-configuration'], true) ? ['instance-server'] : ['instance-server', 'workspace']);
+            : (in_array($command, ['initialize-traffic', 'initialize-owner-traffic', 'close-startup-traffic', 'publish-startup-configuration'], true) ? ['instance-server'] : ['instance-server', 'workspace']));
         foreach ($requiredOptions as $required) {
             if (!isset($options[$required])) {
                 self::usage();
@@ -566,7 +566,8 @@ final class PeanutServerUpdatePlan
         if ($command !== 'plan' && (isset($options['archive']) || isset($options['expected-sha256']))) {
             self::usage();
         }
-        if (in_array($command, ['initialize-traffic', 'initialize-owner-traffic', 'close-startup-traffic', 'publish-startup-configuration'], true) && isset($options['workspace'])) {
+        if (($command !== 'configure-startup' && isset($options['configuration-input']))
+            || (in_array($command, ['initialize-traffic', 'initialize-owner-traffic', 'close-startup-traffic', 'publish-startup-configuration', 'configure-startup'], true) && isset($options['workspace']))) {
             self::usage();
         }
 
@@ -584,6 +585,7 @@ final class PeanutServerUpdatePlan
                 'initialize-owner-traffic' => self::initializeTraffic($options['instance-server'], true),
                 'close-startup-traffic' => self::closeStartupTraffic($options['instance-server']),
                 'publish-startup-configuration' => self::publishStartupConfiguration($options['instance-server']),
+                'configure-startup' => self::configureStartup($options['instance-server'], $options['configuration-input']),
                 'source-admit' => self::sourceChildAdmission($options['instance-server'], $options['workspace']),
             };
             echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), PHP_EOL;
@@ -770,6 +772,40 @@ final class PeanutServerUpdatePlan
             $application = new \think\App($serverRoot);
             $application->instance($identity::class, $identity);
             return (new \app\common\services\installation\InstallationConfigurationHost($serverRoot))->publishPending($token);
+        });
+    }
+
+    /** Host first configuration uses the same owner boundary and canonical publisher. */
+    public static function configureStartup(string $serverRoot, string $inputPath): array
+    {
+        $serverRoot = self::ordinaryDirectory($serverRoot, 'server root');
+        $owner = fileowner($serverRoot);
+        if (!is_int($owner) || !in_array(posix_geteuid(), [0, $owner], true)) {
+            throw new RuntimeException('configuration requires its deployment owner');
+        }
+        self::assertAdmissionBoundary($serverRoot);
+        return self::withInstanceLock($serverRoot, static function () use ($serverRoot, $inputPath): array {
+            if (file_exists(self::trafficReadyPath($serverRoot)) || is_link(self::trafficReadyPath($serverRoot))
+                || file_exists(self::maintenancePath($serverRoot)) || file_exists(self::currentPointerPath($serverRoot))) {
+                throw new RuntimeException('configuration owner requires closed initial traffic');
+            }
+            $stat = @lstat($inputPath);
+            if ($inputPath === '' || $inputPath[0] !== '/' || realpath($inputPath) !== $inputPath
+                || !is_array($stat) || !is_file($inputPath) || is_link($inputPath)
+                || $stat['uid'] !== posix_geteuid() || $stat['nlink'] !== 1
+                || ($stat['mode'] & 0777) !== 0600 || $stat['size'] > 65536) {
+                throw new RuntimeException('configuration input requires an owner-held regular mode-0600 file');
+            }
+            $input = self::json(self::regularBytes($inputPath, 'configuration input'));
+            if (count($input) !== 2 || !is_string($input['setup_token'] ?? null) || !is_array($input['configuration'] ?? null)) {
+                throw new RuntimeException('configuration input requires setup_token and configuration');
+            }
+            require_once $serverRoot . '/vendor/autoload.php';
+            $identity = self::runtimeIdentity($serverRoot);
+            $application = new \think\App($serverRoot);
+            $application->instance($identity::class, $identity);
+            return (new \app\common\services\installation\InstallationConfigurationHost($serverRoot))
+                ->configureForOwner($input['setup_token'], $input['configuration']);
         });
     }
 
@@ -2481,6 +2517,7 @@ final class PeanutServerUpdatePlan
     {
         fwrite(STDERR, "Usage: php update-plan.php plan --instance-server=/absolute/server --archive=/absolute/server.tar.gz --expected-sha256=<trusted-64-hex> --workspace=/absolute/update-workspace\n");
         fwrite(STDERR, "       php update-plan.php files-apply|files-verify|files-recover|files-verify-recovery|hold|health|publish|open --instance-server=/absolute/server --workspace=/absolute/update-workspace\n");
+        fwrite(STDERR, "       php update-plan.php configure-startup --instance-server=/absolute/server --configuration-input=/absolute/private/input.json\n");
         exit(64);
     }
 }

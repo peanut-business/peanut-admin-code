@@ -16,6 +16,22 @@ try {
     if (realpath($serverRoot) !== $serverRoot || !is_dir($serverRoot) || is_link($serverRoot)) {
         throw new RuntimeException('server root is invalid');
     }
+    $envPath = $serverRoot . '/.env';
+    if (!is_file($envPath) || is_link($envPath)) {
+        throw new RuntimeException('server/.env is unavailable');
+    }
+    $envStat = lstat($envPath);
+    if (!is_array($envStat) || ($envStat['nlink'] ?? 0) !== 1 || ($envStat['mode'] & 0777) !== 0600) {
+        throw new RuntimeException('server/.env must be one regular mode-0600 file');
+    }
+    $environment = parse_ini_file($envPath, false, INI_SCANNER_RAW);
+    if (!is_array($environment)) {
+        throw new RuntimeException('server/.env is invalid');
+    }
+    if (($environment['PEANUT_DATABASE_SOURCE'] ?? null) !== 'bundled') {
+        throw new RuntimeException('only the bundled database source permits provisioning');
+    }
+
     if ($dockerEnvPath !== $serverRoot . '/docker/.env' || !is_file($dockerEnvPath) || is_link($dockerEnvPath)) {
         throw new RuntimeException('Docker environment is unavailable');
     }
@@ -29,18 +45,6 @@ try {
         throw new RuntimeException('Docker environment is missing MYSQL_ROOT_PASSWORD');
     }
 
-    $envPath = $serverRoot . '/.env';
-    if (!is_file($envPath) || is_link($envPath)) {
-        throw new RuntimeException('server/.env is unavailable');
-    }
-    $envStat = lstat($envPath);
-    if (!is_array($envStat) || ($envStat['nlink'] ?? 0) !== 1 || ($envStat['mode'] & 0777) !== 0600) {
-        throw new RuntimeException('server/.env must be one regular mode-0600 file');
-    }
-    $environment = parse_ini_file($envPath, false, INI_SCANNER_RAW);
-    if (!is_array($environment)) {
-        throw new RuntimeException('server/.env is invalid');
-    }
     foreach ([
         'PEANUT_DATABASE_RESOURCE_ID',
         'PEANUT_DATABASE_ENDPOINT_ID',

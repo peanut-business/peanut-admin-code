@@ -38,10 +38,24 @@
         <el-input v-model="form.setupToken" type="password" show-password placeholder="Setup Token" autocomplete="off" />
         <template v-if="!configuration?.configured">
           <el-select v-model="configurationInput.deployment_target"><el-option v-for="target in configuration?.deployment_targets || []" :key="target" :label="target" :value="target" /></el-select>
-          <el-input v-model="configurationInput.database_name" placeholder="本实例登记的数据库名" />
+          <el-select v-model="configurationInput.database_source">
+            <el-option label="内置数据库" value="bundled" /><el-option label="已登记的数据库" value="registered" />
+          </el-select>
+          <el-input v-if="configurationInput.database_source === 'bundled'" v-model="configurationInput.database_name" placeholder="本实例数据库名（可自动生成）" />
+          <template v-else>
+            <el-select v-model="configurationInput.database_resource_id" placeholder="选择本实例已登记的数据库">
+              <el-option v-for="resource in configuration?.database_resources || []" :key="resource.resource_id" :label="resource.database_name" :value="resource.resource_id" />
+            </el-select>
+            <el-select v-model="configurationInput.database_consumer" placeholder="应用连接方式">
+              <el-option v-for="endpoint in selectedDatabase?.endpoints || []" :key="endpoint.consumer" :label="`${endpoint.consumer === 'host' ? '主机' : '容器'}：${endpoint.host}:${endpoint.port}`" :value="endpoint.consumer" />
+            </el-select>
+            <el-input v-model="configurationInput.database_user" placeholder="已有普通数据库账号" autocomplete="off" />
+            <el-input v-model="configurationInput.database_password" type="password" show-password placeholder="数据库密码" autocomplete="off" />
+            <p>仅保存配置，不创建数据库或修改账号权限；下一步检查真实连接。</p>
+          </template>
           <el-input v-model="configurationInput.platform_hosts" placeholder="Platform Hosts（多租户）" />
           <el-input v-model="configurationInput.tenant_admin_hosts" placeholder="Tenant Admin Hosts（多租户）" />
-          <el-button :loading="refreshing" :disabled="!form.setupToken.trim()" @click="saveConfiguration">保存配置</el-button>
+          <el-button :loading="refreshing" :disabled="!form.setupToken.trim() || !canSaveConfiguration" @click="saveConfiguration">保存配置</el-button>
         </template>
         <p v-if="configuration?.state === 'pending'">配置待实例正常发布，请重新读取确认，不重复提交。</p>
         <el-button :loading="refreshing" @click="readConfiguration">重新读取配置</el-button>
@@ -318,9 +332,12 @@
   const diagnostic = ref<Record<string, unknown> | null>(null);
   const environment = ref<InstallationPreflight | null>(null);
   const configuration = ref<InstallationConfiguration | null>(null);
+  const canSaveConfiguration = ref(false);
   const databaseReport = ref<InstallationStatus | null>(null);
   const canRecheckDatabase = ref(false);
-  const configurationInput = reactive({ deployment_target: 'local-production-preview', database_name: '', platform_hosts: '', tenant_admin_hosts: '' });
+  const configurationInput = reactive({ deployment_target: 'local-production-preview', database_name: '', platform_hosts: '', tenant_admin_hosts: '',
+    database_source: 'bundled' as 'bundled' | 'registered', database_resource_id: '', database_consumer: 'host' as 'host' | 'container', database_user: '', database_password: '' });
+  const selectedDatabase = computed(() => configuration.value?.database_resources?.find(resource => resource.resource_id === configurationInput.database_resource_id));
   const databaseReady = computed(() => databaseReport.value?.state === 'uninstalled' && databaseReport.value.safe_retry === true && databaseReport.value.permissions_verified === true);
   async function installationStep(name: string, action: () => Promise<void>) {
     if (refreshing.value) return;
@@ -332,8 +349,25 @@
     } finally { refreshing.value = false; }
   }
   async function inspectEnvironment() { stage.value = 1; environment.value = null; await installationStep('environment', async () => { environment.value = await getInstallEnvironment(); }); }
-  async function readConfiguration() { await installationStep('configuration', async () => { configuration.value = await getInstallConfiguration(); stage.value = 2; }); }
-  async function saveConfiguration() { await installationStep('configuration', async () => { await configureInstall(form.setupToken, configurationInput); configuration.value = await getInstallConfiguration(); }); }
+  async function readConfiguration() {
+    configuration.value = null; canSaveConfiguration.value = false;
+    await installationStep('configuration', async () => {
+      configuration.value = await getInstallConfiguration();
+      canSaveConfiguration.value = configuration.value.state === 'unconfigured'; stage.value = 2;
+    });
+  }
+  async function saveConfiguration() {
+    if (!canSaveConfiguration.value || refreshing.value) return;
+    canSaveConfiguration.value = false; configuration.value = null;
+    await installationStep('configuration', async () => {
+      const { database_resource_id, database_consumer, database_user, database_password, ...common } = configurationInput;
+      await configureInstall(form.setupToken, { ...common,
+        database_name: common.database_source === 'registered' ? '' : common.database_name,
+        ...(common.database_source === 'registered' ? { database_resource_id, database_consumer, database_user, database_password } : {}) });
+      configurationInput.database_password = '';
+      configuration.value = await getInstallConfiguration();
+    });
+  }
   async function inspectDatabase() {
     stage.value = 3; databaseReport.value = null;
     await installationStep('database_check', async () => {
