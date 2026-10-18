@@ -183,10 +183,6 @@ export async function configureInstall(token: string, input: InstallationConfigu
   }));
 }
 
-export async function checkInstallDatabase(): Promise<InstallationStatus> {
-  return normalizeStatus(unwrap(await installationClient.get('/installapi/database-check')));
-}
-
 function normalizeStatus(value: unknown): InstallationStatus {
   if (!isRecord(value)) {
     throw new Error('Installation status returned an invalid payload.');
@@ -234,6 +230,10 @@ function normalizeStatus(value: unknown): InstallationStatus {
     retryable,
     health,
   };
+}
+
+export async function checkInstallDatabase(): Promise<InstallationStatus> {
+  return normalizeStatus(unwrap(await installationClient.get('/installapi/database-check')));
 }
 
 function normalizeExecuteResult(value: unknown): InstallationExecuteResult {
