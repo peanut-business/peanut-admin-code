@@ -19,12 +19,16 @@ final class PluginUpgrade extends ModuleContextualCommand
         $this->setName('plugin:upgrade')->setDescription('Plan or apply a locked Plugin upgrade')
             ->addArgument('plugin_key', Argument::REQUIRED, 'Plugin key')
             ->addOption('dry-run', null, Option::VALUE_NONE, 'Only output the upgrade plan');
+        $this->configureSourceDevelopmentOptions();
     }
 
     protected function handle(Input $input, Output $output): int
     {
         $key = trim((string) $input->getArgument('plugin_key'));
         $dryRun = (bool) $input->getOption('dry-run');
+        if ($this->hasSourceDevelopmentOptions($input)) {
+            return $this->sourceDevelopmentPluginPlan($input, $output, 'upgrade', $key);
+        }
         return $this->runPluginOperation(
             $output,
             static fn($service): array => $service->upgrade($key, $dryRun),

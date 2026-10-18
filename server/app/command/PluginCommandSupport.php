@@ -28,9 +28,46 @@ trait PluginCommandSupport
     /** @param callable(\app\common\contract\module\PluginLifecycleCommands):array<string,mixed> $operation */
     private function runPluginOperation(Output $output, callable $operation): int
     {
+        return $this->writePluginResult($output, fn(): array => $operation($this->pluginLifecycle()));
+    }
+
+    private function configureSourceDevelopmentOptions(): void
+    {
+        foreach (['scope', 'owner', 'thread', 'session', 'gate'] as $name) {
+            $this->addOption($name, null, \think\console\input\Option::VALUE_REQUIRED, 'Native source-development plan ' . $name, '');
+        }
+    }
+
+    private function sourceDevelopmentPluginPlan(\think\console\Input $input, Output $output, string $operation, string $key): int
+    {
+        return $this->writePluginResult($output, function () use ($input, $operation, $key): array {
+            $this->assertDevelopmentInstanceMaintenanceAccess();
+            if ($input->getOption('scope') !== 'source-development' || !$input->getOption('dry-run')) {
+                throw new PluginLifecycleException('PLUGIN_SOURCE_DRY_RUN_REQUIRED', 'Source maintenance currently supports explicit read-only plans only.');
+            }
+            $actor = [];
+            foreach (['owner', 'thread', 'session', 'gate'] as $name) { $actor[$name] = $input->getOption($name); }
+            return $this->getApp()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->plan(
+                $operation, $key, $actor,
+                fn(): array => $operation === 'upgrade' ? $this->pluginLifecycle()->upgrade($key, true) : $this->pluginLifecycle()->reconcilePlan($key),
+            );
+        });
+    }
+
+    private function hasSourceDevelopmentOptions(\think\console\Input $input): bool
+    {
+        foreach (['scope', 'owner', 'thread', 'session', 'gate'] as $name) {
+            if ($input->getOption($name) !== '') { return true; }
+        }
+        return false;
+    }
+
+    /** The callable creates the native lifecycle only after any source admission. */
+    private function writePluginResult(Output $output, callable $operation): int
+    {
         try {
             $output->writeln((string) json_encode(
-                $operation($this->pluginLifecycle()),
+                $operation(),
                 JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES,
             ));
             return 0;

@@ -479,7 +479,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                     }
                     // MySQL DDL commits implicitly. Keep the durable migration ledger outside the DDL boundary.
                     PeanutMigrationRun::apply($pdo, $moduleKey, $migrationKey, $sourceSql, $checksum,
-                        static function () use ($connection, $pdo, $moduleKey, $migrationKey, $adoptions): void {
+                        static function (?array $executionBounds) use ($connection, $pdo, $moduleKey, $migrationKey, $adoptions): void {
                             if (Db::connect() !== $connection || $connection->getPdo() !== $pdo || $pdo->inTransaction()) {
                                 throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Master connection changed during migration.');
                             }
@@ -680,12 +680,16 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         }
     }
 
-    /** Only the native full-server planning scope may observe this exact future schema. */
+    /** Only held native release/source read plans may observe this exact future schema. */
     private static function pendingProvenancePrerequisite(): ?array
     {
         $pdo = Db::connect()->getPdo();
-        if (!$pdo instanceof \PDO || !class_exists('PeanutServerUpdatePlan', false)) { return null; }
-        $prerequisite = \PeanutServerUpdatePlan::pendingModuleProvenanceMigration($pdo);
+        if (!$pdo instanceof \PDO) { return null; }
+        $source = \app\common\services\upgrade\PluginSourceDevelopmentHost::class;
+        $prerequisite = app()->exists($source) ? app()->make($source)->pendingModuleProvenanceMigration($pdo) : null;
+        if ($prerequisite === null && class_exists('PeanutServerUpdatePlan', false)) {
+            $prerequisite = \PeanutServerUpdatePlan::pendingModuleProvenanceMigration($pdo);
+        }
         if ($prerequisite === null) { return null; }
         if (($prerequisite['migration_id'] ?? null) !== '20261016-module-migration-provenance'
             || ($prerequisite['reason'] ?? null) !== 'module_migration_provenance_schema'

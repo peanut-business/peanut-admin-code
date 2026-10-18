@@ -36,6 +36,8 @@ final class ApplicationMigrationRunner
 
     /**
      * @param list<string> $files
+     * @param null|callable(PDO,array):mixed $beforeMigration Returning true requests same-PDO whole-batch SQL clock bounds.
+     * @param null|callable(PDO,array,?array):void $afterMigration Receives those bounds before the sole applied write.
      * @return array{status:string,target_version:string,applied:list<string>,pending:list<string>}
      */
     public function run(array $files, string $targetVersion, string $defaultReleaseVersion, bool $dryRun = false, ?callable $beforeMigration = null, ?callable $beforeUnlock = null, ?callable $afterMigration = null): array
@@ -75,9 +77,7 @@ final class ApplicationMigrationRunner
             $applied = [];
             foreach ($pending as $migration) {
                 $this->assertLock($pdo, $lockName);
-                if ($beforeMigration !== null) {
-                    $beforeMigration($pdo, $migration);
-                }
+                $captureSqlClock = $beforeMigration !== null && $beforeMigration($pdo, $migration) === true;
                 // Admission failures occur before the durable applying marker.
                 $this->assertLock($pdo, $lockName);
                 $now = gmdate('Y-m-d H:i:s');
@@ -87,11 +87,11 @@ final class ApplicationMigrationRunner
                 )->execute([$migration['id'], $migration['release_version'], $migration['checksum'], 'applying', $now]);
                 try {
                     PeanutMigrationRun::apply($pdo, null, $migration['id'], $migration['sql'], $migration['checksum'],
-                        function () use ($pdo, $lockName, $afterMigration, $migration): void {
+                        function (?array $executionBounds) use ($pdo, $lockName, $afterMigration, $migration): void {
                             $this->assertLock($pdo, $lockName);
-                            if ($afterMigration !== null) { $afterMigration($pdo, $migration); }
+                            if ($afterMigration !== null) { $afterMigration($pdo, $migration, $executionBounds); }
                             $this->assertLock($pdo, $lockName);
-                        });
+                        }, $captureSqlClock);
                     $applied[] = $migration['id'];
                 } catch (Throwable $exception) {
                     try {

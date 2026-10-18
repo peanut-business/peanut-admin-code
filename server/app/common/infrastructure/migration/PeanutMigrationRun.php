@@ -16,7 +16,7 @@ final class PeanutMigrationRun extends Run
      * Lifecycle owns source order, release selection, preflight and applying/failed journals.
      * The official engine selects the version, runs the Migration and records success.
      */
-    public static function apply(PDO $pdo, ?string $moduleKey, string $key, string $sql, string $sha256, callable $completion): void
+    public static function apply(PDO $pdo, ?string $moduleKey, string $key, string $sql, string $sha256, callable $completion, bool $captureSqlClock = false): void
     {
         if ($pdo->inTransaction()) { throw new RuntimeException('MIGRATION_OUTER_TRANSACTION_FORBIDDEN'); }
         $run = new self();
@@ -26,7 +26,7 @@ final class PeanutMigrationRun extends Run
         $run->adapter->assertSourceIdentities([$key]);
         $version = PeanutMigrationAdapter::version($key);
         $migration = new ImmutableSqlMigration('peanut', $version, $run->input, $run->output);
-        $migration->bindSource($key, $sql, $sha256, $completion);
+        $migration->bindSource($key, $sql, $sha256, $completion, $captureSqlClock);
         $run->migrations = [$version => $migration];
         $versions = $run->adapter->getVersionLog();
         if (isset($versions[$version])) {

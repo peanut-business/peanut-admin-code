@@ -10,6 +10,7 @@ use app\common\value\installation\ServerReleaseIdentity;
 use app\platform\infrastructure\plugin\PluginLockResolver;
 use app\platform\services\plugin\PluginLifecycleService;
 use PeanutAdmin\Modules\Identity\Auth\AuthClientSchemaMigrationProof;
+use PeanutAdmin\Modules\Notification\Contract\SmsReservationMigrationProof;
 use PDO;
 use RuntimeException;
 
@@ -50,6 +51,13 @@ final class ApplicationSchemaHost
             }
             $before[$previousId] = $previousSha;
         }
+        if ($id === '20260909-notification-sms-reservation') {
+            $snapshot = self::smsMigrationBefore($pdo);
+            return ['migration_id' => $id, 'sha256' => $sha, 'status' => 'ready',
+                'complete_preconditions_proven' => true, 'application_prerequisites' => [],
+                'proof' => ['contract' => SmsReservationMigrationProof::class, 'safe_summary' => $snapshot['safe_summary'],
+                    'private_snapshot_sha256' => hash('sha256', serialize($snapshot))], 'readonly' => true];
+        }
         if ($id === '20261007-auth-client-schema') {
             if (!class_exists(AuthClientSchemaMigrationProof::class)) {
                 throw new RuntimeException('APPLICATION_SCHEMA_AUTH_CONTRACT_UNAVAILABLE');
@@ -78,7 +86,6 @@ final class ApplicationSchemaHost
         $menu = ['id','pid','type','name','icon','sort','perms','paths','component','is_cache','is_show','is_disable'];
         $definition = ['id','key','module_key','scope','parent_key','type','name','route_name','route_path','component_key','icon','sort_order','required_permission_id','client_keys_json','status'];
         $required = match ($id) {
-            '20260909-notification-sms-reservation' => ['pa_notice_log' => ['id','tenant_id','channel','receiver','scene_id','status','send_time','verify_code_hash']],
             '20261004-group-default-navigation' => ['pa_system_menu' => $menu, 'pa_menu_definition' => $definition, 'pa_permission' => ['id','key']],
             '20261004-menu-stable-identities' => ['pa_system_menu' => [...$menu,'upstream_defaults_json','menu_conflict_json'], 'pa_menu_definition' => [...$definition,'upstream_defaults_json','menu_conflict_json']],
             '20261007-readiness-permission', '20261012-align-platform-ops-permission-ownership' => ['pa_permission' => ['id','key','module_key','type','name','description','risk_level','status','manifest_version','created_at','updated_at','retired_at']],
@@ -129,7 +136,6 @@ final class ApplicationSchemaHost
             if (isset($fact['columns']['id'])) { self::prestateUnique($fact, ['id']); }
         }
         $additions = match ($id) {
-            '20260909-notification-sms-reservation' => ['pa_notice_log' => ['reservation_key','idempotency_key_hash','request_digest','receiver_hash','reservation_until','reservation_active']],
             '20261004-group-default-navigation' => ['pa_menu_definition' => ['upstream_defaults_json','menu_conflict_json'], 'pa_system_menu' => ['upstream_defaults_json','menu_conflict_json']],
             '20261004-menu-stable-identities' => ['pa_system_menu' => ['menu_key','parent_key','module_key'], 'pa_menu_definition' => ['is_show','is_cache','is_disable']],
             default => [],
@@ -140,16 +146,7 @@ final class ApplicationSchemaHost
             }
         }
         $proof = [];
-        if ($id === '20260909-notification-sms-reservation') {
-            foreach (['uk_notice_sms_reservation_key','uk_notice_sms_idempotency','uk_notice_sms_active_receiver','idx_notice_sms_reservation_expiry'] as $index) {
-                if (isset($facts['pa_notice_log']['indexes'][$index])) { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_INDEX_COLLISION'); }
-            }
-            if (isset($facts['pa_notice_log']['checks']['chk_notice_sms_reservation_active'])) { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_CHECK_COLLISION'); }
-            $latest = "SELECT tenant_id,channel,receiver,MAX(id) AS id FROM pa_notice_log WHERE channel=1 AND scene_id>0 AND status=1 AND send_time>UNIX_TIMESTAMP()-60 GROUP BY tenant_id,channel,receiver";
-            self::prestateZero($pdo, 'WITH latest AS (' . $latest . ') SELECT COUNT(*) FROM (SELECT l.tenant_id,l.channel,SHA2(l.receiver,256) AS receiver_hash FROM pa_notice_log l JOIN latest ON latest.id=l.id GROUP BY l.tenant_id,l.channel,SHA2(l.receiver,256) HAVING COUNT(*)>1) collisions');
-            self::prestateZero($pdo, 'WITH latest AS (' . $latest . ') SELECT COUNT(*) FROM pa_notice_log l JOIN latest ON latest.id=l.id WHERE l.send_time>4294967235 OR l.receiver IS NULL OR l.tenant_id IS NULL');
-            $proof['activation_candidates'] = self::prestateCount($pdo, 'SELECT COUNT(*) FROM (' . $latest . ') latest');
-        } elseif ($id === '20261004-group-default-navigation') {
+        if ($id === '20261004-group-default-navigation') {
             $proof = self::prestateNavigation($pdo, $sql, $facts);
         } elseif ($id === '20261004-menu-stable-identities' && $deferred === []) {
             if (isset($facts['pa_system_menu']['indexes']['uk_system_menu_key'])) { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_INDEX_COLLISION'); }
@@ -186,6 +183,25 @@ final class ApplicationSchemaHost
         return ['migration_id' => $id, 'sha256' => $sha, 'status' => $deferred === [] ? 'ready' : 'deferred',
             'complete_preconditions_proven' => $deferred === [], 'application_prerequisites' => array_values($deferred),
             'proof' => $proof, 'constraint_names' => $constraintNames, 'tables' => $facts, 'readonly' => true];
+    }
+
+    /** The full SMS input stays in the executing callback; public plans receive its safe_summary only. */
+    private static function smsMigrationBefore(PDO $pdo): array
+    {
+        if (!class_exists(SmsReservationMigrationProof::class)) { throw new RuntimeException('APPLICATION_SCHEMA_SMS_CONTRACT_UNAVAILABLE'); }
+        self::prestateConstraintNames($pdo, '20260909-notification-sms-reservation');
+        // Preserve the existing SMS DML preconditions; Auth's DDL-only relaxation does not apply here.
+        $table = self::prestateTable($pdo, 'pa_notice_log');
+        self::prestateColumnShape('pa_notice_log', $table['columns']);
+        self::prestateConstraintShape('pa_notice_log', $table);
+        foreach (['id','tenant_id','channel','receiver','scene_id','status','send_time','verify_code_hash'] as $column) {
+            if (!isset($table['columns'][$column])) { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_COLUMN_MISSING:pa_notice_log.' . $column); }
+        }
+        self::prestateUnique($table, ['id']);
+        $latest = "SELECT tenant_id,channel,receiver,MAX(id) AS id FROM pa_notice_log WHERE channel=1 AND scene_id>0 AND status=1 AND send_time>UNIX_TIMESTAMP()-60 GROUP BY tenant_id,channel,receiver";
+        self::prestateZero($pdo, 'WITH latest AS (' . $latest . ') SELECT COUNT(*) FROM (SELECT l.tenant_id,l.channel,SHA2(l.receiver,256) AS receiver_hash FROM pa_notice_log l JOIN latest ON latest.id=l.id GROUP BY l.tenant_id,l.channel,SHA2(l.receiver,256) HAVING COUNT(*)>1) collisions');
+        self::prestateZero($pdo, 'WITH latest AS (' . $latest . ') SELECT COUNT(*) FROM pa_notice_log l JOIN latest ON latest.id=l.id WHERE l.send_time>4294967235 OR l.receiver IS NULL OR l.tenant_id IS NULL');
+        return SmsReservationMigrationProof::before($pdo);
     }
 
     /** Schema-scoped names in the fixed SQL, including dynamic ALTER strings. */
@@ -558,14 +574,9 @@ final class ApplicationSchemaHost
             || !in_array(config('deployment.mode'), ['standalone', 'multi-tenant'], true)) {
             throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_CONTEXT_REQUIRED');
         }
-        foreach (['owner', 'thread', 'session', 'gate'] as $key) {
-            if (!is_string($actor[$key] ?? null) || trim($actor[$key]) === '' || preg_match('/[\x00-\x1f]/', $actor[$key])) {
-                throw new RuntimeException('APPLICATION_SCHEMA_NATIVE_ACTOR_REQUIRED');
-            }
-        }
-        $config = \guardedDatabaseConfig();
         // File/registry/actor/native lease admission must precede master initialization.
         $admission = $this->sourceDevelopmentAdmission($actor, $operation === 'apply');
+        $config = \guardedDatabaseConfig();
         $connection = \think\facade\Db::connect();
         foreach (['hostname' => 'host', 'hostport' => 'port', 'database' => 'database', 'username' => 'user', 'password' => 'password'] as $native => $guarded) {
             if ((string) $connection->getConfig($native) !== (string) $config[$guarded]) { throw new RuntimeException('APPLICATION_SCHEMA_MASTER_MISMATCH'); }
@@ -630,12 +641,18 @@ final class ApplicationSchemaHost
                     if (!$this->sourceSame($expected['evidence'] ?? null, $proofs)) { throw new RuntimeException('APPLICATION_SCHEMA_PLAN_STALE'); }
                 }
                 $completed = []; $businessBefore = []; $businessPoststates = [];
-                $before = function (PDO $actual, array $migration) use ($pdo, $baseline, $recheck, $current, $maintenancePath, $recoveryPath, $proofs, &$completed, &$businessBefore): void {
+                $before = function (PDO $actual, array $migration) use ($pdo, $baseline, $recheck, $current, $maintenancePath, $recoveryPath, $proofs, &$completed, &$businessBefore): bool {
                     $recheck();
                     if ($actual !== $pdo || $this->sourceDevelopmentEvidence($current, $maintenancePath, $recoveryPath, $baseline) !== $proofs) {
                         throw new RuntimeException('APPLICATION_SCHEMA_WINDOW_CHANGED');
                     }
                     $this->assertSourceBaseline($pdo, $baseline, $completed, $migration, 'before');
+                    if ($migration['id'] === '20260909-notification-sms-reservation') {
+                        self::prestateIdentity($migration);
+                        $businessBefore[$migration['id']] = self::smsMigrationBefore($pdo);
+                        $recheck();
+                        return true;
+                    }
                     $proof = self::migrationPrestate($pdo, $migration, [], false);
                     if ($migration['id'] === '20261007-auth-client-schema') {
                         $businessBefore[$migration['id']] = $proof['proof']['before'];
@@ -643,14 +660,27 @@ final class ApplicationSchemaHost
                         if (($proof['proof']['shape'] ?? null) !== 'before_additions') { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_PROVENANCE_PARTIAL'); }
                     } else { throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_POSTSTATE_REQUIRED'); }
                     $recheck();
+                    return false;
                 };
-                $after = function (PDO $actual, array $migration) use ($pdo, $baseline, $recheck, $current, $maintenancePath, $recoveryPath, $proofs, &$completed, &$businessBefore, &$businessPoststates): void {
+                $after = function (PDO $actual, array $migration, ?array $executionBounds) use ($pdo, $baseline, $recheck, $current, $maintenancePath, $recoveryPath, $proofs, &$completed, &$businessBefore, &$businessPoststates): void {
                     $recheck();
                     if ($actual !== $pdo || $this->sourceDevelopmentEvidence($current, $maintenancePath, $recoveryPath, $baseline) !== $proofs) {
                         throw new RuntimeException('APPLICATION_SCHEMA_WINDOW_CHANGED');
                     }
                     $this->assertSourceBaseline($pdo, $baseline, $completed, $migration, 'after');
-                    if ($migration['id'] === '20261007-auth-client-schema') {
+                    if ($migration['id'] === '20260909-notification-sms-reservation') {
+                        $before = $businessBefore[$migration['id']] ?? null;
+                        if (!is_array($before) || !is_array($executionBounds)) { throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_PROOF_REQUIRED'); }
+                        $before['execution_bounds'] = $executionBounds;
+                        $observed = SmsReservationMigrationProof::after($pdo, $before);
+                        if (($observed['sms_reservation_verified'] ?? null) !== true) { throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_POSTSTATE_REQUIRED'); }
+                        $safe = array_intersect_key($observed, array_flip(['migration_id', 'source_sha256', 'sms_reservation_verified',
+                            'schema_sha256', 'historical_rows_sha256', 'rows', 'activated_rows', 'possible_execution_seconds', 'execution_bounds_scope', 'readonly']));
+                        $businessPoststates[$migration['id']] = ['contract' => SmsReservationMigrationProof::class,
+                            'scope' => 'sms-reservation-schema-and-data', 'sha256' => $migration['checksum'], 'proof' => $safe,
+                            'proof_sha256' => $this->digest($safe)];
+                        unset($businessBefore[$migration['id']]);
+                    } elseif ($migration['id'] === '20261007-auth-client-schema') {
                         $before = $businessBefore[$migration['id']] ?? null;
                         if (!is_array($before)) { throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_PROOF_REQUIRED'); }
                         $observed = AuthClientSchemaMigrationProof::after($pdo, $before);
@@ -677,6 +707,12 @@ final class ApplicationSchemaHost
                             throw new RuntimeException('APPLICATION_SCHEMA_WINDOW_CHANGED');
                         }
                         $this->assertSourceBaseline($pdo, $baseline, $baseline['pending'], null, 'completed');
+                        if (in_array('20260909-notification-sms-reservation', $baseline['pending'], true)) {
+                            // The safe result cannot reconstruct the private before image.
+                            // A recorded proof alone is not a fresh live verification.
+                            if ($operation === 'verify') { throw new RuntimeException('APPLICATION_SCHEMA_SMS_LIVE_REVERIFY_REQUIRED'); }
+                            if (!isset($businessPoststates['20260909-notification-sms-reservation'])) { throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_PROOF_REQUIRED'); }
+                        }
                         if (in_array('20261007-auth-client-schema', $baseline['pending'], true)) {
                             if ($operation === 'verify') {
                                 $businessPoststates = $expected['business_poststates'] ?? [];
@@ -731,6 +767,7 @@ final class ApplicationSchemaHost
             $poststate = match ($id) {
                 '20261016-module-migration-provenance' => 'exact_provenance_shape',
                 '20261007-auth-client-schema' => AuthClientSchemaMigrationProof::class,
+                '20260909-notification-sms-reservation' => SmsReservationMigrationProof::class,
                 default => 'business_preservation_contract_required',
             };
             if ($poststate === 'business_preservation_contract_required') {
@@ -778,74 +815,7 @@ final class ApplicationSchemaHost
     /** No PDO initialization or SQL: the canonical native lease is checked first. */
     private function sourceDevelopmentAdmission(array $actor, bool $ddl): array
     {
-        $root = dirname($this->serverRoot);
-        foreach ([$root . '/.peanut/application-manifest.json', $root . '/.peanut/release-identity.json',
-            $root . '/.peanut/development-runtime.json', $this->serverRoot . '/.peanut/release-identity.json',
-            $this->serverRoot . '/.peanut/development-runtime.json'] as $marker) {
-            if (file_exists($marker) || is_link($marker)) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_CONTEXT_REQUIRED'); }
-        }
-        if (!\installationSourceDevelopmentMode($this->serverRoot)) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_CONTEXT_REQUIRED'); }
-        $owner = fileowner($root);
-        if (!is_int($owner) || !function_exists('posix_geteuid') || !in_array(posix_geteuid(), [0, $owner], true)) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_OWNER_REQUIRED'); }
-        $head = \leaseGit(['-C', $root, 'rev-parse', 'HEAD^{commit}']);
-        if (\leaseGit(['-C', $root, 'status', '--porcelain', '--untracked-files=normal']) !== '') { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_DIRTY'); }
-        $registry = \projectResourceRegistry($registrySha);
-        $config = \guardedDatabaseConfig();
-        $deployment = \deploymentTargetContract($config['deployment_target']);
-        if ($config['environment'] !== 'development' || str_contains($config['deployment_target'], 'production')
-            || !in_array($deployment['resource_environment'], ['development', 'development-test', 'local-multi-tenant-demo', 'local-standalone-demo'], true)) {
-            throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_RESOURCE_REQUIRED');
-        }
-        $database = \registeredDatabase($registry, $config['resource_id']);
-        $endpoint = \registeredDatabaseEndpoint($database, $config['consumer']);
-        $schema = \mysqlSchemaLeaseResource($database, $endpoint, $config);
-        if ($schema === null) { throw new RuntimeException('APPLICATION_SCHEMA_NATIVE_SCHEMA_LEASE_REQUIRED'); }
-        $path = \requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
-        $meta = \activeLeaseMetadata($path, time(), $actor['gate']); $resources = \activeLeaseResources($path);
-        if ($meta['owner'] !== $actor['owner'] || $meta['thread'] !== $actor['thread'] || $meta['candidate'] !== $head
-            || $meta['gate'] !== ($database['lease_gate'] ?? null)
-            || !in_array($actor['session'], $resources['workflow-session'] ?? [], true)) { throw new RuntimeException('APPLICATION_SCHEMA_NATIVE_ACTOR_MISMATCH'); }
-        \assertNativeMysqlSchemaLease($root, $path, $meta, $resources, $config['resource_id'], $schema, $config['endpoint_id'], $registrySha);
-        // The existing native policy defines a schema lease without shared_access
-        // and without mysql-access declarations as whole-schema exclusive.
-        $legacyExclusive = !isset($database['lease_policy']['shared_access']) && !isset($resources['mysql-access']);
-        $access = $legacyExclusive; $nativeOperation = $legacyExclusive ? 'exclusive' : null;
-        foreach ($resources['mysql-access'] ?? [] as $value) {
-            $value = json_decode($value, true, 64, JSON_THROW_ON_ERROR);
-            if (($value['schema'] ?? null) === $schema) { $nativeOperation = $value['operation'] ?? null; }
-            $access = $access || (($value['schema'] ?? null) === $schema && ($value['complete'] ?? null) === true
-                && in_array($value['operation'] ?? null, ['ddl', 'exclusive'], true) && ($value['tables'] ?? null) === []);
-        }
-        if ($ddl && !$access) { throw new RuntimeException('APPLICATION_SCHEMA_DDL_LEASE_REQUIRED'); }
-        $sourceFiles = [];
-        foreach (\applicationMigrationFiles($this->serverRoot . '/database') as $file) { $sourceFiles[basename($file)] = $this->fileDigest($file); }
-        foreach (['release-versions.json', 'plugins.lock', 'server/composer.lock', 'server/vendor/composer/installed.json'] as $file) { $sourceFiles[$file] = $this->fileDigest($root . '/' . $file); }
-        $core = dirname((string) (new \ReflectionClass(\PeanutAdmin\Kernel\Module\ModuleProvider::class))->getFileName(), 4);
-        $iterator = new \RecursiveIteratorIterator(new \RecursiveCallbackFilterIterator(new \RecursiveDirectoryIterator($core, \FilesystemIterator::SKIP_DOTS),
-            static fn($item): bool => !in_array($item->getFilename(), ['.git', '.local', 'vendor', 'tests', 'node_modules'], true)));
-        foreach ($iterator as $file) {
-            if ($file->isLink()) { throw new RuntimeException('APPLICATION_SCHEMA_CORE_IDENTITY_INVALID'); }
-            if ($file->isFile() && ($file->getExtension() === 'php' || $file->getFilename() === 'composer.json')) {
-                $sourceFiles['core/' . substr($file->getPathname(), strlen($core) + 1)] = $this->fileDigest($file->getPathname());
-            }
-        }
-        ksort($sourceFiles, SORT_STRING);
-        $originals = [];
-        foreach (['installed.json', 'baseline.json'] as $name) {
-            $file = $this->serverRoot . '/private/installation/' . $name;
-            $originals[$name] = file_exists($file) || is_link($file) ? $this->fileDigest($file) : null;
-        }
-        return ['source' => ['root' => $root, 'head' => $head, 'tree' => \leaseGit(['-C', $root, 'rev-parse', 'HEAD^{tree}']),
-                'files_sha256' => $this->digest($sourceFiles), 'php_binary_sha256' => $this->fileDigest(PHP_BINARY)],
-            'environment_sha256' => $this->fileDigest(\peanutBackendEnvironmentPath()),
-            'installation_originals' => $originals,
-            'registry_sha256' => $registrySha,
-            'resource_id' => $config['resource_id'], 'endpoint_id' => $config['endpoint_id'],
-            'validation_only' => $database['lease_gate'] === 'migration-validation',
-            'authority' => ['lease' => $meta['lease'], 'owner' => $meta['owner'], 'thread' => $meta['thread'], 'gate' => $meta['gate'],
-                'session' => $actor['session'], 'created_at' => $meta['created_at'], 'expires_at' => $meta['expires_at'],
-                'operation' => $nativeOperation,
-                'resources_sha256' => hash_file('sha256', $path . '/resources.tsv')]];
+        return (new SourceDevelopmentMaintenanceAdmission($this->serverRoot))->capture($actor, $ddl);
     }
 
     /**
@@ -1324,6 +1294,7 @@ final class ApplicationSchemaHost
             'server/database/install.php', 'server/database/environment-guard.php',
             'server/app/command/ApplicationSchema.php',
             'server/app/common/services/upgrade/ApplicationSchemaHost.php',
+            'server/app/common/services/upgrade/SourceDevelopmentMaintenanceAdmission.php',
             'server/app/common/services/upgrade/ApplicationMigrationRunner.php',
             'server/app/common/infrastructure/migration/PeanutMigrationAdapter.php',
             'server/app/common/infrastructure/migration/ImmutableSqlMigration.php',

@@ -133,6 +133,10 @@ app/event.php保留AppInit、HttpRun、HttpEnd、LogLevel和LogWrite项，但默
 
 源码阶段账本按原有序链核对已完成前缀、当前 applying 与尚未执行项，逐条使用 SQL 真实发行身份；旧历史的完整原行保持不变。该核对不替代业务后态或恢复准入，当前多条待迁移链仍在这些合同齐备前拒绝 apply。
 
+`plugin:upgrade`／`plugin:install` 的 `--scope=source-development --dry-run` 只为明确选择的单个插件生成原生计划，同时必须提供实际 `--owner`／`--thread`／`--session`／`--gate`。入口在初始化数据库前核对干净源码、原安装标记和当前原生资源租约，并在真实产品文件锁、应用迁移 advisory lock 与插件原生锁内读取；缺少真实来源字段迁移时只列为应用前置项。宿主使用当前插件命令上下文，不冒充应用 schema 或发行升级，不授予安装、采用、catalog 或迁移写入能力；结果固定 `execution_admitted=false`，恢复覆盖仍单独要求。
+
+SMS 保全复用 Notification 的公开业务证明；包含完整原行及候选组的输入只保留在执行回调内，计划仅公开安全摘要和整体摘要。需要 SQL 时间证据时，现有官方执行器在同一 PDO 上读取数据库秒与 UTC 毫秒，包围整份不可变 SQL 的执行及结果排空；不拆分 SQL，也不把批次边界称为某条 UPDATE 的精确时间。官方 applied 回调前必须证明同一个可行整数秒、旧列完整保全及新增字段后态。该源码接线不放宽当前链恢复与写入准入；安全结果不能重建私有前态，SMS 的独立 live verify 仍明确阻断。
+
 认证 CHECK／IP 索引迁移没有行 DML，由 Identity 的公开业务证明检查必要 client 前态、原目标定义及精确目标后态。公共宿主在 SQL 前后调用同一证明，只封存目标元数据摘要，不扫描令牌或事件原行，不因无关自定义列或触发器拒绝；两条 DDL 之间仍须保留实际失败与恢复边界。
 
 File 四条 canonical adoption 目标若按既有证明选择执行原 SQL，官方执行器在标记 applied 前再次调用原 File 证明，必须观察到完整后态并返回 adopt；证明失败保留 failed 事实。此检查覆盖原证明的结构与数据不变量，逐原行保全、触发器影响及恢复范围仍须由实际迁移合同和维护窗口覆盖。
