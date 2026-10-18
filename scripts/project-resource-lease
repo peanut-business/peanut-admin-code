@@ -296,9 +296,9 @@ try:
    if required and (h not in locks or locks[h]['lease']!=lease): fail('required physical protection missing')
  info=decode(subprocess.check_output(['docker','inspect','--format','{"id":{{json .Id}},"name":{{json .Name}},"state":{{json .State.Status}},"started":{{json .State.StartedAt}},"restart":{{json .RestartCount}},"cmd":{{json .Config.Cmd}}}','peanut-hocuspocus-doc039-collaboration-1']))
  if info!={'id':'d34a95c60567b9b1520db5c1e9ab2cecbac626afafdd951e03c77264b39f2ba2','name':'/peanut-hocuspocus-doc039-collaboration-1','state':'running','started':'2026-10-17T05:21:07.957542167Z','restart':0,'cmd':['node','dist/src/main.js']}: fail('old actual container drift')
- backup=base/'custody-original-records';backup.mkdir(mode=0o700)
+ backup=base/'custody-original-records';backup.mkdir(mode=0o700);sync(base)
  for lease,files in before.items():
-  p=backup/lease;p.mkdir(mode=0o700)
+  p=backup/lease;p.mkdir(mode=0o700);sync(backup)
   create(p/'metadata.tsv',files['metadata']);create(p/'resources.tsv',files['resources'])
  j={'schema':'doc039-retirement-custody/v1','state':'PREPARED','actor':actor,'uid':os.geteuid(),'writer_pid':os.getpid(),'approval_sha256':approval_sha,'registry_sha256':registry_sha,'review_sha256':sha(read(review_path)),'retirement_only':True,'closed_session_provenance':'wc_sess_7KIOVawdddc69rNr remains Closed; no borrowed write permission','container':info,'physical_locks':locks,'before':{k:{'metadata_sha256':sha(v['metadata']),'resources_sha256':sha(v['resources'])} for k,v in before.items()},'after':{k:sha(v) for k,v in after.items()},'backup':str(backup),'expires_at':now+3600}
  create(journal,encoded(j));prepared=True
