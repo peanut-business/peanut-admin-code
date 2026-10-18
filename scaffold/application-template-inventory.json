@@ -836,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "32d2317988559eaf1e9a1397dab36116c95134ee33a8ca935e7fa8a6c2779bce"
+            "source_sha256": "dbb6218edd1efa4eabe08124cf04ac38636d1786ab56a1fc6fbae06d8c0f4ac1"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -2333,7 +2333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "43979856056ce5d1ed186c316ad85809eb41831b6c8615b0479f827a593f2013"
+            "source_sha256": "23915a2398532dad96782b09925192ce39f5e8effc169fced362a00b89bfc846"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2400,7 +2400,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0570c114ab67973ea73d99ed4a5c44905401d3a526a82540a4c37b192bccbafb"
+            "source_sha256": "0c67306b0894a9df387c193ad10680dd6b27c768afd67150ea7aa8dfb0d3685a"
         },
         {
             "path": "plugins/official.collaboration/plugin.json",
@@ -2414,7 +2414,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5a61a1c28d3387edbc0956ec8b27204c3fa2f7a387ddd00814c52c86ec2ce38d"
+            "source_sha256": "2cafc99d65b4e29aebeb871ae99f556ac31e12a3b84ebb56eee732c40dc5ecd0"
         },
         {
             "path": "plugins/official.content-tools/plugin.json",
@@ -2442,7 +2442,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2b37cab96b16282f4c60d9a83220134c0c274d95075aee90a9dd57528d7e3f63"
+            "source_sha256": "8a0c8f77a4dd9c8027b672b0e30e359d8a6057871c8714a510c276a21431d6bc"
         },
         {
             "path": "plugins/official.file/plugin.json",
@@ -2596,7 +2596,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "40de1fc22ed387bf331c235bf0707c3c2f6db571f7df6452eedfc736e3235799"
+            "source_sha256": "bcb6966659f94181dfb144ea26b199b11ef9bf90f3976b261a8a5471fe5a0d40"
         },
         {
             "path": "plugins/official.settings/plugin.json",
@@ -3303,7 +3303,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "148e464dd8f30d9046fea6907ff2dbbaad331524bcb86fbd4917aa5f1f396b81"
+            "source_sha256": "3522dc809f2c9f481bf676e1fb076d2980929a77e1d41ed261662029d48ee769"
         },
         {
             "path": "scripts/local-core-composer",
@@ -3629,7 +3629,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d9326cd0e28a8218cae51ed09550a2b1dee9ddce38d87ddf259ac06b88d971e5"
+            "source_sha256": "6ff29d3383112cc5c865c24870efabedc826cb513057018c96081fb23d116003"
         },
         {
             "path": "scripts/project-resource-mysql-metadata",
@@ -6465,6 +6465,20 @@
             "source_sha256": "8d55350f739cd7462d1624d5757ecf700c8bd8fa7b5cab4e7691b3f56512e3d6"
         },
         {
+            "path": "server/app/command/NativeMigrationEntry.php",
+            "target": "server/app/command/NativeMigrationEntry.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "34634b19d7896c688424574fa1ecdedc1fbeafa82ab697c56fbcb21ffec18e25"
+        },
+        {
             "path": "server/app/command/OpsBackupTask.php",
             "target": "server/app/command/OpsBackupTask.php",
             "classification": "managed",
@@ -7925,6 +7939,62 @@
             "source_sha256": "a5c1288d6e423cd4b96645bcfa7d60772b671618d4bdc26039a24ebfdde1b11d"
         },
         {
+            "path": "server/app/common/infrastructure/migration/ImmutableSqlMigration.php",
+            "target": "server/app/common/infrastructure/migration/ImmutableSqlMigration.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "fc781aa5bff0ab3ae7aee2ce27e424f3b9c0bd6670bf68704a5e2c465d86f042"
+        },
+        {
+            "path": "server/app/common/infrastructure/migration/PeanutMigrationAdapter.php",
+            "target": "server/app/common/infrastructure/migration/PeanutMigrationAdapter.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "26ea0c16fffb69b37be28cae031c75183c4f0a5ca051049ebf7e91bcf95c3428"
+        },
+        {
+            "path": "server/app/common/infrastructure/migration/PeanutMigrationRun.php",
+            "target": "server/app/common/infrastructure/migration/PeanutMigrationRun.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "926aa4aa3990dda941dfb536cf9fa47a743b476c66c149c6a58fc529aa00da61"
+        },
+        {
+            "path": "server/app/common/infrastructure/migration/PeanutMigrationService.php",
+            "target": "server/app/common/infrastructure/migration/PeanutMigrationService.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "9ccc2b95d2774c5e5e02ca43b308bba8f590607c09e90488f8a533ac6621376a"
+        },
+        {
             "path": "server/app/common/infrastructure/module/ModuleExecutionBoundary.php",
             "target": "server/app/common/infrastructure/module/ModuleExecutionBoundary.php",
             "classification": "managed",
@@ -8848,7 +8918,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4616f0993050e171dd7c2a6cea059bed915ec037e5cf6c995fa30ec5ae21302f"
+            "source_sha256": "762e10bb962ecb16018437aa0749752b58f59da5b9b94e0df74dbb4b93a177e5"
         },
         {
             "path": "server/app/common/services/upgrade/ApplicationSchemaHost.php",
@@ -8862,7 +8932,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "76e26b0eb7e8609184bc6c7a17cd11f8e47c7037a98d5421063cb9a8132795f1"
+            "source_sha256": "3eca9ec246a8411410c129711143960231cb36cb029ed819e25510cc5b278c3d"
         },
         {
             "path": "server/app/common/support/ExportPageInfo.php",
@@ -24765,7 +24835,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "53533ba76270e108726403d9e07a2095823f6c79eed24ca99257059aefc1b1d8"
+            "source_sha256": "f82fdf9bf11e67c6baa2b7e369808426d5e0467525ad6a98555f32197b88951e"
         },
         {
             "path": "server/app/platform/infrastructure/module/VerifiedTenantModuleRepository.php",
@@ -24838,20 +24908,6 @@
             "source_sha256": "69c472462104bca05378bed9876341d5b8b08c7e69fd8ffb0cdd75b897522259"
         },
         {
-            "path": "server/app/platform/infrastructure/plugin/ModuleMigrationSqlExecutor.php",
-            "target": "server/app/platform/infrastructure/plugin/ModuleMigrationSqlExecutor.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "46b255849f2dd6b74d6ab0396ebe84102f219226d993379174a0a5a7cad57f25"
-        },
-        {
             "path": "server/app/platform/infrastructure/plugin/ModuleUninstallPlanCodec.php",
             "target": "server/app/platform/infrastructure/plugin/ModuleUninstallPlanCodec.php",
             "classification": "managed",
@@ -24905,7 +24961,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6bd8ae7946dfd4833a62a1aaa6640a8f7b05236e59c1db85bfeb2318d5a30b8b"
+            "source_sha256": "19d3ed55ba0ceccc6cca61179ce801928041200e143ea43c5ce473700e1e6342"
         },
         {
             "path": "server/app/platform/infrastructure/plugin/PluginPackageSourcePromoter.php",
@@ -25255,7 +25311,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "636e32820ab2ebafaf264b6e2dd82afd56d8e55d03db7ecb0851760a1c077f6a"
+            "source_sha256": "d96293e0372578cb7b9058397251627573b49f0bcbbbba11d5c846fdc3bc279b"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",
@@ -25605,7 +25661,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5ac43d616355d91a31bd53d471e9c1322538515111cf40f911f7281e159f386a"
+            "source_sha256": "5a2289be2b782863e3d67d40fb192544f04ae852da8d3c81a60c73e154054ae6"
         },
         {
             "path": "server/bootstrap/environment.php",
@@ -25619,7 +25675,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "93bba9fcdf5991a555c025a119fdf1e2cd45df65a8226081f549b720db24afab"
+            "source_sha256": "ee91e6fa8b1d9f7a61471e9c5fc407a26226fa0f54258f63aa5a03431326a657"
         },
         {
             "path": "server/composer.json",
@@ -25633,7 +25689,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ab8901daaa3a2f48caf885a1cd92c15cb334b55be0a4457bf76c312ec0d97316"
+            "source_sha256": "a4091124c85f0834efa4c11a94fb753f5fcbbccbd96b58be0130f7f2ade21a86"
         },
         {
             "path": "server/composer.lock",
@@ -25647,7 +25703,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "eca0481abbd69912ca3ce276915ab95ffc30a949f7fe239eeeea61e4a88af96d"
+            "source_sha256": "dc3965665d4ddc37873b8d7697f09f078f72e1d07d78d98a39092831cc2a4fa0"
         },
         {
             "path": "server/config/admin_api_access.php",
@@ -26053,7 +26109,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9654607379cdc609b19f835b331f774d82160a7ba915cb800ece8312dfca8c2d"
+            "source_sha256": "ac9fc0d155a8030d0bc8e62236407c40489efd9cdc65a3cb06cdf3e040258775"
         },
         {
             "path": "server/database/init.sql",
@@ -26081,7 +26137,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f8a6b85d3a7a76fa33cbbb04fe183691e7b78b633ae10a480641155bbe543c00"
+            "source_sha256": "dbce5add1e17e39e5bc7efe958d30d3318bd218ec64bf83b534cdf423e8154ce"
         },
         {
             "path": "server/database/kernel-migrations/20260716010101_create_pa_account.php",
@@ -34385,7 +34441,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "80ee88f648221bde7ca0f10f56e73e61012de964898bae266dca78a1c3d65c42"
+            "source_sha256": "633a7d58b8c18a242d0b78433a50cab4ad79f4493152305bb2f8aa396c3fa63b"
         },
         {
             "path": "web/src/api/interceptor.ts",
@@ -38998,7 +39054,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cca703c665eaa027198360c38830e51d422876305205076dea57bbf31474e52e"
+            "source_sha256": "d1516b69eba45a51e9544b04265a246fde0812b6988ab3839002f373e872252c"
         },
         {
             "path": "web/src/store/modules/tab-bar/index.ts",
