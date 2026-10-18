@@ -51,6 +51,7 @@
   },
   "contracts": {
     "exports": [
+      "PeanutAdmin\\Modules\\Notification\\Contract\\SmsReservationMigrationProof",
       "PeanutAdmin\\Modules\\Notification\\Contract\\NotificationUpgradePreflight",
       "PeanutAdmin\\Modules\\Notification\\Contract\\NotificationBootstrapCommands",
       "PeanutAdmin\\Modules\\Notification\\Contract\\NotificationCommands",
