@@ -62,6 +62,12 @@ export interface InstallationConfiguration {
   configured: boolean;
   application: { edition: string; name: string };
   deployment_targets?: string[];
+  database_resources?: Array<{
+    resource_id: string;
+    database_name: string;
+    environments: string[];
+    endpoints: Array<{ consumer: 'host' | 'container'; host: string; port: number }>;
+  }>;
 }
 
 export interface InstallationConfigurationInput {
@@ -69,6 +75,11 @@ export interface InstallationConfigurationInput {
   database_name: string;
   platform_hosts: string;
   tenant_admin_hosts: string;
+  database_source?: 'bundled' | 'registered';
+  database_resource_id?: string;
+  database_consumer?: 'host' | 'container';
+  database_user?: string;
+  database_password?: string;
 }
 
 export class InstallRequestError extends Error {
@@ -170,11 +181,36 @@ function unwrap(response: AxiosResponse<unknown>): unknown {
 }
 
 export async function getInstallEnvironment(): Promise<InstallationPreflight> {
-  return unwrap(await installationClient.get('/installapi/environment')) as InstallationPreflight;
+  const value = unwrap(await installationClient.get('/installapi/environment'));
+  if (!isPreflight(value)) {
+    throw new Error('Installation environment returned an invalid payload.');
+  }
+  return value;
 }
 
 export async function getInstallConfiguration(): Promise<InstallationConfiguration> {
-  return unwrap(await installationClient.get('/installapi/configuration')) as InstallationConfiguration;
+  const value = unwrap(await installationClient.get('/installapi/configuration'));
+  assertInstallationConfiguration(value);
+  return value;
+}
+
+function assertInstallationConfiguration(value: unknown): asserts value is InstallationConfiguration {
+  if (!isRecord(value) || typeof value.state !== 'string'
+    || !['unconfigured', 'configured', 'blocked', 'pending', 'installed'].includes(value.state) || typeof value.code !== 'string'
+    || typeof value.configured !== 'boolean' || !isRecord(value.application)
+    || typeof value.application.edition !== 'string' || typeof value.application.name !== 'string'
+    || (value.deployment_targets !== undefined && (!Array.isArray(value.deployment_targets)
+      || !value.deployment_targets.every((target) => typeof target === 'string')))
+    || (value.database_resources !== undefined && (!Array.isArray(value.database_resources)
+      || !value.database_resources.every((resource) => isRecord(resource)
+        && typeof resource.resource_id === 'string' && typeof resource.database_name === 'string'
+        && Array.isArray(resource.environments) && resource.environments.every((target) => typeof target === 'string')
+        && Array.isArray(resource.endpoints) && resource.endpoints.every((endpoint) => isRecord(endpoint)
+          && (endpoint.consumer === 'host' || endpoint.consumer === 'container')
+          && typeof endpoint.host === 'string' && typeof endpoint.port === 'number'
+          && Number.isInteger(endpoint.port) && endpoint.port > 0 && endpoint.port <= 65535))))) {
+    throw new Error('Installation configuration returned an invalid payload.');
+  }
 }
 
 export async function configureInstall(token: string, input: InstallationConfigurationInput) {

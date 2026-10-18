@@ -149,6 +149,10 @@ server-only Compose 实例使用 `server/docker/scripts/update.sh plan|apply|ver
 
 明确登记的临时多租户源码首次部署消费真实 `generated-template` 制品。原生生成器的 APP 自有公共资源登记尚未分配数据库时，部署允许其 `resources.databases=[]`；宿主数据库、Compose、镜像和端口仍须由维护者资源登记精确绑定，首次启动后显式选择原生安装配置并生成实例私有资源登记，不从空模板推测资源。制品已有数据库投影时仍核对所选资源唯一身份、库名和完整容器端点；永久 APP 自有 Release 始终要求该投影。此范围仅用于带固定来源、到期时间与替换 owner 的多租户首次安装，不用于自动 APP 升级，也不覆盖已有实例目录。
 
+首次配置的 `database_source` 明确选择 `bundled` 或 `registered`。后者只从 APP 自有公共资源登记选择唯一数据库和 `host`／`container` 消费端点，环境、Edition、库名和地址必须匹配登记；已有普通账号与密码仅写入私有 0600 配置。配置发布不连接数据库、不建库、不创建或修改账号、不授予权限；连接与权限仍由安装向导实际 ThinkORM/PDO 的 `database-check` 判断。只有 `bundled` 才调用内置数据库 provision。APP 不读取维护者的私有 Project 登记作为运行依赖；维护者需先通过原生 `application-registry` 投影准备 APP 自有来源。
+
+尚未启动 PHP 的主机首次配置，由该实例真实 owner 在程序完整性准入、初始流量关闭和实例原生锁下执行 `php server/docker/scripts/update-plan.php configure-startup --instance-server=/absolute/app/server --configuration-input=/absolute/private/input.json`。输入必须是当前 owner 持有的单链接普通 0600 文件，JSON 只含 `setup_token` 和 `configuration`：前者为本次真实 Setup Token，后者与 `/installapi/configure` 使用同一字段合同。原生发布器一次生成 `.env`、实例私有资源登记和配置记录，不改 APP 来源身份、安装锁或数据库；Setup Token 与数据库密码不进入输出。已存在配置、安装锚点或待发布输入时拒绝覆盖。输入由 owner 在正常生命周期中保护及回收，不放入版本库；不得手写配置记录冒充完成。网页只将输入暂存为私有待发布记录，绑定 APP 身份、实际 Setup Token 和所选登记摘要，仍由正常 owner 发布，登记漂移时停止。
+
 只有 Nginx 配置变化时，apply 在维护/停机前用实例登记的不可变 Nginx 镜像执行目标配置的 `nginx -t`，结果绑定计划、镜像及配置 SHA-256。切换后重新创建 PHP/Nginx 容器，使文件绑定挂载读取新文件；数据库容器保持原样。Dockerfile、Compose 或其他运行配置变化仍要求独立准备兼容镜像，本入口不自动放行。
 
 PHP 维护容器将实例挂载为 `/instance/server`，保留发布及插件清单中的 `server/` 路径；workspace 在宿主机和各维护容器中使用同一个规范化绝对路径。私有运行确认只让 runtime、private 和 public/storage 按实例合同可写，程序文件保持只读。

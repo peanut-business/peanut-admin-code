@@ -36,6 +36,7 @@ if (!function_exists('peanutBackendEnvironmentKeys')) {
             'PEANUT_DATABASE_RESOURCE_ID',
             'PEANUT_DATABASE_ENDPOINT_ID',
             'PEANUT_DATABASE_CONSUMER',
+            'PEANUT_DATABASE_SOURCE',
             'PEANUT_RESOURCE_LEASE_PROOF',
             'P0E_HOST_LEASE_PROOF',
             'DEPLOYMENT_MODE',
