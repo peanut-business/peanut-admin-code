@@ -836,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b3bcfe72ceb40b773932b6d81ed37c4185562d5f554b0ffb0dd53638fac50ef9"
+            "source_sha256": "b07de5d40e85e60ce95352ac774cc4ab1261178672ebf85071c700eb6cb074a4"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -2333,7 +2333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "23915a2398532dad96782b09925192ce39f5e8effc169fced362a00b89bfc846"
+            "source_sha256": "b86ca12908e7682146e0cac3a4b52dc759eb4959b2d2c82e8c914fc147e0cfaf"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2470,7 +2470,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f1f9ca0c7cc9d03dea87b14e1178fcb3bb857ec0ffeee49c095d45753508a2d4"
+            "source_sha256": "d04c0efa7dfcb4bf5b9453914f51f85c95670a267e848dcb4e61c2070fb98ed7"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -8932,7 +8932,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c0997e375b26841c42a867372b90f0781f4fb92d74fdf78621dd813dcdcc7ba9"
+            "source_sha256": "743804d5cc393c6a2d71470b59828bb5b392a74dd07970cf4d2ca001a3e391f8"
         },
         {
             "path": "server/app/common/support/ExportPageInfo.php",
@@ -12940,7 +12940,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "26493eae1a701b745baace24ed9808fc30bdc17719ca0d74d1e6b1e9b56a7231"
+            "source_sha256": "4715b55023c2b297b5fb4fa4dcd4b9fb006c47d8cdcb66f02356e3d251f779d4"
         },
         {
             "path": "server/app/modules/official/identity/src/Audit/AuditService.php",
@@ -13039,6 +13039,20 @@
                 "full"
             ],
             "source_sha256": "f32ec9e36370b76bacf6ee991e90ebd5033d11ebe242e76d774f66de4052d990"
+        },
+        {
+            "path": "server/app/modules/official/identity/src/Auth/AuthClientSchemaMigrationProof.php",
+            "target": "server/app/modules/official/identity/src/Auth/AuthClientSchemaMigrationProof.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "66abab774246714872803b8128414a6fcd43b0283ee5095c4f4004129483bdad"
         },
         {
             "path": "server/app/modules/official/identity/src/Auth/AuthCredential.php",
