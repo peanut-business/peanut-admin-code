@@ -7,6 +7,8 @@ namespace app\common\services\upgrade;
 use PDO;
 use RuntimeException;
 use Throwable;
+use app\common\infrastructure\migration\PeanutMigrationAdapter;
+use app\common\infrastructure\migration\PeanutMigrationRun;
 
 /**
  * Applies the application's immutable SQL chain through its durable ledger.
@@ -43,7 +45,7 @@ final class ApplicationMigrationRunner
             "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'pa_schema_migration'",
         )->fetchColumn();
         if ($exists !== 1) {
-            throw new RuntimeException('MIGRATION_LEDGER_MISSING: 目标数据库不是 3.0+ 基线，请使用 fresh 重建');
+            throw new RuntimeException('MIGRATION_LEDGER_MISSING: 保留现有数据库与安装身份，核对受支持的基线及恢复方案');
         }
 
         $lockName = 'peanut_migrate_' . substr(hash('sha256', $this->database['database']), 0, 48);
@@ -55,6 +57,9 @@ final class ApplicationMigrationRunner
 
         try {
             $this->assertLock($pdo, $lockName);
+            (new PeanutMigrationAdapter($pdo, null))->assertSourceIdentities(array_map(
+                static fn(string $file): string => basename($file, '.sql'), $files,
+            ));
             $pending = $this->pending($pdo, $files, $targetVersion, $defaultReleaseVersion);
             if ($dryRun) {
                 $result = [
@@ -81,34 +86,12 @@ final class ApplicationMigrationRunner
                     . "ON DUPLICATE KEY UPDATE release_version=VALUES(release_version),checksum=VALUES(checksum),status='applying',started_at=VALUES(started_at),finished_at=NULL,error_code=NULL",
                 )->execute([$migration['id'], $migration['release_version'], $migration['checksum'], 'applying', $now]);
                 try {
-                    // Use the same text protocol and result draining as the installer.
-                    $emulatedPrepares = (bool) $pdo->getAttribute(PDO::ATTR_EMULATE_PREPARES);
-                    $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, true);
-                    try {
-                        $statement = $pdo->query($migration['sql']);
-                        try {
-                            do {
-                                if ($statement->columnCount() > 0) {
-                                    $statement->fetchAll(PDO::FETCH_ASSOC);
-                                }
-                            } while ($statement->nextRowset());
-                        } finally {
-                            $statement->closeCursor();
-                        }
-                    } finally {
-                        $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, $emulatedPrepares);
-                    }
-                    if ($pdo->inTransaction()) {
-                        throw new RuntimeException('MIGRATION_TRANSACTION_INCOMPLETE: ' . $migration['id']);
-                    }
-                    $this->assertLock($pdo, $lockName);
-                    if ($afterMigration !== null) {
-                        $afterMigration($pdo, $migration);
-                        $this->assertLock($pdo, $lockName);
-                    }
-                    $pdo->prepare(
-                        "UPDATE pa_schema_migration SET status='applied',finished_at=?,error_code=NULL WHERE migration_id=?",
-                    )->execute([gmdate('Y-m-d H:i:s'), $migration['id']]);
+                    PeanutMigrationRun::apply($pdo, null, $migration['id'], $migration['sql'], $migration['checksum'],
+                        function () use ($pdo, $lockName, $afterMigration, $migration): void {
+                            $this->assertLock($pdo, $lockName);
+                            if ($afterMigration !== null) { $afterMigration($pdo, $migration); }
+                            $this->assertLock($pdo, $lockName);
+                        });
                     $applied[] = $migration['id'];
                 } catch (Throwable $exception) {
                     try {
@@ -274,6 +257,7 @@ final class ApplicationMigrationRunner
                 if ($row['status'] === 'applying') {
                     throw new RuntimeException('MIGRATION_INCOMPLETE: ' . $id);
                 }
+                throw new RuntimeException('MIGRATION_STATUS_UNKNOWN: ' . $id);
             }
             $pending[] = [
                 'id' => $id,

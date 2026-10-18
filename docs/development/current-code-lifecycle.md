@@ -125,6 +125,10 @@ app/event.php保留AppInit、HttpRun、HttpEnd、LogLevel和LogWrite项，但默
 
 首次安装使用 `server/database/install.php`。开发 APP 吸收上游使用已安装 `scripts/upgrade --scope=source` 的 plan、apply、verify、recover，固定 `--instance-root`、已认证完整包 `--package` 和绝对 `--plan`；沿用 Scaffold 归属、冲突与文件恢复，只修改开发源码，不操作运行实例。APP 从自身固定提交发行 server 包后，宿主已安装 `server/docker/scripts/update.sh` 映射同一协调器的 `--scope=server`，以 APP 自有归档、外部可信摘要及 workspace 驱动唯一 product plan/state。目标未验代码不作为维护入口。
 
+应用和模块的版本化 SQL 使用锁定的 `topthink/think-migration` 官方执行器及真实 `Migrator`，通过其 MySQL Adapter 扩展读取、更新原有 `pa_schema_migration`／`pa_module_migration` 唯一账本；不复制旧历史到另一张 `migrations` 表。Peanut 生命周期保留原 SQL 顺序、目标发行选择、checksum、applying／failed、repair／adopt、业务 preflight、安装身份与恢复；执行成功仅由官方 `migrated()` 回调写入。完整 text key 是持久化身份，官方整数版本使用固定 SHA-256 前 60 位加一的投影，先检查源文件与该 scope 历史 key 并集，碰撞即拒绝，不按数组顺序重编号。这个整数不表示日期或回退目标。SQL 保留自身事务边界并排空多结果集，不在不可逆 DDL 外再套事务。
+
+直接 CLI 的 `migrate:run preflight|apply|verify` 使用与 `schema:application` 相同的参数、实例上下文和准入；`migrate:status` 委托该入口的 preflight，不创建迁移表，输出真实 text key。源码开发需要原有 `--scope=source-development` 和实际 owner／thread／session／gate、维护及恢复证据；发行升级仍走安装实例的正式升级入口。官方通用的目录扫描执行、`--date`、rollback、breakpoint 和 seed 命令不注册，不能绕过生命周期保护。模块仍通过 `plugin:install`／`plugin:upgrade`／受控 `plugin:reconcile` 进入同一官方执行器，不由应用 schema 命令接管其业务语义。
+
 完整上游升级包的 manifest 固定 `upgrader.scope=source`，只携带源码预检与 Scaffold 工具，不携带运行实例的数据库或宿主升级驱动；迁移源码仍按 append-only 清单核完整性。运行实例只消费 APP 自身发行的 server 包。
 
 升级包的 `compatibility.source` 使用合法 Semver 范围 `minimum_inclusive <= 当前源码版本 < maximum_exclusive`，上界必须等于目标版本。现有 `same-major` 包要求来源、下界和目标处于同一主版本，不能用于 4→5；明确跨主版本来源的包须标记 `major_policy=source-range`。跨主版本可能改变业务功能、API、依赖和迁移行为。原生源码 upgrade plan 在目标官方模块图之外保留客户 Module，并使用目标版本自身的 Module Kernel 合同检查其 `kernel_constraint`；同时扫描明确 `use PeanutAdmin\Kernel\...` 的类及直接静态方法调用。目标类/方法不存在或不再是公开静态方法时，plan 记录 Module、文件、行号并保持 blocked，不自动重写业务源码；动态调用、实例方法和业务语义仍由受影响测试/人工审阅负责。执行前审阅所选来源→目标的变化及 APP 自有业务、依赖、API 与迁移影响，备份并解决已知风险后再尝试。CLI 跨主版本 apply 必须传入 `--confirm-major-upgrade`；AI 在执行前须向人说明来源→目标、风险和计划并取得明确确认，已提前明确授权本次操作或明确范围的可按该授权执行，不重复确认，泛开发授权不足以确认跨主版本 apply。当前开发仅吸收源码，不包含生产数据库迁移或部署；新源码尚未发行，不能据此推断既有包可跨主版本或目标兼容性已获完整验证。

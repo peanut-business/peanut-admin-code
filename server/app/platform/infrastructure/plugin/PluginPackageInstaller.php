@@ -171,7 +171,6 @@ final class PluginPackageInstaller
                             new PluginModuleRegistryFactory($this->serverRoot),
                             $this->moduleConfig,
                             $this->catalogs,
-                            new ModuleMigrationSqlExecutor(),
                             new \PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries(),
                         );
                         $lifecycleStarted = true;

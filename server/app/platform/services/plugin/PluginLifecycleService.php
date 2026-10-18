@@ -8,7 +8,8 @@ use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
 use app\platform\composition\plugin\PluginModuleRegistryFactory;
 use app\platform\exception\plugin\PluginLifecycleException;
 use app\platform\infrastructure\plugin\ModuleCatalogApplier;
-use app\platform\infrastructure\plugin\ModuleMigrationSqlExecutor;
+use app\common\infrastructure\migration\PeanutMigrationAdapter;
+use app\common\infrastructure\migration\PeanutMigrationRun;
 use app\platform\infrastructure\plugin\PluginLockResolver;
 use app\platform\policy\plugin\ModuleLifecyclePolicy;
 use app\platform\value\plugin\PluginDescriptor;
@@ -33,7 +34,6 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         private PluginModuleRegistryFactory $registries,
         private array $moduleConfig,
         private ModuleCatalogApplier $catalogs,
-        private ModuleMigrationSqlExecutor $migrationSql,
         private TenantModuleStateQueries $tenantStates,
     ) {}
 
@@ -452,6 +452,11 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                     try { app()->make(\PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::class)->assertMayApply(); }
                     catch (\RuntimeException $exception) { throw new PluginLifecycleException($exception->getMessage(), 'Notification upgrade requires a known empty legacy delivery queue.'); }
                 }
+                $connection = Db::connect();
+                $pdo = $connection->getPdo();
+                if (!$pdo instanceof \PDO || $pdo->inTransaction()) {
+                    throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'An admitted master outside a transaction is required.');
+                }
                 $now = $this->now();
                 Db::transaction(function () use ($moduleKey, $migrationKey, $manifest, $checksum, $batch, $now): void {
                     Db::name('module_migration')->insert([
@@ -469,32 +474,35 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                     if (!is_string($sourceSql) || hash('sha256', $sourceSql) !== $checksum) {
                         throw new PluginLifecycleException('MODULE_MIGRATION_CHECKSUM_MISMATCH', 'Migration source changed before execution.');
                     }
-                    $sql = trim($sourceSql);
-                    if ($sql === '') {
+                    if (trim($sourceSql) === '') {
                         throw new PluginLifecycleException('MODULE_MIGRATION_INVALID', "Migration is empty: {$migrationKey}");
                     }
                     // MySQL DDL commits implicitly. Keep the durable migration ledger outside the DDL boundary.
-                    $this->migrationSql->execute($sql);
-                    Db::transaction(function () use ($moduleKey, $migrationKey): void {
-                        Db::name('module_migration')->where('module_key', $moduleKey)
-                            ->where('migration_key', $migrationKey)->update([
-                                'status' => 'applied',
-                                'resolution_kind' => 'executed',
-                                'provenance_json' => null,
-                                'finished_at' => $this->now(),
-                                'error_code' => null,
-                            ]);
-                    });
+                    PeanutMigrationRun::apply($pdo, $moduleKey, $migrationKey, $sourceSql, $checksum,
+                        static function () use ($connection, $pdo): void {
+                            if (Db::connect() !== $connection || $connection->getPdo() !== $pdo || $pdo->inTransaction()) {
+                                throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Master connection changed during migration.');
+                            }
+                        });
                     if ($notificationForward && $moduleKey === 'official.notification') { $this->assertNotificationForward($plugin); }
                 } catch (\Throwable $exception) {
-                    Db::name('module_migration')->where('module_key', $moduleKey)
-                        ->where('migration_key', $migrationKey)->where('status', 'applying')->update([
-                            'status' => 'failed',
-                            'finished_at' => $this->now(),
-                            'error_code' => $exception instanceof PluginLifecycleException
-                                ? $exception->errorCode
-                                : 'MODULE_MIGRATION_FAILED',
-                        ]);
+                    try {
+                        if (Db::connect() !== $connection || $connection->getPdo() !== $pdo) {
+                            throw new \RuntimeException('MODULE_MIGRATION_NATIVE_MASTER_CHANGED');
+                        }
+                        if ($pdo->inTransaction()) { $pdo->rollBack(); }
+                        Db::name('module_migration')->where('module_key', $moduleKey)
+                            ->where('migration_key', $migrationKey)->where('status', 'applying')->update([
+                                'status' => 'failed',
+                                'finished_at' => $this->now(),
+                                'error_code' => $exception instanceof PluginLifecycleException
+                                    ? $exception->errorCode
+                                    : 'MODULE_MIGRATION_FAILED',
+                            ]);
+                    } catch (\Throwable $recordingException) {
+                        throw new \RuntimeException('MODULE_MIGRATION_FAILED: ' . $migrationKey
+                            . '; FAILURE_RECORDING_FAILED: ' . $recordingException->getMessage(), 0, $exception);
+                    }
                     throw $exception;
                 }
             }
@@ -1338,6 +1346,9 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 || ($prerequisite = self::pendingProvenancePrerequisite()) === null) { throw $exception; }
         }
         $files = $this->migrationFiles($plugin->moduleRoots[$moduleKey], $manifest, true);
+        $pdo = Db::connect()->getPdo();
+        if (!$pdo instanceof \PDO) { throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Master connection is unavailable.'); }
+        (new PeanutMigrationAdapter($pdo, $moduleKey))->assertSourceIdentities(array_keys($files));
         $repairs = self::migrationRepairMap($moduleKey, $files);
         $adoptions = self::migrationAdoptions($moduleKey, $files, $repairs);
         $migrations = []; $reports = []; $mayApply = true;
