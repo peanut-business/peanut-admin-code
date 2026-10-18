@@ -479,9 +479,20 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                     }
                     // MySQL DDL commits implicitly. Keep the durable migration ledger outside the DDL boundary.
                     PeanutMigrationRun::apply($pdo, $moduleKey, $migrationKey, $sourceSql, $checksum,
-                        static function () use ($connection, $pdo): void {
+                        static function () use ($connection, $pdo, $moduleKey, $migrationKey, $adoptions): void {
                             if (Db::connect() !== $connection || $connection->getPdo() !== $pdo || $pdo->inTransaction()) {
                                 throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Master connection changed during migration.');
+                            }
+                            if ($moduleKey === 'official.file' && isset($adoptions['targets'][$migrationKey])) {
+                                // The original File proof must now observe the complete
+                                // postshape before the official adapter records applied.
+                                $proof = self::fileMigrationProof($migrationKey);
+                                if (($proof['may_apply'] ?? null) !== true || ($proof['disposition'] ?? null) !== 'adopt') {
+                                    throw new PluginLifecycleException('MODULE_MIGRATION_POSTSTATE_REJECTED', 'File migration did not establish its canonical postconditions.');
+                                }
+                                if (Db::connect() !== $connection || $connection->getPdo() !== $pdo || $pdo->inTransaction()) {
+                                    throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Master connection changed during the File poststate proof.');
+                                }
                             }
                         });
                     if ($notificationForward && $moduleKey === 'official.notification') { $this->assertNotificationForward($plugin); }
