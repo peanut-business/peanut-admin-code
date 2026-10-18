@@ -10,7 +10,6 @@ use app\common\contract\module\ModuleGovernanceProvider;
 use app\common\contract\module\ModuleQualificationQuery;
 use app\common\contract\module\PluginLifecycleCommands;
 use app\platform\infrastructure\plugin\ModuleCatalogApplier;
-use app\platform\infrastructure\plugin\ModuleMigrationSqlExecutor;
 use app\platform\exception\plugin\PluginLifecycleException;
 use app\platform\services\plugin\PluginLifecycleService;
 use app\platform\infrastructure\plugin\PluginLockResolver;
@@ -59,7 +58,6 @@ final class ThinkPhpModuleGovernanceProvider implements ModuleGovernanceProvider
             $this->registryFactory,
             $this->moduleConfig,
             $this->catalogs,
-            new ModuleMigrationSqlExecutor(),
             new TenantModuleStateQueries(),
         );
     }

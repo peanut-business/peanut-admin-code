@@ -234,6 +234,9 @@ function loadCoreRuntime(string $serverDir): void
         throw new RuntimeException('缺少 Composer autoload，无法创建 Core Schema');
     }
     require_once $autoload;
+    if (!class_exists(\think\migration\Migrator::class)) {
+        throw new RuntimeException('缺少官方迁移依赖，请先按 server/composer.lock 执行 Composer install --no-scripts');
+    }
 }
 
 /**
