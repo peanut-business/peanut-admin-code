@@ -836,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cb54215fe497a613c4b24864395d86a30743f7a58bba14a71039c9660e0c30c2"
+            "source_sha256": "b3bcfe72ceb40b773932b6d81ed37c4185562d5f554b0ffb0dd53638fac50ef9"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -6224,7 +6224,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b61564925503d88dc32132d2d5674a68ae52f20f247adca8af97829f64f40509"
+            "source_sha256": "46040c5886f12e5e498f7569dd7c754e0b55b12d3da4a434a8cc46039f47002d"
         },
         {
             "path": "server/app/command/BundlePack.php",
@@ -8932,7 +8932,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fcb0358a4dbfb3529438f5789547e82ea7f19bf80db7fa0dbfe1f076aedf2e4c"
+            "source_sha256": "c0997e375b26841c42a867372b90f0781f4fb92d74fdf78621dd813dcdcc7ba9"
         },
         {
             "path": "server/app/common/support/ExportPageInfo.php",
