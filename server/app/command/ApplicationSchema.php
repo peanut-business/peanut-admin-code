@@ -74,14 +74,42 @@ final class ApplicationSchema extends ContextualCommand
             return ($report['status'] ?? null) === 'blocked' ? 2 : 0;
         } catch (\Throwable $exception) {
             $message = $exception->getMessage();
-            $code = preg_match('/\AAPPLICATION_SCHEMA_[A-Z0-9_]+\z/D', $message) === 1
-                ? $message : 'APPLICATION_SCHEMA_FAILED';
+            $prefix = explode(':', $message, 2)[0];
+            $code = preg_match('/\AAPPLICATION_SCHEMA_[A-Z0-9_]+\z/D', $prefix) === 1
+                ? $prefix : 'APPLICATION_SCHEMA_FAILED';
             $output->writeln(json_encode([
                 'scope' => 'application-schema', 'status' => 'blocked', 'code' => $code,
                 'diagnostic_sha256' => hash('sha256', $message),
+                'diagnostic_origin' => self::diagnosticOrigin($exception),
                 'plugins' => 'not_run', 'product_database' => 'not_verified',
             ], JSON_THROW_ON_ERROR));
             return 1;
         }
+    }
+
+    /** Locate a CLI failure without exposing SQL, bindings, messages or absolute paths. */
+    private static function diagnosticOrigin(\Throwable $exception): array
+    {
+        $root = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR;
+        $chain = [];
+        do {
+            $file = $exception->getFile();
+            $type = get_class($exception);
+            // Anonymous class names contain a NUL and their absolute source path.
+            if (preg_match('/\A[A-Za-z_][A-Za-z0-9_]*(?:\\\\[A-Za-z_][A-Za-z0-9_]*)*\z/D', $type) !== 1) { $type = 'Throwable'; }
+            $source = str_starts_with($file, $root) ? substr($file, strlen($root)) : 'external';
+            if (preg_match('/\A[A-Za-z0-9_.\/-]+\z/D', $source) !== 1 || in_array('..', explode('/', $source), true)) { $source = 'external'; }
+            $item = ['type' => $type, 'source' => $source,
+                'line' => $exception->getLine()];
+            if ($exception instanceof \PDOException) {
+                $state = $exception->errorInfo[0] ?? $exception->getCode();
+                $driver = $exception->errorInfo[1] ?? null;
+                if (is_string($state) && preg_match('/\A[0-9A-Z]{5}\z/D', $state) === 1) { $item['sqlstate'] = $state; }
+                if (is_int($driver) && $driver >= 0) { $item['driver_code'] = $driver; }
+            }
+            $chain[] = $item;
+            $exception = $exception->getPrevious();
+        } while ($exception !== null && count($chain) < 8);
+        return $chain;
     }
 }
