@@ -283,9 +283,22 @@ try:
   before[lease]={'metadata':mb,'resources':rb}
   n=dict(m,owner=actor,expires_at=str(now+3600))
   after[lease]=''.join(k+'\t'+n[k]+'\n' for k in m).encode()
+ lock_holders=set()
+ for p in (root/'resources').iterdir():
+  holder=read(safe(p,True)/'lease').decode().removesuffix('\n')
+  if not holder or '\n' in holder or '\t' in holder: fail('invalid physical lock holder')
+  lock_holders.add(holder)
  for p in (root/'leases').iterdir():
   if p.name.startswith('.'): continue
-  m=meta(read(safe(p,True)/'metadata.tsv'))
+  safe(p,True)
+  if not (p/'metadata.tsv').exists():
+   # Same canonical identity rule as mysql_claim_policy: only empty or exact
+   # registry-only snapshots without physical lock references are non-leases.
+   entries={x.name for x in p.iterdir()}
+   archive=(entries=={'registry.json'} and (p/'registry.json').is_file() and not (p/'registry.json').is_symlink())
+   if (not entries or archive) and p.name not in lock_holders: continue
+   fail('partial lease identity or referenced registry-only entry')
+  m=meta(read(p/'metadata.tsv'))
   if p.name not in specs and (m.get('parent_lease') in specs or m.get('owner') not in (actor,)): fail('other owner/child present')
  locks={}
  for p in (root/'resources').iterdir():
