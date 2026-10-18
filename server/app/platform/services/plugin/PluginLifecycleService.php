@@ -389,7 +389,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     {
         $batch = (int) Db::name('module_migration')->max('batch_no') + 1;
         foreach ($manifests as $moduleKey => $manifest) {
-            $files = $this->migrationFiles($plugin->moduleRoots[$moduleKey], $manifest);
+            $files = self::migrationFiles($plugin->moduleRoots[$moduleKey], $manifest);
             $repairs = $this->migrationRepairMap($moduleKey, $files);
             $adoptions = self::migrationAdoptions($moduleKey, $files, $repairs);
             $plan = $this->moduleMigrationPlan($plugin, $moduleKey, $manifest, true, $moduleKey === 'official.notification' ? $notificationForward : null);
@@ -434,7 +434,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                     if (self::json($actual->publicIdentity()) !== self::json($plugin->publicIdentity()) || $actual->manifestDigest !== $plugin->manifestDigest) {
                         throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_SOURCE_CHANGED', 'Canonical package changed before SQL execution.');
                     }
-                    $actualFiles = $this->migrationFiles($actual->moduleRoots[$moduleKey], $manifest, true);
+                    $actualFiles = self::migrationFiles($actual->moduleRoots[$moduleKey], $manifest, true);
                     if (self::migrationAdoptions($moduleKey, $actualFiles, self::migrationRepairMap($moduleKey, $actualFiles)) !== $adoptions) {
                         throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_SOURCE_CHANGED', 'Canonical declaration changed before SQL execution.');
                     }
@@ -841,12 +841,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     /** Application history is owned here; it never substitutes for the File Module's complete proof. */
     private static function fileApplicationMigrationHistory(\PDO $pdo, string $moduleKey): array
     {
-        $hashes = [
-            'official.file:20260823-unify-storage-service' => 'f79c35b2fe8414dc172a81a45183d2a52eadb05833a704149780b36e400ca2d4',
-            'official.file:20260921020000_add_file_image_assets' => '826fa9d8fd841b6834bc5f23cabced30b7ca111de4bb1f629ccbdb8501200cd4',
-            'official.file:20261012030000_add_controlled_file_references' => '005edad54fc0cf06a4eeb6afa7c0e5f374a0bc352eaa088282b2f12932251591',
-            'official.file:20261012051000_add_immutable_document_snapshots' => '7b73c0c24f14f4c7f4fc1f75321e009b1a645d7df3f7d653dbb3d018e3b5bdbe',
-        ];
+        $hashes = self::fileApplicationMigrationHashes();
         if (!isset($hashes[$moduleKey])) { throw new \RuntimeException('APPLICATION_MIGRATION_LEDGER_INVALID'); }
         $read = static function (string $sql, array $parameters) use ($pdo): array {
             if (Db::connect()->getPdo() !== $pdo || !$pdo->inTransaction()) {
@@ -901,6 +896,47 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             'checksum' => $row['checksum'], 'status' => 'applied', 'claim' => 'recorded_applied'];
         $history['historical_application_migration_observation'] = 'recorded_applied';
         return $history;
+    }
+
+    /** Existing application-to-File history contract, not a general extra-ledger allowlist. */
+    private static function fileApplicationMigrationHashes(): array
+    {
+        return [
+            'official.file:20260823-unify-storage-service' => 'f79c35b2fe8414dc172a81a45183d2a52eadb05833a704149780b36e400ca2d4',
+            'official.file:20260921020000_add_file_image_assets' => '826fa9d8fd841b6834bc5f23cabced30b7ca111de4bb1f629ccbdb8501200cd4',
+            'official.file:20261012030000_add_controlled_file_references' => '005edad54fc0cf06a4eeb6afa7c0e5f374a0bc352eaa088282b2f12932251591',
+            'official.file:20261012051000_add_immutable_document_snapshots' => '7b73c0c24f14f4c7f4fc1f75321e009b1a645d7df3f7d653dbb3d018e3b5bdbe',
+        ];
+    }
+
+    /**
+     * Read canonical source ownership of known transferred application migrations.
+     * It neither proves current data postconditions nor adopts/writes any history.
+     * @return array<string,array<string,string>>
+     */
+    public static function applicationMigrationTransfers(PluginLockResolver $resolver): array
+    {
+        $plugin = $resolver->all()['official.file'] ?? null;
+        if ($plugin === null) { return []; }
+        $root = $plugin->moduleRoots['official.file'] ?? null;
+        if (!is_string($root)) { throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_INVALID', 'File ownership source is missing.'); }
+        $manifest = (new \PeanutAdmin\Kernel\Module\ManifestLoader())->load($root);
+        $files = self::migrationFiles($root, $manifest, true);
+        $adoptions = self::migrationAdoptions('official.file', $files, self::migrationRepairMap('official.file', $files));
+        $known = self::fileApplicationMigrationHashes();
+        $transfers = [];
+        foreach ($adoptions['targets'] as $key => $declaration) {
+            if (($known[$key] ?? null) !== $declaration['sha256']) {
+                throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_INVALID', 'Transferred application source differs from its immutable history contract.');
+            }
+            $id = substr($key, strlen('official.file:'));
+            $transfers[$id] = ['migration_id' => $id, 'module_key' => 'official.file',
+                'module_migration_key' => $key, 'sha256' => $declaration['sha256'],
+                'declaration_key' => $declaration['declaration_key'], 'declaration_sha256' => $declaration['declaration_sha256'],
+                'proof_contract' => $declaration['proof_contract'], 'plugin_manifest_sha256' => $plugin->manifestDigest];
+        }
+        ksort($transfers, SORT_STRING);
+        return $transfers;
     }
 
     private static function assertAdopted(array $row, array $declaration, \PDO $pdo, string $pluginKey): array
@@ -1345,7 +1381,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             if ($exception->errorCode !== 'MODULE_MIGRATION_PROVENANCE_SCHEMA_REQUIRED'
                 || ($prerequisite = self::pendingProvenancePrerequisite()) === null) { throw $exception; }
         }
-        $files = $this->migrationFiles($plugin->moduleRoots[$moduleKey], $manifest, true);
+        $files = self::migrationFiles($plugin->moduleRoots[$moduleKey], $manifest, true);
         $pdo = Db::connect()->getPdo();
         if (!$pdo instanceof \PDO) { throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Master connection is unavailable.'); }
         (new PeanutMigrationAdapter($pdo, $moduleKey))->assertSourceIdentities(array_keys($files));
@@ -1495,7 +1531,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             if (self::json($actual->publicIdentity()) !== self::json($plugin->publicIdentity()) || $actual->manifestDigest !== $plugin->manifestDigest) {
                 throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_SOURCE_CHANGED', 'Canonical package identity changed.');
             }
-            $files = $this->migrationFiles($actual->moduleRoots[$moduleKey], $manifest, true);
+            $files = self::migrationFiles($actual->moduleRoots[$moduleKey], $manifest, true);
             $map = self::migrationAdoptions($moduleKey, $files, self::migrationRepairMap($moduleKey, $files));
             if (($map['targets'][$declaration['migration_key']] ?? null) !== $declaration) {
                 throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_SOURCE_CHANGED', 'Canonical adoption declaration changed.');
@@ -1535,7 +1571,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     }
 
     /** @return array<string,string> */
-    private function migrationFiles(string $root, ManifestDocument $manifest, bool $requireDeclared = false): array
+    private static function migrationFiles(string $root, ManifestDocument $manifest, bool $requireDeclared = false): array
     {
         $directories = [];
         $backend = $manifest->data['backend'] ?? null;
