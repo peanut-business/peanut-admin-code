@@ -164,6 +164,7 @@ if (!function_exists('peanutBackendEnvironmentKeys')) {
             if (!is_string($value) && !is_int($value) && !is_float($value) && !is_bool($value)) {
                 throw new RuntimeException("{$scope}_ENVIRONMENT_VALUE_INVALID:{$key}");
             }
+            $values[$key] = is_bool($value) ? ($value ? 'true' : 'false') : (string) $value;
         }
         foreach ($managed as $key => $_) {
             $legacy = getenv('PHP_' . $key);
@@ -171,13 +172,15 @@ if (!function_exists('peanutBackendEnvironmentKeys')) {
                 throw new RuntimeException("BACKEND_ENVIRONMENT_LEGACY_PREFIX_FORBIDDEN:{$key}");
             }
             $existing = getenv($key);
-            if ($existing !== false) {
+            // ThinkPHP's native `think run` child inherits the parent's loaded
+            // file. Accept only that exact file value, never an ambient override.
+            if ($existing !== false && (!array_key_exists($key, $values)
+                || !hash_equals($values[$key], $existing))) {
                 throw new RuntimeException("{$scope}_ENVIRONMENT_AMBIENT_VALUE_FORBIDDEN:{$key}");
             }
         }
 
         foreach ($values as $key => $value) {
-            $value = is_bool($value) ? ($value ? 'true' : 'false') : (string) $value;
             putenv($key . '=' . $value);
             $_ENV[$key] = $value;
             $_SERVER[$key] = $value;
