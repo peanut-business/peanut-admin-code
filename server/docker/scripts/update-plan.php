@@ -2357,6 +2357,11 @@ final class PeanutServerUpdatePlan
             throw new RuntimeException(($target ? 'target' : 'current') . ' server release identity is invalid');
         }
         $application = $value['application'];
+        if ($target && (($application['kind'] ?? null) === 'internal-candidate'
+            || ($application['scope'] ?? null) === 'internal-candidate'
+            || ($application['formal_release_eligible'] ?? null) === false)) {
+            throw new RuntimeException('internal candidate cannot be a formal server upgrade target');
+        }
         foreach (['slug', 'edition', 'version', 'package_identity'] as $field) {
             if (!is_string($application[$field] ?? null) || $application[$field] === '') {
                 throw new RuntimeException(($target ? 'target' : 'current') . ' application identity is incomplete');

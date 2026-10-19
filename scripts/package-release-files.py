@@ -23,6 +23,21 @@ VERSION = re.compile(r'(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?
 CLIENT_ENVS = {f'{client}/.env.{suffix}' for client in CLIENTS
                for suffix in ('example', 'development', 'production', 'standalone', 'multi-tenant')}
 RELEASE_OUTPUTS = {'.peanut/application-release.json', 'release-manifest.txt'}
+SERVER_RELEASE_TOOLS = {
+    'scripts/upgrade': ('docker/scripts/upgrade', 0o755),
+    'scripts/product-upgrade-host': ('docker/scripts/product-upgrade-host', 0o755),
+    'scripts/scaffold-runtime/ScaffoldPathGuard.php':
+        ('docker/scripts/scaffold-runtime/ScaffoldPathGuard.php', 0o644),
+    'scripts/ops-backup-worker': ('docker/scripts/ops-backup-worker', 0o755),
+    'scripts/ops-restore-worker': ('docker/scripts/ops-restore-worker', 0o755),
+}
+SERVER_RELEASE_OUTPUTS = {
+    'server/plugins.lock', 'server/resources/project-resources.json',
+    *(f'server/.peanut/{name}' for name in (
+        'release-identity.json', 'internal-candidate.json', 'RELEASE_METADATA.json', 'release-versions.json',
+        'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md', 'RELEASE_SBOM.spdx.json')),
+    *(f'server/{relative}' for relative, _ in SERVER_RELEASE_TOOLS.values()),
+}
 BROWSER_RELEASE_PREFIXES = tuple(f'server/public/{name}/' for name in ('admin', 'platform', 'pc', 'mobile'))
 PROTECTED_RUNTIME_PREFIXES = (
     'server/runtime/', 'server/public/storage/', 'server/private/storage/',
@@ -114,7 +129,9 @@ def logical_release_path(relative: str) -> str:
 
 def release_generated_source(relative: str) -> bool:
     logical = logical_release_path(relative)
-    return logical in RELEASE_OUTPUTS or any(logical.startswith(prefix) for prefix in BROWSER_RELEASE_PREFIXES)
+    return (logical in RELEASE_OUTPUTS or logical in SERVER_RELEASE_OUTPUTS
+            or re.fullmatch(r'server/plugins/[a-z][a-z0-9.-]*/plugin\.json', logical) is not None
+            or any(logical.startswith(prefix) for prefix in BROWSER_RELEASE_PREFIXES))
 
 
 def allowed_source(relative: str) -> bool:
@@ -283,6 +300,9 @@ def snapshot(root: Path, target: Path, generated_template: bool, internal: bool 
         raise ValueError('snapshot destination must not exist')
     root = root.resolve(strict=True)
     manifest = document(root, MANIFEST)
+    if not internal and ((root / '.peanut/internal-candidate.json').exists()
+                         or (root / '.peanut/internal-candidate.json').is_symlink()):
+        raise ValueError('internal candidate must retain its explicit candidate packaging mode')
     sealed = None
     approved_archives = set()
     if internal:
@@ -565,20 +585,22 @@ def application_release_identity(source: Path, target: Path, manifest: dict, git
     path.chmod(0o644)
 
 
-def server_identity(source: Path, target: Path, manifest: dict, git: dict, versions: dict) -> None:
+def server_identity(source: Path, target: Path, manifest: dict, git: dict, versions: dict,
+                    server_only: bool = True) -> None:
     application_rows_sha256 = rows_sha256(release_rows(target))
     server = target / 'server'
-    for child in list(target.iterdir()):
-        if child.name != 'server':
-            shutil.rmtree(child) if child.is_dir() else child.unlink()
-    for relative in ('tests', 'runtime/installation', 'private/installation'):
-        unwanted = server / relative
-        if unwanted.exists():
-            shutil.rmtree(unwanted)
-    packaging_helper = server / 'app/common/infrastructure/scaffold/DeterministicEditionArchive.php'
-    if packaging_helper.exists():
-        regular_file(server, 'app/common/infrastructure/scaffold/DeterministicEditionArchive.php')
-        packaging_helper.unlink()
+    if server_only:
+        for child in list(target.iterdir()):
+            if child.name != 'server':
+                shutil.rmtree(child) if child.is_dir() else child.unlink()
+        for relative in ('tests', 'runtime/installation', 'private/installation'):
+            unwanted = server / relative
+            if unwanted.exists():
+                shutil.rmtree(unwanted)
+        packaging_helper = server / 'app/common/infrastructure/scaffold/DeterministicEditionArchive.php'
+        if packaging_helper.exists():
+            regular_file(server, 'app/common/infrastructure/scaffold/DeterministicEditionArchive.php')
+            packaging_helper.unlink()
     for relative in ('runtime', 'public/storage', 'private/storage', 'private/resources',
                      'public/uploads', 'docker/mysql', 'docker/secrets'):
         protected = server / relative
@@ -592,8 +614,10 @@ def server_identity(source: Path, target: Path, manifest: dict, git: dict, versi
             if path.is_file():
                 if path.name not in ('.gitkeep', '.gitignore'):
                     raise ValueError(f'runtime data cannot enter server release: {relative}')
-                path.unlink()
-        shutil.rmtree(protected)
+                if server_only:
+                    path.unlink()
+        if server_only:
+            shutil.rmtree(protected)
     identity_file = server / '.peanut/release-identity.json'
     if identity_file.exists():
         raise ValueError('application source already contains a server release identity')
@@ -601,6 +625,17 @@ def server_identity(source: Path, target: Path, manifest: dict, git: dict, versi
     validate_release_metadata(source, manifest, versions)
     application = manifest['application']
     metadata.parent.mkdir(parents=True, exist_ok=True)
+    candidate = None
+    if git['kind'] == 'internal-candidate':
+        if server_only:
+            raise ValueError('internal candidate requires its complete APP')
+        contract = internal_contract()
+        candidate = document(source, contract.MARKER)
+        candidate_path = server / contract.MARKER
+        if candidate_path.exists() or candidate_path.is_symlink():
+            raise ValueError('candidate backend marker conflicts with application source')
+        shutil.copyfile(regular_file(source, contract.MARKER), candidate_path)
+        candidate_path.chmod(0o644)
     shutil.copyfile(regular_file(source, 'RELEASE_METADATA.json'), metadata)
     metadata.chmod(0o644)
     version_projection = server / '.peanut/release-versions.json'
@@ -621,15 +656,7 @@ def server_identity(source: Path, target: Path, manifest: dict, git: dict, versi
     # Native server consumers execute installed tools whose bytes belong to this
     # APP release. Project the existing source programs before the canonical
     # server inventory is calculated; never fetch tools from a target package.
-    native_tools = {
-        'scripts/upgrade': ('docker/scripts/upgrade', 0o755),
-        'scripts/product-upgrade-host': ('docker/scripts/product-upgrade-host', 0o755),
-        'scripts/scaffold-runtime/ScaffoldPathGuard.php':
-            ('docker/scripts/scaffold-runtime/ScaffoldPathGuard.php', 0o644),
-        'scripts/ops-backup-worker': ('docker/scripts/ops-backup-worker', 0o755),
-        'scripts/ops-restore-worker': ('docker/scripts/ops-restore-worker', 0o755),
-    }
-    for origin, (relative, mode) in native_tools.items():
+    for origin, (relative, mode) in SERVER_RELEASE_TOOLS.items():
         destination = server / relative
         if destination.exists() or destination.is_symlink():
             raise ValueError(f'native tool projection conflicts with source: {relative}')
@@ -638,6 +665,11 @@ def server_identity(source: Path, target: Path, manifest: dict, git: dict, versi
         destination.chmod(mode)
     plugin_projection = project_server_plugins(source, target)
     files = release_rows(target)
+    if not server_only:
+        # Full APP roots retain development sources and empty runtime placeholders.
+        # Only backend program files belong to the existing deployment identity.
+        files = [row for row in files if row['path'].startswith('server/')
+                 and not any(row['path'].startswith(prefix) for prefix in PROTECTED_RUNTIME_PREFIXES)]
     validate_server_release_rows(files)
     if not any(row['path'] == 'server/database/install.php' for row in files):
         raise ValueError('server release lacks its installer')
@@ -670,6 +702,13 @@ def server_identity(source: Path, target: Path, manifest: dict, git: dict, versi
         'plugin_projection': plugin_projection,
         'files': files, 'files_sha256': rows_sha256(files),
     }
+    if candidate is not None:
+        release['application'].update({
+            'scope': 'internal-candidate', 'formal_release_eligible': False,
+            'candidate_marker': {'path': internal_contract().MARKER,
+                                 'sha256': hashlib.sha256(regular_file(source, internal_contract().MARKER).read_bytes()).hexdigest()},
+            'projection': candidate['projection'], 'selection': candidate['selection'],
+        })
     identity_file.parent.mkdir(parents=True, exist_ok=True)
     identity_file.write_text(json.dumps(release, ensure_ascii=False, indent=2) + '\n')
     identity_file.chmod(0o644)
@@ -996,6 +1035,8 @@ def main() -> None:
         else:
             # The development archive keeps application source and the upstream
             # baseline for later APP customization and scaffold upgrades.
+            versions = document(source, 'release-versions.json') if args.internal_candidate else released_dependencies(source)
+            server_identity(source, destination, manifest, git, versions, server_only=False)
             application_release_identity(source, destination, manifest, git)
             if args.internal_candidate:
                 internal_contract().verify_assembled(destination)

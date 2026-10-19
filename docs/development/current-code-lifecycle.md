@@ -246,17 +246,25 @@ File 四条 canonical adoption 目标若按既有证明选择执行原 SQL，官
 
 官方模块随维护者明确选择和审阅的固定 scaffold 来源整体吸收，绑定真实源码 commit/tree、release manifest、逐文件摘要与 canonical 模块 manifest/lock；这些摘要证明选定输入的内容，不认证发布者，不要求签名私钥。预检以已安装且通过生产 canonical 核验的官方图为起点，投影目标官方模块的完整控制器、服务、迁移及客户端贡献，先以原生 `PluginArtifactWriter::checkLock()` 核固定模板原文的完整 canonical 图；产品名称等参数渲染改变源文件字节后，按原生 make → lock 重建 APP 派生 manifest 和含原客户模块的锁并核依赖。计划同时固定原文图、渲染参数、APP 派生图与派生字节，应用及新基线使用同一派生字节，不要求渲染后摘要等于模板原文摘要。官方包与模块的变化必须提升各自版本，同版本内容不得变化；模块成员、根路径及官方归属不能借升级转给客户包。非官方 bundled 包只有在当前应用受管清单、固定 from/target 声明中的包/成员/根路径与来源合同一致，完整包文件均为 scaffold owner 且当前内容、权限、受管基线摘要全部吻合时，才能按上游整体吸收；命名空间或 bundled 标签不能替代归属证明。客户模块、app-owned 重叠和未登记的额外官方根文件受到保护，冲突不得靠单文件填入或手改摘要解决。应用/核验检查目标完整插件图，恢复检查原图；`module:adopt-package` 保持私有模块源码入口，不用于接收 official.*。
 
-server-only Compose 实例使用 `server/docker/scripts/update.sh plan|apply|verify|recover`。`--instance-server=/absolute/instance/server` 显式选择原实例；协调器和维护工具仍来自该实例已安装的 APP 制品，Compose、数据库和私有配置也取原实例。目标归档只按外部可信 SHA-256 校验后消费。plan 将已安装维护工具固化到 workspace，每次执行前由协调器复核工具清单和哈希。归档文件按路径排序后严格比较路径、内容 SHA-256 和权限；归档遍历顺序不作为内容身份。
+完整 APP 的正式归档复用 `scripts/package-release.sh /absolute/output --application-root=/absolute/app`。输入为 APP 自己干净、已提交的 Git 源码和原生锁；PHP/Web Core 与脚手架使用固定、可取得的同一上游发行版，APP 名称、包标识、Edition 和独立版本保留自己的身份。隔离构建完成 Web、Platform、PC SPA、UniApp H5，分别装入 `server/public/admin`、`platform`、`pc`、`mobile`。归档保留四端源码、业务模块、声明与锁、安装/官方迁移入口、根来源清单和升级基线；不装入 `.git`、vendor、node_modules、缓存、真实数据、账号密钥、安装完成状态或机器配置。浏览器 bundle 内的依赖代码随静态产物保留。目标 Git、remote 和历史在部署现场单独保全；归档名称与外部摘要同时记录真实 APP/Edition/APP 版和上游版/来源，不能用上游版代替 APP 版。
 
-该 Compose 的 PHP/Nginx/MySQL 只提供固定运行环境，应用代码与 vendor 位于宿主 `server/`，公共上传、runtime、私有上传及安装身份随该目录持久保留；数据库数据使用 `server/docker/mysql/` 目录挂载。运行配置取 `server/docker/.env`，应用配置取 `server/.env`，两者不互换。`start.sh` 和 `update.sh` 不构建应用镜像；APP 独立发行来源与 Peanut 上游来源分别绑定。完整开发源码包保留 APP 二开和源码吸收合同，`package-release.sh --server-only` 生成实例部署包；PC SPA 浏览器产物来自同次发行，SSR 本批后置。
+完整 APP 同次组装还复用原生 `peanut.server-release.v1`，按实际后端字节生成 `server/.peanut/release-identity.json`、后端插件锁、版本、APP 自有资源登记及维护工具。根 `.peanut/application-release.json` 绑定整个完整包。完整模式不执行 server-only 的源码裁剪，不另建运行投影；Compose、entrypoint、owner 配置、安装向导与 HTTP 部署准入直接消费既有后端发行身份。生成的后端元数据不成为 APP 受管源码或新的升级基线，精确 Git ignore/源码快照排除使下一次打包从当前已提交源码重新生成，拒绝目标路径冲突。修改后端源码须重新组装并通过原生生命周期采用，不能手改身份或摘要追认。
+
+后端部署更新复用 `server/docker/scripts/update.sh plan|apply|verify|recover`。`--instance-server=/absolute/instance/server` 显式选择原实例；协调器和维护工具仍来自该实例已安装的 APP 制品，Compose、数据库和私有配置也取原实例。该入口消费 `--server-only` 生成的后端更新归档，不把仅后端更新包当作完整 APP 交付。目标归档只按外部可信 SHA-256 校验后消费。plan 将已安装维护工具固化到 workspace，每次执行前由协调器复核工具清单和哈希。归档文件按路径排序后严格比较路径、内容 SHA-256 和权限；归档遍历顺序不作为内容身份。
+
+Compose 使用已准备的固定 PHP-FPM/Nginx 镜像和正常 bridge 网络、服务 DNS；普通部署不使用 ThinkPHP 开发服务或 Vite。应用代码与 vendor 位于宿主 `server/`，公共上传、runtime、私有上传及安装身份随该目录持久保留；只有 bundled 数据库使用 `server/docker/mysql/`。运行配置取 `server/docker/.env`，应用配置取 `server/.env`，两者不互换。`start.sh` 和 `update.sh` 不构建应用镜像。APP 独立发行来源与 Peanut 上游来源分别绑定。静态入口、API、安装页面及其错误由现有 Nginx 明确路由；HTTPS 使用已登记域名及外部私钥/CA，不能关闭校验或依赖固定容器 IP、host 网络或 SSH 隧道替代登记路线。PC 使用同次构建的 SPA 静态产物，SSR 后置。
 
 开发运行投影以 `server/.peanut/development-runtime.json` 识别，保留自身的来源、文件和依赖校验，不创建 `release-identity.json`。数据库入口复用该身份读取器后使用投影的 `server/resources/project-resources.json`，已配置实例可使用 `server/private/resources/project-resources.json`；两者都必须属于该 APP。与 server-only 发行实例一样，开发运行投影拒绝外部 `PEANUT_RESOURCE_REGISTRY` 和维护者登记。未绑定运行投影的源码工程仍按原源码入口读取根资源登记。
 
 开发运行投影也使用同一首次安装向导。配置、预检和执行直接消费 ApplicationSourceIdentity 的原生严格身份；只接受 development 环境目标，HTTP 继续使用已验证的部署准入。未安装投影通过既有启动准入发布安装能力；已有完成锁时仍先验证安装健康、原始回执和当前部署链。首装基线以 development-runtime 记录投影身份和原 APP manifest 摘要，不将其标作 server release；源码和依赖身份变化仍须经正常生命周期采用。投影由 package-release-files.py 的 development-runtime 动作从真实生成 APP、原生锁定依赖及完整来源清单产生，不手写身份，也不等同发行包。
 
-明确登记的临时多租户源码首次部署消费真实 `generated-template` 制品。原生生成器的 APP 自有公共资源登记尚未分配数据库时，部署允许其 `resources.databases=[]`；宿主数据库、Compose、镜像和端口仍须由维护者资源登记精确绑定，首次启动后显式选择原生安装配置并生成实例私有资源登记，不从空模板推测资源。制品已有数据库投影时仍核对所选资源唯一身份、库名和完整容器端点；永久 APP 自有 Release 始终要求该投影。此范围仅用于带固定来源、到期时间与替换 owner 的多租户首次安装，不用于自动 APP 升级，也不覆盖已有实例目录。
+永久 APP 的完整安装等待固定正式 Core 包可取得以及其发行 Gate。普通源码修复和完整包组装准备不以公开发包为前置；发行前确需运行固定候选时，仅在正常登记的独立候选目录使用同一原生完整归档、PHP-FPM/Nginx 和静态路径。内部候选身份保持不可正式发行，不用临时运行投影安装替代这条确认链，也不冒充永久 APP 验收。候选资源、库、写集及次数按原授权分别登记，不能借换目录、Edition 或新版本重置失败预算。
+
+既有 `--internal-candidate` 完整包保留原 `kind=internal-candidate`、`scope`、`formal_release_eligible=false`、marker、来源及七个 Core 固定锁的合同，同次生成的后端身份带入这些已有字段及原 marker 字节。完整候选核验继续逐文件验证原 sealed source、四端静态、原生后端元数据和插件派生，不接受任意额外文件。后端读取器核对 marker、真实程序、来源和 Core 锁；首次配置仅提供 development 部署目标，正式后端升级入口拒绝候选作为目标。此处不增加新身份协议，也不把候选资格改为正式。
 
 首次配置的 `database_source` 明确选择 `bundled` 或 `registered`。后者只从 APP 自有公共资源登记选择唯一数据库和 `host`／`container` 消费端点，环境、Edition、库名和地址必须匹配登记；已有普通账号与密码仅写入私有 0600 配置。配置发布不连接数据库、不建库、不创建或修改账号、不授予权限；连接与权限仍由安装向导实际 ThinkORM/PDO 的 `database-check` 判断。只有 `bundled` 才调用内置数据库 provision。APP 不读取维护者的私有 Project 登记作为运行依赖；维护者需先通过原生 `application-registry` 投影准备 APP 自有来源。
+
+外部专库的新实例以 `python3 server/docker/scripts/configure-runtime.py --php-image=<prepared-immutable-image> --database-source=registered` 准备 Docker 配置；不写本地 MySQL image/port/root 密码。首次向导尚未发布 `server/.env` 时，正常 `start.sh -f compose.registered-database.yaml` 显式选本包的 registered overlay；发布后复用 `PEANUT_DATABASE_SOURCE=registered` 自动选择。两种情况均只启动 PHP/Nginx，不创建 MySQL 数据目录，不受 `COMPOSE_PROFILES` 意外选中内置库的影响。registered 模式不能传本地 `--mysql-host-port`；bundled 模式仍校验固定 MySQL 镜像和 root 凭据。完整源码中普通、空的 `.gitkeep`/`.gitignore` 目录占位可保留；已有数据、密钥、链接、配置或安装状态不得被初始化入口覆盖。每个 APP 使用自己明确登记的专库，不能通过共享首装 schema 或替换 `.env` 安装另一 Edition。
 
 外部已有数据库使用后端配置的 database_source=registered。原生启动器从实例 .env 自动选择随产品交付的 compose.registered-database.yaml，只启动 PHP 与 Nginx；不启动、拉取或初始化内置 MySQL，也不调用其 provision。普通账号、端点和数据库仍须来自当前 APP 自有登记并经真实 PDO 复查。bundled 使用原来的默认 Compose、MySQL 健康依赖及 provision 路径。
 

@@ -36,10 +36,26 @@ if [ -e "$SERVER_DIR/.env" ] || [ -L "$SERVER_DIR/.env" ]; then
     mode=$(file_mode "$SERVER_DIR/.env")
     [ "$mode" = "600" ] || { echo "server/.env must have mode 0600" >&2; exit 1; }
 fi
+database_source=$(python3 - "$SERVER_DIR" "$@" <<'PY'
+import importlib.util, pathlib, sys
+sys.dont_write_bytecode = True
+server = pathlib.Path(sys.argv[1])
+spec = importlib.util.spec_from_file_location('native_compose', server / 'docker/scripts/configure-collaboration.py')
+module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+arguments = module.compose_arguments(server) + sys.argv[2:]
+print('registered' if module.registered_database_services(server, arguments) else 'bundled')
+PY
+)
 php_image=$(sed -n 's/^PHP_IMAGE=//p' "$DOCKER_DIR/.env" | tail -n 1)
 printf '%s' "$php_image" | grep -Eq '^(sha256:[a-f0-9]{64}|[A-Za-z0-9][A-Za-z0-9._:/-]{0,160}@sha256:[a-f0-9]{64})$' || {
     echo "PHP_IMAGE must be a prepared immutable image ID" >&2
     exit 1
+}
+# Only this composition's bundled database needs a root credential or data directory.
+if [ "$database_source" = bundled ]; then
+mysql_image=$(sed -n 's/^MYSQL_IMAGE=//p' "$DOCKER_DIR/.env" | tail -n 1)
+printf '%s' "$mysql_image" | grep -Eq '^(sha256:[a-f0-9]{64}|[A-Za-z0-9][A-Za-z0-9._:/-]{0,160}@sha256:[a-f0-9]{64})$' || {
+    echo "bundled MYSQL_IMAGE must be a prepared immutable image ID" >&2; exit 1;
 }
 # Canonical Docker root credential lives only in server/docker/.env. Older
 # packages stored the same value in docker/secrets/mysql-root-password; consume
@@ -78,10 +94,12 @@ fi
 root_password=$(awk -F= '$1 == "MYSQL_ROOT_PASSWORD" { sub(/^[^=]*=/, ""); print; exit }' "$DOCKER_DIR/.env")
 [ -n "$root_password" ] || { echo "server/docker/.env contains an empty MYSQL_ROOT_PASSWORD" >&2; exit 1; }
 unset root_password
+fi
 mkdir -p "$SERVER_DIR/runtime"
 "$SCRIPT_DIR/prepare-vendor.sh" start "$SERVER_DIR" "$php_image"
 
-mkdir -p "$DOCKER_DIR/mysql" "$DOCKER_DIR/secrets" \
+if [ "$database_source" = bundled ]; then mkdir -p "$DOCKER_DIR/mysql"; fi
+mkdir -p "$DOCKER_DIR/secrets" \
     "$SERVER_DIR/public/storage" "$SERVER_DIR/private/storage" \
     "$SERVER_DIR/private/installation" "$SERVER_DIR/private/resources" "$SERVER_DIR/private/maintenance" \
     "$SERVER_DIR/private/resources/pending" "$SERVER_DIR/runtime/cache" "$SERVER_DIR/runtime/log" \

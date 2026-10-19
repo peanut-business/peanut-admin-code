@@ -268,12 +268,35 @@ def verify_assembled(root: Path, expected: dict | None = None) -> dict:
     rows = [row for row in rows if row["path"] != identity_name]
     require(rows == identity.get("files") and _policy.rows_sha256(rows) == identity.get("files_sha256"), "ASSEMBLED_TREE_MISMATCH")
     actual = {r["path"]: {k: r[k] for k in ("sha256", "mode")} for r in rows}
+    backend_name = 'server/.peanut/release-identity.json'
+    backend = document(file(root, backend_name))
+    backend_application = backend.get('application', {})
+    require(backend.get('protocol') == 'peanut.server-release.v1'
+            and backend.get('schema_version') == 1
+            and backend_application.get('kind') == 'internal-candidate'
+            and backend_application.get('scope') == 'internal-candidate'
+            and backend_application.get('formal_release_eligible') is False
+            and backend_application.get('candidate_marker') == {'path': MARKER, 'sha256': digest(file(root, MARKER))}
+            and actual.get(backend_name, {}).get('mode') == 0o644
+            and actual.get('server/' + MARKER) == {'sha256': digest(file(root, MARKER)), 'mode': 0o644}
+            and file(root, 'server/' + MARKER).read_bytes() == file(root, MARKER).read_bytes(),
+            'ASSEMBLED_BACKEND_CANDIDATE_INVALID')
+    backend_rows = [row for row in rows if row['path'].startswith('server/') and row['path'] != backend_name
+                    and not any(row['path'].startswith(prefix) for prefix in _policy.PROTECTED_RUNTIME_PREFIXES)]
+    _policy.validate_server_release_rows(backend_rows)
+    require(backend.get('files') == backend_rows and backend.get('files_sha256') == _policy.rows_sha256(backend_rows),
+            'ASSEMBLED_BACKEND_FILES_MISMATCH')
     sealed = marker.get("source_files")
     require(isinstance(sealed, dict) and sealed, "SEALED_SOURCE_REQUIRED")
     for name, row in sealed.items():
         require(actual.get(name) == row, "ASSEMBLED_SOURCE_CHANGED:" + name)
+    plugins = document(file(root, 'plugins.lock'))['plugins']
+    backend_outputs = _policy.SERVER_RELEASE_OUTPUTS | {f"server/plugins/{entry['key']}/plugin.json" for entry in plugins}
+    require(backend_outputs <= set(actual), 'ASSEMBLED_BACKEND_METADATA_MISSING')
+    require(backend_application.get('source_files_sha256') == _policy.rows_sha256(
+        [row for row in rows if row['path'] not in backend_outputs]), 'ASSEMBLED_BACKEND_INPUT_MISMATCH')
     prefixes = ("server/public/admin/", "server/public/platform/", "server/public/pc/", "server/public/mobile/")
-    for name in set(actual) - set(sealed) - {MARKER, "release-manifest.txt"}:
+    for name in set(actual) - set(sealed) - backend_outputs - {MARKER, "release-manifest.txt"}:
         prefix = next((p for p in prefixes if name.startswith(p)), None)
         asset = name[len(prefix):] if prefix else ""
         require(bool(asset) and _policy.allowed_source(asset)
@@ -300,6 +323,40 @@ def verify_assembled(root: Path, expected: dict | None = None) -> dict:
             shutil.copyfile(file(root, name), target)
             target.chmod(actual[name]["mode"])
         result = verify(source, expected)
+        manifest = document(file(source, '.peanut/application-manifest.json'))
+        versions = document(file(source, 'release-versions.json'))
+        require(all(backend_application.get(key) == manifest['application'][key]
+                    for key in ('name', 'slug', 'edition', 'version', 'profile', 'package_identity'))
+                and backend_application.get('manifest_sha256') == marker['original_manifest_sha256']
+                and backend_application.get('projection') == marker['projection']
+                and backend_application.get('selection') == marker['selection']
+                and backend_application.get('commit') is None and backend_application.get('tree') is None
+                and backend.get('edition_contract') == manifest['edition']
+                and backend.get('edition_profile_sha256') == manifest['edition']['source_sha256']
+                and backend.get('template') == manifest['template']
+                and backend.get('upstream') == {key: marker['generation_source'][key]
+                                                for key in ('commit', 'tree', 'inventory_sha256')}
+                and backend.get('versions') == {
+                    'source_product_version': versions['source_product_version'],
+                    'release_sequence_version': versions.get('instance_version') or versions['source_product_version'],
+                    'scaffold_template': versions['scaffold_template']}, 'ASSEMBLED_BACKEND_SOURCE_MISMATCH')
+        copies = {f'server/.peanut/{name}': name for name in (
+            'RELEASE_METADATA.json', 'release-versions.json', 'LICENSE', 'NOTICE',
+            'THIRD_PARTY_NOTICES.md', 'RELEASE_SBOM.spdx.json')}
+        copies['server/resources/project-resources.json'] = 'resources/project-resources.json'
+        for target, origin in copies.items():
+            require(actual[target] == {'sha256': digest(file(source, origin)), 'mode': 0o644},
+                    'ASSEMBLED_BACKEND_COPY_MISMATCH:' + target)
+        for origin, (target, mode) in _policy.SERVER_RELEASE_TOOLS.items():
+            require(actual['server/' + target] == {'sha256': digest(file(source, origin)), 'mode': mode},
+                    'ASSEMBLED_BACKEND_TOOL_MISMATCH:' + target)
+        # Reuse the native backend plugin derivation on the verified source-only
+        # view; accepting arbitrary extra files is never a metadata proof.
+        projection = _policy.project_server_plugins(source, source)
+        require(backend.get('plugin_projection') == projection, 'ASSEMBLED_BACKEND_PLUGIN_PROJECTION_MISMATCH')
+        for name in ['server/plugins.lock', *(f"server/plugins/{entry['key']}/plugin.json" for entry in plugins)]:
+            require(actual[name] == {'sha256': digest(file(source, name)), 'mode': 0o644},
+                    'ASSEMBLED_BACKEND_PLUGIN_MISMATCH:' + name)
     return {**result, "status": "verified-complete-internal-app", "application_release_sha256": digest(file(root, identity_name))}
 
 

@@ -9,7 +9,7 @@ use RuntimeException;
 use think\App;
 use think\Container;
 
-/** The one generated identity carried by a server-only release. */
+/** Native backend identity carried by an assembled APP or server-only release. */
 final readonly class ServerReleaseIdentity
 {
     private function __construct(private array $document, private string $digest) {}
@@ -63,11 +63,11 @@ final readonly class ServerReleaseIdentity
         $hex40 = '/^[a-f0-9]{40}$/D';
         $hex64 = '/^[a-f0-9]{64}$/D';
         $kind = $app['kind'] ?? null;
-        if (!in_array($kind, ['application', 'generated-template'], true)
+        if (!in_array($kind, ['application', 'generated-template', 'internal-candidate'], true)
             || preg_match($hex64, (string) ($app['manifest_sha256'] ?? '')) !== 1
             || ($kind === 'application' && (preg_match($hex40, (string) ($app['commit'] ?? '')) !== 1
                 || preg_match($hex40, (string) ($app['tree'] ?? '')) !== 1))
-            || ($kind === 'generated-template' && (!array_key_exists('commit', $app)
+            || (in_array($kind, ['generated-template', 'internal-candidate'], true) && (!array_key_exists('commit', $app)
                 || !array_key_exists('tree', $app)
                 || $app['commit'] !== null || $app['tree'] !== null))
             || !is_string($app['slug'] ?? null) || $app['slug'] === ''
@@ -141,12 +141,102 @@ final readonly class ServerReleaseIdentity
             }
         }
         $listed = array_column($files, 'sha256', 'path');
+        $listedModes = array_column($files, 'mode', 'path');
         foreach (['server/database/install.php', 'server/plugins.lock',
             'server/.peanut/RELEASE_METADATA.json',
             'server/resources/project-resources.json'] as $required) {
             if (!isset($listed[$required])) {
                 throw new RuntimeException('SERVER_RELEASE_IDENTITY_INVALID');
             }
+        }
+        $candidatePath = 'server/.peanut/internal-candidate.json';
+        if ($kind === 'internal-candidate') {
+            if (($app['scope'] ?? null) !== 'internal-candidate' || ($app['formal_release_eligible'] ?? null) !== false
+                || !isset($listed[$candidatePath], $listed['server/.peanut/release-versions.json'], $listed['server/composer.lock'])
+                || ($app['candidate_marker'] ?? null) !== ['path' => '.peanut/internal-candidate.json', 'sha256' => $listed[$candidatePath]]) {
+                throw new RuntimeException('SERVER_RELEASE_CANDIDATE_INVALID');
+            }
+            try {
+                $marker = json_decode((string) file_get_contents($serverRoot . '/.peanut/internal-candidate.json'), true, 512, JSON_THROW_ON_ERROR);
+                $versions = json_decode((string) file_get_contents($serverRoot . '/.peanut/release-versions.json'), true, 512, JSON_THROW_ON_ERROR);
+                $composer = json_decode((string) file_get_contents($serverRoot . '/composer.lock'), true, 512, JSON_THROW_ON_ERROR);
+            } catch (JsonException $exception) {
+                throw new RuntimeException('SERVER_RELEASE_CANDIDATE_INVALID', 0, $exception);
+            }
+            if (!is_array($marker) || !is_array($versions) || !is_array($composer) || ($marker['schema_version'] ?? null) !== 1
+                || ($marker['protocol'] ?? null) !== 'peanut.internal-edition-candidate.v1'
+                || ($marker['scope'] ?? null) !== 'internal-candidate' || ($marker['formal_release_eligible'] ?? null) !== false
+                || ($marker['original_manifest_sha256'] ?? null) !== $app['manifest_sha256']
+                || !is_array($marker['source_files'] ?? null) || $marker['source_files'] === []
+                || ($marker['source_files']['.peanut/application-manifest.json']['sha256'] ?? null) !== $app['manifest_sha256']
+                || ($marker['source_files']['release-versions.json']['sha256'] ?? null) !== $listed['server/.peanut/release-versions.json']
+                || !is_array($marker['projection'] ?? null) || ($marker['projection'] ?? null) !== ($app['projection'] ?? null)
+                || preg_match($hex64, (string) ($marker['projection']['original_tree_sha256'] ?? '')) !== 1
+                || preg_match($hex64, (string) ($marker['projection']['projected_tree_sha256'] ?? '')) !== 1
+                || !is_array($marker['selection'] ?? null) || ($marker['selection'] ?? null) !== ($app['selection'] ?? null)
+                || count($marker['selection']) !== 4
+                || preg_match($hex64, (string) ($marker['core_inputs_sha256'] ?? '')) !== 1
+                || ($marker['selection']['edition'] ?? null) !== $app['edition']
+                || ($marker['selection']['profile'] ?? null) !== 'full' || ($marker['selection']['workflow'] ?? null) !== 'full'
+                || ($marker['selection']['clients'] ?? null) !== ['Admin', 'Platform', 'PC SPA', 'UniApp H5']) {
+                throw new RuntimeException('SERVER_RELEASE_CANDIDATE_INVALID');
+            }
+            foreach (['commit', 'tree', 'inventory_sha256'] as $field) {
+                if (($marker['generation_source'][$field] ?? null) !== $value['upstream'][$field]) {
+                    throw new RuntimeException('SERVER_RELEASE_CANDIDATE_INVALID');
+                }
+            }
+            foreach ($marker['source_files'] as $path => $row) {
+                if (!is_string($path) || !is_array($row) || preg_match($hex64, (string) ($row['sha256'] ?? '')) !== 1
+                    || !in_array($row['mode'] ?? null, [0644, 0755], true)) {
+                    throw new RuntimeException('SERVER_RELEASE_CANDIDATE_INVALID');
+                }
+                if (!str_starts_with($path, 'server/')) {
+                    continue; // Whole-APP source and archives were verified before assembly.
+                }
+                $placeholder = preg_match('~^server/(?:runtime|public/(?:storage|uploads)|private/(?:storage|resources|installation)|docker/(?:mysql|secrets))/~D', $path) === 1
+                    && in_array(basename($path), ['.gitkeep', '.gitignore'], true)
+                    && $row['sha256'] === hash('sha256', '') && $row['mode'] === 0644;
+                if (!$placeholder && (($listed[$path] ?? null) !== $row['sha256'] || ($listedModes[$path] ?? null) !== $row['mode'])) {
+                    throw new RuntimeException('SERVER_RELEASE_CANDIDATE_INVALID');
+                }
+            }
+            $core = $marker['core'] ?? null;
+            $packages = is_array($composer['packages'] ?? null)
+                ? array_values(array_filter($composer['packages'], static fn(mixed $package): bool => is_array($package) && ($package['name'] ?? null) === 'peanut-admin/core')) : [];
+            if (!is_array($core) || ($core['package'] ?? null) !== 'peanut-admin/core'
+                || !is_string($core['resolved_version'] ?? null) || $core['resolved_version'] === ''
+                || preg_match($hex40, (string) ($core['source_reference'] ?? '')) !== 1
+                || preg_match($hex64, (string) ($core['sha256'] ?? '')) !== 1
+                || preg_match('~^packages/core-php/peanut-admin-core-[0-9A-Za-z.+_-]+\.zip$~D', (string) ($core['path_in_archive'] ?? '')) !== 1
+                || count($packages) !== 1 || ($packages[0]['version'] ?? null) !== ($core['resolved_version'] ?? null)
+                || ($packages[0]['source']['reference'] ?? null) !== $core['source_reference']
+                || ($packages[0]['dist']['reference'] ?? null) !== $core['source_reference']
+                || ($packages[0]['dist']['url'] ?? null) !== '../' . $core['path_in_archive']
+                || ($versions['core_php']['source_reference'] ?? null) !== $core['source_reference']
+                || preg_match($hex40, (string) ($marker['web_source_reference'] ?? '')) !== 1
+                || ($versions['core_web']['source_reference'] ?? null) !== ($marker['web_source_reference'] ?? null)
+                || !is_array($marker['core_web'] ?? null) || count($marker['core_web']) !== 6
+                || array_diff(['@peanut-admin/client', '@peanut-admin/vue', '@peanut-admin/ui-vue',
+                    '@peanut-admin/nuxt', '@peanut-admin/uniapp', '@peanut-admin/testing'], array_keys($marker['core_web'])) !== []) {
+                throw new RuntimeException('SERVER_RELEASE_CANDIDATE_INVALID');
+            }
+            foreach ($marker['core_web'] as $package => $record) {
+                $actual = $versions['core_web']['packages'][$package] ?? null;
+                if (!is_array($record) || !is_array($actual) || count($actual) !== 3
+                    || ($record['version'] ?? null) !== $core['resolved_version']
+                    || preg_match($hex64, (string) ($record['sha256'] ?? '')) !== 1
+                    || preg_match('~^packages/core-web/peanut-admin-' . preg_quote(substr($package, strlen('@peanut-admin/')), '~')
+                        . '-[0-9A-Za-z.+_-]+\.tgz$~D', (string) ($record['archive'] ?? '')) !== 1
+                    || ($actual['version'] ?? null) !== ($record['version'] ?? null)
+                    || ($actual['archive'] ?? null) !== ($record['archive'] ?? null)
+                    || ($actual['sha256'] ?? null) !== ($record['sha256'] ?? null)) {
+                    throw new RuntimeException('SERVER_RELEASE_CANDIDATE_INVALID');
+                }
+            }
+        } elseif (isset($listed[$candidatePath]) || ($app['scope'] ?? null) === 'internal-candidate'
+            || ($app['formal_release_eligible'] ?? null) === false || isset($app['candidate_marker'])) {
+            throw new RuntimeException('SERVER_RELEASE_CANDIDATE_INVALID');
         }
         $registry = json_decode((string) file_get_contents($serverRoot . '/resources/project-resources.json'), true);
         if (!is_array($registry) || ($registry['project_id'] ?? null) !== $app['slug']
