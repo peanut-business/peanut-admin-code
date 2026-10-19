@@ -2333,7 +2333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "800515ef895679561b653f76908215dcd8ee1e3481ca7a35d47e647dfedf1cfb"
+            "source_sha256": "d260f56ba7016d2829e51ad129d65b11c1a90b8faa70950786034d5039d66240"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2470,7 +2470,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2e01208f3d50ffb879ce6a3343b48e8fd377b9c2f65c719da4578511dce4b00f"
+            "source_sha256": "3bfdcc507d131948ea81330c994c61658372a6ef8494d3c6297e5bb66cacd8a4"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -13080,7 +13080,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "885f4be61a7478dfcd8f1047389e4c518e0d36d5e4779fe76f0ea8594100825d"
+            "source_sha256": "c9ba49baea36b6b8c51c16ccd72bc76eb5afb122a4a67c039ee9d668b48088f3"
         },
         {
             "path": "server/app/modules/official/identity/src/Audit/AuditService.php",
