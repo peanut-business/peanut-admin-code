@@ -620,6 +620,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                                 }
                                 $observed = $stageContract[1]::after($pdo, $stageBefore);
                                 self::assertStageProofIdentity($pdo, $moduleKey, $migrationKey, $checksum, $observed, true);
+                                app()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->recordStage($pdo, $migrationKey, $checksum, $stageContract[1], $observed);
                                 $stageBefore = null;
                             }
                             if ($moduleKey === 'official.file' && isset($adoptions['targets'][$migrationKey])) {
@@ -1031,6 +1032,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             || ($after['sql_sha256'] ?? null) !== $sha || ($after['preservation_verified'] ?? null) !== true) {
             throw new PluginLifecycleException('MODULE_MIGRATION_POSTSTATE_REJECTED', 'File preservation did not prove this canonical stage.');
         }
+        app()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->recordStage($pdo, $key, $sha, FileMigrationPreservation::class, $after);
     }
 
     /** Same native caller as File, but Document consumes only its own fixed DDL contract. */
@@ -1062,6 +1064,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             || ($after['table_count'] ?? null) !== 6) {
             throw new PluginLifecycleException('MODULE_MIGRATION_POSTSTATE_REJECTED', 'Document did not prove the fixed native DDL postconditions.');
         }
+        app()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->recordStage($pdo, $key, $sha, DocumentMigrationPreservation::class, $after);
     }
 
     /** Genuine canonical Document2 completion; metadata alone never supplies these predecessors. */
@@ -1137,6 +1140,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             || ($after['delta_kind'] ?? null) !== 'article_document_binding_and_empty_save_receipt' || ($after['table_count'] ?? null) !== 2) {
             throw new PluginLifecycleException('MODULE_MIGRATION_POSTSTATE_REJECTED', 'Article did not prove its fixed native DDL postconditions.');
         }
+        app()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->recordStage($pdo, $key, $sha, ArticleMigrationPreservation::class, $after);
     }
 
     private static function captureMemberPreservation(\PDO $pdo, string $key, string $sha): array
@@ -1165,6 +1169,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             || ($after['delta_kind'] ?? null) !== 'member_session_revision_and_empty_sessions' || ($after['table_count'] ?? null) !== 2) {
             throw new PluginLifecycleException('MODULE_MIGRATION_POSTSTATE_REJECTED', 'Member did not prove its fixed native DDL postconditions.');
         }
+        app()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->recordStage($pdo, $key, $sha, MemberSessionMigrationPreservation::class, $after);
     }
 
     private static function captureImportExportPreservation(\PDO $pdo, string $key, string $sha): array
@@ -1194,6 +1199,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             || !is_int($after['created_empty_tables'] ?? null) || $after['created_empty_tables'] < 0 || $after['created_empty_tables'] > 2) {
             throw new PluginLifecycleException('MODULE_MIGRATION_POSTSTATE_REJECTED', 'ImportExport did not prove its fixed native DDL postconditions.');
         }
+        app()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->recordStage($pdo, $key, $sha, ImportExportMigrationPreservation::class, $after);
     }
 
     private static function fileMigrationProof(string $key, ?\PDO $pdo = null): array

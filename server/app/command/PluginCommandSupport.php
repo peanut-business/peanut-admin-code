@@ -33,7 +33,7 @@ trait PluginCommandSupport
 
     private function configureSourceDevelopmentOptions(): void
     {
-        foreach (['scope', 'owner', 'thread', 'session', 'gate', 'backup-tool', 'backup-output', 'source-plan', 'maintenance', 'recovery'] as $name) {
+        foreach (['scope', 'owner', 'thread', 'session', 'gate', 'backup-tool', 'backup-output', 'source-plan', 'maintenance', 'recovery', 'verify-receipt'] as $name) {
             $this->addOption($name, null, \think\console\input\Option::VALUE_REQUIRED, 'Native source-development plan ' . $name, '');
         }
     }
@@ -46,6 +46,16 @@ trait PluginCommandSupport
                 throw new PluginLifecycleException('PLUGIN_SOURCE_SCOPE_REQUIRED', 'Explicit source-development scope is required.');
             }
             $dryRun = (bool) $input->getOption('dry-run');
+            $actor = [];
+            foreach (['owner', 'thread', 'session', 'gate'] as $name) { $actor[$name] = $input->getOption($name); }
+            $receipt = (string) $input->getOption('verify-receipt');
+            if ($receipt !== '') {
+                if (!$dryRun) { throw new PluginLifecycleException('PLUGIN_SOURCE_ARGUMENTS_INVALID', 'Receipt verification is read-only.'); }
+                foreach (['source-plan', 'maintenance', 'recovery', 'backup-tool', 'backup-output'] as $name) {
+                    if ($input->getOption($name) !== '') { throw new PluginLifecycleException('PLUGIN_SOURCE_ARGUMENTS_INVALID', 'Receipt verification cannot capture or mutate.'); }
+                }
+                return $this->getApp()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->verifyReceipt($operation, $key, $actor, $receipt);
+            }
             $execution = null;
             foreach (['source-plan', 'maintenance', 'recovery'] as $name) {
                 if ($dryRun ? $input->getOption($name) !== '' : $input->getOption($name) === '') {
@@ -57,8 +67,6 @@ trait PluginCommandSupport
                     'recovery' => (string) $input->getOption('recovery'),
                     'mutate' => fn(): array => $operation === 'upgrade' ? $this->pluginLifecycle()->upgrade($key, false) : $this->pluginLifecycle()->install($key)];
             }
-            $actor = [];
-            foreach (['owner', 'thread', 'session', 'gate'] as $name) { $actor[$name] = $input->getOption($name); }
             return $this->getApp()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->plan(
                 $operation, $key, $actor,
                 fn(callable $consume): array => $operation === 'upgrade'
@@ -71,7 +79,7 @@ trait PluginCommandSupport
 
     private function hasSourceDevelopmentOptions(\think\console\Input $input): bool
     {
-        foreach (['scope', 'owner', 'thread', 'session', 'gate', 'backup-tool', 'backup-output', 'source-plan', 'maintenance', 'recovery'] as $name) {
+        foreach (['scope', 'owner', 'thread', 'session', 'gate', 'backup-tool', 'backup-output', 'source-plan', 'maintenance', 'recovery', 'verify-receipt'] as $name) {
             if ($input->getOption($name) !== '') { return true; }
         }
         return false;

@@ -155,7 +155,11 @@ Notification forward／File adopt 的只读 source 计划在原所属业务报�
 
 source File adopt 的原记录沿用唯一原生 module ledger 和原 provenance；其 `source-plugin` admission 按原 source/DB/operation/request、备份窗口引用和内容摘要解释为历史原生准入记录，供原 adopted readback 验证。这个内容摘要不是发布者认证，不授予未来写入权限，也不是跨进程重新计算私有保全事实；新的写入仍须重新持有实际 native 能力。其他安装／server-release admission 规则不变。
 
-`peanut.source-plugin-result.v1` 只报告本次原生生命周期完成及实际 ledger 回读，明确 `verification_level=native_same_process_lifecycle_completion`、`cross_process_preservation=not_verified`，不以返回成功冒充独立保全复验。后续正常业务可改变数据：当前目标结构／业务约束检查、原执行窗口的 before/SQL/after 保全、基于受验原始证据的跨进程复验必须分别表达。旧安全摘要或自算 digest 不能重建私有事实；缺少所属业务复验 API 时保留拒绝，不持久化私有 DTO、不恢复临时数据库、不重放 SQL 或制造新的 preservation=true。
+`peanut.source-plugin-result.v1` 在原所属 after 实际通过、原 PLS 返回并回读真实 applied ledger 后，封存到 `private/installation/plugin-source-development/result-<32hex>.json`。它保存真实回调顺序的 key／SQL 摘要、所属合同源码摘要、after 允许公开的安全字段、实际原台账行、原 native／可执行计划、备份范围、准入及窗口引用；不保存 private before DTO、PDO 或 callable。目录／文件为受保护的 0700／0600，写入与 rename 后 fsync 仍在原锁和有效准入内。完成结果明确 `verification_level=native_same_process_lifecycle_completion`、`cross_process_preservation=not_verified`，不以返回成功冒充独立保全复验。
+
+同一 `plugin:install`／`plugin:upgrade` 入口的 `--scope=source-development --dry-run --verify-receipt=<原native结果>` 单独只读复验原接受记录，仍须当前实际 owner／thread／session／gate 和正常原生 `pa_module_migration` 读取准入，不接受 capture／apply 参数。消费者核原受保护命名空间、owner／权限／无链接、文档完整性、原 Git commit／tree 与 writer／PLS／所属合同的真实源码字节，再核原时间有效的维护窗口、原生 dump／终态 process／RESTORE 全链、完整阶段安全字段及当前只读快照中原选定台账行。原租约现已过期不抹掉原成功；原范围外后续台账行和正常业务数据变化不与旧后态永久比较。结果明确 `verification_level=accepted_original_window_receipt`、`original_window_receipt_verified=true`、`original_private_algorithm_recomputed=false`、`current_target_verified=false`、`qualification=not_run`。旧 stdout、任意路径 JSON、缺字段旧结果或单独自算 digest 不算受验原始回执；原源码或备份引用字节变化／丢失继续拒绝。
+
+后续正常业务可改变数据：当前目标结构／业务约束检查、原执行窗口的 before/SQL/after 保全、基于受验原始证据的跨进程复验必须分别表达。旧安全摘要不能重建私有事实；缺少所属业务复验 API 时保留拒绝，不持久化私有 DTO、不恢复临时数据库、不重放 SQL 或制造新的 preservation=true。原接受记录的只读复验不代替私有保全算法重算、当前业务终态或恢复资格。
 
 Plugin 计划中的 `lifecycle_effects` 绑定真实生产链：begin、每条 migration/adopt、catalog 注册、失败标记分别提交，后段失败不会撤销前段；失败标记本身可能失败。单模块 catalog 同步仍包含全局 core permissions/data conditions，以及 permission、target、condition、protected resource、operation 与三类关系、menu definition、setting definition、reference-code set；还会改三张安装/归属表。操作关系可能删除后重建，菜单按全局 key 更新，不能以单租户或 `module_key` 过滤备份。该激活路径不写 settings values、reference-code entries、tenant revisions 或 role grants。File adopt 另写 module ledger 与平台审计，不能称为只补账。菜单冲突日志保留为证据，不随数据库恢复回退。
 

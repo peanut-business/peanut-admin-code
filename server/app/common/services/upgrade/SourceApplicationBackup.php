@@ -486,8 +486,10 @@ final class SourceApplicationBackup
     }
 
     /** Actual native capture and current exclusion references, never a restore or SQL authorization. */
-    public static function pluginRecovery(array $binding, array $baseline, array $scope, string $maintenancePath, string $recoveryPath, string $serverRoot): array
+    public static function pluginRecovery(array $binding, array $baseline, array $scope, string $maintenancePath, string $recoveryPath, string $serverRoot, ?int $recordedAt = null): array
     {
+        $at = $recordedAt ?? time();
+        if ($at <= 0 || $at > time()) { throw new RuntimeException('PLUGIN_SOURCE_EVIDENCE_REQUIRED'); }
         $same = static fn(mixed $a, mixed $b): bool => self::pluginDigest($a) === self::pluginDigest($b);
         $pending = $baseline['pending']; $selected = array_intersect_key($baseline['selected'], array_flip($pending));
         $maintenance = self::protectedPluginJson($maintenancePath, $serverRoot);
@@ -500,7 +502,7 @@ final class SourceApplicationBackup
                 || ($record['pending'] ?? null) !== $pending || !$same($record['selected'] ?? null, $selected)
                 || ($record['scope'] ?? null) !== $scope['tables'] || !is_int($record['observed_at'] ?? null)
                 || !is_int($record['expires_at'] ?? null) || $record['observed_at'] < $binding['authority']['created_at']
-                || $record['observed_at'] > time() || $record['expires_at'] <= time() || $record['expires_at'] > $binding['authority']['expires_at']
+                || $record['observed_at'] > $at || $record['expires_at'] <= $at || $record['expires_at'] > $binding['authority']['expires_at']
                 || !is_array($record['receipts'] ?? null) || $record['receipts'] === []) { throw new RuntimeException('PLUGIN_SOURCE_EVIDENCE_REQUIRED'); }
             foreach ($record['receipts'] as $receipt) {
                 self::pluginFile($receipt['path'] ?? '', $serverRoot);
