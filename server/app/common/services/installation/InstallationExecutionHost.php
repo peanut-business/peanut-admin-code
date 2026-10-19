@@ -456,7 +456,8 @@ final class InstallationExecutionHost
             } catch (Throwable $exception) {
                 \logInstallationFailure($this->serverRoot, $stage, 'INSTALL_PARTIAL_CONTINUATION_FAILED', $exception, $this->currentInstallationModule);
                 throw new InstallationExecutionException('INSTALL_PARTIAL_CONTINUATION_FAILED', '续作未完成；保留原数据、进度和本次失败，不得自动重放。', 409, $exception,
-                    ['category' => 'partial', 'stage' => $stage, 'safe_retry' => false, 'writes' => ['database' => 'may_have_partial_writes']]);
+                    ['category' => 'partial', 'stage' => $stage, 'safe_retry' => false, 'writes' => ['database' => 'may_have_partial_writes'],
+                        ...\installationFailureDiagnostic($this->serverRoot, $stage, $exception, $this->currentInstallationModule)]);
             }
         } finally {
             $this->currentInstallationModule = null;
@@ -621,7 +622,8 @@ final class InstallationExecutionHost
                 } catch (Throwable $error) {
                     \logInstallationFailure($this->serverRoot, $stage, 'INSTALL_PARTIAL_CONTINUATION_FAILED', $error, $this->currentInstallationModule);
                     throw new InstallationExecutionException('INSTALL_PARTIAL_CONTINUATION_FAILED', '续作未完成；保留当前数据、原记录和失败现场，不得自动重放。', 409, $error,
-                        ['stage' => $stage, 'safe_retry' => false, 'writes' => ['database' => 'may_have_partial_writes']]);
+                        ['stage' => $stage, 'safe_retry' => false, 'writes' => ['database' => 'may_have_partial_writes'],
+                            ...\installationFailureDiagnostic($this->serverRoot, $stage, $error, $this->currentInstallationModule)]);
                 }
             } finally {
                 $this->partialCompletion = null; $this->partialCompletionIntent = null; $this->fileContinuation = null; $this->partialGuard = null;
@@ -1055,7 +1057,8 @@ final class InstallationExecutionHost
                         'remedy' => '核对该阶段日志、数据库和执行记录；不得直接重放、清库或覆盖身份。',
                         'writes' => ['progress_marker' => true, 'database' => 'may_have_partial_writes',
                             'completion_lock_present' => $this->completionLockPresent()],
-                        'safe_retry' => false],
+                        'safe_retry' => false,
+                        ...\installationFailureDiagnostic($this->serverRoot, $stage, $exception, $this->currentInstallationModule)],
                 );
                 \logInstallationFailure($this->serverRoot, $stage, $failure->errorCode, $failure, $this->currentInstallationModule);
                 try {
