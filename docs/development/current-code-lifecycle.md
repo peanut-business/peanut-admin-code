@@ -164,19 +164,25 @@ File 新鲜安装的采用来源绑定同一 PDO 上真实 applied 的固定基�
 
 `apply` 必须提供原 plan 和这份真实当前 afterimage manifest，重新核实际原生 DDL／exclusive 权限、同一有效排除 writer 窗口、全部原证据、实际 PHP／加载 Core 与实例程序来源。维护记录 `peanut.installation-partial-maintenance.v1` 绑定 resource_id/server_uuid/database/progress_sha256、active 时间窗、`excluded_writers=[http,workers,other-writers]` 与实际停止回执引用；这是外部 writer 排除的运维合同，JSON 声明和锁本身不证明外部 writer 已停止。数据库、实例 private 安装输出及备份输出各须正常唯一 writer，不能改资源别名绕准入。正式运行须先审阅精确目标／当前备份／读写与剩余额度；源码交付不授权执行。
 
-partial 在任何计划输出／attempt／applying 前复用原生 metadata 可见性和对象观察：不足以观察入向跨库外键或 trigger 的权限不能把空结果当作安全。完整 schema 上拒绝未审 trigger 和跨 schema 外键，原 plan／backup 保存真实 DDL／外键／effect boundary，受控写入前重查。现有原生检查要求全局 SELECT 与目标 schema TRIGGER 可见性，而本入口的普通账号权限上限仍是精确 schema；当前合同不满足时明确 `INSTALL_PARTIAL_EFFECT_VISIBILITY_REQUIRED`，只阻塞 partial，不扩权、换账号或伪造可见性证明。该 Gate 未解除不声明现 partial 已可执行。
+partial 在任何计划输出／attempt／applying 前核原生 metadata 可见性和对象观察：不足以观察入向跨库外键或 trigger 的权限不能把空结果当作安全。Code 维护分支保留原普通连接可见性检查；APP 分支使用下述既有备份传输的真实 metadata 观察，普通 master PDO 仍只用自己的 schema 权限。完整 schema 上拒绝未审 trigger 和跨 schema 外键，原 plan／backup 保存真实 DDL／外键／effect boundary，受控写入前重查；没有真实完整可见性证据时只阻塞 partial，不扩权、换 master 账号或接受调用者声明。
 
 续作先持久保存单次 partial-attempt，再仅执行新修正；旧 18 行逐字节保持。然后复用原 installModules／原真实 module admission／health／completion，不再次 fresh／seed，不删失败行或提前移除 progress。唯一成功完成后才由原完成逻辑写 baseline／完成锁并移除 progress。任何新失败、中断或已有 attempt 均阻塞再次调用，保留数据与证据，不自动重试；部分模块已开始的其他状态不纳入这条窄入口。备份、恢复和完整质量资格仍分别记录为真实执行、未执行或未知。
 
 冻结的开发 internal-candidate 若仍在同一 APP 0.1.0／full／multi-tenant 的 r1、Identity 九条 executed、前两个模块 active、File 尚未安装的真实 17 模块前沿，可经现有 `scaffold-upgrade preflight --from-manifest --to-manifest` 建立 `internal-candidate-preinstall-correction`。from 是原生旧 scaffold manifest；to 是由最终审阅源码产生的原生 raw scaffold 目录中的 manifest，模板版本仍为 5.0.2，七份 Core 输入、内部资格限制与原九份 File SQL 必须完全保留。此分支只接受已限定的 File 1.0.15 源码修正及其直接公共消费者，拒绝其他模块变化、APP 身份/版本/选择变化、已安装/正式/生产身份；普通升级仍要求版本递增。raw 输入不伪装成带 META-INF 的正式升级包。
 
-原 owner 在正常关闭流量、固定容器和数据库 writer 排除窗口内，以现有 `runtime-prepare` 消费该真实 ready plan 和 raw 目录，使用实际不存在的 head（`none`）及 generation `0`。首次验证原 ServerReleaseIdentity 和 internal marker，保存有类型的旧身份、来源清单、私有/数据库前沿和完整源码及派生前像；后续不把已变化程序当作一次新的旧包验证。原 source apply/verify 写实际目标并留下同事务绑定的事件。原 projector 生成真实新开发声明，先持久保存新身份、下一 head 及受保护写意图，再撤下精确旧 release/internal 运行身份，最后发布 development marker、CAS head 和原生 admission。两种运行身份并存仍然拒绝；root application-release 保留历史来源，不能冒充当前运行身份。外部原始归档及其摘要继续由实际交付证据保全，不从内部身份反推或伪造归档摘要。
+首次工具输入使用现有 `create-app --scaffold-manifest` 从最终原生 raw 生成独立离线 APP，再通过原 `prepare-vendor.sh` 按其真实 lock 安装依赖；实际加载 Core、锁和七份输入须一致。离线工具仅作维护输入，不替换原实例或创建运行/数据库身份；不复制 vendor，不将未证明 lock 一致的 Code 工作目录 vendor 当作工具来源。维护进程使用自己的加载图和可信 resource reader，将原实例作为显式数据根，不加载其 vendor。后续独立原生 source-admit 子进程和实际 APP 安装进程仍使用原实例自己的 reader 和加载图。
+
+原 owner 在正常关闭流量、固定容器和数据库 writer 排除窗口内，以现有 `runtime-prepare` 消费该真实 ready plan 和 raw 目录，使用实际不存在的 head（`none`）及 generation `0`。首次验证原 ServerReleaseIdentity 和 internal marker，保存有类型的旧身份、来源清单、私有/数据库前沿和完整源码及派生前像；后续不把已变化程序当作一次新的旧包验证。原 source apply/verify 写实际目标并留下同事务绑定的事件。原 projector 生成真实新开发声明，先持久保存新身份、下一 head 及受保护写意图，再撤下精确旧 release/internal 运行身份，最后发布 development marker、CAS head 和原生 admission。两种运行身份并存仍然拒绝；root application-release 保留历史来源，不能冒充当前运行身份。外部原始归档及其摘要继续由实际交付证据保全，不从内部身份反推或伪造归档摘要。工具、metadata 描述文件或后续窗口尚未就绪时，可以在真实 source-admitted、流量关闭处停止；这不代表 Source19 plan、备份或 SQL 已获准。
 
 补偿仅允许同一未激活事务、完整且未变的前像、已知预期后像及原私有/数据库前沿未推进；先撤下新开发身份，再恢复原运行身份，恢复后的 internal-candidate 保持关闭，不发放旧开发准入。未知编辑、安装双记录、数据库/模块进度或激活均阻止源码补偿；不恢复数据库、不清库、不重放 SQL。此源码能力不代表已生成目标制品、已进行 source adoption、已完成安装或恢复资格；实际运行须固定最终集成源码并遵守原资源准入与失败预算。
 
 生成 APP 的 `install_modules` 续作是同一原生 CLI 的另一条有限分支。它只接受自己的 application registry、实际 development runtime 和已准入但未激活的 source-runtime transition；不依赖维护者 Project、Git checkout 或 Project lease。原 Code `migrate_database` 分支及其约束保留。APP 分支只接真实 r1 applied、Identity 九条 executed 和前两个模块 active 的固定 File 前沿，保留原 17 模块选择；不将部分库当空库，不重新 seed。source-runtime 可以准入这份真实残留，但在完成安装前拒绝 `runtime-open`。
 
 APP 的 `plan` 输入为原 Setup Token（guided）及 `backup_tool`：该值是 `private/partial-installation/` 内 0600 的既有 `source_schema_backup` SSH/Docker 工具描述文件路径。Host 从实际受保护进度、配置、失败日志、当前 runtime、同一 master PDO 和自己登记的 host/container endpoint 生成事实，在原 instance/update 与 execution 锁内保存由既有私有 update key 认证的计划。它不接受调用者提供的 actor、maintenance 或原文件声明。实际 Compose 排除窗口由已有 source-only registered guard 读取，绑定本 APP 的已停止 PHP/Nginx、镜像、挂载与原有网络；外部数据库 writer 仍由运行 owner 在正常资源窗口排除，APP 文件锁不冒称已证明外部 writer 停止。计划不授予执行权限。
+
+APP plan 先创建原 authority/plan_id，再由同一既有 SSH/Docker adapter 的独立 Root client 执行固定只读身份、权限和目标 metadata 语句，不替换普通 PDO。客户端实际证明全局 SELECT、目标 TRIGGER 可见性及未启用 partial revokes，核 UUID、host/port、版本、schema、resource/endpoint；只观察目标全表结构、目标 triggers 和触及目标的入向/出向 FK，不读取业务行或扫描其他 schema DDL。请求和真实终态回执在原私有目录保留 0600、摘要和 HMAC，绑定原 runtime/checkpoint/head、PHP/Core、工具/adapter、窗口、nonce 和有效期；手写 JSON、布尔值或历史外部 dump 不能替代。初次 proof 引用及稳定语义进入原 plan/baseline/accepted backup，后续新采集的时间、路径和进程回执独立验证，不以新回执字节等同旧回执。
+
+完整 facts 在普通 PDO 的只读事务开始前采集 metadata，随后在只读快照核实际全表覆盖及普通 SHOW CREATE 摘要；备份前后、apply 前继续完整重检。原 apply guard 在模块合法 DDL 后重新证明当前全部对象的覆盖、完整可见性和相同 effect policy，不强求旧 DDL 全集不变。采集回调只核身份、锁、工具、窗口和调用者事务状态，不递归调用 facts，不跳过原 guard。采集失败保留输出和进程终态，阻止相应动作，不自动重试；这些源码合同不证明真实描述文件、网络、采集或备份已经通过。
 
 APP 的 `backup` 提供原 `plan` 和新 `backup_output`；`apply` 提供原 `plan` 和原生 `backup.json`。二者复用原完整 native dump/probe/process 与 accepted-capture 消费者，拒绝外部运维摘要替代。六个真实原文件均保留原路径和摘要；仅 canonical `server/.peanut/development-runtime.json` 原件接受正常 0644 或 0600，读取前后核 owner/group/mode/device/inode/size/hash，备份及 RESTORE 元数据保留其真实原模式。其他原件和全部备份 payload 仍为 0600；不改原件权限，不用副本假冒原件。
 

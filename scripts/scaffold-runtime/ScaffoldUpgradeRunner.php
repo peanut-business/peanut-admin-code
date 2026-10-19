@@ -346,6 +346,7 @@ final class ScaffoldUpgradeRunner
             'server/app/modules/official/file/src/Contract/FileMigrationPreservation.php',
             'server/app/platform/services/plugin/PluginLifecycleService.php',
             'server/app/common/services/installation/InstallationExecutionHost.php', 'server/database/install.php',
+            'server/app/common/services/upgrade/SourceApplicationBackup.php',
             'server/docker/scripts/update-plan.php', 'server/docker/scripts/update-recovery.py',
             'scripts/product-upgrade-host', 'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php', 'scripts/upgrade',
             'plugins/official.file/plugin.json', 'plugins.lock', 'scaffold/application-template-inventory.json',

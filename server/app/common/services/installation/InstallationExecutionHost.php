@@ -525,7 +525,7 @@ final class InstallationExecutionHost
                     if (!str_starts_with($toolPath, dirname($directory) . '/')) { throw new RuntimeException('INSTALL_PARTIAL_APP_BACKUP_TOOL_REQUIRED'); }
                     $authority = ['kind' => 'app-native-owner', 'owner_uid' => posix_geteuid(), 'server_root' => $this->serverRoot,
                         'plan_id' => bin2hex(random_bytes(16)), 'created_at' => time(), 'expires_at' => time() + 1800];
-                    $facts = $this->partialApplicationFacts($pdo, $source, $config, $endpoint, $window, $authority);
+                    $facts = $this->partialApplicationFacts($pdo, $source, $config, $endpoint, $window, $authority, $toolPath);
                     $ledgerPath = $directory . '/ledger-' . $authority['plan_id'] . '.json';
                     \app\common\services\upgrade\SourceApplicationBackup::writePartialInstallationRecord($ledgerPath,
                         ['application' => $facts['baseline']['original_ledger'], 'identity' => $facts['baseline']['identity_ledger']]);
@@ -550,7 +550,8 @@ final class InstallationExecutionHost
                         || app()->make(\app\common\execution\CurrentExecutionContext::class)->current() !== $context
                         || \PeanutServerUpdatePlan::readPartialOwnerRecord($this->serverRoot, $planPath) !== $plan
                         || \PeanutServerUpdatePlan::partialInstallationSource($this->serverRoot) !== $source) { throw new RuntimeException('INSTALL_PARTIAL_FACTS_CHANGED'); }
-                    $fresh = $this->partialApplicationFacts($pdo, $source, $config, $endpoint, $this->partialApplicationWindow(), $facts['binding']['authority']);
+                    $fresh = $this->partialApplicationFacts($pdo, $source, $config, $endpoint, $this->partialApplicationWindow(),
+                        $facts['binding']['authority'], $plan['tool']['path'], $facts['baseline']['effect_metadata']);
                     $fresh['baseline']['original_files']['ledger'] = $facts['baseline']['original_files']['ledger'];
                     if ($fresh !== $facts || $this->fileDigest($plan['tool']['path']) !== $plan['tool']['sha256']) { throw new RuntimeException('INSTALL_PARTIAL_FACTS_CHANGED'); }
                     $this->partialFileReference($facts['baseline']['original_files']['ledger']);
@@ -566,7 +567,7 @@ final class InstallationExecutionHost
                         $facts['scope'], $this->partialJson($plan['tool']['path']), $output, $recheck, 'installation-partial');
                 }
                 if (!is_string($input['backup'] ?? null) || isset($input['backup_output']) || isset($input['backup_tool'])) { throw new RuntimeException('INSTALL_PARTIAL_ARGUMENTS_INVALID'); }
-                $backup = \app\common\services\upgrade\SourceApplicationBackup::partialInstallationBackup($input['backup'], $this->serverRoot, $facts['binding'], $facts['baseline']);
+                $backup = \app\common\services\upgrade\SourceApplicationBackup::partialInstallationBackup($input['backup'], $this->serverRoot, $facts['binding'], $facts['baseline'], $facts['scope']);
                 $recheck();
                 $this->partialGuard = function () use ($pdo, $connection, $context, $facts, $source, $plan, $backup, $input): void {
                     if (Db::connect() !== $connection || $connection->getPdo() !== $pdo
@@ -584,13 +585,16 @@ final class InstallationExecutionHost
                         else { $this->partialFileReference($ref); }
                     }
                     if ($this->fileDigest($plan['tool']['path']) !== $plan['tool']['sha256']
-                        || \app\common\services\upgrade\SourceApplicationBackup::partialInstallationBackup($input['backup'], $this->serverRoot, $facts['binding'], $facts['baseline']) !== $backup
+                        || \PeanutServerUpdatePlan::readPartialOwnerRecord($this->serverRoot, $input['plan']) !== $plan
+                        || \app\common\services\upgrade\SourceApplicationBackup::partialInstallationBackup($input['backup'], $this->serverRoot, $facts['binding'], $facts['baseline'], $facts['scope']) !== $backup
                         || $pdo->query('SELECT * FROM pa_schema_migration ORDER BY migration_id')->fetchAll(PDO::FETCH_ASSOC) !== $facts['baseline']['original_ledger']
                         || $pdo->query("SELECT * FROM pa_module_migration WHERE module_key='official.identity' ORDER BY migration_key")->fetchAll(PDO::FETCH_ASSOC) !== $facts['baseline']['identity_ledger']) {
                         throw new RuntimeException('INSTALL_PARTIAL_ORIGINAL_HISTORY_CHANGED');
                     }
+                    $metadata = $this->partialApplicationMetadata($pdo, $facts['binding'], $source, $facts['window'], $plan['tool']['path']);
                     $tables = $pdo->query('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() ORDER BY TABLE_NAME')->fetchAll(PDO::FETCH_COLUMN);
-                    if (\app\common\services\upgrade\SourceApplicationBackup::partialInstallationScope($pdo, $tables)['effect_boundary'] !== $facts['scope']['effect_boundary']) {
+                    if (\app\common\services\upgrade\SourceApplicationBackup::appPartialScope($pdo, $tables,
+                        $facts['binding'], $source, $facts['window'], $plan['tool']['path'], $metadata)['effect_boundary'] !== $facts['scope']['effect_boundary']) {
                         throw new RuntimeException('INSTALL_PARTIAL_EFFECT_BOUNDARY_CHANGED');
                     }
                 };
@@ -669,9 +673,58 @@ final class InstallationExecutionHost
         return $window;
     }
 
-    private function partialApplicationFacts(PDO $pdo, array $source, array $config, array $endpoint, array $window, array $authority): array
+    private function partialApplicationBinding(PDO $pdo, array $source, array $config, array $endpoint, array $authority): array
+    {
+        return ['source' => ['server_root' => $this->serverRoot, 'runtime_sha256' => $source['runtime_sha256'],
+                'loaded_core_sha256' => $this->partialCoreFingerprint(), 'php_binary_sha256' => hash_file('sha256', PHP_BINARY)],
+            'database' => self::migrationDatabaseIdentity($pdo), 'resource_id' => $config['resource_id'], 'endpoint_id' => $endpoint['endpoint_id'],
+            'operator_consumer' => is_file('/.dockerenv') ? 'container' : 'host', 'authority' => $authority,
+            'registry_sha256' => $this->fileDigest($this->serverRoot . '/private/resources/project-resources.json')];
+    }
+
+    /** Never calls facts or itself. A metadata subprocess must preserve the caller's transaction state. */
+    private function partialApplicationMetadata(PDO $pdo, array $binding, array $source, array $window, string $toolPath): array
+    {
+        $physical = $binding['database']; unset($physical['transport']);
+        if ($physical !== $source['deployment']['partial_installation']['database']
+            || $binding['resource_id'] !== $source['deployment']['partial_installation']['resource_id']
+            || $window['database_binding']['resource_id'] !== $binding['resource_id']
+            || $binding['authority']['server_root'] !== $this->serverRoot) { throw new RuntimeException('INSTALL_PARTIAL_DATABASE_IDENTITY_CHANGED'); }
+        $connection = Db::connect(); $context = app()->make(\app\common\execution\CurrentExecutionContext::class)->current();
+        $transaction = $pdo->inTransaction(); $executionLock = $this->partialLockBinding();
+        $files = [];
+        foreach (['private/resources/project-resources.json', 'private/resources/configuration.json',
+            'private/installation/executing.json', '.env'] as $relative) {
+            $files[$this->serverRoot . '/' . $relative] = $this->fileDigest($this->serverRoot . '/' . $relative);
+        }
+        $toolHash = $this->fileDigest($toolPath);
+        $guard = function () use ($pdo, $connection, $context, $transaction, $executionLock, $files, $toolPath, $toolHash, $binding, $source, $window): void {
+            if (Db::connect() !== $connection || $connection->getPdo() !== $pdo || $pdo->inTransaction() !== $transaction
+                || app()->make(\app\common\execution\CurrentExecutionContext::class)->current() !== $context
+                || time() >= $binding['authority']['expires_at'] || $binding['authority']['owner_uid'] !== posix_geteuid()
+                || $this->partialLockBinding() !== $executionLock || self::migrationDatabaseIdentity($pdo) !== $binding['database']
+                || ApplicationSourceIdentity::load($this->serverRoot)->identitySha256() !== $source['runtime_sha256']
+                || $this->partialCoreFingerprint() !== $binding['source']['loaded_core_sha256']
+                || hash_file('sha256', PHP_BINARY) !== $binding['source']['php_binary_sha256']
+                || $this->fileDigest($source['checkpoint']['path']) !== $source['checkpoint']['sha256']
+                || $this->fileDigest($this->serverRoot . '/private/installation/deployment.json') !== $source['deployment']['head_sha256']
+                || $this->partialApplicationWindow() !== $window || $this->fileDigest($toolPath) !== $toolHash) {
+                throw new RuntimeException('INSTALL_PARTIAL_METADATA_AUTHORITY_CHANGED');
+            }
+            foreach ($files as $path => $sha) {
+                if ($this->fileDigest($path) !== $sha) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_AUTHORITY_CHANGED'); }
+            }
+        };
+        return \app\common\services\upgrade\SourceApplicationBackup::appPartialMetadata($pdo, $binding, $source, $window, $toolPath, $guard);
+    }
+
+    private function partialApplicationFacts(PDO $pdo, array $source, array $config, array $endpoint, array $window, array $authority,
+        string $toolPath, ?array $origin = null): array
     {
         if ($pdo->inTransaction()) { throw new RuntimeException('INSTALL_PARTIAL_TRANSACTION_CONFLICT'); }
+        $binding = $this->partialApplicationBinding($pdo, $source, $config, $endpoint, $authority);
+        // Privileged metadata is collected before opening the ordinary APP read-only snapshot.
+        $metadata = $this->partialApplicationMetadata($pdo, $binding, $source, $window, $toolPath);
         $pdo->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ'); $pdo->exec('SET TRANSACTION READ ONLY'); $pdo->beginTransaction();
         try {
         $modules = ['official.identity', 'official.content-tools', 'official.file', 'official.rich-text', 'official.document', 'official.article',
@@ -697,7 +750,13 @@ final class InstallationExecutionHost
         $failurePath = array_key_first($failureFiles); $originals['failure'] = ['path' => $this->serverRoot . '/' . $failurePath, 'sha256' => $failureFiles[$failurePath]];
         $this->partialFileReference($originals['failure']);
         $tables = $pdo->query('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() ORDER BY TABLE_NAME')->fetchAll(PDO::FETCH_COLUMN);
-        $scope = \app\common\services\upgrade\SourceApplicationBackup::partialInstallationScope($pdo, $tables);
+        $scope = \app\common\services\upgrade\SourceApplicationBackup::appPartialScope($pdo, $tables, $binding, $source, $window, $toolPath, $metadata);
+        $effectMetadata = ['reference' => $metadata, 'semantic_sha256' => $scope['metadata_semantics_sha256']];
+        if ($origin !== null) {
+            if (($origin['semantic_sha256'] ?? null) !== $scope['metadata_semantics_sha256']) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_ORIGIN_CHANGED'); }
+            // Preserve the original HMAC plan's reference; fresh receipts were independently verified above.
+            $effectMetadata = $origin;
+        }
         $application = $pdo->query('SELECT * FROM pa_schema_migration ORDER BY migration_id')->fetchAll(PDO::FETCH_ASSOC);
         $identity = $pdo->query("SELECT * FROM pa_module_migration WHERE module_key='official.identity' ORDER BY migration_key")->fetchAll(PDO::FETCH_ASSOC);
         if (count($application) !== 1 || $application[0]['migration_id'] !== '20261019-clean-install-5.0.2-r1'
@@ -708,13 +767,9 @@ final class InstallationExecutionHost
         $key = 'official.file:20260823-unify-storage-service';
         $sha = 'f79c35b2fe8414dc172a81a45183d2a52eadb05833a704149780b36e400ca2d4';
         if ($this->fileDigest($this->serverRoot . '/app/modules/official/file/database/migrations/20260823-unify-storage-service.sql') !== $sha) { throw new RuntimeException('INSTALL_PARTIAL_FILE_SOURCE_CHANGED'); }
-        $binding = ['source' => ['server_root' => $this->serverRoot, 'runtime_sha256' => $source['runtime_sha256'],
-                'loaded_core_sha256' => $this->partialCoreFingerprint(), 'php_binary_sha256' => hash_file('sha256', PHP_BINARY)],
-            'database' => $database, 'resource_id' => $config['resource_id'], 'endpoint_id' => $endpoint['endpoint_id'],
-            'operator_consumer' => is_file('/.dockerenv') ? 'container' : 'host', 'authority' => $authority,
-            'registry_sha256' => $this->fileDigest($this->serverRoot . '/private/resources/project-resources.json')];
+        if ($this->partialApplicationBinding($pdo, $source, $config, $endpoint, $authority) !== $binding) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_BINDING_CHANGED'); }
         return ['binding' => $binding, 'modules' => $modules, 'scope' => $scope, 'window' => $window,
-            'baseline' => ['pending' => [$key], 'selected' => [$key => $sha], 'original_ledger' => $application,
+            'baseline' => ['pending' => [$key], 'selected' => [$key => $sha], 'original_ledger' => $application, 'effect_metadata' => $effectMetadata,
                 'identity_ledger' => $identity, 'original_files' => $originals, 'execution_lock' => $this->partialLockBinding(),
                 'identity_rows_sha256' => $this->partialIdentityRows($pdo), 'config_rows_sha256' => $this->partialTableRows($pdo, 'pa_config')]];
         } finally { if ($pdo->inTransaction() && !$pdo->rollBack()) { throw new RuntimeException('INSTALL_PARTIAL_SNAPSHOT_CHANGED'); } }

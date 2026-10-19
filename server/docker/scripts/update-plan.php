@@ -319,7 +319,6 @@ final class PeanutServerUpdatePlan
             || file_exists($root . '/private/installation/baseline.json') || is_link($root . '/private/installation/baseline.json')
             || file_exists(self::deploymentPath($root)) || is_link(self::deploymentPath($root))) { return null; }
         self::sourceOwner($root); self::assertHeldDatabaseLock($root);
-        require_once $root . '/vendor/autoload.php';
         $old = \app\common\value\installation\ServerReleaseIdentity::load($root)->document();
         $application = self::jsonFile(dirname($root) . '/.peanut/application-manifest.json', 'original APP source manifest');
         if (($old['application']['kind'] ?? null) !== 'internal-candidate'
@@ -413,7 +412,7 @@ final class PeanutServerUpdatePlan
             || ($source['checkpoint']['path'] ?? null) !== $state['binding']['workspace'] . '/source-runtime.json'
             || self::databaseCanonical($source['state']['binding']['internal_preinstall'] ?? []) !== self::databaseCanonical($context)
             || \app\common\services\upgrade\SourceApplicationBackup::partialInstallationBackup($record['backup']['path'], $root,
-                $plan['facts']['binding'], $plan['facts']['baseline']) !== $record['backup']) {
+                $plan['facts']['binding'], $plan['facts']['baseline'], $plan['facts']['scope']) !== $record['backup']) {
             throw new RuntimeException('internal source completion origin is not authenticated');
         }
         $facts = \app\common\services\installation\InstallationExecutionHost::verifiedInstallationFacts($root);
@@ -532,7 +531,7 @@ final class PeanutServerUpdatePlan
             || $record['health_completed_at'] > $plan['facts']['binding']['authority']['expires_at']
             || $record['health_completed_at'] > time()
             || \app\common\services\upgrade\SourceApplicationBackup::partialInstallationBackup($record['backup']['path'], $root,
-                $plan['facts']['binding'], $plan['facts']['baseline']) !== $record['backup']) {
+                $plan['facts']['binding'], $plan['facts']['baseline'], $plan['facts']['scope']) !== $record['backup']) {
             throw new RuntimeException('partial completion original plan or native backup changed');
         }
         $facts = \app\common\services\installation\InstallationExecutionHost::verifiedInstallationFacts($root);
@@ -845,7 +844,9 @@ final class PeanutServerUpdatePlan
         // maintainer configuration. Use the APP's existing pure registry readers and native PDO.
         $external = getenv('PEANUT_RESOURCE_REGISTRY');
         if (is_string($external) && trim($external) !== '') { throw new RuntimeException('partial APP source adoption forbids an external registry'); }
-        require_once $root . '/database/resource-registry.php';
+        // Maintenance uses its authenticated tool graph and treats R as data only.
+        // Native admission/APP processes retain their own R reader and loader.
+        require_once ($frozen ? dirname(__DIR__, 2) : $root) . '/database/resource-registry.php';
         $env = parse_ini_file($root . '/.env', false, INI_SCANNER_RAW);
         if (!is_array($env) || ($env['APP_ENV'] ?? null) !== 'development'
             || ($env['PEANUT_DEPLOYMENT_TARGET'] ?? null) !== 'local-multi-tenant-demo'

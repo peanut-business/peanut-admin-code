@@ -136,6 +136,294 @@ final class SourceApplicationBackup
         return $scope;
     }
 
+    /**
+     * APP partial maintenance only: collect real complete effect metadata with the
+     * existing protected backup transport. The ordinary APP PDO never changes user.
+     */
+    public static function appPartialMetadata(PDO $pdo, array $binding, array $source, array $window, string $toolPath, callable $guard): array
+    {
+        $root = $binding['source']['server_root'] ?? '';
+        $current = app()->make(\app\common\execution\CurrentExecutionContext::class)->current();
+        if (PHP_SAPI !== 'cli' || !$current instanceof \app\common\execution\InstallationExecutionContext
+            || $current->operation() !== 'installation.console.partial'
+            || ($binding['authority']['kind'] ?? null) !== 'app-native-owner'
+            || preg_match('/\A[a-f0-9]{32}\z/D', (string) ($binding['authority']['plan_id'] ?? '')) !== 1
+            || realpath($root) !== $root || !str_starts_with($toolPath, $root . '/private/partial-installation/')) {
+            throw new RuntimeException('INSTALL_PARTIAL_METADATA_OWNER_REQUIRED');
+        }
+        \PeanutServerUpdatePlan::sourceOwner($root);
+        $guard();
+        $tool = self::protectedPluginJson($toolPath, $root);
+        $contract = $tool['source_schema_backup'] ?? [];
+        $database = $binding['database']['database'];
+        if (($tool['transport'] ?? null) !== 'ssh-docker-exec' || ($contract['whole_schema'] ?? null) !== true
+            || ($contract['database_resource_id'] ?? null) !== $binding['resource_id'] || ($contract['database'] ?? null) !== $database
+            || preg_match('/\A[A-Za-z0-9_]+\z/D', $database) !== 1) {
+            throw new RuntimeException('INSTALL_PARTIAL_METADATA_TOOL_REQUIRED');
+        }
+        foreach (['ssh_command', 'docker_command', 'mysql_command', 'timeout_command', 'digest_command'] as $key) {
+            if (!is_string($tool[$key] ?? null) || preg_match('~\A/[A-Za-z0-9_./-]+\z~D', $tool[$key]) !== 1 || str_contains($tool[$key], '..')) {
+                throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_TOOL_INVALID');
+            }
+        }
+        foreach (['ssh_alias', 'container_name'] as $key) {
+            if (!is_string($tool[$key] ?? null) || preg_match('/\A[A-Za-z0-9][A-Za-z0-9_.-]*\z/D', $tool[$key]) !== 1) {
+                throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_TOOL_INVALID');
+            }
+        }
+        $seconds = $contract['timeout_seconds'] ?? null;
+        if (!is_int($seconds) || $seconds < 30 || $seconds > 600 || time() + $seconds + 60 >= $binding['authority']['expires_at']) {
+            throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_LIFETIME_REQUIRED');
+        }
+        $tables = $pdo->query('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() ORDER BY TABLE_NAME')->fetchAll(PDO::FETCH_COLUMN);
+        if ($tables === [] || count($tables) > 512 || count(array_unique($tables)) !== count($tables)) {
+            throw new RuntimeException('INSTALL_PARTIAL_METADATA_COVERAGE_REQUIRED');
+        }
+        foreach ($tables as $table) {
+            if (!is_string($table) || preg_match('/\Apa_[a-z0-9_]+\z/D', $table) !== 1) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_TABLE_UNSUPPORTED'); }
+        }
+        sort($tables, SORT_STRING);
+        $session = $pdo->query('SELECT @@SESSION.sql_mode AS sql_mode,@@SESSION.sql_quote_show_create AS quote_names')->fetch(PDO::FETCH_ASSOC);
+        if (!is_array($session) || preg_match('/\A[A-Z0-9_,]*\z/D', (string) ($session['sql_mode'] ?? '')) !== 1
+            || !in_array((int) ($session['quote_names'] ?? -1), [0, 1], true)) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_SESSION_INVALID'); }
+        $parent = $root . '/private/partial-installation/effect-metadata';
+        if (!is_dir($parent) && !mkdir($parent, 0700)) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_DIRECTORY_REQUIRED'); }
+        if (realpath($parent) !== $parent || (fileperms($parent) & 0777) !== 0700
+            || !in_array(fileowner($parent), [0, fileowner($root)], true)) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_DIRECTORY_REQUIRED'); }
+        $nonce = bin2hex(random_bytes(16));
+        $directory = $parent . '/' . $binding['authority']['plan_id'] . '-' . $nonce;
+        if (!mkdir($directory, 0700)) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_DIRECTORY_REQUIRED'); }
+        $request = ['protocol' => 'peanut.app-partial-effect-request.v1', 'binding' => $binding,
+            'source' => self::metadataSource($source), 'window' => $window,
+            'tool' => ['path' => $toolPath, 'sha256' => hash_file('sha256', $toolPath)],
+            'adapter_sha256' => hash_file('sha256', __FILE__), 'nonce' => $nonce,
+            'tables' => $tables, 'session' => $session, 'created_at' => time()];
+        // This original owner API proves the native update lock before privileged IO.
+        \PeanutServerUpdatePlan::writePartialOwnerRecord($root, $directory . '/request.json', $request);
+        $sql = self::metadataSql($tables, $session, $nonce);
+        $shell = self::quote([$tool['digest_command'], $tool['mysql_command']]) . ' && '
+            . self::quote([$tool['mysql_command'], '--version']) . ' && ('
+            . self::clientShell($tool, 'mysql_command', $seconds, ['--no-defaults', '--no-login-paths',
+                '--default-character-set=utf8mb4', '--batch', '--skip-column-names', '-uroot',
+                '--database=' . $database, '--execute=' . $sql]) . ')';
+        if (strlen($shell) > 65536) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_COVERAGE_REQUIRED'); }
+        $output = $directory . '/metadata.txt'; $error = $directory . '/metadata.stderr';
+        $started = time();
+        self::remote($tool, $shell, $output, $error, 'effect-metadata', $seconds,
+            (int) $binding['authority']['expires_at'], $guard, 8388608);
+        $parsed = self::parseMetadata($output, $tables, $nonce, $binding, $contract, (string) $pdo->getAttribute(PDO::ATTR_SERVER_VERSION));
+        $record = ['protocol' => 'peanut.app-partial-effect-metadata.v1', 'request' => [
+                'path' => $directory . '/request.json', 'sha256' => hash_file('sha256', $directory . '/request.json')],
+            'binding' => $binding, 'source' => $request['source'], 'window' => $window, 'tool' => $request['tool'],
+            'adapter_sha256' => $request['adapter_sha256'], 'nonce' => $nonce,
+            'started_at' => $started, 'ended_at' => time(), 'metadata' => $parsed['metadata'],
+            'semantic_sha256' => self::pluginDigest($parsed['metadata']), 'client' => $parsed['client'],
+            'process' => ['path' => $output . '.process.json', 'sha256' => hash_file('sha256', $output . '.process.json')],
+            'stdout' => ['path' => $output, 'sha256' => hash_file('sha256', $output), 'bytes' => filesize($output)],
+            'stderr' => ['path' => $error, 'sha256' => hash_file('sha256', $error), 'bytes' => filesize($error)]];
+        \PeanutServerUpdatePlan::writePartialOwnerRecord($root, $directory . '/observation.json', $record);
+        return ['path' => $directory . '/observation.json', 'sha256' => hash_file('sha256', $directory . '/observation.json')];
+    }
+
+    /** The nonce/source/receipt is authenticated; current APP structure still comes from its ordinary PDO. */
+    public static function appPartialScope(PDO $pdo, array $tables, array $binding, array $source, array $window, string $toolPath, array $reference): array
+    {
+        $record = self::metadataRecord($reference, $binding, true);
+        if (self::pluginDigest($record['source']) !== self::pluginDigest(self::metadataSource($source))
+            || self::pluginDigest($record['window']) !== self::pluginDigest($window)
+            || $record['tool'] !== ['path' => $toolPath, 'sha256' => hash_file('sha256', $toolPath)]) {
+            throw new RuntimeException('INSTALL_PARTIAL_METADATA_BINDING_CHANGED');
+        }
+        sort($tables, SORT_STRING);
+        if ($tables !== array_keys($record['metadata']['objects'])) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_COVERAGE_CHANGED'); }
+        $scope = self::observe($pdo, $tables, false, $record['metadata']);
+        if (self::pluginDigest($scope['objects']) !== self::pluginDigest($record['metadata']['objects'])) {
+            throw new RuntimeException('INSTALL_PARTIAL_METADATA_STRUCTURE_CHANGED');
+        }
+        if ($scope['triggers'] !== []) { throw new RuntimeException('INSTALL_PARTIAL_TRIGGER_EFFECT_REVIEW_REQUIRED'); }
+        foreach ($scope['foreign_keys'] as $fk) {
+            if ($fk['TABLE_SCHEMA'] !== $binding['database']['database'] || $fk['REFERENCED_TABLE_SCHEMA'] !== $binding['database']['database']) {
+                throw new RuntimeException('INSTALL_PARTIAL_FOREIGN_SCHEMA_EFFECT_REVIEW_REQUIRED');
+            }
+        }
+        $scope['whole_schema'] = true;
+        $scope['metadata_visibility'] = 'complete native privileged metadata; ordinary APP PDO unchanged';
+        $scope['metadata_semantics_sha256'] = $record['semantic_sha256'];
+        $scope['effect_boundary'] = ['database' => $binding['database']['database'], 'triggers' => 'none_visible_with_verified_visibility',
+            'foreign_keys' => 'same_schema_only', 'visibility' => 'native_app_partial_effect_metadata_verified',
+            'observer_binding_sha256' => self::pluginDigest([$record['binding'], $record['source'], $record['window'], $record['tool'], $record['client']])];
+        return $scope;
+    }
+
+    private static function metadataSource(array $source): array
+    {
+        return ['runtime_sha256' => $source['runtime_sha256'], 'deployment_sha256' => $source['deployment']['head_sha256'],
+            'current_source' => $source['deployment']['current_source'], 'checkpoint' => $source['checkpoint'],
+            'transition_id' => $source['state']['transition_id']];
+    }
+
+    private static function appMetadataOrigin(array $binding, array $baseline, array $scope): array
+    {
+        $origin = $baseline['effect_metadata'] ?? null;
+        if (!is_array($origin) || !is_array($origin['reference'] ?? null)) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_PROOF_REQUIRED'); }
+        $record = self::metadataRecord($origin['reference'], $binding);
+        if (($origin['semantic_sha256'] ?? null) !== $record['semantic_sha256']
+            || ($scope['metadata_semantics_sha256'] ?? null) !== $record['semantic_sha256']
+            || ($scope['effect_boundary']['observer_binding_sha256'] ?? null)
+                !== self::pluginDigest([$record['binding'], $record['source'], $record['window'], $record['tool'], $record['client']])) {
+            throw new RuntimeException('INSTALL_PARTIAL_METADATA_ORIGIN_CHANGED');
+        }
+        return $record;
+    }
+
+    private static function metadataRecord(array $reference, array $binding, bool $fresh = false): array
+    {
+        $root = $binding['source']['server_root'];
+        if (!is_string($reference['path'] ?? null) || !str_starts_with($reference['path'], $root . '/private/partial-installation/effect-metadata/')) {
+            throw new RuntimeException('INSTALL_PARTIAL_METADATA_PROOF_REQUIRED');
+        }
+        $record = \PeanutServerUpdatePlan::readPartialOwnerRecord($root, $reference['path']);
+        if (hash_file('sha256', $reference['path']) !== ($reference['sha256'] ?? null)
+            || ($record['protocol'] ?? null) !== 'peanut.app-partial-effect-metadata.v1'
+            || self::pluginDigest($record['binding'] ?? null) !== self::pluginDigest($binding)
+            || ($record['adapter_sha256'] ?? null) !== hash_file('sha256', __FILE__)
+            || ($record['semantic_sha256'] ?? null) !== self::pluginDigest($record['metadata'] ?? null)
+            || !is_int($record['started_at'] ?? null) || !is_int($record['ended_at'] ?? null)
+            || $record['started_at'] < $binding['authority']['created_at'] || $record['ended_at'] < $record['started_at']
+            || $record['ended_at'] >= $binding['authority']['expires_at'] || $record['ended_at'] > time()
+            || ($fresh && time() - $record['ended_at'] > 60)) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_PROOF_CHANGED'); }
+        $request = \PeanutServerUpdatePlan::readPartialOwnerRecord($root, $record['request']['path']);
+        if (hash_file('sha256', $record['request']['path']) !== $record['request']['sha256']
+            || ($request['protocol'] ?? null) !== 'peanut.app-partial-effect-request.v1'
+            || self::pluginDigest($request['binding']) !== self::pluginDigest($binding)
+            || $request['source'] !== $record['source'] || $request['window'] !== $record['window']
+            || $request['tool'] !== $record['tool'] || $request['nonce'] !== $record['nonce']
+            || $request['adapter_sha256'] !== $record['adapter_sha256']
+            || !is_int($request['created_at'] ?? null) || $request['created_at'] < $binding['authority']['created_at']
+            || $request['created_at'] > $record['started_at']) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_REQUEST_CHANGED'); }
+        foreach (['stdout', 'stderr', 'process'] as $key) {
+            self::pluginFile($record[$key]['path'] ?? '', $root, 8388608);
+            if (hash_file('sha256', $record[$key]['path']) !== $record[$key]['sha256']) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_RECEIPT_CHANGED'); }
+        }
+        $process = self::protectedPluginJson($record['process']['path'], $root);
+        if (($process['phase'] ?? null) !== 'effect-metadata' || ($process['rc'] ?? null) !== 0
+            || ($process['local_process_terminal'] ?? null) !== true || ($process['local_deadline_exceeded'] ?? null) !== false
+            || ($process['local_output_limit_exceeded'] ?? null) !== false || ($process['remote_success_terminal_confirmed'] ?? null) !== true
+            || $process['stdout'] !== $record['stdout'] || $process['stderr_sha256'] !== $record['stderr']['sha256']) {
+            throw new RuntimeException('INSTALL_PARTIAL_METADATA_RECEIPT_CHANGED');
+        }
+        return $record;
+    }
+
+    /** No caller SQL: exact target metadata, plus SHOW CREATE only for validated target identifiers. */
+    private static function metadataSql(array $tables, array $session, string $nonce): string
+    {
+        $sql = "SET SESSION sql_mode='" . $session['sql_mode'] . "'; SET SESSION sql_quote_show_create=" . (int) $session['quote_names']
+            . "; SET TRANSACTION READ ONLY; START TRANSACTION READ ONLY;"
+            . " SELECT HEX(JSON_OBJECT('server_uuid',@@server_uuid,'server_hostname',@@hostname,'server_port',@@port,'database',DATABASE(),"
+            . "'version',VERSION(),'partial_revokes',@@GLOBAL.partial_revokes)); SHOW GRANTS; SELECT 'GRANTS_END_" . $nonce . "';"
+            . " SELECT HEX(JSON_OBJECT('tables',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('name',TABLE_NAME,'type',TABLE_TYPE,'engine',ENGINE,"
+            . "'auto_increment',CAST(AUTO_INCREMENT AS CHAR))) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()),JSON_ARRAY()),"
+            . "'foreign_keys',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('CONSTRAINT_SCHEMA',k.CONSTRAINT_SCHEMA,'CONSTRAINT_NAME',k.CONSTRAINT_NAME,"
+            . "'TABLE_SCHEMA',k.TABLE_SCHEMA,'TABLE_NAME',k.TABLE_NAME,'COLUMN_NAME',k.COLUMN_NAME,'ORDINAL_POSITION',k.ORDINAL_POSITION,"
+            . "'REFERENCED_TABLE_SCHEMA',k.REFERENCED_TABLE_SCHEMA,'REFERENCED_TABLE_NAME',k.REFERENCED_TABLE_NAME,"
+            . "'REFERENCED_COLUMN_NAME',k.REFERENCED_COLUMN_NAME,'UPDATE_RULE',r.UPDATE_RULE,'DELETE_RULE',r.DELETE_RULE,"
+            . "'IS_LOCAL_PARENT',k.REFERENCED_TABLE_SCHEMA=DATABASE())) FROM information_schema.KEY_COLUMN_USAGE k"
+            . " JOIN information_schema.REFERENTIAL_CONSTRAINTS r ON r.CONSTRAINT_SCHEMA=k.CONSTRAINT_SCHEMA AND r.CONSTRAINT_NAME=k.CONSTRAINT_NAME"
+            . " AND r.TABLE_NAME=k.TABLE_NAME WHERE k.TABLE_SCHEMA=DATABASE() OR k.REFERENCED_TABLE_SCHEMA=DATABASE()),JSON_ARRAY()),"
+            . "'triggers',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('TRIGGER_NAME',TRIGGER_NAME,'EVENT_MANIPULATION',EVENT_MANIPULATION,"
+            . "'EVENT_OBJECT_TABLE',EVENT_OBJECT_TABLE,'ACTION_TIMING',ACTION_TIMING,'ACTION_STATEMENT',ACTION_STATEMENT,'SQL_MODE',SQL_MODE,'DEFINER',DEFINER))"
+            . " FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()),JSON_ARRAY())));";
+        foreach ($tables as $table) { $sql .= " SELECT '" . $table . "'; SHOW CREATE TABLE " . chr(96) . $table . chr(96) . ';'; }
+        return $sql . ' ROLLBACK;';
+    }
+
+    private static function parseMetadata(string $path, array $tables, string $nonce, array $binding, array $contract, string $serverVersion): array
+    {
+        $lines = preg_split('/\r?\n/', rtrim((string) file_get_contents($path), "\r\n"));
+        if (count($lines) < 6 || preg_match('/\A([a-f0-9]{64})\s+/', $lines[0], $digest) !== 1) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_OUTPUT_INVALID'); }
+        $decode = static function (string $hex): array {
+            if ($hex === '' || strlen($hex) % 2 !== 0 || !ctype_xdigit($hex)) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_OUTPUT_INVALID'); }
+            $value = json_decode(hex2bin($hex), true, 128, JSON_THROW_ON_ERROR);
+            if (!is_array($value)) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_OUTPUT_INVALID'); }
+            return $value;
+        };
+        $identity = $decode($lines[2]);
+        foreach (['server_uuid', 'server_hostname', 'server_port', 'database'] as $key) {
+            if (($identity[$key] ?? null) !== $binding['database'][$key]) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_REMOTE_MISMATCH'); }
+        }
+        if (($identity['version'] ?? null) !== $serverVersion || $serverVersion !== ($contract['mysql_version'] ?? null)
+            || preg_match('/\A8\.4\.[0-9]+\z/D', $serverVersion) !== 1 || !str_contains($lines[1], 'Ver ' . $serverVersion . ' ')
+            || !in_array($identity['partial_revokes'] ?? null, [0, false], true)) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_VISIBILITY_REQUIRED'); }
+        $end = array_search('GRANTS_END_' . $nonce, $lines, true);
+        if (!is_int($end) || $end < 4) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_OUTPUT_INVALID'); }
+        $global = false; $trigger = false; $schemaScope = chr(96) . $identity['database'] . chr(96) . '.*';
+        foreach (array_slice($lines, 3, $end - 3) as $grant) {
+            if (str_starts_with($grant, 'REVOKE ')) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_VISIBILITY_REQUIRED'); }
+            if (preg_match('/\AGRANT (.+) ON (.+) TO /D', $grant, $match) !== 1) { continue; }
+            $privileges = array_map('trim', explode(',', $match[1])); $all = in_array('ALL PRIVILEGES', $privileges, true);
+            $global = $global || ($match[2] === '*.*' && ($all || in_array('SELECT', $privileges, true)));
+            $trigger = $trigger || (in_array($match[2], ['*.*', $schemaScope], true) && ($all || in_array('TRIGGER', $privileges, true)));
+        }
+        if (!$global || !$trigger) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_VISIBILITY_REQUIRED'); }
+        $data = $decode($lines[$end + 1] ?? ''); $objects = [];
+        foreach ($data['tables'] ?? [] as $row) {
+            if (!is_string($row['name'] ?? null) || !in_array($row['name'], $tables, true) || isset($objects[$row['name']])
+                || ($row['type'] ?? null) !== 'BASE TABLE' || ($row['engine'] ?? null) !== 'InnoDB') { throw new RuntimeException('INSTALL_PARTIAL_METADATA_COVERAGE_REQUIRED'); }
+            $objects[$row['name']] = ['engine' => 'InnoDB', 'create_sql_sha256' => null,
+                'auto_increment' => $row['auto_increment'] === null ? null : (string) $row['auto_increment']];
+        }
+        ksort($objects, SORT_STRING);
+        if (array_keys($objects) !== $tables || count($lines) !== $end + 2 + count($tables) * 2) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_COVERAGE_REQUIRED'); }
+        foreach ($tables as $i => $table) {
+            if ($lines[$end + 2 + $i * 2] !== $table) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_OUTPUT_INVALID'); }
+            $row = explode("\t", $lines[$end + 3 + $i * 2], 2);
+            if (count($row) !== 2 || $row[0] !== $table) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_OUTPUT_INVALID'); }
+            $objects[$table]['create_sql_sha256'] = hash('sha256', self::mysqlBatchValue($row[1]));
+        }
+        $foreign = $data['foreign_keys'] ?? null; $triggers = [];
+        if (!is_array($foreign) || !array_is_list($foreign) || !is_array($data['triggers'] ?? null) || !array_is_list($data['triggers'])) {
+            throw new RuntimeException('INSTALL_PARTIAL_METADATA_OUTPUT_INVALID');
+        }
+        foreach ($foreign as &$fk) {
+            foreach (['CONSTRAINT_SCHEMA', 'CONSTRAINT_NAME', 'TABLE_SCHEMA', 'TABLE_NAME', 'COLUMN_NAME', 'REFERENCED_TABLE_SCHEMA', 'REFERENCED_TABLE_NAME', 'REFERENCED_COLUMN_NAME', 'UPDATE_RULE', 'DELETE_RULE'] as $key) {
+                if (!is_string($fk[$key] ?? null) || $fk[$key] === '') { throw new RuntimeException('INSTALL_PARTIAL_METADATA_OUTPUT_INVALID'); }
+            }
+            if (!is_int($fk['ORDINAL_POSITION'] ?? null) || $fk['ORDINAL_POSITION'] < 1
+                || !in_array($fk['IS_LOCAL_PARENT'] ?? null, [0, 1], true)
+                || ($fk['TABLE_SCHEMA'] !== $identity['database'] && $fk['REFERENCED_TABLE_SCHEMA'] !== $identity['database'])) {
+                throw new RuntimeException('INSTALL_PARTIAL_METADATA_OUTPUT_INVALID');
+            }
+            ksort($fk, SORT_STRING);
+        }
+        unset($fk);
+        usort($foreign, static fn(array $a, array $b): int => [$a['CONSTRAINT_SCHEMA'], $a['TABLE_NAME'], $a['CONSTRAINT_NAME'], $a['ORDINAL_POSITION']]
+            <=> [$b['CONSTRAINT_SCHEMA'], $b['TABLE_NAME'], $b['CONSTRAINT_NAME'], $b['ORDINAL_POSITION']]);
+        foreach ($data['triggers'] as $row) {
+            foreach (['TRIGGER_NAME', 'EVENT_MANIPULATION', 'EVENT_OBJECT_TABLE', 'ACTION_TIMING', 'ACTION_STATEMENT', 'SQL_MODE', 'DEFINER'] as $key) {
+                if (!is_string($row[$key] ?? null)) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_OUTPUT_INVALID'); }
+            }
+            $triggers[] = ['table' => $row['EVENT_OBJECT_TABLE'], 'name' => $row['TRIGGER_NAME'], 'event' => $row['EVENT_MANIPULATION'],
+                'timing' => $row['ACTION_TIMING'], 'definition_sha256' => self::pluginDigest($row)];
+        }
+        usort($triggers, static fn(array $a, array $b): int => [$a['table'], $a['name']] <=> [$b['table'], $b['name']]);
+        return ['metadata' => ['objects' => $objects, 'foreign_keys' => $foreign, 'triggers' => $triggers],
+            'client' => ['mysql_sha256' => $digest[1], 'version' => $serverVersion, 'global_select' => true, 'trigger_visibility' => true, 'partial_revokes' => false]];
+    }
+
+    private static function mysqlBatchValue(string $value): string
+    {
+        $escapes = ['0' => "\0", 'b' => "\x08", 'n' => "\n", 'r' => "\r", 't' => "\t", 'Z' => "\x1a", '\\' => '\\'];
+        $result = '';
+        for ($i = 0, $size = strlen($value); $i < $size; $i++) {
+            if ($value[$i] !== '\\') { $result .= $value[$i]; continue; }
+            $i++;
+            if ($i >= $size || !isset($escapes[$value[$i]])) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_OUTPUT_INVALID'); }
+            $result .= $escapes[$value[$i]];
+        }
+        return $result;
+    }
+
     /** Fixed native DML only. DDL-only targets do not fire their row triggers. */
     public static function applicationStageRequirements(array $scope, string $id): array
     {
@@ -304,7 +592,7 @@ final class SourceApplicationBackup
         return $scope;
     }
 
-    private static function observe(PDO $pdo, array $tables, bool $allowMissing): array
+    private static function observe(PDO $pdo, array $tables, bool $allowMissing, ?array $effectMetadata = null): array
     {
         $affected = $tables; $present = [];
         $objects = [];
@@ -326,6 +614,9 @@ final class SourceApplicationBackup
         $foreignKeys = []; $triggers = []; $derivedUpdates = [];
         if ($tables !== []) {
             $marks = implode(',', array_fill(0, count($tables), '?'));
+            if ($effectMetadata !== null) {
+                $foreignKeys = $effectMetadata['foreign_keys']; $triggers = $effectMetadata['triggers'];
+            } else {
             $query = $pdo->prepare('SELECT k.CONSTRAINT_SCHEMA,k.CONSTRAINT_NAME,k.TABLE_SCHEMA,k.TABLE_NAME,k.COLUMN_NAME,k.ORDINAL_POSITION,'
                 . 'k.REFERENCED_TABLE_SCHEMA,k.REFERENCED_TABLE_NAME,k.REFERENCED_COLUMN_NAME,r.UPDATE_RULE,r.DELETE_RULE,'
                 . '(k.REFERENCED_TABLE_SCHEMA=DATABASE()) AS IS_LOCAL_PARENT'
@@ -344,6 +635,7 @@ final class SourceApplicationBackup
                     'definition_sha256' => hash('sha256', serialize($row))];
             }
             $query->closeCursor();
+            }
             $query = $pdo->prepare("SELECT TABLE_NAME,COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ($marks)"
                 . " AND (LOWER(EXTRA) LIKE '%on update%' OR GENERATION_EXPRESSION<>'') ORDER BY TABLE_NAME,ORDINAL_POSITION");
             $query->execute($tables);
@@ -366,6 +658,8 @@ final class SourceApplicationBackup
         $captureStarted = time();
         if (!in_array($purpose, ['application-schema', 'plugin-lifecycle', 'installation-partial'], true)) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SOURCE_UNSUPPORTED'); }
         $partial = $purpose === 'installation-partial';
+        $effectMetadata = $partial && ($binding['authority']['kind'] ?? null) === 'app-native-owner'
+            ? self::appMetadataOrigin($binding, $baseline, $scope) : null;
         $database = $binding['database']['database'];
         $contract = $tool['source_schema_backup'] ?? null;
         if (($tool['transport'] ?? null) !== 'ssh-docker-exec' || !is_array($contract)
@@ -443,6 +737,8 @@ final class SourceApplicationBackup
             $recheck();
         }
         $before = self::probe($tool, $binding, $directory . '/probe-before', 'probe-before', $seconds, $recheck);
+        if ($effectMetadata !== null && ($before['mysql_sha256'] !== $effectMetadata['client']['mysql_sha256']
+            || $before['identity']['version'] !== $effectMetadata['client']['version'])) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_CLIENT_CHANGED'); }
         $dump = $directory . '/database.sql';
         $flags = ['--no-defaults', '--no-login-paths', '--single-transaction', '--skip-lock-tables', '--quick', '--hex-blob',
             '--triggers', '--skip-routines', '--skip-events', '--no-tablespaces', '--set-gtid-purged=OFF', '--column-statistics=0',
@@ -535,13 +831,17 @@ final class SourceApplicationBackup
     }
 
     /** Only a real current native partial capture, never the old empty-schema operator stdout. */
-    public static function partialInstallationBackup(string $path, string $serverRoot, array $binding, array $baseline): array
+    public static function partialInstallationBackup(string $path, string $serverRoot, array $binding, array $baseline, ?array $expectedScope = null): array
     {
         $directory = realpath(dirname($path));
         if (!is_string($directory) || !str_starts_with($directory . '/', rtrim($serverRoot, '/') . '/private/partial-installation/partial-backups/')
             || basename($path) !== 'backup.json' || (fileperms($directory) & 0777) !== 0700) { throw new RuntimeException('INSTALL_PARTIAL_NATIVE_BACKUP_REQUIRED'); }
         $record = self::protectedPluginJson($path, $serverRoot);
         $same = static fn(mixed $a, mixed $b): bool => self::pluginDigest($a) === self::pluginDigest($b);
+        if (($binding['authority']['kind'] ?? null) === 'app-native-owner') {
+            if ($expectedScope === null || !$same($record['scope'] ?? null, $expectedScope)) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_BACKUP_SCOPE_CHANGED'); }
+            self::appMetadataOrigin($binding, $baseline, $expectedScope);
+        }
         $payload = $record['backup_payload'] ?? []; $restorePath = $directory . '/RESTORE.json';
         $restore = self::protectedPluginJson($restorePath, $serverRoot);
         self::pluginFile($payload['path'] ?? '', $serverRoot, null);
@@ -785,7 +1085,7 @@ final class SourceApplicationBackup
             '-o', 'ServerAliveInterval=5', '-o', 'ServerAliveCountMax=3', $tool['ssh_alias'], $remote];
     }
 
-    private static function remote(array $tool, string $shell, string $output, string $error, string $phase, int $seconds, int $expires, callable $recheck): void
+    private static function remote(array $tool, string $shell, string $output, string $error, string $phase, int $seconds, int $expires, callable $recheck, ?int $maximumBytes = null): void
     {
         $recheck();
         if (time() + $seconds + 60 >= $expires) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_LIFETIME_REQUIRED'); }
@@ -800,12 +1100,13 @@ final class SourceApplicationBackup
             foreach (['HOME', 'SSH_AUTH_SOCK'] as $name) { if (is_string(getenv($name))) { $environment[$name] = getenv($name); } }
             $process = proc_open(self::argv($tool, $shell), [0 => ['file', '/dev/null', 'r'], 1 => $out, 2 => $err], $pipes, null, $environment);
             if (!is_resource($process)) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_PROCESS_UNAVAILABLE'); }
-            $timedOut = false;
+            $timedOut = false; $outputExceeded = false;
             while (true) {
                 $state = proc_get_status($process);
                 if (!$state['running']) { break; }
-                if (hrtime(true) >= $deadline) {
-                    $timedOut = true;
+                $outputExceeded = $maximumBytes !== null && (fstat($out)['size'] + fstat($err)['size']) > $maximumBytes;
+                if (hrtime(true) >= $deadline || $outputExceeded) {
+                    $timedOut = hrtime(true) >= $deadline;
                     proc_terminate($process);
                     foreach ([15, 9] as $signal) {
                         if ($signal === 9) { proc_terminate($process, 9); }
@@ -819,15 +1120,17 @@ final class SourceApplicationBackup
                 usleep(50000);
             }
             $terminal = !$state['running'];
+            $outputExceeded = $outputExceeded || ($maximumBytes !== null && (fstat($out)['size'] + fstat($err)['size']) > $maximumBytes);
             $closed = $terminal ? proc_close($process) : null;
             $rc = $terminal && $state['exitcode'] >= 0 ? $state['exitcode'] : ($closed !== null && $closed >= 0 ? $closed : null);
             if (!fflush($out) || !fsync($out) || !fflush($err) || !fsync($err)) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SYNC_FAILED'); }
             self::write($output . '.process.json', ['phase' => $phase, 'local_process_terminal' => $terminal, 'rc' => $rc,
-                'local_deadline_exceeded' => $timedOut, 'remote_success_terminal_confirmed' => !$timedOut && $terminal && $rc === 0,
+                'local_deadline_exceeded' => $timedOut, 'local_output_limit_exceeded' => $outputExceeded,
+                'remote_success_terminal_confirmed' => !$timedOut && !$outputExceeded && $terminal && $rc === 0,
                 'stdout' => ['path' => $output, 'sha256' => hash_file('sha256', $output), 'bytes' => filesize($output)],
                 'stderr_sha256' => hash_file('sha256', $error),
                 'note' => 'Nonzero/transport failures preserve partial output; no success record or automatic retry.']);
-            if ($timedOut || !$terminal || $rc !== 0) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_PROCESS_FAILED'); }
+            if ($timedOut || $outputExceeded || !$terminal || $rc !== 0) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_PROCESS_FAILED'); }
             $recheck();
         } finally { fclose($out); fclose($err); }
     }
