@@ -410,7 +410,10 @@ final class PeanutServerUpdatePlan
         }
         $baseline = self::installedBaseline($root, $identity);
         $initial = $baseline['source']['application_manifest_sha256'] ?? null;
-        if (($baseline['source']['kind'] ?? null) !== 'generated-application'
+        $sourceKind = $baseline['source']['kind'] ?? null;
+        if (!in_array($sourceKind, ['generated-application', 'development-runtime'], true)
+            || ($sourceKind === 'development-runtime'
+                && preg_match('/^[a-f0-9]{64}$/D', (string) ($baseline['source']['development_runtime_identity_sha256'] ?? '')) !== 1)
             || !is_string($initial) || preg_match('/^[a-f0-9]{64}$/D', $initial) !== 1) {
             throw new RuntimeException('source runtime requires a generated APP installation');
         }
@@ -418,7 +421,9 @@ final class PeanutServerUpdatePlan
             'baseline_sha256' => hash_file('sha256', $root . '/private/installation/baseline.json')];
         $path = self::deploymentPath($root);
         if (!file_exists($path) && !is_link($path)) {
-            if (($identity['application_manifest_sha256'] ?? null) !== $initial) {
+            if (($identity['application_manifest_sha256'] ?? null) !== $initial
+                || ($sourceKind === 'development-runtime'
+                    && !hash_equals($baseline['source']['development_runtime_identity_sha256'], $runtimeSha))) {
                 throw new RuntimeException('initial APP projection does not match its installation baseline');
             }
             return $anchors + ['head_sha256' => null, 'source_generation' => 0, 'runtime_revision' => 0,
@@ -858,7 +863,7 @@ final class PeanutServerUpdatePlan
                     || (file_exists($deploymentPath) && !is_file($deploymentPath))) {
                     throw new RuntimeException('installation state is unsafe for initial traffic');
                 }
-                if (($identity['protocol'] ?? null) === 'peanut.development-server-runtime.v1') {
+                if (($identity['protocol'] ?? null) === 'peanut.development-server-runtime.v1' && file_exists($installedPath)) {
                     self::applicationDeployment($serverRoot, $identity, $identityDigest);
                     if (file_exists(self::deploymentPath($serverRoot))) { self::protectApplicationDeployment($serverRoot); }
                 } elseif ($serverRelease && file_exists($installedPath)) {
@@ -1183,11 +1188,6 @@ final class PeanutServerUpdatePlan
         self::assertAdmissionBoundary($serverRoot);
         require_once $serverRoot . '/vendor/autoload.php';
         $identity = self::runtimeIdentity($serverRoot);
-        if ($identity instanceof \app\common\value\installation\ApplicationSourceIdentity) {
-            // Development projection adopts only an already installed APP; it has no guided bootstrap.
-            self::nativeRuntimeHealth($serverRoot);
-            return;
-        }
         $verified = hrtime(true);
         require_once $serverRoot . '/database/install.php';
         $application = new \think\App($serverRoot);
@@ -1307,9 +1307,12 @@ final class PeanutServerUpdatePlan
         if (!is_array($baseline) || ($baseline['schema_version'] ?? null) !== 1
             || ($baseline['protocol'] ?? null) !== 'peanut.installation-baseline.v1'
             || ($baseline['deployment_mode'] ?? null) !== $edition
-            || ($baseline['source']['kind'] ?? null) !== 'generated-application'
+            || !in_array($baseline['source']['kind'] ?? null, ['generated-application', 'development-runtime'], true)
             || !is_string($baseline['source']['application_manifest_sha256'] ?? null)
-            || !hash_equals($identity->manifestSha256(), $baseline['source']['application_manifest_sha256'])) {
+            || !hash_equals($identity->manifestSha256(), $baseline['source']['application_manifest_sha256'])
+            || (($baseline['source']['kind'] ?? null) === 'development-runtime'
+                && (!is_string($baseline['source']['development_runtime_identity_sha256'] ?? null)
+                    || !hash_equals($identity->identitySha256(), $baseline['source']['development_runtime_identity_sha256'])))) {
             throw new RuntimeException('installed APP baseline does not match the development projection');
         }
     }

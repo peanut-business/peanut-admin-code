@@ -7,6 +7,7 @@ namespace app\common\services\installation;
 use app\common\composition\ModuleComposition;
 use app\common\exception\installation\InstallationExecutionException;
 use app\common\services\audit\AuditContractHost;
+use app\common\value\installation\ApplicationSourceIdentity;
 use app\common\value\installation\ServerReleaseIdentity;
 use app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider;
 use app\platform\services\module\ProductTenantModuleProfileService;
@@ -564,7 +565,10 @@ final class InstallationExecutionHost
         $serverIdentity = $this->serverRoot . '/.peanut/release-identity.json';
         $projectRoot = dirname($this->serverRoot);
         $applicationManifest = $projectRoot . '/.peanut/application-manifest.json';
-        if (file_exists($serverIdentity) || is_link($serverIdentity)) {
+        if (ApplicationSourceIdentity::hasRuntime($this->serverRoot)) {
+            ApplicationSourceIdentity::load($this->serverRoot);
+            $packageRoot = $this->serverRoot;
+        } elseif (file_exists($serverIdentity) || is_link($serverIdentity)) {
             $packageRoot = $this->serverRoot;
         } elseif (\installationSourceDevelopmentMode($this->serverRoot)) {
             $packageRoot = $projectRoot;
@@ -806,7 +810,14 @@ final class InstallationExecutionHost
         $projectRoot = dirname($this->serverRoot);
         $serverIdentity = $this->serverRoot . '/.peanut/release-identity.json';
         $applicationManifest = $projectRoot . '/.peanut/application-manifest.json';
-        if (file_exists($serverIdentity) || is_link($serverIdentity)) {
+        if (ApplicationSourceIdentity::hasRuntime($this->serverRoot)) {
+            $identity = ApplicationSourceIdentity::load($this->serverRoot);
+            $source = [
+                'kind' => 'development-runtime',
+                'development_runtime_identity_sha256' => $identity->identitySha256(),
+                'application_manifest_sha256' => $identity->manifestSha256(),
+            ];
+        } elseif (file_exists($serverIdentity) || is_link($serverIdentity)) {
             $identity = ServerReleaseIdentity::resolve($this->serverRoot);
             $source = [
                 'kind' => 'server-release',
@@ -973,6 +984,7 @@ final class InstallationExecutionHost
         }
         $source = $baseline['source'] ?? null;
         $required = match (is_array($source) ? ($source['kind'] ?? null) : null) {
+            'development-runtime' => ['development_runtime_identity_sha256', 'application_manifest_sha256'],
             'server-release' => ['server_release_identity_sha256', 'application_manifest_sha256'],
             'generated-application' => ['application_manifest_sha256'],
             'product-source' => ['inventory_sha256', 'edition_profiles_sha256', 'release_versions_sha256'],

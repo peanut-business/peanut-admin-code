@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace app\common\services\installation;
 
+use app\common\value\installation\ApplicationSourceIdentity;
 use app\common\value\installation\ServerReleaseIdentity;
 use Closure;
 use RuntimeException;
@@ -150,7 +151,10 @@ final class InstallationPreflightHost
         $sourceRoot = dirname($this->serverRoot);
         $applicationManifest = $sourceRoot . '/.peanut/application-manifest.json';
         $serverRelease = file_exists($serverIdentity) || is_link($serverIdentity);
-        $sourceDevelopment = !$serverRelease
+        $runtimeIdentity = $this->serverRoot . '/.peanut/development-runtime.json';
+        $developmentRuntime = file_exists($runtimeIdentity) || is_link($runtimeIdentity);
+        $serverLayout = $serverRelease || $developmentRuntime;
+        $sourceDevelopment = !$serverLayout
             && getenv('PEANUT_INSTALLATION_SOURCE_MODE') === 'development'
             && file_exists($sourceRoot . '/.git')
             && !is_link($sourceRoot . '/.git')
@@ -158,25 +162,25 @@ final class InstallationPreflightHost
             && (is_file($applicationManifest)
                 || (is_file($sourceRoot . '/scaffold/application-template-inventory.json')
                     && is_file($sourceRoot . '/scaffold/edition-profiles.json')));
-        $generatedApplication = !$serverRelease
+        $generatedApplication = !$serverLayout
             && !$sourceDevelopment
             && (file_exists($applicationManifest) || is_link($applicationManifest));
         $required = [
             'Composer autoload' => $this->serverRoot . '/vendor/autoload.php',
             '数据库基线' => $this->serverRoot . '/database/init.sql',
             '品牌配置' => $this->serverRoot . '/config/brand.json',
-            '发布身份' => $serverRelease
-                ? $serverIdentity
+            '发布身份' => $serverLayout
+                ? ($developmentRuntime ? $runtimeIdentity : $serverIdentity)
                 : ($generatedApplication ? $applicationManifest : $sourceRoot . '/RELEASE_METADATA.json'),
-            '发布元数据' => $serverRelease
+            '发布元数据' => $serverLayout
                 ? $this->serverRoot . '/.peanut/RELEASE_METADATA.json'
                 : $sourceRoot . '/RELEASE_METADATA.json',
-            'Plugin lock' => $serverRelease
+            'Plugin lock' => $serverLayout
                 ? $this->serverRoot . '/plugins.lock'
                 : $sourceRoot . '/plugins.lock',
             'Plugin schema' => $this->serverRoot . '/resources/schemas/plugin.schema.json',
         ];
-        if (!$serverRelease && !$generatedApplication && !$sourceDevelopment) {
+        if (!$serverLayout && !$generatedApplication && !$sourceDevelopment) {
             $required['源码开发身份'] = $sourceRoot . '/.git';
         }
         $missing = [];
@@ -186,10 +190,12 @@ final class InstallationPreflightHost
             }
         }
         if ($missing === []) {
-            if ($serverRelease) {
+            if ($serverLayout) {
                 try {
                     require_once $this->serverRoot . '/vendor/autoload.php';
-                    $identity = ServerReleaseIdentity::resolve($this->serverRoot);
+                    $identity = $developmentRuntime
+                        ? ApplicationSourceIdentity::load($this->serverRoot)
+                        : ServerReleaseIdentity::resolve($this->serverRoot);
                     $expected = $identity->projectedPluginLockSha256();
                     if (!hash_equals($expected, (string) hash_file('sha256', $this->serverRoot . '/plugins.lock'))) {
                         throw new RuntimeException('Server Plugin lock differs from release identity.');
@@ -198,8 +204,8 @@ final class InstallationPreflightHost
                     return $this->failed(
                         'installation-files',
                         'INSTALL_FILES_INVALID',
-                        'Server 发布身份或 Plugin lock 校验失败',
-                        '恢复完整且同一发行身份的 Server 制品后重新运行预检',
+                        'Server 运行身份或 Plugin lock 校验失败',
+                        '恢复完整且同一身份的 Server 制品或开发运行投影后重新运行预检',
                     );
                 }
             }

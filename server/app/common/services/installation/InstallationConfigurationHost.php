@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace app\common\services\installation;
 
 use app\common\exception\installation\InstallationExecutionException;
+use app\common\value\installation\ApplicationSourceIdentity;
 use app\common\value\installation\ServerReleaseIdentity;
 use Closure;
 use RuntimeException;
@@ -75,7 +76,8 @@ final class InstallationConfigurationHost
             'code' => $configured ? 'INSTALL_CONFIGURATION_READY' : 'INSTALL_CONFIGURATION_REQUIRED',
             'configured' => $configured,
             'application' => $this->publicIdentity($identity),
-            'deployment_targets' => self::TARGETS,
+            'deployment_targets' => ApplicationSourceIdentity::hasRuntime($this->serverRoot)
+                ? ['local-development', 'local-multi-tenant-demo'] : self::TARGETS,
             'database_resources' => $configured ? [] : $this->databaseOptions(),
         ];
     }
@@ -137,6 +139,13 @@ final class InstallationConfigurationHost
             );
         }
         $targetContract = \deploymentTargetContract($target);
+        if (ApplicationSourceIdentity::hasRuntime($this->serverRoot) && $targetContract['app_environment'] !== 'development') {
+            throw new InstallationExecutionException(
+                'INSTALL_CONFIGURATION_TARGET_INVALID',
+                '开发运行投影只能使用开发环境部署目标。',
+                422,
+            );
+        }
         $source = $input['database_source'] ?? 'bundled';
         if (!in_array($source, ['bundled', 'registered'], true)) {
             throw new InstallationExecutionException('INSTALL_CONFIGURATION_DATABASE_SOURCE_INVALID', '数据库来源无效。', 422);
@@ -551,7 +560,9 @@ final class InstallationConfigurationHost
             return $identity;
         }
 
-        $release = ServerReleaseIdentity::resolve($this->serverRoot);
+        $release = ApplicationSourceIdentity::hasRuntime($this->serverRoot)
+            ? ApplicationSourceIdentity::load($this->serverRoot)
+            : ServerReleaseIdentity::resolve($this->serverRoot);
         return [
             'application' => $release->applicationIdentity(),
             'versions' => $release->versions(),
