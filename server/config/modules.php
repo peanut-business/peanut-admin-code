@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use app\common\value\installation\ApplicationSourceIdentity;
+
 $roots = array_values(array_filter(array_map(
     'trim',
     explode(',', (string) env('PEANUT_MODULE_ROOTS', '')),
@@ -10,9 +12,11 @@ $roots = array_values(array_filter(array_map(
 $serverRoot = dirname(__DIR__);
 $serverIdentity = $serverRoot . '/.peanut/release-identity.json';
 // Source/generated applications own plugins.lock at the application root.
-// A packaged Server release switches to its verified backend-only projection.
+// Server releases and development runtimes use their verified backend-only projection.
 $serverRelease = file_exists($serverIdentity) || is_link($serverIdentity);
-$pluginLockDefault = $serverRelease ? 'plugins.lock' : '../plugins.lock';
+$pluginLockDefault = $serverRelease || ApplicationSourceIdentity::hasRuntime($serverRoot)
+    ? 'plugins.lock'
+    : '../plugins.lock';
 
 return [
     // Module roots are an explicit deployment input. An empty list keeps the
