@@ -205,7 +205,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "10f40fde1b7dea1d78854be984600d3ba6d34f35af324d7b883f4d1a7974f43f"
+            "source_sha256": "fcdc91125d83cac721ab64e50740eab6567e5ba29dca8c1ecee4e24eb47de9c8"
         },
         {
             "path": ".prettierrc.cjs",
@@ -836,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1b76fd09835a3e52ccd2d89dc26c5a6d15e0f19249cf379aab45e480453a2a73"
+            "source_sha256": "828c684deb87fed4989d23acf38a02ee7b46294412e6bdc0863ceaf34bd94eab"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -3289,7 +3289,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "69699587235d94510bb0d9d0c52f466b893ea89372ce1e39ae9871fa620b7c87"
+            "source_sha256": "1e4fedf23bd5cf6e71ec0c76e37735b3d649bda8851ca2cb163147f03547d1b6"
         },
         {
             "path": "scripts/local-client-dev",
@@ -3505,7 +3505,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "402c8e3b4405e7db79d3789560f1c37b4fca66fa7f0242d75cbc7d121c8d391b"
+            "source_sha256": "5af9a590101182a545ab0f02563c20b5f5f1abaf96ef7ff0f4ece61c69763359"
         },
         {
             "path": "scripts/package-release.sh",
@@ -8875,7 +8875,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7c440c98f383a90891b7fd7accf99453639f7bbd90c576dbd6a165b2bcc8e22c"
+            "source_sha256": "758fc2a870f27651989088c1f13edc931a0a794d13fa825af006422ac0f11b97"
         },
         {
             "path": "server/app/common/services/installation/InstallationExecutionHost.php",
@@ -9352,7 +9352,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "10fd83ee3e316c15060c082a88b9408fe65489e65c65865f33a98f1ac392cc8f"
+            "source_sha256": "850c4ff1c5ddf739b5f9cdb6691a0f783a3abf7a8a8b02cbeddb15e6072ae847"
         },
         {
             "path": "server/app/common/value/module/ModulePhpNamespace.php",
@@ -27354,7 +27354,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "36aef016b35336b790d20c8fd4b00d513b1e9a971bee9fb6210026efeea83a5b"
+            "source_sha256": "ab36b887cf57dbc2b6123b700209e3490316cdef8da1ffeb25bfc9519d03b47f"
         },
         {
             "path": "server/docker/conf/crontab",
@@ -27480,7 +27480,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0e2c39018a778e43c16a23809674c3b0db5a1874b56ee538d79c3dd3bfa8edb5"
+            "source_sha256": "2a0b86dfcc1ed8c56704f6107d1c48e821c2e0162668a4c3d9949c30503f47b3"
         },
         {
             "path": "server/docker/scripts/php-entrypoint.sh",
@@ -27592,7 +27592,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e1f2898e9a0e37f8829f2da72b92267a63c102680bae6de2c834667135133daa"
+            "source_sha256": "72f4541df0708f0c737a87d431c3283aa2abcbadbd46db49edea20c53067bb22"
         },
         {
             "path": "server/docker/scripts/stop.sh",
@@ -27634,7 +27634,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ed28aec967be062d96ee1035474baa9d9634b4e46ea537da305ff51fb008a6d2"
+            "source_sha256": "465788f0ac857a49846b40c1ebf947fd6db7b539b31bbc9a6eaaa74541653e1f"
         },
         {
             "path": "server/docker/scripts/update-preparation.py",
