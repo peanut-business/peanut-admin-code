@@ -309,6 +309,84 @@ final class PeanutServerUpdatePlan
         return self::withInstanceLock($root, $operation);
     }
 
+    /** A fresh native proof of the sole internal, pre-install source-correction frontier. Not an installed identity. */
+    public static function internalPreinstallContext(string $root, array $from, array $to): ?array
+    {
+        if (PHP_SAPI !== 'cli' || ($from['version'] ?? null) !== ($to['version'] ?? null)
+            || !is_file($root . '/.peanut/internal-candidate.json')
+            || file_exists($root . '/.peanut/development-runtime.json') || is_link($root . '/.peanut/development-runtime.json')
+            || file_exists($root . '/private/installation/installed.json') || is_link($root . '/private/installation/installed.json')
+            || file_exists($root . '/private/installation/baseline.json') || is_link($root . '/private/installation/baseline.json')
+            || file_exists(self::deploymentPath($root)) || is_link(self::deploymentPath($root))) { return null; }
+        self::sourceOwner($root); self::assertHeldDatabaseLock($root);
+        require_once $root . '/vendor/autoload.php';
+        $old = \app\common\value\installation\ServerReleaseIdentity::load($root)->document();
+        $application = self::jsonFile(dirname($root) . '/.peanut/application-manifest.json', 'original APP source manifest');
+        if (($old['application']['kind'] ?? null) !== 'internal-candidate'
+            || ($old['application']['formal_release_eligible'] ?? null) !== false
+            || ($application['generation_source']['channel'] ?? null) !== 'development'
+            || ($application['generation_source']['release_version'] ?? null) !== null
+            || ($application['application']['version'] ?? null) !== '0.1.0'
+            || ($application['application']['profile'] ?? null) !== 'full'
+            || ($application['application']['workflow'] ?? null) !== 'full'
+            || ($application['template']['version'] ?? null) !== $from['version']
+            || ($application['template']['source_commit'] ?? null) !== ($from['source_commit'] ?? null)
+            || ($application['template']['source_tree'] ?? null) !== ($from['source_tree'] ?? null)
+            || ($application['template']['inventory_sha256'] ?? null) !== ($from['inventory_sha256'] ?? null)
+            || ($old['upstream']['commit'] ?? null) !== $from['source_commit']
+            || ($old['upstream']['tree'] ?? null) !== $from['source_tree']
+            || ($old['upstream']['inventory_sha256'] ?? null) !== ($from['inventory_sha256'] ?? null)
+            || ($to['source_commit'] ?? null) === $from['source_commit']
+            || preg_match('/\A[a-f0-9]{40}\z/D', (string) ($to['source_commit'] ?? '')) !== 1
+            || preg_match('/\A[a-f0-9]{40}\z/D', (string) ($to['source_tree'] ?? '')) !== 1) {
+            throw new RuntimeException('internal preinstall source identities do not match');
+        }
+        $originals = [];
+        foreach (['server/.peanut/release-identity.json', 'server/.peanut/internal-candidate.json',
+            '.peanut/application-release.json', '.peanut/application-manifest.json', 'release-versions.json'] as $relative) {
+            $path = dirname($root) . '/' . $relative;
+            $bytes = self::regularBytes($path, 'internal preinstall origin'); $stat = lstat($path);
+            if ($stat['nlink'] !== 1 || ($stat['mode'] & 07022) !== 0 || !in_array($stat['uid'], [0, fileowner($root)], true)) {
+                throw new RuntimeException('internal preinstall origin is not protected');
+            }
+            $originals[$relative] = ['sha256' => hash('sha256', $bytes), 'mode' => $stat['mode'] & 0777];
+        }
+        if ($originals['.peanut/application-manifest.json']['sha256'] !== $old['application']['manifest_sha256']) {
+            throw new RuntimeException('internal preinstall APP origin differs');
+        }
+        $sha = $originals['server/.peanut/release-identity.json']['sha256'];
+        $partial = self::partialApplicationAnchors($root, $old, $sha, null, true);
+        return ['protocol' => 'peanut.internal-preinstall-source.v1', 'server_root' => $root,
+            'old_identity' => ['kind' => 'internal-candidate', 'sha256' => $sha, 'document' => $old],
+            'originals' => $originals, 'application' => $application['application'], 'partial_installation' => $partial];
+    }
+
+    /** Rechecks private/DB anchors only. Old program authenticity must separately use its held native preimages. */
+    public static function recheckInternalPreinstallAnchors(string $root, array $context): void
+    {
+        self::sourceOwner($root); self::assertHeldDatabaseLock($root);
+        if (($context['protocol'] ?? null) !== 'peanut.internal-preinstall-source.v1' || ($context['server_root'] ?? null) !== $root
+            || ($context['old_identity']['kind'] ?? null) !== 'internal-candidate'
+            || self::databaseCanonical(self::partialApplicationAnchors($root, $context['old_identity']['document'],
+                $context['old_identity']['sha256'], $context['partial_installation'], true)) !== self::databaseCanonical($context['partial_installation'])) {
+            throw new RuntimeException('internal preinstall private or database anchors changed');
+        }
+    }
+
+    public static function internalPreinstallDeployment(string $root, array $context): array
+    {
+        self::recheckInternalPreinstallAnchors($root, $context);
+        if (file_exists(self::deploymentPath($root)) || is_link(self::deploymentPath($root))) {
+            throw new RuntimeException('internal first source adoption requires a genuinely absent head');
+        }
+        $manifestSha = $context['originals']['.peanut/application-manifest.json']['sha256'];
+        return ['partial_installation' => $context['partial_installation'], 'head_sha256' => null,
+            'source_generation' => 0, 'runtime_revision' => 0,
+            'initial_source' => ['kind' => 'application-manifest', 'sha256' => $manifestSha],
+            'current_source' => ['kind' => 'application-manifest', 'sha256' => $manifestSha],
+            'original_identity' => ['kind' => 'internal-candidate', 'sha256' => $context['old_identity']['sha256']]];
+    }
+
     public static function writePartialOwnerRecord(string $root, string $path, array $record): void
     {
         self::sourceOwner($root); self::assertHeldDatabaseLock($root);
@@ -480,6 +558,9 @@ final class PeanutServerUpdatePlan
             $pending = self::sourcePending($root);
             $head = self::deploymentPath($root);
             $actualHead = file_exists($head) || is_link($head) ? hash('sha256', self::regularBytes($head, 'application deployment')) : null;
+            if ($state['phase'] === 'recovered' && isset($state['binding']['internal_preinstall'])) {
+                throw new RuntimeException('recovered original internal candidate remains closed');
+            }
             $expectedRuntime = $state['phase'] === 'recovered' ? $state['binding']['old_runtime_sha256'] : $state['prepared_identity_sha256'];
             if (realpath($path) !== $path || (fileperms($path) & 0777) !== 0600 || (fileperms($workspace) & 0077) !== 0
                 || !in_array(fileowner($path), [0, fileowner($root)], true)
@@ -641,7 +722,7 @@ final class PeanutServerUpdatePlan
     }
 
     /** Exact r1/File-frontier metadata, not a substitute for the File module's complete proof. */
-    private static function partialApplicationAnchors(string $root, array $identity, string $runtimeSha, ?array $recorded): array
+    private static function partialApplicationAnchors(string $root, array $identity, string $runtimeSha, ?array $recorded, bool $frozen = false): array
     {
         self::sourceOwner($root);
         foreach (['installed.json', 'baseline.json'] as $name) {
@@ -649,8 +730,11 @@ final class PeanutServerUpdatePlan
                 throw new RuntimeException('partial source adoption requires absent completion anchors');
             }
         }
-        if (($identity['protocol'] ?? null) !== 'peanut.development-server-runtime.v1'
+        $protocol = $frozen ? 'peanut.server-release.v1' : 'peanut.development-server-runtime.v1';
+        if (($identity['protocol'] ?? null) !== $protocol
             || ($identity['schema_version'] ?? null) !== 1 || ($identity['application']['edition'] ?? null) !== 'multi-tenant'
+            || ($frozen && (($identity['application']['kind'] ?? null) !== 'internal-candidate'
+                || ($identity['application']['formal_release_eligible'] ?? null) !== false))
             || preg_match('/\A[a-f0-9]{64}\z/D', $runtimeSha) !== 1) {
             throw new RuntimeException('partial source adoption requires its actual development APP kind');
         }
@@ -664,11 +748,14 @@ final class PeanutServerUpdatePlan
             $files[$relative] = hash('sha256', $bytes);
         }
         $progress = self::jsonFile($root . '/private/installation/executing.json', 'partial progress');
+        $modules = ['official.identity', 'official.content-tools', 'official.file', 'official.rich-text', 'official.document', 'official.article',
+            'official.collaboration', 'official.task', 'official.settings', 'official.integration', 'official.import-export', 'official.member',
+            'official.notification', 'official.oauth', 'official.ops', 'official.payment', 'official.reference-codes'];
         if (($progress['schema_version'] ?? null) !== 1 || ($progress['state'] ?? null) !== 'executing'
             || ($progress['deployment_mode'] ?? null) !== 'multi-tenant'
             || !is_array($progress['official_modules'] ?? null) || !array_is_list($progress['official_modules'])
             || count(array_unique($progress['official_modules'])) !== count($progress['official_modules'])
-            || array_slice($progress['official_modules'], 0, 3) !== ['official.identity', 'official.content-tools', 'official.file']) {
+            || $progress['official_modules'] !== $modules) {
             throw new RuntimeException('partial source module frontier is not the fixed File frontier');
         }
         $failure = self::partialApplicationFailure($root, $progress);
@@ -766,8 +853,11 @@ final class PeanutServerUpdatePlan
         if ($afterLock['dev'] !== $stat['dev'] || $afterLock['ino'] !== $stat['ino'] || filesize($lock) !== 0) {
             throw new RuntimeException('partial execution lock changed during observation');
         }
-        $actual = ['original_runtime_sha256' => $recorded['original_runtime_sha256'] ?? $runtimeSha,
-            'initial_manifest_sha256' => $recorded['initial_manifest_sha256'] ?? $identity['application_manifest_sha256'],
+        $origin = $frozen ? ['origin' => ['kind' => 'internal-candidate', 'sha256' => $runtimeSha]]
+            : (isset($recorded['origin']) ? ['origin' => $recorded['origin']]
+                : ['original_runtime_sha256' => $recorded['original_runtime_sha256'] ?? $runtimeSha]);
+        $actual = $origin + ['initial_manifest_sha256' => $recorded['initial_manifest_sha256']
+                ?? ($frozen ? $identity['application']['manifest_sha256'] : $identity['application_manifest_sha256']),
             'files' => $files, 'execution_lock' => ['device' => $stat['dev'], 'inode' => $stat['ino']],
             'database' => $database, 'resource_id' => $config['resource_id'], 'endpoint_id' => $config['endpoint_id'], 'registered_routes' => $routes,
             'r1_ledger_sha256' => hash('sha256', self::databaseCanonical($ledger)),

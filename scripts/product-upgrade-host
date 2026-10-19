@@ -593,8 +593,13 @@ def source_runtime():
                 'server/.peanut/RELEASE_METADATA.json', 'server/resources/project-resources.json',
                 'server/docker/scripts/scaffold-runtime/ReleaseDependencyIdentity.php', 'server/plugins.lock',
                 'server/.peanut/development-runtime.json'}
-            for document in (identity, state['binding']['old_runtime']):
-                for plugin in document['plugin_projection']['plugins']:
+            old_identity = state['binding'].get('old_identity', {}).get('document', state['binding'].get('old_runtime'))
+            if state['binding'].get('internal_preinstall') is not None:
+                if old_identity.get('protocol') != 'peanut.server-release.v1' or old_identity['application'].get('kind') != 'internal-candidate':
+                    raise ValueError('source original internal candidate identity changed')
+                derived.update(('server/.peanut/release-identity.json', 'server/.peanut/internal-candidate.json'))
+            for document in (identity, old_identity):
+                for plugin in document.get('plugin_projection', {}).get('plugins', []):
                     if not re.fullmatch(r'[a-z][a-z0-9.-]*', plugin['key']): raise ValueError('invalid projected plugin key')
                     derived.add('server/plugins/' + plugin['key'] + '/plugin.json')
             prefixes = (*producer.PROTECTED_RUNTIME_PREFIXES, 'server/private/', 'server/docker/tls/')
