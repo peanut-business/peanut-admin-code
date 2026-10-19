@@ -836,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "37ffc8b8083e29a6ace8b2359c57fc826abca84e3be29b6cb8212ce337f7e42b"
+            "source_sha256": "9c7ddaf0b0db406609a7720b9bd87d5b5ca9acd4a3ee0eed4ca505e1a15d7bda"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -2333,7 +2333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bcd22185c4d3ff0903b46ade5d0cc45e1750dc96950aa1d65fac79245261f393"
+            "source_sha256": "e7027def8f5467968e37ebab23c1281009db1abc6462bafe7b60cdd829579dd0"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2400,7 +2400,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0c67306b0894a9df387c193ad10680dd6b27c768afd67150ea7aa8dfb0d3685a"
+            "source_sha256": "f153472ad74ce408f1ce6d485721901df930a73d864f373bc35ab17f76e8c4af"
         },
         {
             "path": "plugins/official.collaboration/plugin.json",
@@ -8960,7 +8960,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "31b60a45ef2bf448d7c6da2bb7a7716834b68652f365efcedc5513ca5f7ae517"
+            "source_sha256": "6e463651ae220b32a5685345ac877d01735aff73620d83b0e0f34631ff171fe9"
         },
         {
             "path": "server/app/common/services/upgrade/SourceDevelopmentMaintenanceAdmission.php",
@@ -10280,7 +10280,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "806d2e89452a82d2a4b742dacd5219f10a829775968e34dda4a580bb0f071879"
+            "source_sha256": "9eaad40148d022bfafd16536c263318ad7d6da4176b3a680b6364f446d2d5f05"
         },
         {
             "path": "server/app/modules/official/article/resources/menus.json",
@@ -10379,6 +10379,20 @@
                 "full"
             ],
             "source_sha256": "634ea40915d08a866f6dadcb3ce6efc251f85e7da84cad85c1fc4c3c53bef5d2"
+        },
+        {
+            "path": "server/app/modules/official/article/src/Contract/ArticleMigrationPreservation.php",
+            "target": "server/app/modules/official/article/src/Contract/ArticleMigrationPreservation.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "76e084f6e5c1d08b6b0446ca222fcf1bc9aeae0652fa179ec6b69a8c90193cc4"
         },
         {
             "path": "server/app/modules/official/article/src/Contract/ArticleQueries.php",
@@ -25451,7 +25465,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1bca3bed5c6d42729b6f9802cf570761ddf36af6142e15a0ea5e04084f29bb59"
+            "source_sha256": "17ba18c64e73dee21542b4855965dc4770a563b4248da4702e316bbfca7aa546"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",
