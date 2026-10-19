@@ -853,7 +853,7 @@ try {
     if ($options['scope'] === 'source' && $nativeEntry) { throw new RuntimeException('PRODUCT_UPGRADE_SOURCE_REQUIRES_FULL_APPLICATION_TOOLS'); }
 
     if (($options['scope'] ?? 'source') === 'source') {
-        $result = ScaffoldUpgradeRunner::sourceProductLock($instanceRoot, function () use ($instanceRoot, $packageRoot, $command, $options): array {
+        $result = ScaffoldUpgradeRunner::sourceProductLock($instanceRoot, function () use ($instanceRoot, $packageRoot, $command, $options, $frozenSource): array {
         $runner = new ScaffoldUpgradeRunner();
         $packageService = new EditionUpgradePackage();
         if ($command === 'plan') {
@@ -861,9 +861,35 @@ try {
             $result = $runner->preflight($instanceRoot, $prepared['from_manifest'], $prepared['to_manifest']);
             $result['plan_path'] = $instanceRoot . '/' . $result['plan_path'];
         } else {
-            $prepared = $packageService->reauthenticate($instanceRoot, $packageRoot);
+            $rawInput = ($frozenSource['binding']['source_input_kind'] ?? null) === 'raw-internal-preinstall-scaffold';
+            if (!$rawInput) { $prepared = $packageService->reauthenticate($instanceRoot, $packageRoot); }
             $sourcePlan = json_decode((string) file_get_contents($options['plan']), true, 256, JSON_THROW_ON_ERROR);
-            if (($sourcePlan['protocol'] ?? null) !== 'peanut.scaffold-upgrade-plan.v2'
+            if ($rawInput) {
+                // Only the original verified frozen bootstrap can select this input type.
+                // Runner still authenticates the complete raw artifacts, actual owner/DB/private
+                // frontier, old preimages, phase and source events before applying or verifying.
+                $binding = $frozenSource['binding'];
+                $internal = $binding['internal_preinstall'] ?? [];
+                $digest = hash('sha256', productUpgradeCanonicalJson([$sourcePlan['identity'] ?? null, $sourcePlan['actions'] ?? null]));
+                if (!in_array($command, ['apply', 'verify'], true) || !is_array($sourcePlan)
+                    || ($sourcePlan['protocol'] ?? null) !== 'peanut.scaffold-upgrade-plan.v2' || ($sourcePlan['status'] ?? null) !== 'ready'
+                    || ($sourcePlan['candidate'] ?? null) !== 'scaffold-' . substr($digest, 0, 24)
+                    || ($sourcePlan['candidate'] ?? null) !== ($binding['candidate'] ?? null)
+                    || ($sourcePlan['plan_sha256'] ?? null) !== 'sha256:' . $digest
+                    || ($sourcePlan['plan_sha256'] ?? null) !== ($binding['plan_sha256'] ?? null)
+                    || ($sourcePlan['identity']['kind'] ?? null) !== 'internal-candidate-preinstall-correction'
+                    || ($internal['protocol'] ?? null) !== 'peanut.internal-preinstall-source.v1'
+                    || ($internal['server_root'] ?? null) !== $instanceRoot . '/server'
+                    || ($binding['old_identity']['kind'] ?? null) !== 'internal-candidate'
+                    || productUpgradeCanonicalJson($sourcePlan['identity']['internal_preinstall'] ?? []) !== productUpgradeCanonicalJson($internal)
+                    || ($binding['instance_root'] ?? null) !== $instanceRoot
+                    || realpath($options['plan']) !== $options['plan'] || $options['plan'] !== ($binding['plan_path'] ?? null)
+                    || $packageRoot !== ($binding['package_root'] ?? null)
+                    || ($sourcePlan['manifest_paths']['to'] ?? null) !== $packageRoot . '/scaffold-manifest.json'
+                    || ($frozenSource['activation_started'] ?? null) !== false || isset($frozenSource['installation_completion'])) {
+                    throw new RuntimeException('SOURCE_RUNTIME_RAW_PUBLIC_INPUT_REBIND_FAILED');
+                }
+            } elseif (($sourcePlan['protocol'] ?? null) !== 'peanut.scaffold-upgrade-plan.v2'
                 || ($sourcePlan['manifest_paths']['to'] ?? null) !== $prepared['to_manifest']) {
                 throw new RuntimeException('PRODUCT_UPGRADE_SOURCE_PACKAGE_REBIND_FAILED');
             }

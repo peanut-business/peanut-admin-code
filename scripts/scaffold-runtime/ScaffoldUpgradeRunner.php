@@ -347,7 +347,7 @@ final class ScaffoldUpgradeRunner
             'server/app/platform/services/plugin/PluginLifecycleService.php',
             'server/app/common/services/installation/InstallationExecutionHost.php', 'server/database/install.php',
             'server/docker/scripts/update-plan.php', 'server/docker/scripts/update-recovery.py',
-            'scripts/product-upgrade-host', 'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php',
+            'scripts/product-upgrade-host', 'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php', 'scripts/upgrade',
             'plugins/official.file/plugin.json', 'plugins.lock', 'scaffold/application-template-inventory.json',
             'release-versions.json', 'RELEASE_METADATA.json',
         ], true);
