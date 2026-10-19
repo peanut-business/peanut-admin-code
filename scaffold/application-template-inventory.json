@@ -836,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0e8d149c780aa4c15a51b1349db392d391d0c938b5e185af77c7d9b38a5c1af0"
+            "source_sha256": "2b24a5ad435fbca7f1310dd24ca1aa3598ca2e8fd50fb62893796234a84d1fe6"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -2333,7 +2333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "617d651b358b56a6878b1195bbec1e6e9a81cca41c4968e4bcc334f849d03139"
+            "source_sha256": "f2e860caf27c5d731cd2f34cea8ef3a9ee48909e6b16ab0987960b68195e03da"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2470,7 +2470,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fa7743d899c861543c61188823554410daab64e7c705db2deb9e68850ce852a9"
+            "source_sha256": "2e01208f3d50ffb879ce6a3343b48e8fd377b9c2f65c719da4578511dce4b00f"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -8932,7 +8932,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "70c70d156f91e66862995dc6c0216c2303aa15a566f07c0c20902d15afacedc1"
+            "source_sha256": "81a4e146521abebd19447a0b83dec2e287c4dc2935bc9642a417ecdaf876e2fc"
         },
         {
             "path": "server/app/common/services/upgrade/PluginSourceDevelopmentHost.php",
@@ -12996,7 +12996,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "de60a74990203ed0eb5951ac620699801eae1a55d2620eb2740affabcec33de5"
+            "source_sha256": "885f4be61a7478dfcd8f1047389e4c518e0d36d5e4779fe76f0ea8594100825d"
         },
         {
             "path": "server/app/modules/official/identity/src/Audit/AuditService.php",
@@ -14495,6 +14495,20 @@
                 "full"
             ],
             "source_sha256": "9600ccee7f54ed35716244659cc56426ae69c6ec12e2dfc12e44b2a137b4c727"
+        },
+        {
+            "path": "server/app/modules/official/identity/src/Permission/PermissionSchemaMigrationProof.php",
+            "target": "server/app/modules/official/identity/src/Permission/PermissionSchemaMigrationProof.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "141fa84c06dd2c913b5bd8d48dc4756040b9f2f6e726f913b322ddce3c89df4d"
         },
         {
             "path": "server/app/modules/official/identity/src/Persistence/Model/Account.php",
@@ -27410,7 +27424,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f1b07c0c7ab35e952bfb3ee8e25c01da812573305b2c1ff7e1b2dd170f33816e"
+            "source_sha256": "7b1c9d3a29bcca1ecc71102c7f027fe34df3cb644204eb8627961b61df496e72"
         },
         {
             "path": "server/docker/scripts/update-plan.php",
