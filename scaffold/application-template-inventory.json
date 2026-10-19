@@ -27857,7 +27857,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e83ba07c3635aecf9fac52a171091dc04b245816fa55bb08b7eb481cc2aea928"
+            "source_sha256": "daaba6d41e22aad2cc15bac5d51806027499d742acc95c4a1c660fa30c4a68e7"
         },
         {
             "path": "server/public/robots.txt",
