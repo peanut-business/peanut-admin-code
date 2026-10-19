@@ -5,12 +5,14 @@ set -eu
 repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 env_file="$repo_dir/.local/host-client.env"
 component=${1:-}
-[ -n "$component" ] || { printf 'Usage: %s {web|platform|pc|mobile|docs} [--env-file path] [--dry-run] [-- extra args]\n' "$0" >&2; exit 2; }
+[ -n "$component" ] || { printf 'Usage: %s {web|platform|pc|mobile|docs} [--env-file path] [--core-web-dir /absolute/path] [--dry-run] [-- extra args]\n' "$0" >&2; exit 2; }
 shift
 dry_run=0
+core_web_dir=""
 while [ $# -gt 0 ] && [ "$1" != -- ]; do
     case "$1" in
         --env-file) [ $# -ge 2 ] || { printf '%s\n' '--env-file requires a value' >&2; exit 2; }; env_file=$2; shift 2 ;;
+        --core-web-dir) [ $# -ge 2 ] || { printf '%s\n' '--core-web-dir requires a value' >&2; exit 2; }; core_web_dir=$2; shift 2 ;;
         --dry-run) dry_run=1; shift ;;
         *) printf 'unsupported argument: %s\n' "$1" >&2; exit 2 ;;
     esac
@@ -23,7 +25,115 @@ done
 read_env() { awk -F= -v name="$1" '$1 == name { sub(/^[^=]*=/, ""); print; exit }' "$env_file"; }
 php_port=$(read_env PHP_PORT)
 [ -n "$php_port" ] || { printf '%s\n' 'PHP_PORT is missing from the client environment' >&2; exit 1; }
+if [ -n "$core_web_dir" ]; then
+    case "$component" in
+        web|platform|pc) core_client=$component ;;
+        mobile) core_client=uniapp ;;
+        *) printf '%s\n' 'this client does not consume local Web Core' >&2; exit 2 ;;
+    esac
+    "$repo_dir/scripts/local-core-web" link-status --core-dir "$core_web_dir" --client "$core_client"
+    core_web_dir=$(CDPATH= cd -- "$core_web_dir" && pwd -P)
+fi
 clean_exec() {
+    if [ -n "$core_web_dir" ]; then
+        env -i PATH="$PATH" HOME="$HOME" PEANUT_CLIENT_ENV_FILE="$env_file" \
+            node --input-type=module -e '
+import { existsSync, readFileSync, readdirSync, realpathSync } from "node:fs";
+import { join } from "node:path";
+import { spawn } from "node:child_process";
+
+const [repository, core, client, command, ...args] = process.argv.slice(1);
+const readJson = (path) => JSON.parse(readFileSync(path, "utf8"));
+const workspace = readJson(join(core, "package.json"));
+if (workspace.name !== "@peanut-admin/web-workspace" || typeof workspace.scripts?.watch !== "string") {
+    throw new Error("Selected Core workspace needs its native watch script");
+}
+const packages = new Map();
+for (const entry of readdirSync(join(core, "packages"), { withFileTypes: true })) {
+    if (!entry.isDirectory() || !/^[a-z][a-z0-9-]*$/.test(entry.name)) continue;
+    const root = join(core, "packages", entry.name);
+    if (!existsSync(join(root, "package.json"))) continue;
+    const manifest = readJson(join(root, "package.json"));
+    if (manifest.name === `@peanut-admin/${entry.name}`) packages.set(manifest.name, { root, manifest });
+}
+const consumer = readJson(join(repository, client, "package.json"));
+const direct = Object.keys({ ...consumer.dependencies, ...consumer.optionalDependencies })
+    .filter((name) => packages.has(name));
+if (direct.length === 0) throw new Error("Client has no declared local Core dependency");
+for (const name of direct) {
+    if (realpathSync(join(repository, client, "node_modules", name)) !== realpathSync(packages.get(name).root)) {
+        throw new Error(`Client does not link to the selected Core package: ${name}`);
+    }
+}
+const seen = new Set();
+const selected = [];
+function select(name) {
+    if (seen.has(name)) return;
+    seen.add(name);
+    const { root, manifest } = packages.get(name);
+    for (const dependency of Object.keys({ ...manifest.dependencies, ...manifest.peerDependencies, ...manifest.optionalDependencies })) {
+        if (packages.has(dependency)) select(dependency);
+    }
+    if (!existsSync(join(root, "tsconfig.json"))) throw new Error(`Core compiler configuration missing: ${name}`);
+    selected.push({ name, root });
+}
+direct.forEach(select);
+
+// These process groups belong to this foreground dev command only.
+const groups = new Set();
+let stopping = false;
+let forceTimer;
+let cleanupTimer;
+function signalChildren(signal) {
+    for (const pid of groups) {
+        try { process.kill(-pid, signal); }
+        catch (error) {
+            if (error.code === "ESRCH") groups.delete(pid);
+            else console.error(error);
+        }
+    }
+}
+function finishCleanup() {
+    for (const pid of groups) {
+        try { process.kill(-pid, 0); }
+        catch (error) { if (error.code === "ESRCH") groups.delete(pid); }
+    }
+    if (groups.size === 0) {
+        clearTimeout(forceTimer);
+        clearInterval(cleanupTimer);
+    }
+}
+function stop(code) {
+    if (stopping) return;
+    stopping = true;
+    process.exitCode = code;
+    signalChildren("SIGTERM");
+    forceTimer = setTimeout(() => {
+        signalChildren("SIGKILL");
+        clearInterval(cleanupTimer);
+    }, 5000);
+    cleanupTimer = setInterval(finishCleanup, 50);
+    finishCleanup();
+}
+function start(label, executable, arguments_, cwd, watcher) {
+    const child = spawn(executable, arguments_, { cwd, env: process.env, stdio: "inherit", detached: true });
+    if (child.pid) groups.add(child.pid);
+    child.on("error", (error) => { console.error(`${label}: ${error.message}`); stop(1); });
+    child.on("close", (code, signal) => {
+        if (!stopping) stop(watcher && code === 0 ? 1 : (code ?? (signal === "SIGINT" ? 130 : 143)));
+        finishCleanup();
+    });
+}
+process.on("SIGINT", () => stop(130));
+process.on("SIGTERM", () => stop(143));
+for (const { name, root } of selected) {
+    console.log(`local Core watch: ${name}`);
+    start(name, "corepack", ["pnpm", "run", "watch", "--project", join(root, "tsconfig.json")], core, true);
+}
+start(client, command, args, process.cwd(), false);
+' "$repo_dir" "$core_web_dir" "$core_client" "$@"
+        return
+    fi
     env -i PATH="$PATH" HOME="$HOME" PEANUT_CLIENT_ENV_FILE="$env_file" "$@"
 }
 

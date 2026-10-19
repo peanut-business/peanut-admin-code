@@ -18,10 +18,15 @@ Usage: scripts/core-dev {install|status|link|link-status}
 
 Development always uses both explicitly selected local Core checkouts.
 install/link activate source links; status/link-status verify those links.
-Local Web compilation is required because its exports use dist/, but no tgz
-or published version is required. Re-run local-core-web link after Core Web
-source changes to rebuild. Release builds use an isolated, pinned projection;
-they never convert this development checkout into a release installation.
+Local Web exports use dist/, compiled by the existing TypeScript toolchain.
+After linking, start a client with its normal command and explicit Core path:
+  cd web && npm run dev -- --core-web-dir /absolute/peanut-admin-core-web
+  cd uniapp && npm run dev:h5 -- --core-web-dir /absolute/peanut-admin-core-web
+platform and pc use the same npm run dev option. The dev entry verifies links
+and watches only the client's Core packages and their Core dependencies;
+watchers stop with that dev command. Do not re-link or rebuild for each edit.
+Omit the option for normal fixed-package APP development. Candidate delivery
+uses fixed Core packages and native locks, independently of these source links.
 USAGE
 }
 while [[ $# -gt 0 ]]; do

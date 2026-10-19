@@ -3155,7 +3155,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "abd3ee615552b77f2f6379540d1164dd3c6ad0aba14d17f27991151121736cf3"
+            "source_sha256": "1046e02496addbc59e41b1c59a680d0308bffd4deb455e40a6061143a5c94ad1"
         },
         {
             "path": "scripts/core-qualification-runner",
@@ -3303,7 +3303,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3522dc809f2c9f481bf676e1fb076d2980929a77e1d41ed261662029d48ee769"
+            "source_sha256": "69cd66f320da750c78d47a8d23717d7b5a9171e3fcacb88ddec05b07189dabd7"
         },
         {
             "path": "scripts/local-core-composer",
