@@ -723,6 +723,10 @@ final class ApplicationCreator
     /** @param array<string,string> $parameters */
     private function textTransform(string $content, array $parameters, string $path): string
     {
+        // Fixed artifacts and immutable migration source identities survive APP branding byte-for-byte.
+        if (str_starts_with($path, 'server/database/baselines/') || str_starts_with($path, 'server/database/migrations/')) {
+            return $content;
+        }
         $content = str_replace(
             ['Peanut Admin', 'https://peanut-admin.007345.xyz', 'https://peanut-admin-doc.007345.xyz', '花生科技'],
             [$parameters['PRODUCT_NAME'], 'https://example.invalid', 'https://docs.example.invalid', 'application owner'],
@@ -1391,6 +1395,9 @@ final class ApplicationCreator
         unset($file);
         $managed = array_values(array_filter($files, static fn(array $file): bool => in_array($file['classification'], ['managed', 'generated-managed'], true)));
         $appOwned = array_values(array_filter($files, static fn(array $file): bool => $file['classification'] === 'app-owned'));
+        $seed = \app\common\infrastructure\migration\CleanInstallBaseline::load($stage . '/server/database');
+        $sourceSeed = \app\common\infrastructure\migration\CleanInstallBaseline::load($this->sourceRoot . '/server/database');
+        if ($seed->identity() !== $sourceSeed->identity()) { throw new RuntimeException('CREATE_APP_INSTALL_BASELINE_CHANGED'); }
         $manifest = [
             'schema_version' => 2,
             'protocol' => 'peanut.application-scaffold.v2',
@@ -1404,6 +1411,7 @@ final class ApplicationCreator
                 'edition' => $editionProfile->edition,
             ],
             'edition' => $editionProfile->identity(),
+            'installation_baseline' => $seed->identity(),
             'template' => $templateIdentity,
             'generation_source' => [
                 'repository' => $sourceProvenance['repository'],

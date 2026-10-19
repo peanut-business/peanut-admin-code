@@ -127,6 +127,35 @@ app/event.php保留AppInit、HttpRun、HttpEnd、LogLevel和LogWrite项，但默
 
 应用和模块的版本化 SQL 使用锁定的 `topthink/think-migration` 官方执行器及真实 `Migrator`，通过其 MySQL Adapter 扩展读取、更新原有 `pa_schema_migration`／`pa_module_migration` 唯一账本；不复制旧历史到另一张 `migrations` 表。Peanut 生命周期保留原 SQL 顺序、目标发行选择、checksum、applying／failed、repair／adopt、业务 preflight、安装身份与恢复；执行成功仅由官方 `migrated()` 回调写入。完整 text key 是持久化身份，官方整数版本使用固定 SHA-256 前 60 位加一的投影，先检查源文件与该 scope 历史 key 并集，碰撞即拒绝，不按数组顺序重编号。这个整数不表示日期或回退目标。SQL 保留自身事务边界并排空多结果集，不在不可逆 DDL 外再套事务。
 
+`20261019-module-migration-provenance-metadata` 是 `20261016-module-migration-provenance` 的唯一固定修正：MySQL 8.4 的 CHECK 元数据会以完整转义引号返回，旧 SQL 的裸引号比较会误选重复 ALTER。原文件、原摘要及已存在的 failed／applied 整行保留；当前源选择改用新 key／固定摘要，官方执行器只为自己实际执行的新 SQL 写 applied。不新增状态枚举或另一张账本；`supersessions` 明确列出旧真实状态、旧整行及新修正行，`awaiting_correction` 不等于完成，只有新真实 applied 才是 `resolved_by_correction`。这不是接受任意 SQL 编辑、失败或历史的通用开关。发行快照及已 applied 迁移不重写，也不把所有未发布 dev 源码都称为永远不可修。
+
+首次安装使用固定的 `server/database/baselines/5.0.2-r1/`：canonical `manifest.json` 声明来源、覆盖的精确历史 key／hash、98 个业务表、运行输入与数据阶段，`baseline.lock` 固定清单及 schema／data 字节。它来自版本化 Code Schema 与 SQL，不能从业务数据库导出；不携带安装账号、固定密码、渠道密钥或环境地址。运行身份由原 BootstrapService 创建，当前租户 ID 显式绑定，停用渠道的 callback key 由固定 SQL 中的 MySQL 原生 `RANDOM_BYTES(32)` 在运行时生成。APP branding 不改写固定 payload 或历史 SQL，派生 APP 清单保留同一基线身份。
+
+明确空库准入后，仅官方 Adapter 的显式 `createSchemaTable()` 以原生 Table API 建立原 `pa_schema_migration`；绑定连接、状态读取和已有库升级不会隐式建表。真实 `CleanInstallMigration` 经官方选择和执行，依次执行固定 Core schema、原业务身份初始化、固定应用 schema、基础数据、canonical permission catalog／品牌默认及版本化数据收敛；保留应用表尚未建立时的原身份初始化边界，避免触发另一轮租户业务播种；数据填充后的 menu key 非空收口仍在同一官方 Migration 中。唯一成功日志 key 为 `20261019-clean-install-5.0.2-r1`。覆盖清单中的历史效果已折入固定定义／数据，不重放历史 ADD，不插入未执行历史 key 的 applied 行；后续仅执行未覆盖的真实增量。覆盖只在基线自身真实 applied、固定 hash 和所有历史来源一致、且无混合旧历史时成立。基线 failed／applying 不变成 fresh 可重试。
+
+已安装升级不执行 clean seed；没有基线记录的旧库仍沿原历史及固定修正。模块安装／升级在应用结构完成后使用同一官方模块迁移和真实 adoption 合同，基线覆盖不代替模块自身的执行／采纳记录。当前 partial 库不获得空库或基线身份，不清数据、不重新播种。固定来源和代码检查不证明新空库安装、当前业务、恢复或发布已经通过；这些各按实际登记、窗口、剩余预算和执行回执验收。
+
+| 实际前态 | 当前固定选择与结果 |
+| --- | --- |
+| 旧 key 精确 3822 重复约束 failed，当前两列／两 CHECK 完全 canonical | 保留旧 failed；新 key 执行真实 no-op 分支并落自己的 applied 后，才报告关系已解决 |
+| 旧 key 已 applied，原摘要／完整 canonical 后态一致 | 保留旧 applied；新 key 仍须执行并记录自己的检查结果，不重放旧 SQL |
+| 固定 clean baseline fresh，旧／新修正 key 均无行 | 基线自身真实 applied 后按固定清单报告 covered_by_baseline；两条历史 SQL 均不重放、不造 applied 行 |
+| 旧 key 无行，完整 before-additions | 仅新 key 执行原生 ADD，再记录新 key applied；部分／不同结构拒绝 |
+
+旧 applying、未知错误、任一固定来源摘要不符、新修正缺失／failed／applying 均不冒充已解决。Runner、source schema 前态／备份、模块前置及 server／product 升级验证使用相同固定选择；验证必须核每个实际选中的 key 都有真实 applied 行、pending 为空，保留原失败关系而不暗映旧 failed 为 applied。
+
+本次开发 runtime 的受限 partial 首装续作只通过原生 owner CLI：`php server/database/install.php --partial=plan|backup|apply --partial-input=/absolute/private/input.json`。没有普通 HTTP 恢复路由，普通 execute 仍拒绝 partial、`safe_retry=false`。调用者须实际 CLI 文件 owner（或 root）、原 InstallationExecutionContext、guided 的原 Setup Token、原 execution.lock 和正常原生精确数据库准入；不借他人 lease。原生 candidate 必须是干净 Git checkout，关键程序字节须与实例一致。当前源只接明确 development runtime 的这一次迁移失败形态，不假称能恢复任意安装或正式部署。
+
+0600、单链接、无符号链接的输入只含 `setup_token`、`actor`（owner/thread/gate）、`original_runtime`／`original_progress`／`original_configuration`／`original_failure`／`original_ledger`、`maintenance`，以及对应步骤的 `plan`／`backup_tool`／`backup_output`／`backup`。原始引用均为 `{path,sha256}`，必须来自实际保全的 native runtime、配置、进度、production 失败日志及原只读失败台账；保留原字节，不重编码或补造 stage 证明。旧 progress 仅有 modules/mode/time，不能单独证明 fresh 完成。计划联合核同 APP 应用身份、原 init／18 个原迁移来源、17 个真实 applied 与原 failed、原 DB UUID／库、当前初始化表与身份计数、模块阶段未开始及无其他 schema 写权限。账号值不输出、不重新输入或重建，原模块集合不改变。缺失／冲突或已出现后续 attempt 均继续阻塞。
+
+`plan` 只读原状态并在 `private/partial-installation/partial-plans/` 保存受保护计划，不授予写入。`backup` 输入增加该原 plan、新建 `private/partial-installation/partial-backups/` 下的输出目录和精确已登记 tooling；原 `source_schema_backup` 合同须对同一库明确 `whole_schema=true`、实际表覆盖、固定 MySQL／client 与超时，原生 lease 同时覆盖 tooling 和 output-dir。复用既有 SSH/container native dump／probe／终态 process 管道，完整导出此库结构、数据、views／triggers／routines／events，另存原进度、配置、runtime、失败与台账原件和 `.env` 的 0600 私有字节；不输出秘密。`backup.json`／`RESTORE.json` 有独立 partial 协议、实际 DB／plan／source 绑定、完整 payload 摘要及原生终态，不接受旧 empty dump 或仅 rc/hash 的运维摘要。当前对象集之外后来创建的对象须另行核归属及精确恢复授权，dump 不能自动恢复“原不存在”；不清库、不自动 restore、不把恢复说明称为恢复执行。
+
+`apply` 必须提供原 plan 和这份真实当前 afterimage manifest，重新核实际原生 DDL／exclusive 权限、同一有效排除 writer 窗口、全部原证据、实际 PHP／加载 Core 与实例程序来源。维护记录 `peanut.installation-partial-maintenance.v1` 绑定 resource_id/server_uuid/database/progress_sha256、active 时间窗、`excluded_writers=[http,workers,other-writers]` 与实际停止回执引用；这是外部 writer 排除的运维合同，JSON 声明和锁本身不证明外部 writer 已停止。数据库、实例 private 安装输出及备份输出各须正常唯一 writer，不能改资源别名绕准入。正式运行须先审阅精确目标／当前备份／读写与剩余额度；源码交付不授权执行。
+
+partial 在任何计划输出／attempt／applying 前复用原生 metadata 可见性和对象观察：不足以观察入向跨库外键或 trigger 的权限不能把空结果当作安全。完整 schema 上拒绝未审 trigger 和跨 schema 外键，原 plan／backup 保存真实 DDL／外键／effect boundary，受控写入前重查。现有原生检查要求全局 SELECT 与目标 schema TRIGGER 可见性，而本入口的普通账号权限上限仍是精确 schema；当前合同不满足时明确 `INSTALL_PARTIAL_EFFECT_VISIBILITY_REQUIRED`，只阻塞 partial，不扩权、换账号或伪造可见性证明。该 Gate 未解除不声明现 partial 已可执行。
+
+续作先持久保存单次 partial-attempt，再仅执行新修正；旧 18 行逐字节保持。然后复用原 installModules／原真实 module admission／health／completion，不再次 fresh／seed，不删失败行或提前移除 progress。唯一成功完成后才由原完成逻辑写 baseline／完成锁并移除 progress。任何新失败、中断或已有 attempt 均阻塞再次调用，保留数据与证据，不自动重试；部分模块已开始的其他状态不纳入这条窄入口。备份、恢复和完整质量资格仍分别记录为真实执行、未执行或未知。
+
 直接 CLI 的 `migrate:run preflight|apply|verify` 使用与 `schema:application` 相同的参数、实例上下文和准入；`migrate:status` 委托该入口的 preflight，不创建迁移表，输出真实 text key。源码开发需要原有 `--scope=source-development` 和实际 owner／thread／session／gate、维护及恢复证据；发行升级仍走安装实例的正式升级入口。官方通用的目录扫描执行、`--date`、rollback、breakpoint 和 seed 命令不注册，不能绕过生命周期保护。模块仍通过 `plugin:install`／`plugin:upgrade`／受控 `plugin:reconcile` 进入同一官方执行器，不由应用 schema 命令接管其业务语义。
 
 源码开发 preflight 按真实 pending 顺序列出逐条来源、前置证明和后继依赖；缺少业务终态保全或完整恢复覆盖时，计划仍不授予执行权限。原仅覆盖模块迁移来源字段的两账本恢复合同不能用于包含菜单、权限、通知或认证数据变化的链。已迁移归属的 File 应用历史，只在原不可变 SQL、现行 canonical adoption 声明和原账本 key／checksum／applied 一致时识别为历史保留；不删除原行、不把它记入模块账本、不以历史记录代替当前 File 数据证明。未知额外历史继续拒绝。

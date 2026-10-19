@@ -8,6 +8,7 @@ use PDO;
 use Phinx\Db\Adapter\AdapterInterface;
 use Phinx\Db\Adapter\MysqlAdapter;
 use Phinx\Migration\MigrationInterface;
+use Phinx\Db\Table;
 use RuntimeException;
 
 /** Official adapter storage extension for Peanut's existing, sole migration history. */
@@ -40,6 +41,26 @@ final class PeanutMigrationAdapter extends MysqlAdapter
     public function hasTransactions(): bool
     {
         return false;
+    }
+
+    /** Official storage bootstrap is explicit and fresh-only; binding/reading never calls it. */
+    public function createSchemaTable(): void
+    {
+        if ($this->moduleKey !== null || $this->master->inTransaction()
+            || (int) $this->master->query('SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()')->fetchColumn() !== 0) {
+            throw new RuntimeException('MIGRATION_NATIVE_EMPTY_SCHEMA_REQUIRED');
+        }
+        (new Table('pa_schema_migration', ['id' => false, 'primary_key' => ['migration_id'], 'engine' => 'InnoDB', 'collation' => 'utf8mb4_general_ci'], $this))
+            ->addColumn('migration_id', 'string', ['limit' => 190, 'null' => false])
+            ->addColumn('release_version', 'string', ['limit' => 32, 'null' => false])
+            ->addColumn('checksum', 'char', ['limit' => 64, 'null' => false])
+            ->addColumn('status', 'enum', ['values' => ['applying', 'applied', 'failed'], 'default' => 'applying', 'null' => false])
+            ->addColumn('started_at', 'datetime', ['null' => false])
+            ->addColumn('finished_at', 'datetime', ['null' => true, 'default' => null])
+            ->addColumn('error_code', 'string', ['limit' => 255, 'null' => true, 'default' => null])
+            ->addIndex(['status', 'migration_id'], ['name' => 'idx_schema_migration_status'])
+            ->addIndex(['release_version', 'migration_id'], ['name' => 'idx_schema_migration_release'])
+            ->create();
     }
 
     public static function version(string $key): int
@@ -89,7 +110,7 @@ final class PeanutMigrationAdapter extends MysqlAdapter
         }
     }
 
-    public function assertApplying(ImmutableSqlMigration $migration): void
+    public function assertApplying(ImmutableSqlMigration|CleanInstallMigration $migration): void
     {
         $sql = $this->moduleKey === null
             ? 'SELECT checksum,status FROM pa_schema_migration WHERE migration_id=?'
@@ -105,7 +126,7 @@ final class PeanutMigrationAdapter extends MysqlAdapter
     /** The official executor is the sole writer of an executed migration's successful state. */
     public function migrated(MigrationInterface $migration, string $direction, string $startTime, string $endTime): AdapterInterface
     {
-        if (!$migration instanceof ImmutableSqlMigration || $direction !== MigrationInterface::UP
+        if ((!$migration instanceof ImmutableSqlMigration && !$migration instanceof CleanInstallMigration) || $direction !== MigrationInterface::UP
             || $this->master->inTransaction()) {
             throw new RuntimeException('MIGRATION_NATIVE_COMPLETION_INVALID');
         }

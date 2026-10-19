@@ -8,7 +8,7 @@ use PDO;
 use RuntimeException;
 use app\platform\services\plugin\PluginLifecycleService;
 
-/** Native selected-table mysqldump for source application and closed Plugin lifecycle effects. */
+/** Existing native mysqldump for admitted application/Plugin effects and bounded partial installation. */
 final class SourceApplicationBackup
 {
     // ModuleCatalogApplier.apply always synchronizes core permissions/conditions,
@@ -64,7 +64,7 @@ final class SourceApplicationBackup
         '20261012-align-department-canonical-permissions' => ['pa_permission', 'pa_role_permission', 'pa_role', 'pa_tenant', 'pa_system_menu'],
         '20261012-align-platform-ops-permission-ownership' => ['pa_permission'],
         '20261012-repair-seeded-permission-parents' => ['pa_system_menu'],
-        '20261016-module-migration-provenance' => ['pa_module_migration'],
+        '20261019-module-migration-provenance-metadata' => ['pa_module_migration'],
     ];
 
     /** Exact original table union; never expands from caller metadata or SQL text. */
@@ -88,27 +88,51 @@ final class SourceApplicationBackup
     {
         $tables = self::applicationTables($pending);
         if ($pending !== []) {
-            $database = (string) $pdo->query('SELECT DATABASE()')->fetchColumn();
-            $globalSelect = false; $triggerVisibility = false; $restricted = false;
-            foreach ($pdo->query('SHOW GRANTS')->fetchAll(PDO::FETCH_NUM) as $row) {
-                $grant = count($row) === 1 ? $row[0] : null;
-                if (is_string($grant) && str_starts_with($grant, 'REVOKE ')) { $restricted = true; }
-                if (!is_string($grant) || preg_match('/\AGRANT (.+) ON (.+) TO /D', $grant, $match) !== 1) { continue; }
-                $privileges = array_map('trim', explode(',', $match[1]));
-                $all = in_array('ALL PRIVILEGES', $privileges, true);
-                $globalSelect = $globalSelect || ($match[2] === '*.*' && ($all || in_array('SELECT', $privileges, true)));
-                $triggerVisibility = $triggerVisibility || (in_array($match[2], ['*.*', '`' . $database . '`.*'], true)
-                    && ($all || in_array('TRIGGER', $privileges, true)));
-            }
-            // Schema-only grants can hide inbound FKs from another schema.
-            // Unknown visibility blocks this maintenance path; never grant privileges here.
-            if (!$globalSelect || !$triggerVisibility || $restricted) { throw new RuntimeException('APPLICATION_SCHEMA_EFFECT_VISIBILITY_REQUIRED'); }
+            self::assertEffectMetadataVisibility($pdo);
         }
         $scope = self::observe($pdo, $tables, false);
         $scope['execution_requirements'] = [];
         foreach ($pending as $id) {
             array_push($scope['execution_requirements'], ...self::applicationStageRequirements($scope, $id));
         }
+        return $scope;
+    }
+
+    private static function assertEffectMetadataVisibility(PDO $pdo): void
+    {
+        $database = (string) $pdo->query('SELECT DATABASE()')->fetchColumn();
+        $globalSelect = false; $triggerVisibility = false; $restricted = false;
+        foreach ($pdo->query('SHOW GRANTS')->fetchAll(PDO::FETCH_NUM) as $row) {
+            $grant = count($row) === 1 ? $row[0] : null;
+            if (is_string($grant) && str_starts_with($grant, 'REVOKE ')) { $restricted = true; }
+            if (!is_string($grant) || preg_match('/\AGRANT (.+) ON (.+) TO /D', $grant, $match) !== 1) { continue; }
+            $privileges = array_map('trim', explode(',', $match[1]));
+            $all = in_array('ALL PRIVILEGES', $privileges, true);
+            $globalSelect = $globalSelect || ($match[2] === '*.*' && ($all || in_array('SELECT', $privileges, true)));
+            $triggerVisibility = $triggerVisibility || (in_array($match[2], ['*.*', '`' . $database . '`.*'], true)
+                && ($all || in_array('TRIGGER', $privileges, true)));
+        }
+        // Schema-only grants can hide inbound FKs from another schema.
+        // Unknown visibility blocks this maintenance path; never grant privileges here.
+        if (!$globalSelect || !$triggerVisibility || $restricted) { throw new RuntimeException('APPLICATION_SCHEMA_EFFECT_VISIBILITY_REQUIRED'); }
+    }
+
+    /** A whole-schema dump covers neither an unreviewed definer trigger nor another schema. */
+    public static function partialInstallationScope(PDO $pdo, array $tables): array
+    {
+        try { self::assertEffectMetadataVisibility($pdo); }
+        catch (RuntimeException $exception) { throw new RuntimeException('INSTALL_PARTIAL_EFFECT_VISIBILITY_REQUIRED', 0, $exception); }
+        $scope = self::observe($pdo, $tables, false);
+        if ($scope['triggers'] !== []) { throw new RuntimeException('INSTALL_PARTIAL_TRIGGER_EFFECT_REVIEW_REQUIRED'); }
+        $database = (string) $pdo->query('SELECT DATABASE()')->fetchColumn();
+        foreach ($scope['foreign_keys'] as $fk) {
+            if ($fk['TABLE_SCHEMA'] !== $database || $fk['REFERENCED_TABLE_SCHEMA'] !== $database) {
+                throw new RuntimeException('INSTALL_PARTIAL_FOREIGN_SCHEMA_EFFECT_REVIEW_REQUIRED');
+            }
+        }
+        $scope['whole_schema'] = true;
+        $scope['effect_boundary'] = ['database' => $database, 'triggers' => 'none_visible_with_verified_visibility',
+            'foreign_keys' => 'same_schema_only', 'visibility' => 'existing_native_effect_visibility_verified'];
         return $scope;
     }
 
@@ -340,7 +364,8 @@ final class SourceApplicationBackup
     public static function capture(array $binding, array $baseline, string $baselineSha, array $scope, array $tool, string $directory, callable $recheck, string $purpose = 'application-schema'): array
     {
         $captureStarted = time();
-        if (!in_array($purpose, ['application-schema', 'plugin-lifecycle'], true)) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SOURCE_UNSUPPORTED'); }
+        if (!in_array($purpose, ['application-schema', 'plugin-lifecycle', 'installation-partial'], true)) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SOURCE_UNSUPPORTED'); }
+        $partial = $purpose === 'installation-partial';
         $database = $binding['database']['database'];
         $contract = $tool['source_schema_backup'] ?? null;
         if (($tool['transport'] ?? null) !== 'ssh-docker-exec' || !is_array($contract)
@@ -349,6 +374,9 @@ final class SourceApplicationBackup
             || $scope['tables'] === [] || preg_match('/\A[A-Za-z0-9_]+\z/D', $database) !== 1
             || preg_match('/\A[a-f0-9]{64}\z/D', $baselineSha) !== 1) {
             throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_TOOL_SCOPE_REQUIRED');
+        }
+        if ($partial && (($contract['whole_schema'] ?? null) !== true || ($scope['whole_schema'] ?? null) !== true)) {
+            throw new RuntimeException('INSTALL_PARTIAL_WHOLE_SCHEMA_BACKUP_REQUIRED');
         }
         foreach (['ssh_command', 'docker_command', 'mysql_command', 'mysqldump_command', 'timeout_command', 'digest_command'] as $key) {
             if (!is_string($tool[$key] ?? null) || preg_match('~\A/[A-Za-z0-9_./-]+\z~D', $tool[$key]) !== 1 || str_contains($tool[$key], '..')) {
@@ -372,6 +400,21 @@ final class SourceApplicationBackup
         }
         $recheck();
         $receiptBackup = null;
+        $originalFiles = [];
+        if ($partial) {
+            if (!mkdir($directory . '/installation-originals', 0700)) { throw new RuntimeException('INSTALL_PARTIAL_BACKUP_FILES_REQUIRED'); }
+            foreach ($baseline['original_files'] ?? [] as $name => $original) {
+                if (!in_array($name, ['progress', 'configuration', 'runtime', 'failure', 'environment', 'ledger'], true)) { throw new RuntimeException('INSTALL_PARTIAL_BACKUP_FILES_REQUIRED'); }
+                self::pluginFile($original['path'] ?? '', $binding['source']['server_root']);
+                $bytes = file_get_contents($original['path']);
+                if (!is_string($bytes) || hash('sha256', $bytes) !== $original['sha256']) { throw new RuntimeException('INSTALL_PARTIAL_BACKUP_FILES_CHANGED'); }
+                $target = $directory . '/installation-originals/' . $name;
+                self::writeBytes($target, $bytes);
+                $originalFiles[$name] = ['original' => $original, 'payload' => ['path' => $target, 'sha256' => hash_file('sha256', $target), 'bytes' => filesize($target)]];
+            }
+            if (count($originalFiles) !== 6) { throw new RuntimeException('INSTALL_PARTIAL_BACKUP_FILES_REQUIRED'); }
+            $recheck();
+        }
         if ($purpose === 'plugin-lifecycle' && isset($scope['notification_forward_receipt'])) {
             $original = $scope['notification_forward_receipt'];
             $snapshot = PluginLifecycleService::notificationReceiptSnapshot($original['path']);
@@ -398,6 +441,12 @@ final class SourceApplicationBackup
             '--triggers', '--skip-routines', '--skip-events', '--no-tablespaces', '--set-gtid-purged=OFF', '--column-statistics=0',
             '--order-by-primary', '--skip-comments', '--skip-dump-date', '--skip-extended-insert', '--skip-add-locks', '--skip-disable-keys',
             '--default-character-set=utf8mb4', '-uroot', '--', $database, ...$scope['tables']];
+        if ($partial) {
+            $flags = ['--no-defaults', '--no-login-paths', '--single-transaction', '--skip-lock-tables', '--quick', '--hex-blob',
+                '--triggers', '--routines', '--events', '--no-tablespaces', '--set-gtid-purged=OFF', '--column-statistics=0',
+                '--order-by-primary', '--skip-comments', '--skip-dump-date', '--skip-extended-insert', '--skip-add-locks', '--skip-disable-keys',
+                '--default-character-set=utf8mb4', '-uroot', '--databases', $database];
+        }
         self::remote($tool, self::clientShell($tool, 'mysqldump_command', $seconds, $flags), $dump, $directory . '/dump.stderr',
             'dump', $seconds, (int) $binding['authority']['expires_at'], $recheck);
         if (filesize($dump) === 0) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_EMPTY'); }
@@ -421,6 +470,15 @@ final class SourceApplicationBackup
                 'Restore only the selected tables. Database/accounts/storage/other tables are outside this payload; never DROP DATABASE.',
                 'The native dump includes selected-table DROP/CREATE/data/trigger statements. After explicit restore, verify original structure/data and outside dependencies; not only row counts.',
                 'Any interrupted/unknown restore requires reconciliation by its original owner; never automatically replay.']];
+        if ($partial) {
+            $restore['protocol'] = 'peanut.installation-partial-restore-instructions.v1';
+            $restore['whole_schema'] = true; $restore['installation_originals'] = $originalFiles;
+            $restore['requirements'] = ['Explicit same-database restoration authorization; never DROP DATABASE, change credentials, or restore another schema.',
+                'Payload includes the whole current partial schema, data, views, triggers, routines and events using the fixed native dump flags.',
+                'Retain the actual failure and any later afterimage before restoration. Preserve exact APP identity, configuration, progress and locks from installation_originals.',
+                'The recorded tables are the original object set. Later module-created objects are not removed by replaying this dump; reconcile their actual ownership and separately authorize their exact recovery, never clear the schema.',
+                'An old pre-install empty dump is not this partial afterimage. No automatic restore or installation retry is performed.'];
+        }
         if ($purpose === 'plugin-lifecycle') {
             $restore['absent_original_tables'] = $scope['absent_original_tables'];
             $restore['requirements'][] = 'Restore admission must separately cover removal of only the recorded originally absent tables created by this exact operation; the payload cannot recreate absence and no DROP is executed here.';
@@ -445,6 +503,7 @@ final class SourceApplicationBackup
             'receipts' => $receipts,
             'observed_at' => time(), 'restore_status' => 'not_executed', 'qualification' => 'not_run', 'execution_admitted' => false];
         $record['capture_started_at'] = $captureStarted;
+        if ($partial) { $record['protocol'] = 'peanut.installation-partial-backup.v1'; $record['installation_originals'] = $originalFiles; }
         if ($receiptBackup !== null) { $record['notification_forward_receipt'] = $receiptBackup; }
         self::write($directory . '/backup.json', $record);
         $recovery = ['schema_version' => 1, 'protocol' => $purpose === 'application-schema' ? 'peanut.source-development-recovery.v1' : 'peanut.source-plugin-recovery.v1',
@@ -457,6 +516,7 @@ final class SourceApplicationBackup
             'restore_contract_sha256' => hash_file('sha256', $directory . '/RESTORE.json'),
             'receipts' => $receipts];
         $recovery['capture_started_at'] = $captureStarted;
+        if ($partial) { $recovery['protocol'] = 'peanut.installation-partial-recovery.v1'; }
         $recovery['pending'] = $baseline['pending'];
         $recovery['selected'] = $record['selected'];
         if ($receiptBackup !== null) { $recovery['notification_forward_receipt'] = $receiptBackup; }
@@ -465,6 +525,56 @@ final class SourceApplicationBackup
             'recovery_references' => ['path' => $directory . '/recovery.json', 'sha256' => hash_file('sha256', $directory . '/recovery.json')],
             'backup_payload_sha256' => $restore['payload']['sha256'], 'tables' => $scope['tables'],
             'restore' => 'not_executed', 'execution_admitted' => false, 'qualification' => 'not_run'];
+    }
+
+    /** Only a real current native partial capture, never the old empty-schema operator stdout. */
+    public static function partialInstallationBackup(string $path, string $serverRoot, array $binding, array $baseline): array
+    {
+        $directory = realpath(dirname($path));
+        if (!is_string($directory) || !str_starts_with($directory . '/', rtrim($serverRoot, '/') . '/private/partial-installation/partial-backups/')
+            || basename($path) !== 'backup.json' || (fileperms($directory) & 0777) !== 0700) { throw new RuntimeException('INSTALL_PARTIAL_NATIVE_BACKUP_REQUIRED'); }
+        $record = self::protectedPluginJson($path, $serverRoot);
+        $same = static fn(mixed $a, mixed $b): bool => self::pluginDigest($a) === self::pluginDigest($b);
+        $payload = $record['backup_payload'] ?? []; $restorePath = $directory . '/RESTORE.json';
+        $restore = self::protectedPluginJson($restorePath, $serverRoot);
+        self::pluginFile($payload['path'] ?? '', $serverRoot, null);
+        if (($record['protocol'] ?? null) !== 'peanut.installation-partial-backup.v1' || ($record['status'] ?? null) !== 'captured'
+            || !$same($record['binding'] ?? null, $binding) || ($record['baseline_sha256'] ?? null) !== self::pluginDigest($baseline)
+            || ($record['scope']['whole_schema'] ?? null) !== true || ($record['adapter_sha256'] ?? null) !== hash_file('sha256', __FILE__)
+            || $payload['path'] !== $directory . '/database.sql' || ($payload['bytes'] ?? 0) <= 0 || filesize($payload['path']) !== $payload['bytes']
+            || hash_file('sha256', $payload['path']) !== ($payload['sha256'] ?? null)
+            || ($record['restore_instructions']['path'] ?? null) !== $restorePath || hash_file('sha256', $restorePath) !== ($record['restore_instructions']['sha256'] ?? null)
+            || ($restore['protocol'] ?? null) !== 'peanut.installation-partial-restore-instructions.v1' || ($restore['executed'] ?? null) !== false
+            || ($restore['whole_schema'] ?? null) !== true || !$same($restore['database'] ?? null, $binding['database'])
+            || !$same($restore['payload'] ?? null, $payload) || !$same($restore['installation_originals'] ?? null, $record['installation_originals'] ?? null)
+            || !is_int($record['capture_started_at'] ?? null) || !is_int($record['observed_at'] ?? null)
+            || $record['capture_started_at'] > $record['observed_at'] || $record['observed_at'] > time()
+            || $record['capture_started_at'] < $binding['authority']['created_at'] || $record['observed_at'] >= $binding['authority']['expires_at']) { throw new RuntimeException('INSTALL_PARTIAL_NATIVE_BACKUP_REQUIRED'); }
+        if (array_column($record['receipts'] ?? [], 'phase') !== ['probe-before', 'dump', 'probe-after']) { throw new RuntimeException('INSTALL_PARTIAL_NATIVE_BACKUP_REQUIRED'); }
+        foreach ($record['receipts'] as $receipt) {
+            $out = $directory . '/' . match ($receipt['phase']) { 'probe-before' => 'probe-before.txt', 'dump' => 'database.sql', 'probe-after' => 'probe-after.txt' };
+            if ($receipt['path'] !== $out . '.process.json') { throw new RuntimeException('INSTALL_PARTIAL_NATIVE_BACKUP_REQUIRED'); }
+            $terminal = self::protectedPluginJson($receipt['path'], $serverRoot); self::pluginFile($out, $serverRoot, $receipt['phase'] === 'dump' ? null : 16384);
+            if (hash_file('sha256', $receipt['path']) !== $receipt['sha256'] || ($terminal['rc'] ?? null) !== 0
+                || ($terminal['local_process_terminal'] ?? null) !== true || ($terminal['local_deadline_exceeded'] ?? null) !== false
+                || ($terminal['remote_success_terminal_confirmed'] ?? null) !== true
+                || !$same($terminal['stdout'] ?? null, ['path' => $out, 'sha256' => hash_file('sha256', $out), 'bytes' => filesize($out)])) { throw new RuntimeException('INSTALL_PARTIAL_NATIVE_BACKUP_REQUIRED'); }
+        }
+        if (array_keys($record['installation_originals']) !== array_keys($baseline['original_files'])) { throw new RuntimeException('INSTALL_PARTIAL_NATIVE_BACKUP_REQUIRED'); }
+        foreach ($baseline['original_files'] as $name => $original) {
+            $saved = $record['installation_originals'][$name]; self::pluginFile($saved['payload']['path'] ?? '', $serverRoot);
+            if (!$same($saved['original'], $original) || $saved['payload']['path'] !== $directory . '/installation-originals/' . $name
+                || $saved['payload']['sha256'] !== $original['sha256'] || hash_file('sha256', $saved['payload']['path']) !== $original['sha256'] || filesize($saved['payload']['path']) !== $saved['payload']['bytes']) { throw new RuntimeException('INSTALL_PARTIAL_NATIVE_BACKUP_REQUIRED'); }
+        }
+        if (hash_file('sha256', $directory . '/probe-before.txt') !== hash_file('sha256', $directory . '/probe-after.txt')) { throw new RuntimeException('INSTALL_PARTIAL_NATIVE_BACKUP_REQUIRED'); }
+        return ['path' => $path, 'sha256' => hash_file('sha256', $path), 'payload' => $payload, 'restore' => ['path' => $restorePath, 'sha256' => hash_file('sha256', $restorePath)],
+            'observed_at' => $record['observed_at'], 'scope' => $record['scope'], 'restore_executed' => false];
+    }
+
+    public static function writePartialInstallationRecord(string $path, array $plan): void
+    {
+        if (file_exists($path) || is_link($path)) { throw new RuntimeException('INSTALL_PARTIAL_PLAN_EXISTS'); }
+        self::write($path, $plan);
     }
 
     /** Reads a protected local source document; its contents alone never authorize mutation. */

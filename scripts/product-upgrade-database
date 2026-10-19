@@ -174,7 +174,7 @@ try {
     $migration = $operation === 'apply'
         ? $runner->run($files, $target, $target, false)
         : $runner->run($files, $target, $target, true);
-    $ids = array_map(static fn(string $file): string => basename($file, '.sql'), $files);
+    $ids = $migration['selected'];
     $statuses = $runner->statuses($ids);
     $module = null;
     if ($operation === 'apply') {
@@ -182,6 +182,7 @@ try {
         $statuses = $runner->statuses($ids);
     }
     if ($operation === 'verify') {
+        if ($migration['pending'] !== [] || count($statuses) !== count($ids)) { throw new RuntimeException('PRODUCT_UPGRADE_MIGRATION_VERIFY_FAILED'); }
         foreach ($statuses as $status) {
             if ($status !== 'applied') {
                 throw new RuntimeException('PRODUCT_UPGRADE_MIGRATION_VERIFY_FAILED');

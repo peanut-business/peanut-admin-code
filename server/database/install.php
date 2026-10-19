@@ -336,46 +336,6 @@ function expectedTables(array $files): array
     return $names;
 }
 
-function executeSqlFiles(PDO $pdo, array $files): void
-{
-    foreach ($files as $file) {
-        executeSqlFile($pdo, $file);
-    }
-}
-
-function executeSqlFile(PDO $pdo, string $file): void
-{
-    $sql = file_get_contents($file);
-    if ($sql === false) {
-        throw new RuntimeException('无法读取 SQL 文件：' . basename($file));
-    }
-    try {
-        // SQL documents use the text protocol and drain every result, as Module migrations do.
-        $emulatedPrepares = (bool) $pdo->getAttribute(PDO::ATTR_EMULATE_PREPARES);
-        $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, true);
-        try {
-            $statement = $pdo->query($sql);
-            try {
-                do {
-                    if ($statement->columnCount() > 0) {
-                        $statement->fetchAll(PDO::FETCH_ASSOC);
-                    }
-                } while ($statement->nextRowset());
-            } finally {
-                $statement->closeCursor();
-            }
-        } finally {
-            $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, $emulatedPrepares);
-        }
-    } catch (Throwable $exception) {
-        throw new RuntimeException(
-            '执行 SQL 文件失败：' . basename($file) . '；' . $exception->getMessage(),
-            0,
-            $exception,
-        );
-    }
-}
-
 /**
  * @param array{email:string,password:string}|null $platformCredentials
  * @param array{kind:string,code:string,tenant_identity:string,rbac:string,execution_context:string,module_lifecycle:string} $tenantBootstrap
@@ -389,12 +349,6 @@ function initializeCoreIdentity(
     \PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy $demoAccounts,
     array $tenantBootstrap,
 ): array {
-    foreach (KernelSchema::tableNames() as $table) {
-        $pdo->exec(KernelSchema::createSql($table));
-    }
-    ensureTenantChallengeClientKey($pdo);
-    $pdo->exec(KernelSchema::addTenantMemberDepartmentForeignKeySql());
-
     $service = Container::getInstance()->make(BootstrapService::class);
     $separatePlatformOperator = $platformCredentials !== null;
     $demoBootstrapPassword = $demoAccounts->enabled()
@@ -463,28 +417,6 @@ SQL);
     }
 }
 
-/**
- * The alpha.5 Core package persists the client binding but its exported
- * fresh schema predates that column. Keep a fresh install compatible with the
- * repository contract until the package's canonical KernelSchema is released.
- */
-function ensureTenantChallengeClientKey(PDO $pdo): void
-{
-    $column = $pdo->query(
-        "SHOW COLUMNS FROM `pa_login_challenge` LIKE 'client_key'",
-    )->fetch(PDO::FETCH_ASSOC);
-    if ($column !== false) {
-        return;
-    }
-
-    $pdo->exec(<<<'SQL'
-ALTER TABLE `pa_login_challenge`
-  ADD COLUMN `client_key` VARCHAR(64) NOT NULL AFTER `purpose`,
-  ADD CONSTRAINT `chk_login_challenge_client`
-    CHECK (REGEXP_LIKE(`client_key`, '^[a-z][a-z0-9-]{0,63}$', 'c'))
-SQL);
-}
-
 /** @return array{tenant_count:int,owner_count:int,operator_count:int} */
 function coreIdentityCounts(PDO $pdo, string $tenantCode): array
 {
@@ -548,7 +480,7 @@ function applicationMigrationFiles(string $databaseDir): array
         $files[] = $file;
     }
     sort($files, SORT_STRING);
-    return $files;
+    return \app\common\services\upgrade\ApplicationMigrationRunner::effectiveFiles($files);
 }
 
 /**
@@ -788,22 +720,19 @@ function installFreshDatabase(string $serverDir, array $input): array
         throw new RuntimeException('DB_NAME 只能包含字母、数字和下划线');
     }
 
-    $pdo = new PDO(
-        sprintf(
-            'mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',
-            $config['DB_HOST'],
-            $config['DB_PORT'],
-            $database,
-        ),
-        $config['DB_USER'],
-        $config['DB_PASS'],
-        [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES => false,
-            PDO::MYSQL_ATTR_MULTI_STATEMENTS => true,
-        ],
-    );
+    $connection = \think\facade\Db::connect();
+    foreach (['hostname' => 'DB_HOST', 'hostport' => 'DB_PORT', 'database' => 'DB_NAME', 'username' => 'DB_USER', 'password' => 'DB_PASS'] as $key => $inputKey) {
+        if ((string) $connection->getConfig($key) !== (string) $config[$inputKey]) { throw new RuntimeException('INSTALL_NATIVE_DATABASE_CONFIG_CONFLICT'); }
+    }
+    if ($connection->getConfig('prefix') !== 'pa_' || (int) $connection->getConfig('deploy') !== 0
+        || $connection->getConfig('break_reconnect') !== false) { throw new RuntimeException('INSTALL_NATIVE_DATABASE_CONFIG_CONFLICT'); }
+    $connection->query('SELECT 1', [], true);
+    $pdo = $connection->getPdo();
+    if (!$pdo instanceof PDO || $pdo->inTransaction()) { throw new RuntimeException('INSTALL_NATIVE_MASTER_REQUIRED'); }
+    if ($pdo->query('SELECT DATABASE()')->fetchColumn() !== $database) { throw new RuntimeException('INSTALL_NATIVE_DATABASE_IDENTITY_CHANGED'); }
+    $baseline = \app\common\infrastructure\migration\CleanInstallBaseline::load($databaseDir);
+    $versions = applicationReleaseVersions($serverDir);
+    if (version_compare($versions['release_sequence_version'], $baseline->manifest['source_product_version'], '<')) { throw new RuntimeException('INSTALL_BASELINE_VERSION_CONFLICT'); }
 
     $lockName = 'peanut_install_' . substr(hash('sha256', $database), 0, 48);
     $lockStatement = $pdo->prepare('SELECT GET_LOCK(?, 10)');
@@ -819,8 +748,7 @@ function installFreshDatabase(string $serverDir, array $input): array
         if (installationStateBlocksFreshDatabase($serverDir)) {
             throw new RuntimeException('INSTALL_STATE_PRESENT: 安装身份状态已存在，拒绝再次初始化数据库');
         }
-        $files = sqlFiles($databaseDir);
-        $expected = expectedTables($files);
+        $expected = array_merge($baseline->manifest['tables'], ['pa_schema_migration']);
         $tableCount = (int) $pdo->query(
             'SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()',
         )->fetchColumn();
@@ -838,25 +766,29 @@ function installFreshDatabase(string $serverDir, array $input): array
                 $platformCredentials['email'] ?? '',
             ])),
         );
-        $coreIdentity = initializeCoreIdentity(
-            $pdo,
-            $adminEmail,
-            $adminPassword,
-            $platformCredentials,
-            $demoAccounts,
-            $tenantBootstrap,
-        );
-        if ($demoAccounts->enabled()) {
-            replaceInstalledDemoCredentialHashes($pdo, [
-                $adminEmail,
-                $platformCredentials['email'] ?? '',
-            ], $demoAccounts->credentialHash());
-        }
-        executeSqlFiles($pdo, $files);
-        // Application migrations require the canonical catalog before Module installation.
-        // Its condition definitions can only be synchronized after the fresh application schema.
-        (new CorePermissionCatalogSynchronizer(new ThinkPhpAuthorizationCatalogRepository()))->synchronize();
-        seedBrandDefaults($pdo, brandWebsiteDefaults($serverDir));
+        $coreIdentity = [];
+        $baselineResult = $baseline->install($pdo,
+            function () use ($pdo, $adminEmail, $adminPassword, $platformCredentials, $demoAccounts, $tenantBootstrap, &$coreIdentity): void {
+                $coreIdentity = initializeCoreIdentity($pdo, $adminEmail, $adminPassword, $platformCredentials, $demoAccounts, $tenantBootstrap);
+                if ($demoAccounts->enabled()) { replaceInstalledDemoCredentialHashes($pdo, [$adminEmail, $platformCredentials['email'] ?? ''], $demoAccounts->credentialHash()); }
+                $pdo->exec('SET @pa_default_tenant_id = ' . (int) $coreIdentity['tenant_id']);
+                $pdo->prepare('SET @pa_default_tenant_code = ?')->execute([$tenantBootstrap['code']]);
+            },
+            function () use ($pdo, $serverDir): void {
+                (new CorePermissionCatalogSynchronizer(new ThinkPhpAuthorizationCatalogRepository()))->synchronize();
+                seedBrandDefaults($pdo, brandWebsiteDefaults($serverDir));
+            },
+            function () use ($pdo, $connection, $expected, $tenantBootstrap, $lockName): void {
+                if (\think\facade\Db::connect() !== $connection || $connection->getPdo() !== $pdo || $pdo->inTransaction()) { throw new RuntimeException('INSTALL_NATIVE_MASTER_CHANGED'); }
+                $lock = $pdo->prepare('SELECT IS_USED_LOCK(?) = CONNECTION_ID()'); $lock->execute([$lockName]);
+                if ((int) $lock->fetchColumn() !== 1) { throw new RuntimeException('INSTALL_DATABASE_LOCK_LOST'); }
+                $lock->closeCursor();
+                $actual = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
+                if (array_diff($expected, $actual) !== [] || count($actual) !== count($expected)
+                    || coreIdentityCounts($pdo, $tenantBootstrap['code']) !== ['tenant_count' => 1, 'owner_count' => 1, 'operator_count' => 1]
+                    || (int) $pdo->query('SELECT COUNT(*) FROM pa_system_menu')->fetchColumn() === 0
+                    || (int) $pdo->query('SELECT COUNT(*) FROM pa_config')->fetchColumn() === 0) { throw new RuntimeException('INSTALL_BASELINE_RESULT_INCOMPLETE'); }
+            });
 
         $actual = array_map('strval', $pdo->query(
             'SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME',
@@ -874,7 +806,7 @@ function installFreshDatabase(string $serverDir, array $input): array
 
         return [
             'database' => $database,
-            'baseline' => 'init.sql',
+            'baseline' => $baselineResult,
             'tables' => count($actual),
             'expected_tables' => count($expected),
             'active_menus' => $activeMenus,
@@ -911,6 +843,19 @@ if ($installerIsDirect) {
     try {
         $application = ensureThinkPhpApplication(dirname(__DIR__));
         $host = $application->make(\app\common\services\installation\InstallationExecutionHost::class);
+        $partial = array_values(array_filter(array_slice($_SERVER['argv'] ?? [], 1), static fn(string $arg): bool => str_starts_with($arg, '--partial=')));
+        if ($partial === [] && array_filter(array_slice($_SERVER['argv'] ?? [], 1), static fn(string $arg): bool => str_starts_with($arg, '--partial-input=')) !== []) { throw new RuntimeException('INSTALL_PARTIAL_ARGUMENTS_INVALID'); }
+        if ($partial !== []) {
+            $inputs = array_values(array_filter(array_slice($_SERVER['argv'], 1), static fn(string $arg): bool => str_starts_with($arg, '--partial-input=')));
+            if (count($partial) !== 1 || count($inputs) !== 1 || count($_SERVER['argv']) !== 3) { throw new RuntimeException('INSTALL_PARTIAL_ARGUMENTS_INVALID'); }
+            $operation = substr($partial[0], strlen('--partial=')); $input = substr($inputs[0], strlen('--partial-input='));
+            $result = $application->make(\app\common\execution\ExecutionContextStore::class)->run(
+                new \app\common\execution\InstallationExecutionContext('installation.console.partial', 'install-' . bin2hex(random_bytes(16))),
+                static fn() => $host->partialInstallation($operation, $input),
+            );
+            echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR), PHP_EOL;
+            exit(0);
+        }
         if (in_array('--status', $_SERVER['argv'] ?? [], true)) {
             $status = $host->status();
             echo json_encode($status, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR), PHP_EOL;
@@ -935,7 +880,9 @@ if ($installerIsDirect) {
         fwrite(STDERR, '安装失败：' . $exception->errorCode . PHP_EOL);
         exit(1);
     } catch (Throwable $exception) {
-        fwrite(STDERR, '安装失败：INSTALL_EXECUTION_FAILED' . PHP_EOL);
+        $code = isset($partial) && $partial !== [] && preg_match('/\A(?:INSTALL_(?:PARTIAL|SETUP_TOKEN)|MIGRATION_(?:CORRECTION|ORIGINAL)|APPLICATION_(?:DEVELOPMENT_RUNTIME|SOURCE))_[A-Z_]+\z/D', $exception->getMessage()) === 1
+            ? $exception->getMessage() : 'INSTALL_EXECUTION_FAILED';
+        fwrite(STDERR, '安装失败：' . $code . PHP_EOL);
         exit(1);
     }
 }

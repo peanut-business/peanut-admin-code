@@ -84,6 +84,7 @@ require_once $root . '/scripts/scaffold-runtime/ScaffoldManifest.php';
 require_once $root . '/scripts/scaffold-runtime/Semver.php';
 require_once $root . '/scripts/scaffold-runtime/EditionUpgradePackage.php';
 require_once $root . '/server/app/common/infrastructure/scaffold/DeterministicEditionArchive.php';
+require_once $root . '/server/app/common/infrastructure/migration/CleanInstallBaseline.php';
 $options = [];
 $check = false;
 foreach (array_slice($argv, 1) as $argument) {
@@ -322,7 +323,8 @@ try {
                 'installed_entrypoint' => 'scripts/upgrade',
                 'internal_scaffold_engine' => 'scripts/scaffold-upgrade',
             ],
-            'migration_chain' => ['strategy' => 'append-only-ledger', 'files' => $migrations],
+            'migration_chain' => ['strategy' => 'append-only-ledger', 'files' => $migrations,
+                'installation_baseline' => \app\common\infrastructure\migration\CleanInstallBaseline::load($package . '/target/files/server/database')->identity()],
             'ownership' => [
                 'automatic' => ['managed', 'generated-managed'],
                 'preserved' => ['app-owned', 'third-party-module', 'secret'],
