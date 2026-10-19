@@ -527,13 +527,13 @@ final class ApplicationSchemaHost
     /** Native source maintenance; facts never substitute for the current resource grant. */
     public function sourceDevelopment(string $operation, array $actor, string $planPath, string $resultPath, string $maintenancePath, string $recoveryPath, string $backupTool, string $backupOutput): array
     {
-        if (!in_array($operation, ['preflight', 'apply', 'verify', 'backup'], true)
+        if (!in_array($operation, ['preflight', 'apply', 'verify', 'verify-receipt', 'backup'], true)
             || ($operation === 'preflight' && ($planPath !== '' || $resultPath !== ''))
             || ($operation === 'apply' && ($planPath === '' || $resultPath !== ''))
             || (($maintenancePath === '') !== ($recoveryPath === ''))
             || ($operation === 'backup' && ($planPath === '' || $resultPath !== '' || $maintenancePath !== '' || $recoveryPath !== '' || $backupTool === '' || $backupOutput === ''))
             || ($operation !== 'backup' && ($backupTool !== '' || $backupOutput !== ''))
-            || ($operation === 'verify' && ($resultPath === '' || $planPath !== '' || $maintenancePath !== '' || $recoveryPath !== ''))) {
+            || (in_array($operation, ['verify', 'verify-receipt'], true) && ($resultPath === '' || $planPath !== '' || $maintenancePath !== '' || $recoveryPath !== ''))) {
             throw new RuntimeException('APPLICATION_SCHEMA_ARGUMENTS_INVALID');
         }
         $context = app()->make(\app\common\execution\CurrentExecutionContext::class)->current();
@@ -547,6 +547,7 @@ final class ApplicationSchemaHost
         // File/registry/actor/native lease admission must precede master initialization.
         $admission = $this->sourceDevelopmentAdmission($actor, $operation === 'apply');
         $config = \guardedDatabaseConfig();
+        if ($operation === 'verify-receipt') { $this->assertReceiptLedgerRead($config); }
         $connection = \think\facade\Db::connect();
         foreach (['hostname' => 'host', 'hostport' => 'port', 'database' => 'database', 'username' => 'user', 'password' => 'password'] as $native => $guarded) {
             if ((string) $connection->getConfig($native) !== (string) $config[$guarded]) { throw new RuntimeException('APPLICATION_SCHEMA_MASTER_MISMATCH'); }
@@ -559,6 +560,10 @@ final class ApplicationSchemaHost
         $facts = fn(): array => $this->sourceDevelopmentFacts($pdo, $connection, $actor, $context->requestId(), $operation === 'apply');
         $initial = $facts();
         if (!$this->sourceSame(array_diff_key($initial, ['database' => true]), $admission)) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_DRIFT'); }
+        if ($operation === 'verify-receipt') {
+            return \app\common\infrastructure\scaffold\ScaffoldUpgradeRunner::sourceProductLock(dirname($this->serverRoot),
+                fn(): array => $this->verifySourceReceipt($pdo, $initial, $facts, $resultPath));
+        }
         $files = \applicationMigrationFiles($this->serverRoot . '/database');
         $versions = \applicationReleaseVersions($this->serverRoot);
         $target = \applicationMigrationTargetVersion($this->serverRoot, $versions);
@@ -584,7 +589,7 @@ final class ApplicationSchemaHost
         $expected = $this->sourceProtectedJson($operation === 'apply' ? $planPath : $resultPath);
         $this->assertSourceDocument($expected, $operation === 'apply' ? 'peanut.source-development-schema-plan.v1' : 'peanut.source-development-schema-result.v1');
         return \app\common\infrastructure\scaffold\ScaffoldUpgradeRunner::sourceProductLock(dirname($this->serverRoot),
-            function () use ($operation, $pdo, $runner, $files, $target, $versions, $expected, $facts, $initial, $maintenancePath, $recoveryPath): array {
+            function () use ($operation, $pdo, $runner, $files, $target, $versions, $expected, $facts, $initial, $maintenancePath, $recoveryPath, $planPath): array {
                 $current = $facts();
                 if ($current !== $initial) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_DRIFT'); }
                 $binding = $expected['binding'] ?? null;
@@ -619,7 +624,7 @@ final class ApplicationSchemaHost
                     $proofs = $this->sourceDevelopmentEvidence($current, $maintenancePath, $recoveryPath, $baseline, $expected['backup_scope']);
                     if (!$this->sourceSame($expected['evidence'] ?? null, $proofs)) { throw new RuntimeException('APPLICATION_SCHEMA_PLAN_STALE'); }
                 }
-                $completed = []; $businessBefore = []; $businessPoststates = [];
+                $completed = []; $businessBefore = []; $businessPoststates = []; $stageBounds = [];
                 $before = function (PDO $actual, array $migration) use ($pdo, $baseline, $recheck, $current, $maintenancePath, $recoveryPath, $proofs, $expected, &$completed, &$businessBefore): bool {
                     $recheck();
                     if ($actual !== $pdo || $this->sourceDevelopmentEvidence($current, $maintenancePath, $recoveryPath, $baseline, $expected['backup_scope']) !== $proofs) {
@@ -666,7 +671,7 @@ final class ApplicationSchemaHost
                     $recheck();
                     return false;
                 };
-                $after = function (PDO $actual, array $migration, ?array $executionBounds) use ($pdo, $baseline, $recheck, $current, $maintenancePath, $recoveryPath, $proofs, $expected, &$completed, &$businessBefore, &$businessPoststates): void {
+                $after = function (PDO $actual, array $migration, ?array $executionBounds) use ($pdo, $baseline, $recheck, $current, $maintenancePath, $recoveryPath, $proofs, $expected, &$completed, &$businessBefore, &$businessPoststates, &$stageBounds): void {
                     $recheck();
                     if ($actual !== $pdo || $this->sourceDevelopmentEvidence($current, $maintenancePath, $recoveryPath, $baseline, $expected['backup_scope']) !== $proofs) {
                         throw new RuntimeException('APPLICATION_SCHEMA_WINDOW_CHANGED');
@@ -694,12 +699,13 @@ final class ApplicationSchemaHost
                         unset($businessBefore[$migration['id']]);
                     }
                     $recheck();
+                    $stageBounds[$migration['id']] = $executionBounds;
                     $completed[] = $migration['id'];
                 };
                 $record = null;
                 $runner->run($files, $target, $versions['release_sequence_version'], $operation === 'verify',
                     $operation === 'apply' ? $before : null,
-                    function (PDO $actual, array $selection) use ($pdo, $baseline, $recheck, $operation, $current, $maintenancePath, $recoveryPath, $proofs, $expected, &$record, &$businessPoststates): void {
+                    function (PDO $actual, array $selection) use ($pdo, $baseline, $recheck, $operation, $current, $maintenancePath, $recoveryPath, $proofs, $expected, $planPath, &$record, &$businessPoststates, &$stageBounds): void {
                         $recheck();
                         if ($actual !== $pdo || $selection['pending'] !== []) { throw new RuntimeException('APPLICATION_SCHEMA_VERIFY_INCOMPLETE'); }
                         if ($operation === 'apply' && $selection['applied'] !== $baseline['pending']) { throw new RuntimeException('APPLICATION_SCHEMA_APPLIED_USE_VERIFY'); }
@@ -736,8 +742,20 @@ final class ApplicationSchemaHost
                             }
                             // This protected native result binds a real completed
                             // window. It never reconstructs private business inputs.
+                            if (!$this->sourceSame($this->sourceProtectedJson($planPath), $expected)) { throw new RuntimeException('APPLICATION_SCHEMA_PLAN_STALE'); }
+                            $contracts = $this->sourceBusinessContracts($businessPoststates);
+                            $writerSha = $this->fileDigest(__FILE__);
+                            $acceptedAt = time();
+                            if ($this->sourceDevelopmentEvidence($current, $maintenancePath, $recoveryPath, $baseline, $expected['backup_scope'], $acceptedAt) !== $proofs) {
+                                throw new RuntimeException('APPLICATION_SCHEMA_WINDOW_CHANGED');
+                            }
+                            $recheck();
                             $record['execution_evidence'] = ['proof_kind' => 'same_process_native_migration_window',
-                                'plan_sha256' => $expected['document_sha256'], 'window' => $proofs['maintenance'],
+                                'plan_sha256' => $expected['document_sha256'], 'plan' => ['path' => $planPath, 'sha256' => $this->fileDigest($planPath)],
+                                'observed_at' => $acceptedAt, 'request_id' => app()->make(\app\common\execution\CurrentExecutionContext::class)->current()->requestId(),
+                                'writer_sha256' => $writerSha,
+                                'contracts' => $contracts, 'execution_bounds' => $stageBounds,
+                                'window' => $proofs['maintenance'],
                                 'recovery' => $proofs['recovery'], 'tables' => $expected['backup_scope']['tables'],
                                 'ordered_stages' => $ledger, 'ledger_sha256' => $this->digest($ledger),
                                 'qualification' => 'not_run', 'restore' => 'not_executed'];
@@ -877,12 +895,189 @@ final class ApplicationSchemaHost
         return (new SourceDevelopmentMaintenanceAdmission($this->serverRoot))->capture($actor, $ddl);
     }
 
+    /** Current read authorization is independent of an expired historical writer grant. */
+    private function assertReceiptLedgerRead(array $config): void
+    {
+        $registry = \projectResourceRegistry($unused);
+        $database = \registeredDatabase($registry, $config['resource_id']);
+        $schema = \mysqlSchemaLeaseResource($database, \registeredDatabaseEndpoint($database, $config['consumer']), $config);
+        $resources = \activeLeaseResources(\requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF'));
+        if (!isset($database['lease_policy']['shared_access']) && !isset($resources['mysql-access'])) { return; }
+        foreach ($resources['mysql-access'] ?? [] as $raw) {
+            $access = json_decode($raw, true, 64, JSON_THROW_ON_ERROR);
+            if (($access['schema'] ?? null) !== $schema || ($access['complete'] ?? null) !== true) { continue; }
+            if (in_array($access['operation'] ?? null, ['ddl', 'exclusive'], true) && ($access['tables'] ?? null) === []) { return; }
+            foreach ($access['tables'] ?? [] as $table) {
+                if (($table['table'] ?? null) === 'pa_schema_migration' && ($table['rows'] ?? null) === '*'
+                    && in_array($table['access'] ?? null, ['read', 'write'], true)) { return; }
+            }
+        }
+        throw new RuntimeException('APPLICATION_SCHEMA_RECEIPT_LEDGER_READ_SCOPE_REQUIRED');
+    }
+
+    /** Only already accepted, safe after results; never serializes private business inputs. */
+    private function sourceBusinessContracts(array $poststates): array
+    {
+        $contracts = [];
+        foreach ($poststates as $id => $row) {
+            $contract = match (true) {
+                in_array($id, self::MENU_MIGRATIONS, true) => MenuSchemaMigrationProof::class,
+                in_array($id, self::PERMISSION_MIGRATIONS, true) => PermissionSchemaMigrationProof::class,
+                $id === '20260909-notification-sms-reservation' => SmsReservationMigrationProof::class,
+                $id === '20261007-auth-client-schema' => AuthClientSchemaMigrationProof::class,
+                default => throw new RuntimeException('APPLICATION_SCHEMA_RECEIPT_CONTRACT_UNKNOWN'),
+            };
+            if (($row['contract'] ?? null) !== $contract) { throw new RuntimeException('APPLICATION_SCHEMA_RECEIPT_CONTRACT_UNKNOWN'); }
+            $file = (new \ReflectionClass($contract))->getFileName();
+            if (!is_string($file) || realpath($file) !== $file || !str_starts_with($file, $this->serverRoot . '/app/modules/official/')) {
+                throw new RuntimeException('APPLICATION_SCHEMA_RECEIPT_CONTRACT_UNKNOWN');
+            }
+            $contracts[$id] = ['contract' => $contract, 'source_sha256' => $this->fileDigest($file)];
+        }
+        ksort($contracts, SORT_STRING);
+        return $contracts;
+    }
+
+    private function assertReceiptSourceFile(string $head, string $file, string $sha): void
+    {
+        $root = dirname($this->serverRoot);
+        if (!str_starts_with($file, $root . '/') || $this->fileDigest($file) !== $sha
+            || \leaseGit(['-C', $root, 'rev-parse', $head . ':' . substr($file, strlen($root) + 1)])
+                !== \leaseGit(['-C', $root, 'hash-object', '--no-filters', '--', $file])) {
+            throw new RuntimeException('APPLICATION_SCHEMA_ORIGINAL_CONTRACT_VERSION_UNAVAILABLE');
+        }
+    }
+
+    /** Revalidates the original native writer artifact; it does not rerun business before/after. */
+    private function verifySourceReceipt(PDO $pdo, array $current, callable $facts, string $path): array
+    {
+        $directory = $this->serverRoot . '/private/installation/application-schema/source-development';
+        if (realpath(dirname($path)) !== $directory || preg_match('/\Aresult-[a-f0-9]{32}\.json\z/D', basename($path)) !== 1) {
+            throw new RuntimeException('APPLICATION_SCHEMA_RESULT_ORIGIN_INVALID');
+        }
+        $parent = $this->serverRoot;
+        foreach (['private', 'installation', 'application-schema', 'source-development'] as $part) {
+            $parent .= '/' . $part;
+            if (realpath($parent) !== $parent || !is_dir($parent) || is_link($parent)
+                || !in_array(fileowner($parent), [0, fileowner($this->serverRoot)], true) || (fileperms($parent) & 0022) !== 0) {
+                throw new RuntimeException('APPLICATION_SCHEMA_RESULT_ORIGIN_INVALID');
+            }
+        }
+        if ((fileperms($directory) & 0777) !== 0700) { throw new RuntimeException('APPLICATION_SCHEMA_RESULT_ORIGIN_INVALID'); }
+        $record = $this->sourceProtectedJson($path); $receiptSha = $this->fileDigest($path);
+        $this->assertSourceDocument($record, 'peanut.source-development-schema-result.v1');
+        $original = $record['binding'] ?? null; $evidence = $record['execution_evidence'] ?? null; $baseline = $record['baseline'] ?? null;
+        if (($record['operation'] ?? null) !== 'apply' || ($record['status'] ?? null) !== 'completed'
+            || !is_array($original) || !is_array($evidence) || !is_array($baseline)
+            || ($evidence['proof_kind'] ?? null) !== 'same_process_native_migration_window'
+            || !is_int($evidence['observed_at'] ?? null) || !is_string($evidence['request_id'] ?? null) || $evidence['request_id'] === ''
+            || !$this->sourceSame($original['database'] ?? null, $current['database'])
+            || ($original['resource_id'] ?? null) !== $current['resource_id'] || ($original['endpoint_id'] ?? null) !== $current['endpoint_id']
+            || ($original['source']['root'] ?? null) !== dirname($this->serverRoot)
+            || preg_match('/\A[a-f0-9]{40}\z/D', (string) ($original['source']['head'] ?? '')) !== 1
+            || preg_match('/\A[a-f0-9]{40}\z/D', (string) ($original['source']['tree'] ?? '')) !== 1
+            || ($evidence['qualification'] ?? null) !== 'not_run' || ($evidence['restore'] ?? null) !== 'not_executed') {
+            throw new RuntimeException('APPLICATION_SCHEMA_ORIGINAL_RECEIPT_REQUIRED');
+        }
+        // Resolve the original commit in this actual source repository, without changing a checkout.
+        if (\leaseGit(['-C', dirname($this->serverRoot), 'rev-parse', $original['source']['head'] . '^{tree}']) !== $original['source']['tree']) {
+            throw new RuntimeException('APPLICATION_SCHEMA_ORIGINAL_SOURCE_UNKNOWN');
+        }
+        $this->assertReceiptSourceFile($original['source']['head'], __FILE__, (string) ($evidence['writer_sha256'] ?? ''));
+        $planPath = $evidence['plan']['path'] ?? '';
+        $plan = $this->sourceProtectedJson($planPath);
+        $this->assertSourceDocument($plan, 'peanut.source-development-schema-plan.v1');
+        if (($evidence['plan']['sha256'] ?? null) !== $this->fileDigest($planPath) || ($evidence['plan_sha256'] ?? null) !== $plan['document_sha256']
+            || !$this->sourceSame($plan['binding'] ?? null, $original) || !$this->sourceSame($plan['baseline'] ?? null, $baseline)
+            || !is_array($plan['backup_scope'] ?? null) || ($plan['status'] ?? null) !== 'planned') {
+            throw new RuntimeException('APPLICATION_SCHEMA_ORIGINAL_PLAN_CHANGED');
+        }
+        $proofs = $this->sourceDevelopmentEvidence($original, $evidence['window']['path'] ?? '', $evidence['recovery']['path'] ?? '',
+            $baseline, $plan['backup_scope'], $evidence['observed_at']);
+        if (!$this->sourceSame($proofs['maintenance'], $evidence['window']) || !$this->sourceSame($proofs['recovery'], $evidence['recovery'])
+            || !$this->sourceSame($plan['evidence'] ?? null, $proofs) || ($evidence['tables'] ?? null) !== $plan['backup_scope']['tables']) {
+            throw new RuntimeException('APPLICATION_SCHEMA_ORIGINAL_EVIDENCE_CHANGED');
+        }
+        $pending = $baseline['pending']; $ledger = $evidence['ordered_stages'] ?? null;
+        $poststates = $record['business_poststates'] ?? null; $bounds = $evidence['execution_bounds'] ?? null;
+        if (!is_array($ledger) || array_column($ledger, 'migration_id') !== $pending || ($evidence['ledger_sha256'] ?? null) !== $this->digest($ledger)
+            || !is_array($poststates) || !is_array($bounds) || array_keys($bounds) !== $pending
+            || !$this->sourceSame($evidence['contracts'] ?? null, $this->sourceBusinessContracts($poststates))) {
+            throw new RuntimeException('APPLICATION_SCHEMA_ORIGINAL_COMPLETION_CHANGED');
+        }
+        foreach ($ledger as $row) {
+            $id = $row['migration_id'];
+            if (($row['status'] ?? null) !== 'applied' || ($row['checksum'] ?? null) !== self::PRESTATE_SQL[$id]
+                || ($row['checksum'] ?? null) !== ($baseline['selected'][$id] ?? null)
+                || ($row['release_version'] ?? null) !== ($baseline['release_versions'][$id] ?? null)
+                || !is_string($row['started_at'] ?? null) || !is_string($row['finished_at'] ?? null) || ($row['error_code'] ?? null) !== null) {
+                throw new RuntimeException('APPLICATION_SCHEMA_ORIGINAL_COMPLETION_CHANGED');
+            }
+            $clockRequired = in_array($id, ['20260909-notification-sms-reservation', '20261007-readiness-permission', '20261012-align-department-canonical-permissions'], true);
+            $clock = $bounds[$id];
+            if (!$clockRequired) {
+                if ($clock !== null) { throw new RuntimeException('APPLICATION_SCHEMA_ORIGINAL_CLOCK_CHANGED'); }
+                continue;
+            }
+            if (!is_array($clock) || ($clock['scope'] ?? null) !== 'immutable-sql-batch' || ($clock['migration_key'] ?? null) !== $id
+                || ($clock['sha256'] ?? null) !== self::PRESTATE_SQL[$id] || !is_int($clock['pdo_object_id'] ?? null) || $clock['pdo_object_id'] <= 0) {
+                throw new RuntimeException('APPLICATION_SCHEMA_ORIGINAL_CLOCK_CHANGED');
+            }
+            foreach (['before', 'after'] as $point) {
+                $value = $clock[$point] ?? [];
+                if (($value['database'] ?? null) !== $original['database']['database']
+                    || !is_string($value['connection_id'] ?? null) || !ctype_digit($value['connection_id'])
+                    || !is_string($value['unix_second'] ?? null) || !ctype_digit($value['unix_second'])
+                    || preg_match('/\A[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}\z/D', (string) ($value['utc_timestamp'] ?? '')) !== 1) {
+                    throw new RuntimeException('APPLICATION_SCHEMA_ORIGINAL_CLOCK_CHANGED');
+                }
+            }
+            if ($clock['before']['connection_id'] !== $clock['after']['connection_id'] || $clock['before']['utc_timestamp'] > $clock['after']['utc_timestamp']) {
+                throw new RuntimeException('APPLICATION_SCHEMA_ORIGINAL_CLOCK_CHANGED');
+            }
+        }
+        // These functions only check the accepted safe result when liveVerify=false.
+        self::assertMenuPoststates($pending, $poststates, false);
+        self::assertPermissionPoststates($pending, $poststates, false);
+        self::assertSmsPoststates($pending, $poststates, false);
+        self::assertAuthPoststates($pdo, $pending, $poststates, false);
+        foreach ($evidence['contracts'] as $contract) {
+            $this->assertReceiptSourceFile($original['source']['head'], (string) (new \ReflectionClass($contract['contract']))->getFileName(), $contract['source_sha256']);
+        }
+        if ($facts() !== $current) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_DRIFT'); }
+        $pdo->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+        $pdo->exec('SET TRANSACTION READ ONLY');
+        $pdo->beginTransaction();
+        try {
+            $this->sourceLedgerShape($pdo);
+            $query = $pdo->prepare('SELECT migration_id,checksum,release_version,status,started_at,finished_at,error_code FROM pa_schema_migration'
+                . ' WHERE migration_id IN (' . implode(',', array_fill(0, count($pending), '?')) . ') ORDER BY migration_id');
+            try { $query->execute($pending); $actual = $query->fetchAll(PDO::FETCH_ASSOC); } finally { $query->closeCursor(); }
+            if (!$this->sourceSame($actual, $ledger)) { throw new RuntimeException('APPLICATION_SCHEMA_ORIGINAL_LEDGER_CHANGED'); }
+            $pdo->commit();
+        } finally { if ($pdo->inTransaction()) { $pdo->rollBack(); } }
+        if ($facts() !== $current || $this->fileDigest($path) !== $receiptSha
+            || !$this->sourceSame($proofs, $this->sourceDevelopmentEvidence($original, $evidence['window']['path'], $evidence['recovery']['path'],
+                $baseline, $plan['backup_scope'], $evidence['observed_at'])) || $this->fileDigest($planPath) !== $evidence['plan']['sha256']) {
+            throw new RuntimeException('APPLICATION_SCHEMA_ORIGINAL_EVIDENCE_CHANGED');
+        }
+        return ['protocol' => 'peanut.source-development-original-receipt-verification.v1', 'status' => 'verified', 'readonly' => true,
+            'verification_level' => 'accepted_original_window_receipt', 'original_window_receipt_verified' => true,
+            'original_private_algorithm_recomputed' => false, 'current_target_verified' => false,
+            'receipt' => ['path' => $path, 'sha256' => $receiptSha], 'original_source' => $original['source'],
+            'original_request_id' => $evidence['request_id'], 'original_observed_at' => $evidence['observed_at'],
+            'ordered_stages' => $pending, 'ledger_sha256' => $evidence['ledger_sha256'],
+            'later_ledger_rows' => 'outside_original_scope_not_compared', 'restore' => 'not_executed', 'qualification' => 'not_run', 'product_database' => 'not_verified'];
+    }
+
     /**
      * Current window/backup references only. They neither authorize SQL nor prove
      * DB2 migration/restoration: actual Jobs and readback require external acceptance.
      */
-    private function sourceDevelopmentEvidence(array $binding, string $maintenancePath, string $recoveryPath, array $baseline, array $backupScope): array
+    private function sourceDevelopmentEvidence(array $binding, string $maintenancePath, string $recoveryPath, array $baseline, array $backupScope, ?int $recordedAt = null): array
     {
+        $at = $recordedAt ?? time();
+        if ($at <= 0 || $at > time()) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_EVIDENCE_REQUIRED'); }
         $pending = $baseline['pending'] ?? null;
         if (!is_array($pending) || !array_is_list($pending) || $pending === []
             || count(array_filter($pending, 'is_string')) !== count($pending)
@@ -908,7 +1103,7 @@ final class ApplicationSchemaHost
                 || ($value['baseline_sha256'] ?? null) !== $baselineSha || ($value['scope'] ?? null) !== $tables
                 || !is_int($value['observed_at'] ?? null) || !is_int($value['expires_at'] ?? null)
                 || $value['observed_at'] < (int) $binding['authority']['created_at']
-                || $value['observed_at'] > time() || $value['expires_at'] <= time() || $value['expires_at'] > (int) $binding['authority']['expires_at']
+                || $value['observed_at'] > $at || $value['expires_at'] <= $at || $value['expires_at'] > (int) $binding['authority']['expires_at']
                 || !is_array($value['receipts'] ?? null) || $value['receipts'] === []) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_EVIDENCE_REQUIRED'); }
             if ($kind === 'maintenance' && (($value['state'] ?? null) !== 'active'
                 || ($value['excluded_writers'] ?? null) !== ['http', 'workers', 'other-writers'])) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_WINDOW_REQUIRED'); }
