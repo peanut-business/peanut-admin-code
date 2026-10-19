@@ -159,6 +159,8 @@ server-only Compose 实例使用 `server/docker/scripts/update.sh plan|apply|ver
 
 开发运行投影以 `server/.peanut/development-runtime.json` 识别，保留自身的来源、文件和依赖校验，不创建 `release-identity.json`。数据库入口复用该身份读取器后使用投影的 `server/resources/project-resources.json`，已配置实例可使用 `server/private/resources/project-resources.json`；两者都必须属于该 APP。与 server-only 发行实例一样，开发运行投影拒绝外部 `PEANUT_RESOURCE_REGISTRY` 和维护者登记。未绑定运行投影的源码工程仍按原源码入口读取根资源登记。
 
+开发运行投影也使用同一首次安装向导。配置、预检和执行直接消费 ApplicationSourceIdentity 的原生严格身份；只接受 development 环境目标，HTTP 继续使用已验证的部署准入。未安装投影通过既有启动准入发布安装能力；已有完成锁时仍先验证安装健康、原始回执和当前部署链。首装基线以 development-runtime 记录投影身份和原 APP manifest 摘要，不将其标作 server release；源码和依赖身份变化仍须经正常生命周期采用。投影由 package-release-files.py 的 development-runtime 动作从真实生成 APP、原生锁定依赖及完整来源清单产生，不手写身份，也不等同发行包。
+
 明确登记的临时多租户源码首次部署消费真实 `generated-template` 制品。原生生成器的 APP 自有公共资源登记尚未分配数据库时，部署允许其 `resources.databases=[]`；宿主数据库、Compose、镜像和端口仍须由维护者资源登记精确绑定，首次启动后显式选择原生安装配置并生成实例私有资源登记，不从空模板推测资源。制品已有数据库投影时仍核对所选资源唯一身份、库名和完整容器端点；永久 APP 自有 Release 始终要求该投影。此范围仅用于带固定来源、到期时间与替换 owner 的多租户首次安装，不用于自动 APP 升级，也不覆盖已有实例目录。
 
 首次配置的 `database_source` 明确选择 `bundled` 或 `registered`。后者只从 APP 自有公共资源登记选择唯一数据库和 `host`／`container` 消费端点，环境、Edition、库名和地址必须匹配登记；已有普通账号与密码仅写入私有 0600 配置。配置发布不连接数据库、不建库、不创建或修改账号、不授予权限；连接与权限仍由安装向导实际 ThinkORM/PDO 的 `database-check` 判断。只有 `bundled` 才调用内置数据库 provision。APP 不读取维护者的私有 Project 登记作为运行依赖；维护者需先通过原生 `application-registry` 投影准备 APP 自有来源。
