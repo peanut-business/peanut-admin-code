@@ -836,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "828c684deb87fed4989d23acf38a02ee7b46294412e6bdc0863ceaf34bd94eab"
+            "source_sha256": "61eb2a93156c54a6ade53e52596503149c18a44a411357334bdefdae7f827ae9"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -8875,7 +8875,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "758fc2a870f27651989088c1f13edc931a0a794d13fa825af006422ac0f11b97"
+            "source_sha256": "58a5266f42da31c672f315f039488abcb39fa4213b7182c0e432c1c266aeee0f"
         },
         {
             "path": "server/app/common/services/installation/InstallationExecutionHost.php",
@@ -27634,7 +27634,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "465788f0ac857a49846b40c1ebf947fd6db7b539b31bbc9a6eaaa74541653e1f"
+            "source_sha256": "b6265a1fa9cd58108025fabe78cc56edd23e8c93ee8b26c5914a46606cf94157"
         },
         {
             "path": "server/docker/scripts/update-preparation.py",
