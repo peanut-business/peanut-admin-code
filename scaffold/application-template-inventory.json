@@ -836,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "17ee131f76d11790528eede75bd200c0fe37a4cd9241c31761c57ddce87c376c"
+            "source_sha256": "91dc598c30db5036db9ccfa4688d71e29dc88c75138ef9cf36cb9398ef3f9572"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -2333,7 +2333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b3a298943112ddde0a848b04e48a51fb87fc84449efd1db9bde33c1ff059fede"
+            "source_sha256": "ec848ed0846d5ef619b0d0d5c752db3f5b21322f6e7cfdf0c6d6eecbebbeb557"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2414,7 +2414,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2cafc99d65b4e29aebeb871ae99f556ac31e12a3b84ebb56eee732c40dc5ecd0"
+            "source_sha256": "0cc2128a22f67aced082e0d13cc25337d3c923deb3209e3d672432b80acbca4b"
         },
         {
             "path": "plugins/official.content-tools/plugin.json",
@@ -2442,7 +2442,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8a0c8f77a4dd9c8027b672b0e30e359d8a6057871c8714a510c276a21431d6bc"
+            "source_sha256": "ca2b93dc431b7ab07b15cdfb8249903c5f5cd5a0093cd231a1c5b0a8c1ca8f84"
         },
         {
             "path": "plugins/official.file/plugin.json",
@@ -8932,7 +8932,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "20ca5e3c99eeaa95f1d8fa73d40bf1eb106612a186181075dfe1356715cb7670"
+            "source_sha256": "70c70d156f91e66862995dc6c0216c2303aa15a566f07c0c20902d15afacedc1"
         },
         {
             "path": "server/app/common/services/upgrade/PluginSourceDevelopmentHost.php",
@@ -11050,7 +11050,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d23998ceeaa4623f750b2886a619da320ada75a4b2042c257d5173420fc868a5"
+            "source_sha256": "136704bd993ce6f8e8e496b0af37d0e6f4eefc251b8df27acf33c80ae7015f91"
         },
         {
             "path": "server/app/modules/official/collaboration/src/Service/NativeCollaborationProvider.php",
@@ -11512,7 +11512,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ce5f156da2af251eefdf7cb324320fa0e3be7c79ddd1f0a7cb0d1c510186275d"
+            "source_sha256": "98f9178bf612f710d48c3c1414a82cba495940913368f73fa7d8b5c0245f0ae3"
         },
         {
             "path": "server/app/modules/official/document/src/Contract/DocumentCommands.php",
@@ -11862,7 +11862,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ec7533c4c527c2d95c109a4a6fbdcd58c4ead3e49577321d00abf377035daadb"
+            "source_sha256": "3a45a52235e7656663bf88b689704cb19e97449987f648013f1baf8bdac74a79"
         },
         {
             "path": "server/app/modules/official/file/README.md",
@@ -26039,7 +26039,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1a2e5714631dea5ed827c885a63a5d97cbdfeb939c71ae9a54abb4ec7ab97a56"
+            "source_sha256": "3732b40f9c059d179f3c83d9ad56f8ad023bf51f8fd3cfee2f4f3df4b56f684e"
         },
         {
             "path": "server/config/notification.php",
@@ -27396,7 +27396,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0e9991ec9899535170af74126785c8b6c03b8a291ffd186ee225e76dc0cde358"
+            "source_sha256": "f1b07c0c7ab35e952bfb3ee8e25c01da812573305b2c1ff7e1b2dd170f33816e"
         },
         {
             "path": "server/docker/scripts/update-plan.php",
