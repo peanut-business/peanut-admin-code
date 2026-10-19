@@ -25,6 +25,7 @@ use PeanutAdmin\Modules\File\Contract\FileMigrationAdoptionProof;
 use PeanutAdmin\Modules\File\Contract\FileMigrationPreservation;
 use PeanutAdmin\Modules\Document\Contract\DocumentMigrationPreservation;
 use PeanutAdmin\Modules\Article\Contract\ArticleMigrationPreservation;
+use PeanutAdmin\Modules\Member\Contract\MemberSessionMigrationPreservation;
 use PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight;
 use PeanutAdmin\Modules\Task\Job\Database\TaskSchemaMigrationProof;
 use PeanutAdmin\Modules\Identity\Audit\AuditService;
@@ -35,6 +36,9 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
 {
     private const ARTICLE_STAGES = [
         'official.article:20261013230000_add_article_document_save_binding' => '67e504df714ee1a1d0cc6959506eaa584cfaeb0ea26c3e95597586b5ec2576fe',
+    ];
+    private const MEMBER_STAGES = [
+        'official.member:20260921-create-member-session' => '297fc9de7bc227d584cb79fe6e5d50f6cf8512b33696578acbb3f10243b65337',
     ];
     private const DOCUMENT_STAGES = [
         'official.document:20261012050000_create_business_documents' => '103003e0a0cbb8ec11ed2d1f039772500d7c610ad9b66bc19623fb012fa31f00',
@@ -496,6 +500,9 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 $articleAdmission = $articleStage ? self::adoptionAdmission($pdo) : null;
                 $articlePredecessors = $articleStage ? $this->articleDocumentPredecessors($pdo) : null;
                 $articlePrivate = $articleStage ? self::captureArticlePreservation($pdo, $migrationKey, $checksum) : null;
+                $memberStage = $moduleKey === 'official.member' && isset(self::MEMBER_STAGES[$migrationKey]);
+                $memberAdmission = $memberStage ? self::adoptionAdmission($pdo) : null;
+                $memberPrivate = $memberStage ? self::captureMemberPreservation($pdo, $migrationKey, $checksum) : null;
                 $stageContract = self::PRESERVATION_STAGES[$migrationKey] ?? null;
                 $stageAdmission = $stageContract === null ? null : self::adoptionAdmission($pdo);
                 $stageBefore = null;
@@ -536,6 +543,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                     PeanutMigrationRun::apply($pdo, $moduleKey, $migrationKey, $sourceSql, $checksum,
                         function (?array $executionBounds) use ($connection, $pdo, $moduleKey, $migrationKey, $adoptions, $checksum, &$filePrivate,
                             $documentStage, $documentAdmission, &$documentPrivate, $articleStage, $articleAdmission, $articlePredecessors, &$articlePrivate,
+                            $memberStage, $memberAdmission, &$memberPrivate,
                             $stageContract, &$stageBefore): void {
                             if (Db::connect() !== $connection || $connection->getPdo() !== $pdo || $pdo->inTransaction()) {
                                 throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Master connection changed during migration.');
@@ -563,6 +571,18 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                                 if (Db::connect() !== $connection || $connection->getPdo() !== $pdo || $pdo->inTransaction()
                                     || self::json(self::adoptionAdmission($pdo)) !== self::json($articleAdmission)) {
                                     throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Article completion changed its native connection or admission.');
+                                }
+                            }
+                            if ($memberStage) {
+                                if (!is_array($memberPrivate) || $executionBounds !== null
+                                    || self::json(self::adoptionAdmission($pdo)) !== self::json($memberAdmission)) {
+                                    throw new PluginLifecycleException('MODULE_MIGRATION_PRESERVATION_REQUIRED', 'Member requires its original private facts and held native admission.');
+                                }
+                                self::assertMemberPreserved($pdo, $migrationKey, $checksum, $memberPrivate);
+                                $memberPrivate = null;
+                                if (Db::connect() !== $connection || $connection->getPdo() !== $pdo || $pdo->inTransaction()
+                                    || self::json(self::adoptionAdmission($pdo)) !== self::json($memberAdmission)) {
+                                    throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Member completion changed its native connection or admission.');
                                 }
                             }
                             if ($stageContract !== null) {
@@ -614,6 +634,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                     $filePrivate = null;
                     $documentPrivate = null;
                     $articlePrivate = null;
+                    $memberPrivate = null;
                     $articlePredecessors = null;
                     $stageBefore = null;
                     unset($stageLedger);
@@ -1077,6 +1098,34 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             || ($after['proof_kind'] ?? null) !== 'fixed_native_additive_ddl'
             || ($after['delta_kind'] ?? null) !== 'article_document_binding_and_empty_save_receipt' || ($after['table_count'] ?? null) !== 2) {
             throw new PluginLifecycleException('MODULE_MIGRATION_POSTSTATE_REJECTED', 'Article did not prove its fixed native DDL postconditions.');
+        }
+    }
+
+    private static function captureMemberPreservation(\PDO $pdo, string $key, string $sha): array
+    {
+        if ((self::MEMBER_STAGES[$key] ?? null) !== $sha || !class_exists(MemberSessionMigrationPreservation::class)) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_PRESERVATION_REQUIRED', 'The fixed Member source contract is unavailable.');
+        }
+        $before = app()->make(MemberSessionMigrationPreservation::class)->before($pdo, $key);
+        $safe = $before['safe_summary'] ?? null;
+        if (Db::connect()->getPdo() !== $pdo || $pdo->inTransaction() || !is_array($safe)
+            || ($safe['module_key'] ?? null) !== 'official.member' || ($safe['migration_key'] ?? null) !== $key
+            || ($safe['sql_sha256'] ?? null) !== $sha || ($safe['readonly'] ?? null) !== true
+            || ($safe['preservation_verified'] ?? null) !== false || !is_array($before['private_state'] ?? null)) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_PRESERVATION_REQUIRED', 'Member private facts do not bind the current native stage.');
+        }
+        return $before['private_state'];
+    }
+
+    private static function assertMemberPreserved(\PDO $pdo, string $key, string $sha, array $privateBefore): void
+    {
+        $after = app()->make(MemberSessionMigrationPreservation::class)->after($pdo, $privateBefore);
+        if (Db::connect()->getPdo() !== $pdo || $pdo->inTransaction() || ($after['module_key'] ?? null) !== 'official.member'
+            || ($after['migration_key'] ?? null) !== $key || ($after['sql_sha256'] ?? null) !== $sha
+            || ($after['readonly'] ?? null) !== true || ($after['preservation_verified'] ?? null) !== true
+            || ($after['proof_kind'] ?? null) !== 'fixed_native_additive_ddl'
+            || ($after['delta_kind'] ?? null) !== 'member_session_revision_and_empty_sessions' || ($after['table_count'] ?? null) !== 2) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_POSTSTATE_REJECTED', 'Member did not prove its fixed native DDL postconditions.');
         }
     }
 

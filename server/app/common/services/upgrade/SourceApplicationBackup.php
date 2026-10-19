@@ -36,6 +36,10 @@ final class SourceApplicationBackup
         'official.article:20261013230000_add_article_document_save_binding' => ['67e504df714ee1a1d0cc6959506eaa584cfaeb0ea26c3e95597586b5ec2576fe',
             ['pa_article', 'pa_article_body_save']],
     ];
+    private const MEMBER_STAGES = [
+        'official.member:20260921-create-member-session' => ['297fc9de7bc227d584cb79fe6e5d50f6cf8512b33696578acbb3f10243b65337',
+            ['pa_member', 'pa_member_session']],
+    ];
     private const MODULE_DDL_STAGES = [
         'official.notification:20260921-adopt-notification-delivery-schema' => ['eaef582cd762c803f3f7d213687f61d43fd3634e9f0b984471f11648e10979fb',
             ['pa_notification_template', 'pa_notification_message', 'pa_notification_attachment', 'pa_notification_outbox', 'pa_sms_rate_bucket', 'pa_notification_event'],
@@ -185,6 +189,15 @@ final class SourceApplicationBackup
                 $selected[$id] = $sha;
                 if (($migration['disposition'] ?? null) === 'already_applied') { continue; }
                 $pending[] = $id; $tables[] = 'pa_module_migration';
+                $member = self::MEMBER_STAGES[$id] ?? null;
+                if ($key === 'official.member' && $member !== null && $sha === $member[0]
+                    && ($migration['disposition'] ?? null) === 'execute') {
+                    array_push($tables, ...$member[1]);
+                    $writeRequirements[] = ['module_key' => $key, 'migration_key' => $id, 'code' => 'PLUGIN_SOURCE_MEMBER_PRESERVATION_REQUIRED',
+                        'contract' => 'PeanutAdmin\\Modules\\Member\\Contract\\MemberSessionMigrationPreservation',
+                        'api' => 'before(PDO, canonicalMigrationKey), after(PDO, innerPrivateState); absent targets, fixed native DDL and same-PDO completion required'];
+                    continue;
+                }
                 $article = self::ARTICLE_STAGES[$id] ?? null;
                 if ($key === 'official.article' && $article !== null && $sha === $article[0]
                     && ($migration['disposition'] ?? null) === 'execute') {
