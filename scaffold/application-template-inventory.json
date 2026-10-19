@@ -836,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f96104176dff25babeec874f574523886cc52187db0c62ba9c8bf4ddb712d425"
+            "source_sha256": "744289acabaa4e472aabd14195002d9ea6c965f4aa5513f1d59c8b6f88e616ef"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -3560,7 +3560,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "81dc2ca67666b33aeaf0481efac8ebc55c1fbf0cf751b1d3f39837d58b71bb25"
+            "source_sha256": "36d7e2b834eb654b32d4c1ec095edd7401d70ec62c9f09645fdeef6b82412d11"
         },
         {
             "path": "scripts/project-codegraph",
@@ -3823,7 +3823,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9479952fd1a319719ce237ee5a16f650a4d780c2a0238d679bed36017c1b1f45"
+            "source_sha256": "64339828a63707a30c06eed17a1d892e5bb0927ef12e56e9ec1375cee2882a54"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",
@@ -8889,7 +8889,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "252ea9e6de233f151b3789ad1ab624d7f8e9e12f6b6af91726d30f72a531fd66"
+            "source_sha256": "502a947bc2ae2336736b99a580083594af247c151f403a14978f2bff70066f4f"
         },
         {
             "path": "server/app/common/services/installation/InstallationPreflightHost.php",
@@ -26487,7 +26487,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "97d76987d89283b30fd6c9c5377fdf07de3c043d33a62d217ee13da7a15f8b86"
+            "source_sha256": "c098db52771e76a549ac5b58547b9a1e3d1fc6195878594a1e3f53869cd9792a"
         },
         {
             "path": "server/database/kernel-migrations/20260716010101_create_pa_account.php",
@@ -27690,7 +27690,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3dac61de92ecf6f7e7d66b02287f00528fe852f48e3a5d4e2c53f0fb19bc8487"
+            "source_sha256": "1d62287a6a6132541107640453840849f714d9900802fd15d94c55ee3c731910"
         },
         {
             "path": "server/docker/scripts/update-preparation.py",
