@@ -779,12 +779,13 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         $pending = [];
         $workflowPreflight = null;
         $notificationPreflight = null;
-        $modules = []; $mayApply = true;
+        $modules = []; $mayApply = true; $planningComplete = true;
         $willMigrate = !$this->sameIdentity($plugin, $current) || $current['status'] !== 'active';
         foreach ($manifests as $moduleKey => $manifest) {
             $module = $this->moduleMigrationPlan($plugin, $moduleKey, $manifest, $willMigrate);
             $modules[] = ['module_key' => $moduleKey, ...$module];
             $mayApply = $mayApply && $module['may_apply'];
+            $planningComplete = $planningComplete && $module['planning_complete'];
             foreach ($module['migrations'] as $migration) {
                 if ($migration['disposition'] !== 'already_applied') { $pending[] = ['module_key' => $moduleKey, ...$migration]; }
             }
@@ -799,7 +800,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             'to_version' => $plugin->version,
             'identity_changed' => !$this->sameIdentity($plugin, $current),
             'pending_migrations' => $pending,
-            'modules' => $modules, 'may_apply' => $mayApply,
+            'modules' => $modules, 'may_apply' => $mayApply, 'planning_complete' => $planningComplete,
+            'status' => $mayApply ? 'ready' : ($planningComplete ? 'planned' : 'blocked'), 'execution_admitted' => false,
             'workflow_preflight' => $workflowPreflight,
             'notification_preflight' => $notificationPreflight,
             'notification_forward_schema' => $modules[0]['notification_forward_schema'] ?? null,
@@ -1347,6 +1349,27 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     {
         $admission = $proof['apply_admission'];
         if (self::json($admission['database_identity'] ?? null) !== self::json($proof['instance']['database_identity'] ?? null)) { return false; }
+        if (($admission['scope'] ?? null) === 'source-plugin') {
+            // Historical native provenance validation, never live write authorization or private-fact recomputation.
+            $digest = $admission['admission_digest'] ?? null; unset($admission['admission_digest']);
+            if (($admission['schema_version'] ?? null) !== 1 || ($admission['protocol'] ?? null) !== 'peanut.source-plugin-admission.v1'
+                || ($admission['instance_root'] ?? null) !== realpath(root_path())
+                || ($admission['plugin_key'] ?? null) !== ($proof['package']['key'] ?? null)
+                || ($admission['operation'] ?? null) !== ($proof['operation'] ?? null)
+                || ($admission['request_id'] ?? null) !== ($proof['operation_id'] ?? null)
+                || !in_array($admission['operation'] ?? null, ['console.plugin:install', 'console.plugin:upgrade'], true)
+                || self::json($admission['binding']['database'] ?? null) !== self::json($admission['database_identity'])
+                || ($admission['external_writer_exclusion'] ?? null) !== 'ops_protocol_gate_required_not_attested'
+                || !is_string($digest) || !hash_equals($digest, hash('sha256', json_encode(self::canonicalJsonValue($admission),
+                    JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)))) { return false; }
+            foreach (['plan_sha256', 'execution_plan_sha256', 'binding.source.files_sha256', 'binding.registry_sha256', 'evidence.maintenance.sha256',
+                'evidence.recovery.sha256', 'evidence.backup_manifest.sha256', 'evidence.backup_payload.sha256', 'evidence.restore_contract_sha256'] as $field) {
+                $value = $admission;
+                foreach (explode('.', $field) as $part) { $value = is_array($value) ? ($value[$part] ?? null) : null; }
+                if (!is_string($value) || preg_match('/\A[a-f0-9]{64}\z/D', $value) !== 1) { return false; }
+            }
+            return true;
+        }
         if (($admission['scope'] ?? null) === 'server-release') {
             if (($admission['schema_version'] ?? null) !== 1
                 || !in_array(realpath(root_path()), [$admission['instance_root'] ?? null, $admission['source_instance_root'] ?? null], true)) { return false; }
@@ -1857,7 +1880,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         (new PeanutMigrationAdapter($pdo, $moduleKey))->assertSourceIdentities(array_keys($files));
         $repairs = self::migrationRepairMap($moduleKey, $files);
         $adoptions = self::migrationAdoptions($moduleKey, $files, $repairs);
-        $migrations = []; $reports = []; $mayApply = true;
+        $migrations = []; $reports = []; $mayApply = true; $sourceDeferred = false;
         $notificationForward = $willMigrate && $moduleKey === 'official.notification' && ($notificationForwardOverride ?? $this->notificationForwardRequired($plugin))
             ? self::notificationForwardSchemaReport() : null;
         $notificationAdmission = null;
@@ -1865,7 +1888,12 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             $mayApply = ($notificationForward['may_apply'] ?? null) === true && ($notificationForward['catalog_schema']['may_apply'] ?? null) === true;
             try { $notificationAdmission = self::adoptionAdmission(Db::connect()->getPdo()); }
             catch (PluginLifecycleException $exception) {
-                if ($prerequisite !== null && $exception->errorCode === 'MODULE_MIGRATION_ADOPTION_WINDOW_REQUIRED') {
+                $sourcePlan = $exception->errorCode === 'MODULE_MIGRATION_ADOPTION_WINDOW_REQUIRED'
+                    ? app()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->planningAdmission($pdo) : null;
+                if ($sourcePlan !== null) {
+                    $notificationAdmission = $sourcePlan;
+                    $sourceDeferred = true;
+                } elseif ($prerequisite !== null && $exception->errorCode === 'MODULE_MIGRATION_ADOPTION_WINDOW_REQUIRED') {
                     $notificationAdmission = ['may_apply' => false, 'execution_admitted' => false, 'status' => 'planned',
                         'code' => 'MODULE_MIGRATION_ADMISSION_DEFERRED', 'application_prerequisites' => [$prerequisite]];
                 } else {
@@ -1916,7 +1944,12 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             if ($disposition === 'adopt') {
                 try { $admission = self::adoptionAdmission(Db::connect()->getPdo()); }
                 catch (PluginLifecycleException $exception) {
-                    if ($prerequisite !== null && $exception->errorCode === 'MODULE_MIGRATION_ADOPTION_WINDOW_REQUIRED') {
+                    $sourcePlan = $exception->errorCode === 'MODULE_MIGRATION_ADOPTION_WINDOW_REQUIRED'
+                        ? app()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->planningAdmission($pdo) : null;
+                    if ($sourcePlan !== null) {
+                        $admission = $sourcePlan;
+                        $sourceDeferred = true;
+                    } elseif ($prerequisite !== null && $exception->errorCode === 'MODULE_MIGRATION_ADOPTION_WINDOW_REQUIRED') {
                         $admission = ['may_apply' => false, 'execution_admitted' => false, 'status' => 'planned',
                             'code' => 'MODULE_MIGRATION_ADMISSION_DEFERRED', 'application_prerequisites' => [$prerequisite]];
                     } else {
@@ -1947,8 +1980,9 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             $receipt = self::notificationReceiptSnapshot($this->notificationReceiptPath($plugin));
             unset($receipt['contents']);
         }
-        return ['may_apply' => $mayApply && $prerequisite === null, 'planning_complete' => $mayApply,
-            'status' => !$mayApply ? 'blocked' : ($prerequisite === null ? 'ready' : 'planned'), 'execution_admitted' => false,
+        return ['may_apply' => $mayApply && $prerequisite === null && !$sourceDeferred, 'planning_complete' => $mayApply,
+            'source_admission_deferred' => $sourceDeferred,
+            'status' => !$mayApply ? 'blocked' : ($prerequisite === null && !$sourceDeferred ? 'ready' : 'planned'), 'execution_admitted' => false,
             'application_prerequisites' => $prerequisite === null ? [] : [$prerequisite],
             'migrations' => $migrations, 'preflight_reports' => $reports,
             'adoption_declarations' => array_values($adoptions['targets']),

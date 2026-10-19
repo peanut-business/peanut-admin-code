@@ -145,7 +145,11 @@ app/event.php保留AppInit、HttpRun、HttpEnd、LogLevel和LogWrite项，但默
 
 同一源码插件入口移除 `--dry-run` 后必须另外提供受保护的 `--source-plan`、`--maintenance`、`--recovery`，不同时执行 backup。宿主要求真实 DDL 原生准入，在上述三个原生锁仍持有时重算完整计划、固定 SQL 闭包和原表范围，逐字段匹配原计划，再核当前有效窗口与真实 native dump／终态 process receipts／RESTORE 合同及独立 Notification 原文件字节。maintenance 使用 `peanut.source-plugin-maintenance.v1`，绑定 source/database/authority/registry、完整 pending/selected、baseline 摘要、已捕获的 scope.tables、有效时间和原排除 writer 回执；它仍是运维排除的证明入口，JSON 声明或 advisory lock 本身不证明外部 writer 已停止。capture 必须始于该窗口内。执行前还要求当前 PDO 对完整元数据有直接 SELECT/TRIGGER 可见性；未知触发器和范围外级联写入阻止对应操作，不自动扩张备份。
 
-仅当前同一进程、同一命令上下文和 master PDO 内的宿主能力允许原 PLS 执行安装或升级；开始 lifecycle、每段迁移及其原 after／applied 边界、catalog 和失败标记都复核 source/actor/lease/window/backup，原事务提交前和业务 before 完成后的 SQL 执行前再次复核。执行仍由原 PLS 和模块自己的保全合同完成，不复制 SQL executor，不伪造安装或发行升级身份。原未知 SQL、namespace、append-only 修复和 File 采用身份限制保留；只完成原 native plan 已 ready／may_apply 且范围闭合的操作。Notification forward 和 File adopt 仍受原计划与采用准入限制，本入口尚未打通它们，不把闭合的备份范围等同于可执行。失败保留已提交前缀和实际失败现场，不自动重放、回滚或 restore。
+仅当前同一进程、同一命令上下文和 master PDO 内的宿主能力允许原 PLS 执行安装或升级；开始 lifecycle、每段迁移及其原 after／applied 边界、catalog 和失败标记都复核 source/actor/lease/window/backup，原事务提交前和业务 before 完成后的 SQL 执行前再次复核。执行仍由原 PLS 和模块自己的保全合同完成，不复制 SQL executor，不伪造安装或发行升级身份。原未知 SQL、namespace、append-only 修复和 File 采用身份限制保留。失败保留已提交前缀和实际失败现场，不自动重放、回滚或 restore。
+
+Notification forward／File adopt 的只读 source 计划在原所属业务报告通过后，可明确表达 `planning_complete=true`、`source_admission_deferred=true`，同时仍保持 `may_apply=false`、`execution_admitted=false`；`source-plugin-plan` 只来自当前真实 host/PDO/原生锁的读取区间，永不由实际写入准入方法返回。这样可以先计算精确恢复闭包，不能据此写入。实际 apply 先验证原计划、真实原备份和有效窗口，取得真实进程内能力后，在同一插件锁内重做原生计划，要求这次真正 `may_apply=true`、固定 effects／原范围／旧 ledger 未变，再进入原 PLS。admission 分别绑定原 deferred 计划和这次可执行计划的摘要；原 File 后态、历史应用记录、安装身份、原 Notification 前后态及所有未知/失败 Gate 仍由原合同判断，不为本地开发伪造已安装或 applied。
+
+source File adopt 的原记录沿用唯一原生 module ledger 和原 provenance；其 `source-plugin` admission 按原 source/DB/operation/request、备份窗口引用和内容摘要解释为历史原生准入记录，供原 adopted readback 验证。这个内容摘要不是发布者认证，不授予未来写入权限，也不是跨进程重新计算私有保全事实；新的写入仍须重新持有实际 native 能力。其他安装／server-release admission 规则不变。
 
 `peanut.source-plugin-result.v1` 只报告本次原生生命周期完成及实际 ledger 回读，明确 `verification_level=native_same_process_lifecycle_completion`、`cross_process_preservation=not_verified`，不以返回成功冒充独立保全复验。后续正常业务可改变数据：当前目标结构／业务约束检查、原执行窗口的 before/SQL/after 保全、基于受验原始证据的跨进程复验必须分别表达。旧安全摘要或自算 digest 不能重建私有事实；缺少所属业务复验 API 时保留拒绝，不持久化私有 DTO、不恢复临时数据库、不重放 SQL 或制造新的 preservation=true。
 
