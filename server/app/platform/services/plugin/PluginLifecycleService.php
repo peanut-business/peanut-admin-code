@@ -22,6 +22,7 @@ use app\common\execution\CurrentExecutionContext;
 use app\common\execution\InstanceExecutionContext;
 use app\common\execution\InstallationExecutionContext;
 use PeanutAdmin\Modules\File\Contract\FileMigrationAdoptionProof;
+use PeanutAdmin\Modules\File\Contract\FileMigrationPreservation;
 use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use app\common\services\installation\InstallationExecutionHost;
 
@@ -464,6 +465,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 if (!$pdo instanceof \PDO || $pdo->inTransaction()) {
                     throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'An admitted master outside a transaction is required.');
                 }
+                $filePrivate = $moduleKey === 'official.file' && isset($adoptions['targets'][$migrationKey])
+                    ? self::captureFilePreservation($pdo, $migrationKey, $checksum) : null;
                 $now = $this->now();
                 Db::transaction(function () use ($moduleKey, $migrationKey, $manifest, $checksum, $batch, $now): void {
                     Db::name('module_migration')->insert([
@@ -486,7 +489,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                     }
                     // MySQL DDL commits implicitly. Keep the durable migration ledger outside the DDL boundary.
                     PeanutMigrationRun::apply($pdo, $moduleKey, $migrationKey, $sourceSql, $checksum,
-                        static function (?array $executionBounds) use ($connection, $pdo, $moduleKey, $migrationKey, $adoptions): void {
+                        static function (?array $executionBounds) use ($connection, $pdo, $moduleKey, $migrationKey, $adoptions, $checksum, &$filePrivate): void {
                             if (Db::connect() !== $connection || $connection->getPdo() !== $pdo || $pdo->inTransaction()) {
                                 throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Master connection changed during migration.');
                             }
@@ -497,6 +500,9 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                                 if (($proof['may_apply'] ?? null) !== true || ($proof['disposition'] ?? null) !== 'adopt') {
                                     throw new PluginLifecycleException('MODULE_MIGRATION_POSTSTATE_REJECTED', 'File migration did not establish its canonical postconditions.');
                                 }
+                                if (!is_array($filePrivate)) { throw new PluginLifecycleException('MODULE_MIGRATION_PRESERVATION_REQUIRED', 'The current File stage requires its held private facts.'); }
+                                self::assertFilePreserved($pdo, $migrationKey, $checksum, $filePrivate);
+                                $filePrivate = null;
                                 if (Db::connect() !== $connection || $connection->getPdo() !== $pdo || $pdo->inTransaction()) {
                                     throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Master connection changed during the File poststate proof.');
                                 }
@@ -522,6 +528,10 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                             . '; FAILURE_RECORDING_FAILED: ' . $recordingException->getMessage(), 0, $exception);
                     }
                     throw $exception;
+                } finally {
+                    // Never accumulate private File snapshots across stages or
+                    // serialize them into the sole migration ledger/result.
+                    $filePrivate = null;
                 }
             }
         }
@@ -851,6 +861,32 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             throw new PluginLifecycleException('MODULE_MIGRATION_INSTALLATION_UNKNOWN', 'Native application migration is not recorded applied.');
         }
         return $row;
+    }
+
+    private static function captureFilePreservation(\PDO $pdo, string $key, string $sha): array
+    {
+        if (!class_exists(FileMigrationPreservation::class)) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_FILE_PRESERVATION_UNAVAILABLE', 'The canonical File preservation contract is unavailable.');
+        }
+        $before = app()->make(FileMigrationPreservation::class)->before($pdo, $key);
+        $safe = $before['safe_summary'] ?? null;
+        if (!is_array($safe) || ($safe['module_key'] ?? null) !== 'official.file' || ($safe['migration_key'] ?? null) !== $key
+            || ($safe['sql_sha256'] ?? null) !== $sha || ($safe['preservation_verified'] ?? null) !== false
+            || !is_array($before['private_state'] ?? null)) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_PRESERVATION_REQUIRED', 'File preservation facts do not match the current canonical stage.');
+        }
+        // This contains the actual PDO object. Pass only this inner state to E;
+        // neither the outer DTO nor a reconstructed public summary is accepted.
+        return $before['private_state'];
+    }
+
+    private static function assertFilePreserved(\PDO $pdo, string $key, string $sha, array $privateBefore): void
+    {
+        $after = app()->make(FileMigrationPreservation::class)->after($pdo, $privateBefore);
+        if (($after['module_key'] ?? null) !== 'official.file' || ($after['migration_key'] ?? null) !== $key
+            || ($after['sql_sha256'] ?? null) !== $sha || ($after['preservation_verified'] ?? null) !== true) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_POSTSTATE_REJECTED', 'File preservation did not prove this canonical stage.');
+        }
     }
 
     private static function fileMigrationProof(string $key, ?\PDO $pdo = null): array
@@ -1569,6 +1605,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             if (!$context instanceof InstanceExecutionContext && !$context instanceof InstallationExecutionContext) {
                 throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_UNAUTHORIZED', 'Only the trusted instance lifecycle can adopt a migration.');
             }
+            $filePrivate = self::captureFilePreservation($pdo, $key, $declaration['sha256']);
             $provenance = ['protocol' => 'peanut.module-migration-adoption.v1', 'declaration' => $declaration,
                 'package' => ['key' => $plugin->key, 'version' => $plugin->version, 'artifact_sha256' => $plugin->source['sha256'],
                     'lock_digest' => $plugin->lockDigest, 'manifest_sha256' => $plugin->manifestDigest,
@@ -1588,6 +1625,14 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             if (self::json($proof) !== self::json($after) || Db::connect()->getPdo() !== $pdo || !$pdo->inTransaction()
                 || self::json(self::adoptionAdmission($pdo)) !== self::json($admission)) {
                 throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_DRIFT', 'Observed File proof, transaction or native admission changed during adoption.');
+            }
+            // Include the real ledger/audit DML in this observation window. An
+            // assertion failure rolls back this adoption transaction, never DDL.
+            self::assertFilePreserved($pdo, $key, $declaration['sha256'], $filePrivate);
+            unset($filePrivate);
+            if (Db::connect()->getPdo() !== $pdo || !$pdo->inTransaction()
+                || self::json(self::adoptionAdmission($pdo)) !== self::json($admission)) {
+                throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_DRIFT', 'Native admission or transaction changed during File preservation.');
             }
         });
     }
