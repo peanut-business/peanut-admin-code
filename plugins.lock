@@ -212,7 +212,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "abb3212a5ae924e0e1f1f69acc8e8ea0ef5538d6254741959e17b127dffa620f"
+                "sha256": "9b0034ece4657dadc59cf6eeff8d209ab7faf8e39aa0477f4ae84cef8edd92a4"
             },
             "trust": {
                 "channel": "bundled",
@@ -255,6 +255,10 @@
                                 },
                                 {
                                     "module_key": "official.file",
+                                    "version": "^1.0"
+                                },
+                                {
+                                    "module_key": "official.rich-text",
                                     "version": "^1.0"
                                 }
                             ],
@@ -313,7 +317,7 @@
                 }
             ],
             "manifest": "plugins/official.article/plugin.json",
-            "manifest_sha256": "aa763dc6e13267a89a10646e606e69ab6da45aa85f272acc2d15d3965024fda9"
+            "manifest_sha256": "c23a37b4f075246fa314c8a58676efec28da5d31e4c3df2db0f8bc696d3f4633"
         },
         {
             "key": "official.collaboration",

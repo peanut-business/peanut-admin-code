@@ -2333,7 +2333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d260f56ba7016d2829e51ad129d65b11c1a90b8faa70950786034d5039d66240"
+            "source_sha256": "29035daee669f01fced4ec2bb744e33b92b79058dd9fa6411375bd7141e4acdf"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2400,7 +2400,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "aa763dc6e13267a89a10646e606e69ab6da45aa85f272acc2d15d3965024fda9"
+            "source_sha256": "c23a37b4f075246fa314c8a58676efec28da5d31e4c3df2db0f8bc696d3f4633"
         },
         {
             "path": "plugins/official.collaboration/plugin.json",
@@ -10308,7 +10308,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9eaad40148d022bfafd16536c263318ad7d6da4176b3a680b6364f446d2d5f05"
+            "source_sha256": "1afed54ef1031e031cf1826309446dbb7d8cef20154de471d1589381715df270"
         },
         {
             "path": "server/app/modules/official/article/resources/menus.json",
