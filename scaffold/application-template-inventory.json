@@ -836,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "014a029bb59c99a33437321444d392b753aa0e42cffcc08fdc3d12ec6b3c269f"
+            "source_sha256": "37ffc8b8083e29a6ace8b2359c57fc826abca84e3be29b6cb8212ce337f7e42b"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -8932,7 +8932,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "81a4e146521abebd19447a0b83dec2e287c4dc2935bc9642a417ecdaf876e2fc"
+            "source_sha256": "9e8e2856e92be3781938f83390a3cf072268539a004e304b3c455c095c67efb2"
         },
         {
             "path": "server/app/common/services/upgrade/PluginSourceDevelopmentHost.php",
@@ -27438,7 +27438,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7b1c9d3a29bcca1ecc71102c7f027fe34df3cb644204eb8627961b61df496e72"
+            "source_sha256": "5b5ebd578fb183fb1b394e87f1a34652e9fa721c00e29105abeaef3f35accb7f"
         },
         {
             "path": "server/docker/scripts/update-plan.php",
