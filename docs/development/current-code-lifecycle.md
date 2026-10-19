@@ -133,6 +133,10 @@ app/event.php保留AppInit、HttpRun、HttpEnd、LogLevel和LogWrite项，但默
 
 源码阶段账本按原有序链核对已完成前缀、当前 applying 与尚未执行项，逐条使用 SQL 真实发行身份；旧历史的完整原行保持不变。该核对不替代业务后态或恢复准入，当前多条待迁移链仍在这些合同齐备前拒绝 apply。
 
+菜单三条固定应用 SQL 的业务事实由 Identity 的 `MenuSchemaMigrationProof::before(PDO,migration)`／`after(PDO,privateBefore)` 提供。preflight 只公开 `safe_summary`；当前 pending 前驱未完成时列为 deferred，不构造影子菜单、解析 UPDATE 或预测 UUID／自增分配。源码维护 Host 和发行 `update-database.php` 均在原同 PDO 的执行回调内重新取得有限私有 facts，原 SQL 排空后、官方唯一 applied 写入前核 `business_postconditions_verified=true`，随后释放 private_state；它不进入计划、结果或日志。后继步骤以当前真实状态重新捕获，不用链初摘要否定后续合法变更。定制／歧义目录按原 SQL 的采用、跳过和冲突分支处理，不增加整个迁移的拒绝 Gate。
+
+菜单回调业务断言不替代真实私有备份及完整结构／数据恢复，也不授予多条源码链 apply。断言失败沿官方执行器保留 failed／已完成阶段与原恢复点，不伪回滚 DDL、不自动重放或伪造 applied。安全结果仅记录 id／hash／readonly、成功字段和检查数，不能重建原私有前态；涉及这些菜单阶段的独立 verify／已完成 migrate 重放当前明确拒绝 `APPLICATION_SCHEMA_MENU_LIVE_REVERIFY_REQUIRED`，不以旧成功摘要冒充实时保全复验。原有非菜单迁移合同、资源权限和发布资格保持其实际边界。
+
 `plugin:upgrade`／`plugin:install` 的 `--scope=source-development --dry-run` 为明确选择的单个插件生成原生计划，同时必须提供实际 `--owner`／`--thread`／`--session`／`--gate`。入口在初始化数据库前核对干净源码、原安装标记和当前原生资源租约，并在真实产品文件锁、应用迁移 advisory lock 与插件原生锁内读取；缺少真实来源字段迁移时只列为应用前置项。宿主使用当前插件命令上下文，不冒充应用 schema 或发行升级，不授予安装、采用、catalog 或迁移写入能力；结果固定 `execution_admitted=false`，恢复覆盖仍单独要求。
 
 Plugin 计划中的 `lifecycle_effects` 绑定真实生产链：begin、每条 migration/adopt、catalog 注册、失败标记分别提交，后段失败不会撤销前段；失败标记本身可能失败。单模块 catalog 同步仍包含全局 core permissions/data conditions，以及 permission、target、condition、protected resource、operation 与三类关系、menu definition、setting definition、reference-code set；还会改三张安装/归属表。操作关系可能删除后重建，菜单按全局 key 更新，不能以单租户或 `module_key` 过滤备份。该激活路径不写 settings values、reference-code entries、tenant revisions 或 role grants。File adopt 另写 module ledger 与平台审计，不能称为只补账。菜单冲突日志保留为证据，不随数据库恢复回退。
