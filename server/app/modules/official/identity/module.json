@@ -141,7 +141,8 @@
       "PeanutAdmin\\Modules\\Identity\\Contract\\TenantAuthorizationQuery",
       "PeanutAdmin\\Modules\\Identity\\Contract\\TenantAuthorizationCommands",
       "PeanutAdmin\\Modules\\Identity\\Menu\\MenuAdministrationService",
-      "PeanutAdmin\\Modules\\Identity\\Menu\\MenuSchemaMigrationProof"
+      "PeanutAdmin\\Modules\\Identity\\Menu\\MenuSchemaMigrationProof",
+      "PeanutAdmin\\Modules\\Identity\\Permission\\PermissionSchemaMigrationProof"
     ],
     "events": []
   },
