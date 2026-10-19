@@ -836,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "08194afcc1a0baa7f991df65eb3232be6b5c7d75bc0088efd75282acf2d27c84"
+            "source_sha256": "17ee131f76d11790528eede75bd200c0fe37a4cd9241c31761c57ddce87c376c"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -2333,7 +2333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7f178b638d6ab194ada2b31d265cd5f425d5a800654d529078e06623efb56431"
+            "source_sha256": "b3a298943112ddde0a848b04e48a51fb87fc84449efd1db9bde33c1ff059fede"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2470,7 +2470,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d04c0efa7dfcb4bf5b9453914f51f85c95670a267e848dcb4e61c2070fb98ed7"
+            "source_sha256": "fa7743d899c861543c61188823554410daab64e7c705db2deb9e68850ce852a9"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -12982,7 +12982,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4715b55023c2b297b5fb4fa4dcd4b9fb006c47d8cdcb66f02356e3d251f779d4"
+            "source_sha256": "de60a74990203ed0eb5951ac620699801eae1a55d2620eb2740affabcec33de5"
         },
         {
             "path": "server/app/modules/official/identity/src/Audit/AuditService.php",
@@ -14355,6 +14355,20 @@
                 "full"
             ],
             "source_sha256": "fa14fb4de47dcdf65b6a6e0b637116fc8457df0b5cf8703af3b26b5a06f2df72"
+        },
+        {
+            "path": "server/app/modules/official/identity/src/Menu/MenuSchemaMigrationProof.php",
+            "target": "server/app/modules/official/identity/src/Menu/MenuSchemaMigrationProof.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "027fda4285d22565ece4520793ba72e84b98cbb6c470bf0c16c75d8c26f5532c"
         },
         {
             "path": "server/app/modules/official/identity/src/Menu/ThinkPhpMenuCatalogRepository.php",
@@ -27091,6 +27105,20 @@
             "source_sha256": "426d6bbf0faf2eb0bcf3f027a2990436572f36b5f1457129597273741733ee52"
         },
         {
+            "path": "server/docker/compose.registered-database.yaml",
+            "target": "server/docker/compose.registered-database.yaml",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "8757d79e43028ec8c417dd706f6c60062dbfcf8bdf93c3cc2a08ed212f45d7fc"
+        },
+        {
             "path": "server/docker/compose.yaml",
             "target": "server/docker/compose.yaml",
             "classification": "managed",
@@ -27214,7 +27242,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0463df223d21280b438b347d259d446bfeed26bc568ce6f8a38c8e5bc1ecaa3d"
+            "source_sha256": "46a7717379fefc11073eb83b40fc4769d345348ddf47af33e850025baa4a7bd6"
         },
         {
             "path": "server/docker/scripts/configure-runtime.py",
@@ -27242,7 +27270,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "37f8c6341484278262fb20247b4893d60b75a3c21334a2c5ade79397403cba2b"
+            "source_sha256": "adcb4e780aa88d808803cc434887acba02ae9108a73d38e47fbcce125673769b"
         },
         {
             "path": "server/docker/scripts/prepare-install-permissions.sh",
@@ -27354,7 +27382,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b1f016d25a1d3dd4815d61851a85efea0a58814f50eef0dd3eee7b7cb11fe0ec"
+            "source_sha256": "24c50d2dccfe37544d1d8b683eb1e0b6e852706496595f57dbfbbf59f53df749"
         },
         {
             "path": "server/docker/scripts/update-database.php",

@@ -181,6 +181,12 @@ server-only Compose 实例使用 `server/docker/scripts/update.sh plan|apply|ver
 
 首次配置的 `database_source` 明确选择 `bundled` 或 `registered`。后者只从 APP 自有公共资源登记选择唯一数据库和 `host`／`container` 消费端点，环境、Edition、库名和地址必须匹配登记；已有普通账号与密码仅写入私有 0600 配置。配置发布不连接数据库、不建库、不创建或修改账号、不授予权限；连接与权限仍由安装向导实际 ThinkORM/PDO 的 `database-check` 判断。只有 `bundled` 才调用内置数据库 provision。APP 不读取维护者的私有 Project 登记作为运行依赖；维护者需先通过原生 `application-registry` 投影准备 APP 自有来源。
 
+外部已有数据库使用后端配置的 database_source=registered。原生启动器从实例 .env 自动选择随产品交付的 compose.registered-database.yaml，只启动 PHP 与 Nginx；不启动、拉取或初始化内置 MySQL，也不调用其 provision。普通账号、端点和数据库仍须来自当前 APP 自有登记并经真实 PDO 复查。bundled 使用原来的默认 Compose、MySQL 健康依赖及 provision 路径。
+
+若希望在尚未配置 .env 时通过网页完成外部数据库配置，可在已完成原生镜像与实例编排配置后运行 server/docker/scripts/start.sh -f /absolute/app/server/docker/compose.registered-database.yaml；这里必须是当前 APP 自带的官方文件，不是私有复制的 override。安装 bootstrap 保留原有 owner、Token、不可变程序、只读 FPM 与 HTTP 准入；开发运行投影使用 development 环境，发行包保持原环境。网页真实提交 registered 配置后仍由既有 owner 发布，再切入实际数据库复查和安装。配置前如需正常关闭，stop.sh 传相同 -f 官方文件参数；配置后启动和停止会从 .env 自动识别。即使额外启用 Compose profile，外部数据库模式的原生 up/stop 也只选择 PHP/Nginx。
+
+启动前必须由实际 Docker Compose 成功解析官方合成配置；不支持 !reset 等原生能力或服务依赖不符时停止该启动路径，不改成私有备用编排。上述行为的源码交付不代表实际安装、登录、404 或删锁保护已经验收。
+
 尚未启动 PHP 的主机首次配置，由该实例真实 owner 在程序完整性准入、初始流量关闭和实例原生锁下执行 `php server/docker/scripts/update-plan.php configure-startup --instance-server=/absolute/app/server --configuration-input=/absolute/private/input.json`。输入必须是当前 owner 持有的单链接普通 0600 文件，JSON 只含 `setup_token` 和 `configuration`：前者为本次真实 Setup Token，后者与 `/installapi/configure` 使用同一字段合同。原生发布器一次生成 `.env`、实例私有资源登记和配置记录，不改 APP 来源身份、安装锁或数据库；Setup Token 与数据库密码不进入输出。已存在配置、安装锚点或待发布输入时拒绝覆盖。输入由 owner 在正常生命周期中保护及回收，不放入版本库；不得手写配置记录冒充完成。网页只将输入暂存为私有待发布记录，绑定 APP 身份、实际 Setup Token 和所选登记摘要，仍由正常 owner 发布，登记漂移时停止。
 
 只有 Nginx 配置变化时，apply 在维护/停机前用实例登记的不可变 Nginx 镜像执行目标配置的 `nginx -t`，结果绑定计划、镜像及配置 SHA-256。切换后重新创建 PHP/Nginx 容器，使文件绑定挂载读取新文件；数据库容器保持原样。Dockerfile、Compose 或其他运行配置变化仍要求独立准备兼容镜像，本入口不自动放行。
