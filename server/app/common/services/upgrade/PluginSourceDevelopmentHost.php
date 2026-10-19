@@ -13,15 +13,18 @@ use RuntimeException;
 use think\App;
 use think\facade\Db;
 
-/** Holds one native read-only source Plugin plan; never grants migration writes. */
+/** Holds the native source Plugin locks; only a live, bound apply admits writes. */
 final class PluginSourceDevelopmentHost
 {
     private ?array $planning = null;
+    private ?array $mutation = null;
 
     public function __construct(private readonly App $app) {}
 
-    public function plan(string $operation, string $pluginKey, array $actor, callable $readPlan, string $toolId = '', string $output = ''): array
+    public function plan(string $operation, string $pluginKey, array $actor, callable $readPlan, string $toolId = '', string $output = '', ?array $execution = null): array
     {
+        $applying = $execution !== null;
+        if ($applying && ($toolId !== '' || $output !== '' || !is_callable($execution['mutate'] ?? null))) { throw new RuntimeException('PLUGIN_SOURCE_ARGUMENTS_INVALID'); }
         if (($toolId === '') !== ($output === '')) { throw new RuntimeException('PLUGIN_SOURCE_BACKUP_ARGUMENTS_REQUIRED'); }
         $serverRoot = rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR);
         $context = $this->app->make(CurrentExecutionContext::class)->current();
@@ -33,7 +36,7 @@ final class PluginSourceDevelopmentHost
             throw new RuntimeException('PLUGIN_SOURCE_CONTEXT_REQUIRED');
         }
         $admission = new SourceDevelopmentMaintenanceAdmission($serverRoot);
-        $initial = $admission->capture($actor, false);
+        $initial = $admission->capture($actor, $applying);
         $config = \guardedDatabaseConfig();
         $connection = Db::connect();
         foreach (['hostname' => 'host', 'hostport' => 'port', 'database' => 'database', 'username' => 'user', 'password' => 'password'] as $native => $guarded) {
@@ -50,15 +53,15 @@ final class PluginSourceDevelopmentHost
         $target = \applicationMigrationTargetVersion($serverRoot, $versions);
         $runner = new ApplicationMigrationRunner($config, $pdo);
         return ScaffoldUpgradeRunner::sourceProductLock(dirname($serverRoot), function () use ($runner, $files, $target, $versions,
-            $pdo, $connection, $admission, $actor, $initial, $identity, $context, $operation, $pluginKey, $config, $readPlan, $toolId, $output): array {
+            $pdo, $connection, $admission, $actor, $initial, $identity, $context, $operation, $pluginKey, $config, $readPlan, $toolId, $output, $execution, $applying): array {
             $result = null;
             $runner->run($files, $target, $versions['release_sequence_version'], true, null,
                 function (PDO $actual, array $selection) use ($pdo, $connection, $admission, $actor, $initial, $identity,
-                    $context, $operation, $pluginKey, $config, $files, $readPlan, $toolId, $output, &$result): void {
-                    $recheck = function () use ($pdo, $connection, $admission, $actor, $initial, $identity, $context, $config): void {
+                    $context, $operation, $pluginKey, $config, $files, $readPlan, $toolId, $output, $execution, $applying, &$result): void {
+                    $recheck = function () use ($pdo, $connection, $admission, $actor, $initial, $identity, $context, $config, $applying): void {
                         $current = $this->app->make(CurrentExecutionContext::class)->current();
                         if ($current !== $context || Db::connect() !== $connection || $connection->getPdo() !== $pdo
-                            || $admission->capture($actor, false) !== $initial || InstallationExecutionHost::migrationDatabaseIdentity($pdo) !== $identity) {
+                            || $admission->capture($actor, $applying) !== $initial || InstallationExecutionHost::migrationDatabaseIdentity($pdo) !== $identity) {
                             throw new RuntimeException('PLUGIN_SOURCE_PLAN_CHANGED');
                         }
                         ScaffoldUpgradeRunner::sourceProductLock(dirname(rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR)), static fn() => null);
@@ -81,7 +84,7 @@ final class PluginSourceDevelopmentHost
                     $this->planning = ['pdo' => $pdo, 'recheck' => $recheck, 'prerequisite' => $prerequisite];
                     try {
                         $result = $readPlan(function (array $native) use ($operation, $pluginKey, $initial, $identity, $selection,
-                            $pdo, $config, $recheck, $readPlan, $toolId, $output): array {
+                            $pdo, $config, $recheck, $readPlan, $toolId, $output, $execution, $applying, $context): array {
                             if ($pdo->inTransaction()) { throw new RuntimeException('PLUGIN_SOURCE_PLAN_TRANSACTION_INCOMPLETE'); }
                             $recheck();
                             if ($operation === 'install' && ($native['action'] ?? null) !== 'planned_install') {
@@ -93,6 +96,81 @@ final class PluginSourceDevelopmentHost
                                 'operation' => $operation, 'plugin_key' => $pluginKey, 'binding' => $binding,
                                 'application' => $selection, 'plugin' => $native, 'lifecycle_effects' => $effects, 'execution_admitted' => false,
                                 'recovery' => 'not_attested', 'product_database' => 'not_verified'];
+                            if ($applying) {
+                                $grants = $pdo->query('SHOW GRANTS')->fetchAll(PDO::FETCH_COLUMN);
+                                $select = false; $trigger = false;
+                                foreach ($grants as $grant) {
+                                    if (str_starts_with($grant, 'REVOKE ')) { throw new RuntimeException('PLUGIN_SOURCE_METADATA_VISIBILITY_REQUIRED'); }
+                                    if (preg_match('/\AGRANT (.+) ON (.+) TO /D', $grant, $parts) !== 1) { continue; }
+                                    $privileges = explode(', ', $parts[1]);
+                                    $global = $parts[2] === '*.*';
+                                    $database = $parts[2] === '`' . str_replace('`', '``', $identity['database']) . '`.*';
+                                    $select = $select || ($global && (in_array('SELECT', $privileges, true) || in_array('ALL PRIVILEGES', $privileges, true)));
+                                    $trigger = $trigger || (($global || $database) && (in_array('TRIGGER', $privileges, true) || in_array('ALL PRIVILEGES', $privileges, true)));
+                                }
+                                if (!$select || !$trigger) { throw new RuntimeException('PLUGIN_SOURCE_METADATA_VISIBILITY_REQUIRED'); }
+                                $expected = SourceApplicationBackup::protectedPluginJson($execution['plan'], $this->app->getRootPath());
+                                foreach (array_keys($report) as $field) {
+                                    if (self::digest([$expected[$field] ?? null]) !== self::digest([$report[$field]])) { throw new RuntimeException('PLUGIN_SOURCE_PLAN_STALE'); }
+                                }
+                                if (($native['may_apply'] ?? null) !== true || ($effects['closure_complete'] ?? null) !== true
+                                    || ($prerequisite = $this->planning['prerequisite']) !== null) { throw new RuntimeException('PLUGIN_SOURCE_PLAN_BLOCKED'); }
+                                $scope = SourceApplicationBackup::pluginScope($pdo, $effects);
+                                // Fixed closure cannot attest arbitrary trigger bodies or cascading outside writers.
+                                if ($scope['triggers'] !== []) { throw new RuntimeException('PLUGIN_SOURCE_TRIGGER_EFFECT_REVIEW_REQUIRED'); }
+                                foreach ($scope['foreign_keys'] as $foreign) {
+                                    if ((int) $foreign['IS_LOCAL_PARENT'] === 1 && in_array($foreign['REFERENCED_TABLE_NAME'], $effects['tables'], true)
+                                        && ($foreign['TABLE_SCHEMA'] !== $identity['database'] || !in_array($foreign['TABLE_NAME'], $effects['tables'], true))
+                                        && (in_array($foreign['UPDATE_RULE'], ['CASCADE', 'SET NULL'], true) || in_array($foreign['DELETE_RULE'], ['CASCADE', 'SET NULL'], true))) {
+                                        throw new RuntimeException('PLUGIN_SOURCE_CASCADE_EFFECT_REVIEW_REQUIRED');
+                                    }
+                                }
+                                $baseline = ['pending' => $effects['pending'], 'selected' => $effects['selected'],
+                                    'operation' => $operation, 'plugin_key' => $pluginKey, 'native_plan_sha256' => self::digest($native), 'lifecycle_effects' => $effects];
+                                $evidence = fn(): array => SourceApplicationBackup::pluginRecovery($binding, $baseline, $scope,
+                                    $execution['maintenance'], $execution['recovery'], $this->app->getRootPath());
+                                $proof = $evidence();
+                                $recheck();
+                                $readLedger = static function () use ($pdo, $native): array {
+                                    $query = $pdo->prepare('SELECT * FROM pa_module_migration WHERE module_key IN ('
+                                        . implode(',', array_fill(0, count($native['modules']), '?')) . ') ORDER BY module_key,migration_key');
+                                    try { $query->execute(array_column($native['modules'], 'module_key')); return $query->fetchAll(PDO::FETCH_ASSOC); }
+                                    finally { $query->closeCursor(); }
+                                };
+                                $oldLedger = $readLedger();
+                                $this->mutation = ['pdo' => $pdo, 'plugin_key' => $pluginKey, 'operation' => $operation,
+                                    'check' => function () use ($recheck, $evidence, $proof): void {
+                                        $recheck();
+                                        if ($evidence() !== $proof) { throw new RuntimeException('PLUGIN_SOURCE_WINDOW_CHANGED'); }
+                                    },
+                                    'admission' => ['schema_version' => 1, 'scope' => 'source-plugin', 'protocol' => 'peanut.source-plugin-admission.v1',
+                                        'instance_root' => realpath($this->app->getRootPath()), 'database_identity' => $identity,
+                                        'plugin_key' => $pluginKey, 'operation' => $context->operation(), 'request_id' => $context->requestId(),
+                                        'plan_sha256' => self::digest($native), 'binding' => $binding, 'evidence' => $proof,
+                                        'external_writer_exclusion' => 'ops_protocol_gate_required_not_attested']];
+                                try {
+                                    $this->requireMutation($pdo, $pluginKey);
+                                    // The outer read-plan callback still holds the native package lock.
+                                    // Only this call enters the original lifecycle, never a copied SQL runner.
+                                    $result = ($execution['mutate'])();
+                                    $this->requireMutation($pdo, $pluginKey);
+                                    if ($pdo->inTransaction()) { throw new RuntimeException('PLUGIN_SOURCE_TRANSACTION_INCOMPLETE'); }
+                                    $ledger = $readLedger(); $byKey = array_column($ledger, null, 'migration_key');
+                                    foreach ($oldLedger as $row) {
+                                        if (($byKey[$row['migration_key']] ?? null) !== $row) { throw new RuntimeException('PLUGIN_SOURCE_OLD_LEDGER_CHANGED'); }
+                                    }
+                                    foreach ($effects['pending'] as $key) {
+                                        $row = $byKey[$key] ?? [];
+                                        if (($row['status'] ?? null) !== 'applied' || ($row['checksum'] ?? null) !== $effects['selected'][$key]
+                                            || !in_array($row['resolution_kind'] ?? null, ['executed', 'adopted'], true)) { throw new RuntimeException('PLUGIN_SOURCE_LEDGER_INCOMPLETE'); }
+                                    }
+                                    return ['protocol' => 'peanut.source-plugin-result.v1', 'status' => 'completed', 'operation' => $operation,
+                                        'plugin_key' => $pluginKey, 'binding' => $binding, 'native_plan_sha256' => self::digest($native),
+                                        'evidence' => $proof, 'result' => $result, 'ledger' => $ledger,
+                                        'verification_level' => 'native_same_process_lifecycle_completion',
+                                        'cross_process_preservation' => 'not_verified', 'product_database' => 'not_verified', 'qualification' => 'not_run'];
+                                } finally { $this->mutation = null; }
+                            }
                             if ($toolId !== '') {
                                 $this->assertBackupReads($effects['tables'], $config);
                                 $scope = SourceApplicationBackup::pluginScope($pdo, $effects);
@@ -128,6 +206,28 @@ final class PluginSourceDevelopmentHost
             if (!is_array($result)) { throw new RuntimeException('PLUGIN_SOURCE_PLAN_INCOMPLETE'); }
             return $result;
         });
+    }
+
+    /** No caller JSON can create this capability; it exists only inside the held native callback. */
+    public function requireMutation(PDO $pdo, string $pluginKey): array
+    {
+        if ($this->mutation === null || $this->mutation['pdo'] !== $pdo || $this->mutation['plugin_key'] !== $pluginKey) {
+            throw new RuntimeException('PLUGIN_SOURCE_MUTATION_WINDOW_REQUIRED');
+        }
+        ($this->mutation['check'])();
+        $name = \app\common\value\runtime\RuntimeNamespace::fromConfiguration()->advisoryLockName(
+            'pa:module-runtime:' . substr(hash('sha256', $pluginKey), 0, 40));
+        $lock = $pdo->prepare('SELECT IS_USED_LOCK(?) = CONNECTION_ID()');
+        try {
+            $lock->execute([$name]);
+            if ((int) $lock->fetchColumn() !== 1) { throw new RuntimeException('PLUGIN_SOURCE_PACKAGE_LOCK_REQUIRED'); }
+        } finally { $lock->closeCursor(); }
+        return $this->mutation['admission'];
+    }
+
+    public function migrationAdmission(PDO $pdo): ?array
+    {
+        return $this->mutation === null ? null : $this->requireMutation($pdo, $this->mutation['plugin_key']);
     }
 
     /** The normal native declaration must cover every whole shared table before observation/dump. */

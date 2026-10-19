@@ -141,7 +141,13 @@ app/event.php保留AppInit、HttpRun、HttpEnd、LogLevel和LogWrite项，但默
 
 菜单／权限回调业务断言不替代真实私有备份及完整结构／数据恢复。断言失败沿官方执行器保留 failed／已完成阶段与原恢复点，不伪回滚 DDL、不自动重放或伪造 applied。安全结果仅记录 id／hash／readonly、具体成功字段及安全计数／时钟范围标识，不能重建原私有前态；涉及这些阶段的独立 verify／已完成 migrate 重放当前分别拒绝 `APPLICATION_SCHEMA_MENU_LIVE_REVERIFY_REQUIRED`／`APPLICATION_SCHEMA_PERMISSION_LIVE_REVERIFY_REQUIRED`，不以旧成功摘要冒充实时保全复验。固定 provenance 即使位于多条链中也须为 before_additions；原源码身份、原生权限、完整恢复覆盖与发布资格保持独立约束。
 
-`plugin:upgrade`／`plugin:install` 的 `--scope=source-development --dry-run` 为明确选择的单个插件生成原生计划，同时必须提供实际 `--owner`／`--thread`／`--session`／`--gate`。入口在初始化数据库前核对干净源码、原安装标记和当前原生资源租约，并在真实产品文件锁、应用迁移 advisory lock 与插件原生锁内读取；缺少真实来源字段迁移时只列为应用前置项。宿主使用当前插件命令上下文，不冒充应用 schema 或发行升级，不授予安装、采用、catalog 或迁移写入能力；结果固定 `execution_admitted=false`，恢复覆盖仍单独要求。
+`plugin:upgrade`／`plugin:install` 的 `--scope=source-development --dry-run` 为明确选择的单个插件生成原生计划，同时必须提供实际 `--owner`／`--thread`／`--session`／`--gate`。入口在初始化数据库前核对干净源码、原安装标记和当前原生资源租约，并在真实产品文件锁、应用迁移 advisory lock 与插件原生锁内读取；缺少真实来源字段迁移时只列为应用前置项。计划和 capture 固定 `execution_admitted=false`，不冒充应用 schema 或发行升级。
+
+同一源码插件入口移除 `--dry-run` 后必须另外提供受保护的 `--source-plan`、`--maintenance`、`--recovery`，不同时执行 backup。宿主要求真实 DDL 原生准入，在上述三个原生锁仍持有时重算完整计划、固定 SQL 闭包和原表范围，逐字段匹配原计划，再核当前有效窗口与真实 native dump／终态 process receipts／RESTORE 合同及独立 Notification 原文件字节。maintenance 使用 `peanut.source-plugin-maintenance.v1`，绑定 source/database/authority/registry、完整 pending/selected、baseline 摘要、已捕获的 scope.tables、有效时间和原排除 writer 回执；它仍是运维排除的证明入口，JSON 声明或 advisory lock 本身不证明外部 writer 已停止。capture 必须始于该窗口内。执行前还要求当前 PDO 对完整元数据有直接 SELECT/TRIGGER 可见性；未知触发器和范围外级联写入阻止对应操作，不自动扩张备份。
+
+仅当前同一进程、同一命令上下文和 master PDO 内的宿主能力允许原 PLS 执行安装或升级；开始 lifecycle、每段迁移及其原 after／applied 边界、catalog 和失败标记都复核 source/actor/lease/window/backup，原事务提交前和业务 before 完成后的 SQL 执行前再次复核。执行仍由原 PLS 和模块自己的保全合同完成，不复制 SQL executor，不伪造安装或发行升级身份。原未知 SQL、namespace、append-only 修复和 File 采用身份限制保留；只完成原 native plan 已 ready／may_apply 且范围闭合的操作。Notification forward 和 File adopt 仍受原计划与采用准入限制，本入口尚未打通它们，不把闭合的备份范围等同于可执行。失败保留已提交前缀和实际失败现场，不自动重放、回滚或 restore。
+
+`peanut.source-plugin-result.v1` 只报告本次原生生命周期完成及实际 ledger 回读，明确 `verification_level=native_same_process_lifecycle_completion`、`cross_process_preservation=not_verified`，不以返回成功冒充独立保全复验。后续正常业务可改变数据：当前目标结构／业务约束检查、原执行窗口的 before/SQL/after 保全、基于受验原始证据的跨进程复验必须分别表达。旧安全摘要或自算 digest 不能重建私有事实；缺少所属业务复验 API 时保留拒绝，不持久化私有 DTO、不恢复临时数据库、不重放 SQL 或制造新的 preservation=true。
 
 Plugin 计划中的 `lifecycle_effects` 绑定真实生产链：begin、每条 migration/adopt、catalog 注册、失败标记分别提交，后段失败不会撤销前段；失败标记本身可能失败。单模块 catalog 同步仍包含全局 core permissions/data conditions，以及 permission、target、condition、protected resource、operation 与三类关系、menu definition、setting definition、reference-code set；还会改三张安装/归属表。操作关系可能删除后重建，菜单按全局 key 更新，不能以单租户或 `module_key` 过滤备份。该激活路径不写 settings values、reference-code entries、tenant revisions 或 role grants。File adopt 另写 module ledger 与平台审计，不能称为只补账。菜单冲突日志保留为证据，不随数据库恢复回退。
 
