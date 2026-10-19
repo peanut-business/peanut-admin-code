@@ -229,12 +229,39 @@ def enable(server, data, expected_revision):
 def compose_arguments(server):
     values = backend_environment(server)
     arguments = ['docker', 'compose', '--env-file', '.env', '-f', 'compose.yaml']
+    source = values.get('PEANUT_DATABASE_SOURCE', 'bundled')
+    if source not in ('bundled', 'registered'):
+        raise ValueError('RUNTIME_DATABASE_SOURCE_INVALID')
+    if source == 'registered':
+        ordinary(server / 'docker/compose.registered-database.yaml', private=False)
+        arguments += ['-f', 'compose.registered-database.yaml']
     if values.get('COLLABORATION_ENABLED') == 'enabled':
         node = environment(server / 'docker/collaboration.env')
         if any(node.get(key) != values.get(key) for key in ('COLLABORATION_INSTANCE_ID', 'COLLABORATION_SERVICE_INSTANCE_ID', 'COLLABORATION_CA_SHA256')):
             raise ValueError('COLLABORATION_PROFILE_CONFIGURATION_STALE')
         arguments += ['--env-file', 'collaboration.env', '-f', 'compose.collaboration.yaml']
     return arguments
+
+
+def registered_database_services(server, arguments):
+    # Recognise this package-owned file even before the wizard publishes .env.
+    # Explicit service targets also exclude MySQL when COMPOSE_PROFILES is set.
+    official = server / 'docker/compose.registered-database.yaml'
+    for index, argument in enumerate(arguments):
+        value = None
+        if argument in ('-f', '--file') and index + 1 < len(arguments):
+            value = arguments[index + 1]
+        elif argument.startswith('--file='):
+            value = argument[len('--file='):]
+        if value is not None:
+            path = Path(value)
+            if not path.is_absolute():
+                path = server / 'docker' / path
+            if path.resolve() == official.resolve():
+                ordinary(official, private=False)
+                ordinary(path, private=False)
+                return ['php', 'nginx']
+    return []
 
 
 def run(server, arguments):
@@ -252,12 +279,13 @@ def start(server, extra=()):
     # Application deployment only. Node starts independently from its own config.
     arguments = compose_arguments(server) + list(extra)
     run(server, arguments + ['config', '--quiet'])
-    run(server, arguments + ['up', '-d', '--wait', '--no-build'])
+    run(server, arguments + ['up', '-d', '--wait', '--no-build'] + registered_database_services(server, arguments))
 
 
-def stop(server):
+def stop(server, extra=()):
     # This composition contains APP services and ingress, not the independent Node.
-    run(server, compose_arguments(server) + ['stop'])
+    arguments = compose_arguments(server) + list(extra)
+    run(server, arguments + ['stop'] + registered_database_services(server, arguments))
 
 
 def execute():

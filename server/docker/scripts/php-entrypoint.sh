@@ -86,11 +86,18 @@ write_bootstrap_env() {
     edition=$(release_field edition)
     version=$(release_field version)
     case "$edition" in standalone|multi-tenant) ;; *) echo "server release edition is invalid" >&2; exit 1 ;; esac
+    bootstrap_environment=production
+    bootstrap_target=production
+    # release_field already strictly verified the runtime declaration above.
+    if [ -e "$SERVER_ROOT/.peanut/development-runtime.json" ] || [ -L "$SERVER_ROOT/.peanut/development-runtime.json" ]; then
+        bootstrap_environment=development
+        bootstrap_target=local-development
+    fi
     tmp="$SERVER_ROOT/.env.bootstrap.tmp-$$"
     umask 077
     {
-        printf 'APP_ENV=production\nAPP_DEBUG=false\n'
-        printf 'DEPLOYMENT_MODE=%s\nPEANUT_DEPLOYMENT_TARGET=production\n' "$edition"
+        printf 'APP_ENV=%s\nAPP_DEBUG=false\n' "$bootstrap_environment"
+        printf 'DEPLOYMENT_MODE=%s\nPEANUT_DEPLOYMENT_TARGET=%s\n' "$edition" "$bootstrap_target"
         printf 'PEANUT_INSTALLATION_MODE=guided\nPEANUT_INSTALLATION_SETUP_TOKEN=%s\n' "$token"
         printf 'PEANUT_DATABASE_RESOURCE_ID=bootstrap-unconfigured\nPEANUT_DATABASE_ENDPOINT_ID=bootstrap-unconfigured\nPEANUT_DATABASE_CONSUMER=container\n'
         printf 'DB_DRIVER=mysql\nDB_TYPE=mysql\nDB_HOST=127.0.0.1\nDB_PORT=3306\nDB_NAME=bootstrap_unconfigured\nDB_USER=bootstrap\nDB_PASS=bootstrap_not_used\nDB_CHARSET=utf8mb4\nDB_PREFIX=pa_\n'
