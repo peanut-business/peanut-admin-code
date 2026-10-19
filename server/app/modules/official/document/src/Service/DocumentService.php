@@ -61,6 +61,7 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
         private DocumentAcceptedWriteRegistry $acceptedWrites,
         private DocumentOwnerRegistry $owners,
         private TenantAuthorizationReadFence $authorizationFence,
+        private \PeanutAdmin\Kernel\Module\ModuleRuntimeRepository $modules,
     ) {
         $this->preparedVersions = new \WeakMap();
         $this->acceptedTransfers = new \WeakMap();
@@ -816,6 +817,43 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
         });
     }
 
+    public function publicationBody(DocumentOwnerReference $owner): array
+    {
+        $execution = $this->execution->current();
+        $tenantId = $execution?->tenantId();
+        if (!($execution instanceof AdminExecutionContext || $execution instanceof \app\common\execution\ConsumerExecutionContext)
+            || $tenantId === null || $tenantId < 1) {
+            throw BusinessException::forbidden('DOCUMENT_PUBLICATION_CONTEXT_REQUIRED', '固定正文须使用可信租户公开入口');
+        }
+        $guard = new \PeanutAdmin\Kernel\Module\ModuleGuard($this->modules);
+        foreach (['official.document', 'official.rich-text', $owner->moduleKey] as $module) {
+            $guard->assertDeployment($module);
+            $guard->assertTenant($tenantId, $module, new \DateTimeImmutable('now', new \DateTimeZone('UTC')));
+        }
+        return Db::transaction(function () use ($tenantId, $owner): array {
+            $policy = $this->owners->requirePolicy($owner);
+            if (!$policy instanceof \PeanutAdmin\Modules\Document\Contract\DocumentPublicationOwnerPolicy) {
+                throw BusinessException::forbidden('DOCUMENT_PUBLICATION_UNSUPPORTED', '此业务未授权固定正文公开读取');
+            }
+            // The business owner supplies the binding under its current publication/lifecycle lock.
+            $binding = $policy->publishedBinding($tenantId, $owner);
+            $document = Document::where('id', $binding['document_id'])->where('owner_module_key', $owner->moduleKey)
+                ->where('owner_object_type', $owner->objectType)->where('owner_object_id', $owner->objectId)->where('slot', $owner->slot)
+                ->where('status', 'active')->where('content_kind', 'rich_text')->lock(true)->find();
+            if ($document === null) {
+                throw BusinessException::notFound('DOCUMENT_PUBLICATION_UNAVAILABLE', '固定正文不可用');
+            }
+            $revision = $this->revision($document, $binding['revision_id']);
+            $snapshot = $this->snapshotFromRevision($tenantId, $document, $revision);
+            if ($snapshot->contentKind !== 'rich_text' || $snapshot->structuredContent === null || $snapshot->binding() !== $binding) {
+                throw BusinessException::conflict('DOCUMENT_PUBLICATION_BINDING_CHANGED', '正式保存的正文固定版本不一致');
+            }
+            // Internal projection only: no Yjs/history metadata or File delivery authority.
+            // The Article public renderer must omit File nodes instead of exposing their internal keys.
+            return $snapshot->structuredContent;
+        });
+    }
+
     public function ownerSaveSnapshot(TenantContext $context, int $documentId, int $revisionId, DocumentOwnerReference $owner): VersionSnapshot
     {
         return $this->prepareVersion($context, $documentId, $revisionId, 'version.create', $owner);
@@ -882,7 +920,7 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
         });
     }
 
-    private function snapshotFromRevision(TenantContext $context, Document $document, DocumentRevision $revision): VersionSnapshot
+    private function snapshotFromRevision(TenantContext|int $context, Document $document, DocumentRevision $revision): VersionSnapshot
     {
         $projection = $revision->content_snapshot_json === null ? null : RichTextProjection::fromStructured(self::json($revision->content_snapshot_json));
         $content = $projection?->json;
@@ -899,7 +937,7 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
             throw BusinessException::conflict('DOCUMENT_VERSION_DIGEST_INVALID', '不可变文档版本摘要不一致');
         }
         return new VersionSnapshot(
-            $context->tenantId,
+            $context instanceof TenantContext ? $context->tenantId : $context,
             (int) $document->id,
             (int) $revision->id,
             (int) $revision->revision_no,

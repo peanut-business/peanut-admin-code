@@ -21,6 +21,8 @@ final class PublicArticleService implements PublicArticleQueries
     public function __construct(
         private readonly ProductAssetReferenceService $assets,
         private readonly RichTextResourceService $richText,
+        private readonly \PeanutAdmin\Modules\Document\Contract\DocumentQueries $documents,
+        private readonly ArticlePublicBodyRenderer $bodies,
     ) {}
 
     public function lists(array $params, int $memberId = 0): PageResult
@@ -80,19 +82,31 @@ final class PublicArticleService implements PublicArticleQueries
 
     public function detail(int $id, int $memberId = 0): array
     {
-        // Guard before the legacy HTML query/counter: a draft or old HTML is never a fixed publication.
-        $article = \think\facade\Db::transaction(static function () use ($id): array {
+        $fixed = false;
+        $article = \think\facade\Db::transaction(function () use ($id, &$fixed): array {
             $body = Article::where('id', $id)->where('is_show', 1)->field(['body_document_id'])->lock(true)->find();
-            if ($body !== null && $body->body_document_id !== null) {
-                throw BusinessException::conflict('ARTICLE_PUBLIC_FIXED_VERSION_UNAVAILABLE', '固定正文公开解析尚未接入');
+            if ($body === null) {
+                return [];
             }
-            return Article::getArticleDetailArr($id);
+            $fixed = $body->body_document_id !== null;
+            $content = $fixed ? $this->bodies->render($this->documents->publicationBody(
+                new \PeanutAdmin\Modules\Document\Contract\DocumentOwnerReference('official.article', 'article', (string) $id, 'body'),
+            )) : null;
+            $result = Article::getArticleDetailArr($id);
+            if ($fixed && $result !== []) {
+                $result['content'] = $content;
+            }
+            return $result;
         });
         if ($article === []) {
             return [];
         }
         $article['image'] = $this->assets->forRead((string) ($article['image'] ?? ''));
-        $article['content'] = $this->richText->forRead((string) ($article['content'] ?? ''));
+        if (!$fixed) {
+            $article['content'] = $this->richText->forRead((string) ($article['content'] ?? ''));
+        }
+        unset($article['tenant_id'], $article['body_document_id'], $article['body_revision_id'],
+            $article['body_source_state_seq'], $article['body_snapshot_sha256']);
         $article['collect'] = $memberId > 0
             ? ArticleCollect::isCollected($memberId, $id)
             : false;

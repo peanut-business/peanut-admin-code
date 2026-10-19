@@ -58,6 +58,7 @@
       "PeanutAdmin\\Modules\\Document\\Contract\\DocumentOwnerReference",
       "PeanutAdmin\\Modules\\Document\\Contract\\DocumentOwnerState",
       "PeanutAdmin\\Modules\\Document\\Contract\\DocumentOwnerPolicy",
+      "PeanutAdmin\\Modules\\Document\\Contract\\DocumentPublicationOwnerPolicy",
       "PeanutAdmin\\Modules\\Document\\Contract\\DocumentOwnerContributor",
       "PeanutAdmin\\Modules\\Document\\Contract\\VersionSnapshot",
       "PeanutAdmin\\Modules\\Document\\Contract\\DocumentCollaborativeWrites",

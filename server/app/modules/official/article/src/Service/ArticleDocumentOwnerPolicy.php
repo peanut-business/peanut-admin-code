@@ -12,10 +12,34 @@ use PeanutAdmin\Modules\Document\Contract\DocumentOwnerPolicy;
 use PeanutAdmin\Modules\Document\Contract\DocumentOwnerReference;
 use PeanutAdmin\Modules\Document\Contract\DocumentOwnerState;
 
-/** Article remains the business/approval owner; no creator ACL and no publication changes. */
-final readonly class ArticleDocumentOwnerPolicy implements DocumentOwnerPolicy
+/** Article owns publication and lifecycle; internal Document permissions remain independent. */
+final readonly class ArticleDocumentOwnerPolicy implements DocumentOwnerPolicy, \PeanutAdmin\Modules\Document\Contract\DocumentPublicationOwnerPolicy
 {
     public function __construct(private AdminAuthorizationQuery $authorization, private \app\common\execution\CurrentExecutionContext $execution) {}
+
+    public function publishedBinding(int $tenantId, DocumentOwnerReference $owner): array
+    {
+        $current = $this->execution->current();
+        if ($current instanceof \app\common\execution\AdminExecutionContext) {
+            $context = $this->execution->tenantAdmin();
+            if (!$this->authorization->decide($context, $this->authorization->principal($context), 'official.article.update-status')->allowed) {
+                throw BusinessException::forbidden('ARTICLE_PUBLICATION_DENIED', '无权发布资讯');
+            }
+        } elseif (!$current instanceof \app\common\execution\ConsumerExecutionContext) {
+            throw BusinessException::forbidden('ARTICLE_PUBLICATION_CONTEXT_REQUIRED', '资讯公开入口无效');
+        }
+        $state = $this->resolvePersistedOwner($tenantId, $owner, true);
+        $article = Article::where('id', (int) $owner->objectId)->where('is_show', 1)->lock(true)->find();
+        if ($state->archived || $article === null) {
+            throw BusinessException::notFound('ARTICLE_NOT_FOUND', '文章不存在或已下架');
+        }
+        if ($article->body_document_id === null || $article->body_revision_id === null || $article->body_source_state_seq === null
+            || !is_string($article->body_snapshot_sha256) || preg_match('/^[a-f0-9]{64}$/D', $article->body_snapshot_sha256) !== 1) {
+            throw BusinessException::conflict('ARTICLE_PUBLIC_BODY_NOT_SAVED', '请先正式保存正文固定版本');
+        }
+        return ['document_id' => (int) $article->body_document_id, 'revision_id' => (int) $article->body_revision_id,
+            'source_state_seq' => (int) $article->body_source_state_seq, 'snapshot_sha256' => $article->body_snapshot_sha256];
+    }
     public function resolveOwner(TenantContext $context, DocumentOwnerReference $owner, bool $forUpdate = false): DocumentOwnerState
     {
         return $this->resolvePersistedOwner($context->tenantId, $owner, $forUpdate);

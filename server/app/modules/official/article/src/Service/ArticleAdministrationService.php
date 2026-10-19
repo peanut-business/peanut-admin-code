@@ -40,6 +40,7 @@ final class ArticleAdministrationService implements ArticleAdministration
         private readonly XlsxExportService $xlsxExport,
         private readonly \PeanutAdmin\Modules\Document\Contract\DocumentCommands $documents,
         private readonly ArticleBodyService $bodies,
+        private readonly \PeanutAdmin\Modules\Document\Contract\DocumentQueries $documentQueries,
     ) {}
 
     public function lists(TenantContext $context, array $params): PageResult|array
@@ -147,11 +148,12 @@ final class ArticleAdministrationService implements ArticleAdministration
             if ($article->isEmpty()) {
                 throw BusinessException::notFound('ARTICLE_NOT_FOUND', '资讯不存在');
             }
-            if ($isShow === 1 && $article->body_document_id !== null) {
-                throw BusinessException::conflict('ARTICLE_PUBLIC_FIXED_VERSION_UNAVAILABLE', '固定正文公开解析尚未接入');
-            }
             if ((int) $article->is_show !== $isShow) {
                 $article->save(['is_show' => $isShow]);
+            }
+            if ($isShow === 1 && $article->body_document_id !== null) {
+                // Resolve only the formally saved binding. A failure rolls back publication in this transaction.
+                $this->documentQueries->publicationBody(new \PeanutAdmin\Modules\Document\Contract\DocumentOwnerReference('official.article', 'article', (string) $id, 'body'));
             }
             return true;
         });

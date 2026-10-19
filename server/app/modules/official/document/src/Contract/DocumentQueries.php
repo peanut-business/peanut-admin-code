@@ -8,6 +8,8 @@ use PeanutAdmin\Kernel\Auth\TenantContext;
 
 interface DocumentQueries
 {
+    /** Current published owner's fixed rich-text projection only. No caller-selected tenant/version or File grant. */
+    public function publicationBody(DocumentOwnerReference $owner): array;
     /** Metadata/projection only: no Yjs binary, storage address or collaboration ticket. */
     public function detail(TenantContext $context, int $documentId, ?int $revisionId = null): array;
     /** Committed summaries only; fresh view/archive.read authorization on every bounded page. Rejects outer transactions. */
