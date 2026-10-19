@@ -836,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "81ddf040d01c7561c50260a134054fcb7c17aa7b1b7af6ecf9bc5d2dce4dd66d"
+            "source_sha256": "9d7129a90ef526e9222b377c88e65ef5968ef56e5e0d915dc899846a52f4e1b9"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -8960,7 +8960,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4940907bf15bd83dec716c9f9bf54a8d588a1d5e864ac31f88a636c06a2db111"
+            "source_sha256": "51ed216ee2a042baa6437fc3a5cbe1416285344b962bbdb3d2fff117ac4e0614"
         },
         {
             "path": "server/app/common/services/upgrade/SourceDevelopmentMaintenanceAdmission.php",
@@ -15236,7 +15236,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fe5acef29a708070e14760a976fc3662a102bbac078d74d7ab451a2c038e53a3"
+            "source_sha256": "51af502f7a5ac5907cc9cf849c56c7ad362aa21679cb7bd966bd665b7ee718aa"
         },
         {
             "path": "server/app/modules/official/import_export/resources/configuration-package.schema.json",
@@ -15391,6 +15391,20 @@
                 "full"
             ],
             "source_sha256": "39dd3620c0236a494e8381f7488967e1768ce74675d746f4acf1e85d11d46068"
+        },
+        {
+            "path": "server/app/modules/official/import_export/src/Contract/ImportExportMigrationPreservation.php",
+            "target": "server/app/modules/official/import_export/src/Contract/ImportExportMigrationPreservation.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "5b171b4497d8eaac281cb333c7bb688f752b3b0fbb08749b7550800634eda64f"
         },
         {
             "path": "server/app/modules/official/import_export/src/Contract/ImportExportQueries.php",
@@ -25479,7 +25493,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f2a8463b4ad80d7fcfc8688670e6b98a8427ec401c047af40f42c4d448f5ca20"
+            "source_sha256": "50d8610b72fd7eabaee2e6a450d963e629615a4c1907fdcc83b97baabfbf22ee"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",
