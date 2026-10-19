@@ -2333,7 +2333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a3bb5d3b7a7955b498d027939969ddc7e4128c0aea8ce6bc362bd3d3498d01a2"
+            "source_sha256": "bcd22185c4d3ff0903b46ade5d0cc45e1750dc96950aa1d65fac79245261f393"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2442,7 +2442,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ca2b93dc431b7ab07b15cdfb8249903c5f5cd5a0093cd231a1c5b0a8c1ca8f84"
+            "source_sha256": "3d8346289185ca7d8eb7d650023f5db379798d4af4ff5a06e8772c96a849847e"
         },
         {
             "path": "plugins/official.file/plugin.json",
@@ -11358,7 +11358,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b82ae821b3973483babfea893a97dc00bb83fe1e3851fa522f534bf10c76b2a7"
+            "source_sha256": "53a64da3f0bbc115460713c70ad4a56d51ef71bc6baf10389ce8b66f10409567"
         },
         {
             "path": "server/app/modules/official/document/resources/menus.json",
@@ -11527,6 +11527,20 @@
                 "full"
             ],
             "source_sha256": "b067c02e015adb91817935ab492c5b5bc874df7e81a03bdf22ee3a51af20499c"
+        },
+        {
+            "path": "server/app/modules/official/document/src/Contract/DocumentMigrationPreservation.php",
+            "target": "server/app/modules/official/document/src/Contract/DocumentMigrationPreservation.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "39eb775acc828f513a842de57ca1ebf88dad371e0ffd95f5f29f4d6dcd0d32ea"
         },
         {
             "path": "server/app/modules/official/document/src/Contract/DocumentOwnerContributor.php",
