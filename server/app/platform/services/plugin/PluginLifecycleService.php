@@ -23,6 +23,7 @@ use app\common\execution\InstanceExecutionContext;
 use app\common\execution\InstallationExecutionContext;
 use PeanutAdmin\Modules\File\Contract\FileMigrationAdoptionProof;
 use PeanutAdmin\Modules\File\Contract\FileMigrationPreservation;
+use PeanutAdmin\Modules\Document\Contract\DocumentMigrationPreservation;
 use PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight;
 use PeanutAdmin\Modules\Task\Job\Database\TaskSchemaMigrationProof;
 use PeanutAdmin\Modules\Identity\Audit\AuditService;
@@ -31,6 +32,10 @@ use app\common\services\installation\InstallationExecutionHost;
 /** Deployment-scoped Plugin lifecycle. It deliberately never mutates pa_tenant_module. */
 final readonly class PluginLifecycleService implements PluginLifecycleCommands
 {
+    private const DOCUMENT_STAGES = [
+        'official.document:20261012050000_create_business_documents' => '103003e0a0cbb8ec11ed2d1f039772500d7c610ad9b66bc19623fb012fa31f00',
+        'official.document:20261013120000_add_document_business_barriers' => 'e015617440e433d0d443f7c4c13b2bf02e35b4403e25c1009747d5d1d707f579',
+    ];
     private const PRESERVATION_STAGES = [
         'official.notification:20260921-adopt-notification-delivery-schema' => ['eaef582cd762c803f3f7d213687f61d43fd3634e9f0b984471f11648e10979fb', NotificationUpgradePreflight::class,
             ['official.notification:20260826-namespace-permission-keys']],
@@ -480,6 +485,9 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 }
                 $filePrivate = $moduleKey === 'official.file' && isset($adoptions['targets'][$migrationKey])
                     ? self::captureFilePreservation($pdo, $migrationKey, $checksum) : null;
+                $documentStage = $moduleKey === 'official.document' && isset(self::DOCUMENT_STAGES[$migrationKey]);
+                $documentAdmission = $documentStage ? self::adoptionAdmission($pdo) : null;
+                $documentPrivate = $documentStage ? self::captureDocumentPreservation($pdo, $migrationKey, $checksum) : null;
                 $stageContract = self::PRESERVATION_STAGES[$migrationKey] ?? null;
                 $stageAdmission = $stageContract === null ? null : self::adoptionAdmission($pdo);
                 $stageBefore = null;
@@ -518,9 +526,22 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                     }
                     // MySQL DDL commits implicitly. Keep the durable migration ledger outside the DDL boundary.
                     PeanutMigrationRun::apply($pdo, $moduleKey, $migrationKey, $sourceSql, $checksum,
-                        static function (?array $executionBounds) use ($connection, $pdo, $moduleKey, $migrationKey, $adoptions, $checksum, &$filePrivate, $stageContract, &$stageBefore): void {
+                        static function (?array $executionBounds) use ($connection, $pdo, $moduleKey, $migrationKey, $adoptions, $checksum, &$filePrivate,
+                            $documentStage, $documentAdmission, &$documentPrivate, $stageContract, &$stageBefore): void {
                             if (Db::connect() !== $connection || $connection->getPdo() !== $pdo || $pdo->inTransaction()) {
                                 throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Master connection changed during migration.');
+                            }
+                            if ($documentStage) {
+                                if (!is_array($documentPrivate) || $executionBounds !== null
+                                    || self::json(self::adoptionAdmission($pdo)) !== self::json($documentAdmission)) {
+                                    throw new PluginLifecycleException('MODULE_MIGRATION_PRESERVATION_REQUIRED', 'Document requires its original private facts and held native admission.');
+                                }
+                                self::assertDocumentPreserved($pdo, $migrationKey, $checksum, $documentPrivate);
+                                $documentPrivate = null;
+                                if (Db::connect() !== $connection || $connection->getPdo() !== $pdo || $pdo->inTransaction()
+                                    || self::json(self::adoptionAdmission($pdo)) !== self::json($documentAdmission)) {
+                                    throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Document completion changed its native connection or admission.');
+                                }
                             }
                             if ($stageContract !== null) {
                                 if (!is_array($stageBefore) || $executionBounds !== null) {
@@ -569,6 +590,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                     // Never accumulate private business snapshots across stages or
                     // serialize them into the sole migration ledger/result.
                     $filePrivate = null;
+                    $documentPrivate = null;
                     $stageBefore = null;
                     unset($stageLedger);
                 }
@@ -925,6 +947,37 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         if (($after['module_key'] ?? null) !== 'official.file' || ($after['migration_key'] ?? null) !== $key
             || ($after['sql_sha256'] ?? null) !== $sha || ($after['preservation_verified'] ?? null) !== true) {
             throw new PluginLifecycleException('MODULE_MIGRATION_POSTSTATE_REJECTED', 'File preservation did not prove this canonical stage.');
+        }
+    }
+
+    /** Same native caller as File, but Document consumes only its own fixed DDL contract. */
+    private static function captureDocumentPreservation(\PDO $pdo, string $key, string $sha): array
+    {
+        if ((self::DOCUMENT_STAGES[$key] ?? null) !== $sha || !class_exists(DocumentMigrationPreservation::class)) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_PRESERVATION_REQUIRED', 'The fixed Document source contract is unavailable.');
+        }
+        $before = app()->make(DocumentMigrationPreservation::class)->before($pdo, $key);
+        $safe = $before['safe_summary'] ?? null;
+        if ($pdo->inTransaction() || !is_array($safe) || ($safe['module_key'] ?? null) !== 'official.document'
+            || ($safe['migration_key'] ?? null) !== $key || ($safe['sql_sha256'] ?? null) !== $sha
+            || ($safe['readonly'] ?? null) !== true || ($safe['preservation_verified'] ?? null) !== false
+            || !is_array($before['private_state'] ?? null)) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_PRESERVATION_REQUIRED', 'Document private facts do not bind the current native stage.');
+        }
+        return $before['private_state'];
+    }
+
+    private static function assertDocumentPreserved(\PDO $pdo, string $key, string $sha, array $privateBefore): void
+    {
+        $after = app()->make(DocumentMigrationPreservation::class)->after($pdo, $privateBefore);
+        $delta = $key === 'official.document:20261012050000_create_business_documents'
+            ? 'six_empty_document_tables' : 'operation_progress_columns';
+        if (Db::connect()->getPdo() !== $pdo || $pdo->inTransaction() || ($after['module_key'] ?? null) !== 'official.document'
+            || ($after['migration_key'] ?? null) !== $key || ($after['sql_sha256'] ?? null) !== $sha
+            || ($after['readonly'] ?? null) !== true || ($after['preservation_verified'] ?? null) !== true
+            || ($after['proof_kind'] ?? null) !== 'fixed_native_additive_ddl' || ($after['delta_kind'] ?? null) !== $delta
+            || ($after['table_count'] ?? null) !== 6) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_POSTSTATE_REJECTED', 'Document did not prove the fixed native DDL postconditions.');
         }
     }
 

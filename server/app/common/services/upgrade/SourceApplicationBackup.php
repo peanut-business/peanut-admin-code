@@ -26,6 +26,12 @@ final class SourceApplicationBackup
         'official.file:20261012030000_add_controlled_file_references' => ['005edad54fc0cf06a4eeb6afa7c0e5f374a0bc352eaa088282b2f12932251591', ['pa_file_delivery_grant', 'pa_file_reference']],
         'official.file:20261012051000_add_immutable_document_snapshots' => ['7b73c0c24f14f4c7f4fc1f75321e009b1a645d7df3f7d653dbb3d018e3b5bdbe', ['pa_file_immutable_snapshot']],
     ];
+    private const DOCUMENT_STAGES = [
+        'official.document:20261012050000_create_business_documents' => ['103003e0a0cbb8ec11ed2d1f039772500d7c610ad9b66bc19623fb012fa31f00',
+            ['pa_document', 'pa_document_state', 'pa_document_revision', 'pa_document_file_ref', 'pa_document_resource_binding', 'pa_document_operation']],
+        'official.document:20261013120000_add_document_business_barriers' => ['e015617440e433d0d443f7c4c13b2bf02e35b4403e25c1009747d5d1d707f579',
+            ['pa_document_operation']],
+    ];
     private const MODULE_DDL_STAGES = [
         'official.notification:20260921-adopt-notification-delivery-schema' => ['eaef582cd762c803f3f7d213687f61d43fd3634e9f0b984471f11648e10979fb',
             ['pa_notification_template', 'pa_notification_message', 'pa_notification_attachment', 'pa_notification_outbox', 'pa_sms_rate_bucket', 'pa_notification_event'],
@@ -85,6 +91,15 @@ final class SourceApplicationBackup
                 $selected[$id] = $sha;
                 if (($migration['disposition'] ?? null) === 'already_applied') { continue; }
                 $pending[] = $id; $tables[] = 'pa_module_migration';
+                $document = self::DOCUMENT_STAGES[$id] ?? null;
+                if ($key === 'official.document' && $document !== null && $sha === $document[0]
+                    && ($migration['disposition'] ?? null) === 'execute') {
+                    array_push($tables, ...$document[1]);
+                    $writeRequirements[] = ['module_key' => $key, 'migration_key' => $id, 'code' => 'PLUGIN_SOURCE_DOCUMENT_PRESERVATION_REQUIRED',
+                        'contract' => 'PeanutAdmin\\Modules\\Document\\Contract\\DocumentMigrationPreservation',
+                        'api' => 'before(PDO, canonicalMigrationKey), after(PDO, innerPrivateState); fixed native DDL and same-PDO completion required'];
+                    continue;
+                }
                 $ddl = self::MODULE_DDL_STAGES[$id] ?? null;
                 if ($ddl !== null && $sha === $ddl[0] && in_array($migration['disposition'] ?? null, ['execute', 'after_predecessor'], true)) {
                     array_push($tables, ...$ddl[1]);
