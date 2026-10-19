@@ -51,7 +51,8 @@
       "PeanutAdmin\\Modules\\Member\\Contract\\MemberSubjectLookup",
       "PeanutAdmin\\Modules\\Member\\Contract\\MemberSessions",
       "PeanutAdmin\\Modules\\Member\\Contract\\Dto\\MemberSessionGrant",
-      "PeanutAdmin\\Modules\\Member\\Contract\\Dto\\MemberSessionSubject"
+      "PeanutAdmin\\Modules\\Member\\Contract\\Dto\\MemberSessionSubject",
+      "PeanutAdmin\\Modules\\Member\\Contract\\MemberSessionMigrationPreservation"
     ],
     "events": []
   },
