@@ -212,7 +212,7 @@ def source_vendor(root, workspace, state, phase):
         return {'sha256': sha(preflight_path)}
     spec = importlib.util.spec_from_file_location('source_vendor_quiescence', trusted / 'server/docker/scripts/update-recovery.py')
     recovery = importlib.util.module_from_spec(spec); spec.loader.exec_module(recovery)
-    observed = recovery.assert_stopped(server)
+    observed = recovery.assert_stopped(server, allow_registered=True)
     if observed != {key: state['quiescence'][key] for key in observed}:
         raise ValueError('vendor operation lost its exact stopped-container/image proof')
     old_path = workspace / 'recovery/vendor-original.json'
@@ -396,6 +396,8 @@ def source_runtime():
     collaboration = importlib.util.module_from_spec(spec); spec.loader.exec_module(collaboration)
     server = root / 'server'
     compose_args = collaboration.compose_arguments(server)
+    database_binding = recovery.source_database_binding(server)
+    registered_database = database_binding['source'] == 'registered'
 
     def compose(*values):
         return run(*compose_args, *values, cwd=server / 'docker')
@@ -488,10 +490,24 @@ def source_runtime():
                                        key=lambda row: (row['target'], row['source']))
                 if spec['image'] != quiescence['images'][service] or spec.get('pull_policy') != 'never' or planned_binds != expected:
                     raise ValueError('source startup inputs are not fixed to the original image and mounts')
-            mysql = inspect_container(quiescence['containers']['mysql']['id'])
-            assert_instance(mysql, 'mysql', quiescence['project'])
-            if mysql['Image'] != quiescence['images']['mysql'] or not mysql['State']['Running']:
-                raise ValueError('source database container identity changed before activation')
+            if registered_database:
+                if quiescence.get('database_binding') != database_binding:
+                    raise ValueError('source registered database endpoint changed before activation')
+                current = {service: fixed_service(fixed_args, service, quiescence)['Id'] for service in ('php', 'nginx')}
+                network = recovery.source_network(server, quiescence['project'], current)
+                if network != quiescence.get('admission_network'):
+                    raise ValueError('source registered admission network changed before activation')
+                mysql = run('docker', 'ps', '-a', '--no-trunc', '--filter', 'label=com.docker.compose.project=' + quiescence['project'],
+                            '--filter', 'label=com.docker.compose.service=mysql', '--format', '{{.ID}}').splitlines()
+                running = run('docker', 'ps', '--no-trunc', '--filter', 'label=com.docker.compose.project=' + quiescence['project'],
+                              '--format', '{{.ID}}').splitlines()
+                if mysql or not set(running).issubset(set(current.values())):
+                    raise ValueError('source registered instance has an unexpected database or writer')
+            else:
+                mysql = inspect_container(quiescence['containers']['mysql']['id'])
+                assert_instance(mysql, 'mysql', quiescence['project'])
+                if mysql['Image'] != quiescence['images']['mysql'] or not mysql['State']['Running']:
+                    raise ValueError('source database container identity changed before activation')
             # The unchanged native root entrypoint revalidates admission and publishes a new process context.
             for service in ('php', 'nginx'): fixed_service(fixed_args, service, quiescence)
             for service in ('php', 'nginx'):
@@ -527,13 +543,13 @@ def source_runtime():
             else:
                 initial_config = json.loads(compose('config', '--format', 'json'))
                 project = initial_config['name']
-                for service in ('php', 'nginx', 'mysql'):
+                for service in (('php', 'nginx') if registered_database else ('php', 'nginx', 'mysql')):
                     identifiers = compose('ps', '-a', '-q', service).splitlines()
                     if len(identifiers) != 1: raise ValueError('source stop service identity is ambiguous')
                     assert_instance(inspect_container(identifiers[0]), service, project)
                 run(*compose_args, '--project-directory', str(server / 'docker'), '--project-name', project,
                     'stop', '--timeout', '60', 'nginx', 'php', cwd=server / 'docker')
-        stopped = recovery.assert_stopped(server)
+        stopped = recovery.assert_stopped(server, allow_registered=True)
         stopped['instance_mounts'] = {}
         for service in ('php', 'nginx'):
             detail = inspect_container(stopped['containers'][service]['id'])
@@ -556,7 +572,8 @@ def source_runtime():
         if state.get('quiescence') is not None and stopped != state['quiescence']:
             raise ValueError('source runtime container/image binding changed')
         if phase == 'admit':
-            run('docker', 'run', '--rm', '--network', 'container:' + compose('ps', '-q', 'mysql'),
+            network = state['quiescence']['admission_network']['id'] if registered_database else 'container:' + compose('ps', '-q', 'mysql')
+            run('docker', 'run', '--rm', '--network', network,
                 '--mount', f'type=bind,src={root},dst={root}', '--mount', f'type=bind,src={workspace},dst={workspace}',
                 '--entrypoint', 'php', state['quiescence']['images']['php'], tools / 'update-plan.php', 'source-admit',
                 '--instance-server=' + str(server), '--workspace=' + str(workspace))

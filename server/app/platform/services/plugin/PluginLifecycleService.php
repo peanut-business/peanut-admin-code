@@ -1656,6 +1656,65 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             'module_manifest_sha256' => hash_file('sha256', $actual->moduleRoots['official.notification'] . '/module.json')];
     }
 
+    /** Only the real installation Host may defer a wholly absent fresh producer to its two native predecessors. */
+    private function notificationFreshPredecessorAdmission(PluginDescriptor $plugin, ManifestDocument $manifest, array $files, array $planned, \PDO $pdo): ?array
+    {
+        $owned = false;
+        try {
+            $context = app()->make(CurrentExecutionContext::class)->current();
+            if ($plugin->key !== 'official.notification' || !$context instanceof InstallationExecutionContext
+                || Db::connect()->getPdo() !== $pdo || $pdo->inTransaction()) { return null; }
+            $host = app()->make(\app\common\services\installation\InstallationExecutionHost::class);
+            $admission = $host->migrationAdoptionAdmission($pdo);
+            $current = $this->pluginInstallation($plugin->key, false);
+            if ($current !== null && (!in_array($current['status'], ['installing', 'failed'], true) || !$this->sameIdentity($plugin, $current))) { return null; }
+            $receipt = $this->notificationReceiptPath($plugin);
+            if (file_exists($receipt) || is_link($receipt)) { return null; }
+            $target = $this->notificationTarget($plugin);
+            if ($target['module_manifest_digest'] !== $manifest->digest) { return null; }
+            $namespace = 'official.notification:20260826-namespace-permission-keys';
+            $adoption = \PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::ADOPTION_KEY;
+            $producer = \PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::MIGRATION_KEY;
+            $expected = [$namespace => '8be087e7adacb8d34f2fa61111e683a7b15af4b62d93910d3a9655f1a605f606',
+                $adoption => 'eaef582cd762c803f3f7d213687f61d43fd3634e9f0b984471f11648e10979fb',
+                $producer => '7c01bc1bf1f309e879ff3014f89418157abbce45374a58064d1a6dc94fca07ce'];
+            if (array_keys($files) !== array_keys($expected) || count($planned) !== 2
+                || array_column($planned, 'migration_key') !== [$namespace, $adoption]) { return null; }
+            foreach ($expected as $key => $sha) {
+                if (!is_file($files[$key]) || is_link($files[$key]) || hash_file('sha256', $files[$key]) !== $sha) { return null; }
+            }
+            if (!in_array([$planned[0]['ledger_status'], $planned[0]['disposition']], [['missing', 'execute'], ['applied', 'already_applied']], true)
+                || ($planned[0]['ledger_status'] === 'applied' && ($planned[0]['resolution_kind'] ?? null) !== 'executed')
+                || $planned[1]['ledger_status'] !== 'missing' || $planned[1]['disposition'] !== 'execute') { return null; }
+            $pdo->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ'); $pdo->exec('SET TRANSACTION READ ONLY'); $pdo->beginTransaction(); $owned = true;
+            $read = static function (string $sql, array $parameters = []) use ($pdo): array {
+                if (Db::connect()->getPdo() !== $pdo || !$pdo->inTransaction()) { throw new \RuntimeException('NOTIFICATION_FRESH_SNAPSHOT_CHANGED'); }
+                $statement = $pdo->prepare($sql); $statement->execute($parameters); $rows = $statement->fetchAll(\PDO::FETCH_ASSOC); $statement->closeCursor(); return $rows;
+            };
+            $rows = $read('SELECT migration_key,checksum,status,resolution_kind,provenance_json,error_code,finished_at FROM pa_module_migration WHERE module_key=? ORDER BY migration_key', ['official.notification']);
+            if ($rows !== [] && (count($rows) !== 1 || $rows[0]['migration_key'] !== $namespace || $rows[0]['checksum'] !== $expected[$namespace]
+                || $rows[0]['status'] !== 'applied' || $rows[0]['resolution_kind'] !== 'executed' || $rows[0]['provenance_json'] !== null
+                || $rows[0]['error_code'] !== null || $rows[0]['finished_at'] === null)) { return null; }
+            $tables = ['pa_notification_template', 'pa_notification_message', 'pa_notification_attachment', 'pa_notification_outbox',
+                'pa_sms_rate_bucket', 'pa_notification_event', 'pa_notification_task_actor'];
+            foreach ($tables as $table) {
+                if ($read('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$table]) !== []) { return null; }
+            }
+            self::notificationForwardParentKeys($read);
+            if ((self::notificationForwardCatalogSchema($read)['may_apply'] ?? null) !== true) { return null; }
+            $sql = (string) file_get_contents($files[$adoption]);
+            preg_match_all('/\bCONSTRAINT\s+`?([a-zA-Z0-9_]+)`?/i', $sql, $matches);
+            foreach ($matches[1] as $constraint) {
+                if ($read('SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA=DATABASE() AND CONSTRAINT_NAME=?', [$constraint]) !== []) { return null; }
+            }
+            if (!$pdo->rollBack()) { throw new \RuntimeException('NOTIFICATION_FRESH_SNAPSHOT_CHANGED'); } $owned = false;
+            if (Db::connect()->getPdo() !== $pdo || $pdo->inTransaction() || app()->make(CurrentExecutionContext::class)->current() !== $context
+                || $host->migrationAdoptionAdmission($pdo) !== $admission || $this->notificationTarget($plugin) !== $target) { return null; }
+            return $admission;
+        } catch (\Throwable) { return null; }
+        finally { if ($owned && $pdo->inTransaction()) { $pdo->rollBack(); } }
+    }
+
     /** Platform-owned prerequisites run only inside the Module proof's actual read-only snapshot. */
     private static function notificationForwardSchemaReport(): array
     {
@@ -2078,10 +2137,13 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 } elseif ($notificationForward !== null && $key === \PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::ADOPTION_KEY) {
                     $report = $notificationForward;
                 } elseif ($willMigrate && $moduleKey === 'official.notification' && $key === \PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::MIGRATION_KEY) {
-                    if (($notificationForward['status'] ?? null) === 'adoption_required') {
+                    $freshAdmission = $notificationForward === null
+                        ? $this->notificationFreshPredecessorAdmission($plugin, $manifest, $files, $migrations, $pdo) : null;
+                    if (($notificationForward['status'] ?? null) === 'adoption_required' || $freshAdmission !== null) {
                         $report = ['module_key' => 'official.notification', 'status' => 'pending_predecessor', 'may_apply' => false,
                             'pending_count' => null, 'code' => 'NOTIFICATION_PRODUCER_PREFLIGHT_AFTER_ADOPTION'];
                         $disposition = 'after_predecessor';
+                        $admission = $freshAdmission;
                     } else { $report = app()->make(\PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::class)->report(); }
                 }
                 if ($report !== null && ($report['may_apply'] ?? null) !== true && $disposition !== 'after_predecessor') { $disposition = 'reject'; }

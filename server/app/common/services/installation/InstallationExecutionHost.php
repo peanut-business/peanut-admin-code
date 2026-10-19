@@ -31,6 +31,9 @@ final class InstallationExecutionHost
     private $executionLock = null;
     private ?array $moduleMigrationAdmission = null;
     private ?Closure $partialGuard = null;
+    private ?string $currentInstallationModule = null;
+    private ?array $fileContinuation = null;
+    private ?Closure $partialCompletion = null;
     private readonly string $serverRoot;
 
     /** @param Closure(CompiledModuleRegistry):ModuleRuntimeRepository $moduleRuntimeFactory */
@@ -332,10 +335,13 @@ final class InstallationExecutionHost
     public function partialInstallation(string $operation, string $inputPath): array
     {
         $context = app()->make(\app\common\execution\CurrentExecutionContext::class)->current();
+        $registryPath = $this->serverRoot . '/private/resources/project-resources.json';
+        $appOwner = is_file($registryPath) && ($this->partialJson($registryPath)['authority']['role'] ?? null) === 'application';
         if (PHP_SAPI !== 'cli' || !$context instanceof \app\common\execution\InstallationExecutionContext
             || $context->operation() !== 'installation.console.partial' || !in_array($operation, ['plan', 'backup', 'apply'], true)
             || !ApplicationSourceIdentity::hasRuntime($this->serverRoot) || Config::get('peanut.environment') !== 'development'
-            || !function_exists('posix_geteuid') || posix_geteuid() !== fileowner($this->serverRoot)) { throw new RuntimeException('INSTALL_PARTIAL_NATIVE_OWNER_REQUIRED'); }
+            || !function_exists('posix_geteuid') || (posix_geteuid() !== fileowner($this->serverRoot)
+                && !($appOwner && posix_geteuid() === 0))) { throw new RuntimeException('INSTALL_PARTIAL_NATIVE_OWNER_REQUIRED'); }
         $input = $this->partialJson($inputPath);
         $allowed = ['setup_token', 'actor', 'original_runtime', 'original_progress', 'original_configuration', 'original_failure', 'original_ledger', 'maintenance', 'plan', 'backup', 'backup_tool', 'backup_output'];
         if (array_diff(array_keys($input), $allowed) !== []) { throw new RuntimeException('INSTALL_PARTIAL_ARGUMENTS_INVALID'); }
@@ -344,6 +350,7 @@ final class InstallationExecutionHost
             if (preg_match('/^[A-Za-z0-9_-]{32,128}$/D', $token) !== 1 || !is_string($input['setup_token'] ?? null)
                 || !hash_equals($token, $input['setup_token'])) { throw new RuntimeException('INSTALL_SETUP_TOKEN_INVALID'); }
         }
+        if ($appOwner) { return $this->partialApplicationInstallation($operation, $input, $context); }
         $lock = $this->acquireExecutionLock(); $this->executionLock = $lock;
         try {
             if ($this->completionLockPresent() || file_exists($this->baselineMarker()) || is_link($this->baselineMarker())) { throw new RuntimeException('INSTALL_PARTIAL_COMPLETION_CONFLICT'); }
@@ -446,13 +453,302 @@ final class InstallationExecutionHost
                 return ['state' => 'installed', 'code' => 'INSTALL_COMPLETED', 'resumed_from' => 'migrate_database',
                     'original_history_preserved' => true, 'migration' => $migration, 'afterimage_backup' => $backup, ...$completion];
             } catch (Throwable $exception) {
-                \logInstallationFailure($this->serverRoot, $stage, 'INSTALL_PARTIAL_CONTINUATION_FAILED', $exception);
+                \logInstallationFailure($this->serverRoot, $stage, 'INSTALL_PARTIAL_CONTINUATION_FAILED', $exception, $this->currentInstallationModule);
                 throw new InstallationExecutionException('INSTALL_PARTIAL_CONTINUATION_FAILED', '续作未完成；保留原数据、进度和本次失败，不得自动重放。', 409, $exception,
                     ['category' => 'partial', 'stage' => $stage, 'safe_retry' => false, 'writes' => ['database' => 'may_have_partial_writes']]);
             }
         } finally {
+            $this->currentInstallationModule = null;
             $this->partialGuard = null; $this->moduleMigrationAdmission = null; $this->executionLock = null; flock($lock, LOCK_UN); fclose($lock);
         }
+    }
+
+    /** One fixed APP frontier. No Git checkout, maintainer registry or native Project lease is consumed here. */
+    private function partialApplicationInstallation(string $operation, array $input, \app\common\execution\InstallationExecutionContext $context): array
+    {
+        require_once $this->serverRoot . '/docker/scripts/update-plan.php';
+        return \PeanutServerUpdatePlan::withPartialInstallationOwner($this->serverRoot, function () use ($operation, $input, $context): array {
+            $lock = $this->acquireExecutionLock(); $this->executionLock = $lock;
+            $directory = $this->partialDirectory('partial-plans', ['output-dir' => [$this->serverRoot . '/private/partial-installation']]);
+            $completionPath = dirname($directory) . '/completion.json';
+            $attemptPath = dirname($directory) . '/attempt.json';
+            try {
+                if (array_diff(array_keys($input), ['setup_token', 'plan', 'backup', 'backup_tool', 'backup_output']) !== []) {
+                    throw new RuntimeException('INSTALL_PARTIAL_ARGUMENTS_INVALID');
+                }
+                if (file_exists($completionPath) || is_link($completionPath)) {
+                    if ($operation !== 'apply' || !is_string($input['plan'] ?? null)) { throw new RuntimeException('INSTALL_PARTIAL_FINALIZE_ONLY'); }
+                    $completion = \PeanutServerUpdatePlan::readPartialOwnerRecord($this->serverRoot, $completionPath);
+                    if (($completion['plan']['path'] ?? null) !== $input['plan']
+                        || ($completion['plan']['sha256'] ?? null) !== $this->fileDigest($input['plan'])
+                        || (isset($input['backup']) && $input['backup'] !== ($completion['backup']['path'] ?? null))) { throw new RuntimeException('INSTALL_PARTIAL_FINALIZE_PLAN_CHANGED'); }
+                    $completedPlan = \PeanutServerUpdatePlan::readPartialOwnerRecord($this->serverRoot, $input['plan']);
+                    if ($this->partialCoreFingerprint() !== $completedPlan['facts']['binding']['source']['loaded_core_sha256']
+                        || hash_file('sha256', PHP_BINARY) !== $completedPlan['facts']['binding']['source']['php_binary_sha256']
+                        || ApplicationSourceIdentity::load($this->serverRoot)->identitySha256() !== $completion['source']['runtime_sha256']) {
+                        throw new RuntimeException('INSTALL_PARTIAL_FINALIZE_SOURCE_CHANGED');
+                    }
+                    $this->partialApplicationWindow();
+                    $result = \PeanutServerUpdatePlan::finalizePartialInstallation($this->serverRoot, $completionPath);
+                    if (is_file($this->progressMarker()) && !unlink($this->progressMarker())) { throw new RuntimeException('INSTALL_PARTIAL_PROGRESS_FINALIZE_REQUIRED'); }
+                    return ['state' => 'installed', 'code' => 'INSTALL_COMPLETED', 'resumed_from' => 'finalize_only', ...$result];
+                }
+                if ($this->completionLockPresent() || file_exists($this->baselineMarker()) || is_link($this->baselineMarker())
+                    || file_exists($attemptPath) || is_link($attemptPath)) { throw new RuntimeException('INSTALL_PARTIAL_ATTEMPT_REQUIRES_RECONCILIATION'); }
+                if (isset($input['actor']) || isset($input['maintenance'])) { throw new RuntimeException('INSTALL_PARTIAL_APP_NATIVE_WINDOW_REQUIRED'); }
+                $source = \PeanutServerUpdatePlan::partialInstallationSource($this->serverRoot);
+                $config = \guardedDatabaseConfig();
+                $registry = $this->partialJson($this->serverRoot . '/private/resources/project-resources.json');
+                $resource = \registeredDatabase($registry, $config['resource_id']);
+                $consumer = is_file('/.dockerenv') ? 'container' : 'host';
+                $endpoint = \registeredDatabaseEndpoint($resource, $consumer);
+                if (($registry['authority']['role'] ?? null) !== 'application' || \requiredEnvironment('PEANUT_DATABASE_SOURCE') !== 'registered'
+                    || $config['environment'] !== 'development' || $config['deployment_target'] !== 'local-multi-tenant-demo'
+                    || $config['database'] !== $resource['database'] || $config['host'] !== $endpoint['host'] || (int) $config['port'] !== $endpoint['port']) {
+                    throw new RuntimeException('INSTALL_PARTIAL_APP_DATABASE_BINDING_REQUIRED');
+                }
+                $connection = Db::connect();
+                foreach (['hostname' => 'host', 'hostport' => 'port', 'database' => 'database', 'username' => 'user', 'password' => 'password'] as $native => $key) {
+                    if ((string) $connection->getConfig($native) !== (string) $config[$key]) { throw new RuntimeException('INSTALL_PARTIAL_MASTER_MISMATCH'); }
+                }
+                if ($connection->getConfig('prefix') !== 'pa_' || $connection->getConfig('break_reconnect') !== false
+                    || (int) $connection->getConfig('deploy') !== 0) { throw new RuntimeException('INSTALL_PARTIAL_MASTER_MISMATCH'); }
+                $connection->query('SELECT 1', [], true); $pdo = $this->pdo();
+                if ($pdo->inTransaction()) { throw new RuntimeException('INSTALL_PARTIAL_TRANSACTION_CONFLICT'); }
+                $window = $this->partialApplicationWindow();
+                $planPath = $input['plan'] ?? null;
+                if ($operation === 'plan') {
+                    if ($planPath !== null || isset($input['backup']) || isset($input['backup_output']) || !is_string($input['backup_tool'] ?? null)) { throw new RuntimeException('INSTALL_PARTIAL_ARGUMENTS_INVALID'); }
+                    $toolPath = $input['backup_tool']; $tool = $this->partialJson($toolPath);
+                    if (!str_starts_with($toolPath, dirname($directory) . '/')) { throw new RuntimeException('INSTALL_PARTIAL_APP_BACKUP_TOOL_REQUIRED'); }
+                    $authority = ['kind' => 'app-native-owner', 'owner_uid' => posix_geteuid(), 'server_root' => $this->serverRoot,
+                        'plan_id' => bin2hex(random_bytes(16)), 'created_at' => time(), 'expires_at' => time() + 1800];
+                    $facts = $this->partialApplicationFacts($pdo, $source, $config, $endpoint, $window, $authority);
+                    $ledgerPath = $directory . '/ledger-' . $authority['plan_id'] . '.json';
+                    \app\common\services\upgrade\SourceApplicationBackup::writePartialInstallationRecord($ledgerPath,
+                        ['application' => $facts['baseline']['original_ledger'], 'identity' => $facts['baseline']['identity_ledger']]);
+                    $facts['baseline']['original_files']['ledger'] = ['path' => $ledgerPath, 'sha256' => $this->fileDigest($ledgerPath)];
+                    $planPath = $directory . '/plan-' . $authority['plan_id'] . '.json';
+                    $plan = ['protocol' => 'peanut.app-installation-partial-plan.v1', 'resume_from' => 'install_modules',
+                        'facts' => $facts, 'source' => $source, 'tool' => ['path' => $toolPath, 'sha256' => $this->fileDigest($toolPath)],
+                        'automatic_retry' => false, 'execution_admitted' => false];
+                    \PeanutServerUpdatePlan::writePartialOwnerRecord($this->serverRoot, $planPath, $plan);
+                    return ['status' => 'planned', 'path' => $planPath, 'sha256' => $this->fileDigest($planPath),
+                        'resume_from' => 'install_modules', 'execution_admitted' => false, 'safe_retry' => false];
+                }
+                if (!is_string($planPath) || realpath(dirname($planPath)) !== $directory
+                    || preg_match('/\Aplan-[a-f0-9]{32}\.json\z/D', basename($planPath)) !== 1) { throw new RuntimeException('INSTALL_PARTIAL_PLAN_REQUIRED'); }
+                $plan = \PeanutServerUpdatePlan::readPartialOwnerRecord($this->serverRoot, $planPath);
+                if (($plan['protocol'] ?? null) !== 'peanut.app-installation-partial-plan.v1' || $plan['source'] !== $source
+                    || $plan['facts']['binding']['authority']['expires_at'] <= time()
+                    || $plan['facts']['binding']['authority']['owner_uid'] !== posix_geteuid()) { throw new RuntimeException('INSTALL_PARTIAL_PLAN_CHANGED'); }
+                $facts = $plan['facts'];
+                $recheck = function () use ($pdo, $connection, $context, $planPath, $plan, $source, $config, $endpoint, $facts): void {
+                    if ($pdo->inTransaction() || Db::connect() !== $connection || $connection->getPdo() !== $pdo
+                        || app()->make(\app\common\execution\CurrentExecutionContext::class)->current() !== $context
+                        || \PeanutServerUpdatePlan::readPartialOwnerRecord($this->serverRoot, $planPath) !== $plan
+                        || \PeanutServerUpdatePlan::partialInstallationSource($this->serverRoot) !== $source) { throw new RuntimeException('INSTALL_PARTIAL_FACTS_CHANGED'); }
+                    $fresh = $this->partialApplicationFacts($pdo, $source, $config, $endpoint, $this->partialApplicationWindow(), $facts['binding']['authority']);
+                    $fresh['baseline']['original_files']['ledger'] = $facts['baseline']['original_files']['ledger'];
+                    if ($fresh !== $facts || $this->fileDigest($plan['tool']['path']) !== $plan['tool']['sha256']) { throw new RuntimeException('INSTALL_PARTIAL_FACTS_CHANGED'); }
+                    $this->partialFileReference($facts['baseline']['original_files']['ledger']);
+                };
+                $recheck();
+                if ($operation === 'backup') {
+                    if (isset($input['backup']) || !is_string($input['backup_output'] ?? null)
+                        || (isset($input['backup_tool']) && $input['backup_tool'] !== $plan['tool']['path'])) { throw new RuntimeException('INSTALL_PARTIAL_ARGUMENTS_INVALID'); }
+                    $backupDirectory = $this->partialDirectory('partial-backups', ['output-dir' => [dirname($directory)]]);
+                    $output = $input['backup_output'];
+                    if (realpath(dirname($output)) !== $backupDirectory || preg_match('/\A[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}\z/D', basename($output)) !== 1) { throw new RuntimeException('INSTALL_PARTIAL_BACKUP_OUTPUT_REQUIRED'); }
+                    return \app\common\services\upgrade\SourceApplicationBackup::capture($facts['binding'], $facts['baseline'], self::partialDigest($facts['baseline']),
+                        $facts['scope'], $this->partialJson($plan['tool']['path']), $output, $recheck, 'installation-partial');
+                }
+                if (!is_string($input['backup'] ?? null) || isset($input['backup_output']) || isset($input['backup_tool'])) { throw new RuntimeException('INSTALL_PARTIAL_ARGUMENTS_INVALID'); }
+                $backup = \app\common\services\upgrade\SourceApplicationBackup::partialInstallationBackup($input['backup'], $this->serverRoot, $facts['binding'], $facts['baseline']);
+                $recheck();
+                $this->partialGuard = function () use ($pdo, $connection, $context, $facts, $source, $plan, $backup, $input): void {
+                    if (Db::connect() !== $connection || $connection->getPdo() !== $pdo
+                        || app()->make(\app\common\execution\CurrentExecutionContext::class)->current() !== $context
+                        || time() >= $facts['binding']['authority']['expires_at'] || $this->partialLockBinding() !== $facts['baseline']['execution_lock']
+                        || self::migrationDatabaseIdentity($pdo) !== $facts['binding']['database']
+                        || ApplicationSourceIdentity::load($this->serverRoot)->identitySha256() !== $source['runtime_sha256']
+                        || $this->partialCoreFingerprint() !== $facts['binding']['source']['loaded_core_sha256']
+                        || hash_file('sha256', PHP_BINARY) !== $facts['binding']['source']['php_binary_sha256']
+                        || $this->fileDigest($source['checkpoint']['path']) !== $source['checkpoint']['sha256']
+                        || $this->fileDigest($this->serverRoot . '/private/installation/deployment.json') !== $source['deployment']['head_sha256']
+                        || $this->partialApplicationWindow() !== $facts['window']) { throw new RuntimeException('INSTALL_PARTIAL_HELD_AUTHORITY_CHANGED'); }
+                    foreach ($facts['baseline']['original_files'] as $name => $ref) {
+                        if ($name === 'runtime') { $this->partialApplicationRuntimeReference($ref); }
+                        else { $this->partialFileReference($ref); }
+                    }
+                    if ($this->fileDigest($plan['tool']['path']) !== $plan['tool']['sha256']
+                        || \app\common\services\upgrade\SourceApplicationBackup::partialInstallationBackup($input['backup'], $this->serverRoot, $facts['binding'], $facts['baseline']) !== $backup
+                        || $pdo->query('SELECT * FROM pa_schema_migration ORDER BY migration_id')->fetchAll(PDO::FETCH_ASSOC) !== $facts['baseline']['original_ledger']
+                        || $pdo->query("SELECT * FROM pa_module_migration WHERE module_key='official.identity' ORDER BY migration_key")->fetchAll(PDO::FETCH_ASSOC) !== $facts['baseline']['identity_ledger']) {
+                        throw new RuntimeException('INSTALL_PARTIAL_ORIGINAL_HISTORY_CHANGED');
+                    }
+                    $tables = $pdo->query('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() ORDER BY TABLE_NAME')->fetchAll(PDO::FETCH_COLUMN);
+                    if (\app\common\services\upgrade\SourceApplicationBackup::partialInstallationScope($pdo, $tables)['effect_boundary'] !== $facts['scope']['effect_boundary']) {
+                        throw new RuntimeException('INSTALL_PARTIAL_EFFECT_BOUNDARY_CHANGED');
+                    }
+                };
+                ($this->partialGuard)();
+                $this->fileContinuation = ['pdo' => $pdo, 'context' => $context, 'token' => new \stdClass(),
+                    'authority_sha256' => self::partialDigest([$facts['binding'], $backup, $plan['tool']]),
+                    'identity_sha256' => $facts['baseline']['identity_rows_sha256'], 'config_sha256' => $facts['baseline']['config_rows_sha256']];
+                $this->partialCompletion = function (array $receipt, array $modules) use ($completionPath, $planPath, $source, $backup, $facts): void {
+                    \PeanutServerUpdatePlan::writePartialOwnerRecord($this->serverRoot, $completionPath,
+                        ['protocol' => 'peanut.installation-partial-completion.v1', 'source' => $source, 'modules' => $modules,
+                            'plan' => ['path' => $planPath, 'sha256' => $this->fileDigest($planPath)], 'backup' => $backup,
+                            'database' => $facts['binding']['database'],
+                            'installed_receipt_sha256' => $receipt['sha256'], 'baseline_sha256' => $receipt['baseline_manifest']['sha256']]);
+                    \PeanutServerUpdatePlan::finalizePartialInstallation($this->serverRoot, $completionPath);
+                };
+                \PeanutServerUpdatePlan::writePartialOwnerRecord($this->serverRoot, $attemptPath,
+                    ['protocol' => 'peanut.app-installation-partial-attempt.v1', 'plan' => ['path' => $planPath, 'sha256' => $this->fileDigest($planPath)],
+                        'backup' => $backup, 'request_id' => $context->requestId(), 'started_at' => time(), 'safe_retry' => false]);
+                $stage = 'install_modules';
+                try {
+                    $completion = $this->completeInitializedInstallation($facts['modules'], $lock, $stage);
+                    return ['state' => 'installed', 'code' => 'INSTALL_COMPLETED', 'resumed_from' => 'install_modules',
+                        'original_history_preserved' => true, 'afterimage_backup' => $backup, ...$completion];
+                } catch (Throwable $error) {
+                    \logInstallationFailure($this->serverRoot, $stage, 'INSTALL_PARTIAL_CONTINUATION_FAILED', $error, $this->currentInstallationModule);
+                    throw new InstallationExecutionException('INSTALL_PARTIAL_CONTINUATION_FAILED', '续作未完成；保留当前数据、原记录和失败现场，不得自动重放。', 409, $error,
+                        ['stage' => $stage, 'safe_retry' => false, 'writes' => ['database' => 'may_have_partial_writes']]);
+                }
+            } finally {
+                $this->partialCompletion = null; $this->fileContinuation = null; $this->partialGuard = null;
+                $this->currentInstallationModule = null; $this->moduleMigrationAdmission = null; $this->executionLock = null;
+                flock($lock, LOCK_UN); fclose($lock);
+            }
+        });
+    }
+
+    /** The original runtime is public program identity; it is not an owner-only backup payload. */
+    private function partialApplicationRuntimeReference(array $ref): void
+    {
+        if (\app\common\services\upgrade\SourceApplicationBackup::partialRuntimeOriginalReference($this->serverRoot) !== $ref) {
+            throw new RuntimeException('INSTALL_PARTIAL_RUNTIME_ORIGINAL_CHANGED');
+        }
+    }
+
+    /** Read-only invocation of the existing exact Compose guard. No shell, service action or replacement network. */
+    private function partialApplicationWindow(): array
+    {
+        $script = $this->serverRoot . '/docker/scripts/update-recovery.py';
+        $program = 'import importlib.util,json,sys;from pathlib import Path;s=importlib.util.spec_from_file_location("partial_native_guard",sys.argv[1]);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);print(json.dumps(m.assert_stopped(Path(sys.argv[2]),allow_registered=True),sort_keys=True))';
+        $process = proc_open(['python3', '-c', $program, $script, $this->serverRoot], [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        if (!is_resource($process)) { throw new RuntimeException('INSTALL_PARTIAL_NATIVE_WINDOW_UNAVAILABLE'); }
+        fclose($pipes[0]); stream_set_blocking($pipes[1], false); stream_set_blocking($pipes[2], false);
+        $out = ''; $size = 0; $deadline = microtime(true) + 30; $terminal = null;
+        try {
+            do {
+                $chunk = stream_get_contents($pipes[1]); $error = stream_get_contents($pipes[2]);
+                $out .= $chunk; $size += strlen($chunk) + strlen($error);
+                $status = proc_get_status($process);
+                if (!$status['running']) { $terminal = $status['exitcode']; break; }
+                if ($size > 65536 || microtime(true) >= $deadline) { proc_terminate($process); throw new RuntimeException('INSTALL_PARTIAL_NATIVE_WINDOW_UNAVAILABLE'); }
+                usleep(10000);
+            } while (true);
+            $out .= stream_get_contents($pipes[1]);
+        } finally { fclose($pipes[1]); fclose($pipes[2]); $closed = proc_close($process); }
+        $window = json_decode($out, true, 32, JSON_THROW_ON_ERROR);
+        if (($terminal ?? $closed) !== 0 || !is_array($window) || ($window['database_binding']['source'] ?? null) !== 'registered'
+            || !is_array($window['admission_network'] ?? null) || array_keys($window['containers'] ?? []) !== ['nginx', 'php']) {
+            throw new RuntimeException('INSTALL_PARTIAL_NATIVE_WINDOW_REQUIRED');
+        }
+        return $window;
+    }
+
+    private function partialApplicationFacts(PDO $pdo, array $source, array $config, array $endpoint, array $window, array $authority): array
+    {
+        if ($pdo->inTransaction()) { throw new RuntimeException('INSTALL_PARTIAL_TRANSACTION_CONFLICT'); }
+        $pdo->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ'); $pdo->exec('SET TRANSACTION READ ONLY'); $pdo->beginTransaction();
+        try {
+        $modules = ['official.identity', 'official.content-tools', 'official.file', 'official.rich-text', 'official.document', 'official.article',
+            'official.collaboration', 'official.task', 'official.settings', 'official.integration', 'official.import-export', 'official.member',
+            'official.notification', 'official.oauth', 'official.ops', 'official.payment', 'official.reference-codes'];
+        $progress = $this->partialJson($this->progressMarker());
+        if (($progress['official_modules'] ?? null) !== $modules || $this->deploymentMode() !== 'multi-tenant'
+            || $this->partialLockBinding() !== $source['deployment']['partial_installation']['execution_lock']) { throw new RuntimeException('INSTALL_PARTIAL_EXACT_FILE_FRONTIER_REQUIRED'); }
+        $database = self::migrationDatabaseIdentity($pdo); $physical = $database; unset($physical['transport']);
+        if ($physical !== $source['deployment']['partial_installation']['database']
+            || $config['resource_id'] !== $source['deployment']['partial_installation']['resource_id']
+            || $window['database_binding']['resource_id'] !== $config['resource_id']) { throw new RuntimeException('INSTALL_PARTIAL_DATABASE_IDENTITY_CHANGED'); }
+        $originals = [];
+        foreach (['progress' => 'private/installation/executing.json', 'configuration' => 'private/resources/configuration.json',
+            'runtime' => '.peanut/development-runtime.json', 'environment' => '.env'] as $name => $relative) {
+            $ref = ['path' => $this->serverRoot . '/' . $relative, 'sha256' => $this->fileDigest($this->serverRoot . '/' . $relative)];
+            if ($name === 'runtime') { $ref = \app\common\services\upgrade\SourceApplicationBackup::partialRuntimeOriginalReference($this->serverRoot); }
+            else { $this->partialFileReference($ref); }
+            $originals[$name] = $ref;
+        }
+        $failureFiles = array_filter($source['deployment']['partial_installation']['files'], static fn(string $key): bool => str_starts_with($key, 'runtime/log/'), ARRAY_FILTER_USE_KEY);
+        if (count($failureFiles) !== 1) { throw new RuntimeException('INSTALL_PARTIAL_FAILURE_RECORD_REQUIRED'); }
+        $failurePath = array_key_first($failureFiles); $originals['failure'] = ['path' => $this->serverRoot . '/' . $failurePath, 'sha256' => $failureFiles[$failurePath]];
+        $this->partialFileReference($originals['failure']);
+        $tables = $pdo->query('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() ORDER BY TABLE_NAME')->fetchAll(PDO::FETCH_COLUMN);
+        $scope = \app\common\services\upgrade\SourceApplicationBackup::partialInstallationScope($pdo, $tables);
+        $application = $pdo->query('SELECT * FROM pa_schema_migration ORDER BY migration_id')->fetchAll(PDO::FETCH_ASSOC);
+        $identity = $pdo->query("SELECT * FROM pa_module_migration WHERE module_key='official.identity' ORDER BY migration_key")->fetchAll(PDO::FETCH_ASSOC);
+        if (count($application) !== 1 || $application[0]['migration_id'] !== '20261019-clean-install-5.0.2-r1'
+            || $application[0]['status'] !== 'applied' || $application[0]['checksum'] !== $this->fileDigest($this->serverRoot . '/database/baselines/5.0.2-r1/manifest.json')
+            || count($identity) !== 9 || (int) $pdo->query("SELECT COUNT(*) FROM pa_module_migration WHERE module_key<>'official.identity'")->fetchColumn() !== 0) {
+            throw new RuntimeException('INSTALL_PARTIAL_ORIGINAL_HISTORY_CHANGED');
+        }
+        $key = 'official.file:20260823-unify-storage-service';
+        $sha = 'f79c35b2fe8414dc172a81a45183d2a52eadb05833a704149780b36e400ca2d4';
+        if ($this->fileDigest($this->serverRoot . '/app/modules/official/file/database/migrations/20260823-unify-storage-service.sql') !== $sha) { throw new RuntimeException('INSTALL_PARTIAL_FILE_SOURCE_CHANGED'); }
+        $binding = ['source' => ['server_root' => $this->serverRoot, 'runtime_sha256' => $source['runtime_sha256'],
+                'loaded_core_sha256' => $this->partialCoreFingerprint(), 'php_binary_sha256' => hash_file('sha256', PHP_BINARY)],
+            'database' => $database, 'resource_id' => $config['resource_id'], 'endpoint_id' => $endpoint['endpoint_id'],
+            'operator_consumer' => is_file('/.dockerenv') ? 'container' : 'host', 'authority' => $authority,
+            'registry_sha256' => $this->fileDigest($this->serverRoot . '/private/resources/project-resources.json')];
+        return ['binding' => $binding, 'modules' => $modules, 'scope' => $scope, 'window' => $window,
+            'baseline' => ['pending' => [$key], 'selected' => [$key => $sha], 'original_ledger' => $application,
+                'identity_ledger' => $identity, 'original_files' => $originals, 'execution_lock' => $this->partialLockBinding(),
+                'identity_rows_sha256' => $this->partialIdentityRows($pdo), 'config_rows_sha256' => $this->partialTableRows($pdo, 'pa_config')]];
+        } finally { if ($pdo->inTransaction() && !$pdo->rollBack()) { throw new RuntimeException('INSTALL_PARTIAL_SNAPSHOT_CHANGED'); } }
+    }
+
+    /** Raw typed rows, ordered by their actual primary key; no row data leaves the Host. */
+    private function partialTableRows(PDO $pdo, string $table): string
+    {
+        if (preg_match('/\Apa_[a-z0-9_]+\z/D', $table) !== 1) { throw new RuntimeException('INSTALL_PARTIAL_TABLE_INVALID'); }
+        $statement = $pdo->prepare("SELECT COLUMN_NAME FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND INDEX_NAME='PRIMARY' ORDER BY SEQ_IN_INDEX");
+        $statement->execute([$table]); $primary = $statement->fetchAll(PDO::FETCH_COLUMN); $statement->closeCursor();
+        if ($primary === [] || array_filter($primary, static fn(string $column): bool => preg_match('/\A[a-zA-Z0-9_]+\z/D', $column) !== 1) !== []) { throw new RuntimeException('INSTALL_PARTIAL_PRIMARY_KEY_REQUIRED'); }
+        $query = $pdo->query('SELECT * FROM `' . $table . '` ORDER BY `' . implode('`,`', $primary) . '`'); $hash = hash_init('sha256');
+        while (($row = $query->fetch(PDO::FETCH_ASSOC)) !== false) { hash_update($hash, serialize($row)); }
+        $query->closeCursor(); return hash_final($hash);
+    }
+
+    private function partialIdentityRows(PDO $pdo): string
+    {
+        $manifest = $this->definitionRegistry()->requireManifest('official.identity')->data;
+        $catalogs = ['pa_data_condition_definition', 'pa_menu_definition', 'pa_module_installation', 'pa_permission', 'pa_protected_resource',
+            'pa_resource_operation', 'pa_resource_operation_condition', 'pa_resource_operation_permission', 'pa_resource_operation_target_type',
+            'pa_system_menu', 'pa_target_type', 'pa_tenant_module', 'pa_platform_audit_event', 'pa_tenant_audit_event'];
+        $tables = array_values(array_diff($manifest['database']['owned_tables'], $catalogs)); sort($tables, SORT_STRING); $hashes = [];
+        foreach ($tables as $table) { $hashes[$table] = $this->partialTableRows($pdo, $table); }
+        return self::partialDigest($hashes);
+    }
+
+    /** Capability exists only during this Host's one native apply and current File reconcile. */
+    public function fileUnifyContinuationAdmission(PDO $pdo, string $key): array
+    {
+        $held = $this->fileContinuation;
+        if ($held === null || $held['pdo'] !== $pdo || $key !== 'official.file:20260823-unify-storage-service'
+            || $this->currentInstallationModule !== 'official.file' || $this->partialGuard === null
+            || app()->make(\app\common\execution\CurrentExecutionContext::class)->current() !== $held['context']) {
+            throw new RuntimeException('INSTALL_PARTIAL_FILE_CONTINUATION_REQUIRED');
+        }
+        $this->migrationAdoptionAdmission($pdo);
+        if ($this->partialIdentityRows($pdo) !== $held['identity_sha256'] || $this->partialTableRows($pdo, 'pa_config') !== $held['config_sha256']) {
+            throw new RuntimeException('INSTALL_PARTIAL_IDENTITY_OR_CONFIGURATION_CHANGED');
+        }
+        return ['token' => $held['token'], 'authority_sha256' => $held['authority_sha256'], 'config_sha256' => $held['config_sha256']];
     }
 
     private static function partialDigest(array $value): string
@@ -755,7 +1051,7 @@ final class InstallationExecutionHost
                             'completion_lock_present' => $this->completionLockPresent()],
                         'safe_retry' => false],
                 );
-                \logInstallationFailure($this->serverRoot, $stage, $failure->errorCode, $failure);
+                \logInstallationFailure($this->serverRoot, $stage, $failure->errorCode, $failure, $this->currentInstallationModule);
                 try {
                     $database = \installationDatabaseState($this->serverRoot);
                     if ($database['state'] === 'uninstalled') {
@@ -766,6 +1062,7 @@ final class InstallationExecutionHost
                 throw $failure;
             }
         } finally {
+            $this->currentInstallationModule = null;
             $this->moduleMigrationAdmission = null;
             $this->executionLock = null;
             flock($lock, LOCK_UN);
@@ -776,6 +1073,7 @@ final class InstallationExecutionHost
     /** Both fresh execution and the bounded partial continuation use this original lifecycle. */
     private function completeInitializedInstallation(array $moduleKeys, $lock, string &$stage): array
     {
+        $this->currentInstallationModule = null;
         if ($this->partialGuard !== null) { ($this->partialGuard)(); }
         $stage = 'install_modules';
         $context = app()->make(\app\common\execution\CurrentExecutionContext::class)->current();
@@ -798,6 +1096,7 @@ final class InstallationExecutionHost
         $stage = 'health'; $health = $this->health($moduleKeys);
         if ($this->partialGuard !== null) { ($this->partialGuard)(); }
         $stage = 'completion_marker'; $receipt = $this->writeCompletionMarker($moduleKeys);
+        if ($this->partialCompletion !== null) { ($this->partialCompletion)($receipt, $moduleKeys); }
         @unlink($this->progressMarker());
         return ['modules' => $modules, 'health' => $health, 'installation_receipt' => $receipt];
     }
@@ -979,6 +1278,7 @@ final class InstallationExecutionHost
      */
     private function installModules(array $moduleKeys, array $tenantBootstrap): array
     {
+        $this->currentInstallationModule = null;
         $config = $this->moduleConfig();
         $registry = $this->definitionRegistry();
         $governance = new ThinkPhpModuleGovernanceProvider(
@@ -990,7 +1290,9 @@ final class InstallationExecutionHost
         $lifecycle = $governance->pluginLifecycle();
         $operations = [];
         foreach ($moduleKeys as $moduleKey) {
+            $this->currentInstallationModule = $moduleKey;
             $result = $lifecycle->reconcile($moduleKey);
+            $this->currentInstallationModule = null;
             $operations[] = [
                 'key' => $moduleKey,
                 'operation' => (string) ($result['operation'] ?? ''),

@@ -7,6 +7,7 @@ namespace PeanutAdmin\Modules\File\Contract;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\InstallationExecutionContext;
 use app\common\execution\InstanceExecutionContext;
+use app\common\services\installation\InstallationExecutionHost;
 use PDO;
 use RuntimeException;
 use think\facade\Db;
@@ -39,7 +40,11 @@ final readonly class FileMigrationPreservation
             $sqlHash = $this->sqlHash($canonicalMigrationKey);
             $active = $pdo->inTransaction();
             $snapshot = $this->snapshot($pdo);
-            $this->delta($snapshot['tables'], $canonicalMigrationKey);
+            $delta = $this->delta($snapshot['tables'], $canonicalMigrationKey);
+            $unify = $delta['empty_legacy_unify'] ? [
+                'authority' => app()->make(InstallationExecutionHost::class)->fileUnifyContinuationAdmission($pdo, $canonicalMigrationKey),
+                'clock' => (string) $pdo->query('SELECT UTC_TIMESTAMP(3)')->fetchColumn(),
+            ] : null;
             if ($this->context($pdo) !== $context || $pdo->inTransaction() !== $active) {
                 self::fail('CONTEXT_CHANGED');
             }
@@ -50,7 +55,7 @@ final readonly class FileMigrationPreservation
                     'before_sha256' => $hash, 'preservation_verified' => false],
                 'private_state' => ['protocol' => self::PROTOCOL, 'pdo' => $pdo, 'context' => $context,
                     'migration_key' => $canonicalMigrationKey, 'sql_sha256' => $sqlHash,
-                    'transaction_active' => $active, 'snapshot' => $snapshot, 'before_sha256' => $hash],
+                    'transaction_active' => $active, 'snapshot' => $snapshot, 'before_sha256' => $hash, 'unify' => $unify],
             ];
         });
     }
@@ -59,7 +64,7 @@ final readonly class FileMigrationPreservation
     public function after(PDO $pdo, array $privateBefore): array
     {
         return $this->guard(function () use ($pdo, $privateBefore): array {
-            $expected = ['protocol', 'pdo', 'context', 'migration_key', 'sql_sha256', 'transaction_active', 'snapshot', 'before_sha256'];
+            $expected = ['protocol', 'pdo', 'context', 'migration_key', 'sql_sha256', 'transaction_active', 'snapshot', 'before_sha256', 'unify'];
             if (count($privateBefore) !== count($expected) || array_diff(array_keys($privateBefore), $expected) !== []
                 || ($privateBefore['protocol'] ?? null) !== self::PROTOCOL || ($privateBefore['pdo'] ?? null) !== $pdo
                 || ($privateBefore['context'] ?? null) !== $this->context($pdo)
@@ -76,7 +81,11 @@ final readonly class FileMigrationPreservation
             $delta = $this->delta($old['tables'], $key);
             $new = $this->snapshot($pdo);
             if ($old['identity'] !== $new['identity']) { self::fail('DATABASE_CHANGED'); }
-            foreach ($old['tables'] as $name => $table) {
+            if ($delta['empty_legacy_unify']) {
+                $this->assertEmptyLegacyUnify($pdo, $key, $old['tables'], $new['tables'], $privateBefore['unify']);
+            } else {
+              if ($privateBefore['unify'] !== null) { self::fail('BEFORE_BINDING_INVALID'); }
+              foreach ($old['tables'] as $name => $table) {
                 $current = $new['tables'][$name];
                 if ($table === null) {
                     if (!in_array($name, $delta['new_tables'], true)) {
@@ -99,6 +108,7 @@ final readonly class FileMigrationPreservation
                     if ($removed !== 1 || !is_string($metadata['ddl'])) { self::fail('IMAGE_INDEX_DELTA_UNKNOWN'); }
                 }
                 if ($metadata !== $table['metadata']) { self::fail('ORIGINAL_SCHEMA_OR_COUNTER_CHANGED'); }
+              }
             }
             if ($this->context($pdo) !== $privateBefore['context'] || $pdo->inTransaction() !== $privateBefore['transaction_active']) {
                 self::fail('CONTEXT_CHANGED');
@@ -106,7 +116,8 @@ final readonly class FileMigrationPreservation
             return ['module_key' => 'official.file', 'migration_key' => $key, 'sql_sha256' => $sqlHash,
                 'preservation_verified' => true, 'before_sha256' => $privateBefore['before_sha256'],
                 'after_sha256' => self::hash($new), 'table_counts' => self::counts($new['tables']),
-                'delta_kind' => $delta['new_tables'] === [] ? 'no_business_delta' : 'empty_file_family_increment',
+                'delta_kind' => $delta['empty_legacy_unify'] ? 'empty_r1_file_unify'
+                    : ($delta['new_tables'] === [] ? 'no_business_delta' : 'empty_file_family_increment'),
                 'delta_sha256' => self::hash($delta)];
         });
     }
@@ -114,6 +125,17 @@ final readonly class FileMigrationPreservation
     /** Observe presence only; FileMigrationAdoptionProof remains the sole execute/adopt/reject authority. */
     private function delta(array $tables, string $key): array
     {
+        if ($key === FileMigrationAdoptionProof::MIGRATION_KEYS[0]
+            && ($tables['file']['count'] ?? null) === 0 && ($tables['file_object']['count'] ?? null) === 0) {
+            $legacy = true;
+            foreach ($tables as $name => $table) {
+                if (!in_array($name, ['file', 'file_object'], true) && $table !== null) { $legacy = false; }
+            }
+            if ($legacy) {
+                // Presence is not execution authority: the host and the sole File proof both remain mandatory.
+                return ['new_tables' => ['storage_account', 'storage_space', 'storage_route'], 'image_index' => false, 'empty_legacy_unify' => true];
+            }
+        }
         foreach (self::BASE as $name) {
             if (($tables[$name] ?? null) === null) { self::fail('BASE_POSTSTATE_REQUIRED'); }
         }
@@ -136,7 +158,50 @@ final readonly class FileMigrationPreservation
                 if ($physical !== 'pa_' . $name) { self::fail('EXECUTE_PREFIX_UNSUPPORTED'); }
             }
         }
-        return ['new_tables' => $new, 'image_index' => $position === 1 && $new !== []];
+        return ['new_tables' => $new, 'image_index' => $position === 1 && $new !== [], 'empty_legacy_unify' => false];
+    }
+
+    /** The native caller has already run File's full canonical postshape proof before this callback. */
+    private function assertEmptyLegacyUnify(PDO $pdo, string $key, array $old, array $new, mixed $before): void
+    {
+        if (!is_array($before) || array_keys($before) !== ['authority', 'clock'] || !is_array($before['authority'])
+            || !is_string($before['clock'])) { self::fail('BEFORE_BINDING_INVALID'); }
+        $authority = app()->make(InstallationExecutionHost::class)->fileUnifyContinuationAdmission($pdo, $key);
+        if ($authority !== $before['authority']) { self::fail('CONTINUATION_AUTHORITY_CHANGED'); }
+        foreach (['file', 'file_object'] as $name) {
+            if (($old[$name]['count'] ?? null) !== 0 || ($new[$name]['count'] ?? null) !== 0) { self::fail('ORIGINAL_ROWS_CHANGED'); }
+            // Only the exact two proven empty schemas may change. Their physical identity,
+            // original primary key, triggers and counters cannot be reset by the ALTERs.
+            foreach (['physical_table', 'primary', 'triggers', 'auto_increment'] as $field) {
+                if ($old[$name]['metadata'][$field] !== $new[$name]['metadata'][$field]) { self::fail('ORIGINAL_SCHEMA_OR_COUNTER_CHANGED'); }
+            }
+        }
+        foreach (array_merge(...self::FAMILIES) as $name) {
+            if ($old[$name] !== null || $new[$name] !== null) { self::fail('UNDECLARED_TABLE_DELTA'); }
+        }
+        foreach (['storage_account' => [1, '2'], 'storage_space' => [2, '3'], 'storage_route' => [2, null]] as $name => [$count, $counter]) {
+            if ($old[$name] !== null || ($new[$name]['count'] ?? null) !== $count
+                || $new[$name]['metadata']['triggers'] !== [] || $new[$name]['metadata']['auto_increment'] !== $counter) {
+                self::fail('CANONICAL_STORAGE_DEFAULTS_REQUIRED');
+            }
+        }
+        $end = (string) $pdo->query('SELECT UTC_TIMESTAMP(3)')->fetchColumn();
+        if (strcmp($before['clock'], $end) > 0) { self::fail('SQL_CLOCK_CHANGED'); }
+        $account = $this->query($pdo, "SELECT COUNT(*) AS n FROM pa_storage_account WHERE id=1 AND account_key='local' AND driver='local' AND name='本地存储'"
+            . " AND credential_ciphertext IS NULL AND credential_key_version IS NULL AND credential_rotated_at IS NULL AND status='active'"
+            . ' AND created_at=updated_at AND created_at BETWEEN ? AND ?', [$before['clock'], $end]);
+        $spaces = $this->query($pdo, "SELECT COUNT(*) AS n FROM pa_storage_space WHERE account_id=1 AND status='active'"
+            . ' AND bucket IS NULL AND region IS NULL AND endpoint IS NULL AND access_domain IS NULL AND created_at=updated_at'
+            . " AND ((id=1 AND space_key='local-public' AND name='本地公开文件' AND access_type='public' AND local_path='public/storage')"
+            . " OR (id=2 AND space_key='local-private' AND name='本地私有文件' AND access_type='private' AND local_path='private/storage'))"
+            . ' AND created_at BETWEEN ? AND ?', [$before['clock'], $end]);
+        $routes = $this->query($pdo, "SELECT COUNT(*) AS n FROM pa_storage_route WHERE ((route_key='default.public' AND access_type='public' AND space_id=1)"
+            . " OR (route_key='default.private' AND access_type='private' AND space_id=2)) AND updated_at BETWEEN ? AND ?", [$before['clock'], $end]);
+        if ((int) ($account[0]['n'] ?? -1) !== 1 || (int) ($spaces[0]['n'] ?? -1) !== 2 || (int) ($routes[0]['n'] ?? -1) !== 2) {
+            self::fail('CANONICAL_STORAGE_DEFAULTS_REQUIRED');
+        }
+        // The host authority includes its independently observed whole-config digest. Equality
+        // proves the original DELETE touched no storage row or unrelated configuration value.
     }
 
     private function snapshot(PDO $pdo): array

@@ -405,12 +405,19 @@ final class SourceApplicationBackup
             if (!mkdir($directory . '/installation-originals', 0700)) { throw new RuntimeException('INSTALL_PARTIAL_BACKUP_FILES_REQUIRED'); }
             foreach ($baseline['original_files'] ?? [] as $name => $original) {
                 if (!in_array($name, ['progress', 'configuration', 'runtime', 'failure', 'environment', 'ledger'], true)) { throw new RuntimeException('INSTALL_PARTIAL_BACKUP_FILES_REQUIRED'); }
-                self::pluginFile($original['path'] ?? '', $binding['source']['server_root']);
-                $bytes = file_get_contents($original['path']);
+                $runtimeOriginal = $name === 'runtime' && array_key_exists('mode', $original);
+                if ($runtimeOriginal) {
+                    [$actualOriginal, $bytes] = self::partialRuntimeOriginalBytes($binding['source']['server_root']);
+                    if ($actualOriginal !== $original) { throw new RuntimeException('INSTALL_PARTIAL_BACKUP_FILES_CHANGED'); }
+                } else {
+                    self::pluginFile($original['path'] ?? '', $binding['source']['server_root']);
+                    $bytes = file_get_contents($original['path']);
+                }
                 if (!is_string($bytes) || hash('sha256', $bytes) !== $original['sha256']) { throw new RuntimeException('INSTALL_PARTIAL_BACKUP_FILES_CHANGED'); }
                 $target = $directory . '/installation-originals/' . $name;
                 self::writeBytes($target, $bytes);
                 $originalFiles[$name] = ['original' => $original, 'payload' => ['path' => $target, 'sha256' => hash_file('sha256', $target), 'bytes' => filesize($target)]];
+                if ($runtimeOriginal) { $originalFiles[$name]['restore_mode'] = $original['mode']; }
             }
             if (count($originalFiles) !== 6) { throw new RuntimeException('INSTALL_PARTIAL_BACKUP_FILES_REQUIRED'); }
             $recheck();
@@ -565,6 +572,8 @@ final class SourceApplicationBackup
             $saved = $record['installation_originals'][$name]; self::pluginFile($saved['payload']['path'] ?? '', $serverRoot);
             if (!$same($saved['original'], $original) || $saved['payload']['path'] !== $directory . '/installation-originals/' . $name
                 || $saved['payload']['sha256'] !== $original['sha256'] || hash_file('sha256', $saved['payload']['path']) !== $original['sha256'] || filesize($saved['payload']['path']) !== $saved['payload']['bytes']) { throw new RuntimeException('INSTALL_PARTIAL_NATIVE_BACKUP_REQUIRED'); }
+            if ($name === 'runtime' && array_key_exists('mode', $original)
+                && ($saved['restore_mode'] ?? null) !== $original['mode']) { throw new RuntimeException('INSTALL_PARTIAL_NATIVE_BACKUP_REQUIRED'); }
         }
         if (hash_file('sha256', $directory . '/probe-before.txt') !== hash_file('sha256', $directory . '/probe-after.txt')) { throw new RuntimeException('INSTALL_PARTIAL_NATIVE_BACKUP_REQUIRED'); }
         return ['path' => $path, 'sha256' => hash_file('sha256', $path), 'payload' => $payload, 'restore' => ['path' => $restorePath, 'sha256' => hash_file('sha256', $restorePath)],
@@ -584,6 +593,37 @@ final class SourceApplicationBackup
         $value = json_decode((string) file_get_contents($path), true, 64, JSON_THROW_ON_ERROR);
         if (!is_array($value) || array_is_list($value)) { throw new RuntimeException('PLUGIN_SOURCE_DOCUMENT_INVALID'); }
         return $value;
+    }
+
+    /** Only this canonical public program identity may be a 0644 partial original. Payloads stay 0600. */
+    public static function partialRuntimeOriginalReference(string $serverRoot): array
+    {
+        return self::partialRuntimeOriginalBytes($serverRoot)[0];
+    }
+
+    private static function partialRuntimeOriginalBytes(string $serverRoot): array
+    {
+        $path = $serverRoot . '/.peanut/development-runtime.json'; $owner = fileowner($serverRoot);
+        $stat = @lstat($path);
+        if (realpath($serverRoot) !== $serverRoot || realpath(dirname($path)) !== dirname($path)
+            || realpath($path) !== $path || !is_file($path) || is_link($path) || !is_array($stat)
+            || $stat['nlink'] !== 1 || ($stat['mode'] & 07000) !== 0 || !in_array($stat['mode'] & 0777, [0600, 0644], true)
+            || !in_array($stat['uid'], [0, $owner], true) || !function_exists('posix_geteuid') || !in_array(posix_geteuid(), [0, $owner], true)
+            || $stat['size'] > 4194304) { throw new RuntimeException('INSTALL_PARTIAL_RUNTIME_ORIGINAL_UNSAFE'); }
+        $stream = fopen($path, 'rb');
+        if (!is_resource($stream)) { throw new RuntimeException('INSTALL_PARTIAL_RUNTIME_ORIGINAL_UNAVAILABLE'); }
+        try {
+            $opened = fstat($stream); $bytes = stream_get_contents($stream); $after = fstat($stream);
+            clearstatcache(true, $path); $physical = lstat($path);
+            $fields = array_flip(['dev', 'ino', 'mode', 'nlink', 'uid', 'gid', 'size', 'mtime', 'ctime']);
+            if (!is_array($opened) || !is_array($after) || !is_array($physical) || is_link($path)
+                || array_intersect_key($stat, $fields) !== array_intersect_key($opened, $fields)
+                || array_intersect_key($stat, $fields) !== array_intersect_key($after, $fields)
+                || array_intersect_key($stat, $fields) !== array_intersect_key($physical, $fields)
+                || !is_string($bytes) || strlen($bytes) !== $stat['size']) { throw new RuntimeException('INSTALL_PARTIAL_RUNTIME_ORIGINAL_CHANGED'); }
+        } finally { fclose($stream); }
+        return [['path' => $path, 'sha256' => hash('sha256', $bytes), 'mode' => $stat['mode'] & 07777,
+            'device' => $stat['dev'], 'inode' => $stat['ino'], 'uid' => $stat['uid'], 'gid' => $stat['gid'], 'bytes' => $stat['size']], $bytes];
     }
 
     private static function pluginFile(string $path, string $serverRoot, ?int $maximum = 4194304): void

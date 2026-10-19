@@ -168,6 +168,18 @@ partial 在任何计划输出／attempt／applying 前复用原生 metadata 可�
 
 续作先持久保存单次 partial-attempt，再仅执行新修正；旧 18 行逐字节保持。然后复用原 installModules／原真实 module admission／health／completion，不再次 fresh／seed，不删失败行或提前移除 progress。唯一成功完成后才由原完成逻辑写 baseline／完成锁并移除 progress。任何新失败、中断或已有 attempt 均阻塞再次调用，保留数据与证据，不自动重试；部分模块已开始的其他状态不纳入这条窄入口。备份、恢复和完整质量资格仍分别记录为真实执行、未执行或未知。
 
+生成 APP 的 `install_modules` 续作是同一原生 CLI 的另一条有限分支。它只接受自己的 application registry、实际 development runtime 和已准入但未激活的 source-runtime transition；不依赖维护者 Project、Git checkout 或 Project lease。原 Code `migrate_database` 分支及其约束保留。APP 分支只接真实 r1 applied、Identity 九条 executed 和前两个模块 active 的固定 File 前沿，保留原 17 模块选择；不将部分库当空库，不重新 seed。source-runtime 可以准入这份真实残留，但在完成安装前拒绝 `runtime-open`。
+
+APP 的 `plan` 输入为原 Setup Token（guided）及 `backup_tool`：该值是 `private/partial-installation/` 内 0600 的既有 `source_schema_backup` SSH/Docker 工具描述文件路径。Host 从实际受保护进度、配置、失败日志、当前 runtime、同一 master PDO 和自己登记的 host/container endpoint 生成事实，在原 instance/update 与 execution 锁内保存由既有私有 update key 认证的计划。它不接受调用者提供的 actor、maintenance 或原文件声明。实际 Compose 排除窗口由已有 source-only registered guard 读取，绑定本 APP 的已停止 PHP/Nginx、镜像、挂载与原有网络；外部数据库 writer 仍由运行 owner 在正常资源窗口排除，APP 文件锁不冒称已证明外部 writer 停止。计划不授予执行权限。
+
+APP 的 `backup` 提供原 `plan` 和新 `backup_output`；`apply` 提供原 `plan` 和原生 `backup.json`。二者复用原完整 native dump/probe/process 与 accepted-capture 消费者，拒绝外部运维摘要替代。六个真实原文件均保留原路径和摘要；仅 canonical `server/.peanut/development-runtime.json` 原件接受正常 0644 或 0600，读取前后核 owner/group/mode/device/inode/size/hash，备份及 RESTORE 元数据保留其真实原模式。其他原件和全部备份 payload 仍为 0600；不改原件权限，不用副本假冒原件。
+
+APP `apply` 在持久写入单次 attempt 后使用原 PLS 和每条原 SQL。File 最早 unify 只有实际 Host 当前 File 调用持有的内存 capability、同一 context/PDO、原 r1/history/backup/source/窗口均一致，且完整旧两表、其余九对象缺失、File/object/旧 storage config 三计数为零、两表计数器为 1 和 session 序列默认时，才可执行。执行后仍须完整 File canonical 后态，并核空表、计数器、精确 local account／两 spaces／两 routes 默认数据及时间窗、原 config 和 Identity 业务行保全；catalog、审计和 tenant module profile 由各自正常生命周期处理。未知或非空旧结构继续拒绝；原模块账本记录真实 executed，不造 adopted 或历史 applied。
+
+新鲜 Notification 的 producer 仅在同一真实 installation admission、固定三条来源顺序、namespace/adoption 前驱状态、七目标对象全缺失、父键/catalog/约束名均满足时标为 `after_predecessor`；报告仍为 pending、`may_apply=false`、队列数未知。两个原前驱执行后由原 producer preflight 和保全合同重新核验，不能把缺 outbox 当作空队列。
+
+只有原模块安装、health 及真实 baseline/installed 两记录成功后，APP 才持久保存认证的 completion record，再以原 deployment head CAS 发布真实 installed anchors，并原位接续 source-runtime checkpoint/pointer 和正常 runtime admission。原 partial head、binding 及 source generation 保留在历史中；不会伪造 installed hash、重置 source history 或提前删除 progress。CAS、checkpoint 或 admission 失败后，后续同一 `apply` 只做 finalize-only，核原 plan、source、DB 身份和真实完成记录，不再运行任何 SQL。仅有 attempt、单边完成记录或其他未知失败继续阻塞，不自动重试；完成安装后的 source-runtime 禁止恢复旧 partial 源。这里的源码支持不代表当前残留、网络、备份、安装或恢复已经实际通过，所有运行额度与人工 Gate 独立保留。
+
 直接 CLI 的 `migrate:run preflight|apply|verify` 使用与 `schema:application` 相同的参数、实例上下文和准入；`migrate:status` 委托该入口的 preflight，不创建迁移表，输出真实 text key。源码开发需要原有 `--scope=source-development` 和实际 owner／thread／session／gate、维护及恢复证据；发行升级仍走安装实例的正式升级入口。官方通用的目录扫描执行、`--date`、rollback、breakpoint 和 seed 命令不注册，不能绕过生命周期保护。模块仍通过 `plugin:install`／`plugin:upgrade`／受控 `plugin:reconcile` 进入同一官方执行器，不由应用 schema 命令接管其业务语义。
 
 源码开发 preflight 按真实 pending 顺序列出逐条来源、前置证明和后继依赖；缺少业务终态保全或完整恢复覆盖时，计划仍不授予执行权限。原仅覆盖模块迁移来源字段的两账本恢复合同不能用于包含菜单、权限、通知或认证数据变化的链。已迁移归属的 File 应用历史，只在原不可变 SQL、现行 canonical adoption 声明和原账本 key／checksum／applied 一致时识别为历史保留；不删除原行、不把它记入模块账本、不以历史记录代替当前 File 数据证明。未知额外历史继续拒绝。

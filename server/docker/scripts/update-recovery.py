@@ -232,23 +232,92 @@ def storage_archive(path):
     return path
 
 
-def assert_stopped(server):
+def source_database_binding(server):
+    """Source maintenance uses only this APP's declared container endpoint."""
+    values = env(server / '.env')
+    def value(key):
+        selected = values.get(key, '')
+        if selected.startswith('"'):
+            selected = json.loads(selected)
+        if not isinstance(selected, str) or any(c in selected for c in '\x00\r\n'):
+            raise ValueError('invalid source database declaration')
+        return selected
+    source = value('PEANUT_DATABASE_SOURCE')
+    if source in ('', 'bundled'):
+        return {'source': 'bundled'}
+    if source != 'registered':
+        raise ValueError('unknown source database kind')
+    registry_path = server / 'private/resources/project-resources.json'
+    regular(registry_path, 0o600)
+    registry = read_json(registry_path)
+    manifest = read_json(server.parent / '.peanut/application-manifest.json')
+    rows = [row for row in registry.get('resources', {}).get('databases', [])
+            if row.get('stable_resource_id') == value('PEANUT_DATABASE_RESOURCE_ID')]
+    if registry.get('authority', {}).get('role') != 'application' \
+            or registry.get('project_id') != manifest.get('application', {}).get('slug') or len(rows) != 1:
+        raise ValueError('source database is not owned by this APP')
+    resource = rows[0]
+    endpoints = [resource.get(key) for key in ('upstream_endpoint', 'container_endpoint')]
+    endpoints = [row for row in endpoints if isinstance(row, dict) and value('PEANUT_DATABASE_CONSUMER') in row.get('consumers', [])]
+    if len(endpoints) != 1 or value('PEANUT_DATABASE_CONSUMER') != 'container':
+        raise ValueError('source admission requires its declared container endpoint')
+    endpoint = endpoints[0]
+    if resource.get('service_type') != 'mysql' or resource.get('fallback') != 'none' or resource.get('application_runtime') is not True \
+            or resource.get('database') != value('DB_NAME') or resource.get('namespace') != value('DB_NAME') \
+            or endpoint.get('endpoint_id') != value('PEANUT_DATABASE_ENDPOINT_ID') \
+            or endpoint.get('host') != value('DB_HOST') or endpoint.get('port') != int(value('DB_PORT')):
+        raise ValueError('source registered database binding changed')
+    return {'source': source, 'resource_id': resource['stable_resource_id'], 'endpoint': endpoint,
+            'database': resource['database'], 'registry_sha256': sha(registry_path), 'environment_sha256': sha(server / '.env')}
+
+
+def source_network(server, project, container_ids):
+    config = json.loads(compose(server / 'docker', 'config', '--format', 'json'))
+    if config.get('name') != project:
+        raise ValueError('source network project changed')
+    network_id = None; logical = None
+    for service in ('php', 'nginx'):
+        projection = '{"Labels":{{json .Config.Labels}},"Networks":{{json .NetworkSettings.Networks}}}'
+        observed = json.loads(docker('inspect', '--format', projection, container_ids[service]))
+        networks = observed['Networks']
+        declared = config['services'][service].get('networks', {})
+        if len(networks) != 1 or len(declared) != 1:
+            raise ValueError('source admission has no unique declared APP network')
+        name, details = next(iter(networks.items())); selected = next(iter(declared))
+        configured = config.get('networks', {}).get(selected, {})
+        if configured.get('external') is True or configured.get('name') != name or not details.get('NetworkID'):
+            raise ValueError('source network is not the declared APP-owned network')
+        if network_id is not None and (network_id != details['NetworkID'] or logical != selected):
+            raise ValueError('source PHP and nginx network routes differ')
+        network_id, logical = details['NetworkID'], selected
+    rows = json.loads(docker('network', 'inspect', network_id))
+    if len(rows) != 1 or rows[0].get('Id') != network_id or rows[0].get('Driver') != 'bridge' \
+            or rows[0].get('Labels', {}).get('com.docker.compose.project') != project \
+            or rows[0].get('Labels', {}).get('com.docker.compose.network') != logical:
+        raise ValueError('source network identity or ownership changed')
+    return {'id': network_id, 'name': rows[0]['Name'], 'logical': logical, 'driver': 'bridge'}
+
+
+def assert_stopped(server, allow_registered=False):
     # Check the APP writer boundary; independent Node custody is not transferred.
     docker_dir = server / "docker"
     project = env(docker_dir / ".env").get("COMPOSE_PROJECT_NAME", "")
     if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,62}", project):
         raise ValueError("Compose project identity is invalid")
+    binding = source_database_binding(server) if allow_registered else {'source': 'bundled'}
+    registered = binding['source'] == 'registered'
     services = compose(docker_dir, "ps", "--status", "running", "--services").splitlines()
-    if services != ["mysql"]:
+    if services != ([] if registered else ["mysql"]):
         raise ValueError("business writers are not drained")
     images = {}; containers = {}
-    for service in ("php", "nginx", "mysql"):
+    for service in (("php", "nginx") if registered else ("php", "nginx", "mysql")):
         ids = compose(docker_dir, "ps", "-a", "-q", service).splitlines()
         discovered = docker("ps", "-a", "--no-trunc", "--filter", f"label=com.docker.compose.project={project}",
                             "--filter", f"label=com.docker.compose.service={service}", "--format", "{{.ID}}").splitlines()
         if len(ids) != 1 or discovered != ids:
             raise ValueError("Compose service does not have exactly one bound container")
-        details = json.loads(docker("inspect", "--format", "{{json .}}", ids[0]))
+        projection = '{"Id":{{json .Id}},"Image":{{json .Image}},"State":{{json .State}},"RestartCount":{{json .RestartCount}},"Config":{"Labels":{{json .Config.Labels}}},"Mounts":{{json .Mounts}}}'
+        details = json.loads(docker("inspect", "--format", projection, ids[0]))
         labels = details.get("Config", {}).get("Labels", {})
         mounts = details.get("Mounts", [])
         status = details.get("State", {}).get("Status")
@@ -273,6 +342,14 @@ def assert_stopped(server):
         containers[service] = {'id': details['Id'], 'started_at': details['State'].get('StartedAt'),
                                'finished_at': details['State'].get('FinishedAt'), 'restart_count': details.get('RestartCount')}
     running = docker("ps", "--no-trunc", "--filter", f"label=com.docker.compose.project={project}", "--format", "{{.ID}}").splitlines()
+    if registered:
+        mysql = docker('ps', '-a', '--no-trunc', '--filter', f'label=com.docker.compose.project={project}',
+                       '--filter', 'label=com.docker.compose.service=mysql', '--format', '{{.ID}}').splitlines()
+        if running or mysql:
+            raise ValueError('registered source instance has a running writer or a bundled database container')
+        network = source_network(server, project, {name: row['id'] for name, row in containers.items()})
+        return {'project': project, 'images': images, 'containers': containers,
+                'database_binding': binding, 'admission_network': network}
     mysql_id = compose(docker_dir, "ps", "-a", "-q", "mysql")
     if running != [mysql_id]:
         raise ValueError("another Compose writer is running")

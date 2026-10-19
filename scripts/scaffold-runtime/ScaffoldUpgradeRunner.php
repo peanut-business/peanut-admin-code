@@ -237,7 +237,8 @@ final class ScaffoldUpgradeRunner
         if (is_file($deployment) || is_link($deployment)) {
             $identity['deployment_state_sha256'] = hash_file('sha256', ScaffoldPathGuard::existingFileWithin($root, $deployment, 'SCAFFOLD_DEPLOYMENT_INVALID'));
         }
-        if (file_exists($root . '/server/.peanut/development-runtime.json') && file_exists($root . '/server/private/installation/installed.json')) {
+        if (file_exists($root . '/server/.peanut/development-runtime.json')
+            && (file_exists($root . '/server/private/installation/installed.json') || file_exists($root . '/server/private/installation/executing.json'))) {
             $history = $root . '/.peanut/upgrades/ledger.ndjson';
             $identity['source_history_sha256'] = file_exists($history)
                 ? hash_file('sha256', ScaffoldPathGuard::existingFileWithin($root, $history, 'SCAFFOLD_HISTORY_INVALID')) : null;
@@ -3219,11 +3220,7 @@ final class ScaffoldUpgradeRunner
         }
         $this->runtimeHost($state, 'tools-check');
         $server = $root . '/server';
-        foreach (['installed_receipt_sha256' => 'installed.json', 'baseline_sha256' => 'baseline.json'] as $key => $name) {
-            if (hash_file('sha256', $server . '/private/installation/' . $name) !== $state['binding']['deployment'][$key]) {
-                throw new RuntimeException('SOURCE_RUNTIME_INSTALLATION_CHANGED');
-            }
-        }
+        \PeanutServerUpdatePlan::assertSourceInstallationAnchors($server, $state['binding']['deployment']);
         return $state;
     }
 
@@ -3475,8 +3472,6 @@ final class ScaffoldUpgradeRunner
         self::$runtimeEventBinding = [];
         if (!file_exists($root . '/server/.peanut/development-runtime.json')
             && !is_link($root . '/server/.peanut/development-runtime.json')) { return; }
-        if (!is_file($root . '/server/private/installation/installed.json')
-            || is_link($root . '/server/private/installation/installed.json')) { throw new RuntimeException('SOURCE_RUNTIME_INSTALLED_APP_REQUIRED'); }
         if (($plan['protocol'] ?? null) !== 'peanut.scaffold-upgrade-plan.v2') {
             throw new RuntimeException('SOURCE_RUNTIME_SOURCE_ADOPTION_REQUIRES_SEPARATE_MAINTENANCE');
         }
@@ -3594,6 +3589,9 @@ final class ScaffoldUpgradeRunner
                 $pending = \PeanutServerUpdatePlan::sourcePending($root . '/server');
                 if (($pending['transition_id'] ?? null) !== $state['transition_id']) { throw new RuntimeException('SOURCE_RUNTIME_PENDING_CHANGED'); }
                 if ($command === 'runtime-open') {
+                    if (isset($state['binding']['deployment']['partial_installation'])) {
+                        throw new RuntimeException('SOURCE_RUNTIME_PARTIAL_INSTALLATION_COMPLETION_REQUIRED');
+                    }
                     if (!in_array($state['phase'], ['admitted', 'opening', 'opened'], true)
                         && !($state['phase'] === 'recovered' && ($state['recovery_admitted'] ?? false))) { throw new RuntimeException('SOURCE_RUNTIME_NOT_ADMITTED'); }
                     $this->runtimeAssertHead($root, $state, isset($state['published_head_sha256']));
@@ -3711,7 +3709,9 @@ final class ScaffoldUpgradeRunner
                 'plan_sha256' => $plan['plan_sha256'] ?? null, 'package_root' => $options['package'] ?? null,
                 'package_inventory_sha256' => $refreeze ? null : hash_file('sha256', $options['package'] . '/META-INF/files.sha256'),
                 'deployment' => $deployment, 'old_runtime' => $old, 'old_runtime_sha256' => $oldSha,
-                'inherited_source_proof' => $deployment['source_proof'] ?? ['installation_baseline_sha256' => $deployment['baseline_sha256']]];
+                'inherited_source_proof' => $deployment['source_proof'] ?? (isset($deployment['partial_installation'])
+                    ? ['partial_installation_sha256' => hash('sha256', self::canonicalJson($deployment['partial_installation']))]
+                    : ['installation_baseline_sha256' => $deployment['baseline_sha256']])];
             $binding = $this->runtimeToolBundle($root, $workspace, $binding);
             $state = ['schema_version' => 1, 'protocol' => 'peanut.source-runtime-transition.v1',
                 'transition_id' => hash('sha256', self::canonicalJson($binding)), 'binding' => $binding,
@@ -3903,7 +3903,8 @@ final class ScaffoldUpgradeRunner
         }
         $new = ['schema_version' => 1, 'protocol' => \PeanutServerUpdatePlan::APPLICATION_DEPLOYMENT,
             'application' => array_intersect_key($identity['application'], array_flip(['slug', 'edition', 'package_identity'])),
-            'installed_receipt_sha256' => $old['installed_receipt_sha256'], 'baseline_sha256' => $old['baseline_sha256'],
+            ...(isset($old['partial_installation']) ? ['partial_installation' => $old['partial_installation']]
+                : ['installed_receipt_sha256' => $old['installed_receipt_sha256'], 'baseline_sha256' => $old['baseline_sha256']]),
             'initial_source' => $old['initial_source'],
             'current_source' => ['kind' => 'application-manifest', 'sha256' => $identity['application_manifest_sha256']],
             'current_runtime' => ['kind' => 'development-runtime', 'sha256' => $state['prepared_identity_sha256']],
@@ -3926,6 +3927,7 @@ final class ScaffoldUpgradeRunner
 
     private function runtimeRecover(string $root, string $path, array $state): array
     {
+        if (isset($state['installation_completion'])) { throw new RuntimeException('SOURCE_RUNTIME_COMPLETED_INSTALLATION_RECOVERY_FORBIDDEN'); }
         $this->runtimeAssertHead($root, $state, isset($state['published_head_sha256']));
         if (isset($state['vendor_original_sha256'])) { $this->runtimeHost($state, 'vendor-check'); }
         if ($state['phase'] === 'preparing') {

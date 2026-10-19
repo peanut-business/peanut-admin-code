@@ -302,6 +302,139 @@ final class PeanutServerUpdatePlan
         return self::verificationKey($server, false);
     }
 
+    /** The APP owner uses the existing instance lock and private update key. No Project authority is imported. */
+    public static function withPartialInstallationOwner(string $root, callable $operation): mixed
+    {
+        self::sourceOwner($root);
+        return self::withInstanceLock($root, $operation);
+    }
+
+    public static function writePartialOwnerRecord(string $root, string $path, array $record): void
+    {
+        self::sourceOwner($root); self::assertHeldDatabaseLock($root);
+        $prefix = $root . '/private/partial-installation/';
+        if (!str_starts_with($path, $prefix) || str_contains(substr($path, strlen($prefix)), '..')
+            || file_exists($path) || is_link($path)) { throw new RuntimeException('partial owner record requires a new native path'); }
+        self::assertOrdinaryParents($root, substr($path, strlen($root) + 1));
+        $record['owner_root'] = $root;
+        $record['hmac_sha256'] = hash_hmac('sha256', self::databaseCanonical($record), self::verificationKey($root, true));
+        self::writeJson($path, $record);
+    }
+
+    public static function readPartialOwnerRecord(string $root, string $path): array
+    {
+        self::sourceOwner($root);
+        $record = \app\common\services\upgrade\SourceApplicationBackup::protectedPluginJson($path, $root);
+        $mac = $record['hmac_sha256'] ?? null; unset($record['hmac_sha256']);
+        if (!str_starts_with($path, $root . '/private/partial-installation/') || ($record['owner_root'] ?? null) !== $root
+            || !is_string($mac) || !hash_equals(hash_hmac('sha256', self::databaseCanonical($record), self::verificationKey($root, false)), $mac)) {
+            throw new RuntimeException('partial owner record authentication failed');
+        }
+        return $record;
+    }
+
+    /** Actual admitted, unactivated source transition; never a caller-supplied maintenance assertion. */
+    public static function partialInstallationSource(string $root): array
+    {
+        self::sourceOwner($root); self::assertHeldDatabaseLock($root);
+        $identity = self::jsonFile($root . '/.peanut/development-runtime.json', 'partial runtime');
+        $runtimeSha = hash_file('sha256', $root . '/.peanut/development-runtime.json');
+        $deployment = self::applicationDeployment($root, $identity, $runtimeSha);
+        $pending = self::sourcePending($root);
+        if (!isset($deployment['partial_installation']) || $deployment['head_sha256'] === null || $pending === null) {
+            throw new RuntimeException('partial continuation requires its adopted source head');
+        }
+        $path = $pending['checkpoint'];
+        $state = \app\common\services\upgrade\SourceApplicationBackup::protectedPluginJson($path, $root);
+        $sha = $state['state_sha256'] ?? null; $unsigned = $state; unset($unsigned['state_sha256']);
+        if (($state['protocol'] ?? null) !== 'peanut.source-runtime-transition.v1'
+            || $sha !== hash('sha256', self::databaseCanonical($unsigned))
+            || ($state['binding']['instance_root'] ?? null) . '/server' !== $root
+            || ($state['binding']['workspace'] ?? null) !== dirname($path) || (fileperms(dirname($path)) & 0077) !== 0
+            || ($state['phase'] ?? null) !== 'admitted' || ($state['activation_started'] ?? null) !== false
+            || ($pending['phase'] ?? null) !== 'admitted' || ($pending['activation_started'] ?? null) !== false
+            || ($pending['transition_id'] ?? null) !== ($state['transition_id'] ?? null)
+            || ($pending['binding_sha256'] ?? null) !== hash('sha256', self::databaseCanonical($state['binding']))
+            || ($pending['deployment_sha256'] ?? null) !== $deployment['head_sha256']
+            || ($state['published_head_sha256'] ?? null) !== $deployment['head_sha256']
+            || ($pending['runtime_sha256'] ?? null) !== $runtimeSha || ($state['prepared_identity_sha256'] ?? null) !== $runtimeSha
+            || ($state['binding']['tools']['server/docker/scripts/update-plan.php'] ?? null) !== hash_file('sha256', __FILE__)
+            || file_exists(self::trafficReadyPath($root)) || is_link(self::trafficReadyPath($root))) {
+            throw new RuntimeException('partial continuation source transition is not currently closed and admitted');
+        }
+        return ['deployment' => $deployment, 'runtime_sha256' => $runtimeSha,
+            'checkpoint' => ['path' => $path, 'sha256' => hash_file('sha256', $path)], 'state' => $state, 'pending' => $pending];
+    }
+
+    /** Idempotent file finalization after the real Host has completed health and both installation records. */
+    public static function finalizePartialInstallation(string $root, string $recordPath): array
+    {
+        self::sourceOwner($root); self::assertHeldDatabaseLock($root);
+        $record = self::readPartialOwnerRecord($root, $recordPath);
+        if (($record['protocol'] ?? null) !== 'peanut.installation-partial-completion.v1') { throw new RuntimeException('partial completion record required'); }
+        $plan = self::readPartialOwnerRecord($root, $record['plan']['path']);
+        if (hash_file('sha256', $record['plan']['path']) !== $record['plan']['sha256']
+            || ($plan['protocol'] ?? null) !== 'peanut.app-installation-partial-plan.v1'
+            || $plan['source'] !== $record['source'] || $plan['facts']['binding']['database'] !== ($record['database'] ?? null)
+            || \app\common\services\upgrade\SourceApplicationBackup::partialInstallationBackup($record['backup']['path'], $root,
+                $plan['facts']['binding'], $plan['facts']['baseline']) !== $record['backup']) {
+            throw new RuntimeException('partial completion original plan or native backup changed');
+        }
+        $facts = \app\common\services\installation\InstallationExecutionHost::verifiedInstallationFacts($root);
+        $source = $record['source']; $old = $source['deployment'];
+        $runtime = self::jsonFile($root . '/.peanut/development-runtime.json', 'completed partial runtime');
+        if ($facts['receipt_sha256'] !== $record['installed_receipt_sha256'] || $facts['baseline_sha256'] !== $record['baseline_sha256']
+            || ($facts['baseline']['source']['development_runtime_identity_sha256'] ?? null) !== $source['runtime_sha256']
+            || ($facts['baseline']['source']['application_manifest_sha256'] ?? null) !== ($runtime['application_manifest_sha256'] ?? null)
+            || hash_file('sha256', $root . '/.peanut/development-runtime.json') !== $source['runtime_sha256']
+            || ($facts['receipt']['official_modules'] ?? null) !== $record['modules']
+            || \app\common\services\installation\InstallationExecutionHost::migrationDatabaseIdentity(\think\facade\Db::connect()->getPdo()) !== ($record['database'] ?? null)) {
+            throw new RuntimeException('partial completion is not bound to its real installation records');
+        }
+        foreach (['private/resources/configuration.json', 'private/resources/project-resources.json', '.env'] as $relative) {
+            if (hash('sha256', self::regularBytes($root . '/' . $relative, 'partial completion configuration'))
+                !== ($old['partial_installation']['files'][$relative] ?? null)) { throw new RuntimeException('partial completion configuration changed'); }
+        }
+        $progress = $root . '/private/installation/executing.json';
+        if (file_exists($progress) || is_link($progress)) {
+            if (hash('sha256', self::regularBytes($progress, 'partial completion progress'))
+                !== $old['partial_installation']['files']['private/installation/executing.json']) { throw new RuntimeException('partial completion progress changed'); }
+        } else {
+            $head = self::jsonFile(self::deploymentPath($root), 'finalized partial deployment');
+            if (($head['installation_completion'] ?? null) !== ['path' => $recordPath, 'sha256' => hash_file('sha256', $recordPath)]) {
+                throw new RuntimeException('partial completion progress disappeared before finalization');
+            }
+        }
+        $next = $old;
+        unset($next['head_sha256'], $next['partial_installation']);
+        $next['previous_head_sha256'] = $old['head_sha256'];
+        $next['partial_installation_origin'] = $old['partial_installation'];
+        $next['installed_receipt_sha256'] = $facts['receipt_sha256']; $next['baseline_sha256'] = $facts['baseline_sha256'];
+        $next['initial_source'] = ['kind' => 'application-manifest', 'sha256' => $runtime['application_manifest_sha256']];
+        $next['installation_completion'] = ['path' => $recordPath, 'sha256' => hash_file('sha256', $recordPath)];
+        $head = self::publishApplicationDeployment($root, $old['head_sha256'], $next);
+        $state = $source['state'];
+        $state['partial_origin_deployment'] = $state['binding']['deployment'];
+        $state['binding']['deployment'] = $next + ['head_sha256' => $head];
+        $state['head_intent'] = $next; $state['published_head_sha256'] = $head;
+        $state['installation_completion'] = $next['installation_completion'];
+        unset($state['state_sha256']);
+        $state['state_sha256'] = hash('sha256', self::databaseCanonical($state));
+        $path = $source['checkpoint']['path'];
+        $actual = \app\common\services\upgrade\SourceApplicationBackup::protectedPluginJson($path, $root);
+        if (hash_file('sha256', $path) !== $source['checkpoint']['sha256']
+            && self::databaseCanonical($actual) !== self::databaseCanonical($state)) {
+            throw new RuntimeException('partial completion checkpoint CAS failed; finalize only');
+        }
+        self::writeJson($path, $state);
+        self::publishSourcePending($root, ['transition_id' => $state['transition_id'], 'checkpoint' => $path,
+            'binding_sha256' => hash('sha256', self::databaseCanonical($state['binding'])), 'phase' => 'admitted',
+            'activation_started' => false, 'deployment_sha256' => $head, 'runtime_sha256' => $source['runtime_sha256']]);
+        // The native runtime consumer reissues its own admission for the genuine installed pair.
+        self::admitSourceRuntime($root);
+        return ['status' => 'finalized', 'deployment_sha256' => $head, 'completion' => $next['installation_completion']];
+    }
+
     public static function withSourceInstanceLock(string $root, callable $operation): mixed
     {
         return self::withInstanceLock($root, $operation);
@@ -350,12 +483,11 @@ final class PeanutServerUpdatePlan
                 || ($state['activation_started'] ?? null) !== false || !in_array($state['phase'], ['head-published', 'recovered'], true)
                 || ($pending['transition_id'] ?? null) !== $state['transition_id']
                 || hash_file('sha256', __FILE__) !== ($state['binding']['tools']['server/docker/scripts/update-plan.php'] ?? null)
-                || hash_file('sha256', $root . '/private/installation/installed.json') !== $state['binding']['deployment']['installed_receipt_sha256']
-                || hash_file('sha256', $root . '/private/installation/baseline.json') !== $state['binding']['deployment']['baseline_sha256']
                 || $actualHead !== ($state['published_head_sha256'] ?? $state['binding']['deployment']['head_sha256'])
                 || hash_file('sha256', $root . '/.peanut/development-runtime.json') !== $expectedRuntime) {
                 throw new RuntimeException('source child admission is not bound to its current owner checkpoint');
             }
+            self::assertSourceInstallationAnchors($root, $state['binding']['deployment']);
             self::admitSourceRuntime($root);
             return ['status' => 'admitted', 'transition_id' => $state['transition_id']];
         });
@@ -408,6 +540,10 @@ final class PeanutServerUpdatePlan
             || ($identity['schema_version'] ?? null) !== 1 || preg_match('/^[a-f0-9]{64}$/D', $runtimeSha) !== 1) {
             throw new RuntimeException('source runtime requires its development identity');
         }
+        if (!file_exists($root . '/private/installation/installed.json') && !is_link($root . '/private/installation/installed.json')
+            && !file_exists($root . '/private/installation/baseline.json') && !is_link($root . '/private/installation/baseline.json')) {
+            return self::partialApplicationDeployment($root, $identity, $runtimeSha);
+        }
         $baseline = self::installedBaseline($root, $identity);
         $initial = $baseline['source']['application_manifest_sha256'] ?? null;
         $sourceKind = $baseline['source']['kind'] ?? null;
@@ -446,6 +582,224 @@ final class PeanutServerUpdatePlan
         }
         $state['head_sha256'] = hash('sha256', $bytes);
         return $state;
+    }
+
+    /** Read-only owner observation; it cannot issue a database migration admission. */
+    public static function assertSourceInstallationAnchors(string $root, array $deployment): void
+    {
+        if (isset($deployment['partial_installation'])) {
+            if (isset($deployment['installed_receipt_sha256']) || isset($deployment['baseline_sha256'])) {
+                throw new RuntimeException('partial and installed source anchors conflict');
+            }
+            $identity = self::jsonFile($root . '/.peanut/development-runtime.json', 'partial runtime identity');
+            $actual = self::partialApplicationAnchors($root, $identity,
+                hash_file('sha256', $root . '/.peanut/development-runtime.json'), $deployment['partial_installation']);
+            if (self::databaseCanonical($actual) !== self::databaseCanonical($deployment['partial_installation'])) {
+                throw new RuntimeException('partial installation anchors changed');
+            }
+            return;
+        }
+        foreach (['installed_receipt_sha256' => 'installed.json', 'baseline_sha256' => 'baseline.json'] as $key => $name) {
+            if (hash_file('sha256', $root . '/private/installation/' . $name) !== ($deployment[$key] ?? null)) {
+                throw new RuntimeException('installed source anchors changed');
+            }
+        }
+    }
+
+    private static function partialApplicationDeployment(string $root, array $identity, string $runtimeSha): array
+    {
+        self::sourceOwner($root);
+        $path = self::deploymentPath($root);
+        $state = file_exists($path) || is_link($path) ? self::jsonFile($path, 'partial deployment head') : null;
+        $partial = self::partialApplicationAnchors($root, $identity, $runtimeSha, $state['partial_installation'] ?? null);
+        $application = array_intersect_key($identity['application'], array_flip(['slug', 'edition', 'package_identity']));
+        if ($state === null) {
+            return ['partial_installation' => $partial, 'head_sha256' => null, 'source_generation' => 0, 'runtime_revision' => 0,
+                'initial_source' => ['kind' => 'application-manifest', 'sha256' => $identity['application_manifest_sha256']],
+                'current_source' => ['kind' => 'application-manifest', 'sha256' => $identity['application_manifest_sha256']],
+                'current_runtime' => ['kind' => 'development-runtime', 'sha256' => $runtimeSha]];
+        }
+        self::regularBytes($path, 'partial deployment head');
+        if (($state['protocol'] ?? null) !== self::APPLICATION_DEPLOYMENT || ($state['schema_version'] ?? null) !== 1
+            || isset($state['installed_receipt_sha256']) || isset($state['baseline_sha256'])
+            || ($state['application'] ?? null) !== $application
+            || self::databaseCanonical($state['partial_installation'] ?? []) !== self::databaseCanonical($partial)
+            || ($state['current_source'] ?? null) !== ['kind' => 'application-manifest', 'sha256' => $identity['application_manifest_sha256']]
+            || ($state['current_runtime'] ?? null) !== ['kind' => 'development-runtime', 'sha256' => $runtimeSha]
+            || !is_int($state['source_generation'] ?? null) || $state['source_generation'] < 0
+            || !is_int($state['runtime_revision'] ?? null) || $state['runtime_revision'] < 1) {
+            throw new RuntimeException('partial application deployment chain changed');
+        }
+        $state['head_sha256'] = hash_file('sha256', $path);
+        return $state;
+    }
+
+    /** Exact r1/File-frontier metadata, not a substitute for the File module's complete proof. */
+    private static function partialApplicationAnchors(string $root, array $identity, string $runtimeSha, ?array $recorded): array
+    {
+        self::sourceOwner($root);
+        foreach (['installed.json', 'baseline.json'] as $name) {
+            if (file_exists($root . '/private/installation/' . $name) || is_link($root . '/private/installation/' . $name)) {
+                throw new RuntimeException('partial source adoption requires absent completion anchors');
+            }
+        }
+        if (($identity['protocol'] ?? null) !== 'peanut.development-server-runtime.v1'
+            || ($identity['schema_version'] ?? null) !== 1 || ($identity['application']['edition'] ?? null) !== 'multi-tenant'
+            || preg_match('/\A[a-f0-9]{64}\z/D', $runtimeSha) !== 1) {
+            throw new RuntimeException('partial source adoption requires its actual development APP kind');
+        }
+        $files = [];
+        foreach (['private/installation/executing.json', 'private/resources/configuration.json',
+            'private/resources/project-resources.json', '.env'] as $relative) {
+            self::assertOrdinaryParents($root, $relative);
+            $path = $root . '/' . $relative; $bytes = self::regularBytes($path, 'partial source anchor');
+            if ((fileperms($path) & 0777) !== 0600 || !in_array(fileowner($path), [0, fileowner($root)], true)
+                || lstat($path)['nlink'] !== 1) { throw new RuntimeException('partial source anchor is not owner protected'); }
+            $files[$relative] = hash('sha256', $bytes);
+        }
+        $progress = self::jsonFile($root . '/private/installation/executing.json', 'partial progress');
+        if (($progress['schema_version'] ?? null) !== 1 || ($progress['state'] ?? null) !== 'executing'
+            || ($progress['deployment_mode'] ?? null) !== 'multi-tenant'
+            || !is_array($progress['official_modules'] ?? null) || !array_is_list($progress['official_modules'])
+            || count(array_unique($progress['official_modules'])) !== count($progress['official_modules'])
+            || array_slice($progress['official_modules'], 0, 3) !== ['official.identity', 'official.content-tools', 'official.file']) {
+            throw new RuntimeException('partial source module frontier is not the fixed File frontier');
+        }
+        $failure = self::partialApplicationFailure($root, $progress);
+        $files[$failure['path']] = $failure['sha256'];
+        $lock = $root . '/private/installation/execution.lock';
+        self::regularBytes($lock, 'partial execution lock'); $stat = lstat($lock);
+        if ($stat['nlink'] !== 1 || filesize($lock) !== 0 || !in_array($stat['uid'], [0, fileowner($root)], true)) {
+            throw new RuntimeException('partial execution lock changed');
+        }
+        $registry = self::jsonFile($root . '/private/resources/project-resources.json', 'APP registry');
+        if (($registry['authority']['role'] ?? null) !== 'application'
+            || ($registry['project_id'] ?? null) !== ($identity['application']['slug'] ?? null)) {
+            throw new RuntimeException('partial source adoption requires its own APP registry');
+        }
+        // A source transaction must not boot the temporarily changing application or import
+        // maintainer configuration. Use the APP's existing pure registry readers and native PDO.
+        $external = getenv('PEANUT_RESOURCE_REGISTRY');
+        if (is_string($external) && trim($external) !== '') { throw new RuntimeException('partial APP source adoption forbids an external registry'); }
+        require_once $root . '/database/resource-registry.php';
+        $env = parse_ini_file($root . '/.env', false, INI_SCANNER_RAW);
+        if (!is_array($env) || ($env['APP_ENV'] ?? null) !== 'development'
+            || ($env['PEANUT_DEPLOYMENT_TARGET'] ?? null) !== 'local-multi-tenant-demo'
+            || ($env['DEPLOYMENT_MODE'] ?? null) !== 'multi-tenant' || ($env['PEANUT_DATABASE_SOURCE'] ?? null) !== 'registered'
+            || !is_string($env['PEANUT_DATABASE_RESOURCE_ID'] ?? null) || !is_string($env['DB_USER'] ?? null)
+            || !is_string($env['DB_PASS'] ?? null)) {
+            throw new RuntimeException('partial source adoption requires its registered development target');
+        }
+        $resource = registeredDatabase($registry, $env['PEANUT_DATABASE_RESOURCE_ID']);
+        $runtimeEndpoint = registeredDatabaseEndpoint($resource, (string) ($env['PEANUT_DATABASE_CONSUMER'] ?? ''));
+        $routes = ['host' => registeredDatabaseEndpoint($resource, 'host'), 'container' => registeredDatabaseEndpoint($resource, 'container')];
+        $endpoint = $routes[is_file('/.dockerenv') ? 'container' : 'host'];
+        if (($resource['service_type'] ?? null) !== 'mysql' || ($resource['fallback'] ?? null) !== 'none'
+            || ($resource['application_runtime'] ?? null) !== true || !in_array('local-multi-tenant-demo', $resource['environments'] ?? [], true)
+            || !in_array('multi-tenant', $resource['deployment_modes'] ?? [], true)
+            || ($env['DB_NAME'] ?? null) !== ($resource['database'] ?? null) || ($resource['namespace'] ?? null) !== $resource['database']
+            || ($env['DB_HOST'] ?? null) !== $runtimeEndpoint['host'] || (int) ($env['DB_PORT'] ?? 0) !== $runtimeEndpoint['port']
+            || ($env['PEANUT_DATABASE_ENDPOINT_ID'] ?? null) !== $runtimeEndpoint['endpoint_id']
+            || preg_match('/\A[a-zA-Z0-9_]+\z/D', $resource['database']) !== 1) {
+            throw new RuntimeException('partial source APP endpoint binding changed');
+        }
+        $config = ['resource_id' => $resource['stable_resource_id'], 'endpoint_id' => $runtimeEndpoint['endpoint_id']];
+        $pdo = new PDO(sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4', $endpoint['host'], $endpoint['port'], $resource['database']),
+            $env['DB_USER'], $env['DB_PASS'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES => false, PDO::ATTR_TIMEOUT => 5]);
+        unset($env);
+        $pdo->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ'); $pdo->exec('SET TRANSACTION READ ONLY'); $pdo->beginTransaction();
+        try {
+            $identityRow = $pdo->query('SELECT @@server_uuid AS server_uuid,@@hostname AS server_hostname,@@port AS server_port,DATABASE() AS database')->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($identityRow) || preg_match('/\A[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}\z/Di', (string) ($identityRow['server_uuid'] ?? '')) !== 1
+                || ($identityRow['database'] ?? null) !== $resource['database'] || !is_string($identityRow['server_hostname'] ?? null)
+                || $identityRow['server_hostname'] === '' || (int) ($identityRow['server_port'] ?? 0) < 1 || (int) $identityRow['server_port'] > 65535) {
+                throw new RuntimeException('partial source database identity is unavailable');
+            }
+            $database = ['server_uuid' => strtolower($identityRow['server_uuid']), 'server_hostname' => $identityRow['server_hostname'],
+                'server_port' => (int) $identityRow['server_port'], 'database' => $identityRow['database']];
+            $ledger = $pdo->query('SELECT migration_id,release_version,checksum,status,finished_at,error_code FROM pa_schema_migration ORDER BY migration_id')->fetchAll(PDO::FETCH_ASSOC);
+            if (count($ledger) !== 1 || $ledger[0]['migration_id'] !== '20261019-clean-install-5.0.2-r1'
+                || $ledger[0]['release_version'] !== '5.0.2' || $ledger[0]['status'] !== 'applied' || $ledger[0]['finished_at'] === null
+                || $ledger[0]['error_code'] !== null || $ledger[0]['checksum'] !== hash_file('sha256', $root . '/database/baselines/5.0.2-r1/manifest.json')) {
+                throw new RuntimeException('partial source adoption requires the real retained r1 ledger');
+            }
+            $moduleRows = $pdo->query("SELECT * FROM pa_module_migration WHERE module_key='official.identity' ORDER BY migration_key")->fetchAll(PDO::FETCH_ASSOC);
+            if (count($moduleRows) !== 9 || (int) $pdo->query("SELECT COUNT(*) FROM pa_module_migration WHERE module_key<>'official.identity'")->fetchColumn() !== 0) {
+                throw new RuntimeException('partial source module history frontier changed');
+            }
+            foreach ($moduleRows as $row) {
+                $key = $row['migration_key'];
+                if (!str_starts_with($key, 'official.identity:') || preg_match('/\A[0-9]{8,14}_[a-z0-9_]+\z/D', substr($key, 18)) !== 1
+                    || $row['status'] !== 'applied' || $row['resolution_kind'] !== 'executed' || $row['error_code'] !== null
+                    || ($row['finished_at'] ?? null) === null || ($row['provenance_json'] ?? null) !== null) {
+                    throw new RuntimeException('partial source Identity history is not actual executed history');
+                }
+                $source = $root . '/app/modules/official/identity/database/migrations/' . substr($key, 18) . '.sql';
+                if (hash('sha256', self::regularBytes($source, 'original Identity migration')) !== $row['checksum']) {
+                    throw new RuntimeException('partial source Identity migration source changed');
+                }
+            }
+            $active = $pdo->query('SELECT plugin_key,installed_version,status FROM pa_plugin_installation ORDER BY plugin_key')->fetchAll(PDO::FETCH_ASSOC);
+            $modules = $pdo->query('SELECT module_key,installed_version,status FROM pa_module_installation ORDER BY module_key')->fetchAll(PDO::FETCH_ASSOC);
+            if (array_column($active, 'plugin_key') !== ['official.content-tools', 'official.identity']
+                || array_column($modules, 'module_key') !== ['official.content-tools', 'official.identity']
+                || array_column($active, 'status') !== ['active', 'active'] || array_column($modules, 'status') !== ['active', 'active']
+                || (int) $pdo->query('SELECT COUNT(*) FROM pa_file')->fetchColumn() !== 0
+                || (int) $pdo->query('SELECT COUNT(*) FROM pa_file_object')->fetchColumn() !== 0
+                || (int) $pdo->query("SELECT COUNT(*) FROM pa_config WHERE type='storage'")->fetchColumn() !== 0) {
+                throw new RuntimeException('partial source File data or active module frontier changed');
+            }
+        } finally { if ($pdo->inTransaction() && !$pdo->rollBack()) { throw new RuntimeException('partial source snapshot did not close'); } }
+        foreach ($files as $relative => $sha) {
+            if (hash('sha256', self::regularBytes($root . '/' . $relative, 'partial source anchor')) !== $sha) {
+                throw new RuntimeException('partial source file changed during observation');
+            }
+        }
+        $afterLock = lstat($lock);
+        if ($afterLock['dev'] !== $stat['dev'] || $afterLock['ino'] !== $stat['ino'] || filesize($lock) !== 0) {
+            throw new RuntimeException('partial execution lock changed during observation');
+        }
+        $actual = ['original_runtime_sha256' => $recorded['original_runtime_sha256'] ?? $runtimeSha,
+            'initial_manifest_sha256' => $recorded['initial_manifest_sha256'] ?? $identity['application_manifest_sha256'],
+            'files' => $files, 'execution_lock' => ['device' => $stat['dev'], 'inode' => $stat['ino']],
+            'database' => $database, 'resource_id' => $config['resource_id'], 'endpoint_id' => $config['endpoint_id'], 'registered_routes' => $routes,
+            'r1_ledger_sha256' => hash('sha256', self::databaseCanonical($ledger)),
+            'identity_history_sha256' => hash('sha256', self::databaseCanonical($moduleRows)),
+            'active_modules_sha256' => hash('sha256', self::databaseCanonical([$active, $modules]))];
+        if ($recorded !== null && self::databaseCanonical($actual) !== self::databaseCanonical($recorded)) {
+            throw new RuntimeException('partial source anchors changed');
+        }
+        return $actual;
+    }
+
+    private static function partialApplicationFailure(string $root, array $progress): array
+    {
+        $started = is_string($progress['started_at'] ?? null) ? strtotime($progress['started_at']) : false;
+        $logs = glob($root . '/runtime/log/*/*.log') ?: [];
+        if ($started === false || count($logs) > 32) { throw new RuntimeException('partial original failure is unknown'); }
+        $found = [];
+        foreach ($logs as $path) {
+            $relative = substr($path, strlen($root) + 1); self::assertOrdinaryParents($root, $relative);
+            if (filesize($path) > 4194304) { throw new RuntimeException('partial original log is too large'); }
+            $bytes = self::regularBytes($path, 'partial original log');
+            foreach (explode("\n", $bytes) as $line) {
+                $offset = strpos($line, '{');
+                if ($offset === false || !str_contains($line, 'installation_failure')) { continue; }
+                $event = json_decode(substr($line, $offset), true, 32, JSON_THROW_ON_ERROR);
+                $at = preg_match('/\A\[([^\]]+)\]/', $line, $match) === 1 ? strtotime($match[1]) : false;
+                if (($event['event'] ?? null) !== 'installation_failure' || $at === false || $at < $started) { continue; }
+                $chain = array_filter($event['exception_chain'] ?? [], static fn(array $row): bool =>
+                    ($row['class'] ?? null) === 'app\\platform\\exception\\plugin\\PluginLifecycleException'
+                    && ($row['path'] ?? null) === 'server/app/platform/services/plugin/PluginLifecycleService.php' && ($row['line'] ?? null) === 362);
+                if (($event['stage'] ?? null) !== 'install_modules' || ($event['error_code'] ?? null) !== 'INSTALL_EXECUTION_FAILED' || count($chain) !== 1) {
+                    throw new RuntimeException('partial failure is not the fixed File adoption frontier');
+                }
+                $found[] = ['path' => $relative, 'sha256' => hash('sha256', $bytes)];
+            }
+        }
+        if (count($found) !== 1) { throw new RuntimeException('partial original failure is not unique'); }
+        return $found[0];
     }
 
     private static function protectApplicationDeployment(string $root): void
@@ -1143,6 +1497,15 @@ final class PeanutServerUpdatePlan
         $application->instance($identity::class, $identity);
         $application->initialize();
         $compiled = hrtime(true);
+        if ($identity instanceof \app\common\value\installation\ApplicationSourceIdentity
+            && !file_exists($serverRoot . '/private/installation/installed.json') && !is_link($serverRoot . '/private/installation/installed.json')
+            && !file_exists($serverRoot . '/private/installation/baseline.json') && !is_link($serverRoot . '/private/installation/baseline.json')) {
+            // assertDevelopmentInstalledInstance already proved the exact retained partial
+            // head. Admit that actual source without claiming installed health or opening traffic.
+            \app\common\infrastructure\installation\VerifiedServerDeployment::publish($application, $identity);
+            self::writeAdmissionReceipt($serverRoot, $application, $identity, $started, $verified, $compiled);
+            return;
+        }
         $host = $application->make(\app\common\services\installation\InstallationExecutionHost::class);
         $status = $host->status();
         if (($status['state'] ?? null) !== 'installed'
@@ -1285,6 +1648,17 @@ final class PeanutServerUpdatePlan
         string $serverRoot,
         \app\common\value\installation\ApplicationSourceIdentity $identity,
     ): void {
+        if (!file_exists($serverRoot . '/private/installation/installed.json') && !is_link($serverRoot . '/private/installation/installed.json')
+            && !file_exists($serverRoot . '/private/installation/baseline.json') && !is_link($serverRoot . '/private/installation/baseline.json')) {
+            $pending = self::sourcePending($serverRoot);
+            $deployment = self::applicationDeployment($serverRoot, $identity->document(), $identity->identitySha256());
+            if (!isset($deployment['partial_installation']) || $deployment['head_sha256'] === null
+                || !in_array($pending['phase'] ?? null, ['head-published', 'recovered'], true)
+                || ($pending['deployment_sha256'] ?? null) !== $deployment['head_sha256']) {
+                throw new RuntimeException('partial development admission requires its held native source transition');
+            }
+            return;
+        }
         self::assertOrdinaryParents($serverRoot, 'private/installation/installed.json');
         $receipt = json_decode(self::regularBytes($serverRoot . '/private/installation/installed.json', 'installed APP receipt'), true, 512, JSON_THROW_ON_ERROR);
         $edition = $identity->applicationIdentity()['edition'];

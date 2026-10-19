@@ -7,6 +7,7 @@ namespace PeanutAdmin\Modules\File\Contract;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\InstallationExecutionContext;
 use app\common\execution\InstanceExecutionContext;
+use app\common\services\installation\InstallationExecutionHost;
 use PDO;
 use think\facade\Db;
 
@@ -102,6 +103,10 @@ JSON;
                 $baseReady = $baseReady && $ok;
             }
             if (!$baseReady) {
+                if ($position === 0 && $this->emptyLegacyUnify($pdo, $actual, $schemas['post'], $names, $checks)) {
+                    if (Db::connect()->getPdo() !== $pdo || !$pdo->inTransaction()) { throw new \RuntimeException('PDO_IDENTITY_CHANGED'); }
+                    return $this->result($oldMigrationKey, 'execute', $checks, null);
+                }
                 // Historical unify includes destructive mapping and removed source columns. Never auto-replay it.
                 return $this->result($oldMigrationKey, 'reject', $checks, 'FILE_BASE_POSTSHAPE_UNKNOWN');
             }
@@ -191,6 +196,56 @@ JSON;
     }
 
     /** MySQL FK/CHECK names are schema-scoped: an absent target family alone is not a safe prestate. */
+    /** One exact empty r1 prestate, authorized only by the actual native partial installation host. */
+    private function emptyLegacyUnify(PDO $pdo, array $actual, array $post, array $names, array &$checks): bool
+    {
+        $legacy = $post;
+        unset($legacy['file']['columns']['file_key'], $legacy['file']['indexes']['uk_file_object_reference'],
+            $legacy['file']['foreign_keys']['fk_file_object_reference']);
+        $legacy['file']['columns']['uri'] = ['varchar(255)', false, '', 'utf8mb4', 'utf8mb4_0900_ai_ci', ''];
+        $legacy['file']['columns']['storage'] = ['varchar(20)', false, 'local', 'utf8mb4', 'utf8mb4_0900_ai_ci', ''];
+        foreach (['purpose', 'access_type', 'storage_space_id', 'disposition', 'object_key'] as $column) {
+            unset($legacy['file_object']['columns'][$column]);
+        }
+        $legacy['file_object']['columns']['storage_provider_key'] = ['varchar(64)', false, null, 'ascii', 'ascii_bin', ''];
+        $legacy['file_object']['columns']['storage_key'] = ['varchar(255)', false, null, 'ascii', 'ascii_bin', ''];
+        $legacy['file_object']['columns']['sha256'][1] = false;
+        $legacy['file_object']['columns']['created_by_member_id'][1] = false;
+        $legacy['file_object']['indexes']['uk_file_object_storage']['columns'] = ['tenant_id', 'storage_provider_key', 'storage_key'];
+        unset($legacy['file_object']['indexes']['idx_file_object_purpose'], $legacy['file_object']['indexes']['uk_file_object_tenant_key'],
+            $legacy['file_object']['foreign_keys']['fk_file_object_space']);
+        foreach (['chk_file_object_purpose', 'chk_file_object_access', 'chk_file_object_disposition'] as $check) {
+            unset($legacy['file_object']['checks'][$check]);
+        }
+        $legacy['file_object']['checks']['chk_file_object_status'] = "`status` IN ('ready', 'archived')";
+        $legacy['file_object']['checks']['chk_file_object_archive_shape'] = "(`status` = 'ready' AND `archived_at` IS NULL) OR (`status` = 'archived' AND `archived_at` IS NOT NULL)";
+        foreach ($actual as $name => $schema) {
+            if (in_array($name, ['file', 'file_object'], true)) {
+                if (!$this->matches($schema, $legacy[$name], $names)) { return false; }
+            } elseif ($schema !== null) { return false; }
+        }
+        foreach ($names as $name => $physical) {
+            if ($physical !== 'pa_' . $name) { throw new \RuntimeException('MIGRATION_SQL_PREFIX_UNSUPPORTED'); }
+        }
+        $counts = ['material_rows' => $this->count($pdo, 'SELECT COUNT(*) FROM ' . self::q($names['file'])),
+            'object_rows' => $this->count($pdo, 'SELECT COUNT(*) FROM ' . self::q($names['file_object'])),
+            'storage_config_rows' => $this->count($pdo, 'SELECT COUNT(*) FROM ' . self::q($names['config']) . " WHERE `type`='storage'")];
+        if (array_sum($counts) !== 0) { return false; }
+        $sequences = $this->rows($pdo, "SELECT TABLE_NAME,AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('pa_file','pa_file_object') ORDER BY TABLE_NAME", []);
+        if (count($sequences) !== 2 || array_column($sequences, 'TABLE_NAME') !== ['pa_file', 'pa_file_object']
+            || array_map('strval', array_column($sequences, 'AUTO_INCREMENT')) !== ['1', '1']
+            || (int) $pdo->query('SELECT @@auto_increment_increment')->fetchColumn() !== 1
+            || (int) $pdo->query('SELECT @@auto_increment_offset')->fetchColumn() !== 1) { return false; }
+        $authority = app()->make(InstallationExecutionHost::class)->fileUnifyContinuationAdmission($pdo, self::MIGRATION_KEYS[0]);
+        $this->assertConstraintNamesAvailable($pdo, ['storage_account', 'storage_space', 'storage_route'], $post, $names, $checks);
+        if (app()->make(InstallationExecutionHost::class)->fileUnifyContinuationAdmission($pdo, self::MIGRATION_KEYS[0]) !== $authority) {
+            throw new \RuntimeException('CONTINUATION_AUTHORITY_CHANGED');
+        }
+        $checks['empty_legacy_unify'] = ['counts' => $counts, 'exact_original_r1_schema' => true,
+            'native_authority_sha256' => $authority['authority_sha256']];
+        return true;
+    }
+
     private function assertConstraintNamesAvailable(PDO $pdo, array $tables, array $schemas, array $names, array &$checks): void
     {
         $expected = [];
