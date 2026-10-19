@@ -12,7 +12,7 @@ core_web_dir=""
 while [ $# -gt 0 ] && [ "$1" != -- ]; do
     case "$1" in
         --env-file) [ $# -ge 2 ] || { printf '%s\n' '--env-file requires a value' >&2; exit 2; }; env_file=$2; shift 2 ;;
-        --core-web-dir) [ $# -ge 2 ] || { printf '%s\n' '--core-web-dir requires a value' >&2; exit 2; }; core_web_dir=$2; shift 2 ;;
+        --core-web-dir) [ $# -ge 2 ] && [ -n "${2:-}" ] || { printf '%s\n' '--core-web-dir requires a non-empty value' >&2; exit 2; }; core_web_dir=$2; shift 2 ;;
         --dry-run) dry_run=1; shift ;;
         *) printf 'unsupported argument: %s\n' "$1" >&2; exit 2 ;;
     esac
@@ -126,6 +126,7 @@ function start(label, executable, arguments_, cwd, watcher) {
 }
 process.on("SIGINT", () => stop(130));
 process.on("SIGTERM", () => stop(143));
+process.on("SIGHUP", () => stop(129));
 for (const { name, root } of selected) {
     console.log(`local Core watch: ${name}`);
     start(name, "corepack", ["pnpm", "run", "watch", "--project", join(root, "tsconfig.json")], core, true);

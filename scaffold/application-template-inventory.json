@@ -3303,7 +3303,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "69cd66f320da750c78d47a8d23717d7b5a9171e3fcacb88ddec05b07189dabd7"
+            "source_sha256": "851ecf9b5075fc826ceb13d5600e581b437e0f069c3bfa85ec8e00e1727e29cf"
         },
         {
             "path": "scripts/local-core-composer",
