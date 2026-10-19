@@ -11,7 +11,7 @@ const RELEASE_STRICT_SEMVER = '/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]
 
 function releaseUsage(): never
 {
-    fwrite(STDERR, "Usage: php scripts/build-scaffold-release --version=<semver> --source-commit=<full-sha> --output=<absolute-directory> [--edition=standalone|multi-tenant] [--workflow=none|runtime|full] [--internal-core-inputs=<absolute-release-core-inputs.json>] [--check]\n");
+    fwrite(STDERR, "Usage: php scripts/build-scaffold-release --version=<semver> --source-commit=<full-sha> --output=<absolute-directory> [--edition=standalone|multi-tenant] [--workflow=none|runtime|full] [--internal-core-inputs=<absolute-release-core-inputs.json>] [--api-tool-root=<absolute-tool-root>] [--check]\n");
     exit(64);
 }
 
@@ -24,7 +24,7 @@ foreach (array_slice($argv, 1) as $argument) {
         $check = true;
         continue;
     }
-    if (preg_match('/^--(version|source-commit|output|edition|workflow|internal-core-inputs)=(.+)$/D', $argument, $matches) !== 1 || isset($options[$matches[1]])) {
+    if (preg_match('/^--(version|source-commit|output|edition|workflow|internal-core-inputs|api-tool-root)=(.+)$/D', $argument, $matches) !== 1 || isset($options[$matches[1]])) {
         releaseUsage();
     }
     $options[$matches[1]] = $matches[2];
@@ -38,6 +38,7 @@ if (preg_match(RELEASE_STRICT_SEMVER, $options['version']) !== 1) {
     releaseUsage();
 }
 if (preg_match('/^[a-f0-9]{40}$/D', $options['source-commit']) !== 1 || !str_starts_with($options['output'], '/')
+    || (isset($options['api-tool-root']) && !str_starts_with($options['api-tool-root'], '/'))
     || (isset($options['edition']) && !in_array($options['edition'], ['standalone', 'multi-tenant'], true))
     || (isset($options['workflow']) && !in_array($options['workflow'], ['none', 'runtime', 'full'], true))) {
     releaseUsage();
@@ -191,12 +192,15 @@ try {
     if ($constructorCount >= 5) {
         $creatorArguments[] = $edition !== null;
     }
+    if (isset($options['api-tool-root']) && $constructorCount < 7) {
+        throw new RuntimeException('SCAFFOLD_RELEASE_CREATOR_SIGNATURE_UNSUPPORTED');
+    }
     if ($constructorCount >= 7) {
         if ($constructor->getParameters()[6]->getName() !== 'apiGeneratorPath') {
             throw new RuntimeException('SCAFFOLD_RELEASE_CREATOR_SIGNATURE_UNSUPPORTED');
         }
         $creatorArguments[] = null;
-        $creatorArguments[] = $root . '/scripts/generate-api-contracts.php';
+        $creatorArguments[] = rtrim($options['api-tool-root'] ?? $root, '/') . '/scripts/generate-api-contracts.php';
     }
     $creator = (new ReflectionClass($creatorClass))->newInstanceArgs($creatorArguments);
     $create = new ReflectionMethod($creator, 'create');
