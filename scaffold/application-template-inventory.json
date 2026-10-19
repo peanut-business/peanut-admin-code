@@ -2333,7 +2333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "95bc632c1ccbfa28dc59163011892df45e86c80f5896ef10557ba13b91ded77f"
+            "source_sha256": "800515ef895679561b653f76908215dcd8ee1e3481ca7a35d47e647dfedf1cfb"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2400,7 +2400,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f153472ad74ce408f1ce6d485721901df930a73d864f373bc35ab17f76e8c4af"
+            "source_sha256": "aa763dc6e13267a89a10646e606e69ab6da45aa85f272acc2d15d3965024fda9"
         },
         {
             "path": "plugins/official.collaboration/plugin.json",
@@ -2442,7 +2442,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3d8346289185ca7d8eb7d650023f5db379798d4af4ff5a06e8772c96a849847e"
+            "source_sha256": "f021923a9a214715f5c3098d682a3985d7aa5c34185eded7ad0e3b87a82cf560"
         },
         {
             "path": "plugins/official.file/plugin.json",
@@ -2484,7 +2484,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "80d7d4e49e52443aeadcf380eb73b41503dc26d208e638d8c220493db2b8dfab"
+            "source_sha256": "03bae83ee22e89ef63f371436a37a8671618daf969561f8412d814cada9ace51"
         },
         {
             "path": "plugins/official.integration/plugin.json",
@@ -10546,7 +10546,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "00a266e52ec3ae3cd3b09cfdaa7bca6a7244d774e2924472afa8d742bfeed04d"
+            "source_sha256": "5865b6a960c490382992edf8108bb3727bf4e40e458eca476aae04958e641643"
         },
         {
             "path": "server/app/modules/official/article/src/Service/ArticleBodyService.php",
@@ -10588,7 +10588,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "717ff3e2e368db0de4af22a2747255d35a3ed27a6e213dfc1d590471f92eb3ad"
+            "source_sha256": "c1a82bd3e7884c9841f167daf1a2ef8007fd8cc398d04f897a93e69f06485f78"
+        },
+        {
+            "path": "server/app/modules/official/article/src/Service/ArticlePublicBodyRenderer.php",
+            "target": "server/app/modules/official/article/src/Service/ArticlePublicBodyRenderer.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "ae430f5719dba84065435c87df58502be93dacf460136d42f8de4e41be2a002b"
         },
         {
             "path": "server/app/modules/official/article/src/Service/ArticleQueryService.php",
@@ -10616,7 +10630,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "792a2de4f585d6e165f48304efa47f080bf8b713a2e8f747404f47cb69ffd7e8"
+            "source_sha256": "d244028731f79bd7237ede687035ad865f97025601eec4631a7d279c18b6d819"
         },
         {
             "path": "server/app/modules/official/article/src/Validation/ArticleCateValidate.php",
@@ -11372,7 +11386,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "53a64da3f0bbc115460713c70ad4a56d51ef71bc6baf10389ce8b66f10409567"
+            "source_sha256": "ab718f90e0fbb49d78d6e2e0cd0da56c9ae2c43a56b624347c53464fab425d75"
         },
         {
             "path": "server/app/modules/official/document/resources/menus.json",
@@ -11613,6 +11627,20 @@
             "source_sha256": "65397fe1fd4830623dafe171d48f06dfef95da48334815023051edd614f742e5"
         },
         {
+            "path": "server/app/modules/official/document/src/Contract/DocumentPublicationOwnerPolicy.php",
+            "target": "server/app/modules/official/document/src/Contract/DocumentPublicationOwnerPolicy.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "9b5c6aefc1f39bc9a32a430eaac11b0c015c6fc43935c008ddf063dee5cd25e1"
+        },
+        {
             "path": "server/app/modules/official/document/src/Contract/DocumentQueries.php",
             "target": "server/app/modules/official/document/src/Contract/DocumentQueries.php",
             "classification": "managed",
@@ -11624,7 +11652,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6135b76fe3900626a943b132b747204ef7355f0e608b9d8f907bf6b623e3f4c7"
+            "source_sha256": "14e62de66bf98862f3dcb993a77ebe72f2e8afad8c75a84172559f6379a31f42"
         },
         {
             "path": "server/app/modules/official/document/src/Contract/DocumentUpgradePreservationQuery.php",
@@ -11890,7 +11918,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3a45a52235e7656663bf88b689704cb19e97449987f648013f1baf8bdac74a79"
+            "source_sha256": "3c7480cd0dc7ae497991ec8cded410a35eb7a3d677a2479a7a35d45da3888609"
         },
         {
             "path": "server/app/modules/official/file/README.md",

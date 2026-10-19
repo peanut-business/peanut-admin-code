@@ -212,7 +212,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "852cf8b67457cc43cc31c1391b1c64e7152b6135ac9d342d922a7de012a341ff"
+                "sha256": "abb3212a5ae924e0e1f1f69acc8e8ea0ef5538d6254741959e17b127dffa620f"
             },
             "trust": {
                 "channel": "bundled",
@@ -313,7 +313,7 @@
                 }
             ],
             "manifest": "plugins/official.article/plugin.json",
-            "manifest_sha256": "f153472ad74ce408f1ce6d485721901df930a73d864f373bc35ab17f76e8c4af"
+            "manifest_sha256": "aa763dc6e13267a89a10646e606e69ab6da45aa85f272acc2d15d3965024fda9"
         },
         {
             "key": "official.collaboration",
@@ -515,7 +515,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "701254de6071fb2ea3150f6562e88f5d6d8aaaf553df19c2eb1946a364a9780e"
+                "sha256": "361eedf64d437b62f57d3552f9b4a616010d6f41fea4863dc860964d7d215b42"
             },
             "trust": {
                 "channel": "bundled",
@@ -620,7 +620,7 @@
                 }
             ],
             "manifest": "plugins/official.document/plugin.json",
-            "manifest_sha256": "3d8346289185ca7d8eb7d650023f5db379798d4af4ff5a06e8772c96a849847e"
+            "manifest_sha256": "f021923a9a214715f5c3098d682a3985d7aa5c34185eded7ad0e3b87a82cf560"
         },
         {
             "key": "official.file",
@@ -871,7 +871,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "b40d60475268459fb87848207b7c194c911692aacd3d92d9226c1f6bc258c1e1"
+                "sha256": "a3c8a4203e3b11c27a4bb96fd249098b0f780da7eaad1c56c814e4b777b765f1"
             },
             "trust": {
                 "channel": "bundled",
@@ -980,7 +980,7 @@
                 }
             ],
             "manifest": "plugins/official.import-export/plugin.json",
-            "manifest_sha256": "80d7d4e49e52443aeadcf380eb73b41503dc26d208e638d8c220493db2b8dfab"
+            "manifest_sha256": "03bae83ee22e89ef63f371436a37a8671618daf969561f8412d814cada9ace51"
         },
         {
             "key": "official.integration",
