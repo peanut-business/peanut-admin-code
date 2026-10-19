@@ -40,6 +40,10 @@ final class SourceApplicationBackup
         'official.member:20260921-create-member-session' => ['297fc9de7bc227d584cb79fe6e5d50f6cf8512b33696578acbb3f10243b65337',
             ['pa_member', 'pa_member_session']],
     ];
+    private const IMPORT_EXPORT_STAGES = [
+        'official.import-export:20260921-adopt-import-export-schema' => ['ad77642648ef414871258f1ff2ec61a9586d115651a3c883b7986e58b0d4c8ba',
+            ['pa_import_export_operation', 'pa_import_export_row_error']],
+    ];
     private const MODULE_DDL_STAGES = [
         'official.notification:20260921-adopt-notification-delivery-schema' => ['eaef582cd762c803f3f7d213687f61d43fd3634e9f0b984471f11648e10979fb',
             ['pa_notification_template', 'pa_notification_message', 'pa_notification_attachment', 'pa_notification_outbox', 'pa_sms_rate_bucket', 'pa_notification_event'],
@@ -189,6 +193,15 @@ final class SourceApplicationBackup
                 $selected[$id] = $sha;
                 if (($migration['disposition'] ?? null) === 'already_applied') { continue; }
                 $pending[] = $id; $tables[] = 'pa_module_migration';
+                $importExport = self::IMPORT_EXPORT_STAGES[$id] ?? null;
+                if ($key === 'official.import-export' && $importExport !== null && $sha === $importExport[0]
+                    && ($migration['disposition'] ?? null) === 'execute') {
+                    array_push($tables, ...$importExport[1]);
+                    $writeRequirements[] = ['module_key' => $key, 'migration_key' => $id, 'code' => 'PLUGIN_SOURCE_IMPORT_EXPORT_PRESERVATION_REQUIRED',
+                        'contract' => 'PeanutAdmin\\Modules\\ImportExport\\Contract\\ImportExportMigrationPreservation',
+                        'api' => 'before(PDO, canonicalMigrationKey), after(PDO, innerPrivateState); compatible originals or absent targets, fixed native CREATE IF NOT EXISTS and same-PDO completion required'];
+                    continue;
+                }
                 $member = self::MEMBER_STAGES[$id] ?? null;
                 if ($key === 'official.member' && $member !== null && $sha === $member[0]
                     && ($migration['disposition'] ?? null) === 'execute') {

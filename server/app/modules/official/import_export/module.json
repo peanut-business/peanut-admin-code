@@ -50,6 +50,7 @@
     "exports": [
       "PeanutAdmin\\Modules\\ImportExport\\Contract\\ImportExportCommands",
       "PeanutAdmin\\Modules\\ImportExport\\Contract\\ImportExportQueries",
+      "PeanutAdmin\\Modules\\ImportExport\\Contract\\ImportExportMigrationPreservation",
       "PeanutAdmin\\Modules\\ImportExport\\Contract\\ImportExportWorkerRuntime",
       "PeanutAdmin\\Modules\\ImportExport\\Contract\\ConfigurationTransferCommands",
       "PeanutAdmin\\Modules\\ImportExport\\Contract\\ConfigurationTransferQueries",

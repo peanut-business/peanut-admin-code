@@ -26,6 +26,7 @@ use PeanutAdmin\Modules\File\Contract\FileMigrationPreservation;
 use PeanutAdmin\Modules\Document\Contract\DocumentMigrationPreservation;
 use PeanutAdmin\Modules\Article\Contract\ArticleMigrationPreservation;
 use PeanutAdmin\Modules\Member\Contract\MemberSessionMigrationPreservation;
+use PeanutAdmin\Modules\ImportExport\Contract\ImportExportMigrationPreservation;
 use PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight;
 use PeanutAdmin\Modules\Task\Job\Database\TaskSchemaMigrationProof;
 use PeanutAdmin\Modules\Identity\Audit\AuditService;
@@ -39,6 +40,9 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     ];
     private const MEMBER_STAGES = [
         'official.member:20260921-create-member-session' => '297fc9de7bc227d584cb79fe6e5d50f6cf8512b33696578acbb3f10243b65337',
+    ];
+    private const IMPORT_EXPORT_STAGES = [
+        'official.import-export:20260921-adopt-import-export-schema' => 'ad77642648ef414871258f1ff2ec61a9586d115651a3c883b7986e58b0d4c8ba',
     ];
     private const DOCUMENT_STAGES = [
         'official.document:20261012050000_create_business_documents' => '103003e0a0cbb8ec11ed2d1f039772500d7c610ad9b66bc19623fb012fa31f00',
@@ -503,6 +507,9 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 $memberStage = $moduleKey === 'official.member' && isset(self::MEMBER_STAGES[$migrationKey]);
                 $memberAdmission = $memberStage ? self::adoptionAdmission($pdo) : null;
                 $memberPrivate = $memberStage ? self::captureMemberPreservation($pdo, $migrationKey, $checksum) : null;
+                $importExportStage = $moduleKey === 'official.import-export' && isset(self::IMPORT_EXPORT_STAGES[$migrationKey]);
+                $importExportAdmission = $importExportStage ? self::adoptionAdmission($pdo) : null;
+                $importExportPrivate = $importExportStage ? self::captureImportExportPreservation($pdo, $migrationKey, $checksum) : null;
                 $stageContract = self::PRESERVATION_STAGES[$migrationKey] ?? null;
                 $stageAdmission = $stageContract === null ? null : self::adoptionAdmission($pdo);
                 $stageBefore = null;
@@ -544,6 +551,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                         function (?array $executionBounds) use ($connection, $pdo, $moduleKey, $migrationKey, $adoptions, $checksum, &$filePrivate,
                             $documentStage, $documentAdmission, &$documentPrivate, $articleStage, $articleAdmission, $articlePredecessors, &$articlePrivate,
                             $memberStage, $memberAdmission, &$memberPrivate,
+                            $importExportStage, $importExportAdmission, &$importExportPrivate,
                             $stageContract, &$stageBefore): void {
                             if (Db::connect() !== $connection || $connection->getPdo() !== $pdo || $pdo->inTransaction()) {
                                 throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Master connection changed during migration.');
@@ -583,6 +591,18 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                                 if (Db::connect() !== $connection || $connection->getPdo() !== $pdo || $pdo->inTransaction()
                                     || self::json(self::adoptionAdmission($pdo)) !== self::json($memberAdmission)) {
                                     throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Member completion changed its native connection or admission.');
+                                }
+                            }
+                            if ($importExportStage) {
+                                if (!is_array($importExportPrivate) || $executionBounds !== null
+                                    || self::json(self::adoptionAdmission($pdo)) !== self::json($importExportAdmission)) {
+                                    throw new PluginLifecycleException('MODULE_MIGRATION_PRESERVATION_REQUIRED', 'ImportExport requires its original private facts and held native admission.');
+                                }
+                                self::assertImportExportPreserved($pdo, $migrationKey, $checksum, $importExportPrivate);
+                                $importExportPrivate = null;
+                                if (Db::connect() !== $connection || $connection->getPdo() !== $pdo || $pdo->inTransaction()
+                                    || self::json(self::adoptionAdmission($pdo)) !== self::json($importExportAdmission)) {
+                                    throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'ImportExport completion changed its native connection or admission.');
                                 }
                             }
                             if ($stageContract !== null) {
@@ -635,6 +655,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                     $documentPrivate = null;
                     $articlePrivate = null;
                     $memberPrivate = null;
+                    $importExportPrivate = null;
                     $articlePredecessors = null;
                     $stageBefore = null;
                     unset($stageLedger);
@@ -1126,6 +1147,35 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             || ($after['proof_kind'] ?? null) !== 'fixed_native_additive_ddl'
             || ($after['delta_kind'] ?? null) !== 'member_session_revision_and_empty_sessions' || ($after['table_count'] ?? null) !== 2) {
             throw new PluginLifecycleException('MODULE_MIGRATION_POSTSTATE_REJECTED', 'Member did not prove its fixed native DDL postconditions.');
+        }
+    }
+
+    private static function captureImportExportPreservation(\PDO $pdo, string $key, string $sha): array
+    {
+        if ((self::IMPORT_EXPORT_STAGES[$key] ?? null) !== $sha || !class_exists(ImportExportMigrationPreservation::class)) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_PRESERVATION_REQUIRED', 'The fixed ImportExport source contract is unavailable.');
+        }
+        $before = app()->make(ImportExportMigrationPreservation::class)->before($pdo, $key);
+        $safe = $before['safe_summary'] ?? null;
+        if (Db::connect()->getPdo() !== $pdo || $pdo->inTransaction() || !is_array($safe)
+            || ($safe['module_key'] ?? null) !== 'official.import-export' || ($safe['migration_key'] ?? null) !== $key
+            || ($safe['sql_sha256'] ?? null) !== $sha || ($safe['readonly'] ?? null) !== true
+            || ($safe['preservation_verified'] ?? null) !== false || !is_array($before['private_state'] ?? null)) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_PRESERVATION_REQUIRED', 'ImportExport private facts do not bind the current native stage.');
+        }
+        return $before['private_state'];
+    }
+
+    private static function assertImportExportPreserved(\PDO $pdo, string $key, string $sha, array $privateBefore): void
+    {
+        $after = app()->make(ImportExportMigrationPreservation::class)->after($pdo, $privateBefore);
+        if (Db::connect()->getPdo() !== $pdo || $pdo->inTransaction() || ($after['module_key'] ?? null) !== 'official.import-export'
+            || ($after['migration_key'] ?? null) !== $key || ($after['sql_sha256'] ?? null) !== $sha
+            || ($after['readonly'] ?? null) !== true || ($after['preservation_verified'] ?? null) !== true
+            || ($after['proof_kind'] ?? null) !== 'fixed_native_create_if_missing'
+            || ($after['delta_kind'] ?? null) !== 'import_export_tables_created_or_preserved' || ($after['table_count'] ?? null) !== 2
+            || !is_int($after['created_empty_tables'] ?? null) || $after['created_empty_tables'] < 0 || $after['created_empty_tables'] > 2) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_POSTSTATE_REJECTED', 'ImportExport did not prove its fixed native DDL postconditions.');
         }
     }
 
