@@ -836,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0e313f27a92cc1325301bfc80465d1fae584a18a5f780c621cfc6a752e520603"
+            "source_sha256": "aeec4f9836d433932a2d74085a823c1d330ab5999f0c273747331b045e6d5364"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -6560,7 +6560,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "61ad6c715fd5c35516910b98bf4ef6a343ba7144f63d5733b6943394464f9490"
+            "source_sha256": "d402cd3d7689d2937fa98055035bfe9ce3d74e517867d0829fac30b2991f0c2b"
         },
         {
             "path": "server/app/command/PluginInstall.php",
@@ -8847,7 +8847,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d0a041fef54afabe409e85b57a99adaf8bbb2f33f8fdbac226f5224f3f8ecbba"
+            "source_sha256": "7c440c98f383a90891b7fd7accf99453639f7bbd90c576dbd6a165b2bcc8e22c"
         },
         {
             "path": "server/app/common/services/installation/InstallationExecutionHost.php",
@@ -8946,7 +8946,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ddc2465eab918800beafdb401597fd287a0f114aa069666716eda47230a14848"
+            "source_sha256": "6771600191a5966e191047d113d2a12dcdfd5a3383a85a978e823871235dd049"
         },
         {
             "path": "server/app/common/services/upgrade/SourceApplicationBackup.php",
@@ -8960,7 +8960,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c19ba0714601849678a1b1f86dbad46aa750aedfbe4013b1202ab1a2f6886bd6"
+            "source_sha256": "a5b2279a49308a25c35ebcafce60c6b2d8b0c2d43426e22d1780d1f15031c382"
         },
         {
             "path": "server/app/common/services/upgrade/SourceDevelopmentMaintenanceAdmission.php",
@@ -25493,7 +25493,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6fd71b3fb9b5b51c9c2ca4bbf4cae908c71aaf3e2a5c1c37e7b09f225ac1b474"
+            "source_sha256": "157947f989b500ac4b6d90acfe3f1b326be4ec709ac6eb25a7822a51a9a793b5"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",
@@ -27508,7 +27508,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f659a24d8e51e9545e7908056a0220c7218cb7a1155d3a01d26b5608d6dd5ee9"
+            "source_sha256": "6475d985a440ad6ae69c0d6a0af8fdd7fe61a1e739ac2c6cda200d718d4bc19f"
         },
         {
             "path": "server/docker/scripts/update-preparation.py",
