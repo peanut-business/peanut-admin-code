@@ -11,8 +11,8 @@ pre{white-space:pre-wrap;background:#f6f6f6;padding:14px;border-radius:8px}.warn
 <section id="agreement"><h2>1. 使用协议</h2><p>本项目按 Apache License 2.0 提供，请阅读项目 LICENSE。首次安装将向已登记的空数据库写入结构、账号和模块，并保存完成回执。不会自动清库、覆盖身份或重放部分失败。</p><label><input id="agree" type="checkbox" style="width:auto">我已阅读协议并确认安装范围</label><button id="environment" disabled>同意并检查环境</button></section>
 <section id="environmentPanel" hidden><h2>2. 环境探针</h2><pre id="environmentResult"></pre><button id="environmentRetry">重新检查</button><button id="configurationNext" disabled>继续配置</button></section>
 <p class="warn">Setup Token 只用于本次首次配置和安装。内置数据库生成业务账号；已登记数据库使用已有普通账号。MySQL root 密码不会进入应用配置。</p>
+<label for="token">Setup Token</label><input id="token" type="password" autocomplete="off">
 <fieldset id="configurationPanel" hidden><legend>3. 实例配置</legend>
-<label>Setup Token</label><input id="token" autocomplete="off">
 <label>部署环境</label><select id="deploymentTarget">
 <option value="local-development">本机开发</option>
 <option value="local-multi-tenant-demo">本机多租户开发</option>
