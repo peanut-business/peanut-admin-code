@@ -2333,7 +2333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "29035daee669f01fced4ec2bb744e33b92b79058dd9fa6411375bd7141e4acdf"
+            "source_sha256": "68b3a425a54519828e90647427cafb8f153ec371845bac5966b35c3e1a559e0b"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2484,7 +2484,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "03bae83ee22e89ef63f371436a37a8671618daf969561f8412d814cada9ace51"
+            "source_sha256": "5a60655b7853a8184d933352c175a0890c812164f1324e3ba80f2173a25baa62"
         },
         {
             "path": "plugins/official.integration/plugin.json",
@@ -2512,7 +2512,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "08af061189a576369864f6f87c3d78e7e16072a49d503c54d9c72dcef604181c"
+            "source_sha256": "d32bae823213cf053d00edeb654c6ddaddc313326e674a4025edb35d48b2fd19"
         },
         {
             "path": "plugins/official.notification/plugin.json",
@@ -8988,7 +8988,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3448ff65a8322f2c42478bd8294098f195e3e305c619563054366543a63ed84b"
+            "source_sha256": "f14c1dda4b951b80799b9a0c17d175c9bbfb9eb28fbbedb0ea66471c813fa715"
         },
         {
             "path": "server/app/common/services/upgrade/SourceDevelopmentMaintenanceAdmission.php",
@@ -15460,7 +15460,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5b171b4497d8eaac281cb333c7bb688f752b3b0fbb08749b7550800634eda64f"
+            "source_sha256": "e27cb1cc52628369d394ca2c412084ba6148e9da4785ee362bedff8bb926a082"
         },
         {
             "path": "server/app/modules/official/import_export/src/Contract/ImportExportQueries.php",
@@ -17295,7 +17295,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "af48705d526736469eb601623fcf44c8cc0f363ae43d1c83e32ca39c08e4df75"
+            "source_sha256": "85bb86de28a3041893d968121f7d3169e2144386cd116fbbb1ee7af0655c792d"
         },
         {
             "path": "server/app/modules/official/member/src/Contract/MemberSessionStore.php",
@@ -25549,7 +25549,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8b47d74c98934a90224d22d8daee70987f099dfbbaf0372de80a277406afd3df"
+            "source_sha256": "0106b64748dbecdda03475146f2a52b94d5fab06093de160d3f6195099440865"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",
