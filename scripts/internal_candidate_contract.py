@@ -3,17 +3,23 @@
 from __future__ import annotations
 
 import hashlib
+import base64
+import io
 import importlib.util
 import json
 import os
 import re
 import stat
 import sys
+import subprocess
+import tempfile
+import zipfile
 from pathlib import Path, PurePosixPath
 
 PROTOCOL = "peanut.internal-edition-candidate.v1"
 MARKER = ".peanut/internal-candidate.json"
 ARTIFACT_PROOFS = ('.peanut/scaffold-candidate-manifest.json', '.peanut/core-candidate-inputs.json')
+ARTIFACT_TEMPLATES = '.peanut/scaffold-candidate-templates.zip'
 INSTALLED_DIRECTORIES = {'server/vendor', *(client + '/node_modules' for client in ('web', 'platform', 'pc', 'uniapp'))}
 ROOT = Path(__file__).resolve().parent
 sys.dont_write_bytecode = True
@@ -223,7 +229,152 @@ def artifact_proofs(root: Path, scaffold_path: Path | None = None, core_path: Pa
                   'core_web': web, 'web_source_reference': projection['web_source_reference'],
                   'core_inputs_sha256': candidate['core_inputs_sha256']}
     archives(descriptor)
+    raw[ARTIFACT_TEMPLATES] = artifact_contents(root, manifest, scaffold, scaffold_path)
     return {'manifest': manifest, 'raw': raw, 'descriptor': descriptor}
+
+
+def artifact_contents(root: Path, manifest: dict, scaffold: dict, scaffold_path: Path | None) -> bytes:
+    """Bind final managed bytes to fixed templates and their native derived consumers."""
+    rows = {relative(row['path']): row for row in manifest['files']}
+    released = {relative(row['path']): row for row in scaffold['files']}
+    baseline_root = relative(manifest['ownership']['baseline_root'])
+    require(baseline_root == '.peanut/scaffold-baseline/' + manifest['template']['version'] + '/files',
+            'ARTIFACT_BASELINE_ROOT_INVALID')
+    expected = {'.peanut/application-manifest.json', *rows}
+    baseline_bytes = {}
+    for name, row in rows.items():
+        source = file(root, name)
+        require(digest(source) == row.get('sha256') and stat.S_IMODE(source.stat().st_mode) == row.get('mode'),
+                'ARTIFACT_SOURCE_CHANGED:' + name)
+        if name not in released:
+            require(row.get('classification') == 'app-owned', 'ARTIFACT_APP_OWNERSHIP_INVALID')
+            continue
+        require(row.get('classification') in ('managed', 'generated-managed')
+                and row.get('baseline_path') == baseline_root + '/' + name, 'ARTIFACT_BASELINE_PATH_INVALID')
+        baseline = file(root, row['baseline_path'])
+        data = baseline.read_bytes()
+        require(hashlib.sha256(data).hexdigest() == row.get('baseline_sha256') == row.get('sha256')
+                and stat.S_IMODE(baseline.stat().st_mode) == 0o644, 'ARTIFACT_BASELINE_CHANGED:' + name)
+        expected.add(row['baseline_path'])
+        baseline_bytes[name] = data
+    # Authenticate every executable input before invoking the existing read-only producers.
+    proof_names = {*ARTIFACT_PROOFS, ARTIFACT_TEMPLATES}
+    has_marker = (root / MARKER).exists() or (root / MARKER).is_symlink()
+    if has_marker:
+        expected.update({MARKER, *proof_names})
+    for directory, children, names in os.walk(root, followlinks=False):
+        parent = Path(directory)
+        kept = []
+        for child in children:
+            path = parent / child
+            name = path.relative_to(root).as_posix()
+            if not has_marker and scaffold_path is not None and name in INSTALLED_DIRECTORIES:
+                continue
+            require(not path.is_symlink(), 'ARTIFACT_SOURCE_SYMLINK')
+            kept.append(child)
+        children[:] = kept
+        for child in names:
+            name = (parent / child).relative_to(root).as_posix()
+            require(name in expected, 'ARTIFACT_SOURCE_EXTRA:' + name)
+            file(root, name)
+    require(len({name.casefold() for name in expected}) == len(expected), 'ARTIFACT_CASE_COLLISION')
+
+    def immutable(name):
+        return (name.startswith(('server/database/baselines/', 'server/database/migrations/'))
+                or re.fullmatch(r'packages/core-(?:php|web)/[^/]+\.(?:zip|tgz)', name) is not None)
+
+    def canonical(name):
+        return name == 'server/generated/api-catalog.json' or re.fullmatch(r'plugins/[a-z][a-z0-9.-]*/plugin\.json', name) is not None
+
+    needed = set()
+    for name, row in released.items():
+        require(row.get('source') == 'files/' + name
+                and re.fullmatch(r'[0-9a-f]{64}', str(row.get('template_sha256', ''))) is not None,
+                'ARTIFACT_TEMPLATE_INVALID:' + name)
+        if immutable(name):
+            require(hashlib.sha256(baseline_bytes[name]).hexdigest() == row['template_sha256'],
+                    'ARTIFACT_IMMUTABLE_TEMPLATE_MISMATCH:' + name)
+        elif not canonical(name) and hashlib.sha256(baseline_bytes[name]).hexdigest() != row['template_sha256']:
+            needed.add(name)
+    if scaffold_path is not None:
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
+            for name in sorted(needed):
+                data = file(scaffold_path.parent, released[name]['source']).read_bytes()
+                require(hashlib.sha256(data).hexdigest() == released[name]['template_sha256'],
+                        'ARTIFACT_TEMPLATE_DIGEST_MISMATCH:' + name)
+                entry = zipfile.ZipInfo(name)
+                entry.compress_type = zipfile.ZIP_DEFLATED
+                entry.external_attr = 0o100644 << 16
+                archive.writestr(entry, data)
+        witness = buffer.getvalue()
+    else:
+        path = file(root, ARTIFACT_TEMPLATES)
+        require(stat.S_IMODE(path.stat().st_mode) == 0o644, 'ARTIFACT_PROOF_MODE_INVALID')
+        witness = path.read_bytes()
+    templates = {}
+    with zipfile.ZipFile(io.BytesIO(witness)) as archive:
+        members = archive.infolist()
+        require(len(members) == len(needed) and {row.filename for row in members} == needed,
+                'ARTIFACT_TEMPLATE_SET_MISMATCH')
+        for entry in members:
+            name = relative(entry.filename)
+            require(entry.external_attr >> 16 == 0o100644 and not entry.is_dir(), 'ARTIFACT_TEMPLATE_MODE_INVALID')
+            data = archive.read(entry)
+            require(hashlib.sha256(data).hexdigest() == released[name]['template_sha256'],
+                    'ARTIFACT_TEMPLATE_DIGEST_MISMATCH:' + name)
+            templates[name] = data
+    tokens = scaffold['release']['tokens']
+    application = manifest['application']
+    values = {'product_name': application['name'], 'slug': application['slug'],
+              'package_identity': application['package_identity'], 'application_version': application['version']}
+    require(isinstance(tokens, dict) and list(tokens) == list(values)
+            and all(isinstance(value, str) and value for value in [*tokens.values(), *values.values()]),
+            'ARTIFACT_RENDER_PARAMETERS_INVALID')
+    pending = {}
+    for name, row in released.items():
+        if canonical(name):
+            continue
+        data = templates.get(name, baseline_bytes[name])
+        require(hashlib.sha256(data).hexdigest() == row['template_sha256'], 'ARTIFACT_TEMPLATE_DIGEST_MISMATCH:' + name)
+        # Identical authenticated bytes without tokens need no renderer invocation.
+        if name == 'plugins.lock' or (not immutable(name) and any(token.encode() in data for token in tokens.values())) or name in needed:
+            pending[name] = {'raw': base64.b64encode(data).decode(), 'transform': row['transform']}
+        else:
+            require(data == baseline_bytes[name], 'ARTIFACT_RENDER_MISMATCH:' + name)
+    composer = templates.get('server/composer.json', baseline_bytes['server/composer.json'])
+    payload = {'tokens': tokens, 'values': values, 'files': pending,
+               'composer': base64.b64encode(composer).decode()}
+    native_root = ROOT.parent
+    code = r'''
+require $argv[1].'/scripts/scaffold-runtime/ScaffoldManifest.php';
+require $argv[1].'/server/app/platform/exception/plugin/PluginArtifactToolException.php';
+require $argv[1].'/server/app/platform/value/plugin/ModuleFrontendLayout.php';
+require $argv[1].'/server/app/platform/infrastructure/plugin/PluginArtifactWriter.php';
+$p=json_decode(stream_get_contents(STDIN),true,512,JSON_THROW_ON_ERROR); $hashes=[];
+foreach($p['files'] as $name=>$row){
+    $content=\app\common\value\scaffold\ScaffoldManifest::renderArtifactContent(
+        base64_decode($row['raw'],true),$name,$row['transform'],$p['tokens'],$p['values'],base64_decode($p['composer'],true));
+    if($name==='plugins.lock'){
+        (new \app\platform\infrastructure\plugin\PluginArtifactWriter($argv[2].'/server',false))
+            ->assertScaffoldRendering(json_decode($content,true,512,JSON_THROW_ON_ERROR));
+    }else{$hashes[$name]=hash('sha256',$content);}
+}
+echo json_encode($hashes,JSON_THROW_ON_ERROR);
+'''
+    result = subprocess.run(['php', '-r', code, str(native_root), str(root)],
+                            input=json.dumps(payload).encode(), capture_output=True, check=True)
+    rendered = json.loads(result.stdout)
+    require(set(rendered) == set(pending) - {'plugins.lock'}, 'ARTIFACT_RENDER_SET_MISMATCH')
+    for name, value in rendered.items():
+        require(value == rows[name]['baseline_sha256'], 'ARTIFACT_RENDER_MISMATCH:' + name)
+    with tempfile.TemporaryDirectory(prefix='peanut-candidate-catalog-') as temporary:
+        output = Path(temporary) / 'api-catalog.json'
+        subprocess.run(['php', str(file(root, 'scripts/generate-api-contracts.php')),
+                        '--application-root=' + str(root), '--check', '--catalog-output=' + str(output)],
+                       check=True, capture_output=True)
+        require(output.read_bytes() == baseline_bytes['server/generated/api-catalog.json'], 'ARTIFACT_CATALOG_MISMATCH')
+    return witness
 
 
 def artifact_source(root: Path, scaffold_path: Path, core_path: Path) -> tuple[dict, dict[str, bytes]]:
@@ -420,7 +571,7 @@ def verify_assembled(root: Path, expected: dict | None = None) -> dict:
     marker = document(file(root, MARKER))
     artifact = artifact_proofs(root) if (marker.get('projection', {}).get('changes') == []
                                        and marker.get('projection', {}).get('additions') == []) else None
-    proof_names = set(ARTIFACT_PROOFS) if artifact is not None else set()
+    proof_names = {*ARTIFACT_PROOFS, ARTIFACT_TEMPLATES} if artifact is not None else set()
     identity_name = ".peanut/application-release.json"
     identity = document(file(root, identity_name))
     require(identity.get("protocol") == "peanut.application-release.v1"

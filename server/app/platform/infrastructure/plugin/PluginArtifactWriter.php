@@ -87,18 +87,7 @@ final readonly class PluginArtifactWriter
             if (isset($plugins[$key])) {
                 throw new PluginArtifactToolException("Duplicate Plugin manifest: {$key}");
             }
-            $plugins[$key] = [
-                'key' => $key,
-                'version' => $this->version($manifest['version'] ?? ''),
-                'source' => $manifest['source'],
-                'trust' => $manifest['trust'],
-                'composer' => $manifest['composer'],
-                'npm' => $manifest['npm'],
-                'frontend' => $manifest['frontend'],
-                'modules' => $manifest['modules'],
-                'manifest' => $this->relative($manifestPath),
-                'manifest_sha256' => $this->digest($manifestPath),
-            ];
+            $plugins[$key] = $this->lockRecord($manifest, $manifestPath);
         }
         ksort($plugins, SORT_STRING);
         $lock = ['schema_version' => 1, 'plugins' => array_values($plugins)];
@@ -125,21 +114,94 @@ final readonly class PluginArtifactWriter
         return ['path' => $this->relative($path), 'plugins' => count($built['plugins'])];
     }
 
+    /**
+     * Read-only candidate proof: the caller authenticates this scaffold lock and
+     * every managed source byte before supplying its fixed Plugin/Module graph.
+     * This cannot create a Plugin or grant runtime namespace admission.
+     * @param array<string,mixed> $templateLock
+     */
+    public function assertScaffoldRendering(array $templateLock): void
+    {
+        if (($templateLock['schema_version'] ?? null) !== 1
+            || !is_array($templateLock['plugins'] ?? null) || !array_is_list($templateLock['plugins'])) {
+            throw new PluginArtifactToolException('Scaffold Plugin graph is invalid.');
+        }
+        $plugins = [];
+        foreach ($templateLock['plugins'] as $template) {
+            $key = $this->key($template['key'] ?? '');
+            if (isset($plugins[$key]) || !is_array($template['modules'] ?? null)
+                || !array_is_list($template['modules']) || $template['modules'] === []) {
+                throw new PluginArtifactToolException('Scaffold Plugin graph is invalid.');
+            }
+            $roots = [];
+            foreach ($template['modules'] as $module) {
+                $moduleKey = $this->key($module['key'] ?? '');
+                if (isset($roots[$moduleKey]) || !is_string($module['root'] ?? null)) {
+                    throw new PluginArtifactToolException('Scaffold Module graph is invalid.');
+                }
+                $roots[$moduleKey] = $module['root'];
+            }
+            ksort($roots, SORT_STRING);
+            $path = $this->projectRoot() . '/plugins/' . $key . '/plugin.json';
+            $actual = $this->readJson($path);
+            $expected = $this->manifestContents($key, $this->version($template['version'] ?? ''), $roots);
+            if (!hash_equals($this->encode($expected), (string) file_get_contents($path))) {
+                throw new PluginArtifactToolException('Scaffold Plugin rendering differs: ' . $key);
+            }
+            $plugins[$key] = $this->lockRecord($actual, $path);
+        }
+        ksort($plugins, SORT_STRING);
+        $expected = $this->encode(['schema_version' => 1, 'plugins' => array_values($plugins)]);
+        if (!hash_equals($expected, (string) file_get_contents($this->projectRoot() . '/plugins.lock'))) {
+            throw new PluginArtifactToolException('Scaffold Plugin lock rendering differs.');
+        }
+    }
+
+    /** @param array<string,mixed> $manifest @return array<string,mixed> */
+    private function lockRecord(array $manifest, string $path): array
+    {
+        return [
+            'key' => $this->key($manifest['key'] ?? ''),
+            'version' => $this->version($manifest['version'] ?? ''),
+            'source' => $manifest['source'],
+            'trust' => $manifest['trust'],
+            'composer' => $manifest['composer'],
+            'npm' => $manifest['npm'],
+            'frontend' => $manifest['frontend'],
+            'modules' => $manifest['modules'],
+            'manifest' => $this->relative($path),
+            'manifest_sha256' => $this->digest($path),
+        ];
+    }
+
     /** @param array<string,string> $moduleRoots @return array<string,mixed> */
     private function manifest(string $key, string $version, array $moduleRoots): array
+    {
+        $layout = ModuleHostLayoutFactory::pathLayout();
+        $moduleSources = [];
+        foreach ($moduleRoots as $moduleKey => $root) {
+            if ($root !== rtrim($layout->backendRelativePath(ModuleKey::fromString($moduleKey)), '/')) {
+                throw new PluginArtifactToolException("Module root is not key-derived: {$moduleKey}");
+            }
+            $moduleSources[$moduleKey] = $this->withinProject($root);
+        }
+        try {
+            ModuleHostLayoutFactory::fromModuleRoots($moduleSources);
+        } catch (\InvalidArgumentException $exception) {
+            throw new PluginArtifactToolException('Module PHP namespaces overlap or claim a reserved prefix.', 0, $exception);
+        }
+        return $this->manifestContents($key, $version, $moduleRoots);
+    }
+
+    /** @param array<string,string> $moduleRoots @return array<string,mixed> */
+    private function manifestContents(string $key, string $version, array $moduleRoots): array
     {
         $modules = [];
         $composer = [];
         $npm = [];
         $frontend = [];
         $contentRoots = [];
-        $layout = ModuleHostLayoutFactory::pathLayout();
-        $moduleSources = [];
         foreach ($moduleRoots as $moduleKey => $root) {
-            $expectedRoot = rtrim($layout->backendRelativePath(ModuleKey::fromString($moduleKey)), '/');
-            if ($root !== $expectedRoot) {
-                throw new PluginArtifactToolException("Module root is not key-derived: {$moduleKey}");
-            }
             $absoluteRoot = $this->withinProject($root);
             if (!is_dir($absoluteRoot) || !is_file($absoluteRoot . '/module.json') || !is_file($absoluteRoot . '/composer.json')) {
                 throw new PluginArtifactToolException("Module root is incomplete: {$root}");
@@ -152,7 +214,6 @@ final readonly class PluginArtifactWriter
                 'sha256' => $this->digest($absoluteRoot . '/composer.json'),
             ];
             $contentRoots[] = $absoluteRoot;
-            $moduleSources[$moduleKey] = $absoluteRoot;
 
             $moduleManifest = $this->readJson($absoluteRoot . '/module.json');
             try {
@@ -188,11 +249,6 @@ final readonly class PluginArtifactWriter
                 ];
                 $contentRoots[] = $absoluteFrontendRoot;
             }
-        }
-        try {
-            ModuleHostLayoutFactory::fromModuleRoots($moduleSources);
-        } catch (\InvalidArgumentException $exception) {
-            throw new PluginArtifactToolException('Module PHP namespaces overlap or claim a reserved prefix.', 0, $exception);
         }
         $this->sortIdentities($composer, 'name');
         $this->sortIdentities($npm, 'name');

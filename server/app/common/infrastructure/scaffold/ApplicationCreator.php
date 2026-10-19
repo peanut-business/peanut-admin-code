@@ -584,15 +584,6 @@ final class ApplicationCreator
             || preg_match('#^plugins/[a-z][a-z0-9.-]*/plugin\.json$#D', $path) === 1;
     }
 
-    /** @param array<string,string> $tokens @param array<string,string> $values */
-    private function replaceReleaseTokens(string $content, array $tokens, array $values): string
-    {
-        foreach (array_keys($tokens) as $key) {
-            $content = str_replace($tokens[$key], $values[$key], $content);
-        }
-        return $content;
-    }
-
     /** @param array<string,mixed> $artifact @param array<string,string> $tokens @param array<string,string> $values */
     private function renderAdoptionArtifact(ScaffoldManifest $adoption, array $artifact, array $tokens, array $values): string
     {
@@ -601,28 +592,20 @@ final class ApplicationCreator
             throw new RuntimeException('CREATE_APP_ADOPTION_ARTIFACT_INVALID: ' . ($artifact['path'] ?? ''));
         }
         $path = (string) $artifact['path'];
-        // Immutable SQL identities and compressed package bytes are never branded.
-        if (str_starts_with($path, 'server/database/baselines/')
-            || str_starts_with($path, 'server/database/migrations/')
-            || preg_match('#^packages/core-(?:php|web)/[^/]+\.(?:zip|tgz)$#D', $path) === 1) {
-            return $content;
+        $composerContent = null;
+        if (($artifact['transform'] ?? null) === 'composer-lock') {
+            $composer = $adoption->files()['server/composer.json'] ?? null;
+            if (!is_array($composer)) {
+                throw new RuntimeException('CREATE_APP_ADOPTION_COMPOSER_COMPANION_MISSING');
+            }
+            $composerContent = file_get_contents($adoption->artifactPath($composer));
+            if (!is_string($composerContent)
+                || !hash_equals((string) ($composer['template_sha256'] ?? ''), hash('sha256', $composerContent))) {
+                throw new RuntimeException('CREATE_APP_ADOPTION_COMPOSER_COMPANION_INVALID');
+            }
         }
-        $rendered = $this->replaceReleaseTokens($content, $tokens, $values);
-        if (($artifact['transform'] ?? null) !== 'composer-lock') {
-            return $rendered;
-        }
-        $composer = $adoption->files()['server/composer.json'] ?? null;
-        if (!is_array($composer)) {
-            throw new RuntimeException('CREATE_APP_ADOPTION_COMPOSER_COMPANION_MISSING');
-        }
-        $composerContent = file_get_contents($adoption->artifactPath($composer));
-        if (!is_string($composerContent)
-            || !hash_equals((string) ($composer['template_sha256'] ?? ''), hash('sha256', $composerContent))) {
-            throw new RuntimeException('CREATE_APP_ADOPTION_COMPOSER_COMPANION_INVALID');
-        }
-        return ScaffoldManifest::renderComposerLock(
-            $rendered,
-            $this->replaceReleaseTokens($composerContent, $tokens, $values),
+        return ScaffoldManifest::renderArtifactContent(
+            $content, $path, (string) ($artifact['transform'] ?? ''), $tokens, $values, $composerContent,
         );
     }
 

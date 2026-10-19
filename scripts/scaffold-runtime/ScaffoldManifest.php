@@ -179,6 +179,39 @@ final class ScaffoldManifest
     }
 
     /**
+     * Forward-render the selected release bytes without creating an application.
+     * @param array<string,string> $tokens @param array<string,string> $values
+     */
+    public static function renderArtifactContent(
+        string $content,
+        string $path,
+        string $transform,
+        array $tokens,
+        array $values,
+        ?string $composerContent = null,
+    ): string {
+        if (str_starts_with($path, 'server/database/baselines/')
+            || str_starts_with($path, 'server/database/migrations/')
+            || preg_match('#^packages/core-(?:php|web)/[^/]+\.(?:zip|tgz)$#D', $path) === 1) {
+            return $content;
+        }
+        $replace = static function (string $input) use ($tokens, $values): string {
+            foreach (array_keys($tokens) as $key) {
+                $input = str_replace($tokens[$key], $values[$key], $input);
+            }
+            return $input;
+        };
+        $rendered = $replace($content);
+        if ($transform !== 'composer-lock') {
+            return $rendered;
+        }
+        if ($composerContent === null) {
+            throw new RuntimeException('SCAFFOLD_COMPOSER_COMPANION_MISSING');
+        }
+        return self::renderComposerLock($rendered, $replace($composerContent));
+    }
+
+    /**
      * Reproduce Composer 2.10.2's Locker::getContentHash() and update only the
      * top-level lock content hash. Dependency resolution remains immutable.
      */

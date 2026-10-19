@@ -29,7 +29,9 @@ For an artifact-derived APP, also pass both actual source proofs:
 --candidate-core-inputs=/absolute/release-core-inputs.json
 The source APP is unchanged; only its five known installed dependency directories
 are omitted from the isolated source snapshot. Use that APP's own packaging entry;
-a newer host packer cannot substitute for its source consumers. Proof bytes remain portable.
+a newer host packer cannot substitute for its source consumers. The isolated
+snapshot carries the two proofs and only missing raw templates in a finite ZIP.
+Managed bytes are checked with the native forward renderer and canonical producers.
 USAGE
 }
 die() { printf 'package-release: %s\n' "$*" >&2; exit 1; }
