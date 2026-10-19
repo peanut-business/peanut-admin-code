@@ -34,6 +34,7 @@ final class InstallationExecutionHost
     private ?string $currentInstallationModule = null;
     private ?array $fileContinuation = null;
     private ?Closure $partialCompletion = null;
+    private ?Closure $partialCompletionIntent = null;
     private readonly string $serverRoot;
 
     /** @param Closure(CompiledModuleRegistry):ModuleRuntimeRepository $moduleRuntimeFactory */
@@ -596,12 +597,17 @@ final class InstallationExecutionHost
                 $this->fileContinuation = ['pdo' => $pdo, 'context' => $context, 'token' => new \stdClass(),
                     'authority_sha256' => self::partialDigest([$facts['binding'], $backup, $plan['tool']]),
                     'identity_sha256' => $facts['baseline']['identity_rows_sha256'], 'config_sha256' => $facts['baseline']['config_rows_sha256']];
-                $this->partialCompletion = function (array $receipt, array $modules) use ($completionPath, $planPath, $source, $backup, $facts): void {
+                $this->partialCompletionIntent = function (array $baseline, array $receipt, array $health) use ($completionPath, $planPath, $source, $backup, $facts): void {
                     \PeanutServerUpdatePlan::writePartialOwnerRecord($this->serverRoot, $completionPath,
-                        ['protocol' => 'peanut.installation-partial-completion.v1', 'source' => $source, 'modules' => $modules,
+                        ['protocol' => 'peanut.installation-partial-completion.v1', 'phase' => 'native-health-complete-intent',
+                            'native_health_sha256' => self::partialDigest($health), 'health_completed_at' => time(),
+                            'source' => $source, 'modules' => $baseline['official_modules'],
                             'plan' => ['path' => $planPath, 'sha256' => $this->fileDigest($planPath)], 'backup' => $backup,
                             'database' => $facts['binding']['database'],
-                            'installed_receipt_sha256' => $receipt['sha256'], 'baseline_sha256' => $receipt['baseline_manifest']['sha256']]);
+                            'installed_receipt_sha256' => hash('sha256', json_encode($receipt, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES) . "\n"),
+                            'baseline_sha256' => $receipt['baseline_manifest']['sha256']]);
+                };
+                $this->partialCompletion = function (array $receipt, array $modules) use ($completionPath): void {
                     \PeanutServerUpdatePlan::finalizePartialInstallation($this->serverRoot, $completionPath);
                 };
                 \PeanutServerUpdatePlan::writePartialOwnerRecord($this->serverRoot, $attemptPath,
@@ -618,7 +624,7 @@ final class InstallationExecutionHost
                         ['stage' => $stage, 'safe_retry' => false, 'writes' => ['database' => 'may_have_partial_writes']]);
                 }
             } finally {
-                $this->partialCompletion = null; $this->fileContinuation = null; $this->partialGuard = null;
+                $this->partialCompletion = null; $this->partialCompletionIntent = null; $this->fileContinuation = null; $this->partialGuard = null;
                 $this->currentInstallationModule = null; $this->moduleMigrationAdmission = null; $this->executionLock = null;
                 flock($lock, LOCK_UN); fclose($lock);
             }
@@ -1095,7 +1101,7 @@ final class InstallationExecutionHost
         if ($this->partialGuard !== null) { ($this->partialGuard)(); }
         $stage = 'health'; $health = $this->health($moduleKeys);
         if ($this->partialGuard !== null) { ($this->partialGuard)(); }
-        $stage = 'completion_marker'; $receipt = $this->writeCompletionMarker($moduleKeys);
+        $stage = 'completion_marker'; $receipt = $this->writeCompletionMarker($moduleKeys, $health);
         if ($this->partialCompletion !== null) { ($this->partialCompletion)($receipt, $moduleKeys); }
         @unlink($this->progressMarker());
         return ['modules' => $modules, 'health' => $health, 'installation_receipt' => $receipt];
@@ -1426,12 +1432,11 @@ final class InstallationExecutionHost
     }
 
     /** @param list<string> $moduleKeys @return array<string,mixed> */
-    private function writeCompletionMarker(array $moduleKeys): array
+    private function writeCompletionMarker(array $moduleKeys, array $health): array
     {
         $versions = \applicationReleaseVersions($this->serverRoot);
         $baseline = $this->installationBaseline($moduleKeys, $versions);
-        $this->writeMarker($this->baselineMarker(), $baseline);
-        $baselineSha256 = hash_file('sha256', $this->baselineMarker());
+        $baselineSha256 = hash('sha256', json_encode($baseline, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES) . "\n");
         if (!is_string($baselineSha256)) {
             throw new RuntimeException('INSTALL_RELEASE_IDENTITY_UNAVAILABLE');
         }
@@ -1451,6 +1456,11 @@ final class InstallationExecutionHost
         if (isset($baseline['source']['application_manifest_sha256'])) {
             $payload['application_manifest_sha256'] = $baseline['source']['application_manifest_sha256'];
         }
+        // Persist the authenticated real-health frontier before either completion file.
+        // A later owner can finish only an already real, exact pair; missing/one-sided pairs stay closed.
+        if ($this->partialCompletionIntent !== null) { ($this->partialCompletionIntent)($baseline, $payload, $health); }
+        $this->writeMarker($this->baselineMarker(), $baseline);
+        if ($this->fileDigest($this->baselineMarker()) !== $baselineSha256) { throw new RuntimeException('INSTALL_COMPLETION_BASELINE_CHANGED'); }
         if ($this->partialGuard !== null) { ($this->partialGuard)(); }
         $this->writeMarker($this->completionMarker(), $payload);
         $receiptSha256 = hash_file('sha256', $this->completionMarker());

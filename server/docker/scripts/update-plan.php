@@ -371,11 +371,17 @@ final class PeanutServerUpdatePlan
     {
         self::sourceOwner($root); self::assertHeldDatabaseLock($root);
         $record = self::readPartialOwnerRecord($root, $recordPath);
-        if (($record['protocol'] ?? null) !== 'peanut.installation-partial-completion.v1') { throw new RuntimeException('partial completion record required'); }
+        if (($record['protocol'] ?? null) !== 'peanut.installation-partial-completion.v1'
+            || ($record['phase'] ?? null) !== 'native-health-complete-intent'
+            || preg_match('/\A[a-f0-9]{64}\z/D', (string) ($record['native_health_sha256'] ?? '')) !== 1
+            || !is_int($record['health_completed_at'] ?? null)) { throw new RuntimeException('partial completion record required'); }
         $plan = self::readPartialOwnerRecord($root, $record['plan']['path']);
         if (hash_file('sha256', $record['plan']['path']) !== $record['plan']['sha256']
             || ($plan['protocol'] ?? null) !== 'peanut.app-installation-partial-plan.v1'
             || $plan['source'] !== $record['source'] || $plan['facts']['binding']['database'] !== ($record['database'] ?? null)
+            || $record['health_completed_at'] < $plan['facts']['binding']['authority']['created_at']
+            || $record['health_completed_at'] > $plan['facts']['binding']['authority']['expires_at']
+            || $record['health_completed_at'] > time()
             || \app\common\services\upgrade\SourceApplicationBackup::partialInstallationBackup($record['backup']['path'], $root,
                 $plan['facts']['binding'], $plan['facts']['baseline']) !== $record['backup']) {
             throw new RuntimeException('partial completion original plan or native backup changed');
