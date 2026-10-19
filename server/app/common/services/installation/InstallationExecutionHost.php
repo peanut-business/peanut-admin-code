@@ -97,11 +97,14 @@ final class InstallationExecutionHost
             $required = ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'ALTER', 'DROP', 'INDEX', 'REFERENCES', 'CREATE TEMPORARY TABLES'];
             $observed = [];
             $scope = '`' . str_replace('`', '``', $database) . '`.*';
+            $escapedScope = '`' . strtr($database, ['\\' => '\\\\', '`' => '``', '_' => '\\_', '%' => '\\%']) . '`.*';
             foreach ($pdo->query('SHOW GRANTS FOR CURRENT_USER()')->fetchAll(PDO::FETCH_NUM) as $row) {
-                // Roles, wildcard schema patterns and unrecognised grants are
+                // SHOW GRANTS can escape literal schema characters; accept only
+                // the exact current schema spelling, never expand a pattern.
+                // Roles, other wildcard schema patterns and unrecognised grants are
                 // never guessed into effective permission. They remain unknown.
                 if (!preg_match('/^GRANT (.+) ON (.+) TO /D', $row[0], $match)
-                    || !in_array($match[2], ['*.*', $scope], true)) {
+                    || !in_array($match[2], ['*.*', $scope, $escapedScope], true)) {
                     continue;
                 }
                 if ($match[1] === 'ALL PRIVILEGES') {
