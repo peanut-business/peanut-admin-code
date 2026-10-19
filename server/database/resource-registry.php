@@ -18,10 +18,10 @@ function projectResourceRegistry(?string &$registrySha256 = null): array
     $serverOnly = file_exists($serverIdentityPath) || is_link($serverIdentityPath);
     $developmentRuntime = ApplicationSourceIdentity::hasRuntime($serverRoot);
     if ($serverOnly || $developmentRuntime) {
-        // Verify the existing projection rather than treating it as a release.
-        // loadRuntime also rejects simultaneous development/release identities.
+        // HTTP consumes the owner's admitted runtime; CLI verifies the full projection.
+        // Both native readers retain development/release identity conflict checks.
         $expectedProjectId = $developmentRuntime
-            ? ApplicationSourceIdentity::loadRuntime($serverRoot)->applicationSlug()
+            ? ApplicationSourceIdentity::load($serverRoot)->applicationSlug()
             : ServerReleaseIdentity::resolve($serverRoot)->applicationSlug();
         if ($explicitPath !== false && trim($explicitPath) !== '') {
             throw new RuntimeException('APP 运行实例不允许通过环境变量读取外部资源登记');
