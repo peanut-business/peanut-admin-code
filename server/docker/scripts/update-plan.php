@@ -801,7 +801,7 @@ final class PeanutServerUpdatePlan
                 || ($stat['mode'] & 0777) !== 0600 || $stat['size'] > 65536) {
                 throw new RuntimeException('configuration input requires an owner-held regular mode-0600 file');
             }
-            $input = self::json(self::regularBytes($inputPath, 'configuration input'));
+            $input = self::jsonFile($inputPath, 'configuration input');
             if (count($input) !== 2 || !is_string($input['setup_token'] ?? null) || !is_array($input['configuration'] ?? null)) {
                 throw new RuntimeException('configuration input requires setup_token and configuration');
             }
