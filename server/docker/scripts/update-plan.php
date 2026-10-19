@@ -373,6 +373,70 @@ final class PeanutServerUpdatePlan
         }
     }
 
+    /** Observe the real finalized frontier without replaying installation, health, or the old r1 snapshot. */
+    public static function assertInternalPreinstallCompletion(string $root, array $state): void
+    {
+        self::sourceOwner($root); self::assertHeldDatabaseLock($root);
+        $reference = $state['installation_completion'];
+        if (!is_array($reference) || !is_string($reference['path'] ?? null)
+            || !in_array($state['phase'] ?? null, ['admitted', 'opening', 'opened'], true)
+            || hash('sha256', self::regularBytes($reference['path'], 'partial completion')) !== ($reference['sha256'] ?? null)) {
+            throw new RuntimeException('internal source completion reference changed');
+        }
+        $record = self::readPartialOwnerRecord($root, $reference['path']);
+        $plan = self::readPartialOwnerRecord($root, $record['plan']['path']);
+        $context = $state['binding']['internal_preinstall'];
+        $origin = $state['partial_origin_deployment'] ?? [];
+        $source = $record['source'];
+        if (($record['protocol'] ?? null) !== 'peanut.installation-partial-completion.v1'
+            || ($record['phase'] ?? null) !== 'native-health-complete-intent'
+            || preg_match('/\A[a-f0-9]{64}\z/D', (string) ($record['native_health_sha256'] ?? '')) !== 1
+            || !is_int($record['health_completed_at'] ?? null)
+            || hash_file('sha256', $record['plan']['path']) !== ($record['plan']['sha256'] ?? null)
+            || ($plan['protocol'] ?? null) !== 'peanut.app-installation-partial-plan.v1'
+            || self::databaseCanonical($plan['source']) !== self::databaseCanonical($source)
+            || self::databaseCanonical($plan['facts']['binding']['database']) !== self::databaseCanonical($record['database'] ?? [])
+            || self::databaseCanonical(array_intersect_key($record['database'] ?? [], $context['partial_installation']['database']))
+                !== self::databaseCanonical($context['partial_installation']['database'])
+            || $record['health_completed_at'] < $plan['facts']['binding']['authority']['created_at']
+            || $record['health_completed_at'] > $plan['facts']['binding']['authority']['expires_at']
+            || $record['health_completed_at'] > time()
+            || self::databaseCanonical($source['deployment']) !== self::databaseCanonical($origin)
+            || self::databaseCanonical($origin['partial_installation'] ?? []) !== self::databaseCanonical($context['partial_installation'])
+            || ($source['state']['transition_id'] ?? null) !== $state['transition_id']
+            || ($source['checkpoint']['path'] ?? null) !== $state['binding']['workspace'] . '/source-runtime.json'
+            || self::databaseCanonical($source['state']['binding']['internal_preinstall'] ?? []) !== self::databaseCanonical($context)
+            || \app\common\services\upgrade\SourceApplicationBackup::partialInstallationBackup($record['backup']['path'], $root,
+                $plan['facts']['binding'], $plan['facts']['baseline']) !== $record['backup']) {
+            throw new RuntimeException('internal source completion origin is not authenticated');
+        }
+        $facts = \app\common\services\installation\InstallationExecutionHost::verifiedInstallationFacts($root);
+        $runtime = self::jsonFile($root . '/.peanut/development-runtime.json', 'completed runtime');
+        $sha = hash_file('sha256', $root . '/.peanut/development-runtime.json');
+        $deployment = self::applicationDeployment($root, $runtime, $sha);
+        $pending = self::sourcePending($root);
+        if ($facts['receipt_sha256'] !== $record['installed_receipt_sha256'] || $facts['baseline_sha256'] !== $record['baseline_sha256']
+            || $facts['receipt']['official_modules'] !== $record['modules']
+            || ($facts['baseline']['source']['development_runtime_identity_sha256'] ?? null) !== $sha
+            || ($facts['baseline']['source']['application_manifest_sha256'] ?? null) !== $runtime['application_manifest_sha256']
+            || $sha !== $source['runtime_sha256'] || $sha !== $state['prepared_identity_sha256']
+            || self::databaseCanonical($deployment) !== self::databaseCanonical($state['binding']['deployment'])
+            || ($deployment['installation_completion'] ?? null) !== $reference
+            || self::databaseCanonical($deployment['partial_installation_origin'] ?? []) !== self::databaseCanonical($context['partial_installation'])
+            || ($state['published_head_sha256'] ?? null) !== $deployment['head_sha256']
+            || self::databaseCanonical($state['head_intent'] ?? []) !== self::databaseCanonical(array_diff_key($deployment, ['head_sha256' => true]))
+            || ($pending['transition_id'] ?? null) !== $state['transition_id']
+            || ($pending['binding_sha256'] ?? null) !== hash('sha256', self::databaseCanonical($state['binding']))
+            || ($pending['deployment_sha256'] ?? null) !== $deployment['head_sha256'] || ($pending['runtime_sha256'] ?? null) !== $sha) {
+            throw new RuntimeException('internal source completion pair, head or runtime changed');
+        }
+        foreach (['private/resources/configuration.json', 'private/resources/project-resources.json', '.env'] as $relative) {
+            if (hash('sha256', self::regularBytes($root . '/' . $relative, 'completed source configuration'))
+                !== $context['partial_installation']['files'][$relative]) { throw new RuntimeException('completed source configuration changed'); }
+        }
+        self::assertSourceInstallationAnchors($root, $deployment);
+    }
+
     public static function internalPreinstallDeployment(string $root, array $context): array
     {
         self::recheckInternalPreinstallAnchors($root, $context);

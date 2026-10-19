@@ -3328,7 +3328,11 @@ final class ScaffoldUpgradeRunner
         $this->runtimeHost($state, 'tools-check');
         $server = $root . '/server';
         if (isset($state['binding']['internal_preinstall'])) {
-            \PeanutServerUpdatePlan::recheckInternalPreinstallAnchors($server, $state['binding']['internal_preinstall']);
+            if (isset($state['installation_completion'])) {
+                \PeanutServerUpdatePlan::assertInternalPreinstallCompletion($server, $state);
+            } else {
+                \PeanutServerUpdatePlan::recheckInternalPreinstallAnchors($server, $state['binding']['internal_preinstall']);
+            }
             $this->runtimeOldProgram($root, $state);
         } else { \PeanutServerUpdatePlan::assertSourceInstallationAnchors($server, $state['binding']['deployment']); }
         return $state;
