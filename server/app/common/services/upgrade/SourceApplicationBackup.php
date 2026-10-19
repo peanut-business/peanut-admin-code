@@ -223,7 +223,7 @@ final class SourceApplicationBackup
                     array_push($tables, ...$importExport[1]);
                     $writeRequirements[] = ['module_key' => $key, 'migration_key' => $id, 'code' => 'PLUGIN_SOURCE_IMPORT_EXPORT_PRESERVATION_REQUIRED',
                         'contract' => 'PeanutAdmin\\Modules\\ImportExport\\Contract\\ImportExportMigrationPreservation',
-                        'api' => 'before(PDO, canonicalMigrationKey), after(PDO, innerPrivateState); compatible originals or absent targets, fixed native CREATE IF NOT EXISTS and same-PDO completion required'];
+                        'api' => 'before(PDO, canonicalMigrationKey, nativeParentFacts), after(PDO, innerPrivateState, nativeParentFacts); required current native Host parent facts in each phase; compatible originals or absent targets, fixed native CREATE IF NOT EXISTS and same-PDO completion required'];
                     continue;
                 }
                 $member = self::MEMBER_STAGES[$id] ?? null;
@@ -232,7 +232,7 @@ final class SourceApplicationBackup
                     array_push($tables, ...$member[1]);
                     $writeRequirements[] = ['module_key' => $key, 'migration_key' => $id, 'code' => 'PLUGIN_SOURCE_MEMBER_PRESERVATION_REQUIRED',
                         'contract' => 'PeanutAdmin\\Modules\\Member\\Contract\\MemberSessionMigrationPreservation',
-                        'api' => 'before(PDO, canonicalMigrationKey), after(PDO, innerPrivateState); absent targets, fixed native DDL and same-PDO completion required'];
+                        'api' => 'before(PDO, canonicalMigrationKey, nativeParentFacts), after(PDO, innerPrivateState, nativeParentFacts); required current native Host parent facts in each phase; absent targets, fixed native DDL and same-PDO completion required'];
                     continue;
                 }
                 $article = self::ARTICLE_STAGES[$id] ?? null;

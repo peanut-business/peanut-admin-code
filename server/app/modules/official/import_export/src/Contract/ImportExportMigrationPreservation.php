@@ -7,6 +7,7 @@ namespace PeanutAdmin\Modules\ImportExport\Contract;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\InstallationExecutionContext;
 use app\common\execution\InstanceExecutionContext;
+use app\platform\services\plugin\PluginLifecycleService;
 use PDO;
 use PDOException;
 use RuntimeException;
@@ -80,8 +81,8 @@ final readonly class ImportExportMigrationPreservation
     ];
     private const FOREIGN = [
         self::OPERATION => [
-            'fk_import_export_tenant' => [['tenant_id'], 'pa_tenant', ['id']],
-            'fk_import_export_member' => [['tenant_id', 'created_by_member_id'], 'pa_tenant_member', ['tenant_id', 'id']],
+            'fk_import_export_tenant' => [['tenant_id'], 'tenant', ['id']],
+            'fk_import_export_member' => [['tenant_id', 'created_by_member_id'], 'tenant_member', ['tenant_id', 'id']],
         ],
         self::ERRORS => ['fk_import_export_row_operation' => [['tenant_id', 'operation_id'], self::OPERATION, ['tenant_id', 'id']]],
     ];
@@ -92,11 +93,12 @@ final readonly class ImportExportMigrationPreservation
 
     public function __construct(private CurrentExecutionContext $contexts) {}
 
-    public function before(PDO $pdo, string $canonicalMigrationKey): array
+    public function before(PDO $pdo, string $canonicalMigrationKey, array $nativeParentFacts): array
     {
-        return $this->guard(function () use ($pdo, $canonicalMigrationKey): array {
+        return $this->guard(function () use ($pdo, $canonicalMigrationKey, $nativeParentFacts): array {
             $context = $this->context($pdo); $this->source($canonicalMigrationKey);
-            $snapshot = $this->snapshot($pdo);
+            $parents = PluginLifecycleService::verifiedMigrationParentFacts($pdo, self::KEY, 'before', $nativeParentFacts);
+            $snapshot = $this->snapshot($pdo, $parents);
             foreach ($snapshot['targets'] as $name => $table) { if ($table !== null) { $this->target($snapshot, $name, false); } }
             if ($snapshot['targets'][self::ERRORS] !== null && $snapshot['targets'][self::OPERATION] === null) { self::fail('OPERATION_PARENT_REQUIRED'); }
             if ($this->context($pdo) !== $context) { self::fail('CONTEXT_CHANGED'); }
@@ -109,15 +111,17 @@ final readonly class ImportExportMigrationPreservation
     }
 
     /** Only after the whole original SQL, before the sole native applied transition. */
-    public function after(PDO $pdo, array $privateState): array
+    public function after(PDO $pdo, array $privateState, array $nativeParentFacts): array
     {
-        return $this->guard(function () use ($pdo, $privateState): array {
+        return $this->guard(function () use ($pdo, $privateState, $nativeParentFacts): array {
             if (count($privateState) !== 5 || ($privateState['protocol'] ?? null) !== self::PROTOCOL
                 || ($privateState['pdo'] ?? null) !== $pdo || ($privateState['context'] ?? null) !== $this->context($pdo)
                 || !is_array($privateState['snapshot'] ?? null) || !is_string($privateState['before_sha256'] ?? null)
                 || !hash_equals($privateState['before_sha256'], self::hash($privateState['snapshot']))) { self::fail('BEFORE_BINDING_INVALID'); }
-            $this->source(self::KEY); $old = $privateState['snapshot']; $new = $this->snapshot($pdo); $created = 0;
-            if ($old['identity'] !== $new['identity'] || $old['parents'] !== $new['parents']) { self::fail('DATABASE_OR_PARENT_CHANGED'); }
+            $parents = PluginLifecycleService::verifiedMigrationParentFacts($pdo, self::KEY, 'after', $nativeParentFacts);
+            $this->source(self::KEY); $old = $privateState['snapshot']; $new = $this->snapshot($pdo, $parents); $created = 0;
+            if ($old['identity'] !== $new['identity'] || $old['parents'] !== $new['parents']
+                || $old['parent_names'] !== $new['parent_names']) { self::fail('DATABASE_OR_PARENT_CHANGED'); }
             foreach ($old['targets'] as $name => $table) {
                 $this->target($new, $name, $table === null);
                 if ($table === null) {
@@ -133,7 +137,7 @@ final readonly class ImportExportMigrationPreservation
         });
     }
 
-    private function snapshot(PDO $pdo): array
+    private function snapshot(PDO $pdo, array $nativeParents): array
     {
         $identity = $this->query($pdo, 'SELECT DATABASE() AS database_name,@@server_uuid AS server_uuid,CONNECTION_ID() AS connection_id,@@foreign_key_checks AS foreign_key_checks')[0];
         if ($identity['foreign_key_checks'] !== '1') { self::fail('FOREIGN_KEY_CHECKS_REQUIRED'); }
@@ -148,8 +152,9 @@ final readonly class ImportExportMigrationPreservation
         }
         if (!$visible || $restricted) { self::fail('CONSTRAINT_VISIBILITY_REQUIRED'); }
         $parents = [];
-        foreach (['pa_tenant' => ['id'], 'pa_tenant_member' => ['tenant_id', 'id']] as $name => $keys) {
-            $table = $this->table($pdo, $name);
+        foreach (['tenant' => ['id'], 'tenant_member' => ['tenant_id', 'id']] as $role => $keys) {
+            $name = $nativeParents['names'][$role];
+            $table = $nativeParents['parents'][$name];
             if ($table === null) { self::fail('REFERENCE_REQUIRED'); }
             foreach ($keys as $key) {
                 if (($table['columns'][$key]['COLUMN_TYPE'] ?? null) !== 'bigint unsigned'
@@ -173,7 +178,7 @@ final readonly class ImportExportMigrationPreservation
         foreach ($rows as $row) {
             if (($expectedNames[$row['CONSTRAINT_NAME']] ?? null) !== [$row['TABLE_NAME'], $row['CONSTRAINT_TYPE']]) { self::fail('CONSTRAINT_OWNER_CONFLICT'); }
         }
-        return ['identity' => $identity, 'parents' => $parents, 'targets' => $targets];
+        return ['identity' => $identity, 'parents' => $parents, 'parent_names' => $nativeParents['names'], 'targets' => $targets];
     }
 
     private function target(array $snapshot, string $name, bool $created): void
@@ -193,6 +198,8 @@ final readonly class ImportExportMigrationPreservation
         }
         if ($created && count($table['indexes']) !== count(self::INDEXES[$name])) { self::fail('TARGET_INDEX_DELTA_INVALID'); }
         foreach (self::FOREIGN[$name] as $key => [$columns, $parent, $parentColumns]) {
+            // Foreign owner names are authenticated by the finite native Host stage.
+            $parent = $name === self::OPERATION ? $snapshot['parent_names'][$parent] : $parent;
             $parts = $table['foreign'][$key] ?? [];
             if (array_column($parts, 'COLUMN_NAME') !== $columns || array_column($parts, 'REFERENCED_COLUMN_NAME') !== $parentColumns) { self::fail('TARGET_FOREIGN_INVALID'); }
             foreach ($parts as $part) {

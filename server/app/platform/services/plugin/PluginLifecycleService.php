@@ -1148,7 +1148,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         if ((self::MEMBER_STAGES[$key] ?? null) !== $sha || !class_exists(MemberSessionMigrationPreservation::class)) {
             throw new PluginLifecycleException('MODULE_MIGRATION_PRESERVATION_REQUIRED', 'The fixed Member source contract is unavailable.');
         }
-        $before = app()->make(MemberSessionMigrationPreservation::class)->before($pdo, $key);
+        $before = self::withMigrationParentFacts($pdo, $key, $sha, 'before',
+            static fn(array $facts): array => app()->make(MemberSessionMigrationPreservation::class)->before($pdo, $key, $facts));
         $safe = $before['safe_summary'] ?? null;
         if (Db::connect()->getPdo() !== $pdo || $pdo->inTransaction() || !is_array($safe)
             || ($safe['module_key'] ?? null) !== 'official.member' || ($safe['migration_key'] ?? null) !== $key
@@ -1161,7 +1162,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
 
     private static function assertMemberPreserved(\PDO $pdo, string $key, string $sha, array $privateBefore): void
     {
-        $after = app()->make(MemberSessionMigrationPreservation::class)->after($pdo, $privateBefore);
+        $after = self::withMigrationParentFacts($pdo, $key, $sha, 'after',
+            static fn(array $facts): array => app()->make(MemberSessionMigrationPreservation::class)->after($pdo, $privateBefore, $facts));
         if (Db::connect()->getPdo() !== $pdo || $pdo->inTransaction() || ($after['module_key'] ?? null) !== 'official.member'
             || ($after['migration_key'] ?? null) !== $key || ($after['sql_sha256'] ?? null) !== $sha
             || ($after['readonly'] ?? null) !== true || ($after['preservation_verified'] ?? null) !== true
@@ -1177,7 +1179,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         if ((self::IMPORT_EXPORT_STAGES[$key] ?? null) !== $sha || !class_exists(ImportExportMigrationPreservation::class)) {
             throw new PluginLifecycleException('MODULE_MIGRATION_PRESERVATION_REQUIRED', 'The fixed ImportExport source contract is unavailable.');
         }
-        $before = app()->make(ImportExportMigrationPreservation::class)->before($pdo, $key);
+        $before = self::withMigrationParentFacts($pdo, $key, $sha, 'before',
+            static fn(array $facts): array => app()->make(ImportExportMigrationPreservation::class)->before($pdo, $key, $facts));
         $safe = $before['safe_summary'] ?? null;
         if (Db::connect()->getPdo() !== $pdo || $pdo->inTransaction() || !is_array($safe)
             || ($safe['module_key'] ?? null) !== 'official.import-export' || ($safe['migration_key'] ?? null) !== $key
@@ -1190,7 +1193,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
 
     private static function assertImportExportPreserved(\PDO $pdo, string $key, string $sha, array $privateBefore): void
     {
-        $after = app()->make(ImportExportMigrationPreservation::class)->after($pdo, $privateBefore);
+        $after = self::withMigrationParentFacts($pdo, $key, $sha, 'after',
+            static fn(array $facts): array => app()->make(ImportExportMigrationPreservation::class)->after($pdo, $privateBefore, $facts));
         if (Db::connect()->getPdo() !== $pdo || $pdo->inTransaction() || ($after['module_key'] ?? null) !== 'official.import-export'
             || ($after['migration_key'] ?? null) !== $key || ($after['sql_sha256'] ?? null) !== $sha
             || ($after['readonly'] ?? null) !== true || ($after['preservation_verified'] ?? null) !== true
@@ -1200,6 +1204,131 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             throw new PluginLifecycleException('MODULE_MIGRATION_POSTSTATE_REJECTED', 'ImportExport did not prove its fixed native DDL postconditions.');
         }
         app()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->recordStage($pdo, $key, $sha, ImportExportMigrationPreservation::class, $after);
+    }
+
+    /** Facts exist only during one fixed native proof call; they are not a replayable caller authority. */
+    private static function &migrationParentFrame(): ?array
+    {
+        static $frame = null;
+        return $frame;
+    }
+
+    private static function withMigrationParentFacts(\PDO $pdo, string $key, string $sha, string $phase, callable $consume): array
+    {
+        $frame =& self::migrationParentFrame();
+        if ($frame !== null || !in_array($phase, ['before', 'after'], true)
+            || (self::MEMBER_STAGES[$key] ?? self::IMPORT_EXPORT_STAGES[$key] ?? null) !== $sha) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_PARENT_FACTS_INVALID', 'Only the two fixed native parent profiles are admitted.');
+        }
+        $relative = match ($key) {
+            'official.member:20260921-create-member-session' => 'app/modules/official/member/database/migrations/20260921-create-member-session.sql',
+            'official.import-export:20260921-adopt-import-export-schema' => 'app/modules/official/import_export/database/migrations/20260921-adopt-import-export-schema.sql',
+        };
+        $root = realpath(root_path());
+        $binding = ['pdo' => $pdo, 'connection' => Db::connect(),
+            'context' => app()->make(CurrentExecutionContext::class)->current(),
+            'root' => $root, 'source' => $root . '/' . $relative, 'key' => $key, 'sha' => $sha, 'phase' => $phase,
+            'identity' => self::migrationParentQuery($pdo, 'SELECT DATABASE() AS database_name,@@server_uuid AS server_uuid,CONNECTION_ID() AS connection_id'),
+            'admission' => self::adoptionAdmission($pdo)];
+        self::assertMigrationParentBinding($binding);
+        // Each phase performs its own observation on the held native PDO, including after the whole SQL.
+        $facts = isset(self::MEMBER_STAGES[$key])
+            ? ['tenant_name' => 'pa_tenant', 'tenant' => self::memberTenantParent($pdo)]
+            : ['names' => ['tenant' => 'pa_tenant', 'tenant_member' => 'pa_tenant_member'],
+                'parents' => ['pa_tenant' => self::importExportParentTable($pdo, 'pa_tenant'),
+                    'pa_tenant_member' => self::importExportParentTable($pdo, 'pa_tenant_member')]];
+        self::assertMigrationParentBinding($binding);
+        $input = ['token' => new \stdClass(), 'facts' => $facts];
+        $frame = ['binding' => $binding, 'input' => $input];
+        try {
+            $result = $consume($input);
+            self::assertMigrationParentBinding($binding);
+            return $result;
+        } finally { $frame = null; }
+    }
+
+    /** Public proofs accept only the exact input of the currently executing private native call. */
+    public static function verifiedMigrationParentFacts(\PDO $pdo, string $key, string $phase, array $input): array
+    {
+        $frame = self::migrationParentFrame();
+        if ($frame === null || $frame['input'] !== $input || $frame['binding']['pdo'] !== $pdo
+            || $frame['binding']['key'] !== $key || $frame['binding']['phase'] !== $phase) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_PARENT_FACTS_INVALID', 'Unbound, changed or replayed parent facts are rejected.');
+        }
+        self::assertMigrationParentBinding($frame['binding']);
+        return $frame['input']['facts'];
+    }
+
+    private static function assertMigrationParentBinding(array $binding): void
+    {
+        $pdo = $binding['pdo']; $source = $binding['source'];
+        clearstatcache(true);
+        $stat = @lstat($source);
+        if (Db::connect() !== $binding['connection'] || $binding['connection']->getPdo() !== $pdo || $pdo->inTransaction()
+            || app()->make(CurrentExecutionContext::class)->current() !== $binding['context']
+            || !($binding['context'] instanceof InstanceExecutionContext || $binding['context'] instanceof InstallationExecutionContext)
+            || $pdo->getAttribute(\PDO::ATTR_DRIVER_NAME) !== 'mysql' || $pdo->getAttribute(\PDO::ATTR_CASE) !== \PDO::CASE_NATURAL
+            || $binding['root'] === false || realpath(root_path()) !== $binding['root'] || realpath($source) !== $source
+            || $stat === false || ($stat['mode'] & 0170000) !== 0100000 || $stat['nlink'] !== 1
+            || hash_file('sha256', $source) !== $binding['sha']
+            || count($binding['identity']) !== 1 || in_array(null, $binding['identity'][0], true) || in_array('', $binding['identity'][0], true)
+            || self::migrationParentQuery($pdo, 'SELECT DATABASE() AS database_name,@@server_uuid AS server_uuid,CONNECTION_ID() AS connection_id') !== $binding['identity']
+            || self::json(self::adoptionAdmission($pdo)) !== self::json($binding['admission'])) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_PARENT_BINDING_CHANGED', 'Native connection, source, request or admission changed.');
+        }
+    }
+
+    private static function migrationParentQuery(\PDO $pdo, string $sql, array $parameters = []): array
+    {
+        $query = $pdo->prepare($sql);
+        try {
+            $query->execute($parameters);
+            return array_map(static fn(array $row): array => array_map(static fn(mixed $value): ?string => $value === null ? null : (string) $value, $row), $query->fetchAll(\PDO::FETCH_ASSOC));
+        } finally { $query->closeCursor(); }
+    }
+
+    /** Member's original tenant projection; its own member table remains the Module's responsibility. */
+    private static function memberTenantParent(\PDO $pdo): array
+    {
+        $tables = self::migrationParentQuery($pdo, 'SELECT TABLE_TYPE,ENGINE,TABLE_COLLATION,CAST(TABLE_COMMENT AS BINARY) AS TABLE_COMMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', ['pa_tenant']);
+        if ($tables === []) { throw new \RuntimeException('MEMBER_SESSION_PRESERVATION_REFERENCE_TABLE_REQUIRED'); }
+        if (count($tables) !== 1 || $tables[0]['TABLE_TYPE'] !== 'BASE TABLE' || $tables[0]['ENGINE'] !== 'InnoDB') {
+            throw new \RuntimeException('MEMBER_SESSION_PRESERVATION_BASE_INNODB_TABLE_REQUIRED');
+        }
+        $rows = self::migrationParentQuery($pdo, 'SELECT COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,COLUMN_DEFAULT,EXTRA,GENERATION_EXPRESSION,CHARACTER_SET_NAME,COLLATION_NAME,CAST(COLUMN_COMMENT AS BINARY) AS COLUMN_COMMENT,ORDINAL_POSITION FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY ORDINAL_POSITION', ['pa_tenant']);
+        $columns = [];
+        foreach ($rows as $row) { if ($row['COLUMN_NAME'] === 'id') { unset($row['ORDINAL_POSITION']); $columns['id'] = $row; } }
+        if (($columns['id']['COLUMN_TYPE'] ?? null) !== 'bigint unsigned' || ($columns['id']['IS_NULLABLE'] ?? null) !== 'NO') {
+            throw new \RuntimeException('MEMBER_SESSION_PRESERVATION_REFERENCE_COLUMNS_INVALID');
+        }
+        $rows = self::migrationParentQuery($pdo, 'SELECT INDEX_NAME,NON_UNIQUE,COLUMN_NAME,SUB_PART,EXPRESSION,INDEX_TYPE,IS_VISIBLE,COLLATION FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY INDEX_NAME,SEQ_IN_INDEX', ['pa_tenant']);
+        $indexes = []; $usable = [];
+        foreach ($rows as $row) { $indexes[$row['INDEX_NAME']][] = $row; }
+        foreach ($indexes as $name => $parts) {
+            if (array_column($parts, 'COLUMN_NAME') === ['id'] && array_filter($parts, static fn(array $part): bool => $part['NON_UNIQUE'] !== '0'
+                || $part['SUB_PART'] !== null || $part['EXPRESSION'] !== null || $part['INDEX_TYPE'] !== 'BTREE' || $part['IS_VISIBLE'] !== 'YES') === []) { $usable[$name] = $parts; }
+        }
+        if ($usable === []) { throw new \RuntimeException('MEMBER_SESSION_PRESERVATION_REFERENCE_UNIQUE_KEY_REQUIRED'); }
+        return ['table' => $tables[0], 'columns' => $columns, 'referenced_unique_keys' => $usable];
+    }
+
+    /** ImportExport's complete original parent metadata, with no target or arbitrary table selector. */
+    private static function importExportParentTable(\PDO $pdo, string $name): ?array
+    {
+        if (!in_array($name, ['pa_tenant', 'pa_tenant_member'], true)) { throw new \RuntimeException('IMPORT_EXPORT_PRESERVATION_REFERENCE_REQUIRED'); }
+        try { $ddl = self::migrationParentQuery($pdo, 'SHOW CREATE TABLE `' . $name . '`'); }
+        catch (\PDOException $error) { if ((int) ($error->errorInfo[1] ?? 0) === 1146) { return null; } throw $error; }
+        $rows = self::migrationParentQuery($pdo, 'SELECT TABLE_TYPE,ENGINE,TABLE_COLLATION,AUTO_INCREMENT,CAST(TABLE_COMMENT AS BINARY) AS TABLE_COMMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$name]);
+        if (count($rows) !== 1 || $rows[0]['TABLE_TYPE'] !== 'BASE TABLE' || $rows[0]['ENGINE'] !== 'InnoDB') { throw new \RuntimeException('IMPORT_EXPORT_PRESERVATION_BASE_INNODB_REQUIRED'); }
+        $columns = self::migrationParentQuery($pdo, 'SELECT COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,COLUMN_DEFAULT,EXTRA,GENERATION_EXPRESSION,CHARACTER_SET_NAME,COLLATION_NAME,CAST(COLUMN_COMMENT AS BINARY) AS COLUMN_COMMENT,ORDINAL_POSITION FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY ORDINAL_POSITION', [$name]);
+        $indexes = self::migrationParentQuery($pdo, 'SELECT INDEX_NAME,NON_UNIQUE,COLUMN_NAME,SUB_PART,EXPRESSION,INDEX_TYPE,IS_VISIBLE,COLLATION FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY INDEX_NAME,SEQ_IN_INDEX', [$name]);
+        $foreign = self::migrationParentQuery($pdo, 'SELECT k.CONSTRAINT_NAME,k.COLUMN_NAME,k.REFERENCED_TABLE_SCHEMA,k.REFERENCED_TABLE_NAME,k.REFERENCED_COLUMN_NAME,r.DELETE_RULE,r.UPDATE_RULE,r.MATCH_OPTION FROM information_schema.KEY_COLUMN_USAGE k JOIN information_schema.REFERENTIAL_CONSTRAINTS r ON r.CONSTRAINT_SCHEMA=k.CONSTRAINT_SCHEMA AND r.CONSTRAINT_NAME=k.CONSTRAINT_NAME AND r.TABLE_NAME=k.TABLE_NAME WHERE k.TABLE_SCHEMA=DATABASE() AND k.TABLE_NAME=? ORDER BY k.CONSTRAINT_NAME,k.ORDINAL_POSITION', [$name]);
+        $checks = self::migrationParentQuery($pdo, "SELECT t.CONSTRAINT_NAME,t.ENFORCED,CAST(c.CHECK_CLAUSE AS BINARY) AS CHECK_CLAUSE FROM information_schema.TABLE_CONSTRAINTS t JOIN information_schema.CHECK_CONSTRAINTS c ON c.CONSTRAINT_SCHEMA=t.CONSTRAINT_SCHEMA AND c.CONSTRAINT_NAME=t.CONSTRAINT_NAME WHERE t.TABLE_SCHEMA=DATABASE() AND t.TABLE_NAME=? AND t.CONSTRAINT_TYPE='CHECK' ORDER BY t.CONSTRAINT_NAME", [$name]);
+        $triggers = self::migrationParentQuery($pdo, 'SELECT TRIGGER_NAME,EVENT_MANIPULATION,ACTION_TIMING,CAST(ACTION_STATEMENT AS BINARY) AS ACTION_STATEMENT,SQL_MODE,DEFINER FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND EVENT_OBJECT_TABLE=? ORDER BY TRIGGER_NAME', [$name]);
+        $group = static function (array $items, string $key): array { $out = []; foreach ($items as $item) { $out[$item[$key]][] = $item; } return $out; };
+        return ['table' => $rows[0], 'ddl' => $ddl, 'columns' => array_column($columns, null, 'COLUMN_NAME'),
+            'indexes' => $group($indexes, 'INDEX_NAME'), 'foreign' => $group($foreign, 'CONSTRAINT_NAME'),
+            'checks' => array_column($checks, null, 'CONSTRAINT_NAME'), 'triggers' => $triggers];
     }
 
     private static function fileMigrationProof(string $key, ?\PDO $pdo = null): array

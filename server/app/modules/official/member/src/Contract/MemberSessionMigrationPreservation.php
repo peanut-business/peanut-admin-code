@@ -7,6 +7,7 @@ namespace PeanutAdmin\Modules\Member\Contract;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\InstallationExecutionContext;
 use app\common\execution\InstanceExecutionContext;
+use app\platform\services\plugin\PluginLifecycleService;
 use PDO;
 use PDOException;
 use RuntimeException;
@@ -41,13 +42,14 @@ final readonly class MemberSessionMigrationPreservation
     public function __construct(private CurrentExecutionContext $contexts) {}
 
     /** Only absent targets support execute. Existing/partial targets require the caller's real ledger resolution. */
-    public function before(PDO $pdo, string $canonicalMigrationKey): array
+    public function before(PDO $pdo, string $canonicalMigrationKey, array $nativeParentFacts): array
     {
-        return $this->guard(function () use ($pdo, $canonicalMigrationKey): array {
+        return $this->guard(function () use ($pdo, $canonicalMigrationKey, $nativeParentFacts): array {
             $context = $this->context($pdo);
             $this->sqlHash($canonicalMigrationKey);
             $identity = $this->identity($pdo);
-            $references = $this->references($pdo);
+            $parents = PluginLifecycleService::verifiedMigrationParentFacts($pdo, self::KEY, 'before', $nativeParentFacts);
+            $references = $this->references($pdo, $parents);
             if (!$this->missingTable($pdo) || !$this->missingRevision($pdo) || $this->namedConstraints($pdo) !== []) {
                 self::fail('UNAPPLIED_TARGET_ABSENCE_REQUIRED');
             }
@@ -65,9 +67,9 @@ final readonly class MemberSessionMigrationPreservation
     }
 
     /** After the complete immutable SQL on this held PDO, before the sole official applied transition. */
-    public function after(PDO $pdo, array $privateState): array
+    public function after(PDO $pdo, array $privateState, array $nativeParentFacts): array
     {
-        return $this->guard(function () use ($pdo, $privateState): array {
+        return $this->guard(function () use ($pdo, $privateState, $nativeParentFacts): array {
             if (($privateState['protocol'] ?? null) !== self::PROTOCOL || ($privateState['pdo'] ?? null) !== $pdo
                 || ($privateState['context'] ?? null) !== $this->context($pdo) || ($privateState['targets_absent'] ?? null) !== true
                 || ($privateState['migration_key'] ?? null) !== self::KEY || ($privateState['sql_sha256'] ?? null) !== self::SQL_SHA256
@@ -77,7 +79,8 @@ final readonly class MemberSessionMigrationPreservation
                 self::fail('BEFORE_BINDING_INVALID');
             }
             $this->sqlHash(self::KEY);
-            if ($this->identity($pdo) !== $privateState['identity'] || $this->references($pdo) !== $privateState['references']) {
+            $parents = PluginLifecycleService::verifiedMigrationParentFacts($pdo, self::KEY, 'after', $nativeParentFacts);
+            if ($this->identity($pdo) !== $privateState['identity'] || $this->references($pdo, $parents) !== $privateState['references']) {
                 self::fail('DATABASE_OR_REFERENCES_CHANGED');
             }
             $revision = $this->columns($pdo, 'pa_member', ['session_revision']);
@@ -120,7 +123,7 @@ final readonly class MemberSessionMigrationPreservation
             }
             $foreign = $this->foreignKeys($pdo);
             $expectedForeign = [
-                'fk_member_session_tenant' => [['tenant_id','pa_tenant','id']],
+                'fk_member_session_tenant' => [['tenant_id',$parents['tenant_name'],'id']],
                 'fk_member_session_member' => [['tenant_id','pa_member','tenant_id'],['member_id','pa_member','id']],
             ];
             if (count($foreign) !== 2) { self::fail('SESSION_FOREIGN_KEYS_INVALID'); }
@@ -158,10 +161,10 @@ final readonly class MemberSessionMigrationPreservation
         });
     }
 
-    private function references(PDO $pdo): array
+    private function references(PDO $pdo, array $nativeParents): array
     {
         $result = [];
-        foreach (['pa_member' => ['tenant_id'=>'bigint unsigned','id'=>'int unsigned','status'=>null], 'pa_tenant' => ['id'=>'bigint unsigned']] as $table => $required) {
+        foreach (['pa_member' => ['tenant_id'=>'bigint unsigned','id'=>'int unsigned','status'=>null]] as $table => $required) {
             $shape = $this->table($pdo, $table);
             if ($shape === null) { self::fail('REFERENCE_TABLE_REQUIRED'); }
             $columns = $this->columns($pdo, $table, array_keys($required));
@@ -171,7 +174,7 @@ final readonly class MemberSessionMigrationPreservation
                 }
                 unset($columns[$name]['ORDINAL_POSITION']);
             }
-            $fields = $table === 'pa_member' ? ['tenant_id','id'] : ['id'];
+            $fields = ['tenant_id','id'];
             $usable = [];
             foreach ($this->indexes($pdo, $table) as $name => $parts) {
                 if (array_column($parts, 'COLUMN_NAME') !== $fields) { continue; }
@@ -180,6 +183,7 @@ final readonly class MemberSessionMigrationPreservation
             if ($usable === []) { self::fail('REFERENCE_UNIQUE_KEY_REQUIRED'); }
             $result[$table] = ['table'=>$shape, 'columns'=>$columns, 'referenced_unique_keys'=>$usable];
         }
+        $result[$nativeParents['tenant_name']] = $nativeParents['tenant'];
         return $result;
     }
 
