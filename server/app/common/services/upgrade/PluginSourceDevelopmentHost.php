@@ -113,8 +113,17 @@ final class PluginSourceDevelopmentHost
                                 foreach (array_keys($report) as $field) {
                                     if (self::digest([$expected[$field] ?? null]) !== self::digest([$report[$field]])) { throw new RuntimeException('PLUGIN_SOURCE_PLAN_STALE'); }
                                 }
-                                if (($native['may_apply'] ?? null) !== true || ($effects['closure_complete'] ?? null) !== true
-                                    || ($prerequisite = $this->planning['prerequisite']) !== null) { throw new RuntimeException('PLUGIN_SOURCE_PLAN_BLOCKED'); }
+                                if (($native['may_apply'] ?? null) !== true) {
+                                    // The original business reports passed, but this read plan has no write window.
+                                    // No caller-supplied may_apply is substituted for the later held re-plan.
+                                    if (($native['planning_complete'] ?? null) !== true) { throw new RuntimeException('PLUGIN_SOURCE_PLAN_BLOCKED'); }
+                                    foreach ($native['modules'] as $module) {
+                                        if (($module['may_apply'] ?? null) === true) { continue; }
+                                        if (($module['source_admission_deferred'] ?? null) !== true || ($module['planning_complete'] ?? null) !== true
+                                            || ($module['application_prerequisites'] ?? null) !== []) { throw new RuntimeException('PLUGIN_SOURCE_PLAN_BLOCKED'); }
+                                    }
+                                }
+                                if (($effects['closure_complete'] ?? null) !== true || $this->planning['prerequisite'] !== null) { throw new RuntimeException('PLUGIN_SOURCE_PLAN_BLOCKED'); }
                                 $scope = SourceApplicationBackup::pluginScope($pdo, $effects);
                                 // Fixed closure cannot attest arbitrary trigger bodies or cascading outside writers.
                                 if ($scope['triggers'] !== []) { throw new RuntimeException('PLUGIN_SOURCE_TRIGGER_EFFECT_REVIEW_REQUIRED'); }
@@ -148,7 +157,18 @@ final class PluginSourceDevelopmentHost
                                         'plugin_key' => $pluginKey, 'operation' => $context->operation(), 'request_id' => $context->requestId(),
                                         'plan_sha256' => self::digest($native), 'binding' => $binding, 'evidence' => $proof,
                                         'external_writer_exclusion' => 'ops_protocol_gate_required_not_attested']];
+                                $this->mutation['admission']['admission_digest'] = self::digest($this->mutation['admission']);
                                 try {
+                                    $this->requireMutation($pdo, $pluginKey);
+                                    $ready = $readPlan(static fn(array $plan): array => $plan);
+                                    if (($ready['may_apply'] ?? null) !== true
+                                        || self::digest(SourceApplicationBackup::pluginEffects($ready)) !== self::digest($effects)
+                                        || SourceApplicationBackup::pluginScope($pdo, $effects) !== $scope || $readLedger() !== $oldLedger) {
+                                        throw new RuntimeException('PLUGIN_SOURCE_EXECUTION_PLAN_CHANGED');
+                                    }
+                                    $this->mutation['admission']['execution_plan_sha256'] = self::digest($ready);
+                                    unset($this->mutation['admission']['admission_digest']);
+                                    $this->mutation['admission']['admission_digest'] = self::digest($this->mutation['admission']);
                                     $this->requireMutation($pdo, $pluginKey);
                                     // The outer read-plan callback still holds the native package lock.
                                     // Only this call enters the original lifecycle, never a copied SQL runner.
@@ -228,6 +248,16 @@ final class PluginSourceDevelopmentHost
     public function migrationAdmission(PDO $pdo): ?array
     {
         return $this->mutation === null ? null : $this->requireMutation($pdo, $this->mutation['plugin_key']);
+    }
+
+    /** Read-plan visibility only; this value is never returned by migrationAdmission. */
+    public function planningAdmission(PDO $pdo): ?array
+    {
+        if ($this->planning === null || $this->mutation !== null) { return null; }
+        if ($this->planning['pdo'] !== $pdo) { throw new RuntimeException('PLUGIN_SOURCE_MASTER_MISMATCH'); }
+        ($this->planning['recheck'])();
+        return ['scope' => 'source-plugin-plan', 'may_apply' => false, 'execution_admitted' => false,
+            'status' => 'planned', 'code' => 'MODULE_MIGRATION_ADMISSION_DEFERRED'];
     }
 
     /** The normal native declaration must cover every whole shared table before observation/dump. */
