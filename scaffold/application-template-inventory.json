@@ -8861,7 +8861,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "00423036010666d5bbe8fd46ee90743678d8098641c94c4f8680d2b88f154e8b"
+            "source_sha256": "8febd0b877625593835529a06d21dc5d0ef132ccfecde273013effef4082af57"
         },
         {
             "path": "server/app/common/services/installation/InstallationPreflightHost.php",
