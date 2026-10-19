@@ -401,8 +401,14 @@ final class PeanutServerUpdatePlan
             || $record['health_completed_at'] < $plan['facts']['binding']['authority']['created_at']
             || $record['health_completed_at'] > $plan['facts']['binding']['authority']['expires_at']
             || $record['health_completed_at'] > time()
-            || self::databaseCanonical($source['deployment']) !== self::databaseCanonical($origin)
+            || self::databaseCanonical($source['state']['binding']['deployment'] ?? []) !== self::databaseCanonical($origin)
+            || self::databaseCanonical(array_diff_key($source['state']['binding'] ?? [], ['deployment' => true]))
+                !== self::databaseCanonical(array_diff_key($state['binding'], ['deployment' => true]))
             || self::databaseCanonical($origin['partial_installation'] ?? []) !== self::databaseCanonical($context['partial_installation'])
+            || self::databaseCanonical($source['deployment']['partial_installation'] ?? []) !== self::databaseCanonical($context['partial_installation'])
+            || ($source['deployment']['head_sha256'] ?? null) !== ($source['state']['published_head_sha256'] ?? null)
+            || self::databaseCanonical(array_diff_key($source['deployment'], ['head_sha256' => true]))
+                !== self::databaseCanonical($source['state']['head_intent'] ?? [])
             || ($source['state']['transition_id'] ?? null) !== $state['transition_id']
             || ($source['checkpoint']['path'] ?? null) !== $state['binding']['workspace'] . '/source-runtime.json'
             || self::databaseCanonical($source['state']['binding']['internal_preinstall'] ?? []) !== self::databaseCanonical($context)
@@ -422,6 +428,7 @@ final class PeanutServerUpdatePlan
             || $sha !== $source['runtime_sha256'] || $sha !== $state['prepared_identity_sha256']
             || self::databaseCanonical($deployment) !== self::databaseCanonical($state['binding']['deployment'])
             || ($deployment['installation_completion'] ?? null) !== $reference
+            || ($deployment['previous_head_sha256'] ?? null) !== $source['deployment']['head_sha256']
             || self::databaseCanonical($deployment['partial_installation_origin'] ?? []) !== self::databaseCanonical($context['partial_installation'])
             || ($state['published_head_sha256'] ?? null) !== $deployment['head_sha256']
             || self::databaseCanonical($state['head_intent'] ?? []) !== self::databaseCanonical(array_diff_key($deployment, ['head_sha256' => true]))
