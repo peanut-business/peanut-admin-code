@@ -12,11 +12,15 @@ interface PluginLifecycleCommands
     /** @return array<string,mixed> */
     public function reconcile(string $pluginKey): array;
 
-    /** Reads a release reconcile action without changing installation, catalog or migration state. */
-    public function reconcilePlan(string $pluginKey, bool $preserveDisabled = false): array;
+    /** Reads a release reconcile action without changing installation, catalog or migration state.
+     * Optional native consumer runs before the same package advisory lock is released.
+     */
+    public function reconcilePlan(string $pluginKey, bool $preserveDisabled = false, ?callable $consumePlan = null): array;
 
-    /** @return array<string,mixed> */
-    public function upgrade(string $pluginKey, bool $dryRun): array;
+    /** A consumer is allowed only for dry-run and runs inside the existing package lock.
+     * @return array<string,mixed>
+     */
+    public function upgrade(string $pluginKey, bool $dryRun, ?callable $consumePlan = null): array;
 
     /** @return array<string,mixed> */
     public function rollbackPlan(string $pluginKey): array;

@@ -7,9 +7,24 @@ namespace app\common\services\upgrade;
 use PDO;
 use RuntimeException;
 
-/** Native selected-table mysqldump adapter for the fixed source application chain. */
+/** Native selected-table mysqldump for source application and closed Plugin lifecycle effects. */
 final class SourceApplicationBackup
 {
+    // ModuleCatalogApplier.apply always synchronizes core permissions/conditions,
+    // even for a single selected Module. These are whole shared catalogs, not
+    // module_key-filtered recovery data. No tenant settings values are written.
+    private const CATALOG_TABLES = [
+        'pa_permission', 'pa_target_type', 'pa_data_condition_definition', 'pa_protected_resource',
+        'pa_resource_operation', 'pa_resource_operation_permission', 'pa_resource_operation_target_type',
+        'pa_resource_operation_condition', 'pa_menu_definition', 'pa_setting_definition', 'pa_reference_code_set',
+        'pa_plugin_installation', 'pa_module_installation', 'pa_plugin_module',
+    ];
+    private const FILE_STAGES = [
+        'official.file:20260823-unify-storage-service' => ['f79c35b2fe8414dc172a81a45183d2a52eadb05833a704149780b36e400ca2d4', []],
+        'official.file:20260921020000_add_file_image_assets' => ['826fa9d8fd841b6834bc5f23cabced30b7ca111de4bb1f629ccbdb8501200cd4', ['pa_file_object', 'pa_file_image_asset', 'pa_file_derivative', 'pa_file_delivery_nonce']],
+        'official.file:20261012030000_add_controlled_file_references' => ['005edad54fc0cf06a4eeb6afa7c0e5f374a0bc352eaa088282b2f12932251591', ['pa_file_delivery_grant', 'pa_file_reference']],
+        'official.file:20261012051000_add_immutable_document_snapshots' => ['7b73c0c24f14f4c7f4fc1f75321e009b1a645d7df3f7d653dbb3d018e3b5bdbe', ['pa_file_immutable_snapshot']],
+    ];
     private const TABLES = [
         '20260909-notification-sms-reservation' => ['pa_notice_log'],
         '20261004-group-default-navigation' => ['pa_system_menu', 'pa_menu_definition'],
@@ -31,10 +46,72 @@ final class SourceApplicationBackup
             array_push($tables, ...self::TABLES[$id]);
         }
         $tables = array_values(array_unique($tables)); sort($tables, SORT_STRING);
+        return self::observe($pdo, $tables, false);
+    }
+
+    /** Fixed production effects; never derives SQL permission from owned_tables or a text-table scan. */
+    public static function pluginEffects(array $plan): array
+    {
+        $tables = self::CATALOG_TABLES; $requirements = []; $pending = []; $selected = [];
+        $filePending = false;
+        if (!is_array($plan['modules'] ?? null) || $plan['modules'] === []) { throw new RuntimeException('PLUGIN_SOURCE_MODULE_PLAN_REQUIRED'); }
+        foreach ($plan['modules'] as $module) {
+            $key = $module['module_key'] ?? null;
+            if (!is_string($key) || !is_array($module['migrations'] ?? null)) { throw new RuntimeException('PLUGIN_SOURCE_MODULE_PLAN_REQUIRED'); }
+            if (($module['notification_forward_schema'] ?? null) !== null) {
+                $requirements[] = ['module_key' => $key, 'code' => 'PLUGIN_SOURCE_NOTIFICATION_PRIVATE_RECEIPT_RECOVERY_REQUIRED'];
+            }
+            foreach ($module['migrations'] as $migration) {
+                $id = $migration['migration_key'] ?? null;
+                $sha = $migration['sha256'] ?? null;
+                if (!is_string($id) || !str_starts_with($id, $key . ':') || !is_string($sha)
+                    || preg_match('/\A[a-f0-9]{64}\z/D', $sha) !== 1 || isset($selected[$id])) {
+                    throw new RuntimeException('PLUGIN_SOURCE_MIGRATION_IDENTITY_REQUIRED');
+                }
+                $selected[$id] = $sha;
+                if (($migration['disposition'] ?? null) === 'already_applied') { continue; }
+                $pending[] = $id; $tables[] = 'pa_module_migration';
+                $file = self::FILE_STAGES[$id] ?? null;
+                if ($key !== 'official.file' || $file === null || $sha !== $file[0]
+                    || !in_array($migration['disposition'] ?? null, ['execute', 'adopt'], true)
+                    || ($id === 'official.file:20260823-unify-storage-service' && $migration['disposition'] !== 'adopt')) {
+                    $requirements[] = ['module_key' => $key, 'migration_key' => $id, 'code' => 'PLUGIN_SOURCE_SQL_EFFECTS_AND_PRESERVATION_REQUIRED'];
+                    continue;
+                }
+                $filePending = true;
+                if ($migration['disposition'] === 'adopt') { $tables[] = 'pa_platform_audit_event'; }
+                else { array_push($tables, ...$file[1]); }
+            }
+        }
+        $tables = array_values(array_unique($tables)); sort($tables, SORT_STRING); ksort($selected, SORT_STRING);
+        return ['protocol' => 'peanut.source-plugin-effects.v1', 'tables' => $tables,
+            'pending' => $pending, 'selected' => $selected, 'closure_complete' => $requirements === [], 'requirements' => $requirements,
+            'write_requirements' => $filePending ? [['code' => 'PLUGIN_SOURCE_FILE_PRESERVATION_REQUIRED',
+                'contract' => 'PeanutAdmin\\Modules\\File\\Contract\\FileMigrationPreservation',
+                'api' => 'before(PDO, canonicalMigrationKey), after(PDO, privateBefore); native File report remains disposition authority']] : [],
+            'transaction_boundary' => 'begin lifecycle, each migration/adoption, catalog registration and failure marking commit separately; failed status is best effort',
+            'shared_catalogs' => 'whole tables including core/global keys and operation relation replacement; no tenant or module row filter',
+            'non_database_effects' => ['menu conflict warnings may append runtime logs; preserve logs as failure evidence, never rewind them with the database'],
+            'trigger_effects' => 'not authorized by the fixed source closure; inspect visible definitions and resolve external writes before any lifecycle mutation',
+            'execution_admitted' => false];
+    }
+
+    /** Missing tables are explicit pre-state, never silently replaced by an empty dump table. */
+    public static function pluginScope(PDO $pdo, array $effects): array
+    {
+        if (($effects['closure_complete'] ?? null) !== true) { throw new RuntimeException('PLUGIN_SOURCE_BACKUP_EFFECTS_INCOMPLETE'); }
+        return self::observe($pdo, $effects['tables'], true);
+    }
+
+    private static function observe(PDO $pdo, array $tables, bool $allowMissing): array
+    {
+        $affected = $tables; $present = [];
         $objects = [];
         foreach ($tables as $table) {
+            if (!is_string($table) || preg_match('/\Apa_[a-z0-9_]+\z/D', $table) !== 1) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_TABLE_UNSUPPORTED'); }
             $query = $pdo->prepare('SELECT TABLE_TYPE,ENGINE,AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');
             $query->execute([$table]); $rows = $query->fetchAll(PDO::FETCH_ASSOC); $query->closeCursor();
+            if ($allowMissing && $rows === []) { $objects[$table] = ['exists' => false]; continue; }
             if (count($rows) !== 1 || $rows[0]['TABLE_TYPE'] !== 'BASE TABLE' || $rows[0]['ENGINE'] !== 'InnoDB') {
                 throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_TABLE_UNSUPPORTED');
             }
@@ -43,6 +120,7 @@ final class SourceApplicationBackup
             if (!is_array($ddl) || !is_string($ddl[1] ?? null)) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_DDL_UNAVAILABLE'); }
             $objects[$table] = ['engine' => 'InnoDB', 'create_sql_sha256' => hash('sha256', $ddl[1]),
                 'auto_increment' => $rows[0]['AUTO_INCREMENT'] === null ? null : (string) $rows[0]['AUTO_INCREMENT']];
+            $present[] = $table;
         }
         $foreignKeys = []; $triggers = [];
         if ($tables !== []) {
@@ -65,21 +143,24 @@ final class SourceApplicationBackup
             }
             $query->closeCursor();
         }
-        return ['tables' => $tables, 'objects' => $objects, 'foreign_keys' => $foreignKeys, 'triggers' => $triggers,
+        $scope = ['tables' => $present, 'objects' => $objects, 'foreign_keys' => $foreignKeys, 'triggers' => $triggers,
             'metadata_visibility' => 'current-account-visible; backup client visibility checked separately',
             'coverage_required' => ['complete_table_ddl', 'all_table_rows', 'indexes', 'checks', 'foreign_keys', 'triggers', 'auto_increment'],
             'external_dependencies' => 'referenced objects are not automatically added to restore writes; review FK/trigger effects before restoration',
             'backup_status' => 'not_created', 'restore_status' => 'not_executed', 'execution_admitted' => false];
+        if ($allowMissing) { $scope['affected_tables'] = $affected; $scope['absent_original_tables'] = array_values(array_diff($affected, $present)); }
+        return $scope;
     }
 
     /** Calls only fixed probe/dump programs; emits no database writes or restore command execution. */
-    public static function capture(array $binding, array $baseline, string $baselineSha, array $scope, array $tool, string $directory, callable $recheck): array
+    public static function capture(array $binding, array $baseline, string $baselineSha, array $scope, array $tool, string $directory, callable $recheck, string $purpose = 'application-schema'): array
     {
+        if (!in_array($purpose, ['application-schema', 'plugin-lifecycle'], true)) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SOURCE_UNSUPPORTED'); }
         $database = $binding['database']['database'];
         $contract = $tool['source_schema_backup'] ?? null;
         if (($tool['transport'] ?? null) !== 'ssh-docker-exec' || !is_array($contract)
             || ($contract['database_resource_id'] ?? null) !== $binding['resource_id'] || ($contract['database'] ?? null) !== $database
-            || !is_array($contract['tables'] ?? null) || array_diff($scope['tables'], $contract['tables']) !== []
+            || !is_array($contract['tables'] ?? null) || array_diff($scope['affected_tables'] ?? $scope['tables'], $contract['tables']) !== []
             || $scope['tables'] === [] || preg_match('/\A[A-Za-z0-9_]+\z/D', $database) !== 1
             || preg_match('/\A[a-f0-9]{64}\z/D', $baselineSha) !== 1) {
             throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_TOOL_SCOPE_REQUIRED');
@@ -117,7 +198,7 @@ final class SourceApplicationBackup
         $after = self::probe($tool, $binding, $directory . '/probe-after', 'probe-after', $seconds, $recheck);
         $recheck();
         if ($before !== $after) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_REMOTE_CHANGED'); }
-        $restore = ['protocol' => 'peanut.source-application-restore-instructions.v1', 'source' => $binding['source'],
+        $restore = ['protocol' => $purpose === 'application-schema' ? 'peanut.source-application-restore-instructions.v1' : 'peanut.source-plugin-restore-instructions.v1', 'source' => $binding['source'],
             'database' => $binding['database'], 'tables' => $scope['tables'], 'native_client' => $before,
             'payload' => ['path' => $dump, 'sha256' => hash_file('sha256', $dump), 'bytes' => filesize($dump)],
             'argv' => self::argv($tool, self::clientShell($tool, 'mysql_command', $seconds,
@@ -129,13 +210,18 @@ final class SourceApplicationBackup
                 'Restore only the selected tables. Database/accounts/storage/other tables are outside this payload; never DROP DATABASE.',
                 'The native dump includes selected-table DROP/CREATE/data/trigger statements. After explicit restore, verify original structure/data and outside dependencies; not only row counts.',
                 'Any interrupted/unknown restore requires reconciliation by its original owner; never automatically replay.']];
+        if ($purpose === 'plugin-lifecycle') {
+            $restore['absent_original_tables'] = $scope['absent_original_tables'];
+            $restore['requirements'][] = 'Restore admission must separately cover removal of only the recorded originally absent tables created by this exact operation; the payload cannot recreate absence and no DROP is executed here.';
+            $restore['requirements'][] = 'Shared catalog restoration excludes all affected writers, including other tenants/tasks. Preserve audit/failure/unknown evidence before any authorized ledger/audit rollback; never erase it as routine cleanup.';
+        }
         self::write($directory . '/RESTORE.json', $restore);
         $receipts = [];
         foreach (['probe-before' => 'probe-before.txt', 'dump' => 'database.sql', 'probe-after' => 'probe-after.txt'] as $phase => $file) {
             $receipts[] = ['phase' => $phase, 'path' => $directory . '/' . $file . '.process.json',
                 'sha256' => hash_file('sha256', $directory . '/' . $file . '.process.json')];
         }
-        $record = ['protocol' => 'peanut.source-application-backup.v1', 'status' => 'captured', 'binding' => $binding,
+        $record = ['protocol' => $purpose === 'application-schema' ? 'peanut.source-application-backup.v1' : 'peanut.source-plugin-backup.v1', 'status' => 'captured', 'binding' => $binding,
             'baseline_sha256' => $baselineSha, 'pending' => $baseline['pending'],
             'selected' => array_intersect_key($baseline['selected'], array_flip($baseline['pending'])), 'scope' => $scope,
             'backup_payload' => $restore['payload'], 'restore_instructions' => ['path' => $directory . '/RESTORE.json', 'sha256' => hash_file('sha256', $directory . '/RESTORE.json')],
@@ -143,7 +229,7 @@ final class SourceApplicationBackup
             'receipts' => $receipts,
             'observed_at' => time(), 'restore_status' => 'not_executed', 'qualification' => 'not_run', 'execution_admitted' => false];
         self::write($directory . '/backup.json', $record);
-        $recovery = ['schema_version' => 1, 'protocol' => 'peanut.source-development-recovery.v1',
+        $recovery = ['schema_version' => 1, 'protocol' => $purpose === 'application-schema' ? 'peanut.source-development-recovery.v1' : 'peanut.source-plugin-recovery.v1',
             'source' => $binding['source'], 'database' => $binding['database'], 'authority' => $binding['authority'],
             'registry_sha256' => $binding['registry_sha256'], 'source_database' => $binding['database'],
             'migration_sha256' => count($baseline['pending']) === 1 ? $baseline['selected'][$baseline['pending'][0]] : null,

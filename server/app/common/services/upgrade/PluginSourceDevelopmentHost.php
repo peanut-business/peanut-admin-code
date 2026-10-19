@@ -20,8 +20,9 @@ final class PluginSourceDevelopmentHost
 
     public function __construct(private readonly App $app) {}
 
-    public function plan(string $operation, string $pluginKey, array $actor, callable $readPlan): array
+    public function plan(string $operation, string $pluginKey, array $actor, callable $readPlan, string $toolId = '', string $output = ''): array
     {
+        if (($toolId === '') !== ($output === '')) { throw new RuntimeException('PLUGIN_SOURCE_BACKUP_ARGUMENTS_REQUIRED'); }
         $serverRoot = rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR);
         $context = $this->app->make(CurrentExecutionContext::class)->current();
         if (!in_array($operation, ['install', 'upgrade'], true) || $pluginKey === '' || $this->planning !== null
@@ -49,11 +50,11 @@ final class PluginSourceDevelopmentHost
         $target = \applicationMigrationTargetVersion($serverRoot, $versions);
         $runner = new ApplicationMigrationRunner($config, $pdo);
         return ScaffoldUpgradeRunner::sourceProductLock(dirname($serverRoot), function () use ($runner, $files, $target, $versions,
-            $pdo, $connection, $admission, $actor, $initial, $identity, $context, $operation, $pluginKey, $config, $readPlan): array {
+            $pdo, $connection, $admission, $actor, $initial, $identity, $context, $operation, $pluginKey, $config, $readPlan, $toolId, $output): array {
             $result = null;
             $runner->run($files, $target, $versions['release_sequence_version'], true, null,
                 function (PDO $actual, array $selection) use ($pdo, $connection, $admission, $actor, $initial, $identity,
-                    $context, $operation, $pluginKey, $config, $files, $readPlan, &$result): void {
+                    $context, $operation, $pluginKey, $config, $files, $readPlan, $toolId, $output, &$result): void {
                     $recheck = function () use ($pdo, $connection, $admission, $actor, $initial, $identity, $context, $config): void {
                         $current = $this->app->make(CurrentExecutionContext::class)->current();
                         if ($current !== $context || Db::connect() !== $connection || $connection->getPdo() !== $pdo
@@ -79,21 +80,86 @@ final class PluginSourceDevelopmentHost
                     }
                     $this->planning = ['pdo' => $pdo, 'recheck' => $recheck, 'prerequisite' => $prerequisite];
                     try {
-                        $native = $readPlan();
-                        if ($pdo->inTransaction()) { throw new RuntimeException('PLUGIN_SOURCE_PLAN_TRANSACTION_INCOMPLETE'); }
-                        $recheck();
-                        if ($operation === 'install' && ($native['action'] ?? null) !== 'planned_install') {
-                            throw new \app\platform\exception\plugin\PluginLifecycleException('PLUGIN_ALREADY_INSTALLED', 'Use the explicit upgrade plan for an installed Plugin.');
-                        }
-                        $result = ['protocol' => 'peanut.source-development-plugin-plan.v1', 'maintenance_scope' => 'source-development',
-                            'operation' => $operation, 'plugin_key' => $pluginKey, 'binding' => $initial + ['database' => $identity],
-                            'application' => $selection, 'plugin' => $native, 'execution_admitted' => false,
-                            'recovery' => 'not_attested', 'product_database' => 'not_verified'];
+                        $result = $readPlan(function (array $native) use ($operation, $pluginKey, $initial, $identity, $selection,
+                            $pdo, $config, $recheck, $readPlan, $toolId, $output): array {
+                            if ($pdo->inTransaction()) { throw new RuntimeException('PLUGIN_SOURCE_PLAN_TRANSACTION_INCOMPLETE'); }
+                            $recheck();
+                            if ($operation === 'install' && ($native['action'] ?? null) !== 'planned_install') {
+                                throw new \app\platform\exception\plugin\PluginLifecycleException('PLUGIN_ALREADY_INSTALLED', 'Use the explicit upgrade plan for an installed Plugin.');
+                            }
+                            $binding = $initial + ['database' => $identity];
+                            $effects = SourceApplicationBackup::pluginEffects($native);
+                            $report = ['protocol' => 'peanut.source-development-plugin-plan.v1', 'maintenance_scope' => 'source-development',
+                                'operation' => $operation, 'plugin_key' => $pluginKey, 'binding' => $binding,
+                                'application' => $selection, 'plugin' => $native, 'lifecycle_effects' => $effects, 'execution_admitted' => false,
+                                'recovery' => 'not_attested', 'product_database' => 'not_verified'];
+                            if ($toolId !== '') {
+                                $this->assertBackupReads($effects['tables'], $config);
+                                $scope = SourceApplicationBackup::pluginScope($pdo, $effects);
+                                $registry = \projectResourceRegistry($registrySha);
+                                $tools = array_values(array_filter($registry['resources']['tooling'] ?? [], static fn(array $row): bool => ($row['stable_resource_id'] ?? null) === $toolId));
+                                $resources = \activeLeaseResources(\requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF'));
+                                if (count($tools) !== 1 || $registrySha !== $binding['registry_sha256']
+                                    || !in_array($toolId, $resources['tooling-resource-id'] ?? [], true) || !in_array($output, $resources['output-dir'] ?? [], true)) {
+                                    throw new RuntimeException('PLUGIN_SOURCE_BACKUP_NATIVE_TOOL_OUTPUT_REQUIRED');
+                                }
+                                $baseline = ['pending' => $effects['pending'], 'selected' => $effects['selected'],
+                                    'operation' => $operation, 'plugin_key' => $pluginKey, 'native_plan_sha256' => self::digest($native), 'lifecycle_effects' => $effects];
+                                $checkBackup = function () use ($pdo, $recheck, $readPlan, $native, $effects, $scope): void {
+                                    $recheck();
+                                    // The original native lock recognizes its own owner;
+                                    // this nested read does not release the outer package lock.
+                                    $current = $readPlan(static fn(array $plan): array => $plan);
+                                    if ($pdo->inTransaction() || self::digest($current) !== self::digest($native)
+                                        || SourceApplicationBackup::pluginScope($pdo, $effects) !== $scope) {
+                                        throw new RuntimeException('PLUGIN_SOURCE_BACKUP_SNAPSHOT_CHANGED');
+                                    }
+                                    $recheck();
+                                };
+                                $report['backup'] = SourceApplicationBackup::capture($binding, $baseline, self::digest($baseline), $scope,
+                                    $tools[0], $output, $checkBackup, 'plugin-lifecycle');
+                                $report['backup_scope'] = $scope;
+                            }
+                            $recheck();
+                            return $report;
+                        });
                     } finally { $this->planning = null; }
                 });
             if (!is_array($result)) { throw new RuntimeException('PLUGIN_SOURCE_PLAN_INCOMPLETE'); }
             return $result;
         });
+    }
+
+    /** The normal native declaration must cover every whole shared table before observation/dump. */
+    private function assertBackupReads(array $tables, array $config): void
+    {
+        $registry = \projectResourceRegistry($unused);
+        $database = \registeredDatabase($registry, $config['resource_id']);
+        $schema = \mysqlSchemaLeaseResource($database, \registeredDatabaseEndpoint($database, $config['consumer']), $config);
+        $resources = \activeLeaseResources(\requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF'));
+        if (!isset($database['lease_policy']['shared_access']) && !isset($resources['mysql-access'])) { return; }
+        foreach ($resources['mysql-access'] ?? [] as $raw) {
+            $access = json_decode($raw, true, 64, JSON_THROW_ON_ERROR);
+            if (($access['schema'] ?? null) !== $schema || ($access['complete'] ?? null) !== true) { continue; }
+            if (in_array($access['operation'] ?? null, ['ddl', 'exclusive'], true) && ($access['tables'] ?? null) === []) { return; }
+            $covered = [];
+            foreach ($access['tables'] ?? [] as $entry) {
+                if (($entry['rows'] ?? null) === '*' && in_array($entry['access'] ?? null, ['read', 'write'], true)) { $covered[] = $entry['table']; }
+            }
+            if (array_diff($tables, $covered) === []) { return; }
+        }
+        throw new RuntimeException('PLUGIN_SOURCE_BACKUP_COMPLETE_READ_SCOPE_REQUIRED');
+    }
+
+    private static function digest(array $value): string
+    {
+        $sort = static function (mixed $value) use (&$sort): mixed {
+            if (!is_array($value)) { return $value; }
+            if (!array_is_list($value)) { ksort($value, SORT_STRING); }
+            foreach ($value as &$item) { $item = $sort($item); }
+            return $value;
+        };
+        return hash('sha256', json_encode($sort($value), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
     /**

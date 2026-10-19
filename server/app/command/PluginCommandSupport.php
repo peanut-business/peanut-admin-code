@@ -33,7 +33,7 @@ trait PluginCommandSupport
 
     private function configureSourceDevelopmentOptions(): void
     {
-        foreach (['scope', 'owner', 'thread', 'session', 'gate'] as $name) {
+        foreach (['scope', 'owner', 'thread', 'session', 'gate', 'backup-tool', 'backup-output'] as $name) {
             $this->addOption($name, null, \think\console\input\Option::VALUE_REQUIRED, 'Native source-development plan ' . $name, '');
         }
     }
@@ -49,14 +49,16 @@ trait PluginCommandSupport
             foreach (['owner', 'thread', 'session', 'gate'] as $name) { $actor[$name] = $input->getOption($name); }
             return $this->getApp()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->plan(
                 $operation, $key, $actor,
-                fn(): array => $operation === 'upgrade' ? $this->pluginLifecycle()->upgrade($key, true) : $this->pluginLifecycle()->reconcilePlan($key),
+                fn(callable $consume): array => $operation === 'upgrade'
+                    ? $this->pluginLifecycle()->upgrade($key, true, $consume) : $this->pluginLifecycle()->reconcilePlan($key, false, $consume),
+                (string) $input->getOption('backup-tool'), (string) $input->getOption('backup-output'),
             );
         });
     }
 
     private function hasSourceDevelopmentOptions(\think\console\Input $input): bool
     {
-        foreach (['scope', 'owner', 'thread', 'session', 'gate'] as $name) {
+        foreach (['scope', 'owner', 'thread', 'session', 'gate', 'backup-tool', 'backup-output'] as $name) {
             if ($input->getOption($name) !== '') { return true; }
         }
         return false;

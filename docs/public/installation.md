@@ -52,6 +52,8 @@ preflight 按真实有序 pending 链读取前置事实，缺少业务后态或�
 
 执行者另行完成 HTTP、worker 及其他写入者的实际停写、在途操作排空和明确恢复准备。显式 `backup` 复用已有容器的原生 MySQL／mysqldump，受原生 source actor、登记工具、精确输出目录和数据库读取租约约束，在原产品锁／同 PDO schema 锁内导出所选表；无登记工具时拒绝，不借用其他任务的管理入口。程序不会停服务、执行恢复、创建租约或续租；schema named lock 不能阻止任意业务写入者。备份期间仍须排除受影响 DDL。
 
+单插件开发维护可用原生 `plugin:upgrade <key>` 或 `plugin:install <key>` 的 `--scope=source-development --dry-run`，附相同实际 actor 参数；成对追加 `--backup-tool`／`--backup-output` 才会显式生成其当前计划的私有备份。该操作仍不执行安装、升级、采用或 catalog 写入。Plugin 激活涉及共享 catalog 和安装身份，File adopt 另涉及审计；不能只备份模块自有表或两张迁移账本。当前仅对已闭合的 catalog/lifecycle 与固定 File 阶段生成备份，未证明的其他 SQL、Notification 私有 receipt 等效果会拒绝 capture；详细范围、业务 proof 依赖及三种独立 Plugin 协议见[开发生命周期](../development/current-code-lifecycle.md)。Plugin 回执不适用于本节 application-schema 的 apply；原不存在表、共享 catalog 的其他写者、入向 FK／触发器和审计证据都须在实际恢复前单独处理。
+
 DB2 先行验证及原库 apply 是**外部执行与独立验收门禁**。执行者先在登记的 `lease_gate=migration-validation` 数据库，以同一源码、实际加载的 Core、固定 SQL 和原库真实两表基线执行唯一迁移，再实际恢复两表并读取核对。协调者必须读取原生执行 Job 的终态、退出码、真实目标 UUID/schema、迁移前后及恢复后摘要，独立验收后才明确派发原库本次 apply；执行者再取得原库自己的停写窗口和授权。两个 schema 可在同一 MySQL 服务上。首次 DB2 操作不循环要求自己先完成资格；`validation_only` 仅描述当前可信资源登记及同名原生 gate。CLI 不认证历史 Job、不自动认定 DB2/恢复通过，也不代替协调者授权。现有执行任务及原生 Job 保存此门禁记录，无需新增签名或调度系统。
 
 输入 JSON、引用的原始回执及 SQL 载荷使用 canonical 绝对路径、普通单链接文件、权限 `0600`，owner 为源码目录 owner 或 root；备份目录为 `0700`。JSON／回执限 4 MiB，SQL 载荷按流式 SHA-256 和精确字节数校验，不沿用 JSON 大小上限。原生 capture 生成 `backup.json`、`recovery.json`、`RESTORE.json` 和三个真实进程回执；事实文件采用以下字段（对象键顺序不影响比较，数组顺序须一致）：

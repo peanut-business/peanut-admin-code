@@ -104,9 +104,9 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     }
 
     /** Uses the native lock/manifest/ownership rules, without entering lifecycle mutation or recovery. */
-    public function reconcilePlan(string $pluginKey, bool $preserveDisabled = false): array
+    public function reconcilePlan(string $pluginKey, bool $preserveDisabled = false, ?callable $consumePlan = null): array
     {
-        return $this->withPackageLock($pluginKey, function () use ($pluginKey, $preserveDisabled): array {
+        return $this->withPackageLock($pluginKey, function () use ($pluginKey, $preserveDisabled, $consumePlan): array {
             $plugin = $this->resolver->require($pluginKey);
             $this->assertTrustEligible($plugin);
             $manifests = $this->pluginManifests($plugin);
@@ -142,12 +142,15 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 $modules[] = ['module_key' => $moduleKey, 'manifest_sha256' => $manifestSha, ...$migrationPlan];
             }
             usort($modules, static fn(array $left, array $right): int => strcmp($left['module_key'], $right['module_key']));
-            return $plugin->publicIdentity() + ['action' => $action, 'may_apply' => $mayApply,
+            $plan = $plugin->publicIdentity() + ['action' => $action, 'may_apply' => $mayApply,
                 'planning_complete' => $planningComplete, 'application_prerequisites' => array_values($prerequisites),
                 'status' => $mayApply ? 'ready' : ($planningComplete ? 'planned' : 'blocked'), 'execution_admitted' => false,
                 'from_version' => is_array($current) ? (string) $current['installed_version'] : null,
                 'manifest_sha256' => $plugin->manifestDigest, 'modules' => $modules,
                 'observation' => 'read-only interval; execution revalidates all native guards'];
+            // Native source backup consumes the actual plan before this same
+            // package lock is released. It cannot enter the mutation branch.
+            return $consumePlan === null ? $plan : $consumePlan($plan);
         });
     }
 
@@ -184,12 +187,13 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
      *
      * @return array<string,mixed>
      */
-    public function upgrade(string $pluginKey, bool $dryRun): array
+    public function upgrade(string $pluginKey, bool $dryRun, ?callable $consumePlan = null): array
     {
-        return $this->withPackageLock($pluginKey, fn(): array => $this->upgradeLocked($pluginKey, $dryRun));
+        if (!$dryRun && $consumePlan !== null) { throw new PluginLifecycleException('PLUGIN_PLAN_CONSUMER_READ_ONLY', 'A plan consumer cannot authorize lifecycle writes.'); }
+        return $this->withPackageLock($pluginKey, fn(): array => $this->upgradeLocked($pluginKey, $dryRun, $consumePlan));
     }
 
-    private function upgradeLocked(string $pluginKey, bool $dryRun): array
+    private function upgradeLocked(string $pluginKey, bool $dryRun, ?callable $consumePlan = null): array
     {
         $plugin = $this->resolver->require($pluginKey);
         $this->assertTrustEligible($plugin);
@@ -206,7 +210,10 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             throw new PluginLifecycleException('PLUGIN_DOWNGRADE_REJECTED', 'Upgrade cannot install an older Plugin version.');
         }
         $plan = $this->plan($plugin, $manifests, $current);
-        if ($dryRun) { return $plan + ['dry_run' => true, 'operation' => 'upgrade']; }
+        if ($dryRun) {
+            $plan += ['dry_run' => true, 'operation' => 'upgrade'];
+            return $consumePlan === null ? $plan : $consumePlan($plan);
+        }
         if ($this->sameIdentity($plugin, $current) && $current['status'] === 'active') {
             if (!$plan['may_apply'] || $plan['pending_migrations'] !== []) {
                 throw new PluginLifecycleException('MODULE_MIGRATION_REPAIR_REQUIRED', 'An unchanged installation still requires a complete resolved ledger.');

@@ -133,7 +133,13 @@ app/event.php保留AppInit、HttpRun、HttpEnd、LogLevel和LogWrite项，但默
 
 源码阶段账本按原有序链核对已完成前缀、当前 applying 与尚未执行项，逐条使用 SQL 真实发行身份；旧历史的完整原行保持不变。该核对不替代业务后态或恢复准入，当前多条待迁移链仍在这些合同齐备前拒绝 apply。
 
-`plugin:upgrade`／`plugin:install` 的 `--scope=source-development --dry-run` 只为明确选择的单个插件生成原生计划，同时必须提供实际 `--owner`／`--thread`／`--session`／`--gate`。入口在初始化数据库前核对干净源码、原安装标记和当前原生资源租约，并在真实产品文件锁、应用迁移 advisory lock 与插件原生锁内读取；缺少真实来源字段迁移时只列为应用前置项。宿主使用当前插件命令上下文，不冒充应用 schema 或发行升级，不授予安装、采用、catalog 或迁移写入能力；结果固定 `execution_admitted=false`，恢复覆盖仍单独要求。
+`plugin:upgrade`／`plugin:install` 的 `--scope=source-development --dry-run` 为明确选择的单个插件生成原生计划，同时必须提供实际 `--owner`／`--thread`／`--session`／`--gate`。入口在初始化数据库前核对干净源码、原安装标记和当前原生资源租约，并在真实产品文件锁、应用迁移 advisory lock 与插件原生锁内读取；缺少真实来源字段迁移时只列为应用前置项。宿主使用当前插件命令上下文，不冒充应用 schema 或发行升级，不授予安装、采用、catalog 或迁移写入能力；结果固定 `execution_admitted=false`，恢复覆盖仍单独要求。
+
+Plugin 计划中的 `lifecycle_effects` 绑定真实生产链：begin、每条 migration/adopt、catalog 注册、失败标记分别提交，后段失败不会撤销前段；失败标记本身可能失败。单模块 catalog 同步仍包含全局 core permissions/data conditions，以及 permission、target、condition、protected resource、operation 与三类关系、menu definition、setting definition、reference-code set；还会改三张安装/归属表。操作关系可能删除后重建，菜单按全局 key 更新，不能以单租户或 `module_key` 过滤备份。该激活路径不写 settings values、reference-code entries、tenant revisions 或 role grants。File adopt 另写 module ledger 与平台审计，不能称为只补账。菜单冲突日志保留为证据，不随数据库恢复回退。
+
+同一 Plugin 命令显式追加成对的 `--backup-tool`／`--backup-output` 时，在原生计划 consumer 内调用下述同一个选表备份适配器，直到 capture 完成仍持有原三层锁；每阶段重新读取原计划和精确 scope。它使用当前真实计划而非调用者提供的表名，不执行 Plugin SQL 或 lifecycle 写入。原生读取声明必须覆盖所有被备份共享表的完整行，另保留该原计划所需的读取声明；工具和新私有目录仍须在同一正常原生租约内。备份 payload 由完整已存表组成，原不存在表单独记录；恢复这些表的原不存在状态需要对本次实际新增对象另行批准的精确移除，不能假称 SQL dump 自动完成。
+
+当前闭包支持 catalog/lifecycle（十四张共享表，reference-code 表可不存在）及已有 File 报告决定的四个固定 canonical 阶段：adopt 加账本和审计、image execute 加 file_object 和三张新表、references/snapshots execute 加各自新表。unify 禁止 execute，原报告继续决定 execute/adopt/reject；E 的 `FileMigrationPreservation::before(PDO,key)`／`after(PDO,privateBefore)` 尚未实现时仍列为写前要求。其他待执行 SQL、未知 File 方向或原 hash 不符会阻止 capture，不能靠 `owned_tables` 或扫描 SQL 表名宣称闭包完整。Task/Notification 的业务保全仍等原 owner 的真实实现；Notification forward 会写私有 receipt，选表备份不覆盖，因而阻止此入口的 capture。可见触发器仅被记录，范围外触发器写入未获准。Plugin 输出使用独立 `peanut.source-plugin-backup.v1`／`peanut.source-plugin-recovery.v1`／`peanut.source-plugin-restore-instructions.v1`，不能喂给应用 schema 的恢复消费者。`captured` 仍不是完整恢复、写入准入或资格通过。
 
 SMS 保全复用 Notification 的公开业务证明；包含完整原行及候选组的输入只保留在执行回调内，计划仅公开安全摘要和整体摘要。需要 SQL 时间证据时，现有官方执行器在同一 PDO 上读取数据库秒与 UTC 毫秒，包围整份不可变 SQL 的执行及结果排空；不拆分 SQL，也不把批次边界称为某条 UPDATE 的精确时间。官方 applied 回调前必须证明同一个可行整数秒、旧列完整保全及新增字段后态。该源码接线不放宽当前链恢复与写入准入；安全结果不能重建私有前态，SMS 的独立 live verify 仍明确阻断。
 
