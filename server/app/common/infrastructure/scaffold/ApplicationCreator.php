@@ -1229,7 +1229,7 @@ final class ApplicationCreator
     private function modulesConfig(string $content): string
     {
         if (substr_count($content, "\$serverRelease = file_exists(\$serverIdentity) || is_link(\$serverIdentity);") !== 1
-            || substr_count($content, "\$pluginLockDefault = \$serverRelease ? 'plugins.lock' : '../plugins.lock';") !== 1
+            || substr_count($content, "\$pluginLockDefault = \$serverRelease || ApplicationSourceIdentity::hasRuntime(\$serverRoot)\n    ? 'plugins.lock'\n    : '../plugins.lock';") !== 1
             || substr_count($content, "'plugin_lock' => (string) env('PEANUT_PLUGIN_LOCK', \$pluginLockDefault)") !== 1
         ) {
             throw new RuntimeException('CREATE_APP_MODULES_CONFIG_SOURCE_INVALID');
