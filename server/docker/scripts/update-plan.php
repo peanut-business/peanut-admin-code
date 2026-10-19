@@ -802,15 +802,17 @@ final class PeanutServerUpdatePlan
                 throw new RuntimeException('configuration input requires an owner-held regular mode-0600 file');
             }
             $input = self::jsonFile($inputPath, 'configuration input');
-            if (count($input) !== 2 || !is_string($input['setup_token'] ?? null) || !is_array($input['configuration'] ?? null)) {
-                throw new RuntimeException('configuration input requires setup_token and configuration');
+            if (array_diff(array_keys($input), ['setup_token', 'configuration', 'resource_registry']) !== []
+                || !is_string($input['setup_token'] ?? null) || !is_array($input['configuration'] ?? null)
+                || (array_key_exists('resource_registry', $input) && !is_array($input['resource_registry']))) {
+                throw new RuntimeException('configuration input requires setup_token, configuration and an explicit APP registry for registered databases');
             }
             require_once $serverRoot . '/vendor/autoload.php';
             $identity = self::runtimeIdentity($serverRoot);
             $application = new \think\App($serverRoot);
             $application->instance($identity::class, $identity);
             return (new \app\common\services\installation\InstallationConfigurationHost($serverRoot))
-                ->configureForOwner($input['setup_token'], $input['configuration']);
+                ->configureForOwner($input['setup_token'], $input['configuration'], $input['resource_registry'] ?? null);
         });
     }
 

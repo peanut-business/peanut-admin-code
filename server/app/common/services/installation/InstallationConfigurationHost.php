@@ -100,7 +100,7 @@ final class InstallationConfigurationHost
     }
 
     /** The native host owner publishes before starting PHP; no HTTP token is invented. */
-    public function configureForOwner(string $setupToken, array $input): array
+    public function configureForOwner(string $setupToken, array $input, ?array $resourceRegistry = null): array
     {
         $this->assertOwnerPublication();
         if (preg_match('/^[A-Za-z0-9_-]{32,128}$/D', $setupToken) !== 1) {
@@ -109,11 +109,16 @@ final class InstallationConfigurationHost
         if (file_exists($this->pendingPath()) || is_link($this->pendingPath())) {
             throw new RuntimeException('INSTALL_CONFIGURATION_PENDING_REQUIRES_PUBLICATION');
         }
-        return $this->configureInput($setupToken, $input);
+        $registered = ($input['database_source'] ?? 'bundled') === 'registered';
+        if ($registered !== ($resourceRegistry !== null)) {
+            throw new RuntimeException('INSTALL_CONFIGURATION_OWNER_REGISTRY_REQUIRED');
+        }
+        $registry = $registered ? $this->ownerDatabaseRegistry($resourceRegistry, $input) : null;
+        return $this->configureInput($setupToken, $input, $registry);
     }
 
     /** Both authenticated callers use the same configuration and publication contract. */
-    private function configureInput(string $token, array $input): array
+    private function configureInput(string $token, array $input, ?array $ownerRegistry = null): array
     {
         require_once $this->serverRoot . '/database/resource-registry.php';
 
@@ -152,7 +157,7 @@ final class InstallationConfigurationHost
         if (!in_array($source, ['bundled', 'registered'], true)) {
             throw new InstallationExecutionException('INSTALL_CONFIGURATION_DATABASE_SOURCE_INVALID', '数据库来源无效。', 422);
         }
-        $registered = $source === 'registered' ? $this->registeredConnection($input, $application, $targetContract) : null;
+        $registered = $source === 'registered' ? $this->registeredConnection($input, $application, $targetContract, $ownerRegistry) : null;
         if ($source === 'bundled' && array_intersect(array_keys($input),
             ['database_resource_id', 'database_consumer', 'database_user', 'database_password']) !== []) {
             throw new InstallationExecutionException('INSTALL_CONFIGURATION_DATABASE_SOURCE_INVALID', '已有数据库字段不能用于内置数据库。', 422);
@@ -499,7 +504,7 @@ final class InstallationConfigurationHost
     }
 
     /** Resolve the exact registered database; publication never opens or provisions it. */
-    private function registeredConnection(array $input, array $application, array $target): array
+    private function registeredConnection(array $input, array $application, array $target, ?array $ownerRegistry = null): array
     {
         foreach (['database_resource_id', 'database_consumer', 'database_user', 'database_password'] as $key) {
             if (!is_string($input[$key] ?? null) || $input[$key] === '' || preg_match('/[\r\n\x00]/', $input[$key])) {
@@ -513,7 +518,13 @@ final class InstallationConfigurationHost
         }
         // Reject an unrepresentable credential before even staging pending input.
         $this->environmentBytes(['DB_USER' => $input['database_user'], 'DB_PASS' => $input['database_password']]);
-        $registry = $this->applicationRegistry($registrySha256);
+        // Only configureForOwner can supply an owner declaration. HTTP keeps the sealed public choices.
+        if ($ownerRegistry === null) {
+            $registry = $this->applicationRegistry($registrySha256);
+        } else {
+            $registry = $ownerRegistry;
+            $registrySha256 = hash('sha256', json_encode($registry, JSON_THROW_ON_ERROR));
+        }
         $database = \registeredDatabase($registry, $input['database_resource_id']);
         $endpoint = \registeredDatabaseEndpoint($database, $input['database_consumer']);
         if (($database['service_type'] ?? null) !== 'mysql' || ($database['fallback'] ?? null) !== 'none'
@@ -528,6 +539,75 @@ final class InstallationConfigurationHost
         return ['registry' => $registry, 'registry_sha256' => $registrySha256,
             'resource_id' => $database['stable_resource_id'], 'database' => $database['database'], 'endpoint' => $endpoint,
             'consumer' => $input['database_consumer'], 'user' => $input['database_user'], 'password' => $input['database_password']];
+    }
+
+    /** A deployment declaration, never a second registry selector or an external Project path. */
+    private function ownerDatabaseRegistry(array $registry, array $input): array
+    {
+        require_once $this->serverRoot . '/database/resource-registry.php';
+        $external = getenv('PEANUT_RESOURCE_REGISTRY');
+        if (($external !== false && trim($external) !== '')
+            || count($registry) !== 4 || ($registry['schema_version'] ?? null) !== 1
+            || ($registry['project_id'] ?? null) !== $this->identity()['application']['slug']
+            || ($registry['authority'] ?? null) !== ['role' => 'application']
+            || !is_array($registry['resources'] ?? null) || array_keys($registry['resources']) !== ['databases']
+            || !is_array($registry['resources']['databases']) || !array_is_list($registry['resources']['databases'])
+            || count($registry['resources']['databases']) !== 1 || !is_array($registry['resources']['databases'][0])
+            || !is_string($input['database_resource_id'] ?? null)) {
+            throw new RuntimeException('INSTALL_CONFIGURATION_OWNER_REGISTRY_INVALID');
+        }
+        $database = \registeredDatabase($registry, $input['database_resource_id']);
+        $text = ['stable_resource_id', 'purpose', 'owner', 'version', 'database', 'schema', 'namespace',
+            'data_source', 'freshness_requirement', 'health_check'];
+        $fields = [...$text, 'service_type', 'fallback', 'application_runtime', 'environments', 'deployment_modes',
+            'upstream_endpoint', 'container_endpoint'];
+        if (array_diff(array_keys($database), $fields) !== []) {
+            throw new RuntimeException('INSTALL_CONFIGURATION_OWNER_DATABASE_INVALID');
+        }
+        foreach ($text as $field) {
+            if (!is_string($database[$field] ?? null) || trim($database[$field]) === ''
+                || strlen($database[$field]) > 1024 || preg_match('/[\r\n\x00]/', $database[$field])) {
+                throw new RuntimeException('INSTALL_CONFIGURATION_OWNER_DATABASE_INVALID');
+            }
+        }
+        if (preg_match('/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/D', $database['stable_resource_id']) !== 1
+            || ($database['service_type'] ?? null) !== 'mysql' || ($database['fallback'] ?? null) !== 'none'
+            || ($database['application_runtime'] ?? null) !== true) {
+            throw new RuntimeException('INSTALL_CONFIGURATION_OWNER_DATABASE_INVALID');
+        }
+        foreach (['environments', 'deployment_modes'] as $field) {
+            if (!is_array($database[$field] ?? null) || !array_is_list($database[$field]) || $database[$field] === []) {
+                throw new RuntimeException('INSTALL_CONFIGURATION_OWNER_DATABASE_INVALID');
+            }
+            foreach ($database[$field] as $value) {
+                if (!is_string($value) || preg_match('/^[a-z][a-z0-9-]{0,63}$/D', $value) !== 1) {
+                    throw new RuntimeException('INSTALL_CONFIGURATION_OWNER_DATABASE_INVALID');
+                }
+            }
+        }
+        $endpoints = 0;
+        foreach (['host' => 'upstream_endpoint', 'container' => 'container_endpoint'] as $consumer => $field) {
+            if (!array_key_exists($field, $database)) { continue; }
+            $endpoint = \registeredDatabaseEndpoint($database, $consumer);
+            if (count($endpoint) !== 4 || array_diff(array_keys($endpoint), ['endpoint_id', 'host', 'port', 'consumers']) !== []
+                || !is_string($endpoint['endpoint_id']) || preg_match('/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/D', $endpoint['endpoint_id']) !== 1
+                || !is_string($endpoint['host']) || preg_match('/^[A-Za-z0-9._:-]{1,253}$/D', $endpoint['host']) !== 1
+                || !is_int($endpoint['port']) || $endpoint['port'] < 1 || $endpoint['port'] > 65535
+                || $endpoint['consumers'] !== [$consumer]) {
+                throw new RuntimeException('INSTALL_CONFIGURATION_OWNER_DATABASE_ENDPOINT_INVALID');
+            }
+            ++$endpoints;
+        }
+        if ($endpoints === 0) { throw new RuntimeException('INSTALL_CONFIGURATION_OWNER_DATABASE_ENDPOINT_INVALID'); }
+        // The private instance record contains this one APP resource and local credential references only.
+        $database['credential_ref'] = 'server/.env:DB_USER,DB_PASS';
+        return ['schema_version' => 1, 'project_id' => $registry['project_id'],
+            'authority' => ['role' => 'application', 'owner' => 'application instance owner',
+                'source' => 'owner first configuration', 'credentials_policy' => 'references only; secrets remain in server/.env'],
+            'resources' => ['tooling' => [], 'databases' => [$database], 'local_listeners' => [], 'containers' => [],
+                'optional_services' => [], 'external_services' => [], 'backups' => [],
+                'queues' => ['status' => 'unallocated', 'resources' => []],
+                'object_storage' => ['status' => 'unallocated', 'resources' => []]]];
     }
 
     private function pendingPath(): string

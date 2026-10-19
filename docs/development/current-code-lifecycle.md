@@ -262,7 +262,7 @@ Compose 使用已准备的固定 PHP-FPM/Nginx 镜像和正常 bridge 网络、�
 
 既有 `--internal-candidate` 完整包保留原 `kind=internal-candidate`、`scope`、`formal_release_eligible=false`、marker、来源及七个 Core 固定锁的合同，同次生成的后端身份带入这些已有字段及原 marker 字节。完整候选核验继续逐文件验证原 sealed source、四端静态、原生后端元数据和插件派生，不接受任意额外文件。后端读取器核对 marker、真实程序、来源和 Core 锁；首次配置仅提供 development 部署目标，正式后端升级入口拒绝候选作为目标。此处不增加新身份协议，也不把候选资格改为正式。
 
-首次配置的 `database_source` 明确选择 `bundled` 或 `registered`。后者只从 APP 自有公共资源登记选择唯一数据库和 `host`／`container` 消费端点，环境、Edition、库名和地址必须匹配登记；已有普通账号与密码仅写入私有 0600 配置。配置发布不连接数据库、不建库、不创建或修改账号、不授予权限；连接与权限仍由安装向导实际 ThinkORM/PDO 的 `database-check` 判断。只有 `bundled` 才调用内置数据库 provision。APP 不读取维护者的私有 Project 登记作为运行依赖；维护者需先通过原生 `application-registry` 投影准备 APP 自有来源。
+首次配置的 `database_source` 明确选择 `bundled` 或 `registered`。网页的后者只从 APP 自有公共资源登记选择唯一数据库和 `host`／`container` 消费端点；部署 owner 则在下面的首次配置输入中明确声明自己的单库登记。两者复用同一环境、Edition、库名和端点校验；已有普通账号与密码仅写入私有 0600 配置。配置发布不连接数据库、不建库、不创建或修改账号、不授予权限；连接与权限仍由安装向导实际 ThinkORM/PDO 的 `database-check` 判断。只有 `bundled` 才调用内置数据库 provision。APP 不读取维护者的私有 Project 登记作为运行依赖。普通 APP 可在封包前维护根 `resources/project-resources.json`；已封包实例的公共登记属于程序身份，不得改写它或预造私有配置来追加部署资源。
 
 外部专库的新实例以 `python3 server/docker/scripts/configure-runtime.py --php-image=<prepared-immutable-image> --database-source=registered` 准备 Docker 配置；不写本地 MySQL image/port/root 密码。首次向导尚未发布 `server/.env` 时，正常 `start.sh -f compose.registered-database.yaml` 显式选本包的 registered overlay；发布后复用 `PEANUT_DATABASE_SOURCE=registered` 自动选择。两种情况均只启动 PHP/Nginx，不创建 MySQL 数据目录，不受 `COMPOSE_PROFILES` 意外选中内置库的影响。registered 模式不能传本地 `--mysql-host-port`；bundled 模式仍校验固定 MySQL 镜像和 root 凭据。完整源码中普通、空的 `.gitkeep`/`.gitignore` 目录占位可保留；已有数据、密钥、链接、配置或安装状态不得被初始化入口覆盖。每个 APP 使用自己明确登记的专库，不能通过共享首装 schema 或替换 `.env` 安装另一 Edition。
 
@@ -272,7 +272,11 @@ Compose 使用已准备的固定 PHP-FPM/Nginx 镜像和正常 bridge 网络、�
 
 启动前必须由实际 Docker Compose 成功解析官方合成配置；不支持 !reset 等原生能力或服务依赖不符时停止该启动路径，不改成私有备用编排。上述行为的源码交付不代表实际安装、登录、404 或删锁保护已经验收。
 
-尚未启动 PHP 的主机首次配置，由该实例真实 owner 在程序完整性准入、初始流量关闭和实例原生锁下执行 `php server/docker/scripts/update-plan.php configure-startup --instance-server=/absolute/app/server --configuration-input=/absolute/private/input.json`。输入必须是当前 owner 持有的单链接普通 0600 文件，JSON 只含 `setup_token` 和 `configuration`：前者为本次真实 Setup Token，后者与 `/installapi/configure` 使用同一字段合同。原生发布器一次生成 `.env`、实例私有资源登记和配置记录，不改 APP 来源身份、安装锁或数据库；Setup Token 与数据库密码不进入输出。已存在配置、安装锚点或待发布输入时拒绝覆盖。输入由 owner 在正常生命周期中保护及回收，不放入版本库；不得手写配置记录冒充完成。网页只将输入暂存为私有待发布记录，绑定 APP 身份、实际 Setup Token 和所选登记摘要，仍由正常 owner 发布，登记漂移时停止。
+尚未启动 PHP 的主机首次配置，由该实例真实 owner 在程序完整性准入、初始流量关闭和实例原生锁下执行 `php server/docker/scripts/update-plan.php configure-startup --instance-server=/absolute/app/server --configuration-input=/absolute/private/input.json`。输入必须是当前 owner 持有的单链接普通 0600 文件，JSON 包含 `setup_token` 和 `configuration`：前者为本次真实 Setup Token，后者与 `/installapi/configure` 使用同一字段合同。owner 的 `registered` 模式还必须包含 `resource_registry`，`bundled` 模式禁止该字段。该登记仅允许 `schema_version: 1`、当前 APP slug 的 `project_id`、`authority: {"role":"application"}`、`resources: {"databases":[单个数据库]}`；不接受登记路径、维护者登记、其他资源或凭据字段。它不由 HTTP 输入提供，也不更改候选或正式发行身份。
+
+单库登记必需字符串字段为 `stable_resource_id`、`purpose`、`owner`、`version`、`database`、`schema`、`namespace`、`data_source`、`freshness_requirement`、`health_check`；另需 `service_type: "mysql"`、`fallback: "none"`、`application_runtime: true`、`environments` 和 `deployment_modes` 字符串列表。至少声明一个 `upstream_endpoint` 或 `container_endpoint`，每个仅含 `endpoint_id`、`host`、整数 `port` 和分别为 `["host"]` 或 `["container"]` 的 `consumers`。数据库 ID 必须与 `configuration.database_resource_id` 相同，所选 consumer、目标环境、Edition、库名仍通过现有登记解析器校验。DB 普通账号/密码仅放在 `configuration.database_user`／`database_password`，不放入资源登记；最终私有登记自动使用实例 `.env` 凭据引用。部署者须自行核准真实目标、权限和备份，此声明不证明数据库健康、为空或已获操作授权。
+
+原生发布器一次生成 `.env`、实例私有资源登记和配置记录，不改 APP 来源身份、安装锁或数据库；Setup Token 与数据库密码不进入输出。已存在配置、安装锚点或待发布输入时拒绝覆盖。输入由 owner 在正常生命周期中保护及回收，不放入版本库；不得手写配置记录冒充完成。网页继续只将已有公共登记的选择暂存为私有待发布记录，绑定 APP 身份、实际 Setup Token 和所选登记摘要，仍由正常 owner 发布，登记漂移时停止。owner 单库登记不会成为第二套全局资源事实源，也不会为网页提供注册或改绑权限。
 
 只有 Nginx 配置变化时，apply 在维护/停机前用实例登记的不可变 Nginx 镜像执行目标配置的 `nginx -t`，结果绑定计划、镜像及配置 SHA-256。切换后重新创建 PHP/Nginx 容器，使文件绑定挂载读取新文件；数据库容器保持原样。Dockerfile、Compose 或其他运行配置变化仍要求独立准备兼容镜像，本入口不自动放行。
 
