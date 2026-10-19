@@ -16,6 +16,10 @@
     {
       "module_key": "official.document",
       "version": "^1.0"
+    },
+    {
+      "module_key": "official.rich-text",
+      "version": "^1.0"
     }
   ],
   "optional_dependencies": [
