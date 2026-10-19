@@ -45,6 +45,7 @@
   "contracts": {
     "exports": [
       "PeanutAdmin\\Modules\\Article\\Contract\\ArticleAdministration",
+      "PeanutAdmin\\Modules\\Article\\Contract\\ArticleMigrationPreservation",
       "PeanutAdmin\\Modules\\Article\\Contract\\ArticleBodySaveInput",
       "PeanutAdmin\\Modules\\Article\\Contract\\ArticleQueries",
       "PeanutAdmin\\Modules\\Article\\Contract\\PublicArticleQueries"
