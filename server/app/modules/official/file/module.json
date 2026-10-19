@@ -50,6 +50,7 @@
   "contracts": {
     "exports": [
       "PeanutAdmin\\Modules\\File\\Contract\\FileMigrationAdoptionProof",
+      "PeanutAdmin\\Modules\\File\\Contract\\FileMigrationPreservation",
       "PeanutAdmin\\Modules\\File\\Contract\\StorageQualificationQueries",
       "PeanutAdmin\\Modules\\File\\Contract\\FileAdministration",
       "PeanutAdmin\\Modules\\File\\Contract\\FileUploads",
