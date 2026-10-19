@@ -836,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "61eb2a93156c54a6ade53e52596503149c18a44a411357334bdefdae7f827ae9"
+            "source_sha256": "f96104176dff25babeec874f574523886cc52187db0c62ba9c8bf4ddb712d425"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -2333,7 +2333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "68b3a425a54519828e90647427cafb8f153ec371845bac5966b35c3e1a559e0b"
+            "source_sha256": "8899b1ffe0f5286f88edf45532006661c3657ee95ae9936e3ac0583e4262a1fc"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2456,7 +2456,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1ae2600bbaf01e8e9b498f3726edede0f131c925f9985bd0ef5f39690f7eff6b"
+            "source_sha256": "2ea2d33a64a4b14d76d6c43e83b64c74e70ef6617fb26168a80fde3e2efeca40"
         },
         {
             "path": "plugins/official.identity/plugin.json",
@@ -3560,7 +3560,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c4b3657ff6ef01b4679fa0957e897fa95c802f702890535d47ffda436b8a8153"
+            "source_sha256": "81dc2ca67666b33aeaf0481efac8ebc55c1fbf0cf751b1d3f39837d58b71bb25"
         },
         {
             "path": "scripts/project-codegraph",
@@ -3753,7 +3753,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "51cd988b6a6489fef845f46686f8441f2def29141d12aa85c9d72b0ffddf61e6"
+            "source_sha256": "da20b898d9292753d666f04bd9ef5be42035bb94dea637e56c6b03fec54d7adf"
         },
         {
             "path": "scripts/scaffold-runtime/ReleaseDependencyIdentity.php",
@@ -3823,7 +3823,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6a42509a27d10da38582cec774081e24a8e233905a3244275eb09e0b0147dcdf"
+            "source_sha256": "9479952fd1a319719ce237ee5a16f650a4d780c2a0238d679bed36017c1b1f45"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",
@@ -7950,7 +7950,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4f9616cf302f458399d3e37c6433bb4acb421546a1d0b648ebae86bdadc60a53"
+            "source_sha256": "371f2d5fbf93e066c2cc5970c1cc57203659a047bf2cba15d20833778b39cbc2"
         },
         {
             "path": "server/app/common/infrastructure/migration/CleanInstallMigration.php",
@@ -7964,7 +7964,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "be32b3faa4714041ef7fe6c2d46ee553cf742e7daba000528f4cdc7f081a84c7"
+            "source_sha256": "33553c5c842dde4132b919f71895fe3caa16095e1b2ec5dbe0b6ece695d4cacc"
         },
         {
             "path": "server/app/common/infrastructure/migration/ImmutableSqlMigration.php",
@@ -8006,7 +8006,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "735e16a98dd1eed062bd1105b8de290e5f5363760b49205a6ea5fb05dcdc26ae"
+            "source_sha256": "9d6835756e24a6123b20bab3fb2452ac9e46b4e02facbc379af2adc41409e776"
         },
         {
             "path": "server/app/common/infrastructure/migration/PeanutMigrationService.php",
@@ -8889,7 +8889,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6fc4cb6279bffbf5d4be8efc8de8ac0948bc8215321fbd79c29ee5ed2861de19"
+            "source_sha256": "252ea9e6de233f151b3789ad1ab624d7f8e9e12f6b6af91726d30f72a531fd66"
         },
         {
             "path": "server/app/common/services/installation/InstallationPreflightHost.php",
@@ -8988,7 +8988,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f14c1dda4b951b80799b9a0c17d175c9bbfb9eb28fbbedb0ea66471c813fa715"
+            "source_sha256": "d42afc59144ec58f38a8500636d1a7ca467836c5b3b5610a75f25bfccc78ec6e"
         },
         {
             "path": "server/app/common/services/upgrade/SourceDevelopmentMaintenanceAdmission.php",
@@ -12366,7 +12366,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e70c3988d6ca47f98cb3029ef78a313ef9af570315f880e44c4eb512cc7654c0"
+            "source_sha256": "e18283d8130133e4a64137ecd77a716398676e2d9f5eec915e0c61472f75578c"
         },
         {
             "path": "server/app/modules/official/file/src/Contract/FileMigrationPreservation.php",
@@ -12380,7 +12380,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "79cddc56493a29a389c4cda4fb9ea3889eb006702db2d03b6f2b5700830bb0e6"
+            "source_sha256": "5f198736143aa2d25a5a5159aed8099d28c5ffeb6829c2dc0ba829f755e2d8f5"
         },
         {
             "path": "server/app/modules/official/file/src/Contract/FileReferenceCommands.php",
@@ -25549,7 +25549,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0106b64748dbecdda03475146f2a52b94d5fab06093de160d3f6195099440865"
+            "source_sha256": "c334b134bb2330fe1f01b7da459e3e3991791c8e47af43736e0436dee8b1bf6d"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",
@@ -26392,6 +26392,62 @@
             "source_sha256": "647b749c9269c5f139d90b63a2576fddd165d543f7f4839b61e5af63f6abd9b7"
         },
         {
+            "path": "server/database/baselines/5.0.2-r2/baseline.lock",
+            "target": "server/database/baselines/5.0.2-r2/baseline.lock",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "d99b4a515e7e61ec0298b0a607ae5e55d2d97e61ea8cd92def2e76a0b8f96012"
+        },
+        {
+            "path": "server/database/baselines/5.0.2-r2/data.sql",
+            "target": "server/database/baselines/5.0.2-r2/data.sql",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "310e8fab0bbaeabe54d1d23bb911664250684155e9ebad24e128fca8741c7270"
+        },
+        {
+            "path": "server/database/baselines/5.0.2-r2/manifest.json",
+            "target": "server/database/baselines/5.0.2-r2/manifest.json",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "49a08883b3aa9b8f7c51ad871726dc96940ad13193ee628d31bb24d68894e4f4"
+        },
+        {
+            "path": "server/database/baselines/5.0.2-r2/schema.sql",
+            "target": "server/database/baselines/5.0.2-r2/schema.sql",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "eee0aad472e612a032c37ee1a384ab42aa61bb8eb3609739c53ed21d78bb8187"
+        },
+        {
             "path": "server/database/environment-guard.php",
             "target": "server/database/environment-guard.php",
             "classification": "managed",
@@ -26431,7 +26487,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a48d68d0cf072bef779a723a7b9efb94a2248853a68d8753af6c7cdc4e189942"
+            "source_sha256": "97d76987d89283b30fd6c9c5377fdf07de3c043d33a62d217ee13da7a15f8b86"
         },
         {
             "path": "server/database/kernel-migrations/20260716010101_create_pa_account.php",
@@ -27634,7 +27690,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b6265a1fa9cd58108025fabe78cc56edd23e8c93ee8b26c5914a46606cf94157"
+            "source_sha256": "3dac61de92ecf6f7e7d66b02287f00528fe852f48e3a5d4e2c53f0fb19bc8487"
         },
         {
             "path": "server/docker/scripts/update-preparation.py",
@@ -27662,7 +27718,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c58f0e88bbac7676984093f51ff7b9d5abbf0ac0db772fb1a7af6dbba2badf09"
+            "source_sha256": "dfb0c01957bec8abeee783890b0ddcdec6a3cb60e15b04a5926bc547530bc403"
         },
         {
             "path": "server/docker/scripts/update.sh",
