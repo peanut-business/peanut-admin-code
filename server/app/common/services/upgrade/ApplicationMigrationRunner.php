@@ -19,6 +19,10 @@ use app\common\infrastructure\migration\PeanutMigrationRun;
  */
 final class ApplicationMigrationRunner
 {
+    public const PROVENANCE_ORIGINAL = '20261016-module-migration-provenance';
+    public const PROVENANCE_ORIGINAL_SHA = 'd27a6f52dd3e02b9c0c45a804c059f54062a732c9e1a742dfe12e78b80d96cce';
+    public const PROVENANCE_CORRECTION = '20261019-module-migration-provenance-metadata';
+    public const PROVENANCE_CORRECTION_SHA = '5e8abee207d363cdbb48f01c3980a611b01f4457150666a67e67f690dd547ad9';
     private readonly ?object $nativeConnection;
     private ?string $connectionId = null;
 
@@ -42,6 +46,7 @@ final class ApplicationMigrationRunner
      */
     public function run(array $files, string $targetVersion, string $defaultReleaseVersion, bool $dryRun = false, ?callable $beforeMigration = null, ?callable $beforeUnlock = null, ?callable $afterMigration = null): array
     {
+        $files = self::effectiveFiles($files);
         $pdo = $this->connection();
         $exists = (int) $pdo->query(
             "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'pa_schema_migration'",
@@ -59,16 +64,24 @@ final class ApplicationMigrationRunner
 
         try {
             $this->assertLock($pdo, $lockName);
-            (new PeanutMigrationAdapter($pdo, null))->assertSourceIdentities(array_map(
-                static fn(string $file): string => basename($file, '.sql'), $files,
-            ));
+            $supersession = self::provenanceSupersession($pdo, $files, $targetVersion);
+            $identities = array_map(static fn(string $file): string => basename($file, '.sql'), $files);
+            if ($supersession !== null) { $identities[] = self::PROVENANCE_ORIGINAL; }
+            (new PeanutMigrationAdapter($pdo, null))->assertSourceIdentities($identities);
             $pending = $this->pending($pdo, $files, $targetVersion, $defaultReleaseVersion);
+            $selected = [];
+            foreach ($files as $file) {
+                $identity = self::releaseIdentity((string) file_get_contents($file), $defaultReleaseVersion);
+                if (!$identity['peanut_release'] || version_compare($identity['release_version'], $targetVersion, '<=')) { $selected[] = basename($file, '.sql'); }
+            }
             if ($dryRun) {
                 $result = [
                     'status' => $pending === [] ? 'up_to_date' : 'ready',
                     'target_version' => $targetVersion,
                     'applied' => [],
                     'pending' => array_column($pending, 'id'),
+                    'selected' => $selected,
+                    'supersessions' => $supersession === null ? [] : [$supersession],
                 ];
                 $this->complete($pdo, $lockName, $result, $beforeUnlock);
                 return $result;
@@ -117,12 +130,78 @@ final class ApplicationMigrationRunner
                 'target_version' => $targetVersion,
                 'applied' => $applied,
                 'pending' => [],
+                'selected' => $selected,
             ];
+            $resolved = self::provenanceSupersession($pdo, $files, $targetVersion);
+            if (($resolved['original_ledger'] ?? null) !== ($supersession['original_ledger'] ?? null)) {
+                throw new RuntimeException('MIGRATION_ORIGINAL_HISTORY_CHANGED');
+            }
+            $result['supersessions'] = $resolved === null ? [] : [$resolved];
             $this->complete($pdo, $lockName, $result, $beforeUnlock);
             return $result;
         } finally {
             $pdo->prepare('SELECT RELEASE_LOCK(?)')->execute([$lockName]);
         }
+    }
+
+    /** One fixed source correction, not a caller-controlled repair map. Original SQL stays in the package. */
+    public static function effectiveFiles(array $files): array
+    {
+        $correction = null;
+        foreach ($files as $file) {
+            if (basename($file, '.sql') === self::PROVENANCE_CORRECTION) { $correction = $file; }
+        }
+        if ($correction === null) { return $files; }
+        $original = dirname($correction) . '/' . self::PROVENANCE_ORIGINAL . '.sql';
+        foreach ([$original => self::PROVENANCE_ORIGINAL_SHA, $correction => self::PROVENANCE_CORRECTION_SHA] as $file => $sha) {
+            if (!is_file($file) || is_link($file) || hash_file('sha256', $file) !== $sha) { throw new RuntimeException('MIGRATION_CORRECTION_SOURCE_CHANGED'); }
+        }
+        return array_values(array_filter($files, static fn(string $file): bool => basename($file, '.sql') !== self::PROVENANCE_ORIGINAL));
+    }
+
+    /** Explicit history relation; an old failed row is never returned as applied or executed. */
+    public static function provenanceSupersession(PDO $pdo, array $files, string $targetVersion): ?array
+    {
+        $files = self::effectiveFiles($files);
+        if (version_compare($targetVersion, '5.0.2', '<') || !in_array(self::PROVENANCE_CORRECTION, array_map(static fn(string $file): string => basename($file, '.sql'), $files), true)) { return null; }
+        $query = $pdo->prepare('SELECT * FROM pa_schema_migration WHERE migration_id IN (?,?) ORDER BY migration_id');
+        try { $query->execute([self::PROVENANCE_ORIGINAL, self::PROVENANCE_CORRECTION]); $rows = array_column($query->fetchAll(PDO::FETCH_ASSOC), null, 'migration_id'); }
+        finally { $query->closeCursor(); }
+        $old = $rows[self::PROVENANCE_ORIGINAL] ?? null; $new = $rows[self::PROVENANCE_CORRECTION] ?? null;
+        if ($old !== null && ($old['checksum'] !== self::PROVENANCE_ORIGINAL_SHA || $old['release_version'] !== '5.0.2' || !in_array($old['status'], ['applied', 'failed'], true)
+            || ($old['status'] === 'applied' && $old['error_code'] !== null)
+            || $old['finished_at'] === null || ($old['status'] === 'failed' && $old['error_code'] !== "SQLSTATE[HY000]: General error: 3822 Duplicate check constraint name 'chk_module_migration_resolution'."))) {
+            throw new RuntimeException('MIGRATION_CORRECTION_ORIGINAL_CONFLICT');
+        }
+        if ($new !== null && ($new['checksum'] !== self::PROVENANCE_CORRECTION_SHA || $new['release_version'] !== '5.0.2' || $new['status'] !== 'applied'
+            || $new['finished_at'] === null || $new['error_code'] !== null)) { throw new RuntimeException('MIGRATION_CORRECTION_INCOMPLETE'); }
+        $shape = self::provenanceShape($pdo);
+        if (($old !== null || $new !== null) && $shape !== 'exact_noop') { throw new RuntimeException('MIGRATION_CORRECTION_PRESTATE_CONFLICT'); }
+        return ['original_key' => self::PROVENANCE_ORIGINAL, 'original_sha256' => self::PROVENANCE_ORIGINAL_SHA,
+            'original_ledger' => $old, 'original_status' => $old['status'] ?? 'absent', 'original_execution_claim' => 'not_inferred',
+            'correction_key' => self::PROVENANCE_CORRECTION, 'correction_sha256' => self::PROVENANCE_CORRECTION_SHA,
+            'correction_ledger' => $new, 'state' => $new === null ? 'awaiting_correction' : 'resolved_by_correction',
+            'original_row_preserved' => true, 'schema' => $shape];
+    }
+
+    /** Accept only the two complete observed renderings, or the exact pre-addition state. */
+    public static function provenanceShape(PDO $pdo): string
+    {
+        $columns = $pdo->query("SELECT COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,COLUMN_DEFAULT FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='pa_module_migration' AND COLUMN_NAME IN ('resolution_kind','provenance_json')")->fetchAll(PDO::FETCH_ASSOC);
+        $checks = $pdo->query("SELECT t.CONSTRAINT_NAME,t.ENFORCED,c.CHECK_CLAUSE FROM information_schema.TABLE_CONSTRAINTS t JOIN information_schema.CHECK_CONSTRAINTS c ON c.CONSTRAINT_SCHEMA=t.CONSTRAINT_SCHEMA AND c.CONSTRAINT_NAME=t.CONSTRAINT_NAME WHERE t.CONSTRAINT_SCHEMA=DATABASE() AND t.TABLE_NAME='pa_module_migration' AND t.CONSTRAINT_NAME IN ('chk_module_migration_resolution','chk_module_migration_provenance')")->fetchAll(PDO::FETCH_ASSOC);
+        if ($columns === [] && $checks === []) { return 'before_additions'; }
+        if (count($columns) !== 2 || count($checks) !== 2) { throw new RuntimeException('MIGRATION_CORRECTION_SCHEMA_DIFFERENT'); }
+        foreach ($columns as $row) {
+            if ($row['COLUMN_TYPE'] !== ($row['COLUMN_NAME'] === 'resolution_kind' ? 'varchar(16)' : 'json') || $row['IS_NULLABLE'] !== 'YES' || $row['COLUMN_DEFAULT'] !== null) { throw new RuntimeException('MIGRATION_CORRECTION_SCHEMA_DIFFERENT'); }
+        }
+        $required = ['chk_module_migration_resolution' => "((resolution_kindisnull)or(resolution_kindin('executed','adopted')))",
+            'chk_module_migration_provenance' => "((resolution_kind<=>'adopted')=(provenance_jsonisnotnull))"];
+        foreach ($checks as $row) {
+            $normal = strtolower(str_replace(['`', ' ', "\n", '_utf8mb4'], '', $row['CHECK_CLAUSE']));
+            $expected = $required[$row['CONSTRAINT_NAME']] ?? '';
+            if ($row['ENFORCED'] !== 'YES' || !in_array($normal, [$expected, str_replace("'", "\\'", $expected)], true)) { throw new RuntimeException('MIGRATION_CORRECTION_SCHEMA_DIFFERENT'); }
+        }
+        return 'exact_noop';
     }
 
     private function complete(PDO $pdo, string $lockName, array $result, ?callable $beforeUnlock): void

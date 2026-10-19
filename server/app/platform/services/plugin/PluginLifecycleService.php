@@ -853,9 +853,9 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             $prerequisite = \PeanutServerUpdatePlan::pendingModuleProvenanceMigration($pdo);
         }
         if ($prerequisite === null) { return null; }
-        if (($prerequisite['migration_id'] ?? null) !== '20261016-module-migration-provenance'
+        if (($prerequisite['migration_id'] ?? null) !== '20261019-module-migration-provenance-metadata'
             || ($prerequisite['reason'] ?? null) !== 'module_migration_provenance_schema'
-            || preg_match('/^[a-f0-9]{64}$/D', (string) ($prerequisite['sha256'] ?? '')) !== 1) {
+            || ($prerequisite['sha256'] ?? null) !== \app\common\services\upgrade\ApplicationMigrationRunner::PROVENANCE_CORRECTION_SHA) {
             throw new PluginLifecycleException('MODULE_MIGRATION_PROVENANCE_SCHEMA_REQUIRED', 'Native application prerequisite is invalid.');
         }
         $statement = $pdo->prepare('SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME IN (?,?)');

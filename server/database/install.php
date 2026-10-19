@@ -548,7 +548,7 @@ function applicationMigrationFiles(string $databaseDir): array
         $files[] = $file;
     }
     sort($files, SORT_STRING);
-    return $files;
+    return \app\common\services\upgrade\ApplicationMigrationRunner::effectiveFiles($files);
 }
 
 /**
@@ -911,6 +911,19 @@ if ($installerIsDirect) {
     try {
         $application = ensureThinkPhpApplication(dirname(__DIR__));
         $host = $application->make(\app\common\services\installation\InstallationExecutionHost::class);
+        $partial = array_values(array_filter(array_slice($_SERVER['argv'] ?? [], 1), static fn(string $arg): bool => str_starts_with($arg, '--partial=')));
+        if ($partial === [] && array_filter(array_slice($_SERVER['argv'] ?? [], 1), static fn(string $arg): bool => str_starts_with($arg, '--partial-input=')) !== []) { throw new RuntimeException('INSTALL_PARTIAL_ARGUMENTS_INVALID'); }
+        if ($partial !== []) {
+            $inputs = array_values(array_filter(array_slice($_SERVER['argv'], 1), static fn(string $arg): bool => str_starts_with($arg, '--partial-input=')));
+            if (count($partial) !== 1 || count($inputs) !== 1 || count($_SERVER['argv']) !== 3) { throw new RuntimeException('INSTALL_PARTIAL_ARGUMENTS_INVALID'); }
+            $operation = substr($partial[0], strlen('--partial=')); $input = substr($inputs[0], strlen('--partial-input='));
+            $result = $application->make(\app\common\execution\ExecutionContextStore::class)->run(
+                new \app\common\execution\InstallationExecutionContext('installation.console.partial', 'install-' . bin2hex(random_bytes(16))),
+                static fn() => $host->partialInstallation($operation, $input),
+            );
+            echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR), PHP_EOL;
+            exit(0);
+        }
         if (in_array('--status', $_SERVER['argv'] ?? [], true)) {
             $status = $host->status();
             echo json_encode($status, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR), PHP_EOL;
@@ -935,7 +948,9 @@ if ($installerIsDirect) {
         fwrite(STDERR, '安装失败：' . $exception->errorCode . PHP_EOL);
         exit(1);
     } catch (Throwable $exception) {
-        fwrite(STDERR, '安装失败：INSTALL_EXECUTION_FAILED' . PHP_EOL);
+        $code = isset($partial) && $partial !== [] && preg_match('/\A(?:INSTALL_(?:PARTIAL|SETUP_TOKEN)|MIGRATION_(?:CORRECTION|ORIGINAL)|APPLICATION_(?:DEVELOPMENT_RUNTIME|SOURCE))_[A-Z_]+\z/D', $exception->getMessage()) === 1
+            ? $exception->getMessage() : 'INSTALL_EXECUTION_FAILED';
+        fwrite(STDERR, '安装失败：' . $code . PHP_EOL);
         exit(1);
     }
 }

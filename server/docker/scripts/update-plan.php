@@ -81,7 +81,7 @@ final class PeanutServerUpdatePlan
             || hash_file('sha256', $product['state_path']) !== $scope['product_state_sha256']) {
             throw new RuntimeException('native planning identity changed');
         }
-        $id = '20261016-module-migration-provenance';
+        $id = \app\common\services\upgrade\ApplicationMigrationRunner::PROVENANCE_CORRECTION;
         if (!in_array($id, $scope['pending'], true)) { return null; }
         $file = $scope['workspace'] . '/prepared/server/database/migrations/' . $id . '.sql';
         $sha = $scope['files'][$file] ?? null;

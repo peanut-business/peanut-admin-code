@@ -35,7 +35,7 @@ final class ApplicationSchemaHost
         '20261012-align-department-canonical-permissions' => '1267c4b33baa4567ae45f12eac6edc7d0538cd9fac4f9c4ccc61e2b37eb793bf',
         '20261012-align-platform-ops-permission-ownership' => '038766e7e9ab5356cacf11cc6bb2dd675af02cd9bd3180efd356a8234d6aa1d9',
         '20261012-repair-seeded-permission-parents' => '06c5e8cad88139ba64cbd498765082a52df43e947370ddf2add1de956788ba5f',
-        '20261016-module-migration-provenance' => 'd27a6f52dd3e02b9c0c45a804c059f54062a732c9e1a742dfe12e78b80d96cce',
+        '20261019-module-migration-provenance-metadata' => '5e8abee207d363cdbb48f01c3980a611b01f4457150666a67e67f690dd547ad9',
     ];
 
     /**
@@ -350,7 +350,7 @@ final class ApplicationSchemaHost
         $expected = match ($id) {
             '20260909-notification-sms-reservation' => ['chk_notice_sms_reservation_active' => ['table' => 'pa_notice_log', 'existing' => false]],
             '20261007-auth-client-schema' => ['chk_tenant_session_client' => ['table' => 'pa_tenant_session', 'existing' => true]],
-            '20261016-module-migration-provenance' => [
+            '20261019-module-migration-provenance-metadata' => [
                 'chk_module_migration_resolution' => ['table' => 'pa_module_migration', 'existing' => true],
                 'chk_module_migration_provenance' => ['table' => 'pa_module_migration', 'existing' => true],
             ],
@@ -665,8 +665,8 @@ final class ApplicationSchemaHost
                         return false;
                     }
                     $proof = self::migrationPrestate($pdo, $migration, [], false);
-                    if ($migration['id'] === '20261016-module-migration-provenance') {
-                        if (($proof['proof']['shape'] ?? null) !== 'before_additions') { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_PROVENANCE_PARTIAL'); }
+                    if ($migration['id'] === '20261019-module-migration-provenance-metadata') {
+                        if (!in_array($proof['proof']['shape'] ?? null, ['before_additions', 'exact_noop'], true)) { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_PROVENANCE_PARTIAL'); }
                     } else { throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_POSTSTATE_REQUIRED'); }
                     $recheck();
                     return false;
@@ -793,7 +793,7 @@ final class ApplicationSchemaHost
                 $blocked = true;
             }
             $poststate = match ($id) {
-                '20261016-module-migration-provenance' => 'exact_provenance_shape',
+                '20261019-module-migration-provenance-metadata' => 'exact_provenance_shape',
                 '20261007-auth-client-schema' => AuthClientSchemaMigrationProof::class,
                 '20260909-notification-sms-reservation' => SmsReservationMigrationProof::class,
                 '20261004-group-default-navigation', '20261004-menu-stable-identities',
@@ -812,8 +812,8 @@ final class ApplicationSchemaHost
         $backupScope = SourceApplicationBackup::scope($pdo, $baseline['pending']);
         array_push($requirements, ...$backupScope['execution_requirements']);
         foreach ($chain as $stage) {
-            if ($stage['migration_id'] === '20261016-module-migration-provenance'
-                && ($stage['prestate']['proof']['shape'] ?? null) !== 'before_additions') {
+            if ($stage['migration_id'] === '20261019-module-migration-provenance-metadata'
+                && !in_array($stage['prestate']['proof']['shape'] ?? null, ['before_additions', 'exact_noop'], true)) {
                 $requirements[] = ['code' => 'APPLICATION_SCHEMA_PRESTATE_PROVENANCE_PARTIAL'];
                 $blocked = true;
             }
@@ -1204,11 +1204,17 @@ final class ApplicationSchemaHost
             // Historical release_version is deliberately preserved, as in the runner.
         }
         $historical = [];
+        $supersession = ApplicationMigrationRunner::provenanceSupersession($pdo, $files, $target);
         $extra = array_diff(array_keys($byId), array_keys($selected));
         if ($extra !== []) {
             $transfers = PluginLifecycleService::applicationMigrationTransfers(new PluginLockResolver($this->serverRoot, '../plugins.lock'));
             foreach ($extra as $id) {
                 $row = $byId[$id]; $source = $transfers[$id] ?? null;
+                if ($id === ApplicationMigrationRunner::PROVENANCE_ORIGINAL && $supersession !== null
+                    && $supersession['original_ledger'] === $row) {
+                    $historical[] = ['history' => $row, 'source_ownership' => $supersession];
+                    continue;
+                }
                 if ($source === null || $row['status'] !== 'applied' || !hash_equals($source['sha256'], (string) $row['checksum'])
                     || !is_string($row['release_version']) || preg_match('/^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.+-]+)?$/D', $row['release_version']) !== 1) {
                     throw new RuntimeException('APPLICATION_SCHEMA_HISTORY_SOURCE_REQUIRED');
@@ -1221,6 +1227,7 @@ final class ApplicationSchemaHost
         $columns = $pdo->query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='pa_module_migration' ORDER BY ORDINAL_POSITION")->fetchAll(PDO::FETCH_COLUMN);
         $shape = $this->sourceModuleShape($pdo);
         return ['pending' => $pending, 'selected' => $selected, 'release_versions' => $releaseVersions, 'target' => $target, 'default_release' => $default,
+            'supersessions' => $supersession === null ? [] : [$supersession],
             'historical_transferred' => $historical,
             'application_rows_sha256' => $this->digest($ledger), 'application_rows_count' => count($ledger),
             'application_shape_sha256' => $this->digest($ledgerShape),
@@ -1270,17 +1277,18 @@ final class ApplicationSchemaHost
                 throw new RuntimeException('APPLICATION_SCHEMA_LEDGER_CHANGED');
             }
         }
-        $provenance = in_array('20261016-module-migration-provenance', $completed, true)
-            || ($phase === 'after' && $migration['id'] === '20261016-module-migration-provenance');
+        $provenance = in_array('20261019-module-migration-provenance-metadata', $completed, true)
+            || ($phase === 'after' && $migration['id'] === '20261019-module-migration-provenance-metadata');
         $rows = $pdo->query('SELECT * FROM pa_module_migration ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
         $oldRows = [];
         foreach ($rows as $row) {
-            if ($provenance && (($row['resolution_kind'] ?? null) !== null || ($row['provenance_json'] ?? null) !== null)) { throw new RuntimeException('APPLICATION_SCHEMA_MODULE_ORIGIN_CHANGED'); }
+            if ($provenance && !in_array('resolution_kind', $baseline['module_columns'], true)
+                && (($row['resolution_kind'] ?? null) !== null || ($row['provenance_json'] ?? null) !== null)) { throw new RuntimeException('APPLICATION_SCHEMA_MODULE_ORIGIN_CHANGED'); }
             $oldRows[] = array_intersect_key($row, array_fill_keys($baseline['module_columns'], true));
         }
         if (count($rows) !== $baseline['module_rows_count'] || $this->digest($oldRows) !== $baseline['module_rows_sha256']) { throw new RuntimeException('APPLICATION_SCHEMA_MODULE_LEDGER_CHANGED'); }
         $shape = $this->sourceModuleShape($pdo);
-        if ($provenance) {
+        if ($provenance && !in_array('resolution_kind', $baseline['module_columns'], true)) {
             unset($shape['columns']['resolution_kind'], $shape['columns']['provenance_json'],
                 $shape['checks']['chk_module_migration_resolution'], $shape['checks']['chk_module_migration_provenance']);
         }
@@ -1591,6 +1599,7 @@ final class ApplicationSchemaHost
             'registry_sha256' => $registrySha256,
             'lease' => $lease, 'target_version' => $targetVersion, 'default_release_version' => $default,
             'chain' => $chain, 'pending' => $pending, 'prerequisites' => $prerequisites,
+            'supersessions' => $selection['supersessions'] ?? [],
             'observation' => 'Read-only interval; schema metadata is not MVCC and no external-writer exclusion is implied.',
             'transient_effects' => ['native_runner_advisory_lock'],
             'plugins' => 'not_run', 'product_database' => 'not_verified',

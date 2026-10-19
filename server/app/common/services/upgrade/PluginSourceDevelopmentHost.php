@@ -76,9 +76,9 @@ final class PluginSourceDevelopmentHost
                     $recheck();
                     $prerequisite = null;
                     foreach ($files as $file) {
-                        if (basename($file, '.sql') === '20261016-module-migration-provenance'
-                            && in_array('20261016-module-migration-provenance', $selection['pending'], true)) {
-                            $prerequisite = ['migration_id' => '20261016-module-migration-provenance',
+                        if (basename($file, '.sql') === '20261019-module-migration-provenance-metadata'
+                            && in_array('20261019-module-migration-provenance-metadata', $selection['pending'], true)) {
+                            $prerequisite = ['migration_id' => '20261019-module-migration-provenance-metadata',
                                 'reason' => 'module_migration_provenance_schema', 'sha256' => hash_file('sha256', $file)];
                         }
                     }
