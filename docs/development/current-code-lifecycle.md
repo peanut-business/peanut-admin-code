@@ -131,13 +131,15 @@ app/event.php保留AppInit、HttpRun、HttpEnd、LogLevel和LogWrite项，但默
 
 源码开发 preflight 按真实 pending 顺序列出逐条来源、前置证明和后继依赖；缺少业务终态保全或完整恢复覆盖时，计划仍不授予执行权限。原仅覆盖模块迁移来源字段的两账本恢复合同不能用于包含菜单、权限、通知或认证数据变化的链。已迁移归属的 File 应用历史，只在原不可变 SQL、现行 canonical adoption 声明和原账本 key／checksum／applied 一致时识别为历史保留；不删除原行、不把它记入模块账本、不以历史记录代替当前 File 数据证明。未知额外历史继续拒绝。
 
-源码阶段账本按原有序链核对已完成前缀、当前 applying 与尚未执行项，逐条使用 SQL 真实发行身份；旧历史的完整原行保持不变。该核对不替代业务后态或恢复准入，当前多条待迁移链仍在这些合同齐备前拒绝 apply。
+源码阶段账本按原有序链核对已完成前缀、当前 applying 与尚未执行项，逐条使用 SQL 真实发行身份；旧历史的完整原行保持不变。源码 apply 只接受现有九条固定 SQL 中由原生账本算出的有序 pending 和精确摘要；维护窗口、原生完整备份、恢复引用、baseline 与完整表并集必须一致，旧两账本证据不能扩大使用。维护证据必须证明 HTTP、worker 和其他受影响 writer 的实际排除，且窗口开始不晚于真实备份开始；租约或 JSON 的声明本身不证明外部进程已停止。完整原结构／数据 payload、原生终态 rc0、manifest 与 RESTORE 摘要仍逐次核对，不自动恢复。
+
+备份范围复用固定表映射，不由 SQL 解析或调用者清单扩展。首次 applying 前核对完整原 scope；后继不再拿链初元数据否定前序合法 DDL，而按当前真实前态、旧账本和有序完成前缀逐条检查。固定 DML（含唯一应用账本）按实际事件、更新列及派生更新列检查触发器和入向级联；未知写入在对应阶段前拒绝，已完成前缀和失败证据保留。纯 DDL 的业务表触发器不会因存在而一概阻塞。该维护观察要求当前 PDO 具备直接全局 SELECT 和本库 TRIGGER 可见性且无部分撤权，以免遗漏跨库入向 FK；不自动授予权限。成功结果仅在原生 applied 后读回真实阶段账本并绑定原 source／DB／window、备份引用和安全 after 结果；它是当次窗口证据，不是当前状态健康核对、跨进程私态重算或完整资格通过。
 
 菜单三条固定应用 SQL 的业务事实由 Identity 的 `MenuSchemaMigrationProof::before(PDO,migration)`／`after(PDO,privateBefore)` 提供。preflight 只公开 `safe_summary`；当前 pending 前驱未完成时列为 deferred，不构造影子菜单、解析 UPDATE 或预测 UUID／自增分配。源码维护 Host 和发行 `update-database.php` 均在原同 PDO 的执行回调内重新取得有限私有 facts，原 SQL 排空后、官方唯一 applied 写入前核 `business_postconditions_verified=true`，随后释放 private_state；它不进入计划、结果或日志。后继步骤以当前真实状态重新捕获，不用链初摘要否定后续合法变更。定制／歧义目录按原 SQL 的采用、跳过和冲突分支处理，不增加整个迁移的拒绝 Gate。
 
 权限三条固定应用 SQL 由 Identity 的 `PermissionSchemaMigrationProof::before(PDO,migration)`／`after(PDO,privateBefore,executionBounds)` 证明。preflight 只公开 `safe_summary`，部门迁移尚有 pending 菜单结构前驱时明确 deferred；Host 不再投影权限 CHECK、提取 SQL 选择器或预测最终行。两个原生直接消费者在同 PDO 的 before 回调重新捕获私有事实，readiness／department 严格返回 `true` 请求原不可变 SQL 整批执行两侧的原生时钟，SQL 排空后、唯一 applied 写入前交给 Identity 校验真实 UTC 毫秒区间及业务保全。platform-ops 不请求时钟，时间字段仍须保持；私有事实只驻留当前阶段回调，后继重新捕获，不进入计划、结果或日志。
 
-菜单／权限回调业务断言不替代真实私有备份及完整结构／数据恢复，也不授予多条源码链 apply。断言失败沿官方执行器保留 failed／已完成阶段与原恢复点，不伪回滚 DDL、不自动重放或伪造 applied。安全结果仅记录 id／hash／readonly、具体成功字段及安全计数／时钟范围标识，不能重建原私有前态；涉及这些阶段的独立 verify／已完成 migrate 重放当前分别拒绝 `APPLICATION_SCHEMA_MENU_LIVE_REVERIFY_REQUIRED`／`APPLICATION_SCHEMA_PERMISSION_LIVE_REVERIFY_REQUIRED`，不以旧成功摘要冒充实时保全复验。原有 singleton provenance 执行限制、备份／恢复、资源权限和发布资格保持其实际边界。
+菜单／权限回调业务断言不替代真实私有备份及完整结构／数据恢复。断言失败沿官方执行器保留 failed／已完成阶段与原恢复点，不伪回滚 DDL、不自动重放或伪造 applied。安全结果仅记录 id／hash／readonly、具体成功字段及安全计数／时钟范围标识，不能重建原私有前态；涉及这些阶段的独立 verify／已完成 migrate 重放当前分别拒绝 `APPLICATION_SCHEMA_MENU_LIVE_REVERIFY_REQUIRED`／`APPLICATION_SCHEMA_PERMISSION_LIVE_REVERIFY_REQUIRED`，不以旧成功摘要冒充实时保全复验。固定 provenance 即使位于多条链中也须为 before_additions；原源码身份、原生权限、完整恢复覆盖与发布资格保持独立约束。
 
 `plugin:upgrade`／`plugin:install` 的 `--scope=source-development --dry-run` 为明确选择的单个插件生成原生计划，同时必须提供实际 `--owner`／`--thread`／`--session`／`--gate`。入口在初始化数据库前核对干净源码、原安装标记和当前原生资源租约，并在真实产品文件锁、应用迁移 advisory lock 与插件原生锁内读取；缺少真实来源字段迁移时只列为应用前置项。宿主使用当前插件命令上下文，不冒充应用 schema 或发行升级，不授予安装、采用、catalog 或迁移写入能力；结果固定 `execution_admitted=false`，恢复覆盖仍单独要求。
 

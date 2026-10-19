@@ -598,11 +598,17 @@ final class ApplicationSchemaHost
                     throw new RuntimeException('APPLICATION_SCHEMA_PLAN_STALE');
                 }
                 $baseline = $expected['baseline'] ?? null;
-                if (!is_array($baseline)) { throw new RuntimeException('APPLICATION_SCHEMA_DOCUMENT_INVALID'); }
-                // The existing write/restore contract covers only this exact
-                // provenance change. A broader read-only plan is not new DDL admission.
-                if ($operation === 'apply' && ($baseline['pending'] ?? null) !== ['20261016-module-migration-provenance']) {
-                    throw new RuntimeException('APPLICATION_SCHEMA_CHAIN_POSTSTATE_RECOVERY_REQUIRED');
+                if (!is_array($baseline) || ($operation === 'apply' && !is_array($expected['backup_scope'] ?? null))) {
+                    throw new RuntimeException('APPLICATION_SCHEMA_DOCUMENT_INVALID');
+                }
+                if ($operation === 'apply') {
+                    $requirements = $expected['execution_requirements'] ?? null;
+                    if (($expected['status'] ?? null) !== 'planned' || !is_array($requirements)
+                        || array_filter($requirements, static fn($row): bool => !is_array($row)
+                            || !in_array($row['code'] ?? null, ['APPLICATION_SCHEMA_DML_TRIGGER_EFFECT_REVIEW_REQUIRED',
+                                'APPLICATION_SCHEMA_CASCADE_EFFECT_REVIEW_REQUIRED'], true)) !== []) {
+                        throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_PLAN_BLOCKED');
+                    }
                 }
                 $recheck = function () use ($facts, $initial): void {
                     \app\common\infrastructure\scaffold\ScaffoldUpgradeRunner::sourceProductLock(dirname($this->serverRoot), static fn() => null);
@@ -610,16 +616,25 @@ final class ApplicationSchemaHost
                 };
                 $proofs = [];
                 if ($operation === 'apply') {
-                    $proofs = $this->sourceDevelopmentEvidence($current, $maintenancePath, $recoveryPath, $baseline);
+                    $proofs = $this->sourceDevelopmentEvidence($current, $maintenancePath, $recoveryPath, $baseline, $expected['backup_scope']);
                     if (!$this->sourceSame($expected['evidence'] ?? null, $proofs)) { throw new RuntimeException('APPLICATION_SCHEMA_PLAN_STALE'); }
                 }
                 $completed = []; $businessBefore = []; $businessPoststates = [];
-                $before = function (PDO $actual, array $migration) use ($pdo, $baseline, $recheck, $current, $maintenancePath, $recoveryPath, $proofs, &$completed, &$businessBefore): bool {
+                $before = function (PDO $actual, array $migration) use ($pdo, $baseline, $recheck, $current, $maintenancePath, $recoveryPath, $proofs, $expected, &$completed, &$businessBefore): bool {
                     $recheck();
-                    if ($actual !== $pdo || $this->sourceDevelopmentEvidence($current, $maintenancePath, $recoveryPath, $baseline) !== $proofs) {
+                    if ($actual !== $pdo || $this->sourceDevelopmentEvidence($current, $maintenancePath, $recoveryPath, $baseline, $expected['backup_scope']) !== $proofs) {
                         throw new RuntimeException('APPLICATION_SCHEMA_WINDOW_CHANGED');
                     }
                     $this->assertSourceBaseline($pdo, $baseline, $completed, $migration, 'before');
+                    // Compare the original whole capture only before the first
+                    // applying marker. Later stages legitimately change that schema.
+                    if ($completed === [] && !$this->sourceSame(SourceApplicationBackup::scope($pdo, $baseline['pending']), $expected['backup_scope'] ?? null)) {
+                        throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SNAPSHOT_CHANGED');
+                    }
+                    $stageScope = SourceApplicationBackup::scope($pdo, [$migration['id']]);
+                    if ($stageScope['execution_requirements'] !== []) {
+                        throw new RuntimeException('APPLICATION_SCHEMA_STAGE_EFFECT_REVIEW_REQUIRED');
+                    }
                     if ($migration['id'] === '20260909-notification-sms-reservation') {
                         self::prestateIdentity($migration);
                         $businessBefore[$migration['id']] = self::smsMigrationBefore($pdo, $migration);
@@ -651,9 +666,9 @@ final class ApplicationSchemaHost
                     $recheck();
                     return false;
                 };
-                $after = function (PDO $actual, array $migration, ?array $executionBounds) use ($pdo, $baseline, $recheck, $current, $maintenancePath, $recoveryPath, $proofs, &$completed, &$businessBefore, &$businessPoststates): void {
+                $after = function (PDO $actual, array $migration, ?array $executionBounds) use ($pdo, $baseline, $recheck, $current, $maintenancePath, $recoveryPath, $proofs, $expected, &$completed, &$businessBefore, &$businessPoststates): void {
                     $recheck();
-                    if ($actual !== $pdo || $this->sourceDevelopmentEvidence($current, $maintenancePath, $recoveryPath, $baseline) !== $proofs) {
+                    if ($actual !== $pdo || $this->sourceDevelopmentEvidence($current, $maintenancePath, $recoveryPath, $baseline, $expected['backup_scope']) !== $proofs) {
                         throw new RuntimeException('APPLICATION_SCHEMA_WINDOW_CHANGED');
                     }
                     $this->assertSourceBaseline($pdo, $baseline, $completed, $migration, 'after');
@@ -688,7 +703,7 @@ final class ApplicationSchemaHost
                         $recheck();
                         if ($actual !== $pdo || $selection['pending'] !== []) { throw new RuntimeException('APPLICATION_SCHEMA_VERIFY_INCOMPLETE'); }
                         if ($operation === 'apply' && $selection['applied'] !== $baseline['pending']) { throw new RuntimeException('APPLICATION_SCHEMA_APPLIED_USE_VERIFY'); }
-                        if ($operation === 'apply' && $this->sourceDevelopmentEvidence($current, $maintenancePath, $recoveryPath, $baseline) !== $proofs) {
+                        if ($operation === 'apply' && $this->sourceDevelopmentEvidence($current, $maintenancePath, $recoveryPath, $baseline, $expected['backup_scope']) !== $proofs) {
                             throw new RuntimeException('APPLICATION_SCHEMA_WINDOW_CHANGED');
                         }
                         $this->assertSourceBaseline($pdo, $baseline, $baseline['pending'], null, 'completed');
@@ -706,6 +721,27 @@ final class ApplicationSchemaHost
                             'recovery_references' => $operation === 'apply' ? ($proofs['recovery']['references'] ?? null) : ($expected['recovery_references'] ?? null),
                             'external_gates' => 'not_evaluated',
                             'plugins' => 'not_run', 'product_database' => 'not_verified'];
+                        if ($operation === 'apply') {
+                            $marks = implode(',', array_fill(0, count($baseline['pending']), '?'));
+                            $query = $pdo->prepare('SELECT migration_id,release_version,checksum,status,started_at,finished_at,error_code'
+                                . " FROM pa_schema_migration WHERE migration_id IN ($marks) ORDER BY migration_id");
+                            $query->execute($baseline['pending']);
+                            $ledger = $query->fetchAll(PDO::FETCH_ASSOC); $query->closeCursor();
+                            if (array_column($ledger, 'migration_id') !== $baseline['pending']) { throw new RuntimeException('APPLICATION_SCHEMA_EXECUTION_PREFIX_CHANGED'); }
+                            foreach ($ledger as $row) {
+                                if ($row['status'] !== 'applied' || $row['checksum'] !== $baseline['selected'][$row['migration_id']]
+                                    || $row['finished_at'] === null || $row['error_code'] !== null) {
+                                    throw new RuntimeException('APPLICATION_SCHEMA_EXECUTION_PREFIX_CHANGED');
+                                }
+                            }
+                            // This protected native result binds a real completed
+                            // window. It never reconstructs private business inputs.
+                            $record['execution_evidence'] = ['proof_kind' => 'same_process_native_migration_window',
+                                'plan_sha256' => $expected['document_sha256'], 'window' => $proofs['maintenance'],
+                                'recovery' => $proofs['recovery'], 'tables' => $expected['backup_scope']['tables'],
+                                'ordered_stages' => $ledger, 'ledger_sha256' => $this->digest($ledger),
+                                'qualification' => 'not_run', 'restore' => 'not_executed'];
+                        }
                         $record['document_sha256'] = $this->digest($record);
                         // Seal only while both the source and same-PDO schema locks remain held.
                         if ($operation === 'apply') { $record['result_path'] = $this->saveSourceResult($record); }
@@ -755,19 +791,22 @@ final class ApplicationSchemaHost
                 'release_version' => $identity['release_version'], 'prestate' => $proof, 'poststate_contract' => $poststate];
             $preceding[] = $migration;
         }
-        $singleProvenance = $baseline['pending'] === ['20261016-module-migration-provenance'];
         $backupScope = SourceApplicationBackup::scope($pdo, $baseline['pending']);
-        if (!$singleProvenance) { $requirements[] = ['code' => 'APPLICATION_SCHEMA_CHAIN_RECOVERY_SCOPE_REQUIRED']; }
-        if ($singleProvenance && ($chain[0]['prestate']['proof']['shape'] ?? null) !== 'before_additions') {
-            $requirements[] = ['code' => 'APPLICATION_SCHEMA_PRESTATE_PROVENANCE_PARTIAL'];
-            $blocked = true;
+        array_push($requirements, ...$backupScope['execution_requirements']);
+        foreach ($chain as $stage) {
+            if ($stage['migration_id'] === '20261016-module-migration-provenance'
+                && ($stage['prestate']['proof']['shape'] ?? null) !== 'before_additions') {
+                $requirements[] = ['code' => 'APPLICATION_SCHEMA_PRESTATE_PROVENANCE_PARTIAL'];
+                $blocked = true;
+            }
         }
         \app\common\infrastructure\scaffold\ScaffoldUpgradeRunner::sourceProductLock(dirname($this->serverRoot), static fn() => null);
         if ($facts() !== $binding) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_DRIFT'); }
         $evidence = null;
         if ($maintenancePath !== '' && $recoveryPath !== '') {
-            if (!$singleProvenance) { throw new RuntimeException('APPLICATION_SCHEMA_CHAIN_POSTSTATE_RECOVERY_REQUIRED'); }
-            $evidence = $this->sourceDevelopmentEvidence($binding, $maintenancePath, $recoveryPath, $baseline);
+            $evidence = $this->sourceDevelopmentEvidence($binding, $maintenancePath, $recoveryPath, $baseline, $backupScope);
+        } elseif ($baseline['pending'] !== []) {
+            $requirements[] = ['code' => 'APPLICATION_SCHEMA_SOURCE_WINDOW_RECOVERY_REQUIRED'];
         }
         $plan = ['schema_version' => 1, 'protocol' => 'peanut.source-development-schema-plan.v1',
             'scope' => 'application-schema', 'maintenance_scope' => 'source-development', 'status' => $blocked ? 'blocked' : 'planned',
@@ -842,24 +881,42 @@ final class ApplicationSchemaHost
      * Current window/backup references only. They neither authorize SQL nor prove
      * DB2 migration/restoration: actual Jobs and readback require external acceptance.
      */
-    private function sourceDevelopmentEvidence(array $binding, string $maintenancePath, string $recoveryPath, array $baseline): array
+    private function sourceDevelopmentEvidence(array $binding, string $maintenancePath, string $recoveryPath, array $baseline, array $backupScope): array
     {
-        $out = [];
+        $pending = $baseline['pending'] ?? null;
+        if (!is_array($pending) || !array_is_list($pending) || $pending === []
+            || count(array_filter($pending, 'is_string')) !== count($pending)
+            || $pending !== array_values(array_intersect(array_keys(self::PRESTATE_SQL), $pending))) {
+            throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_PENDING_SCOPE_REQUIRED');
+        }
+        $selected = [];
+        foreach ($pending as $id) {
+            if (($baseline['selected'][$id] ?? null) !== self::PRESTATE_SQL[$id]) {
+                throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_PENDING_SCOPE_REQUIRED');
+            }
+            $selected[$id] = self::PRESTATE_SQL[$id];
+        }
+        $tables = SourceApplicationBackup::applicationTables($pending);
+        $baselineSha = $this->digest($baseline);
+        $out = []; $windowStarted = null;
         foreach (['maintenance' => $maintenancePath, 'recovery' => $recoveryPath] as $kind => $path) {
             $value = $this->sourceProtectedJson($path);
             if (($value['schema_version'] ?? null) !== 1 || ($value['protocol'] ?? null) !== 'peanut.source-development-' . $kind . '.v1'
                 || !$this->sourceSame($value['source'] ?? null, $binding['source']) || !$this->sourceSame($value['database'] ?? null, $binding['database'])
                 || !$this->sourceSame($value['authority'] ?? null, $binding['authority']) || ($value['registry_sha256'] ?? null) !== $binding['registry_sha256']
-                || ($value['migration_sha256'] ?? null) !== self::PRESTATE_SQL['20261016-module-migration-provenance']
+                || ($value['pending'] ?? null) !== $pending || !$this->sourceSame($value['selected'] ?? null, $selected)
+                || ($value['baseline_sha256'] ?? null) !== $baselineSha || ($value['scope'] ?? null) !== $tables
                 || !is_int($value['observed_at'] ?? null) || !is_int($value['expires_at'] ?? null)
+                || $value['observed_at'] < (int) $binding['authority']['created_at']
                 || $value['observed_at'] > time() || $value['expires_at'] <= time() || $value['expires_at'] > (int) $binding['authority']['expires_at']
                 || !is_array($value['receipts'] ?? null) || $value['receipts'] === []) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_EVIDENCE_REQUIRED'); }
             if ($kind === 'maintenance' && (($value['state'] ?? null) !== 'active'
                 || ($value['excluded_writers'] ?? null) !== ['http', 'workers', 'other-writers'])) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_WINDOW_REQUIRED'); }
+            if ($kind === 'maintenance') { $windowStarted = $value['observed_at']; }
             if ($kind === 'recovery') {
-                if (($value['scope'] ?? null) !== ['pa_module_migration', 'pa_schema_migration']
-                    || ($value['baseline_sha256'] ?? null) !== $this->digest($baseline)
-                    || !is_array($value['source_database'] ?? null) || !$this->sourceDatabaseIdentity($value['source_database'])
+                if (!is_array($value['source_database'] ?? null) || !$this->sourceDatabaseIdentity($value['source_database'])
+                    || !is_int($value['capture_started_at'] ?? null) || $value['capture_started_at'] < $windowStarted
+                    || $value['capture_started_at'] > $value['observed_at']
                     || !$this->sourceSame($value['source_database'], $binding['database'])
                     || preg_match('/\A[a-f0-9]{64}\z/D', (string) ($value['restore_contract_sha256'] ?? '')) !== 1
                     || array_key_exists('qualification_result', $value)) {
@@ -881,7 +938,10 @@ final class ApplicationSchemaHost
                 if (($value['backup_manifest']['sha256'] ?? null) !== $this->fileDigest($manifestPath)
                     || ($manifest['protocol'] ?? null) !== 'peanut.source-application-backup.v1' || ($manifest['status'] ?? null) !== 'captured'
                     || !$this->sourceSame($manifest['binding'] ?? null, $binding) || ($manifest['baseline_sha256'] ?? null) !== $this->digest($baseline)
-                    || ($manifest['pending'] ?? null) !== $baseline['pending'] || ($manifest['scope']['tables'] ?? null) !== $value['scope']
+                    || ($manifest['pending'] ?? null) !== $pending || !$this->sourceSame($manifest['selected'] ?? null, $selected)
+                    || ($manifest['capture_started_at'] ?? null) !== $value['capture_started_at']
+                    || ($manifest['observed_at'] ?? null) !== $value['observed_at']
+                    || ($manifest['scope']['tables'] ?? null) !== $tables || !$this->sourceSame($manifest['scope'] ?? null, $backupScope)
                     || !$this->sourceSame($manifest['receipts'] ?? null, $value['receipts'])
                     || array_column($value['receipts'], 'phase') !== ['probe-before', 'dump', 'probe-after']
                     || !$this->sourceSame($manifest['backup_payload'] ?? null, $value['backup_payload'])

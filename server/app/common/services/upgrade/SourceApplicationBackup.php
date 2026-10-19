@@ -55,16 +55,106 @@ final class SourceApplicationBackup
         '20261016-module-migration-provenance' => ['pa_module_migration'],
     ];
 
-    /** Schema observations, never a backup receipt or implicit restore admission. */
-    public static function scope(PDO $pdo, array $pending): array
+    /** Exact original table union; never expands from caller metadata or SQL text. */
+    public static function applicationTables(array $pending): array
     {
+        if (!array_is_list($pending) || count(array_filter($pending, 'is_string')) !== count($pending)
+            || count(array_unique($pending, SORT_STRING)) !== count($pending)) {
+            throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SOURCE_UNSUPPORTED');
+        }
         $tables = $pending === [] ? [] : ['pa_schema_migration'];
         foreach ($pending as $id) {
-            if (!isset(self::TABLES[$id])) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SOURCE_UNSUPPORTED'); }
+            if (!is_string($id) || !isset(self::TABLES[$id])) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SOURCE_UNSUPPORTED'); }
             array_push($tables, ...self::TABLES[$id]);
         }
         $tables = array_values(array_unique($tables)); sort($tables, SORT_STRING);
-        return self::observe($pdo, $tables, false);
+        return $tables;
+    }
+
+    /** Schema observations, never a backup receipt or implicit restore admission. */
+    public static function scope(PDO $pdo, array $pending): array
+    {
+        $tables = self::applicationTables($pending);
+        if ($pending !== []) {
+            $database = (string) $pdo->query('SELECT DATABASE()')->fetchColumn();
+            $globalSelect = false; $triggerVisibility = false; $restricted = false;
+            foreach ($pdo->query('SHOW GRANTS')->fetchAll(PDO::FETCH_NUM) as $row) {
+                $grant = count($row) === 1 ? $row[0] : null;
+                if (is_string($grant) && str_starts_with($grant, 'REVOKE ')) { $restricted = true; }
+                if (!is_string($grant) || preg_match('/\AGRANT (.+) ON (.+) TO /D', $grant, $match) !== 1) { continue; }
+                $privileges = array_map('trim', explode(',', $match[1]));
+                $all = in_array('ALL PRIVILEGES', $privileges, true);
+                $globalSelect = $globalSelect || ($match[2] === '*.*' && ($all || in_array('SELECT', $privileges, true)));
+                $triggerVisibility = $triggerVisibility || (in_array($match[2], ['*.*', '`' . $database . '`.*'], true)
+                    && ($all || in_array('TRIGGER', $privileges, true)));
+            }
+            // Schema-only grants can hide inbound FKs from another schema.
+            // Unknown visibility blocks this maintenance path; never grant privileges here.
+            if (!$globalSelect || !$triggerVisibility || $restricted) { throw new RuntimeException('APPLICATION_SCHEMA_EFFECT_VISIBILITY_REQUIRED'); }
+        }
+        $scope = self::observe($pdo, $tables, false);
+        $scope['execution_requirements'] = [];
+        foreach ($pending as $id) {
+            array_push($scope['execution_requirements'], ...self::applicationStageRequirements($scope, $id));
+        }
+        return $scope;
+    }
+
+    /** Fixed native DML only. DDL-only targets do not fire their row triggers. */
+    public static function applicationStageRequirements(array $scope, string $id): array
+    {
+        if (!isset(self::TABLES[$id])) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SOURCE_UNSUPPORTED'); }
+        $permission = ['module_key', 'type', 'name', 'description', 'risk_level', 'status', 'manifest_version', 'updated_at', 'retired_at'];
+        $effects = match ($id) {
+            '20260909-notification-sms-reservation' => ['pa_notice_log' => ['UPDATE' => ['receiver_hash', 'reservation_until', 'reservation_active']]],
+            '20261004-group-default-navigation' => [
+                'pa_menu_definition' => ['UPDATE' => ['upstream_defaults_json']],
+                'pa_system_menu' => ['INSERT' => [], 'UPDATE' => ['pid', 'name', 'upstream_defaults_json', 'menu_conflict_json']]],
+            '20261004-menu-stable-identities' => [
+                'pa_system_menu' => ['UPDATE' => ['menu_key', 'module_key', 'parent_key']],
+                'pa_menu_definition' => ['UPDATE' => ['upstream_defaults_json']]],
+            '20261007-readiness-permission' => ['pa_permission' => ['INSERT' => [], 'UPDATE' => $permission]],
+            '20261012-align-department-canonical-permissions' => [
+                'pa_system_menu' => ['INSERT' => [], 'UPDATE' => ['is_show', 'is_disable']],
+                'pa_role_permission' => ['INSERT' => [], 'DELETE' => []],
+                'pa_role' => ['UPDATE' => ['authorization_revision', 'updated_at']],
+                'pa_tenant' => ['UPDATE' => ['authorization_revision', 'updated_at']],
+                'pa_permission' => ['UPDATE' => ['status', 'retired_at', 'updated_at']]],
+            '20261012-align-platform-ops-permission-ownership' => ['pa_permission' => ['UPDATE' => ['module_key']]],
+            '20261012-repair-seeded-permission-parents' => ['pa_system_menu' => ['UPDATE' => ['pid', 'parent_key']]],
+            default => [], // Auth and provenance only change target structure.
+        };
+        // Includes the original applying/applied/failed writes, not a second ledger.
+        $effects['pa_schema_migration'] = ['INSERT' => [],
+            'UPDATE' => ['release_version', 'checksum', 'status', 'started_at', 'finished_at', 'error_code']];
+        foreach ($effects as $table => &$events) {
+            if (isset($events['UPDATE'])) {
+                // ON UPDATE values and stored/generated keys may change too.
+                array_push($events['UPDATE'], ...($scope['derived_update_columns'][$table] ?? []));
+            }
+        }
+        unset($events);
+        $requirements = [];
+        foreach ($scope['triggers'] as $trigger) {
+            if (isset($effects[$trigger['table']][$trigger['event']])) {
+                $requirements[] = ['migration_id' => $id, 'table' => $trigger['table'], 'trigger' => $trigger['name'],
+                    'code' => 'APPLICATION_SCHEMA_DML_TRIGGER_EFFECT_REVIEW_REQUIRED'];
+            }
+        }
+        foreach ($scope['foreign_keys'] as $fk) {
+            // Only a changed referenced key or a real parent DELETE can cascade.
+            // Even an in-scope cascade lacks an owning business proof here.
+            if ((int) $fk['IS_LOCAL_PARENT'] !== 1) { continue; }
+            $events = $effects[$fk['REFERENCED_TABLE_NAME']] ?? [];
+            $update = in_array($fk['REFERENCED_COLUMN_NAME'], $events['UPDATE'] ?? [], true)
+                && in_array($fk['UPDATE_RULE'], ['CASCADE', 'SET NULL'], true);
+            $delete = isset($events['DELETE']) && in_array($fk['DELETE_RULE'], ['CASCADE', 'SET NULL'], true);
+            if ($update || $delete) {
+                $requirements[] = ['migration_id' => $id, 'table' => $fk['TABLE_NAME'], 'constraint' => $fk['CONSTRAINT_NAME'],
+                    'code' => 'APPLICATION_SCHEMA_CASCADE_EFFECT_REVIEW_REQUIRED'];
+            }
+        }
+        return $requirements;
     }
 
     /** Fixed production effects; never derives SQL permission from owned_tables or a text-table scan. */
@@ -170,11 +260,12 @@ final class SourceApplicationBackup
                 'auto_increment' => $rows[0]['AUTO_INCREMENT'] === null ? null : (string) $rows[0]['AUTO_INCREMENT']];
             $present[] = $table;
         }
-        $foreignKeys = []; $triggers = [];
+        $foreignKeys = []; $triggers = []; $derivedUpdates = [];
         if ($tables !== []) {
             $marks = implode(',', array_fill(0, count($tables), '?'));
             $query = $pdo->prepare('SELECT k.CONSTRAINT_SCHEMA,k.CONSTRAINT_NAME,k.TABLE_SCHEMA,k.TABLE_NAME,k.COLUMN_NAME,k.ORDINAL_POSITION,'
-                . 'k.REFERENCED_TABLE_SCHEMA,k.REFERENCED_TABLE_NAME,k.REFERENCED_COLUMN_NAME,r.UPDATE_RULE,r.DELETE_RULE'
+                . 'k.REFERENCED_TABLE_SCHEMA,k.REFERENCED_TABLE_NAME,k.REFERENCED_COLUMN_NAME,r.UPDATE_RULE,r.DELETE_RULE,'
+                . '(k.REFERENCED_TABLE_SCHEMA=DATABASE()) AS IS_LOCAL_PARENT'
                 . ' FROM information_schema.KEY_COLUMN_USAGE k JOIN information_schema.REFERENTIAL_CONSTRAINTS r'
                 . ' ON r.CONSTRAINT_SCHEMA=k.CONSTRAINT_SCHEMA AND r.CONSTRAINT_NAME=k.CONSTRAINT_NAME AND r.TABLE_NAME=k.TABLE_NAME'
                 . " WHERE (k.TABLE_SCHEMA=DATABASE() AND k.TABLE_NAME IN ($marks))"
@@ -190,8 +281,14 @@ final class SourceApplicationBackup
                     'definition_sha256' => hash('sha256', serialize($row))];
             }
             $query->closeCursor();
+            $query = $pdo->prepare("SELECT TABLE_NAME,COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ($marks)"
+                . " AND (LOWER(EXTRA) LIKE '%on update%' OR GENERATION_EXPRESSION<>'') ORDER BY TABLE_NAME,ORDINAL_POSITION");
+            $query->execute($tables);
+            foreach ($query->fetchAll(PDO::FETCH_ASSOC) as $row) { $derivedUpdates[$row['TABLE_NAME']][] = $row['COLUMN_NAME']; }
+            $query->closeCursor();
         }
         $scope = ['tables' => $present, 'objects' => $objects, 'foreign_keys' => $foreignKeys, 'triggers' => $triggers,
+            'derived_update_columns' => $derivedUpdates,
             'metadata_visibility' => 'current-account-visible; backup client visibility checked separately',
             'coverage_required' => ['complete_table_ddl', 'all_table_rows', 'indexes', 'checks', 'foreign_keys', 'triggers', 'auto_increment'],
             'external_dependencies' => 'referenced objects are not automatically added to restore writes; review FK/trigger effects before restoration',
@@ -203,6 +300,7 @@ final class SourceApplicationBackup
     /** Calls only fixed probe/dump programs; emits no database writes or restore command execution. */
     public static function capture(array $binding, array $baseline, string $baselineSha, array $scope, array $tool, string $directory, callable $recheck, string $purpose = 'application-schema'): array
     {
+        $captureStarted = time();
         if (!in_array($purpose, ['application-schema', 'plugin-lifecycle'], true)) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SOURCE_UNSUPPORTED'); }
         $database = $binding['database']['database'];
         $contract = $tool['source_schema_backup'] ?? null;
@@ -307,18 +405,25 @@ final class SourceApplicationBackup
             'native_client' => $before, 'tooling_resource_id' => $tool['stable_resource_id'], 'adapter_sha256' => hash_file('sha256', __FILE__),
             'receipts' => $receipts,
             'observed_at' => time(), 'restore_status' => 'not_executed', 'qualification' => 'not_run', 'execution_admitted' => false];
+        if ($purpose === 'application-schema') { $record['capture_started_at'] = $captureStarted; }
         if ($receiptBackup !== null) { $record['notification_forward_receipt'] = $receiptBackup; }
         self::write($directory . '/backup.json', $record);
         $recovery = ['schema_version' => 1, 'protocol' => $purpose === 'application-schema' ? 'peanut.source-development-recovery.v1' : 'peanut.source-plugin-recovery.v1',
             'source' => $binding['source'], 'database' => $binding['database'], 'authority' => $binding['authority'],
             'registry_sha256' => $binding['registry_sha256'], 'source_database' => $binding['database'],
-            'migration_sha256' => count($baseline['pending']) === 1 ? $baseline['selected'][$baseline['pending'][0]] : null,
             'observed_at' => $record['observed_at'], 'expires_at' => (int) $binding['authority']['expires_at'],
             'scope' => $scope['tables'], 'baseline_sha256' => $baselineSha,
             'backup_manifest' => ['path' => $directory . '/backup.json', 'sha256' => hash_file('sha256', $directory . '/backup.json')],
             'backup_payload' => $restore['payload'], 'restore_tool' => ['path' => __FILE__, 'sha256' => hash_file('sha256', __FILE__)],
             'restore_contract_sha256' => hash_file('sha256', $directory . '/RESTORE.json'),
             'receipts' => $receipts];
+        if ($purpose === 'application-schema') {
+            $recovery['capture_started_at'] = $captureStarted;
+            $recovery['pending'] = $baseline['pending'];
+            $recovery['selected'] = $record['selected'];
+        } else {
+            $recovery['migration_sha256'] = count($baseline['pending']) === 1 ? $baseline['selected'][$baseline['pending'][0]] : null;
+        }
         if ($receiptBackup !== null) { $recovery['notification_forward_receipt'] = $receiptBackup; }
         self::write($directory . '/recovery.json', $recovery);
         return ['status' => 'captured', 'path' => $directory . '/backup.json', 'sha256' => hash_file('sha256', $directory . '/backup.json'),
