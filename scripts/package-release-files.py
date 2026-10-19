@@ -740,11 +740,8 @@ def development_runtime(source: Path, target: Path) -> None:
     if manifest.get('protocol') != 'peanut.application-scaffold.v2' or manifest.get('schema_version') != 2:
         raise ValueError('development runtime requires a real generated APP identity')
     versions = document(source, 'release-versions.json')
-    if versions.get('schema_version') != 3 or any(
-        not isinstance(row, dict) or set(row) != {'version', 'resolved', 'integrity'}
-        for row in versions.get('core_web', {}).get('packages', {}).values()
-    ):
-        raise ValueError('development runtime requires the native v3 registry dependency identity')
+    if versions.get('schema_version') != 3:
+        raise ValueError('development runtime requires the native v3 dependency identity')
     # These existing native readers check Edition and v3 dependency provenance. No business bootstrap.
     identity = subprocess.run(['php', '-r',
         'require $argv[2]."/server/app/common/value/installation/ApplicationSourceIdentity.php"; '
@@ -790,6 +787,17 @@ def development_runtime(source: Path, target: Path) -> None:
         'scripts/scaffold-runtime/ReleaseDependencyIdentity.php':
             'server/docker/scripts/scaffold-runtime/ReleaseDependencyIdentity.php',
     }
+    # The runtime's native v3 reader verifies archive bytes relative to its
+    # projected release-versions.json, just as it does in the source APP.
+    for identity in versions['core_web']['packages'].values():
+        if 'archive' not in identity:
+            continue
+        archive = safe_relative(identity['archive'])
+        if re.fullmatch(r'packages/core-web/peanut-admin-[a-z-]+-[0-9A-Za-z.+-]+\.tgz', archive) is None:
+            raise ValueError('invalid development Core Web archive path')
+        if hashlib.sha256(regular_file(source, archive).read_bytes()).hexdigest() != identity['sha256']:
+            raise ValueError('development Core Web archive changed')
+        projected[archive] = 'server/.peanut/' + archive
     # Only these exact native outputs are regenerated; unknown APP program paths stay in the scan.
     derived = set(projected.values()) | {'server/plugins.lock', 'server/.peanut/development-runtime.json'}
     source_inputs = set(projected) | {'plugins.lock'}
