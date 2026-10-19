@@ -346,28 +346,44 @@ def artifact_contents(root: Path, manifest: dict, scaffold: dict, scaffold_path:
     payload = {'tokens': tokens, 'values': values, 'files': pending,
                'composer': base64.b64encode(composer).decode()}
     native_root = ROOT.parent
+    for name in ('scripts/scaffold-runtime/ScaffoldManifest.php',
+                 'server/app/platform/exception/plugin/PluginArtifactToolException.php',
+                 'server/app/platform/value/plugin/ModuleFrontendLayout.php',
+                 'server/app/platform/infrastructure/plugin/PluginArtifactWriter.php'):
+        # These unbranded native tools bootstrap proof verification. Never execute
+        # APP-supplied replacements before their original template bytes are bound.
+        require(name in released and digest(file(root, name)) == released[name]['template_sha256']
+                and file(native_root, name).read_bytes() == file(root, name).read_bytes(),
+                'ARTIFACT_NATIVE_TOOL_MISMATCH:' + name)
     code = r'''
 require $argv[1].'/scripts/scaffold-runtime/ScaffoldManifest.php';
-require $argv[1].'/server/app/platform/exception/plugin/PluginArtifactToolException.php';
-require $argv[1].'/server/app/platform/value/plugin/ModuleFrontendLayout.php';
-require $argv[1].'/server/app/platform/infrastructure/plugin/PluginArtifactWriter.php';
-$p=json_decode(stream_get_contents(STDIN),true,512,JSON_THROW_ON_ERROR); $hashes=[];
+$p=json_decode(stream_get_contents(STDIN),true,512,JSON_THROW_ON_ERROR); $hashes=[]; $lock=null;
 foreach($p['files'] as $name=>$row){
     $content=\app\common\value\scaffold\ScaffoldManifest::renderArtifactContent(
         base64_decode($row['raw'],true),$name,$row['transform'],$p['tokens'],$p['values'],base64_decode($p['composer'],true));
-    if($name==='plugins.lock'){
-        (new \app\platform\infrastructure\plugin\PluginArtifactWriter($argv[2].'/server',false))
-            ->assertScaffoldRendering(json_decode($content,true,512,JSON_THROW_ON_ERROR));
-    }else{$hashes[$name]=hash('sha256',$content);}
+    if($name==='plugins.lock'){$lock=base64_encode($content);}
+    else{$hashes[$name]=hash('sha256',$content);}
 }
-echo json_encode($hashes,JSON_THROW_ON_ERROR);
+echo json_encode(['hashes'=>$hashes,'lock'=>$lock],JSON_THROW_ON_ERROR);
 '''
     result = subprocess.run(['php', '-r', code, str(native_root), str(root)],
                             input=json.dumps(payload).encode(), capture_output=True, check=True)
-    rendered = json.loads(result.stdout)
+    response = json.loads(result.stdout)
+    rendered = response['hashes']
     require(set(rendered) == set(pending) - {'plugins.lock'}, 'ARTIFACT_RENDER_SET_MISMATCH')
     for name, value in rendered.items():
         require(value == rows[name]['baseline_sha256'], 'ARTIFACT_RENDER_MISMATCH:' + name)
+    # All ordinary source is now authenticated. Reuse native derived producers
+    # only after this point; neither can endorse an unproven ordinary source file.
+    plugin_code = r'''
+require $argv[1].'/server/app/platform/exception/plugin/PluginArtifactToolException.php';
+require $argv[1].'/server/app/platform/value/plugin/ModuleFrontendLayout.php';
+require $argv[1].'/server/app/platform/infrastructure/plugin/PluginArtifactWriter.php';
+$lock=json_decode(stream_get_contents(STDIN),true,512,JSON_THROW_ON_ERROR);
+(new \app\platform\infrastructure\plugin\PluginArtifactWriter($argv[2].'/server',false))->assertScaffoldRendering($lock);
+'''
+    subprocess.run(['php', '-r', plugin_code, str(native_root), str(root)],
+                   input=base64.b64decode(response['lock'], validate=True), check=True, capture_output=True)
     with tempfile.TemporaryDirectory(prefix='peanut-candidate-catalog-') as temporary:
         output = Path(temporary) / 'api-catalog.json'
         subprocess.run(['php', str(file(root, 'scripts/generate-api-contracts.php')),
@@ -569,9 +585,11 @@ def seal(root: Path, captured: Path, core_file: Path) -> dict:
 def verify_assembled(root: Path, expected: dict | None = None) -> dict:
     """A complete APP has browser outputs; its sealed source is still exact."""
     marker = document(file(root, MARKER))
-    artifact = artifact_proofs(root) if (marker.get('projection', {}).get('changes') == []
-                                       and marker.get('projection', {}).get('additions') == []) else None
-    proof_names = {*ARTIFACT_PROOFS, ARTIFACT_TEMPLATES} if artifact is not None else set()
+    # The complete package has generated backend/browser outputs. Authenticate
+    # its finite proof metadata only in the strict source-only view below.
+    artifact = (marker.get('projection', {}).get('changes') == []
+                and marker.get('projection', {}).get('additions') == [])
+    proof_names = {*ARTIFACT_PROOFS, ARTIFACT_TEMPLATES} if artifact else set()
     identity_name = ".peanut/application-release.json"
     identity = document(file(root, identity_name))
     require(identity.get("protocol") == "peanut.application-release.v1"
