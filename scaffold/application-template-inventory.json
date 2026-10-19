@@ -2333,7 +2333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e7027def8f5467968e37ebab23c1281009db1abc6462bafe7b60cdd829579dd0"
+            "source_sha256": "95bc632c1ccbfa28dc59163011892df45e86c80f5896ef10557ba13b91ded77f"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2512,7 +2512,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "88cb0df793af15cb0a7b6845869fb9bed972b0d4a5c62fde655e6ddf22da1bf1"
+            "source_sha256": "08af061189a576369864f6f87c3d78e7e16072a49d503c54d9c72dcef604181c"
         },
         {
             "path": "plugins/official.notification/plugin.json",
@@ -17001,7 +17001,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2d7f24f896da2f11dcf78aba264732258f6203e54e20ab6262446e608c3cf199"
+            "source_sha256": "0a19e9b06435921a9242f3d3ead96e30ef0b7ca368666d74ca85c088bbb038f6"
         },
         {
             "path": "server/app/modules/official/member/resources/menus.json",
@@ -17212,6 +17212,20 @@
                 "full"
             ],
             "source_sha256": "9d7df7b7606526ae392b4d0fc87c2c47b7bd2d881537db7a0301bc94103d2411"
+        },
+        {
+            "path": "server/app/modules/official/member/src/Contract/MemberSessionMigrationPreservation.php",
+            "target": "server/app/modules/official/member/src/Contract/MemberSessionMigrationPreservation.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "af48705d526736469eb601623fcf44c8cc0f363ae43d1c83e32ca39c08e4df75"
         },
         {
             "path": "server/app/modules/official/member/src/Contract/MemberSessionStore.php",
