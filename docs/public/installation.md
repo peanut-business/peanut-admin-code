@@ -42,27 +42,29 @@ PEANUT_INSTALLATION_ENV_FILE=/absolute/private/installation.env php server/datab
 
 如果正式 Release 尚未给出该版本的完整附件清单与摘要、已公开固定依赖或明确的目标 Edition 配置，本页只能作为安装合同，不能宣称该版本可正式安装。
 
-## 开发源码实例的单条应用迁移
+## 开发源码实例的应用迁移与受限备份
 
 `php server/think schema:application ... --scope=source-development` 是显式的 Code 开发源码维护入口，协议版本为 `peanut.source-development-schema-plan.v1` / `peanut.source-development-schema-result.v1`。它要求真实 Console Instance 上下文、development/debug、`PEANUT_INSTALLATION_SOURCE_MODE=development`、干净且固定的 Git 来源、已准备的原生依赖，以及明确登记的非生产数据库。生成 APP 的 application-manifest、server 发行和 development-runtime 标记（包括符号链接）均拒绝；普通 `schema:application` 和 server-update workspace 仍使用各自原入口。
 
-此入口目前只处理唯一待执行项 `20261016-module-migration-provenance`，SQL SHA-256 必须为 `d27a6f52dd3e02b9c0c45a804c059f54062a732c9e1a742dfe12e78b80d96cce`。其他应用迁移必须已有 checksum 相同的 applied 记录。预检保留原 application/module 两张账本的完整记录与结构摘要；执行只增加该迁移对应的应用账本行及两个 provenance 列、两个 CHECK，历史模块行的来源保持 NULL，历史 release_version 不重写。已有 partial 结构、缺账的完整后态、failed/applying、checksum 冲突均停止，不重放或补账。缺失的 installed.json / baseline.json 保持缺失，已有文件保持原字节；该入口不建立首次安装身份。
+preflight 按真实有序 pending 链读取前置事实，缺少业务后态或完整恢复时仍不授予执行；`backup` 可为该计划的实际受影响表生成原生结构与数据备份。apply 当前仍只接受唯一待执行项 `20261016-module-migration-provenance`，SQL SHA-256 必须为 `d27a6f52dd3e02b9c0c45a804c059f54062a732c9e1a742dfe12e78b80d96cce`；此时其他应用迁移必须已有 checksum 相同的 applied 记录。预检保留原 application/module 两张账本的完整记录与结构摘要；执行只增加该迁移对应的应用账本行及两个 provenance 列、两个 CHECK，历史模块行的来源保持 NULL，历史 release_version 不重写。已有 partial 结构、缺账的完整后态、failed/applying、checksum 冲突均停止，不重放或补账。缺失的 installed.json / baseline.json 保持缺失，已有文件保持原字节；该入口不建立首次安装身份。
 
 资源 owner 必须通过正常资源授权机制取得绑定本次 owner、thread、Workflow Session、gate、源码 candidate/worktree、登记摘要、endpoint/schema 和 TTL 的原生租约。命令的 `--owner`、`--thread`、`--session`、`--gate` 必须与它一致；`PEANUT_RESOURCE_LEASE_PROOF` 指向原生证明。CLI 在初始化 master 连接前先核源码、登记和原生租约；apply 要求完整 DDL/exclusive 范围并再次执行原生 verify-locks。登记采用 schema 模式、且没有 shared_access 和 mysql-access 声明的既有租约按原生整 schema 独占合同处理；显式 read 声明不能升级为 DDL。计划、回执或文件摘要都不是授权。
 
-执行者另行完成 HTTP、worker 及其他写入者的实际停写、在途操作排空、两张账本的成对备份和可执行恢复准备，再形成下列受保护事实文件。schema named lock 只串行参与该锁的迁移，不能阻止任意业务写入者。工具不会停服务、执行备份/恢复工具、创建租约或续租。
+执行者另行完成 HTTP、worker 及其他写入者的实际停写、在途操作排空和明确恢复准备。显式 `backup` 复用已有容器的原生 MySQL／mysqldump，受原生 source actor、登记工具、精确输出目录和数据库读取租约约束，在原产品锁／同 PDO schema 锁内导出所选表；无登记工具时拒绝，不借用其他任务的管理入口。程序不会停服务、执行恢复、创建租约或续租；schema named lock 不能阻止任意业务写入者。备份期间仍须排除受影响 DDL。
 
 DB2 先行验证及原库 apply 是**外部执行与独立验收门禁**。执行者先在登记的 `lease_gate=migration-validation` 数据库，以同一源码、实际加载的 Core、固定 SQL 和原库真实两表基线执行唯一迁移，再实际恢复两表并读取核对。协调者必须读取原生执行 Job 的终态、退出码、真实目标 UUID/schema、迁移前后及恢复后摘要，独立验收后才明确派发原库本次 apply；执行者再取得原库自己的停写窗口和授权。两个 schema 可在同一 MySQL 服务上。首次 DB2 操作不循环要求自己先完成资格；`validation_only` 仅描述当前可信资源登记及同名原生 gate。CLI 不认证历史 Job、不自动认定 DB2/恢复通过，也不代替协调者授权。现有执行任务及原生 Job 保存此门禁记录，无需新增签名或调度系统。
 
-所有输入 JSON、引用的原始回执及备份载荷使用 canonical 绝对路径、普通单链接文件、权限 `0600`，owner 为源码目录 owner 或 root；JSON/回执及此两表载荷限 4 MiB。恢复工具本身使用固定普通文件和 SHA-256。事实文件采用以下字段（对象键顺序不影响比较，数组顺序须一致）：
+输入 JSON、引用的原始回执及 SQL 载荷使用 canonical 绝对路径、普通单链接文件、权限 `0600`，owner 为源码目录 owner 或 root；备份目录为 `0700`。JSON／回执限 4 MiB，SQL 载荷按流式 SHA-256 和精确字节数校验，不沿用 JSON 大小上限。原生 capture 生成 `backup.json`、`recovery.json`、`RESTORE.json` 和三个真实进程回执；事实文件采用以下字段（对象键顺序不影响比较，数组顺序须一致）：
 
 | 文件 | 必需字段 |
 | --- | --- |
 | 两者共有 | `schema_version: 1`；`source`、`database`、`authority`、`registry_sha256` 原样取本次 preflight 的 `binding`；固定 `migration_sha256`；整数 `observed_at` / `expires_at`（当前有效且不超过原生租约）；非空 `receipts: [{path, sha256}]`，引用实际操作原始回执 |
 | maintenance | `protocol: peanut.source-development-maintenance.v1`；`state: active`；`excluded_writers: [http, workers, other-writers]`，由本次实际停写操作支持 |
-| recovery | `protocol: peanut.source-development-recovery.v1`；`scope: [pa_schema_migration, pa_module_migration]`；`baseline_sha256` 为计划 baseline 的 canonical JSON SHA-256；`source_database`；`backup_payload: {path, sha256}`；`restore_tool: {path, sha256}`；`restore_contract_sha256` 绑定实际两表恢复合同 |
+| recovery | 原生 capture 输出的 `protocol: peanut.source-development-recovery.v1`；当前单条 apply 的排序后 `scope: [pa_module_migration, pa_schema_migration]`；`baseline_sha256` 为计划 baseline 的 canonical JSON SHA-256；`source_database` 必须等于本次 binding.database；`backup_manifest: {path, sha256}`；`backup_payload: {path, sha256, bytes}`；`restore_tool: {path, sha256}` 绑定生成原生恢复使用说明的固定适配器源码；`restore_contract_sha256` 绑定真实 `RESTORE.json`；`receipts` 必须精确对应 manifest 中 probe-before／dump／probe-after 三阶段的路径与 SHA-256，不能省略实际 dump 回执 |
 
-`source_database` 记录原库，使用与 binding.database 相同的原生身份结构：`server_uuid`、`server_hostname`、整数 `server_port`、`database`、`transport`。canonical JSON 将对象键递归按字节排序、保持数组顺序，不转义 Unicode 和斜线；摘要不含末尾换行。入口仅校验当前事实的绑定、有效期及引用文件字节；它不解析载荷来证明内容、不执行恢复工具，也不消费 `qualification_result`。摘要及文件权限不能认证 producer 或证明操作实际完成；受授权的执行者负责真实停写、载荷内容和可恢复性，协调者通过原生 Job/实际读回独立验收，不能用自填 JSON 或自行重算摘要代替。
+`source_database` 使用原生身份结构：`server_uuid`、`server_hostname`、整数 `server_port`、`database`、`transport`。canonical JSON 将对象键递归按字节排序、保持数组顺序，不转义 Unicode 和斜线；摘要不含末尾换行。入口要求 native capture manifest 与真实 payload、固定三阶段成功终态回执、stdout 路径／摘要／字节数及恢复使用说明一致；dump stdout 必须就是所引用的 SQL 载荷。仅有文件名、非空 JSON、任意 rc=0 回执不满足该合同。摘要仍不是 SQL 执行许可；备份的可恢复使用、DB2／原库人工 Gate 和实际恢复后的结构／数据读回由原生 Job 独立验收，不消费自填 `qualification_result`。
+
+`backup` 使用预检的 `backup_scope`，只取 pending SQL 的受影响对象并加入应用账本，导出完整建表、数据、索引、CHECK、FK、触发器及自增状态；所有九条 pending 才取十一表并集。入出 FK 和触发器的可见摘要用于核对依赖，不自动扩大恢复写集。工具的精确 `source_schema_backup` 登记、版本和终止期限合同见[开发生命周期](../development/current-code-lifecycle.md)。`RESTORE.json` 给出同一实际原生 MySQL 客户端的 argv／stdin 使用入口、原库和 payload 摘要及明确的选表 DROP／CREATE 行为；恢复前必须另行取得实际动作授权、排除受影响写者并核查范围外 FK／触发器影响，绝不执行全库 DROP／restore。本入口不执行该恢复指令；备份状态 `captured` 不表示恢复或资格已通过。
 
 在已完成环境准备的源码根目录，经登记的项目执行环境运行下列原生命令；先设定本次真实身份变量及绝对私有文件路径，勿直接复制占位值。预检没有数据库持久写入，会取得既有 source product 文件锁和 schema named lock；计划文件由调用者以 `0600` 保存。以下 apply 仅在协调者已经明确派发的本次范围内执行；原库命令必须等待上述 DB2 独立验收。
 
@@ -70,6 +72,11 @@ DB2 先行验证及原库 apply 是**外部执行与独立验收门禁**。执�
 umask 077
 php server/think schema:application preflight --scope=source-development \
   --owner="$OWNER" --thread="$THREAD" --session="$SESSION" --gate="$GATE" > "$OBSERVATION"
+# 使用同一固定来源和有效租约，工具与全新目录必须已精确登记／领取。
+php server/think schema:application backup --scope=source-development \
+  --owner="$OWNER" --thread="$THREAD" --session="$SESSION" --gate="$GATE" \
+  --plan="$OBSERVATION" --backup-tool="$REGISTERED_BACKUP_TOOL" --backup-output="$NEW_PRIVATE_BACKUP_DIR"
+# $RECOVERY 指向本次原生 capture 实际生成的 recovery.json，不手填备份成功声明。
 # 从观察结果绑定实际停写与恢复材料后，生成可供 apply 核对的计划。
 php server/think schema:application preflight --scope=source-development \
   --owner="$OWNER" --thread="$THREAD" --session="$SESSION" --gate="$GATE" \

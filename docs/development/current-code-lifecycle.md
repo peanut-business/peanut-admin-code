@@ -137,6 +137,16 @@ app/event.php保留AppInit、HttpRun、HttpEnd、LogLevel和LogWrite项，但默
 
 SMS 保全复用 Notification 的公开业务证明；包含完整原行及候选组的输入只保留在执行回调内，计划仅公开安全摘要和整体摘要。需要 SQL 时间证据时，现有官方执行器在同一 PDO 上读取数据库秒与 UTC 毫秒，包围整份不可变 SQL 的执行及结果排空；不拆分 SQL，也不把批次边界称为某条 UPDATE 的精确时间。官方 applied 回调前必须证明同一个可行整数秒、旧列完整保全及新增字段后态。该源码接线不放宽当前链恢复与写入准入；安全结果不能重建私有前态，SMS 的独立 live verify 仍明确阻断。
 
+源码应用的受限备份使用原入口 `migrate:run backup --scope=source-development`，必须带相同真实 owner／thread／session／gate、受保护的当前 `--plan`、已登记的 `--backup-tool` 和新建的 `--backup-output` 私有目录。原生租约必须精确包含该工具的 `tooling-resource-id` 和该目录的 `output-dir`，以及完整的数据库读取声明；原产品锁、同 PDO schema advisory lock、源码／库身份和计划摘要持续核验。缺少当前计划、登记或权限时停止，不创建新库、重装客户端或借用其他任务的管理工具。
+
+preflight 的 `backup_scope` 只从本次 pending 的固定 SQL 取表并加入应用账本，记录原表 DDL／自增摘要、可见入出 FK 和触发器摘要。九条全部 pending 时是原有十一张受影响表；子集只取实际并集。元数据中引用的其他表不会自动变成恢复写集。schema 元数据可见性受当前账号限制，原生备份客户端另核同库直接 SELECT／TRIGGER 可见权限；备份期间必须排除受影响 DDL，不能把一致性事务当作 DDL 隔离。
+
+工具登记的 `transport` 必须为既有 `ssh-docker-exec`，包含真实 `ssh_command`、`ssh_alias`、`docker_command`、`container_name`、`mysql_command`、`mysqldump_command`、`timeout_command`、`digest_command`。`source_schema_backup` 精确登记 `database_resource_id`、`database`、允许的 `tables`、`mysql_version` 与 30–600 秒的 `timeout_seconds`，不使用 schema 前缀或任意 SQL。程序只在既有容器内读取其原 `MYSQL_ROOT_PASSWORD` 给固定客户端，不向本机传递密码。调用前后核对实际 server UUID、库名、主机、端口、MySQL 版本与两个客户端二进制摘要；远端命令有原生终止期限，失败保留私有输出和本地终态回执，不自动重试。
+
+成功调用原生 `mysqldump` 后，0700 目录保留 0600 的完整选表 `database.sql`、`backup.json`、原生进程回执、`RESTORE.json` 与 `recovery.json`。原生客户端以 InnoDB 一致性事务、逐行输出、binary hex、完整建表及 triggers 导出选定表；不带 `--databases`／`--add-drop-database`、routines、events 或表空间，不复制存储目录。普通输出只含位置、内容摘要和表清单，不含业务行。原生逻辑备份与快照限制依据 [MySQL 8.4 mysqldump 文档](https://dev.mysql.com/doc/refman/8.4/en/mysqldump.html)。
+
+`RESTORE.json` 绑定原库、源码、对象和 payload，给出同一登记工具的 MySQL stdin 使用入口及前置条件；本入口不执行恢复。原生 SQL 包含选定表的 DROP／CREATE／数据与触发器语句，恢复须另有明确动作授权及正常原生 DDL／独占准入，先保留失败证据、核查入出 FK／触发器对范围外对象的影响，再由原 owner 在排除受影响写者的窗口内执行并核实际结构／数据。不能改成全库 restore，也不能只凭行数判定保全。`captured` 只表示真实备份输出已生成，恢复和资格仍为 `not_executed`／`not_run`；应用迁移仍受业务后态及现有单条来源字段迁移的限制。现有 recovery 引用必须匹配原生 capture 的 manifest、payload、成功进程回执及恢复说明，文件名或手写“已备份”声明不能替代这些输出。
+
 认证 CHECK／IP 索引迁移没有行 DML，由 Identity 的公开业务证明检查必要 client 前态、原目标定义及精确目标后态。公共宿主在 SQL 前后调用同一证明，只封存目标元数据摘要，不扫描令牌或事件原行，不因无关自定义列或触发器拒绝；两条 DDL 之间仍须保留实际失败与恢复边界。
 
 File 四条 canonical adoption 目标若按既有证明选择执行原 SQL，官方执行器在标记 applied 前再次调用原 File 证明，必须观察到完整后态并返回 adopt；证明失败保留 failed 事实。此检查覆盖原证明的结构与数据不变量，逐原行保全、触发器影响及恢复范围仍须由实际迁移合同和维护窗口覆盖。

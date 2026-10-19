@@ -557,12 +557,14 @@ final class ApplicationSchemaHost
     }
 
     /** Native source maintenance; facts never substitute for the current resource grant. */
-    public function sourceDevelopment(string $operation, array $actor, string $planPath, string $resultPath, string $maintenancePath, string $recoveryPath): array
+    public function sourceDevelopment(string $operation, array $actor, string $planPath, string $resultPath, string $maintenancePath, string $recoveryPath, string $backupTool, string $backupOutput): array
     {
-        if (!in_array($operation, ['preflight', 'apply', 'verify'], true)
+        if (!in_array($operation, ['preflight', 'apply', 'verify', 'backup'], true)
             || ($operation === 'preflight' && ($planPath !== '' || $resultPath !== ''))
             || ($operation === 'apply' && ($planPath === '' || $resultPath !== ''))
             || (($maintenancePath === '') !== ($recoveryPath === ''))
+            || ($operation === 'backup' && ($planPath === '' || $resultPath !== '' || $maintenancePath !== '' || $recoveryPath !== '' || $backupTool === '' || $backupOutput === ''))
+            || ($operation !== 'backup' && ($backupTool !== '' || $backupOutput !== ''))
             || ($operation === 'verify' && ($resultPath === '' || $planPath !== '' || $maintenancePath !== '' || $recoveryPath !== ''))) {
             throw new RuntimeException('APPLICATION_SCHEMA_ARGUMENTS_INVALID');
         }
@@ -593,6 +595,9 @@ final class ApplicationSchemaHost
         $versions = \applicationReleaseVersions($this->serverRoot);
         $target = \applicationMigrationTargetVersion($this->serverRoot, $versions);
         $runner = new ApplicationMigrationRunner($config, $pdo);
+        if ($operation === 'backup') {
+            return $this->sourceDevelopmentBackup($pdo, $runner, $initial, $facts, $files, $target, $versions, $planPath, $backupTool, $backupOutput);
+        }
         if ($operation === 'preflight') {
             return \app\common\infrastructure\scaffold\ScaffoldUpgradeRunner::sourceProductLock(dirname($this->serverRoot),
                 function () use ($runner, $pdo, $initial, $facts, $files, $target, $versions, $maintenancePath, $recoveryPath): array {
@@ -778,6 +783,7 @@ final class ApplicationSchemaHost
             $preceding[] = $migration;
         }
         $singleProvenance = $baseline['pending'] === ['20261016-module-migration-provenance'];
+        $backupScope = SourceApplicationBackup::scope($pdo, $baseline['pending']);
         if (!$singleProvenance) { $requirements[] = ['code' => 'APPLICATION_SCHEMA_CHAIN_RECOVERY_SCOPE_REQUIRED']; }
         if ($singleProvenance && ($chain[0]['prestate']['proof']['shape'] ?? null) !== 'before_additions') {
             $requirements[] = ['code' => 'APPLICATION_SCHEMA_PRESTATE_PROVENANCE_PARTIAL'];
@@ -792,11 +798,52 @@ final class ApplicationSchemaHost
         }
         $plan = ['schema_version' => 1, 'protocol' => 'peanut.source-development-schema-plan.v1',
             'scope' => 'application-schema', 'maintenance_scope' => 'source-development', 'status' => $blocked ? 'blocked' : 'planned',
-            'binding' => $binding, 'baseline' => $baseline, 'chain' => $chain, 'execution_requirements' => $requirements, 'evidence' => $evidence,
+            'binding' => $binding, 'baseline' => $baseline, 'chain' => $chain, 'backup_scope' => $backupScope, 'execution_requirements' => $requirements, 'evidence' => $evidence,
             'validation_only' => $binding['validation_only'],
             'execution_admitted' => false, 'external_gates' => 'not_evaluated', 'plugins' => 'not_run', 'product_database' => 'not_verified'];
         $plan['document_sha256'] = $this->digest($plan);
         return $plan;
+    }
+
+    private function sourceDevelopmentBackup(PDO $pdo, ApplicationMigrationRunner $runner, array $binding, callable $facts, array $files,
+        string $target, array $versions, string $planPath, string $toolId, string $output): array
+    {
+        $plan = $this->sourceProtectedJson($planPath);
+        $this->assertSourceDocument($plan, 'peanut.source-development-schema-plan.v1');
+        if (!$this->sourceSame($plan['binding'] ?? null, $binding) || !is_array($plan['baseline'] ?? null) || !is_array($plan['backup_scope'] ?? null)) {
+            throw new RuntimeException('APPLICATION_SCHEMA_PLAN_STALE');
+        }
+        $registry = \projectResourceRegistry($registrySha);
+        $tools = array_values(array_filter($registry['resources']['tooling'] ?? [], static fn(array $row): bool => ($row['stable_resource_id'] ?? null) === $toolId));
+        $resources = \activeLeaseResources(\requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF'));
+        if (count($tools) !== 1 || $registrySha !== $binding['registry_sha256']
+            || !in_array($toolId, $resources['tooling-resource-id'] ?? [], true) || !in_array($output, $resources['output-dir'] ?? [], true)) {
+            throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_NATIVE_TOOL_OUTPUT_REQUIRED');
+        }
+        return \app\common\infrastructure\scaffold\ScaffoldUpgradeRunner::sourceProductLock(dirname($this->serverRoot),
+            function () use ($pdo, $runner, $binding, $facts, $files, $target, $versions, $plan, $tools, $output): array {
+                $result = null;
+                $runner->run($files, $target, $versions['release_sequence_version'], true, null,
+                    function (PDO $actual, array $selection) use ($pdo, $binding, $facts, $files, $target, $versions, $plan, $tools, $output, &$result): void {
+                        $recheck = function () use ($pdo, $actual, $binding, $facts, $files, $target, $versions, $plan): void {
+                            if ($actual !== $pdo || $facts() !== $binding
+                                || !$this->sourceSame($this->sourceBaseline($pdo, $files, $target, $versions['release_sequence_version']), $plan['baseline'])
+                                || !$this->sourceSame(SourceApplicationBackup::scope($pdo, $plan['baseline']['pending']), $plan['backup_scope'])) {
+                                throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SNAPSHOT_CHANGED');
+                            }
+                            $lock = $pdo->prepare('SELECT IS_USED_LOCK(?) = CONNECTION_ID()');
+                            try {
+                                $lock->execute(['peanut_migrate_' . substr(hash('sha256', $binding['database']['database']), 0, 48)]);
+                                if ((int) $lock->fetchColumn() !== 1) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SCHEMA_LOCK_REQUIRED'); }
+                            } finally { $lock->closeCursor(); }
+                        };
+                        if ($selection['pending'] !== $plan['baseline']['pending']) { throw new RuntimeException('APPLICATION_SCHEMA_PLAN_STALE'); }
+                        $recheck();
+                        $result = SourceApplicationBackup::capture($binding, $plan['baseline'], $this->digest($plan['baseline']), $plan['backup_scope'], $tools[0], $output, $recheck);
+                    });
+                if (!is_array($result)) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_INCOMPLETE'); }
+                return $result + ['scope' => 'application-schema', 'maintenance_scope' => 'source-development', 'plugins' => 'not_run', 'product_database' => 'not_verified'];
+            });
     }
 
     private function sourceDevelopmentFacts(PDO $pdo, object $connection, array $actor, string $requestId, bool $ddl): array
@@ -837,9 +884,10 @@ final class ApplicationSchemaHost
             if ($kind === 'maintenance' && (($value['state'] ?? null) !== 'active'
                 || ($value['excluded_writers'] ?? null) !== ['http', 'workers', 'other-writers'])) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_WINDOW_REQUIRED'); }
             if ($kind === 'recovery') {
-                if (($value['scope'] ?? null) !== ['pa_schema_migration', 'pa_module_migration']
+                if (($value['scope'] ?? null) !== ['pa_module_migration', 'pa_schema_migration']
                     || ($value['baseline_sha256'] ?? null) !== $this->digest($baseline)
                     || !is_array($value['source_database'] ?? null) || !$this->sourceDatabaseIdentity($value['source_database'])
+                    || !$this->sourceSame($value['source_database'], $binding['database'])
                     || preg_match('/\A[a-f0-9]{64}\z/D', (string) ($value['restore_contract_sha256'] ?? '')) !== 1
                     || array_key_exists('qualification_result', $value)) {
                     throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_RECOVERY_REFERENCES_REQUIRED');
@@ -849,7 +897,43 @@ final class ApplicationSchemaHost
                     if (!is_string($file) || realpath($file) !== $file || ($value[$key]['sha256'] ?? null) !== $this->fileDigest($file)) {
                         throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_RECOVERY_CHANGED');
                     }
-                    if ($key === 'backup_payload') { $this->sourceProtectedFile($file); }
+                    if ($key === 'backup_payload') { $this->sourceProtectedFile($file, null); }
+                }
+                // A file name/checksum supplied in a wrapper is not a backup.
+                // Require the native capture's real payload, terminal receipts and restore instructions.
+                $manifestPath = $value['backup_manifest']['path'] ?? '';
+                $manifest = $this->sourceProtectedJson($manifestPath);
+                $restorePath = $manifest['restore_instructions']['path'] ?? '';
+                $restore = $this->sourceProtectedJson($restorePath);
+                if (($value['backup_manifest']['sha256'] ?? null) !== $this->fileDigest($manifestPath)
+                    || ($manifest['protocol'] ?? null) !== 'peanut.source-application-backup.v1' || ($manifest['status'] ?? null) !== 'captured'
+                    || !$this->sourceSame($manifest['binding'] ?? null, $binding) || ($manifest['baseline_sha256'] ?? null) !== $this->digest($baseline)
+                    || ($manifest['pending'] ?? null) !== $baseline['pending'] || ($manifest['scope']['tables'] ?? null) !== $value['scope']
+                    || !$this->sourceSame($manifest['receipts'] ?? null, $value['receipts'])
+                    || array_column($value['receipts'], 'phase') !== ['probe-before', 'dump', 'probe-after']
+                    || !$this->sourceSame($manifest['backup_payload'] ?? null, $value['backup_payload'])
+                    || ($manifest['backup_payload']['bytes'] ?? null) !== filesize($value['backup_payload']['path'])
+                    || ($value['restore_tool']['path'] ?? null) !== __DIR__ . '/SourceApplicationBackup.php'
+                    || ($manifest['adapter_sha256'] ?? null) !== $value['restore_tool']['sha256']
+                    || ($manifest['restore_instructions']['sha256'] ?? null) !== $this->fileDigest($restorePath)
+                    || ($value['restore_contract_sha256'] ?? null) !== $this->fileDigest($restorePath)
+                    || ($restore['protocol'] ?? null) !== 'peanut.source-application-restore-instructions.v1'
+                    || !$this->sourceSame($restore['native_client'] ?? null, $manifest['native_client'] ?? null)
+                    || !$this->sourceSame($restore['source'] ?? null, $binding['source']) || !$this->sourceSame($restore['database'] ?? null, $binding['database'])
+                    || ($restore['tables'] ?? null) !== $value['scope'] || !$this->sourceSame($restore['payload'] ?? null, $value['backup_payload'])
+                    || ($restore['executed'] ?? null) !== false) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_RECOVERY_CAPTURE_REQUIRED'); }
+                foreach ($value['receipts'] as $receipt) {
+                    $stdout = dirname($manifestPath) . '/' . match ($receipt['phase']) {
+                        'probe-before' => 'probe-before.txt', 'dump' => 'database.sql', 'probe-after' => 'probe-after.txt',
+                    };
+                    if ($receipt['path'] !== $stdout . '.process.json') { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_RECOVERY_CAPTURE_REQUIRED'); }
+                    $terminal = $this->sourceProtectedJson($receipt['path'] ?? '');
+                    $this->sourceProtectedFile($stdout, $receipt['phase'] === 'dump' ? null : 4194304);
+                    $actualOutput = ['path' => $stdout, 'sha256' => $this->fileDigest($stdout), 'bytes' => filesize($stdout)];
+                    if (($terminal['phase'] ?? null) !== $receipt['phase'] || ($terminal['local_process_terminal'] ?? null) !== true || ($terminal['rc'] ?? null) !== 0
+                        || ($terminal['local_deadline_exceeded'] ?? null) !== false || ($terminal['remote_success_terminal_confirmed'] ?? null) !== true
+                        || !$this->sourceSame($terminal['stdout'] ?? null, $actualOutput)
+                        || ($receipt['phase'] === 'dump' && !$this->sourceSame($actualOutput, $value['backup_payload']))) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_RECOVERY_CAPTURE_REQUIRED'); }
                 }
             }
             foreach ($value['receipts'] as $receipt) {
@@ -860,7 +944,7 @@ final class ApplicationSchemaHost
             $out[$kind] = ['path' => $path, 'sha256' => $this->fileDigest($path)];
             if ($kind === 'recovery') {
                 $out[$kind]['references'] = array_intersect_key($value,
-                    array_flip(['source_database', 'baseline_sha256', 'backup_payload', 'restore_tool', 'restore_contract_sha256']));
+                    array_flip(['source_database', 'baseline_sha256', 'backup_manifest', 'backup_payload', 'restore_tool', 'restore_contract_sha256']));
             }
         }
         return $out;
@@ -1035,12 +1119,12 @@ final class ApplicationSchemaHost
             || !is_string($sha) || !hash_equals($sha, $this->digest($document))) { throw new RuntimeException('APPLICATION_SCHEMA_DOCUMENT_INVALID'); }
     }
 
-    private function sourceProtectedFile(string $path): void
+    private function sourceProtectedFile(string $path, ?int $maximumBytes = 4194304): void
     {
         $stat = @lstat($path); $owner = fileowner($this->serverRoot);
         if (!str_starts_with($path, '/') || realpath($path) !== $path || !is_file($path) || is_link($path)
             || !is_array($stat) || $stat['nlink'] !== 1 || ($stat['mode'] & 0777) !== 0600
-            || !in_array($stat['uid'], [0, $owner], true) || $stat['size'] > 4194304
+            || !in_array($stat['uid'], [0, $owner], true) || ($maximumBytes !== null && $stat['size'] > $maximumBytes)
             || !function_exists('posix_geteuid') || !in_array(posix_geteuid(), [0, $owner], true)) {
             throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_DOCUMENT_UNSAFE');
         }
@@ -1295,6 +1379,7 @@ final class ApplicationSchemaHost
             'server/app/command/ApplicationSchema.php',
             'server/app/common/services/upgrade/ApplicationSchemaHost.php',
             'server/app/common/services/upgrade/SourceDevelopmentMaintenanceAdmission.php',
+            'server/app/common/services/upgrade/SourceApplicationBackup.php',
             'server/app/common/services/upgrade/ApplicationMigrationRunner.php',
             'server/app/common/infrastructure/migration/PeanutMigrationAdapter.php',
             'server/app/common/infrastructure/migration/ImmutableSqlMigration.php',

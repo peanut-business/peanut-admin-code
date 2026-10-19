@@ -18,7 +18,7 @@ final class ApplicationSchema extends ContextualCommand
     protected function configure()
     {
         $this->setName('schema:application')->setDescription('Inspect or execute the bound application SQL stage')
-            ->addArgument('operation', Argument::REQUIRED, 'preflight, apply or verify')
+            ->addArgument('operation', Argument::REQUIRED, 'preflight, backup, apply or verify')
             ->addOption('scope', null, Option::VALUE_REQUIRED, 'Explicit source-development maintenance scope', '')
             ->addOption('owner', null, Option::VALUE_REQUIRED, 'Owner of the current native resource grant')
             ->addOption('thread', null, Option::VALUE_REQUIRED, 'Thread of the current native resource grant')
@@ -28,6 +28,8 @@ final class ApplicationSchema extends ContextualCommand
             ->addOption('recovery', null, Option::VALUE_REQUIRED, 'Protected scoped backup references for external recovery acceptance')
             ->addOption('workspace', null, Option::VALUE_REQUIRED, 'Existing native server-update workspace')
             ->addOption('plan', null, Option::VALUE_REQUIRED, 'Protected preflight plan path')
+            ->addOption('backup-tool', null, Option::VALUE_REQUIRED, 'Registered selected-table native backup tooling resource')
+            ->addOption('backup-output', null, Option::VALUE_REQUIRED, 'New exact native-leased private backup directory')
             ->addOption('result', null, Option::VALUE_REQUIRED, 'Native application-schema result path');
     }
 
@@ -56,11 +58,12 @@ final class ApplicationSchema extends ContextualCommand
                 $authority = [];
                 foreach (['owner', 'thread', 'session', 'gate'] as $key) { $authority[$key] = (string) $input->getOption($key); }
                 $report = $host->sourceDevelopment($operation, $authority, $plan, $result,
-                    (string) $input->getOption('maintenance'), (string) $input->getOption('recovery'));
+                    (string) $input->getOption('maintenance'), (string) $input->getOption('recovery'),
+                    (string) $input->getOption('backup-tool'), (string) $input->getOption('backup-output'));
                 $output->writeln(json_encode($report, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
                 return ($report['status'] ?? null) === 'blocked' ? 2 : 0;
             }
-            foreach (['owner', 'thread', 'session', 'gate', 'maintenance', 'recovery'] as $key) {
+            foreach (['owner', 'thread', 'session', 'gate', 'maintenance', 'recovery', 'backup-tool', 'backup-output'] as $key) {
                 if ((string) $input->getOption($key) !== '') { throw new \RuntimeException('APPLICATION_SCHEMA_ARGUMENTS_INVALID'); }
             }
             $report = match (true) {
