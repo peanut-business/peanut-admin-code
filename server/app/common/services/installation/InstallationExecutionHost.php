@@ -405,6 +405,9 @@ final class InstallationExecutionHost
                     || $this->partialCoreFingerprint() !== $facts['binding']['source']['loaded_core_sha256']
                     || hash_file('sha256', PHP_BINARY) !== $facts['binding']['source']['php_binary_sha256']) { throw new RuntimeException('INSTALL_PARTIAL_FACTS_CHANGED'); }
                 if ($this->partialLockBinding() !== $facts['baseline']['execution_lock']) { throw new RuntimeException('INSTALL_PARTIAL_EXECUTION_LOCK_CHANGED'); }
+                $tables = $pdo->query('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() ORDER BY TABLE_NAME')->fetchAll(PDO::FETCH_COLUMN);
+                $effects = \app\common\services\upgrade\SourceApplicationBackup::partialInstallationScope($pdo, $tables);
+                if ($effects['effect_boundary'] !== $facts['scope']['effect_boundary']) { throw new RuntimeException('INSTALL_PARTIAL_EFFECT_BOUNDARY_CHANGED'); }
                 $this->partialFileReference(['path' => $this->progressMarker(), 'sha256' => $input['original_progress']['sha256']]);
                 foreach ($facts['baseline']['original_files'] as $original) { $this->partialFileReference($original); }
                 if ($this->fileDigest($this->progressMarker()) !== $input['original_progress']['sha256']
@@ -654,11 +657,13 @@ final class InstallationExecutionHost
         $tables = array_column($tableFacts, 'TABLE_NAME');
         $required = \expectedTables(\sqlFiles($this->serverRoot . '/database'));
         if (array_diff($required, $tables) !== []) { throw new RuntimeException('INSTALL_PARTIAL_INITIALIZATION_UNPROVEN'); }
+        $effects = \app\common\services\upgrade\SourceApplicationBackup::partialInstallationScope($pdo, $tables);
         $originals = ['progress' => $input['original_progress'], 'configuration' => $input['original_configuration'], 'runtime' => $input['original_runtime'],
             'failure' => $failure, 'environment' => ['path' => $this->serverRoot . '/.env', 'sha256' => $this->fileDigest($this->serverRoot . '/.env')], 'ledger' => $input['original_ledger']];
         $baseline = ['pending' => [$runner::PROVENANCE_CORRECTION], 'selected' => [$runner::PROVENANCE_CORRECTION => $runner::PROVENANCE_CORRECTION_SHA],
             'original_ledger' => $rows, 'original_files' => $originals, 'modules' => $progress['official_modules'], 'initialization_counts' => $counts,
             'tables' => $tableFacts, 'write_boundary' => 'ordinary_current_principal_grants_only_exact_schema', 'grant_scope_sha256' => self::partialDigest($grants)];
+        $baseline['effect_scope'] = $effects;
         $baseline['execution_lock'] = $this->partialLockBinding();
         $maintenance = $this->partialReference($input['maintenance'] ?? null);
         if (($maintenance['protocol'] ?? null) !== 'peanut.installation-partial-maintenance.v1' || ($maintenance['state'] ?? null) !== 'active'
@@ -674,7 +679,7 @@ final class InstallationExecutionHost
             'database' => $database, 'resource_id' => $access['config']['resource_id'], 'endpoint_id' => $access['config']['endpoint_id'],
             'registry_sha256' => $access['registry_sha256'], 'authority' => $access['authority']];
         return ['binding' => $binding, 'baseline' => $baseline, 'modules' => $progress['official_modules'], 'selection' => $selection,
-            'scope' => ['tables' => $tables, 'whole_schema' => true], 'fresh_initialization' => 'original_failure_and_current_facts_verified_not_reexecuted'];
+            'scope' => $effects, 'fresh_initialization' => 'original_failure_and_current_facts_verified_not_reexecuted'];
     }
 
     /** @param array<string,mixed> $input @return array<string,mixed> */

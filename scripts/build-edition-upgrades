@@ -84,6 +84,7 @@ require_once $root . '/scripts/scaffold-runtime/ScaffoldManifest.php';
 require_once $root . '/scripts/scaffold-runtime/Semver.php';
 require_once $root . '/scripts/scaffold-runtime/EditionUpgradePackage.php';
 require_once $root . '/server/app/common/infrastructure/scaffold/DeterministicEditionArchive.php';
+require_once $root . '/server/app/common/infrastructure/migration/CleanInstallBaseline.php';
 $options = [];
 $check = false;
 foreach (array_slice($argv, 1) as $argument) {

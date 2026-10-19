@@ -88,27 +88,51 @@ final class SourceApplicationBackup
     {
         $tables = self::applicationTables($pending);
         if ($pending !== []) {
-            $database = (string) $pdo->query('SELECT DATABASE()')->fetchColumn();
-            $globalSelect = false; $triggerVisibility = false; $restricted = false;
-            foreach ($pdo->query('SHOW GRANTS')->fetchAll(PDO::FETCH_NUM) as $row) {
-                $grant = count($row) === 1 ? $row[0] : null;
-                if (is_string($grant) && str_starts_with($grant, 'REVOKE ')) { $restricted = true; }
-                if (!is_string($grant) || preg_match('/\AGRANT (.+) ON (.+) TO /D', $grant, $match) !== 1) { continue; }
-                $privileges = array_map('trim', explode(',', $match[1]));
-                $all = in_array('ALL PRIVILEGES', $privileges, true);
-                $globalSelect = $globalSelect || ($match[2] === '*.*' && ($all || in_array('SELECT', $privileges, true)));
-                $triggerVisibility = $triggerVisibility || (in_array($match[2], ['*.*', '`' . $database . '`.*'], true)
-                    && ($all || in_array('TRIGGER', $privileges, true)));
-            }
-            // Schema-only grants can hide inbound FKs from another schema.
-            // Unknown visibility blocks this maintenance path; never grant privileges here.
-            if (!$globalSelect || !$triggerVisibility || $restricted) { throw new RuntimeException('APPLICATION_SCHEMA_EFFECT_VISIBILITY_REQUIRED'); }
+            self::assertEffectMetadataVisibility($pdo);
         }
         $scope = self::observe($pdo, $tables, false);
         $scope['execution_requirements'] = [];
         foreach ($pending as $id) {
             array_push($scope['execution_requirements'], ...self::applicationStageRequirements($scope, $id));
         }
+        return $scope;
+    }
+
+    private static function assertEffectMetadataVisibility(PDO $pdo): void
+    {
+        $database = (string) $pdo->query('SELECT DATABASE()')->fetchColumn();
+        $globalSelect = false; $triggerVisibility = false; $restricted = false;
+        foreach ($pdo->query('SHOW GRANTS')->fetchAll(PDO::FETCH_NUM) as $row) {
+            $grant = count($row) === 1 ? $row[0] : null;
+            if (is_string($grant) && str_starts_with($grant, 'REVOKE ')) { $restricted = true; }
+            if (!is_string($grant) || preg_match('/\AGRANT (.+) ON (.+) TO /D', $grant, $match) !== 1) { continue; }
+            $privileges = array_map('trim', explode(',', $match[1]));
+            $all = in_array('ALL PRIVILEGES', $privileges, true);
+            $globalSelect = $globalSelect || ($match[2] === '*.*' && ($all || in_array('SELECT', $privileges, true)));
+            $triggerVisibility = $triggerVisibility || (in_array($match[2], ['*.*', '`' . $database . '`.*'], true)
+                && ($all || in_array('TRIGGER', $privileges, true)));
+        }
+        // Schema-only grants can hide inbound FKs from another schema.
+        // Unknown visibility blocks this maintenance path; never grant privileges here.
+        if (!$globalSelect || !$triggerVisibility || $restricted) { throw new RuntimeException('APPLICATION_SCHEMA_EFFECT_VISIBILITY_REQUIRED'); }
+    }
+
+    /** A whole-schema dump covers neither an unreviewed definer trigger nor another schema. */
+    public static function partialInstallationScope(PDO $pdo, array $tables): array
+    {
+        try { self::assertEffectMetadataVisibility($pdo); }
+        catch (RuntimeException $exception) { throw new RuntimeException('INSTALL_PARTIAL_EFFECT_VISIBILITY_REQUIRED', 0, $exception); }
+        $scope = self::observe($pdo, $tables, false);
+        if ($scope['triggers'] !== []) { throw new RuntimeException('INSTALL_PARTIAL_TRIGGER_EFFECT_REVIEW_REQUIRED'); }
+        $database = (string) $pdo->query('SELECT DATABASE()')->fetchColumn();
+        foreach ($scope['foreign_keys'] as $fk) {
+            if ($fk['TABLE_SCHEMA'] !== $database || $fk['REFERENCED_TABLE_SCHEMA'] !== $database) {
+                throw new RuntimeException('INSTALL_PARTIAL_FOREIGN_SCHEMA_EFFECT_REVIEW_REQUIRED');
+            }
+        }
+        $scope['whole_schema'] = true;
+        $scope['effect_boundary'] = ['database' => $database, 'triggers' => 'none_visible_with_verified_visibility',
+            'foreign_keys' => 'same_schema_only', 'visibility' => 'existing_native_effect_visibility_verified'];
         return $scope;
     }
 
