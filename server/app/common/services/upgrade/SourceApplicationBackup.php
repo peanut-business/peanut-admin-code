@@ -32,6 +32,10 @@ final class SourceApplicationBackup
         'official.document:20261013120000_add_document_business_barriers' => ['e015617440e433d0d443f7c4c13b2bf02e35b4403e25c1009747d5d1d707f579',
             ['pa_document_operation']],
     ];
+    private const ARTICLE_STAGES = [
+        'official.article:20261013230000_add_article_document_save_binding' => ['67e504df714ee1a1d0cc6959506eaa584cfaeb0ea26c3e95597586b5ec2576fe',
+            ['pa_article', 'pa_article_body_save']],
+    ];
     private const MODULE_DDL_STAGES = [
         'official.notification:20260921-adopt-notification-delivery-schema' => ['eaef582cd762c803f3f7d213687f61d43fd3634e9f0b984471f11648e10979fb',
             ['pa_notification_template', 'pa_notification_message', 'pa_notification_attachment', 'pa_notification_outbox', 'pa_sms_rate_bucket', 'pa_notification_event'],
@@ -181,6 +185,15 @@ final class SourceApplicationBackup
                 $selected[$id] = $sha;
                 if (($migration['disposition'] ?? null) === 'already_applied') { continue; }
                 $pending[] = $id; $tables[] = 'pa_module_migration';
+                $article = self::ARTICLE_STAGES[$id] ?? null;
+                if ($key === 'official.article' && $article !== null && $sha === $article[0]
+                    && ($migration['disposition'] ?? null) === 'execute') {
+                    array_push($tables, ...$article[1]);
+                    $writeRequirements[] = ['module_key' => $key, 'migration_key' => $id, 'code' => 'PLUGIN_SOURCE_ARTICLE_PRESERVATION_REQUIRED',
+                        'contract' => 'PeanutAdmin\\Modules\\Article\\Contract\\ArticleMigrationPreservation',
+                        'api' => 'before(PDO, canonicalMigrationKey), after(PDO, innerPrivateState); real canonical Document2 predecessors, fixed native DDL and same-PDO completion required'];
+                    continue;
+                }
                 $document = self::DOCUMENT_STAGES[$id] ?? null;
                 if ($key === 'official.document' && $document !== null && $sha === $document[0]
                     && ($migration['disposition'] ?? null) === 'execute') {

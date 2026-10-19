@@ -24,6 +24,7 @@ use app\common\execution\InstallationExecutionContext;
 use PeanutAdmin\Modules\File\Contract\FileMigrationAdoptionProof;
 use PeanutAdmin\Modules\File\Contract\FileMigrationPreservation;
 use PeanutAdmin\Modules\Document\Contract\DocumentMigrationPreservation;
+use PeanutAdmin\Modules\Article\Contract\ArticleMigrationPreservation;
 use PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight;
 use PeanutAdmin\Modules\Task\Job\Database\TaskSchemaMigrationProof;
 use PeanutAdmin\Modules\Identity\Audit\AuditService;
@@ -32,6 +33,9 @@ use app\common\services\installation\InstallationExecutionHost;
 /** Deployment-scoped Plugin lifecycle. It deliberately never mutates pa_tenant_module. */
 final readonly class PluginLifecycleService implements PluginLifecycleCommands
 {
+    private const ARTICLE_STAGES = [
+        'official.article:20261013230000_add_article_document_save_binding' => '67e504df714ee1a1d0cc6959506eaa584cfaeb0ea26c3e95597586b5ec2576fe',
+    ];
     private const DOCUMENT_STAGES = [
         'official.document:20261012050000_create_business_documents' => '103003e0a0cbb8ec11ed2d1f039772500d7c610ad9b66bc19623fb012fa31f00',
         'official.document:20261013120000_add_document_business_barriers' => 'e015617440e433d0d443f7c4c13b2bf02e35b4403e25c1009747d5d1d707f579',
@@ -488,6 +492,10 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 $documentStage = $moduleKey === 'official.document' && isset(self::DOCUMENT_STAGES[$migrationKey]);
                 $documentAdmission = $documentStage ? self::adoptionAdmission($pdo) : null;
                 $documentPrivate = $documentStage ? self::captureDocumentPreservation($pdo, $migrationKey, $checksum) : null;
+                $articleStage = $moduleKey === 'official.article' && isset(self::ARTICLE_STAGES[$migrationKey]);
+                $articleAdmission = $articleStage ? self::adoptionAdmission($pdo) : null;
+                $articlePredecessors = $articleStage ? $this->articleDocumentPredecessors($pdo) : null;
+                $articlePrivate = $articleStage ? self::captureArticlePreservation($pdo, $migrationKey, $checksum) : null;
                 $stageContract = self::PRESERVATION_STAGES[$migrationKey] ?? null;
                 $stageAdmission = $stageContract === null ? null : self::adoptionAdmission($pdo);
                 $stageBefore = null;
@@ -526,8 +534,9 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                     }
                     // MySQL DDL commits implicitly. Keep the durable migration ledger outside the DDL boundary.
                     PeanutMigrationRun::apply($pdo, $moduleKey, $migrationKey, $sourceSql, $checksum,
-                        static function (?array $executionBounds) use ($connection, $pdo, $moduleKey, $migrationKey, $adoptions, $checksum, &$filePrivate,
-                            $documentStage, $documentAdmission, &$documentPrivate, $stageContract, &$stageBefore): void {
+                        function (?array $executionBounds) use ($connection, $pdo, $moduleKey, $migrationKey, $adoptions, $checksum, &$filePrivate,
+                            $documentStage, $documentAdmission, &$documentPrivate, $articleStage, $articleAdmission, $articlePredecessors, &$articlePrivate,
+                            $stageContract, &$stageBefore): void {
                             if (Db::connect() !== $connection || $connection->getPdo() !== $pdo || $pdo->inTransaction()) {
                                 throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Master connection changed during migration.');
                             }
@@ -541,6 +550,19 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                                 if (Db::connect() !== $connection || $connection->getPdo() !== $pdo || $pdo->inTransaction()
                                     || self::json(self::adoptionAdmission($pdo)) !== self::json($documentAdmission)) {
                                     throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Document completion changed its native connection or admission.');
+                                }
+                            }
+                            if ($articleStage) {
+                                if (!is_array($articlePrivate) || $executionBounds !== null
+                                    || self::json(self::adoptionAdmission($pdo)) !== self::json($articleAdmission)
+                                    || $this->articleDocumentPredecessors($pdo) !== $articlePredecessors) {
+                                    throw new PluginLifecycleException('MODULE_MIGRATION_PRESERVATION_REQUIRED', 'Article requires its original private facts, Document predecessors and native window.');
+                                }
+                                self::assertArticlePreserved($pdo, $migrationKey, $checksum, $articlePrivate);
+                                $articlePrivate = null;
+                                if (Db::connect() !== $connection || $connection->getPdo() !== $pdo || $pdo->inTransaction()
+                                    || self::json(self::adoptionAdmission($pdo)) !== self::json($articleAdmission)) {
+                                    throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Article completion changed its native connection or admission.');
                                 }
                             }
                             if ($stageContract !== null) {
@@ -591,6 +613,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                     // serialize them into the sole migration ledger/result.
                     $filePrivate = null;
                     $documentPrivate = null;
+                    $articlePrivate = null;
+                    $articlePredecessors = null;
                     $stageBefore = null;
                     unset($stageLedger);
                 }
@@ -978,6 +1002,81 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             || ($after['proof_kind'] ?? null) !== 'fixed_native_additive_ddl' || ($after['delta_kind'] ?? null) !== $delta
             || ($after['table_count'] ?? null) !== 6) {
             throw new PluginLifecycleException('MODULE_MIGRATION_POSTSTATE_REJECTED', 'Document did not prove the fixed native DDL postconditions.');
+        }
+    }
+
+    /** Genuine canonical Document2 completion; metadata alone never supplies these predecessors. */
+    private function articleDocumentPredecessors(\PDO $pdo): array
+    {
+        if (Db::connect()->getPdo() !== $pdo || $pdo->inTransaction()) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Article predecessors require the admitted master.');
+        }
+        $this->resolver->reload();
+        $document = $this->resolver->require('official.document');
+        $manifest = $this->pluginManifests($document)['official.document'] ?? null;
+        $installation = $this->pluginInstallation($document->key, false);
+        if (!$manifest instanceof ManifestDocument || !is_array($installation) || $installation['status'] !== 'active'
+            || Db::name('module_installation')->where('module_key', 'official.document')->value('status') !== 'active'
+            || Db::name('plugin_module')->where('module_key', 'official.document')->column('plugin_key') !== ['official.document']) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_PREDECESSOR_REQUIRED', 'Article requires the installed canonical Document owner.');
+        }
+        $files = self::migrationFiles($document->moduleRoots['official.document'], $manifest, true);
+        if (array_keys($files) !== array_keys(self::DOCUMENT_STAGES)) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_PREDECESSOR_REQUIRED', 'The fixed Document stage sources are required.');
+        }
+        foreach ($files as $key => $file) {
+            if (hash_file('sha256', $file) !== self::DOCUMENT_STAGES[$key]) {
+                throw new PluginLifecycleException('MODULE_MIGRATION_CHECKSUM_MISMATCH', 'Document predecessor source changed.');
+            }
+        }
+        // Reuse the native source/provenance reader; a missing ledger row is not
+        // adoption or permission to execute either predecessor here.
+        $plan = $this->moduleMigrationPlan($document, 'official.document', $manifest, false);
+        if (($plan['may_apply'] ?? null) !== true || count($plan['migrations']) !== 2) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_PREDECESSOR_REQUIRED', 'Document native migrations are unresolved.');
+        }
+        foreach ($plan['migrations'] as $stage) {
+            if (($stage['disposition'] ?? null) !== 'already_applied' || ($stage['ledger_status'] ?? null) !== 'applied'
+                || (self::DOCUMENT_STAGES[$stage['migration_key']] ?? null) !== $stage['sha256']) {
+                throw new PluginLifecycleException('MODULE_MIGRATION_PREDECESSOR_REQUIRED', 'Both Document stages must genuinely be applied.');
+            }
+        }
+        $query = $pdo->prepare('SELECT * FROM pa_module_migration WHERE module_key=? ORDER BY migration_key');
+        $query->execute(['official.document']); $rows = $query->fetchAll(\PDO::FETCH_ASSOC); $query->closeCursor();
+        if (array_column($rows, 'migration_key') !== array_keys(self::DOCUMENT_STAGES)
+            || Db::connect()->getPdo() !== $pdo || $pdo->inTransaction()) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_PREDECESSOR_REQUIRED', 'Document predecessor ledger changed.');
+        }
+        return ['source' => $document->publicIdentity(), 'manifest_sha256' => $document->manifestDigest,
+            'module_manifest_digest' => $manifest->digest, 'ledger' => $rows,
+            'installation' => array_intersect_key($installation, array_flip(['status', 'installed_version', 'artifact_sha256', 'lock_digest']))];
+    }
+
+    private static function captureArticlePreservation(\PDO $pdo, string $key, string $sha): array
+    {
+        if ((self::ARTICLE_STAGES[$key] ?? null) !== $sha || !class_exists(ArticleMigrationPreservation::class)) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_PRESERVATION_REQUIRED', 'The fixed Article source contract is unavailable.');
+        }
+        $before = app()->make(ArticleMigrationPreservation::class)->before($pdo, $key);
+        $safe = $before['safe_summary'] ?? null;
+        if (Db::connect()->getPdo() !== $pdo || $pdo->inTransaction() || !is_array($safe)
+            || ($safe['module_key'] ?? null) !== 'official.article' || ($safe['migration_key'] ?? null) !== $key
+            || ($safe['sql_sha256'] ?? null) !== $sha || ($safe['readonly'] ?? null) !== true
+            || ($safe['preservation_verified'] ?? null) !== false || !is_array($before['private_state'] ?? null)) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_PRESERVATION_REQUIRED', 'Article private facts do not bind the current native stage.');
+        }
+        return $before['private_state'];
+    }
+
+    private static function assertArticlePreserved(\PDO $pdo, string $key, string $sha, array $privateBefore): void
+    {
+        $after = app()->make(ArticleMigrationPreservation::class)->after($pdo, $privateBefore);
+        if (Db::connect()->getPdo() !== $pdo || $pdo->inTransaction() || ($after['module_key'] ?? null) !== 'official.article'
+            || ($after['migration_key'] ?? null) !== $key || ($after['sql_sha256'] ?? null) !== $sha
+            || ($after['readonly'] ?? null) !== true || ($after['preservation_verified'] ?? null) !== true
+            || ($after['proof_kind'] ?? null) !== 'fixed_native_additive_ddl'
+            || ($after['delta_kind'] ?? null) !== 'article_document_binding_and_empty_save_receipt' || ($after['table_count'] ?? null) !== 2) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_POSTSTATE_REJECTED', 'Article did not prove its fixed native DDL postconditions.');
         }
     }
 
