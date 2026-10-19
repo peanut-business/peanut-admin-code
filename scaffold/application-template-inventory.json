@@ -836,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b07de5d40e85e60ce95352ac774cc4ab1261178672ebf85071c700eb6cb074a4"
+            "source_sha256": "da65ca2128280e8d46feb9ce9398552e8bb93b48bdb00341be6a292bce03a2f7"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -2333,7 +2333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b86ca12908e7682146e0cac3a4b52dc759eb4959b2d2c82e8c914fc147e0cfaf"
+            "source_sha256": "7f178b638d6ab194ada2b31d265cd5f425d5a800654d529078e06623efb56431"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2526,7 +2526,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "68a7c6ea85113b095d2f4730ed95089886efb474293308439cf30a7c6fd98617"
+            "source_sha256": "56c331d6cb0bce210a76570546264b1814c01776a93c15c9529d7f0222276329"
         },
         {
             "path": "plugins/official.oauth/plugin.json",
@@ -6560,7 +6560,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6bbe6dcb0ba8ce75978204ed570e67dcdd3a81fa700b968b73961e24644115e3"
+            "source_sha256": "8e3d5cf3665a692a71ca49c4010c64cd5575365fa49aa7d29959e438e062469d"
         },
         {
             "path": "server/app/command/PluginInstall.php",
@@ -6574,7 +6574,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "14ce62d5e85a1137e6eb0acbc7c75eceea586c63fdbeabac9c94d090aab1742e"
+            "source_sha256": "a7226cc2034dfd3b370d995104d199ca47a854b83318bc20aa8000e6f1ddcf2f"
         },
         {
             "path": "server/app/command/PluginLock.php",
@@ -6672,7 +6672,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fff53ef436b1cf51a8f9581212af707ee103072b0759c33d9df4fbc003a51968"
+            "source_sha256": "8f42e459c891884822e8ffdb1681d4c38db590da7609dca32292d09d5a1b2e99"
         },
         {
             "path": "server/app/command/RefundReconcile.php",
@@ -7950,7 +7950,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fc781aa5bff0ab3ae7aee2ce27e424f3b9c0bd6670bf68704a5e2c465d86f042"
+            "source_sha256": "f749b3733db05c857999d1049db8a97a5b1118fe7dbc0c3cca8c8d5e653ba13b"
         },
         {
             "path": "server/app/common/infrastructure/migration/PeanutMigrationAdapter.php",
@@ -7978,7 +7978,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "926aa4aa3990dda941dfb536cf9fa47a743b476c66c149c6a58fc529aa00da61"
+            "source_sha256": "04dc0ad6387b7eb5da6ce5be520a12411745afcd854756cdd925a03801a68a0d"
         },
         {
             "path": "server/app/common/infrastructure/migration/PeanutMigrationService.php",
@@ -8918,7 +8918,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "762e10bb962ecb16018437aa0749752b58f59da5b9b94e0df74dbb4b93a177e5"
+            "source_sha256": "33e76c08efe6c4328ef3e281638b811a38268d85158f8f4f46156a88678c1c31"
         },
         {
             "path": "server/app/common/services/upgrade/ApplicationSchemaHost.php",
@@ -8932,7 +8932,35 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "743804d5cc393c6a2d71470b59828bb5b392a74dd07970cf4d2ca001a3e391f8"
+            "source_sha256": "3b1f5bc329c4c94832a9b081bf0679beb6aa333b0d3c090ada6cf2c126f4e6b4"
+        },
+        {
+            "path": "server/app/common/services/upgrade/PluginSourceDevelopmentHost.php",
+            "target": "server/app/common/services/upgrade/PluginSourceDevelopmentHost.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "9f2437554b05625026c4dca71293db09b5703583e67ee07cd911cd1cf6addc0e"
+        },
+        {
+            "path": "server/app/common/services/upgrade/SourceDevelopmentMaintenanceAdmission.php",
+            "target": "server/app/common/services/upgrade/SourceDevelopmentMaintenanceAdmission.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "fc2331e691ae634a3cdc4e33e9ee884ea814d1480eb797f7d1ead8c68bcc9524"
         },
         {
             "path": "server/app/common/support/ExportPageInfo.php",
@@ -17561,7 +17589,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "15e25451934308e82e643f2ed08c4431876409acfd8b9ae63e224115d1e1b236"
+            "source_sha256": "f74daa06a8bc658a0f10969ce5265bf1b178fd9d0026006a7d3b6be1bc482fcf"
         },
         {
             "path": "server/app/modules/official/notification/resources/menus.json",
@@ -17758,6 +17786,20 @@
                 "full"
             ],
             "source_sha256": "edcfc86860868e7b0b6cf4a5cb2615e711bbb52b9b6f836f5372b6a89aee9d34"
+        },
+        {
+            "path": "server/app/modules/official/notification/src/Contract/SmsReservationMigrationProof.php",
+            "target": "server/app/modules/official/notification/src/Contract/SmsReservationMigrationProof.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "d5fec449cc2b72eeb62c577eb500c08f3ba64a9f1c49ebc6f146a1dddbd3181c"
         },
         {
             "path": "server/app/modules/official/notification/src/Contract/VerificationCodeCommands.php",
@@ -25325,7 +25367,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2f82cd1806e9445960430a4cd7519246cf9293577089ddcdc67f98ffc523978c"
+            "source_sha256": "b6d740fbb6ee1692abc60a8eaaec55fde9cefccefa2da5f6190f713f4b10397e"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",
