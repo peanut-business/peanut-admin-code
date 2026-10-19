@@ -836,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6beb02c8cef06643eeadc7cff8783df0210dec1d1f00434a8588f0e728003594"
+            "source_sha256": "0e313f27a92cc1325301bfc80465d1fae584a18a5f780c621cfc6a752e520603"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -6224,7 +6224,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "61fb7e3fff2ea0d79ee310d7f37919a94cf53b6cf1027fc1c6e6e27ae5cf24d9"
+            "source_sha256": "dde354a8eb8d84b08a7bd1e67dc1b0049ec2a55f54066f4fffd9abe21cedcd98"
         },
         {
             "path": "server/app/command/BundlePack.php",
@@ -8932,7 +8932,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "71465f6e61f6df85f77e0feeb28b3803322b2fdc5a740463aa8fd0333d05c009"
+            "source_sha256": "3890cde3afdd3c30c0bf4baf2bf3a7c8853494dfd0bbff7e434b8ded9ef5b7fb"
         },
         {
             "path": "server/app/common/services/upgrade/PluginSourceDevelopmentHost.php",
