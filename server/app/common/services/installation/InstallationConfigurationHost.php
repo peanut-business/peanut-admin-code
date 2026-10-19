@@ -183,6 +183,12 @@ final class InstallationConfigurationHost
                 'INSTALL_CONFIGURATION_HOSTS_REQUIRED',
                 '多租户部署必须登记 Platform 与 Tenant Admin Host。',
                 422,
+                diagnostic: [
+                    'reason' => '多租户部署缺少 Platform Hosts 或 Tenant Admin Hosts。',
+                    'remedy' => '本次 Hosts 校验未写入配置或数据库。补齐已登记的纯主机名后，重新读取配置状态；仅在仍未配置且没有待发布、残留或安装锁时，使用新输入提交。不得清除数据或安装身份。',
+                    'writes' => ['outcome' => 'none'],
+                    'safe_retry' => true,
+                ],
             );
         }
 

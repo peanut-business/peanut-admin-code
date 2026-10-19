@@ -1165,6 +1165,7 @@ final class PeanutServerUpdatePlan
     private static function assertAdmissionBoundary(string $serverRoot): void
     {
         self::assertNoLegacyMaintenanceKey($serverRoot);
+        require_once $serverRoot . '/app/common/value/installation/ApplicationSourceIdentity.php';
         require_once $serverRoot . '/app/common/infrastructure/installation/ReadonlyHttpMount.php';
         require_once $serverRoot . '/app/common/infrastructure/installation/VerifiedServerDeployment.php';
         \app\common\infrastructure\installation\VerifiedServerDeployment::assertImmutableProgram($serverRoot);
