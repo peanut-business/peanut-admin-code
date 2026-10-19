@@ -655,13 +655,61 @@ function installationStateBlocksFreshDatabase(string $serverDir): bool
     return false;
 }
 
+/** @return array{cause_code?:string,module_key?:string} */
+function installationFailureDiagnostic(string $serverDir, string $stage, Throwable $exception, ?string $currentModule = null): array
+{
+    $diagnostic = [];
+    if ($stage !== 'install_modules') {
+        return $diagnostic;
+    }
+    try {
+        do {
+            // A typed producer and finite public codes are required; never copy messages.
+            if ($exception instanceof \app\platform\exception\plugin\PluginLifecycleException
+                && in_array($exception->errorCode, [
+                    'MODULE_MIGRATION_ADOPTION_REJECTED', 'MODULE_MIGRATION_ADOPTION_UNAUTHORIZED',
+                    'MODULE_MIGRATION_ADOPTION_WINDOW_REQUIRED', 'MODULE_MIGRATION_POSTSTATE_REJECTED',
+                    'MODULE_MIGRATION_PRESERVATION_REQUIRED', 'MODULE_MIGRATION_PDO_MISMATCH',
+                    'MODULE_MIGRATION_NATIVE_MASTER_CHANGED', 'MODULE_MIGRATION_CHECKSUM_MISMATCH',
+                    'MODULE_MIGRATION_PREDECESSOR_REQUIRED', 'MODULE_MIGRATION_FAILED',
+                ], true)) {
+                $diagnostic['cause_code'] = $exception->errorCode;
+                break;
+            }
+            $exception = $exception->getPrevious();
+        } while ($exception !== null);
+        if ($diagnostic === []) {
+            return $diagnostic;
+        }
+        // Independently bind the Host's current iteration to its protected selection.
+        $progressPath = rtrim($serverDir, DIRECTORY_SEPARATOR) . '/private/installation/executing.json';
+        $stat = @lstat($progressPath);
+        if (is_string($currentModule) && preg_match('/^official\.[a-z][a-z0-9-]{0,63}$/D', $currentModule) === 1
+            && realpath($progressPath) === $progressPath && is_file($progressPath) && !is_link($progressPath)
+            && is_array($stat) && $stat['nlink'] === 1 && ($stat['mode'] & 0777) === 0600
+            && in_array($stat['uid'], [0, fileowner($serverDir)], true) && $stat['size'] <= 65536) {
+            $progress = json_decode((string) file_get_contents($progressPath), true, 32);
+            if (is_array($progress) && ($progress['schema_version'] ?? null) === 1
+                && ($progress['state'] ?? null) === 'executing'
+                && is_array($progress['official_modules'] ?? null)
+                && array_is_list($progress['official_modules'])
+                && in_array($currentModule, $progress['official_modules'], true)) {
+                $diagnostic['module_key'] = $currentModule;
+            }
+        }
+    } catch (Throwable) {
+        // Optional context must never replace the original failure or typed cause.
+    }
+    return $diagnostic;
+}
+
 /** Record only diagnostic identifiers; exception messages and debug data can contain credentials. */
 function logInstallationFailure(string $serverDir, string $stage, string $errorCode, Throwable $exception, ?string $currentModule = null): void
 {
     try {
+        $diagnostic = installationFailureDiagnostic($serverDir, $stage, $exception, $currentModule);
         $projectRoot = rtrim(str_replace('\\', '/', dirname($serverDir)), '/') . '/';
         $chain = [];
-        $causeCode = null;
         do {
             $file = str_replace('\\', '/', $exception->getFile());
             $class = get_class($exception);
@@ -670,17 +718,6 @@ function logInstallationFailure(string $serverDir, string $stage, string $errorC
                 'path' => str_starts_with($file, $projectRoot) ? substr($file, strlen($projectRoot)) : null,
                 'line' => $exception->getLine(),
             ];
-            // A typed producer and finite public codes are required; never copy messages.
-            if ($causeCode === null && $exception instanceof \app\platform\exception\plugin\PluginLifecycleException
-                && in_array($exception->errorCode, [
-                    'MODULE_MIGRATION_ADOPTION_REJECTED', 'MODULE_MIGRATION_ADOPTION_UNAUTHORIZED',
-                    'MODULE_MIGRATION_ADOPTION_WINDOW_REQUIRED', 'MODULE_MIGRATION_POSTSTATE_REJECTED',
-                    'MODULE_MIGRATION_PRESERVATION_REQUIRED', 'MODULE_MIGRATION_PDO_MISMATCH',
-                    'MODULE_MIGRATION_NATIVE_MASTER_CHANGED', 'MODULE_MIGRATION_CHECKSUM_MISMATCH',
-                    'MODULE_MIGRATION_PREDECESSOR_REQUIRED', 'MODULE_MIGRATION_FAILED',
-                ], true)) {
-                $causeCode = $exception->errorCode;
-            }
             $sqlState = null;
             $driverCode = null;
             if ($exception instanceof PDOException) {
@@ -701,27 +738,6 @@ function logInstallationFailure(string $serverDir, string $stage, string $errorC
             $exception = $exception->getPrevious();
         } while ($exception !== null);
 
-        $diagnostic = [];
-        if ($stage === 'install_modules' && $causeCode !== null) {
-            $diagnostic['cause_code'] = $causeCode;
-            // Independently bind the Host's current iteration to its protected selection.
-            $progressPath = rtrim($serverDir, DIRECTORY_SEPARATOR) . '/private/installation/executing.json';
-            $stat = @lstat($progressPath);
-            if (is_string($currentModule) && preg_match('/^official\.[a-z][a-z0-9-]{0,63}$/D', $currentModule) === 1
-                && realpath($progressPath) === $progressPath && is_file($progressPath) && !is_link($progressPath)
-                && is_array($stat) && $stat['nlink'] === 1 && ($stat['mode'] & 0777) === 0600
-                && in_array($stat['uid'], [0, fileowner($serverDir)], true) && $stat['size'] <= 65536) {
-                // An unreadable optional diagnostic must not suppress the original log.
-                $progress = json_decode((string) file_get_contents($progressPath), true, 32);
-                if (is_array($progress) && ($progress['schema_version'] ?? null) === 1
-                    && ($progress['state'] ?? null) === 'executing'
-                    && is_array($progress['official_modules'] ?? null)
-                    && array_is_list($progress['official_modules'])
-                    && in_array($currentModule, $progress['official_modules'], true)) {
-                    $diagnostic['module_key'] = $currentModule;
-                }
-            }
-        }
         \think\facade\Log::write(json_encode([
             'event' => 'installation_failure',
             'stage' => $stage,
