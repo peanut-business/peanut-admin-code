@@ -229,24 +229,36 @@ function peanutServerDatabaseStage(string $operation, string $server, string $wo
     }
     $modules = null;
     $readOnly = $operation === 'verify' || $replayed;
-    $menuBefore = []; $menuPoststates = [];
+    $businessBefore = []; $businessPoststates = [];
     if ($readOnly) {
         \app\common\services\upgrade\ApplicationSchemaHost::assertMenuPoststates(
             $previous['application']['applied'] ?? [], [], true);
+        \app\common\services\upgrade\ApplicationSchemaHost::assertPermissionPoststates(
+            $previous['application']['applied'] ?? [], [], true);
     }
     $migration = $runner->run($files, $migrationTargetVersion, $version, $readOnly,
-        $readOnly ? null : static function (PDO $actual, array $migration) use ($pdo, $scope, &$menuBefore): void {
+        $readOnly ? null : static function (PDO $actual, array $migration) use ($pdo, $scope, &$businessBefore): bool {
             if ($actual !== $pdo) { throw new RuntimeException('native migration master changed'); }
             PeanutServerUpdatePlan::assertDatabaseMigrationStage($pdo);
             if ($scope === 'server-release') { PeanutServerUpdatePlan::databaseMigrationAdmission($pdo); }
             $before = \app\common\services\upgrade\ApplicationSchemaHost::menuMigrationBefore($pdo, $migration);
-            if ($before !== null) { $menuBefore[$migration['id']] = $before; }
-            else { \app\common\services\upgrade\ApplicationSchemaHost::migrationPrestate($pdo, $migration, [], false); }
+            if ($before !== null) {
+                $businessBefore[$migration['id']] = $before;
+                return false;
+            }
+            $before = \app\common\services\upgrade\ApplicationSchemaHost::permissionMigrationBefore($pdo, $migration);
+            if ($before !== null) {
+                $businessBefore[$migration['id']] = $before;
+                return $migration['id'] !== '20261012-align-platform-ops-permission-ownership';
+            }
+            \app\common\services\upgrade\ApplicationSchemaHost::migrationPrestate($pdo, $migration, [], false);
+            return false;
         },
-        static function (PDO $actual, array $migration) use ($pdo, $app, $scope, $readOnly, $previous, &$modules, &$menuPoststates): void {
+        static function (PDO $actual, array $migration) use ($pdo, $app, $scope, $readOnly, $previous, &$modules, &$businessPoststates): void {
             if ($actual !== $pdo || $migration['pending'] !== []) { throw new RuntimeException('application migration ledger is incomplete'); }
             PeanutServerUpdatePlan::assertDatabaseMigrationStage($pdo);
-            \app\common\services\upgrade\ApplicationSchemaHost::assertMenuPoststates($migration['applied'], $menuPoststates, false);
+            \app\common\services\upgrade\ApplicationSchemaHost::assertMenuPoststates($migration['applied'], $businessPoststates, false);
+            \app\common\services\upgrade\ApplicationSchemaHost::assertPermissionPoststates($migration['applied'], $businessPoststates, false);
             if ($scope !== 'server-release') { return; }
             if (!$readOnly) { $modules = \app\command\PluginReconcile::reconcileInProcess($app, $pdo); }
             if ((int) $pdo->query("SELECT COUNT(*) FROM pa_module_migration WHERE status <> 'applied'")->fetchColumn() !== 0) {
@@ -255,13 +267,19 @@ function peanutServerDatabaseStage(string $operation, string $server, string $wo
             if ($readOnly && ($previous['module_state_sha256'] ?? null) !== peanutServerDatabaseModuleState($pdo)) {
                 throw new RuntimeException('module migration or installation state changed');
             }
-        }, $readOnly ? null : static function (PDO $actual, array $migration, ?array $executionBounds) use ($pdo, $scope, &$menuBefore, &$menuPoststates): void {
+        }, $readOnly ? null : static function (PDO $actual, array $migration, ?array $executionBounds) use ($pdo, $scope, &$businessBefore, &$businessPoststates): void {
             if ($actual !== $pdo) { throw new RuntimeException('native migration master changed'); }
             PeanutServerUpdatePlan::assertDatabaseMigrationStage($pdo);
             if ($scope === 'server-release') { PeanutServerUpdatePlan::databaseMigrationAdmission($pdo); }
-            if (isset($menuBefore[$migration['id']])) {
-                $menuPoststates[$migration['id']] = \app\common\services\upgrade\ApplicationSchemaHost::menuMigrationAfter($pdo, $migration, $menuBefore[$migration['id']]);
-                unset($menuBefore[$migration['id']]);
+            if (isset($businessBefore[$migration['id']])) {
+                if (in_array($migration['id'], ['20261007-readiness-permission', '20261012-align-department-canonical-permissions', '20261012-align-platform-ops-permission-ownership'], true)) {
+                    $businessPoststates[$migration['id']] = \app\common\services\upgrade\ApplicationSchemaHost::permissionMigrationAfter($pdo, $migration, $businessBefore[$migration['id']], $executionBounds);
+                } else {
+                    $businessPoststates[$migration['id']] = \app\common\services\upgrade\ApplicationSchemaHost::menuMigrationAfter($pdo, $migration, $businessBefore[$migration['id']]);
+                }
+                unset($businessBefore[$migration['id']]);
+            } elseif (in_array($migration['id'], ['20261007-readiness-permission', '20261012-align-department-canonical-permissions', '20261012-align-platform-ops-permission-ownership'], true)) {
+                throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_PROOF_REQUIRED');
             }
             PeanutServerUpdatePlan::assertDatabaseMigrationStage($pdo);
         });
@@ -269,7 +287,7 @@ function peanutServerDatabaseStage(string $operation, string $server, string $wo
     $statuses = $runner->statuses($ids);
     $evidence = ['status' => 'completed', 'operation' => $operation, 'update_id' => $plan['update_id'],
         'plan_sha256' => $planSha, 'database_identity' => $databaseIdentity,
-        'application' => $migration, 'application_statuses' => $statuses, 'business_poststates' => $menuPoststates];
+        'application' => $migration, 'application_statuses' => $statuses, 'business_poststates' => $businessPoststates];
     $evidence['scope'] = $scope;
     $evidence['plugins'] = $scope === 'server-release' ? 'reconciled' : 'not_run';
     $evidence['product_database'] = $scope === 'server-release' ? ($operation === 'verify' ? 'verified' : 'migrated') : 'not_verified';

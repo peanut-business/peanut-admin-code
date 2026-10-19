@@ -11,6 +11,7 @@ use app\platform\infrastructure\plugin\PluginLockResolver;
 use app\platform\services\plugin\PluginLifecycleService;
 use PeanutAdmin\Modules\Identity\Auth\AuthClientSchemaMigrationProof;
 use PeanutAdmin\Modules\Identity\Menu\MenuSchemaMigrationProof;
+use PeanutAdmin\Modules\Identity\Permission\PermissionSchemaMigrationProof;
 use PeanutAdmin\Modules\Notification\Contract\SmsReservationMigrationProof;
 use PDO;
 use RuntimeException;
@@ -22,6 +23,7 @@ final class ApplicationSchemaHost
     private const RESULT_PROTOCOL = 'peanut.application-schema-result.v1';
     private ?string $sourceConnectionId = null;
     private const MENU_MIGRATIONS = ['20261004-group-default-navigation', '20261004-menu-stable-identities', '20261012-repair-seeded-permission-parents'];
+    private const PERMISSION_MIGRATIONS = ['20261007-readiness-permission', '20261012-align-department-canonical-permissions', '20261012-align-platform-ops-permission-ownership'];
 
     /** Immutable SQL understood by the source-specific read-only proofs below. */
     private const PRESTATE_SQL = [
@@ -76,6 +78,24 @@ final class ApplicationSchemaHost
                 'complete_preconditions_proven' => true, 'application_prerequisites' => [],
                 'proof' => ['contract' => MenuSchemaMigrationProof::class, 'safe_summary' => $snapshot['safe_summary']], 'readonly' => true];
         }
+        if (in_array($id, self::PERMISSION_MIGRATIONS, true)) {
+            $dependencies = $id === '20261012-align-department-canonical-permissions'
+                ? ['20261004-group-default-navigation', '20261004-menu-stable-identities'] : [];
+            $deferred = [];
+            foreach (array_intersect($dependencies, array_keys($before)) as $previousId) {
+                $deferred[] = ['migration_id' => $previousId, 'sha256' => $before[$previousId], 'reason' => 'permission_business_predecessor'];
+            }
+            if ($deferred !== []) {
+                if (!$planning) { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_DEFERRED'); }
+                return ['migration_id' => $id, 'sha256' => $sha, 'status' => 'deferred',
+                    'complete_preconditions_proven' => false, 'application_prerequisites' => $deferred,
+                    'proof' => ['contract' => PermissionSchemaMigrationProof::class], 'readonly' => true];
+            }
+            $snapshot = self::permissionMigrationBefore($pdo, $migration);
+            return ['migration_id' => $id, 'sha256' => $sha, 'status' => 'ready',
+                'complete_preconditions_proven' => true, 'application_prerequisites' => [],
+                'proof' => ['contract' => PermissionSchemaMigrationProof::class, 'safe_summary' => $snapshot['safe_summary']], 'readonly' => true];
+        }
         if ($id === '20260909-notification-sms-reservation') {
             $snapshot = self::smsMigrationBefore($pdo);
             return ['migration_id' => $id, 'sha256' => $sha, 'status' => 'ready',
@@ -107,77 +127,19 @@ final class ApplicationSchemaHost
                 'proof' => ['contract' => AuthClientSchemaMigrationProof::class, 'before' => $before],
                 'constraint_names' => $names, 'tables' => [], 'readonly' => true];
         }
+        // Other fixed stages returned through their owning business contract above.
         $constraintNames = self::prestateConstraintNames($pdo, $id);
-        $menu = ['id','pid','type','name','icon','sort','perms','paths','component','is_cache','is_show','is_disable'];
-        $required = match ($id) {
-            '20261007-readiness-permission', '20261012-align-platform-ops-permission-ownership' => ['pa_permission' => ['id','key','module_key','type','name','description','risk_level','status','manifest_version','created_at','updated_at','retired_at']],
-            '20261012-align-department-canonical-permissions' => [
-                'pa_system_menu' => [...$menu,'menu_key','parent_key','module_key','upstream_defaults_json','menu_conflict_json'],
-                'pa_menu_definition' => ['required_permission_id'], 'pa_permission' => ['id','key','module_key','status','manifest_version','retired_at','updated_at'],
-                'pa_platform_role_permission' => ['permission_id'], 'pa_resource_operation_permission' => ['permission_id'],
-                'pa_resource_operation_target_type' => ['policy_selection_permission_id'],
-                'pa_role_permission' => ['id','tenant_id','role_id','permission_id','granted_by_member_id','granted_at'],
-                'pa_role' => ['id','tenant_id','authorization_revision','updated_at'], 'pa_tenant' => ['id','authorization_revision','updated_at'],
-            ],
-            '20261016-module-migration-provenance' => ['pa_module_migration' => ['id','module_key','migration_key','module_version','checksum','batch_no','status','started_at','finished_at','error_code']],
-        };
-        $facts = []; $deferred = [];
-        foreach ($required as $table => $columns) {
-            $facts[$table] = self::prestateTable($pdo, $table);
-            self::prestateColumnShape($table, $facts[$table]['columns']);
-            self::prestateConstraintShape($table, $facts[$table]);
-            foreach ($columns as $column) {
-                if (isset($facts[$table]['columns'][$column])) { continue; }
-                $producer = match ($table . '.' . $column) {
-                    'pa_system_menu.upstream_defaults_json','pa_system_menu.menu_conflict_json',
-                    'pa_menu_definition.upstream_defaults_json','pa_menu_definition.menu_conflict_json' => '20261004-group-default-navigation',
-                    'pa_system_menu.menu_key','pa_system_menu.parent_key','pa_system_menu.module_key' => '20261004-menu-stable-identities',
-                    default => null,
-                };
-                if (!$planning || $producer === null || !isset($before[$producer])) {
-                    throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_COLUMN_MISSING:' . $table . '.' . $column);
-                }
-                $deferred[$producer] = ['migration_id' => $producer, 'sha256' => $before[$producer], 'reason' => 'application_schema_predecessor_columns'];
-            }
+        $table = self::prestateTable($pdo, 'pa_module_migration');
+        self::prestateColumnShape('pa_module_migration', $table['columns']);
+        self::prestateConstraintShape('pa_module_migration', $table);
+        foreach (['id','module_key','migration_key','module_version','checksum','batch_no','status','started_at','finished_at','error_code'] as $column) {
+            if (!isset($table['columns'][$column])) { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_COLUMN_MISSING:pa_module_migration.' . $column); }
         }
-        foreach (array_keys($deferred) as $producer) {
-            $produces = $producer === '20261004-group-default-navigation'
-                ? ['pa_system_menu' => ['upstream_defaults_json','menu_conflict_json'], 'pa_menu_definition' => ['upstream_defaults_json','menu_conflict_json']]
-                : ['pa_system_menu' => ['menu_key','parent_key','module_key'], 'pa_menu_definition' => ['is_show','is_cache','is_disable']];
-            foreach ($produces as $table => $columns) {
-                $fact = $facts[$table] ?? self::prestateTable($pdo, $table);
-                if (array_intersect($columns, array_keys($fact['columns'])) !== []) {
-                    throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_PREDECESSOR_PARTIAL:' . $producer);
-                }
-            }
-        }
-        // Non-DDL facts that can already be proved are not skipped by deferral.
-        if (isset($facts['pa_permission'])) { self::prestateUnique($facts['pa_permission'], ['key']); }
-        foreach ($facts as $table => $fact) {
-            if (isset($fact['columns']['id'])) { self::prestateUnique($fact, ['id']); }
-        }
-        $proof = [];
-        if ($id === '20261007-readiness-permission') {
-            self::prestateZero($pdo, "SELECT COUNT(*) FROM pa_permission WHERE `key`='readiness/checklist' AND (module_key<>'peanut.admin' OR type<>'api')");
-            $proof['catalog_matches'] = self::prestateCount($pdo, "SELECT COUNT(*) FROM pa_permission WHERE `key`='readiness/checklist'");
-        } elseif ($id === '20261012-align-department-canonical-permissions') {
-            self::prestateUnique($facts['pa_role_permission'], ['tenant_id','role_id','permission_id']);
-            $proof = self::prestateDepartment($pdo, $sql, $deferred === []);
-        } elseif ($id === '20261012-align-platform-ops-permission-ownership') {
-            $row = $pdo->query("SELECT COUNT(*) AS total,SUM(module_key IN ('peanut.admin','platform')) AS valid FROM pa_permission WHERE `key` IN ('platform.ops.module.manage','platform.ops.upgrade.manage')")->fetch(PDO::FETCH_ASSOC);
-            if ((int) ($row['total'] ?? 0) !== 2 || (int) ($row['valid'] ?? 0) !== 2) { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_OPS_OWNER_UNKNOWN'); }
-            $proof['before_and_projected_after_owner_count'] = 2;
-        } elseif ($id === '20261016-module-migration-provenance') {
-            $proof = self::prestateProvenance($pdo, $facts['pa_module_migration']);
-        }
-        if (in_array($id, ['20261007-readiness-permission','20261012-align-department-canonical-permissions','20261012-align-platform-ops-permission-ownership'], true)) {
-            self::prestatePermissionChecks($pdo, $id, $facts['pa_permission']);
-        }
-        if ($deferred !== [] && !$planning) { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_DEFERRED'); }
-        ksort($deferred, SORT_STRING);
-        return ['migration_id' => $id, 'sha256' => $sha, 'status' => $deferred === [] ? 'ready' : 'deferred',
-            'complete_preconditions_proven' => $deferred === [], 'application_prerequisites' => array_values($deferred),
-            'proof' => $proof, 'constraint_names' => $constraintNames, 'tables' => $facts, 'readonly' => true];
+        self::prestateUnique($table, ['id']);
+        return ['migration_id' => $id, 'sha256' => $sha, 'status' => 'ready',
+            'complete_preconditions_proven' => true, 'application_prerequisites' => [],
+            'proof' => self::prestateProvenance($pdo, $table), 'constraint_names' => $constraintNames,
+            'tables' => ['pa_module_migration' => $table], 'readonly' => true];
     }
 
     /** Both native runners retain this finite DTO only until their same-PDO completion callback. */
@@ -217,6 +179,58 @@ final class ApplicationSchemaHost
             if ($liveVerify) { throw new RuntimeException('APPLICATION_SCHEMA_MENU_LIVE_REVERIFY_REQUIRED'); }
             $record = $poststates[$id] ?? null;
             if (!is_array($record) || ($record['contract'] ?? null) !== MenuSchemaMigrationProof::class
+                || ($record['sha256'] ?? null) !== self::PRESTATE_SQL[$id]
+                || ($record['proof']['business_postconditions_verified'] ?? null) !== true) {
+                throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_PROOF_REQUIRED');
+            }
+        }
+    }
+
+    /** Private finite facts are retained only by the current native stage callback. */
+    public static function permissionMigrationBefore(PDO $pdo, array $migration): ?array
+    {
+        if (!in_array($migration['id'] ?? null, self::PERMISSION_MIGRATIONS, true)) { return null; }
+        [$id, , $sha] = self::prestateIdentity($migration);
+        if (!class_exists(PermissionSchemaMigrationProof::class)) { throw new RuntimeException('APPLICATION_SCHEMA_PERMISSION_CONTRACT_UNAVAILABLE'); }
+        $before = PermissionSchemaMigrationProof::before($pdo, $migration);
+        if ($pdo->inTransaction() || ($before['migration_id'] ?? null) !== $id || ($before['source_sha256'] ?? null) !== $sha
+            || ($before['readonly'] ?? null) !== true || !is_array($before['safe_summary'] ?? null) || !is_array($before['private_state'] ?? null)) {
+            throw new RuntimeException('APPLICATION_SCHEMA_PERMISSION_INPUT_INVALID');
+        }
+        return $before;
+    }
+
+    /** Original batch clocks reach Identity directly; the host never approximates timestamps. */
+    public static function permissionMigrationAfter(PDO $pdo, array $migration, array $before, ?array $executionBounds): array
+    {
+        [$id, , $sha] = self::prestateIdentity($migration);
+        if (!in_array($id, self::PERMISSION_MIGRATIONS, true) || ($before['migration_id'] ?? null) !== $id
+            || ($before['source_sha256'] ?? null) !== $sha) { throw new RuntimeException('APPLICATION_SCHEMA_PERMISSION_INPUT_INVALID'); }
+        $clockRequired = $id !== '20261012-align-platform-ops-permission-ownership';
+        if (($clockRequired && !is_array($executionBounds)) || (!$clockRequired && $executionBounds !== null)) {
+            throw new RuntimeException('APPLICATION_SCHEMA_PERMISSION_CLOCK_REQUIRED');
+        }
+        $observed = PermissionSchemaMigrationProof::after($pdo, $before, $executionBounds);
+        if ($pdo->inTransaction() || ($observed['migration_id'] ?? null) !== $id || ($observed['source_sha256'] ?? null) !== $sha
+            || ($observed['readonly'] ?? null) !== true || ($observed['business_postconditions_verified'] ?? null) !== true
+            || !is_int($observed['protected_checks'] ?? null) || $observed['protected_checks'] < 0
+            || !is_int($observed['candidate_count'] ?? null) || $observed['candidate_count'] < 0
+            || !array_key_exists('execution_bounds_scope', $observed)
+            || $observed['execution_bounds_scope'] !== ($clockRequired ? 'immutable-sql-batch' : null)) {
+            throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_POSTSTATE_REQUIRED');
+        }
+        return ['contract' => PermissionSchemaMigrationProof::class, 'scope' => 'permission-business-postconditions', 'sha256' => $sha,
+            'proof' => array_intersect_key($observed, array_flip(['migration_id', 'source_sha256', 'readonly',
+                'business_postconditions_verified', 'protected_checks', 'candidate_count', 'execution_bounds_scope']))];
+    }
+
+    /** A prior safe result cannot recreate the original private facts for a live comparison. */
+    public static function assertPermissionPoststates(array $applied, array $poststates, bool $liveVerify): void
+    {
+        foreach (array_intersect(self::PERMISSION_MIGRATIONS, $applied) as $id) {
+            if ($liveVerify) { throw new RuntimeException('APPLICATION_SCHEMA_PERMISSION_LIVE_REVERIFY_REQUIRED'); }
+            $record = $poststates[$id] ?? null;
+            if (!is_array($record) || ($record['contract'] ?? null) !== PermissionSchemaMigrationProof::class
                 || ($record['sha256'] ?? null) !== self::PRESTATE_SQL[$id]
                 || ($record['proof']['business_postconditions_verified'] ?? null) !== true) {
                 throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_PROOF_REQUIRED');
@@ -392,35 +406,6 @@ final class ApplicationSchemaHost
         }
     }
 
-    /** Evaluate the actual enforced catalog CHECKs against the source's postimage. */
-    private static function prestatePermissionChecks(PDO $pdo, string $id, array $fact): void
-    {
-        $overrides = []; $where = '1';
-        if ($id === '20261007-readiness-permission') {
-            $overrides = ['module_key' => "'peanut.admin'", 'type' => "'api'", 'name' => "'生产准备清单'", 'description' => "'Read the tenant first-run readiness checklist.'", 'risk_level' => "'normal'", 'status' => "'active'", 'manifest_version' => "'5.0.1-readiness-v1'", 'updated_at' => 'UTC_TIMESTAMP(3)', 'retired_at' => 'NULL'];
-            $where = "`key`='readiness/checklist'";
-        } elseif ($id === '20261012-align-department-canonical-permissions') {
-            $overrides = ['status' => "'retired'", 'retired_at' => 'COALESCE(retired_at,UTC_TIMESTAMP(3))', 'updated_at' => 'UTC_TIMESTAMP(3)'];
-            $where = "`key` IN ('dept/lists','dept/detail','dept/all','dept/leaderdept','dept/add','dept/edit','dept/delete','dept/status') AND status<>'retired'";
-        } else {
-            $overrides = ['module_key' => "'platform'"];
-            $where = "module_key='peanut.admin' AND `key` IN ('platform.ops.module.manage','platform.ops.upgrade.manage')";
-        }
-        $columns = [];
-        foreach (array_keys($fact['columns']) as $column) { $columns[] = ($overrides[$column] ?? '`' . $column . '`') . ' AS `' . $column . '`'; }
-        $projection = 'SELECT ' . implode(',', $columns) . ' FROM pa_permission WHERE ' . $where;
-        if ($id === '20261007-readiness-permission') {
-            $insert = [];
-            foreach (array_keys($fact['columns']) as $column) {
-                $insert[] = match ($column) { 'id' => '0', 'key' => "'readiness/checklist'", 'created_at' => 'UTC_TIMESTAMP(3)', default => $overrides[$column] ?? 'NULL' };
-            }
-            $projection .= ' UNION ALL SELECT ' . implode(',', $insert);
-        }
-        foreach ($fact['checks'] as $check) {
-            self::prestateZero($pdo, 'WITH projected AS (' . $projection . ') SELECT COUNT(*) FROM projected WHERE NOT (' . $check['CHECK_CLAUSE'] . ')');
-        }
-    }
-
     private static function prestateCount(PDO $pdo, string $select): int
     {
         return (int) $pdo->query($select)->fetchColumn();
@@ -429,94 +414,6 @@ final class ApplicationSchemaHost
     private static function prestateZero(PDO $pdo, string $select): void
     {
         if (self::prestateCount($pdo, $select) !== 0) { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_PREDICATE_FAILED'); }
-    }
-
-    /** These extractors are used only after the nine immutable hashes match. */
-    private static function prestateStatements(string $sql): array
-    {
-        return array_values(array_filter(array_map('trim', explode(';', (string) preg_replace('/^\s*--[^\r\n]*/m', '', $sql)))));
-    }
-
-    private static function prestateSelect(string $sql, string $name): string
-    {
-        $selects = [];
-        foreach (self::prestateStatements($sql) as $statement) {
-            if (preg_match('/\ACREATE TEMPORARY TABLE `?' . preg_quote($name, '/') . '`? AS\s+(SELECT\b.*)\z/isD', $statement, $match) === 1
-                || preg_match('/\AINSERT INTO `?' . preg_quote($name, '/') . '`?(?:\s*\([^)]*\))?\s+(SELECT\b.*)\z/isD', $statement, $match) === 1) {
-                $selects[] = $match[1];
-            }
-        }
-        if ($selects === []) { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_SOURCE_SELECTOR_MISSING'); }
-        return implode(' UNION ALL ', $selects);
-    }
-
-    /** Split one known VALUES tuple/list without splitting JSON_OBJECT arguments. */
-    private static function prestateSqlList(string $value): array
-    {
-        $parts = []; $start = 0; $depth = 0; $quoted = false; $length = strlen($value);
-        for ($i = 0; $i < $length; ++$i) {
-            $character = $value[$i];
-            if ($quoted) {
-                if ($character === "'" && ($value[$i + 1] ?? '') === "'") { ++$i; }
-                elseif ($character === "'" && ($i === 0 || $value[$i - 1] !== '\\')) { $quoted = false; }
-                continue;
-            }
-            if ($character === "'") { $quoted = true; }
-            elseif ($character === '(') { ++$depth; }
-            elseif ($character === ')') { --$depth; }
-            elseif ($character === ',' && $depth === 0) { $parts[] = trim(substr($value, $start, $i - $start)); $start = $i + 1; }
-            if ($depth < 0) { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_SOURCE_TUPLE_INVALID'); }
-        }
-        if ($quoted || $depth !== 0) { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_SOURCE_TUPLE_INVALID'); }
-        $parts[] = trim(substr($value, $start));
-        return $parts;
-    }
-
-    private static function prestateValues(string $sql, string $name, array $columns, ?string $collation = null): string
-    {
-        $selects = [];
-        foreach (self::prestateStatements($sql) as $statement) {
-            if (preg_match('/\AINSERT INTO `?' . preg_quote($name, '/') . '`?\s+VALUES\s+(.*)\z/isD', $statement, $match) !== 1) { continue; }
-            foreach (self::prestateSqlList($match[1]) as $tuple) {
-                if (!str_starts_with($tuple, '(') || !str_ends_with($tuple, ')')) { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_SOURCE_TUPLE_INVALID'); }
-                $values = self::prestateSqlList(substr($tuple, 1, -1));
-                if (count($values) !== count($columns)) { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_SOURCE_TUPLE_INVALID'); }
-                $expressions = [];
-                foreach ($values as $offset => $value) {
-                    if ($collation !== null && str_starts_with($value, "'")) { $value = 'CONVERT(' . $value . ' USING utf8mb4) COLLATE ' . $collation; }
-                    $expressions[] = $value . ' AS `' . $columns[$offset] . '`';
-                }
-                $selects[] = 'SELECT ' . implode(',', $expressions);
-            }
-        }
-        if ($selects === []) { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_SOURCE_VALUES_MISSING'); }
-        return implode(' UNION ALL ', $selects);
-    }
-
-    private static function prestateDepartment(PDO $pdo, string $sql, bool $full): array
-    {
-        $ctes = ['pa_dept_permission_map AS (' . self::prestateValues($sql, 'pa_dept_permission_map', ['legacy_key','canonical_key'], 'utf8mb4_0900_ai_ci') . ')',
-            'pa_dept_action_seed AS (' . self::prestateValues($sql, 'pa_dept_action_seed', ['action_key','action_name','sort_order'], 'utf8mb4_0900_ai_ci') . ')'];
-        if ($full) {
-            foreach (['pa_dept_default_page_ids','pa_dept_default_menu_ids','pa_dept_default_menu_parents','pa_dept_grant_moves','pa_dept_affected_roles','pa_dept_affected_tenants'] as $name) {
-                $ctes[] = $name . ' AS (' . self::prestateSelect($sql, $name) . ')';
-            }
-        }
-        $with = 'WITH ' . implode(',', $ctes) . ' '; $proof = [];
-        foreach (self::prestateStatements($sql) as $statement) {
-            if (preg_match('/\AINSERT INTO `(pa_dept_permission_assertion|pa_dept_action_assertion)`\s+(SELECT\s+\'([^\']+)\'.*)\z/isD', $statement, $match) !== 1) { continue; }
-            if (!$full && !in_array($match[3], ['canonical_catalog','legacy_provenance','platform_grants','resource_operation_grants','resource_operation_selection','native_menu_references'], true)) { continue; }
-            $row = $pdo->query($with . $match[2])->fetch(PDO::FETCH_NUM);
-            if (!is_array($row) || (int) ($row[1] ?? 0) !== 1) { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_DEPARTMENT_ASSERTION_FAILED:' . $match[3]); }
-            $proof[$match[3]] = true;
-        }
-        if (count($proof) !== ($full ? 11 : 6)) { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_SOURCE_ASSERTION_MISSING'); }
-        if ($full) {
-            self::prestateZero($pdo, $with . 'SELECT COUNT(*) FROM pa_role r JOIN pa_dept_affected_roles a ON a.tenant_id=r.tenant_id AND a.role_id=r.id WHERE r.authorization_revision>=18446744073709551615');
-            self::prestateZero($pdo, $with . 'SELECT COUNT(*) FROM pa_tenant t JOIN pa_dept_affected_tenants a ON a.tenant_id=t.id WHERE t.authorization_revision>=18446744073709551615');
-            $proof['grant_moves'] = self::prestateCount($pdo, $with . 'SELECT COUNT(*) FROM pa_dept_grant_moves');
-        }
-        return $proof;
     }
 
     private static function prestateProvenance(PDO $pdo, array $fact): array
@@ -650,6 +547,12 @@ final class ApplicationSchemaHost
                         $recheck();
                         return false;
                     }
+                    $permissionBefore = self::permissionMigrationBefore($pdo, $migration);
+                    if ($permissionBefore !== null) {
+                        $businessBefore[$migration['id']] = $permissionBefore;
+                        $recheck();
+                        return $migration['id'] !== '20261012-align-platform-ops-permission-ownership';
+                    }
                     $proof = self::migrationPrestate($pdo, $migration, [], false);
                     if ($migration['id'] === '20261007-auth-client-schema') {
                         $businessBefore[$migration['id']] = $proof['proof']['before'];
@@ -682,6 +585,11 @@ final class ApplicationSchemaHost
                         if (!is_array($before)) { throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_PROOF_REQUIRED'); }
                         $businessPoststates[$migration['id']] = self::menuMigrationAfter($pdo, $migration, $before);
                         unset($businessBefore[$migration['id']]);
+                    } elseif (in_array($migration['id'], self::PERMISSION_MIGRATIONS, true)) {
+                        $before = $businessBefore[$migration['id']] ?? null;
+                        if (!is_array($before)) { throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_PROOF_REQUIRED'); }
+                        $businessPoststates[$migration['id']] = self::permissionMigrationAfter($pdo, $migration, $before, $executionBounds);
+                        unset($businessBefore[$migration['id']]);
                     } elseif ($migration['id'] === '20261007-auth-client-schema') {
                         $before = $businessBefore[$migration['id']] ?? null;
                         if (!is_array($before)) { throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_PROOF_REQUIRED'); }
@@ -710,6 +618,7 @@ final class ApplicationSchemaHost
                         }
                         $this->assertSourceBaseline($pdo, $baseline, $baseline['pending'], null, 'completed');
                         self::assertMenuPoststates($baseline['pending'], $businessPoststates, $operation === 'verify');
+                        self::assertPermissionPoststates($baseline['pending'], $businessPoststates, $operation === 'verify');
                         if (in_array('20260909-notification-sms-reservation', $baseline['pending'], true)) {
                             // The safe result cannot reconstruct the private before image.
                             // A recorded proof alone is not a fresh live verification.
@@ -773,6 +682,8 @@ final class ApplicationSchemaHost
                 '20260909-notification-sms-reservation' => SmsReservationMigrationProof::class,
                 '20261004-group-default-navigation', '20261004-menu-stable-identities',
                 '20261012-repair-seeded-permission-parents' => MenuSchemaMigrationProof::class,
+                '20261007-readiness-permission', '20261012-align-department-canonical-permissions',
+                '20261012-align-platform-ops-permission-ownership' => PermissionSchemaMigrationProof::class,
                 default => 'business_preservation_contract_required',
             };
             if ($poststate === 'business_preservation_contract_required') {
