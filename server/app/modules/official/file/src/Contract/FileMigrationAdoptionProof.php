@@ -389,9 +389,22 @@ JSON;
     /** Narrow CHECK syntax shared by these fixed File SQL files; unknown syntax is rejected. */
     private static function expression(string $sql): array
     {
-        $tokens = []; $offset = 0;
+        $tokens = []; $offset = 0; $escapedQuote = "\\'";
         while ($offset < strlen($sql)) {
             if (preg_match('/\G\s+/A', $sql, $m, 0, $offset)) { $offset += strlen($m[0]); continue; }
+            // MySQL CHECK_CLAUSE stores these fixed literals with escaped delimiters.
+            // Decode only that token form; escapes inside its content remain unsupported.
+            if (preg_match('/\G_[a-zA-Z0-9]+/A', $sql, $m, 0, $offset)
+                && substr($sql, $offset + strlen($m[0]), 2) === $escapedQuote) {
+                $offset += strlen($m[0]);
+            }
+            if (substr($sql, $offset, 2) === $escapedQuote) {
+                $end = strpos($sql, $escapedQuote, $offset + 2);
+                if ($end === false) { throw new \RuntimeException('CHECK_SYNTAX_UNKNOWN'); }
+                $literal = substr($sql, $offset + 2, $end - $offset - 2);
+                if (strpbrk($literal, "\\'") !== false) { throw new \RuntimeException('CHECK_SYNTAX_UNKNOWN'); }
+                $tokens[] = "'" . $literal . "'"; $offset = $end + 2; continue;
+            }
             if (!preg_match('/\G(?:_[a-zA-Z0-9]+(?=\x27)|`[^`]+`|\x27(?:\x27\x27|[^\x27])*\x27|[a-zA-Z_][a-zA-Z0-9_]*|[0-9]+|<>|!=|>=|<=|[(),*=<>])/A', $sql, $m, 0, $offset)) { throw new \RuntimeException('CHECK_SYNTAX_UNKNOWN'); }
             $offset += strlen($m[0]); $token = $m[0];
             if ($token[0] === '_' && $offset < strlen($sql) && $sql[$offset] === "'") { continue; }

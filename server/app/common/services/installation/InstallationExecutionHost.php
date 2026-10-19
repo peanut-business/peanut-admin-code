@@ -1208,6 +1208,13 @@ final class InstallationExecutionHost
                 'sha256' => $this->fileDigest($path),
             ];
         }
+        $selection = \app\common\infrastructure\migration\CleanInstallBaseline::selection(
+            $this->pdo(), \applicationMigrationFiles($this->serverRoot . '/database'),
+            $versions['source_product_version'], $this->serverRoot . '/database',
+        );
+        if ($selection['baseline'] !== null) {
+            $migrations[] = ['id' => $selection['baseline']['key'], 'sha256' => $selection['baseline']['sha256']];
+        }
         usort($migrations, static fn(array $left, array $right): int => strcmp($left['id'], $right['id']));
 
         return [

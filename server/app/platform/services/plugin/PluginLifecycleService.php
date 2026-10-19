@@ -990,15 +990,25 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
 
     private static function freshInstallationMigration(\PDO $pdo, string $root, ?array $recorded = null): array
     {
+        // Previously recorded application SQL remains actual history, never a new fresh identity.
         $id = '20260823-unify-storage-service';
-        $path = $root . '/database/migrations/' . $id . '.sql';
-        if ($recorded === null && (realpath($path) !== $path || !is_file($path) || is_link($path) || lstat($path)['nlink'] !== 1)) {
-            throw new PluginLifecycleException('MODULE_MIGRATION_INSTALLATION_UNKNOWN', 'Native application migration source is unavailable.');
+        if ($recorded !== null && ($recorded['migration_id'] ?? null) === $id) {
+            $checksum = $recorded['checksum'] ?? null;
+        } else {
+            require_once $root . '/database/install.php';
+            $versions = \applicationReleaseVersions($root);
+            $selection = \app\common\infrastructure\migration\CleanInstallBaseline::selection(
+                $pdo, \applicationMigrationFiles($root . '/database'), $versions['source_product_version'], $root . '/database',
+            );
+            $baseline = $selection['baseline'];
+            if ($baseline === null || ($recorded !== null && ($recorded['migration_id'] ?? null) !== $baseline['key'])) {
+                throw new PluginLifecycleException('MODULE_MIGRATION_INSTALLATION_UNKNOWN', 'A real admitted application baseline is required.');
+            }
+            $id = $baseline['key']; $checksum = $baseline['sha256'];
         }
         $statement = $pdo->prepare('SELECT migration_id,release_version,checksum,status FROM pa_schema_migration WHERE migration_id=?');
         $statement->execute([$id]); $rows = $statement->fetchAll(\PDO::FETCH_ASSOC); $statement->closeCursor();
         $row = $rows[0] ?? [];
-        $checksum = $recorded['checksum'] ?? hash_file('sha256', $path);
         if (count($rows) !== 1 || ($row['migration_id'] ?? null) !== $id || ($row['status'] ?? null) !== 'applied'
             || preg_match('/^[a-f0-9]{64}$/D', (string) $checksum) !== 1 || ($row['checksum'] ?? null) !== $checksum
             || !is_string($row['release_version'] ?? null)
