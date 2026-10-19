@@ -755,6 +755,24 @@ def development_runtime(source: Path, target: Path) -> None:
                     str(source), '--installed'], check=True, capture_output=True)
     subprocess.run(['python3', str(regular_file(source, 'server/docker/scripts/vendor-state.py')),
                     'check', '--server', str(source/'server')], check=True, capture_output=True)
+    vendor_receipt = document(source, 'server/vendor/.peanut-complete.json')
+    native_archives = vendor_receipt.get('local_archives', {})
+    if not isinstance(native_archives, dict) or len(native_archives) > 1:
+        raise ValueError('invalid native Core archive inventory')
+    owner_inputs = {}
+    for relative, record in native_archives.items():
+        relative = safe_relative(relative)
+        if re.fullmatch(r'packages/core-php/peanut-admin-core-[0-9A-Za-z.+_-]+\.zip', relative) is None \
+                or not isinstance(record, dict) \
+                or re.fullmatch(r'[a-f0-9]{64}', str(record.get('sha256', ''))) is None:
+            raise ValueError('invalid native Core archive input')
+        owner_inputs[relative] = record['sha256']
+    if owner_inputs:
+        # Native vendor stage/check consumes the canonical APP-root proof and
+        # archive. Keep these owner inputs outside the server-only HTTP view;
+        # the source vendor itself is still never copied.
+        for relative in (MANIFEST, 'release-versions.json'):
+            owner_inputs[relative] = hashlib.sha256(regular_file(source, relative).read_bytes()).hexdigest()
     subprocess.run(['php', '-r',
                     'require $argv[2]."/server/app/platform/infrastructure/plugin/PluginLockResolver.php"; '
                     'require $argv[1]."/server/vendor/autoload.php"; '
@@ -800,7 +818,7 @@ def development_runtime(source: Path, target: Path) -> None:
         projected[archive] = 'server/.peanut/' + archive
     # Only these exact native outputs are regenerated; unknown APP program paths stay in the scan.
     derived = set(projected.values()) | {'server/plugins.lock', 'server/.peanut/development-runtime.json'}
-    source_inputs = set(projected) | {'plugins.lock'}
+    source_inputs = set(projected) | set(owner_inputs) | {'plugins.lock'}
     source_plugins = document(source, 'plugins.lock')
     if source_plugins.get('schema_version') != 1 or not isinstance(source_plugins.get('plugins'), list):
         raise ValueError('source plugin lock is invalid')
@@ -866,10 +884,26 @@ def development_runtime(source: Path, target: Path) -> None:
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(path, destination)
         destination.chmod(0o644)
+    for relative, expected_sha in owner_inputs.items():
+        path = regular_file(source, relative)
+        data = path.read_bytes()
+        if source_fence[relative] != expected_sha or hashlib.sha256(data).hexdigest() != expected_sha:
+            raise ValueError('native dependency input changed during projection')
+        destination = target/relative
+        ensure_new_release_file(destination)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        with destination.open('xb') as output:
+            output.write(data)
+        destination.chmod(0o644)
+        if hashlib.sha256(regular_file(target, relative).read_bytes()).hexdigest() != expected_sha:
+            raise ValueError('native dependency input copy differs from its verified source')
+        source_projection[relative] = expected_sha
     plugin = project_server_plugins(source, target)
     # Install this target's dependencies through the original fixed-lock native entry.
     # Source installation is evidence of provenance, never a vendor directory to copy.
-    rows = release_rows(target)
+    # Only the explicitly verified owner inputs sit outside the HTTP program.
+    # Any other unexpected root file still reaches the server-row validator.
+    rows = [row for row in release_rows(target) if row['path'] not in owner_inputs]
     validate_server_release_rows(rows)
     value = {'schema_version': 1, 'protocol': 'peanut.development-server-runtime.v1',
              'environment': 'development', **declaration,
