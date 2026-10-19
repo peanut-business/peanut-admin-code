@@ -25,7 +25,7 @@ final class CleanInstallMigration extends Migrator
         $this->completion = Closure::fromCallable($completion);
     }
 
-    public function getName(): string { return CleanInstallBaseline::KEY; }
+    public function getName(): string { return $this->baseline->manifest['key']; }
     public function checksum(): string { return $this->baseline->checksum; }
     public function assertCompletion(): void { ($this->completion)(); }
 

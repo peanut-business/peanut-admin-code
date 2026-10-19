@@ -479,12 +479,23 @@ final class EditionUpgradePackage
             throw new RuntimeException('EDITION_UPGRADE_MIGRATION_CHAIN_INCOMPLETE');
         }
         // Validate data as package input, without loading executable PHP from the target candidate.
-        $prefix = 'server/database/baselines/5.0.2-r1/';
         $files = $target->files();
-        if (!isset($files[$prefix . 'manifest.json'])) {
-            if (array_key_exists('installation_baseline', $chain)) { throw new RuntimeException('EDITION_UPGRADE_INSTALL_BASELINE_UNEXPECTED'); }
+        $baselines = [
+            '20261019-clean-install-5.0.2-r1' => ['directory' => '5.0.2-r1', 'revision' => 1],
+            '20261019-clean-install-5.0.2-r2' => ['directory' => '5.0.2-r2', 'revision' => 2],
+        ];
+        if (!array_key_exists('installation_baseline', $chain)) {
+            foreach ($baselines as $baseline) {
+                if (isset($files['server/database/baselines/' . $baseline['directory'] . '/manifest.json'])) {
+                    throw new RuntimeException('EDITION_UPGRADE_INSTALL_BASELINE_UNEXPECTED');
+                }
+            }
             return;
         }
+        $identityKey = $chain['installation_baseline']['key'] ?? null;
+        if (!is_string($identityKey) || !isset($baselines[$identityKey])) { throw new RuntimeException('EDITION_UPGRADE_INSTALL_BASELINE_INVALID'); }
+        $source = $baselines[$identityKey];
+        $prefix = 'server/database/baselines/' . $source['directory'] . '/';
         $bytes = [];
         foreach (['manifest.json', 'baseline.lock', 'schema.sql', 'data.sql'] as $name) {
             $file = $files[$prefix . $name] ?? null;
@@ -496,7 +507,7 @@ final class EditionUpgradePackage
         $seed = json_decode($bytes['manifest.json'], true, 64, JSON_THROW_ON_ERROR);
         $lock = json_decode($bytes['baseline.lock'], true, 64, JSON_THROW_ON_ERROR);
         if (($seed['protocol'] ?? null) !== 'peanut.clean-install-baseline.v1' || ($seed['schema_version'] ?? null) !== 1
-            || ($seed['key'] ?? null) !== '20261019-clean-install-5.0.2-r1' || ($seed['revision'] ?? null) !== 1
+            || ($seed['key'] ?? null) !== $identityKey || ($seed['revision'] ?? null) !== $source['revision']
             || ($seed['source_product_version'] ?? null) !== '5.0.2' || ($seed['fresh_only'] ?? null) !== true
             || ($lock['protocol'] ?? null) !== 'peanut.clean-install-baseline-lock.v1' || ($lock['schema_version'] ?? null) !== 1
             || ($lock['key'] ?? null) !== $seed['key'] || !is_array($seed['covered_migrations'] ?? null)) {
@@ -515,7 +526,7 @@ final class EditionUpgradePackage
                 || ($actual[$covered['path']] ?? null) !== $covered['sha256']) { throw new RuntimeException('EDITION_UPGRADE_INSTALL_BASELINE_COVERAGE_CHANGED'); }
         }
         $identity = ['key' => $seed['key'], 'sha256' => hash('sha256', $bytes['manifest.json']), 'source_product_version' => $seed['source_product_version'],
-            'revision' => 1, 'coverage_semantics' => 'covered_by_baseline', 'covered_migrations' => $seed['covered_migrations']];
+            'revision' => $seed['revision'], 'coverage_semantics' => 'covered_by_baseline', 'covered_migrations' => $seed['covered_migrations']];
         if (($chain['installation_baseline'] ?? null) !== $identity) { throw new RuntimeException('EDITION_UPGRADE_INSTALL_BASELINE_IDENTITY_CHANGED'); }
     }
 
