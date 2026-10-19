@@ -836,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0a399ecc32aa95557d07d072018113c3ca536647b7300488bc76df8f60dcdd96"
+            "source_sha256": "08194afcc1a0baa7f991df65eb3232be6b5c7d75bc0088efd75282acf2d27c84"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -987,7 +987,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6ef29bbdbe9642207846555f07dbb582ac8f1845447e170cdbafd05c95bd64c7"
+            "source_sha256": "ae6267c3d2c4fdfaa0e0030f052662cc1b17b1315e23121735731b08542479f2"
         },
         {
             "path": "docs/public/module-development.md",
@@ -6224,7 +6224,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "46040c5886f12e5e498f7569dd7c754e0b55b12d3da4a434a8cc46039f47002d"
+            "source_sha256": "61fb7e3fff2ea0d79ee310d7f37919a94cf53b6cf1027fc1c6e6e27ae5cf24d9"
         },
         {
             "path": "server/app/command/BundlePack.php",
@@ -6560,7 +6560,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8e3d5cf3665a692a71ca49c4010c64cd5575365fa49aa7d29959e438e062469d"
+            "source_sha256": "1a2e55070ecf4ecdb50ff5beb46cb568906de24bb4339c3f200f1f52747dfe62"
         },
         {
             "path": "server/app/command/PluginInstall.php",
@@ -7065,7 +7065,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a1515bad6cd717c6246d2b2c21eb8eec61de76b06fb385a0bfad6aa09e2b3981"
+            "source_sha256": "dc68317c1c0357e1043781db8aeed7007a88b15a78280fbe86f2afa2d19cf4b4"
         },
         {
             "path": "server/app/common/contract/module/TenantModuleCommands.php",
@@ -8932,7 +8932,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3b1f5bc329c4c94832a9b081bf0679beb6aa333b0d3c090ada6cf2c126f4e6b4"
+            "source_sha256": "20ca5e3c99eeaa95f1d8fa73d40bf1eb106612a186181075dfe1356715cb7670"
         },
         {
             "path": "server/app/common/services/upgrade/PluginSourceDevelopmentHost.php",
@@ -8946,7 +8946,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9f2437554b05625026c4dca71293db09b5703583e67ee07cd911cd1cf6addc0e"
+            "source_sha256": "c8075c186bc2f6d73e9bb920515800d3b14684d3c90f882a9576bbf08e5edca4"
+        },
+        {
+            "path": "server/app/common/services/upgrade/SourceApplicationBackup.php",
+            "target": "server/app/common/services/upgrade/SourceApplicationBackup.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "99d1d46c69b5616305c9dea490d2ba852b3d2bb7622370a5be305d523bb5f7aa"
         },
         {
             "path": "server/app/common/services/upgrade/SourceDevelopmentMaintenanceAdmission.php",
@@ -25367,7 +25381,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b6d740fbb6ee1692abc60a8eaaec55fde9cefccefa2da5f6190f713f4b10397e"
+            "source_sha256": "1b595135046f872fcb3f3ffc1b683e883a8afaaabd76fc917af3af8ed4392310"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",
