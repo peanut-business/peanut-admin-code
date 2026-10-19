@@ -3289,7 +3289,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1e4fedf23bd5cf6e71ec0c76e37735b3d649bda8851ca2cb163147f03547d1b6"
+            "source_sha256": "7261e3a2fc1c24a7096b6a57b776901044efe96f882314eb28f4a1f05133e85e"
         },
         {
             "path": "scripts/local-client-dev",
@@ -3505,7 +3505,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5af9a590101182a545ab0f02563c20b5f5f1abaf96ef7ff0f4ece61c69763359"
+            "source_sha256": "672ad09e9d1f63f7d50bb0ef71f4f0bb6d6381d4ac7c4c7342ac58882c1f44f3"
         },
         {
             "path": "scripts/package-release.sh",
@@ -3519,7 +3519,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "66fcc8c244f553b470072cada2792660ed4da0f2a65725563231e25aeb28e9e8"
+            "source_sha256": "aa121d718899e6d8b768e323b6cb7a0a51ec477794d2e0ea1a1234234605fc8a"
         },
         {
             "path": "scripts/prepare-product-release-candidate",
@@ -3781,7 +3781,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "abdc95a022d3ec7ab2a409d40056aa9682f5cb4cfaff209ded195692fe122b54"
+            "source_sha256": "d43cf3711597dff66fc24f17f6a278a0ded7926e1a96f52f4a3569d6899f7895"
         },
         {
             "path": "scripts/scaffold-runtime/ScaffoldPathGuard.php",
@@ -25171,7 +25171,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "38f7d5aadb07616875c8794fb4be37a5fc20704aae9ff9c4bf68493bb8421ff7"
+            "source_sha256": "eec6d7b1157f89ca4fa96892f24b0ba33ac7c0456269ae24b81596f2d7fff0e4"
         },
         {
             "path": "server/app/platform/infrastructure/plugin/PluginLockResolver.php",
