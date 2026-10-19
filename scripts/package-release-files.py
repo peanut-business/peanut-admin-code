@@ -295,7 +295,8 @@ def internal_contract():
     return module
 
 
-def snapshot(root: Path, target: Path, generated_template: bool, internal: bool = False) -> tuple[dict, dict]:
+def snapshot(root: Path, target: Path, generated_template: bool, internal: bool = False,
+             candidate_scaffold: Path | None = None, candidate_core: Path | None = None) -> tuple[dict, dict]:
     if target.exists() or target.is_symlink():
         raise ValueError('snapshot destination must not exist')
     root = root.resolve(strict=True)
@@ -304,13 +305,30 @@ def snapshot(root: Path, target: Path, generated_template: bool, internal: bool 
                          or (root / '.peanut/internal-candidate.json').is_symlink()):
         raise ValueError('internal candidate must retain its explicit candidate packaging mode')
     sealed = None
+    artifact_marker = None
+    artifact_proof_bytes = None
     approved_archives = set()
     if internal:
-        sealed = internal_contract().verify(root)
-        marker = document(root, '.peanut/internal-candidate.json')
+        contract = internal_contract()
+        if not (root / contract.MARKER).exists() and not (root / contract.MARKER).is_symlink():
+            if candidate_scaffold is None or candidate_core is None:
+                raise ValueError('artifact-derived APP needs its actual candidate scaffold manifest and Core input receipt')
+            artifact_marker, artifact_proof_bytes = contract.artifact_source(root, candidate_scaffold, candidate_core)
+            sealed = {'source_files': artifact_marker['source_files'],
+                      'archive_paths': sorted(contract.archives(artifact_marker))}
+            marker = artifact_marker
+            tracked = sorted(sealed['source_files'])
+        else:
+            sealed = contract.verify(root)
+            marker = document(root, contract.MARKER)
+            tracked = sorted([*sealed['source_files'], contract.MARKER])
+            if marker['projection'].get('changes') == [] and marker['projection'].get('additions') == []:
+                proof = contract.artifact_proofs(root, candidate_scaffold, candidate_core)
+                artifact_proof_bytes = proof['raw']
+            elif candidate_scaffold is not None or candidate_core is not None:
+                raise ValueError('artifact proof arguments require artifact-derived candidate source')
         if len(marker.get('core_web', {})) != 6:
             raise ValueError('complete internal APP requires seven inputs')
-        tracked = sorted([*sealed['source_files'], '.peanut/internal-candidate.json'])
         commit, tree, blobs, git_hash = None, None, {}, 'sha1'
         approved_archives.update(sealed['archive_paths'])
         # Original archive baselines are immutable and independently checked below.
@@ -389,6 +407,20 @@ def snapshot(root: Path, target: Path, generated_template: bool, internal: bool 
         copy_checked(root, target, relative, expected_digest, mode,
                      blobs.get(relative), git_hash, approved_archives)
     if internal:
+        if artifact_proof_bytes is not None:
+            for relative, content in artifact_proof_bytes.items():
+                destination = target / safe_relative(relative)
+                if destination.exists() or destination.is_symlink():
+                    raise ValueError('candidate proof conflicts with application source')
+                with destination.open('xb') as stream:
+                    stream.write(content)
+                destination.chmod(0o644)
+        if artifact_marker is not None:
+            destination = target / internal_contract().MARKER
+            with destination.open('x') as stream:
+                json.dump(artifact_marker, stream, indent=2)
+                stream.write('\n')
+            destination.chmod(0o644)
         internal_contract().verify(target)
     return manifest, {'kind': 'internal-candidate' if internal else 'generated-template' if generated_template else 'application',
                       'commit': commit, 'tree': tree, 'tracked': tracked}
@@ -574,9 +606,9 @@ def application_release_identity(source: Path, target: Path, manifest: dict, git
     }
     if git['kind'] == 'internal-candidate':
         contract = internal_contract()
-        marker = document(source, contract.MARKER)
+        marker = document(target, contract.MARKER)
         identity['application'].update({'scope': 'internal-candidate', 'formal_release_eligible': False,
-                                        'candidate_marker': {'path': contract.MARKER, 'sha256': contract.digest(regular_file(source, contract.MARKER))},
+                                        'candidate_marker': {'path': contract.MARKER, 'sha256': contract.digest(regular_file(target, contract.MARKER))},
                                         'projection': marker['projection'], 'selection': marker['selection']})
     path = target / '.peanut/application-release.json'
     if path.exists():
@@ -630,11 +662,11 @@ def server_identity(source: Path, target: Path, manifest: dict, git: dict, versi
         if server_only:
             raise ValueError('internal candidate requires its complete APP')
         contract = internal_contract()
-        candidate = document(source, contract.MARKER)
+        candidate = document(target, contract.MARKER)
         candidate_path = server / contract.MARKER
         if candidate_path.exists() or candidate_path.is_symlink():
             raise ValueError('candidate backend marker conflicts with application source')
-        shutil.copyfile(regular_file(source, contract.MARKER), candidate_path)
+        shutil.copyfile(regular_file(target, contract.MARKER), candidate_path)
         candidate_path.chmod(0o644)
     shutil.copyfile(regular_file(source, 'RELEASE_METADATA.json'), metadata)
     metadata.chmod(0o644)
@@ -706,7 +738,7 @@ def server_identity(source: Path, target: Path, manifest: dict, git: dict, versi
         release['application'].update({
             'scope': 'internal-candidate', 'formal_release_eligible': False,
             'candidate_marker': {'path': internal_contract().MARKER,
-                                 'sha256': hashlib.sha256(regular_file(source, internal_contract().MARKER).read_bytes()).hexdigest()},
+                                 'sha256': hashlib.sha256(regular_file(target, internal_contract().MARKER).read_bytes()).hexdigest()},
             'projection': candidate['projection'], 'selection': candidate['selection'],
         })
     identity_file.parent.mkdir(parents=True, exist_ok=True)
@@ -972,12 +1004,17 @@ def main() -> None:
     parser.add_argument('--build-root', type=Path)
     parser.add_argument('--generated-template', action='store_true')
     parser.add_argument('--internal-candidate', action='store_true')
+    parser.add_argument('--candidate-scaffold-manifest', type=Path)
+    parser.add_argument('--candidate-core-inputs', type=Path)
     parser.add_argument('--server-only', action='store_true')
     parser.add_argument('--archive', type=Path)
     parser.add_argument('--expected-sha256')
     args = parser.parse_args()
     if args.internal_candidate and (args.generated_template or args.server_only or args.action not in ('snapshot', 'assemble')):
         raise ValueError('internal candidate requires complete APP snapshot/assemble')
+    if ((args.candidate_scaffold_manifest is None) != (args.candidate_core_inputs is None)
+            or (args.candidate_scaffold_manifest is not None and not args.internal_candidate)):
+        raise ValueError('candidate proof pair requires explicit internal candidate mode')
     if args.action == 'verify':
         if args.archive is None or args.expected_sha256 is None:
             raise ValueError('verify needs --archive and --expected-sha256 from a trusted channel')
@@ -998,7 +1035,8 @@ def main() -> None:
         development_runtime(source, args.target)
         print('package-files: explicit development runtime projection complete; not a release')
         return
-    manifest, git = snapshot(source, destination, args.generated_template, args.internal_candidate)
+    manifest, git = snapshot(source, destination, args.generated_template, args.internal_candidate,
+                             args.candidate_scaffold_manifest, args.candidate_core_inputs)
     if args.action == 'assemble':
         if args.build_root is None:
             raise ValueError('assemble needs --build-root')

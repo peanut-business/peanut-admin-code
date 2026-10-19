@@ -10,6 +10,8 @@ OUTPUT_DIR="$ROOT_DIR/release/peanut-admin"
 DIRECTORY_ONLY=0
 GENERATED_TEMPLATE=0
 INTERNAL_CANDIDATE=0
+CANDIDATE_SCAFFOLD=""
+CANDIDATE_CORE_INPUTS=""
 SERVER_ONLY=0
 SERVER_OUTPUT=""
 usage() {
@@ -22,6 +24,12 @@ The default package retains APP development source and its upstream baseline.
 and built browser assets. Build dependencies remain in an isolated temp directory.
 --internal-candidate accepts the sealed seven-archive projection and builds all
 four existing clients; it emits an internal APP, never a formal/server-only release.
+For an artifact-derived APP, also pass both actual source proofs:
+--candidate-scaffold-manifest=/absolute/scaffold-manifest.json
+--candidate-core-inputs=/absolute/release-core-inputs.json
+The source APP is unchanged; only its five known installed dependency directories
+are omitted from the isolated source snapshot. Use that APP's own packaging entry;
+a newer host packer cannot substitute for its source consumers. Proof bytes remain portable.
 USAGE
 }
 die() { printf 'package-release: %s\n' "$*" >&2; exit 1; }
@@ -32,6 +40,8 @@ while [[ $# -gt 0 ]]; do
     --directory-only) DIRECTORY_ONLY=1; shift ;;
     --generated-template) GENERATED_TEMPLATE=1; shift ;;
     --internal-candidate) INTERNAL_CANDIDATE=1; shift ;;
+    --candidate-scaffold-manifest=*) CANDIDATE_SCAFFOLD="${1#*=}"; shift ;;
+    --candidate-core-inputs=*) CANDIDATE_CORE_INPUTS="${1#*=}"; shift ;;
     --server-only) SERVER_ONLY=1; shift ;;
     --server-output=*) SERVER_OUTPUT="${1#*=}"; shift ;;
     --help|-h) usage; exit 0 ;;
@@ -40,6 +50,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 [[ "$INTERNAL_CANDIDATE" != 1 || ( "$GENERATED_TEMPLATE" == 0 && "$SERVER_ONLY" == 0 && -z "$SERVER_OUTPUT" ) ]] || die 'internal candidate requires the complete four-client APP'
+if [[ -n "$CANDIDATE_SCAFFOLD" || -n "$CANDIDATE_CORE_INPUTS" ]]; then
+  [[ "$INTERNAL_CANDIDATE" == 1 && "$CANDIDATE_SCAFFOLD" == /* && "$CANDIDATE_CORE_INPUTS" == /* ]] || die 'both absolute candidate proof paths require --internal-candidate'
+fi
 [[ "$SERVER_ONLY" != 1 || -z "$SERVER_OUTPUT" ]] || die 'choose --server-only or --server-output'
 [[ -z "$SERVER_OUTPUT" || "$DIRECTORY_ONLY" == 1 ]] || die '--server-output is for the edition installer directory assembly'
 [[ "$APPLICATION_ROOT" == /* && -d "$APPLICATION_ROOT" && ! -L "$APPLICATION_ROOT" ]] || die 'application root must be an absolute real directory'
@@ -98,6 +111,9 @@ if [[ "$GENERATED_TEMPLATE" == 1 ]]; then template_option+=(--generated-template
 dependency_option=()
 if [[ "$INTERNAL_CANDIDATE" == 1 ]]; then
   template_option+=(--internal-candidate)
+  if [[ -n "$CANDIDATE_SCAFFOLD" ]]; then
+    template_option+=(--candidate-scaffold-manifest="$CANDIDATE_SCAFFOLD" --candidate-core-inputs="$CANDIDATE_CORE_INPUTS")
+  fi
   dependency_option+=(--internal-candidate)
 fi
 if [[ "$SERVER_ONLY" == 1 ]]; then template_option+=(--server-only); fi

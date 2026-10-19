@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import os
 import re
 import stat
 import sys
@@ -12,6 +13,8 @@ from pathlib import Path, PurePosixPath
 
 PROTOCOL = "peanut.internal-edition-candidate.v1"
 MARKER = ".peanut/internal-candidate.json"
+ARTIFACT_PROOFS = ('.peanut/scaffold-candidate-manifest.json', '.peanut/core-candidate-inputs.json')
+INSTALLED_DIRECTORIES = {'server/vendor', *(client + '/node_modules' for client in ('web', 'platform', 'pc', 'uniapp'))}
 ROOT = Path(__file__).resolve().parent
 sys.dont_write_bytecode = True
 _spec = importlib.util.spec_from_file_location("release_file_policy", ROOT / "package-release-files.py")
@@ -55,7 +58,7 @@ def document(path: Path) -> dict:
     return value
 
 
-def tree(root: Path, archive_paths: set[str] | None = None) -> dict:
+def tree(root: Path, archive_paths: set[str] | None = None, *, proof_files: dict[str, str] | None = None) -> dict:
     require(root.is_dir() and not root.is_symlink(), "ROOT_INVALID")
     result = {}
     original_manifest = root / ".peanut/application-manifest.json"
@@ -69,6 +72,9 @@ def tree(root: Path, archive_paths: set[str] | None = None) -> dict:
             require(not {".git", ".local", "vendor", "node_modules"}.intersection(path.relative_to(root).parts), "FORBIDDEN_DIRECTORY")
             continue
         source = file(root, name)
+        if proof_files is not None and name in proof_files:
+            require(digest(source) == proof_files[name], 'ARTIFACT_PROOF_CHANGED')
+            continue
         logical = name.split("/files/", 1)[1] if name.startswith(".peanut/scaffold-baseline/") and "/files/" in name else name
         # Baseline archives retain their original digest. Projected archives
         # are accepted only at the exact marker-bound paths, never by suffix.
@@ -115,11 +121,167 @@ def archives(marker: dict) -> dict[str, dict]:
     return result
 
 
+def artifact_proofs(root: Path, scaffold_path: Path | None = None, core_path: Path | None = None) -> dict:
+    """Authenticate the existing artifact provenance; never rewrite an APP or a lock."""
+    manifest = document(file(root, '.peanut/application-manifest.json'))
+    candidate = manifest.get('scaffold_candidate', {})
+    require(isinstance(candidate, dict) and candidate.get('formal_release_eligible') is False,
+            'ARTIFACT_CANDIDATE_REQUIRED')
+    require((scaffold_path is None) == (core_path is None), 'ARTIFACT_PROOF_PAIR_REQUIRED')
+    paths = [file(root, name) for name in ARTIFACT_PROOFS] if scaffold_path is None else [scaffold_path, core_path]
+    if scaffold_path is None:
+        require(all(stat.S_IMODE(path.stat().st_mode) == 0o644 for path in paths), 'ARTIFACT_PROOF_MODE_INVALID')
+    raw = {}
+    for name, path in zip(ARTIFACT_PROOFS, paths):
+        require(path.is_absolute() and path.resolve() == path, 'ARTIFACT_PROOF_PATH_INVALID')
+        raw[name] = file(path.parent, path.name).read_bytes()
+    require(hashlib.sha256(raw[ARTIFACT_PROOFS[0]]).hexdigest() == candidate.get('manifest_sha256')
+            and hashlib.sha256(raw[ARTIFACT_PROOFS[1]]).hexdigest() == candidate.get('core_inputs_sha256'),
+            'ARTIFACT_PROOF_DIGEST_MISMATCH')
+    scaffold, receipt = (json.loads(raw[name]) for name in ARTIFACT_PROOFS)
+
+    def portable(value):
+        if isinstance(value, dict):
+            for child in value.values():
+                portable(child)
+        elif isinstance(value, list):
+            for child in value:
+                portable(child)
+        elif isinstance(value, str):
+            require(re.match(r'^(?:/|[A-Za-z]:[\\/]|file:)', value) is None, 'ARTIFACT_PROOF_HOST_PATH')
+
+    portable(scaffold); portable(receipt)
+    require(isinstance(scaffold, dict) and scaffold.get('schema_version') == 3
+            and scaffold.get('protocol') == 'peanut.scaffold-release.v3'
+            and isinstance(receipt, dict) and receipt.get('schema_version') == 1
+            and receipt.get('status') == 'frozen-core-build-inputs-not-product-release', 'ARTIFACT_PROOF_PROTOCOL_INVALID')
+    release = scaffold.get('release', {})
+    projection = scaffold.get('internal_core_projection', {})
+    generation = manifest.get('generation_source', {})
+    template = manifest.get('template', {})
+    require(all(isinstance(value, dict) for value in (release, projection, generation, template)), 'ARTIFACT_SOURCE_INVALID')
+    require(manifest.get('protocol') == 'peanut.application-scaffold.v2'
+            and manifest.get('schema_version') == 2
+            and projection.get('protocol') == 'peanut.internal-core-scaffold-projection.v1'
+            and projection.get('scope') == 'internal-upgrade-target-not-formal-release'
+            and projection.get('core_inputs_sha256') == candidate['core_inputs_sha256']
+            and release.get('workflow') == 'full' and manifest.get('application', {}).get('profile') == 'full'
+            and manifest.get('edition') == scaffold.get('edition')
+            and generation.get('channel') == 'development' and generation.get('release_version') is None
+            and template.get('version') == release.get('version') == release.get('inventory_template_version'), 'ARTIFACT_SOURCE_INVALID')
+    for name, field, length in [('commit', 'source_commit', 40), ('tree', 'source_tree', 40), ('inventory_sha256', 'inventory_sha256', 64)]:
+        value = generation.get(name)
+        require(isinstance(value, str) and re.fullmatch('[0-9a-f]{' + str(length) + '}', value) is not None
+                and value == release.get(field) and value == template.get(field if name != 'inventory_sha256' else name),
+                'ARTIFACT_SOURCE_BINDING_MISMATCH')
+    require(projection.get('source') == {key: generation[key] for key in ('commit', 'tree')}
+            and projection.get('managed_tree_sha256', {}).get('projected') == release.get('managed_tree_sha256')
+            and generation.get('edition_profile_sha256') == scaffold.get('edition', {}).get('source_sha256'),
+            'ARTIFACT_SOURCE_PROJECTION_MISMATCH')
+    core = receipt.get('core_php', {})
+    archive = receipt.get('core_php_archive', {})
+    php = projection.get('core', {})
+    require(all(isinstance(value, dict) for value in (core, archive, php, receipt.get('sources', {}))), 'ARTIFACT_PHP_INPUT_MISMATCH')
+    require(core.get('package') == 'peanut-admin/core' and core.get('resolved_version') == release.get('version')
+            and core.get('constraint') == release.get('version')
+            and re.fullmatch(r'[0-9a-f]{40}', str(core.get('source_reference', ''))) is not None
+            and re.fullmatch(r'[0-9a-f]{64}', str(archive.get('sha256', ''))) is not None
+            and re.fullmatch(r'[0-9a-f]{40}', str(archive.get('sha1', ''))) is not None
+            and receipt.get('sources', {}).get('php', {}).get('commit') == core.get('source_reference')
+            and php == {'package': core['package'], 'resolved_version': core['resolved_version'],
+                        'source_reference': core['source_reference'], 'archive_path': archive.get('path'),
+                        'archive_sha256': archive.get('sha256'), 'archive_sha1': archive.get('sha1')},
+            'ARTIFACT_PHP_INPUT_MISMATCH')
+    versions = document(file(root, 'release-versions.json'))
+    require(versions.get('schema_version') == 3 and versions.get('core_php') == core
+            and versions.get('core_web') == receipt.get('core_web')
+            and projection.get('web_source_reference') == receipt.get('core_web', {}).get('source_reference')
+            and projection.get('web_source_reference') == receipt.get('sources', {}).get('web', {}).get('commit')
+            and re.fullmatch(r'[0-9a-f]{40}', str(projection.get('web_source_reference', ''))) is not None,
+            'ARTIFACT_VERSION_INPUT_MISMATCH')
+    web = projection.get('core_web')
+    require(isinstance(web, dict) and len(web) == 6, 'ARTIFACT_WEB_INPUTS_REQUIRED')
+    for package, record in web.items():
+        require(isinstance(record, dict) and record.get('version') == release.get('version')
+                and receipt.get('core_web', {}).get('packages', {}).get(package) ==
+                {key: record.get(key) for key in ('version', 'archive', 'sha256')}, 'ARTIFACT_WEB_INPUT_MISMATCH')
+    app_rows = manifest.get('files')
+    scaffold_rows = scaffold.get('files')
+    require(isinstance(app_rows, list) and isinstance(scaffold_rows, list), 'ARTIFACT_FILES_REQUIRED')
+    require(all(isinstance(row, dict) for row in [*app_rows, *scaffold_rows]), 'ARTIFACT_FILE_INVALID')
+    app_index = {relative(row.get('path')): row for row in app_rows}
+    scaffold_index = {relative(row.get('path')): row for row in scaffold_rows}
+    require(len(app_index) == len(app_rows) and len(scaffold_index) == len(scaffold_rows)
+            and set(app_index) == set(scaffold_index) | {'SECURITY.md', 'resources/project-resources.json',
+                'scripts/seed-demo-data', 'server/config/peanut.php', 'web/src/peanut.overrides.ts'}, 'ARTIFACT_FILE_SET_MISMATCH')
+    for name, row in scaffold_index.items():
+        require(app_index[name].get('classification') == row.get('classification')
+                and app_index[name].get('mode') == row.get('mode'), 'ARTIFACT_OWNERSHIP_MISMATCH:' + name)
+    descriptor = {'core': {'package': core['package'], 'resolved_version': core['resolved_version'],
+                          'source_reference': core['source_reference'], 'path_in_archive': relative(archive.get('path')),
+                          'sha256': archive.get('sha256'), 'sha1': archive.get('sha1')},
+                  'core_web': web, 'web_source_reference': projection['web_source_reference'],
+                  'core_inputs_sha256': candidate['core_inputs_sha256']}
+    archives(descriptor)
+    return {'manifest': manifest, 'raw': raw, 'descriptor': descriptor}
+
+
+def artifact_source(root: Path, scaffold_path: Path, core_path: Path) -> tuple[dict, dict[str, bytes]]:
+    """Freeze the real derived APP source; only its five known installs are omitted."""
+    require(root.resolve() == Path(__file__).resolve().parent.parent, 'ARTIFACT_PACKER_SOURCE_MISMATCH')
+    proof = artifact_proofs(root, scaffold_path, core_path)
+    manifest = proof['manifest']
+    expected = {'.peanut/application-manifest.json': digest(file(root, '.peanut/application-manifest.json'))}
+    for row in manifest['files']:
+        name = relative(row['path'])
+        require(row.get('mode') in (0o644, 0o755), 'ARTIFACT_SOURCE_MODE_INVALID')
+        expected[name] = row.get('sha256')
+        if row.get('classification') in ('managed', 'generated-managed'):
+            baseline = relative(row.get('baseline_path'))
+            require(baseline == manifest['ownership']['baseline_root'] + '/' + name, 'ARTIFACT_BASELINE_PATH_INVALID')
+            expected[baseline] = row.get('baseline_sha256')
+    source = {}
+    for directory, children, names in os.walk(root, followlinks=False):
+        parent = Path(directory)
+        kept = []
+        for child in children:
+            path = parent / child
+            name = path.relative_to(root).as_posix()
+            if name in INSTALLED_DIRECTORIES:
+                continue
+            require(not path.is_symlink(), 'ARTIFACT_SOURCE_SYMLINK')
+            kept.append(child)
+        children[:] = kept
+        for child in names:
+            name = (parent / child).relative_to(root).as_posix()
+            require(name in expected, 'ARTIFACT_SOURCE_EXTRA:' + name)
+            path = file(root, name)
+            mode = stat.S_IMODE(path.stat().st_mode)
+            require(mode in (0o644, 0o755) and digest(path) == expected[name], 'ARTIFACT_SOURCE_CHANGED:' + name)
+            source[name] = {'sha256': expected[name], 'mode': mode}
+    require(set(source) == set(expected), 'ARTIFACT_SOURCE_MISSING')
+    for row in manifest['files']:
+        require(source[row['path']]['mode'] == row['mode'], 'ARTIFACT_SOURCE_MODE_CHANGED')
+    source = dict(sorted(source.items()))
+    marker = {'schema_version': 1, 'protocol': PROTOCOL, 'scope': 'internal-candidate', 'formal_release_eligible': False,
+              'generation_source': manifest['generation_source'], 'original_manifest_sha256': expected['.peanut/application-manifest.json'],
+              **proof['descriptor'], 'projection': {'original_tree_sha256': tree_digest(source),
+                  'projected_tree_sha256': tree_digest(source), 'changes': [], 'additions': []},
+              'selection': {'edition': manifest['application']['edition'], 'profile': 'full', 'workflow': 'full',
+                            'clients': ['Admin', 'Platform', 'PC SPA', 'UniApp H5']}, 'source_files': source}
+    return marker, proof['raw']
+
+
 def verify(root: Path, expected: dict | None = None) -> dict:
     marker_path = file(root, MARKER)
     marker = document(marker_path)
     require(marker.get("protocol") == PROTOCOL and marker.get("scope") == "internal-candidate"
             and marker.get("formal_release_eligible") is False, "MARKER_IDENTITY_INVALID")
+    projection = marker.get('projection')
+    artifact = None
+    if isinstance(projection, dict) and projection.get('changes') == [] and projection.get('additions') == []:
+        artifact = artifact_proofs(root)
+        require(all(marker.get(key) == value for key, value in artifact['descriptor'].items()), 'ARTIFACT_MARKER_INPUT_MISMATCH')
     core = marker.get("core")
     require(isinstance(core, dict), "CORE_REQUIRED")
     core_path = relative(core.get("path_in_archive"))
@@ -135,7 +297,9 @@ def verify(root: Path, expected: dict | None = None) -> dict:
             import base64
             expected_sri = "sha512-" + base64.b64encode(hashlib.sha512(file(root, name).read_bytes()).digest()).decode()
             require(row.get("integrity") == expected_sri, "ARCHIVE_SRI_MISMATCH")
-    current = tree(root, set(inputs))
+    proof_files = ({name: hashlib.sha256(raw).hexdigest() for name, raw in artifact['raw'].items()}
+                   if artifact is not None else None)
+    current = tree(root, set(inputs), proof_files=proof_files)
     projection = marker.get("projection")
     require(isinstance(projection, dict), "PROJECTION_REQUIRED")
     require(tree_digest(current) == projection.get("projected_tree_sha256"), "PROJECTED_TREE_MISMATCH")
@@ -157,7 +321,8 @@ def verify(root: Path, expected: dict | None = None) -> dict:
         require(name in inputs and name not in seen and current.get(name) == row.get("after"), "ADDITION_DIGEST_MISMATCH")
         seen.add(name)
         original.pop(name)
-    require(core_path in seen, "CORE_ADDITION_REQUIRED")
+    require(core_path in seen or (artifact is not None and projection.get('original_tree_sha256') == projection.get('projected_tree_sha256')
+                                 and current.get(core_path, {}).get('sha256') == core.get('sha256')), "CORE_ADDITION_REQUIRED")
     require(tree_digest(original) == projection.get("original_tree_sha256"), "ORIGINAL_TREE_MISMATCH")
     manifest_path = file(root, ".peanut/application-manifest.json")
     require(digest(manifest_path) == marker.get("original_manifest_sha256"), "ORIGINAL_MANIFEST_MISMATCH")
@@ -253,6 +418,9 @@ def seal(root: Path, captured: Path, core_file: Path) -> dict:
 def verify_assembled(root: Path, expected: dict | None = None) -> dict:
     """A complete APP has browser outputs; its sealed source is still exact."""
     marker = document(file(root, MARKER))
+    artifact = artifact_proofs(root) if (marker.get('projection', {}).get('changes') == []
+                                       and marker.get('projection', {}).get('additions') == []) else None
+    proof_names = set(ARTIFACT_PROOFS) if artifact is not None else set()
     identity_name = ".peanut/application-release.json"
     identity = document(file(root, identity_name))
     require(identity.get("protocol") == "peanut.application-release.v1"
@@ -296,7 +464,7 @@ def verify_assembled(root: Path, expected: dict | None = None) -> dict:
     require(backend_application.get('source_files_sha256') == _policy.rows_sha256(
         [row for row in rows if row['path'] not in backend_outputs]), 'ASSEMBLED_BACKEND_INPUT_MISMATCH')
     prefixes = ("server/public/admin/", "server/public/platform/", "server/public/pc/", "server/public/mobile/")
-    for name in set(actual) - set(sealed) - backend_outputs - {MARKER, "release-manifest.txt"}:
+    for name in set(actual) - set(sealed) - backend_outputs - proof_names - {MARKER, "release-manifest.txt"}:
         prefix = next((p for p in prefixes if name.startswith(p)), None)
         asset = name[len(prefix):] if prefix else ""
         require(bool(asset) and _policy.allowed_source(asset)
@@ -317,7 +485,7 @@ def verify_assembled(root: Path, expected: dict | None = None) -> dict:
     import shutil
     with tempfile.TemporaryDirectory(prefix="peanut-internal-verify-") as temporary:
         source = Path(temporary)
-        for name in [*sealed, MARKER]:
+        for name in [*sealed, MARKER, *sorted(proof_names)]:
             target = source / name
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(file(root, name), target)
