@@ -544,8 +544,14 @@ final class InstallationExecutionHost
         if (\leaseGit(['-C', $candidate, 'status', '--porcelain', '--untracked-files=normal']) !== '') { throw new RuntimeException('INSTALL_PARTIAL_SOURCE_DIRTY'); }
         foreach (['database/install.php', 'database/environment-guard.php', 'app/common/value/installation/ApplicationSourceIdentity.php',
             'app/common/services/installation/InstallationExecutionHost.php', 'app/common/services/upgrade/ApplicationMigrationRunner.php',
-            'app/common/services/upgrade/SourceApplicationBackup.php', 'database/migrations/20261019-module-migration-provenance-metadata.sql'] as $relative) {
-            if (hash_file('sha256', $this->serverRoot . '/' . $relative) !== hash_file('sha256', $candidate . '/server/' . $relative)) { throw new RuntimeException('INSTALL_PARTIAL_PROGRAM_CANDIDATE_MISMATCH'); }
+            'app/common/services/upgrade/SourceApplicationBackup.php', 'database/migrations/20261019-module-migration-provenance-metadata.sql',
+            'app/common/infrastructure/migration/PeanutMigrationAdapter.php', 'app/common/infrastructure/migration/PeanutMigrationRun.php',
+            'app/common/infrastructure/migration/ImmutableSqlMigration.php', 'app/common/infrastructure/migration/CleanInstallBaseline.php',
+            'app/common/infrastructure/migration/CleanInstallMigration.php', 'database/baselines/5.0.2-r1/manifest.json',
+            'database/baselines/5.0.2-r1/baseline.lock', 'database/baselines/5.0.2-r1/schema.sql', 'database/baselines/5.0.2-r1/data.sql'] as $relative) {
+            $runtimeFile = $this->serverRoot . '/' . $relative; $sourceFile = $candidate . '/server/' . $relative;
+            if (!is_file($runtimeFile) || is_link($runtimeFile) || !is_file($sourceFile) || is_link($sourceFile)
+                || hash_file('sha256', $runtimeFile) !== hash_file('sha256', $sourceFile)) { throw new RuntimeException('INSTALL_PARTIAL_PROGRAM_CANDIDATE_MISMATCH'); }
         }
         $required = ['pa_schema_migration', 'pa_module_migration', 'pa_system_menu', 'pa_config', 'pa_tenant', 'pa_tenant_member', 'pa_account',
             'pa_credential', 'pa_member_role', 'pa_role', 'pa_platform_operator', 'pa_plugin_installation', 'pa_module_installation'];

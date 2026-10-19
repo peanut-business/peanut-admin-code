@@ -1194,6 +1194,13 @@ final class ApplicationSchemaHost
         $ledgerShape = $this->sourceLedgerShape($pdo);
         $ledger = $pdo->query('SELECT * FROM pa_schema_migration ORDER BY migration_id')->fetchAll(PDO::FETCH_ASSOC);
         $byId = array_column($ledger, null, 'migration_id'); $pending = []; $selected = []; $releaseVersions = [];
+        $seedSelection = \app\common\infrastructure\migration\CleanInstallBaseline::selection($pdo, $files, $target, $this->serverRoot . '/database');
+        $files = $seedSelection['files'];
+        if ($seedSelection['baseline'] !== null) {
+            $seed = $seedSelection['baseline'];
+            $selected[$seed['key']] = $seed['sha256'];
+            $releaseVersions[$seed['key']] = $seed['source_product_version'];
+        }
         foreach ($files as $file) {
             $sql = (string) file_get_contents($file); $identity = ApplicationMigrationRunner::releaseIdentity($sql, $default);
             if ($identity['peanut_release'] && version_compare($identity['release_version'], $target, '>')) { continue; }
@@ -1227,6 +1234,7 @@ final class ApplicationSchemaHost
         $columns = $pdo->query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='pa_module_migration' ORDER BY ORDINAL_POSITION")->fetchAll(PDO::FETCH_COLUMN);
         $shape = $this->sourceModuleShape($pdo);
         return ['pending' => $pending, 'selected' => $selected, 'release_versions' => $releaseVersions, 'target' => $target, 'default_release' => $default,
+            'installation_baseline' => $seedSelection['baseline'],
             'supersessions' => $supersession === null ? [] : [$supersession],
             'historical_transferred' => $historical,
             'application_rows_sha256' => $this->digest($ledger), 'application_rows_count' => count($ledger),

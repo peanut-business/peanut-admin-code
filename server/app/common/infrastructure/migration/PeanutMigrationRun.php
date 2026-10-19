@@ -36,6 +36,22 @@ final class PeanutMigrationRun extends Run
         $run->migrate($version);
     }
 
+    public static function applyBaseline(PDO $pdo, CleanInstallBaseline $baseline, callable $initializeIdentity, callable $initializeCatalog, callable $completion): void
+    {
+        if ($pdo->inTransaction()) { throw new RuntimeException('MIGRATION_OUTER_TRANSACTION_FORBIDDEN'); }
+        $run = new self();
+        $run->input = new \think\console\Input([]);
+        $run->output = new \think\console\Output('buffer');
+        $run->adapter = new PeanutMigrationAdapter($pdo, null);
+        $run->adapter->assertSourceIdentities([CleanInstallBaseline::KEY]);
+        $version = PeanutMigrationAdapter::version(CleanInstallBaseline::KEY);
+        $migration = new CleanInstallMigration('peanut', $version, $run->input, $run->output);
+        $migration->bindSource($baseline, $initializeIdentity, $initializeCatalog, $completion);
+        $run->migrations = [$version => $migration];
+        if (isset($run->adapter->getVersionLog()[$version])) { throw new RuntimeException('MIGRATION_NATIVE_HISTORY_CHANGED'); }
+        $run->migrate($version);
+    }
+
     protected function getVersions()
     {
         // Other text identities have no ordering relation to this admitted stage.

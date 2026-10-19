@@ -64,12 +64,15 @@ final class ApplicationMigrationRunner
 
         try {
             $this->assertLock($pdo, $lockName);
+            $baselineSelection = \app\common\infrastructure\migration\CleanInstallBaseline::selection($pdo, $files, $targetVersion);
+            $files = $baselineSelection['files'];
             $supersession = self::provenanceSupersession($pdo, $files, $targetVersion);
             $identities = array_map(static fn(string $file): string => basename($file, '.sql'), $files);
+            if ($baselineSelection['baseline'] !== null) { $identities[] = $baselineSelection['baseline']['key']; }
             if ($supersession !== null) { $identities[] = self::PROVENANCE_ORIGINAL; }
             (new PeanutMigrationAdapter($pdo, null))->assertSourceIdentities($identities);
             $pending = $this->pending($pdo, $files, $targetVersion, $defaultReleaseVersion);
-            $selected = [];
+            $selected = $baselineSelection['baseline'] === null ? [] : [$baselineSelection['baseline']['key']];
             foreach ($files as $file) {
                 $identity = self::releaseIdentity((string) file_get_contents($file), $defaultReleaseVersion);
                 if (!$identity['peanut_release'] || version_compare($identity['release_version'], $targetVersion, '<=')) { $selected[] = basename($file, '.sql'); }
@@ -81,6 +84,7 @@ final class ApplicationMigrationRunner
                     'applied' => [],
                     'pending' => array_column($pending, 'id'),
                     'selected' => $selected,
+                    'baseline' => $baselineSelection['baseline'],
                     'supersessions' => $supersession === null ? [] : [$supersession],
                 ];
                 $this->complete($pdo, $lockName, $result, $beforeUnlock);
@@ -131,6 +135,7 @@ final class ApplicationMigrationRunner
                 'applied' => $applied,
                 'pending' => [],
                 'selected' => $selected,
+                'baseline' => $baselineSelection['baseline'],
             ];
             $resolved = self::provenanceSupersession($pdo, $files, $targetVersion);
             if (($resolved['original_ledger'] ?? null) !== ($supersession['original_ledger'] ?? null)) {
