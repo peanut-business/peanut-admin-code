@@ -29,8 +29,7 @@ final class ArticlePublicBodyRenderer
                 $text = match ($mark['type']) {
                     'bold' => '<strong>' . $text . '</strong>', 'italic' => '<em>' . $text . '</em>',
                     'strike' => '<s>' . $text . '</s>', 'underline' => '<u>' . $text . '</u>', 'code' => '<code>' . $text . '</code>',
-                    'link' => '<a href="' . self::escape($attrs['href']) . '" target="' . self::escape($attrs['target'] ?? '_self')
-                        . '" rel="noopener noreferrer">' . $text . '</a>',
+                    'link' => self::link($attrs, $text),
                     'textStyle' => isset($attrs['color']) ? '<span style="color:' . self::escape($attrs['color']) . '">' . $text . '</span>' : $text,
                 };
             }
@@ -56,6 +55,17 @@ final class ArticlePublicBodyRenderer
         if ($type === 'codeBlock') { $body = '<code>' . $body . '</code>'; }
         if ($type === 'table') { $body = '<tbody>' . $body . '</tbody>'; }
         return '<' . $tag . $attributes . '>' . $body . '</' . $tag . '>';
+    }
+
+    private static function link(array $attrs, string $text): string
+    {
+        // These are the existing RichTextResourceService controlled-File URL paths, not ordinary hyperlinks.
+        $path = rawurldecode((string) parse_url($attrs['href'], PHP_URL_PATH));
+        if (str_contains($path, '/storage/') || str_contains($path, '/api/storage/delivery')) {
+            return $text . '（附件需授权查看）';
+        }
+        return '<a href="' . self::escape($attrs['href']) . '" target="' . self::escape($attrs['target'] ?? '_self')
+            . '" rel="noopener noreferrer">' . $text . '</a>';
     }
 
     private static function escape(string $value): string
