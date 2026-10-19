@@ -209,19 +209,29 @@ final readonly class CollaborationService implements \PeanutAdmin\Modules\Collab
     {
         $body = $this->input(['room_key','lease_epoch','connection_key']);
         [$connection,$ticket] = $this->connectionTicket(self::text($body, 'connection_key'));
+        $mode = (string) $connection->mode;
+        if (!in_array($mode, ['read','write'], true) || $ticket->mode !== $mode) {
+            throw BusinessException::forbidden('COLLABORATION_CONNECTION_DENIED', '协作连接模式无效');
+        }
         return $this->asActor(
             TicketIdentity::fromLedger(NativeCollaborationProvider::json($ticket->issued_identity_json)),
-            function (TenantContext $actor) use ($body, $connection, $ticket): array {
-                return Db::transaction(function () use ($actor, $body, $connection, $ticket): array {
-                    $doc = $this->documents->authorizeCollaboration($actor, (int) $ticket->document_id, 'read');
+            function (TenantContext $actor) use ($body, $connection, $ticket, $mode): array {
+                return Db::transaction(function () use ($actor, $body, $connection, $ticket, $mode): array {
+                    $doc = $this->documents->authorizeCollaboration($actor, (int) $ticket->document_id, $mode);
                     $this->sameTicketDocument($ticket, $doc);
                     $data = $this->documents->loadAuthorizedCollaboration(
                         $actor,
                         (int) $ticket->document_id,
                         self::owner(NativeCollaborationProvider::json($ticket->owner_reference_json)),
+                        $mode,
                     );
                     $room = $this->native->lockedRoom(self::text($body, 'room_key'), self::positive($body, 'lease_epoch'));
-                    $this->lockedConnection($connection->connection_key, $room);
+                    // Keep Document-before-room lock order; reject a changed grant before committing the load.
+                    $current = $this->lockedConnection($connection->connection_key, $room);
+                    if ((int) $current->ticket_id !== (int) $ticket->id || $current->mode !== $mode
+                        || $current->authorization_revision !== $connection->authorization_revision) {
+                        throw BusinessException::forbidden('COLLABORATION_CONNECTION_DENIED', '协作连接授权已改变');
+                    }
                     if ($room->status !== 'active') {
                         throw BusinessException::conflict('RECOVERY_REQUIRED', '房间正在排空或恢复');
                     }

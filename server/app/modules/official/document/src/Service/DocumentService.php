@@ -1053,11 +1053,14 @@ final readonly class DocumentService implements DocumentCommands, DocumentQuerie
         return $this->authorization->compareRevocationGrant($identity, $documentId, $mode, $issuedRevision, $factId, $factHash);
     }
 
-    public function loadAuthorizedCollaboration(TenantContext $context, int $documentId, DocumentOwnerReference $owner): array
+    public function loadAuthorizedCollaboration(TenantContext $context, int $documentId, DocumentOwnerReference $owner, string $mode): array
     {
+        if (!in_array($mode, ['read','write'], true)) {
+            throw BusinessException::invalid('DOCUMENT_COLLABORATION_MODE_INVALID', '协作模式无效');
+        }
         $this->requireCollaborationTransaction($context->tenantId, false);
-        return $this->authorization->run($context, function (TenantContext $current) use ($documentId, $owner): array {
-            $document = $this->authorization->document($current, $documentId, 'view', true);
+        return $this->authorization->run($context, function (TenantContext $current) use ($documentId, $owner, $mode): array {
+            $document = $this->authorization->document($current, $documentId, $mode === 'write' ? 'edit' : 'view', true);
             if (DocumentAuthorizationService::reference($document) != $owner || $document->content_kind !== 'rich_text'
                 || !(bool) $document->collaboration_enabled) {
                 throw BusinessException::forbidden('COLLABORATION_DOCUMENT_BINDING_INVALID', '协作读取与当前文档不一致');

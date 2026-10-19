@@ -14,8 +14,8 @@ interface DocumentCollaborativeWrites
     public function authorizeCollaboration(TenantContext $context, int $documentId, string $mode, bool $enable = false): array;
     /** No current-human shortcut: compiled provider must prove the accepted exact-byte capture. */
     public function commitAccepted(AcceptedStoreInput $input): DurableSaveReceipt;
-    /** Normal client load keeps real live-human Session/owner checks, independently of service HMAC. */
-    public function loadAuthorizedCollaboration(TenantContext $context, int $documentId, DocumentOwnerReference $owner): array;
+    /** Server-held read/write mode selects current view/edit checks; service HMAC does not grant human access. */
+    public function loadAuthorizedCollaboration(TenantContext $context, int $documentId, DocumentOwnerReference $owner, string $mode): array;
     public function collaborationReceipt(int $documentId, DocumentOwnerReference $owner, string $storeId, string $captureHash): ?DurableSaveReceipt;
     public function recoverCollaborationEpoch(int $documentId, DocumentOwnerReference $owner, int $expectedEpoch, string $requestId): array;
     /** Explicit native owner cutover, preserving archived status; never a human permission shortcut. */
