@@ -49,7 +49,7 @@ try {
         throw new RuntimeException('CREATE_APP_SOURCE_CHANNEL_INVALID');
     }
     $releaseVersion = $options['release-version'] ?? null;
-    if (($channel === 'development' && ($releaseVersion !== null || isset($options['scaffold-manifest'])))
+    if (($channel === 'development' && $releaseVersion !== null)
         || ($channel !== 'development' && (!is_string($releaseVersion) || $releaseVersion === ''))) {
         throw new RuntimeException('CREATE_APP_SOURCE_CHANNEL_RELEASE_MISMATCH');
     }
@@ -61,20 +61,24 @@ try {
         throw new RuntimeException('CREATE_APP_RELEASE_VERSION_INVALID');
     }
     $adoptionPath = null;
-    if ($channel !== 'development') {
+    if ($channel !== 'development' || isset($options['scaffold-manifest'])) {
         $adoptionPath = $options['scaffold-manifest']
             ?? ($root . '/scaffold/releases/v' . $releaseVersion . '/scaffold-manifest.json');
         if (!str_starts_with($adoptionPath, '/')) {
             throw new RuntimeException('CREATE_APP_SCAFFOLD_MANIFEST_PATH_INVALID');
         }
         $adoption = ScaffoldManifest::load($adoptionPath);
-        if ($adoption->path !== realpath($root . '/scaffold/releases/v' . $releaseVersion . '/scaffold-manifest.json')) {
+        if ($channel !== 'development'
+            && $adoption->path !== realpath($root . '/scaffold/releases/v' . $releaseVersion . '/scaffold-manifest.json')) {
             throw new RuntimeException('CREATE_APP_SCAFFOLD_MANIFEST_PATH_INVALID');
         }
-        if ($adoption->version() !== $releaseVersion
+        if (($channel !== 'development' && $adoption->version() !== $releaseVersion)
             || ($adoption->release()['inventory_template_version'] ?? null) !== $templateVersion
             || ($adoption->release()['inventory_sha256'] ?? null) !== hash_file('sha256', $inventoryPath)) {
             throw new RuntimeException('CREATE_APP_ADOPTION_VERSION_MISMATCH');
+        }
+        if (($channel === 'development') !== isset($adoption->data['internal_core_projection'])) {
+            throw new RuntimeException('CREATE_APP_SOURCE_CHANNEL_RELEASE_MISMATCH');
         }
     }
     $specifiedSourceIdentity = isset($options['source-commit'], $options['source-tree'])

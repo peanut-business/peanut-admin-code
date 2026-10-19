@@ -109,15 +109,17 @@ final class ApplicationCreator
         if ($originRepository !== null && $provenance['repository'] !== $originRepository) {
             throw new RuntimeException('CREATE_APP_SOURCE_REPOSITORY_MISMATCH');
         }
-        if ($this->sourceProvenance !== null
-            && (($provenance['channel'] === 'development') !== ($this->adoptionManifestPath === null))) {
-            throw new RuntimeException('CREATE_APP_SOURCE_CHANNEL_RELEASE_MISMATCH');
-        }
         $inventoryDigest = hash_file('sha256', $this->inventoryPath);
         if (!is_string($inventoryDigest) || preg_match('/^[a-f0-9]{64}$/D', $inventoryDigest) !== 1) {
             throw new RuntimeException('CREATE_APP_INVENTORY_DIGEST_INVALID');
         }
         $adoption = $this->loadAdoptionManifest($inventory);
+        $candidate = $adoption !== null && isset($adoption->data['internal_core_projection']);
+        if (($candidate && $provenance['channel'] !== 'development')
+            || ($this->sourceProvenance !== null && !$candidate
+                && (($provenance['channel'] === 'development') !== ($adoption === null)))) {
+            throw new RuntimeException('CREATE_APP_SOURCE_CHANNEL_RELEASE_MISMATCH');
+        }
         if ($adoption !== null && $provenance['channel'] !== 'development') {
             if ($adoption->version() !== $provenance['release_version']
                 || $adoption->release()['inventory_sha256'] !== $inventoryDigest
@@ -130,6 +132,9 @@ final class ApplicationCreator
         if ($adoptsEdition && (!$this->projectEdition || $adoption->data['edition'] !== $editionProfile->identity())) {
             throw new RuntimeException('CREATE_APP_ADOPTION_EDITION_MISMATCH');
         }
+        $candidateArchives = $candidate
+            ? $this->candidateArchives($adoption, $generationIdentity, $inventoryDigest, $profile, $workflow)
+            : [];
         $target = $this->validateTarget($target);
         $parent = dirname($target);
         $stage = $parent . DIRECTORY_SEPARATOR . '.' . basename($target) . '.create-' . bin2hex(random_bytes(6));
@@ -141,6 +146,11 @@ final class ApplicationCreator
             $files = [];
             foreach ($inventory['files'] as $entry) {
                 if ($entry['classification'] === 'excluded' || !in_array($profile, $entry['profiles'], true)) {
+                    continue;
+                }
+                // Candidate managed bytes come from the selected distribution, not
+                // from a fresh source projection that merely compares equal later.
+                if ($candidate && $entry['classification'] !== 'app-owned') {
                     continue;
                 }
                 $source = $this->sourcePath((string) $entry['path']);
@@ -164,6 +174,9 @@ final class ApplicationCreator
                     'source' => $entry['path'],
                 ];
             }
+            if ($candidate) {
+                $files = array_merge($files, $this->materializeCandidate($stage, $adoption, $inventory, $parameters, $candidateArchives));
+            }
             $this->prepareWritableDirectories($stage);
             usort($files, static fn(array $a, array $b): int => strcmp((string) $a['path'], (string) $b['path']));
             $this->assertNoUnresolvedVariables($stage);
@@ -174,7 +187,7 @@ final class ApplicationCreator
             // Edition projection can rewrite Module/frontend bytes. Build the Plugin
             // manifests and canonical lock only after those final release bytes exist,
             // otherwise the generated lock is stale immediately after projection.
-            if ($this->projectEdition) {
+            if ($this->projectEdition && !$candidate) {
                 $files = $this->projectEdition($stage, $inventory, $files, $editionProfile);
             }
             $files = (new EditionProjector())->workflow($stage, $files, $workflow);
@@ -209,6 +222,16 @@ final class ApplicationCreator
                 $editionProfile,
                 $workflow,
             );
+            if ($candidate) {
+                $manifest['scaffold_candidate'] = [
+                    'manifest_sha256' => substr($adoption->digest(), strlen('sha256:')),
+                    'core_inputs_sha256' => $adoption->data['internal_core_projection']['core_inputs_sha256'],
+                    'formal_release_eligible' => false,
+                ];
+                $this->writeFile($stage . '/.peanut/application-manifest.json', json_encode(
+                    $manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
+                ) . "\n", 0644);
+            }
 
             if (is_dir($target) && !rmdir($target)) {
                 throw new RuntimeException('CREATE_APP_TARGET_NOT_EMPTY');
@@ -352,6 +375,110 @@ final class ApplicationCreator
         return $manifest;
     }
 
+    /** Fixed internal packages are selected explicitly; this never grants a published identity.
+     * @param array{commit:string,tree:string} $identity
+     * @return array<string,string> archive path => SHA-256
+     */
+    private function candidateArchives(ScaffoldManifest $adoption, array $identity, string $inventoryDigest, string $profile, string $workflow): array
+    {
+        $projection = $adoption->data['internal_core_projection'];
+        $release = $adoption->release();
+        if (!is_array($projection)
+            || ($projection['protocol'] ?? null) !== 'peanut.internal-core-scaffold-projection.v1'
+            || ($projection['scope'] ?? null) !== 'internal-upgrade-target-not-formal-release'
+            || ($projection['source'] ?? null) !== $identity
+            || ($release['source_commit'] ?? null) !== $identity['commit']
+            || ($release['source_tree'] ?? null) !== $identity['tree']
+            || ($release['inventory_sha256'] ?? null) !== $inventoryDigest
+            || ($projection['managed_tree_sha256']['projected'] ?? null) !== ($release['managed_tree_sha256'] ?? null)
+            || preg_match('/^[a-f0-9]{64}$/D', (string) ($projection['core_inputs_sha256'] ?? '')) !== 1
+            || !isset($adoption->data['edition']) || $profile !== 'full' || $workflow !== 'full'
+            || ($release['workflow'] ?? null) !== $workflow) {
+            throw new RuntimeException('CREATE_APP_CANDIDATE_IDENTITY_INVALID');
+        }
+        foreach (['build_scaffold_release' => 'scripts/build-scaffold-release',
+            'build_internal_edition_candidate' => 'scripts/build-internal-edition-candidate'] as $key => $path) {
+            if (($projection['build_tools_sha256'][$key] ?? null) !== hash_file('sha256', $this->sourceRoot . '/' . $path)) {
+                throw new RuntimeException('CREATE_APP_CANDIDATE_TOOL_CHANGED');
+            }
+        }
+        $core = $projection['core'] ?? null;
+        $version = $adoption->version();
+        $phpPath = 'packages/core-php/peanut-admin-core-' . $version . '.zip';
+        if (!is_array($core) || ($core['package'] ?? null) !== 'peanut-admin/core'
+            || ($core['resolved_version'] ?? null) !== $version || ($core['archive_path'] ?? null) !== $phpPath
+            || preg_match('/^[a-f0-9]{40}$/D', (string) ($core['source_reference'] ?? '')) !== 1
+            || preg_match('/^[a-f0-9]{64}$/D', (string) ($core['archive_sha256'] ?? '')) !== 1
+            || preg_match('/^[a-f0-9]{40}$/D', (string) ($projection['web_source_reference'] ?? '')) !== 1) {
+            throw new RuntimeException('CREATE_APP_CANDIDATE_CORE_INVALID');
+        }
+        $archives = [$phpPath => $core['archive_sha256']];
+        $suffixes = ['client', 'vue', 'ui-vue', 'nuxt', 'uniapp', 'testing'];
+        $web = $projection['core_web'] ?? null;
+        if (!is_array($web) || array_keys($web) !== array_map(static fn(string $suffix): string => '@peanut-admin/' . $suffix, $suffixes)) {
+            throw new RuntimeException('CREATE_APP_CANDIDATE_WEB_INVALID');
+        }
+        foreach ($suffixes as $suffix) {
+            $package = $web['@peanut-admin/' . $suffix];
+            $path = 'packages/core-web/peanut-admin-' . $suffix . '-' . $version . '.tgz';
+            if (($package['version'] ?? null) !== $version || ($package['archive'] ?? null) !== $path
+                || preg_match('/^[a-f0-9]{64}$/D', (string) ($package['sha256'] ?? '')) !== 1) {
+                throw new RuntimeException('CREATE_APP_CANDIDATE_WEB_INVALID');
+            }
+            $archives[$path] = $package['sha256'];
+        }
+        return $archives;
+    }
+
+    /** Render the selected candidate's managed files. Only fixed package archives
+     * may add paths outside the source inventory; app-owned defaults stay app-owned.
+     * @param array<string,mixed> $inventory
+     * @param array<string,string> $parameters
+     * @param array<string,string> $archives
+     * @return list<array<string,mixed>>
+     */
+    private function materializeCandidate(string $stage, ScaffoldManifest $adoption, array $inventory, array $parameters, array $archives): array
+    {
+        $expected = [];
+        $inventoryTargets = [];
+        foreach ($inventory['files'] as $entry) {
+            $inventoryTargets[$entry['target']] = true;
+            if (in_array($entry['classification'], ['managed', 'generated-managed'], true)
+                && in_array('full', $entry['profiles'], true)) {
+                $expected[$entry['target']] = $entry;
+            }
+        }
+        foreach ($archives as $path => $digest) {
+            if (isset($inventoryTargets[$path])) {
+                throw new RuntimeException('CREATE_APP_CANDIDATE_ARCHIVE_COLLISION');
+            }
+            $expected[$path] = ['path' => $path, 'classification' => 'managed', 'owner' => 'host', 'mode' => 0644];
+        }
+        ksort($expected, SORT_STRING);
+        $released = $adoption->files();
+        if (array_keys($expected) !== array_keys($released)) {
+            throw new RuntimeException('CREATE_APP_CANDIDATE_MANAGED_SET_MISMATCH');
+        }
+        $tokens = $adoption->release()['tokens'];
+        $values = ['product_name' => $parameters['PRODUCT_NAME'], 'slug' => $parameters['SLUG'],
+            'package_identity' => $parameters['PACKAGE_IDENTITY'], 'application_version' => $parameters['APPLICATION_VERSION']];
+        $files = [];
+        foreach ($released as $path => $artifact) {
+            $entry = $expected[$path];
+            $content = file_get_contents($adoption->artifactPath($artifact));
+            if ($artifact['classification'] !== $entry['classification'] || $artifact['mode'] !== $entry['mode']
+                || !is_string($content) || !hash_equals($artifact['template_sha256'], hash('sha256', $content))
+                || (isset($archives[$path]) && !hash_equals($archives[$path], hash('sha256', $content)))) {
+                throw new RuntimeException('CREATE_APP_CANDIDATE_ARTIFACT_INVALID: ' . $path);
+            }
+            $content = isset($archives[$path]) ? $content : $this->renderAdoptionArtifact($adoption, $artifact, $tokens, $values);
+            $this->writeFile($stage . '/' . $path, $content, $entry['mode']);
+            $files[] = ['path' => $path, 'sha256' => hash('sha256', $content), 'mode' => $entry['mode'],
+                'classification' => $entry['classification'], 'owner' => $entry['owner'], 'source' => $entry['path']];
+        }
+        return $files;
+    }
+
     /**
      * @param array<string,string> $parameters
      * @param list<array<string,mixed>> $files
@@ -472,6 +599,13 @@ final class ApplicationCreator
         $content = file_get_contents($adoption->artifactPath($artifact));
         if (!is_string($content)) {
             throw new RuntimeException('CREATE_APP_ADOPTION_ARTIFACT_INVALID: ' . ($artifact['path'] ?? ''));
+        }
+        $path = (string) $artifact['path'];
+        // Immutable SQL identities and compressed package bytes are never branded.
+        if (str_starts_with($path, 'server/database/baselines/')
+            || str_starts_with($path, 'server/database/migrations/')
+            || preg_match('#^packages/core-(?:php|web)/[^/]+\.(?:zip|tgz)$#D', $path) === 1) {
+            return $content;
         }
         $rendered = $this->replaceReleaseTokens($content, $tokens, $values);
         if (($artifact['transform'] ?? null) !== 'composer-lock') {

@@ -417,9 +417,15 @@ function internalCandidateProjectScaffold(string $application, array $core, stri
     $versions['core_php']['source_reference'] = $coreIdentity['source_reference'];
     internalCandidateWriteJson($versionPath, $versions);
     internalCandidateProjectCore($application, $core, $temporary);
+    $web = internalCandidateProjectWeb($application, $core, $receipt, dirname(__DIR__));
+    $versions = internalCandidateReadJson($versionPath);
 
     $allowed = ['release-versions.json' => true, 'server/composer.json' => true,
         'server/composer.lock' => true, 'plugins.lock' => true];
+    foreach (['web', 'platform', 'pc', 'uniapp'] as $client) {
+        $allowed[$client . '/package.json'] = true;
+        $allowed[$client . '/' . ($client === 'web' ? 'pnpm-lock.yaml' : 'package-lock.json')] = true;
+    }
     $changes = [];
     $managed = [];
     foreach ($manifest['files'] as &$file) {
@@ -458,28 +464,36 @@ function internalCandidateProjectScaffold(string $application, array $core, stri
     }
     unset($file);
     $corePath = $core['archive_relative'];
-    $coreBytes = file_get_contents($application . '/' . $corePath);
-    if (!is_string($coreBytes)) {
-        throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_CORE_READ_FAILED');
+    $archives = [$corePath => $core['archive_sha256']];
+    foreach ($web['packages'] as $package) {
+        $archives[$package['archive']] = $package['sha256'];
     }
-    foreach ([constant('RELEASE_PRODUCT_TOKEN'), constant('RELEASE_SLUG_TOKEN'),
-        constant('RELEASE_PACKAGE_TOKEN'), constant('RELEASE_APPLICATION_VERSION_TOKEN')] as $token) {
-        if (str_contains($coreBytes, $token)) {
-            throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_CORE_TOKEN_COLLISION');
+    $additions = [];
+    foreach ($archives as $path => $digest) {
+        $bytes = file_get_contents($application . '/' . $path);
+        if (!is_string($bytes) || !hash_equals($digest, hash('sha256', $bytes))) {
+            throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_CORE_READ_FAILED: ' . $path);
         }
-    }
-    foreach ($manifest['files'] as $file) {
-        if ($file['path'] === $corePath) {
-            throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_CORE_PATH_COLLISION');
+        foreach ([constant('RELEASE_PRODUCT_TOKEN'), constant('RELEASE_SLUG_TOKEN'),
+            constant('RELEASE_PACKAGE_TOKEN'), constant('RELEASE_APPLICATION_VERSION_TOKEN')] as $token) {
+            if (str_contains($bytes, $token)) {
+                throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_CORE_TOKEN_COLLISION: ' . $path);
+            }
         }
+        foreach ($manifest['files'] as $file) {
+            if ($file['path'] === $path) {
+                throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_CORE_PATH_COLLISION: ' . $path);
+            }
+        }
+        $baseline = $manifest['ownership']['baseline_root'] . '/' . $path;
+        internalCandidateCopyFile($application . '/' . $path, $application . '/' . $baseline);
+        $file = ['path' => $path, 'sha256' => $digest, 'mode' => 0644,
+            'classification' => 'managed', 'owner' => 'host', 'source' => $path,
+            'baseline_path' => $baseline, 'baseline_sha256' => $digest];
+        $manifest['files'][] = $file;
+        $managed[] = $file;
+        $additions[] = ['path' => $path, 'sha256' => $digest];
     }
-    $coreBaseline = $manifest['ownership']['baseline_root'] . '/' . $corePath;
-    internalCandidateCopyFile($application . '/' . $corePath, $application . '/' . $coreBaseline);
-    $coreFile = ['path' => $corePath, 'sha256' => $core['archive_sha256'], 'mode' => 0644,
-        'classification' => 'managed', 'owner' => 'host', 'source' => $corePath,
-        'baseline_path' => $coreBaseline, 'baseline_sha256' => $core['archive_sha256']];
-    $manifest['files'][] = $coreFile;
-    $managed[] = $coreFile;
     usort($manifest['files'], static fn(array $a, array $b): int => strcmp($a['path'], $b['path']));
     $rows = array_map(static fn(array $file): string => $file['path'] . "\0" . $file['sha256'], $managed);
     sort($rows, SORT_STRING);
@@ -501,10 +515,13 @@ function internalCandidateProjectScaffold(string $application, array $core, stri
         'core' => ['package' => 'peanut-admin/core', 'resolved_version' => $coreIdentity['resolved_version'],
             'source_reference' => $coreIdentity['source_reference'], 'archive_path' => $corePath,
             'archive_sha256' => $core['archive_sha256'], 'archive_sha1' => $core['archive_sha1']],
+        'core_web' => $web['packages'],
+        'web_source_reference' => $core['inputs']['core_web']['source_reference'],
         'release_versions' => ['before' => $originalPhp, 'after' => $versions['core_php']],
         'managed_tree_sha256' => ['source' => $originalDigest, 'projected' => $manifest['digests']['managed_tree_sha256']],
         'changes' => $changes,
         'addition' => ['path' => $corePath, 'sha256' => $core['archive_sha256']],
+        'additions' => $additions,
     ];
 }
 
