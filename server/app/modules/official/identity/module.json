@@ -45,6 +45,7 @@
       "pa_role",
       "pa_role_permission",
       "pa_source_read_grant",
+      "pa_system_menu",
       "pa_target_type",
       "pa_tenant",
       "pa_tenant_audit_event",
