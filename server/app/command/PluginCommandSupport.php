@@ -33,7 +33,7 @@ trait PluginCommandSupport
 
     private function configureSourceDevelopmentOptions(): void
     {
-        foreach (['scope', 'owner', 'thread', 'session', 'gate', 'backup-tool', 'backup-output'] as $name) {
+        foreach (['scope', 'owner', 'thread', 'session', 'gate', 'backup-tool', 'backup-output', 'source-plan', 'maintenance', 'recovery'] as $name) {
             $this->addOption($name, null, \think\console\input\Option::VALUE_REQUIRED, 'Native source-development plan ' . $name, '');
         }
     }
@@ -42,8 +42,20 @@ trait PluginCommandSupport
     {
         return $this->writePluginResult($output, function () use ($input, $operation, $key): array {
             $this->assertDevelopmentInstanceMaintenanceAccess();
-            if ($input->getOption('scope') !== 'source-development' || !$input->getOption('dry-run')) {
-                throw new PluginLifecycleException('PLUGIN_SOURCE_DRY_RUN_REQUIRED', 'Source maintenance currently supports explicit read-only plans only.');
+            if ($input->getOption('scope') !== 'source-development') {
+                throw new PluginLifecycleException('PLUGIN_SOURCE_SCOPE_REQUIRED', 'Explicit source-development scope is required.');
+            }
+            $dryRun = (bool) $input->getOption('dry-run');
+            $execution = null;
+            foreach (['source-plan', 'maintenance', 'recovery'] as $name) {
+                if ($dryRun ? $input->getOption($name) !== '' : $input->getOption($name) === '') {
+                    throw new PluginLifecycleException('PLUGIN_SOURCE_ARGUMENTS_INVALID', 'Apply needs the original plan, current maintenance and native recovery; dry-run accepts none.');
+                }
+            }
+            if (!$dryRun) {
+                $execution = ['plan' => (string) $input->getOption('source-plan'), 'maintenance' => (string) $input->getOption('maintenance'),
+                    'recovery' => (string) $input->getOption('recovery'),
+                    'mutate' => fn(): array => $operation === 'upgrade' ? $this->pluginLifecycle()->upgrade($key, false) : $this->pluginLifecycle()->install($key)];
             }
             $actor = [];
             foreach (['owner', 'thread', 'session', 'gate'] as $name) { $actor[$name] = $input->getOption($name); }
@@ -52,13 +64,14 @@ trait PluginCommandSupport
                 fn(callable $consume): array => $operation === 'upgrade'
                     ? $this->pluginLifecycle()->upgrade($key, true, $consume) : $this->pluginLifecycle()->reconcilePlan($key, false, $consume),
                 (string) $input->getOption('backup-tool'), (string) $input->getOption('backup-output'),
+                $execution,
             );
         });
     }
 
     private function hasSourceDevelopmentOptions(\think\console\Input $input): bool
     {
-        foreach (['scope', 'owner', 'thread', 'session', 'gate', 'backup-tool', 'backup-output'] as $name) {
+        foreach (['scope', 'owner', 'thread', 'session', 'gate', 'backup-tool', 'backup-output', 'source-plan', 'maintenance', 'recovery'] as $name) {
             if ($input->getOption($name) !== '') { return true; }
         }
         return false;

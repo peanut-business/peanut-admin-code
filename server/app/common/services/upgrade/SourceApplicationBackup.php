@@ -444,7 +444,7 @@ final class SourceApplicationBackup
             'native_client' => $before, 'tooling_resource_id' => $tool['stable_resource_id'], 'adapter_sha256' => hash_file('sha256', __FILE__),
             'receipts' => $receipts,
             'observed_at' => time(), 'restore_status' => 'not_executed', 'qualification' => 'not_run', 'execution_admitted' => false];
-        if ($purpose === 'application-schema') { $record['capture_started_at'] = $captureStarted; }
+        $record['capture_started_at'] = $captureStarted;
         if ($receiptBackup !== null) { $record['notification_forward_receipt'] = $receiptBackup; }
         self::write($directory . '/backup.json', $record);
         $recovery = ['schema_version' => 1, 'protocol' => $purpose === 'application-schema' ? 'peanut.source-development-recovery.v1' : 'peanut.source-plugin-recovery.v1',
@@ -456,19 +456,131 @@ final class SourceApplicationBackup
             'backup_payload' => $restore['payload'], 'restore_tool' => ['path' => __FILE__, 'sha256' => hash_file('sha256', __FILE__)],
             'restore_contract_sha256' => hash_file('sha256', $directory . '/RESTORE.json'),
             'receipts' => $receipts];
-        if ($purpose === 'application-schema') {
-            $recovery['capture_started_at'] = $captureStarted;
-            $recovery['pending'] = $baseline['pending'];
-            $recovery['selected'] = $record['selected'];
-        } else {
-            $recovery['migration_sha256'] = count($baseline['pending']) === 1 ? $baseline['selected'][$baseline['pending'][0]] : null;
-        }
+        $recovery['capture_started_at'] = $captureStarted;
+        $recovery['pending'] = $baseline['pending'];
+        $recovery['selected'] = $record['selected'];
         if ($receiptBackup !== null) { $recovery['notification_forward_receipt'] = $receiptBackup; }
         self::write($directory . '/recovery.json', $recovery);
         return ['status' => 'captured', 'path' => $directory . '/backup.json', 'sha256' => hash_file('sha256', $directory . '/backup.json'),
             'recovery_references' => ['path' => $directory . '/recovery.json', 'sha256' => hash_file('sha256', $directory . '/recovery.json')],
             'backup_payload_sha256' => $restore['payload']['sha256'], 'tables' => $scope['tables'],
             'restore' => 'not_executed', 'execution_admitted' => false, 'qualification' => 'not_run'];
+    }
+
+    /** Reads a protected local source document; its contents alone never authorize mutation. */
+    public static function protectedPluginJson(string $path, string $serverRoot): array
+    {
+        self::pluginFile($path, $serverRoot);
+        $value = json_decode((string) file_get_contents($path), true, 64, JSON_THROW_ON_ERROR);
+        if (!is_array($value) || array_is_list($value)) { throw new RuntimeException('PLUGIN_SOURCE_DOCUMENT_INVALID'); }
+        return $value;
+    }
+
+    private static function pluginFile(string $path, string $serverRoot, ?int $maximum = 4194304): void
+    {
+        $stat = @lstat($path); $owner = fileowner(rtrim($serverRoot, DIRECTORY_SEPARATOR));
+        if (realpath($path) !== $path || !is_file($path) || is_link($path) || !is_array($stat)
+            || $stat['nlink'] !== 1 || ($stat['mode'] & 0777) !== 0600 || !in_array($stat['uid'], [0, $owner], true)
+            || !function_exists('posix_geteuid') || !in_array(posix_geteuid(), [0, $owner], true)
+            || ($maximum !== null && $stat['size'] > $maximum)) { throw new RuntimeException('PLUGIN_SOURCE_DOCUMENT_UNSAFE'); }
+    }
+
+    /** Actual native capture and current exclusion references, never a restore or SQL authorization. */
+    public static function pluginRecovery(array $binding, array $baseline, array $scope, string $maintenancePath, string $recoveryPath, string $serverRoot): array
+    {
+        $same = static fn(mixed $a, mixed $b): bool => self::pluginDigest($a) === self::pluginDigest($b);
+        $pending = $baseline['pending']; $selected = array_intersect_key($baseline['selected'], array_flip($pending));
+        $maintenance = self::protectedPluginJson($maintenancePath, $serverRoot);
+        $recovery = self::protectedPluginJson($recoveryPath, $serverRoot);
+        foreach (['maintenance' => $maintenance, 'recovery' => $recovery] as $kind => $record) {
+            if (($record['schema_version'] ?? null) !== 1 || ($record['protocol'] ?? null) !== 'peanut.source-plugin-' . $kind . '.v1'
+                || !$same($record['source'] ?? null, $binding['source']) || !$same($record['database'] ?? null, $binding['database'])
+                || !$same($record['authority'] ?? null, $binding['authority']) || ($record['registry_sha256'] ?? null) !== $binding['registry_sha256']
+                || ($record['baseline_sha256'] ?? null) !== self::pluginDigest($baseline)
+                || ($record['pending'] ?? null) !== $pending || !$same($record['selected'] ?? null, $selected)
+                || ($record['scope'] ?? null) !== $scope['tables'] || !is_int($record['observed_at'] ?? null)
+                || !is_int($record['expires_at'] ?? null) || $record['observed_at'] < $binding['authority']['created_at']
+                || $record['observed_at'] > time() || $record['expires_at'] <= time() || $record['expires_at'] > $binding['authority']['expires_at']
+                || !is_array($record['receipts'] ?? null) || $record['receipts'] === []) { throw new RuntimeException('PLUGIN_SOURCE_EVIDENCE_REQUIRED'); }
+            foreach ($record['receipts'] as $receipt) {
+                self::pluginFile($receipt['path'] ?? '', $serverRoot);
+                if (hash_file('sha256', $receipt['path']) !== ($receipt['sha256'] ?? null)) { throw new RuntimeException('PLUGIN_SOURCE_EVIDENCE_CHANGED'); }
+            }
+        }
+        if (($maintenance['state'] ?? null) !== 'active' || ($maintenance['excluded_writers'] ?? null) !== ['http', 'workers', 'other-writers']) {
+            throw new RuntimeException('PLUGIN_SOURCE_WINDOW_REQUIRED');
+        }
+        $manifestPath = $recovery['backup_manifest']['path'] ?? '';
+        $manifest = self::protectedPluginJson($manifestPath, $serverRoot);
+        $restorePath = $manifest['restore_instructions']['path'] ?? '';
+        $restore = self::protectedPluginJson($restorePath, $serverRoot);
+        $payload = $recovery['backup_payload'] ?? [];
+        self::pluginFile($payload['path'] ?? '', $serverRoot, null);
+        if (($manifest['protocol'] ?? null) !== 'peanut.source-plugin-backup.v1' || ($manifest['status'] ?? null) !== 'captured'
+            || hash_file('sha256', $manifestPath) !== ($recovery['backup_manifest']['sha256'] ?? null)
+            || !$same($manifest['binding'] ?? null, $binding) || !$same($manifest['scope'] ?? null, $scope)
+            || ($manifest['baseline_sha256'] ?? null) !== self::pluginDigest($baseline)
+            || ($manifest['pending'] ?? null) !== $pending || !$same($manifest['selected'] ?? null, $selected)
+            || !$same($manifest['backup_payload'] ?? null, $payload) || hash_file('sha256', $payload['path']) !== ($payload['sha256'] ?? null)
+            || filesize($payload['path']) !== ($payload['bytes'] ?? null) || $payload['bytes'] <= 0
+            || !is_int($manifest['capture_started_at'] ?? null) || $manifest['capture_started_at'] < $maintenance['observed_at']
+            || $manifest['capture_started_at'] > ($manifest['observed_at'] ?? 0)
+            || ($recovery['capture_started_at'] ?? null) !== $manifest['capture_started_at']
+            || ($recovery['observed_at'] ?? null) !== $manifest['observed_at'] || !$same($recovery['source_database'] ?? null, $binding['database'])
+            || ($recovery['restore_tool']['path'] ?? null) !== __FILE__ || ($recovery['restore_tool']['sha256'] ?? null) !== hash_file('sha256', __FILE__)
+            || ($manifest['adapter_sha256'] ?? null) !== hash_file('sha256', __FILE__)
+            || hash_file('sha256', $restorePath) !== ($manifest['restore_instructions']['sha256'] ?? null)
+            || ($recovery['restore_contract_sha256'] ?? null) !== hash_file('sha256', $restorePath)
+            || ($restore['protocol'] ?? null) !== 'peanut.source-plugin-restore-instructions.v1' || ($restore['executed'] ?? null) !== false
+            || !$same($restore['source'] ?? null, $binding['source']) || !$same($restore['database'] ?? null, $binding['database'])
+            || !$same($restore['native_client'] ?? null, $manifest['native_client'] ?? null)
+            || !$same($restore['payload'] ?? null, $payload) || ($restore['tables'] ?? null) !== $scope['tables']
+            || ($restore['absent_original_tables'] ?? null) !== $scope['absent_original_tables']
+            || !$same($manifest['receipts'] ?? null, $recovery['receipts'])
+            || array_column($recovery['receipts'], 'phase') !== ['probe-before', 'dump', 'probe-after']) { throw new RuntimeException('PLUGIN_SOURCE_NATIVE_CAPTURE_REQUIRED'); }
+        foreach ($recovery['receipts'] as $receipt) {
+            $stdout = dirname($manifestPath) . '/' . match ($receipt['phase']) {
+                'probe-before' => 'probe-before.txt', 'dump' => 'database.sql', 'probe-after' => 'probe-after.txt',
+            };
+            if ($receipt['path'] !== $stdout . '.process.json') { throw new RuntimeException('PLUGIN_SOURCE_NATIVE_CAPTURE_REQUIRED'); }
+            self::pluginFile($stdout, $serverRoot, $receipt['phase'] === 'dump' ? null : 4194304);
+            $terminal = self::protectedPluginJson($receipt['path'], $serverRoot);
+            $actual = ['path' => $stdout, 'sha256' => hash_file('sha256', $stdout), 'bytes' => filesize($stdout)];
+            if (($terminal['phase'] ?? null) !== $receipt['phase'] || ($terminal['rc'] ?? null) !== 0
+                || ($terminal['local_process_terminal'] ?? null) !== true || ($terminal['local_deadline_exceeded'] ?? null) !== false
+                || ($terminal['remote_success_terminal_confirmed'] ?? null) !== true || !$same($terminal['stdout'] ?? null, $actual)
+                || ($receipt['phase'] === 'dump' && !$same($actual, $payload))) { throw new RuntimeException('PLUGIN_SOURCE_NATIVE_CAPTURE_REQUIRED'); }
+        }
+        $original = $scope['notification_forward_receipt'] ?? null;
+        if ($original !== null) {
+            $receipt = $manifest['notification_forward_receipt'] ?? [];
+            if (!$same($receipt['original'] ?? null, $original) || !$same($receipt, $restore['notification_forward_receipt'] ?? null)
+                || !$same($receipt, $recovery['notification_forward_receipt'] ?? null) || ($receipt['restore_executed'] ?? null) !== false) {
+                throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_RECEIPT_CHANGED');
+            }
+            if ($original['exists']) {
+                $file = $receipt['payload']['path'] ?? ''; self::pluginFile($file, $serverRoot);
+                if (hash_file('sha256', $file) !== $original['sha256'] || filesize($file) !== $original['bytes']
+                    || !$same($receipt['payload'], ['path' => $file, 'sha256' => $original['sha256'], 'bytes' => $original['bytes']])) {
+                    throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_RECEIPT_CHANGED');
+                }
+            } elseif (($receipt['payload'] ?? null) !== null) { throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_RECEIPT_CHANGED'); }
+        }
+        return ['maintenance' => ['path' => $maintenancePath, 'sha256' => hash_file('sha256', $maintenancePath)],
+            'recovery' => ['path' => $recoveryPath, 'sha256' => hash_file('sha256', $recoveryPath)],
+            'backup_manifest' => $recovery['backup_manifest'], 'backup_payload' => $payload,
+            'restore_contract_sha256' => $recovery['restore_contract_sha256']];
+    }
+
+    private static function pluginDigest(mixed $value): string
+    {
+        $sort = static function (mixed $item) use (&$sort): mixed {
+            if (!is_array($item)) { return $item; }
+            if (!array_is_list($item)) { ksort($item, SORT_STRING); }
+            foreach ($item as &$child) { $child = $sort($child); }
+            return $item;
+        };
+        return hash('sha256', json_encode($sort($value), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
     private static function probe(array $tool, array $binding, string $prefix, string $phase, int $seconds, callable $recheck): array

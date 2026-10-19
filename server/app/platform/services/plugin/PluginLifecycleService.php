@@ -354,6 +354,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     /** @param array<string,ManifestDocument> $manifests @return array<string,mixed> */
     private function activate(PluginDescriptor $plugin, array $manifests, bool $upgrade): array
     {
+        self::sourceMutationGuard($plugin->key, $upgrade ? 'upgrade' : 'install');
         foreach ($manifests as $moduleKey => $manifest) {
             $preflight = $this->moduleMigrationPlan($plugin, $moduleKey, $manifest, true);
             if (!$preflight['may_apply']) {
@@ -380,6 +381,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     /** @param array<string,ManifestDocument> $manifests */
     private function beginLifecycle(PluginDescriptor $plugin, array $manifests, bool $upgrade): void
     {
+        self::sourceMutationGuard($plugin->key);
         $now = $this->now();
         Db::transaction(function () use ($plugin, $manifests, $upgrade, $now): void {
             $this->tenantStates->lockLifecycleRows(array_keys($manifests), [$plugin->key]);
@@ -402,6 +404,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                     ->update([...$values, 'revision' => Db::raw('revision+1')]);
             }
             $this->catalogs->beginPackageDeployment($manifests, $upgrade, $now);
+            self::sourceMutationGuard($plugin->key);
         });
     }
 
@@ -425,6 +428,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     /** @param array<string,ManifestDocument> $manifests */
     private function applyMigrations(PluginDescriptor $plugin, array $manifests, bool $notificationForward = false): void
     {
+        self::sourceMutationGuard($plugin->key);
         $batch = (int) Db::name('module_migration')->max('batch_no') + 1;
         foreach ($manifests as $moduleKey => $manifest) {
             $files = self::migrationFiles($plugin->moduleRoots[$moduleKey], $manifest);
@@ -495,6 +499,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 if (!$pdo instanceof \PDO || $pdo->inTransaction()) {
                     throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'An admitted master outside a transaction is required.');
                 }
+                self::sourceMutationGuard($plugin->key);
                 $filePrivate = $moduleKey === 'official.file' && isset($adoptions['targets'][$migrationKey])
                     ? self::captureFilePreservation($pdo, $migrationKey, $checksum) : null;
                 $documentStage = $moduleKey === 'official.document' && isset(self::DOCUMENT_STAGES[$migrationKey]);
@@ -514,7 +519,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 $stageAdmission = $stageContract === null ? null : self::adoptionAdmission($pdo);
                 $stageBefore = null;
                 $now = $this->now();
-                Db::transaction(function () use ($moduleKey, $migrationKey, $manifest, $checksum, $batch, $now): void {
+                Db::transaction(function () use ($plugin, $moduleKey, $migrationKey, $manifest, $checksum, $batch, $now): void {
+                    self::sourceMutationGuard($plugin->key);
                     Db::name('module_migration')->insert([
                         'module_key' => $moduleKey,
                         'migration_key' => $migrationKey,
@@ -524,6 +530,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                         'status' => 'applying',
                         'started_at' => $now,
                     ]);
+                    self::sourceMutationGuard($plugin->key);
                 });
                 try {
                     $sourceSql = file_get_contents($path);
@@ -547,8 +554,9 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                         }
                     }
                     // MySQL DDL commits implicitly. Keep the durable migration ledger outside the DDL boundary.
+                    self::sourceMutationGuard($plugin->key);
                     PeanutMigrationRun::apply($pdo, $moduleKey, $migrationKey, $sourceSql, $checksum,
-                        function (?array $executionBounds) use ($connection, $pdo, $moduleKey, $migrationKey, $adoptions, $checksum, &$filePrivate,
+                        function (?array $executionBounds) use ($plugin, $connection, $pdo, $moduleKey, $migrationKey, $adoptions, $checksum, &$filePrivate,
                             $documentStage, $documentAdmission, &$documentPrivate, $articleStage, $articleAdmission, $articlePredecessors, &$articlePrivate,
                             $memberStage, $memberAdmission, &$memberPrivate,
                             $importExportStage, $importExportAdmission, &$importExportPrivate,
@@ -556,6 +564,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                             if (Db::connect() !== $connection || $connection->getPdo() !== $pdo || $pdo->inTransaction()) {
                                 throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Master connection changed during migration.');
                             }
+                            self::sourceMutationGuard($plugin->key);
                             if ($documentStage) {
                                 if (!is_array($documentPrivate) || $executionBounds !== null
                                     || self::json(self::adoptionAdmission($pdo)) !== self::json($documentAdmission)) {
@@ -627,6 +636,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                                     throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Master connection changed during the File poststate proof.');
                                 }
                             }
+                            self::sourceMutationGuard($plugin->key);
                         });
                     if ($notificationForward && $moduleKey === 'official.notification') { $this->assertNotificationForward($plugin); }
                 } catch (\Throwable $exception) {
@@ -635,6 +645,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                             throw new \RuntimeException('MODULE_MIGRATION_NATIVE_MASTER_CHANGED');
                         }
                         if ($pdo->inTransaction()) { $pdo->rollBack(); }
+                        self::sourceMutationGuard($plugin->key);
                         Db::name('module_migration')->where('module_key', $moduleKey)
                             ->where('migration_key', $migrationKey)->where('status', 'applying')->update([
                                 'status' => 'failed',
@@ -667,6 +678,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     /** @param array<string,ManifestDocument> $manifests */
     private function registerCatalog(PluginDescriptor $plugin, array $manifests, bool $upgrade): void
     {
+        self::sourceMutationGuard($plugin->key);
         $now = $this->now();
         Db::transaction(function () use ($plugin, $manifests, $upgrade, $now): void {
             $this->tenantStates->lockLifecycleRows(array_keys($manifests), [$plugin->key]);
@@ -707,6 +719,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 'upgraded_at' => $upgrade ? $now : null,
                 'uninstalled_at' => null, 'last_error_code' => null, 'updated_at' => $now,
             ]);
+            self::sourceMutationGuard($plugin->key);
         });
     }
 
@@ -714,6 +727,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     private function markFailed(PluginDescriptor $plugin, array $manifests, string $errorCode): void
     {
         try {
+            self::sourceMutationGuard($plugin->key);
             $now = $this->now();
             Db::transaction(function () use ($plugin, $manifests, $errorCode, $now): void {
                 $this->tenantStates->lockLifecycleRows(array_keys($manifests), [$plugin->key]);
@@ -722,6 +736,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                     'last_error_code' => $errorCode, 'updated_at' => $now,
                 ]);
                 $this->catalogs->markPackageDeploymentFailed(array_keys($manifests), $errorCode, $now);
+                self::sourceMutationGuard($plugin->key);
             });
         } catch (\Throwable) {
         }
@@ -1953,6 +1968,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
 
     private static function adoptionAdmission(\PDO $pdo): array
     {
+        $source = app()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->migrationAdmission($pdo);
+        if ($source !== null) { return $source; }
         if (!app()->make(CurrentExecutionContext::class)->current() instanceof InstallationExecutionContext) {
             try {
                 if (Db::connect()->getPdo() !== $pdo || !class_exists('PeanutServerUpdatePlan', false)) {
@@ -1973,6 +1990,21 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         try { return app()->make(InstallationExecutionHost::class)->migrationAdoptionAdmission($pdo); }
         catch (\Throwable) {
             throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_WINDOW_REQUIRED', 'A held native installation admission bound to the actual master database is required.');
+        }
+    }
+
+    private static function sourceMutationGuard(string $pluginKey, ?string $operation = null): void
+    {
+        $context = app()->make(CurrentExecutionContext::class)->current();
+        if (!$context instanceof InstanceExecutionContext || !str_starts_with($context->operation(), 'console.plugin:')) { return; }
+        require_once root_path() . 'database/install.php';
+        if (\installationSourceDevelopmentMode(rtrim(root_path(), DIRECTORY_SEPARATOR))) {
+            $pdo = Db::connect()->getPdo();
+            if (!$pdo instanceof \PDO) { throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Native master is required.'); }
+            $admission = app()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->requireMutation($pdo, $pluginKey);
+            if ($operation !== null && $admission['operation'] !== 'console.plugin:' . $operation) {
+                throw new PluginLifecycleException('PLUGIN_SOURCE_OPERATION_CHANGED', 'The held operation must match the original lifecycle.');
+            }
         }
     }
 
