@@ -732,7 +732,7 @@ function installFreshDatabase(string $serverDir, array $input): array
     if ($pdo->query('SELECT DATABASE()')->fetchColumn() !== $database) { throw new RuntimeException('INSTALL_NATIVE_DATABASE_IDENTITY_CHANGED'); }
     $baseline = \app\common\infrastructure\migration\CleanInstallBaseline::load($databaseDir);
     $versions = applicationReleaseVersions($serverDir);
-    if (version_compare($versions['release_sequence_version'], $baseline->manifest['source_product_version'], '<')) { throw new RuntimeException('INSTALL_BASELINE_VERSION_CONFLICT'); }
+    if (version_compare($versions['source_product_version'], $baseline->manifest['source_product_version'], '<')) { throw new RuntimeException('INSTALL_BASELINE_VERSION_CONFLICT'); }
 
     $lockName = 'peanut_install_' . substr(hash('sha256', $database), 0, 48);
     $lockStatement = $pdo->prepare('SELECT GET_LOCK(?, 10)');
