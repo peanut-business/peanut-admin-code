@@ -23,12 +23,25 @@ use app\common\execution\InstanceExecutionContext;
 use app\common\execution\InstallationExecutionContext;
 use PeanutAdmin\Modules\File\Contract\FileMigrationAdoptionProof;
 use PeanutAdmin\Modules\File\Contract\FileMigrationPreservation;
+use PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight;
+use PeanutAdmin\Modules\Task\Job\Database\TaskSchemaMigrationProof;
 use PeanutAdmin\Modules\Identity\Audit\AuditService;
 use app\common\services\installation\InstallationExecutionHost;
 
 /** Deployment-scoped Plugin lifecycle. It deliberately never mutates pa_tenant_module. */
 final readonly class PluginLifecycleService implements PluginLifecycleCommands
 {
+    private const PRESERVATION_STAGES = [
+        'official.notification:20260921-adopt-notification-delivery-schema' => ['eaef582cd762c803f3f7d213687f61d43fd3634e9f0b984471f11648e10979fb', NotificationUpgradePreflight::class,
+            ['official.notification:20260826-namespace-permission-keys']],
+        'official.notification:20261012-notification-producer-identity' => ['7c01bc1bf1f309e879ff3014f89418157abbce45374a58064d1a6dc94fca07ce', NotificationUpgradePreflight::class,
+            ['official.notification:20260826-namespace-permission-keys', 'official.notification:20260921-adopt-notification-delivery-schema']],
+        'official.task:20260921-adopt-task-job-schema' => ['f04762aeab007bea0b0c4ce277d8f7781a694b17891f1193f303d0481366f21a', TaskSchemaMigrationProof::class,
+            ['official.task:20260826-namespace-permission-keys']],
+        'official.task:20261015020000_add_negative_fact_job_profile' => ['2217e8a0cfc44e2c4c6c1a76a0413ed2448c5695e32f2a31a6a2a3072f44dbd4', TaskSchemaMigrationProof::class,
+            ['official.task:20260826-namespace-permission-keys', 'official.task:20260921-adopt-task-job-schema']],
+    ];
+
     /** @param array<string,mixed> $moduleConfig */
     public function __construct(
         private PluginLockResolver $resolver,
@@ -467,6 +480,9 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 }
                 $filePrivate = $moduleKey === 'official.file' && isset($adoptions['targets'][$migrationKey])
                     ? self::captureFilePreservation($pdo, $migrationKey, $checksum) : null;
+                $stageContract = self::PRESERVATION_STAGES[$migrationKey] ?? null;
+                $stageAdmission = $stageContract === null ? null : self::adoptionAdmission($pdo);
+                $stageBefore = null;
                 $now = $this->now();
                 Db::transaction(function () use ($moduleKey, $migrationKey, $manifest, $checksum, $batch, $now): void {
                     Db::name('module_migration')->insert([
@@ -487,11 +503,32 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                     if (trim($sourceSql) === '') {
                         throw new PluginLifecycleException('MODULE_MIGRATION_INVALID', "Migration is empty: {$migrationKey}");
                     }
+                    if ($stageContract !== null) {
+                        if ($stageContract[0] !== $checksum || !class_exists($stageContract[1])) {
+                            throw new PluginLifecycleException('MODULE_MIGRATION_PRESERVATION_REQUIRED', 'The fixed stage contract and immutable source must match.');
+                        }
+                        $stageLedger = $this->stageLedgerReader($pdo, $connection, $plugin, $manifest, $files, $adoptions,
+                            $moduleKey, $migrationKey, $checksum, $batch, $now, $stageAdmission);
+                        $stageBefore = $stageContract[1]::before($pdo, ['module_key' => $moduleKey,
+                            'migration_key' => $migrationKey, 'checksum' => $checksum, 'stageLedger' => $stageLedger]);
+                        self::assertStageProofIdentity($pdo, $moduleKey, $migrationKey, $checksum, $stageBefore, false);
+                        if ($stageBefore['stageLedger'] !== $stageLedger) {
+                            throw new PluginLifecycleException('MODULE_MIGRATION_STAGE_CHANGED', 'The original live stage reader must be retained.');
+                        }
+                    }
                     // MySQL DDL commits implicitly. Keep the durable migration ledger outside the DDL boundary.
                     PeanutMigrationRun::apply($pdo, $moduleKey, $migrationKey, $sourceSql, $checksum,
-                        static function (?array $executionBounds) use ($connection, $pdo, $moduleKey, $migrationKey, $adoptions, $checksum, &$filePrivate): void {
+                        static function (?array $executionBounds) use ($connection, $pdo, $moduleKey, $migrationKey, $adoptions, $checksum, &$filePrivate, $stageContract, &$stageBefore): void {
                             if (Db::connect() !== $connection || $connection->getPdo() !== $pdo || $pdo->inTransaction()) {
                                 throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Master connection changed during migration.');
+                            }
+                            if ($stageContract !== null) {
+                                if (!is_array($stageBefore) || $executionBounds !== null) {
+                                    throw new PluginLifecycleException('MODULE_MIGRATION_PRESERVATION_REQUIRED', 'The original DDL stage requires its private facts and no time allowance.');
+                                }
+                                $observed = $stageContract[1]::after($pdo, $stageBefore);
+                                self::assertStageProofIdentity($pdo, $moduleKey, $migrationKey, $checksum, $observed, true);
+                                $stageBefore = null;
                             }
                             if ($moduleKey === 'official.file' && isset($adoptions['targets'][$migrationKey])) {
                                 // The original File proof must now observe the complete
@@ -529,9 +566,11 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                     }
                     throw $exception;
                 } finally {
-                    // Never accumulate private File snapshots across stages or
+                    // Never accumulate private business snapshots across stages or
                     // serialize them into the sole migration ledger/result.
                     $filePrivate = null;
+                    $stageBefore = null;
+                    unset($stageLedger);
                 }
             }
         }
@@ -1064,6 +1103,69 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             && ($admission['external_writer_exclusion'] ?? null) === 'ops_protocol_gate_required_not_attested';
     }
 
+    /** Fixed current-stage reader; no caller-supplied SQL, tables, module or ledger authority. */
+    private function stageLedgerReader(\PDO $pdo, object $connection, PluginDescriptor $plugin, ManifestDocument $manifest,
+        array $files, array $adoptions, string $moduleKey, string $key, string $sha, int $batch, string $started, array $admission): \Closure
+    {
+        $context = app()->make(CurrentExecutionContext::class)->current();
+        $read = static function () use ($pdo, $moduleKey): array {
+            $query = $pdo->prepare('SELECT * FROM pa_module_migration WHERE module_key=? ORDER BY id');
+            try { $query->execute([$moduleKey]); return $query->fetchAll(\PDO::FETCH_ASSOC); }
+            finally { $query->closeCursor(); }
+        };
+        $original = $read();
+        $reader = static function (\PDO $actual) use ($pdo, $connection, $plugin, $manifest, $files, $adoptions,
+            $moduleKey, $key, $sha, $batch, $started, $admission, $context, $read, $original): array {
+            if ($actual !== $pdo || Db::connect() !== $connection || $connection->getPdo() !== $pdo || !$pdo->inTransaction()
+                || app()->make(CurrentExecutionContext::class)->current() !== $context
+                || self::json(self::adoptionAdmission($pdo)) !== self::json($admission)) {
+                throw new PluginLifecycleException('MODULE_MIGRATION_STAGE_CHANGED', 'The held native stage, request or master changed.');
+            }
+            $rows = $read(); $seen = []; $current = 0;
+            if ($rows !== $original) { throw new PluginLifecycleException('MODULE_MIGRATION_STAGE_CHANGED', 'The complete stage ledger changed.'); }
+            foreach ($rows as $row) {
+                $rowKey = $row['migration_key'];
+                if ($row['module_key'] !== $moduleKey || !isset($files[$rowKey]) || isset($adoptions['declarations'][$rowKey])
+                    || isset($seen[$rowKey])) { throw new PluginLifecycleException('MODULE_MIGRATION_STAGE_INVALID', 'Unexpected module history.'); }
+                $seen[$rowKey] = true;
+                if ($rowKey === $key) {
+                    if ($row['status'] !== 'applying' || $row['checksum'] !== $sha || $row['module_version'] !== $manifest->data['version']
+                        || (string) $row['batch_no'] !== (string) $batch || $row['started_at'] !== $started
+                        || $row['finished_at'] !== null || $row['error_code'] !== null
+                        || $row['resolution_kind'] !== null || $row['provenance_json'] !== null) {
+                        throw new PluginLifecycleException('MODULE_MIGRATION_STAGE_INVALID', 'The actual committed applying marker must match this invocation.');
+                    }
+                    ++$current;
+                } else {
+                    if ($row['status'] !== 'applied' || strcmp($rowKey, $key) >= 0) {
+                        throw new PluginLifecycleException('MODULE_MIGRATION_STAGE_INVALID', 'Only genuine earlier completed stages may precede this stage.');
+                    }
+                    // Keep native historical checksums and repair/adoption provenance;
+                    // do not normalize history to today's source hashes.
+                    self::assertResolution($row, $adoptions['targets'][$rowKey] ?? null, $pdo, $plugin->key);
+                }
+            }
+            if ($current !== 1 || array_diff(self::PRESERVATION_STAGES[$key][2], array_keys($seen)) !== []) {
+                throw new PluginLifecycleException('MODULE_MIGRATION_STAGE_INVALID', 'The exact current stage and real predecessors are required.');
+            }
+            return $rows;
+        };
+        return $reader;
+    }
+
+    private static function assertStageProofIdentity(\PDO $pdo, string $moduleKey, string $key, string $sha, array $proof, bool $after): void
+    {
+        if (Db::connect()->getPdo() !== $pdo || $pdo->inTransaction() || ($proof['module_key'] ?? null) !== $moduleKey
+            || ($proof['migration_key'] ?? null) !== $key || ($proof['checksum'] ?? null) !== $sha || ($proof['readonly'] ?? null) !== true
+            || (!$after && (!is_array($proof['safe_summary'] ?? null) || !($proof['stageLedger'] ?? null) instanceof \Closure))
+            || ($after && (($proof['preservation_verified'] ?? null) !== true
+                || preg_match('/\A[a-f0-9]{64}\z/D', (string) ($proof['metadata_sha256'] ?? '')) !== 1
+                || preg_match('/\A[a-f0-9]{64}\z/D', (string) ($proof['ledger_sha256'] ?? '')) !== 1
+                || !is_int($proof['created_empty_tables'] ?? null) || $proof['created_empty_tables'] < 0))) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_POSTSTATE_REJECTED', 'The fixed business stage proof is incomplete.');
+        }
+    }
+
     /** Preservation readers use the same declaration/provenance rules; no historical execution claim is inferred. */
     public static function assertResolvedMigrationRows(string $moduleKey, array $files, \PDO $pdo): void
     {
@@ -1388,18 +1490,62 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
 
     private static function readNotificationReceipt(string $path): array
     {
-        $stat = lstat($path); $directory = dirname($path); $parent = lstat($directory);
-        if (!is_array($stat) || !is_array($parent) || is_link($path) || is_link($directory) || !is_file($path)
-            || ($stat['mode'] & 0777) !== 0600 || ($parent['mode'] & 0777) !== 0700 || $stat['nlink'] !== 1
-            || !function_exists('posix_geteuid') || $stat['uid'] !== posix_geteuid() || $parent['uid'] !== posix_geteuid()) {
+        $snapshot = self::notificationReceiptSnapshot($path);
+        if (!$snapshot['exists']) { throw new PluginLifecycleException('NOTIFICATION_FORWARD_RECEIPT_UNTRUSTED', 'Protected binding receipt is missing.'); }
+        return json_decode($snapshot['contents'], true, 64, JSON_THROW_ON_ERROR)['binding'];
+    }
+
+    /** Fixed native receipt only. contents are private backup bytes, never a public plan/result. */
+    public static function notificationReceiptSnapshot(string $path): array
+    {
+        $root = rtrim(root_path(), DIRECTORY_SEPARATOR);
+        $directory = $root . '/private/installation/notification-forward';
+        if (dirname($path) !== $directory || preg_match('/\A[a-f0-9]{64}\.json\z/D', basename($path)) !== 1
+            || !function_exists('posix_geteuid')) {
+            throw new PluginLifecycleException('NOTIFICATION_FORWARD_RECEIPT_UNTRUSTED', 'Only the native fixed receipt location is supported.');
+        }
+        foreach ([$root, $root . '/private', $root . '/private/installation'] as $ancestor) {
+            if (!is_dir($ancestor) || is_link($ancestor)) { throw new PluginLifecycleException('NOTIFICATION_FORWARD_RECEIPT_UNTRUSTED', 'Receipt ancestor is unavailable.'); }
+        }
+        clearstatcache(true, $path); clearstatcache(true, $directory);
+        $parent = @lstat($directory); $stat = @lstat($path);
+        if (($parent !== false && (!is_dir($directory) || is_link($directory) || ($parent['mode'] & 0777) !== 0700 || $parent['uid'] !== posix_geteuid()))
+            || is_link($path)) {
             throw new PluginLifecycleException('NOTIFICATION_FORWARD_RECEIPT_UNTRUSTED', 'Protected binding receipt ownership is invalid.');
         }
-        $data = json_decode((string) file_get_contents($path), true, 64, JSON_THROW_ON_ERROR);
+        $state = ['path' => $path, 'directory_exists' => $parent !== false, 'exists' => $stat !== false,
+            'sha256' => null, 'bytes' => 0, 'mode' => null, 'uid' => null, 'gid' => null];
+        if ($stat === false) {
+            // A failed stat is not evidence of absence. Prove the exact entry
+            // missing in its readable native parent (or the receipt directory missing).
+            $entries = @scandir($parent === false ? dirname($directory) : $directory);
+            if (!is_array($entries) || in_array($parent === false ? basename($directory) : basename($path), $entries, true)) {
+                throw new PluginLifecycleException('NOTIFICATION_FORWARD_RECEIPT_UNTRUSTED', 'Receipt absence is not observable.');
+            }
+            return $state;
+        }
+        if ($parent === false || !is_file($path) || ($stat['mode'] & 0777) !== 0600 || $stat['nlink'] !== 1 || $stat['uid'] !== posix_geteuid()) {
+            throw new PluginLifecycleException('NOTIFICATION_FORWARD_RECEIPT_UNTRUSTED', 'Protected binding receipt ownership is invalid.');
+        }
+        $stream = fopen($path, 'rb');
+        if ($stream === false) { throw new PluginLifecycleException('NOTIFICATION_FORWARD_RECEIPT_UNTRUSTED', 'Receipt cannot be read.'); }
+        try {
+            $opened = fstat($stream); $bytes = stream_get_contents($stream); $after = fstat($stream);
+            $fields = array_flip(['dev', 'ino', 'mode', 'nlink', 'uid', 'gid', 'size', 'mtime', 'ctime']);
+            if (!is_array($opened) || !is_array($after)
+                || array_intersect_key($opened, $fields) !== array_intersect_key($stat, $fields)
+                || array_intersect_key($opened, $fields) !== array_intersect_key($after, $fields)
+                || !is_string($bytes) || strlen($bytes) !== $stat['size']) {
+                throw new PluginLifecycleException('NOTIFICATION_FORWARD_RECEIPT_CHANGED', 'Receipt changed while reading its original bytes.');
+            }
+        } finally { fclose($stream); }
+        $data = json_decode($bytes, true, 64, JSON_THROW_ON_ERROR);
         if (!is_array($data) || !is_array($data['binding'] ?? null) || !is_string($data['sha256'] ?? null)
             || !hash_equals($data['sha256'], hash('sha256', self::json($data['binding'])))) {
             throw new PluginLifecycleException('NOTIFICATION_FORWARD_RECEIPT_UNTRUSTED', 'Protected binding receipt is invalid.');
         }
-        return $data['binding'];
+        return array_replace($state, ['sha256' => hash('sha256', $bytes), 'bytes' => strlen($bytes),
+            'mode' => 0600, 'uid' => $stat['uid'], 'gid' => $stat['gid'], 'contents' => $bytes]);
     }
 
     private static function writeNotificationReceipt(string $path, array $binding, ?array $previous = null): void
@@ -1530,12 +1676,18 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 throw new PluginLifecycleException('MODULE_MIGRATION_INVALID', 'Ledger contains an absent SQL or a falsely executed adoption declaration.');
             }
         }
+        $receipt = null;
+        if ($notificationForward !== null) {
+            $receipt = self::notificationReceiptSnapshot($this->notificationReceiptPath($plugin));
+            unset($receipt['contents']);
+        }
         return ['may_apply' => $mayApply && $prerequisite === null, 'planning_complete' => $mayApply,
             'status' => !$mayApply ? 'blocked' : ($prerequisite === null ? 'ready' : 'planned'), 'execution_admitted' => false,
             'application_prerequisites' => $prerequisite === null ? [] : [$prerequisite],
             'migrations' => $migrations, 'preflight_reports' => $reports,
             'adoption_declarations' => array_values($adoptions['targets']),
-            'notification_forward_schema' => $notificationForward, 'notification_forward_admission' => $notificationAdmission];
+            'notification_forward_schema' => $notificationForward, 'notification_forward_admission' => $notificationAdmission,
+            'notification_forward_receipt' => $receipt];
     }
 
     private static function assertAdoptionPrerequisites(array $migrations): void

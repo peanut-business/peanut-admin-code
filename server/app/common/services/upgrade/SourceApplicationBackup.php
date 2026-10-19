@@ -6,6 +6,7 @@ namespace app\common\services\upgrade;
 
 use PDO;
 use RuntimeException;
+use app\platform\services\plugin\PluginLifecycleService;
 
 /** Native selected-table mysqldump for source application and closed Plugin lifecycle effects. */
 final class SourceApplicationBackup
@@ -24,6 +25,17 @@ final class SourceApplicationBackup
         'official.file:20260921020000_add_file_image_assets' => ['826fa9d8fd841b6834bc5f23cabced30b7ca111de4bb1f629ccbdb8501200cd4', ['pa_file_object', 'pa_file_image_asset', 'pa_file_derivative', 'pa_file_delivery_nonce']],
         'official.file:20261012030000_add_controlled_file_references' => ['005edad54fc0cf06a4eeb6afa7c0e5f374a0bc352eaa088282b2f12932251591', ['pa_file_delivery_grant', 'pa_file_reference']],
         'official.file:20261012051000_add_immutable_document_snapshots' => ['7b73c0c24f14f4c7f4fc1f75321e009b1a645d7df3f7d653dbb3d018e3b5bdbe', ['pa_file_immutable_snapshot']],
+    ];
+    private const MODULE_DDL_STAGES = [
+        'official.notification:20260921-adopt-notification-delivery-schema' => ['eaef582cd762c803f3f7d213687f61d43fd3634e9f0b984471f11648e10979fb',
+            ['pa_notification_template', 'pa_notification_message', 'pa_notification_attachment', 'pa_notification_outbox', 'pa_sms_rate_bucket', 'pa_notification_event'],
+            'PeanutAdmin\\Modules\\Notification\\Contract\\NotificationUpgradePreflight'],
+        'official.notification:20261012-notification-producer-identity' => ['7c01bc1bf1f309e879ff3014f89418157abbce45374a58064d1a6dc94fca07ce',
+            ['pa_notification_message', 'pa_notification_task_actor'], 'PeanutAdmin\\Modules\\Notification\\Contract\\NotificationUpgradePreflight'],
+        'official.task:20260921-adopt-task-job-schema' => ['f04762aeab007bea0b0c4ce277d8f7781a694b17891f1193f303d0481366f21a',
+            ['pa_task_job', 'pa_task_job_attempt', 'pa_task_job_event'], 'PeanutAdmin\\Modules\\Task\\Job\\Database\\TaskSchemaMigrationProof'],
+        'official.task:20261015020000_add_negative_fact_job_profile' => ['2217e8a0cfc44e2c4c6c1a76a0413ed2448c5695e32f2a31a6a2a3072f44dbd4',
+            ['pa_task_job', 'pa_task_job_event'], 'PeanutAdmin\\Modules\\Task\\Job\\Database\\TaskSchemaMigrationProof'],
     ];
     private const TABLES = [
         '20260909-notification-sms-reservation' => ['pa_notice_log'],
@@ -53,13 +65,15 @@ final class SourceApplicationBackup
     public static function pluginEffects(array $plan): array
     {
         $tables = self::CATALOG_TABLES; $requirements = []; $pending = []; $selected = [];
-        $filePending = false;
+        $filePending = false; $writeRequirements = []; $receipt = null;
         if (!is_array($plan['modules'] ?? null) || $plan['modules'] === []) { throw new RuntimeException('PLUGIN_SOURCE_MODULE_PLAN_REQUIRED'); }
         foreach ($plan['modules'] as $module) {
             $key = $module['module_key'] ?? null;
             if (!is_string($key) || !is_array($module['migrations'] ?? null)) { throw new RuntimeException('PLUGIN_SOURCE_MODULE_PLAN_REQUIRED'); }
             if (($module['notification_forward_schema'] ?? null) !== null) {
-                $requirements[] = ['module_key' => $key, 'code' => 'PLUGIN_SOURCE_NOTIFICATION_PRIVATE_RECEIPT_RECOVERY_REQUIRED'];
+                if ($key !== 'official.notification' || !is_array($module['notification_forward_receipt'] ?? null) || $receipt !== null) {
+                    $requirements[] = ['module_key' => $key, 'code' => 'PLUGIN_SOURCE_NOTIFICATION_PRIVATE_RECEIPT_RECOVERY_REQUIRED'];
+                } else { $receipt = $module['notification_forward_receipt']; }
             }
             foreach ($module['migrations'] as $migration) {
                 $id = $migration['migration_key'] ?? null;
@@ -71,6 +85,13 @@ final class SourceApplicationBackup
                 $selected[$id] = $sha;
                 if (($migration['disposition'] ?? null) === 'already_applied') { continue; }
                 $pending[] = $id; $tables[] = 'pa_module_migration';
+                $ddl = self::MODULE_DDL_STAGES[$id] ?? null;
+                if ($ddl !== null && $sha === $ddl[0] && in_array($migration['disposition'] ?? null, ['execute', 'after_predecessor'], true)) {
+                    array_push($tables, ...$ddl[1]);
+                    $writeRequirements[] = ['module_key' => $key, 'migration_key' => $id, 'code' => 'PLUGIN_SOURCE_MODULE_PRESERVATION_REQUIRED',
+                        'contract' => $ddl[2], 'api' => 'before(PDO, exactMigration), after(PDO, wholeBefore); native same-stage ledger reader required'];
+                    continue;
+                }
                 $file = self::FILE_STAGES[$id] ?? null;
                 if ($key !== 'official.file' || $file === null || $sha !== $file[0]
                     || !in_array($migration['disposition'] ?? null, ['execute', 'adopt'], true)
@@ -84,14 +105,18 @@ final class SourceApplicationBackup
             }
         }
         $tables = array_values(array_unique($tables)); sort($tables, SORT_STRING); ksort($selected, SORT_STRING);
+        if ($filePending) {
+            $writeRequirements[] = ['code' => 'PLUGIN_SOURCE_FILE_PRESERVATION_REQUIRED',
+                'contract' => 'PeanutAdmin\\Modules\\File\\Contract\\FileMigrationPreservation',
+                'api' => 'before(PDO, canonicalMigrationKey), after(PDO, privateBefore); native File report remains disposition authority'];
+        }
         return ['protocol' => 'peanut.source-plugin-effects.v1', 'tables' => $tables,
             'pending' => $pending, 'selected' => $selected, 'closure_complete' => $requirements === [], 'requirements' => $requirements,
-            'write_requirements' => $filePending ? [['code' => 'PLUGIN_SOURCE_FILE_PRESERVATION_REQUIRED',
-                'contract' => 'PeanutAdmin\\Modules\\File\\Contract\\FileMigrationPreservation',
-                'api' => 'before(PDO, canonicalMigrationKey), after(PDO, privateBefore); native File report remains disposition authority']] : [],
+            'write_requirements' => $writeRequirements, 'notification_forward_receipt' => $receipt,
             'transaction_boundary' => 'begin lifecycle, each migration/adoption, catalog registration and failure marking commit separately; failed status is best effort',
             'shared_catalogs' => 'whole tables including core/global keys and operation relation replacement; no tenant or module row filter',
-            'non_database_effects' => ['menu conflict warnings may append runtime logs; preserve logs as failure evidence, never rewind them with the database'],
+            'non_database_effects' => ['menu conflict warnings may append runtime logs; preserve logs as failure evidence, never rewind them with the database',
+                'Notification forward binding is a separate fixed protected file; preserve exact original bytes or proven absence independently of selected-table SQL'],
             'trigger_effects' => 'not authorized by the fixed source closure; inspect visible definitions and resolve external writes before any lifecycle mutation',
             'execution_admitted' => false];
     }
@@ -100,7 +125,15 @@ final class SourceApplicationBackup
     public static function pluginScope(PDO $pdo, array $effects): array
     {
         if (($effects['closure_complete'] ?? null) !== true) { throw new RuntimeException('PLUGIN_SOURCE_BACKUP_EFFECTS_INCOMPLETE'); }
-        return self::observe($pdo, $effects['tables'], true);
+        $scope = self::observe($pdo, $effects['tables'], true);
+        if (($effects['notification_forward_receipt'] ?? null) !== null) {
+            $expected = $effects['notification_forward_receipt'];
+            $snapshot = PluginLifecycleService::notificationReceiptSnapshot((string) ($expected['path'] ?? ''));
+            unset($snapshot['contents']);
+            if ($snapshot !== $expected) { throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_RECEIPT_CHANGED'); }
+            $scope['notification_forward_receipt'] = $snapshot;
+        }
+        return $scope;
     }
 
     private static function observe(PDO $pdo, array $tables, bool $allowMissing): array
@@ -186,6 +219,27 @@ final class SourceApplicationBackup
             throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_OUTPUT_UNSAFE');
         }
         $recheck();
+        $receiptBackup = null;
+        if ($purpose === 'plugin-lifecycle' && isset($scope['notification_forward_receipt'])) {
+            $original = $scope['notification_forward_receipt'];
+            $snapshot = PluginLifecycleService::notificationReceiptSnapshot($original['path']);
+            $contents = $snapshot['contents'] ?? null; unset($snapshot['contents']);
+            if ($snapshot !== $original) { throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_RECEIPT_CHANGED'); }
+            $receiptBackup = ['original' => $original, 'payload' => null, 'restore_executed' => false];
+            if ($original['exists']) {
+                if (!is_string($contents) || hash('sha256', $contents) !== $original['sha256'] || strlen($contents) !== $original['bytes']) {
+                    throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_RECEIPT_CHANGED');
+                }
+                $receiptPath = $directory . '/notification-forward-original.json';
+                self::writeBytes($receiptPath, $contents);
+                if (hash_file('sha256', $receiptPath) !== $original['sha256'] || filesize($receiptPath) !== $original['bytes']) {
+                    throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_RECEIPT_CHANGED');
+                }
+                $receiptBackup['payload'] = ['path' => $receiptPath, 'sha256' => $original['sha256'], 'bytes' => $original['bytes']];
+            }
+            unset($contents);
+            $recheck();
+        }
         $before = self::probe($tool, $binding, $directory . '/probe-before', 'probe-before', $seconds, $recheck);
         $dump = $directory . '/database.sql';
         $flags = ['--no-defaults', '--no-login-paths', '--single-transaction', '--skip-lock-tables', '--quick', '--hex-blob',
@@ -198,6 +252,11 @@ final class SourceApplicationBackup
         $after = self::probe($tool, $binding, $directory . '/probe-after', 'probe-after', $seconds, $recheck);
         $recheck();
         if ($before !== $after) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_REMOTE_CHANGED'); }
+        if ($receiptBackup !== null) {
+            $snapshot = PluginLifecycleService::notificationReceiptSnapshot($receiptBackup['original']['path']);
+            unset($snapshot['contents']);
+            if ($snapshot !== $receiptBackup['original']) { throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_RECEIPT_CHANGED'); }
+        }
         $restore = ['protocol' => $purpose === 'application-schema' ? 'peanut.source-application-restore-instructions.v1' : 'peanut.source-plugin-restore-instructions.v1', 'source' => $binding['source'],
             'database' => $binding['database'], 'tables' => $scope['tables'], 'native_client' => $before,
             'payload' => ['path' => $dump, 'sha256' => hash_file('sha256', $dump), 'bytes' => filesize($dump)],
@@ -214,6 +273,11 @@ final class SourceApplicationBackup
             $restore['absent_original_tables'] = $scope['absent_original_tables'];
             $restore['requirements'][] = 'Restore admission must separately cover removal of only the recorded originally absent tables created by this exact operation; the payload cannot recreate absence and no DROP is executed here.';
             $restore['requirements'][] = 'Shared catalog restoration excludes all affected writers, including other tenants/tasks. Preserve audit/failure/unknown evidence before any authorized ledger/audit rollback; never erase it as routine cleanup.';
+            if ($receiptBackup !== null) {
+                $restore['notification_forward_receipt'] = $receiptBackup;
+                $restore['requirements'][] = 'The Notification receipt is not in database.sql. Under explicit exact-file restore authorization and the original native package/source/instance exclusion, preserve the failed receipt bytes/attempt and verify its actual current afterimage belongs to this operation before any change. Restore a present original only from the separately hashed exact byte payload, with original owner/group and 0600 mode under its protected 0700 directory; never re-encode JSON as a replacement for original bytes.';
+                $restore['requirements'][] = 'If originally absent, this backup records absence, not permission to delete a current receipt. Remove only a proven receipt created by this exact operation after preserving failure evidence and verifying no later attempt/use. A directory originally absent may be removed only if proven created by this operation and still empty; never recurse or remove other files. A rename followed by directory-fsync error may already have persisted a new receipt: reconcile original-owner filesystem facts, do not assume DB rollback or automatically retry/delete.';
+            }
         }
         self::write($directory . '/RESTORE.json', $restore);
         $receipts = [];
@@ -228,6 +292,7 @@ final class SourceApplicationBackup
             'native_client' => $before, 'tooling_resource_id' => $tool['stable_resource_id'], 'adapter_sha256' => hash_file('sha256', __FILE__),
             'receipts' => $receipts,
             'observed_at' => time(), 'restore_status' => 'not_executed', 'qualification' => 'not_run', 'execution_admitted' => false];
+        if ($receiptBackup !== null) { $record['notification_forward_receipt'] = $receiptBackup; }
         self::write($directory . '/backup.json', $record);
         $recovery = ['schema_version' => 1, 'protocol' => $purpose === 'application-schema' ? 'peanut.source-development-recovery.v1' : 'peanut.source-plugin-recovery.v1',
             'source' => $binding['source'], 'database' => $binding['database'], 'authority' => $binding['authority'],
@@ -239,6 +304,7 @@ final class SourceApplicationBackup
             'backup_payload' => $restore['payload'], 'restore_tool' => ['path' => __FILE__, 'sha256' => hash_file('sha256', __FILE__)],
             'restore_contract_sha256' => hash_file('sha256', $directory . '/RESTORE.json'),
             'receipts' => $receipts];
+        if ($receiptBackup !== null) { $recovery['notification_forward_receipt'] = $receiptBackup; }
         self::write($directory . '/recovery.json', $recovery);
         return ['status' => 'captured', 'path' => $directory . '/backup.json', 'sha256' => hash_file('sha256', $directory . '/backup.json'),
             'recovery_references' => ['path' => $directory . '/recovery.json', 'sha256' => hash_file('sha256', $directory . '/recovery.json')],
@@ -345,11 +411,15 @@ final class SourceApplicationBackup
 
     private static function write(string $path, array $value): void
     {
+        self::writeBytes($path, json_encode($value, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
+
+    private static function writeBytes(string $path, string $data): void
+    {
         $stream = fopen($path, 'x+b');
         if ($stream === false) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_OUTPUT_UNSAFE'); }
         try {
             if (!chmod($path, 0600)) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_OUTPUT_UNSAFE'); }
-            $data = json_encode($value, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             $offset = 0;
             while ($offset < strlen($data)) {
                 $count = fwrite($stream, substr($data, $offset));
