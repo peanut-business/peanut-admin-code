@@ -235,6 +235,8 @@ function peanutServerDatabaseStage(string $operation, string $server, string $wo
             $previous['application']['applied'] ?? [], [], true);
         \app\common\services\upgrade\ApplicationSchemaHost::assertPermissionPoststates(
             $previous['application']['applied'] ?? [], [], true);
+        \app\common\services\upgrade\ApplicationSchemaHost::assertSmsPoststates(
+            $previous['application']['applied'] ?? [], [], true);
     }
     $migration = $runner->run($files, $migrationTargetVersion, $version, $readOnly,
         $readOnly ? null : static function (PDO $actual, array $migration) use ($pdo, $scope, &$businessBefore): bool {
@@ -251,6 +253,16 @@ function peanutServerDatabaseStage(string $operation, string $server, string $wo
                 $businessBefore[$migration['id']] = $before;
                 return $migration['id'] !== '20261012-align-platform-ops-permission-ownership';
             }
+            $before = \app\common\services\upgrade\ApplicationSchemaHost::smsMigrationBefore($pdo, $migration);
+            if ($before !== null) {
+                $businessBefore[$migration['id']] = $before;
+                return true;
+            }
+            $before = \app\common\services\upgrade\ApplicationSchemaHost::authMigrationBefore($pdo, $migration);
+            if ($before !== null) {
+                $businessBefore[$migration['id']] = $before;
+                return false;
+            }
             \app\common\services\upgrade\ApplicationSchemaHost::migrationPrestate($pdo, $migration, [], false);
             return false;
         },
@@ -259,6 +271,10 @@ function peanutServerDatabaseStage(string $operation, string $server, string $wo
             PeanutServerUpdatePlan::assertDatabaseMigrationStage($pdo);
             \app\common\services\upgrade\ApplicationSchemaHost::assertMenuPoststates($migration['applied'], $businessPoststates, false);
             \app\common\services\upgrade\ApplicationSchemaHost::assertPermissionPoststates($migration['applied'], $businessPoststates, false);
+            \app\common\services\upgrade\ApplicationSchemaHost::assertSmsPoststates($migration['applied'], $businessPoststates, false);
+            \app\common\services\upgrade\ApplicationSchemaHost::assertAuthPoststates($pdo,
+                $readOnly ? ($previous['application']['applied'] ?? []) : $migration['applied'],
+                $readOnly ? ($previous['business_poststates'] ?? []) : $businessPoststates, $readOnly);
             if ($scope !== 'server-release') { return; }
             if (!$readOnly) { $modules = \app\command\PluginReconcile::reconcileInProcess($app, $pdo); }
             if ((int) $pdo->query("SELECT COUNT(*) FROM pa_module_migration WHERE status <> 'applied'")->fetchColumn() !== 0) {
@@ -272,13 +288,18 @@ function peanutServerDatabaseStage(string $operation, string $server, string $wo
             PeanutServerUpdatePlan::assertDatabaseMigrationStage($pdo);
             if ($scope === 'server-release') { PeanutServerUpdatePlan::databaseMigrationAdmission($pdo); }
             if (isset($businessBefore[$migration['id']])) {
-                if (in_array($migration['id'], ['20261007-readiness-permission', '20261012-align-department-canonical-permissions', '20261012-align-platform-ops-permission-ownership'], true)) {
+                if ($migration['id'] === '20260909-notification-sms-reservation') {
+                    $businessPoststates[$migration['id']] = \app\common\services\upgrade\ApplicationSchemaHost::smsMigrationAfter($pdo, $migration, $businessBefore[$migration['id']], $executionBounds);
+                } elseif ($migration['id'] === '20261007-auth-client-schema') {
+                    if ($executionBounds !== null) { throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_PROOF_REQUIRED'); }
+                    $businessPoststates[$migration['id']] = \app\common\services\upgrade\ApplicationSchemaHost::authMigrationAfter($pdo, $migration, $businessBefore[$migration['id']]);
+                } elseif (in_array($migration['id'], ['20261007-readiness-permission', '20261012-align-department-canonical-permissions', '20261012-align-platform-ops-permission-ownership'], true)) {
                     $businessPoststates[$migration['id']] = \app\common\services\upgrade\ApplicationSchemaHost::permissionMigrationAfter($pdo, $migration, $businessBefore[$migration['id']], $executionBounds);
                 } else {
                     $businessPoststates[$migration['id']] = \app\common\services\upgrade\ApplicationSchemaHost::menuMigrationAfter($pdo, $migration, $businessBefore[$migration['id']]);
                 }
                 unset($businessBefore[$migration['id']]);
-            } elseif (in_array($migration['id'], ['20261007-readiness-permission', '20261012-align-department-canonical-permissions', '20261012-align-platform-ops-permission-ownership'], true)) {
+            } elseif (in_array($migration['id'], ['20260909-notification-sms-reservation', '20261007-auth-client-schema', '20261007-readiness-permission', '20261012-align-department-canonical-permissions', '20261012-align-platform-ops-permission-ownership'], true)) {
                 throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_PROOF_REQUIRED');
             }
             PeanutServerUpdatePlan::assertDatabaseMigrationStage($pdo);

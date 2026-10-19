@@ -97,35 +97,18 @@ final class ApplicationSchemaHost
                 'proof' => ['contract' => PermissionSchemaMigrationProof::class, 'safe_summary' => $snapshot['safe_summary']], 'readonly' => true];
         }
         if ($id === '20260909-notification-sms-reservation') {
-            $snapshot = self::smsMigrationBefore($pdo);
+            $snapshot = self::smsMigrationBefore($pdo, $migration);
             return ['migration_id' => $id, 'sha256' => $sha, 'status' => 'ready',
                 'complete_preconditions_proven' => true, 'application_prerequisites' => [],
                 'proof' => ['contract' => SmsReservationMigrationProof::class, 'safe_summary' => $snapshot['safe_summary'],
                     'private_snapshot_sha256' => hash('sha256', serialize($snapshot))], 'readonly' => true];
         }
         if ($id === '20261007-auth-client-schema') {
-            if (!class_exists(AuthClientSchemaMigrationProof::class)) {
-                throw new RuntimeException('APPLICATION_SCHEMA_AUTH_CONTRACT_UNAVAILABLE');
-            }
-            $names = self::prestateConstraintNames($pdo, $id);
-            // This SQL changes only the named CHECK/index. Identity owns its
-            // necessary client predicate and target metadata, not a whole-row hash.
-            try { $before = AuthClientSchemaMigrationProof::before($pdo); }
-            catch (RuntimeException $exception) {
-                $code = match ($exception->getMessage()) {
-                    'IDENTITY_AUTH_CLIENT_PROOF_TARGET_UNSUPPORTED' => 'APPLICATION_SCHEMA_AUTH_TARGET_UNSUPPORTED',
-                    'IDENTITY_AUTH_CLIENT_PROOF_CLIENT_PRESTATE_INVALID' => 'APPLICATION_SCHEMA_AUTH_CLIENT_PRESTATE_INVALID',
-                    default => null,
-                };
-                // Observation/driver/unknown failures abort the entire read;
-                // only these two completed business observations are blocked items.
-                if ($code === null || $exception->getPrevious() !== null) { throw $exception; }
-                throw new RuntimeException($code, 0, $exception);
-            }
+            $before = self::authMigrationBefore($pdo, $migration);
             return ['migration_id' => $id, 'sha256' => $sha, 'status' => 'ready',
                 'complete_preconditions_proven' => true, 'application_prerequisites' => [],
-                'proof' => ['contract' => AuthClientSchemaMigrationProof::class, 'before' => $before],
-                'constraint_names' => $names, 'tables' => [], 'readonly' => true];
+                'proof' => ['contract' => AuthClientSchemaMigrationProof::class, 'safe_summary' => $before['safe_summary']],
+                'constraint_names' => $before['constraint_names'], 'tables' => [], 'readonly' => true];
         }
         // Other fixed stages returned through their owning business contract above.
         $constraintNames = self::prestateConstraintNames($pdo, $id);
@@ -239,8 +222,10 @@ final class ApplicationSchemaHost
     }
 
     /** The full SMS input stays in the executing callback; public plans receive its safe_summary only. */
-    private static function smsMigrationBefore(PDO $pdo): array
+    public static function smsMigrationBefore(PDO $pdo, array $migration): ?array
     {
+        if (($migration['id'] ?? null) !== '20260909-notification-sms-reservation') { return null; }
+        self::prestateIdentity($migration);
         if (!class_exists(SmsReservationMigrationProof::class)) { throw new RuntimeException('APPLICATION_SCHEMA_SMS_CONTRACT_UNAVAILABLE'); }
         self::prestateConstraintNames($pdo, '20260909-notification-sms-reservation');
         // Preserve the existing SMS DML preconditions; Auth's DDL-only relaxation does not apply here.
@@ -255,6 +240,106 @@ final class ApplicationSchemaHost
         self::prestateZero($pdo, 'WITH latest AS (' . $latest . ') SELECT COUNT(*) FROM (SELECT l.tenant_id,l.channel,SHA2(l.receiver,256) AS receiver_hash FROM pa_notice_log l JOIN latest ON latest.id=l.id GROUP BY l.tenant_id,l.channel,SHA2(l.receiver,256) HAVING COUNT(*)>1) collisions');
         self::prestateZero($pdo, 'WITH latest AS (' . $latest . ') SELECT COUNT(*) FROM pa_notice_log l JOIN latest ON latest.id=l.id WHERE l.send_time>4294967235 OR l.receiver IS NULL OR l.tenant_id IS NULL');
         return SmsReservationMigrationProof::before($pdo);
+    }
+
+    /** The original business proof consumes the live same-PDO batch clock before applied. */
+    public static function smsMigrationAfter(PDO $pdo, array $migration, array $before, ?array $executionBounds): array
+    {
+        [$id, , $sha] = self::prestateIdentity($migration);
+        if ($id !== '20260909-notification-sms-reservation' || ($before['migration_id'] ?? null) !== $id
+            || ($before['source_sha256'] ?? null) !== $sha || !is_array($executionBounds)) {
+            throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_PROOF_REQUIRED');
+        }
+        $before['execution_bounds'] = $executionBounds;
+        $observed = SmsReservationMigrationProof::after($pdo, $before);
+        if ($pdo->inTransaction() || ($observed['migration_id'] ?? null) !== $id || ($observed['source_sha256'] ?? null) !== $sha
+            || ($observed['readonly'] ?? null) !== true || ($observed['sms_reservation_verified'] ?? null) !== true
+            || ($observed['execution_bounds_scope'] ?? null) !== 'immutable-sql-batch') {
+            throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_POSTSTATE_REQUIRED');
+        }
+        $safe = array_intersect_key($observed, array_flip(['migration_id', 'source_sha256', 'sms_reservation_verified',
+            'schema_sha256', 'historical_rows_sha256', 'rows', 'activated_rows', 'possible_execution_seconds', 'execution_bounds_scope', 'readonly']));
+        return ['contract' => SmsReservationMigrationProof::class, 'scope' => 'sms-reservation-schema-and-data',
+            'sha256' => $sha, 'proof' => $safe, 'proof_sha256' => self::digest($safe)];
+    }
+
+    /** Existing SMS summaries cannot recreate their private historical facts for a fresh comparison. */
+    public static function assertSmsPoststates(array $applied, array $poststates, bool $liveVerify): void
+    {
+        $id = '20260909-notification-sms-reservation';
+        if (!in_array($id, $applied, true)) { return; }
+        if ($liveVerify) { throw new RuntimeException('APPLICATION_SCHEMA_SMS_LIVE_REVERIFY_REQUIRED'); }
+        $record = $poststates[$id] ?? null;
+        if (!is_array($record) || ($record['contract'] ?? null) !== SmsReservationMigrationProof::class
+            || ($record['sha256'] ?? null) !== self::PRESTATE_SQL[$id]
+            || ($record['proof']['migration_id'] ?? null) !== $id || ($record['proof']['source_sha256'] ?? null) !== self::PRESTATE_SQL[$id]
+            || ($record['proof']['readonly'] ?? null) !== true || ($record['proof']['sms_reservation_verified'] ?? null) !== true
+            || ($record['proof_sha256'] ?? null) !== self::digest($record['proof'])) {
+            throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_PROOF_REQUIRED');
+        }
+    }
+
+    /** Both actual native callers hold this metadata-only input privately until completion. */
+    public static function authMigrationBefore(PDO $pdo, array $migration): ?array
+    {
+        if (($migration['id'] ?? null) !== '20261007-auth-client-schema') { return null; }
+        [$id, , $sha] = self::prestateIdentity($migration);
+        if (!class_exists(AuthClientSchemaMigrationProof::class)) { throw new RuntimeException('APPLICATION_SCHEMA_AUTH_CONTRACT_UNAVAILABLE'); }
+        $names = self::prestateConstraintNames($pdo, $id);
+        try { $before = AuthClientSchemaMigrationProof::before($pdo); }
+        catch (RuntimeException $exception) {
+            $code = match ($exception->getMessage()) {
+                'IDENTITY_AUTH_CLIENT_PROOF_TARGET_UNSUPPORTED' => 'APPLICATION_SCHEMA_AUTH_TARGET_UNSUPPORTED',
+                'IDENTITY_AUTH_CLIENT_PROOF_CLIENT_PRESTATE_INVALID' => 'APPLICATION_SCHEMA_AUTH_CLIENT_PRESTATE_INVALID',
+                default => null,
+            };
+            if ($code === null || $exception->getPrevious() !== null) { throw $exception; }
+            throw new RuntimeException($code, 0, $exception);
+        }
+        if ($pdo->inTransaction() || ($before['migration_id'] ?? null) !== $id || ($before['source_sha256'] ?? null) !== $sha
+            || ($before['readonly'] ?? null) !== true || ($before['pdo_object_id'] ?? null) !== spl_object_id($pdo)) {
+            throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_PROOF_REQUIRED');
+        }
+        return $before + ['constraint_names' => $names, 'safe_summary' => ['migration_id' => $id, 'source_sha256' => $sha,
+            'readonly' => true, 'target_metadata_sha256' => self::digest(array_intersect_key($before, array_flip(['tables', 'client_check', 'ip_index'])))]];
+    }
+
+    public static function authMigrationAfter(PDO $pdo, array $migration, array $before): array
+    {
+        [$id, , $sha] = self::prestateIdentity($migration);
+        if ($id !== '20261007-auth-client-schema' || ($before['migration_id'] ?? null) !== $id
+            || ($before['source_sha256'] ?? null) !== $sha) { throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_PROOF_REQUIRED'); }
+        $observed = AuthClientSchemaMigrationProof::after($pdo, $before);
+        if ($pdo->inTransaction() || ($observed['migration_id'] ?? null) !== $id || ($observed['source_sha256'] ?? null) !== $sha
+            || ($observed['readonly'] ?? null) !== true || ($observed['target_metadata_verified'] ?? null) !== true
+            || !is_array($observed['tables'] ?? null) || !is_array($observed['client_check'] ?? null) || !is_array($observed['ip_index'] ?? null)) {
+            throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_POSTSTATE_REQUIRED');
+        }
+        return ['contract' => AuthClientSchemaMigrationProof::class, 'scope' => 'target-schema-metadata', 'sha256' => $sha,
+            'target_metadata_sha256' => self::digest(array_intersect_key($observed, array_flip(['tables', 'client_check', 'ip_index']))),
+            'proof' => array_intersect_key($observed, array_flip(['migration_id', 'source_sha256', 'readonly', 'target_metadata_verified']))];
+    }
+
+    /** Reuse the existing Auth target-metadata comparison; it makes no historical-row claim. */
+    public static function assertAuthPoststates(PDO $pdo, array $applied, array $poststates, bool $liveVerify): void
+    {
+        $id = '20261007-auth-client-schema';
+        if (!in_array($id, $applied, true)) { return; }
+        $record = $poststates[$id] ?? null;
+        if (!is_array($record) || ($record['contract'] ?? null) !== AuthClientSchemaMigrationProof::class
+            || ($record['sha256'] ?? null) !== self::PRESTATE_SQL[$id]
+            || ($record['proof']['migration_id'] ?? null) !== $id || ($record['proof']['source_sha256'] ?? null) !== self::PRESTATE_SQL[$id]
+            || ($record['proof']['readonly'] ?? null) !== true || ($record['proof']['target_metadata_verified'] ?? null) !== true) {
+            throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_PROOF_REQUIRED');
+        }
+        if ($liveVerify) {
+            $observed = AuthClientSchemaMigrationProof::before($pdo);
+            if ($pdo->inTransaction() || ($observed['migration_id'] ?? null) !== $id || ($observed['source_sha256'] ?? null) !== self::PRESTATE_SQL[$id]
+                || ($observed['readonly'] ?? null) !== true || ($record['target_metadata_sha256'] ?? null) !== self::digest(
+                    array_intersect_key($observed, array_flip(['tables', 'client_check', 'ip_index'])))) {
+                throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_POSTSTATE_REQUIRED');
+            }
+        }
     }
 
     /** Schema-scoped names in the fixed SQL, including dynamic ALTER strings. */
@@ -537,7 +622,7 @@ final class ApplicationSchemaHost
                     $this->assertSourceBaseline($pdo, $baseline, $completed, $migration, 'before');
                     if ($migration['id'] === '20260909-notification-sms-reservation') {
                         self::prestateIdentity($migration);
-                        $businessBefore[$migration['id']] = self::smsMigrationBefore($pdo);
+                        $businessBefore[$migration['id']] = self::smsMigrationBefore($pdo, $migration);
                         $recheck();
                         return true;
                     }
@@ -553,10 +638,14 @@ final class ApplicationSchemaHost
                         $recheck();
                         return $migration['id'] !== '20261012-align-platform-ops-permission-ownership';
                     }
+                    $authBefore = self::authMigrationBefore($pdo, $migration);
+                    if ($authBefore !== null) {
+                        $businessBefore[$migration['id']] = $authBefore;
+                        $recheck();
+                        return false;
+                    }
                     $proof = self::migrationPrestate($pdo, $migration, [], false);
-                    if ($migration['id'] === '20261007-auth-client-schema') {
-                        $businessBefore[$migration['id']] = $proof['proof']['before'];
-                    } elseif ($migration['id'] === '20261016-module-migration-provenance') {
+                    if ($migration['id'] === '20261016-module-migration-provenance') {
                         if (($proof['proof']['shape'] ?? null) !== 'before_additions') { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_PROVENANCE_PARTIAL'); }
                     } else { throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_POSTSTATE_REQUIRED'); }
                     $recheck();
@@ -570,15 +659,8 @@ final class ApplicationSchemaHost
                     $this->assertSourceBaseline($pdo, $baseline, $completed, $migration, 'after');
                     if ($migration['id'] === '20260909-notification-sms-reservation') {
                         $before = $businessBefore[$migration['id']] ?? null;
-                        if (!is_array($before) || !is_array($executionBounds)) { throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_PROOF_REQUIRED'); }
-                        $before['execution_bounds'] = $executionBounds;
-                        $observed = SmsReservationMigrationProof::after($pdo, $before);
-                        if (($observed['sms_reservation_verified'] ?? null) !== true) { throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_POSTSTATE_REQUIRED'); }
-                        $safe = array_intersect_key($observed, array_flip(['migration_id', 'source_sha256', 'sms_reservation_verified',
-                            'schema_sha256', 'historical_rows_sha256', 'rows', 'activated_rows', 'possible_execution_seconds', 'execution_bounds_scope', 'readonly']));
-                        $businessPoststates[$migration['id']] = ['contract' => SmsReservationMigrationProof::class,
-                            'scope' => 'sms-reservation-schema-and-data', 'sha256' => $migration['checksum'], 'proof' => $safe,
-                            'proof_sha256' => $this->digest($safe)];
+                        if (!is_array($before)) { throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_PROOF_REQUIRED'); }
+                        $businessPoststates[$migration['id']] = self::smsMigrationAfter($pdo, $migration, $before, $executionBounds);
                         unset($businessBefore[$migration['id']]);
                     } elseif (in_array($migration['id'], self::MENU_MIGRATIONS, true)) {
                         $before = $businessBefore[$migration['id']] ?? null;
@@ -593,14 +675,7 @@ final class ApplicationSchemaHost
                     } elseif ($migration['id'] === '20261007-auth-client-schema') {
                         $before = $businessBefore[$migration['id']] ?? null;
                         if (!is_array($before)) { throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_PROOF_REQUIRED'); }
-                        $observed = AuthClientSchemaMigrationProof::after($pdo, $before);
-                        if (($observed['target_metadata_verified'] ?? null) !== true || !is_array($observed['tables'] ?? null)
-                            || !is_array($observed['client_check'] ?? null) || !is_array($observed['ip_index'] ?? null)) {
-                            throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_POSTSTATE_REQUIRED');
-                        }
-                        $businessPoststates[$migration['id']] = ['contract' => AuthClientSchemaMigrationProof::class,
-                            'scope' => 'target-schema-metadata', 'sha256' => $migration['checksum'], 'target_metadata_sha256' => $this->digest(
-                                array_intersect_key($observed, array_flip(['tables', 'client_check', 'ip_index'])))];
+                        $businessPoststates[$migration['id']] = self::authMigrationAfter($pdo, $migration, $before);
                         unset($businessBefore[$migration['id']]);
                     }
                     $recheck();
@@ -619,24 +694,11 @@ final class ApplicationSchemaHost
                         $this->assertSourceBaseline($pdo, $baseline, $baseline['pending'], null, 'completed');
                         self::assertMenuPoststates($baseline['pending'], $businessPoststates, $operation === 'verify');
                         self::assertPermissionPoststates($baseline['pending'], $businessPoststates, $operation === 'verify');
-                        if (in_array('20260909-notification-sms-reservation', $baseline['pending'], true)) {
-                            // The safe result cannot reconstruct the private before image.
-                            // A recorded proof alone is not a fresh live verification.
-                            if ($operation === 'verify') { throw new RuntimeException('APPLICATION_SCHEMA_SMS_LIVE_REVERIFY_REQUIRED'); }
-                            if (!isset($businessPoststates['20260909-notification-sms-reservation'])) { throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_PROOF_REQUIRED'); }
+                        self::assertSmsPoststates($baseline['pending'], $businessPoststates, $operation === 'verify');
+                        if ($operation === 'verify' && in_array('20261007-auth-client-schema', $baseline['pending'], true)) {
+                            $businessPoststates = $expected['business_poststates'] ?? [];
                         }
-                        if (in_array('20261007-auth-client-schema', $baseline['pending'], true)) {
-                            if ($operation === 'verify') {
-                                $businessPoststates = $expected['business_poststates'] ?? [];
-                                $observed = AuthClientSchemaMigrationProof::before($pdo);
-                                if (($businessPoststates['20261007-auth-client-schema']['target_metadata_sha256'] ?? null) !== $this->digest(
-                                    array_intersect_key($observed, array_flip(['tables', 'client_check', 'ip_index'])))) {
-                                    throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_POSTSTATE_REQUIRED');
-                                }
-                            } elseif (!isset($businessPoststates['20261007-auth-client-schema'])) {
-                                throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_PROOF_REQUIRED');
-                            }
-                        }
+                        self::assertAuthPoststates($pdo, $baseline['pending'], $businessPoststates, $operation === 'verify');
                         $record = ['schema_version' => 1, 'protocol' => 'peanut.source-development-schema-result.v1',
                             'scope' => 'application-schema', 'maintenance_scope' => 'source-development', 'status' => 'completed',
                             'operation' => $operation, 'binding' => $current, 'baseline' => $baseline, 'application' => $selection, 'business_poststates' => $businessPoststates,
@@ -1553,12 +1615,12 @@ final class ApplicationSchemaHost
         return \leaseGit(['-C', $root, ...$arguments]);
     }
 
-    private function digest(array $value): string
+    private static function digest(array $value): string
     {
-        return hash('sha256', $this->canonical($value));
+        return hash('sha256', self::canonical($value));
     }
 
-    private function canonical(array $value): string
+    private static function canonical(array $value): string
     {
         $normalize = static function (array $items) use (&$normalize): array {
             if (!array_is_list($items)) {

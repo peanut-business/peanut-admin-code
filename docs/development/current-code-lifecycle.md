@@ -153,7 +153,7 @@ Notification forward 的私有回执独立于 `database.sql`。原生计划只�
 
 File 四个 canonical 阶段只通过原 `PluginLifecycleService` 消费保全 API。execute 在原报告允许后、同 PDO 无外层事务时捕获；原 SQL 排空后的官方 completion 先核原报告已达 adopt 后态，再将本条 `private_state` 传入 after，要求同 key／SQL hash 的 `preservation_verified=true` 后才允许唯一 applied。adopt 在原生采用事务内捕获，原账本和平台审计写入及原报告后态核对之后、提交之前完成 after；失败只正常回滚该 DML 事务，不声称可以回滚已完成 DDL。private_state 含真实 PDO 对象，只在本条回调中持有，不 serialize、散列、记录或从公共摘要重建；成功或失败后释放。原 preflight 不额外调用该 API 扫描 File 行，已 applied 历史仍按原 resolution 合同读取，不把旧阶段摘要当作以后实时数据保全。Host、发行入口经这两条原路径消费，不创建第二执行器或新 autoload；真实备份、writer／DDL 排除、catalog／audit 恢复及现有执行／复验门禁仍独立要求。
 
-SMS 保全复用 Notification 的公开业务证明；包含完整原行及候选组的输入只保留在执行回调内，计划仅公开安全摘要和整体摘要。需要 SQL 时间证据时，现有官方执行器在同一 PDO 上读取数据库秒与 UTC 毫秒，包围整份不可变 SQL 的执行及结果排空；不拆分 SQL，也不把批次边界称为某条 UPDATE 的精确时间。官方 applied 回调前必须证明同一个可行整数秒、旧列完整保全及新增字段后态。该源码接线不放宽当前链恢复与写入准入；安全结果不能重建私有前态，SMS 的独立 live verify 仍明确阻断。
+SMS 保全复用 Notification 的公开业务证明；包含完整原行及候选组的输入只保留在执行回调内，计划仅公开安全摘要和整体摘要。源码 Host 与发行 `update-database.php` 两个直接消费者共用相同 before／after 方法，在原同 PDO 捕获本条私有输入；SMS before 严格返回 `true` 请求既有官方执行器的数据库秒／UTC 毫秒时钟，包围整份不可变 SQL 的执行及结果排空，不拆分 SQL或把批次边界称为某条 UPDATE 的精确时间。官方唯一 applied 写入前须核同 id／hash／readonly 的 `sms_reservation_verified=true`，证明同一个可行整数秒、旧列保全及新增字段后态，只公开过滤后的安全结果，随后释放私有输入。该接线不放宽当前链恢复与写入准入；安全结果不能重建私有前态，两个消费者的 SMS 独立 verify／已完成 migrate 重放均保持 `APPLICATION_SCHEMA_SMS_LIVE_REVERIFY_REQUIRED`。
 
 源码应用的受限备份使用原入口 `migrate:run backup --scope=source-development`，必须带相同真实 owner／thread／session／gate、受保护的当前 `--plan`、已登记的 `--backup-tool` 和新建的 `--backup-output` 私有目录。原生租约必须精确包含该工具的 `tooling-resource-id` 和该目录的 `output-dir`，以及完整的数据库读取声明；原产品锁、同 PDO schema advisory lock、源码／库身份和计划摘要持续核验。缺少当前计划、登记或权限时停止，不创建新库、重装客户端或借用其他任务的管理工具。
 
@@ -165,7 +165,7 @@ preflight 的 `backup_scope` 只从本次 pending 的固定 SQL 取表并加入�
 
 `RESTORE.json` 绑定原库、源码、对象和 payload，给出同一登记工具的 MySQL stdin 使用入口及前置条件；本入口不执行恢复。原生 SQL 包含选定表的 DROP／CREATE／数据与触发器语句，恢复须另有明确动作授权及正常原生 DDL／独占准入，先保留失败证据、核查入出 FK／触发器对范围外对象的影响，再由原 owner 在排除受影响写者的窗口内执行并核实际结构／数据。不能改成全库 restore，也不能只凭行数判定保全。`captured` 只表示真实备份输出已生成，恢复和资格仍为 `not_executed`／`not_run`；应用迁移仍受业务后态及现有单条来源字段迁移的限制。现有 recovery 引用必须匹配原生 capture 的 manifest、payload、成功进程回执及恢复说明，文件名或手写“已备份”声明不能替代这些输出。
 
-认证 CHECK／IP 索引迁移没有行 DML，由 Identity 的公开业务证明检查必要 client 前态、原目标定义及精确目标后态。公共宿主在 SQL 前后调用同一证明，只封存目标元数据摘要，不扫描令牌或事件原行，不因无关自定义列或触发器拒绝；两条 DDL 之间仍须保留实际失败与恢复边界。
+认证 CHECK／IP 索引迁移没有行 DML，由 Identity 的公开业务证明检查必要 client 前态、原目标定义及精确目标后态。源码 Host 与发行直接消费者共用其 before／after 宿主方法，在同 PDO 的原 SQL 前后消费，仅 held callback 保留私有观察；官方 applied 前必须绑定同 id／hash／readonly 的 `target_metadata_verified=true`，只封存安全成功字段和目标元数据摘要。Auth 不请求 SQL 时钟，不扫描令牌或事件原行，不因无关自定义列或触发器拒绝；两条 DDL 之间仍保留实际失败与恢复边界。独立 verify 复用既有 Auth 目标元数据比较，不能把它解释成历史业务行保全。
 
 File 四条 canonical adoption 目标若按既有证明选择执行原 SQL，官方执行器在标记 applied 前再次调用原 File 证明，必须观察到完整后态并返回 adopt；证明失败保留 failed 事实。此检查覆盖原证明的结构与数据不变量，逐原行保全、触发器影响及恢复范围仍须由实际迁移合同和维护窗口覆盖。
 
