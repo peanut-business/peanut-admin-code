@@ -449,6 +449,12 @@ final class ScaffoldUpgradeRunner
         $composers = [];
         foreach ([$from, $to] as $manifest) {
             $files = $manifest->files();
+            foreach (['server/app/modules/fixture/delivery_record', 'plugins/fixture.delivery-record'] as $excluded) {
+                $excludedPath = ScaffoldPathGuard::projectPath($manifest->directory, 'files/' . $excluded);
+                if (file_exists($excludedPath) || is_link($excludedPath)) {
+                    throw new RuntimeException('INTERNAL_PREINSTALL_FIXTURE_STILL_PRESENT');
+                }
+            }
             foreach (array_keys($files) as $path) {
                 foreach (['server/app/modules/fixture/delivery_record', 'plugins/fixture.delivery-record'] as $excluded) {
                     if ($path === $excluded || str_starts_with($path, $excluded . '/')) {
