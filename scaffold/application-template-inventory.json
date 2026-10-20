@@ -836,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2acb7ef2a86725e29b64ba90cfcc582e2b12c65b0bb80fc65b4c1d3112d83438"
+            "source_sha256": "ce28c7f64046449842006a3db241539d833d6d06d34426f9c6bde559c28d8489"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -3505,7 +3505,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8f75d8726cda50bfaa263bb1a02448ee4621c3f6ef0bbf9e2f41e8e9981181d3"
+            "source_sha256": "4710c8010368b920fa208438fb788f1cf85b398a105ebbf26ae132cdad621199"
         },
         {
             "path": "scripts/package-release.sh",
