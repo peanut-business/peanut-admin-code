@@ -10,10 +10,12 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import shutil
 import subprocess
 import sys
 import tarfile
+import time
 
 SNAPSHOT_NAMES = (".env", "docker/.env", "private/installation/installed.json",
                   "private/installation/baseline.json", "private/installation/deployment.json",
@@ -232,7 +234,7 @@ def storage_archive(path):
     return path
 
 
-def source_database_binding(server):
+def source_database_binding(server, ordinary=False):
     """Source maintenance uses only this APP's declared container endpoint."""
     values = env(server / '.env')
     def value(key):
@@ -250,7 +252,8 @@ def source_database_binding(server):
     registry_path = server / 'private/resources/project-resources.json'
     regular(registry_path, 0o600)
     registry = read_json(registry_path)
-    manifest = read_json(server.parent / '.peanut/application-manifest.json')
+    manifest = read_json(server / '.peanut/release-identity.json' if ordinary
+                         else server.parent / '.peanut/application-manifest.json')
     rows = [row for row in registry.get('resources', {}).get('databases', [])
             if row.get('stable_resource_id') == value('PEANUT_DATABASE_RESOURCE_ID')]
     if registry.get('authority', {}).get('role') != 'application' \
@@ -298,13 +301,13 @@ def source_network(server, project, container_ids):
     return {'id': network_id, 'name': rows[0]['Name'], 'logical': logical, 'driver': 'bridge'}
 
 
-def assert_stopped(server, allow_registered=False):
+def assert_stopped(server, allow_registered=False, ordinary=False):
     # Check the APP writer boundary; independent Node custody is not transferred.
     docker_dir = server / "docker"
     project = env(docker_dir / ".env").get("COMPOSE_PROJECT_NAME", "")
     if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,62}", project):
         raise ValueError("Compose project identity is invalid")
-    binding = source_database_binding(server) if allow_registered else {'source': 'bundled'}
+    binding = source_database_binding(server, ordinary=ordinary) if allow_registered else {'source': 'bundled'}
     registered = binding['source'] == 'registered'
     services = compose(docker_dir, "ps", "--status", "running", "--services").splitlines()
     if services != ([] if registered else ["mysql"]):
@@ -360,7 +363,182 @@ def snapshot_paths(server):
     return [(name, server / name) for name in SNAPSHOT_NAMES]
 
 
-def db_probe(server, database):
+def ordinary_database_provider(server, workspace):
+    """Ordinary plan authority only; never accept a partial-installation proof."""
+    product, _ = product_binding(workspace)
+    binding = source_database_binding(server, ordinary=True)
+    reference = product.get('backup_tool')
+    if binding['source'] == 'bundled':
+        if reference is not None: raise ValueError('bundled recovery forbids an external backup tool')
+        return {'source': 'bundled'}
+    if not isinstance(reference, dict) or set(reference) != {'path', 'sha256', 'owner_uid', 'mode'}:
+        raise ValueError('registered recovery requires its frozen ordinary-plan backup tool')
+    path = Path(reference['path'])
+    regular(path, 0o600)
+    if path.resolve() != path or path.stat().st_uid not in (0, server.stat().st_uid) \
+            or path.stat().st_uid != reference['owner_uid'] or reference['mode'] != 0o600 \
+            or path.stat().st_size > 65536 or sha(path) != reference['sha256']:
+        raise ValueError('frozen registered backup tool changed')
+    tool = read_json(path); contract = tool.get('source_schema_backup', {})
+    if tool.get('transport') != 'ssh-docker-exec' or contract.get('whole_schema') is not True \
+            or contract.get('database_resource_id') != binding['resource_id'] or contract.get('database') != binding['database'] \
+            or not re.fullmatch(r'[A-Za-z0-9_]{1,64}', binding['database']) \
+            or not re.fullmatch(r'8\.4\.[0-9]+', str(contract.get('mysql_version', ''))) \
+            or not re.fullmatch(r'[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}', str(contract.get('server_uuid', ''))) \
+            or type(contract.get('timeout_seconds')) is not int or not 30 <= contract['timeout_seconds'] <= 600:
+        raise ValueError('registered whole-schema provider identity or lifetime is invalid')
+    for key in ('ssh_command', 'docker_command', 'mysql_command', 'mysqldump_command', 'timeout_command', 'digest_command'):
+        if not re.fullmatch(r'/[A-Za-z0-9_./-]+', str(tool.get(key, ''))) or '..' in tool[key]:
+            raise ValueError('registered provider command is not a fixed absolute executable')
+    for key in ('ssh_alias', 'container_name'):
+        if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]*', str(tool.get(key, ''))):
+            raise ValueError('registered provider transport identity is invalid')
+    return {'source': 'registered', 'database_binding': binding, 'backup_tool': reference}
+
+
+def root_client(server, workspace, provider, operation, *, sql=None, input_file=None, output=None):
+    if operation not in ('probe', 'metadata', 'capture', 'restore') \
+            or ordinary_database_provider(server, workspace) != provider:
+        raise ValueError('ordinary privileged client authority changed')
+    tool = read_json(Path(provider['backup_tool']['path']))
+    contract = tool['source_schema_backup']; seconds = contract['timeout_seconds']
+    database = provider['database_binding']['database']
+    prefix = Path(workspace) / 'root-client'
+    if not prefix.exists(): prefix.mkdir(mode=0o700)
+    if prefix.resolve() != prefix or prefix.stat().st_mode & 0o777 != 0o700 \
+            or prefix.stat().st_uid not in (0, os.geteuid()):
+        raise ValueError('privileged client evidence directory is unsafe')
+    stem = prefix / (operation + '-' + os.urandom(16).hex())
+    stdout = output if output is not None else stem.with_suffix('.stdout')
+    stderr = stem.with_suffix('.stderr'); process_path = stem.with_suffix('.process.json')
+    client = 'mysqldump_command' if operation == 'capture' else 'mysql_command'
+    common = ['--no-defaults', '--no-login-paths', '--default-character-set=utf8mb4', '-uroot']
+    if operation == 'capture':
+        arguments = [*common, '--single-transaction', '--routines', '--triggers', '--events', '--hex-blob',
+                     '--set-gtid-purged=OFF', '--no-tablespaces',
+                     '--databases', '--add-drop-database', '--', database]
+    elif operation == 'restore': arguments = common
+    else: arguments = [*common, '--batch', '--skip-column-names', '--database=' + database, '--execute=' + sql]
+    command = shlex.join([tool['timeout_command'], '-k', '5s', str(seconds) + 's', tool[client], *arguments])
+    shell = 'MYSQL_PWD=$' + '{MYSQL_ROOT_PASSWORD:?}; export MYSQL_PWD; exec ' + command
+    if operation in ('probe', 'metadata'):
+        shell = shlex.join([tool['digest_command'], tool['mysql_command'], tool['mysqldump_command']]) + ' && ' \
+            + shlex.join([tool['mysql_command'], '--version']) + ' && ' \
+            + shlex.join([tool['mysqldump_command'], '--version']) + ' && (' + shell + ')'
+    remote = shlex.join([tool['docker_command'], 'exec', '-i', tool['container_name'],
+                        tool['timeout_command'], '-k', '5s', str(seconds + 5) + 's', '/bin/sh', '-c', shell])
+    argv = [tool['ssh_command'], '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes', '-o', 'ConnectTimeout=5',
+            '-o', 'ServerAliveInterval=5', '-o', 'ServerAliveCountMax=3', tool['ssh_alias'], remote]
+    evidence = {'operation': operation, 'status': 'started', 'provider': provider, 'started_at': int(time.time()),
+                'argv_sha256': hashlib.sha256(json.dumps(argv).encode()).hexdigest(),
+                'product_plan_sha256': product_binding(workspace)[0]['plan_sha256']}
+    durable(process_path, json.dumps(evidence, sort_keys=True).encode())
+    environment = {key: value for key, value in os.environ.items() if key in ('HOME', 'SSH_AUTH_SOCK')}
+    environment.update(PATH='/usr/bin:/bin:/usr/sbin:/sbin', LANG='C', LC_ALL='C')
+    with stdout.open('xb') as out, stderr.open('xb') as err:
+        os.fchmod(out.fileno(), 0o600); os.fchmod(err.fileno(), 0o600)
+        try:
+            result = subprocess.run(argv, stdin=input_file or subprocess.DEVNULL, stdout=out, stderr=err,
+                                    timeout=seconds + 20, env=environment)
+            evidence.update(status='terminal', rc=result.returncode, remote_success_terminal_confirmed=result.returncode == 0)
+        except (OSError, subprocess.TimeoutExpired):
+            evidence.update(status='unknown', rc=None, remote_success_terminal_confirmed=False)
+        out.flush(); os.fsync(out.fileno()); err.flush(); os.fsync(err.fileno())
+    evidence.update(ended_at=int(time.time()), stdout={'path': str(stdout), 'sha256': sha(stdout)},
+                    stderr={'path': str(stderr), 'sha256': sha(stderr)})
+    durable(process_path, json.dumps(evidence, sort_keys=True).encode())
+    if not evidence['remote_success_terminal_confirmed']:
+        raise ValueError('privileged client failed or has an unknown remote outcome; retain evidence and do not replay')
+    if ordinary_database_provider(server, workspace) != provider:
+        raise ValueError('privileged provider changed during command')
+    return {'path': str(process_path), 'sha256': sha(process_path)}
+
+
+def root_observation(server, workspace, provider, metadata=False):
+    sql = "SET TRANSACTION READ ONLY; START TRANSACTION READ ONLY; SELECT HEX(JSON_OBJECT(" \
+          "'server_uuid',@@server_uuid,'database',DATABASE(),'version',VERSION(),'current_user',CURRENT_USER(),'partial_revokes',@@GLOBAL.partial_revokes," \
+          "'charset',@@character_set_database,'collation',@@collation_database," \
+          "'table_count',(SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()))); SHOW GRANTS;"
+    nonce = os.urandom(16).hex()
+    sql += " SELECT 'GRANTS_END_" + nonce + "';"
+    if metadata:
+        # Cross-schema references are metadata edges only; never read another schema's rows or definitions.
+        queries = {
+            'tables': "SELECT TABLE_NAME,TABLE_TYPE,ENGINE,TABLE_COLLATION FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()",
+            'tablespaces': "SELECT NAME,SPACE_TYPE FROM information_schema.INNODB_TABLES WHERE SUBSTRING_INDEX(NAME,'/',1)=DATABASE()",
+            'views': "SELECT TABLE_NAME,VIEW_DEFINITION,CHECK_OPTION,IS_UPDATABLE,DEFINER,SECURITY_TYPE FROM information_schema.VIEWS WHERE TABLE_SCHEMA=DATABASE()",
+            'routines': "SELECT ROUTINE_NAME,ROUTINE_TYPE,ROUTINE_DEFINITION,SQL_DATA_ACCESS,SECURITY_TYPE,SQL_MODE,DEFINER FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE()",
+            'events': "SELECT EVENT_NAME,DEFINER,EVENT_DEFINITION,STATUS,ON_COMPLETION,SQL_MODE FROM information_schema.EVENTS WHERE EVENT_SCHEMA=DATABASE()",
+            'triggers': "SELECT TRIGGER_NAME,EVENT_OBJECT_TABLE,ACTION_TIMING,EVENT_MANIPULATION,ACTION_STATEMENT,SQL_MODE,DEFINER FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()",
+            'foreign_keys': "SELECT TABLE_SCHEMA,TABLE_NAME,CONSTRAINT_NAME,COLUMN_NAME,ORDINAL_POSITION,REFERENCED_TABLE_SCHEMA,REFERENCED_TABLE_NAME,REFERENCED_COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE REFERENCED_TABLE_NAME IS NOT NULL AND (TABLE_SCHEMA=DATABASE() OR REFERENCED_TABLE_SCHEMA=DATABASE())",
+        }
+        for name, query in queries.items():
+            # HEX per actual row preserves definitions without mysql batch escaping or delimiter guesses.
+            columns = query.split(' FROM ', 1)[0].removeprefix('SELECT ').split(',')
+            obj = ','.join("'" + col + "'," + col for col in columns)
+            sql += " SELECT '" + name + "'; SELECT HEX(JSON_OBJECT(" + obj + ")) FROM (" + query + ") AS observed;"
+        sql += " SELECT 'METADATA_END_" + nonce + "';"
+    sql += ' ROLLBACK;'
+    reference = root_client(server, workspace, provider, 'metadata' if metadata else 'probe', sql=sql)
+    process = read_json(Path(reference['path'])); output = Path(process['stdout']['path'])
+    if output.stat().st_size > 16 * 1024 * 1024: raise ValueError('whole-schema metadata exceeds its bounded evidence contract')
+    lines = output.read_text().splitlines(); contract = read_json(Path(provider['backup_tool']['path']))['source_schema_backup']
+    if len(lines) < 7 or any(not re.match(r'[a-f0-9]{64}\s+', line) for line in lines[:2]) \
+            or any('Ver ' + contract['mysql_version'] + ' ' not in line for line in lines[2:4]):
+        raise ValueError('Root client digest or exact MySQL version is unavailable')
+    identity = json.loads(bytes.fromhex(lines[4])); end = lines.index('GRANTS_END_' + nonce)
+    if identity.get('server_uuid') != contract['server_uuid'] or identity.get('database') != contract['database'] \
+            or identity.get('version') != contract['mysql_version'] or identity.get('partial_revokes') not in (0, 1, False, True) \
+            or not str(identity.get('current_user', '')).startswith('root@'):
+        raise ValueError('registered Root observation differs from the exact target UUID/schema/version')
+    grants = lines[5:end]
+    if any(line.startswith('REVOKE ') for line in grants) \
+            or not any(re.match(r'GRANT ALL PRIVILEGES ON \*\.\* TO ', line) for line in grants):
+        raise ValueError('complete direct Root metadata and restoration visibility is NOT_READY')
+    observed = {}
+    if metadata:
+        cursor = end + 1
+        for name in queries:
+            if cursor >= len(lines) or lines[cursor] != name: raise ValueError('whole-schema metadata section is missing')
+            cursor += 1; rows = []
+            while cursor < len(lines) and lines[cursor] not in (*queries, 'METADATA_END_' + nonce):
+                row = json.loads(bytes.fromhex(lines[cursor]))
+                if not isinstance(row, dict): raise ValueError('invalid actual metadata row')
+                rows.append(row); cursor += 1
+            observed[name] = sorted(rows, key=lambda row: json.dumps(row, sort_keys=True))
+        if lines[cursor:] != ['METADATA_END_' + nonce] \
+                or len(observed['tables']) != identity['table_count']:
+            raise ValueError('whole-schema metadata coverage is incomplete')
+    elif len(lines) != end + 1: raise ValueError('unexpected privileged identity output')
+    return {'identity': identity, 'metadata': observed, 'process': reference,
+            'mysql_sha256': lines[0].split()[0], 'mysqldump_sha256': lines[1].split()[0]}
+
+
+def assert_whole_schema_effects(observation):
+    metadata = observation['metadata']; database = observation['identity']['database']
+    unknown = {name: [row.get({'views': 'TABLE_NAME', 'routines': 'ROUTINE_NAME',
+                              'events': 'EVENT_NAME', 'triggers': 'TRIGGER_NAME'}[name]) for row in metadata[name]]
+               for name in ('views', 'routines', 'events', 'triggers') if metadata[name]}
+    foreign = [row for row in metadata['foreign_keys']
+               if row['TABLE_SCHEMA'] != database or row['REFERENCED_TABLE_SCHEMA'] != database]
+    if foreign: unknown['cross_schema_foreign_keys'] = foreign
+    unsupported = [row['TABLE_NAME'] for row in metadata['tables']
+                   if row['TABLE_TYPE'] != 'BASE TABLE' or row['ENGINE'] != 'InnoDB']
+    if unsupported: unknown['non_transactional_objects'] = unsupported
+    shared = [row['NAME'] for row in metadata['tablespaces'] if row['SPACE_TYPE'] != 'Single']
+    if shared: unknown['shared_tablespace_objects'] = shared
+    if unknown:
+        # Definitions remain in the protected real observation. A complete dump does not review effects.
+        raise ValueError('ordinary recovery effects NOT_READY; review protected metadata objects: '
+                         + json.dumps(unknown, sort_keys=True))
+
+
+def db_probe(server, database, workspace=None):
+    if workspace is not None:
+        provider = ordinary_database_provider(server, workspace)
+        if provider['source'] == 'registered':
+            identity = root_observation(server, workspace, provider)['identity']
+            return {key: identity[key] for key in ('server_uuid', 'database', 'charset', 'collation', 'table_count')}
     output = compose(server / "docker", "exec", "-T", "mysql", "sh", "-c",
                      'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -N -B -uroot --database="$1" -e "SELECT @@server_uuid,DATABASE(),@@character_set_database,@@collation_database,(SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE())"',
                      "sh", database)
@@ -379,12 +557,18 @@ def backup(args):
         or journal.get('activation_started') is not False:
         raise ValueError("recovery point must precede program changes")
     verification_key(server)
-    runtime = assert_stopped(server)
-    probe = db_probe(server, identity["database"])
+    provider = ordinary_database_provider(server, workspace)
+    registered = provider['source'] == 'registered'
+    runtime = assert_stopped(server, allow_registered=True, ordinary=True)
     recovery = workspace / "recovery"
     if recovery.exists() or recovery.is_symlink() or (workspace / "backup.json").exists():
         raise ValueError("recovery point already exists")
     recovery.mkdir(mode=0o700)
+    observation = root_observation(server, workspace, provider, metadata=True) if registered else None
+    probe = ({key: observation['identity'][key] for key in ('server_uuid', 'database', 'charset', 'collation', 'table_count')}
+             if registered else db_probe(server, identity["database"]))
+    if registered:
+        durable(recovery / 'database-metadata.json', json.dumps(observation, sort_keys=True).encode())
     storage = {}
     for name in STORAGE_NAMES:
         source = server / name
@@ -426,13 +610,17 @@ def backup(args):
         raise ValueError("installation identity changed after planning")
     docker_dir = server / "docker"
     raw = recovery / "database.sql"
-    with raw.open("xb") as output:
-        os.fchmod(output.fileno(), 0o600)
-        compose(docker_dir, "exec", "-T", "mysql", "sh", "-c",
-                'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump --single-transaction --routines --triggers --events --hex-blob --databases --add-drop-database -uroot -- "$1"',
-                "sh", identity["database"], output=output, timeout=600)
-        output.flush()
-        os.fsync(output.fileno())
+    capture = None
+    if registered:
+        capture = root_client(server, workspace, provider, 'capture', output=raw)
+    else:
+        with raw.open("xb") as output:
+            os.fchmod(output.fileno(), 0o600)
+            compose(docker_dir, "exec", "-T", "mysql", "sh", "-c",
+                    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump --single-transaction --routines --triggers --events --hex-blob --databases --add-drop-database -uroot -- "$1"',
+                    "sh", identity["database"], output=output, timeout=600)
+            output.flush()
+            os.fsync(output.fileno())
     if raw.stat().st_size == 0:
         raise ValueError("database dump is empty")
     validate_dump(raw, identity["database"])
@@ -446,12 +634,25 @@ def backup(args):
     with gzip.open(compressed, "rb") as check:
         if hashlib.sha256(check.read()).hexdigest() != sha(raw):
             raise ValueError("compressed database dump failed round-trip verification")
+    raw_digest = sha(raw)
     raw.unlink()
+    after = None
+    if registered:
+        after = root_observation(server, workspace, provider, metadata=True)
+        durable(recovery / 'database-metadata-after.json', json.dumps(after, sort_keys=True).encode())
+        if any(after[key] != observation[key] for key in ('identity', 'metadata', 'mysql_sha256', 'mysqldump_sha256')):
+            raise ValueError('whole-schema metadata or client changed during capture; retain backup, NOT_READY')
+        assert_whole_schema_effects(observation)
+        assert_stopped(server, allow_registered=True, ordinary=True)
     record = {"protocol": "peanut.server-update-backup.v1", "update_id": plan["update_id"],
               "plan_sha256": plan_sha, "database_identity": identity, "database_dump_sha256": sha(compressed),
               "source_images": runtime["images"], "compose_project": runtime["project"], 'quiesced_containers': runtime['containers'],
               "mysql_identity": probe, "snapshots": snapshots, 'storage': storage,
-              'product_plan_sha256': product_binding(workspace)[0]['plan_sha256']}
+              'product_plan_sha256': product_binding(workspace)[0]['plan_sha256'],
+              'database_provider': provider,
+              'registered_evidence': {'metadata_sha256': sha(recovery / 'database-metadata.json'),
+                  'metadata_after_sha256': sha(recovery / 'database-metadata-after.json'),
+                  'capture': capture, 'raw_dump_sha256': raw_digest} if registered else None}
     backup_bytes = json.dumps(record, sort_keys=True).encode()
     durable(workspace / "backup.json", backup_bytes)
     durable(workspace / "backup.json.hmac", (hmac.new(verification_key(server), backup_bytes, hashlib.sha256).hexdigest() + "\n").encode())
@@ -500,12 +701,54 @@ def verify(args):
         or snapshots["private/installation/baseline.json"] != plan["source"]["baseline_sha256"] \
         or snapshots["private/installation/deployment.json"] != plan["source"]["deployment_state_sha256"]:
         raise ValueError("recovery snapshot differs from original installation identity")
-    runtime = assert_stopped(server)
+    provider = ordinary_database_provider(server, workspace)
+    if record.get('database_provider') != provider:
+        raise ValueError('signed backup provider differs from the frozen ordinary plan')
+    if provider['source'] == 'registered':
+        evidence = record.get('registered_evidence', {})
+        before_path = workspace / 'recovery/database-metadata.json'
+        after_path = workspace / 'recovery/database-metadata-after.json'
+        for path, key in ((before_path, 'metadata_sha256'), (after_path, 'metadata_after_sha256')):
+            regular(path, 0o600)
+            if sha(path) != evidence.get(key): raise ValueError('signed privileged metadata changed')
+        observation = read_json(before_path); after = read_json(after_path)
+        if any(after[key] != observation[key] for key in ('identity', 'metadata', 'mysql_sha256', 'mysqldump_sha256')):
+            raise ValueError('paired metadata differs across native capture')
+        assert_whole_schema_effects(observation)
+        for reference, operation in ((observation['process'], 'metadata'), (after['process'], 'metadata'),
+                                     (evidence['capture'], 'capture')):
+            process_path = Path(reference['path'])
+            if process_path.parent != workspace / 'root-client': raise ValueError('privileged process escaped its workspace')
+            regular(process_path, 0o600)
+            if sha(process_path) != reference['sha256']: raise ValueError('privileged process receipt changed')
+            process = read_json(process_path)
+            if process.get('operation') != operation or process.get('provider') != provider \
+                    or process.get('product_plan_sha256') != record['product_plan_sha256'] \
+                    or process.get('status') != 'terminal' or process.get('rc') != 0 \
+                    or process.get('remote_success_terminal_confirmed') is not True:
+                raise ValueError('privileged command has no bound successful terminal')
+            for key in ('stdout', 'stderr'):
+                path = Path(process[key]['path'])
+                if process['operation'] == 'capture' and key == 'stdout':
+                    if path != workspace / 'recovery/database.sql': raise ValueError('capture payload path changed')
+                    digest = hashlib.sha256()
+                    with gzip.open(compressed, 'rb') as stream:
+                        for chunk in iter(lambda: stream.read(1024 * 1024), b''): digest.update(chunk)
+                    if digest.hexdigest() != process[key]['sha256'] or digest.hexdigest() != evidence['raw_dump_sha256']:
+                        raise ValueError('archived dump differs from actual terminal capture')
+                    continue
+                if path.parent != workspace / 'root-client': raise ValueError('privileged output escaped its workspace')
+                regular(path, 0o600)
+                if sha(path) != process[key]['sha256']: raise ValueError('privileged command output changed')
+        current = root_observation(server, workspace, provider)
+        if any(current[key] != observation[key] for key in ('mysql_sha256', 'mysqldump_sha256')):
+            raise ValueError('registered privileged client binaries changed since backup')
+    runtime = assert_stopped(server, allow_registered=True, ordinary=True)
     if record.get("source_images") != runtime["images"] or record.get("compose_project") != runtime["project"]:
         raise ValueError("source image or Compose project changed after backup")
     if journal.get('phase_in_progress') in ('backup', 'quiesce', 'migrate') and record.get('quiesced_containers') != runtime['containers']:
         raise ValueError('a writer restarted after the paired backup; stale recovery point reuse is forbidden')
-    current_probe = db_probe(server, identity["database"])
+    current_probe = db_probe(server, identity["database"], workspace)
     if current_probe["server_uuid"] != record.get("mysql_identity", {}).get("server_uuid") \
         or current_probe["database"] != record.get("mysql_identity", {}).get("database"):
         raise ValueError("MySQL server or schema changed after backup")
@@ -539,7 +782,7 @@ def restore(args):
         state = read_json(state_path)
         if state.get("status") == "completed" and state.get("backup_sha256") == sha(workspace / "backup.json"):
             check_signature(server, state_path)
-            if db_probe(server, record["database_identity"]["database"]) != record["mysql_identity"]:
+            if db_probe(server, record["database_identity"]["database"], workspace) != record["mysql_identity"]:
                 raise ValueError("already restored database no longer matches recovery point")
             for name, entry in record['storage'].items():
                 if entry is not None and storage_inventory(server / name) != entry['inventory']:
@@ -547,6 +790,10 @@ def restore(args):
             print(json.dumps({"status": "already_restored", "update_id": plan["update_id"]}))
             return
         raise ValueError("database restore has an unknown or interrupted result; inspect before retry")
+    provider = ordinary_database_provider(server, workspace)
+    if provider['source'] == 'registered':
+        # Current outside effects may have changed since backup; DROP/USE must never cross that boundary.
+        assert_whole_schema_effects(root_observation(server, workspace, provider, metadata=True))
     durable(state_path, json.dumps({"status": "started", "update_id": plan["update_id"],
                                    "backup_sha256": sha(workspace / "backup.json")}).encode())
     dump = workspace / "recovery/database.sql.gz"
@@ -562,12 +809,15 @@ def restore(args):
             target.flush()
             os.fsync(target.fileno())
         with raw.open("rb") as statement:
-            compose(docker_dir, "exec", "-T", "mysql", "sh", "-c",
-                    'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot',
-                    input_file=statement, timeout=600)
+            if provider['source'] == 'registered':
+                restored_process = root_client(server, workspace, provider, 'restore', input_file=statement)
+            else:
+                compose(docker_dir, "exec", "-T", "mysql", "sh", "-c",
+                        'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot',
+                        input_file=statement, timeout=600)
     finally:
         raw.unlink(missing_ok=True)
-    restored = db_probe(server, database)
+    restored = db_probe(server, database, workspace)
     if restored != record["mysql_identity"]:
         raise ValueError("restored schema identity or table count differs from recovery point")
     restore_storage(server, workspace, record)
@@ -583,7 +833,8 @@ def restore(args):
     temporary = workspace / "database-recovery.complete"
     durable(temporary, json.dumps({"status": "completed", "update_id": plan["update_id"],
                                    "backup_sha256": sha(workspace / "backup.json"),
-                                   "mysql_identity": restored}).encode())
+                                   "mysql_identity": restored,
+                                   "registered_restore_process": restored_process if provider['source'] == 'registered' else None}).encode())
     os.replace(temporary, state_path)
     durable(state_path.with_name(state_path.name + ".hmac"), (signature_for(server, state_path) + "\n").encode())
     print(json.dumps({"status": "completed", "update_id": plan["update_id"]}))

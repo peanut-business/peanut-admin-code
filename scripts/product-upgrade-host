@@ -647,11 +647,14 @@ def main():
         or plan['state_path'] != str(args.state) or state['phase_in_progress'] != phase:
         raise ValueError('phase differs from the sole product plan/state')
     server = root / 'server'; docker_dir = server / 'docker'
+    provider = recovery.ordinary_database_provider(server, workspace)
+    registered = provider['source'] == 'registered'
     # This coordinator owns the APP composition, not the independent Node process.
     # Its normal writer hold and recovery checks remain below.
     environment = recovery.env(docker_dir / '.env')
     images = {}
-    for service in ('php', 'nginx', 'mysql'):
+    services = ('php', 'nginx') if registered else ('php', 'nginx', 'mysql')
+    for service in services:
         reference = environment.get(service.upper() + '_IMAGE', '')
         if not re.fullmatch(r'(sha256:[a-f0-9]{64}|[A-Za-z0-9][A-Za-z0-9._:/-]{0,160}@sha256:[a-f0-9]{64})', reference):
             raise ValueError('runtime image must be prepared and immutable')
@@ -662,9 +665,14 @@ def main():
     def compose(*values):
         return run(*collaboration.compose_arguments(server), *values, cwd=docker_dir)
 
+    def network():
+        if not registered: return 'container:' + compose('ps', '-q', 'mysql')
+        ids = {service: compose('ps', '-a', '-q', service) for service in services}
+        return recovery.source_network(server, environment['COMPOSE_PROJECT_NAME'], ids)['id']
+
     def php(tool, *values):
         mounts = ['--mount', f'type=bind,src={root},dst={root}', '--mount', f'type=bind,src={workspace},dst={workspace}']
-        output = run('docker', 'run', '--rm', '--network', 'container:' + compose('ps', '-q', 'mysql'), *mounts,
+        output = run('docker', 'run', '--rm', '--network', network(), *mounts,
             '--env', 'PEANUT_SERVER_ENV_FILE=' + str(server / '.env'),
             '--workdir', str(server), '--entrypoint', 'php', images['php'], tool, *values)
         return json.loads(output) if output else {}
@@ -672,7 +680,7 @@ def main():
     def native(operation):
         return php(tools / 'update-plan.php', operation, '--instance-server=' + str(server), '--workspace=' + str(workspace))
 
-    def stopped(): return recovery.assert_stopped(server)
+    def stopped(): return recovery.assert_stopped(server, allow_registered=True, ordinary=True)
 
     def hold():
         native('hold'); compose('stop', '--timeout', '60', 'nginx', 'php'); return stopped()
@@ -684,7 +692,8 @@ def main():
     def prepared_record():
         record = read(record_path)
         if record['candidate'] != candidate or record['plan_sha256'] != plan['plan_sha256'] or record['runtime_images'] != images \
-            or record['inputs_sha256'] != sha(workspace / 'plan.json'): raise ValueError('prepared target, inputs or fixed images changed')
+            or record['inputs_sha256'] != sha(workspace / 'plan.json') or record.get('database_provider') != provider \
+            or record.get('database_network') != network(): raise ValueError('prepared target, database provider, route, inputs or fixed images changed')
         return record
 
     def db(operation):
@@ -769,10 +778,11 @@ def main():
 
     def health(public=False):
         native('health'); containers = {}
-        for service in ('mysql', 'php', 'nginx'):
+        for service in services:
             ids = compose('ps', '-a', '-q', service).splitlines()
             if len(ids) != 1: raise ValueError('runtime service is not unique')
-            detail = json.loads(run('docker', 'inspect', '--format', '{{json .}}', ids[0]))
+            detail = json.loads(run('docker', 'inspect', '--format',
+                '{"Id":{{json .Id}},"Image":{{json .Image}},"State":{{json .State}}}', ids[0]))
             if detail['Image'] != images[service] or detail['State']['Running'] != (service in ('mysql', 'php') or public):
                 raise ValueError('runtime service or image differs from plan')
             containers[service] = {'id': detail['Id'], 'image': detail['Image']}
@@ -806,7 +816,8 @@ def main():
                     '--mount', f'type=bind,src={target / "docker/conf/nginx.conf"},dst=/etc/nginx/nginx.conf,readonly', '--entrypoint', 'nginx', images['nginx'], '-t')
             payload = {'candidate': candidate, 'plan_sha256': plan['plan_sha256'], 'kind': 'mounted-app-source', 'target': str(prepared),
                 'runtime_images': images, 'inputs_sha256': sha(workspace / 'plan.json'), 'source': plan['package'],
-                'dependency_preparation_sha256': sha(workspace / 'preparation.json')}
+                'dependency_preparation_sha256': sha(workspace / 'preparation.json'),
+                'database_provider': provider, 'database_network': network()}
             write(record_path, payload)
     elif phase == 'migration-preflight': prepared_record(); payload = {'database': db('preflight')}
     elif phase == 'backup':
@@ -827,6 +838,7 @@ def main():
     elif phase == 'migration-verify': payload = {'database': db('verify')}
     elif phase == 'health': prepared_record(); payload = health(state['activation_started'])
     elif phase == 'activate':
+        prepared_record()
         if not state['activation_started'] or 'health' not in state['evidence']: raise ValueError('healthy activation boundary must precede traffic')
         try:
             compose('stop', '--timeout', '60', 'php')
