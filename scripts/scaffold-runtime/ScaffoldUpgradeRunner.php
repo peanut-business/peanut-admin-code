@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace app\common\infrastructure\scaffold;
 
-require_once __DIR__ . '/ReleaseDependencyIdentity.php';
+if (!class_exists(\app\common\infrastructure\scaffold\ReleaseDependencyIdentity::class, false)) {
+    require_once __DIR__ . '/ReleaseDependencyIdentity.php';
+}
 
 use app\common\validation\scaffold\ScaffoldPathGuard;
 use app\common\value\scaffold\ScaffoldManifest;
@@ -231,7 +233,7 @@ final class ScaffoldUpgradeRunner
         $root = ScaffoldPathGuard::projectRoot($projectRoot);
         if (PHP_SAPI === 'cli' && is_file($root . '/server/.peanut/internal-candidate.json')
             && !file_exists($root . '/server/.peanut/development-runtime.json')) {
-            require_once dirname(__DIR__, 2) . '/server/docker/scripts/update-plan.php';
+            if (!class_exists(\PeanutServerUpdatePlan::class, false)) { require_once dirname(__DIR__, 2) . '/server/docker/scripts/update-plan.php'; }
             return self::sourceProductLock($root, fn(): array => \PeanutServerUpdatePlan::withSourceInstanceLock($root . '/server',
                 fn(): array => $this->previewSource($root, $fromManifestPath, $toManifestPath, $sourceSelection)));
         }
@@ -249,7 +251,7 @@ final class ScaffoldUpgradeRunner
         $previousInternal = $this->internalPreinstall;
         $previousGraphOrigin = $this->internalGraphOrigin;
         if (PHP_SAPI === 'cli' && $from->version() === $to->version() && is_file($root . '/server/.peanut/internal-candidate.json')) {
-            require_once dirname(__DIR__, 2) . '/server/docker/scripts/update-plan.php';
+            if (!class_exists(\PeanutServerUpdatePlan::class, false)) { require_once dirname(__DIR__, 2) . '/server/docker/scripts/update-plan.php'; }
             if ($sourceSelection !== null) { throw new RuntimeException('INTERNAL_PREINSTALL_NOT_PUBLISHED_RELEASE_SELECTION'); }
             $internal = \PeanutServerUpdatePlan::internalPreinstallContext($root . '/server', $from->release(), $to->release());
         }
@@ -2789,7 +2791,7 @@ final class ScaffoldUpgradeRunner
             }
             if (($this->internalGraphOrigin['root'] ?? null) !== $root
                 || self::canonicalJson($this->internalGraphOrigin['context'] ?? []) !== self::canonicalJson($context)) {
-                require_once dirname(__DIR__, 2) . '/server/docker/scripts/update-plan.php';
+                if (!class_exists(\PeanutServerUpdatePlan::class, false)) { require_once dirname(__DIR__, 2) . '/server/docker/scripts/update-plan.php'; }
                 $pending = \PeanutServerUpdatePlan::sourcePending($root . '/server');
                 if ($pending === null) { throw new RuntimeException('INTERNAL_PREINSTALL_GRAPH_PENDING_REQUIRED'); }
                 $state = $this->runtimeCheckpoint($pending['checkpoint'], $root);
@@ -3451,6 +3453,18 @@ final class ScaffoldUpgradeRunner
         $entries = $ledger->entries($candidate);
         return $entries === [] ? null : (string) ($entries[array_key_last($entries)]['status'] ?? '');
     }
+
+    /** A later preflight must never conceal an earlier mutation, failure or recovery. */
+    private function onlyOwnReadyHistory(string $root, array $plan): bool
+    {
+        $identity = hash('sha256', self::canonicalJson($plan['identity']));
+        foreach ($this->ledger($root)->entries($plan['candidate']) as $event) {
+            if (($event['operation'] ?? null) !== 'preflight' || ($event['status'] ?? null) !== 'ready'
+                || ($event['plan_sha256'] ?? null) !== $plan['plan_sha256']
+                || ($event['identity_sha256'] ?? null) !== $identity) { return false; }
+        }
+        return $plan['status'] === 'ready';
+    }
     private function event(array $plan, string $operation, string $status, ?string $pre, ?string $post, array $extra = []): array
     {
         return ['schema_version' => 2,'candidate' => $plan['candidate'],'operation' => $operation,'status' => $status,'from' => $plan['identity']['from'],'to' => $plan['identity']['to'],'pre_sha256' => $pre,'post_sha256' => $post,
@@ -3467,7 +3481,7 @@ final class ScaffoldUpgradeRunner
                     || is_link($root . '/server/.peanut/development-runtime.json')
                     || file_exists($root . '/server/.peanut/internal-candidate.json')
                     || file_exists($root . '/server/runtime/upgrade/source-transition.json')) {
-                    require_once dirname(__DIR__, 2) . '/server/docker/scripts/update-plan.php';
+                    if (!class_exists(\PeanutServerUpdatePlan::class, false)) { require_once dirname(__DIR__, 2) . '/server/docker/scripts/update-plan.php'; }
                     return \PeanutServerUpdatePlan::withSourceInstanceLock($root . '/server', static fn() => $operation($root));
                 }
                 return $operation($root);
@@ -3867,7 +3881,7 @@ final class ScaffoldUpgradeRunner
         if (($plan['protocol'] ?? null) !== 'peanut.scaffold-upgrade-plan.v2') {
             throw new RuntimeException('SOURCE_RUNTIME_SOURCE_ADOPTION_REQUIRES_SEPARATE_MAINTENANCE');
         }
-        require_once dirname(__DIR__, 2) . '/server/docker/scripts/update-plan.php';
+        if (!class_exists(\PeanutServerUpdatePlan::class, false)) { require_once dirname(__DIR__, 2) . '/server/docker/scripts/update-plan.php'; }
         $pending = \PeanutServerUpdatePlan::sourcePending($root . '/server');
         if ($pending === null) { throw new RuntimeException('SOURCE_RUNTIME_PREPARE_REQUIRED'); }
         $state = $this->runtimeCheckpoint($pending['checkpoint'], $root);
@@ -3969,12 +3983,16 @@ final class ScaffoldUpgradeRunner
     }
 
     /** Explicit installed-APP transition; ordinary source verify never calls this method. */
-    public function runtimeCommand(string $command, string $root, array $options, string $toolRoot): array
+    public function runtimeCommand(string $command, string $root, array $options, string $toolRoot, ?array $cancelAdmission = null): array
     {
-        require_once dirname(__DIR__, 2) . '/server/docker/scripts/update-plan.php';
-        return self::sourceProductLock($root, function () use ($command, $root, $options, $toolRoot): array {
-            $result = $this->locked($root, function () use ($command, $root, $options, $toolRoot): array {
+        if (!class_exists(\PeanutServerUpdatePlan::class, false)) { require_once dirname(__DIR__, 2) . '/server/docker/scripts/update-plan.php'; }
+        return self::sourceProductLock($root, function () use ($command, $root, $options, $toolRoot, $cancelAdmission): array {
+            $result = $this->locked($root, function () use ($command, $root, $options, $toolRoot, $cancelAdmission): array {
                 \PeanutServerUpdatePlan::sourceOwner($root . '/server');
+                if (isset($options['cancel-unmodified-preparing'])) {
+                    if ($command !== 'runtime-recover' || $cancelAdmission === null) { throw new RuntimeException('SOURCE_RUNTIME_CANCEL_ENTRY_REQUIRED'); }
+                    return $this->runtimeCancelUnmodifiedPreparing($root, $options, $toolRoot, $cancelAdmission);
+                }
                 if (in_array($command, ['runtime-prepare', 'runtime-refreeze'], true)) {
                     $state = $this->runtimePrepare($root, $options, $toolRoot, $command === 'runtime-refreeze');
                     if ($state['phase'] === 'tools-prepared') { return $state; }
@@ -4187,7 +4205,7 @@ final class ScaffoldUpgradeRunner
                 $this->assertAppliedState($root, $plan);
                 $recovery = '.peanut/upgrades/backups/' . $plan['candidate'] . '/recovery.json';
             } else {
-                if ($candidateState !== null) { throw new RuntimeException('SOURCE_RUNTIME_PRIOR_FAILURE_REQUIRES_RECOVERY'); }
+                if (!$this->onlyOwnReadyHistory($root, $plan)) { throw new RuntimeException('SOURCE_RUNTIME_PRIOR_FAILURE_REQUIRES_RECOVERY'); }
                 $this->assertPlanFresh($root, $plan);
                 $this->assertPlanRebound($root, $plan);
                 $recovery = $this->createRecovery($root, $plan);
@@ -4382,6 +4400,175 @@ final class ScaffoldUpgradeRunner
         return $state;
     }
 
+    /** Cancel only the proven no-source-write frontier; never enter restore or admission. */
+    private function runtimeCancelUnmodifiedPreparing(string $root, array $options, string $toolRoot, array $admission): array
+    {
+        $path = $options['transition']; $workspace = $options['workspace'];
+        $approvalPath = $options['cancel-unmodified-preparing'];
+        $state = $this->runtimeRead($path); unset($state['state_sha256']); $binding = $state['binding'];
+        if ($path !== $workspace . '/source-runtime.json' || $toolRoot !== $workspace . '/trusted'
+            || ($binding['source_input_kind'] ?? null) !== 'raw-internal-preinstall-scaffold'
+            || !isset($binding['internal_preinstall']) || $state['phase'] !== 'preparing' || $state['activation_started'] !== false
+            || $state['backups'] !== [] || $state['intents'] !== []
+            || $binding['deployment']['head_sha256'] !== null || $binding['deployment']['source_generation'] !== 0) {
+            throw new RuntimeException('SOURCE_RUNTIME_CANCEL_FRONTIER_REQUIRED');
+        }
+        $allowed = ['schema_version', 'protocol', 'transition_id', 'binding', 'phase', 'activation_started', 'backups', 'intents',
+            'vendor_preflight_sha256', 'quiescence'];
+        if (array_diff(array_keys($state), $allowed) !== [] || !isset($state['quiescence'], $state['vendor_preflight_sha256'])) {
+            throw new RuntimeException('SOURCE_RUNTIME_CANCEL_UNKNOWN_PROGRESS');
+        }
+        $source = $admission['corrected_source']['root'];
+        $currentAdmission = \productUpgradePreparingCancelAdmission($approvalPath, $path, $state, $source);
+        if (self::canonicalJson($currentAdmission) !== self::canonicalJson($admission)
+            || realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')) !== $source . '/scripts/upgrade'
+            || realpath(__FILE__) !== $source . '/scripts/scaffold-runtime/ScaffoldUpgradeRunner.php') {
+            throw new RuntimeException('SOURCE_RUNTIME_CANCEL_ENTRY_REQUIRED');
+        }
+        $proof = $admission['lease_proof'] ?? '';
+        if (!is_string($proof) || realpath($proof) !== $proof || !is_dir($proof) || is_link($proof)) {
+            throw new RuntimeException('SOURCE_RUNTIME_CANCEL_NATIVE_LEASE_REQUIRED');
+        }
+        // Consume the existing native claim and every resource lock, without loading another live helper.
+        $metadata = [];
+        foreach (['metadata.tsv', 'resources.tsv'] as $name) {
+            $file = $proof . '/' . $name;
+            if (realpath($file) !== $file || !is_file($file) || is_link($file) || lstat($file)['nlink'] !== 1
+                || (fileperms($file) & 0022) !== 0 || !in_array(fileowner($file), [0, fileowner($root . '/server')], true)) {
+                throw new RuntimeException('SOURCE_RUNTIME_CANCEL_NATIVE_LEASE_INVALID');
+            }
+        }
+        foreach (file($proof . '/metadata.tsv', FILE_IGNORE_NEW_LINES) ?: [] as $line) {
+            $pair = explode("\t", $line);
+            if (count($pair) !== 2 || isset($metadata[$pair[0]])) { throw new RuntimeException('SOURCE_RUNTIME_CANCEL_NATIVE_LEASE_INVALID'); }
+            $metadata[$pair[0]] = $pair[1];
+        }
+        foreach (['lease', 'owner', 'thread', 'candidate', 'gate'] as $key) {
+            if (!is_string($admission['lease'][$key] ?? null) || ($metadata[$key] ?? null) !== $admission['lease'][$key]) {
+                throw new RuntimeException('SOURCE_RUNTIME_CANCEL_NATIVE_LEASE_CHANGED');
+            }
+        }
+        if (($metadata['status'] ?? null) !== 'ACTIVE' || ($metadata['parent_lease'] ?? null) !== ''
+            || preg_match('/\A[0-9]+\z/D', (string) ($metadata['expires_at'] ?? '')) !== 1
+            || preg_match('/\A[0-9]+\z/D', (string) ($metadata['created_at'] ?? '')) !== 1
+            || (int) ($metadata['expires_at'] ?? 0) <= time() || (int) ($metadata['created_at'] ?? PHP_INT_MAX) > time()
+            || $metadata['candidate'] !== $admission['corrected_source']['commit']
+            || ($metadata['candidate_repository'] ?? null) !== $source || ($metadata['worktree'] ?? null) !== $source
+            || hash_file('sha256', $proof . '/resources.tsv') !== ($admission['lease_resources_sha256'] ?? null)) {
+            throw new RuntimeException('SOURCE_RUNTIME_CANCEL_NATIVE_LEASE_INVALID');
+        }
+        $lockRoot = dirname($proof, 2) . '/resources'; $covered = []; $lockReferences = [];
+        foreach (file($proof . '/resources.tsv', FILE_IGNORE_NEW_LINES) ?: [] as $line) {
+            $row = explode("\t", $line);
+            if (count($row) === 3 && preg_match('/\A[a-f0-9]{64}\z/D', $row[0]) === 1) {
+                foreach (['lease', 'type', 'value'] as $name) {
+                    $lock = $lockRoot . '/' . $row[0] . '/' . $name;
+                    if (realpath($lock) !== $lock || !is_file($lock) || is_link($lock) || lstat($lock)['nlink'] !== 1) {
+                        throw new RuntimeException('SOURCE_RUNTIME_CANCEL_NATIVE_LOCK_CHANGED');
+                    }
+                    $lockReferences[] = $lock;
+                }
+            }
+            if (count($row) !== 3 || $row[0] !== hash('sha256', $row[1] . "\t" . $row[2])
+                || trim((string) @file_get_contents($lockRoot . '/' . $row[0] . '/lease')) !== $metadata['lease']
+                || trim((string) @file_get_contents($lockRoot . '/' . $row[0] . '/type')) !== $row[1]
+                || trim((string) @file_get_contents($lockRoot . '/' . $row[0] . '/value')) !== $row[2]) {
+                throw new RuntimeException('SOURCE_RUNTIME_CANCEL_NATIVE_LOCK_CHANGED');
+            }
+            if ($row[1] === 'output-dir') {
+                foreach ([$root, $workspace] as $target) {
+                    if ($target === $row[2] || str_starts_with($target . '/', rtrim($row[2], '/') . '/')) { $covered[$target] = true; }
+                }
+            }
+        }
+        if (count($covered) !== 2) { throw new RuntimeException('SOURCE_RUNTIME_CANCEL_NATIVE_WRITE_SCOPE_REQUIRED'); }
+        if (self::canonicalJson($this->runtimeCheckpoint($path, $root)) !== self::canonicalJson($state)) {
+            throw new RuntimeException('SOURCE_RUNTIME_CANCEL_FRONTIER_CHANGED');
+        }
+        $plan = $this->runtimePackage($root, $state);
+        if ($plan === null || !$this->onlyOwnReadyHistory($root, $plan)) { throw new RuntimeException('SOURCE_RUNTIME_CANCEL_MUTATION_HISTORY'); }
+        $this->runtimeAssertHead($root, $state, false);
+        $this->assertPlanFresh($root, $plan);
+        $this->runtimeOldProgram($root, $state);
+        [$application] = $this->applicationManifest($root);
+        foreach ($application['files'] as $file) {
+            if (!in_array($file['classification'], ['managed', 'generated-managed'], true)) { continue; }
+            if ($this->regularFileState(ScaffoldPathGuard::projectPath($root, $file['path']), $file['path'])
+                !== ['present' => true, 'sha256' => $file['sha256'], 'mode' => $file['mode']]) {
+                throw new RuntimeException('SOURCE_RUNTIME_CANCEL_SOURCE_CHANGED');
+            }
+            if (isset($file['baseline_path']) && $this->regularFileState(ScaffoldPathGuard::projectPath($root, $file['baseline_path']), $file['baseline_path'])
+                !== ['present' => true, 'sha256' => $file['baseline_sha256'], 'mode' => 0644]) {
+                throw new RuntimeException('SOURCE_RUNTIME_CANCEL_BASELINE_CHANGED');
+            }
+        }
+        $recovery = $workspace . '/recovery'; $preflight = $recovery . '/vendor-preflight.json';
+        if (realpath($recovery) !== $recovery || (fileperms($recovery) & 0077) !== 0
+            || !is_file($preflight) || realpath($preflight) !== $preflight || lstat($preflight)['nlink'] !== 1
+            || (fileperms($preflight) & 0777) !== 0600 || hash_file('sha256', $preflight) !== $state['vendor_preflight_sha256']) {
+            throw new RuntimeException('SOURCE_RUNTIME_CANCEL_VENDOR_PROOF_REQUIRED');
+        }
+        $expectedRecovery = ['.', '..', basename($approvalPath), 'vendor-preflight.json']; sort($expectedRecovery, SORT_STRING);
+        if ((scandir($recovery) ?: []) !== $expectedRecovery
+            || file_exists($root . '/.peanut/upgrades/backups/' . $plan['candidate'])
+            || is_link($root . '/.peanut/upgrades/backups/' . $plan['candidate'])) {
+            throw new RuntimeException('SOURCE_RUNTIME_CANCEL_PREIMAGE_OR_INTENT_EXISTS');
+        }
+        $this->runtimeHost($state, 'check');
+        if ($this->runtimeHost($state, 'vendor-preflight')['sha256'] !== $state['vendor_preflight_sha256']) {
+            throw new RuntimeException('SOURCE_RUNTIME_CANCEL_VENDOR_CHANGED');
+        }
+        $pendingPath = $root . '/server/runtime/upgrade/source-transition.json';
+        $pending = \PeanutServerUpdatePlan::sourcePending($root . '/server');
+        if (($pending['phase'] ?? null) !== 'preparing' || ($pending['checkpoint'] ?? null) !== $path
+            || ($pending['transition_id'] ?? null) !== $state['transition_id']
+            || ($pending['binding_sha256'] ?? null) !== hash('sha256', self::canonicalJson($binding))
+            || ($pending['activation_started'] ?? null) !== false || ($pending['deployment_sha256'] ?? null) !== null
+            || file_exists($root . '/server/runtime/upgrade/.traffic-ready') || is_link($root . '/server/runtime/upgrade/.traffic-ready')) {
+            throw new RuntimeException('SOURCE_RUNTIME_CANCEL_PENDING_CHANGED');
+        }
+        $references = [$path, $pendingPath, $root . '/.peanut/upgrades/ledger.ndjson', $approvalPath,
+            $proof . '/metadata.tsv', $proof . '/resources.tsv', ...$lockReferences];
+        $before = [];
+        $statKeys = array_flip(['dev', 'ino', 'mode', 'nlink', 'uid', 'gid', 'size', 'mtime', 'ctime']);
+        foreach ($references as $file) { $before[$file] = ['stat' => array_intersect_key(lstat($file), $statKeys), 'sha256' => hash_file('sha256', $file)]; }
+        // Recheck the complete frozen closure and the ordinary read-only r1/private frontier under held locks.
+        if (self::canonicalJson($this->runtimeCheckpoint($path, $root)) !== self::canonicalJson($state)
+            || self::canonicalJson(\productUpgradePreparingCancelAdmission($approvalPath, $path, $state, $source)) !== self::canonicalJson($admission)) {
+            throw new RuntimeException('SOURCE_RUNTIME_CANCEL_FRONTIER_CHANGED');
+        }
+        foreach ($before as $file => $reference) {
+            clearstatcache(true, $file);
+            if (array_intersect_key(lstat($file), $statKeys) !== $reference['stat'] || hash_file('sha256', $file) !== $reference['sha256']) {
+                throw new RuntimeException('SOURCE_RUNTIME_CANCEL_INPUT_CHANGED');
+            }
+        }
+        if ((int) $metadata['expires_at'] <= time()) { throw new RuntimeException('SOURCE_RUNTIME_CANCEL_NATIVE_LEASE_EXPIRED'); }
+        $checkpointBytes = (string) file_get_contents($path); $pendingBytes = (string) file_get_contents($pendingPath);
+        $audit = ['protocol' => 'peanut.source-preparing-cancel-audit.v1', 'action_id' => $admission['action_id'],
+            'admission_path' => $approvalPath, 'admission_sha256' => hash_file('sha256', $approvalPath),
+            'checkpoint_before_sha256' => hash('sha256', $checkpointBytes), 'pending_before_sha256' => hash('sha256', $pendingBytes),
+            'ledger_sha256' => $admission['ledger_sha256'], 'binding_sha256' => $admission['binding_sha256'],
+            'corrected_source' => $admission['corrected_source'], 'started_at' => gmdate('c'), 'automatic_retry' => false];
+        // Fixed one-shot files make any partial metadata write visible and reject blind replay.
+        try {
+            $this->writeFileAtomic($recovery . '/cancel-checkpoint-before.json', $checkpointBytes, 0600);
+            $this->writeFileAtomic($recovery . '/cancel-pending-before.json', $pendingBytes, 0600);
+            $this->writeJsonAtomic($recovery . '/cancel-audit.json', $audit, 0600);
+            $this->writeJsonAtomic($recovery . '/cancel-intent.json', $audit + ['state' => 'metadata-write-intent'], 0600);
+            $state['source_recovery'] = null;
+            $state['cancelled_unmodified_preparing'] = ['action_id' => $admission['action_id'], 'audit_sha256' => hash_file('sha256', $recovery . '/cancel-audit.json')];
+            $state['phase'] = 'recovered';
+            $state = $this->runtimeSave($path, $state);
+            $this->runtimePointer($state, 'recovered');
+            $this->writeJsonAtomic($recovery . '/cancel-completed.json', $audit + ['state' => 'recovered-closed',
+                'checkpoint_sha256' => hash_file('sha256', $path), 'pending_sha256' => hash_file('sha256', $pendingPath)], 0600);
+        } catch (Throwable $error) {
+            throw new RuntimeException('SOURCE_RUNTIME_CANCEL_METADATA_UNKNOWN_NO_REPLAY', 0, $error);
+        }
+        return $state;
+    }
+
     private function runtimeRecover(string $root, string $path, array $state): array
     {
         if (isset($state['installation_completion'])) { throw new RuntimeException('SOURCE_RUNTIME_COMPLETED_INSTALLATION_RECOVERY_FORBIDDEN'); }
@@ -4389,7 +4576,7 @@ final class ScaffoldUpgradeRunner
         if (isset($state['vendor_original_sha256'])) { $this->runtimeHost($state, 'vendor-check'); }
         if ($state['phase'] === 'preparing') {
             $plan = $this->runtimePackage($root, $state);
-            if ($plan !== null && $this->candidateState($this->ledger($root), $plan['candidate']) !== null) {
+            if ($plan !== null && !$this->onlyOwnReadyHistory($root, $plan)) {
                 throw new RuntimeException('SOURCE_RUNTIME_COMPLETE_PREIMAGE_PREPARATION_REQUIRED');
             }
             // No source writer can enter before prepared. Cancelling this phase restores no file or old grant.

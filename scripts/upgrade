@@ -12,6 +12,22 @@ $toolRoot = $nativeEntry ? dirname(__DIR__, 3) : dirname(__DIR__);
 $runtimeRoot = $nativeEntry ? dirname(__DIR__) : $toolRoot;
 $serverScope = in_array('--scope=server', $argv, true);
 $frozenSource = null;
+$cancelAdmission = null;
+$cancelRunner = null;
+$cancelArguments = array_values(array_filter(array_slice($argv, 2), static fn(string $argument): bool => str_starts_with($argument, '--cancel-unmodified-preparing')));
+if ($cancelArguments !== []) {
+    $cancelOptions = [];
+    foreach (array_slice($argv, 2) as $argument) {
+        if (preg_match('/^--(scope|instance-root|workspace|transition|cancel-unmodified-preparing)=(.+)$/D', $argument, $match) !== 1
+            || isset($cancelOptions[$match[1]])) { throw new RuntimeException('SOURCE_RUNTIME_CANCEL_ARGUMENTS_INVALID'); }
+        $cancelOptions[$match[1]] = $match[2];
+    }
+    if ($nativeEntry || $serverScope || ($argv[1] ?? null) !== 'runtime-recover' || count($cancelOptions) !== 5
+        || ($cancelOptions['scope'] ?? null) !== 'source'
+        || ($cancelOptions['transition'] ?? null) !== ($cancelOptions['workspace'] ?? '') . '/source-runtime.json') {
+        throw new RuntimeException('SOURCE_RUNTIME_CANCEL_ARGUMENTS_INVALID');
+    }
+}
 if (!$nativeEntry && !$serverScope) {
     $early = [];
     foreach (array_slice($argv, 2) as $argument) {
@@ -31,6 +47,7 @@ if (!$nativeEntry && !$serverScope) {
     if ($checkpoint !== null && is_file($checkpoint)) {
         try {
             if (realpath($checkpoint) !== $checkpoint || (fileperms($checkpoint) & 0777) !== 0600
+                || !is_file($checkpoint) || lstat($checkpoint)['nlink'] !== 1
                 || (fileperms(dirname($checkpoint)) & 0077) !== 0) { throw new RuntimeException('SOURCE_RUNTIME_BOOTSTRAP_UNSAFE'); }
             $context = json_decode((string) file_get_contents($checkpoint), true, 512, JSON_THROW_ON_ERROR);
             $stateSha = $context['state_sha256'] ?? null; unset($context['state_sha256']);
@@ -48,7 +65,7 @@ if (!$nativeEntry && !$serverScope) {
                 if (realpath($fixed) !== $fixed || !is_file($fixed) || lstat($fixed)['nlink'] !== 1
                     || hash_file('sha256', $fixed) !== $sha || (fileperms($fixed) & 0777) !== $binding['tool_modes'][$relative]) { throw new RuntimeException('SOURCE_RUNTIME_FIXED_TOOL_CHANGED'); }
             }
-            if ($toolRoot !== $fixedRoot) {
+            if ($toolRoot !== $fixedRoot && $cancelArguments === []) {
                 $process = proc_open([PHP_BINARY, $fixedRoot . '/scripts/upgrade', ...array_slice($argv, 1)],
                     [0 => STDIN, 1 => STDOUT, 2 => STDERR], $pipes);
                 if (!is_resource($process)) { throw new RuntimeException('SOURCE_RUNTIME_FIXED_ENTRY_UNAVAILABLE'); }
@@ -75,12 +92,20 @@ if (!$nativeEntry && !$serverScope) {
                     throw new RuntimeException('SOURCE_RUNTIME_TOOL_DEPENDENCY_CHANGED');
                 }
             }
+            if ($cancelArguments !== []) {
+                $cancelAdmission = productUpgradePreparingCancelAdmission($cancelOptions['cancel-unmodified-preparing'], $checkpoint, $context, $toolRoot);
+                $cancelRunner = $toolRoot . '/scripts/scaffold-runtime/ScaffoldUpgradeRunner.php';
+                // Only the admitted entry and Runner differ. Every other loader/helper stays frozen.
+                $toolRoot = $fixedRoot;
+                $runtimeRoot = $fixedRoot;
+            }
             $frozenSource = $context;
         } catch (Throwable $error) {
             fwrite(STDERR, $error->getMessage() . "\n"); exit(1);
         }
     }
 }
+if ($cancelArguments !== [] && $cancelAdmission === null) { throw new RuntimeException('SOURCE_RUNTIME_CANCEL_CHECKPOINT_REQUIRED'); }
 // 可信入口使用其自身已安装的Composer/Core；不能从尚未校验完整性的目标包加载依赖。
 $installedAutoload = $frozenSource['binding']['tool_autoload'] ?? $toolRoot . '/server/vendor/autoload.php';
 if (!is_file($installedAutoload)) {
@@ -145,6 +170,7 @@ else {
         foreach (require $checked($vendor . '/composer/autoload_files.php') as $file) { require_once $checked($map($file)); }
     }
     foreach ($frozenSource['binding']['php_files'] as $relative) {
+        if ($cancelRunner !== null && $relative === 'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php') { continue; }
         if ($relative !== 'scripts/upgrade') { require_once $checked($toolRoot . '/' . $relative); }
     }
 }
@@ -168,6 +194,18 @@ foreach ($serverScope ? [['/scripts/scaffold-runtime/ScaffoldPathGuard.php']] : 
     ['/scripts/scaffold-runtime/ScaffoldUpgradeRunner.php'],
     ['/scripts/scaffold-runtime/EditionUpgradePackage.php'],
 ] as $candidates) {
+    if ($cancelRunner !== null && $candidates === ['/scripts/scaffold-runtime/ScaffoldUpgradeRunner.php']) {
+        if (class_exists(ScaffoldUpgradeRunner::class, false)) { throw new RuntimeException('SOURCE_RUNTIME_CANCEL_RUNNER_ALREADY_LOADED'); }
+        require_once $checked($toolRoot . '/scripts/scaffold-runtime/ReleaseDependencyIdentity.php');
+        require_once $checked($toolRoot . '/server/docker/scripts/update-plan.php');
+        $pin = $cancelAdmission['corrected_source']['files']['scripts/scaffold-runtime/ScaffoldUpgradeRunner.php'];
+        if (realpath($cancelRunner) !== $cancelRunner || !is_file($cancelRunner) || lstat($cancelRunner)['nlink'] !== 1
+            || hash_file('sha256', $cancelRunner) !== $pin['sha256'] || (fileperms($cancelRunner) & 0777) !== $pin['mode']) {
+            throw new RuntimeException('SOURCE_RUNTIME_CANCEL_CORRECTION_CHANGED');
+        }
+        require_once $cancelRunner;
+        continue;
+    }
     foreach ($candidates as $candidate) {
         if (is_file($runtimeRoot . $candidate)) {
             require_once $runtimeRoot . $candidate;
@@ -175,6 +213,95 @@ foreach ($serverScope ? [['/scripts/scaffold-runtime/ScaffoldPathGuard.php']] : 
         }
     }
     throw new RuntimeException('PRODUCT_UPGRADE_RUNTIME_MISSING');
+}
+
+/** Protected operator approval plus reviewed source pins; a checksum is not an authorization service. */
+function productUpgradePreparingCancelAdmission(string $path, string $checkpoint, array $context, string $source): array
+{
+    $binding = $context['binding']; $root = $binding['instance_root']; $workspace = $binding['workspace'];
+    $stat = @lstat($path); $owner = fileowner($root . '/server');
+    if (realpath($path) !== $path || dirname($path) !== $workspace . '/recovery' || !is_file($path) || is_link($path)
+        || in_array(basename($path), ['vendor-preflight.json', 'cancel-checkpoint-before.json', 'cancel-pending-before.json',
+            'cancel-audit.json', 'cancel-intent.json', 'cancel-completed.json'], true)
+        || !is_array($stat) || $stat['nlink'] !== 1 || ($stat['mode'] & 07777) !== 0600 || $stat['size'] > 65536
+        || !in_array($stat['uid'], [0, $owner], true) || !function_exists('posix_geteuid') || !in_array(posix_geteuid(), [0, $owner], true)) {
+        throw new RuntimeException('SOURCE_RUNTIME_CANCEL_ADMISSION_UNSAFE');
+    }
+    $bytes = (string) file_get_contents($path);
+    clearstatcache(true, $path);
+    $stable = array_flip(['dev', 'ino', 'mode', 'nlink', 'uid', 'gid', 'size', 'mtime', 'ctime']);
+    if (array_intersect_key(lstat($path), $stable) !== array_intersect_key($stat, $stable)) { throw new RuntimeException('SOURCE_RUNTIME_CANCEL_ADMISSION_CHANGED'); }
+    $admission = json_decode($bytes, true, 64, JSON_THROW_ON_ERROR);
+    if (!is_array($admission) || ($admission['protocol'] ?? null) !== 'peanut.source-preparing-cancel-admission.v1'
+        || ($admission['maximum_uses'] ?? null) !== 1 || ($admission['instance_root'] ?? null) !== $root
+        || ($admission['workspace'] ?? null) !== $workspace || ($admission['expected_generation'] ?? null) !== 0
+        || !array_key_exists('expected_head', $admission) || $admission['expected_head'] !== null
+        || preg_match('/\A[A-Za-z0-9][A-Za-z0-9_-]{0,63}\z/D', (string) ($admission['action_id'] ?? '')) !== 1
+        || ($admission['source_kind'] ?? null) !== 'raw-internal-preinstall-scaffold') {
+        throw new RuntimeException('SOURCE_RUNTIME_CANCEL_ADMISSION_INVALID');
+    }
+    $references = ['checkpoint_sha256' => $checkpoint, 'pending_sha256' => $root . '/server/runtime/upgrade/source-transition.json',
+        'ledger_sha256' => $root . '/.peanut/upgrades/ledger.ndjson', 'plan_file_sha256' => $binding['plan_path'],
+        'tool_inputs_sha256' => $workspace . '/tool-inputs.json', 'tool_bundle_sha256' => $workspace . '/tools/bundle.json'];
+    foreach ($references as $key => $file) {
+        if (realpath($file) !== $file || !is_file($file) || is_link($file) || lstat($file)['nlink'] !== 1
+            || ($admission[$key] ?? null) !== hash_file('sha256', $file)) { throw new RuntimeException('SOURCE_RUNTIME_CANCEL_INPUT_CHANGED'); }
+    }
+    foreach (['binding_sha256' => $binding, 'tools_sha256' => $binding['tools'], 'tool_modes_sha256' => $binding['tool_modes'],
+        'dependencies_sha256' => $binding['tool_dependencies']] as $key => $value) {
+        if (($admission[$key] ?? null) !== hash('sha256', productUpgradeCanonicalJson($value))) { throw new RuntimeException('SOURCE_RUNTIME_CANCEL_BINDING_CHANGED'); }
+    }
+    $plan = json_decode((string) file_get_contents($binding['plan_path']), true, 512, JSON_THROW_ON_ERROR);
+    if (($admission['candidate'] ?? null) !== $binding['candidate']
+        || ($admission['plan_identity_sha256'] ?? null) !== hash('sha256', productUpgradeCanonicalJson($plan['identity']))) {
+        throw new RuntimeException('SOURCE_RUNTIME_CANCEL_PLAN_CHANGED');
+    }
+    $authority = $admission['authority'] ?? [];
+    $authorityPath = $authority['path'] ?? '';
+    if (!is_string($authorityPath) || realpath($authorityPath) !== $authorityPath || !is_file($authorityPath)
+        || is_link($authorityPath) || lstat($authorityPath)['nlink'] !== 1 || (fileperms($authorityPath) & 0022) !== 0
+        || !in_array(fileowner($authorityPath), [0, $owner], true)
+        || ($authority['sha256'] ?? null) !== hash_file('sha256', $authorityPath)) { throw new RuntimeException('SOURCE_RUNTIME_CANCEL_AUTHORITY_REQUIRED'); }
+    $provenance = $admission['corrected_source'] ?? [];
+    if (($provenance['root'] ?? null) !== $source || realpath($source) !== $source
+        || realpath(__FILE__) !== $source . '/scripts/upgrade'
+        || array_keys($provenance['files'] ?? []) !== ['scripts/upgrade', 'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php']) {
+        throw new RuntimeException('SOURCE_RUNTIME_CANCEL_CORRECTION_INVALID');
+    }
+    foreach ($provenance['files'] as $relative => $pin) {
+        $file = $source . '/' . $relative;
+        if (realpath($file) !== $file || !is_file($file) || is_link($file) || lstat($file)['nlink'] !== 1
+            || ($pin['old_sha256'] ?? null) !== ($binding['tools'][$relative] ?? null)
+            || ($pin['sha256'] ?? null) !== hash_file('sha256', $file) || ($pin['mode'] ?? null) !== (fileperms($file) & 0777)
+            || (fileperms($file) & 0022) !== 0 || !in_array(fileowner($file), [0, $owner], true)) {
+            throw new RuntimeException('SOURCE_RUNTIME_CANCEL_CORRECTION_CHANGED');
+        }
+    }
+    foreach (['commit' => 'HEAD', 'tree' => 'HEAD^{tree}'] as $key => $ref) {
+        if (preg_match('/\A[a-f0-9]{40}\z/D', (string) ($provenance[$key] ?? '')) !== 1) { throw new RuntimeException('SOURCE_RUNTIME_CANCEL_SOURCE_REQUIRED'); }
+        $process = proc_open(['git', '-C', $source, 'rev-parse', $ref], [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes);
+        if (!is_resource($process)) { throw new RuntimeException('SOURCE_RUNTIME_CANCEL_SOURCE_UNAVAILABLE'); }
+        $actual = trim((string) stream_get_contents($pipes[1])); fclose($pipes[1]);
+        if (proc_close($process) !== 0 || $actual !== $provenance[$key]) { throw new RuntimeException('SOURCE_RUNTIME_CANCEL_SOURCE_CHANGED'); }
+    }
+    foreach ($provenance['files'] as $relative => $pin) {
+        $process = proc_open(['git', '-C', $source, 'show', $provenance['commit'] . ':' . $relative],
+            [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes);
+        if (!is_resource($process)) { throw new RuntimeException('SOURCE_RUNTIME_CANCEL_SOURCE_UNAVAILABLE'); }
+        $bytes = (string) stream_get_contents($pipes[1]); fclose($pipes[1]);
+        if (proc_close($process) !== 0 || hash('sha256', $bytes) !== $pin['sha256']) { throw new RuntimeException('SOURCE_RUNTIME_CANCEL_SOURCE_CHANGED'); }
+    }
+    $process = proc_open(['git', '-C', $source, 'rev-parse', '--path-format=absolute', '--git-common-dir'],
+        [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes);
+    if (!is_resource($process)) { throw new RuntimeException('SOURCE_RUNTIME_CANCEL_SOURCE_UNAVAILABLE'); }
+    $common = trim((string) stream_get_contents($pipes[1])); fclose($pipes[1]);
+    $lease = $admission['lease']['lease'] ?? '';
+    if (proc_close($process) !== 0 || realpath($common) !== $common
+        || preg_match('/\A[A-Za-z0-9][A-Za-z0-9._-]{0,63}\z/D', (string) $lease) !== 1
+        || ($admission['lease_proof'] ?? null) !== $common . '/peanut-admin-resource-leases/leases/' . $lease) {
+        throw new RuntimeException('SOURCE_RUNTIME_CANCEL_NATIVE_LEASE_REQUIRED');
+    }
+    return $admission;
 }
 
 function productUpgradeToolPath(string $relative): string
@@ -192,6 +319,7 @@ function productUpgradeUsage(): never
         . "  php scripts/upgrade apply|verify|recover --scope=server --instance-root=<mounted-app> --package=<workspace> --plan=<absolute-product-plan>\n"
         . "  runtime-prepare --scope=source --instance-root=APP --workspace=W --package=PKG --plan=SOURCE_PLAN --expect-head=SHA|none --expect-generation=N\n"
         . "  runtime-transition|runtime-open|runtime-recover --scope=source --instance-root=APP --workspace=W --transition=W/source-runtime.json\n"
+        . "  runtime-recover --scope=source --instance-root=APP --workspace=W --transition=W/source-runtime.json --cancel-unmodified-preparing=W/recovery/ADMISSION.json\n"
         . "  runtime-refreeze --scope=source --instance-root=APP --workspace=W --expect-head=SHA|none --expect-generation=N\n"
         . "  server apply alone accepts --stop-before=health|activate; source scope changes source only.\n");
     exit(64);
@@ -814,7 +942,7 @@ if (!in_array($command, ['plan', 'apply', 'verify', 'recover', 'runtime-prepare'
 }
 $options = [];
 foreach (array_slice($argv, 2) as $argument) {
-    if (preg_match('/^--(instance-root|package|plan|stop-before|scope|archive|expected-sha256|workspace|transition|expect-head|expect-generation|backup-tool)=(.+)$/D', $argument, $matches) !== 1
+    if (preg_match('/^--(instance-root|package|plan|stop-before|scope|archive|expected-sha256|workspace|transition|expect-head|expect-generation|backup-tool|cancel-unmodified-preparing)=(.+)$/D', $argument, $matches) !== 1
         || isset($options[$matches[1]])) {
         productUpgradeUsage();
     }
@@ -823,6 +951,7 @@ foreach (array_slice($argv, 2) as $argument) {
 $runtimeCommand = str_starts_with($command, 'runtime-');
 if ($runtimeCommand) {
     $required = ['instance-root', 'workspace', 'scope'];
+    if ($cancelAdmission !== null) { $required[] = 'cancel-unmodified-preparing'; }
     $required = array_merge($required, match ($command) {
         'runtime-prepare' => ['package', 'plan', 'expect-head', 'expect-generation'],
         'runtime-refreeze' => ['expect-head', 'expect-generation'],
@@ -837,7 +966,7 @@ if ($runtimeCommand) {
     }
     try {
         $root = ScaffoldPathGuard::projectRoot($options['instance-root']);
-        $result = (new ScaffoldUpgradeRunner())->runtimeCommand($command, $root, $options, $toolRoot);
+        $result = (new ScaffoldUpgradeRunner())->runtimeCommand($command, $root, $options, $toolRoot, $cancelAdmission);
         if (($result['status'] ?? null) === 'tools-prepared' && in_array($command, ['runtime-prepare', 'runtime-refreeze'], true)) {
             // No APP pending/write boundary exists yet. Reenter only after all parent locks were released.
             $process = proc_open([PHP_BINARY, $options['workspace'] . '/trusted/scripts/upgrade', ...array_slice($argv, 1)],

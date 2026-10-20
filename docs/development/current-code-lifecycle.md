@@ -190,6 +190,32 @@ prepare 与后续 apply、post-apply、verify、recover、recovery verify 和 re
 
 补偿仅允许同一未激活事务、完整且未变的前像、已知预期后像及原私有/数据库前沿未推进；先撤下新开发身份，再恢复原运行身份，恢复后的 internal-candidate 保持关闭，不发放旧开发准入。未知编辑、安装双记录、数据库/模块进度或激活均阻止源码补偿；不恢复数据库、不清库、不重放 SQL。此源码能力不代表已生成目标制品、已进行 source adoption、已完成安装或恢复资格；实际运行须固定最终集成源码并遵守原资源准入与失败预算。
 
+尚未写源码的 `preparing` 取消与源码恢复分开。prepare 和 preparing-cancel 检查同 candidate 的完整账本；只有 operation=`preflight`、status=`ready` 且原 plan／identity 摘要完全相同的事件属于只读前置。任一 started、failed、recovered、实际变更或未知事件均阻止该分支，后来的 READY 不能遮盖旧事件；通用账本状态和 applied／verified 的实际证明不变。
+
+冻结工具自身存在已确认取消缺陷时，仅允许从已审 Git 源码入口执行：
+
+```text
+php SOURCE/scripts/upgrade runtime-recover --scope=source --instance-root=R --workspace=W --transition=W/source-runtime.json --cancel-unmodified-preparing=W/recovery/ADMISSION.json
+```
+
+此参数只属于 source `runtime-recover`，不是通用工具替换开关。CLI 在 APP／Core autoload 前验证原 checkpoint、完整旧 tools／tool-inputs／bundle／dependencies；另核 SOURCE 中已提交的 entry 和 Runner 的准确路径、摘要、模式及 commit/tree，再从原冻结闭包加载其他 helper 和 vendor。旧 Runner 不重复加载，更正 Runner 不重新从自身目录加载 live helper；旧 binding、trusted 和依赖不改。不能仅在 dev 改代码后直接运行旧冻结入口，不能改旧 trusted/hash 或换 W 绕过 pending。
+
+ADMISSION 是原 owner 在 W/recovery 内准备的 canonical 0600 单链接 JSON 对象，使用 `protocol=peanut.source-preparing-cancel-admission.v1`、单次 `maximum_uses=1` 和唯一 `action_id`。字段合同如下；摘要均为原始字节 SHA-256，结构摘要用既有 canonical JSON。
+
+| 字段 | 绑定 |
+| --- | --- |
+| `authority` | 已有明确单次动作决定的 `path`／`sha256`；摘要不代替正常 owner、原生租约或动作授权 |
+| `instance_root`、`workspace`、`candidate`、`source_kind` | 原 R／W／candidate；只限 `raw-internal-preinstall-scaffold` 的 internal r1 前沿 |
+| `expected_head`、`expected_generation` | 必须为 `null`、整数 `0` |
+| `checkpoint_sha256`、`pending_sha256`、`ledger_sha256`、`plan_file_sha256`、`plan_identity_sha256` | 当前准确文件及计划 identity |
+| `binding_sha256`、`tools_sha256`、`tool_modes_sha256`、`dependencies_sha256`、`tool_inputs_sha256`、`tool_bundle_sha256` | 原完整冻结闭包，不是只核两文件 |
+| `corrected_source` | `root`／`commit`／`tree`；`files` 按 entry、Runner 顺序仅含 `scripts/upgrade` 与 `scripts/scaffold-runtime/ScaffoldUpgradeRunner.php`，各含 `old_sha256`、`sha256`、`mode` |
+| `lease_proof`、`lease`、`lease_resources_sha256` | 同源码仓实际 Git common-dir 的 ACTIVE 原生租约路径、`lease/owner/thread/candidate/gate`、原 resources.tsv 摘要；实际锁须完整存在并覆盖 R／W |
+
+原生取消须核 exact preparing、未激活、backups／intents 空、无 source recovery／恢复目录或其他未知进展，完整旧程序、当前 managed／app-owned／baseline 与私有及普通 PDO 只读 r1 前沿不变，原 vendor-preflight 已存在并与当前完整 vendor／composer／lock 匹配，准确容器、镜像、挂载、网络仍停止且流量已关闭。它不安装依赖、不重建 APP／四端、不执行 SQL 写入或 service 重启。W/recovery 在取消前仅允许原 vendor-preflight 与本次 admission；旧证据和所有其他 W/P 保留。
+
+全部条件在原生锁内重核后，只创建 0600 的原 checkpoint／pending beforeimage、audit 与 cancel-intent，再将同 checkpoint／pending 标为 recovered 并保持 closed；不写 source success 或 ledger，不 admit/open/restore，不动源码、vendor、DB 或原部署 head。固定一次性文件使部分写入可被识别；任何元数据写入失败返回 UNKNOWN，保留 audit／intent／前像，禁止自动重放，须另有具体收口决定。取消额度独立于已耗尽的 prepare 和未用后继额度；成功取消不自动授权新 prepare 或新 W。
+
 生成 APP 的 `install_modules` 续作是同一原生 CLI 的另一条有限分支。它只接受自己的 application registry、实际 development runtime 和已准入但未激活的 source-runtime transition；不依赖维护者 Project、Git checkout 或 Project lease。原 Code `migrate_database` 分支及其约束保留。APP 分支只接真实 r1 applied、Identity 九条 executed 和前两个模块 active 的固定 File 前沿，保留原 17 模块选择；不将部分库当空库，不重新 seed。source-runtime 可以准入这份真实残留，但在完成安装前拒绝 `runtime-open`。
 
 APP 的 `plan` 输入为原 Setup Token（guided）及 `backup_tool`：该值是 `private/partial-installation/` 内 0600 的既有 `source_schema_backup` SSH/Docker 工具描述文件路径。Host 从实际受保护进度、配置、失败日志、当前 runtime、同一 master PDO 和自己登记的 host/container endpoint 生成事实，在原 instance/update 与 execution 锁内保存由既有私有 update key 认证的计划。它不接受调用者提供的 actor、maintenance 或原文件声明。实际 Compose 排除窗口由已有 source-only registered guard 读取，绑定本 APP 的已停止 PHP/Nginx、镜像、挂载与原有网络；外部数据库 writer 仍由运行 owner 在正常资源窗口排除，APP 文件锁不冒称已证明外部 writer 停止。计划不授予执行权限。
