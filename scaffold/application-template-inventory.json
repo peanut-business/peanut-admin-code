@@ -836,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "be0564d5a9d3c2650a1ae276e5b8d62af88d55f55928ea7e8228f3384c22559a"
+            "source_sha256": "991d4f6c4bd860c8751e40ab4bc0505a93ad884582f8ef633ec893b46ca0277e"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -3823,7 +3823,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d3d399714986424c0be60dd31ab4b2272a188be8b463a6b90f18647fa9492c19"
+            "source_sha256": "ce57448bffd89500e4a2d40692a69b3b036aa7896ba4840f59a3029041e735e3"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",
@@ -25185,7 +25185,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "534714e896082ccce7a0d4e098af6df61600b6d8bdf96c6bf376dd136a9d243f"
+            "source_sha256": "6536049fc322211d8a2402f44809accf553665b6ae6cfec6ccaaf2cdc43d4ae9"
         },
         {
             "path": "server/app/platform/infrastructure/plugin/PluginPackageInstaller.php",
@@ -27718,7 +27718,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4f9e5c6f721c8a2de9e4aaa875d64bad417a9b692f73ddfb07308a09ce271693"
+            "source_sha256": "f50ee672aa697b40d83a79f83259cca68de9b4e0a4e77d5ba5ecc965878a112c"
         },
         {
             "path": "server/docker/scripts/update.sh",
