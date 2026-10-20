@@ -422,7 +422,11 @@ final class ScaffoldUpgradeRunner
         $old = $from->files(); $new = $to->files();
         foreach (array_unique([...array_keys($old), ...array_keys($new)]) as $path) {
             if (($old[$path] ?? null) === ($new[$path] ?? null)) { continue; }
-            if (!isset($allowed[$path]) || !isset($new[$path])) { throw new RuntimeException('INTERNAL_PREINSTALL_SOURCE_DELTA_UNSUPPORTED: ' . $path); }
+            if ($path === 'server/composer.json') {
+                $this->assertInternalFixtureAutoloadCorrection($from, $to);
+            } elseif (!isset($allowed[$path]) || !isset($new[$path])) {
+                throw new RuntimeException('INTERNAL_PREINSTALL_SOURCE_DELTA_UNSUPPORTED: ' . $path);
+            }
             if (isset($old[$path])) {
                 $left = $old[$path]; $right = $new[$path]; unset($left['template_sha256'], $right['template_sha256']);
                 if ($left !== $right) { throw new RuntimeException('INTERNAL_PREINSTALL_OWNERSHIP_CHANGED: ' . $path); }
@@ -432,6 +436,69 @@ final class ScaffoldUpgradeRunner
         $sql = array_filter($old, static fn(string $path): bool => str_starts_with($path, $prefix) && str_ends_with($path, '.sql'), ARRAY_FILTER_USE_KEY);
         $targetSql = array_filter($new, static fn(string $path): bool => str_starts_with($path, $prefix) && str_ends_with($path, '.sql'), ARRAY_FILTER_USE_KEY);
         if (count($sql) !== 9 || $sql !== $targetSql) { throw new RuntimeException('INTERNAL_PREINSTALL_ORIGINAL_FILE_SQL_CHANGED'); }
+    }
+
+    /** The enclosing native internal/r1 contract permits only this excluded-fixture correction. */
+    private function assertInternalFixtureAutoloadCorrection(ScaffoldManifest $from, ScaffoldManifest $to): void
+    {
+        $old = $from->files(); $new = $to->files();
+        if (!isset($old['server/composer.lock'], $new['server/composer.lock'])
+            || $old['server/composer.lock'] !== $new['server/composer.lock']) {
+            throw new RuntimeException('INTERNAL_PREINSTALL_COMPOSER_LOCK_CHANGED');
+        }
+        $composers = [];
+        foreach ([$from, $to] as $manifest) {
+            $files = $manifest->files();
+            foreach (array_keys($files) as $path) {
+                foreach (['server/app/modules/fixture/delivery_record', 'plugins/fixture.delivery-record'] as $excluded) {
+                    if ($path === $excluded || str_starts_with($path, $excluded . '/')) {
+                        throw new RuntimeException('INTERNAL_PREINSTALL_FIXTURE_STILL_PRESENT');
+                    }
+                }
+            }
+            $documents = [];
+            foreach (['server/composer.json', 'server/composer.lock', 'plugins.lock'] as $path) {
+                $file = $files[$path] ?? null;
+                if (!is_array($file)) { throw new RuntimeException('INTERNAL_PREINSTALL_COMPOSER_INPUT_MISSING'); }
+                if ($path === 'server/composer.json') {
+                    $metadata = $file; unset($metadata['template_sha256']);
+                    if (self::canonicalJson($metadata) !== self::canonicalJson([
+                        'path' => $path, 'source' => 'files/' . $path, 'classification' => 'managed',
+                        'transform' => 'tokens', 'mode' => 0644, 'policy' => 'managed', 'owner' => 'backend',
+                    ])) { throw new RuntimeException('INTERNAL_PREINSTALL_COMPOSER_OWNERSHIP_CHANGED'); }
+                }
+                $artifact = $manifest->artifactPath($file);
+                $stat = lstat($artifact); $bytes = file_get_contents($artifact);
+                if (!is_array($stat) || !is_string($bytes) || $stat['nlink'] !== 1
+                    || !in_array($stat['uid'], [0, fileowner($manifest->path)], true)
+                    || ($stat['mode'] & 0777) !== $file['mode']
+                    || hash('sha256', $bytes) !== $file['template_sha256']) {
+                    throw new RuntimeException('INTERNAL_PREINSTALL_COMPOSER_ARTIFACT_CHANGED');
+                }
+                $document = json_decode($bytes, true, 512, JSON_THROW_ON_ERROR);
+                if (!is_array($document) || array_is_list($document)) {
+                    throw new RuntimeException('INTERNAL_PREINSTALL_COMPOSER_DOCUMENT_INVALID');
+                }
+                $documents[$path] = $document;
+            }
+            $plugins = $documents['plugins.lock']['plugins'] ?? null;
+            if (!is_array($plugins) || !array_is_list($plugins)) { throw new RuntimeException('INTERNAL_PREINSTALL_PLUGIN_LOCK_INVALID'); }
+            foreach ($plugins as $plugin) {
+                if (!is_array($plugin) || !is_string($plugin['key'] ?? null) || $plugin['key'] === 'fixture.delivery-record') {
+                    throw new RuntimeException('INTERNAL_PREINSTALL_FIXTURE_STILL_PRESENT');
+                }
+            }
+            $composers[] = $documents['server/composer.json'];
+        }
+        [$before, $after] = $composers;
+        $prefix = 'PeanutAdmin\\Fixtures\\DeliveryRecord\\';
+        if (($before['autoload']['psr-4'][$prefix] ?? null) !== 'app/modules/fixture/delivery_record/src/') {
+            throw new RuntimeException('INTERNAL_PREINSTALL_FIXTURE_AUTOLOAD_SOURCE_CHANGED');
+        }
+        unset($before['autoload']['psr-4'][$prefix]);
+        if (self::canonicalJson($before) !== self::canonicalJson($after)) {
+            throw new RuntimeException('INTERNAL_PREINSTALL_COMPOSER_DELTA_UNSUPPORTED');
+        }
     }
 
     /** The authenticated r1 frontier has only Identity/ContentTools active; these four packages are still pending. */
