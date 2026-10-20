@@ -208,6 +208,10 @@ open 仍须原生安装完成及当前 admitted／未激活证明、真实部署
 
 真实 Runner 在原锁内重新读取现有 verified source proof，调用既有 internal Resolver 完整图检查，并在检查前后比对图全部 artifact、模块/前端根（包含新增文件、空目录）、源身份及依赖声明输入。结果经该次父子管道交给受审第三 producer；producer 只接该保护事务、原 plan/完整 verified ledger/source proof 及相同输入，独立核 canonical 模块与前端内容、manifest/lock pins，生成前后重核输入 fence。它复用已经完成的真实图证明，不在子进程伪造 issuer，不放宽普通 `forSourceUpgrade` 的 release 根拒绝。PHP helper 仍从原 trusted 加载。准确同 R 投影完成后，原冻结 host 的 source-project 再核全部后像；原身份退休、写意图、CAS head、native admission 和安装后 open 继续原链，不用其他 APP 或新运行实例替代。
 
+若该事务已有完整 prepared，而 checkpoint 尚在 source-verified，后续 admission 明确绑定其原 `prepared_identity_sha256`，准确追加第四个 `scripts/product-upgrade-host` 的旧/新 SHA、模式与 Git 来源。只在原 source-check/source-project 消费此更正 host；其他 helper 和旧 trusted 不改，不新增 host 模式。现有投影只校验并采用，不再调用 producer、删除目录或回退 phase；open 的 transition_admission 也须绑定同一 prepared 摘要及四工具来源。
+
+host 逐一从投影内原 release-versions、source_projection 和 files 行核六份声明 Web 归档的精确源/目标路径、源字节摘要与目标 0644；完整 prepared 文件集合（含原 Core owner inputs）须与 inventory 的 hash/mode 全等。只有这六个已证实输出加入 host 和 Runner 的派生映射，不能按目录前缀忽略任意归档。源程序集合的严格相等继续保留；后继按同一精确派生集合写意图、退休旧身份、发布 CAS head、native admission，runtime identity 仍逐行核实际文件及依赖。首次 prepare 未包含的新目标仅能从真实 absent 前像进入已知后像，未知现存文件继续拒绝；原恢复证据、实际完成的 vendor、旧 verified 来源保持不变。
+
 该有限 internal 投影消费的是已交付运行候选，不要求其中存在四客户端开发用 node_modules；其 locks 子步骤沿原生声明及 Composer 来源校验，不传普通开发投影的 `--installed`。普通入口仍执行该参数。原 verified proof 的 managed/app-owned 摘要和前后 fence 保留实际源码与锁字节，六份 Web 归档继续逐份核摘要，真实 PHP vendor 继续原生 completed proof、vendor-check 与 vendor-state 检查。它不安装前端依赖、不重新构建客户端，也不把投影成功当作重新完成包级安装资格。
 
 该有限维护入口将每次 child 的原始 stdout/stderr 保存到原 W/recovery 内 action/顺序/阶段专属的 0600、独占新建文件，目录保持原 owner 私有；producer 的原 PHP/node/vendor 子进程同样在抛错前保存原字节。日志不存环境或额外命令凭据，不回显原始 stderr；对外只返回阶段、退出码和摘要，原始文件仅在本地受保护证据中读取。没有为了采日志单独重放动作；部分投影、未知 vendor/journal 或写入失败均保全并停止对应动作，不能删除现场或靠重用 action 名字重试。原失败次数保留，新的明确工程授权下实际次数单独记录；源码修复不自带运行、数据库恢复、清库或发布授权。

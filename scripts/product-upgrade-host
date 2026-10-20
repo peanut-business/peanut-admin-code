@@ -585,14 +585,64 @@ def source_runtime():
             elif not (target / 'server/.peanut/development-runtime.json').is_file():
                 raise ValueError('incomplete projection is retained; recover before a new prepare')
             sha(target / 'server/.peanut/development-runtime.json')
-        if phase == 'project' or (phase == 'check' and state['phase'] in ('runtime-prepared', 'runtime-installed', 'head-published', 'admitted')):
+        if phase == 'project' or (phase == 'check' and (state['phase'] in ('runtime-prepared', 'runtime-installed', 'head-published', 'admitted')
+                or (state['phase'] == 'source-verified' and (workspace / 'prepared/server/.peanut/development-runtime.json').is_file()))):
             spec = importlib.util.spec_from_file_location('source_producer', trusted / 'scripts/package-release-files.py')
             producer = importlib.util.module_from_spec(spec); spec.loader.exec_module(producer)
             identity = read(workspace / 'prepared/server/.peanut/development-runtime.json')
+            prepared = workspace / 'prepared'
+            if prepared.resolve() != prepared or prepared.is_symlink(): raise ValueError('prepared projection path is not canonical')
+            if identity.get('protocol') != 'peanut.development-server-runtime.v1' \
+                    or hashlib.sha256(json.dumps(identity['files'], ensure_ascii=False, separators=(',', ':')).encode()).hexdigest() != identity.get('files_sha256'):
+                raise ValueError('prepared projection file inventory changed')
+            projected_rows = {}
+            for row in identity['files']:
+                relative = row['path']; path = Path(relative)
+                if not relative.startswith('server/') or path.is_absolute() or '..' in path.parts or str(path) != relative \
+                        or relative in projected_rows or row['mode'] not in (0o644, 0o755) or not re.fullmatch(r'[a-f0-9]{64}', row['sha256']):
+                    raise ValueError('prepared projection file row is unsafe')
+                projected_rows[relative] = [row['sha256'], row['mode']]
+            # Owner-only Core inputs are intentional exact outputs outside the HTTP program, not arbitrary root files.
+            vendor = read(server / 'vendor/.peanut-complete.json')
+            owner_inputs = vendor.get('local_archives', {})
+            if not isinstance(owner_inputs, dict) or len(owner_inputs) > 1: raise ValueError('prepared owner inputs are invalid')
+            for origin in owner_inputs:
+                if not re.fullmatch(r'packages/core-php/peanut-admin-core-[0-9A-Za-z.+_-]+\.zip', origin):
+                    raise ValueError('prepared Core input path is invalid')
+            owner_paths = set(owner_inputs) | ({'.peanut/application-manifest.json', 'release-versions.json'} if owner_inputs else set())
+            for origin in owner_paths:
+                expected_sha = identity['source_projection'].get(origin)
+                if sha(root / origin) != expected_sha: raise ValueError('prepared owner input provenance changed')
+                projected_rows[origin] = [expected_sha, 0o644]
+            projected_rows['server/.peanut/development-runtime.json'] = [sha(prepared / 'server/.peanut/development-runtime.json'), 0o644]
+            actual_prepared = {}
+            def prepared_error(error): raise error
+            for base, directories, files in os.walk(prepared, onerror=prepared_error, followlinks=False):
+                for name in directories:
+                    if (Path(base) / name).is_symlink(): raise ValueError('linked prepared projection directory')
+                for name in files:
+                    path = Path(base) / name; relative = path.relative_to(prepared).as_posix()
+                    actual_prepared[relative] = [sha(path), path.stat().st_mode & 0o777]
+            if actual_prepared != projected_rows: raise ValueError('complete prepared projection set, digest or mode changed')
+            # The six declared archives are generated source->runtime outputs, with separately checked bytes.
+            versions = read(prepared / 'server/.peanut/release-versions.json')
+            packages = versions['core_web']['packages']; archive_paths = set()
+            selected = {name for name, value in packages.items() if 'archive' in value}
+            if selected and selected != {'@peanut-admin/' + name for name in ('client', 'vue', 'ui-vue', 'nuxt', 'uniapp', 'testing')}:
+                raise ValueError('projected Web archive declaration set changed')
+            for name in selected:
+                declaration = packages[name]; origin = declaration['archive']; target = 'server/.peanut/' + origin
+                if not re.fullmatch(r'packages/core-web/peanut-admin-' + re.escape(name.split('/')[1]) + r'-[0-9A-Za-z.+-]+\.tgz', origin) \
+                        or origin in archive_paths or identity['source_projection'].get(origin) != declaration['sha256'] \
+                        or sha(root / origin) != declaration['sha256'] \
+                        or projected_rows.get(target) != [declaration['sha256'], 0o644]:
+                    raise ValueError('projected Web archive source, row or bytes changed')
+                archive_paths.add(origin)
             derived = {'server/.peanut/application-manifest.json', 'server/.peanut/release-versions.json',
                 'server/.peanut/RELEASE_METADATA.json', 'server/resources/project-resources.json',
                 'server/docker/scripts/scaffold-runtime/ReleaseDependencyIdentity.php', 'server/plugins.lock',
                 'server/.peanut/development-runtime.json'}
+            derived.update('server/.peanut/' + origin for origin in archive_paths)
             old_identity = state['binding'].get('old_identity', {}).get('document', state['binding'].get('old_runtime'))
             if state['binding'].get('internal_preinstall') is not None:
                 if old_identity.get('protocol') != 'peanut.server-release.v1' or old_identity['application'].get('kind') != 'internal-candidate':

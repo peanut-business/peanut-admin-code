@@ -3769,6 +3769,13 @@ final class ScaffoldUpgradeRunner
     {
         $correction = $this->sourceToolCorrection; $admission = $correction['document']; $workspace = $state['binding']['workspace'];
         $this->runtimeHost($state, 'check');
+        if (isset($admission['prepared_identity_sha256'])) {
+            // This completed projection belongs to the failed project attempt. Check/adopt it, never regenerate it.
+            if (hash_file('sha256', $workspace . '/prepared/server/.peanut/development-runtime.json') !== $admission['prepared_identity_sha256']) {
+                throw new RuntimeException('SOURCE_PROJECTION_PREPARED_IDENTITY_CHANGED');
+            }
+            return;
+        }
         $plan = $this->runtimePackage($root, $state);
         $projection = $plan['identity']['plugin_target']['projection'] ?? $plan['identity']['plugin_projection'];
         unset($plan);
@@ -3824,6 +3831,16 @@ final class ScaffoldUpgradeRunner
         $workspace = $state['binding']['workspace'];
         $command = ['python3', $workspace . '/trusted/scripts/product-upgrade-host', 'source-' . $phase,
             '--instance-root=' . $state['binding']['instance_root'], '--workspace=' . $workspace];
+        $admission = $this->sourceToolCorrection['document'] ?? [];
+        if (isset($admission['prepared_identity_sha256']) && in_array($phase, ['check', 'project'], true)) {
+            $host = $admission['corrected_source']['root'] . '/scripts/product-upgrade-host';
+            $pin = $admission['corrected_source']['files']['scripts/product-upgrade-host'];
+            if (realpath($host) !== $host || !is_file($host) || lstat($host)['nlink'] !== 1
+                || hash_file('sha256', $host) !== $pin['sha256'] || (fileperms($host) & 0777) !== $pin['mode']) {
+                throw new RuntimeException('SOURCE_RUNTIME_CORRECTED_HOST_CHANGED');
+            }
+            $command[1] = $host;
+        }
         if (($this->sourceToolCorrection['document']['repair'] ?? null) === 'source-verified-projection') {
             [$code, $output, $error] = $this->runtimeCapture($state, $phase, $command);
         } else {
@@ -3942,6 +3959,20 @@ final class ScaffoldUpgradeRunner
             }
             $paths[] = 'server/plugins/' . $plugin['key'] . '/plugin.json';
         }
+        $rows = array_column($identity['files'] ?? [], null, 'path'); $packages = [];
+        foreach ($identity['source_projection'] ?? [] as $origin => $sha) {
+            if (!str_starts_with($origin, 'packages/core-web/')) { continue; }
+            if (preg_match('#\Apackages/core-web/peanut-admin-(client|vue|ui-vue|nuxt|uniapp|testing)-[0-9A-Za-z.+-]+\.tgz\z#D', $origin, $match) !== 1
+                || isset($packages[$match[1]]) || preg_match('/\A[a-f0-9]{64}\z/D', (string) $sha) !== 1) {
+                throw new RuntimeException('SOURCE_RUNTIME_PROJECTED_ARCHIVE_INVALID');
+            }
+            $target = 'server/.peanut/' . $origin;
+            if (($rows[$target]['sha256'] ?? null) !== $sha || ($rows[$target]['mode'] ?? null) !== 0644) {
+                throw new RuntimeException('SOURCE_RUNTIME_PROJECTED_ARCHIVE_CHANGED');
+            }
+            $packages[$match[1]] = true; $paths[] = $target;
+        }
+        if ($packages !== [] && count($packages) !== 6) { throw new RuntimeException('SOURCE_RUNTIME_PROJECTED_ARCHIVE_SET_INVALID'); }
         return array_values(array_unique($paths));
     }
 
@@ -4537,7 +4568,13 @@ final class ScaffoldUpgradeRunner
                 || ($journal['target_proof_sha256'] ?? null) !== $state['vendor_target_sha256']
                 || ($command === 'runtime-transition' && (isset($state['prepared_identity_sha256']) || isset($state['prepared_identity'])
                     || isset($state['head_intent']) || isset($state['published_head_sha256'])
-                    || file_exists($workspace . '/prepared') || is_link($workspace . '/prepared')))) {
+                    || (isset($admission['prepared_identity_sha256'])
+                        ? (!is_dir($workspace . '/prepared') || realpath($workspace . '/prepared') !== $workspace . '/prepared'
+                            || realpath($workspace . '/prepared/server/.peanut/development-runtime.json') !== $workspace . '/prepared/server/.peanut/development-runtime.json'
+                            || !is_file($workspace . '/prepared/server/.peanut/development-runtime.json')
+                            || lstat($workspace . '/prepared/server/.peanut/development-runtime.json')['nlink'] !== 1
+                            || hash_file('sha256', $workspace . '/prepared/server/.peanut/development-runtime.json') !== $admission['prepared_identity_sha256'])
+                        : (file_exists($workspace . '/prepared') || is_link($workspace . '/prepared')))))) {
                 throw new RuntimeException('SOURCE_TOOL_PROJECTION_VENDOR_FRONTIER_INVALID');
             }
         }
@@ -4593,7 +4630,7 @@ final class ScaffoldUpgradeRunner
                 || !in_array(fileowner($transitionPath), [0, fileowner($root . '/server')], true)
                 || hash_file('sha256', $transitionPath) !== ($transition['sha256'] ?? null)) { throw new RuntimeException('SOURCE_TOOL_PROJECTION_TRANSITION_REQUIRED'); }
             $prior = $this->runtimeRead($transitionPath);
-            foreach (['protocol', 'repair', 'instance_root', 'workspace', 'candidate', 'corrected_source', 'authority', 'origin_admission', 'origin_binding_sha256', 'vendor_switch_sha256'] as $key) {
+            foreach (['protocol', 'repair', 'instance_root', 'workspace', 'candidate', 'corrected_source', 'authority', 'origin_admission', 'origin_binding_sha256', 'vendor_switch_sha256', 'prepared_identity_sha256'] as $key) {
                 if (($prior[$key] ?? null) !== ($admission[$key] ?? null)) { throw new RuntimeException('SOURCE_TOOL_PROJECTION_TRANSITION_CHANGED'); }
             }
             if (($prior['command'] ?? null) !== 'runtime-transition') { throw new RuntimeException('SOURCE_TOOL_PROJECTION_TRANSITION_CHANGED'); }

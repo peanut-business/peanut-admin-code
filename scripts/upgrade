@@ -318,6 +318,12 @@ function productUpgradeSourceToolAdmission(string $path, string $checkpoint, arr
             throw new RuntimeException('SOURCE_TOOL_PROJECTION_COMMAND_INVALID');
         }
         $correctionFiles[] = 'scripts/package-release-files.py';
+        if (isset($admission['prepared_identity_sha256'])) {
+            if (preg_match('/\A[a-f0-9]{64}\z/D', (string) $admission['prepared_identity_sha256']) !== 1) {
+                throw new RuntimeException('SOURCE_TOOL_PREPARED_IDENTITY_INVALID');
+            }
+            $correctionFiles[] = 'scripts/product-upgrade-host';
+        }
     } elseif (isset($admission['repair'])) { throw new RuntimeException('SOURCE_TOOL_REPAIR_INVALID'); }
     if (($provenance['root'] ?? null) !== $source || realpath($source) !== $source
         || realpath(__FILE__) !== $source . '/scripts/upgrade'
