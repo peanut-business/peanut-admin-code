@@ -211,6 +211,9 @@ ADMISSION 是原 owner 在 W/recovery 内准备的 canonical 0600 单链接 JSON
 | `binding_sha256`、`tools_sha256`、`tool_modes_sha256`、`dependencies_sha256`、`tool_inputs_sha256`、`tool_bundle_sha256` | 原完整冻结闭包，不是只核两文件 |
 | `corrected_source` | `root`／`commit`／`tree`；`files` 按 entry、Runner 顺序仅含 `scripts/upgrade` 与 `scripts/scaffold-runtime/ScaffoldUpgradeRunner.php`，各含 `old_sha256`、`sha256`、`mode` |
 | `lease_proof`、`lease`、`lease_resources_sha256` | 同源码仓实际 Git common-dir 的 ACTIVE 原生租约路径、`lease/owner/thread/candidate/gate`、原 resources.tsv 摘要；实际锁须完整存在并覆盖 R／W |
+| `registry_path`、`registry_sha256`、`runtime_resource_id` | 本次原生独占窗口的当前绝对登记文件及摘要、准确运行资源 ID；只读数据，不作为 APP 配置或加载器来源 |
+
+取消只支持与原 APP 绑定的单一物理 MySQL 管理独占窗口，不接受 `mysql-schema`／`mysql-access` 或共享模式。须从当前登记核同 resource ID／数据库／host endpoint／Gate、physical policy 与完整 service/container/volume/port 管理集合，并核同 R／namespace／数据库的运行资源、HTTP 端口和两个 Compose 容器锁；同物理端点的注册策略须一致，遗留共享或其他管理占用仍阻止动作。output-only 租约或仅固定 resources.tsv 摘要不能证明这些范围。原生 claim 在其正常显式登记环境中完成；实际取消子进程保留原 APP 只读前沿的无外部 `PEANUT_RESOURCE_REGISTRY` 合同，当前维护者登记仅经保护 admission 的绝对 `registry_path` 读取，不将它导入 APP 环境。
 
 原生取消须核 exact preparing、未激活、backups／intents 空、无 source recovery／恢复目录或其他未知进展，完整旧程序、当前 managed／app-owned／baseline 与私有及普通 PDO 只读 r1 前沿不变，原 vendor-preflight 已存在并与当前完整 vendor／composer／lock 匹配，准确容器、镜像、挂载、网络仍停止且流量已关闭。它不安装依赖、不重建 APP／四端、不执行 SQL 写入或 service 重启。W/recovery 在取消前仅允许原 vendor-preflight 与本次 admission；旧证据和所有其他 W/P 保留。
 

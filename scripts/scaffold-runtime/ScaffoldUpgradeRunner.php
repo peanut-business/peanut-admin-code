@@ -4457,7 +4457,7 @@ final class ScaffoldUpgradeRunner
             || hash_file('sha256', $proof . '/resources.tsv') !== ($admission['lease_resources_sha256'] ?? null)) {
             throw new RuntimeException('SOURCE_RUNTIME_CANCEL_NATIVE_LEASE_INVALID');
         }
-        $lockRoot = dirname($proof, 2) . '/resources'; $covered = []; $lockReferences = [];
+        $lockRoot = dirname($proof, 2) . '/resources'; $covered = []; $lockReferences = []; $requested = [];
         foreach (file($proof . '/resources.tsv', FILE_IGNORE_NEW_LINES) ?: [] as $line) {
             $row = explode("\t", $line);
             if (count($row) === 3 && preg_match('/\A[a-f0-9]{64}\z/D', $row[0]) === 1) {
@@ -4470,11 +4470,13 @@ final class ScaffoldUpgradeRunner
                 }
             }
             if (count($row) !== 3 || $row[0] !== hash('sha256', $row[1] . "\t" . $row[2])
+                || isset($requested[$row[1]][$row[2]])
                 || trim((string) @file_get_contents($lockRoot . '/' . $row[0] . '/lease')) !== $metadata['lease']
                 || trim((string) @file_get_contents($lockRoot . '/' . $row[0] . '/type')) !== $row[1]
                 || trim((string) @file_get_contents($lockRoot . '/' . $row[0] . '/value')) !== $row[2]) {
                 throw new RuntimeException('SOURCE_RUNTIME_CANCEL_NATIVE_LOCK_CHANGED');
             }
+            $requested[$row[1]][$row[2]] = true;
             if ($row[1] === 'output-dir') {
                 foreach ([$root, $workspace] as $target) {
                     if ($target === $row[2] || str_starts_with($target . '/', rtrim($row[2], '/') . '/')) { $covered[$target] = true; }
@@ -4482,6 +4484,90 @@ final class ScaffoldUpgradeRunner
             }
         }
         if (count($covered) !== 2) { throw new RuntimeException('SOURCE_RUNTIME_CANCEL_NATIVE_WRITE_SCOPE_REQUIRED'); }
+        // This repair admits only the registered exclusive management window, never schema/shared leases.
+        if (isset($requested['mysql-schema']) || isset($requested['mysql-access'])) { throw new RuntimeException('SOURCE_RUNTIME_CANCEL_EXCLUSIVE_WINDOW_REQUIRED'); }
+        $registryPath = $admission['registry_path'] ?? '';
+        if (!is_string($registryPath)
+            || (is_string(getenv('PEANUT_RESOURCE_REGISTRY')) && trim(getenv('PEANUT_RESOURCE_REGISTRY')) !== '')
+            || realpath($registryPath) !== $registryPath || !is_file($registryPath) || is_link($registryPath)
+            || lstat($registryPath)['nlink'] !== 1 || (fileperms($registryPath) & 0022) !== 0
+            || !in_array(fileowner($registryPath), [0, fileowner($root . '/server')], true)) {
+            throw new RuntimeException('SOURCE_RUNTIME_CANCEL_CURRENT_REGISTRY_REQUIRED');
+        }
+        $registrySha = hash_file('sha256', $registryPath);
+        if (($admission['registry_sha256'] ?? null) !== $registrySha
+            || array_keys($requested['registry-sha256'] ?? []) !== [$registrySha]) {
+            throw new RuntimeException('SOURCE_RUNTIME_CANCEL_CURRENT_REGISTRY_CHANGED');
+        }
+        $registry = json_decode((string) file_get_contents($registryPath), true, 512, JSON_THROW_ON_ERROR);
+        $databaseBinding = $state['quiescence']['database_binding'];
+        $databases = array_values(array_filter($registry['resources']['databases'] ?? [],
+            static fn(array $row): bool => ($row['stable_resource_id'] ?? null) === $databaseBinding['resource_id']));
+        $runtimes = array_values(array_filter($registry['resources']['external_services'] ?? [],
+            static fn(array $row): bool => ($row['stable_resource_id'] ?? null) === ($admission['runtime_resource_id'] ?? null)));
+        if (count($databases) !== 1 || count($runtimes) !== 1) { throw new RuntimeException('SOURCE_RUNTIME_CANCEL_REGISTERED_RESOURCES_REQUIRED'); }
+        $database = $databases[0]; $runtime = $runtimes[0];
+        $endpoint = $database['upstream_endpoint'] ?? []; $policy = $database['lease_policy'] ?? [];
+        $physical = (string) ($endpoint['host'] ?? '') . ':' . (string) ($endpoint['port'] ?? '');
+        $aliases = $policy['server_resources'] ?? [];
+        if (($policy['mode'] ?? null) !== 'schema' || ($policy['physical_endpoint'] ?? null) !== $physical
+            || ($database['lease_gate'] ?? null) !== $metadata['gate']
+            || ($database['database'] ?? null) !== $databaseBinding['database']
+            || ($database['stable_resource_id'] ?? null) !== $binding['internal_preinstall']['partial_installation']['resource_id']
+            || ($endpoint['host'] ?? null) !== $databaseBinding['endpoint']['host']
+            || ($endpoint['port'] ?? null) !== $databaseBinding['endpoint']['port']
+            || !in_array('host', $endpoint['consumers'] ?? [], true)
+            || !is_int($policy['max_executors'] ?? null) || $policy['max_executors'] < 1 || $policy['max_executors'] > 8
+            || !is_array($aliases) || count($aliases) !== 3 || count(array_unique($aliases)) !== 3
+            || !in_array('mysql-resource=' . ($policy['physical_resource_id'] ?? ''), $aliases, true)
+            || ($runtime['runtime_root'] ?? null) !== $root || ($runtime['database'] ?? null) !== $databaseBinding['database']
+            || ($runtime['namespace'] ?? null) !== $state['quiescence']['project'] || ($runtime['host'] ?? null) !== '127.0.0.1'
+            || !is_int($runtime['port'] ?? null) || $runtime['port'] < 1 || $runtime['port'] > 65535) {
+            throw new RuntimeException('SOURCE_RUNTIME_CANCEL_REGISTERED_IDENTITY_CHANGED');
+        }
+        $management = ['mysql-server=' . $physical, 'port=' . $endpoint['port'], ...$aliases]; sort($management, SORT_STRING);
+        $registeredManagement = $database['management_lock_set'] ?? []; sort($registeredManagement, SORT_STRING);
+        if ($management !== $registeredManagement) { throw new RuntimeException('SOURCE_RUNTIME_CANCEL_MANAGEMENT_POLICY_CHANGED'); }
+        $aliasTypes = [];
+        foreach ($aliases as $alias) {
+            if (!is_string($alias) || preg_match('/\A(mysql-resource|docker-container|docker-volume)=([^\s=]+)\z/D', $alias, $parts) !== 1
+                || isset($aliasTypes[$parts[1]])) { throw new RuntimeException('SOURCE_RUNTIME_CANCEL_MANAGEMENT_POLICY_CHANGED'); }
+            $aliasTypes[$parts[1]] = $parts[2];
+        }
+        foreach ($registry['resources']['databases'] ?? [] as $otherDatabase) {
+            $otherPolicy = $otherDatabase['lease_policy'] ?? [];
+            if (($otherPolicy['mode'] ?? null) !== 'schema' || ($otherPolicy['physical_endpoint'] ?? null) !== $physical) { continue; }
+            $otherAliases = $otherPolicy['server_resources'] ?? []; sort($otherAliases, SORT_STRING);
+            $expectedAliases = $aliases; sort($expectedAliases, SORT_STRING);
+            if ($otherAliases !== $expectedAliases || ($otherPolicy['physical_resource_id'] ?? null) !== $policy['physical_resource_id']
+                || ($otherPolicy['max_executors'] ?? null) !== $policy['max_executors']) {
+                throw new RuntimeException('SOURCE_RUNTIME_CANCEL_PHYSICAL_POLICY_AMBIGUOUS');
+            }
+        }
+        $expected = ['mysql-server' => [$physical], 'mysql-resource' => [$policy['physical_resource_id']],
+            'docker-volume' => [$aliasTypes['docker-volume']], 'database' => [$databaseBinding['database']],
+            'mysql-db' => [$databaseBinding['database']], 'endpoint' => [$endpoint['endpoint_id']],
+            'resource-id' => [$databaseBinding['resource_id']], 'gate' => [$metadata['gate']], 'worktree' => [$source],
+            'namespace' => [$runtime['namespace']], 'port' => [(string) $endpoint['port'], (string) $runtime['port']],
+            'docker-container' => [$aliasTypes['docker-container'], $runtime['namespace'] . '-php-1', $runtime['namespace'] . '-nginx-1']];
+        foreach ($expected as $type => $values) {
+            sort($values, SORT_STRING); $actual = array_keys($requested[$type] ?? []); $actual = array_map('strval', $actual); sort($actual, SORT_STRING);
+            if ($actual !== $values) { throw new RuntimeException('SOURCE_RUNTIME_CANCEL_NATIVE_RESOURCE_COVERAGE_REQUIRED: ' . $type); }
+        }
+        // The held complete management set excludes new native shared claims. Retained old shared proofs still block.
+        $otherLeaseReferences = [];
+        foreach (glob(dirname($proof) . '/*/resources.tsv') ?: [] as $resourcesPath) {
+            if (dirname($resourcesPath) === $proof) { continue; }
+            foreach (file($resourcesPath, FILE_IGNORE_NEW_LINES) ?: [] as $line) {
+                $row = explode("\t", $line);
+                if (count($row) !== 3) { throw new RuntimeException('SOURCE_RUNTIME_CANCEL_OTHER_LEASE_UNKNOWN'); }
+                if (($row[1] === 'mysql-schema' && str_starts_with($row[2], $physical . '/'))
+                    || in_array($row[1] . '=' . $row[2], $management, true)) {
+                    throw new RuntimeException('SOURCE_RUNTIME_CANCEL_OTHER_DATABASE_WRITER');
+                }
+            }
+            $otherLeaseReferences[] = $resourcesPath;
+        }
         if (self::canonicalJson($this->runtimeCheckpoint($path, $root)) !== self::canonicalJson($state)) {
             throw new RuntimeException('SOURCE_RUNTIME_CANCEL_FRONTIER_CHANGED');
         }
@@ -4528,7 +4614,7 @@ final class ScaffoldUpgradeRunner
             throw new RuntimeException('SOURCE_RUNTIME_CANCEL_PENDING_CHANGED');
         }
         $references = [$path, $pendingPath, $root . '/.peanut/upgrades/ledger.ndjson', $approvalPath,
-            $proof . '/metadata.tsv', $proof . '/resources.tsv', ...$lockReferences];
+            $proof . '/metadata.tsv', $proof . '/resources.tsv', $registryPath, ...$lockReferences, ...$otherLeaseReferences];
         $before = [];
         $statKeys = array_flip(['dev', 'ino', 'mode', 'nlink', 'uid', 'gid', 'size', 'mtime', 'ctime']);
         foreach ($references as $file) { $before[$file] = ['stat' => array_intersect_key(lstat($file), $statKeys), 'sha256' => hash_file('sha256', $file)]; }
