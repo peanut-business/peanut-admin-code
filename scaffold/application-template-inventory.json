@@ -836,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "705fe56474498d4da5faba6f9865924ade8fe6f92343dcef5eb9ec2835ca20f4"
+            "source_sha256": "be0564d5a9d3c2650a1ae276e5b8d62af88d55f55928ea7e8228f3384c22559a"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -3560,7 +3560,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "36d7e2b834eb654b32d4c1ec095edd7401d70ec62c9f09645fdeef6b82412d11"
+            "source_sha256": "e0baf88bd033f40aef340d9f73d26669df23a8b969bcaae1a9900ae9501fc766"
         },
         {
             "path": "scripts/project-codegraph",
@@ -4684,7 +4684,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "699febf7b43baba75ad44e9f485e490257721ad387ced7bf1ce192819964ed80"
+            "source_sha256": "0e41fab417834b62999598e06565eb1e666f718be9b1d106a542377ed4f8c54c"
         },
         {
             "path": "server/.env.example",
@@ -8960,7 +8960,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "85d7cbffdef97958eb6b4772840006b919ca3259b858ef12e8f7ca711c433883"
+            "source_sha256": "37004861c1b0c096e207e9975dd02f1a85fd275fd9641559abc6089097274f11"
         },
         {
             "path": "server/app/common/services/upgrade/PluginSourceDevelopmentHost.php",
@@ -27718,7 +27718,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dfb0c01957bec8abeee783890b0ddcdec6a3cb60e15b04a5926bc547530bc403"
+            "source_sha256": "4f9e5c6f721c8a2de9e4aaa875d64bad417a9b692f73ddfb07308a09ce271693"
         },
         {
             "path": "server/docker/scripts/update.sh",
