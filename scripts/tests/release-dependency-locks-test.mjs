@@ -246,6 +246,7 @@ test('existing static checker reads native V3 metadata and preserves not-ready s
     for (const name of [
       'check-release-consistency',
       'release-dependency-locks.mjs',
+      'release-template-artifacts.mjs',
     ])
       copyFileSync(join(root, 'scripts', name), join(tools, 'scripts', name));
     // 测试工具独立于候选，仅读既有锁定解析器；候选自身不带 node_modules。

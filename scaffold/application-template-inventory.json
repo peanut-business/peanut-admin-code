@@ -3809,6 +3809,19 @@
             ]
         },
         {
+            "path": "scripts/release-asset-verification.mjs",
+            "target": "scripts/release-asset-verification.mjs",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "scripts/release-dependency-locks.mjs",
             "target": "scripts/release-dependency-locks.mjs",
             "classification": "managed",
@@ -3825,6 +3838,19 @@
         {
             "path": "scripts/release-metadata-version.cjs",
             "target": "scripts/release-metadata-version.cjs",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "scripts/release-template-artifacts.mjs",
+            "target": "scripts/release-template-artifacts.mjs",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -4475,16 +4501,15 @@
         {
             "path": "scripts/tests/publish_github_release_channel_test.py",
             "target": "scripts/tests/publish_github_release_channel_test.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "66fadaafc8254fa968a79162064af32a854af4a9caf31607a30ff5a4ba3c9ebd"
+            ]
         },
         {
             "path": "scripts/tests/release-dependency-locks-test.mjs",
@@ -4498,7 +4523,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "68abdcaa6561488b6cb91dc94af9a62b53582a484b900273df04ba1aad6ae677"
+            "source_sha256": "24dd1a17fbe8555893fee44197a8a9399f41f8bee23ea90d63e3172beed41593"
         },
         {
             "path": "scripts/tests/release-public-assets-test.py",
@@ -4513,6 +4538,19 @@
                 "full"
             ],
             "source_sha256": "394a53563eb48fcd816a05ec8fdcd142e742e7708e1f437a102109926e75a674"
+        },
+        {
+            "path": "scripts/tests/release-template-artifacts-test.mjs",
+            "target": "scripts/tests/release-template-artifacts-test.mjs",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
         },
         {
             "path": "scripts/tests/release_metadata_version_test.py",

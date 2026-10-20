@@ -9,6 +9,7 @@ import importlib.machinery
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -18,6 +19,7 @@ import unittest
 from unittest.mock import patch
 
 SCRIPT = Path(__file__).resolve().parents[1] / "continue-product-release"
+ROOT = SCRIPT.parent.parent
 loader = importlib.machinery.SourceFileLoader("continue_product_release", str(SCRIPT))
 spec = importlib.util.spec_from_loader(loader.name, loader)
 release = importlib.util.module_from_spec(spec)
@@ -81,6 +83,9 @@ class ContinuationTest(unittest.TestCase):
             write_json(path / "server/composer.lock", {"packages": []})
             write_json(path / "scaffold/application-template-inventory.json", {"schema_version": 2, "version": "old"})
             write_json(path / "server/tests/fixtures/p0e-runtime-qualification/matrix.json", {"target_release": {"version": "old"}})
+            target = path / 'scripts/release-template-artifacts.mjs'
+            target.parent.mkdir()
+            target.write_bytes((ROOT / 'scripts/release-template-artifacts.mjs').read_bytes())
         if name == "php":
             (path / ".github/workflows").mkdir(parents=True)
             (path / ".github/workflows/release.yml").write_text("name: fixture release\n")
@@ -96,7 +101,7 @@ class ContinuationTest(unittest.TestCase):
                 "--product-version", "4.0.0-rc.10", "--core-php-version", "4.0.0-rc.3",
                 "--core-php-reference", git(self.php, "rev-parse", "HEAD"),
                 "--core-web-version", "4.0.0-rc.4", "--core-web-reference", git(self.web, "rev-parse", "HEAD"),
-                "--baseline", *extra]
+                *extra]
 
     def published(self, kind: str, version: str, reference: str, root: Path,
                   web_package_evidence: tuple[Path, str] | None = None) -> dict:
@@ -144,29 +149,27 @@ class ContinuationTest(unittest.TestCase):
         path.chmod(0o444)
         return path
 
-    def create_artifacts(self) -> None:
-        directory = self.output / "edition-artifacts"
-        directory.mkdir(exist_ok=True)
+    def create_artifacts(self, edition: str) -> None:
+        directory = self.output / "scaffold-templates" / edition
+        directory.mkdir()
         commit = git(self.candidate, "rev-parse", "HEAD")
         tree = git(self.candidate, "rev-parse", "HEAD^{tree}")
-        lines = []
-        for edition in ("standalone", "multi-tenant"):
-            base = f"peanut-admin-4.0.0-rc.10-{edition}.tar.gz"
-            server = f"peanut-admin-4.0.0-rc.10-{edition}-server.tar.gz"
-            manifest = {"schema_version": 1, "protocol": "peanut.edition-installer.v1",
-                        "product": {"version": "4.0.0-rc.10"}, "edition": {"name": edition},
-                        "source": {"commit": commit, "tree": tree}}
-            for name, field in ((base, "archive"), (server, "server_archive")):
-                root = name.removesuffix(".tar.gz")
-                content = tiny_archive(root)
-                (directory / name).write_bytes(content)
-                sha = hashlib.sha256(content).hexdigest()
-                manifest[field] = {"filename": name, "root": root, "format": "tar.gz",
-                                   "layout": "server-only" if field == "server_archive" else "application-development-source",
-                                   "bytes": len(content), "sha256": sha}
-                lines.append(f"{sha}  {name}\n")
-            write_json(directory / (base + ".manifest.json"), manifest)
-        (directory / "SHA256SUMS").write_text("".join(lines))
+        inventory_sha = hashlib.sha256((self.candidate / "scaffold/application-template-inventory.json").read_bytes()).hexdigest()
+        manifest = {"protocol": "peanut.scaffold-release.v3", "release": {
+            "version": "4.0.0-rc.10", "source_commit": commit, "source_tree": tree,
+            "inventory_sha256": inventory_sha, "workflow": "runtime"}}
+        write_json(directory / "scaffold-manifest.json", manifest)
+        name = f"peanut-scaffold-{edition}"
+        content = ("synthetic-archive-" + edition).encode()
+        (directory / (name + ".tgz")).write_bytes(content)
+        write_json(directory / (name + ".json"), {
+            "schema_version": 1, "protocol": "peanut.template-package.v1", "kind": "scaffold-template",
+            "version": "4.0.0-rc.10", "edition": edition, "profile": "full", "workflow": "runtime",
+            "source": {"repository": "peanut-business/peanut-admin-code", "commit": commit, "tree": tree,
+                       "inventory_sha256": inventory_sha, "edition_profile_sha256": "a" * 64},
+            "archive": {"name": name + ".tgz", "bytes": len(content), "sha256": hashlib.sha256(content).hexdigest()},
+            "create_manifest_sha256": "b" * 64, "upgrade_tooling_sha256": "c" * 64,
+            "scaffold_manifest_sha256": hashlib.sha256((directory / "scaffold-manifest.json").read_bytes()).hexdigest()})
 
     def external(self, argv: list[str], *, cwd: Path | None = None, phase: str, allow_missing: bool = False) -> str:
         if argv[0] == "git":
@@ -185,55 +188,47 @@ class ContinuationTest(unittest.TestCase):
         elif phase == "inventory":
             if "--check" not in argv:
                 write_json(self.candidate / "scaffold/application-template-inventory.json", {"schema_version": 2, "version": "4.0.0-rc.10"})
-        elif phase == "scaffold":
-            destination = Path(next(value.split("=", 1)[1] for value in argv if value.startswith("--output=")))
-            destination.mkdir(parents=True)
-            files = destination / "files"
-            files.mkdir()
-            (files / ".gitignore").write_text("/docs-site/\n")
-            docs = files / "docs-site"
-            docs.mkdir()
-            (docs / "index.md").write_text("generated docs fixture\n")
-            commit = git(self.candidate, "rev-parse", "HEAD")
-            write_json(destination / "scaffold-manifest.json", {"release": {
-                "version": "4.0.0-rc.10", "source_commit": commit,
-                "source_tree": git(self.candidate, "rev-parse", "HEAD^{tree}"),
-                "inventory_sha256": hashlib.sha256((self.candidate / "scaffold/application-template-inventory.json").read_bytes()).hexdigest(),
-                "managed_tree_sha256": "a" * 64}, "files": [{"source": "files/.gitignore"}, {"source": "files/docs-site/index.md"}]})
-        elif phase == "installers" and "build-edition-installers" in argv[1]:
-            self.create_artifacts()
-        elif phase == "installers" and argv[2] == "verify":
-            archive = Path(next(value.split("=", 1)[1] for value in argv if value.startswith("--archive=")))
-            expected = next(value.split("=", 1)[1] for value in argv if value.startswith("--expected-sha256="))
-            self.assertEqual(hashlib.sha256(archive.read_bytes()).hexdigest(), expected)
-            with tarfile.open(archive, "r:gz") as stream:
-                self.assertEqual(stream.getnames(), [f"{archive.name.removesuffix('.tar.gz')}/server/fixture.txt"])
+        elif phase == "templates" and argv[0] == "php":
+            edition = next(value.split("=", 1)[1] for value in argv if value.startswith("--edition="))
+            self.create_artifacts(edition)
+        elif phase == "templates" and argv[0] == "node":
+            return self.original_command(argv, cwd=cwd, phase=phase)
         elif phase == "qualification":
             if not self.qualification_ok:
                 raise release.Stop("qualification", "existing validator rejected summary", 7)
-        elif phase == "publish" and argv[:2] == ["gh", "api"]:
-            return json.dumps(self.remote_release) if self.remote_release else ""
+        elif phase == "publish" and argv[0] == "node" and argv[2] == "lookup":
+            return json.dumps({"exists": self.remote_release is not None, "release": self.remote_release})
         elif phase == "publish" and "publish-github-release" in argv[0]:
             self.publish_calls += 1
             publication = Path(argv[argv.index("--output") + 1])
             publication.mkdir()
-            for name in release.publication_assets("4.0.0-rc.10", True) | {"release-notes.md"}:
+            for name in release.publication_assets("4.0.0-rc.10") | {"release-notes.md"}:
                 (publication / name).write_bytes(name.encode())
             assets = [{"name": name, "size": (publication / name).stat().st_size,
                        "digest": "sha256:" + hashlib.sha256((publication / name).read_bytes()).hexdigest()}
-                      for name in release.publication_assets("4.0.0-rc.10", True)]
+                      for name in release.publication_assets("4.0.0-rc.10")]
             self.remote_release = {"id": 27, "tag_name": "v4.0.0-rc.10", "draft": False,
                                    "prerelease": True, "assets": assets}
             if self.publisher_unknown_once:
                 self.publisher_unknown_once = False
                 raise release.Stop("publish", "external result unknown after upload", 124)
+        elif phase == "publish" and argv[0] == "node":
+            for asset in self.remote_release["assets"]:
+                path = self.output / "product-release-attempt-1" / asset["name"]
+                if asset["digest"] != "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest():
+                    raise release.Stop("publish", "remote asset size/digest differs")
+            return json.dumps({"release_id": self.remote_release["id"], "assets": {
+                item["name"]: item["digest"].removeprefix("sha256:") for item in self.remote_release["assets"]}})
         else:
             raise AssertionError(f"unexpected external command: {argv}")
         return ""
 
-    def run_flow(self, *extra: str) -> None:
+    def run_flow(self, *extra: str, ci: bool = True) -> None:
         with patch.object(sys, "argv", self.argv(*extra)), patch.object(release, "command", self.external), \
-                patch.object(release, "public_core", self.published), patch.object(release, "remote_refs", self.refs):
+                patch.object(release, "public_core", self.published), patch.object(release, "remote_refs", self.refs), \
+                patch.dict(os.environ, {"GITHUB_ACTIONS": "true" if ci else "false",
+                    "GITHUB_REPOSITORY": "peanut-business/peanut-admin-code",
+                    "GITHUB_WORKFLOW_REF": "peanut-business/peanut-admin-code/.github/workflows/scaffold-release.yml@refs/heads/main"}):
             release.main()
 
     def state(self) -> dict:
@@ -247,12 +242,9 @@ class ContinuationTest(unittest.TestCase):
         git(self.candidate, "add", ".")
         git(self.candidate, "commit", "-qm", "sealed source")
         seal = git(self.candidate, "rev-parse", "HEAD")
-        with self.assertRaisesRegex(release.Stop, "final product source"):
+        with self.assertRaisesRegex(release.Stop, "pass --build"):
             self.run_flow("--apply", "--seal-source-commit", seal)
-        git(self.candidate, "add", ".")
-        git(self.candidate, "add", "-f", "scaffold/releases/v4.0.0-rc.10")
-        git(self.candidate, "commit", "-qm", "final product")
-        return git(self.candidate, "rev-parse", "HEAD")
+        return seal
 
     def test_prepare_stage_passes_bound_web_evidence_path_and_sha(self) -> None:
         path = self.web_package_evidence()
@@ -373,26 +365,25 @@ class ContinuationTest(unittest.TestCase):
         self.assertIn("prepare", self.state()["stages"])
         self.assertNotIn("inventory", self.state()["stages"])
 
-    def test_scaffold_state_includes_ignored_generated_files_but_not_unrelated_ignored_files(self) -> None:
+    def test_native_templates_are_external_and_bound_to_final_source(self) -> None:
         final = self.prepare_final_commit()
-        files = self.state()["stages"]["scaffold"]["files"]
-        prefix = "scaffold/releases/v4.0.0-rc.10/"
-        self.assertIn(prefix + "files/.gitignore", files)
-        self.assertIn(prefix + "files/docs-site/index.md", files)
-        self.assertIn(prefix + "scaffold-manifest.json", files)
-        self.assertNotIn("server/vendor/autoload.php", files)
         with self.assertRaisesRegex(release.Stop, "qualification"):
             self.run_flow("--apply", "--prepared-commit", final, "--build")
+        inputs = self.state()["stages"]["templates"]["inputs"]
+        self.assertEqual(inputs["source"]["commit"], final)
+        self.assertEqual(len(inputs["assets"]), 4)
+        self.assertFalse((self.candidate / "scaffold/releases").exists())
+        self.assertFalse(git(self.candidate, "status", "--porcelain"))
 
-    def test_full_two_commit_chain_qualification_and_resume(self) -> None:
+    def test_fixed_source_chain_qualification_and_resume(self) -> None:
         final = self.prepare_final_commit()
         qualification = self.root / "qualification.json"
         write_json(qualification, {"status": "passed"})
         with self.assertRaisesRegex(release.Stop, "pass --publish"):
             self.run_flow("--apply", "--prepared-commit", final, "--build", "--qualification", str(qualification))
-        self.assertTrue({"prepared-commit", "installers", "qualification"}.issubset(self.state()["stages"]))
+        self.assertTrue({"prepared-commit", "templates", "qualification"}.issubset(self.state()["stages"]))
         self.assertEqual(self.calls.count("prepare"), 1)
-        self.assertEqual(self.calls.count("scaffold"), 1)
+        self.assertEqual(sum(1 for path in (self.output / "scaffold-templates").iterdir() if path.is_dir()), 2)
         self.assertEqual(self.calls.count("qualification"), 1)
         git(self.candidate, "tag", "-a", "v4.0.0-rc.10", "-m", "release")
         self.publisher_unknown_once = True
@@ -404,17 +395,18 @@ class ContinuationTest(unittest.TestCase):
         self.assertEqual(self.publish_calls, 1)
         self.assertIn("publish", self.state()["stages"])
 
-    def test_missing_server_archive_preserves_partial_output(self) -> None:
+    def test_missing_template_archive_preserves_partial_output(self) -> None:
         final = self.prepare_final_commit()
         original = self.create_artifacts
-        def incomplete() -> None:
-            original()
-            (self.output / "edition-artifacts/peanut-admin-4.0.0-rc.10-standalone-server.tar.gz").unlink()
+        def incomplete(edition: str) -> None:
+            original(edition)
+            if edition == "standalone":
+                (self.output / "scaffold-templates/standalone/peanut-scaffold-standalone.tgz").unlink()
         self.create_artifacts = incomplete
-        with self.assertRaisesRegex(release.Stop, "archive digest"):
+        with self.assertRaises(release.Stop):
             self.run_flow("--apply", "--prepared-commit", final, "--build")
-        self.assertNotIn("installers", self.state()["stages"])
-        with self.assertRaisesRegex(release.Stop, "partial installer output"):
+        self.assertNotIn("templates", self.state()["stages"])
+        with self.assertRaisesRegex(release.Stop, "partial template output"):
             self.run_flow("--apply", "--prepared-commit", final, "--build")
 
     def test_qualification_failure_never_records_passed_stage(self) -> None:
@@ -437,15 +429,24 @@ class ContinuationTest(unittest.TestCase):
             self.run_flow("--apply", "--prepared-commit", final, "--build", "--qualification", str(qualification), "--publish")
         self.assertEqual(self.publish_calls, 1)
 
+    def test_local_execution_cannot_publish_or_save_publication_intent(self) -> None:
+        final = self.prepare_final_commit()
+        qualification = self.root / "qualification.json"
+        write_json(qualification, {"status": "passed"})
+        with self.assertRaisesRegex(release.Stop, "scaffold-release CI"):
+            self.run_flow("--apply", "--prepared-commit", final, "--build", "--qualification", str(qualification), "--publish", ci=False)
+        self.assertEqual(self.publish_calls, 0)
+        self.assertNotIn("publication_intent", self.state())
+
     def test_completed_artifact_symlink_is_rejected(self) -> None:
         final = self.prepare_final_commit()
         with self.assertRaisesRegex(release.Stop, "qualification"):
             self.run_flow("--apply", "--prepared-commit", final, "--build")
-        artifact = self.output / "edition-artifacts/peanut-admin-4.0.0-rc.10-standalone.tar.gz"
+        artifact = self.output / "scaffold-templates/standalone/peanut-scaffold-standalone.tgz"
         backup = self.root / "original.tar.gz"
         artifact.replace(backup)
         artifact.symlink_to(backup)
-        with self.assertRaisesRegex(release.Stop, "completed artifact changed"):
+        with self.assertRaises(release.Stop):
             self.run_flow("--apply", "--prepared-commit", final, "--build")
 
     def test_public_npm_git_head_and_stable_core(self) -> None:

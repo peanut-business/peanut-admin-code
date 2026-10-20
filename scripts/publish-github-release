@@ -9,15 +9,15 @@ REPOSITORY="peanut-business/peanut-admin-code"
 usage() {
   cat <<'EOF'
 Usage: scripts/publish-github-release <version> --qualification <summary.json> \
-  --edition-artifacts <absolute-dir> [--edition-baseline] \
+  --template-artifacts <absolute-native-build-root> \
   [--prerelease] [--prepare-only] [--output <absolute-dir>] \
   [--main-integration=<absolute-premerge-receipt>]
 
 Creates the deterministic source archive, legal assets, external manifest and
-release notes from annotated tag v<version>. The Edition directory must contain
-the two development-source installers, two matching server-only archives and,
-except for an explicit first-edition baseline, two Edition upgrades, their
-manifests and checksum files for the same commit/tree. The
+release notes from annotated tag v<version>. The build root must contain the
+complete native standalone/ and multi-tenant/ build directories for that exact
+commit/tree. Their four .tgz/.json attachments are published as the templates.
+The same archive supports creation and source upgrade. The
 qualification summary must be for the exact frozen tag commit/tree. Without
 --prepare-only, publishes the candidate lock and all release assets as one GitHub
 Release after all checks pass. Stable mode is the default and accepts only
@@ -37,8 +37,7 @@ shift
 PREPARE_ONLY=0
 OUTPUT_DIR=''
 QUALIFICATION_FILE=''
-EDITION_ARTIFACTS=''
-EDITION_BASELINE=0
+TEMPLATE_ARTIFACTS=''
 PRERELEASE=0
 MAIN_INTEGRATION=''
 while [[ $# -gt 0 ]]; do
@@ -48,8 +47,7 @@ while [[ $# -gt 0 ]]; do
     --main-integration=*) [[ -z "$MAIN_INTEGRATION" ]] || { usage >&2; exit 2; }; MAIN_INTEGRATION="${1#*=}"; [[ "$MAIN_INTEGRATION" == /* && -f "$MAIN_INTEGRATION" ]] || { usage >&2; exit 2; }; shift ;;
     --output) [[ $# -ge 2 ]] || { usage >&2; exit 2; }; OUTPUT_DIR="$2"; shift 2 ;;
     --qualification) [[ $# -ge 2 ]] || { usage >&2; exit 2; }; QUALIFICATION_FILE="$2"; shift 2 ;;
-    --edition-artifacts) [[ $# -ge 2 ]] || { usage >&2; exit 2; }; EDITION_ARTIFACTS="$2"; shift 2 ;;
-    --edition-baseline) EDITION_BASELINE=1; shift ;;
+    --template-artifacts) [[ $# -ge 2 ]] || { usage >&2; exit 2; }; TEMPLATE_ARTIFACTS="$2"; shift 2 ;;
     --help|-h) usage; exit 0 ;;
     *) printf 'publish-github-release: unknown option: %s\n' "$1" >&2; exit 2 ;;
   esac
@@ -59,8 +57,8 @@ done
   printf 'publish-github-release: --qualification must name an absolute existing summary.json\n' >&2
   exit 2
 }
-[[ -n "$EDITION_ARTIFACTS" && "$EDITION_ARTIFACTS" == /* && -d "$EDITION_ARTIFACTS" ]] || {
-  printf 'publish-github-release: --edition-artifacts must name an absolute existing directory\n' >&2
+[[ -n "$TEMPLATE_ARTIFACTS" && "$TEMPLATE_ARTIFACTS" == /* && -d "$TEMPLATE_ARTIFACTS" ]] || {
+  printf 'publish-github-release: --template-artifacts must name an absolute existing native build root\n' >&2
   exit 2
 }
 
@@ -86,8 +84,12 @@ if [[ "$PRERELEASE" != 1 && "$VERSION" == *-* ]]; then
   exit 2
 fi
 TAG="v$VERSION"
-if [[ -z "$OUTPUT_DIR" ]]; then
-  OUTPUT_DIR="$(mktemp -d "/private/tmp/peanut-admin-$VERSION-release.XXXXXX")"
+if [[ "$PREPARE_ONLY" != 1 ]]; then
+  [[ "${GITHUB_ACTIONS:-}" == true && "${GITHUB_REPOSITORY:-}" == "$REPOSITORY" \
+    && "${GITHUB_WORKFLOW_REF:-}" == "$REPOSITORY/.github/workflows/scaffold-release.yml@refs/heads/main" ]] || {
+    printf 'publish-github-release: formal publication requires the registered repository scaffold-release CI on main\n' >&2
+    exit 1
+  }
 fi
 [[ "$OUTPUT_DIR" == /* ]] || {
   printf 'publish-github-release: --output must be an absolute path\n' >&2
@@ -115,7 +117,7 @@ COMMIT="$(git rev-parse "$TAG^{commit}")"
   exit 1
 }
 release_check=("$ROOT_DIR/scripts/check-release-consistency" --tag "$TAG" --qualification "$QUALIFICATION_FILE" \
-  --remote origin --write-lock "$OUTPUT_DIR/RELEASE_CANDIDATE_LOCK.json")
+  --remote origin --template-artifacts "$TEMPLATE_ARTIFACTS" --write-lock "$OUTPUT_DIR/RELEASE_CANDIDATE_LOCK.json")
 if [[ "$PRERELEASE" == 1 ]]; then
   release_check+=(--prerelease)
 fi
@@ -190,8 +192,8 @@ NODE
 
 if [[ "$PREPARE_ONLY" != 1 ]]; then
   INTEGRATION_MAIN="$(verify_main_integration "$OUTPUT_DIR/MAIN_INTEGRATION_PROOF.json")"
-  EXISTING="$(gh api "repos/$REPOSITORY/releases/tags/$TAG" --silent 2>/dev/null && printf yes || printf no)"
-  [[ "$EXISTING" == no ]] || {
+  EXISTING="$(node "$SCRIPT_DIR/release-asset-verification.mjs" lookup "$VERSION")"
+  [[ "$EXISTING" == '{"exists":false,"release":null}' ]] || {
     printf 'publish-github-release: GitHub Release already exists: %s\n' "$TAG" >&2
     exit 1
   }
@@ -204,226 +206,52 @@ git show "$TAG:NOTICE" > "$OUTPUT_DIR/peanut-admin-$VERSION-NOTICE.txt"
 git show "$TAG:THIRD_PARTY_NOTICES.md" > "$OUTPUT_DIR/peanut-admin-$VERSION-THIRD-PARTY-NOTICES.md"
 git show "$TAG:RELEASE_SBOM.spdx.json" > "$OUTPUT_DIR/peanut-admin-$VERSION-SBOM.spdx.json"
 
-RELEASE_SCRIPT_DIR="$SCRIPT_DIR" node - "$VERSION" "$TAG" "$OUTPUT_DIR" "$TAG_OBJECT" "$COMMIT" "$EDITION_ARTIFACTS" "$EDITION_BASELINE" <<'NODE'
-const fs = require('node:fs')
-const cp = require('node:child_process')
-const crypto = require('node:crypto')
+RELEASE_SCRIPT_DIR="$SCRIPT_DIR" node --input-type=module - "$VERSION" "$TAG" "$OUTPUT_DIR" "$TAG_OBJECT" "$COMMIT" "$TEMPLATE_ARTIFACTS" <<'NODE'
+import fs from 'node:fs'
+import cp from 'node:child_process'
+import crypto from 'node:crypto'
+import { createRequire } from 'node:module'
+import { isDeepStrictEqual } from 'node:util'
+const require = createRequire(import.meta.url)
 const { releaseMetadataVersion } = require(`${process.env.RELEASE_SCRIPT_DIR}/release-metadata-version.cjs`)
-const [VERSION, TAG, OUTPUT_DIR, TAG_OBJECT, COMMIT, EDITION_ARTIFACTS, EDITION_BASELINE] = process.argv.slice(2)
-const baseline = EDITION_BASELINE === '1'
-const fromTag = (path) => cp.execFileSync('git', ['show', `${TAG}:${path}`], { encoding: 'utf8' })
+const { readTemplateArtifacts } = await import(`${process.env.RELEASE_SCRIPT_DIR}/release-template-artifacts.mjs`)
+const [VERSION, TAG, OUTPUT_DIR, TAG_OBJECT, COMMIT, TEMPLATE_ARTIFACTS] = process.argv.slice(2)
+const fromTag = path => cp.execFileSync('git', ['show', `${TAG}:${path}`], { encoding: 'utf8' })
+const digest = value => crypto.createHash('sha256').update(value).digest('hex')
 const candidateLock = JSON.parse(fs.readFileSync(`${OUTPUT_DIR}/RELEASE_CANDIDATE_LOCK.json`, 'utf8'))
 const metadataText = fromTag('RELEASE_METADATA.json')
 const metadata = JSON.parse(metadataText)
-const metadataVersion = releaseMetadataVersion(metadata)
-if (metadataVersion !== VERSION || metadata.expected_tag !== TAG) {
-  throw new Error('tag and embedded release metadata differ')
-}
-const digest = (value) => crypto.createHash('sha256').update(value).digest('hex')
-const editionFiles = []
-for (const edition of ['standalone', 'multi-tenant']) {
-  for (const kind of baseline ? ['installer'] : ['installer', 'upgrade']) {
-    const suffix = kind === 'upgrade' ? '-upgrade' : ''
-    const archive = `peanut-admin-${VERSION}-${edition}${suffix}.tar.gz`
-    const manifestName = `${archive}.manifest.json`
-    const archivePath = `${EDITION_ARTIFACTS}/${archive}`
-    const manifestPath = `${EDITION_ARTIFACTS}/${manifestName}`
-    if (!fs.existsSync(archivePath) || !fs.existsSync(manifestPath)) {
-      throw new Error(`Edition artifact is missing: ${archive}`)
-    }
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
-    const expectedProtocol = kind === 'upgrade'
-      ? 'peanut.edition-upgrade-artifact.v1'
-      : 'peanut.edition-installer.v1'
-    const manifestEdition = typeof manifest.edition === 'string' ? manifest.edition : manifest.edition?.name
-    const source = manifest.source ?? manifest.build_source
-    const bytes = fs.readFileSync(archivePath)
-    if (manifest.schema_version !== 1 || manifest.protocol !== expectedProtocol
-      || manifest.product?.version !== VERSION || manifestEdition !== edition
-      || source?.commit !== COMMIT || source?.tree !== cp.execFileSync('git', ['rev-parse', `${COMMIT}^{tree}`], { encoding: 'utf8' }).trim()
-      || manifest.archive?.filename !== archive || manifest.archive?.sha256 !== digest(bytes)
-      || manifest.archive?.bytes !== bytes.length) {
-      throw new Error(`Edition artifact identity mismatch: ${archive}`)
-    }
-    if (kind === 'upgrade') {
-      const root = manifest.archive.root
-      const extract = (path) => cp.execFileSync('tar', ['-xOzf', archivePath, `${root}/${path}`])
-      const inventoryBytes = extract('META-INF/files.sha256')
-      const packageManifestBytes = extract('upgrade-manifest.json')
-      const packageManifest = JSON.parse(packageManifestBytes.toString('utf8'))
-      const inventoryText = inventoryBytes.toString('utf8')
-      const lines = inventoryText.split('\n')
-      if (lines.pop() !== '') throw new Error(`Edition upgrade inventory is malformed: ${archive}`)
-      const inventory = new Map()
-      let previous = ''
-      for (const line of lines) {
-        const separator = line.lastIndexOf('\0')
-        if (separator <= 0 || line.indexOf('\0') !== separator) throw new Error(`Edition upgrade inventory is malformed: ${archive}`)
-        const path = line.slice(0, separator)
-        const sha = line.slice(separator + 1)
-        if (path <= previous || !/^[a-f0-9]{64}$/.test(sha) || path.startsWith('/') || path.split('/').includes('..')) {
-          throw new Error(`Edition upgrade inventory is malformed: ${archive}`)
-        }
-        previous = path
-        inventory.set(path, sha)
-      }
-      const members = JSON.parse(cp.execFileSync('python3', ['-c',
-        `import hashlib,json,sys,tarfile
-members=[]
-with tarfile.open(sys.argv[1]) as archive:
-    for member in archive:
-        item={"name":member.name,"kind":"directory" if member.isdir() else "file" if member.isfile() else "unsupported"}
-        if member.isfile():
-            digest=hashlib.sha256()
-            with archive.extractfile(member) as source:
-                for chunk in iter(lambda: source.read(1024*1024), b''):
-                    digest.update(chunk)
-            item["sha256"]=digest.hexdigest()
-        members.append(item)
-print(json.dumps(members))`,
-        archivePath], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 }))
-      const prefix = `${root}/`
-      const actualFiles = []
-      for (const member of members) {
-        if (!member.name.startsWith(prefix) || member.name.split('/').includes('..')) throw new Error(`Edition upgrade archive path is unsafe: ${archive}`)
-        if (member.kind === 'directory') continue
-        if (member.kind !== 'file') throw new Error(`Edition upgrade archive member type is unsafe: ${archive}:${member.name}`)
-        const relative = member.name.slice(prefix.length)
-        if (relative === 'META-INF/files.sha256') continue
-        if (relative.startsWith('META-INF/signatures/')) throw new Error(`Edition upgrade contains forbidden signature files: ${archive}`)
-        actualFiles.push(relative)
-        if (inventory.get(relative) !== member.sha256) throw new Error(`Edition upgrade file digest mismatch: ${archive}:${relative}`)
-      }
-      actualFiles.sort()
-      const declaredFiles = [...inventory.keys()].sort()
-      if (JSON.stringify(actualFiles) !== JSON.stringify(declaredFiles)
-        || manifest.package?.inventory_sha256 !== digest(inventoryBytes)
-        || manifest.package?.manifest_sha256 !== digest(packageManifestBytes)
-        || packageManifest.protocol !== 'peanut.edition-upgrade-package.v1'
-        || packageManifest.schema_version !== 1
-        || packageManifest.build_source?.commit !== COMMIT
-        || packageManifest.build_source?.tree !== manifest.source?.tree
-        || packageManifest.target?.version !== VERSION
-        || packageManifest.edition?.name !== edition) {
-        throw new Error(`Edition upgrade package identity or inventory mismatch: ${archive}`)
-      }
-    }
-    if (kind === 'installer') {
-      const serverArchive = `peanut-admin-${VERSION}-${edition}-server.tar.gz`
-      const serverPath = `${EDITION_ARTIFACTS}/${serverArchive}`
-      const serverBytes = fs.existsSync(serverPath) ? fs.readFileSync(serverPath) : null
-      if (!serverBytes || manifest.archive?.layout !== 'application-development-source'
-        || manifest.server_archive?.filename !== serverArchive
-        || manifest.server_archive?.root !== `peanut-admin-${VERSION}-${edition}-server`
-        || manifest.server_archive?.layout !== 'server-only'
-        || manifest.server_archive?.sha256 !== digest(serverBytes)
-        || manifest.server_archive?.bytes !== serverBytes.length) {
-        throw new Error(`Edition server artifact identity mismatch: ${serverArchive}`)
-      }
-      cp.execFileSync('python3', [`${process.cwd()}/scripts/package-release-files.py`, 'verify',
-        `--archive=${serverPath}`, `--expected-sha256=${manifest.server_archive.sha256}`])
-      const identityBytes = cp.execFileSync('tar', ['-xOzf', serverPath,
-        `${manifest.server_archive.root}/server/.peanut/release-identity.json`])
-      const releaseIdentity = JSON.parse(identityBytes.toString('utf8'))
-      if (manifest.server_release?.identity_sha256 !== digest(identityBytes)
-        || manifest.server_release?.files_sha256 !== releaseIdentity.files_sha256
-        || manifest.application?.release_files_sha256 !== releaseIdentity.application?.source_files_sha256
-        || releaseIdentity.application?.kind !== 'generated-template'
-        || releaseIdentity.upstream?.commit !== COMMIT) {
-        throw new Error(`Edition server release identity mismatch: ${serverArchive}`)
-      }
-      fs.copyFileSync(serverPath, `${OUTPUT_DIR}/${serverArchive}`)
-      editionFiles.push(serverArchive)
-    }
-    fs.copyFileSync(archivePath, `${OUTPUT_DIR}/${archive}`)
-    fs.copyFileSync(manifestPath, `${OUTPUT_DIR}/${manifestName}`)
-    editionFiles.push(archive, manifestName)
+if (releaseMetadataVersion(metadata) !== VERSION || metadata.expected_tag !== TAG) throw new Error('tag and embedded release metadata differ')
+const tree = cp.execFileSync('git', ['rev-parse', `${COMMIT}^{tree}`], { encoding: 'utf8' }).trim()
+const templates = readTemplateArtifacts({ root: TEMPLATE_ARTIFACTS, version: VERSION, commit: COMMIT, tree,
+  inventorySha256: digest(fromTag('scaffold/application-template-inventory.json')) })
+if (!isDeepStrictEqual(candidateLock.template_artifacts, templates)) throw new Error('checked template inputs changed')
+for (const [edition, entry] of Object.entries(templates.editions)) {
+  for (const name of [entry.archive, entry.manifest]) {
+    fs.copyFileSync(`${TEMPLATE_ARTIFACTS}/${edition}/${name}`, `${OUTPUT_DIR}/${name}`, fs.constants.COPYFILE_EXCL)
+    if (digest(fs.readFileSync(`${OUTPUT_DIR}/${name}`)) !== templates.assets[name].sha256) throw new Error('copied template differs')
   }
 }
-const checksums = baseline ? ['SHA256SUMS'] : ['SHA256SUMS', 'SHA256SUMS.upgrades']
-for (const checksum of checksums) {
-  const source = `${EDITION_ARTIFACTS}/${checksum}`
-  if (!fs.existsSync(source)) throw new Error(`Edition checksum file is missing: ${checksum}`)
-  fs.copyFileSync(source, `${OUTPUT_DIR}/${checksum}`)
-  editionFiles.push(checksum)
-}
-const actualEditionFiles = fs.readdirSync(EDITION_ARTIFACTS).sort()
-if (JSON.stringify(actualEditionFiles) !== JSON.stringify([...editionFiles].sort())) {
-  throw new Error('Edition artifact directory contains an unexpected or incomplete file set')
-}
-for (const checksum of checksums) {
-  const listed = fs.readFileSync(`${OUTPUT_DIR}/${checksum}`, 'utf8').trim().split('\n').map((line) => {
-    const match = line.match(/^([a-f0-9]{64})  ([A-Za-z0-9.-]+)$/)
-    if (!match) throw new Error(`Invalid checksum line in ${checksum}`)
-    return [match[2], match[1]]
-  })
-  const expectedCount = checksum === 'SHA256SUMS' ? 4 : 2
-  const expectedNames = checksum === 'SHA256SUMS'
-    ? ['standalone', 'multi-tenant'].flatMap((edition) => [
-      `peanut-admin-${VERSION}-${edition}.tar.gz`, `peanut-admin-${VERSION}-${edition}-server.tar.gz`])
-    : ['standalone', 'multi-tenant'].map((edition) => `peanut-admin-${VERSION}-${edition}-upgrade.tar.gz`)
-  if (listed.length !== expectedCount
-    || JSON.stringify(listed.map(([name]) => name).sort()) !== JSON.stringify(expectedNames.sort())
-    || listed.some(([name, sha]) => digest(fs.readFileSync(`${OUTPUT_DIR}/${name}`)) !== sha)) {
-    throw new Error(`Edition checksum coverage mismatch: ${checksum}`)
-  }
-}
-const names = [
-  `peanut-admin-${VERSION}.tar.gz`,
-  `peanut-admin-${VERSION}-LICENSE.txt`,
-  `peanut-admin-${VERSION}-NOTICE.txt`,
-  `peanut-admin-${VERSION}-THIRD-PARTY-NOTICES.md`,
-  `peanut-admin-${VERSION}-SBOM.spdx.json`,
-  'RELEASE_CANDIDATE_LOCK.json',
-  ...editionFiles,
-]
-const artifacts = Object.fromEntries(names.map((name) => {
-  const content = fs.readFileSync(`${OUTPUT_DIR}/${name}`)
-  return [name, { size_bytes: content.length, sha256: digest(content) }]
+const names = [`peanut-admin-${VERSION}.tar.gz`, `peanut-admin-${VERSION}-LICENSE.txt`,
+  `peanut-admin-${VERSION}-NOTICE.txt`, `peanut-admin-${VERSION}-THIRD-PARTY-NOTICES.md`,
+  `peanut-admin-${VERSION}-SBOM.spdx.json`, 'RELEASE_CANDIDATE_LOCK.json', ...Object.keys(templates.assets)]
+const artifacts = Object.fromEntries(names.map(name => {
+  const bytes = fs.readFileSync(`${OUTPUT_DIR}/${name}`)
+  return [name, { size_bytes: bytes.length, sha256: digest(bytes) }]
 }))
 const manifest = {
-  schema_version: 1,
-  product: metadata.product,
-  version: VERSION,
-  tag: TAG,
-  tag_type: 'annotated',
-  tag_object: TAG_OBJECT,
-  commit: COMMIT,
-  released_at: `${metadata.release_date}T00:00:00Z`,
-  repository: metadata.repository,
-  license: {
-    type: metadata.license.type,
-    copyright_holder_display: metadata.license.copyright_holder_display,
-  },
-  normative_artifact: `peanut-admin-${VERSION}.tar.gz`,
-  artifacts,
-  embedded_metadata: {
-    path: 'RELEASE_METADATA.json',
-    sha256: digest(Buffer.from(metadataText)),
-  },
+  schema_version: 1, product: metadata.product, version: VERSION, tag: TAG, tag_type: 'annotated',
+  tag_object: TAG_OBJECT, commit: COMMIT, released_at: `${metadata.release_date}T00:00:00Z`,
+  repository: metadata.repository, license: metadata.license,
+  normative_artifacts: Object.values(templates.editions).map(entry => entry.archive),
+  source_archive: `peanut-admin-${VERSION}.tar.gz`, artifacts,
+  embedded_metadata: { path: 'RELEASE_METADATA.json', sha256: digest(metadataText) },
   technical_qualification: candidateLock.qualification,
-  candidate_lock: {
-    path: 'RELEASE_CANDIDATE_LOCK.json',
-    sha256: digest(fs.readFileSync(`${OUTPUT_DIR}/RELEASE_CANDIDATE_LOCK.json`)),
-  },
-  public_runtime_dependencies: metadata.public_runtime_dependencies,
-  edition_artifacts: Object.fromEntries(['standalone', 'multi-tenant'].map((edition) => [edition, {
-    installer: `peanut-admin-${VERSION}-${edition}.tar.gz`,
-    upgrade: baseline ? null : `peanut-admin-${VERSION}-${edition}-upgrade.tar.gz`,
-  }])),
-  edition_distribution: {
-    baseline,
-    upgrade_source_minimum: baseline ? null : 'recorded in each upgrade manifest',
-  },
-  exclusions: {
-    prebuilt_images: !metadata.normative_artifact.prebuilt_images_published,
-    new_core_package_release: !metadata.normative_artifact.new_core_packages_published,
-    saas: !metadata.normative_artifact.saas_included,
-  },
-  self_reference_policy: 'This manifest intentionally omits its own digest. Its SHA-256 is recorded in the GitHub Release notes.',
+  candidate_lock: { path: 'RELEASE_CANDIDATE_LOCK.json', sha256: digest(fs.readFileSync(`${OUTPUT_DIR}/RELEASE_CANDIDATE_LOCK.json`)) },
+  public_runtime_dependencies: metadata.public_runtime_dependencies, template_artifacts: templates,
+  self_reference_policy: 'This manifest omits its own digest; the Release notes record it.',
 }
-fs.writeFileSync(`${OUTPUT_DIR}/RELEASE_MANIFEST.json`, `${JSON.stringify(manifest, null, 2)}\n`)
-
+fs.writeFileSync(`${OUTPUT_DIR}/RELEASE_MANIFEST.json`, JSON.stringify(manifest, null, 2) + '\n', { flag: 'wx' })
 const changelog = fromTag('CHANGELOG.md')
 const header = `## [${VERSION}]`
 const start = changelog.indexOf(header)
@@ -431,17 +259,11 @@ if (start < 0) throw new Error(`${header} is missing from CHANGELOG.md`)
 const tail = changelog.slice(start)
 const next = tail.indexOf('\n## [', header.length)
 const section = (next < 0 ? tail : tail.slice(0, next)).trim()
-const archiveSha = artifacts[`peanut-admin-${VERSION}.tar.gz`].sha256
-const manifestSha = digest(fs.readFileSync(`${OUTPUT_DIR}/RELEASE_MANIFEST.json`))
-const editionNotes = baseline
-  ? `- Standalone development and server archives: \`peanut-admin-${VERSION}-standalone*.tar.gz\`\n- Multi-tenant development and server archives: \`peanut-admin-${VERSION}-multi-tenant*.tar.gz\`\n- This establishes the Edition distribution baseline for this major version, with no upgrade packages. A later release may use this version as its same-major, same-Edition upgrade source.`
-  : `- Standalone development, server and same-Edition upgrade archives: \`peanut-admin-${VERSION}-standalone*.tar.gz\`\n- Multi-tenant development, server and same-Edition upgrade archives: \`peanut-admin-${VERSION}-multi-tenant*.tar.gz\``
-const notes = `# Peanut Admin ${VERSION}\n\nImmutable source: annotated tag \`${TAG}\` at commit \`${COMMIT}\`.\n\n${section}\n\n## Artifacts and verification\n\n- Normative deterministic source archive: \`peanut-admin-${VERSION}.tar.gz\`\n  - SHA-256: \`${archiveSha}\`\n${editionNotes}\n- Candidate lock: \`RELEASE_CANDIDATE_LOCK.json\`\n- External release manifest: \`RELEASE_MANIFEST.json\`\n  - SHA-256: \`${manifestSha}\`\n\n\`RELEASE_CANDIDATE_LOCK.json\` binds the external qualification summary to this exact tag.\n\`RELEASE_MANIFEST.json\` records hashes and sizes for every other attached artifact. GitHub-generated source archives are convenience downloads; the attached deterministic archive is normative.\n`
-fs.writeFileSync(`${OUTPUT_DIR}/release-notes.md`, notes)
+const notes = `# Peanut Admin ${VERSION}\n\nImmutable source: annotated tag \`${TAG}\` at \`${COMMIT}\`.\n\n${section}\n\n## Templates and verification\n\n${Object.values(templates.editions).map(entry => `- Template: \`${entry.archive}\`, manifest: \`${entry.manifest}\`, SHA-256: \`${templates.assets[entry.archive].sha256}\``).join('\n')}\n\nThe same template creates and upgrades its Edition. APP server-only packages are built by each APP. The source archive is a developer reference.\n\nCandidate lock: \`RELEASE_CANDIDATE_LOCK.json\`. Release manifest: \`RELEASE_MANIFEST.json\`, SHA-256: \`${digest(fs.readFileSync(`${OUTPUT_DIR}/RELEASE_MANIFEST.json`))}\`.\n`
+fs.writeFileSync(`${OUTPUT_DIR}/release-notes.md`, notes, { flag: 'wx' })
 NODE
 
-expected_file_count=20
-[[ "$EDITION_BASELINE" == 0 ]] || expected_file_count=15
+expected_file_count=12
 [[ "$PREPARE_ONLY" == 1 ]] || expected_file_count=$((expected_file_count + 1))
 [[ "$(find "$OUTPUT_DIR" -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d ' ')" == "$expected_file_count" ]] || {
   printf 'publish-github-release: unexpected output file count\n' >&2
@@ -454,24 +276,12 @@ release_files=(
   "peanut-admin-$VERSION-THIRD-PARTY-NOTICES.md"
   "peanut-admin-$VERSION-SBOM.spdx.json"
   RELEASE_CANDIDATE_LOCK.json
-  "peanut-admin-$VERSION-standalone.tar.gz"
-  "peanut-admin-$VERSION-standalone-server.tar.gz"
-  "peanut-admin-$VERSION-standalone.tar.gz.manifest.json"
-  "peanut-admin-$VERSION-multi-tenant.tar.gz"
-  "peanut-admin-$VERSION-multi-tenant-server.tar.gz"
-  "peanut-admin-$VERSION-multi-tenant.tar.gz.manifest.json"
-  SHA256SUMS
+  peanut-scaffold-standalone.tgz
+  peanut-scaffold-standalone.json
+  peanut-scaffold-multi-tenant.tgz
+  peanut-scaffold-multi-tenant.json
   RELEASE_MANIFEST.json
 )
-if [[ "$EDITION_BASELINE" == 0 ]]; then
-  release_files+=(
-    "peanut-admin-$VERSION-standalone-upgrade.tar.gz"
-    "peanut-admin-$VERSION-standalone-upgrade.tar.gz.manifest.json"
-    "peanut-admin-$VERSION-multi-tenant-upgrade.tar.gz"
-    "peanut-admin-$VERSION-multi-tenant-upgrade.tar.gz.manifest.json"
-    SHA256SUMS.upgrades
-  )
-fi
 (cd "$OUTPUT_DIR" && shasum -a 256 "${release_files[@]}")
 
 if [[ "$PREPARE_ONLY" == 1 ]]; then
@@ -497,4 +307,7 @@ if [[ "$PREPARE_ONLY" != 1 ]]; then
 fi
 gh release create "$TAG" "${release_paths[@]}" \
   "${release_flags[@]}"
+verification_channel=stable
+[[ "$PRERELEASE" != 1 ]] || verification_channel=prerelease
+node "$SCRIPT_DIR/release-asset-verification.mjs" "$OUTPUT_DIR" "$VERSION" "$verification_channel"
 printf 'published=%s\nartifacts=%s\n' "$TAG" "$OUTPUT_DIR"

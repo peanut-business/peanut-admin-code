@@ -154,7 +154,7 @@ os.execv(os.environ['INTEGRATION_GIT'],[os.environ['INTEGRATION_GIT'],*a])
                 version,
                 '--qualification',
                 str(qualification),
-                '--edition-artifacts',
+                '--template-artifacts',
                 str(artifacts),
                 '--output',
                 str(output),
