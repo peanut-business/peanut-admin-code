@@ -3608,7 +3608,7 @@ final class ScaffoldUpgradeRunner
             $inputs['files']['.tool-metadata/' . $relative] = ['source' => $file, 'sha256' => $proof['sha256'], 'mode' => $proof['mode']];
             $inputs['tool_metadata'][] = $relative;
         }
-        $schema = $originalVendor . '/peanut-admin/core/resources/schemas/module-manifest.schema.json';
+        $schema = $originalVendor . '/peanut-admin/core/kernel/resources/schemas/module-manifest.schema.json';
         foreach (array_unique([...get_included_files(), $schema]) as $file) {
             if (str_starts_with($file, $originalVendor . '/')) {
                 $relative = substr($file, strlen($originalVendor) + 1);
@@ -3679,13 +3679,12 @@ final class ScaffoldUpgradeRunner
                 $dependencies[$canonical] = $proof;
             }
         }
-        $kernelSchema = $binding['tool_vendor_root'] . '/peanut-admin/core/resources/schemas/module-manifest.schema.json';
-        if (is_file($kernelSchema)) {
-            $canonical = realpath($kernelSchema);
-            $proof = ['sha256' => hash_file('sha256', $canonical), 'mode' => fileperms($canonical) & 0777];
-            if (isset($dependencies[$canonical]) && $dependencies[$canonical] !== $proof) { throw new RuntimeException('SOURCE_RUNTIME_TOOL_DEPENDENCY_CHANGED'); }
-            $dependencies[$canonical] = $proof;
-        }
+        $kernelSchema = $binding['tool_vendor_root'] . '/peanut-admin/core/kernel/resources/schemas/module-manifest.schema.json';
+        $canonical = ScaffoldPathGuard::existingFileWithin($binding['tool_vendor_root'], $kernelSchema, 'SOURCE_RUNTIME_LOADED_DEPENDENCY_MISSING');
+        if ($canonical !== $kernelSchema) { throw new RuntimeException('SOURCE_RUNTIME_TOOL_DEPENDENCY_CHANGED'); }
+        $proof = ['sha256' => hash_file('sha256', $canonical), 'mode' => fileperms($canonical) & 0777];
+        if (isset($dependencies[$canonical]) && $dependencies[$canonical] !== $proof) { throw new RuntimeException('SOURCE_RUNTIME_TOOL_DEPENDENCY_CHANGED'); }
+        $dependencies[$canonical] = $proof;
         foreach (glob(dirname($binding['tool_autoload']) . '/composer/*.php') ?: [] as $file) {
             $canonical = realpath($file);
             $proof = ['sha256' => hash_file('sha256', $canonical), 'mode' => fileperms($canonical) & 0777];
