@@ -875,7 +875,7 @@ final class PeanutServerUpdatePlan
         unset($env);
         $pdo->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ'); $pdo->exec('SET TRANSACTION READ ONLY'); $pdo->beginTransaction();
         try {
-            $identityRow = $pdo->query('SELECT @@server_uuid AS server_uuid,@@hostname AS server_hostname,@@port AS server_port,DATABASE() AS database')->fetch(PDO::FETCH_ASSOC);
+            $identityRow = $pdo->query('SELECT @@server_uuid AS server_uuid,@@hostname AS server_hostname,@@port AS server_port,DATABASE() AS `database`')->fetch(PDO::FETCH_ASSOC);
             if (!is_array($identityRow) || preg_match('/\A[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}\z/Di', (string) ($identityRow['server_uuid'] ?? '')) !== 1
                 || ($identityRow['database'] ?? null) !== $resource['database'] || !is_string($identityRow['server_hostname'] ?? null)
                 || $identityRow['server_hostname'] === '' || (int) ($identityRow['server_port'] ?? 0) < 1 || (int) $identityRow['server_port'] > 65535) {
