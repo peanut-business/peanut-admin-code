@@ -4494,7 +4494,8 @@ final class ScaffoldUpgradeRunner
     /** The existing exact exclusive window is shared by the two bounded tool-correction roles. */
     private function runtimeToolCorrectionWindow(string $root, array $state, array $admission): array
     {
-        $source = $admission['corrected_source']['root']; $workspace = $state['binding']['workspace'];
+        $binding = $state['binding'];
+        $source = $admission['corrected_source']['root']; $workspace = $binding['workspace'];
         $proof = $admission['lease_proof'] ?? '';
         if (!is_string($proof) || realpath($proof) !== $proof || !is_dir($proof) || is_link($proof)) {
             throw new RuntimeException('SOURCE_RUNTIME_CANCEL_NATIVE_LEASE_REQUIRED');
