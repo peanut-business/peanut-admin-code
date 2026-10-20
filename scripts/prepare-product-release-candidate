@@ -594,12 +594,19 @@ def check_inputs(product_version: str) -> None:
     versions = read_json(ROOT / "release-versions.json")
     if (versions.get("schema_version"), versions.get("protocol"), versions.get("instance_version")) != (3, "peanut.release-versions.v3", None):
         fail("unsupported product version contract")
-    if versions.get("source_product_version") == product_version:
-        fail("product candidate version must be new")
     require_semver(versions.get("generated_instance_default", ""), "APP initial version")
     metadata = read_json(ROOT / "RELEASE_METADATA.json")
     if not isinstance(metadata.get("technical_qualification"), dict) or metadata["technical_qualification"].get("result") not in ("pending", None):
         fail("existing qualified release metadata must not be replaced")
+    qualification = metadata["technical_qualification"]
+    if versions.get("source_product_version") == product_version:
+        sealed_fields = ("final_candidate_commit", "final_candidate_tree", "run_id",
+                         "summary_sha256", "cleanup_residual_count")
+        if (qualification.get("result") != "pending"
+                or any(qualification.get(field) is not None for field in sealed_fields)
+                or qualification.get("groups_passed", 0) != 0
+                or qualification.get("lease_released", False)):
+            fail("same-version preparation requires a pending, unsealed candidate without qualification evidence")
     if (ROOT / "scaffold/releases" / f"v{product_version}").exists():
         fail("fixed scaffold release already exists")
     composer = read_json(ROOT / "server/composer.json")

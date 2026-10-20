@@ -65,29 +65,16 @@ Web 六包发行不是原子事务。若任务失败，先读该 Action 的失�
 
 真实产品发行时重新核对实时工作流与渠道状态，不把本次演练结果当成未来版本的资格证明。
 
-### 第一阶段跨仓续作入口
+### Core 到产品候选的交接
 
-`scripts/continue-product-release` 是薄编排：PHP 与 Web Core 的实际发行仍由各仓 `release.yml` 完成；产品依赖更新、Edition 制品及产品发布仍分别使用 `prepare-product-release-candidate`、`build-edition-installers` / `build-edition-upgrades`（内部调用 `package-release.sh`）和 `publish-github-release`。先在独立 Code worktree 固定来源，运行：
+先核实两个 Core 的注释 tag、精确来源、成功发行 Action、公共包及 GitHub Release。在独立 Code worktree 使用 `scripts/prepare-product-release-candidate`，显式指定 `--version`、`--core-php-version`、`--core-php-reference`、`--core-web-version` 和 `--core-web-reference`；三处版本必须一致。该原生入口更新十二个 manifest、lock 和发行元数据，正式稳定版渠道由目标版本派生；正常生成 Composer/npm/pnpm 锁，不替换 vendor 或伪造同版来源。
 
-```bash
-python3 scripts/continue-product-release \
-  --source=/absolute/clean/code --candidate=/absolute/isolated/code-worktree \
-  --source-commit=<40-hex-code-commit> \
-  --core-php-root=/absolute/clean/php-core --core-php-version=4.0.0-rc.N --core-php-reference=<40-hex> \
-  --core-web-root=/absolute/clean/web-core --core-web-version=4.0.0-rc.N --core-web-reference=<40-hex> \
-  --product-version=4.0.0-rc.N --output=/absolute/task-output --baseline
-```
+候选已声明同一目标版本、但仍为 `pending` 且没有封存提交、树、运行、摘要、已通过组或清理结果时，可正常补齐其公开 Core 锁。已有资格或固定模板产物仍拒绝覆盖；准备失败恢复本次十二个输入的原字节。成功准备也只产生 pending，不授予产品发行资格。
 
-若当前执行面不能直接查询 npm registry，但主控已经从受信渠道取得并固定六包公开元数据，可额外传入只读证据文件：
+若使用固定 Web 包证据，同时传入 `--core-web-package-evidence` 与 `--core-web-package-evidence-sha256`。只读真实文件须包含全部六包的实际来源、integrity 和必要的公共 provenance；缺失 gitHead 时保留 null，由现有 Sigstore 校验器核验官方 workflow、tag、源码、包内容及实际 Action。证据不替代真实包安装或业务资格。
 
-```bash
-  --core-web-package-evidence=/absolute/read-only/web-core-package-evidence.json
-```
+完成相关源码及库存审阅后，固定一个最终源码提交，由 `scripts/build-scaffold-release` 将双 Edition 模板根构建到源码外目录。同一套 archive、manifest、SHA 和 identity 供创建与升级使用。模板内容检查仅证明模板阶段，不代替固定 APP 创建、版本升级和完整 P0-E；生产者、附件及接受条件取[发行生产者合同](../maintenance/release-producers.md)。不再调用旧 Edition installer/upgrade 制包链，也不提交生成制品形成第二个准备提交。
 
-该文件只替代六包的 npm 元数据读取，不替代协调器自己对远端注释 tag、固定提交、成功 `release.yml` Action 和 GitHub Release 的实时核验，也不授予 tag 或发布权限。证据文件绝对路径和 SHA-256 进入 phase-state 固定输入；恢复时字节或路径变化直接拒绝。当前协议为 `peanut.web-core-package-evidence.v2`：文件必须为非符号链接、只读普通文件，精确包含六个 `@peanut-admin/*` 包的版本、官方仓库、source reference、真实 gitHead（缺失保留 null）、registry tarball、sha512 integrity 及 provenance，并绑定实时核到的 Release ID 和 Action run ID。gitHead 缺失时必须由 npm 公共 provenance 证明来源；原生工具复用 npm 自带 Sigstore 验证器核验官方 `release.yml` 的精确 tag 签名身份，并绑定包版本/SRI、固定源码提交和成功 Action，canonical bundle SHA-256 也进入证据。错误 gitHead、缺包、额外包或任一身份不一致均 fail closed；不填写或猜测缺失字段。历史冻结证据不改写。无该参数时使用同一来源绑定逻辑实时读取 npm。
+`scripts/continue-product-release` 是明确限定 rc.N 的预发行薄协调器。默认只输出计划，`--apply` 才记录固定输入并调用同一原生准备、库存和模板入口。源码封存后使用同一个最终提交作为 prepared commit，外部模板和真实 qualification 绑定该提交。失败先核原 phase-state 和实际附件，UNKNOWN 只对账，不重发；参数取当前 `--help`，不使用已退出的 baseline 或旧制品输入。
 
-默认仅输出计划，不建立状态或访问公开渠道。确认批准且来源固定后，原命令加 `--apply`；若确需新 Core tag，仅对相应仓再加 `--approve-core-tag=php` 或 `--approve-core-tag=web`。新 tag 前要求该仓 HEAD 与远端当前 `main` 一致、推送地址正确、该精确 main 提交的 `ci.yml` 手动资格成功、版本清单与 workflow 存在且 tag 不冲突；工具只推送注释 tag，不把源码合入 main。随后每次运行都重新核远端注释 tag、同提交成功的 `release.yml` Action、GitHub Release 的稳定/预发行属性、Packagist 精确来源或六个 npm 精确版本、仓库、integrity 与来源绑定（精确 gitHead，或上述经验证的公共 provenance）。稳定 Core 也可供已批准的产品预发行复用。已有同版本包绝不重新 tag。远端流程尚在运行、部分包公开，或既无精确 gitHead 又无有效 provenance 时保持等待/失败状态；不能把缺少来源证明填为“成功”。
-
-两个 Core 均核实后，工具才在隔离候选树调用原生锁准备。主控核 12 个版本/锁文件及 CHANGELOG、法律材料后，以同一命令加 `--apply --generate-inventory` 继续：它在该候选运行 `scripts/project-composer prepare` 与 `install --working-dir=server --no-scripts --no-plugins --no-interaction --no-progress --prefer-dist`，仅为库存/脚手架生成器准备按锁的候选工具依赖；再运行 `php scripts/build-application-template-inventory` 和 `--check`。这不是 APP 冷安装资格。主控审阅完整库存 diff 并在隔离树提交源码封存，再加 `--seal-source-commit=<真实提交>`；工具从该提交调用 `php scripts/build-scaffold-release --version=<产品版本> --source-commit=<封存提交> --output=<候选树/scaffold/releases/v版本>`，按真实 manifest 更新 P0-E 目标来源字段。主控审阅该增量并作第二个真实提交，再加 `--prepared-commit=<最终提交> --build`；这才是构建/资格绑定的产品提交与树。阶段摘要拒绝混入其它源码变化或软链接。首个 Edition 基线使用 `--baseline`；后续版本移除它，补 `--minimum-source-version=<semver>`。资格完成后补 `--qualification=/absolute/real-summary.json`；现有一致性检查必须以 `--candidate <最终提交> --qualification <文件> --prerelease` 退出 0，包含全部 groups/cleanup。确认产品注释 tag、当前 main 及公开发布授权后才加 `--publish`，发布器自身重跑原门禁。
-
-`<output>/phase-state.json` 以原子替换记录固定输入摘要、阶段命令/返回码、0600 原始日志摘要、公开包及本地文件摘要、失败或等待阶段。重入先复核已成功材料和 Core 公开身份，摘要变化或输入变化拒绝；输出文件锁阻止并发。发布前固定本地意图；若外部结果未知，仅在原输出附件齐全，且远端 Release 的注释 tag、渠道、每个附件名称/大小/SHA-256 与原意图一致时接收，缺 digest 必须人工核对，不重发覆盖。正常完成的 Core 不因后续产品失败撤销。Web 同 tag 部分公开时先核原 tag/当前 main/公开包摘要，仅由 Core 仓受控运行 `gh run rerun <精确失败run_id> --repo peanut-business/peanut-admin-core-web`，本工具不自动 rerun；等待 Action 与六包/Release 三门齐备。状态与离线测试不能代替公开渠道、真实原生冻结安装、四端构建、完整产品资格或发布授权。
+正式产品发行由已获资格的 CI 上下文调用同一发布器；本地准备或 partial 模板阶段不构成正式发布资格。薄协调器的 `--prerelease` 路径不用于正式稳定版。完整资格、当前 main/tag、CI 身份及每个公开附件的来源和字节要求继续生效；Core 公开成功不代替 APP 安装、升级、管理员登录或关键业务确认。
