@@ -2418,7 +2418,7 @@ final class ScaffoldUpgradeRunner
         } else {
             // Registry releases can use the running validator only for that exact Core.
             if (!\Composer\InstalledVersions::isInstalled('peanut-admin/core')
-                || ltrim((string) \Composer\InstalledVersions::getPrettyVersion('peanut-admin/core'), 'v') !== $version
+                || ltrim((string) \Composer\InstalledVersions::getPrettyVersion('peanut-admin/core'), 'v') !== ltrim($version, 'v')
                 || \Composer\InstalledVersions::getReference('peanut-admin/core') !== $reference) {
                 throw new RuntimeException('SCAFFOLD_TARGET_MODULE_SCHEMA_UNAVAILABLE: target Core archive or exact installed Core required');
             }
