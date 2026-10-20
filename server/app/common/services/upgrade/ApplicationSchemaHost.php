@@ -25,6 +25,11 @@ final class ApplicationSchemaHost
     private string $sourceMetadataTool = '';
     private const MENU_MIGRATIONS = ['20261004-group-default-navigation', '20261004-menu-stable-identities', '20261012-repair-seeded-permission-parents'];
     private const PERMISSION_MIGRATIONS = ['20261007-readiness-permission', '20261012-align-department-canonical-permissions', '20261012-align-platform-ops-permission-ownership'];
+    // Business reads made by the complete fixed chain, including protected FK bindings.
+    // Backup/write scope is a separate, smaller contract.
+    private const SOURCE_READ_TABLES = ['pa_auth_security_event', 'pa_menu_definition', 'pa_module_migration', 'pa_notice_log',
+        'pa_permission', 'pa_platform_role_permission', 'pa_resource_operation_permission', 'pa_resource_operation_target_type',
+        'pa_role', 'pa_role_permission', 'pa_schema_migration', 'pa_system_menu', 'pa_tenant', 'pa_tenant_session'];
 
     /** Immutable SQL understood by the source-specific read-only proofs below. */
     private const PRESTATE_SQL = [
@@ -559,7 +564,12 @@ final class ApplicationSchemaHost
         $ddl = in_array($operation, ['apply', 'snapshot-failure', 'restore-failure'], true);
         $admission = $this->sourceDevelopmentAdmission($actor, $ddl);
         $config = \guardedDatabaseConfig();
-        if ($operation === 'verify-receipt') { $this->assertReceiptLedgerRead($config); }
+        $reads = match ($operation) {
+            'verify-receipt' => ['pa_schema_migration'],
+            'preflight', 'apply', 'verify' => self::SOURCE_READ_TABLES,
+            default => SourceApplicationBackup::applicationTables(array_keys(self::PRESTATE_SQL)),
+        };
+        $this->assertSourceReadScope($config, $reads);
         $connection = \think\facade\Db::connect();
         foreach (['hostname' => 'host', 'hostport' => 'port', 'database' => 'database', 'username' => 'user', 'password' => 'password'] as $native => $guarded) {
             if ((string) $connection->getConfig($native) !== (string) $config[$guarded]) { throw new RuntimeException('APPLICATION_SCHEMA_MASTER_MISMATCH'); }
@@ -1355,24 +1365,30 @@ final class ApplicationSchemaHost
         return (new SourceDevelopmentMaintenanceAdmission($this->serverRoot))->capture($actor, $ddl);
     }
 
-    /** Current read authorization is independent of an expired historical writer grant. */
-    private function assertReceiptLedgerRead(array $config): void
+    /** Current read authorization precedes PDO initialization and is independent of historical grants. */
+    private function assertSourceReadScope(array $config, array $tables): void
     {
         $registry = \projectResourceRegistry($unused);
         $database = \registeredDatabase($registry, $config['resource_id']);
         $schema = \mysqlSchemaLeaseResource($database, \registeredDatabaseEndpoint($database, $config['consumer']), $config);
         $resources = \activeLeaseResources(\requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF'));
         if (!isset($database['lease_policy']['shared_access']) && !isset($resources['mysql-access'])) { return; }
+        if (!$this->sourceReadScopeCovered($resources, $schema, $tables)) {
+            throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_READ_SCOPE_REQUIRED');
+        }
+    }
+
+    private function sourceReadScopeCovered(array $resources, string $schema, array $tables): bool
+    {
         foreach ($resources['mysql-access'] ?? [] as $raw) {
             $access = json_decode($raw, true, 64, JSON_THROW_ON_ERROR);
             if (($access['schema'] ?? null) !== $schema || ($access['complete'] ?? null) !== true) { continue; }
-            if (in_array($access['operation'] ?? null, ['ddl', 'exclusive'], true) && ($access['tables'] ?? null) === []) { return; }
-            foreach ($access['tables'] ?? [] as $table) {
-                if (($table['table'] ?? null) === 'pa_schema_migration' && ($table['rows'] ?? null) === '*'
-                    && in_array($table['access'] ?? null, ['read', 'write'], true)) { return; }
-            }
+            if (in_array($access['operation'] ?? null, ['ddl', 'exclusive'], true) && ($access['tables'] ?? null) === []) { return true; }
+            $reads = array_column(array_filter($access['tables'] ?? [], static fn(array $table): bool => ($table['rows'] ?? null) === '*'
+                && in_array($table['access'] ?? null, ['read', 'write'], true)), 'table');
+            if (array_diff($tables, $reads) === []) { return true; }
         }
-        throw new RuntimeException('APPLICATION_SCHEMA_RECEIPT_LEDGER_READ_SCOPE_REQUIRED');
+        return false;
     }
 
     /** Only already accepted, safe after results; never serializes private business inputs. */

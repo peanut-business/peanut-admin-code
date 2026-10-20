@@ -9160,7 +9160,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ea2a961c22bb0249e330c8fd6114a1adf3925bc079df16625393bad8158245f7"
+            "source_sha256": "b93c2bd48fefc0bdff0b10a52d59b7f58840f9b514a41313f0f26942843ab5fc"
         },
         {
             "path": "server/app/common/services/upgrade/PluginSourceDevelopmentHost.php",
@@ -27904,7 +27904,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0cee7d6627c813e8e622fe4bf5731cfa76916d1a8e05d5749051cf9047401062"
+            "source_sha256": "4c6860e818f46368c8369a00597c22156215ba1382b9bc2a35bbd2b1d2195520"
         },
         {
             "path": "server/docker/scripts/update-plan.php",

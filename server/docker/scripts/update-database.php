@@ -302,6 +302,10 @@ function peanutServerDatabaseStage(string $operation, string $server, string $wo
             } elseif (in_array($migration['id'], ['20260909-notification-sms-reservation', '20261007-auth-client-schema', '20261007-readiness-permission', '20261012-align-department-canonical-permissions', '20261012-align-platform-ops-permission-ownership'], true)) {
                 throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_PROOF_REQUIRED');
             }
+            if ($migration['id'] === '20261019-module-migration-provenance-metadata'
+                && (\app\common\services\upgrade\ApplicationSchemaHost::migrationPrestate($pdo, $migration)['proof']['shape'] ?? null) !== 'exact_noop') {
+                throw new RuntimeException('APPLICATION_SCHEMA_POSTSTATE_INCOMPLETE');
+            }
             PeanutServerUpdatePlan::assertDatabaseMigrationStage($pdo);
         });
     $ids = $migration['selected'];

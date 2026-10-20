@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use app\common\services\upgrade\SourceApplicationBackup;
+use app\common\services\upgrade\ApplicationSchemaHost;
 
 require dirname(__DIR__, 2) . '/vendor/autoload.php';
 
@@ -10,6 +11,32 @@ function effectMetadataExpect(bool $value, string $message): void
 {
     if (!$value) { throw new RuntimeException($message); }
 }
+
+$hostClass = new ReflectionClass(ApplicationSchemaHost::class);
+$host = $hostClass->newInstanceWithoutConstructor();
+$readScope = $hostClass->getMethod('sourceReadScopeCovered');
+$readTables = $hostClass->getConstant('SOURCE_READ_TABLES');
+$backupTables = SourceApplicationBackup::applicationTables(array_keys($hostClass->getConstant('PRESTATE_SQL')));
+$extraReads = array_values(array_diff($readTables, $backupTables));
+effectMetadataExpect(count($readTables) === 14 && $extraReads === ['pa_platform_role_permission', 'pa_resource_operation_permission', 'pa_resource_operation_target_type'], 'Business read closure and backup scope became conflated.');
+$schema = 'selected-host:3306/selected_db';
+$access = ['schema' => $schema, 'operation' => 'read', 'complete' => true,
+    'tables' => array_map(static fn(string $table): array => ['table' => $table, 'access' => 'read', 'rows' => '*'], $readTables)];
+$covered = static fn(array $value, array $tables = []): bool => $readScope->invoke($host,
+    ['mysql-access' => [json_encode($value, JSON_THROW_ON_ERROR)]], $schema, $tables === [] ? $readTables : $tables);
+effectMetadataExpect($covered($access), 'Complete fourteen-table read scope refused.');
+effectMetadataExpect($covered(['schema' => $schema, 'operation' => 'ddl', 'complete' => true, 'tables' => []]), 'Native DDL scope lost its stronger coverage.');
+effectMetadataExpect($covered(['schema' => $schema, 'operation' => 'read', 'complete' => true, 'tables' => [['table' => 'pa_schema_migration', 'access' => 'read', 'rows' => '*']]], ['pa_schema_migration']), 'Receipt-only reader requires unrelated business tables.');
+foreach ($readTables as $missing) {
+    $changed = $access; $changed['tables'] = array_values(array_filter($access['tables'], static fn(array $row): bool => $row['table'] !== $missing));
+    effectMetadataExpect(!$covered($changed), 'Missing business read acquired admission: ' . $missing);
+}
+$invalidReads = [];
+$changed = $access; $changed['schema'] = 'other-schema'; $invalidReads[] = $changed;
+$changed = $access; $changed['complete'] = false; $invalidReads[] = $changed;
+$changed = $access; $changed['tables'][0]['rows'] = [['1']]; $invalidReads[] = $changed;
+$changed = $access; $changed['tables'][0]['access'] = 'unknown'; $invalidReads[] = $changed;
+foreach ($invalidReads as $changed) { effectMetadataExpect(!$covered($changed), 'Incomplete/foreign read scope acquired admission.'); }
 
 $sql = new ReflectionMethod(SourceApplicationBackup::class, 'metadataSql');
 $parse = new ReflectionMethod(SourceApplicationBackup::class, 'parseMetadata');
@@ -76,4 +103,4 @@ try {
     if (is_file($path)) { unlink($path); }
     rmdir($directory);
 }
-echo "SOURCE-EFFECT-METADATA-CONTRACT passed: parser/scope only; native SSH/MySQL execution NOT_RUN\n";
+echo "SOURCE-EFFECT-METADATA-CONTRACT passed: parser/scope; full14, DDL and receipt reads accepted, 18 read-scope omissions refused; native SSH/MySQL execution NOT_RUN\n";
