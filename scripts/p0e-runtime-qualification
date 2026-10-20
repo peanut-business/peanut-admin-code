@@ -2821,9 +2821,81 @@ def add_fixed_arguments(parser: argparse.ArgumentParser, with_lease: bool = True
         parser.add_argument("--ttl", type=int, default=43200)
 
 
+def qualify_templates(args: argparse.Namespace) -> dict[str, Any]:
+    """Qualify immutable template inputs only; never create/install a runtime APP."""
+    _, tree = validate_candidate(args.candidate, require_clean=True)
+    roots = Path(args.template_artifacts)
+    output = Path(args.output_dir)
+    if not roots.is_absolute() or roots.is_symlink() or not roots.is_dir() or roots.resolve() != roots:
+        fail("template-artifacts must be a canonical complete native build root")
+    if (not output.is_absolute() or output.exists() or output.is_symlink()
+            or not output.parent.is_dir() or output.parent.resolve() != output.parent
+            or output == ROOT or ROOT in output.parents or output == roots or roots in output.parents
+            or output in roots.parents):
+        fail("template-stage output must be a new canonical directory outside source and template inputs")
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", args.run_id):
+        fail("template-stage run id is invalid")
+    version = read_json(ROOT / "release-versions.json")["scaffold_template"]
+    groups = read_json(FIXTURE_PATH).get("groups")
+    if (not isinstance(groups, list) or len(groups) != 8 or len(set(groups)) != 8
+            or "generated-application" not in groups or any(not isinstance(g, str) or not GROUP_RESULT.fullmatch(g) for g in groups)):
+        fail("template stage requires the unchanged eight-group qualification contract")
+    inventory = sha256(ROOT / "scaffold/application-template-inventory.json")
+    verifier = ROOT / "scripts/release-template-artifacts.mjs"
+    arguments = ["node", str(verifier), "check", str(roots), version, args.candidate, tree, inventory, str(ROOT)]
+    output.mkdir(mode=0o700)
+    receipt = {"schema_version": 1, "protocol": "peanut.p0e-template-stage.v1", "status": "running",
+               "scope": "templates", "candidate": args.candidate, "candidate_tree": tree, "run_id": args.run_id,
+               "full_gate_groups": groups, "source_inventory_sha256": inventory,
+               "producer": {"path": "scripts/p0e-runtime-qualification", "sha256": sha256(Path(__file__)),
+                            "verifier_sha256": sha256(verifier)},
+               "template_build_root": str(roots), "started_at": int(time.time()),
+               "runtime": {"permanent_app_created": False, "dependencies_installed": False, "database_used": False,
+                           "service_started": False, "browser_used": False},
+               "groups": {group: {"status": "not_run"} for group in groups},
+               "publication_qualified": False}
+    path = output / "template-stage.json"
+    path.write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    try:
+        result = command(arguments, capture=True, check=False)
+        log = output / "native-template-check.log"
+        log.write_text((result.stdout or "") + (result.stderr or ""), encoding="utf-8")
+        receipt["native_check"] = {"rc": result.returncode, "log": log.name, "log_sha256": sha256(log)}
+        if result.returncode != 0:
+            fail("native template check failed; preserve this stage output, do not replay it")
+        try:
+            inputs = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            fail("native template check did not return its artifact identity")
+        if (not isinstance(inputs, dict) or inputs.get("protocol") != "peanut.template-release-inputs.v1"
+                or inputs.get("version") != version or inputs.get("source") != {
+                    "commit": args.candidate, "tree": tree, "inventory_sha256": inventory}):
+            fail("native template check returned a different source")
+        # The verifier checks members, modes and sealed tooling for both Editions,
+        # re-reading all identities after the checks. Its temporary source
+        # projection is not a registered or installed runtime APP.
+        validate_candidate(args.candidate, require_clean=True)
+        receipt.update(status="partial-passed", template_artifacts=inputs)
+        receipt["groups"]["generated-application"] = {"status": "partial", "components": {
+            "native_template_contract": "passed", "source_build": "not_run", "cli_create_and_app_identity": "not_run"}}
+    except Exception:
+        receipt["status"] = "failed-preserved"
+        raise
+    finally:
+        receipt["finished_at"] = int(time.time())
+        path.write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return {"status": receipt["status"], "scope": "templates", "receipt": str(path),
+            "receipt_sha256": sha256(path), "publication_qualified": False}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
+    templates_parser = subparsers.add_parser("templates", help="check both native template build roots without APP/DB/runtime actions; partial stage only")
+    templates_parser.add_argument("--candidate", required=True)
+    templates_parser.add_argument("--run-id", required=True)
+    templates_parser.add_argument("--template-artifacts", required=True)
+    templates_parser.add_argument("--output-dir", required=True)
     plan_parser = subparsers.add_parser("plan", help="validate and print the complete no-resource plan")
     add_fixed_arguments(plan_parser, with_lease=False)
     plan_parser.add_argument("--lease", required=True)
@@ -2836,6 +2908,9 @@ def main() -> int:
     bind_parser = subparsers.add_parser("bind-tools", help="bind corrected qualification tools and invalidate only their groups, without runtime execution")
     add_fixed_arguments(bind_parser)
     args = parser.parse_args()
+    if args.command == "templates":
+        print(json.dumps(qualify_templates(args), ensure_ascii=False))
+        return 0
     configure_source(args)
     if TOOL_BINDING is not None and args.command not in ("resume", "bind-tools", "plan"):
         fail("independent tools are only valid for original-plan resume or binding")

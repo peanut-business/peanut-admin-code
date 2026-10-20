@@ -4405,6 +4405,19 @@
             "source_sha256": "c840f8d78b65de4196d8c8279e5e4b1baeb3c2e2a805d60a43e3e52a50657273"
         },
         {
+            "path": "scripts/tests/p0e_template_stage_test.py",
+            "target": "scripts/tests/p0e_template_stage_test.py",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "scripts/tests/package-release-default-test.py",
             "target": "scripts/tests/package-release-default-test.py",
             "classification": "excluded",

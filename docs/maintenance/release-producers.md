@@ -14,6 +14,14 @@
 
 源码升级从APP实际记录导出`peanut.scaffold-recorded-baseline.v1`，只作为from输入，不伪造官方模板，也不能作为发行目标。基线物理文件仍为0644；原逻辑权限记录在`baseline_mode`，旧APP缺失时必须显式提供精确原版本清单作为权限证据。普通`template-plan`拒绝已安装或受保护运行现场；原运行协调器的维护/恢复合同继续保留。新模板来源及配套清单摘要进入原生计划并在rebind重核，apply/recover沿原计划执行。
 
+## 模板资格阶段与CI保留输入
+
+`python3 scripts/p0e-runtime-qualification templates --candidate=<完整当前提交> --run-id=<本次唯一ID> --template-artifacts=<完整双Edition构建根> --output-dir=<不存在的外部绝对目录>`复用同一原生`build-scaffold-release --check`，检查两个Edition的来源、成员、模式及固定tooling，记录`template_artifacts`的实际四附件身份。原生check会生成临时源码投影，不创建或安装常驻运行APP、不安装依赖、不使用数据库或启动服务／浏览器。目录已存在即拒绝；失败保留本次日志和`template-stage.json`，不能覆写或自动重放。
+
+结果协议为`peanut.p0e-template-stage.v1`，只标记模板合同这一组件通过；`generated-application`整组仍为partial，源码构建、CLI创建与固定APP身份尚未验证，其余七组为not_run。没有正式资格所需cleanup／minimum gate字段，`publication_qualified=false`；不能把该阶段结果当作完整summary或给旧summary手工追加摘要。原八组接受条件继续有效，固定APP及业务／部署消费者须在各自真实阶段闭合。
+
+`scaffold-release.yml`在候选构建后调用该入口，除了原四附件，还将完整`standalone/`、`multi-tenant/`根和阶段结果保存在独立Actions artifact；用tar保留隐藏默认文件和可执行模式，附实际传输包SHA-256。该tar仅供同一固定来源资格链传输，不是公开模板包或APP。后续job须核具体source/run及实际字节再使用，不重新构建并假定附件相同。当前workflow保持contents:read；正式job和完整native summary仍未闭合，不因模板阶段通过自动发布。
+
 ## 冻结内部候选
 
 候选首装与独立 APP 派生先用 `freeze-core-release --php-core-dir=<固定干净PHP仓> --web-core-dir=<固定干净Web仓> --version=<统一精确版本> --output=<不存在的绝对目录>` 生成一个 PHP ZIP、六个 Web TGZ 及实际 `release-core-inputs.json`，记录来源 commit/tree、版本与摘要；无需先公开发布 Core。随后固定同一 Code 源码，依次为 MT、ST 调用 `build-scaffold-release --version=<同一版本> --source-commit=<固定Code提交> --edition=multi-tenant|standalone --workflow=full --internal-core-inputs=<冻结回执绝对路径> --output=<各自不存在的绝对目录>`。该脚手架候选通过原生 Composer/pnpm/npm 投影双 Core 声明及锁，携带七个包，将真实投影文件与归档纳入受管清单及 baseline；非 Core 锁定版本与来源保持不变。

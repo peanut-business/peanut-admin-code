@@ -48,6 +48,22 @@ jobs:
             php scripts/build-scaffold-release --version="$version" --source-commit="$GITHUB_SHA" \
               --edition="$edition" --workflow=runtime --output="$RUNNER_TEMP/scaffold-templates/$edition"
           done
+      - name: Qualify the native template stage
+        run: |
+          python3 scripts/p0e-runtime-qualification templates --candidate="$GITHUB_SHA" \
+            --run-id="ci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --template-artifacts="$RUNNER_TEMP/scaffold-templates" \
+            --output-dir="$RUNNER_TEMP/template-qualification"
+      - name: Preserve the complete checked build roots and stage receipt
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # Actions' directory transport changes file modes. Keep the complete
+          # native roots in one tar, including hidden defaults and sealed tooling.
+          tar -czf "$RUNNER_TEMP/scaffold-template-qualification.tgz" -C "$RUNNER_TEMP" \
+            scaffold-templates template-qualification
+          cd "$RUNNER_TEMP"
+          sha256sum scaffold-template-qualification.tgz > scaffold-template-qualification.tgz.sha256
       - uses: actions/upload-artifact@v4
         with:
           name: scaffold-templates-${{ github.sha }}
@@ -56,5 +72,13 @@ jobs:
             ${{ runner.temp }}/scaffold-templates/standalone/peanut-scaffold-standalone.json
             ${{ runner.temp }}/scaffold-templates/multi-tenant/peanut-scaffold-multi-tenant.tgz
             ${{ runner.temp }}/scaffold-templates/multi-tenant/peanut-scaffold-multi-tenant.json
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scaffold-template-qualification-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/scaffold-template-qualification.tgz
+            ${{ runner.temp }}/scaffold-template-qualification.tgz.sha256
           if-no-files-found: error
           retention-days: 7

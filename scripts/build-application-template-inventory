@@ -174,6 +174,7 @@ function excluded(string $path): bool
             'scripts/release-metadata-version.cjs', 'scripts/continue-product-release',
             'scripts/tests/continue_product_release_test.py',
             'scripts/tests/publish_github_release_channel_test.py', 'scripts/tests/release-template-artifacts-test.mjs',
+            'scripts/tests/p0e_template_stage_test.py',
             'scripts/tests/package-release-default-test.py',
             'scripts/tests/public-doc-delivery-test.py',
             'scripts/check-public-docs',
