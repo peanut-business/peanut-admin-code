@@ -6386,7 +6386,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "36a9d8b70be8729831b3ba7a29dde66db0c8cbaaad00bd9e29084f04679e2dc2"
+            "source_sha256": "67a9e99f16d00017cb687749de27750b7a9d5b3c306aac95256d79f944fbbed4"
         },
         {
             "path": "server/app/command/BundlePack.php",
@@ -9122,7 +9122,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bc7b82514f85603847a9d3796d980d8519854e7ce7bd96e3865c6adc66df01f8"
+            "source_sha256": "7b3a0fbc2892197d62b9b77087ce2bc68836d72d5b5353d5edb1a01d47ac8af0"
         },
         {
             "path": "server/app/common/services/upgrade/PluginSourceDevelopmentHost.php",
@@ -9150,7 +9150,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "644f99a3797952eef48ed8e0d3beea28838bc136dc7811d3d54bf3300e5ee952"
+            "source_sha256": "ad2d74b22d6a5e6e795acb8740d8be69c707c9c0778e3db99f297343ea732454"
+        },
+        {
+            "path": "server/app/common/services/upgrade/SourceApplicationDump.php",
+            "target": "server/app/common/services/upgrade/SourceApplicationDump.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "4da9d5ef262b4518ba90f36a17b7ac70cc29b5a93bb82ed4c23eadc3ec3e1895"
         },
         {
             "path": "server/app/common/services/upgrade/SourceDevelopmentMaintenanceAdmission.php",
@@ -30454,6 +30468,19 @@
             ]
         },
         {
+            "path": "server/tests/Productization/ApplicationFailureRecoveryContractTest.php",
+            "target": "server/tests/Productization/ApplicationFailureRecoveryContractTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Productization/ApplicationFailureSnapshotContractTest.php",
             "target": "server/tests/Productization/ApplicationFailureSnapshotContractTest.php",
             "classification": "excluded",
@@ -31302,6 +31329,19 @@
         {
             "path": "server/tests/Productization/SmsReservationSchemaContractTest.php",
             "target": "server/tests/Productization/SmsReservationSchemaContractTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Productization/SourceApplicationDumpContractTest.php",
+            "target": "server/tests/Productization/SourceApplicationDumpContractTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

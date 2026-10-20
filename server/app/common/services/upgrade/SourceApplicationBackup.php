@@ -804,8 +804,12 @@ final class SourceApplicationBackup
     public static function capture(array $binding, array $baseline, string $baselineSha, array $scope, array $tool, string $directory, callable $recheck, string $purpose = 'application-schema'): array
     {
         $captureStarted = time();
-        if (!in_array($purpose, ['application-schema', 'application-failure', 'plugin-lifecycle', 'installation-partial'], true)) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SOURCE_UNSUPPORTED'); }
+        if (!in_array($purpose, ['application-schema', 'application-failure', 'application-restoration', 'plugin-lifecycle', 'installation-partial'], true)) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SOURCE_UNSUPPORTED'); }
         $failure = $purpose === 'application-failure';
+        $restored = $purpose === 'application-restoration';
+        if ($restored && (($baseline['restoration_postimage'] ?? null) !== true || !is_array($baseline['failure_snapshot'] ?? null))) {
+            throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_ORIGIN_REQUIRED');
+        }
         if ($failure && (($baseline['failure_afterimage'] ?? null) !== true || !is_array($baseline['failed_migration'] ?? null)
             || ($baseline['executed_prefix'] ?? null) !== [] || !is_array($baseline['original_backup'] ?? null))) {
             throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_ORIGIN_REQUIRED');
@@ -949,6 +953,7 @@ final class SourceApplicationBackup
             $restore['protocol'] = 'peanut.source-application-failure-restore-instructions.v1';
             $restore['purpose'] = 'Failed afterimage preservation only; not a pre-migration backup or apply admission.';
         }
+        if ($restored) { $restore['protocol'] = 'peanut.source-application-restoration-restore-instructions.v1'; }
         self::write($directory . '/RESTORE.json', $restore);
         $receipts = [];
         foreach (['probe-before' => 'probe-before.txt', 'dump' => 'database.sql', 'probe-after' => 'probe-after.txt'] as $phase => $file) {
@@ -964,6 +969,7 @@ final class SourceApplicationBackup
             'observed_at' => time(), 'restore_status' => 'not_executed', 'qualification' => 'not_run', 'execution_admitted' => false];
         $record['capture_started_at'] = $captureStarted;
         if ($failure) { $record['protocol'] = 'peanut.source-application-failure-snapshot.v1'; $record['failure'] = $baseline; }
+        if ($restored) { $record['protocol'] = 'peanut.source-application-restoration-snapshot.v1'; $record['restoration'] = $baseline; }
         if ($partial) { $record['protocol'] = 'peanut.installation-partial-backup.v1'; $record['installation_originals'] = $originalFiles; }
         if ($receiptBackup !== null) { $record['notification_forward_receipt'] = $receiptBackup; }
         self::write($directory . '/backup.json', $record);
@@ -978,6 +984,7 @@ final class SourceApplicationBackup
             'receipts' => $receipts];
         $recovery['capture_started_at'] = $captureStarted;
         if ($failure) { $recovery['protocol'] = 'peanut.source-application-failure-reference.v1'; }
+        if ($restored) { $recovery['protocol'] = 'peanut.source-application-restoration-reference.v1'; }
         if ($partial) { $recovery['protocol'] = 'peanut.installation-partial-recovery.v1'; }
         $recovery['pending'] = $baseline['pending'];
         $recovery['selected'] = $record['selected'];
@@ -990,6 +997,56 @@ final class SourceApplicationBackup
     }
 
     /** Only a real current native partial capture, never the old empty-schema operator stdout. */
+    /** Fixed two-table failed-SMS restoration from a verified native original, never caller SQL. */
+    public static function restoreApplicationFailure(array $binding, array $tool, string $originalManifest, string $directory,
+        callable $before, callable $after): array
+    {
+        $context = app()->make(\app\common\execution\CurrentExecutionContext::class)->current();
+        if (PHP_SAPI !== 'cli' || !$context instanceof \app\common\execution\InstanceExecutionContext
+            || $context->operation() !== 'console.schema:application' || $context->instance->actorKey !== 'console'
+            || !in_array($binding['authority']['operation'] ?? null, ['ddl', 'exclusive'], true)) {
+            throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_RESTORE_CONTEXT_REQUIRED');
+        }
+        $before(); $serverRoot = $binding['source']['root'] . '/server';
+        $original = self::protectedPluginJson($originalManifest, $serverRoot);
+        $payload = $original['backup_payload'] ?? []; $tables = ['pa_notice_log', 'pa_schema_migration'];
+        $contract = $tool['source_schema_backup'] ?? [];
+        if (($original['protocol'] ?? null) !== 'peanut.source-application-backup.v1'
+            || ($original['binding']['database'] ?? null) !== $binding['database']
+            || ($contract['database_resource_id'] ?? null) !== $binding['resource_id']
+            || ($contract['database'] ?? null) !== $binding['database']['database']
+            || array_diff($tables, $contract['tables'] ?? []) !== [] || ($tool['transport'] ?? null) !== 'ssh-docker-exec') {
+            throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_RESTORE_ORIGIN_REQUIRED');
+        }
+        self::pluginFile($payload['path'] ?? '', $serverRoot, null);
+        $bytes = file_get_contents($payload['path']);
+        if (!is_string($bytes) || hash('sha256', $bytes) !== ($payload['sha256'] ?? null) || strlen($bytes) !== ($payload['bytes'] ?? null)) {
+            throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_BACKUP_CHANGED');
+        }
+        $dump = SourceApplicationDump::read($bytes, $original['scope']['tables']);
+        if (($dump['tables']['pa_notice_log']['insert_rows'] ?? null) !== 0) { throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_RESTORE_NONEMPTY_UNSUPPORTED'); }
+        $derived = SourceApplicationDump::select($dump, $tables);
+        if (realpath(dirname($directory)) !== dirname($directory) || file_exists($directory) || is_link($directory)
+            || !mkdir($directory, 0700)) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_OUTPUT_UNSAFE'); }
+        $path = $directory . '/selected-tables.sql'; self::writeBytes($path, $derived);
+        $reference = ['path' => $path, 'sha256' => hash('sha256', $derived), 'bytes' => strlen($derived)];
+        $segments = [];
+        foreach ($tables as $table) { $segments[$table] = array_diff_key($dump['tables'][$table], ['bytes' => true]); }
+        self::write($directory . '/derivation.json', ['protocol' => 'peanut.source-application-selected-restore.v1',
+            'source_payload' => $payload, 'tables' => $tables, 'source_segments' => $segments, 'derived_payload' => $reference,
+            'constraint_checks' => 'enabled throughout; fixed native disabling/restoring SETs excluded',
+            'source_original_unchanged' => true, 'executed' => false]);
+        $seconds = $contract['timeout_seconds'] ?? null;
+        if (!is_int($seconds) || $seconds < 30 || $seconds > 600) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_LIFETIME_REQUIRED'); }
+        self::remote($tool, self::clientShell($tool, 'mysql_command', $seconds,
+            ['--no-defaults', '--no-login-paths', '--skip-reconnect', '--binary-mode', '--default-character-set=utf8mb4', '-uroot', '--database=' . $binding['database']['database']]),
+            $directory . '/restore.stdout', $directory . '/restore.stderr', 'restore-selected-failure', $seconds,
+            (int) $binding['authority']['expires_at'], $before, null, $reference, $after);
+        return ['tables' => $tables, 'payload' => $reference,
+            'derivation' => ['path' => $directory . '/derivation.json', 'sha256' => hash_file('sha256', $directory . '/derivation.json')],
+            'terminal' => ['path' => $directory . '/restore.stdout.process.json', 'sha256' => hash_file('sha256', $directory . '/restore.stdout.process.json')]];
+    }
+
     public static function partialInstallationBackup(string $path, string $serverRoot, array $binding, array $baseline, ?array $expectedScope = null): array
     {
         $directory = realpath(dirname($path));
@@ -1244,7 +1301,8 @@ final class SourceApplicationBackup
             '-o', 'ServerAliveInterval=5', '-o', 'ServerAliveCountMax=3', $tool['ssh_alias'], $remote];
     }
 
-    private static function remote(array $tool, string $shell, string $output, string $error, string $phase, int $seconds, int $expires, callable $recheck, ?int $maximumBytes = null): void
+    private static function remote(array $tool, string $shell, string $output, string $error, string $phase, int $seconds, int $expires, callable $recheck,
+        ?int $maximumBytes = null, ?array $stdin = null, ?callable $afterRecheck = null): void
     {
         $recheck();
         if (time() + $seconds + 60 >= $expires) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_LIFETIME_REQUIRED'); }
@@ -1253,11 +1311,27 @@ final class SourceApplicationBackup
         $deadline = hrtime(true) + min($seconds + 15, $expires - time() - 10) * 1000000000;
         $out = fopen($output, 'x+b'); $err = fopen($error, 'x+b');
         if ($out === false || $err === false) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_OUTPUT_UNSAFE'); }
+        $input = null;
         try {
             if (!chmod($output, 0600) || !chmod($error, 0600)) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_OUTPUT_UNSAFE'); }
+            if ($stdin !== null) {
+                $path = $stdin['path'] ?? ''; $stat = @lstat($path);
+                if (!is_string($path) || realpath($path) !== $path || !is_array($stat) || ($stat['mode'] & 0170000) !== 0100000
+                    || ($stat['mode'] & 0777) !== 0600 || $stat['nlink'] !== 1 || $stat['uid'] !== posix_geteuid()) {
+                    throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_OUTPUT_UNSAFE');
+                }
+                $input = fopen($path, 'rb');
+                if ($input === false) { throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_BACKUP_CHANGED'); }
+                $actual = fstat($input); $hash = hash_init('sha256'); hash_update_stream($hash, $input);
+                if ($actual['ino'] !== $stat['ino'] || $actual['dev'] !== $stat['dev'] || $actual['size'] !== ($stdin['bytes'] ?? null)
+                    || hash_final($hash) !== ($stdin['sha256'] ?? null) || !rewind($input)) {
+                    throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_BACKUP_CHANGED');
+                }
+                $recheck();
+            }
             $environment = ['PATH' => '/usr/bin:/bin:/usr/sbin:/sbin', 'LANG' => 'C', 'LC_ALL' => 'C'];
             foreach (['HOME', 'SSH_AUTH_SOCK'] as $name) { if (is_string(getenv($name))) { $environment[$name] = getenv($name); } }
-            $process = proc_open(self::argv($tool, $shell), [0 => ['file', '/dev/null', 'r'], 1 => $out, 2 => $err], $pipes, null, $environment);
+            $process = proc_open(self::argv($tool, $shell), [0 => $input ?? ['file', '/dev/null', 'r'], 1 => $out, 2 => $err], $pipes, null, $environment);
             if (!is_resource($process)) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_PROCESS_UNAVAILABLE'); }
             $timedOut = false; $outputExceeded = false;
             while (true) {
@@ -1290,8 +1364,8 @@ final class SourceApplicationBackup
                 'stderr_sha256' => hash_file('sha256', $error),
                 'note' => 'Nonzero/transport failures preserve partial output; no success record or automatic retry.']);
             if ($timedOut || $outputExceeded || !$terminal || $rc !== 0) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_PROCESS_FAILED'); }
-            $recheck();
-        } finally { fclose($out); fclose($err); }
+            ($afterRecheck ?? $recheck)();
+        } finally { if (is_resource($input)) { fclose($input); } fclose($out); fclose($err); }
     }
 
     private static function write(string $path, array $value): void
