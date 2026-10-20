@@ -288,6 +288,17 @@ SQL;
         ];
     }
 
+    /** Whole read-only policy bindings; hashes only, using the same streamed native row proof. */
+    public static function readonlyBindingDigests(PDO $pdo): array
+    {
+        $result = [];
+        foreach (['pa_platform_role_permission', 'pa_resource_operation_permission', 'pa_resource_operation_target_type'] as $table) {
+            $checks = []; self::protect($pdo, $checks, $table, [], '1=1');
+            $result[$table] = $checks[0]['digest'];
+        }
+        return $result;
+    }
+
     private static function bindings(PDO $pdo, array &$checks, array $permissionIds, bool $roles): void
     {
         foreach (self::bindingTables($roles) as $table => $field) {

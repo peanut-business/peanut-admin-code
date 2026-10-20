@@ -46,12 +46,55 @@ foreach ($invalidProfiles as $changed) {
 }
 try { SourceApplicationBackup::failureRestoreTables('caller-selected-tables'); throw new LogicException('Unknown restore tables accepted.'); }
 catch (RuntimeException $error) { if ($error->getMessage() !== 'APPLICATION_SCHEMA_FAILURE_RESTORE_UNSUPPORTED') { throw $error; } }
+$fixed = $class->getConstant('PRESTATE_SQL'); $ids = array_keys($fixed);
+foreach (array_slice($ids, 3) as $offset => $id) {
+    $failure = ['failure_afterimage' => true, 'executed_prefix' => array_slice($ids, 0, $offset + 3), 'selected' => $fixed,
+        'failed_migration' => ['migration_id' => $id, 'status' => 'failed', 'checksum' => $fixed[$id], 'error_code' => 'NATIVE_TERMINAL_FAILURE']];
+    if ($profileCheck->invoke($host, $failure) !== 'prefix:' . $id
+        || SourceApplicationBackup::failureRestoreTables('prefix:' . $id) !== SourceApplicationBackup::applicationTables(array_slice($ids, 0, $offset + 4))) {
+        throw new LogicException('Fixed remaining prefix coverage lost.');
+    }
+    $failure['selected'][$smsId] = str_repeat('0', 64);
+    try { $profileCheck->invoke($host, $failure); }
+    catch (RuntimeException $error) { if ($error->getMessage() === 'APPLICATION_SCHEMA_FAILURE_RESTORE_UNSUPPORTED') { continue; } throw $error; }
+    throw new LogicException('Unbound remaining prefix accepted.');
+}
 $foreign = $class->getMethod('sourceFailureForeignKeys');
 $fk = ['TABLE_SCHEMA' => 'selected_db', 'TABLE_NAME' => 'pa_notice_log', 'COLUMN_NAME' => 'tenant_id',
     'REFERENCED_TABLE_SCHEMA' => 'selected_db', 'REFERENCED_TABLE_NAME' => 'pa_tenant', 'REFERENCED_COLUMN_NAME' => 'id',
     'DELETE_RULE' => 'RESTRICT', 'UPDATE_RULE' => 'NO ACTION'];
 $scope = ['tables' => ['pa_notice_log', 'pa_schema_migration', 'pa_tenant'], 'foreign_keys' => [$fk], 'triggers' => []];
 $foreign->invoke($host, $scope, $scope, 'selected_db');
+$parentScope = ['tables' => ['pa_tenant', 'pa_permission', 'pa_schema_migration'], 'triggers' => [], 'foreign_keys' => [
+    array_replace($fk, ['TABLE_NAME' => 'pa_customer_service_setting', 'DELETE_RULE' => 'CASCADE']),
+    array_replace($fk, ['TABLE_NAME' => 'pa_platform_role_permission', 'COLUMN_NAME' => 'permission_id', 'REFERENCED_TABLE_NAME' => 'pa_permission']),
+]];
+$foreign->invoke($host, $parentScope, $parentScope, 'selected_db', $parentScope['tables'], true);
+$changedParent = $parentScope; $changedParent['foreign_keys'][1]['DELETE_RULE'] = 'CASCADE';
+try { $foreign->invoke($host, $parentScope, $changedParent, 'selected_db', $parentScope['tables'], true); }
+catch (RuntimeException $error) {
+    if ($error->getMessage() !== 'APPLICATION_SCHEMA_FAILURE_RESTORE_DEPENDENCY_UNKNOWN') { throw $error; }
+    $changedParent = null;
+}
+if ($changedParent !== null) { throw new LogicException('Permission deletion cascade accepted.'); }
+$changedParent = $parentScope; $changedParent['foreign_keys'][1]['TABLE_SCHEMA'] = 'outside_schema';
+try { $foreign->invoke($host, $changedParent, $changedParent, 'selected_db', $parentScope['tables'], true); }
+catch (RuntimeException $error) {
+    if ($error->getMessage() !== 'APPLICATION_SCHEMA_FAILURE_RESTORE_DEPENDENCY_UNKNOWN') { throw $error; }
+    $changedParent = null;
+}
+if ($changedParent !== null) { throw new LogicException('Cross-schema incoming parent dependency accepted.'); }
+$external = array_replace($fk, ['TABLE_NAME' => 'pa_role_permission', 'COLUMN_NAME' => 'granted_by_member_id',
+    'REFERENCED_TABLE_NAME' => 'pa_tenant_member']);
+$parentScope['tables'][] = 'pa_role_permission'; $parentScope['foreign_keys'][] = $external;
+$foreign->invoke($host, $parentScope, $parentScope, 'selected_db', $parentScope['tables'], true);
+$changedParent = $parentScope; $changedParent['foreign_keys'][2]['REFERENCED_TABLE_NAME'] = 'pa_unknown_parent';
+try { $foreign->invoke($host, $changedParent, $changedParent, 'selected_db', $parentScope['tables'], true); }
+catch (RuntimeException $error) {
+    if ($error->getMessage() !== 'APPLICATION_SCHEMA_FAILURE_RESTORE_DEPENDENCY_UNKNOWN') { throw $error; }
+    $changedParent = null;
+}
+if ($changedParent !== null) { throw new LogicException('Unknown outside parent accepted.'); }
 $invalid = [];
 $changed = $scope; $changed['foreign_keys'][0]['DELETE_RULE'] = 'CASCADE'; $invalid[] = $changed;
 $changed = $scope; $changed['foreign_keys'][0]['REFERENCED_TABLE_SCHEMA'] = 'outside'; $invalid[] = $changed;
@@ -173,4 +216,4 @@ try {
     try { SourceApplicationBackup::capture([], [], '', [], [], '', static fn() => null, 'application-restoration'); throw new LogicException('Unbound restoration image accepted.'); }
     catch (RuntimeException $error) { if ($error->getMessage() !== 'APPLICATION_SCHEMA_FAILURE_ORIGIN_REQUIRED') { throw $error; } }
 } finally { if (is_file($path)) { unlink($path); } unlink($receipt); rmdir($directory); }
-echo "Application recovery contract: 2 fixed profiles, restrictive parents, expired historical window and ordered UTC interval accepted; 10 profile, 10 dependency, 8 current-window, 18 historical-window, 8 interval and 1 unbound image refusals; restore NOT_RUN.\n";
+echo "Application recovery contract: 2 existing plus 6 fixed prefix profiles, retained parent references, cascade/cross-schema refusal, expired historical window and ordered UTC interval; original refusal groups retained; restore NOT_RUN.\n";

@@ -1005,6 +1005,11 @@ final class SourceApplicationBackup
     /** Closed recovery profiles only; no caller-selected tables or SQL. */
     public static function failureRestoreTables(string $profile): array
     {
+        if (str_starts_with($profile, 'prefix:')) {
+            $id = substr($profile, 7); $ids = array_keys(self::TABLES); $index = array_search($id, $ids, true);
+            if ($index === false || $index < 3) { throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_RESTORE_UNSUPPORTED'); }
+            return self::applicationTables(array_slice($ids, 0, $index + 1));
+        }
         return match ($profile) {
             'sms-reservation' => ['pa_notice_log', 'pa_schema_migration'],
             'menu-stable-identities' => ['pa_menu_definition', 'pa_notice_log', 'pa_schema_migration', 'pa_system_menu'],
@@ -1014,7 +1019,7 @@ final class SourceApplicationBackup
 
     /** Fixed selected-table restoration from a verified native original, never caller SQL. */
     public static function restoreApplicationFailure(array $binding, array $tool, string $originalManifest, string $directory,
-        callable $before, callable $after, string $profile = 'sms-reservation'): array
+        callable $before, callable $after, string $profile = 'sms-reservation', ?string $currentManifest = null): array
     {
         $context = app()->make(\app\common\execution\CurrentExecutionContext::class)->current();
         if (PHP_SAPI !== 'cli' || !$context instanceof \app\common\execution\InstanceExecutionContext
@@ -1040,7 +1045,21 @@ final class SourceApplicationBackup
         }
         $dump = SourceApplicationDump::read($bytes, $original['scope']['tables']);
         if (($dump['tables']['pa_notice_log']['insert_rows'] ?? null) !== 0) { throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_RESTORE_NONEMPTY_UNSUPPORTED'); }
-        $derived = SourceApplicationDump::select($dump, $tables);
+        if (str_starts_with($profile, 'prefix:')) {
+            if ($currentManifest === null) { throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_ORIGIN_CHANGED'); }
+            $current = self::protectedPluginJson($currentManifest, $serverRoot);
+            $currentPayload = $current['backup_payload'] ?? [];
+            if (($current['protocol'] ?? null) !== 'peanut.source-application-failure-snapshot.v1'
+                || ($current['binding']['database'] ?? null) !== $binding['database']
+                || ($current['scope']['tables'] ?? null) !== $original['scope']['tables']) { throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_ORIGIN_CHANGED'); }
+            self::pluginFile($currentPayload['path'] ?? '', $serverRoot, null);
+            $currentBytes = file_get_contents($currentPayload['path']);
+            if (!is_string($currentBytes) || strlen($currentBytes) !== ($currentPayload['bytes'] ?? null)
+                || hash('sha256', $currentBytes) !== ($currentPayload['sha256'] ?? null)) { throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_BACKUP_CHANGED'); }
+            $derived = SourceApplicationDump::restorePrefix($dump, SourceApplicationDump::read($currentBytes, $original['scope']['tables']), $tables);
+        } else {
+            $derived = SourceApplicationDump::select($dump, $tables);
+        }
         if (realpath(dirname($directory)) !== dirname($directory) || file_exists($directory) || is_link($directory)
             || !mkdir($directory, 0700)) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_OUTPUT_UNSAFE'); }
         $path = $directory . '/selected-tables.sql'; self::writeBytes($path, $derived);

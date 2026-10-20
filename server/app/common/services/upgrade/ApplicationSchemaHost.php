@@ -566,7 +566,7 @@ final class ApplicationSchemaHost
         $config = \guardedDatabaseConfig();
         $reads = match ($operation) {
             'verify-receipt' => ['pa_schema_migration'],
-            'preflight', 'apply', 'verify' => self::SOURCE_READ_TABLES,
+            'preflight', 'apply', 'verify', 'snapshot-failure', 'restore-failure' => self::SOURCE_READ_TABLES,
             default => SourceApplicationBackup::applicationTables(array_keys(self::PRESTATE_SQL)),
         };
         $this->assertSourceReadScope($config, $reads);
@@ -861,6 +861,7 @@ final class ApplicationSchemaHost
         $plan = ['schema_version' => 1, 'protocol' => 'peanut.source-development-schema-plan.v1',
             'scope' => 'application-schema', 'maintenance_scope' => 'source-development', 'status' => $blocked ? 'blocked' : 'planned',
             'binding' => $binding, 'baseline' => $baseline, 'chain' => $chain, 'backup_scope' => $backupScope, 'execution_requirements' => $requirements, 'evidence' => $evidence,
+            'protected_permission_bindings' => PermissionSchemaMigrationProof::readonlyBindingDigests($pdo),
             'validation_only' => $binding['validation_only'],
             'execution_admitted' => false, 'external_gates' => 'not_evaluated', 'plugins' => 'not_run', 'product_database' => 'not_verified'];
         if ($this->sourceMetadataTool !== '') { $plan['metadata_tool'] = $this->sourceMetadataTool; }
@@ -1067,12 +1068,20 @@ final class ApplicationSchemaHost
                         if (!$held) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SCHEMA_LOCK_REQUIRED'); }
                     };
                     $scope = SourceApplicationBackup::scope($pdo, $pending, $binding, $this->sourceMetadataTool, $guard);
+                    $protectedBindings = PermissionSchemaMigrationProof::readonlyBindingDigests($pdo);
+                    if (isset($plan['protected_permission_bindings']) && !$this->sourceSame($protectedBindings, $plan['protected_permission_bindings'])) {
+                        throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_SNAPSHOT_CHANGED');
+                    }
                     $image = ['pending' => $pending, 'selected' => $baseline['selected'], 'failure_afterimage' => true,
+                        'protected_permission_bindings' => $protectedBindings,
                         'original_plan' => ['path' => $planPath, 'sha256' => $planSha], 'original_backup' => $origin,
                         'executed_prefix' => array_slice($pending, 0, array_search($failed['migration_id'], $pending, true)),
                         'failed_migration' => $failed, 'ledger' => $ledger];
-                    $recheck = function () use ($pdo, $pending, $binding, $guard, $scope): void {
+                    $recheck = function () use ($pdo, $pending, $binding, $guard, $scope, $protectedBindings): void {
                         $guard();
+                        if (!$this->sourceSame(PermissionSchemaMigrationProof::readonlyBindingDigests($pdo), $protectedBindings)) {
+                            throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_SNAPSHOT_CHANGED');
+                        }
                         if (!$this->sourceSame(SourceApplicationBackup::scope($pdo, $pending, $binding, $this->sourceMetadataTool, $guard), $scope)) {
                             throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_SNAPSHOT_CHANGED');
                         }
@@ -1107,6 +1116,16 @@ final class ApplicationSchemaHost
                 }
             }
             return 'menu-stable-identities';
+        }
+        $ids = array_keys(self::PRESTATE_SQL); $index = array_search($id, $ids, true);
+        if ($index !== false && $index >= 3 && $prefix === array_slice($ids, 0, $index)
+            && is_string($error) && $error !== '') {
+            foreach (array_slice($ids, 0, $index) as $predecessor) {
+                if (($failure['selected'][$predecessor] ?? null) !== self::PRESTATE_SQL[$predecessor]) {
+                    throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_RESTORE_UNSUPPORTED');
+                }
+            }
+            return 'prefix:' . $id;
         }
         throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_RESTORE_UNSUPPORTED');
     }
@@ -1161,9 +1180,10 @@ final class ApplicationSchemaHost
         foreach ($original['tables'] as $table => $row) {
             if ($row['sha256'] !== $afterimage['tables'][$table]['sha256']) { $changed[] = $table; }
         }
-        if ($changed !== $tables || $original['tables']['pa_notice_log']['insert_rows'] !== 0
+        if ((str_starts_with($profile, 'prefix:') ? array_diff($changed, $tables) !== [] : $changed !== $tables)
+            || $original['tables']['pa_notice_log']['insert_rows'] !== 0
             || $afterimage['tables']['pa_notice_log']['insert_rows'] !== 0) { throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_RESTORE_SCOPE_CHANGED'); }
-        $window = $this->sourceFailureWindow($maintenancePath, $binding, ['path' => $capsulePath, 'sha256' => $capsuleSha], $tables, $plan['backup_scope']['tables']);
+        $window = $this->sourceFailureWindow($maintenancePath, $binding, ['path' => $capsulePath, 'sha256' => $capsuleSha], $tables, self::SOURCE_READ_TABLES);
         $originFiles += $window['files'];
         $registry = \projectResourceRegistry($registrySha);
         $tools = array_values(array_filter($registry['resources']['tooling'] ?? [], static fn(array $row): bool => ($row['stable_resource_id'] ?? null) === $toolId));
@@ -1190,15 +1210,23 @@ final class ApplicationSchemaHost
                         try { $query->execute([$lockName]); $held = (int) $query->fetchColumn() === 1; } finally { $query->closeCursor(); }
                         if (!$held) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SCHEMA_LOCK_REQUIRED'); }
                     };
-                    $failedGuard = function () use ($pdo, $guard, $failure, $baseline): void {
-                        $guard(); $ledger = $pdo->query('SELECT * FROM pa_schema_migration ORDER BY migration_id')->fetchAll(PDO::FETCH_ASSOC);
+                    $bindingGuard = function () use ($pdo, $failure, $plan, $profile): void {
+                        if (!str_starts_with($profile, 'prefix:')) { return; }
+                        $bindings = PermissionSchemaMigrationProof::readonlyBindingDigests($pdo);
+                        if (!$this->sourceSame($bindings, $plan['protected_permission_bindings'] ?? null)
+                            || !$this->sourceSame($bindings, $failure['protected_permission_bindings'] ?? null)) {
+                            throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_SNAPSHOT_CHANGED');
+                        }
+                    };
+                    $failedGuard = function () use ($pdo, $guard, $failure, $baseline, $bindingGuard): void {
+                        $guard(); $bindingGuard(); $ledger = $pdo->query('SELECT * FROM pa_schema_migration ORDER BY migration_id')->fetchAll(PDO::FETCH_ASSOC);
                         if ($ledger !== $failure['ledger'] || (int) $pdo->query('SELECT COUNT(*) FROM pa_notice_log')->fetchColumn() !== 0
                             || $this->sourceFailureLedger($ledger, $baseline, $this->sourceLedgerShape($pdo)) !== $failure['failed_migration']) {
                             throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_SNAPSHOT_CHANGED');
                         }
                     };
-                    $restoredGuard = function () use ($pdo, $guard, $baseline): void {
-                        $guard(); $ledger = $pdo->query('SELECT * FROM pa_schema_migration ORDER BY migration_id')->fetchAll(PDO::FETCH_ASSOC);
+                    $restoredGuard = function () use ($pdo, $guard, $baseline, $bindingGuard): void {
+                        $guard(); $bindingGuard(); $ledger = $pdo->query('SELECT * FROM pa_schema_migration ORDER BY migration_id')->fetchAll(PDO::FETCH_ASSOC);
                         if ($this->digest($ledger) !== $baseline['application_rows_sha256'] || count($ledger) !== $baseline['application_rows_count']
                             || $this->digest($this->sourceLedgerShape($pdo)) !== $baseline['application_shape_sha256']
                             || (int) $pdo->query('SELECT COUNT(*) FROM pa_notice_log')->fetchColumn() !== 0) {
@@ -1207,7 +1235,7 @@ final class ApplicationSchemaHost
                     };
                     $failedGuard(); $scope = SourceApplicationBackup::scope($pdo, $pending, $binding, $this->sourceMetadataTool, $guard);
                     if (!$this->sourceSame($scope, $capsule['scope'])) { throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_SNAPSHOT_CHANGED'); }
-                    $this->sourceFailureForeignKeys($plan['backup_scope'], $scope, $binding['database']['database'], $tables);
+                    $this->sourceFailureForeignKeys($plan['backup_scope'], $scope, $binding['database']['database'], $tables, str_starts_with($profile, 'prefix:'));
                     $parent = @lstat(dirname($output));
                     if (!is_array($parent) || realpath(dirname($output)) !== dirname($output) || ($parent['mode'] & 0022) !== 0
                         || !in_array($parent['uid'], [0, posix_geteuid()], true) || file_exists($output) || is_link($output) || !mkdir($output, 0700)) {
@@ -1215,7 +1243,7 @@ final class ApplicationSchemaHost
                     }
                     $before = SourceApplicationBackup::capture($binding, $failure, $this->digest($failure), $scope, $tools[0], $output . '/before', $failedGuard, 'application-failure');
                     if ($before['backup_payload_sha256'] !== $capsule['backup_payload']['sha256']) { throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_SNAPSHOT_CHANGED'); }
-                    $restoration = SourceApplicationBackup::restoreApplicationFailure($binding, $tools[0], $origin['backup_manifest']['path'], $output . '/restore', $failedGuard, $restoredGuard, $profile);
+                    $restoration = SourceApplicationBackup::restoreApplicationFailure($binding, $tools[0], $origin['backup_manifest']['path'], $output . '/restore', $failedGuard, $restoredGuard, $profile, $capsulePath);
                     $restoredGuard(); $restoredScope = SourceApplicationBackup::scope($pdo, $pending, $binding, $this->sourceMetadataTool, $guard);
                     if (!$this->sourceSame($restoredScope, $plan['backup_scope'])) { throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_RESTORE_POSTIMAGE_INVALID'); }
                     $postimage = ['pending' => $pending, 'selected' => $baseline['selected'], 'restoration_postimage' => true,
@@ -1255,19 +1283,36 @@ final class ApplicationSchemaHost
         return ['files' => $files, 'expires_at' => $window['expires_at']];
     }
 
-    private function sourceFailureForeignKeys(array $before, array $current, string $database, array $tables = ['pa_notice_log', 'pa_schema_migration']): void
+    private function sourceFailureForeignKeys(array $before, array $current, string $database, array $tables = ['pa_notice_log', 'pa_schema_migration'], bool $preserveParents = false): void
     {
+        $parents = $preserveParents ? array_values(array_intersect($tables, ['pa_permission', 'pa_role', 'pa_tenant', 'pa_tenant_session'])) : [];
         $selected = [];
         foreach ($current['triggers'] as $trigger) { if (in_array($trigger['table'], $tables, true)) { throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_RESTORE_DEPENDENCY_UNKNOWN'); } }
         foreach ([$before, $current] as $scope) {
             $keys = [];
             foreach ($scope['foreign_keys'] as $row) {
-                if ($row['REFERENCED_TABLE_SCHEMA'] === $database && in_array($row['REFERENCED_TABLE_NAME'], $tables, true)) {
+                if ($row['REFERENCED_TABLE_SCHEMA'] === $database && in_array($row['REFERENCED_TABLE_NAME'], $tables, true)
+                    && $row['TABLE_SCHEMA'] !== $database) { throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_RESTORE_DEPENDENCY_UNKNOWN'); }
+                if ($row['REFERENCED_TABLE_SCHEMA'] === $database && in_array($row['REFERENCED_TABLE_NAME'], $tables, true)
+                    && !in_array($row['REFERENCED_TABLE_NAME'], $parents, true)) {
                     throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_RESTORE_DEPENDENCY_UNKNOWN');
                 }
-                if ($row['TABLE_SCHEMA'] !== $database || !in_array($row['TABLE_NAME'], $tables, true)) { continue; }
-                if ($row['REFERENCED_TABLE_SCHEMA'] !== $database || !in_array($row['REFERENCED_TABLE_NAME'], $scope['tables'], true)
-                    || !in_array($row['UPDATE_RULE'], ['NO ACTION', 'RESTRICT'], true) || !in_array($row['DELETE_RULE'], ['NO ACTION', 'RESTRICT'], true)) {
+                if ($row['TABLE_SCHEMA'] !== $database || (!in_array($row['TABLE_NAME'], $tables, true)
+                    && !in_array($row['REFERENCED_TABLE_NAME'], $parents, true))) { continue; }
+                $stableParent = in_array($row['REFERENCED_TABLE_NAME'], array_diff($parents, ['pa_permission']), true)
+                    && in_array($row['REFERENCED_COLUMN_NAME'], $row['REFERENCED_TABLE_NAME'] === 'pa_role' ? ['id', 'tenant_id'] : ['id'], true);
+                // These original external parents are never written. Native FK checks stay on.
+                $edge = [$row['TABLE_NAME'], $row['COLUMN_NAME'], $row['REFERENCED_TABLE_NAME'], $row['REFERENCED_COLUMN_NAME']];
+                $externalParent = $preserveParents && in_array($edge, [
+                    ['pa_role_permission', 'tenant_id', 'pa_tenant_member', 'tenant_id'],
+                    ['pa_role_permission', 'granted_by_member_id', 'pa_tenant_member', 'id'],
+                    ['pa_tenant_session', 'account_id', 'pa_account', 'id'],
+                    ['pa_tenant_session', 'tenant_id', 'pa_tenant_member', 'tenant_id'],
+                    ['pa_tenant_session', 'tenant_member_id', 'pa_tenant_member', 'id'],
+                ], true);
+                if ($row['REFERENCED_TABLE_SCHEMA'] !== $database || (!in_array($row['REFERENCED_TABLE_NAME'], $scope['tables'], true) && !$externalParent)
+                    || (!$stableParent && (!in_array($row['UPDATE_RULE'], ['NO ACTION', 'RESTRICT'], true)
+                        || !in_array($row['DELETE_RULE'], ['NO ACTION', 'RESTRICT'], true)))) {
                     throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_RESTORE_DEPENDENCY_UNKNOWN');
                 }
                 $keys[] = $row;
