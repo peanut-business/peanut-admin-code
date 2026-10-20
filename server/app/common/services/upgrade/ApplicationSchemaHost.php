@@ -994,7 +994,8 @@ final class ApplicationSchemaHost
                     $scope = SourceApplicationBackup::scope($pdo, $pending, $binding, $this->sourceMetadataTool, $guard);
                     $image = ['pending' => $pending, 'selected' => $baseline['selected'], 'failure_afterimage' => true,
                         'original_plan' => ['path' => $planPath, 'sha256' => $planSha], 'original_backup' => $origin,
-                        'executed_prefix' => [], 'failed_migration' => $failed, 'ledger' => $ledger];
+                        'executed_prefix' => array_slice($pending, 0, array_search($failed['migration_id'], $pending, true)),
+                        'failed_migration' => $failed, 'ledger' => $ledger];
                     $recheck = function () use ($pdo, $pending, $binding, $guard, $scope): void {
                         $guard();
                         if (!$this->sourceSame(SourceApplicationBackup::scope($pdo, $pending, $binding, $this->sourceMetadataTool, $guard), $scope)) {
@@ -1181,13 +1182,22 @@ final class ApplicationSchemaHost
         $failed = array_values(array_filter($ledger, static fn(array $row): bool => $row['status'] === 'failed'));
         $executed = array_values(array_filter($ledger, static fn(array $row): bool => in_array($row['migration_id'], $pending, true)));
         $old = array_values(array_filter($ledger, static fn(array $row): bool => !in_array($row['migration_id'], $pending, true)));
-        if (count($failed) !== 1 || $executed !== $failed || $failed[0]['migration_id'] !== $pending[0]
-            || $failed[0]['checksum'] !== $baseline['selected'][$pending[0]]
-            || $failed[0]['release_version'] !== $baseline['release_versions'][$pending[0]]
+        $failedIndex = count($failed) === 1 ? array_search($failed[0]['migration_id'], $pending, true) : false;
+        if ($failedIndex === false || array_column($executed, 'migration_id') !== array_slice($pending, 0, $failedIndex + 1)
+            || $failed[0]['checksum'] !== $baseline['selected'][$pending[$failedIndex]]
+            || $failed[0]['release_version'] !== $baseline['release_versions'][$pending[$failedIndex]]
             || $failed[0]['started_at'] === null || $failed[0]['finished_at'] === null || !is_string($failed[0]['error_code'])
             || $this->digest($old) !== $baseline['application_rows_sha256'] || count($old) !== $baseline['application_rows_count']
             || $this->digest($shape) !== $baseline['application_shape_sha256']) {
             throw new RuntimeException('APPLICATION_SCHEMA_FAILED_LEDGER_REQUIRED');
+        }
+        foreach (array_slice($executed, 0, $failedIndex) as $row) {
+            $id = $row['migration_id'];
+            if ($row['status'] !== 'applied' || $row['checksum'] !== $baseline['selected'][$id]
+                || $row['release_version'] !== $baseline['release_versions'][$id]
+                || $row['started_at'] === null || $row['finished_at'] === null || $row['error_code'] !== null) {
+                throw new RuntimeException('APPLICATION_SCHEMA_FAILED_LEDGER_REQUIRED');
+            }
         }
         return $failed[0];
     }

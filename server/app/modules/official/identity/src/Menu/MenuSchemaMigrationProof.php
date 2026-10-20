@@ -164,7 +164,20 @@ SQL;
         self::assertZero($pdo,'SELECT COUNT(*) AS n FROM pa_system_menu m LEFT JOIN pa_system_menu p ON p.id=m.pid WHERE m.id IN ('.self::ids($state['parent_ids']).') AND NOT (BINARY m.parent_key<=>BINARY p.menu_key)');
         $index=self::query($pdo,"SELECT COLUMN_NAME,NON_UNIQUE,SUB_PART FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='pa_system_menu' AND INDEX_NAME='uk_system_menu_key' ORDER BY SEQ_IN_INDEX");
         if (count($index)!==1||$index[0]['COLUMN_NAME']!=='menu_key'||(string)$index[0]['NON_UNIQUE']!=='0'||$index[0]['SUB_PART']!==null) { self::fail('KEY_UNIQUE_INDEX'); }
-        $allocation=self::query($pdo,"SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='pa_system_menu'")[0]['AUTO_INCREMENT']; if ($allocation===null||(int)$allocation<1000000000) { self::fail('CUSTOM_ID_ALLOCATION_RANGE'); }
+        self::assertCustomIdAllocation($pdo);
+    }
+
+    private static function assertCustomIdAllocation(PDO $pdo): void
+    {
+        // TABLES.AUTO_INCREMENT is cached for 24 hours by default. Observe the
+        // current storage-engine allocation on this PDO, then restore its setting.
+        $expiry=self::query($pdo,'SELECT @@SESSION.information_schema_stats_expiry AS expiry')[0]['expiry'];
+        if (!is_int($expiry)&&!(is_string($expiry)&&ctype_digit($expiry))) { self::fail('STATISTICS_SESSION_INVALID'); }
+        try {
+            $pdo->exec('SET SESSION information_schema_stats_expiry=0');
+            $allocation=self::query($pdo,"SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='pa_system_menu'")[0]['AUTO_INCREMENT'];
+        } finally { $pdo->exec('SET SESSION information_schema_stats_expiry='.(string)$expiry); }
+        if ($allocation===null||(int)$allocation<1000000000) { self::fail('CUSTOM_ID_ALLOCATION_RANGE'); }
     }
 
     private static function beforeRepair(PDO $pdo): array

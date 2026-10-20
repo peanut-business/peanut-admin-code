@@ -20,6 +20,11 @@ $baseline = ['pending' => ['first', 'second'], 'selected' => ['first' => str_rep
     'application_rows_sha256' => $digest->invoke($host, $old), 'application_shape_sha256' => $digest->invoke($host, $shape)];
 $ledger = [...$old, $failed];
 if ($check->invoke($host, $ledger, $baseline, $shape) !== $failed) { throw new RuntimeException('Failed row identity lost.'); }
+$prefix = array_replace($failed, ['status' => 'applied', 'error_code' => null]);
+$laterFailure = array_replace($failed, ['migration_id' => 'second', 'checksum' => str_repeat('c', 64)]);
+if ($check->invoke($host, [...$old, $prefix, $laterFailure], $baseline, $shape) !== $laterFailure) {
+    throw new RuntimeException('Contiguous applied prefix or failed identity lost.');
+}
 $invalid = [];
 $changed = $ledger; $changed[1]['status'] = 'applying'; $invalid[] = $changed;
 $changed = $ledger; $changed[1]['checksum'] = str_repeat('c', 64); $invalid[] = $changed;
@@ -28,6 +33,11 @@ $changed = $ledger; $changed[0]['checksum'] = str_repeat('d', 64); $invalid[] = 
 $changed = $ledger; $changed[] = array_replace($failed, ['migration_id' => 'second', 'status' => 'applied']); $invalid[] = $changed;
 $changed = $ledger; $changed[1]['migration_id'] = 'second'; $invalid[] = $changed;
 $invalid[] = [...$ledger, array_replace($failed, ['migration_id' => 'unknown'])];
+$invalid[] = [...$old, array_replace($prefix, ['checksum' => str_repeat('d', 64)]), $laterFailure];
+$invalid[] = [...$old, array_replace($prefix, ['release_version' => 'wrong']), $laterFailure];
+$invalid[] = [...$old, array_replace($prefix, ['finished_at' => null]), $laterFailure];
+$invalid[] = [...$old, array_replace($prefix, ['error_code' => 'unexpected']), $laterFailure];
+$invalid[] = [...$old, array_replace($prefix, ['status' => 'applying']), $laterFailure];
 foreach ($invalid as $changed) {
     try { $check->invoke($host, $changed, $baseline, $shape); }
     catch (RuntimeException $error) {
@@ -40,4 +50,4 @@ try { $check->invoke($host, $ledger, $baseline, ['columns' => []]); throw new Lo
 catch (RuntimeException $error) { if ($error->getMessage() !== 'APPLICATION_SCHEMA_FAILED_LEDGER_REQUIRED') { throw $error; } }
 try { SourceApplicationBackup::capture([], [], '', [], [], '', static fn() => null, 'application-failure'); throw new LogicException('Unbound afterimage accepted.'); }
 catch (RuntimeException $error) { if ($error->getMessage() !== 'APPLICATION_SCHEMA_FAILURE_ORIGIN_REQUIRED') { throw $error; } }
-echo "Application failure snapshot contract: first failed identity retained; 9 invalid histories/origins rejected; native capture NOT_RUN.\n";
+echo "Application failure snapshot contract: first and prefixed failed identities retained; 14 invalid histories/origins rejected; native capture NOT_RUN.\n";

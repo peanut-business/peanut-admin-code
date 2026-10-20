@@ -2457,7 +2457,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "676a6271dcf01ee9e3e98ec0f38b3cd365738a1d28dbe61e89fb09d7bcf4e27a"
+            "source_sha256": "c7e63a417e8af8add98745dca2578da972608f24f4e016dfea4fc5ab8ae29c13"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2594,7 +2594,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7a4c16a32fd5996f4cfbbd4e6531b3affc257301bfb741cf31136a368da4e4db"
+            "source_sha256": "dd623084f138c90147d33e2eb01911a540aef04ba293d36a68f7e1f098c5ee8f"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -9122,7 +9122,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7b3a0fbc2892197d62b9b77087ce2bc68836d72d5b5353d5edb1a01d47ac8af0"
+            "source_sha256": "066c9251b63861ea26ca90aafd79e6db7921edb3213f19ddb61b927543f71424"
         },
         {
             "path": "server/app/common/services/upgrade/PluginSourceDevelopmentHost.php",
@@ -9150,7 +9150,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ad2d74b22d6a5e6e795acb8740d8be69c707c9c0778e3db99f297343ea732454"
+            "source_sha256": "24b14eebb134ab1234f5709bc03ac75b66bd1261bdd922d6a587fb456455a803"
         },
         {
             "path": "server/app/common/services/upgrade/SourceApplicationDump.php",
@@ -14642,7 +14642,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "027fda4285d22565ece4520793ba72e84b98cbb6c470bf0c16c75d8c26f5532c"
+            "source_sha256": "6661f05e71e3805d88e83cfbe3625b0ecec59c98a1a373642e74bbc646c43e5f"
         },
         {
             "path": "server/app/modules/official/identity/src/Menu/ThinkPhpMenuCatalogRepository.php",
@@ -30835,6 +30835,19 @@
         {
             "path": "server/tests/Productization/MemberJwtContractTest.php",
             "target": "server/tests/Productization/MemberJwtContractTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Productization/MenuAllocationObservationContractTest.php",
+            "target": "server/tests/Productization/MenuAllocationObservationContractTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

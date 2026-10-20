@@ -811,7 +811,12 @@ final class SourceApplicationBackup
             throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_ORIGIN_REQUIRED');
         }
         if ($failure && (($baseline['failure_afterimage'] ?? null) !== true || !is_array($baseline['failed_migration'] ?? null)
-            || ($baseline['executed_prefix'] ?? null) !== [] || !is_array($baseline['original_backup'] ?? null))) {
+            || !is_array($baseline['executed_prefix'] ?? null) || !array_is_list($baseline['executed_prefix'])
+            || !is_array($baseline['pending'] ?? null) || !array_is_list($baseline['pending'])
+            || count($baseline['executed_prefix']) >= count($baseline['pending'])
+            || $baseline['executed_prefix'] !== array_slice($baseline['pending'], 0, count($baseline['executed_prefix']))
+            || ($baseline['failed_migration']['migration_id'] ?? null) !== $baseline['pending'][count($baseline['executed_prefix'])]
+            || !is_array($baseline['original_backup'] ?? null))) {
             throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_ORIGIN_REQUIRED');
         }
         $partial = $purpose === 'installation-partial';
