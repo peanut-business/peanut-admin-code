@@ -1511,6 +1511,7 @@ final class ApplicationCreator
             $this->writeFile($baseline, $content, 0644);
             $file['baseline_path'] = $baselineRoot . '/' . $file['path'];
             $file['baseline_sha256'] = hash('sha256', $content);
+            $file['baseline_mode'] = $file['mode'];
         }
         unset($file);
         $managed = array_values(array_filter($files, static fn(array $file): bool => in_array($file['classification'], ['managed', 'generated-managed'], true)));

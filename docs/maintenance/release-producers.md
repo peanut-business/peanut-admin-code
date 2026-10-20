@@ -6,9 +6,13 @@
 
 准备本仓原生锁定依赖后，`peanut release --path=<源码根> --source-commit=<完整提交> --output=<不存在的绝对目录>`分别调用同一`build-scaffold-release`生成Standalone和Multi-tenant模板。也可直接调用该原生入口，显式传`--version`、`--source-commit`、`--edition`和`--output`；普通模板不传`--internal-core-inputs`。每个Edition输出`peanut-scaffold-<edition>.tgz`与配套同名`.json`，均来自该次原生APP投影，不另生成运行APP。既有输出拒绝覆盖，`--check`同时核对升级清单、创建载荷、归档成员及配套摘要。
 
-配套`peanut.template-package.v1`清单绑定产品、版本、Edition、profile、Workflow、源码commit/tree/inventory/Edition profile和归档SHA-256/长度。归档为只含普通文件的USTAR+gzip；`scaffold-manifest.json`保持v3受管升级语义；`template-create.json`另列全部创建文件、模式、摘要、渲染声明、APP manifest模板和可写目录。受管载荷在`files/`，自有初始默认在`defaults/`，自有文件不进入升级受管集合。归档不携带安装依赖、Git、秘密、数据库、上传和实例安装身份。
+配套`peanut.template-package.v1`清单绑定产品、版本、Edition、profile、Workflow、源码commit/tree/inventory/Edition profile和归档SHA-256/长度。归档为只含普通文件的USTAR+gzip；`scaffold-manifest.json`保持v3受管升级语义；`template-create.json`另列全部创建文件、模式、摘要、渲染声明、APP manifest模板和可写目录。受管载荷在`files/`，自有初始默认在`defaults/`，自有文件不进入升级受管集合。归档不携带APP安装依赖、Git、秘密、数据库、上传和实例安装身份。
+
+升级工具依赖单独位于`tooling/`，由该固定源码的Composer锁以no-dev、no-scripts、no-plugins安装形成；`upgrade-tooling.json`绑定锁、实际生产包身份和全部文件字节/模式，并由包清单摘要覆盖。此域不进入APP创建清单、受管源码或APP vendor。CLI只校验和缓存，不执行依赖安装或要求人工prepare；PHP入口在require之前核完整tooling集合，并将Composer根命名空间映射到同一模板的`files/server`。`--check`核固定工具载荷、锁和清单，不重新安装依赖。
 
 官方模块内容及Plugin指纹随版本固定，不因APP品牌替换而改变；发行器拒绝这些域含APP身份token。CLI仅替换声明的宿主身份，按最终字节更新Composer content-hash与API inputs，创建0644模式的受管基线及准确APP文件/tree摘要。CLI创建不依赖PHP、Composer、维护者源码仓或私有Project；运行准备是独立动作。本地归档来源明确标记development/local，不能当作正式GitHub已发布。正式附件仍需对应资格与获准CI；CLI入口源码存在不代表已有新版CLI发行。
+
+源码升级从APP实际记录导出`peanut.scaffold-recorded-baseline.v1`，只作为from输入，不伪造官方模板，也不能作为发行目标。基线物理文件仍为0644；原逻辑权限记录在`baseline_mode`，旧APP缺失时必须显式提供精确原版本清单作为权限证据。普通`template-plan`拒绝已安装或受保护运行现场；原运行协调器的维护/恢复合同继续保留。新模板来源及配套清单摘要进入原生计划并在rebind重核，apply/recover沿原计划执行。
 
 ## 冻结内部候选
 

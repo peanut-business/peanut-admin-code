@@ -354,7 +354,7 @@ try {
     if ($edition !== null && $internalProjection === null) {
         // The same native projection produces creation defaults and upgrade bytes.
         $packageCommand = ['python3', $root . '/scripts/package-scaffold-template.py',
-            '--application', $application, '--output', rtrim($options['output'], '/')];
+            '--application', $application, '--output', rtrim($options['output'], '/'), '--tooling-source', $source . '/server'];
         if ($check) { $packageCommand[] = '--check'; }
         releaseRun($packageCommand);
     }

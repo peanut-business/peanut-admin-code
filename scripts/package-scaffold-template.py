@@ -7,7 +7,11 @@ import io
 import json
 import pathlib
 import re
+import os
+import subprocess
+import tempfile
 import tarfile
+import shutil
 
 
 def digest(data):
@@ -22,6 +26,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--application', required=True)
     parser.add_argument('--output', required=True)
+    parser.add_argument('--tooling-source', required=True)
     parser.add_argument('--check', action='store_true')
     args = parser.parse_args()
     app = pathlib.Path(args.application).resolve(strict=True)
@@ -33,6 +38,66 @@ def main():
         raise ValueError('TEMPLATE_PUBLIC_RELEASE_REQUIRED')
     tokens = release['release']['tokens']
     members = {'scaffold-manifest.json': (release_bytes, 0o644)}
+    tooling_source = pathlib.Path(args.tooling_source).resolve(strict=True)
+    tooling_inputs = {name: (tooling_source / name).read_bytes() for name in ['composer.json', 'composer.lock']}
+    lock = json.loads(tooling_inputs['composer.lock'])
+    def tooling_identity(package):
+        return {key: package.get(key) for key in ['name', 'version', 'source', 'dist']}
+    expected_packages = sorted(map(tooling_identity, lock['packages']), key=lambda row: row['name'])
+    if args.check:
+        # Verify the fixed tool payload, without reinstalling dependencies during --check.
+        with tarfile.open(output / ('peanut-scaffold-' + manifest['application']['edition'] + '.tgz'), 'r:gz') as tar:
+            for item in tar:
+                if item.name.startswith('tooling/') or item.name == 'upgrade-tooling.json':
+                    if not item.isfile() or item.name in members:
+                        raise ValueError('TEMPLATE_TOOLING_MEMBER_INVALID')
+                    members[item.name] = (tar.extractfile(item).read(), item.mode)
+    else:
+        with tempfile.TemporaryDirectory(prefix='peanut-upgrade-tooling-') as temporary:
+            server = pathlib.Path(temporary)
+            for name, content in tooling_inputs.items():
+                (server / name).write_bytes(content)
+            composer = json.loads(tooling_inputs['composer.json'])
+            if composer.get('autoload', {}).get('files'):
+                raise ValueError('TEMPLATE_TOOLING_ROOT_AUTOLOAD_FILES_UNSUPPORTED')
+            for relative in composer.get('autoload', {}).get('classmap', []):
+                original = (tooling_source / relative).resolve(strict=True)
+                if not original.is_relative_to(tooling_source) or original.is_symlink():
+                    raise ValueError('TEMPLATE_TOOLING_CLASSMAP_SOURCE_INVALID')
+                destination = server / relative
+                if original.is_dir():
+                    shutil.copytree(original, destination)
+                else:
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(original, destination)
+            environment = {key: value for key, value in os.environ.items() if key != 'COMPOSER' and not key.startswith('COMPOSER_')}
+            environment['COMPOSER_HOME'] = str(server / 'composer-home')
+            result = subprocess.run(['composer', '--no-plugins', '--no-scripts', '--working-dir', str(server),
+                                     'install', '--no-dev', '--prefer-dist', '--no-interaction', '--no-progress'],
+                                    env=environment, capture_output=True)
+            if result.returncode:
+                raise ValueError('TEMPLATE_TOOLING_LOCKED_INSTALL_FAILED: exit ' + str(result.returncode))
+            for file in sorted((server / 'vendor').rglob('*')):
+                if file.is_symlink():
+                    raise ValueError('TEMPLATE_TOOLING_LINK_FORBIDDEN')
+                if file.is_file():
+                    members['tooling/' + file.relative_to(server).as_posix()] = (file.read_bytes(), 0o755 if file.stat().st_mode & 0o111 else 0o644)
+            for name, content in tooling_inputs.items():
+                members['tooling/' + name] = (content, 0o644)
+    for name, content in tooling_inputs.items():
+        if members.get('tooling/' + name) != (content, 0o644):
+            raise ValueError('TEMPLATE_TOOLING_LOCK_CHANGED')
+    installed = json.loads(members['tooling/vendor/composer/installed.json'][0])
+    if installed['dev'] is not False or sorted(map(tooling_identity, installed['packages']), key=lambda row: row['name']) != expected_packages:
+        raise ValueError('TEMPLATE_TOOLING_INSTALLED_LOCK_MISMATCH')
+    tool_files = [{'path': name, 'sha256': digest(content), 'mode': mode}
+                  for name, (content, mode) in sorted(members.items()) if name.startswith('tooling/')]
+    tooling = {'protocol': 'peanut.scaffold-upgrade-tooling.v1', 'autoload': 'tooling/vendor/autoload.php',
+               'composer_lock_sha256': digest(tooling_inputs['composer.lock']), 'packages': expected_packages, 'files': tool_files}
+    tooling_bytes = encoded(tooling)
+    if args.check and members.get('upgrade-tooling.json') != (tooling_bytes, 0o644):
+        raise ValueError('TEMPLATE_TOOLING_MANIFEST_CHANGED')
+    members['upgrade-tooling.json'] = (tooling_bytes, 0o644)
     files = []
     frozen = re.compile(r'^(?:server/app/modules|(?:web|platform|uniapp)/src/modules|pc/modules)/')
     for entry in manifest['files']:
@@ -104,6 +169,7 @@ def main():
                'source': manifest['generation_source'],
                'archive': {'name': archive.name, 'bytes': archive.stat().st_size, 'sha256': digest(archive.read_bytes())},
                'create_manifest_sha256': digest(members['template-create.json'][0]),
+               'upgrade_tooling_sha256': digest(tooling_bytes),
                'scaffold_manifest_sha256': digest(release_bytes)}
     metadata = output / (name + '.json')
     if args.check:

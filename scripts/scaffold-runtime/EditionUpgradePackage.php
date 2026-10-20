@@ -75,10 +75,10 @@ final class EditionUpgradePackage
     ];
 
     /** @return array{from_manifest:string,to_manifest:string,package:array<string,mixed>} */
-    public function prepare(string $projectRoot, string $packageRoot): array
+    public function prepare(string $projectRoot, string $packageRoot, ?string $modeManifestPath = null): array
     {
         $prepared = $this->authenticate($projectRoot, $packageRoot, true);
-        $prepared['from_manifest'] = $this->writeBaselineManifest($prepared['project_root'], $prepared['application']);
+        $prepared['from_manifest'] = ScaffoldManifest::writeRecordedBaseline($prepared['project_root'], $modeManifestPath);
         unset($prepared['project_root'], $prepared['application']);
         return $prepared;
     }
@@ -551,146 +551,4 @@ final class EditionUpgradePackage
         if (($chain['installation_baseline'] ?? null) !== $identity) { throw new RuntimeException('EDITION_UPGRADE_INSTALL_BASELINE_IDENTITY_CHANGED'); }
     }
 
-    /** @param array<string,mixed> $application */
-    private function writeBaselineManifest(string $root, array $application): string
-    {
-        $version = (string) $application['template']['version'];
-        $baselineRoot = '.peanut/scaffold-baseline/' . $version;
-        $files = [];
-        $baselineFiles = [];
-        foreach ($application['files'] as $file) {
-            if (!is_array($file) || !in_array($file['classification'] ?? null, ['managed', 'generated-managed'], true)) {
-                continue;
-            }
-            $path = (string) ($file['path'] ?? '');
-            ScaffoldManifest::path($path);
-            $expectedBaseline = $baselineRoot . '/files/' . $path;
-            if (($file['baseline_path'] ?? null) !== $expectedBaseline) {
-                throw new RuntimeException('EDITION_UPGRADE_BASELINE_PATH_INVALID: ' . $path);
-            }
-            $absolute = ScaffoldPathGuard::projectPath($root, $expectedBaseline);
-            $baselineFiles[$path] = $absolute;
-            $digest = hash_file('sha256', $absolute);
-            $expectedDigest = (string) ($file['baseline_sha256'] ?? $file['sha256'] ?? '');
-            if (!is_string($digest) || preg_match('/^[a-f0-9]{64}$/D', $expectedDigest) !== 1
-                || !hash_equals($expectedDigest, $digest)) {
-                throw new RuntimeException('EDITION_UPGRADE_BASELINE_DRIFT: ' . $path);
-            }
-            $files[] = [
-                'path' => $path,
-                'source' => 'files/' . $path,
-                'template_sha256' => $digest,
-                'classification' => $file['classification'],
-                'transform' => 'tokens',
-                'mode' => $file['mode'],
-                'policy' => $file['classification'] === 'generated-managed' ? 'generated' : 'managed',
-                'owner' => $this->owner($path),
-            ];
-        }
-        usort($files, static fn(array $left, array $right): int => strcmp($left['path'], $right['path']));
-        $manifest = [
-            'schema_version' => 3,
-            'protocol' => 'peanut.scaffold-release.v3',
-            'application' => ['version' => (string) $application['application']['version']],
-            'edition' => $application['edition'],
-            'release' => [
-                'version' => $version,
-                'source_commit' => $application['template']['source_commit'],
-                'source_tree' => $application['template']['source_tree'],
-                'inventory_sha256' => $application['template']['inventory_sha256'],
-                'inventory_template_version' => $version,
-                'managed_tree_sha256' => $application['digests']['managed_tree_sha256'],
-                'tokens' => $this->baselineTokens($application, $baselineFiles),
-            ],
-            'files' => $files,
-            'renames' => [],
-        ];
-        $path = ScaffoldPathGuard::projectPath($root, $baselineRoot . '/edition-scaffold-manifest.json');
-        $json = json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
-        if (is_file($path)) {
-            $existingRaw = file_get_contents($path);
-            if (is_string($existingRaw) && hash_equals($json, $existingRaw)) {
-                return $path;
-            }
-            try {
-                $existing = is_string($existingRaw)
-                    ? json_decode($existingRaw, true, 512, JSON_THROW_ON_ERROR)
-                    : null;
-            } catch (\JsonException) {
-                $existing = null;
-            }
-            $legacyTokens = [
-                'product_name' => '__PEANUT_BASELINE_' . 'PRODUCT_NAME__',
-                'slug' => '__PEANUT_BASELINE_' . 'SLUG__',
-                'package_identity' => '__PEANUT_BASELINE_' . 'PACKAGE_IDENTITY__',
-                'application_version' => '__PEANUT_BASELINE_' . 'APPLICATION_VERSION__',
-            ];
-            if (!is_array($existing) || ($existing['release']['tokens'] ?? null) !== $legacyTokens) {
-                throw new RuntimeException('EDITION_UPGRADE_BASELINE_MANIFEST_DRIFT');
-            }
-            $existing['release']['tokens'] = $manifest['release']['tokens'];
-            $migrated = json_encode($existing, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
-            if (!hash_equals($json, $migrated)) {
-                throw new RuntimeException('EDITION_UPGRADE_BASELINE_MANIFEST_DRIFT');
-            }
-        }
-        ScaffoldPathGuard::ensureDirectory(dirname($path));
-        $temporary = $path . '.stage-' . bin2hex(random_bytes(6));
-        if (file_put_contents($temporary, $json, LOCK_EX) === false || !chmod($temporary, 0600) || !rename($temporary, $path)) {
-            @unlink($temporary);
-            throw new RuntimeException('EDITION_UPGRADE_BASELINE_MANIFEST_WRITE_FAILED');
-        }
-        return $path;
-    }
-
-    /** @param array<string,mixed> $application @param array<string,string> $baselineFiles @return array<string,string> */
-    private function baselineTokens(array $application, array $baselineFiles): array
-    {
-        $seed = hash('sha256', json_encode([
-            'version' => $application['template']['version'],
-            'source_commit' => $application['template']['source_commit'],
-            'source_tree' => $application['template']['source_tree'],
-            'inventory_sha256' => $application['template']['inventory_sha256'],
-            'managed_tree_sha256' => $application['digests']['managed_tree_sha256'],
-        ], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
-        for ($nonce = 0; $nonce < 1024; $nonce++) {
-            $prefix = '__PEANUT_SYNTHETIC_BASELINE_' . hash('sha256', $seed . "\0" . $nonce) . '_';
-            $tokens = [
-                'product_name' => $prefix . 'PRODUCT_NAME__',
-                'slug' => $prefix . 'SLUG__',
-                'package_identity' => $prefix . 'PACKAGE_IDENTITY__',
-                'application_version' => $prefix . 'APPLICATION_VERSION__',
-            ];
-            $collision = false;
-            foreach ($baselineFiles as $path => $absolute) {
-                $contents = file_get_contents($absolute);
-                if (!is_string($contents)) {
-                    throw new RuntimeException('EDITION_UPGRADE_BASELINE_DRIFT: ' . $path);
-                }
-                foreach ($tokens as $token) {
-                    if (str_contains($contents, $token)) {
-                        $collision = true;
-                        break 2;
-                    }
-                }
-            }
-            if (!$collision) {
-                return $tokens;
-            }
-        }
-        throw new RuntimeException('EDITION_UPGRADE_BASELINE_TOKEN_COLLISION');
-    }
-
-    private function owner(string $path): string
-    {
-        if (str_starts_with($path, 'server/')) {
-            return 'backend';
-        }
-        if (str_starts_with($path, 'web/') || str_starts_with($path, 'platform/')
-            || str_starts_with($path, 'pc/') || str_starts_with($path, 'uniapp/')
-            || str_starts_with($path, 'docs-site/')) {
-            return 'frontend';
-        }
-        return 'host';
-    }
 }

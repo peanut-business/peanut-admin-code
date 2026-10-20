@@ -1036,7 +1036,7 @@ if (!in_array($command, ['plan', 'apply', 'verify', 'recover', 'runtime-prepare'
 }
 $options = [];
 foreach (array_slice($argv, 2) as $argument) {
-    if (preg_match('/^--(instance-root|package|plan|stop-before|scope|archive|expected-sha256|workspace|transition|expect-head|expect-generation|backup-tool|cancel-unmodified-preparing|resume-applied-source|partial-source-successor)=(.+)$/D', $argument, $matches) !== 1
+    if (preg_match('/^--(instance-root|package|plan|stop-before|scope|archive|expected-sha256|workspace|transition|expect-head|expect-generation|backup-tool|cancel-unmodified-preparing|resume-applied-source|partial-source-successor|baseline-mode-manifest)=(.+)$/D', $argument, $matches) !== 1
         || isset($options[$matches[1]])) {
         productUpgradeUsage();
     }
@@ -1097,6 +1097,10 @@ if ($successorArguments !== []) {
     if ($command !== 'plan' || ($options['scope'] ?? null) !== 'source') { productUpgradeUsage(); }
     $required[] = 'partial-source-successor';
 }
+if (isset($options['baseline-mode-manifest'])) {
+    if ($command !== 'plan' || $options['scope'] !== 'source' || $successorArguments !== []) { productUpgradeUsage(); }
+    $required[] = 'baseline-mode-manifest';
+}
 if (isset($options['stop-before'])) {
     if ($command !== 'apply' || ($options['scope'] ?? 'source') !== 'server' || !in_array($options['stop-before'], ['health', 'activate'], true)) {
         productUpgradeUsage();
@@ -1128,7 +1132,7 @@ try {
         if ($command === 'plan') {
             $prepared = isset($options['partial-source-successor'])
                 ? $packageService->preparePartialSourceSuccessor($instanceRoot, $packageRoot, $options['partial-source-successor'])
-                : $packageService->prepare($instanceRoot, $packageRoot);
+                : $packageService->prepare($instanceRoot, $packageRoot, $options['baseline-mode-manifest'] ?? null);
             $result = $runner->preflight($instanceRoot, $prepared['from_manifest'], $prepared['to_manifest']);
             $result['plan_path'] = $instanceRoot . '/' . $result['plan_path'];
         } else {

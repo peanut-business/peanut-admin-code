@@ -24,7 +24,7 @@ final class ScaffoldManifest
         public readonly array $data,
     ) {}
 
-    public static function load(string $path): self
+    public static function load(string $path, bool $allowRecordedBaseline = false): self
     {
         $resolved = realpath($path);
         if ($resolved === false || !is_file($resolved)) {
@@ -40,6 +40,7 @@ final class ScaffoldManifest
         $supported = is_array($data) && (
             (($data['schema_version'] ?? null) === 2 && $protocol === 'peanut.scaffold-release.v2')
             || (($data['schema_version'] ?? null) === 3 && $protocol === 'peanut.scaffold-release.v3')
+            || ($allowRecordedBaseline && ($data['schema_version'] ?? null) === 1 && $protocol === 'peanut.scaffold-recorded-baseline.v1')
         );
         if (!$supported) {
             throw new RuntimeException('SCAFFOLD_MANIFEST_SCHEMA_UNSUPPORTED');
@@ -53,7 +54,23 @@ final class ScaffoldManifest
             || !is_array($release['tokens'] ?? null)) {
             throw new RuntimeException('SCAFFOLD_MANIFEST_RELEASE_INVALID');
         }
-        if ($protocol === 'peanut.scaffold-release.v3') {
+        if ($protocol === 'peanut.scaffold-recorded-baseline.v1') {
+            $record = $data['recorded_from'] ?? null;
+            if (!is_array($record) || preg_match('/^[a-f0-9]{64}$/D', (string) ($record['application_manifest_sha256'] ?? '')) !== 1
+                || !is_string($record['application_root'] ?? null) || $release['tokens'] !== []) {
+                throw new RuntimeException('SCAFFOLD_RECORDED_BASELINE_INVALID');
+            }
+            $applicationRoot = ScaffoldPathGuard::projectRoot($record['application_root']);
+            $expected = $applicationRoot . '/.peanut/scaffold-baseline/' . $release['version']
+                . '/recorded-' . $record['application_manifest_sha256'] . '.json';
+            if ($resolved !== $expected || is_link($path)) { throw new RuntimeException('SCAFFOLD_RECORDED_BASELINE_PATH_INVALID'); }
+            foreach ($data['files'] ?? [] as $file) {
+                if (($file['source'] ?? null) !== 'files/' . ($file['path'] ?? '')) { throw new RuntimeException('SCAFFOLD_RECORDED_BASELINE_PATH_INVALID'); }
+            }
+            if (preg_match(self::VERSION_PATTERN, (string) ($data['application']['version'] ?? '')) !== 1) {
+                throw new RuntimeException('SCAFFOLD_RECORDED_BASELINE_VERSION_INVALID');
+            }
+        } elseif ($protocol === 'peanut.scaffold-release.v3') {
             $application = $data['application'] ?? null;
             if (!is_array($application)
                 || array_keys($application) !== ['version']
@@ -134,7 +151,134 @@ final class ScaffoldManifest
 
     public function supportsApplicationVersion(): bool
     {
-        return $this->data['protocol'] === 'peanut.scaffold-release.v3';
+        return $this->data['protocol'] === 'peanut.scaffold-release.v3' || $this->isRecordedBaseline();
+    }
+
+    public function isRecordedBaseline(): bool
+    {
+        return $this->data['protocol'] === 'peanut.scaffold-recorded-baseline.v1';
+    }
+
+    /** Rebind only while planning against the old APP; apply/recovery may load
+     * the immutable old input after the live APP manifest has legitimately advanced.
+     */
+    public function assertRecordedApplication(string $root, array $application, string $applicationDigest): void
+    {
+        if (!$this->isRecordedBaseline()) { return; }
+        $record = $this->data['recorded_from'];
+        if ($record['application_root'] !== $root || $record['application_manifest_sha256'] !== preg_replace('/^sha256:/', '', $applicationDigest)) {
+            throw new RuntimeException('SCAFFOLD_RECORDED_APPLICATION_CHANGED');
+        }
+        foreach (['version', 'source_commit', 'source_tree', 'inventory_sha256'] as $key) {
+            if (($this->release()[$key] ?? null) !== ($application['template'][$key] ?? null)) { throw new RuntimeException('SCAFFOLD_RECORDED_APPLICATION_CHANGED'); }
+        }
+        $proof = isset($record['mode_manifest_path']) ? self::load($record['mode_manifest_path']) : null;
+        if ($proof !== null && $proof->digest() !== $record['mode_manifest_sha256']) { throw new RuntimeException('SCAFFOLD_BASELINE_MODE_PROOF_CHANGED'); }
+        if ($proof !== null) {
+            foreach (['version', 'source_commit', 'source_tree', 'inventory_sha256'] as $key) {
+                if (($proof->release()[$key] ?? null) !== ($application['template'][$key] ?? null)) { throw new RuntimeException('SCAFFOLD_BASELINE_MODE_PROOF_SOURCE_MISMATCH'); }
+            }
+        }
+        $files = $this->files();
+        $seen = [];
+        foreach ($application['files'] as $entry) {
+            if (!in_array($entry['classification'] ?? null, ['managed', 'generated-managed'], true)) { continue; }
+            $path = self::path((string) ($entry['path'] ?? ''));
+            $file = $files[$path] ?? null;
+            $expected = '.peanut/scaffold-baseline/' . $this->version() . '/files/' . $path;
+            $mode = $entry['baseline_mode'] ?? ($proof?->files()[$path]['mode'] ?? null);
+            if (isset($seen[$path]) || !is_array($file) || ($entry['baseline_path'] ?? null) !== $expected
+                || $file['classification'] !== $entry['classification'] || $file['template_sha256'] !== ($entry['baseline_sha256'] ?? null)
+                || $mode !== $file['mode']) { throw new RuntimeException('SCAFFOLD_RECORDED_APPLICATION_CHANGED'); }
+            $seen[$path] = true;
+            $baseline = ScaffoldPathGuard::existingFileWithin($root, ScaffoldPathGuard::projectPath($root, $expected), 'SCAFFOLD_RECORDED_BASELINE_MISSING');
+            $stat = lstat($baseline);
+            if ($stat === false || $stat['nlink'] !== 1 || ($stat['mode'] & 0777) !== 0644
+                || hash_file('sha256', $baseline) !== $file['template_sha256']) { throw new RuntimeException('SCAFFOLD_RECORDED_BASELINE_DRIFT'); }
+        }
+        if (count($seen) !== count($files)) { throw new RuntimeException('SCAFFOLD_RECORDED_APPLICATION_CHANGED'); }
+    }
+
+    /** Export the APP's recorded bytes, never a reconstructed official release.
+     * Old APPs without baseline_mode require an exact original release as mode evidence.
+     */
+    public static function writeRecordedBaseline(string $projectRoot, ?string $modeManifestPath = null): string
+    {
+        $root = ScaffoldPathGuard::projectRoot($projectRoot);
+        $applicationPath = ScaffoldPathGuard::existingFileWithin($root, $root . '/.peanut/application-manifest.json', 'SCAFFOLD_APPLICATION_MANIFEST_INVALID');
+        $raw = file_get_contents($applicationPath);
+        $application = is_string($raw) ? json_decode($raw, true, 512, JSON_THROW_ON_ERROR) : null;
+        if (!is_array($application) || ($application['protocol'] ?? null) !== 'peanut.application-scaffold.v2'
+            || !is_array($application['files'] ?? null) || !is_array($application['template'] ?? null)) {
+            throw new RuntimeException('SCAFFOLD_APPLICATION_MANIFEST_INVALID');
+        }
+        $template = $application['template'];
+        $version = (string) ($template['version'] ?? '');
+        if (preg_match(self::VERSION_PATTERN, $version) !== 1) { throw new RuntimeException('SCAFFOLD_RECORDED_BASELINE_VERSION_INVALID'); }
+        $modeProof = $modeManifestPath === null ? null : self::load($modeManifestPath);
+        if ($modeProof !== null) {
+            if ($modeProof->isRecordedBaseline()) { throw new RuntimeException('SCAFFOLD_BASELINE_MODE_PROOF_INVALID'); }
+            foreach (['version', 'source_commit', 'source_tree', 'inventory_sha256'] as $key) {
+                if (($modeProof->release()[$key] ?? null) !== ($template[$key] ?? null)) {
+                    throw new RuntimeException('SCAFFOLD_BASELINE_MODE_PROOF_SOURCE_MISMATCH');
+                }
+            }
+        }
+        $baselineRoot = '.peanut/scaffold-baseline/' . $version;
+        $files = [];
+        $seen = [];
+        foreach ($application['files'] as $entry) {
+            if (!is_array($entry) || !in_array($entry['classification'] ?? null, ['managed', 'generated-managed'], true)) { continue; }
+            $path = self::path((string) ($entry['path'] ?? ''));
+            $baseline = $baselineRoot . '/files/' . $path;
+            if (isset($seen[$path]) || ($entry['baseline_path'] ?? null) !== $baseline) { throw new RuntimeException('SCAFFOLD_RECORDED_BASELINE_PATH_INVALID'); }
+            $seen[$path] = true;
+            $file = ScaffoldPathGuard::existingFileWithin($root, ScaffoldPathGuard::projectPath($root, $baseline), 'SCAFFOLD_RECORDED_BASELINE_MISSING');
+            $stat = lstat($file);
+            $digest = hash_file('sha256', $file);
+            if ($stat === false || $stat['nlink'] !== 1 || ($stat['mode'] & 0777) !== 0644
+                || !is_string($entry['baseline_sha256'] ?? null) || $digest !== $entry['baseline_sha256']) {
+                throw new RuntimeException('SCAFFOLD_RECORDED_BASELINE_DRIFT: ' . $path);
+            }
+            $mode = $entry['baseline_mode'] ?? ($modeProof?->files()[$path]['mode'] ?? null);
+            if (!in_array($mode, [0644, 0755], true)) { throw new RuntimeException('SCAFFOLD_BASELINE_MODE_EVIDENCE_REQUIRED: ' . $path); }
+            $owner = str_starts_with($path, 'server/') ? 'backend'
+                : (preg_match('#^(?:web|platform|pc|uniapp|docs-site)/#D', $path) === 1 ? 'frontend' : 'host');
+            $files[] = ['path' => $path, 'source' => 'files/' . $path, 'template_sha256' => $digest,
+                'classification' => $entry['classification'], 'transform' => 'tokens', 'mode' => $mode,
+                'policy' => $entry['classification'] === 'generated-managed' ? 'generated' : 'managed', 'owner' => $owner];
+        }
+        usort($files, static fn(array $left, array $right): int => strcmp($left['path'], $right['path']));
+        if ($files === []) { throw new RuntimeException('SCAFFOLD_RECORDED_BASELINE_EMPTY'); }
+        $document = ['schema_version' => 1, 'protocol' => 'peanut.scaffold-recorded-baseline.v1',
+            'recorded_from' => ['application_root' => $root, 'application_manifest_sha256' => hash('sha256', $raw),
+                'mode_manifest_path' => $modeProof?->path, 'mode_manifest_sha256' => $modeProof?->digest(),
+                'claim' => 'recorded APP baseline bytes, not official release authentication'],
+            'application' => ['version' => $application['application']['version']], 'edition' => $application['edition'],
+            'release' => $template + ['inventory_template_version' => $version,
+                'managed_tree_sha256' => hash('sha256', implode("\n", array_map(static fn(array $file): string => $file['path'] . "\0" . $file['template_sha256'], $files))), 'tokens' => []],
+            'files' => $files, 'renames' => []];
+        $json = json_encode($document, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n";
+        $path = ScaffoldPathGuard::projectPath($root, $baselineRoot . '/recorded-' . hash('sha256', $raw) . '.json');
+        if (file_exists($path) || is_link($path)) {
+            $existing = ScaffoldPathGuard::existingFileWithin($root, $path, 'SCAFFOLD_RECORDED_BASELINE_INVALID');
+            if (file_get_contents($existing) !== $json) { throw new RuntimeException('SCAFFOLD_RECORDED_BASELINE_MANIFEST_DRIFT'); }
+        } else {
+            $temporary = $path . '.stage-' . bin2hex(random_bytes(8));
+            $handle = fopen($temporary, 'x+b');
+            if ($handle === false) { throw new RuntimeException('SCAFFOLD_RECORDED_BASELINE_WRITE_FAILED'); }
+            try {
+                if (!chmod($temporary, 0600) || fwrite($handle, $json) !== strlen($json) || !fflush($handle)
+                    || (function_exists('fsync') && !fsync($handle))) {
+                    throw new RuntimeException('SCAFFOLD_RECORDED_BASELINE_WRITE_FAILED');
+                }
+                if (!link($temporary, $path) && (!is_file($path) || is_link($path) || file_get_contents($path) !== $json)) {
+                    throw new RuntimeException('SCAFFOLD_RECORDED_BASELINE_MANIFEST_DRIFT');
+                }
+            } finally { fclose($handle); unlink($temporary); }
+        }
+        self::load($path, true);
+        return $path;
     }
 
     public function defaultApplicationVersion(): ?string
