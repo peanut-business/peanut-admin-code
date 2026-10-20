@@ -22,6 +22,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--application', required=True)
     parser.add_argument('--output', required=True)
+    parser.add_argument('--check', action='store_true')
     args = parser.parse_args()
     app = pathlib.Path(args.application).resolve(strict=True)
     output = pathlib.Path(args.output).resolve(strict=True)
@@ -77,13 +78,26 @@ def main():
     edition = manifest['application']['edition']
     name = 'peanut-scaffold-' + edition
     archive = output / (name + '.tgz')
-    with archive.open('xb') as raw:
-        with gzip.GzipFile(filename='', mode='wb', fileobj=raw, mtime=0) as compressed:
-            with tarfile.open(fileobj=compressed, mode='w', format=tarfile.USTAR_FORMAT) as tar:
-                for relative, (content, mode) in sorted(members.items()):
-                    item = tarfile.TarInfo(relative)
-                    item.size, item.mode, item.mtime = len(content), mode, 0
-                    tar.addfile(item, io.BytesIO(content))
+    if args.check:
+        seen = set()
+        with tarfile.open(archive, 'r:gz') as tar:
+            for item in tar:
+                expected = members.get(item.name)
+                if item.name in seen or expected is None or not item.isfile() or item.mode != expected[1] or item.size != len(expected[0]):
+                    raise ValueError('TEMPLATE_ARCHIVE_MEMBER_INVALID: ' + item.name)
+                if tar.extractfile(item).read() != expected[0]:
+                    raise ValueError('TEMPLATE_ARCHIVE_MEMBER_CHANGED: ' + item.name)
+                seen.add(item.name)
+        if seen != set(members):
+            raise ValueError('TEMPLATE_ARCHIVE_MEMBER_MISSING')
+    else:
+        with archive.open('xb') as raw:
+            with gzip.GzipFile(filename='', mode='wb', fileobj=raw, mtime=0) as compressed:
+                with tarfile.open(fileobj=compressed, mode='w', format=tarfile.USTAR_FORMAT) as tar:
+                    for relative, (content, mode) in sorted(members.items()):
+                        item = tarfile.TarInfo(relative)
+                        item.size, item.mode, item.mtime = len(content), mode, 0
+                        tar.addfile(item, io.BytesIO(content))
     package = {'schema_version': 1, 'protocol': 'peanut.template-package.v1', 'kind': 'scaffold-template',
                'version': release['release']['version'], 'edition': edition,
                'profile': manifest['application']['profile'], 'workflow': manifest['application']['workflow'],
@@ -91,7 +105,12 @@ def main():
                'archive': {'name': archive.name, 'bytes': archive.stat().st_size, 'sha256': digest(archive.read_bytes())},
                'create_manifest_sha256': digest(members['template-create.json'][0]),
                'scaffold_manifest_sha256': digest(release_bytes)}
-    (output / (name + '.json')).write_bytes(encoded(package))
+    metadata = output / (name + '.json')
+    if args.check:
+        if metadata.read_bytes() != encoded(package):
+            raise ValueError('TEMPLATE_PACKAGE_MANIFEST_CHANGED')
+    else:
+        metadata.write_bytes(encoded(package))
 
 
 if __name__ == '__main__':

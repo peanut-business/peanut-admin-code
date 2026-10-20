@@ -349,13 +349,14 @@ try {
         } echo "SCAFFOLD-RELEASE-{$options['version']} verified\n";
     } else {
         releaseWrite($manifestPath, $json, 0644);
-        if ($edition !== null && $internalProjection === null) {
-            // The same native projection produces both creation defaults and the
-            // managed upgrade payload; packaging does not regenerate an APP.
-            releaseRun(['python3', $root . '/scripts/package-scaffold-template.py',
-                '--application', $application, '--output', rtrim($options['output'], '/')]);
-        }
         echo "wrote {$manifestPath} with " . count($files) . " managed files\n";
+    }
+    if ($edition !== null && $internalProjection === null) {
+        // The same native projection produces creation defaults and upgrade bytes.
+        $packageCommand = ['python3', $root . '/scripts/package-scaffold-template.py',
+            '--application', $application, '--output', rtrim($options['output'], '/')];
+        if ($check) { $packageCommand[] = '--check'; }
+        releaseRun($packageCommand);
     }
     // Historical in-repository releases remain versioned inputs. A freshly built
     // candidate outside scaffold/releases is verified against its exact source
