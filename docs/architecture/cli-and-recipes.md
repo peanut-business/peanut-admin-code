@@ -2,7 +2,7 @@
 
 ## 职责
 
-CLI是独立工具产品，提供创建、上游升级、状态和诊断入口。Code提供模板、APP身份、受管baseline、原生安装/升级和制包合同；Core不导入CLI，也不复制业务工具实现。普通APP不依赖维护者Project。
+CLI是独立工具产品，提供release/create/upgrade/package及状态、诊断入口。Code提供模板、APP身份、受管baseline、原生安装/升级和制包合同；Core不导入CLI，也不复制业务工具实现。普通APP不依赖维护者Project。
 
 模板包用于创建APP及上游源码升级；APP自己的部署包是server-only。CLI、脚手架、APP和Recipe版本独立，不能把一处版本升级当作全部运行环境已更新。
 
@@ -10,7 +10,7 @@ CLI是独立工具产品，提供创建、上游升级、状态和诊断入口�
 
 对应CLI版本的help和README是参数真值。当前已有create、upgrade、doctor/status及可选recipe入口；旧v0.1.0 MVP关于“完整create/upgrade尚未实现”的文字不再作为当前能力说明。命令存在不证明全部路径已运行验收。
 
-已确认的简化目标是官方模板压缩包或显式本地包直接创建、严格空目标目录、就地吸收上游；在接口完成前不能虚构本地包选项或强制覆盖参数。create只生成新APP，不替代安装/升级/部署。已有APP通过固定来源、三方计划和恢复入口升级，不重建目录消除定制冲突。
+当前开发源码支持官方模板压缩包或显式本地包直接创建、严格空目标目录，以及同格式模板的固定来源升级计划；实际发行版本以CLI发行回执为准。create只生成新APP，不替代安装/升级/部署。已有APP通过固定来源、三方计划和恢复入口升级，不重建目录消除定制冲突；命令存在不表示具体APP已经采用或业务验收通过。
 
 ## Recipe的边界
 
@@ -18,7 +18,9 @@ Recipe是可选CI配置，来源在CLI仓的recipes目录，各版本有manifest
 
 初次安装先核文件占用和归属；既有文件即使内容相同也不得静默收编。Recipe文件归recipe owner，用户改动保留；后续更新应复用同一三方比较及恢复机制，不复制第二个升级引擎。当前未实现的更新/卸载/远端下载保持明确缺口，不把add当覆盖升级。
 
-GitHub配方只有显式触发才运行。release工作流必须调用匹配APP版本的制包器并使用显式输出目录，上传真实归档和manifest；资格、main/tag、正式发布和部署分别授权。旧配方快照及已安装baseline不原位重写，新适配使用新版本并由APP选择采用。
+当前开发catalog将GitHub职责拆成`scaffold-ci`和`app-ci`，安装时分别核脚手架inventory/版本合同或APP manifest。前者串行调用与本地相同的原生生产者，生成两Edition模板及配套清单；后者只调用APP自己的server-only制包器并使用显式APP根和输出目录。CLI仓自己的CI只发行CLI工具。候选工作流上传构建结果，正式GitHub附件仍由通过资格的获准CI发布；不能把候选artifact当正式发行。
+
+GitHub配方只有显式触发才运行，不默认修改Secrets、权限或生产。已退役的混合`github-ci`源码从当前catalog移除；已发布Git历史与APP已安装baseline保留。新Recipe遇到既有工作流即拒绝，不通过add覆写定制或收编旧owner。脚手架仓自己的Recipe状态不进入生成APP；APP选择自己的Recipe并维护独立baseline。
 
 ## 诊断与失败
 

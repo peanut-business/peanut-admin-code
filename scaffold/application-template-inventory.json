@@ -194,6 +194,19 @@
             ]
         },
         {
+            "path": ".github/workflows/scaffold-release.yml",
+            "target": ".github/workflows/scaffold-release.yml",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": ".gitignore",
             "target": ".gitignore",
             "classification": "managed",
@@ -206,6 +219,45 @@
                 "full"
             ],
             "source_sha256": "fcdc91125d83cac721ab64e50740eab6567e5ba29dca8c1ecee4e24eb47de9c8"
+        },
+        {
+            "path": ".peanut/recipes/scaffold-ci/baseline/files/.github/workflows/scaffold-release.yml",
+            "target": ".peanut/recipes/scaffold-ci/baseline/files/.github/workflows/scaffold-release.yml",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": ".peanut/recipes/scaffold-ci/manifest.json",
+            "target": ".peanut/recipes/scaffold-ci/manifest.json",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": ".peanut/recipes/scaffold-ci/source-manifest.json",
+            "target": ".peanut/recipes/scaffold-ci/source-manifest.json",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
         },
         {
             "path": ".prettierrc.cjs",
@@ -631,7 +683,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "71b8210edf3dfe981d5a31ff389db5662163ce67cd7215f5d9ea9412eafafe5f"
+            "source_sha256": "e707e215ca1998eb553c37d7b8e0d9a65cdaf782c9cfec07eb2e3298ee6cd34c"
         },
         {
             "path": "docs/architecture/content-surface-and-format-adapters.md",
