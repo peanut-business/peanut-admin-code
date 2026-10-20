@@ -836,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a9c08caa37b6ef726d44c6632051e20ab4bc9cd1278af2960d7ea456b49f8ff4"
+            "source_sha256": "705fe56474498d4da5faba6f9865924ade8fe6f92343dcef5eb9ec2835ca20f4"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -2333,7 +2333,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8899b1ffe0f5286f88edf45532006661c3657ee95ae9936e3ac0583e4262a1fc"
+            "source_sha256": "31b360254f5e2d8798da8790409bdfb6f8a29ae3bf163fd1d1d592b44ece3837"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2400,7 +2400,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c23a37b4f075246fa314c8a58676efec28da5d31e4c3df2db0f8bc696d3f4633"
+            "source_sha256": "c8208cb2fd033150974a83b69985357a9bcad58d428b8f1516d3f4737015c6fe"
         },
         {
             "path": "plugins/official.collaboration/plugin.json",
@@ -2442,7 +2442,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f021923a9a214715f5c3098d682a3985d7aa5c34185eded7ad0e3b87a82cf560"
+            "source_sha256": "abf29c268b094108c0b5edf29fddb21150da44dd4056879ce3baa456a5d03e86"
         },
         {
             "path": "plugins/official.file/plugin.json",
@@ -2456,7 +2456,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2ea2d33a64a4b14d76d6c43e83b64c74e70ef6617fb26168a80fde3e2efeca40"
+            "source_sha256": "062a00c2af631850fa8b2ab2746c799b691f92ce57becc8176dfd0425b5298d2"
         },
         {
             "path": "plugins/official.identity/plugin.json",
@@ -2484,7 +2484,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5a60655b7853a8184d933352c175a0890c812164f1324e3ba80f2173a25baa62"
+            "source_sha256": "bbb4f3199b8b875fa367aabbb516869940fa0308ed5f6bb4d0fc3e86ce0f108a"
         },
         {
             "path": "plugins/official.integration/plugin.json",
@@ -3823,7 +3823,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "372f8b170fd00c718b48f681f419745a585cad7da51029495f244ab54bbff4c7"
+            "source_sha256": "d3d399714986424c0be60dd31ab4b2272a188be8b463a6b90f18647fa9492c19"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",
@@ -10420,7 +10420,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "76e084f6e5c1d08b6b0446ca222fcf1bc9aeae0652fa179ec6b69a8c90193cc4"
+            "source_sha256": "3d2c7e0c9201688487b7472dc865c074c1bc9352a479976eb2657012b58e3f34"
         },
         {
             "path": "server/app/modules/official/article/src/Contract/ArticleQueries.php",
@@ -11596,7 +11596,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "39eb775acc828f513a842de57ca1ebf88dad371e0ffd95f5f29f4d6dcd0d32ea"
+            "source_sha256": "9fc1733c4478e8244bba73567cb4ea80f9e1d8597a00f4ffb54b94802010ad71"
         },
         {
             "path": "server/app/modules/official/document/src/Contract/DocumentOwnerContributor.php",
@@ -12366,7 +12366,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e18283d8130133e4a64137ecd77a716398676e2d9f5eec915e0c61472f75578c"
+            "source_sha256": "34ff93a0300226e5a968ea5d4bba3ea998f1085ce14fe8c99c85a4d83a02b017"
         },
         {
             "path": "server/app/modules/official/file/src/Contract/FileMigrationPreservation.php",
@@ -12380,7 +12380,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5f198736143aa2d25a5a5159aed8099d28c5ffeb6829c2dc0ba829f755e2d8f5"
+            "source_sha256": "042a313b82d9426aa109f2634db53b627b2b1b50c70862fb815fc80491062fdd"
         },
         {
             "path": "server/app/modules/official/file/src/Contract/FileReferenceCommands.php",
@@ -15460,7 +15460,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e27cb1cc52628369d394ca2c412084ba6148e9da4785ee362bedff8bb926a082"
+            "source_sha256": "88bcdbb8e678d2c5a35e4c215295c324ce67c65dcd433c630af210b0f64cdd1b"
         },
         {
             "path": "server/app/modules/official/import_export/src/Contract/ImportExportQueries.php",
