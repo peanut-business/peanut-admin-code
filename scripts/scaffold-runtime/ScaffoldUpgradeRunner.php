@@ -411,6 +411,7 @@ final class ScaffoldUpgradeRunner
             'server/app/common/services/upgrade/SourceApplicationBackup.php',
             'server/app/common/services/upgrade/ApplicationSchemaHost.php',
             'server/app/platform/infrastructure/plugin/PluginLockResolver.php',
+            'server/app/platform/validation/plugin/ModulePackagePreflight.php',
             'server/docker/scripts/update-plan.php', 'server/docker/scripts/update-recovery.py',
             'scripts/product-upgrade-host', 'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php', 'scripts/upgrade',
             'plugins/official.file/plugin.json', 'plugins/official.document/plugin.json',

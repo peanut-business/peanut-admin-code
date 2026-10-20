@@ -61,7 +61,6 @@ final readonly class ModulePackagePreflight
             'protected_resources' => ['resources/protected-resources.json', 'file'],
             'target_types' => ['resources/target-types.json', 'file'],
             'data_conditions' => ['resources/data-conditions.json', 'file'],
-            'config_schema' => ['resources/config.schema.json', 'file'],
             'setting_definitions' => ['resources/setting-definitions.json', 'file'],
             'reference_code_sets' => ['resources/reference-code-sets.json', 'file'],
             'system_actors' => ['resources/system-actors.json', 'file'],
@@ -79,6 +78,41 @@ final readonly class ModulePackagePreflight
             $absolute = $backendRoot . '/' . $path;
             if (($kind === 'directory' && !is_dir($absolute)) || ($kind === 'file' && !is_file($absolute))) {
                 throw new PluginPackageException('MODULE_PACKAGE_PATH_MISSING', "Module backend.{$field} source is unavailable.");
+            }
+        }
+        if (array_key_exists('config_schema', $backend)) {
+            $configRelative = $backend['config_schema'];
+            if (!is_string($configRelative) || $configRelative === '' || str_contains($configRelative, "\0")
+                || str_contains($configRelative, '\\') || str_starts_with($configRelative, '/')
+                || preg_match('/^[A-Za-z]:/', $configRelative) === 1) {
+                throw new PluginPackageException('MODULE_PACKAGE_PATH_MISMATCH', 'Module backend.config_schema path is invalid.');
+            }
+            $configSegments = explode('/', $configRelative);
+            if (array_intersect($configSegments, ['', '.', '..']) !== []) {
+                throw new PluginPackageException('MODULE_PACKAGE_PATH_MISMATCH', 'Module backend.config_schema path is invalid.');
+            }
+            $configProjectRoot = realpath($this->projectRoot);
+            if ($configProjectRoot === false) {
+                throw new PluginPackageException('MODULE_PACKAGE_PATH_MISMATCH', 'Module backend.config_schema root is unavailable.');
+            }
+            $configModuleRoot = rtrim($configProjectRoot, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR
+                . str_replace('/', DIRECTORY_SEPARATOR, $backendRelative);
+            $configCursor = rtrim($configProjectRoot, DIRECTORY_SEPARATOR);
+            foreach ([...explode('/', $backendRelative), ...$configSegments] as $segment) {
+                $configCursor .= DIRECTORY_SEPARATOR . $segment;
+                if (is_link($configCursor)) {
+                    throw new PluginPackageException('MODULE_PACKAGE_PATH_MISMATCH', 'Module backend.config_schema path contains a link.');
+                }
+            }
+            $configReal = realpath($configCursor);
+            if ($configReal === false || !is_file($configReal)) {
+                throw new PluginPackageException('MODULE_PACKAGE_PATH_MISSING', 'Module backend.config_schema source is unavailable.');
+            }
+            $configStat = lstat($configReal);
+            if (realpath($configModuleRoot) !== $configModuleRoot || $configReal !== $configCursor
+                || !str_starts_with($configReal, $configModuleRoot . DIRECTORY_SEPARATOR)
+                || !is_array($configStat) || ($configStat['nlink'] ?? 0) !== 1) {
+                throw new PluginPackageException('MODULE_PACKAGE_PATH_MISMATCH', 'Module backend.config_schema is outside its ordinary Module files.');
             }
         }
         try {
