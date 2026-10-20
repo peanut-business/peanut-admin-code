@@ -836,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bcfe0353997f028d2efabd0408575ac529df70bd44dcd46f68049921e4654e88"
+            "source_sha256": "cb556436d8091d44467ac30e74fdbf5e22396b700aa09a9e76b37babe6b63d65"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -4684,7 +4684,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c7a0105bbd1a2e0979181cf098aae94cc4796963b3ad73dc33c53e470430fb14"
+            "source_sha256": "32e5cf497af138f545857a47da3512249d1102714f50775c058c586449e2f13b"
         },
         {
             "path": "server/.env.example",
