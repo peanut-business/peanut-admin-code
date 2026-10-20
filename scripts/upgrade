@@ -188,7 +188,7 @@ function productUpgradeUsage(): never
     fwrite(STDERR, "Set PEANUT_SERVER_ENV_FILE to the absolute mode-0600 instance backend environment.\nUsage:\n"
         . "  php scripts/upgrade plan --scope=source --instance-root=<development-app> --package=<verified-full-upstream-package>\n"
         . "  php scripts/upgrade apply|verify|recover --scope=source --instance-root=<development-app> --package=<full-upstream-package> --plan=<absolute-scaffold-plan>\n"
-        . "  php scripts/upgrade plan --scope=server --instance-root=<mounted-app> --package=<workspace> --archive=<app-server-release> --expected-sha256=<trusted-sha256>\n"
+        . "  php scripts/upgrade plan --scope=server --instance-root=<mounted-app> --package=<workspace> --archive=<app-server-release> --expected-sha256=<trusted-sha256> [--backup-tool=<protected-registered-root-client>]\n"
         . "  php scripts/upgrade apply|verify|recover --scope=server --instance-root=<mounted-app> --package=<workspace> --plan=<absolute-product-plan>\n"
         . "  runtime-prepare --scope=source --instance-root=APP --workspace=W --package=PKG --plan=SOURCE_PLAN --expect-head=SHA|none --expect-generation=N\n"
         . "  runtime-transition|runtime-open|runtime-recover --scope=source --instance-root=APP --workspace=W --transition=W/source-runtime.json\n"
@@ -241,6 +241,38 @@ function productUpgradeWriteJson(string $path, array $value): void
     fclose($handle);
 }
 
+/** The reviewed privileged transport belongs only to an ordinary registered server plan. */
+function productUpgradeBackupTool(string $instanceRoot, ?string $path): ?array
+{
+    $server = $instanceRoot . '/server';
+    $environment = parse_ini_file($server . '/.env', false, INI_SCANNER_RAW);
+    if (!is_array($environment)) { throw new RuntimeException('PRODUCT_UPGRADE_DATABASE_PROVIDER_UNKNOWN'); }
+    $source = $environment['PEANUT_DATABASE_SOURCE'] ?? 'bundled';
+    if ($source === 'bundled' || $source === '') {
+        if ($path !== null) { throw new RuntimeException('PRODUCT_UPGRADE_BUNDLED_BACKUP_TOOL_FORBIDDEN'); }
+        return null;
+    }
+    if ($source !== 'registered' || $path === null || realpath($path) !== $path) {
+        throw new RuntimeException('PRODUCT_UPGRADE_REGISTERED_BACKUP_TOOL_REQUIRED');
+    }
+    $stat = @lstat($path); $owner = fileowner($server);
+    if (!is_array($stat) || !is_file($path) || is_link($path) || $stat['nlink'] !== 1
+        || ($stat['mode'] & 0777) !== 0600 || !in_array($stat['uid'], [0, $owner], true)
+        || $stat['size'] > 65536 || !function_exists('posix_geteuid') || !in_array(posix_geteuid(), [0, $owner], true)) {
+        throw new RuntimeException('PRODUCT_UPGRADE_BACKUP_TOOL_UNSAFE');
+    }
+    $bytes = file_get_contents($path);
+    $tool = json_decode((string) $bytes, true, 64, JSON_THROW_ON_ERROR);
+    $contract = $tool['source_schema_backup'] ?? null;
+    if (!is_array($tool) || ($tool['transport'] ?? null) !== 'ssh-docker-exec' || !is_array($contract)
+        || ($contract['whole_schema'] ?? null) !== true
+        || ($contract['database_resource_id'] ?? null) !== ($environment['PEANUT_DATABASE_RESOURCE_ID'] ?? null)
+        || ($contract['database'] ?? null) !== ($environment['DB_NAME'] ?? null)) {
+        throw new RuntimeException('PRODUCT_UPGRADE_BACKUP_TOOL_SCOPE_CHANGED');
+    }
+    return ['path' => $path, 'sha256' => hash('sha256', (string) $bytes), 'owner_uid' => $stat['uid'], 'mode' => 0600];
+}
+
 /** @return array<string,mixed> */
 function productUpgradeReadPlan(string $instanceRoot, string $path): array
 {
@@ -268,6 +300,8 @@ function productUpgradeReadPlan(string $instanceRoot, string $path): array
     if (!hash_equals($digest, 'sha256:' . hash('sha256', productUpgradeCanonicalJson($plan)))) {
         throw new RuntimeException('PRODUCT_UPGRADE_PLAN_INVALID');
     }
+    $tool = productUpgradeBackupTool($root, $plan['backup_tool']['path'] ?? null);
+    if (($plan['backup_tool'] ?? null) !== $tool) { throw new RuntimeException('PRODUCT_UPGRADE_BACKUP_TOOL_CHANGED'); }
     return $plan + ['plan_sha256' => $digest, 'absolute_path' => $resolved];
 }
 
@@ -780,7 +814,7 @@ if (!in_array($command, ['plan', 'apply', 'verify', 'recover', 'runtime-prepare'
 }
 $options = [];
 foreach (array_slice($argv, 2) as $argument) {
-    if (preg_match('/^--(instance-root|package|plan|stop-before|scope|archive|expected-sha256|workspace|transition|expect-head|expect-generation)=(.+)$/D', $argument, $matches) !== 1
+    if (preg_match('/^--(instance-root|package|plan|stop-before|scope|archive|expected-sha256|workspace|transition|expect-head|expect-generation|backup-tool)=(.+)$/D', $argument, $matches) !== 1
         || isset($options[$matches[1]])) {
         productUpgradeUsage();
     }
@@ -827,6 +861,10 @@ if (isset($options['scope'])) {
 }
 if ($command !== 'plan') {
     $required[] = 'plan';
+}
+if (isset($options['backup-tool'])) {
+    if ($command !== 'plan' || ($options['scope'] ?? null) !== 'server') { productUpgradeUsage(); }
+    $required[] = 'backup-tool';
 }
 if (isset($options['stop-before'])) {
     if ($command !== 'apply' || ($options['scope'] ?? 'source') !== 'server' || !in_array($options['stop-before'], ['health', 'activate'], true)) {
@@ -909,6 +947,7 @@ try {
         // The installed coordinator and its installed runtime control package validation. No
         // executable from the target package is invoked until package validation succeeds.
         $scope = 'server';
+        $backupTool = productUpgradeBackupTool($instanceRoot, $options['backup-tool'] ?? null);
         $serverPackage = productUpgradeServerPackage($instanceRoot, $packageRoot, $options['archive'], $options['expected-sha256']);
         $input = $serverPackage['input'];
         $identity = $serverPackage['identity'];
@@ -932,7 +971,8 @@ try {
             if (($existing['migration']['module_preflight_protocol'] ?? null) !== 'peanut.upgrade-module-preflight.v1') {
                 throw new RuntimeException('PRODUCT_UPGRADE_MODULE_PREFLIGHT_CAPABILITY_REQUIRED');
             }
-            if (($existing['package'] ?? null) !== $packageIdentity
+            if (($existing['backup_tool'] ?? null) !== $backupTool
+                || ($existing['package'] ?? null) !== $packageIdentity
                 || ($existing['scope'] ?? null) !== 'server'
                 || ($existing['inputs_sha256'] ?? null) !== hash_file('sha256', $workspace . '/plan.json')
                 || ($existing['migration']['target_version'] ?? null) !== $packageIdentity['target_version']
@@ -974,6 +1014,7 @@ try {
                 'status' => $scaffold['status'],
                 'instance_root' => $instanceRoot,
                 'scope' => $scope,
+                'backup_tool' => $backupTool,
                 'workspace' => $workspace,
                 'runtime_sha256' => $runtimeDigest,
                 'inputs_sha256' => hash_file('sha256', $workspace . '/plan.json'),

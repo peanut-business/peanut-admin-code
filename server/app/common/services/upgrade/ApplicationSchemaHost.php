@@ -372,12 +372,17 @@ final class ApplicationSchemaHost
         // Match the native File proof: INFORMATION_SCHEMA alone can hide owners.
         // Direct whole-schema SELECT/ALL grants establish visibility; role-only,
         // unrecognized or partially revoked grants cannot prove name absence.
+        $mode = $pdo->query('SELECT @@GLOBAL.partial_revokes AS partial_revokes')->fetchColumn();
+        if (!in_array($mode, [0, 1, '0', '1'], true)) { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_CONSTRAINT_VISIBILITY_UNKNOWN'); }
+        $scope = '`' . $database . '`.*';
+        $scopes = ['*.*', $scope];
+        if ((string) $mode === '0') { $scopes[] = str_replace('_', '\\_', $scope); }
         $visible = false; $restricted = false;
         foreach ($pdo->query('SHOW GRANTS')->fetchAll(PDO::FETCH_NUM) as $row) {
             $grant = count($row) === 1 ? $row[0] : null;
             if (is_string($grant) && str_starts_with($grant, 'REVOKE ')) { $restricted = true; }
             if (!is_string($grant) || preg_match('/\AGRANT (.+) ON (.+) TO /D', $grant, $match) !== 1
-                || !in_array($match[2], ['*.*', '`' . $database . '`.*'], true)) { continue; }
+                || !in_array($match[2], $scopes, true)) { continue; }
             $privileges = array_map('trim', explode(',', $match[1]));
             $visible = $visible || in_array('SELECT', $privileges, true) || in_array('ALL PRIVILEGES', $privileges, true);
         }
