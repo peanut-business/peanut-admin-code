@@ -94,17 +94,147 @@ final class SourceApplicationBackup
     }
 
     /** Schema observations, never a backup receipt or implicit restore admission. */
-    public static function scope(PDO $pdo, array $pending): array
+    public static function scope(PDO $pdo, array $pending, ?array $binding = null, string $metadataTool = '', ?callable $guard = null): array
     {
         $tables = self::applicationTables($pending);
-        if ($pending !== []) {
+        if ($pending !== [] && $metadataTool === '') {
             self::assertEffectMetadataVisibility($pdo);
         }
-        $scope = self::observe($pdo, $tables, false);
+        $scope = $metadataTool === '' || $tables === [] ? self::observe($pdo, $tables, false)
+            : self::sourceEffectScope($pdo, $tables, false, $binding ?? [], $metadataTool, $guard);
         $scope['execution_requirements'] = [];
         foreach ($pending as $id) {
             array_push($scope['execution_requirements'], ...self::applicationStageRequirements($scope, $id));
         }
+        return $scope;
+    }
+
+    /** Live source issuer, using the existing fixed remote metadata reader. No caller receipt or SQL is accepted. */
+    private static function sourceEffectScope(PDO $pdo, array $tables, bool $allowMissing, array $binding, string $toolId, ?callable $guard): array
+    {
+        $root = $binding['source']['root'] ?? '';
+        $serverRoot = $root . '/server';
+        $context = app()->make(\app\common\execution\CurrentExecutionContext::class)->current();
+        if (PHP_SAPI !== 'cli' || !$context instanceof \app\common\execution\InstanceExecutionContext
+            || !in_array($context->operation(), ['console.schema:application', 'console.plugin:install', 'console.plugin:upgrade'], true)
+            || $context->instance->actorKey !== 'console' || !is_callable($guard)
+            || realpath($root) !== $root || realpath($serverRoot) !== $serverRoot || $tables === []) {
+            throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_METADATA_CONTEXT_REQUIRED');
+        }
+        $actor = array_intersect_key($binding['authority'] ?? [], array_flip(['owner', 'thread', 'session', 'gate']));
+        $admission = new SourceDevelopmentMaintenanceAdmission($serverRoot);
+        $ddl = in_array($binding['authority']['operation'] ?? null, ['ddl', 'exclusive'], true);
+        $recheck = static function () use ($pdo, $binding, $actor, $admission, $ddl, $guard, $root): void {
+            $guard();
+            $actual = $admission->capture($actor, $ddl) + ['database' => \app\common\services\installation\InstallationExecutionHost::migrationDatabaseIdentity($pdo)];
+            if (self::pluginDigest($actual) !== self::pluginDigest($binding) || $pdo->inTransaction()) {
+                throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_METADATA_BINDING_CHANGED');
+            }
+            \app\common\infrastructure\scaffold\ScaffoldUpgradeRunner::sourceProductLock($root, static fn() => null);
+            $lock = $pdo->prepare('SELECT IS_USED_LOCK(?) = CONNECTION_ID()');
+            try {
+                $lock->execute(['peanut_migrate_' . substr(hash('sha256', $binding['database']['database']), 0, 48)]);
+                if ((int) $lock->fetchColumn() !== 1) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_METADATA_LOCK_REQUIRED'); }
+            } finally { $lock->closeCursor(); }
+        };
+        $recheck();
+        $registry = \projectResourceRegistry($registrySha);
+        $tools = array_values(array_filter($registry['resources']['tooling'] ?? [], static fn(array $row): bool => ($row['stable_resource_id'] ?? null) === $toolId));
+        $resources = \activeLeaseResources(\requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF'));
+        $parent = $serverRoot . '/private/installation/source-development/effect-metadata';
+        if (count($tools) !== 1 || $registrySha !== $binding['registry_sha256']
+            || !in_array($toolId, $resources['tooling-resource-id'] ?? [], true)
+            || !in_array($parent, $resources['output-dir'] ?? [], true)) {
+            throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_METADATA_NATIVE_TOOL_OUTPUT_REQUIRED');
+        }
+        $tool = $tools[0]; $contract = $tool['source_schema_backup'] ?? [];
+        $database = $binding['database']['database'];
+        if (($tool['transport'] ?? null) !== 'ssh-docker-exec'
+            || ($contract['database_resource_id'] ?? null) !== $binding['resource_id'] || ($contract['database'] ?? null) !== $database
+            || !is_array($contract['tables'] ?? null) || array_diff($tables, $contract['tables']) !== []) {
+            throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_METADATA_TOOL_REQUIRED');
+        }
+        foreach (['ssh_command', 'docker_command', 'mysql_command', 'timeout_command', 'digest_command'] as $key) {
+            if (!is_string($tool[$key] ?? null) || preg_match('~\A/[A-Za-z0-9_./-]+\z~D', $tool[$key]) !== 1 || str_contains($tool[$key], '..')) {
+                throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_TOOL_INVALID');
+            }
+        }
+        foreach (['ssh_alias', 'container_name'] as $key) {
+            if (!is_string($tool[$key] ?? null) || preg_match('/\A[A-Za-z0-9][A-Za-z0-9_.-]*\z/D', $tool[$key]) !== 1) {
+                throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_TOOL_INVALID');
+            }
+        }
+        $seconds = $contract['timeout_seconds'] ?? null;
+        if (!is_int($seconds) || $seconds < 30 || $seconds > 600) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_LIFETIME_REQUIRED'); }
+        sort($tables, SORT_STRING);
+        if (count(array_unique($tables)) !== count($tables) || count($tables) > 512) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_TABLE_UNSUPPORTED'); }
+        $present = [];
+        foreach ($tables as $table) {
+            if (!is_string($table) || preg_match('/\Apa_[a-z0-9_]+\z/D', $table) !== 1) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_TABLE_UNSUPPORTED'); }
+            $query = $pdo->prepare('SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');
+            $query->execute([$table]); $exists = (int) $query->fetchColumn(); $query->closeCursor();
+            if ($exists === 1) { $present[] = $table; }
+            elseif (!$allowMissing) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_TABLE_UNSUPPORTED'); }
+        }
+        // Metadata reads do not grant row access. The same native declaration must
+        // already cover every present source table in full; DDL/exclusive is stronger.
+        $covered = in_array($binding['authority']['operation'] ?? null, ['ddl', 'exclusive'], true);
+        foreach ($resources['mysql-access'] ?? [] as $raw) {
+            $access = json_decode($raw, true, 64, JSON_THROW_ON_ERROR);
+            if (($access['schema'] ?? null) !== \requiredEnvironment('DB_HOST') . ':' . \requiredEnvironment('DB_PORT') . '/' . $database
+                || ($access['complete'] ?? null) !== true) { continue; }
+            $reads = array_column(array_filter($access['tables'] ?? [], static fn(array $row): bool => ($row['rows'] ?? null) === '*'
+                && in_array($row['access'] ?? null, ['read', 'write'], true)), 'table');
+            $covered = $covered || array_diff($present, $reads) === [];
+        }
+        if (!$covered) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_METADATA_READ_SCOPE_REQUIRED'); }
+        $session = $pdo->query('SELECT @@SESSION.sql_mode AS sql_mode,@@SESSION.sql_quote_show_create AS quote_names')->fetch(PDO::FETCH_ASSOC);
+        if (!is_array($session) || preg_match('/\A[A-Z0-9_,]*\z/D', (string) ($session['sql_mode'] ?? '')) !== 1
+            || !in_array((int) ($session['quote_names'] ?? -1), [0, 1], true)) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_SESSION_INVALID'); }
+        foreach ([$serverRoot . '/private', $serverRoot . '/private/installation'] as $directory) {
+            if (realpath($directory) !== $directory || !is_dir($directory) || (fileperms($directory) & 0022) !== 0
+                || !in_array(fileowner($directory), [0, fileowner($root)], true)) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_METADATA_DIRECTORY_REQUIRED'); }
+        }
+        foreach ([$serverRoot . '/private/installation/source-development', $parent] as $directory) {
+            if (!is_dir($directory) && !mkdir($directory, 0700)) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_METADATA_DIRECTORY_REQUIRED'); }
+            if (realpath($directory) !== $directory || (fileperms($directory) & 0777) !== 0700
+                || !in_array(fileowner($directory), [0, fileowner($root)], true)) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_METADATA_DIRECTORY_REQUIRED'); }
+        }
+        $nonce = bin2hex(random_bytes(16)); $directory = $parent . '/' . $nonce;
+        if (!mkdir($directory, 0700)) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_METADATA_DIRECTORY_REQUIRED'); }
+        $request = ['protocol' => 'peanut.source-development-effect-request.v1', 'binding' => $binding,
+            'tool_id' => $toolId, 'tool_sha256' => self::pluginDigest($tool), 'tables' => $tables, 'present' => $present,
+            'session' => $session, 'adapter_sha256' => hash_file('sha256', __FILE__), 'nonce' => $nonce, 'observed_at' => time()];
+        self::write($directory . '/request.json', $request);
+        $shell = self::quote([$tool['digest_command'], $tool['mysql_command']]) . ' && '
+            . self::quote([$tool['mysql_command'], '--version']) . ' && ('
+            . self::clientShell($tool, 'mysql_command', $seconds, ['--no-defaults', '--no-login-paths', '--default-character-set=utf8mb4',
+                '--batch', '--skip-column-names', '-uroot', '--database=' . $database,
+                '--execute=' . self::metadataSql($present, $session, $nonce, $tables)]) . ')';
+        if (strlen($shell) > 65536) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_COVERAGE_REQUIRED'); }
+        $output = $directory . '/metadata.txt'; $error = $directory . '/metadata.stderr';
+        self::remote($tool, $shell, $output, $error, 'effect-metadata', $seconds, (int) $binding['authority']['expires_at'], $recheck, 8388608);
+        $parsed = self::parseMetadata($output, $present, $nonce, $binding, $contract, (string) $pdo->getAttribute(PDO::ATTR_SERVER_VERSION));
+        foreach ($parsed['metadata']['foreign_keys'] as $foreign) {
+            if (!(($foreign['TABLE_SCHEMA'] === $database && in_array($foreign['TABLE_NAME'], $tables, true))
+                || ($foreign['REFERENCED_TABLE_SCHEMA'] === $database && in_array($foreign['REFERENCED_TABLE_NAME'], $tables, true)))) {
+                throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_METADATA_COVERAGE_CHANGED');
+            }
+        }
+        foreach ($parsed['metadata']['triggers'] as $trigger) {
+            if (!in_array($trigger['table'], $tables, true)) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_METADATA_COVERAGE_CHANGED'); }
+        }
+        $scope = self::observe($pdo, $tables, $allowMissing, $parsed['metadata']);
+        foreach ($scope['objects'] as $table => $object) {
+            if (($object['exists'] ?? null) === false ? isset($parsed['metadata']['objects'][$table])
+                : $object !== ($parsed['metadata']['objects'][$table] ?? null)) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_METADATA_STRUCTURE_CHANGED'); }
+        }
+        $recheck();
+        self::write($directory . '/observation.json', ['protocol' => 'peanut.source-development-effect-metadata.v1',
+            'request_sha256' => hash_file('sha256', $directory . '/request.json'), 'metadata_sha256' => self::pluginDigest($parsed['metadata']),
+            'client' => $parsed['client'], 'process_sha256' => hash_file('sha256', $output . '.process.json'), 'observed_at' => time()]);
+        $scope['metadata_visibility'] = 'complete native source metadata; ordinary PDO unchanged';
+        $scope['metadata_observer'] = ['tool_id' => $toolId, 'tool_sha256' => self::pluginDigest($tool), 'client' => $parsed['client']];
         return $scope;
     }
 
@@ -326,7 +456,7 @@ final class SourceApplicationBackup
     }
 
     /** No caller SQL: exact target metadata, plus SHOW CREATE only for validated target identifiers. */
-    private static function metadataSql(array $tables, array $session, string $nonce): string
+    private static function metadataSql(array $tables, array $session, string $nonce, ?array $effects = null): string
     {
         $sql = "SET SESSION sql_mode='" . $session['sql_mode'] . "'; SET SESSION sql_quote_show_create=" . (int) $session['quote_names']
             . "; SET TRANSACTION READ ONLY; START TRANSACTION READ ONLY;"
@@ -344,6 +474,13 @@ final class SourceApplicationBackup
             . "'triggers',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('TRIGGER_NAME',TRIGGER_NAME,'EVENT_MANIPULATION',EVENT_MANIPULATION,"
             . "'EVENT_OBJECT_TABLE',EVENT_OBJECT_TABLE,'ACTION_TIMING',ACTION_TIMING,'ACTION_STATEMENT',ACTION_STATEMENT,'SQL_MODE',SQL_MODE,'DEFINER',DEFINER))"
             . " FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()),JSON_ARRAY())));";
+        if ($effects !== null) {
+            $names = implode(',', array_map(static fn(string $table): string => "'" . $table . "'", $effects));
+            $sql = str_replace('WHERE TABLE_SCHEMA=DATABASE())', 'WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN (' . $names . '))', $sql);
+            $sql = str_replace('WHERE k.TABLE_SCHEMA=DATABASE() OR k.REFERENCED_TABLE_SCHEMA=DATABASE()',
+                'WHERE (k.TABLE_SCHEMA=DATABASE() AND k.TABLE_NAME IN (' . $names . ')) OR (k.REFERENCED_TABLE_SCHEMA=DATABASE() AND k.REFERENCED_TABLE_NAME IN (' . $names . '))', $sql);
+            $sql = str_replace('WHERE TRIGGER_SCHEMA=DATABASE())', 'WHERE TRIGGER_SCHEMA=DATABASE() AND EVENT_OBJECT_TABLE IN (' . $names . '))', $sql);
+        }
         foreach ($tables as $table) { $sql .= " SELECT '" . $table . "'; SHOW CREATE TABLE " . chr(96) . $table . chr(96) . ';'; }
         return $sql . ' ROLLBACK;';
     }
@@ -588,10 +725,11 @@ final class SourceApplicationBackup
     }
 
     /** Missing tables are explicit pre-state, never silently replaced by an empty dump table. */
-    public static function pluginScope(PDO $pdo, array $effects): array
+    public static function pluginScope(PDO $pdo, array $effects, ?array $binding = null, string $metadataTool = '', ?callable $guard = null): array
     {
         if (($effects['closure_complete'] ?? null) !== true) { throw new RuntimeException('PLUGIN_SOURCE_BACKUP_EFFECTS_INCOMPLETE'); }
-        $scope = self::observe($pdo, $effects['tables'], true);
+        $scope = $metadataTool === '' ? self::observe($pdo, $effects['tables'], true)
+            : self::sourceEffectScope($pdo, $effects['tables'], true, $binding ?? [], $metadataTool, $guard);
         if (($effects['notification_forward_receipt'] ?? null) !== null) {
             $expected = $effects['notification_forward_receipt'];
             $snapshot = PluginLifecycleService::notificationReceiptSnapshot((string) ($expected['path'] ?? ''));

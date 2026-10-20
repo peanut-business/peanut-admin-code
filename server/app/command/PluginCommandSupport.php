@@ -33,7 +33,7 @@ trait PluginCommandSupport
 
     private function configureSourceDevelopmentOptions(): void
     {
-        foreach (['scope', 'owner', 'thread', 'session', 'gate', 'backup-tool', 'backup-output', 'source-plan', 'maintenance', 'recovery', 'verify-receipt'] as $name) {
+        foreach (['scope', 'owner', 'thread', 'session', 'gate', 'backup-tool', 'backup-output', 'metadata-tool', 'source-plan', 'maintenance', 'recovery', 'verify-receipt'] as $name) {
             $this->addOption($name, null, \think\console\input\Option::VALUE_REQUIRED, 'Native source-development plan ' . $name, '');
         }
     }
@@ -51,7 +51,7 @@ trait PluginCommandSupport
             $receipt = (string) $input->getOption('verify-receipt');
             if ($receipt !== '') {
                 if (!$dryRun) { throw new PluginLifecycleException('PLUGIN_SOURCE_ARGUMENTS_INVALID', 'Receipt verification is read-only.'); }
-                foreach (['source-plan', 'maintenance', 'recovery', 'backup-tool', 'backup-output'] as $name) {
+                foreach (['source-plan', 'maintenance', 'recovery', 'backup-tool', 'backup-output', 'metadata-tool'] as $name) {
                     if ($input->getOption($name) !== '') { throw new PluginLifecycleException('PLUGIN_SOURCE_ARGUMENTS_INVALID', 'Receipt verification cannot capture or mutate.'); }
                 }
                 return $this->getApp()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->verifyReceipt($operation, $key, $actor, $receipt);
@@ -73,13 +73,14 @@ trait PluginCommandSupport
                     ? $this->pluginLifecycle()->upgrade($key, true, $consume) : $this->pluginLifecycle()->reconcilePlan($key, false, $consume),
                 (string) $input->getOption('backup-tool'), (string) $input->getOption('backup-output'),
                 $execution,
+                (string) $input->getOption('metadata-tool'),
             );
         });
     }
 
     private function hasSourceDevelopmentOptions(\think\console\Input $input): bool
     {
-        foreach (['scope', 'owner', 'thread', 'session', 'gate', 'backup-tool', 'backup-output', 'source-plan', 'maintenance', 'recovery', 'verify-receipt'] as $name) {
+        foreach (['scope', 'owner', 'thread', 'session', 'gate', 'backup-tool', 'backup-output', 'metadata-tool', 'source-plan', 'maintenance', 'recovery', 'verify-receipt'] as $name) {
             if ($input->getOption($name) !== '') { return true; }
         }
         return false;

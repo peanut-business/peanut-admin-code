@@ -18,6 +18,7 @@ final class PluginSourceDevelopmentHost
 {
     private ?array $planning = null;
     private ?array $mutation = null;
+    private string $sourceMetadataTool = '';
     private const CONTRACTS = [
         'official.file' => \PeanutAdmin\Modules\File\Contract\FileMigrationPreservation::class,
         'official.document' => \PeanutAdmin\Modules\Document\Contract\DocumentMigrationPreservation::class,
@@ -31,8 +32,9 @@ final class PluginSourceDevelopmentHost
 
     public function __construct(private readonly App $app) {}
 
-    public function plan(string $operation, string $pluginKey, array $actor, callable $readPlan, string $toolId = '', string $output = '', ?array $execution = null): array
+    public function plan(string $operation, string $pluginKey, array $actor, callable $readPlan, string $toolId = '', string $output = '', ?array $execution = null, string $metadataTool = ''): array
     {
+        $this->sourceMetadataTool = $metadataTool;
         $applying = $execution !== null;
         if ($applying && ($toolId !== '' || $output !== '' || !is_callable($execution['mutate'] ?? null))) { throw new RuntimeException('PLUGIN_SOURCE_ARGUMENTS_INVALID'); }
         if (($toolId === '') !== ($output === '')) { throw new RuntimeException('PLUGIN_SOURCE_BACKUP_ARGUMENTS_REQUIRED'); }
@@ -98,7 +100,9 @@ final class PluginSourceDevelopmentHost
                                 'operation' => $operation, 'plugin_key' => $pluginKey, 'binding' => $binding,
                                 'application' => $selection, 'plugin' => $native, 'lifecycle_effects' => $effects, 'execution_admitted' => false,
                                 'recovery' => 'not_attested', 'product_database' => 'not_verified'];
+                            if ($this->sourceMetadataTool !== '') { $report['metadata_tool'] = $this->sourceMetadataTool; }
                             if ($applying) {
+                                if ($this->sourceMetadataTool === '') {
                                 $grants = $pdo->query('SHOW GRANTS')->fetchAll(PDO::FETCH_COLUMN);
                                 $select = false; $trigger = false;
                                 foreach ($grants as $grant) {
@@ -111,7 +115,9 @@ final class PluginSourceDevelopmentHost
                                     $trigger = $trigger || (($global || $database) && (in_array('TRIGGER', $privileges, true) || in_array('ALL PRIVILEGES', $privileges, true)));
                                 }
                                 if (!$select || !$trigger) { throw new RuntimeException('PLUGIN_SOURCE_METADATA_VISIBILITY_REQUIRED'); }
+                                }
                                 $expected = SourceApplicationBackup::protectedPluginJson($execution['plan'], $this->app->getRootPath());
+                                if (($expected['metadata_tool'] ?? '') !== $this->sourceMetadataTool) { throw new RuntimeException('PLUGIN_SOURCE_PLAN_STALE'); }
                                 foreach (array_keys($report) as $field) {
                                     if (self::digest([$expected[$field] ?? null]) !== self::digest([$report[$field]])) { throw new RuntimeException('PLUGIN_SOURCE_PLAN_STALE'); }
                                 }
@@ -126,16 +132,8 @@ final class PluginSourceDevelopmentHost
                                     }
                                 }
                                 if (($effects['closure_complete'] ?? null) !== true || $this->planning['prerequisite'] !== null) { throw new RuntimeException('PLUGIN_SOURCE_PLAN_BLOCKED'); }
-                                $scope = SourceApplicationBackup::pluginScope($pdo, $effects);
-                                // Fixed closure cannot attest arbitrary trigger bodies or cascading outside writers.
-                                if ($scope['triggers'] !== []) { throw new RuntimeException('PLUGIN_SOURCE_TRIGGER_EFFECT_REVIEW_REQUIRED'); }
-                                foreach ($scope['foreign_keys'] as $foreign) {
-                                    if ((int) $foreign['IS_LOCAL_PARENT'] === 1 && in_array($foreign['REFERENCED_TABLE_NAME'], $effects['tables'], true)
-                                        && ($foreign['TABLE_SCHEMA'] !== $identity['database'] || !in_array($foreign['TABLE_NAME'], $effects['tables'], true))
-                                        && (in_array($foreign['UPDATE_RULE'], ['CASCADE', 'SET NULL'], true) || in_array($foreign['DELETE_RULE'], ['CASCADE', 'SET NULL'], true))) {
-                                        throw new RuntimeException('PLUGIN_SOURCE_CASCADE_EFFECT_REVIEW_REQUIRED');
-                                    }
-                                }
+                                $scope = SourceApplicationBackup::pluginScope($pdo, $effects, $binding, $this->sourceMetadataTool, $recheck);
+                                $this->assertEffectBoundary($scope, $effects, $identity['database']);
                                 $baseline = ['pending' => $effects['pending'], 'selected' => $effects['selected'],
                                     'operation' => $operation, 'plugin_key' => $pluginKey, 'native_plan_sha256' => self::digest($native), 'lifecycle_effects' => $effects];
                                 $evidence = fn(): array => SourceApplicationBackup::pluginRecovery($binding, $baseline, $scope,
@@ -151,6 +149,7 @@ final class PluginSourceDevelopmentHost
                                 $oldLedger = $readLedger();
                                 $this->mutation = ['pdo' => $pdo, 'plugin_key' => $pluginKey, 'operation' => $operation,
                                     'pending' => $effects['pending'], 'selected' => $effects['selected'], 'stages' => [],
+                                    'effects' => $effects, 'binding' => $binding, 'recheck' => $recheck,
                                     'check' => function () use ($recheck, $evidence, $proof): void {
                                         $recheck();
                                         if ($evidence() !== $proof) { throw new RuntimeException('PLUGIN_SOURCE_WINDOW_CHANGED'); }
@@ -166,7 +165,7 @@ final class PluginSourceDevelopmentHost
                                     $ready = $readPlan(static fn(array $plan): array => $plan);
                                     if (($ready['may_apply'] ?? null) !== true
                                         || self::digest(SourceApplicationBackup::pluginEffects($ready)) !== self::digest($effects)
-                                        || SourceApplicationBackup::pluginScope($pdo, $effects) !== $scope || $readLedger() !== $oldLedger) {
+                                        || SourceApplicationBackup::pluginScope($pdo, $effects, $binding, $this->sourceMetadataTool, $recheck) !== $scope || $readLedger() !== $oldLedger) {
                                         throw new RuntimeException('PLUGIN_SOURCE_EXECUTION_PLAN_CHANGED');
                                     }
                                     $this->mutation['admission']['execution_plan_sha256'] = self::digest($ready);
@@ -221,7 +220,7 @@ final class PluginSourceDevelopmentHost
                             }
                             if ($toolId !== '') {
                                 $this->assertBackupReads($effects['tables'], $config);
-                                $scope = SourceApplicationBackup::pluginScope($pdo, $effects);
+                                $scope = SourceApplicationBackup::pluginScope($pdo, $effects, $binding, $this->sourceMetadataTool, $recheck);
                                 $registry = \projectResourceRegistry($registrySha);
                                 $tools = array_values(array_filter($registry['resources']['tooling'] ?? [], static fn(array $row): bool => ($row['stable_resource_id'] ?? null) === $toolId));
                                 $resources = \activeLeaseResources(\requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF'));
@@ -231,13 +230,13 @@ final class PluginSourceDevelopmentHost
                                 }
                                 $baseline = ['pending' => $effects['pending'], 'selected' => $effects['selected'],
                                     'operation' => $operation, 'plugin_key' => $pluginKey, 'native_plan_sha256' => self::digest($native), 'lifecycle_effects' => $effects];
-                                $checkBackup = function () use ($pdo, $recheck, $readPlan, $native, $effects, $scope): void {
+                                $checkBackup = function () use ($pdo, $recheck, $readPlan, $native, $effects, $scope, $binding): void {
                                     $recheck();
                                     // The original native lock recognizes its own owner;
                                     // this nested read does not release the outer package lock.
                                     $current = $readPlan(static fn(array $plan): array => $plan);
                                     if ($pdo->inTransaction() || self::digest($current) !== self::digest($native)
-                                        || SourceApplicationBackup::pluginScope($pdo, $effects) !== $scope) {
+                                        || SourceApplicationBackup::pluginScope($pdo, $effects, $binding, $this->sourceMetadataTool, $recheck) !== $scope) {
                                         throw new RuntimeException('PLUGIN_SOURCE_BACKUP_SNAPSHOT_CHANGED');
                                     }
                                     $recheck();
@@ -269,6 +268,28 @@ final class PluginSourceDevelopmentHost
         $pdo = $connection->getPdo();
         if (!$pdo instanceof PDO || $pdo->inTransaction()) { throw new RuntimeException('PLUGIN_SOURCE_MASTER_MISMATCH'); }
         return [$connection, $pdo];
+    }
+
+    /** Fresh metadata at real SQL boundaries; DML transaction guards keep their existing contract. */
+    public function observeEffects(PDO $pdo): void
+    {
+        if ($this->mutation === null || $this->sourceMetadataTool === '') { return; }
+        $this->requireMutation($pdo, $this->mutation['plugin_key']);
+        $scope = SourceApplicationBackup::pluginScope($pdo, $this->mutation['effects'], $this->mutation['binding'],
+            $this->sourceMetadataTool, $this->mutation['recheck']);
+        $this->assertEffectBoundary($scope, $this->mutation['effects'], $this->mutation['binding']['database']['database']);
+    }
+
+    private function assertEffectBoundary(array $scope, array $effects, string $database): void
+    {
+        if ($scope['triggers'] !== []) { throw new RuntimeException('PLUGIN_SOURCE_TRIGGER_EFFECT_REVIEW_REQUIRED'); }
+        foreach ($scope['foreign_keys'] as $foreign) {
+            if ((int) $foreign['IS_LOCAL_PARENT'] === 1 && in_array($foreign['REFERENCED_TABLE_NAME'], $effects['tables'], true)
+                && ($foreign['TABLE_SCHEMA'] !== $database || !in_array($foreign['TABLE_NAME'], $effects['tables'], true))
+                && (in_array($foreign['UPDATE_RULE'], ['CASCADE', 'SET NULL'], true) || in_array($foreign['DELETE_RULE'], ['CASCADE', 'SET NULL'], true))) {
+                throw new RuntimeException('PLUGIN_SOURCE_CASCADE_EFFECT_REVIEW_REQUIRED');
+            }
+        }
     }
 
     /** Called only after the original owning after assertion, before the real native applied write. */

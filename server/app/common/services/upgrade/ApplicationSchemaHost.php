@@ -22,6 +22,7 @@ final class ApplicationSchemaHost
     private const PROTOCOL = 'peanut.application-schema-plan.v1';
     private const RESULT_PROTOCOL = 'peanut.application-schema-result.v1';
     private ?string $sourceConnectionId = null;
+    private string $sourceMetadataTool = '';
     private const MENU_MIGRATIONS = ['20261004-group-default-navigation', '20261004-menu-stable-identities', '20261012-repair-seeded-permission-parents'];
     private const PERMISSION_MIGRATIONS = ['20261007-readiness-permission', '20261012-align-department-canonical-permissions', '20261012-align-platform-ops-permission-ownership'];
 
@@ -530,9 +531,11 @@ final class ApplicationSchemaHost
     }
 
     /** Native source maintenance; facts never substitute for the current resource grant. */
-    public function sourceDevelopment(string $operation, array $actor, string $planPath, string $resultPath, string $maintenancePath, string $recoveryPath, string $backupTool, string $backupOutput): array
+    public function sourceDevelopment(string $operation, array $actor, string $planPath, string $resultPath, string $maintenancePath, string $recoveryPath, string $backupTool, string $backupOutput, string $metadataTool = ''): array
     {
+        $this->sourceMetadataTool = $metadataTool;
         if (!in_array($operation, ['preflight', 'apply', 'verify', 'verify-receipt', 'backup'], true)
+            || ($operation === 'verify-receipt' && $metadataTool !== '')
             || ($operation === 'preflight' && ($planPath !== '' || $resultPath !== ''))
             || ($operation === 'apply' && ($planPath === '' || $resultPath !== ''))
             || (($maintenancePath === '') !== ($recoveryPath === ''))
@@ -593,6 +596,7 @@ final class ApplicationSchemaHost
             || preg_match('/\Aresult-[a-f0-9]{32}\.json\z/D', basename($resultPath)) !== 1)) { throw new RuntimeException('APPLICATION_SCHEMA_RESULT_ORIGIN_INVALID'); }
         $expected = $this->sourceProtectedJson($operation === 'apply' ? $planPath : $resultPath);
         $this->assertSourceDocument($expected, $operation === 'apply' ? 'peanut.source-development-schema-plan.v1' : 'peanut.source-development-schema-result.v1');
+        if (($expected['metadata_tool'] ?? '') !== $this->sourceMetadataTool) { throw new RuntimeException('APPLICATION_SCHEMA_PLAN_STALE'); }
         return \app\common\infrastructure\scaffold\ScaffoldUpgradeRunner::sourceProductLock(dirname($this->serverRoot),
             function () use ($operation, $pdo, $runner, $files, $target, $versions, $expected, $facts, $initial, $maintenancePath, $recoveryPath, $planPath): array {
                 $current = $facts();
@@ -638,10 +642,10 @@ final class ApplicationSchemaHost
                     $this->assertSourceBaseline($pdo, $baseline, $completed, $migration, 'before');
                     // Compare the original whole capture only before the first
                     // applying marker. Later stages legitimately change that schema.
-                    if ($completed === [] && !$this->sourceSame(SourceApplicationBackup::scope($pdo, $baseline['pending']), $expected['backup_scope'] ?? null)) {
+                    if ($completed === [] && !$this->sourceSame(SourceApplicationBackup::scope($pdo, $baseline['pending'], $current, $this->sourceMetadataTool, $recheck), $expected['backup_scope'] ?? null)) {
                         throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SNAPSHOT_CHANGED');
                     }
-                    $stageScope = SourceApplicationBackup::scope($pdo, [$migration['id']]);
+                    $stageScope = SourceApplicationBackup::scope($pdo, [$migration['id']], $current, $this->sourceMetadataTool, $recheck);
                     if ($stageScope['execution_requirements'] !== []) {
                         throw new RuntimeException('APPLICATION_SCHEMA_STAGE_EFFECT_REVIEW_REQUIRED');
                     }
@@ -732,6 +736,7 @@ final class ApplicationSchemaHost
                             'recovery_references' => $operation === 'apply' ? ($proofs['recovery']['references'] ?? null) : ($expected['recovery_references'] ?? null),
                             'external_gates' => 'not_evaluated',
                             'plugins' => 'not_run', 'product_database' => 'not_verified'];
+                        if ($this->sourceMetadataTool !== '') { $record['metadata_tool'] = $this->sourceMetadataTool; }
                         if ($operation === 'apply') {
                             $marks = implode(',', array_fill(0, count($baseline['pending']), '?'));
                             $query = $pdo->prepare('SELECT migration_id,release_version,checksum,status,started_at,finished_at,error_code'
@@ -814,7 +819,9 @@ final class ApplicationSchemaHost
                 'release_version' => $identity['release_version'], 'prestate' => $proof, 'poststate_contract' => $poststate];
             $preceding[] = $migration;
         }
-        $backupScope = SourceApplicationBackup::scope($pdo, $baseline['pending']);
+        $backupScope = SourceApplicationBackup::scope($pdo, $baseline['pending'], $binding, $this->sourceMetadataTool, static function () use ($facts, $binding): void {
+            if ($facts() !== $binding) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_DRIFT'); }
+        });
         array_push($requirements, ...$backupScope['execution_requirements']);
         foreach ($chain as $stage) {
             if ($stage['migration_id'] === '20261019-module-migration-provenance-metadata'
@@ -836,6 +843,7 @@ final class ApplicationSchemaHost
             'binding' => $binding, 'baseline' => $baseline, 'chain' => $chain, 'backup_scope' => $backupScope, 'execution_requirements' => $requirements, 'evidence' => $evidence,
             'validation_only' => $binding['validation_only'],
             'execution_admitted' => false, 'external_gates' => 'not_evaluated', 'plugins' => 'not_run', 'product_database' => 'not_verified'];
+        if ($this->sourceMetadataTool !== '') { $plan['metadata_tool'] = $this->sourceMetadataTool; }
         $plan['document_sha256'] = $this->digest($plan);
         return $plan;
     }
@@ -845,6 +853,7 @@ final class ApplicationSchemaHost
     {
         $plan = $this->sourceProtectedJson($planPath);
         $this->assertSourceDocument($plan, 'peanut.source-development-schema-plan.v1');
+        if (($plan['metadata_tool'] ?? '') !== $this->sourceMetadataTool) { throw new RuntimeException('APPLICATION_SCHEMA_PLAN_STALE'); }
         if (!$this->sourceSame($plan['binding'] ?? null, $binding) || !is_array($plan['baseline'] ?? null) || !is_array($plan['backup_scope'] ?? null)) {
             throw new RuntimeException('APPLICATION_SCHEMA_PLAN_STALE');
         }
@@ -863,7 +872,8 @@ final class ApplicationSchemaHost
                         $recheck = function () use ($pdo, $actual, $binding, $facts, $files, $target, $versions, $plan): void {
                             if ($actual !== $pdo || $facts() !== $binding
                                 || !$this->sourceSame($this->sourceBaseline($pdo, $files, $target, $versions['release_sequence_version']), $plan['baseline'])
-                                || !$this->sourceSame(SourceApplicationBackup::scope($pdo, $plan['baseline']['pending']), $plan['backup_scope'])) {
+                                || !$this->sourceSame(SourceApplicationBackup::scope($pdo, $plan['baseline']['pending'], $binding, $this->sourceMetadataTool,
+                                    static function () use ($facts, $binding): void { if ($facts() !== $binding) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_DRIFT'); } }), $plan['backup_scope'])) {
                                 throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SNAPSHOT_CHANGED');
                             }
                             $lock = $pdo->prepare('SELECT IS_USED_LOCK(?) = CONNECTION_ID()');

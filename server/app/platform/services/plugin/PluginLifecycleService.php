@@ -507,6 +507,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                     throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'An admitted master outside a transaction is required.');
                 }
                 self::sourceMutationGuard($plugin->key);
+                app()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->observeEffects($pdo);
                 $filePrivate = $moduleKey === 'official.file' && isset($adoptions['targets'][$migrationKey])
                     ? self::captureFilePreservation($pdo, $migrationKey, $checksum) : null;
                 $documentStage = $moduleKey === 'official.document' && isset(self::DOCUMENT_STAGES[$migrationKey]);
@@ -572,6 +573,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                                 throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Master connection changed during migration.');
                             }
                             self::sourceMutationGuard($plugin->key);
+                            app()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->observeEffects($pdo);
                             if ($documentStage) {
                                 if (!is_array($documentPrivate) || $executionBounds !== null
                                     || self::json(self::adoptionAdmission($pdo)) !== self::json($documentAdmission)) {
@@ -2259,6 +2261,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     private function adoptMigration(PluginDescriptor $plugin, string $moduleKey, ManifestDocument $manifest, array $declaration, int $batch): void
     {
         $admission = self::adoptionAdmission(Db::connect()->getPdo());
+        app()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->observeEffects(Db::connect()->getPdo());
         Db::transaction(function ($connection) use ($plugin, $moduleKey, $manifest, $declaration, $batch, $admission): void {
             $pdo = $connection->getPdo();
             if (!$pdo instanceof \PDO || !$pdo->inTransaction() || Db::connect()->getPdo() !== $pdo) {
