@@ -438,7 +438,7 @@ final class ScaffoldUpgradeRunner
             'server/app/platform/infrastructure/plugin/PluginLockResolver.php',
             'server/app/platform/validation/plugin/ModulePackagePreflight.php',
             'server/docker/scripts/update-plan.php', 'server/docker/scripts/update-recovery.py',
-            'scripts/product-upgrade-host', 'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php', 'scripts/upgrade',
+            'scripts/package-release-files.py', 'scripts/product-upgrade-host', 'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php', 'scripts/upgrade',
             'plugins/official.file/plugin.json', 'plugins/official.document/plugin.json',
             'plugins/official.article/plugin.json', 'plugins/official.import-export/plugin.json',
             'plugins.lock', 'scaffold/application-template-inventory.json',
@@ -3834,6 +3834,7 @@ final class ScaffoldUpgradeRunner
                 'checkpoint_sha256' => hash_file('sha256', $workspace . '/source-runtime.json'),
                 'plan_file_sha256' => hash_file('sha256', $state['binding']['plan_path']),
                 'plan_identity_sha256' => hash('sha256', self::canonicalJson($plan['identity']))];
+            unset($plan);
             if (file_exists($admissionPath) || is_link($admissionPath)) { throw new RuntimeException('SOURCE_SUCCESSOR_PROJECTION_ALREADY_ATTEMPTED'); }
             $this->writeJsonAtomic($admissionPath, $admission, 0600);
             $correction = ['path' => $admissionPath];
@@ -4424,7 +4425,7 @@ final class ScaffoldUpgradeRunner
         }
         $state['vendor_preflight_sha256'] = $this->runtimeHost($state, 'vendor-preflight')['sha256'];
         $state = $this->runtimeSave($path, $state);
-        $this->runtimePointer($state, 'preparing');
+        if (!isset($state['binding']['source_successor'])) { $this->runtimePointer($state, 'preparing'); }
         $observation = $this->runtimeHost($state, 'stop');
         $state['quiescence'] = $observation['quiescence'];
         if ($state['quiescence']['images']['php'] !== $state['binding']['tool_image']
