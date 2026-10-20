@@ -98,7 +98,7 @@ ImportExport 复用 Identity 已公开的 `TenantModuleConfigurationService`，�
 
 ## 12. CLI 工作器的模块接口与依赖注入
 
-部署 CLI 消费 Ops 已登记的 `BackupTaskExecution`、`RestoreTaskExecution`、`ModuleTaskExecution` 或 `UpgradeTaskExecution`，由原 ModuleProvider 映射到既有执行器。命令构造注入所需接口及 `ExecutionContextStore/CurrentExecutionContext`，不得在执行方法中全局 `app()` 查找内部执行类；为兼容框架的可空构造参数不代表依赖可省略，执行时缺依赖必须明确失败，不能自动换另一执行来源。
+部署 CLI 消费 Ops 已登记的 `BackupTaskExecution`、`RestoreTaskExecution`、`ModuleTaskExecution` 或 `UpgradeTaskExecution`，由原 ModuleProvider 映射到既有执行器。命令构造注入所需接口及 `ExecutionContextStore/CurrentExecutionContext`，不得在执行方法中全局 `app()` 查找内部执行类；为兼容框架的可空构造参数不代表依赖可省略，执行时缺依赖必须明确失败，不能自动换另一执行来源。ThinkPHP 的列表描述器无参构造命令元数据；有必需业务依赖的命令使用原生公开静态 `__make(App $app)` 显式装配，不能依靠可空参数自动注入未绑定类型，也不能假定 Console 的 `invokeClass()` 会采用命令类的容器绑定。
 
 接口仅表达现有固定任务动作、任务编号、修订号和必要结果材料，不接受任意 SQL、命令或部署路径。接口公开不是部署授权；原执行器仍检查任务状态、操作人员、修订 fencing、允许错误码、输入摘要和证据。CLI 的标准输入大小限制、错误脱敏与上下文恢复保持，不能为了迁移类型而放宽。完整备份、恢复、模块操作或升级仍需独立的资源与执行授权，本规范测试不运行这些操作。
 

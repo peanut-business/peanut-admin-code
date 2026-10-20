@@ -15,11 +15,22 @@ use think\console\input\Option;
 /** One operator-invoked bounded scan; no HTTP, automatic schedule or Node RPC. */
 final class RevocationFactsCommand extends ContextualCommand
 {
+    public static function __make(\think\App $app): self
+    {
+        return new self(
+            $app->make(AuditService::class),
+            static fn() => $app->bound(\PeanutAdmin\Modules\Identity\Contract\RevocationFactDelivery::class)
+                ? $app->make(\PeanutAdmin\Modules\Identity\Contract\RevocationFactDelivery::class) : null,
+            $app->make(ExecutionContextStore::class),
+            $app->make(CurrentExecutionContext::class),
+        );
+    }
+
     public function __construct(
-        private readonly AuditService $facts,
-        private readonly \Closure $delivery,
-        ExecutionContextStore $contexts,
-        CurrentExecutionContext $execution,
+        private readonly ?AuditService $facts = null,
+        private readonly ?\Closure $delivery = null,
+        ?ExecutionContextStore $contexts = null,
+        ?CurrentExecutionContext $execution = null,
     ) {
         parent::__construct($contexts, $execution);
     }
@@ -44,13 +55,15 @@ final class RevocationFactsCommand extends ContextualCommand
         if ($tenant === false || $after === false || $limit === false) {
             throw new \InvalidArgumentException('REVOCATION_DISCOVERY_INPUT_INVALID');
         }
-        $consumer = ($this->delivery)();
+        $facts = $this->facts ?? throw new \LogicException('COMMAND_DEPENDENCIES_NOT_INJECTED');
+        $delivery = $this->delivery ?? throw new \LogicException('COMMAND_DEPENDENCIES_NOT_INJECTED');
+        $consumer = $delivery();
         $results = [];
-        foreach ($this->facts->revocationFacts($tenant, $after, $limit) as $fact) {
+        foreach ($facts->revocationFacts($tenant, $after, $limit) as $fact) {
             $state = $consumer === null ? ['status' => 'consumer_unavailable', 'notification_overdue_candidate' => time() - strtotime($fact['occurred_at'] . ' UTC') >= 30]
                 : $consumer->reconcileRevocation($fact, (bool) $input->getOption('repair'));
             if ($state['notification_overdue_candidate']) {
-                $this->facts->recordRevocationOverdueCandidate($fact);
+                $facts->recordRevocationOverdueCandidate($fact);
             }
             $after = $fact['audit_id'];
             $results[] = ['fact_id' => $fact['fact_id'], 'audit_id' => $after] + $state;

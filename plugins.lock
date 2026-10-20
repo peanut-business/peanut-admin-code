@@ -765,7 +765,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "8034f67691bedff667a9c0ef25bdf6f38f814f2126199e5ed5ba2ed5d9ce3ff2"
+                "sha256": "34a14210a91093d3b6a9efa732f4d82be8beeb14201e024998bd880334729c7b"
             },
             "trust": {
                 "channel": "bundled",
@@ -867,7 +867,7 @@
                 }
             ],
             "manifest": "plugins/official.identity/plugin.json",
-            "manifest_sha256": "3bfdcc507d131948ea81330c994c61658372a6ef8494d3c6297e5bb66cacd8a4"
+            "manifest_sha256": "b526ed2d65cbdff768cc93023c48f19d8af7b749c4cc248a265a803467fb997f"
         },
         {
             "key": "official.import-export",
@@ -875,7 +875,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "1b5d2478ce07331b524f66089937de06de009c8085498801e0684fad6b5b697a"
+                "sha256": "c43aa1cd7d88dcb3697a66c703abecbb53c22596c278d1628334348368316eac"
             },
             "trust": {
                 "channel": "bundled",
@@ -984,7 +984,7 @@
                 }
             ],
             "manifest": "plugins/official.import-export/plugin.json",
-            "manifest_sha256": "bbb4f3199b8b875fa367aabbb516869940fa0308ed5f6bb4d0fc3e86ce0f108a"
+            "manifest_sha256": "a72119dcfb2936a17cd80153befd33918c720620bac8a2acf469f16c209bebe9"
         },
         {
             "key": "official.integration",
@@ -992,7 +992,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "10228be3dc3a71dfe4cbd62da0352fa034600066ce188819bca1a4af67f9d432"
+                "sha256": "e2d246ee38e42e42a8b93f8d2bad778a6618b182383735cb8b99cd7e0b9dac94"
             },
             "trust": {
                 "channel": "bundled",
@@ -1081,7 +1081,7 @@
                 }
             ],
             "manifest": "plugins/official.integration/plugin.json",
-            "manifest_sha256": "9ce7369015be774aec7c648747d49c41d06dbb9daaa63bd6f031d4491b53b6e6"
+            "manifest_sha256": "05cc94eb22ccdf0184c5922363b26c4a1f9f942069131c8a119199354c0fff54"
         },
         {
             "key": "official.member",

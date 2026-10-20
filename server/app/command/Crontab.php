@@ -21,9 +21,19 @@ use PeanutAdmin\Kernel\Tenancy\TenantScope;
  */
 class Crontab extends ContextualCommand
 {
+    public static function __make(\think\App $app): self
+    {
+        return new self(
+            $app->make(TaskScheduler::class),
+            $app->make(AdvisoryLockExecution::class),
+            $app->make(ExecutionContextStore::class),
+            $app->make(CurrentExecutionContext::class),
+        );
+    }
+
     public function __construct(
-        private readonly TaskScheduler $taskScheduler,
-        private readonly AdvisoryLockExecution $locks,
+        private readonly ?TaskScheduler $taskScheduler = null,
+        private readonly ?AdvisoryLockExecution $locks = null,
         ?ExecutionContextStore $contexts = null,
         ?CurrentExecutionContext $executionContext = null,
     ) {
@@ -42,11 +52,13 @@ class Crontab extends ContextualCommand
 
     protected function handle(Input $input, Output $output): int
     {
+        $locks = $this->locks ?? throw new \LogicException('COMMAND_DEPENDENCIES_NOT_INJECTED');
+        $scheduler = $this->taskScheduler ?? throw new \LogicException('COMMAND_DEPENDENCIES_NOT_INJECTED');
         try {
-            $this->locks->run(
+            $locks->run(
                 'peanut:crontab:scheduler',
                 0,
-                fn() => $this->taskScheduler->runDue(time()),
+                fn() => $scheduler->runDue(time()),
             );
         } catch (AdvisoryLockUnavailable) {
             return 0;
@@ -58,6 +70,6 @@ class Crontab extends ContextualCommand
     /** Compatibility entry for explicit trusted scheduler callers. */
     public function start(TenantScope $scope, array $item): void
     {
-        $this->taskScheduler->start($scope, $item);
+        ($this->taskScheduler ?? throw new \LogicException('COMMAND_DEPENDENCIES_NOT_INJECTED'))->start($scope, $item);
     }
 }

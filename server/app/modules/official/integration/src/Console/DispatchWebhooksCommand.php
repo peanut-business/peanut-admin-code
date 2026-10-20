@@ -15,7 +15,20 @@ use think\console\input\Option;
 /** One instance-maintenance invocation dispatches a bounded batch for one tenant. */
 final class DispatchWebhooksCommand extends ContextualCommand
 {
-    public function __construct(private readonly WebhookDispatcher $dispatcher, ExecutionContextStore $contexts, CurrentExecutionContext $execution)
+    public static function __make(\think\App $app): self
+    {
+        return new self(
+            $app->make(WebhookDispatcher::class),
+            $app->make(ExecutionContextStore::class),
+            $app->make(CurrentExecutionContext::class),
+        );
+    }
+
+    public function __construct(
+        private readonly ?WebhookDispatcher $dispatcher = null,
+        ?ExecutionContextStore $contexts = null,
+        ?CurrentExecutionContext $execution = null,
+    )
     {
         parent::__construct($contexts, $execution);
     }
@@ -41,8 +54,9 @@ final class DispatchWebhooksCommand extends ContextualCommand
         if (!is_string($limit) || preg_match('/^[1-9][0-9]{0,3}$/D', $limit) !== 1 || (int) $limit > 1000) {
             throw new \InvalidArgumentException('INTEGRATION_WEBHOOK_BATCH_INVALID');
         }
+        $dispatcher = $this->dispatcher ?? throw new \LogicException('COMMAND_DEPENDENCIES_NOT_INJECTED');
         $processed = 0;
-        while ($processed < (int) $limit && $this->dispatcher->runOne((int) $tenantId)) {
+        while ($processed < (int) $limit && $dispatcher->runOne((int) $tenantId)) {
             $processed++;
         }
         $output->writeln(json_encode(['processed' => $processed], JSON_THROW_ON_ERROR));

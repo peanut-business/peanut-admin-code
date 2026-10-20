@@ -39,12 +39,6 @@ final class ModuleProvider implements ModuleProviderContract
     public function bindings(): array
     {
         return [
-            \PeanutAdmin\Modules\Identity\Console\RevocationFactsCommand::class => static fn(\think\App $app) => new \PeanutAdmin\Modules\Identity\Console\RevocationFactsCommand(
-                $app->make(AuditService::class),
-                static fn() => $app->bound(\PeanutAdmin\Modules\Identity\Contract\RevocationFactDelivery::class) ? $app->make(\PeanutAdmin\Modules\Identity\Contract\RevocationFactDelivery::class) : null,
-                $app->make(\app\common\execution\ExecutionContextStore::class),
-                $app->make(\app\common\execution\CurrentExecutionContext::class),
-            ),
             \PeanutAdmin\Modules\Identity\Contract\RevocationFacts::class => AuditService::class,
             AuditService::class => static fn(\think\App $app): AuditService => new AuditService(
                 $app->make(\app\common\execution\CurrentExecutionContext::class),

@@ -947,7 +947,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3ae1068135958e8240044b2147666e9179c6eb4d59ae5b6728bc0ad4b51c186f"
+            "source_sha256": "71d642473bd90b378d9e90d886e0c977b50a30ea3d52e240a6ae9f937b6e2afc"
         },
         {
             "path": "docs/development/project-toolchain.md",
@@ -2457,7 +2457,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b68065d212a48d3338120237afa49b71bb91fc8bf84491abd8bd9b1d97812e74"
+            "source_sha256": "1a4da22662b1b74bb39a0f0a849df469db6d7bf6bfb4b33b5d1613b83dc3c2aa"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2594,7 +2594,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3bfdcc507d131948ea81330c994c61658372a6ef8494d3c6297e5bb66cacd8a4"
+            "source_sha256": "b526ed2d65cbdff768cc93023c48f19d8af7b749c4cc248a265a803467fb997f"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -2608,7 +2608,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bbb4f3199b8b875fa367aabbb516869940fa0308ed5f6bb4d0fc3e86ce0f108a"
+            "source_sha256": "a72119dcfb2936a17cd80153befd33918c720620bac8a2acf469f16c209bebe9"
         },
         {
             "path": "plugins/official.integration/plugin.json",
@@ -2622,7 +2622,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9ce7369015be774aec7c648747d49c41d06dbb9daaa63bd6f031d4491b53b6e6"
+            "source_sha256": "05cc94eb22ccdf0184c5922363b26c4a1f9f942069131c8a119199354c0fff54"
         },
         {
             "path": "plugins/official.member/plugin.json",
@@ -6414,7 +6414,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "34f69ddbde719c47165fd621cb61712b8d00d37bbb8a5e450f6f4af39ac152fd"
+            "source_sha256": "d1d8f2a975f2bb107bd61f187c8695aa05e49c69869a39f58ba5c1fa2bd6a8b9"
         },
         {
             "path": "server/app/command/CrontabDemo.php",
@@ -7690,7 +7690,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "014973e5ceca7de95855cd09b941c5a104c6955a110875013e05a6d9d86e365d"
+            "source_sha256": "7386310b731dbd03064d914a9063e1b2198da5ef47f5afc0476fd179fa132793"
         },
         {
             "path": "server/app/common/execution/CurrentExecutionContext.php",
@@ -13844,7 +13844,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dbdfff11fc47637a0c6a4cb423c26ecab5308493963a212a8b3f14904a465275"
+            "source_sha256": "7efdc853e6151925317ab2b421ce3233fec53279c465c90c8e7e2d2250cde7ed"
         },
         {
             "path": "server/app/modules/official/identity/src/Context/Persistence/ThinkPhpSystemTenantResolver.php",
@@ -14726,7 +14726,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0ae6a6a522b125fba47617789964bb4d4570bab1ae49c2f010441254b9b70eca"
+            "source_sha256": "23fedd4822a925abd6f434a2a7635cd651014e4484fea41370251b03767a130c"
         },
         {
             "path": "server/app/modules/official/identity/src/Organization/Application/DepartmentAdminService.php",
@@ -15538,7 +15538,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9a9d19cfd58926e9574299fafb135afe6e7e24df59139d860a57f76a40e40b9e"
+            "source_sha256": "a1dc4b979e901c8e09e5862b8abe0e279161e7ae5c602250bc87221aa378b746"
         },
         {
             "path": "server/app/modules/official/import_export/src/Contract/ConfigurationTransferCommands.php",
@@ -16561,7 +16561,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8e9fe6062b68e5d2d7d8850415ee856608300e1d92f85856f8bc7ab680971d01"
+            "source_sha256": "1930b39bd6ba29cffdcb284bb157ac919544ca6b5e141114a1e52330b6f9697f"
         },
         {
             "path": "server/app/modules/official/integration/src/Console/PurgeExpiredDeliveriesCommand.php",
@@ -16575,7 +16575,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f823aa8753349532427ddd2c78d251257c94fe53220cfc16e163e75342933060"
+            "source_sha256": "edf47cf1280b7035c814a4a68a24878ff1fd4825c310613b91b6270138b84f07"
         },
         {
             "path": "server/app/modules/official/integration/src/Contract/ExternalBindingQualification.php",

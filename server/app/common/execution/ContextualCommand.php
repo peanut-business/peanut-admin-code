@@ -8,7 +8,12 @@ use think\console\Command;
 use think\console\Input;
 use think\console\Output;
 
-/** Establishes one immutable execution context around every top-level CLI command. */
+/**
+ * Establishes one immutable execution context around every top-level CLI command.
+ * ThinkPHP's list descriptor constructs command metadata without the container:
+ * subclasses must allow zero-argument construction, while execution still
+ * requires the injected context and business dependencies.
+ */
 abstract class ContextualCommand extends Command
 {
     private bool $establishedInstanceContext = false;

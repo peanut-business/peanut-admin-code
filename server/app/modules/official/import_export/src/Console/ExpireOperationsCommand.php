@@ -15,7 +15,20 @@ use think\console\input\Option;
 /** 一次显式CLI调用处理一批；不注册HTTP入口或自动调度。 */
 final class ExpireOperationsCommand extends ContextualCommand
 {
-    public function __construct(private readonly ImportExportStore $store, ExecutionContextStore $contexts, CurrentExecutionContext $execution)
+    public static function __make(\think\App $app): self
+    {
+        return new self(
+            $app->make(ImportExportStore::class),
+            $app->make(ExecutionContextStore::class),
+            $app->make(CurrentExecutionContext::class),
+        );
+    }
+
+    public function __construct(
+        private readonly ?ImportExportStore $store = null,
+        ?ExecutionContextStore $contexts = null,
+        ?CurrentExecutionContext $execution = null,
+    )
     {
         parent::__construct($contexts, $execution);
     }
@@ -35,7 +48,7 @@ final class ExpireOperationsCommand extends ContextualCommand
         if (!is_string($limit) || preg_match('/^[1-9][0-9]{0,3}$/D', $limit) !== 1 || (int) $limit > 1000) {
             throw new \InvalidArgumentException('IMPORT_EXPORT_RETENTION_BATCH_INVALID');
         }
-        $expired = $this->store->expireDue((int) $limit);
+        $expired = ($this->store ?? throw new \LogicException('COMMAND_DEPENDENCIES_NOT_INJECTED'))->expireDue((int) $limit);
         $output->writeln(json_encode(['expired' => $expired, 'batch_limit' => (int) $limit], JSON_THROW_ON_ERROR));
         return 0;
     }

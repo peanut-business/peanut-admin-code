@@ -17,7 +17,20 @@ use think\console\input\Option;
 /** 一次CLI调用只提交一批；相同截止值重复调用继续，返回全零表示当前无可处理记录。 */
 final class PurgeExpiredDeliveriesCommand extends ContextualCommand
 {
-    public function __construct(private readonly ThinkPhpIntegrationSecurityRepository $store, ExecutionContextStore $contexts, CurrentExecutionContext $execution)
+    public static function __make(\think\App $app): self
+    {
+        return new self(
+            $app->make(ThinkPhpIntegrationSecurityRepository::class),
+            $app->make(ExecutionContextStore::class),
+            $app->make(CurrentExecutionContext::class),
+        );
+    }
+
+    public function __construct(
+        private readonly ?ThinkPhpIntegrationSecurityRepository $store = null,
+        ?ExecutionContextStore $contexts = null,
+        ?CurrentExecutionContext $execution = null,
+    )
     {
         parent::__construct($contexts, $execution);
     }
@@ -39,7 +52,7 @@ final class PurgeExpiredDeliveriesCommand extends ContextualCommand
         if (!is_string($limit) || preg_match('/^[1-9][0-9]{0,3}$/D', $limit) !== 1 || (int) $limit > 1000) {
             throw new \InvalidArgumentException('INTEGRATION_RETENTION_BATCH_INVALID');
         }
-        $result = $this->store->purgeExpiredDeliveryData(
+        $result = ($this->store ?? throw new \LogicException('COMMAND_DEPENDENCIES_NOT_INJECTED'))->purgeExpiredDeliveryData(
             $this->instant($input->getOption('payload-cutoff')),
             $this->instant($input->getOption('evidence-cutoff')),
             (int) $limit,
