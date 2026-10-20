@@ -257,7 +257,11 @@ def source_database_binding(server, ordinary=False):
         regular(identity_path, 0o644)
         manifest = json.loads(identity_path.read_text())
     else:
-        manifest = read_json(server.parent / '.peanut/application-manifest.json')
+        manifest_path = server.parent / '.peanut/application-manifest.json'
+        regular(manifest_path, 0o644)
+        if manifest_path.resolve() != manifest_path or manifest_path.stat().st_uid not in (0, server.stat().st_uid):
+            raise ValueError('source public APP manifest is not canonical or owned by this instance')
+        manifest = json.loads(manifest_path.read_text())
     rows = [row for row in registry.get('resources', {}).get('databases', [])
             if row.get('stable_resource_id') == value('PEANUT_DATABASE_RESOURCE_ID')]
     if registry.get('authority', {}).get('role') != 'application' \

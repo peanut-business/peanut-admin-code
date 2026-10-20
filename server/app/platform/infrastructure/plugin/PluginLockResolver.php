@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace app\platform\infrastructure\plugin;
 
 use app\common\infrastructure\module\ModuleHostLayoutFactory;
+use app\common\infrastructure\scaffold\ScaffoldUpgradeRunner;
 use app\common\validation\scaffold\ScaffoldPathGuard;
 use app\common\value\installation\ApplicationSourceIdentity;
 use app\common\value\installation\ServerReleaseIdentity;
@@ -32,6 +33,29 @@ final class PluginLockResolver
      */
     public static function forSourceUpgrade(string $projectRoot): array
     {
+        $root = self::sourceUpgradeRoot($projectRoot);
+        $serverIdentity = $root . '/server/.peanut/release-identity.json';
+        if (file_exists($serverIdentity) || is_link($serverIdentity)) {
+            throw new PluginLifecycleException('PLUGIN_SOURCE_UPGRADE_ROOT_INVALID', 'A server release cannot be resolved as a source application.');
+        }
+        return self::sourceUpgradeResolver($root)->resolve(true);
+    }
+
+    /** Only the actual native Runner can prove its live origin or protected runtime/preimage chain. */
+    public static function forInternalPreinstallSourceUpgrade(string $projectRoot, ScaffoldUpgradeRunner $issuer): array
+    {
+        $root = self::sourceUpgradeRoot($projectRoot);
+        $issuer->assertInternalPreinstallSourceGraph($root);
+        if (!file_exists($root . '/server/.peanut/release-identity.json')
+            && !is_link($root . '/server/.peanut/release-identity.json')) {
+            // The issuer has proved native retirement; the ordinary source role now applies.
+            return self::forSourceUpgrade($root);
+        }
+        return self::sourceUpgradeResolver($root)->resolve(true);
+    }
+
+    private static function sourceUpgradeRoot(string $projectRoot): string
+    {
         if (PHP_SAPI !== 'cli') {
             throw new PluginLifecycleException('PLUGIN_SOURCE_UPGRADE_CLI_REQUIRED', 'Full source resolution requires the CLI source-upgrade entry.');
         }
@@ -43,12 +67,12 @@ final class PluginLockResolver
                 'PLUGIN_SOURCE_UPGRADE_ROOT_INVALID',
             );
         }
-        $serverRoot = ScaffoldPathGuard::projectPath($root, 'server');
-        $serverIdentity = $serverRoot . '/.peanut/release-identity.json';
-        if (file_exists($serverIdentity) || is_link($serverIdentity)) {
-            throw new PluginLifecycleException('PLUGIN_SOURCE_UPGRADE_ROOT_INVALID', 'A server release cannot be resolved as a source application.');
-        }
-        $resolver = new self($serverRoot, '../plugins.lock');
+        return $root;
+    }
+
+    private static function sourceUpgradeResolver(string $root): self
+    {
+        $resolver = new self(ScaffoldPathGuard::projectPath($root, 'server'), '../plugins.lock');
         $manifest = $resolver->readJson($root . '/.peanut/application-manifest.json', 'PLUGIN_SOURCE_UPGRADE_ROOT_INVALID');
         if (($manifest['schema_version'] ?? null) !== 2
             || ($manifest['protocol'] ?? null) !== 'peanut.application-scaffold.v2'
@@ -56,7 +80,7 @@ final class PluginLockResolver
             || !is_array($manifest['files'] ?? null)) {
             throw new PluginLifecycleException('PLUGIN_SOURCE_UPGRADE_ROOT_INVALID', 'Source application metadata is invalid.');
         }
-        return $resolver->resolve(true);
+        return $resolver;
     }
 
     /** @return array<string,PluginDescriptor> */

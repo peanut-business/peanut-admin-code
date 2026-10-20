@@ -27,6 +27,58 @@ final class ScaffoldUpgradeRunner
     private static array $runtimeEventBinding = [];
     /** Present only after native internal-preinstall facts have been checked under the source/instance locks. */
     private ?array $internalPreinstall = null;
+    /** Issued only by fresh native origin checks or a fully validated runtime checkpoint in this process. */
+    private ?array $internalGraphOrigin = null;
+
+    /** Read-only graph admission for the existing Resolver; an arbitrary plan array is not an issuer. */
+    public function assertInternalPreinstallSourceGraph(string $projectRoot): void
+    {
+        $root = ScaffoldPathGuard::projectRoot($projectRoot);
+        $origin = $this->internalGraphOrigin;
+        if (PHP_SAPI !== 'cli' || $origin === null || $origin['root'] !== $root || $origin['pid'] !== getmypid()
+            || $this->internalPreinstall === null
+            || self::canonicalJson($origin['context']) !== self::canonicalJson($this->internalPreinstall)) {
+            throw new RuntimeException('INTERNAL_PREINSTALL_GRAPH_NATIVE_ISSUER_REQUIRED');
+        }
+        $server = $root . '/server'; $context = $origin['context'];
+        if ($origin['checkpoint'] === null) {
+            // The native factory was called under actual instance/DB locks, before any source write.
+            \PeanutServerUpdatePlan::recheckInternalPreinstallAnchors($server, $context);
+            foreach ($context['originals'] as $relative => $proof) {
+                if ($this->regularFileState($root . '/' . $relative, $relative)
+                    !== ['present' => true, 'sha256' => $proof['sha256'], 'mode' => $proof['mode']]) {
+                    throw new RuntimeException('INTERNAL_PREINSTALL_GRAPH_ORIGIN_CHANGED');
+                }
+            }
+            $actual = \app\common\value\installation\ServerReleaseIdentity::load($server)->document();
+            if (($actual['application']['kind'] ?? null) !== 'internal-candidate'
+                || ($actual['application']['formal_release_eligible'] ?? null) !== false
+                || hash_file('sha256', $server . '/.peanut/release-identity.json') !== $context['old_identity']['sha256']
+                || self::canonicalJson($actual) !== self::canonicalJson($context['old_identity']['document'])) {
+                throw new RuntimeException('INTERNAL_PREINSTALL_GRAPH_ORIGIN_INVALID');
+            }
+            return;
+        }
+        // Never load a changed R as the old release. The protected checkpoint proves original
+        // document bytes, current/held preimages, tools, package, and either r1 or real completion.
+        $state = $this->runtimeCheckpoint($origin['checkpoint'], $root);
+        $plan = $this->runtimePackage($root, $state);
+        if ($plan === null || self::canonicalJson($state['binding']['internal_preinstall'] ?? []) !== self::canonicalJson($context)
+            || self::canonicalJson($plan['identity']['internal_preinstall'] ?? []) !== self::canonicalJson($context)) {
+            throw new RuntimeException('INTERNAL_PREINSTALL_GRAPH_CHECKPOINT_CHANGED');
+        }
+        $pending = \PeanutServerUpdatePlan::sourcePending($server);
+        if ($pending === null) {
+            // Independent tools are prepared before an APP pending record or source mutation exists.
+            if ($state['phase'] !== 'tools-prepared' || isset($state['source_recovery'])) {
+                throw new RuntimeException('INTERNAL_PREINSTALL_GRAPH_PENDING_REQUIRED');
+            }
+        } elseif (($pending['checkpoint'] ?? null) !== $origin['checkpoint']
+            || ($pending['transition_id'] ?? null) !== $state['transition_id']
+            || ($pending['binding_sha256'] ?? null) !== hash('sha256', self::canonicalJson($state['binding']))) {
+            throw new RuntimeException('INTERNAL_PREINSTALL_GRAPH_PENDING_CHANGED');
+        }
+    }
 
     public static function sourceProductLock(string $root, callable $operation): mixed
     {
@@ -194,6 +246,8 @@ final class ScaffoldUpgradeRunner
         $to = ScaffoldManifest::load($toManifestPath);
         $sourceSelection = $this->validateUpgradeSourceSelection($root, $sourceSelection, $to);
         $internal = null;
+        $previousInternal = $this->internalPreinstall;
+        $previousGraphOrigin = $this->internalGraphOrigin;
         if (PHP_SAPI === 'cli' && $from->version() === $to->version() && is_file($root . '/server/.peanut/internal-candidate.json')) {
             require_once dirname(__DIR__, 2) . '/server/docker/scripts/update-plan.php';
             if ($sourceSelection !== null) { throw new RuntimeException('INTERNAL_PREINSTALL_NOT_PUBLISHED_RELEASE_SELECTION'); }
@@ -203,8 +257,10 @@ final class ScaffoldUpgradeRunner
         if ($internal !== null) {
             if (($from->data['edition'] ?? null) !== ($to->data['edition'] ?? null)
                 || ($to->data['edition']['name'] ?? null) !== 'multi-tenant') { throw new RuntimeException('INTERNAL_PREINSTALL_EDITION_CHANGED'); }
-            $this->internalPreinstall = $internal;
         }
+        $this->internalPreinstall = $internal;
+        $this->internalGraphOrigin = $internal === null ? null
+            : ['root' => $root, 'pid' => getmypid(), 'context' => $internal, 'checkpoint' => null];
         try {
         [$versionContract, $versionContractDigest] = $this->versionContract($root, $application);
         $fromParameters = $this->parameters($application, (string) $application['application']['version']);
@@ -296,7 +352,10 @@ final class ScaffoldUpgradeRunner
             'app_owned_pre_state' => $appOwnedState['files'],
             'actions' => $actions,
         ];
-        } finally { $this->internalPreinstall = null; }
+        } finally {
+            $this->internalPreinstall = $previousInternal;
+            $this->internalGraphOrigin = $previousGraphOrigin;
+        }
     }
 
     /** The raw native scaffold may change source; it cannot change any of the seven fixed dependency inputs. */
@@ -350,6 +409,8 @@ final class ScaffoldUpgradeRunner
             'server/app/platform/services/plugin/PluginLifecycleService.php',
             'server/app/common/services/installation/InstallationExecutionHost.php', 'server/database/install.php',
             'server/app/common/services/upgrade/SourceApplicationBackup.php',
+            'server/app/common/services/upgrade/ApplicationSchemaHost.php',
+            'server/app/platform/infrastructure/plugin/PluginLockResolver.php',
             'server/docker/scripts/update-plan.php', 'server/docker/scripts/update-recovery.py',
             'scripts/product-upgrade-host', 'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php', 'scripts/upgrade',
             'plugins/official.file/plugin.json', 'plugins/official.document/plugin.json',
@@ -1681,7 +1742,9 @@ final class ScaffoldUpgradeRunner
         try {
             // Controlled raw/derived graphs retain the ordinary full-lock verifier.
             $resolved = $sourceApplication
-                ? PluginLockResolver::forSourceUpgrade($root)
+                ? (($this->internalGraphOrigin['root'] ?? null) === $root
+                    ? PluginLockResolver::forInternalPreinstallSourceUpgrade($root, $this)
+                    : PluginLockResolver::forSourceUpgrade($root))
                 : (new PluginLockResolver(
                     ScaffoldPathGuard::projectPath($root, 'server'),
                     '../plugins.lock',
@@ -2642,6 +2705,27 @@ final class ScaffoldUpgradeRunner
 
     private function assertPluginProjection(string $root, array $plan, bool $applied = false): void
     {
+        if (isset($plan['identity']['internal_preinstall'])) {
+            $context = $plan['identity']['internal_preinstall'];
+            if (($this->internalGraphOrigin['root'] ?? null) === $root
+                && ($this->internalGraphOrigin['checkpoint'] ?? null) !== null
+                && (($this->internalGraphOrigin['candidate'] ?? null) !== $plan['candidate']
+                    || ($this->internalGraphOrigin['plan_sha256'] ?? null) !== $plan['plan_sha256'])) {
+                throw new RuntimeException('INTERNAL_PREINSTALL_GRAPH_PLAN_CHANGED');
+            }
+            if (($this->internalGraphOrigin['root'] ?? null) !== $root
+                || self::canonicalJson($this->internalGraphOrigin['context'] ?? []) !== self::canonicalJson($context)) {
+                require_once dirname(__DIR__, 2) . '/server/docker/scripts/update-plan.php';
+                $pending = \PeanutServerUpdatePlan::sourcePending($root . '/server');
+                if ($pending === null) { throw new RuntimeException('INTERNAL_PREINSTALL_GRAPH_PENDING_REQUIRED'); }
+                $state = $this->runtimeCheckpoint($pending['checkpoint'], $root);
+                if ($state['binding']['candidate'] !== $plan['candidate']
+                    || $state['binding']['plan_sha256'] !== $plan['plan_sha256']
+                    || self::canonicalJson($state['binding']['internal_preinstall'] ?? []) !== self::canonicalJson($context)) {
+                    throw new RuntimeException('INTERNAL_PREINSTALL_GRAPH_PLAN_CHANGED');
+                }
+            }
+        }
         $expected = $applied
             ? ($plan['identity']['plugin_target']['projection'] ?? $plan['identity']['plugin_projection'] ?? null)
             : ($plan['identity']['plugin_projection'] ?? null);
@@ -3081,6 +3165,11 @@ final class ScaffoldUpgradeRunner
         if (!is_array($data) || ($data['protocol'] ?? null) !== 'peanut.scaffold-upgrade-plan.v2' || preg_match('/^scaffold-[a-f0-9]{24}$/D', (string) ($data['candidate'] ?? '')) !== 1) {
             throw new RuntimeException('SCAFFOLD_PLAN_INVALID');
         }
+        if (isset($data['identity']['internal_preinstall'])
+            && ((fileperms($resolved) & 0777) !== 0600 || lstat($resolved)['nlink'] !== 1
+                || !in_array(fileowner($resolved), [0, fileowner($root)], true))) {
+            throw new RuntimeException('INTERNAL_PREINSTALL_GRAPH_PLAN_UNSAFE');
+        }
         $digest = hash('sha256', self::canonicalJson([$data['identity'] ?? null,$data['actions'] ?? null]));
         $expected = 'scaffold-' . substr($digest, 0, 24);
         if (!hash_equals($expected, $data['candidate'])
@@ -3196,6 +3285,14 @@ final class ScaffoldUpgradeRunner
      */
     private function assertAppliedState(string $root, array $plan): array
     {
+        $result = $this->assertAppliedFiles($root, $plan);
+        $this->assertPluginProjection($root, $plan, true);
+        return $result;
+    }
+
+    /** File/ownership afterimages are also used to prove old-program preimages before graph admission. */
+    private function assertAppliedFiles(string $root, array $plan): array
+    {
         [$application] = $this->applicationManifest($root);
         $to = ScaffoldManifest::load($plan['manifest_paths']['to']);
         $this->assertManifestDigest($to, $plan['identity']['to']['manifest_sha256']);
@@ -3218,7 +3315,6 @@ final class ScaffoldUpgradeRunner
         if (!hash_equals($plan['identity']['app_owned_pre_sha256'], $actualAppOwned['digest'])) {
             throw new RuntimeException('SCAFFOLD_VERIFY_APP_OWNED_CHANGED');
         }
-        $this->assertPluginProjection($root, $plan, true);
         foreach ($application['files'] as $file) {
             if (!in_array($file['classification'], ['managed', 'generated-managed'], true)) {
                 continue;
@@ -3349,6 +3445,10 @@ final class ScaffoldUpgradeRunner
                 \PeanutServerUpdatePlan::recheckInternalPreinstallAnchors($server, $state['binding']['internal_preinstall']);
             }
             $this->runtimeOldProgram($root, $state);
+            $this->internalPreinstall = $state['binding']['internal_preinstall'];
+            $this->internalGraphOrigin = ['root' => $root, 'pid' => getmypid(),
+                'context' => $this->internalPreinstall, 'checkpoint' => $path,
+                'candidate' => $state['binding']['candidate'], 'plan_sha256' => $state['binding']['plan_sha256']];
         } else { \PeanutServerUpdatePlan::assertSourceInstallationAnchors($server, $state['binding']['deployment']); }
         return $state;
     }
@@ -3614,7 +3714,7 @@ final class ScaffoldUpgradeRunner
                     : ['present' => true, 'sha256' => $intent['after']['sha256'], 'mode' => $intent['after']['mode']];
                 if ($intent['before'] !== $expected || $actual !== $after) { throw new RuntimeException('SOURCE_RUNTIME_INTERNAL_AUTHORITY_DRIFT'); }
             } elseif ($relative === '.peanut/application-manifest.json') {
-                $this->assertAppliedState($root, $plan);
+                $this->assertAppliedFiles($root, $plan);
             } else {
                 $action = $actions[$relative] ?? null;
                 if ($action === null || !in_array($action['action'], ['create', 'replace', 'regenerate'], true)
@@ -3935,6 +4035,9 @@ final class ScaffoldUpgradeRunner
                 $from = ScaffoldManifest::load($plan['manifest_paths']['from']); $to = ScaffoldManifest::load($plan['manifest_paths']['to']);
                 $internal = \PeanutServerUpdatePlan::internalPreinstallContext($root . '/server', $from->release(), $to->release());
                 if ($internal === null || self::canonicalJson($internal) !== self::canonicalJson($plan['identity']['internal_preinstall'])) { throw new RuntimeException('SOURCE_RUNTIME_INTERNAL_FRONTIER_CHANGED'); }
+                $this->internalPreinstall = $internal;
+                $this->internalGraphOrigin = ['root' => $root, 'pid' => getmypid(),
+                    'context' => $internal, 'checkpoint' => null];
                 $old = $internal['old_identity']['document']; $oldSha = $internal['old_identity']['sha256'];
                 $deployment = \PeanutServerUpdatePlan::internalPreinstallDeployment($root . '/server', $internal);
             } else {
