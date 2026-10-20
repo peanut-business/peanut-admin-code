@@ -948,7 +948,11 @@ def development_runtime(source: Path, target: Path, source_admission: Path | Non
         '"tenant_bootstrap"=>$s->tenantBootstrapContract($s->applicationIdentity()["edition"])]);',
         str(source), str(helper_root)])
     declaration = json.loads(identity.stdout)
-    execute('locks', ['node', str(regular_file(source, 'scripts/release-dependency-locks.mjs')), str(source), '--installed'])
+    lock_arguments = ['node', str(regular_file(source, 'scripts/release-dependency-locks.mjs')), str(source)]
+    # Packaged internal runtimes carry fixed archives/assets, not the four clients' development node_modules.
+    # Their actual source/locks and archive identities are fenced by the native verified proof and checks below.
+    if internal is None: lock_arguments.append('--installed')
+    execute('locks', lock_arguments)
     execute('vendor', ['python3', str(regular_file(source, 'server/docker/scripts/vendor-state.py')), 'check', '--server', str(source/'server')])
     vendor_receipt = document(source, 'server/vendor/.peanut-complete.json')
     native_archives = vendor_receipt.get('local_archives', {})

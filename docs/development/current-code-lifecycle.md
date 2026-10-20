@@ -208,6 +208,8 @@ open 仍须原生安装完成及当前 admitted／未激活证明、真实部署
 
 真实 Runner 在原锁内重新读取现有 verified source proof，调用既有 internal Resolver 完整图检查，并在检查前后比对图全部 artifact、模块/前端根（包含新增文件、空目录）、源身份及依赖声明输入。结果经该次父子管道交给受审第三 producer；producer 只接该保护事务、原 plan/完整 verified ledger/source proof 及相同输入，独立核 canonical 模块与前端内容、manifest/lock pins，生成前后重核输入 fence。它复用已经完成的真实图证明，不在子进程伪造 issuer，不放宽普通 `forSourceUpgrade` 的 release 根拒绝。PHP helper 仍从原 trusted 加载。准确同 R 投影完成后，原冻结 host 的 source-project 再核全部后像；原身份退休、写意图、CAS head、native admission 和安装后 open 继续原链，不用其他 APP 或新运行实例替代。
 
+该有限 internal 投影消费的是已交付运行候选，不要求其中存在四客户端开发用 node_modules；其 locks 子步骤沿原生声明及 Composer 来源校验，不传普通开发投影的 `--installed`。普通入口仍执行该参数。原 verified proof 的 managed/app-owned 摘要和前后 fence 保留实际源码与锁字节，六份 Web 归档继续逐份核摘要，真实 PHP vendor 继续原生 completed proof、vendor-check 与 vendor-state 检查。它不安装前端依赖、不重新构建客户端，也不把投影成功当作重新完成包级安装资格。
+
 该有限维护入口将每次 child 的原始 stdout/stderr 保存到原 W/recovery 内 action/顺序/阶段专属的 0600、独占新建文件，目录保持原 owner 私有；producer 的原 PHP/node/vendor 子进程同样在抛错前保存原字节。日志不存环境或额外命令凭据，不回显原始 stderr；对外只返回阶段、退出码和摘要，原始文件仅在本地受保护证据中读取。没有为了采日志单独重放动作；部分投影、未知 vendor/journal 或写入失败均保全并停止对应动作，不能删除现场或靠重用 action 名字重试。原失败次数保留，新的明确工程授权下实际次数单独记录；源码修复不自带运行、数据库恢复、清库或发布授权。
 
 尚未写源码的 `preparing` 取消与源码恢复分开。prepare 和 preparing-cancel 检查同 candidate 的完整账本；只有 operation=`preflight`、status=`ready` 且原 plan／identity 摘要完全相同的事件属于只读前置。任一 started、failed、recovered、实际变更或未知事件均阻止该分支，后来的 READY 不能遮盖旧事件；通用账本状态和 applied／verified 的实际证明不变。
