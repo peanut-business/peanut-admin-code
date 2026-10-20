@@ -79,6 +79,7 @@ final class EditionProjector
             if ($path === 'server/composer.json') {
                 $composer = json_decode($content, true, 128, JSON_THROW_ON_ERROR);
                 unset($composer['autoload']['psr-4']['PeanutAdmin\\Fixtures\\WorkflowBusiness\\']);
+                unset($composer['autoload']['psr-4']['PeanutAdmin\\Fixtures\\DeliveryRecord\\']);
                 if ($mode === 'none') {
                     unset($composer['autoload']['psr-4']['PeanutAdmin\\Modules\\Workflow\\']);
                 }
