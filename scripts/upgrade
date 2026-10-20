@@ -276,7 +276,7 @@ function productUpgradeSourceToolAdmission(string $path, string $checkpoint, arr
         $head = null; $generation = 0;
         if (file_exists($deploymentPath) || is_link($deploymentPath)) {
             if (realpath($deploymentPath) !== $deploymentPath || !is_file($deploymentPath) || lstat($deploymentPath)['nlink'] !== 1
-                || (fileperms($deploymentPath) & 0777) !== 0600 || !in_array(fileowner($deploymentPath), [0, $owner], true)) {
+                || (fileperms($deploymentPath) & 0777) !== 0644 || !in_array(fileowner($deploymentPath), [0, $owner], true)) {
                 throw new RuntimeException('SOURCE_TOOL_RESUME_HEAD_UNSAFE');
             }
             $head = hash_file('sha256', $deploymentPath);
