@@ -5112,7 +5112,7 @@ final class ScaffoldUpgradeRunner
         if (($this->sourceToolCorrection['document']['repair'] ?? null) === 'head-published-admission') {
             // Original observe and the existing partial plan/backup/apply/completion all use this host namespace.
             // A fresh APP process keeps its own R loader; the immutable native helper and every anchor check stay intact.
-            $tool = $state['binding']['workspace'] . '/tools/update-plan.php';
+            $tool = $state['binding']['workspace'] . '/trusted/server/docker/scripts/update-plan.php';
             ScaffoldPathGuard::existingFileWithin($state['binding']['workspace'], $tool, 'SOURCE_RUNTIME_NATIVE_ADMISSION_TOOL_UNSAFE');
             if (hash_file('sha256', $tool) !== $state['binding']['tools']['server/docker/scripts/update-plan.php']) {
                 throw new RuntimeException('SOURCE_RUNTIME_NATIVE_ADMISSION_TOOL_CHANGED');
