@@ -993,9 +993,9 @@ final class PeanutServerUpdatePlan
         // maintainer configuration. Use the APP's existing pure registry readers and native PDO.
         $external = getenv('PEANUT_RESOURCE_REGISTRY');
         if (is_string($external) && trim($external) !== '') { throw new RuntimeException('partial APP source adoption forbids an external registry'); }
-        // Maintenance uses its authenticated tool graph and treats R as data only.
-        // Native admission/APP processes retain their own R reader and loader.
-        require_once ($frozen ? dirname(__DIR__, 2) : $root) . '/database/resource-registry.php';
+        // Load one reader from this helper's tool graph; the target registry and
+        // endpoints remain explicit R inputs, including during predecessor rechecks.
+        require_once dirname(__DIR__, 2) . '/database/resource-registry.php';
         $env = parse_ini_file($root . '/.env', false, INI_SCANNER_RAW);
         if (!is_array($env) || ($env['APP_ENV'] ?? null) !== 'development'
             || ($env['PEANUT_DEPLOYMENT_TARGET'] ?? null) !== 'local-multi-tenant-demo'
