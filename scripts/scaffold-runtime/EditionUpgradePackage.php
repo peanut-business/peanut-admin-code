@@ -83,6 +83,27 @@ final class EditionUpgradePackage
         return $prepared;
     }
 
+    /** Reuse the authenticated predecessor's sealed target snapshot; do not rebuild a different baseline. */
+    public function preparePartialSourceSuccessor(string $projectRoot, string $packageRoot, string $predecessor): array
+    {
+        $root = ScaffoldPathGuard::projectRoot($projectRoot);
+        if (!class_exists(\PeanutServerUpdatePlan::class, false)) { require_once dirname(__DIR__, 2) . '/server/docker/scripts/update-plan.php'; }
+        return ScaffoldUpgradeRunner::sourceProductLock($root, fn(): array => \PeanutServerUpdatePlan::withSourceInstanceLock($root . '/server',
+            function () use ($root, $packageRoot, $predecessor): array {
+                $previous = \app\common\services\upgrade\SourceApplicationBackup::protectedPluginJson($predecessor, $root . '/server');
+                $plan = \app\common\services\upgrade\SourceApplicationBackup::protectedPluginJson($previous['binding']['plan_path'], $root . '/server');
+                $from = ScaffoldManifest::load($plan['manifest_paths']['to']);
+                $toPath = ScaffoldPathGuard::existingFileWithin($packageRoot, $packageRoot . '/scaffold-manifest.json', 'SOURCE_SUCCESSOR_TARGET_UNSAFE');
+                $to = ScaffoldManifest::load($toPath);
+                $context = \PeanutServerUpdatePlan::sourceSuccessorContext($root . '/server', $from->release(), $to->release());
+                if ($context['predecessor']['checkpoint']['path'] !== $predecessor
+                    || $context['source_manifest']['path'] !== $from->path || 'sha256:' . $context['source_manifest']['sha256'] !== $from->digest()) {
+                    throw new RuntimeException('SOURCE_SUCCESSOR_BASELINE_CHANGED');
+                }
+                return ['from_manifest' => $from->path, 'to_manifest' => $to->path];
+            }));
+    }
+
     /** Authenticate a formal package without writing source-baseline metadata. */
     public function prepareAdoption(string $projectRoot, string $packageRoot): array
     {

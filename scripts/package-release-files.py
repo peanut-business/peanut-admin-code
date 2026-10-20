@@ -817,21 +817,45 @@ def internal_projection_context(source: Path, target: Path, admission_path: Path
     if admission_path.parent != workspace / 'recovery' or workspace.resolve() != workspace or workspace.stat().st_mode & 0o077:
         raise ValueError('projection workspace is unsafe')
     state = private(checkpoint); recorded = state.pop('state_sha256', None); binding = state['binding']
+    successor = admission.get('protocol') == 'peanut.partial-source-projection.v1'
     if recorded != hashlib.sha256(canonical(state)).hexdigest() or state.get('protocol') != 'peanut.source-runtime-transition.v1' \
             or state['phase'] != 'source-verified' or state['activation_started'] is not False or state['intents'] \
             or binding['instance_root'] != str(source) or binding['workspace'] != str(workspace) \
-            or binding.get('source_input_kind') != 'raw-internal-preinstall-scaffold' or 'internal_preinstall' not in binding \
             or target != workspace / 'prepared' or target.exists() or target.is_symlink() \
-            or admission.get('protocol') != 'peanut.applied-source-tool-admission.v1' or admission.get('command') != 'runtime-transition' \
-            or admission.get('repair') != 'source-verified-projection' or admission.get('maximum_uses') != 1 \
             or admission.get('instance_root') != str(source) or admission.get('candidate') != binding['candidate'] \
             or admission.get('checkpoint_sha256') != digest(checkpoint):
         raise ValueError('projection is not the current verified internal transaction')
-    pins = admission['corrected_source']['files']
-    if list(pins) != ['scripts/upgrade', 'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php', 'scripts/package-release-files.py'] \
-            or Path(__file__).resolve() != Path(admission['corrected_source']['root']) / 'scripts/package-release-files.py' \
-            or digest(Path(__file__).resolve()) != pins['scripts/package-release-files.py']['sha256']:
-        raise ValueError('projection producer is not the exact admitted third tool')
+    if successor:
+        context = binding.get('source_successor', {})
+        pending = document(source, 'server/runtime/upgrade/source-transition.json')
+        predecessor = context.get('predecessor', {}).get('checkpoint', {})
+        private(Path(predecessor['path']))
+        if binding.get('source_input_kind') != 'raw-partial-source-successor-scaffold' \
+                or context.get('protocol') != 'peanut.partial-source-successor.v1' \
+                or context.get('server_root') != str(source / 'server') \
+                or pending.get('transition_id') != state['transition_id'] \
+                or pending.get('checkpoint') != str(checkpoint) \
+                or pending.get('binding_sha256') != hashlib.sha256(canonical(binding)).hexdigest() \
+                or digest(Path(predecessor['path'])) != predecessor['sha256'] \
+                or Path(__file__).resolve() != workspace / 'trusted/scripts/package-release-files.py' \
+                or digest(Path(__file__).resolve()) != binding['tools']['scripts/package-release-files.py']:
+            raise ValueError('projection is not the active frozen source successor')
+        receipt = private(source / 'server/private/partial-installation/source-successors' / (state['transition_id'] + '.json'))
+        if receipt.get('protocol') != 'peanut.partial-source-handoff.v1' or receipt.get('owner_root') != str(source / 'server') \
+                or receipt.get('predecessor') != context or receipt.get('successor_transition_id') != state['transition_id'] \
+                or receipt.get('successor_binding_sha256') != hashlib.sha256(canonical(binding)).hexdigest() \
+                or re.fullmatch('[a-f0-9]{64}', receipt.get('hmac_sha256', '')) is None:
+            raise ValueError('projection handoff differs from the native parent receipt')
+    else:
+        if binding.get('source_input_kind') != 'raw-internal-preinstall-scaffold' or 'internal_preinstall' not in binding \
+                or admission.get('protocol') != 'peanut.applied-source-tool-admission.v1' or admission.get('command') != 'runtime-transition' \
+                or admission.get('repair') != 'source-verified-projection' or admission.get('maximum_uses') != 1:
+            raise ValueError('projection requires its original finite repair admission')
+        pins = admission['corrected_source']['files']
+        if list(pins) != ['scripts/upgrade', 'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php', 'scripts/package-release-files.py'] \
+                or Path(__file__).resolve() != Path(admission['corrected_source']['root']) / 'scripts/package-release-files.py' \
+                or digest(Path(__file__).resolve()) != pins['scripts/package-release-files.py']['sha256']:
+            raise ValueError('projection producer is not the exact admitted third tool')
     # The pipe is an ephemeral result handoff. Its claims are also bound to the existing protected proof and ledger.
     if not stat.S_ISFIFO(os.fstat(0).st_mode): raise ValueError('projection requires the native parent pipe')
     handoff = json.loads(sys.stdin.buffer.read(32 * 1024 * 1024 + 1))

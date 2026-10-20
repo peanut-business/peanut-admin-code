@@ -255,7 +255,13 @@ APP 的 `plan` 输入为原 Setup Token（guided）及 `backup_tool`：该值是
 
 APP plan 先创建原 authority/plan_id，再由同一既有 SSH/Docker adapter 的独立 Root client 执行固定只读身份、权限和目标 metadata 语句，不替换普通 PDO。客户端实际证明全局 SELECT、目标 TRIGGER 可见性及未启用 partial revokes，核 UUID、host/port、版本、schema、resource/endpoint；只观察目标全表结构、目标 triggers 和触及目标的入向/出向 FK，不读取业务行或扫描其他 schema DDL。请求和真实终态回执在原私有目录保留 0600、摘要和 HMAC，绑定原 runtime/checkpoint/head、PHP/Core、工具/adapter、窗口、nonce 和有效期；手写 JSON、布尔值或历史外部 dump 不能替代。初次 proof 引用及稳定语义进入原 plan/baseline/accepted backup，后续新采集的时间、路径和进程回执独立验证，不以新回执字节等同旧回执。
 
-完整 facts 在普通 PDO 的只读事务开始前采集 metadata，随后在只读快照核实际全表覆盖及普通 SHOW CREATE 摘要；备份前后、apply 前继续完整重检。原 apply guard 在模块合法 DDL 后重新证明当前全部对象的覆盖、完整可见性和相同 effect policy，不强求旧 DDL 全集不变。采集回调只核身份、锁、工具、窗口和调用者事务状态，不递归调用 facts，不跳过原 guard。采集失败保留输出和进程终态，阻止相应动作，不自动重试；这些源码合同不证明真实描述文件、网络、采集或备份已经通过。
+固定 metadata SQL 将外键 `IS_LOCAL_PARENT` 显式编码为无符号整数 0/1，和严格解析器及后续 effect scope 的整数合同一致；不依赖 MySQL JSON 对比较表达式的布尔编码，也不放宽解析器接受类型。完整 facts 在普通 PDO 的只读事务开始前采集 metadata，随后在只读快照核实际全表覆盖及普通 SHOW CREATE 摘要；备份前后、apply 前继续完整重检。原 apply guard 在模块合法 DDL 后重新证明当前全部对象的覆盖、完整可见性和相同 effect policy，不强求旧 DDL 全集不变。采集回调只核身份、锁、工具、窗口和调用者事务状态，不递归调用 facts，不跳过原 guard。采集失败保留输出和进程终态，阻止相应动作，不自动重试；这些源码合同不证明真实描述文件、网络、采集或备份已经通过。
+
+已完成源码采用且仍处于 `admitted`、未激活的 partial APP，若真实 APP 代码需要修正，使用显式源码后继事务。`plan --scope=source --instance-root=APP --package=FIXED_RAW_TARGET --partial-source-successor=PREVIOUS_W/source-runtime.json` 复用前任已认证目标 snapshot，核对当前完整 runtime、应用来源、head、partial 锚、工具和完成的 vendor journal；目标必须有不同固定 commit/tree，应用选择、同版本开发合同及七个 Core 输入保持一致。新计划仍走原三方分类与完整来源验证，不接受直接覆盖 APP 文件、手改 manifest/hash、借四工具维护准入加载 APP 类或用 `runtime-refreeze` 冒充源码升级。
+
+随后以新 W、新计划及真实前任 head/generation 调用 `runtime-prepare`，同时传入同一 `--partial-source-successor`。原产品锁、项目锁和真实 instance lock 内，原生入口只允许全部程序意图已完成、流量关闭的前任接班；先保存 owner HMAC 收据及精确前任 checkpoint、计划、snapshot、vendor 和来源证明引用，再将活动 pointer 交给新事务。前任 W/P 及其状态保持原样，不伪标 `opened/recovered`；正常入口拒绝已被接替的旧 W 命令。交接失败保留实际 checkpoint、收据和活动 pointer，不自动回退或重发动作。新 W 的 `apply → verify → runtime-transition` 继续使用原恢复前像、完整源码图、受保护父子投影、程序意图和 head CAS；原 head 字节进入正常部署历史，真实新来源推进 generation。
+
+后继投影的 producer 来自新 W 的固定工具，消费当前已验证源码 proof 和真实完整图，不要求打包 APP 拥有客户端开发依赖目录。新的 native admit 与 partial plan/backup/apply/completion 使用同一固定宿主 PHP 和真实锁转交，安装完成仍生成 installed pair 后再沿原 Docker open。新源码改变 adapter 摘要，因此必须新采集 metadata、生成新 partial plan，并取得匹配全部当前表及原件的原生备份；旧失败输出与次数保留，不能移用旧 metadata/plan/backup 或给旧额度归零。Core、API、前端等未变输入的既有证据按其实际合同复用；源码、运行、真实业务和发布资格分别记账。
 
 APP 的 `backup` 提供原 `plan` 和新 `backup_output`；`apply` 提供原 `plan` 和原生 `backup.json`。二者复用原完整 native dump/probe/process 与 accepted-capture 消费者，拒绝外部运维摘要替代。六个真实原文件均保留原路径和摘要；仅 canonical `server/.peanut/development-runtime.json` 原件接受正常 0644 或 0600，读取前后核 owner/group/mode/device/inode/size/hash，备份及 RESTORE 元数据保留其真实原模式。其他原件和全部备份 payload 仍为 0600；不改原件权限，不用副本假冒原件。
 

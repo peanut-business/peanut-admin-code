@@ -33,6 +33,8 @@ final class ScaffoldUpgradeRunner
     private ?array $internalGraphOrigin = null;
     /** Only the protected, currently checked maintenance admission selects the fixed third producer. */
     private ?array $sourceToolCorrection = null;
+    /** Only runtimeCheckpoint can issue this process-local context after the authenticated pointer handoff. */
+    private ?array $sourceSuccessorOrigin = null;
     private int $diagnosticSequence = 0;
 
     /** Read-only graph admission for the existing Resolver; an arbitrary plan array is not an issuer. */
@@ -234,8 +236,8 @@ final class ScaffoldUpgradeRunner
     public function preview(string $projectRoot, string $fromManifestPath, string $toManifestPath, ?array $sourceSelection = null): array
     {
         $root = ScaffoldPathGuard::projectRoot($projectRoot);
-        if (PHP_SAPI === 'cli' && is_file($root . '/server/.peanut/internal-candidate.json')
-            && !file_exists($root . '/server/.peanut/development-runtime.json')) {
+        if (PHP_SAPI === 'cli' && (is_file($root . '/server/.peanut/internal-candidate.json')
+            || is_file($root . '/server/.peanut/development-runtime.json'))) {
             if (!class_exists(\PeanutServerUpdatePlan::class, false)) { require_once dirname(__DIR__, 2) . '/server/docker/scripts/update-plan.php'; }
             return self::sourceProductLock($root, fn(): array => \PeanutServerUpdatePlan::withSourceInstanceLock($root . '/server',
                 fn(): array => $this->previewSource($root, $fromManifestPath, $toManifestPath, $sourceSelection)));
@@ -251,6 +253,7 @@ final class ScaffoldUpgradeRunner
         $to = ScaffoldManifest::load($toManifestPath);
         $sourceSelection = $this->validateUpgradeSourceSelection($root, $sourceSelection, $to);
         $internal = null;
+        $successor = null;
         $previousInternal = $this->internalPreinstall;
         $previousGraphOrigin = $this->internalGraphOrigin;
         if (PHP_SAPI === 'cli' && $from->version() === $to->version() && is_file($root . '/server/.peanut/internal-candidate.json')) {
@@ -258,7 +261,20 @@ final class ScaffoldUpgradeRunner
             if ($sourceSelection !== null) { throw new RuntimeException('INTERNAL_PREINSTALL_NOT_PUBLISHED_RELEASE_SELECTION'); }
             $internal = \PeanutServerUpdatePlan::internalPreinstallContext($root . '/server', $from->release(), $to->release());
         }
-        $this->assertReleaseChain($application, $from, $to, $internal !== null);
+        if (PHP_SAPI === 'cli' && $from->version() === $to->version() && is_file($root . '/server/.peanut/development-runtime.json')) {
+            if (!class_exists(\PeanutServerUpdatePlan::class, false)) { require_once dirname(__DIR__, 2) . '/server/docker/scripts/update-plan.php'; }
+            if ($sourceSelection !== null) { throw new RuntimeException('PARTIAL_SOURCE_NOT_PUBLISHED_RELEASE_SELECTION'); }
+            $origin = $this->sourceSuccessorOrigin;
+            $active = \PeanutServerUpdatePlan::sourcePending($root . '/server');
+            if (($origin['root'] ?? null) === $root && ($origin['pid'] ?? null) === getmypid()
+                && ($active['transition_id'] ?? null) === $origin['transition_id']
+                && hash_file('sha256', $origin['checkpoint']['path']) === $origin['checkpoint']['sha256']
+                && self::canonicalJson($origin['from']) === self::canonicalJson($this->releaseIdentity($from))
+                && self::canonicalJson($origin['to']) === self::canonicalJson($this->releaseIdentity($to))) {
+                $successor = $origin['context'];
+            } else { $successor = $this->runtimeSuccessorContext($root, $from, $to); }
+        }
+        $this->assertReleaseChain($application, $from, $to, $internal !== null || $successor !== null);
         if ($internal !== null) {
             if (($from->data['edition'] ?? null) !== ($to->data['edition'] ?? null)
                 || ($to->data['edition']['name'] ?? null) !== 'multi-tenant') { throw new RuntimeException('INTERNAL_PREINSTALL_EDITION_CHANGED'); }
@@ -271,7 +287,7 @@ final class ScaffoldUpgradeRunner
         $fromParameters = $this->parameters($application, (string) $application['application']['version']);
         $instanceVersion = $this->instanceVersion($versionContract);
         $targetParameters = $this->parameters($application, $instanceVersion);
-        if ($internal !== null) {
+        if ($internal !== null || $successor !== null) {
             $this->assertInternalCoreInputs($root, $to, $targetParameters, $versionContract);
             $this->assertInternalSourceDelta($from, $to);
         }
@@ -327,6 +343,10 @@ final class ScaffoldUpgradeRunner
         if ($internal !== null) {
             $identity['kind'] = 'internal-candidate-preinstall-correction';
             $identity['internal_preinstall'] = $internal;
+        }
+        if ($successor !== null) {
+            $identity['kind'] = 'development-partial-source-correction';
+            $identity['source_successor'] = $successor;
         }
         $deployment = $root . '/server/private/installation/deployment.json';
         if (is_file($deployment) || is_link($deployment)) {
@@ -3246,7 +3266,7 @@ final class ScaffoldUpgradeRunner
         if (!is_array($data) || ($data['protocol'] ?? null) !== 'peanut.scaffold-upgrade-plan.v2' || preg_match('/^scaffold-[a-f0-9]{24}$/D', (string) ($data['candidate'] ?? '')) !== 1) {
             throw new RuntimeException('SCAFFOLD_PLAN_INVALID');
         }
-        if (isset($data['identity']['internal_preinstall'])
+        if ((isset($data['identity']['internal_preinstall']) || isset($data['identity']['source_successor']))
             && ((fileperms($resolved) & 0777) !== 0600 || lstat($resolved)['nlink'] !== 1
                 || !in_array(fileowner($resolved), [0, fileowner($root)], true))) {
             throw new RuntimeException('INTERNAL_PREINSTALL_GRAPH_PLAN_UNSAFE');
@@ -3505,6 +3525,7 @@ final class ScaffoldUpgradeRunner
 
     private function runtimeCheckpoint(string $path, string $root): array
     {
+        $this->sourceSuccessorOrigin = null;
         $state = $this->runtimeRead($path);
         $digest = $state['state_sha256'] ?? null;
         unset($state['state_sha256']);
@@ -3543,6 +3564,28 @@ final class ScaffoldUpgradeRunner
                 'context' => $this->internalPreinstall, 'checkpoint' => $path,
                 'candidate' => $state['binding']['candidate'], 'plan_sha256' => $state['binding']['plan_sha256']];
         } else { \PeanutServerUpdatePlan::assertSourceInstallationAnchors($server, $state['binding']['deployment']); }
+        if (isset($state['binding']['source_successor'])) {
+            $binary = $state['binding']['native_php_binary'];
+            if ($binary['path'] !== PHP_BINARY || realpath(PHP_BINARY) !== PHP_BINARY || hash_file('sha256', PHP_BINARY) !== $binary['sha256']) {
+                throw new RuntimeException('SOURCE_SUCCESSOR_PHP_BINARY_CHANGED');
+            }
+            $active = \PeanutServerUpdatePlan::sourcePending($server);
+            if (($active['transition_id'] ?? null) === $state['transition_id']) {
+                \PeanutServerUpdatePlan::assertSourceSuccessorReceipt($server, $state);
+                $plan = $this->runtimePackage($root, $state);
+                $this->sourceSuccessorOrigin = ['root' => $root, 'pid' => getmypid(), 'context' => $state['binding']['source_successor'],
+                    'transition_id' => $state['transition_id'], 'checkpoint' => ['path' => $path, 'sha256' => hash_file('sha256', $path)],
+                    'from' => array_diff_key($plan['identity']['from'], ['generation_source' => true]), 'to' => $plan['identity']['to']];
+            } elseif (in_array($state['phase'], ['tools-prepared', 'preparing', 'prepared'], true)
+                && $state['intents'] === [] && !isset($state['source_proof']) && !isset($state['published_head_sha256'])) {
+                $plan = $this->runtimePackage($root, $state);
+                $from = ScaffoldManifest::load($plan['manifest_paths']['from']); $to = ScaffoldManifest::load($plan['manifest_paths']['to']);
+                $actual = $this->runtimeSuccessorContext($root, $from, $to);
+                if (self::canonicalJson($actual) !== self::canonicalJson($state['binding']['source_successor'])) {
+                    throw new RuntimeException('SOURCE_SUCCESSOR_PREDECESSOR_CHANGED');
+                }
+            } else { throw new RuntimeException('SOURCE_SUCCESSOR_NO_LONGER_ACTIVE'); }
+        }
         return $state;
     }
 
@@ -3764,10 +3807,41 @@ final class ScaffoldUpgradeRunner
         return ['files' => $files, 'directories' => $directories];
     }
 
+    /** Reuse the original whole-source verifier as an input fence; never append an event or rewrite the predecessor. */
+    private function runtimeSuccessorContext(string $root, ScaffoldManifest $from, ScaffoldManifest $to): array
+    {
+        $context = \PeanutServerUpdatePlan::sourceSuccessorContext($root . '/server', $from->release(), $to->release());
+        $saved = [$this->internalPreinstall, $this->internalGraphOrigin, $this->sourceSuccessorOrigin];
+        try {
+            $previous = $this->runtimeCheckpoint($context['predecessor']['checkpoint']['path'], $root);
+            if ($this->runtimeVerifiedSource($root, $previous) !== $previous['source_proof']) {
+                throw new RuntimeException('SOURCE_SUCCESSOR_PREDECESSOR_SOURCE_PROOF_CHANGED');
+            }
+        } finally { [$this->internalPreinstall, $this->internalGraphOrigin, $this->sourceSuccessorOrigin] = $saved; }
+        return $context;
+    }
+
     /** This is a single parent/child handoff of the actual native graph result, not a new persisted proof authority. */
     private function runtimeProjectVerifiedInternal(string $root, array $state): void
     {
-        $correction = $this->sourceToolCorrection; $admission = $correction['document']; $workspace = $state['binding']['workspace'];
+        $workspace = $state['binding']['workspace'];
+        if (isset($state['binding']['source_successor'])) {
+            $admissionPath = $workspace . '/recovery/source-successor-projection.json';
+            $plan = $this->runtimePackage($root, $state);
+            $admission = ['protocol' => 'peanut.partial-source-projection.v1', 'workspace' => $workspace,
+                'action_id' => 'successor-' . substr($state['transition_id'], 0, 24),
+                'instance_root' => $root, 'candidate' => $state['binding']['candidate'],
+                'checkpoint_sha256' => hash_file('sha256', $workspace . '/source-runtime.json'),
+                'plan_file_sha256' => hash_file('sha256', $state['binding']['plan_path']),
+                'plan_identity_sha256' => hash('sha256', self::canonicalJson($plan['identity']))];
+            if (file_exists($admissionPath) || is_link($admissionPath)) { throw new RuntimeException('SOURCE_SUCCESSOR_PROJECTION_ALREADY_ATTEMPTED'); }
+            $this->writeJsonAtomic($admissionPath, $admission, 0600);
+            $correction = ['path' => $admissionPath];
+            $producer = $workspace . '/trusted/scripts/package-release-files.py';
+        } else {
+            $correction = $this->sourceToolCorrection; $admission = $correction['document'];
+            $producer = $admission['corrected_source']['root'] . '/scripts/package-release-files.py';
+        }
         $this->runtimeHost($state, 'check');
         if (isset($admission['prepared_identity_sha256'])) {
             // This completed projection belongs to the failed project attempt. Check/adopt it, never regenerate it.
@@ -3785,11 +3859,10 @@ final class ScaffoldUpgradeRunner
         if ($proof !== $state['source_proof'] || $before !== $this->runtimeProjectionInputs($root, $projection)) {
             throw new RuntimeException('SOURCE_PROJECTION_GRAPH_CHANGED');
         }
-        $producer = $admission['corrected_source']['root'] . '/scripts/package-release-files.py';
         $handoff = ['parent_pid' => getmypid(), 'admission_sha256' => hash_file('sha256', $correction['path']),
             'checkpoint_sha256' => hash_file('sha256', $workspace . '/source-runtime.json'),
             'source_proof' => $proof, 'graph_inputs' => $before];
-        [$code, $output, $error] = $this->runtimeCapture($state, 'projection', ['python3', $producer, 'development-runtime',
+        [$code, $output, $error] = $this->runtimeCapture($state, 'projection', ['python3', '-B', $producer, 'development-runtime',
             '--application-root=' . $root, '--target=' . $workspace . '/prepared', '--source-transition-admission=' . $correction['path']], $handoff);
         if ($code !== 0) { throw new RuntimeException('SOURCE_RUNTIME_PROJECTION_FAILED: ' . $code . ':' . hash('sha256', $error)); }
         if ($before !== $this->runtimeProjectionInputs($root, $projection)) { throw new RuntimeException('SOURCE_PROJECTION_GRAPH_CHANGED'); }
@@ -3802,7 +3875,8 @@ final class ScaffoldUpgradeRunner
         if (realpath($directory) !== $directory || !is_dir($directory) || (fileperms($directory) & 0077) !== 0) {
             throw new RuntimeException('SOURCE_RUNTIME_DIAGNOSTIC_DIRECTORY_UNSAFE');
         }
-        $prefix = $directory . '/' . $this->sourceToolCorrection['document']['action_id'] . '-' . sprintf('%03d', ++$this->diagnosticSequence) . '-' . $phase;
+        $action = $this->sourceToolCorrection['document']['action_id'] ?? ('successor-' . substr($state['transition_id'], 0, 24));
+        $prefix = $directory . '/' . $action . '-' . sprintf('%03d', ++$this->diagnosticSequence) . '-' . $phase;
         $handles = [];
         foreach (['stdout', 'stderr'] as $extension) {
             $handle = fopen($prefix . '.' . $extension, 'x');
@@ -3829,7 +3903,7 @@ final class ScaffoldUpgradeRunner
     private function runtimeHost(array $state, string $phase): array
     {
         $workspace = $state['binding']['workspace'];
-        $command = ['python3', $workspace . '/trusted/scripts/product-upgrade-host', 'source-' . $phase,
+        $command = ['python3', '-B', $workspace . '/trusted/scripts/product-upgrade-host', 'source-' . $phase,
             '--instance-root=' . $state['binding']['instance_root'], '--workspace=' . $workspace];
         $admission = $this->sourceToolCorrection['document'] ?? [];
         if (isset($admission['prepared_identity_sha256']) && in_array($phase, ['check', 'project'], true)) {
@@ -3839,9 +3913,10 @@ final class ScaffoldUpgradeRunner
                 || hash_file('sha256', $host) !== $pin['sha256'] || (fileperms($host) & 0777) !== $pin['mode']) {
                 throw new RuntimeException('SOURCE_RUNTIME_CORRECTED_HOST_CHANGED');
             }
-            $command[1] = $host;
+            $command[2] = $host;
         }
-        if (in_array($this->sourceToolCorrection['document']['repair'] ?? null, ['source-verified-projection', 'head-published-admission'], true)) {
+        if ((isset($state['binding']['source_successor']) && !in_array($phase, ['tools-check', 'check', 'vendor-check'], true))
+            || in_array($this->sourceToolCorrection['document']['repair'] ?? null, ['source-verified-projection', 'head-published-admission'], true)) {
             [$code, $output, $error] = $this->runtimeCapture($state, $phase, $command);
         } else {
         $process = proc_open($command, [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
@@ -4032,7 +4107,7 @@ final class ScaffoldUpgradeRunner
     {
         $binding = $state['binding'];
         if ($binding['plan_path'] === null) { return null; }
-        if (($binding['source_input_kind'] ?? null) === 'raw-internal-preinstall-scaffold') {
+        if (in_array($binding['source_input_kind'] ?? null, ['raw-internal-preinstall-scaffold', 'raw-partial-source-successor-scaffold'], true)) {
             $plan = $this->loadPlan($root, $binding['plan_path']);
             $input = $this->runtimeRawInput($root, $plan, $binding['package_root']);
             if ($input['inventory_sha256'] !== $binding['package_inventory_sha256'] || $plan['candidate'] !== $binding['candidate']
@@ -4052,9 +4127,12 @@ final class ScaffoldUpgradeRunner
     /** Existing native raw scaffold data, not a fabricated formal upgrade envelope. */
     private function runtimeRawInput(string $root, array $plan, string $package): array
     {
-        if (($plan['identity']['kind'] ?? null) !== 'internal-candidate-preinstall-correction'
+        $successor = ($plan['identity']['kind'] ?? null) === 'development-partial-source-correction';
+        if ((!$successor && (($plan['identity']['kind'] ?? null) !== 'internal-candidate-preinstall-correction'
             || ($plan['identity']['internal_preinstall']['protocol'] ?? null) !== 'peanut.internal-preinstall-source.v1'
-            || ($plan['identity']['internal_preinstall']['server_root'] ?? null) !== $root . '/server'
+            || ($plan['identity']['internal_preinstall']['server_root'] ?? null) !== $root . '/server'))
+            || ($successor && (($plan['identity']['source_successor']['protocol'] ?? null) !== 'peanut.partial-source-successor.v1'
+                || ($plan['identity']['source_successor']['server_root'] ?? null) !== $root . '/server'))
             || realpath($package) !== $package || !is_dir($package) || is_link($package)) { throw new RuntimeException('SOURCE_RUNTIME_INTERNAL_RAW_INPUT_REQUIRED'); }
         $from = ScaffoldManifest::load($plan['manifest_paths']['from']);
         $to = ScaffoldManifest::load($package . '/scaffold-manifest.json');
@@ -4069,7 +4147,8 @@ final class ScaffoldUpgradeRunner
         }
         $this->assertInternalSourceDelta($from, $to);
         $this->assertInternalCoreInputs($root, $to, $plan['identity']['target_parameters'], $plan['identity']['version_contract']);
-        return ['to_manifest' => $to->path, 'inventory_sha256' => hash('sha256', self::canonicalJson($to->data)), 'kind' => 'raw-internal-preinstall-scaffold'];
+        return ['to_manifest' => $to->path, 'inventory_sha256' => hash('sha256', self::canonicalJson($to->data)),
+            'kind' => $successor ? 'raw-partial-source-successor-scaffold' : 'raw-internal-preinstall-scaffold'];
     }
 
     private function runtimeVerifiedSource(string $root, array $state): array
@@ -4224,7 +4303,8 @@ final class ScaffoldUpgradeRunner
         $path = $workspace . '/source-runtime.json';
         $pending = \PeanutServerUpdatePlan::sourcePending($root . '/server');
         if ($pending !== null && !in_array($pending['phase'] ?? null, ['opened', 'recovered'], true)
-            && ($pending['checkpoint'] ?? null) !== $path) { throw new RuntimeException('SOURCE_RUNTIME_OTHER_TRANSITION_PENDING'); }
+            && ($pending['checkpoint'] ?? null) !== $path
+            && ($options['partial-source-successor'] ?? null) !== ($pending['checkpoint'] ?? null)) { throw new RuntimeException('SOURCE_RUNTIME_OTHER_TRANSITION_PENDING'); }
         if (!file_exists($path) && !is_link($path)) {
             foreach (new \DirectoryIterator($workspace) as $item) {
                 if (!$item->isDot() && !in_array($item->getFilename(), ['trusted', 'recovery', 'tools', 'tool-inputs.json'], true)) {
@@ -4234,6 +4314,13 @@ final class ScaffoldUpgradeRunner
         }
         if (file_exists($path) || is_link($path)) {
             $state = $this->runtimeCheckpoint($path, $root);
+            if (isset($options['partial-source-successor']) && !isset($state['binding']['source_successor'])) {
+                throw new RuntimeException('SOURCE_SUCCESSOR_PLAN_REQUIRED');
+            }
+            if (isset($state['binding']['source_successor'])
+                && ($options['partial-source-successor'] ?? null) !== $state['binding']['source_successor']['predecessor']['checkpoint']['path']) {
+                throw new RuntimeException('SOURCE_SUCCESSOR_PREPARE_RETRY_CHANGED');
+            }
             if (($options['expect-head'] === 'none' ? null : $options['expect-head']) !== $state['binding']['deployment']['head_sha256']
                 || (int) $options['expect-generation'] !== $state['binding']['deployment']['source_generation']
                 || ($options['plan'] ?? null) !== $state['binding']['plan_path']
@@ -4247,7 +4334,7 @@ final class ScaffoldUpgradeRunner
                     if (realpath($options[$input]) !== $options[$input]) { throw new RuntimeException('SOURCE_RUNTIME_NONCANONICAL_INPUT'); }
                 }
                 $plan = $this->loadPlan($root, $options['plan']);
-                $prepared = ($plan['identity']['kind'] ?? null) === 'internal-candidate-preinstall-correction'
+                $prepared = in_array($plan['identity']['kind'] ?? null, ['internal-candidate-preinstall-correction', 'development-partial-source-correction'], true)
                     ? ($rawInput = $this->runtimeRawInput($root, $plan, $options['package']))
                     : (new EditionUpgradePackage())->reauthenticate($root, $options['package']);
                 if ($plan['status'] !== 'ready' || $prepared['to_manifest'] !== $plan['manifest_paths']['to']) {
@@ -4256,7 +4343,14 @@ final class ScaffoldUpgradeRunner
             }
             $identityPath = $root . '/server/.peanut/development-runtime.json';
             $internal = null;
-            if ($rawInput !== null) {
+            $successor = $plan['identity']['source_successor'] ?? null;
+            if ($successor !== null) {
+                $from = ScaffoldManifest::load($plan['manifest_paths']['from']); $to = ScaffoldManifest::load($plan['manifest_paths']['to']);
+                $actual = $this->runtimeSuccessorContext($root, $from, $to);
+                if (self::canonicalJson($actual) !== self::canonicalJson($successor) || ($options['partial-source-successor'] ?? null) !== $actual['predecessor']['checkpoint']['path']
+                    || $workspace === dirname($actual['predecessor']['checkpoint']['path'])) { throw new RuntimeException('SOURCE_SUCCESSOR_PREDECESSOR_CHANGED'); }
+            } elseif (isset($options['partial-source-successor'])) { throw new RuntimeException('SOURCE_SUCCESSOR_PLAN_REQUIRED'); }
+            if ($rawInput !== null && $successor === null) {
                 $from = ScaffoldManifest::load($plan['manifest_paths']['from']); $to = ScaffoldManifest::load($plan['manifest_paths']['to']);
                 $internal = \PeanutServerUpdatePlan::internalPreinstallContext($root . '/server', $from->release(), $to->release());
                 if ($internal === null || self::canonicalJson($internal) !== self::canonicalJson($plan['identity']['internal_preinstall'])) { throw new RuntimeException('SOURCE_RUNTIME_INTERNAL_FRONTIER_CHANGED'); }
@@ -4307,6 +4401,12 @@ final class ScaffoldUpgradeRunner
                 'inherited_source_proof' => $deployment['source_proof'] ?? (isset($deployment['partial_installation'])
                     ? ['partial_installation_sha256' => hash('sha256', self::canonicalJson($deployment['partial_installation']))]
                     : ['installation_baseline_sha256' => $deployment['baseline_sha256']])];
+            if ($successor !== null) {
+                $binary = realpath(PHP_BINARY);
+                if ($binary !== PHP_BINARY) { throw new RuntimeException('SOURCE_SUCCESSOR_PHP_BINARY_NONCANONICAL'); }
+                $binding['source_successor'] = $successor;
+                $binding['native_php_binary'] = ['path' => $binary, 'sha256' => hash_file('sha256', $binary)];
+            }
             $binding = $this->runtimeToolBundle($root, $workspace, $binding);
             $state = ['schema_version' => 1, 'protocol' => 'peanut.source-runtime-transition.v1',
                 'transition_id' => hash('sha256', self::canonicalJson($binding)), 'binding' => $binding,
@@ -4462,7 +4562,7 @@ final class ScaffoldUpgradeRunner
         if (!isset($state['prepared_identity_sha256'])) {
             $state['phase'] = 'source-verified';
             $state = $this->runtimeSave($path, $state);
-            if (($this->sourceToolCorrection['document']['repair'] ?? null) === 'source-verified-projection') {
+            if (isset($state['binding']['source_successor']) || ($this->sourceToolCorrection['document']['repair'] ?? null) === 'source-verified-projection') {
                 $this->runtimeProjectVerifiedInternal($root, $state);
             }
             $this->runtimeHost($state, 'project');
@@ -4512,7 +4612,8 @@ final class ScaffoldUpgradeRunner
             'transition_id' => $state['transition_id'], 'source_proof' => $state['source_proof']];
         if (isset($old['original_identity'])) {
             $new['original_identity'] = $old['original_identity'];
-            $new['original_authority'] = $state['binding']['internal_preinstall']['originals'];
+            $new['original_authority'] = isset($state['binding']['source_successor'])
+                ? $old['original_authority'] : $state['binding']['internal_preinstall']['originals'];
         }
         if (isset($state['head_intent']) && $state['head_intent'] !== $new) { throw new RuntimeException('SOURCE_RUNTIME_HEAD_INTENT_CHANGED'); }
         $state['head_intent'] = $new;
@@ -5109,7 +5210,7 @@ final class ScaffoldUpgradeRunner
 
     private function runtimeAdmit(array $state): void
     {
-        if (($this->sourceToolCorrection['document']['repair'] ?? null) === 'head-published-admission') {
+        if (isset($state['binding']['source_successor']) || ($this->sourceToolCorrection['document']['repair'] ?? null) === 'head-published-admission') {
             // Original observe and the existing partial plan/backup/apply/completion all use this host namespace.
             // A fresh APP process keeps its own R loader; the immutable native helper and every anchor check stay intact.
             $tool = $state['binding']['workspace'] . '/trusted/server/docker/scripts/update-plan.php';

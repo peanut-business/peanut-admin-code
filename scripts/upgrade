@@ -15,9 +15,15 @@ $frozenSource = null;
 $cancelAdmission = null;
 $cancelRunner = null;
 $appliedAdmission = null;
+$successorArguments = array_values(array_filter(array_slice($argv, 2), static fn(string $argument): bool => str_starts_with($argument, '--partial-source-successor')));
+if ($successorArguments !== [] && ($nativeEntry || $serverScope || count($successorArguments) !== 1
+    || !in_array($argv[1] ?? null, ['plan', 'runtime-prepare'], true))) {
+    throw new RuntimeException('SOURCE_SUCCESSOR_ARGUMENTS_INVALID');
+}
 $appliedArguments = array_values(array_filter(array_slice($argv, 2), static fn(string $argument): bool => str_starts_with($argument, '--resume-applied-source')));
 $cancelArguments = array_values(array_filter(array_slice($argv, 2), static fn(string $argument): bool => str_starts_with($argument, '--cancel-unmodified-preparing')));
 if ($cancelArguments !== []) {
+    if ($successorArguments !== []) { throw new RuntimeException('SOURCE_SUCCESSOR_ARGUMENTS_INVALID'); }
     $cancelOptions = [];
     foreach (array_slice($argv, 2) as $argument) {
         if (preg_match('/^--(scope|instance-root|workspace|transition|cancel-unmodified-preparing)=(.+)$/D', $argument, $match) !== 1
@@ -31,6 +37,7 @@ if ($cancelArguments !== []) {
     }
 }
 if ($appliedArguments !== []) {
+    if ($successorArguments !== []) { throw new RuntimeException('SOURCE_SUCCESSOR_ARGUMENTS_INVALID'); }
     $appliedOptions = [];
     foreach (array_slice($argv, 2) as $argument) {
         if (preg_match('/^--(scope|instance-root|package|plan|workspace|transition|resume-applied-source)=(.+)$/D', $argument, $match) !== 1
@@ -64,6 +71,9 @@ if (!$nativeEntry && !$serverScope) {
     if (basename($toolRoot) === 'trusted' && is_file(dirname($toolRoot) . '/source-runtime.json')) {
         $checkpoint = dirname($toolRoot) . '/source-runtime.json';
     }
+    // A new source plan is authenticated against its real predecessor under the native locks below.
+    // It must run the new source's code rather than silently reenter the historical tools.
+    if ($successorArguments !== [] && ($argv[1] ?? null) === 'plan') { $checkpoint = null; }
     if ($checkpoint !== null && is_file($checkpoint)) {
         try {
             if (realpath($checkpoint) !== $checkpoint || (fileperms($checkpoint) & 0777) !== 0600
@@ -80,6 +90,17 @@ if (!$nativeEntry && !$serverScope) {
                 throw new RuntimeException('SOURCE_RUNTIME_BOOTSTRAP_INVALID');
             }
             $fixedRoot = $binding['workspace'] . '/trusted';
+            $pointerPath = $binding['instance_root'] . '/server/runtime/upgrade/source-transition.json';
+            if (is_file($pointerPath)) {
+                $active = json_decode((string) file_get_contents($pointerPath), true, 512, JSON_THROW_ON_ERROR);
+                $preparingSuccessor = isset($binding['source_successor']) && in_array($context['phase'], ['tools-prepared', 'preparing', 'prepared'], true)
+                    && ($context['intents'] ?? null) === [] && !isset($context['source_proof']) && !isset($context['published_head_sha256'])
+                    && ($active['checkpoint'] ?? null) === $binding['source_successor']['predecessor']['checkpoint']['path']
+                    && hash_file('sha256', $pointerPath) === $binding['source_successor']['predecessor']['pending_sha256'];
+                if (($active['transition_id'] ?? null) !== $context['transition_id'] && !$preparingSuccessor) {
+                    throw new RuntimeException('SOURCE_RUNTIME_BOOTSTRAP_TRANSACTION_SUPERSEDED');
+                }
+            }
             foreach ($binding['tools'] as $relative => $sha) {
                 $fixed = $fixedRoot . '/' . $relative;
                 if (realpath($fixed) !== $fixed || !is_file($fixed) || lstat($fixed)['nlink'] !== 1
@@ -392,6 +413,8 @@ function productUpgradeUsage(): never
         . "  verify --scope=source --instance-root=APP --package=PKG --plan=SOURCE_PLAN --resume-applied-source=W/recovery/ADMISSION.json\n"
         . "  runtime-transition|runtime-open --scope=source --instance-root=APP --workspace=W --transition=W/source-runtime.json --resume-applied-source=W/recovery/ADMISSION.json\n"
         . "  runtime-refreeze --scope=source --instance-root=APP --workspace=W --expect-head=SHA|none --expect-generation=N\n"
+        . "  plan --scope=source --instance-root=APP --package=FIXED_RAW_TARGET --partial-source-successor=PREVIOUS_W/source-runtime.json\n"
+        . "  runtime-prepare --scope=source --instance-root=APP --workspace=NEW_W --package=FIXED_RAW_TARGET --plan=NEW_PLAN --expect-head=SHA --expect-generation=N --partial-source-successor=PREVIOUS_W/source-runtime.json\n"
         . "  server apply alone accepts --stop-before=health|activate; source scope changes source only.\n");
     exit(64);
 }
@@ -1013,7 +1036,7 @@ if (!in_array($command, ['plan', 'apply', 'verify', 'recover', 'runtime-prepare'
 }
 $options = [];
 foreach (array_slice($argv, 2) as $argument) {
-    if (preg_match('/^--(instance-root|package|plan|stop-before|scope|archive|expected-sha256|workspace|transition|expect-head|expect-generation|backup-tool|cancel-unmodified-preparing|resume-applied-source)=(.+)$/D', $argument, $matches) !== 1
+    if (preg_match('/^--(instance-root|package|plan|stop-before|scope|archive|expected-sha256|workspace|transition|expect-head|expect-generation|backup-tool|cancel-unmodified-preparing|resume-applied-source|partial-source-successor)=(.+)$/D', $argument, $matches) !== 1
         || isset($options[$matches[1]])) {
         productUpgradeUsage();
     }
@@ -1024,6 +1047,7 @@ if ($runtimeCommand) {
     $required = ['instance-root', 'workspace', 'scope'];
     if ($cancelAdmission !== null) { $required[] = 'cancel-unmodified-preparing'; }
     if ($appliedAdmission !== null) { $required[] = 'resume-applied-source'; }
+    if ($successorArguments !== []) { $required[] = 'partial-source-successor'; }
     $required = array_merge($required, match ($command) {
         'runtime-prepare' => ['package', 'plan', 'expect-head', 'expect-generation'],
         'runtime-refreeze' => ['expect-head', 'expect-generation'],
@@ -1069,6 +1093,10 @@ if (isset($options['backup-tool'])) {
     if ($command !== 'plan' || ($options['scope'] ?? null) !== 'server') { productUpgradeUsage(); }
     $required[] = 'backup-tool';
 }
+if ($successorArguments !== []) {
+    if ($command !== 'plan' || ($options['scope'] ?? null) !== 'source') { productUpgradeUsage(); }
+    $required[] = 'partial-source-successor';
+}
 if (isset($options['stop-before'])) {
     if ($command !== 'apply' || ($options['scope'] ?? 'source') !== 'server' || !in_array($options['stop-before'], ['health', 'activate'], true)) {
         productUpgradeUsage();
@@ -1098,11 +1126,14 @@ try {
         $runner = new ScaffoldUpgradeRunner();
         $packageService = new EditionUpgradePackage();
         if ($command === 'plan') {
-            $prepared = $packageService->prepare($instanceRoot, $packageRoot);
+            $prepared = isset($options['partial-source-successor'])
+                ? $packageService->preparePartialSourceSuccessor($instanceRoot, $packageRoot, $options['partial-source-successor'])
+                : $packageService->prepare($instanceRoot, $packageRoot);
             $result = $runner->preflight($instanceRoot, $prepared['from_manifest'], $prepared['to_manifest']);
             $result['plan_path'] = $instanceRoot . '/' . $result['plan_path'];
         } else {
-            $rawInput = ($frozenSource['binding']['source_input_kind'] ?? null) === 'raw-internal-preinstall-scaffold';
+            $successorInput = ($frozenSource['binding']['source_input_kind'] ?? null) === 'raw-partial-source-successor-scaffold';
+            $rawInput = $successorInput || ($frozenSource['binding']['source_input_kind'] ?? null) === 'raw-internal-preinstall-scaffold';
             if (!$rawInput) { $prepared = $packageService->reauthenticate($instanceRoot, $packageRoot); }
             $sourcePlan = json_decode((string) file_get_contents($options['plan']), true, 256, JSON_THROW_ON_ERROR);
             if ($rawInput) {
@@ -1118,11 +1149,15 @@ try {
                     || ($sourcePlan['candidate'] ?? null) !== ($binding['candidate'] ?? null)
                     || ($sourcePlan['plan_sha256'] ?? null) !== 'sha256:' . $digest
                     || ($sourcePlan['plan_sha256'] ?? null) !== ($binding['plan_sha256'] ?? null)
-                    || ($sourcePlan['identity']['kind'] ?? null) !== 'internal-candidate-preinstall-correction'
-                    || ($internal['protocol'] ?? null) !== 'peanut.internal-preinstall-source.v1'
-                    || ($internal['server_root'] ?? null) !== $instanceRoot . '/server'
-                    || ($binding['old_identity']['kind'] ?? null) !== 'internal-candidate'
-                    || productUpgradeCanonicalJson($sourcePlan['identity']['internal_preinstall'] ?? []) !== productUpgradeCanonicalJson($internal)
+                    || (!$successorInput && (($sourcePlan['identity']['kind'] ?? null) !== 'internal-candidate-preinstall-correction'
+                        || ($internal['protocol'] ?? null) !== 'peanut.internal-preinstall-source.v1'
+                        || ($internal['server_root'] ?? null) !== $instanceRoot . '/server'
+                        || ($binding['old_identity']['kind'] ?? null) !== 'internal-candidate'
+                        || productUpgradeCanonicalJson($sourcePlan['identity']['internal_preinstall'] ?? []) !== productUpgradeCanonicalJson($internal)))
+                    || ($successorInput && (($sourcePlan['identity']['kind'] ?? null) !== 'development-partial-source-correction'
+                        || ($binding['source_successor']['protocol'] ?? null) !== 'peanut.partial-source-successor.v1'
+                        || ($binding['source_successor']['server_root'] ?? null) !== $instanceRoot . '/server'
+                        || productUpgradeCanonicalJson($sourcePlan['identity']['source_successor'] ?? []) !== productUpgradeCanonicalJson($binding['source_successor'])))
                     || ($binding['instance_root'] ?? null) !== $instanceRoot
                     || realpath($options['plan']) !== $options['plan'] || $options['plan'] !== ($binding['plan_path'] ?? null)
                     || $packageRoot !== ($binding['package_root'] ?? null)

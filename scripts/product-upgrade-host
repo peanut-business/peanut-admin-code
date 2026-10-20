@@ -382,7 +382,26 @@ def source_runtime():
         preflight = args.phase == 'source-vendor-preflight'
         if actual != expected or (preflight and state['phase'] not in ('tools-prepared', 'preparing')):
             raise ValueError('vendor operation lost its unactivated head or preparation phase')
-        if preflight and (pending is None or pending.get('phase') in ('opened', 'recovered')):
+        successor_preparation = False
+        context = state['binding'].get('source_successor')
+        if context is not None and state['phase'] in ('tools-prepared', 'preparing') \
+                and args.phase in ('source-vendor-preflight', 'source-vendor-record'):
+            previous_ref = context['predecessor']['checkpoint']; previous_path = Path(previous_ref['path'])
+            previous = read(previous_path); previous_digest = previous.pop('state_sha256', None)
+            previous_stat = previous_path.lstat()
+            successor_preparation = context.get('protocol') == 'peanut.partial-source-successor.v1' \
+                and context.get('server_root') == str(root / 'server') \
+                and previous_path.resolve() == previous_path and not previous_path.is_symlink() \
+                and stat.S_ISREG(previous_stat.st_mode) and previous_stat.st_nlink == 1 \
+                and previous_stat.st_mode & 0o777 == 0o600 and previous_stat.st_uid in (0, (root / 'server').stat().st_uid) \
+                and sha(previous_path) == previous_ref['sha256'] \
+                and previous_digest == hashlib.sha256(json.dumps(previous, sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()).hexdigest() \
+                and previous['phase'] == 'admitted' and previous['activation_started'] is False \
+                and pending is not None and sha(pending_path) == context['predecessor']['pending_sha256'] \
+                and pending.get('transition_id') == context['predecessor']['transition_id'] \
+                and pending.get('phase') == 'admitted' and pending.get('activation_started') is False \
+                and actual == context['predecessor']['head_sha256']
+        if successor_preparation or (preflight and (pending is None or pending.get('phase') in ('opened', 'recovered'))):
             pass
         elif pending is None or pending.get('transition_id') != state['transition_id'] or pending.get('activation_started') is not False \
                 or pending.get('binding_sha256') != hashlib.sha256(json.dumps(state['binding'], sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()).hexdigest():

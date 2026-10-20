@@ -484,6 +484,11 @@ final class PeanutServerUpdatePlan
     /** Actual admitted, unactivated source transition; never a caller-supplied maintenance assertion. */
     public static function partialInstallationSource(string $root): array
     {
+        return self::readPartialInstallationSource($root, false);
+    }
+
+    private static function readPartialInstallationSource(string $root, bool $predecessor): array
+    {
         self::sourceOwner($root); self::assertHeldDatabaseLock($root);
         $identity = self::jsonFile($root . '/.peanut/development-runtime.json', 'partial runtime');
         $runtimeSha = hash_file('sha256', $root . '/.peanut/development-runtime.json');
@@ -506,12 +511,106 @@ final class PeanutServerUpdatePlan
             || ($pending['deployment_sha256'] ?? null) !== $deployment['head_sha256']
             || ($state['published_head_sha256'] ?? null) !== $deployment['head_sha256']
             || ($pending['runtime_sha256'] ?? null) !== $runtimeSha || ($state['prepared_identity_sha256'] ?? null) !== $runtimeSha
-            || ($state['binding']['tools']['server/docker/scripts/update-plan.php'] ?? null) !== hash_file('sha256', __FILE__)
+            || (!$predecessor && ($state['binding']['tools']['server/docker/scripts/update-plan.php'] ?? null) !== hash_file('sha256', __FILE__))
             || file_exists(self::trafficReadyPath($root)) || is_link(self::trafficReadyPath($root))) {
             throw new RuntimeException('partial continuation source transition is not currently closed and admitted');
         }
         return ['deployment' => $deployment, 'runtime_sha256' => $runtimeSha,
             'checkpoint' => ['path' => $path, 'sha256' => hash_file('sha256', $path)], 'state' => $state, 'pending' => $pending];
+    }
+
+    /** A real, closed partial APP can receive a new reviewed source transaction before installation completes. */
+    public static function sourceSuccessorContext(string $root, array $from, array $to): array
+    {
+        $source = self::readPartialInstallationSource($root, true);
+        $state = $source['state']; $binding = $state['binding'];
+        $plan = self::jsonFile($binding['plan_path'], 'source predecessor plan');
+        $planDigest = hash('sha256', self::databaseCanonical([$plan['identity'], $plan['actions']]));
+        $manifestPath = $plan['manifest_paths']['to'];
+        if (($plan['plan_sha256'] ?? null) !== 'sha256:' . $planDigest || $binding['plan_sha256'] !== $plan['plan_sha256']
+            || $binding['candidate'] !== 'scaffold-' . substr($planDigest, 0, 24)
+            || realpath($manifestPath) !== $manifestPath
+            || 'sha256:' . hash('sha256', self::regularBytes($manifestPath, 'source predecessor snapshot')) !== ($plan['identity']['to']['manifest_sha256'] ?? null)) {
+            throw new RuntimeException('source predecessor plan or sealed snapshot changed');
+        }
+        $application = self::jsonFile(dirname($root) . '/.peanut/application-manifest.json', 'source predecessor manifest');
+        if (($from['version'] ?? null) !== ($to['version'] ?? null)
+            || ($application['generation_source']['channel'] ?? null) !== 'development'
+            || ($application['generation_source']['release_version'] ?? null) !== null
+            || ($application['application']['profile'] ?? null) !== 'full'
+            || ($application['application']['workflow'] ?? null) !== 'full'
+            || ($application['template']['version'] ?? null) !== ($from['version'] ?? null)
+            || ($application['template']['source_commit'] ?? null) !== ($from['source_commit'] ?? null)
+            || ($application['template']['source_tree'] ?? null) !== ($from['source_tree'] ?? null)
+            || ($application['template']['inventory_sha256'] ?? null) !== ($from['inventory_sha256'] ?? null)
+            || ($to['source_commit'] ?? null) === ($from['source_commit'] ?? null)
+            || preg_match('/\A[a-f0-9]{40}\z/D', (string) ($to['source_commit'] ?? '')) !== 1
+            || preg_match('/\A[a-f0-9]{40}\z/D', (string) ($to['source_tree'] ?? '')) !== 1
+            || ($state['intents'] ?? []) === [] || !is_array($state['source_proof'] ?? null)) {
+            throw new RuntimeException('partial source successor requires a new fixed development source');
+        }
+        foreach ($state['intents'] as $intent) {
+            if (($intent['done'] ?? null) !== true) { throw new RuntimeException('source predecessor has unfinished program writes'); }
+        }
+        // The predecessor's original helper stays frozen. Authenticate its complete existing tool bundle, not this newer helper's bytes.
+        foreach ($binding['tools'] as $relative => $sha) {
+            self::assertOrdinaryParents($binding['workspace'] . '/trusted', $relative);
+            $path = $binding['workspace'] . '/trusted/' . $relative;
+            if (hash('sha256', self::regularBytes($path, 'source predecessor tool')) !== $sha
+                || (fileperms($path) & 0777) !== $binding['tool_modes'][$relative]
+                || !in_array(fileowner($path), [0, fileowner($root)], true)) {
+                throw new RuntimeException('source predecessor tool changed');
+            }
+        }
+        \app\common\value\installation\ApplicationSourceIdentity::loadRuntime($root);
+        $journalPath = $binding['workspace'] . '/dependency-switch.json';
+        $journal = \app\common\services\upgrade\SourceApplicationBackup::protectedPluginJson($journalPath, $root);
+        if (($journal['direction'] ?? null) !== 'forward' || ($journal['status'] ?? null) !== 'completed') {
+            throw new RuntimeException('source predecessor dependency switch is not complete');
+        }
+        return ['protocol' => 'peanut.partial-source-successor.v1', 'server_root' => $root,
+            'predecessor' => ['checkpoint' => $source['checkpoint'], 'transition_id' => $state['transition_id'],
+                'pending_sha256' => hash_file('sha256', $root . '/runtime/upgrade/source-transition.json'),
+                'binding_sha256' => hash('sha256', self::databaseCanonical($binding)),
+                'plan' => ['path' => $binding['plan_path'], 'sha256' => hash_file('sha256', $binding['plan_path'])],
+                'head_sha256' => $source['deployment']['head_sha256'], 'runtime_sha256' => $source['runtime_sha256'],
+                'source_proof_sha256' => hash('sha256', self::databaseCanonical($state['source_proof'])),
+                'vendor_journal' => ['path' => $journalPath, 'sha256' => hash_file('sha256', $journalPath)]],
+            'source_manifest' => ['path' => $manifestPath, 'sha256' => hash_file('sha256', $manifestPath)],
+            'partial_installation' => $source['deployment']['partial_installation'],
+            'application_manifest_sha256' => hash_file('sha256', dirname($root) . '/.peanut/application-manifest.json')];
+    }
+
+    /** Bind the active successor to the native, authenticated handoff; the predecessor checkpoint remains immutable. */
+    public static function assertSourceSuccessorReceipt(string $root, array $state): void
+    {
+        $context = $state['binding']['source_successor'];
+        foreach ([$context['predecessor']['checkpoint'], $context['predecessor']['plan'],
+            $context['predecessor']['vendor_journal'], $context['source_manifest']] as $reference) {
+            self::assertOrdinaryParents(dirname($reference['path']), basename($reference['path']));
+            if (hash('sha256', self::regularBytes($reference['path'], 'source predecessor reference')) !== $reference['sha256']
+                || !in_array(fileowner($reference['path']), [0, fileowner($root)], true) || (fileperms($reference['path']) & 0022) !== 0) {
+                throw new RuntimeException('source predecessor reference changed');
+            }
+        }
+        $pending = self::sourcePending($root);
+        if (($pending['transition_id'] ?? null) !== $state['transition_id']
+            || ($pending['checkpoint'] ?? null) !== $state['binding']['workspace'] . '/source-runtime.json'
+            || ($pending['binding_sha256'] ?? null) !== hash('sha256', self::databaseCanonical($state['binding']))) {
+            throw new RuntimeException('source successor is not the active transaction');
+        }
+        $path = $root . '/private/partial-installation/source-successors/' . $state['transition_id'] . '.json';
+        $record = self::readPartialOwnerRecord($root, $path);
+        $originBinding = $state['binding'];
+        if (isset($state['installation_completion'], $state['partial_origin_deployment'])) {
+            $originBinding['deployment'] = $state['partial_origin_deployment'];
+        }
+        if (($record['protocol'] ?? null) !== 'peanut.partial-source-handoff.v1'
+            || self::databaseCanonical($record['predecessor'] ?? null) !== self::databaseCanonical($context)
+            || ($record['successor_transition_id'] ?? null) !== $state['transition_id']
+            || ($record['successor_binding_sha256'] ?? null) !== hash('sha256', self::databaseCanonical($originBinding))) {
+            throw new RuntimeException('source successor handoff differs');
+        }
     }
 
     /** Idempotent file finalization after the real Host has completed health and both installation records. */
@@ -673,12 +772,62 @@ final class PeanutServerUpdatePlan
             $current = file_exists($deployment) || is_link($deployment) ? hash('sha256', self::regularBytes($deployment, 'application deployment')) : null;
             if (!in_array($previous['phase'] ?? null, ['opened', 'recovered'], true)
                 || ($previous['deployment_sha256'] ?? null) !== $current) {
-                throw new RuntimeException('another source transition is pending');
+                self::handoffPartialSource($root, $previous, $value);
             }
         }
         if (($value['phase'] ?? null) !== 'opened') { self::revokeTraffic($root); }
         self::writeJson($root . '/runtime/upgrade/source-transition.json', ['protocol' => 'peanut.source-runtime-pointer.v1'] + $value);
         chmod($root . '/runtime/upgrade/source-transition.json', 0644);
+    }
+
+    private static function handoffPartialSource(string $root, array $previous, array $value): void
+    {
+        self::assertHeldDatabaseLock($root);
+        $path = $value['checkpoint'] ?? '';
+        $state = \app\common\services\upgrade\SourceApplicationBackup::protectedPluginJson($path, $root);
+        $unsigned = $state; unset($unsigned['state_sha256']);
+        $binding = $state['binding'] ?? [];
+        if (($state['state_sha256'] ?? null) !== hash('sha256', self::databaseCanonical($unsigned))
+            || ($state['protocol'] ?? null) !== 'peanut.source-runtime-transition.v1'
+            || ($state['phase'] ?? null) !== 'prepared' || ($value['phase'] ?? null) !== 'prepared'
+            || ($state['activation_started'] ?? null) !== false || ($value['activation_started'] ?? null) !== false
+            || ($binding['instance_root'] ?? null) . '/server' !== $root || ($binding['workspace'] ?? null) !== dirname($path)
+            || ($state['transition_id'] ?? null) !== ($value['transition_id'] ?? null)
+            || ($value['binding_sha256'] ?? null) !== hash('sha256', self::databaseCanonical($binding))
+            || ($binding['source_input_kind'] ?? null) !== 'raw-partial-source-successor-scaffold'
+            || ($state['intents'] ?? null) !== [] || isset($state['source_proof']) || isset($state['published_head_sha256'])) {
+            throw new RuntimeException('another source transition is pending');
+        }
+        $plan = self::jsonFile($binding['plan_path'], 'source successor plan');
+        $digest = hash('sha256', self::databaseCanonical([$plan['identity'], $plan['actions']]));
+        $context = self::sourceSuccessorContext($root, $plan['identity']['from'], $plan['identity']['to']);
+        if (($plan['status'] ?? null) !== 'ready' || ($plan['protocol'] ?? null) !== 'peanut.scaffold-upgrade-plan.v2'
+            || ($plan['plan_sha256'] ?? null) !== 'sha256:' . $digest
+            || ($binding['plan_sha256'] ?? null) !== $plan['plan_sha256']
+            || ($binding['candidate'] ?? null) !== 'scaffold-' . substr($digest, 0, 24)
+            || ($plan['candidate'] ?? null) !== $binding['candidate']
+            || self::databaseCanonical($binding['source_successor'] ?? null) !== self::databaseCanonical($context)
+            || self::databaseCanonical($plan['identity']['source_successor'] ?? null) !== self::databaseCanonical($context)
+            || ($context['predecessor']['transition_id'] ?? null) !== ($previous['transition_id'] ?? null)
+            || ($binding['deployment']['head_sha256'] ?? null) !== $context['predecessor']['head_sha256']) {
+            throw new RuntimeException('source successor predecessor changed before pointer CAS');
+        }
+        $directory = $root . '/private/partial-installation/source-successors';
+        if (!is_dir($directory) && !mkdir($directory, 0700)) { throw new RuntimeException('source handoff directory unavailable'); }
+        self::assertOrdinaryParents($root, 'private/partial-installation/source-successors/receipt.json');
+        if ((fileperms($directory) & 0777) !== 0700 || !in_array(fileowner($directory), [0, fileowner($root)], true)) {
+            throw new RuntimeException('source handoff directory unsafe');
+        }
+        $receipt = ['protocol' => 'peanut.partial-source-handoff.v1', 'predecessor' => $context,
+            'successor_transition_id' => $state['transition_id'],
+            'successor_binding_sha256' => $value['binding_sha256'],
+            'successor_initial_checkpoint_sha256' => hash_file('sha256', $path)];
+        $receiptPath = $directory . '/' . $state['transition_id'] . '.json';
+        if (file_exists($receiptPath) || is_link($receiptPath)) {
+            $existing = self::readPartialOwnerRecord($root, $receiptPath); unset($existing['owner_root']);
+            if (self::databaseCanonical($existing) !== self::databaseCanonical($receipt)) { throw new RuntimeException('source handoff receipt changed'); }
+        } else { self::writePartialOwnerRecord($root, $receiptPath, $receipt); }
+        // All checks and the authenticated receipt precede the sole active pointer write. No predecessor file is updated.
     }
 
     public static function sourceOwner(string $root): void
