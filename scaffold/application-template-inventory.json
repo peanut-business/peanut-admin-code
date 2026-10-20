@@ -9160,7 +9160,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "066c9251b63861ea26ca90aafd79e6db7921edb3213f19ddb61b927543f71424"
+            "source_sha256": "ea2a961c22bb0249e330c8fd6114a1adf3925bc079df16625393bad8158245f7"
         },
         {
             "path": "server/app/common/services/upgrade/PluginSourceDevelopmentHost.php",
@@ -9188,7 +9188,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "24b14eebb134ab1234f5709bc03ac75b66bd1261bdd922d6a587fb456455a803"
+            "source_sha256": "018cf17d3f80dc753234c5198bc74c21fc6caa961964c311b45a142d2026857b"
         },
         {
             "path": "server/app/common/services/upgrade/SourceApplicationDump.php",

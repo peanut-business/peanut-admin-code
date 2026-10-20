@@ -1002,9 +1002,19 @@ final class SourceApplicationBackup
     }
 
     /** Only a real current native partial capture, never the old empty-schema operator stdout. */
-    /** Fixed two-table failed-SMS restoration from a verified native original, never caller SQL. */
+    /** Closed recovery profiles only; no caller-selected tables or SQL. */
+    public static function failureRestoreTables(string $profile): array
+    {
+        return match ($profile) {
+            'sms-reservation' => ['pa_notice_log', 'pa_schema_migration'],
+            'menu-stable-identities' => ['pa_menu_definition', 'pa_notice_log', 'pa_schema_migration', 'pa_system_menu'],
+            default => throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_RESTORE_UNSUPPORTED'),
+        };
+    }
+
+    /** Fixed selected-table restoration from a verified native original, never caller SQL. */
     public static function restoreApplicationFailure(array $binding, array $tool, string $originalManifest, string $directory,
-        callable $before, callable $after): array
+        callable $before, callable $after, string $profile = 'sms-reservation'): array
     {
         $context = app()->make(\app\common\execution\CurrentExecutionContext::class)->current();
         if (PHP_SAPI !== 'cli' || !$context instanceof \app\common\execution\InstanceExecutionContext
@@ -1014,7 +1024,7 @@ final class SourceApplicationBackup
         }
         $before(); $serverRoot = $binding['source']['root'] . '/server';
         $original = self::protectedPluginJson($originalManifest, $serverRoot);
-        $payload = $original['backup_payload'] ?? []; $tables = ['pa_notice_log', 'pa_schema_migration'];
+        $payload = $original['backup_payload'] ?? []; $tables = self::failureRestoreTables($profile);
         $contract = $tool['source_schema_backup'] ?? [];
         if (($original['protocol'] ?? null) !== 'peanut.source-application-backup.v1'
             || ($original['binding']['database'] ?? null) !== $binding['database']
