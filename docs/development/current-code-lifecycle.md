@@ -190,6 +190,20 @@ prepare 与后续 apply、post-apply、verify、recover、recovery verify 和 re
 
 补偿仅允许同一未激活事务、完整且未变的前像、已知预期后像及原私有/数据库前沿未推进；先撤下新开发身份，再恢复原运行身份，恢复后的 internal-candidate 保持关闭，不发放旧开发准入。未知编辑、安装双记录、数据库/模块进度或激活均阻止源码补偿；不恢复数据库、不清库、不重放 SQL。此源码能力不代表已生成目标制品、已进行 source adoption、已完成安装或恢复资格；实际运行须固定最终集成源码并遵守原资源准入与失败预算。
 
+同一 internal 事务已 `prepared` 且 source apply 已完成时，若冻结 Runner 的后像检查存在已确认缺陷，使用原生受控修正入口继续完整链：
+
+```text
+php SOURCE/scripts/upgrade verify --scope=source --instance-root=R --package=BOUND_RAW --plan=P --resume-applied-source=W/recovery/VERIFY.json
+php SOURCE/scripts/upgrade runtime-transition --scope=source --instance-root=R --workspace=W --transition=W/source-runtime.json --resume-applied-source=W/recovery/TRANSITION.json
+php SOURCE/scripts/upgrade runtime-open --scope=source --instance-root=R --workspace=W --transition=W/source-runtime.json --resume-applied-source=W/recovery/OPEN.json
+```
+
+此分支只替换已审 Git 来源的 entry 与 Runner；完整旧冻结闭包先校验，其他 helper、vendor、binding、trusted、原 P、source recovery 和目标应用来源全部保留。旧程序后像核对先完成文件证明，再由外层执行完整图证明，不能在建立 checkpoint 来源期间递归进入同一来源检查。维护工具来源单独输出为 `execution_tool_correction`，不改应用 manifest 或伪装成目标应用版本；不重建 APP／W、不重播 apply，不提供任意 override 或跳过原 graph／前像保护。
+
+每个命令使用当时真实 checkpoint／pending／ledger／head 的独立保护 admission，`protocol=peanut.applied-source-tool-admission.v1`、`command` 为该命令，其余保护文件、两文件 Git pins、authority、原生租约、完整独占资源窗口沿用下方合同。额外绑定原 `source_recovery_sha256` 和 `origin_binding_sha256`；前两步只接 prepared、未激活、无恢复或安装进展，完整 candidate 历史必须依次为 READY、apply started、apply applied。verify 仍执行完整文件与图证明，成功 verified 事件额外记录修正来源及首份 admission 的 path／sha256；transition 仅接受此后唯一 verified 事件，并通过 `origin_admission` 引用同一首份文件，不能换修正源码。首份文件仅作不可变来源证明，不在合法阶段推进后重放旧快照。
+
+open 仍须原生安装完成及当前 admitted／未激活证明、真实部署 head、完整 verified 来源、停止容器与关闭流量；其 admission 与 verified 事件绑定同一修正来源。原生安装完成按既有合同保留 `partial_origin_deployment` 并推进部署 binding，`origin_binding_sha256` 使用该原部署前沿重建核对，修正机制本身不写 binding。每次均重核旧 tools／依赖、source recovery、实际前后像、当前资源登记及原 owner 窗口；不增加 verify、transition、安装或 open 额度，失败与未知结果保留且不自动重放。
+
 尚未写源码的 `preparing` 取消与源码恢复分开。prepare 和 preparing-cancel 检查同 candidate 的完整账本；只有 operation=`preflight`、status=`ready` 且原 plan／identity 摘要完全相同的事件属于只读前置。任一 started、failed、recovered、实际变更或未知事件均阻止该分支，后来的 READY 不能遮盖旧事件；通用账本状态和 applied／verified 的实际证明不变。
 
 冻结工具自身存在已确认取消缺陷时，仅允许从已审 Git 源码入口执行：

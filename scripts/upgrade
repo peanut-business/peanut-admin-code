@@ -14,6 +14,8 @@ $serverScope = in_array('--scope=server', $argv, true);
 $frozenSource = null;
 $cancelAdmission = null;
 $cancelRunner = null;
+$appliedAdmission = null;
+$appliedArguments = array_values(array_filter(array_slice($argv, 2), static fn(string $argument): bool => str_starts_with($argument, '--resume-applied-source')));
 $cancelArguments = array_values(array_filter(array_slice($argv, 2), static fn(string $argument): bool => str_starts_with($argument, '--cancel-unmodified-preparing')));
 if ($cancelArguments !== []) {
     $cancelOptions = [];
@@ -26,6 +28,24 @@ if ($cancelArguments !== []) {
         || ($cancelOptions['scope'] ?? null) !== 'source'
         || ($cancelOptions['transition'] ?? null) !== ($cancelOptions['workspace'] ?? '') . '/source-runtime.json') {
         throw new RuntimeException('SOURCE_RUNTIME_CANCEL_ARGUMENTS_INVALID');
+    }
+}
+if ($appliedArguments !== []) {
+    $appliedOptions = [];
+    foreach (array_slice($argv, 2) as $argument) {
+        if (preg_match('/^--(scope|instance-root|package|plan|workspace|transition|resume-applied-source)=(.+)$/D', $argument, $match) !== 1
+            || isset($appliedOptions[$match[1]])) { throw new RuntimeException('SOURCE_TOOL_RESUME_ARGUMENTS_INVALID'); }
+        $appliedOptions[$match[1]] = $match[2];
+    }
+    $expected = ($argv[1] ?? null) === 'verify'
+        ? ['instance-root', 'package', 'plan', 'scope', 'resume-applied-source']
+        : ['instance-root', 'workspace', 'transition', 'scope', 'resume-applied-source'];
+    $actual = array_keys($appliedOptions); sort($expected); sort($actual);
+    if ($nativeEntry || $serverScope || $cancelArguments !== [] || $actual !== $expected
+        || !in_array($argv[1] ?? null, ['verify', 'runtime-transition', 'runtime-open'], true)
+        || ($appliedOptions['scope'] ?? null) !== 'source'
+        || (isset($appliedOptions['transition']) && $appliedOptions['transition'] !== $appliedOptions['workspace'] . '/source-runtime.json')) {
+        throw new RuntimeException('SOURCE_TOOL_RESUME_ARGUMENTS_INVALID');
     }
 }
 if (!$nativeEntry && !$serverScope) {
@@ -65,7 +85,7 @@ if (!$nativeEntry && !$serverScope) {
                 if (realpath($fixed) !== $fixed || !is_file($fixed) || lstat($fixed)['nlink'] !== 1
                     || hash_file('sha256', $fixed) !== $sha || (fileperms($fixed) & 0777) !== $binding['tool_modes'][$relative]) { throw new RuntimeException('SOURCE_RUNTIME_FIXED_TOOL_CHANGED'); }
             }
-            if ($toolRoot !== $fixedRoot && $cancelArguments === []) {
+            if ($toolRoot !== $fixedRoot && $cancelArguments === [] && $appliedArguments === []) {
                 $process = proc_open([PHP_BINARY, $fixedRoot . '/scripts/upgrade', ...array_slice($argv, 1)],
                     [0 => STDIN, 1 => STDOUT, 2 => STDERR], $pipes);
                 if (!is_resource($process)) { throw new RuntimeException('SOURCE_RUNTIME_FIXED_ENTRY_UNAVAILABLE'); }
@@ -93,11 +113,18 @@ if (!$nativeEntry && !$serverScope) {
                 }
             }
             if ($cancelArguments !== []) {
-                $cancelAdmission = productUpgradePreparingCancelAdmission($cancelOptions['cancel-unmodified-preparing'], $checkpoint, $context, $toolRoot);
+                $cancelAdmission = productUpgradeSourceToolAdmission($cancelOptions['cancel-unmodified-preparing'], $checkpoint, $context, $toolRoot);
                 $cancelRunner = $toolRoot . '/scripts/scaffold-runtime/ScaffoldUpgradeRunner.php';
                 // Only the admitted entry and Runner differ. Every other loader/helper stays frozen.
                 $toolRoot = $fixedRoot;
                 $runtimeRoot = $fixedRoot;
+            }
+            if ($appliedArguments !== []) {
+                $appliedAdmission = productUpgradeSourceToolAdmission($appliedOptions['resume-applied-source'], $checkpoint, $context, $toolRoot,
+                    'peanut.applied-source-tool-admission.v1');
+                if (($appliedAdmission['command'] ?? null) !== $argv[1]) { throw new RuntimeException('SOURCE_TOOL_RESUME_COMMAND_CHANGED'); }
+                $cancelRunner = $toolRoot . '/scripts/scaffold-runtime/ScaffoldUpgradeRunner.php';
+                $toolRoot = $fixedRoot; $runtimeRoot = $fixedRoot;
             }
             $frozenSource = $context;
         } catch (Throwable $error) {
@@ -106,6 +133,7 @@ if (!$nativeEntry && !$serverScope) {
     }
 }
 if ($cancelArguments !== [] && $cancelAdmission === null) { throw new RuntimeException('SOURCE_RUNTIME_CANCEL_CHECKPOINT_REQUIRED'); }
+if ($appliedArguments !== [] && $appliedAdmission === null) { throw new RuntimeException('SOURCE_TOOL_RESUME_CHECKPOINT_REQUIRED'); }
 // 可信入口使用其自身已安装的Composer/Core；不能从尚未校验完整性的目标包加载依赖。
 $installedAutoload = $frozenSource['binding']['tool_autoload'] ?? $toolRoot . '/server/vendor/autoload.php';
 if (!is_file($installedAutoload)) {
@@ -198,7 +226,7 @@ foreach ($serverScope ? [['/scripts/scaffold-runtime/ScaffoldPathGuard.php']] : 
         if (class_exists(ScaffoldUpgradeRunner::class, false)) { throw new RuntimeException('SOURCE_RUNTIME_CANCEL_RUNNER_ALREADY_LOADED'); }
         require_once $checked($toolRoot . '/scripts/scaffold-runtime/ReleaseDependencyIdentity.php');
         require_once $checked($toolRoot . '/server/docker/scripts/update-plan.php');
-        $pin = $cancelAdmission['corrected_source']['files']['scripts/scaffold-runtime/ScaffoldUpgradeRunner.php'];
+        $pin = ($cancelAdmission ?? $appliedAdmission)['corrected_source']['files']['scripts/scaffold-runtime/ScaffoldUpgradeRunner.php'];
         if (realpath($cancelRunner) !== $cancelRunner || !is_file($cancelRunner) || lstat($cancelRunner)['nlink'] !== 1
             || hash_file('sha256', $cancelRunner) !== $pin['sha256'] || (fileperms($cancelRunner) & 0777) !== $pin['mode']) {
             throw new RuntimeException('SOURCE_RUNTIME_CANCEL_CORRECTION_CHANGED');
@@ -216,7 +244,8 @@ foreach ($serverScope ? [['/scripts/scaffold-runtime/ScaffoldPathGuard.php']] : 
 }
 
 /** Protected operator approval plus reviewed source pins; a checksum is not an authorization service. */
-function productUpgradePreparingCancelAdmission(string $path, string $checkpoint, array $context, string $source): array
+function productUpgradeSourceToolAdmission(string $path, string $checkpoint, array $context, string $source,
+    string $protocol = 'peanut.source-preparing-cancel-admission.v1'): array
 {
     $binding = $context['binding']; $root = $binding['instance_root']; $workspace = $binding['workspace'];
     $stat = @lstat($path); $owner = fileowner($root . '/server');
@@ -232,13 +261,32 @@ function productUpgradePreparingCancelAdmission(string $path, string $checkpoint
     $stable = array_flip(['dev', 'ino', 'mode', 'nlink', 'uid', 'gid', 'size', 'mtime', 'ctime']);
     if (array_intersect_key(lstat($path), $stable) !== array_intersect_key($stat, $stable)) { throw new RuntimeException('SOURCE_RUNTIME_CANCEL_ADMISSION_CHANGED'); }
     $admission = json_decode($bytes, true, 64, JSON_THROW_ON_ERROR);
-    if (!is_array($admission) || ($admission['protocol'] ?? null) !== 'peanut.source-preparing-cancel-admission.v1'
+    if (!in_array($protocol, ['peanut.source-preparing-cancel-admission.v1', 'peanut.applied-source-tool-admission.v1'], true)
+        || !is_array($admission) || ($admission['protocol'] ?? null) !== $protocol
         || ($admission['maximum_uses'] ?? null) !== 1 || ($admission['instance_root'] ?? null) !== $root
-        || ($admission['workspace'] ?? null) !== $workspace || ($admission['expected_generation'] ?? null) !== 0
-        || !array_key_exists('expected_head', $admission) || $admission['expected_head'] !== null
+        || ($admission['workspace'] ?? null) !== $workspace || !is_int($admission['expected_generation'] ?? null) || $admission['expected_generation'] < 0
+        || !array_key_exists('expected_head', $admission)
+        || ($protocol === 'peanut.source-preparing-cancel-admission.v1' && ($admission['expected_head'] !== null || $admission['expected_generation'] !== 0))
         || preg_match('/\A[A-Za-z0-9][A-Za-z0-9_-]{0,63}\z/D', (string) ($admission['action_id'] ?? '')) !== 1
         || ($admission['source_kind'] ?? null) !== 'raw-internal-preinstall-scaffold') {
         throw new RuntimeException('SOURCE_RUNTIME_CANCEL_ADMISSION_INVALID');
+    }
+    if ($protocol === 'peanut.applied-source-tool-admission.v1') {
+        $deploymentPath = $root . '/server/private/installation/deployment.json';
+        $head = null; $generation = 0;
+        if (file_exists($deploymentPath) || is_link($deploymentPath)) {
+            if (realpath($deploymentPath) !== $deploymentPath || !is_file($deploymentPath) || lstat($deploymentPath)['nlink'] !== 1
+                || (fileperms($deploymentPath) & 0777) !== 0600 || !in_array(fileowner($deploymentPath), [0, $owner], true)) {
+                throw new RuntimeException('SOURCE_TOOL_RESUME_HEAD_UNSAFE');
+            }
+            $head = hash_file('sha256', $deploymentPath);
+            $deployment = json_decode((string) file_get_contents($deploymentPath), true, 512, JSON_THROW_ON_ERROR);
+            $generation = $deployment['source_generation'] ?? null;
+        }
+        if ($admission['expected_head'] !== $head || $admission['expected_generation'] !== $generation) { throw new RuntimeException('SOURCE_TOOL_RESUME_HEAD_CHANGED'); }
+        $origin = $binding;
+        if (isset($context['partial_origin_deployment'])) { $origin['deployment'] = $context['partial_origin_deployment']; }
+        if (($admission['origin_binding_sha256'] ?? null) !== hash('sha256', productUpgradeCanonicalJson($origin))) { throw new RuntimeException('SOURCE_TOOL_RESUME_ORIGIN_CHANGED'); }
     }
     $references = ['checkpoint_sha256' => $checkpoint, 'pending_sha256' => $root . '/server/runtime/upgrade/source-transition.json',
         'ledger_sha256' => $root . '/.peanut/upgrades/ledger.ndjson', 'plan_file_sha256' => $binding['plan_path'],
@@ -320,6 +368,8 @@ function productUpgradeUsage(): never
         . "  runtime-prepare --scope=source --instance-root=APP --workspace=W --package=PKG --plan=SOURCE_PLAN --expect-head=SHA|none --expect-generation=N\n"
         . "  runtime-transition|runtime-open|runtime-recover --scope=source --instance-root=APP --workspace=W --transition=W/source-runtime.json\n"
         . "  runtime-recover --scope=source --instance-root=APP --workspace=W --transition=W/source-runtime.json --cancel-unmodified-preparing=W/recovery/ADMISSION.json\n"
+        . "  verify --scope=source --instance-root=APP --package=PKG --plan=SOURCE_PLAN --resume-applied-source=W/recovery/ADMISSION.json\n"
+        . "  runtime-transition|runtime-open --scope=source --instance-root=APP --workspace=W --transition=W/source-runtime.json --resume-applied-source=W/recovery/ADMISSION.json\n"
         . "  runtime-refreeze --scope=source --instance-root=APP --workspace=W --expect-head=SHA|none --expect-generation=N\n"
         . "  server apply alone accepts --stop-before=health|activate; source scope changes source only.\n");
     exit(64);
@@ -942,7 +992,7 @@ if (!in_array($command, ['plan', 'apply', 'verify', 'recover', 'runtime-prepare'
 }
 $options = [];
 foreach (array_slice($argv, 2) as $argument) {
-    if (preg_match('/^--(instance-root|package|plan|stop-before|scope|archive|expected-sha256|workspace|transition|expect-head|expect-generation|backup-tool|cancel-unmodified-preparing)=(.+)$/D', $argument, $matches) !== 1
+    if (preg_match('/^--(instance-root|package|plan|stop-before|scope|archive|expected-sha256|workspace|transition|expect-head|expect-generation|backup-tool|cancel-unmodified-preparing|resume-applied-source)=(.+)$/D', $argument, $matches) !== 1
         || isset($options[$matches[1]])) {
         productUpgradeUsage();
     }
@@ -952,6 +1002,7 @@ $runtimeCommand = str_starts_with($command, 'runtime-');
 if ($runtimeCommand) {
     $required = ['instance-root', 'workspace', 'scope'];
     if ($cancelAdmission !== null) { $required[] = 'cancel-unmodified-preparing'; }
+    if ($appliedAdmission !== null) { $required[] = 'resume-applied-source'; }
     $required = array_merge($required, match ($command) {
         'runtime-prepare' => ['package', 'plan', 'expect-head', 'expect-generation'],
         'runtime-refreeze' => ['expect-head', 'expect-generation'],
@@ -966,7 +1017,8 @@ if ($runtimeCommand) {
     }
     try {
         $root = ScaffoldPathGuard::projectRoot($options['instance-root']);
-        $result = (new ScaffoldUpgradeRunner())->runtimeCommand($command, $root, $options, $toolRoot, $cancelAdmission);
+        $result = (new ScaffoldUpgradeRunner())->runtimeCommand($command, $root, $options, $toolRoot, $cancelAdmission,
+            $appliedAdmission === null ? null : ['path' => $options['resume-applied-source'], 'document' => $appliedAdmission]);
         if (($result['status'] ?? null) === 'tools-prepared' && in_array($command, ['runtime-prepare', 'runtime-refreeze'], true)) {
             // No APP pending/write boundary exists yet. Reenter only after all parent locks were released.
             $process = proc_open([PHP_BINARY, $options['workspace'] . '/trusted/scripts/upgrade', ...array_slice($argv, 1)],
@@ -982,6 +1034,7 @@ if ($runtimeCommand) {
     }
 }
 $required = ['instance-root', 'package'];
+if ($appliedAdmission !== null) { $required[] = 'resume-applied-source'; }
 if (!isset($options['scope'])) { productUpgradeUsage(); }
 if (isset($options['scope'])) {
     if (!in_array($options['scope'], ['source', 'server'], true)) { productUpgradeUsage(); }
@@ -1020,7 +1073,7 @@ try {
     if ($options['scope'] === 'source' && $nativeEntry) { throw new RuntimeException('PRODUCT_UPGRADE_SOURCE_REQUIRES_FULL_APPLICATION_TOOLS'); }
 
     if (($options['scope'] ?? 'source') === 'source') {
-        $result = ScaffoldUpgradeRunner::sourceProductLock($instanceRoot, function () use ($instanceRoot, $packageRoot, $command, $options, $frozenSource): array {
+        $result = ScaffoldUpgradeRunner::sourceProductLock($instanceRoot, function () use ($instanceRoot, $packageRoot, $command, $options, $frozenSource, $appliedAdmission): array {
         $runner = new ScaffoldUpgradeRunner();
         $packageService = new EditionUpgradePackage();
         if ($command === 'plan') {
@@ -1060,7 +1113,13 @@ try {
                 || ($sourcePlan['manifest_paths']['to'] ?? null) !== $prepared['to_manifest']) {
                 throw new RuntimeException('PRODUCT_UPGRADE_SOURCE_PACKAGE_REBIND_FAILED');
             }
-            $result = $runner->{$command}($instanceRoot, $options['plan']);
+            if ($appliedAdmission !== null) {
+                // The raw plan has been authenticated above; Runner rechecks it under its own locks.
+                // Release this completed working copy before nested checkpoint/preimage proofs.
+                unset($sourcePlan, $binding, $internal, $digest);
+                $result = $runner->verify($instanceRoot, $options['plan'],
+                    ['path' => $options['resume-applied-source'], 'document' => $appliedAdmission]);
+            } else { $result = $runner->{$command}($instanceRoot, $options['plan']); }
         }
         return $result;
         });
