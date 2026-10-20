@@ -3841,7 +3841,7 @@ final class ScaffoldUpgradeRunner
             }
             $command[1] = $host;
         }
-        if (($this->sourceToolCorrection['document']['repair'] ?? null) === 'source-verified-projection') {
+        if (in_array($this->sourceToolCorrection['document']['repair'] ?? null, ['source-verified-projection', 'head-published-admission'], true)) {
             [$code, $output, $error] = $this->runtimeCapture($state, $phase, $command);
         } else {
         $process = proc_open($command, [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
@@ -4130,6 +4130,15 @@ final class ScaffoldUpgradeRunner
                 }
                 $path = $options['transition'];
                 $state = $this->runtimeCheckpoint($path, $root);
+                if ($command === 'runtime-transition' && ($this->sourceToolCorrection['document']['repair'] ?? null) === 'head-published-admission') {
+                    // Every program write and the head CAS already completed. Only native admission remains.
+                    $this->runtimeHost($state, 'check');
+                    $this->runtimeAdmit($state);
+                    $state['phase'] = 'admitted';
+                    $state = $this->runtimeSave($path, $state);
+                    $this->runtimePointer($state, 'admitted');
+                    return $state;
+                }
                 if ($state['phase'] === 'tools-prepared') {
                     $this->runtimeAssertHead($root, $state, false);
                     if ($command === 'runtime-recover') { return $state; }
@@ -4539,7 +4548,8 @@ final class ScaffoldUpgradeRunner
             || ($admission['command'] ?? null) !== $command) { throw new RuntimeException('SOURCE_TOOL_RESUME_COMMAND_INVALID'); }
         $workspace = $admission['workspace']; $checkpoint = $workspace . '/source-runtime.json';
         $state = $this->runtimeRead($checkpoint); unset($state['state_sha256']); $binding = $state['binding'];
-        $projectionRepair = ($admission['repair'] ?? null) === 'source-verified-projection';
+        $headAdmission = ($admission['repair'] ?? null) === 'head-published-admission';
+        $projectionRepair = in_array($admission['repair'] ?? null, ['source-verified-projection', 'head-published-admission'], true);
         $source = $admission['corrected_source']['root'];
         if (realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')) !== $source . '/scripts/upgrade'
             || realpath(__FILE__) !== $source . '/scripts/scaffold-runtime/ScaffoldUpgradeRunner.php'
@@ -4550,8 +4560,8 @@ final class ScaffoldUpgradeRunner
             throw new RuntimeException('SOURCE_TOOL_RESUME_TRANSACTION_INVALID');
         }
         if (($command === 'runtime-open' && ($state['phase'] !== 'admitted' || !isset($state['installation_completion'])))
-            || ($command !== 'runtime-open' && ($state['phase'] !== ($projectionRepair ? 'source-verified' : 'prepared')
-                || isset($state['installation_completion']) || $state['intents'] !== []))) {
+            || ($command !== 'runtime-open' && ($state['phase'] !== ($headAdmission ? 'head-published' : ($projectionRepair ? 'source-verified' : 'prepared'))
+                || isset($state['installation_completion']) || (!$headAdmission && $state['intents'] !== [])))) {
             throw new RuntimeException('SOURCE_TOOL_RESUME_PHASE_INVALID');
         }
         $current = \productUpgradeSourceToolAdmission($path, $checkpoint, $state, $source, 'peanut.applied-source-tool-admission.v1');
@@ -4566,7 +4576,7 @@ final class ScaffoldUpgradeRunner
                 || ($journal['transition_id'] ?? null) !== $state['transition_id'] || ($journal['plan_sha256'] ?? null) !== $binding['plan_sha256']
                 || ($journal['old_proof_sha256'] ?? null) !== $state['vendor_original_sha256']
                 || ($journal['target_proof_sha256'] ?? null) !== $state['vendor_target_sha256']
-                || ($command === 'runtime-transition' && (isset($state['prepared_identity_sha256']) || isset($state['prepared_identity'])
+                || ($command === 'runtime-transition' && !$headAdmission && (isset($state['prepared_identity_sha256']) || isset($state['prepared_identity'])
                     || isset($state['head_intent']) || isset($state['published_head_sha256'])
                     || (isset($admission['prepared_identity_sha256'])
                         ? (!is_dir($workspace . '/prepared') || realpath($workspace . '/prepared') !== $workspace . '/prepared'
@@ -4576,6 +4586,20 @@ final class ScaffoldUpgradeRunner
                             || hash_file('sha256', $workspace . '/prepared/server/.peanut/development-runtime.json') !== $admission['prepared_identity_sha256'])
                         : (file_exists($workspace . '/prepared') || is_link($workspace . '/prepared')))))) {
                 throw new RuntimeException('SOURCE_TOOL_PROJECTION_VENDOR_FRONTIER_INVALID');
+            }
+        }
+        if ($headAdmission && $command === 'runtime-transition') {
+            $runtimeIdentity = $root . '/server/.peanut/development-runtime.json';
+            if (!isset($state['prepared_identity'], $state['head_intent'], $state['source_proof']) || $state['intents'] === []
+                || ($state['prepared_identity_sha256'] ?? null) !== $admission['prepared_identity_sha256']
+                || ($state['published_head_sha256'] ?? null) !== $admission['expected_head']
+                || realpath($runtimeIdentity) !== $runtimeIdentity || !is_file($runtimeIdentity) || lstat($runtimeIdentity)['nlink'] !== 1
+                || hash_file('sha256', $runtimeIdentity) !== $admission['prepared_identity_sha256']
+                || hash_file('sha256', $workspace . '/prepared/server/.peanut/development-runtime.json') !== $admission['prepared_identity_sha256']) {
+                throw new RuntimeException('SOURCE_TOOL_HEAD_ADMISSION_FRONTIER_CHANGED');
+            }
+            foreach ($state['intents'] as $intent) {
+                if (($intent['done'] ?? null) !== true) { throw new RuntimeException('SOURCE_TOOL_HEAD_ADMISSION_INTENT_INCOMPLETE'); }
             }
         }
         $recovery = $root . '/.peanut/upgrades/backups/' . $binding['candidate'] . '/recovery.json';
@@ -4630,7 +4654,7 @@ final class ScaffoldUpgradeRunner
                 || !in_array(fileowner($transitionPath), [0, fileowner($root . '/server')], true)
                 || hash_file('sha256', $transitionPath) !== ($transition['sha256'] ?? null)) { throw new RuntimeException('SOURCE_TOOL_PROJECTION_TRANSITION_REQUIRED'); }
             $prior = $this->runtimeRead($transitionPath);
-            foreach (['protocol', 'repair', 'instance_root', 'workspace', 'candidate', 'corrected_source', 'authority', 'origin_admission', 'origin_binding_sha256', 'vendor_switch_sha256', 'prepared_identity_sha256'] as $key) {
+            foreach (['protocol', 'repair', 'instance_root', 'workspace', 'candidate', 'corrected_source', 'authority', 'origin_admission', 'origin_binding_sha256', 'vendor_switch_sha256', 'prepared_identity_sha256', 'native_php_binary'] as $key) {
                 if (($prior[$key] ?? null) !== ($admission[$key] ?? null)) { throw new RuntimeException('SOURCE_TOOL_PROJECTION_TRANSITION_CHANGED'); }
             }
             if (($prior['command'] ?? null) !== 'runtime-transition') { throw new RuntimeException('SOURCE_TOOL_PROJECTION_TRANSITION_CHANGED'); }
@@ -4641,7 +4665,7 @@ final class ScaffoldUpgradeRunner
         $pending = \PeanutServerUpdatePlan::sourcePending($root . '/server');
         if (($pending['checkpoint'] ?? null) !== $checkpoint || ($pending['transition_id'] ?? null) !== $state['transition_id']
             || ($pending['binding_sha256'] ?? null) !== hash('sha256', self::canonicalJson($binding))
-            || ($pending['phase'] ?? null) !== ($projectionRepair && $command === 'runtime-transition' ? 'prepared' : $state['phase'])
+            || ($pending['phase'] ?? null) !== ($projectionRepair && !$headAdmission && $command === 'runtime-transition' ? 'prepared' : $state['phase'])
             || ($pending['activation_started'] ?? null) !== false
             || file_exists($root . '/server/runtime/upgrade/.traffic-ready') || is_link($root . '/server/runtime/upgrade/.traffic-ready')) {
             throw new RuntimeException('SOURCE_TOOL_RESUME_PENDING_CHANGED');
@@ -5085,6 +5109,25 @@ final class ScaffoldUpgradeRunner
 
     private function runtimeAdmit(array $state): void
     {
+        if (($this->sourceToolCorrection['document']['repair'] ?? null) === 'head-published-admission') {
+            // Original observe and the existing partial plan/backup/apply/completion all use this host namespace.
+            // A fresh APP process keeps its own R loader; the immutable native helper and every anchor check stay intact.
+            $tool = $state['binding']['workspace'] . '/tools/update-plan.php';
+            ScaffoldPathGuard::existingFileWithin($state['binding']['workspace'], $tool, 'SOURCE_RUNTIME_NATIVE_ADMISSION_TOOL_UNSAFE');
+            if (hash_file('sha256', $tool) !== $state['binding']['tools']['server/docker/scripts/update-plan.php']) {
+                throw new RuntimeException('SOURCE_RUNTIME_NATIVE_ADMISSION_TOOL_CHANGED');
+            }
+            \PeanutServerUpdatePlan::sourceAdmissionHandoff($state['binding']['instance_root'] . '/server', function () use ($state, $tool): void {
+                [$code, $output, $error] = $this->runtimeCapture($state, 'native-admit', [PHP_BINARY, $tool, 'source-admit',
+                    '--instance-server=' . $state['binding']['instance_root'] . '/server', '--workspace=' . $state['binding']['workspace']]);
+                if ($code !== 0) { throw new RuntimeException('SOURCE_RUNTIME_NATIVE_ADMIT_FAILED: ' . $code . ':' . hash('sha256', $error)); }
+                $result = json_decode($output, true, 64, JSON_THROW_ON_ERROR);
+                if (($result['status'] ?? null) !== 'admitted' || ($result['transition_id'] ?? null) !== $state['transition_id']) {
+                    throw new RuntimeException('SOURCE_RUNTIME_NATIVE_ADMIT_RESULT_UNCONFIRMED');
+                }
+            });
+            return;
+        }
         // The host adapter starts a fresh fixed-image PHP process with the target's own Composer loader.
         // Product/project locks remain held; transfer only the instance lock to the native child.
         \PeanutServerUpdatePlan::sourceAdmissionHandoff($state['binding']['instance_root'] . '/server',

@@ -312,7 +312,7 @@ function productUpgradeSourceToolAdmission(string $path, string $checkpoint, arr
         || ($authority['sha256'] ?? null) !== hash_file('sha256', $authorityPath)) { throw new RuntimeException('SOURCE_RUNTIME_CANCEL_AUTHORITY_REQUIRED'); }
     $provenance = $admission['corrected_source'] ?? [];
     $correctionFiles = ['scripts/upgrade', 'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php'];
-    if (($admission['repair'] ?? null) === 'source-verified-projection') {
+    if (in_array($admission['repair'] ?? null, ['source-verified-projection', 'head-published-admission'], true)) {
         if ($protocol !== 'peanut.applied-source-tool-admission.v1'
             || !in_array($admission['command'] ?? null, ['runtime-transition', 'runtime-open'], true)) {
             throw new RuntimeException('SOURCE_TOOL_PROJECTION_COMMAND_INVALID');
@@ -323,6 +323,13 @@ function productUpgradeSourceToolAdmission(string $path, string $checkpoint, arr
                 throw new RuntimeException('SOURCE_TOOL_PREPARED_IDENTITY_INVALID');
             }
             $correctionFiles[] = 'scripts/product-upgrade-host';
+        }
+        if (($admission['repair'] ?? null) === 'head-published-admission'
+            && (!isset($admission['prepared_identity_sha256'])
+                || ($admission['native_php_binary']['path'] ?? null) !== PHP_BINARY
+                || realpath(PHP_BINARY) !== PHP_BINARY
+                || ($admission['native_php_binary']['sha256'] ?? null) !== hash_file('sha256', PHP_BINARY))) {
+            throw new RuntimeException('SOURCE_TOOL_NATIVE_PHP_IDENTITY_CHANGED');
         }
     } elseif (isset($admission['repair'])) { throw new RuntimeException('SOURCE_TOOL_REPAIR_INVALID'); }
     if (($provenance['root'] ?? null) !== $source || realpath($source) !== $source

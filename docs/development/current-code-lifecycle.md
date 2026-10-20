@@ -214,6 +214,10 @@ host 逐一从投影内原 release-versions、source_projection 和 files 行核
 
 该有限 internal 投影消费的是已交付运行候选，不要求其中存在四客户端开发用 node_modules；其 locks 子步骤沿原生声明及 Composer 来源校验，不传普通开发投影的 `--installed`。普通入口仍执行该参数。原 verified proof 的 managed/app-owned 摘要和前后 fence 保留实际源码与锁字节，六份 Web 归档继续逐份核摘要，真实 PHP vendor 继续原生 completed proof、vendor-check 与 vendor-state 检查。它不安装前端依赖、不重新构建客户端，也不把投影成功当作重新完成包级安装资格。
 
+已真实发布 head、全部程序意图完成而 native admit 尚未完成时，采用独立有限角色 `repair=head-published-admission`。它仍绑定原 verified origin、同四工具、prepared 摘要、当前 checkpoint/pending/head 与完成的 vendor journal；仅接 head-published、未激活、全部 intent done 的现场。入口另核保护 admission 的 `native_php_binary` path/sha256 与实际 PHP_BINARY 完全一致，不接受任意二进制选择。命令直接完成 native admission 后才将 checkpoint/pending 推进 admitted；不进入 runtimeInstall，不重投影、重写 intent、重发 CAS 或回退 phase。
+
+此角色复用原观察以及既有 partial plan/backup/apply/completion 的宿主命名空间：在真实 instance lock handoff 下，以已登记 PHP 的全新独立进程调用原固定 W/tools/update-plan.php source-admit，并由该子进程加载 R 自己的 vendor/APP。原 native helper 内容及 binding 摘要不改，private、数据库/r1/模块前沿及 execution lock 的全部严格检查保留；不把宿主 dev/inode 冒充容器坐标，也不删除锁或 anchor 字段。独立子进程的原始 stdout/stderr 直接沿原私有日志保存，实际返回 admitted 后才推进状态。既有安装完成路径合法移除 partial 标记、发布真实 installed pair；之后 open 仍沿原 Docker 运行消费并重发其 admission，必须绑定同 transition_admission、PHP 二进制、四工具及安装完成证明，不额外启服务或改数据库路线。
+
 该有限维护入口将每次 child 的原始 stdout/stderr 保存到原 W/recovery 内 action/顺序/阶段专属的 0600、独占新建文件，目录保持原 owner 私有；producer 的原 PHP/node/vendor 子进程同样在抛错前保存原字节。日志不存环境或额外命令凭据，不回显原始 stderr；对外只返回阶段、退出码和摘要，原始文件仅在本地受保护证据中读取。没有为了采日志单独重放动作；部分投影、未知 vendor/journal 或写入失败均保全并停止对应动作，不能删除现场或靠重用 action 名字重试。原失败次数保留，新的明确工程授权下实际次数单独记录；源码修复不自带运行、数据库恢复、清库或发布授权。
 
 尚未写源码的 `preparing` 取消与源码恢复分开。prepare 和 preparing-cancel 检查同 candidate 的完整账本；只有 operation=`preflight`、status=`ready` 且原 plan／identity 摘要完全相同的事件属于只读前置。任一 started、failed、recovered、实际变更或未知事件均阻止该分支，后来的 READY 不能遮盖旧事件；通用账本状态和 applied／verified 的实际证明不变。
