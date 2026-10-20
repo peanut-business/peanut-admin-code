@@ -54,8 +54,10 @@ permissions, so denial or failure of one surface cannot block the others.
 
 ## Schema and lifecycle
 
-The package owns six additive InnoDB tables. The module migration creates them through one
-Module-owned migration using `Database\\Schema`.
+The module declares six owned InnoDB tables. Its versioned migrations own their
+schema changes; the five machine/Webhook/audit tables below are distinct from
+the existing `pa_external_channel_binding` provider-binding ledger. Table presence
+or source declarations do not prove a particular instance has adopted a migration.
 
 - `pa_integration_machine_identity`: Tenant key, server-generated identity key,
   name, sorted unique scope JSON, status, token prefix/digest/last four, family,

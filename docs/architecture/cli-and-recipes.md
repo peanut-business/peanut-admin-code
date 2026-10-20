@@ -1,60 +1,27 @@
-# Peanut CLI 与可选 Recipes
+# Peanut CLI 与可选交付配方
 
-状态：已批准的架构；独立 Peanut CLI `v0.1.0` 已从 `peanut-business/peanut-cli` 发行。初始官方 Recipe 为 `github-ci@1.0.0`。
+## 职责
 
-工具登记集成候选 `github-ci@1.1.0` 已迁移到独立 CLI 仓库；CLI catalog 默认仍为 `1.0.0`。候选通过三个 workflow 复用一套项目工具要求，保留只读权限、手动启动与现有 baseline 保护；准备、缓存和激活 Gate 见[项目工具指南](../development/project-toolchain.md#下游应用与可选-ci)。Peanut Admin 不再复制保存 Recipe 源码。
+CLI是独立工具产品，提供创建、上游升级、状态和诊断入口。Code提供模板、APP身份、受管baseline、原生安装/升级和制包合同；Core不导入CLI，也不复制业务工具实现。普通APP不依赖维护者Project。
 
-## 1. 职责
+模板包用于创建APP及上游源码升级；APP自己的部署包是server-only。CLI、脚手架、APP和Recipe版本独立，不能把一处版本升级当作全部运行环境已更新。
 
-Core Scaffold 是平台无关的应用底座，交付后端、客户端、模块、原生依赖锁、安装、发行、升级及公开开发资料。新派生 APP 默认不生成 `.github/`，资源登记不预设 GitHub Actions 数据库。源码仓自身的 GitHub 工作流保持其维护者职责。
+## 当前命令与简化目标
 
-CLI 是统一 DX 入口，负责参数、诊断、状态与已有合同的编排。它是独立公开产品线 `peanut-business/peanut-cli`，通过 Node/npm 体系安装并提供全局 `peanut` 命令；Peanut Admin、PHP Core、Web Core 和下游 APP 都不复制或导入 CLI 实现。
+对应CLI版本的help和README是参数真值。当前已有create、upgrade、doctor/status及可选recipe入口；旧v0.1.0 MVP关于“完整create/upgrade尚未实现”的文字不再作为当前能力说明。命令存在不证明全部路径已运行验收。
 
-Recipe 是可选的交付方案，拥有独立版本、manifest 和文件 baseline。`github-ci` 使用 GitHub Actions；后续 GitLab/Custom 沿用 Recipe 合同，并按实际需要增加路径范围与适配，不把平台能力放回 Core。当前只支持本地官方目录，不下载或执行远程 Recipe 代码。
+已确认的简化目标是官方模板压缩包或显式本地包直接创建、严格空目标目录、就地吸收上游；在接口完成前不能虚构本地包选项或强制覆盖参数。create只生成新APP，不替代安装/升级/部署。已有APP通过固定来源、三方计划和恢复入口升级，不重建目录消除定制冲突。
 
-| 层 | 入口 / 文件 | 归属 |
-| --- | --- | --- |
-| 应用创建 | `scripts/create-app`、application manifest、scaffold baseline | Core Scaffold 合同，由 Code 装配 |
-| 开发入口 | 全局 `peanut` 命令 | 独立 Peanut CLI |
-| Recipe 定义 | `peanut-cli` 仓库中的 `recipes/catalog.json`、`recipes/<id>/<version>/manifest.json` | 独立 CLI / Recipe 版本 |
-| Recipe 安装状态 | `.peanut/recipes/<id>/manifest.json`、`source-manifest.json`、`baseline/files/` | 对应 APP 的 Recipe baseline |
-| Recipe 生成文件 | `.github/workflows/ci.yml`、`release.yml` | `recipe:github-ci` |
-| 下游扩展与秘密 | APP 自有代码、资源、环境与 CI 定制 | APP；既有保护继续生效 |
+## Recipe的边界
 
-## 2. MVP 使用
+Recipe是可选CI配置，来源在CLI仓的recipes目录，各版本有manifest和baseline。它不能成为创建APP的强制前置，不默认配置远端Secrets、权限、数据库或服务。
 
-在 APP 根目录执行；`--path` 也可指定另一 APP，读取的 Recipe 来源始终是当前 CLI 自己的版本化目录。
+初次安装先核文件占用和归属；既有文件即使内容相同也不得静默收编。Recipe文件归recipe owner，用户改动保留；后续更新应复用同一三方比较及恢复机制，不复制第二个升级引擎。当前未实现的更新/卸载/远端下载保持明确缺口，不把add当覆盖升级。
 
-```sh
-peanut doctor
-peanut status
-peanut recipe list
-peanut recipe status
-peanut recipe add github-ci
-peanut recipe status github-ci
-peanut status --path /absolute/application
-```
+GitHub配方只有显式触发才运行。release工作流必须调用匹配APP版本的制包器并使用显式输出目录，上传真实归档和manifest；资格、main/tag、正式发布和部署分别授权。旧配方快照及已安装baseline不原位重写，新适配使用新版本并由APP选择采用。
 
-`v0.1.0` 可从公开 GitHub tag 安装：`npm install -g https://github.com/peanut-business/peanut-cli/archive/refs/tags/v0.1.0.tar.gz`。安装后直接使用 `peanut`；npmjs registry 的包名发布是独立发行通道，未完成前不得写成 `npm install -g @peanut/cli` 已可用。输出为 JSON；退出码 0 表示命令完成，doctor 1 表示工具/输入不齐，2 表示输入、合同或冲突错误。帮助为 `--help`。
+## 诊断与失败
 
-doctor 只检查本机 PHP 8.3/扩展、Node/npm/pnpm 可用性、原生锁与必要 JSON/文件，以及 Recipe 安装是否完整。它不会安装依赖、读取秘密、连接数据库、启动服务或证明运行健康。原有 `scaffold-doctor` 的资源绑定检查保持独立，本批没有把其运行资源守卫移到普通 doctor。
+Doctor检查对应工具、锁和配置，不安装依赖、不读取秘密、不连接DB或证明服务健康。Status报告实际APP来源、独立版本、Recipe定制和升级状态；目录存在不能被解释为成功或失败。
 
-status 区分 APP、源码 checkout、APP 版本、scaffold 来源、Core/version contract、Recipe 版本及逐文件 unchanged/modified/missing。存在 `.peanut/upgrades` 只报告状态目录存在，不把它解释为升级失败或许可。
-
-## 3. 安装与归属
-
-`github-ci@1.0.0` 携带当前应用使用的锁定依赖 CI 模板（修正精确 Core 约束不应因 Composer 的一般 warning 被 `--strict` 阻断），以及调用现有 `scripts/package-release.sh` 的 Release candidate 工作流。两者只通过 `workflow_dispatch` 启动，同步提交不会启动构建；Release 工作流上传现有制包器生成的制品和 manifest，正式发布、签名资格与部署继续按应用自身门禁。
-
-安装先验证应用身份、Recipe manifest、SemVer、全部模板摘要和目标路径，再整体检查文件占用与 application manifest 的 ownership。已存在的文件即使字节相同，也不能在首次安装中被静默收编；旧 scaffold 声明的 CI 文件必须通过原有显式 adoption/冲突机制另行处理，本 MVP 不修改旧 baseline。
-
-独立 CLI 自己实现与公开 scaffold 合同兼容的路径、摘要、SemVer 与版本校验，不导入 Peanut Admin PHP 源码；Peanut Admin 的 scaffold upgrade runner 继续保留 `ScaffoldManifest::additionDecision` 和旧 CI 归属迁移保护。CLI 使用独占创建，拒绝符号链接、越界与目标占用。安装在 `.peanut/recipes/.<id>.installing` 准备 baseline，文件完成后原子提交状态目录。可捕获失败只回收本次创建且仍匹配摘要的文件；进程中断残留的 installing 目录报告 recovery_required，不自动重放或删除现场。失败可能保留空目录。
-
-重复 add 返回已安装版本和定制状态，不覆盖、修复缺失文件或升级版本。Recipe 模板随独立 CLI/Recipe 版本发布，已安装版本和 baseline 独立保留。安装不会改 application manifest、scaffold baseline、资源、Git remote、GitHub 配置或凭据。提交 APP 时应同时提交生成工作流与 `.peanut/recipes/<id>/`。
-
-## 4. 后续升级合同
-
-Recipe manifest 使用 `peanut.recipe.v1`，逐文件记录 path、managed classification、`recipe:<id>` owner、mode 和 SHA-256；安装状态使用 `peanut.recipe-installation.v1`，保留原 manifest 字节摘要、独立版本和逐文件 baseline。产品、APP、scaffold、Core 与 Recipe 的版本互不代替。
-
-未来 Recipe update 必须把旧 baseline、下游当前文件及新版本文件送入现有 scaffold 三方差异、冲突、计划确认、恢复合同；增加 Recipe owner/状态位置适配，禁止复制一套 upgrade/release engine，禁止用 add 覆盖升级。卸载、adoption、跨版本更新、下载、完整 create/upgrade、GitLab/Custom、远端 Variables/Secrets 配置尚未实现。当前文件范围只允许 `.github/workflows/*.yml`，其他 Recipe 需经明确实现后扩展。
-
-现有 APP 和不可变 release/scaffold 候选不因 CLI 独立化自动迁移。新的可变模板 inventory 不再交付 CLI/Recipe 实现；固定候选仍按其原 manifest 消费。scaffold 更新遇到旧 baseline 的 `.github/` 文件从目标删除时继续报告 `recipe_ownership_transition_required`，要求显式归属决定，避免把 CLI 解耦解释为自动删 CI。CLI 自身发行与 Peanut Admin 的 Actions、产品发行和部署资格分别记账。
+创建/升级在精确目标内工作，拒绝越界链接与未知占用。中断先读同一计划/安装记录，不重复派工、移除原APP或改变运行身份。工作区路径和公开来源保持独立；工具实现、配置、实际采用和验证结果分别记录。

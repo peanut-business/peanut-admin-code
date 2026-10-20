@@ -217,7 +217,7 @@ class PackagingFilesTest(unittest.TestCase):
         self.assertEqual((target/relative).read_bytes(), source.read_bytes())
         self.assertEqual((target/entry['baseline_path']).read_bytes(), (app/entry['baseline_path']).read_bytes())
 
-    def test_git_application_rejects_stale_manifest_current_digest(self):
+    def test_git_application_preserves_adoption_manifest_but_uses_committed_customization(self):
         import shutil
         app = self.root/'git-stale-manifest-application'
         shutil.copytree(self.source, app)
@@ -228,8 +228,22 @@ class PackagingFilesTest(unittest.TestCase):
         subprocess.run(['git','config','user.email','packaging@example.invalid'],cwd=app,check=True)
         subprocess.run(['git','add','-A'],cwd=app,check=True)
         subprocess.run(['git','commit','-qm','stale app manifest'],cwd=app,check=True)
-        with self.assertRaisesRegex(ValueError, 'application manifest source identity changed: web/src/page.vue'):
-            pack.snapshot(app,self.root/'stale-manifest-release-source',False)
+        # APP Git is the release source. The adoption manifest/baseline must not
+        # be rewritten merely to release a committed customer customization.
+        before = (app/pack.MANIFEST).read_bytes()
+        original = json.loads(before)
+        entry = next(row for row in original['files'] if row['path'] == relative)
+        self.assertNotEqual(entry['sha256'], hashlib.sha256((app/relative).read_bytes()).hexdigest())
+        target = self.root/'committed-customization-release-source'
+        _, identity = pack.snapshot(app,target,False)
+        self.assertEqual('application', identity['kind'])
+        self.assertEqual(subprocess.check_output(['git','rev-parse','HEAD'],cwd=app,text=True).strip(), identity['commit'])
+        self.assertEqual((app/relative).read_bytes(), (target/relative).read_bytes())
+        self.assertEqual(before, (target/pack.MANIFEST).read_bytes())
+        self.assertEqual((app/entry['baseline_path']).read_bytes(), (target/entry['baseline_path']).read_bytes())
+        (app/relative).write_text('uncommitted after the snapshot')
+        with self.assertRaisesRegex(ValueError, 'clean committed Git worktree'):
+            pack.snapshot(app,self.root/'dirty-rejected',False)
 
     def test_modified_source_is_rejected(self):
         (self.source/'web/src/page.vue').write_text('changed')
@@ -294,6 +308,11 @@ class PackagingFilesTest(unittest.TestCase):
         pack.snapshot(self.source,self.out,True);pack.public_assets(self.asset_tree(),self.out)
         pack.server_identity(self.source,self.out,self.manifest,{'kind':'generated-template','commit':None,'tree':None},pack.released_dependencies(self.source))
         forbidden=('runtime','public/storage','private/storage','private/resources','public/uploads','docker/mysql','docker/secrets')
+        self.assertEqual(['server'], sorted(path.name for path in self.out.iterdir()))
+        for client in ('admin', 'platform', 'pc', 'mobile'):
+            self.assertTrue((self.out / 'server/public' / client / 'index.html').is_file(), client)
+        for development_only in ('web', 'platform', 'pc', 'uniapp', '.git', '.peanut/scaffold-baseline'):
+            self.assertFalse((self.out / development_only).exists(), development_only)
         for relative in forbidden:
             self.assertFalse((self.out/'server'/relative).exists(), relative)
         writer=ROOT/'server/app/common/infrastructure/scaffold/DeterministicEditionArchive.php'

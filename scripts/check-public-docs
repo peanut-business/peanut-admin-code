@@ -3,7 +3,15 @@
 
 declare(strict_types=1);
 
-$root = realpath(dirname(__DIR__));
+$selectedRoot = dirname(__DIR__);
+foreach (array_slice($argv, 1) as $argument) {
+    if (!str_starts_with($argument, '--root=')) {
+        fwrite(STDERR, "check-public-docs: unknown argument\n");
+        exit(2);
+    }
+    $selectedRoot = substr($argument, 7);
+}
+$root = realpath($selectedRoot);
 if (!is_string($root)) {
     fwrite(STDERR, "check-public-docs: repository root is unavailable\n");
     exit(2);
@@ -13,14 +21,42 @@ $required = [
     'docs/public/release-channels.md',
     'docs/public/api-and-sdk.md',
     'docs/public/module-development.md',
+    'docs/public/installation.md',
+    'docs/public/application-release.md',
+    'docs/public/support.md',
+    'docs/README.md',
 ];
 $shippedTemplates = [
-    'server/resources/scaffold-application/docs-site/api.md.stub',
-    'server/resources/scaffold-application/docs-site/releases.md.stub',
+    'server/resources/scaffold-application/AGENTS.md.stub',
+    'server/resources/scaffold-application/SECURITY.md.stub',
 ];
 $violations = [];
 $documents = [];
+$inventoryPath = $root . '/scaffold/application-template-inventory.json';
+if (!is_file($inventoryPath) || is_link($inventoryPath)) {
+    fwrite(STDERR, "check-public-docs: source template inventory is required\n");
+    exit(2);
+}
+$inventory = json_decode((string) file_get_contents($inventoryPath), true, 512, JSON_THROW_ON_ERROR);
+$delivered = [];
+$manuals = [];
+foreach ($inventory['files'] ?? [] as $entry) {
+    if (($entry['classification'] ?? '') === 'excluded') { continue; }
+    $target = $entry['target'] ?? $entry['path'] ?? null;
+    $source = $entry['path'] ?? null;
+    if (!is_string($target) || !is_string($source) || str_contains($target, '..')
+        || str_starts_with($target, '/') || str_contains($source, '..') || str_starts_with($source, '/')) {
+        $violations[] = 'invalid template document path';
+        continue;
+    }
+    $delivered[$target] = $source;
+    if (str_starts_with($target, 'docs/') && str_ends_with($target, '.md')) { $manuals[] = $target; }
+    if (str_starts_with($target, 'docs-site/')) { $violations[] = 'duplicate docs-site template is still delivered'; }
+}
 foreach ($required as $relative) {
+    if (!isset($delivered[$relative])) { $violations[] = "public document is not delivered: {$relative}"; }
+}
+foreach (array_unique(array_merge($required, $manuals)) as $relative) {
     $path = $root . '/' . $relative;
     if (!is_file($path) || is_link($path)) {
         $violations[] = "missing public document: {$relative}";
@@ -35,14 +71,51 @@ foreach ($required as $relative) {
     if (preg_match('#/Users/|peanut-admin-project|PEANUT_ADMIN_PROJECT_ROOT#', $content) === 1) {
         $violations[] = "private maintainer dependency leaked into {$relative}";
     }
-    preg_match_all('/\[[^\]]+\]\(([^)]+)\)/', $content, $matches);
+    $prose = preg_replace('/^```[^\n]*\n.*?^```[^\n]*$/ms', '', $content);
+    preg_match_all('/\[[^\]]+\]\(([^)]+)\)/', (string) $prose, $matches);
     foreach ($matches[1] ?? [] as $target) {
         if (preg_match('~^(?:https?://|#)~', $target) === 1) {
             continue;
         }
-        $targetPath = realpath(dirname($path) . '/' . explode('#', $target, 2)[0]);
+        $linkPath = rawurldecode(explode('#', $target, 2)[0]);
+        $parts = [];
+        $safe = $linkPath !== '' && !str_starts_with($linkPath, '/') && !str_contains($linkPath, '\\');
+        foreach (explode('/', dirname($relative) . '/' . $linkPath) as $part) {
+            if ($part === '' || $part === '.') { continue; }
+            if ($part === '..') {
+                if ($parts === []) { $safe = false; break; }
+                array_pop($parts);
+            } else { $parts[] = $part; }
+        }
+        $lexical = implode('/', $parts);
+        $walk = $root;
+        foreach ($parts as $part) {
+            if (!is_dir($walk) || !in_array($part, scandir($walk) ?: [], true) || is_link($walk . '/' . $part)) {
+                $safe = false;
+                break;
+            }
+            $walk .= '/' . $part;
+        }
+        if (!$safe) {
+            $violations[] = "unsafe or case-mismatched link in {$relative}: {$target}";
+            continue;
+        }
+        $targetPath = realpath($root . '/' . $lexical);
         if ($targetPath === false || !str_starts_with($targetPath, $root . DIRECTORY_SEPARATOR)) {
             $violations[] = "broken or escaping link in {$relative}: {$target}";
+            continue;
+        }
+        $targetRelative = substr($targetPath, strlen($root) + 1);
+        if (!isset($delivered[$targetRelative])) {
+            $violations[] = "link target is not shipped in {$relative}: {$target}";
+        }
+        $walk = $root;
+        foreach (explode('/', $targetRelative) as $component) {
+            if (!in_array($component, scandir($walk) ?: [], true) || is_link($walk . '/' . $component)) {
+                $violations[] = "unsafe or case-mismatched link in {$relative}: {$target}";
+                break;
+            }
+            $walk .= '/' . $component;
         }
     }
 }
@@ -67,11 +140,11 @@ foreach ($shippedTemplates as $relative) {
 $releasePath = $root . '/release-versions.json';
 $release = json_decode((string) file_get_contents($releasePath), true, 512, JSON_THROW_ON_ERROR);
 $version = $release['source_product_version'] ?? null;
-if (!is_string($version) || !str_contains($documents['docs/public/release-channels.md'] ?? '', $version)) {
-    $violations[] = 'release channel guide does not display the current source product version';
-}
-if (str_contains($documents['docs/public/release-channels.md'] ?? '', 'npm install @peanut-admin/')) {
-    $violations[] = 'candidate guide must not claim unavailable public npm packages';
+$apiPath = $root . '/server/generated/openapi.json';
+$api = is_file($apiPath) && !is_link($apiPath)
+    ? json_decode((string) file_get_contents($apiPath), true, 512, JSON_THROW_ON_ERROR) : [];
+if (!is_string($version) || ($api['info']['version'] ?? null) !== $version) {
+    $violations[] = 'generated API version differs from the actual source version';
 }
 if (!str_contains($documents['docs/public/api-and-sdk.md'] ?? '', './scripts/check-openapi')) {
     $violations[] = 'API guide is missing the generated-artifact drift check';
@@ -80,8 +153,10 @@ if (!str_contains($documents['docs/public/release-channels.md'] ?? '', 'php serv
     || !str_contains($documents['docs/public/release-channels.md'] ?? '', 'scripts/upgrade plan')) {
     $violations[] = 'release channel guide is missing the first-install or independent-upgrade entry';
 }
-if (str_contains($documents['server/resources/scaffold-application/docs-site/api.md.stub'] ?? '', 'OpenAPI info.version: 3.0.0')) {
-    $violations[] = 'shipped API guide still treats the old fixed API version as current';
+foreach (['PEANUT_UPGRADE_PHP', 'PHP 8.3', 'workspace'] as $requiredUpdatePrerequisite) {
+    if (!str_contains($documents['docs/public/application-release.md'] ?? '', $requiredUpdatePrerequisite)) {
+        $violations[] = 'APP update guide lost required prerequisite: ' . $requiredUpdatePrerequisite;
+    }
 }
 
 if ($violations !== []) {

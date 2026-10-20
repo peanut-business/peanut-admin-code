@@ -207,7 +207,7 @@ foreach ([
     );
 }
 // Generated application documentation has real, content-addressed template inputs, not absent source pages.
-foreach (['docs-site/capabilities.md', 'docs-site/guide/application-module-lifecycle.md', 'SECURITY.md', 'AGENTS.md'] as $targetPath) {
+foreach (['SECURITY.md', 'AGENTS.md'] as $targetPath) {
     $sourcePath = 'server/resources/scaffold-application/' . $targetPath . '.stub';
     $entry = $inventoryByPath[$sourcePath] ?? [];
     $expectedClassification = $targetPath === 'SECURITY.md' ? 'app-owned' : 'generated-managed';
@@ -458,13 +458,14 @@ try {
             'maintainer-only operation tool leaked into generated application: ' . $maintainerOperation,
         );
     }
-    $generatedDocsConfig = (string) file_get_contents($first . '/docs-site/.vitepress/config.ts');
-    $generatedDocsTheme = (string) file_get_contents($first . '/docs-site/.vitepress/theme/index.ts');
-    createApplicationExpect(
-        !str_contains($generatedDocsConfig, 'productStatus')
-            && !str_contains($generatedDocsTheme, 'ProductStatus'),
-        'generated docs must not reference the source-only product status projection',
-    );
+    createApplicationExpect(!is_dir($first . '/docs-site'), 'APP ships one Markdown documentation tree, not another site project');
+    foreach (['docs/public/application-release.md', 'docs/public/support.md',
+        'docs/architecture/framework-extension-and-lifecycle.md',
+        'docs/architecture/document-collaboration-standard.md',
+        'docs/architecture/content-surface-and-format-adapters.md'] as $publicDocument) {
+        createApplicationExpect(is_file($first . '/' . $publicDocument), 'public manual must be shipped: ' . $publicDocument);
+    }
+    createApplicationExpect(!is_dir($first . '/docs/maintenance'), 'source-only recovery protocols must not become APP tutorials');
     createApplicationExpect(!is_dir($first . '/plugins/fixture.delivery-record'), 'demo Plugin artifact must remain source-only');
     createApplicationExpect(!is_dir($first . '/server/app/modules/fixture/delivery_record'), 'demo backend Module must remain source-only');
     createApplicationExpect(!is_dir($first . '/server/fixtures/plugin-module-lifecycle'), 'demo lifecycle runner must remain source-only');

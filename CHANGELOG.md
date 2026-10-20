@@ -78,6 +78,10 @@ Downstream applications retain their own application versions.
 
 ### Changed
 
+- Default downstream APP packaging to server-only, with a versioned workspace-level release output; keep explicit upstream template and frozen internal-candidate producers separate.
+- Ship one versioned Markdown manual set, remove the duplicate generated docs-site project, validate actual delivery links and bind generated API versions to source metadata.
+- Separate normal application guides from source-only migration and retained-installation recovery references. Historical releases and installed APP baselines remain unchanged.
+
 - Relicensed the current Peanut Admin source repository and its application
   components under Apache-2.0. Existing immutable tags and Releases keep the
   license files originally published with those artifacts.

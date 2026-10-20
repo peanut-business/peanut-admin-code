@@ -1,27 +1,33 @@
 #!/usr/bin/env bash
-# Build a development source or server-only release from an application.
+# Build the application's default server-only deployment release.
+# Full source assembly is reserved for explicit upstream template/legacy candidate producers.
 set -Eeuo pipefail
 # Release dependencies belong to the isolated build, never caller overrides.
 unset COMPOSER COMPOSER_VENDOR_DIR COMPOSER_BIN_DIR
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)"
 ROOT_DIR="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd -P)"
 APPLICATION_ROOT="$ROOT_DIR"
-OUTPUT_DIR="$ROOT_DIR/release/peanut-admin"
+OUTPUT_DIR=""
 DIRECTORY_ONLY=0
 GENERATED_TEMPLATE=0
 INTERNAL_CANDIDATE=0
 CANDIDATE_SCAFFOLD=""
 CANDIDATE_CORE_INPUTS=""
-SERVER_ONLY=0
+SERVER_ONLY=auto
 SERVER_OUTPUT=""
 usage() {
   cat <<'USAGE'
 Usage: scripts/package-release.sh [/absolute/output] --application-root=/absolute/application [--directory-only] [--server-only|--server-output=/absolute/output]
 The existing build-edition-installers uses --generated-template for the initial
 Code-derived edition; a customized APP must be a clean committed Git worktree.
-The default package retains APP development source and its upstream baseline.
---server-only emits the production server/ tree, its generated release identity
-and built browser assets. Build dependencies remain in an isolated temp directory.
+The default APP package is server-only: server/ program files, release identity,
+legal notices and the four built browser asset trees. APP development source and
+its upstream baseline remain in the APP Git repository; they are not a second release.
+--server-only is an explicit spelling of the default. An omitted output uses
+<APP parent>/release/apps/<slug>/<APP version>/<slug>-<version>-<edition>-server.
+An explicit absolute output overrides that location (including CI and pre-migration APPs).
+Existing outputs are never overwritten. Build dependencies stay in private staging.
+--server-output requires --generated-template and --directory-only; it is not an APP mode.
 --internal-candidate accepts the sealed seven-archive projection and builds all
 four existing clients; it emits an internal APP, never a formal/server-only release.
 For an artifact-derived APP, also pass both actual source proofs:
@@ -51,6 +57,12 @@ while [[ $# -gt 0 ]]; do
     *) die "unsupported argument: $1" ;;
   esac
 done
+# Existing explicit template/candidate callers keep their original source-assembly
+# contract. Omitting a mode can never create a full-source APP archive.
+if [[ "$SERVER_ONLY" == auto ]]; then
+  if [[ "$GENERATED_TEMPLATE" == 1 || "$INTERNAL_CANDIDATE" == 1 ]]; then SERVER_ONLY=0; else SERVER_ONLY=1; fi
+fi
+[[ -z "$SERVER_OUTPUT" || "$GENERATED_TEMPLATE" == 1 ]] || die '--server-output requires the upstream generated-template producer'
 [[ "$INTERNAL_CANDIDATE" != 1 || ( "$GENERATED_TEMPLATE" == 0 && "$SERVER_ONLY" == 0 && -z "$SERVER_OUTPUT" ) ]] || die 'internal candidate requires the complete four-client APP'
 if [[ -n "$CANDIDATE_SCAFFOLD" || -n "$CANDIDATE_CORE_INPUTS" ]]; then
   [[ "$INTERNAL_CANDIDATE" == 1 && "$CANDIDATE_SCAFFOLD" == /* && "$CANDIDATE_CORE_INPUTS" == /* ]] || die 'both absolute candidate proof paths require --internal-candidate'
@@ -59,6 +71,31 @@ fi
 [[ -z "$SERVER_OUTPUT" || "$DIRECTORY_ONLY" == 1 ]] || die '--server-output is for the edition installer directory assembly'
 [[ "$APPLICATION_ROOT" == /* && -d "$APPLICATION_ROOT" && ! -L "$APPLICATION_ROOT" ]] || die 'application root must be an absolute real directory'
 [[ -f "$APPLICATION_ROOT/.peanut/application-manifest.json" ]] || die 'missing generated application baseline; use the existing build-edition-installers entry, not a raw source copy'
+if [[ -z "$OUTPUT_DIR" ]]; then
+  [[ "$GENERATED_TEMPLATE" == 0 && "$INTERNAL_CANDIDATE" == 0 ]] || die 'template and internal producers must select an explicit output'
+  OUTPUT_DIR="$(python3 - "$APPLICATION_ROOT" <<'PY'
+import json, pathlib, re, sys
+root = pathlib.Path(sys.argv[1])
+if root.resolve() != root or root.is_symlink():
+    raise SystemExit('package-release: application root must be canonical')
+identity = root / '.peanut/application-manifest.json'
+if identity.is_symlink():
+    raise SystemExit('package-release: application manifest must not be a link')
+application = json.loads(identity.read_text(encoding='utf-8'))['application']
+slug, version, edition = (application.get(k) for k in ('slug', 'version', 'edition'))
+# This only validates path components; the original snapshot validates the full
+# version, Git, baseline and release contract before any dependency installation.
+if (not isinstance(slug, str) or not re.fullmatch(r'[a-z0-9][a-z0-9-]{0,79}', slug)
+        or not isinstance(version, str) or not re.fullmatch(r'[0-9][0-9A-Za-z.+-]{0,127}', version)
+        or edition not in ('standalone', 'multi-tenant')):
+    raise SystemExit('package-release: invalid application output identity')
+output = root.parent / 'release' / 'apps' / slug / version / f'{slug}-{version}-{edition}-server'
+if output.resolve() != output:
+    raise SystemExit('package-release: output ancestors must not be links')
+print(output)
+PY
+)" || die 'cannot resolve the APP release output'
+fi
 [[ "$OUTPUT_DIR" == /* ]] || OUTPUT_DIR="$ROOT_DIR/$OUTPUT_DIR"
 if [[ -n "$SERVER_OUTPUT" ]]; then
   [[ "$SERVER_OUTPUT" == /* && "$SERVER_OUTPUT" != "$OUTPUT_DIR" ]] || die 'server output must be a distinct absolute path'

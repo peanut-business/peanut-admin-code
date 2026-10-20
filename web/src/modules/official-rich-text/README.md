@@ -8,4 +8,4 @@ RichText 是 `official.content-tools` 的正式 provider。PHP 组合根从已�
 
 身份/权限分区 `contextKey` 变化、卸载或权限模式变化会销毁 Tiptap、媒体 NodeView 和解析/选择请求。独立调用 Editor 的 owner 必须传入当前身份分区，授权仍由 owner/File 每次复核。
 
-C1/C2 尚未完成，协同配置或已有 Yjs 状态进入准确 unavailable；不连接旧 URL，不创建伪 ticket，不把 sync 当持久 ACK，不将 JSON 和 Yjs 双写。旧公开 collaboration props/events 保留用于消费者类型，但当前不发协同状态更新。旧 PHP collaboration state API/存储仍在，未在 B2 改数据库或宣称其一致性。
+当前编辑器接受owner提供的`collaborationBinding`：协议必须为`yjs/1`且document是真实Y.Doc；等待ready/frozen后绑定Tiptap Collaboration，按writable控制编辑，不再用JSON重复初始化或双写协作内容。仅传旧collaboration配置或已有序列化状态而没有合法binding时仍返回unavailable，不连接旧URL或伪造ticket。身份、绑定代次和销毁会释放旧会话。Hocuspocus provider源码入口已存在，实际双人同步、撤权、保存及重开仍需对应集成证据；sync不是持久ACK。

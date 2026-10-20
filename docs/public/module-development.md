@@ -2,7 +2,7 @@
 
 模块是交付单元。后端实现、各客户端贡献、权限、事件、迁移和公开合同可以位于不同源码目录，但由同一个稳定模块 key 和版本汇集。模块之间只能使用公开 Query、Command、Event、Job 或 DTO 合同；不要读取别的模块私表、导入其 Model，或调用内部 Controller。
 
-模块包至少应声明负责人、版本、依赖、兼容产品范围、迁移、权限、菜单与客户端贡献。安装前核验来源、许可、摘要和签名。PHP 模块在应用进程内运行，不是安全沙箱；普通租户不能上传任意 PHP、Shell、类名或路径来执行。
+模块包至少应声明负责人、版本、依赖、兼容产品范围、迁移、权限、菜单与客户端贡献。安装前核验可信来源、许可、归档摘要及逐文件清单。当前实现允许可信外部SHA-256作为来源证明；签名是另一个可选的可信证明分支，不要求每个模块作者配置私钥。没有可信摘要或有效签名时拒绝。PHP模块在应用进程内运行，不是安全沙箱；普通租户不能上传任意PHP、Shell、类名或路径执行。
 
 模块自己的 `composer.json` 依赖也必须与目标应用相容；宿主的 Composer 安装成功，不代表其未参与依赖解析的模块声明已经验证。源码联合开发可沿用当前开发 Core，发行构建则需在隔离副本中同步宿主和模块的实际发布依赖，再用原生包管理器验证。源码接收返回的 `manual_dependencies` 是需要处理的依赖清单，不是已经安装或通过兼容性验证的回执。
 
@@ -13,10 +13,10 @@
 ```sh
 php think module:create <vendor.module> --vendor=<vendor>
 php think module:check <vendor.module>
-php think module:pack <vendor.module> --output=<absolute-path>/<name>.tar --signing-key-id=<key-id> --signing-secret-key-file=<permission-0600-file>
+php think module:pack <vendor.module> --output=<absolute-release-path>/<name>.tar
 ```
 
-包作者通过可信渠道交付 archive、SHA-256、签名 key ID 和公钥身份；签名私钥仅由作者保管。`module:install-package <archive> --sha256=<64-hex> --signature-key-id=<key-id>` 是已知 Standalone / multi-tenant 实例的本地开发或调试 Runtime 安装入口；它不创建租户、开通 TenantModule 或授予 RBAC。生产模块交付应走该产品版本明确支持的受控入口，不能将此开发命令写成普通租户自行上传并安装 PHP 的生产能力。
+包作者通过可信渠道交付archive和SHA-256，不能把未知包旁自行计算的摘要当作可信来源。`module:install-package <archive> --sha256=<trusted-64-hex>`是已知Standalone / multi-tenant实例的本地开发或调试Runtime安装入口；它不创建租户、开通TenantModule或授予RBAC。确需签名时，打包同时提供`--signing-key-id`和`--signing-secret-key-file`，安装可显式要求`--signature-key-id`；既有签名不被无条件忽略。生产模块交付仍走该版本支持的受控入口，不允许普通租户自行上传和运行PHP。
 
 租户开通与成员授权各有独立入口。Standalone 部署 owner 对已安装且锁定的私有模块，可用 `php think tenant-module:enable-locked-private --module=<vendor.module>` 显式加入默认租户；该命令不授予 RBAC。平台路由提供受 `platform.tenant.module.manage` 权限保护的 `POST tenants/modules/enable` / `disable`，用于受支持的租户模块管理。成员权限沿应用的角色、成员管理入口办理，并核对实际权限键及租户 Scope；平台 `operators/roles/replace` 是平台操作员角色入口，不等同租户成员授权。当前没有已核实的“安装包后自动为任意租户开通并给所有成员授权”的单一命令，因此不得把安装成功当作可用授权回执。
 
