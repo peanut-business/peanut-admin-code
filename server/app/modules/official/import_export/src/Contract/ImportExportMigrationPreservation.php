@@ -141,12 +141,20 @@ final readonly class ImportExportMigrationPreservation
     {
         $identity = $this->query($pdo, 'SELECT DATABASE() AS database_name,@@server_uuid AS server_uuid,CONNECTION_ID() AS connection_id,@@foreign_key_checks AS foreign_key_checks')[0];
         if ($identity['foreign_key_checks'] !== '1') { self::fail('FOREIGN_KEY_CHECKS_REQUIRED'); }
+        if (!is_string($identity['database_name']) || preg_match('/\A[a-zA-Z0-9_]+\z/D', $identity['database_name']) !== 1) {
+            self::fail('CONSTRAINT_VISIBILITY_REQUIRED');
+        }
+        $mode = $this->query($pdo, 'SELECT @@GLOBAL.partial_revokes AS partial_revokes')[0]['partial_revokes'] ?? null;
+        if (!in_array($mode, [0, 1, '0', '1'], true)) { self::fail('CONSTRAINT_VISIBILITY_REQUIRED'); }
+        $scope = '`' . $identity['database_name'] . '`.*';
+        $scopes = ['*.*', $scope];
+        if ((string) $mode === '0') { $scopes[] = str_replace('_', '\\_', $scope); }
         $visible = false; $restricted = false;
         foreach ($this->query($pdo, 'SHOW GRANTS') as $row) {
             $grant = count($row) === 1 ? array_values($row)[0] : null;
             if (is_string($grant) && str_starts_with($grant, 'REVOKE ')) { $restricted = true; }
             if (!is_string($grant) || preg_match('/\AGRANT (.+) ON (.+) TO /D', $grant, $match) !== 1
-                || !in_array($match[2], ['*.*', '`' . $identity['database_name'] . '`.*'], true)) { continue; }
+                || !in_array($match[2], $scopes, true)) { continue; }
             $privileges = array_map('trim', explode(',', $match[1]));
             $visible = $visible || in_array('SELECT', $privileges, true) || in_array('ALL PRIVILEGES', $privileges, true);
         }

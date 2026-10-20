@@ -168,7 +168,9 @@ partial 在任何计划输出／attempt／applying 前核原生 metadata 可见�
 
 续作先持久保存单次 partial-attempt，再仅执行新修正；旧 18 行逐字节保持。然后复用原 installModules／原真实 module admission／health／completion，不再次 fresh／seed，不删失败行或提前移除 progress。唯一成功完成后才由原完成逻辑写 baseline／完成锁并移除 progress。任何新失败、中断或已有 attempt 均阻塞再次调用，保留数据与证据，不自动重试；部分模块已开始的其他状态不纳入这条窄入口。备份、恢复和完整质量资格仍分别记录为真实执行、未执行或未知。
 
-冻结的开发 internal-candidate 若仍在同一 APP 0.1.0／full／multi-tenant 的 r1、Identity 九条 executed、前两个模块 active、File 尚未安装的真实 17 模块前沿，可经现有 `scaffold-upgrade preflight --from-manifest --to-manifest` 建立 `internal-candidate-preinstall-correction`。from 是原生旧 scaffold manifest；to 是由最终审阅源码产生的原生 raw scaffold 目录中的 manifest，模板版本仍为 5.0.2，七份 Core 输入、内部资格限制与原九份 File SQL 必须完全保留。此分支只接受已限定的 File 1.0.15 源码修正及其直接公共消费者，拒绝其他模块变化、APP 身份/版本/选择变化、已安装/正式/生产身份；普通升级仍要求版本递增。raw 输入不伪装成带 META-INF 的正式升级包。
+冻结的开发 internal-candidate 若仍在同一 APP 0.1.0／full／multi-tenant 的 r1、Identity 九条 executed、前两个模块 active、File 尚未安装的真实 17 模块前沿，可经现有 `scaffold-upgrade preflight --from-manifest --to-manifest` 建立 `internal-candidate-preinstall-correction`。from 是原生旧 scaffold manifest；to 是由最终审阅源码产生的原生 raw scaffold 目录中的 manifest，模板版本仍为 5.0.2，七份 Core 输入、内部资格限制与原九份 File SQL 必须完全保留。此分支只接受已限定的 File 1.0.15 修正及其直接公共消费者，以及同一前沿尚未安装的 Document 1.0.0、Article 1.0.5、ImportExport 1.0.12 的精确 schema grant literal 识别修正与原生派生 manifest。四模块的 module.json、版本、成员/根路径及原 SQL 保持原字节；Identity/ContentTools 仍为唯一 active 模块。精确路径及这四个 pending 版本之外的变化继续拒绝，不放宽普通、已安装、正式或生产的同版限制，也不改变 APP 身份/版本/选择。raw 输入不伪装成带 META-INF 的正式升级包。
+
+模块原有保全检查仍使用自己的实际 master PDO：File、Document、Article 要求目标 schema 的直接 SELECT 与 TRIGGER，File adoption 和 ImportExport 的对应可见性检查要求直接 schema SELECT。五处 grant scope 识别均读取同一 PDO 的实际 partial_revokes 模式；模式 0 只额外接受当前已验证数据库名生成的精确 escaped literal scope，模式 1 使用原 literal 名称，未知模式拒绝。不删除任意反斜杠、不做新增通配匹配、不改变原 REVOKE 与 global/schema 覆盖规则。Root metadata 或备份客户端的权限不能代替普通 master 的这些条件；源码修正不授权授予权限或证明实际权限、安装及运行已通过。
 
 首次工具输入使用现有 `create-app --scaffold-manifest` 从最终原生 raw 生成独立离线 APP，再通过原 `prepare-vendor.sh` 按其真实 lock 安装依赖；实际加载 Core、锁和七份输入须一致。离线工具仅作维护输入，不替换原实例或创建运行/数据库身份；不复制 vendor，不将未证明 lock 一致的 Code 工作目录 vendor 当作工具来源。维护进程使用自己的加载图和可信 resource reader，将原实例作为显式数据根，不加载其 vendor。后续独立原生 source-admit 子进程和实际 APP 安装进程仍使用原实例自己的 reader 和加载图。
 

@@ -228,11 +228,17 @@ final readonly class ArticleMigrationPreservation
 
     private function visibility(PDO $pdo, string $database): void
     {
+        $mode = $this->query($pdo, 'SELECT @@GLOBAL.partial_revokes AS partial_revokes')[0]['partial_revokes'] ?? null;
+        if (!in_array($mode, [0, 1, '0', '1'], true)) { self::fail('METADATA_VISIBILITY_UNKNOWN'); }
+        $scope = self::q($database) . '.*';
+        $scopes = ['*.*', $scope];
+        // With partial revokes disabled, SHOW GRANTS escapes literal underscores in database patterns.
+        if ((string) $mode === '0') { $scopes[] = str_replace('_', '\\_', $scope); }
         $select = false; $trigger = false;
         foreach ($this->query($pdo, 'SHOW GRANTS') as $row) {
             $grant = count($row) === 1 ? reset($row) : null;
             if (!is_string($grant) || str_starts_with($grant, 'REVOKE ')) { self::fail('METADATA_VISIBILITY_UNKNOWN'); }
-            if (!preg_match('/\AGRANT (.+) ON (.+) TO /D', $grant, $match) || !in_array($match[2], ['*.*', self::q($database) . '.*'], true)) { continue; }
+            if (!preg_match('/\AGRANT (.+) ON (.+) TO /D', $grant, $match) || !in_array($match[2], $scopes, true)) { continue; }
             $privileges = array_map('trim', explode(',', $match[1]));
             $select = $select || in_array('SELECT', $privileges, true) || in_array('ALL PRIVILEGES', $privileges, true);
             $trigger = $trigger || in_array('TRIGGER', $privileges, true) || in_array('ALL PRIVILEGES', $privileges, true);

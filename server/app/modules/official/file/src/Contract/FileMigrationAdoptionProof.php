@@ -264,11 +264,15 @@ JSON;
         // unrecognized grants remain unknown; never expose grant text in the proof report.
         $visible = false; $restricted = false;
         $databaseScope = self::q($checks['database']) . '.*';
+        $mode = $this->rows($pdo, 'SELECT @@GLOBAL.partial_revokes AS partial_revokes', [])[0]['partial_revokes'] ?? null;
+        if (!in_array($mode, [0, 1, '0', '1'], true)) { throw new \RuntimeException('MIGRATION_CONSTRAINT_NAMES_UNKNOWN'); }
+        $scopes = ['*.*', $databaseScope];
+        if ((string) $mode === '0') { $scopes[] = str_replace('_', '\\_', $databaseScope); }
         foreach ($this->rows($pdo, 'SHOW GRANTS', []) as $grantRow) {
             $grant = count($grantRow) === 1 ? reset($grantRow) : null;
             if (is_string($grant) && str_starts_with($grant, 'REVOKE ')) { $restricted = true; }
             if (!is_string($grant) || preg_match('/\AGRANT (.+) ON (.+) TO /D', $grant, $match) !== 1
-                || !in_array($match[2], ['*.*', $databaseScope], true)) { continue; }
+                || !in_array($match[2], $scopes, true)) { continue; }
             $privileges = array_map('trim', explode(',', $match[1]));
             $visible = $visible || in_array('SELECT', $privileges, true) || in_array('ALL PRIVILEGES', $privileges, true);
         }

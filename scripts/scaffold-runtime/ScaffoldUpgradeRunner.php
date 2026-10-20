@@ -344,12 +344,17 @@ final class ScaffoldUpgradeRunner
             'scripts/scaffold-runtime/EditionUpgradePackage.php', 'docs/development/current-code-lifecycle.md',
             'server/app/modules/official/file/src/Contract/FileMigrationAdoptionProof.php',
             'server/app/modules/official/file/src/Contract/FileMigrationPreservation.php',
+            'server/app/modules/official/document/src/Contract/DocumentMigrationPreservation.php',
+            'server/app/modules/official/article/src/Contract/ArticleMigrationPreservation.php',
+            'server/app/modules/official/import_export/src/Contract/ImportExportMigrationPreservation.php',
             'server/app/platform/services/plugin/PluginLifecycleService.php',
             'server/app/common/services/installation/InstallationExecutionHost.php', 'server/database/install.php',
             'server/app/common/services/upgrade/SourceApplicationBackup.php',
             'server/docker/scripts/update-plan.php', 'server/docker/scripts/update-recovery.py',
             'scripts/product-upgrade-host', 'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php', 'scripts/upgrade',
-            'plugins/official.file/plugin.json', 'plugins.lock', 'scaffold/application-template-inventory.json',
+            'plugins/official.file/plugin.json', 'plugins/official.document/plugin.json',
+            'plugins/official.article/plugin.json', 'plugins/official.import-export/plugin.json',
+            'plugins.lock', 'scaffold/application-template-inventory.json',
             'release-versions.json', 'RELEASE_METADATA.json',
         ], true);
         $old = $from->files(); $new = $to->files();
@@ -365,6 +370,16 @@ final class ScaffoldUpgradeRunner
         $sql = array_filter($old, static fn(string $path): bool => str_starts_with($path, $prefix) && str_ends_with($path, '.sql'), ARRAY_FILTER_USE_KEY);
         $targetSql = array_filter($new, static fn(string $path): bool => str_starts_with($path, $prefix) && str_ends_with($path, '.sql'), ARRAY_FILTER_USE_KEY);
         if (count($sql) !== 9 || $sql !== $targetSql) { throw new RuntimeException('INTERNAL_PREINSTALL_ORIGINAL_FILE_SQL_CHANGED'); }
+    }
+
+    /** The authenticated r1 frontier has only Identity/ContentTools active; these four packages are still pending. */
+    private function isPendingInternalSourceCorrection(string $pluginKey, string $moduleKey, string $oldVersion, string $targetVersion): bool
+    {
+        $versions = ['official.file' => '1.0.15', 'official.document' => '1.0.0',
+            'official.article' => '1.0.5', 'official.import-export' => '1.0.12'];
+        return ($this->internalPreinstall['protocol'] ?? null) === 'peanut.internal-preinstall-source.v1'
+            && $pluginKey === $moduleKey && isset($versions[$moduleKey])
+            && $oldVersion === $versions[$moduleKey] && $targetVersion === $oldVersion;
     }
 
     public function preflight(string $projectRoot, string $fromManifestPath, string $toManifestPath, ?array $sourceSelection = null): array
@@ -2052,10 +2067,9 @@ final class ScaffoldUpgradeRunner
                         $oldDigest = hash_file('sha256', $root . '/' . $inspection['backend_relative'] . '/module.json');
                         $moduleRoots = [$inspection['backend_relative'], ...array_column($inspection['frontend_contributions'], 'root')];
                         $changed = $this->pluginSourceFiles($root, $moduleRoots) !== $this->pluginSourceFiles($stage, $moduleRoots);
-                        $pendingFileCorrection = $this->internalPreinstall !== null && $key === 'official.file' && $moduleKey === 'official.file'
-                            && $oldVersion === '1.0.15' && $inspection['version'] === $oldVersion;
+                        $pendingInternalCorrection = $this->isPendingInternalSourceCorrection($key, $moduleKey, $oldVersion, $inspection['version']);
                         if (version_compare($inspection['version'], $oldVersion) < 0
-                            || ($changed && version_compare($inspection['version'], $oldVersion) <= 0 && !$pendingFileCorrection)
+                            || ($changed && version_compare($inspection['version'], $oldVersion) <= 0 && !$pendingInternalCorrection)
                             || ($inspection['version'] === $oldVersion
                                 && $oldDigest !== hash_file('sha256', $stage . '/' . $inspection['backend_relative'] . '/module.json'))) {
                             throw new RuntimeException('SCAFFOLD_OFFICIAL_MODULE_VERSION_IDENTITY_CONFLICT: ' . $moduleKey);
@@ -2071,7 +2085,7 @@ final class ScaffoldUpgradeRunner
                     $installed = $current['plugins'][$key] ?? null;
                     if (is_array($installed) && version_compare($plugin['version'], $installed['version']) === 0
                         && $plugin['manifest_sha256'] !== $installed['manifest_sha256']
-                        && !($this->internalPreinstall !== null && $key === 'official.file')) {
+                        && !$this->isPendingInternalSourceCorrection($key, $key, $installed['version'], $plugin['version'])) {
                         throw new RuntimeException('SCAFFOLD_OFFICIAL_VERSION_IDENTITY_CONFLICT: ' . $key);
                     }
                 } elseif ($plugin !== ($current['plugins'][$key] ?? null)) {
