@@ -2457,7 +2457,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1a4da22662b1b74bb39a0f0a849df469db6d7bf6bfb4b33b5d1613b83dc3c2aa"
+            "source_sha256": "0dda1b4259a150a7f2099c3e361cc68750fbb638d59a9ae6c09ba83df3d10027"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2790,7 +2790,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "83bd96f98cfefd8a5eac89f1d3b1265519e435c14b31fb21b935202d753736d2"
+            "source_sha256": "e591463fe4bc2a19910146937ff1e2c4f4f81f7ba6318bc8c02b82a79338bf0a"
         },
         {
             "path": "release-versions.json",
@@ -9136,7 +9136,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f803a71fee000bd6d1b21167c99cfdd111ca2cb579f31e6ef11c95614ecc5a10"
+            "source_sha256": "41952f3d0651726bc309076493feb0c504fe354e0e82a26638960198a133a836"
         },
         {
             "path": "server/app/common/services/upgrade/SourceApplicationBackup.php",
@@ -9150,7 +9150,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5b7e160b851ab36572f8d752b14add9b5a6d3710aa40a78dbe7e2db8246f56b2"
+            "source_sha256": "ceac1f6fbc531e40e3f8a447ce5b98e96995bf2064944c64b9e667231bac4d73"
         },
         {
             "path": "server/app/common/services/upgrade/SourceDevelopmentMaintenanceAdmission.php",
@@ -23975,7 +23975,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "494f9cb1120bfacbc84ecafd5e8709c3aa8b8a6a1a2fcc3d29e28ca777b68c23"
+            "source_sha256": "3e9896356a5255ed0e0a8e403275e5552cf8f5d3459e4a6391c6405f09eeb522"
         },
         {
             "path": "server/app/modules/peanut/workflow/api/metadata/openapi.php",
@@ -24073,7 +24073,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5c699ef5c13e6a1d4e1c31fd030e9eecba84237047adac419d65d131a0ed56d9"
+            "source_sha256": "c7da43ccabb9e85ad1834048861057ea5a11982c8606cfb0350a11d38f1d925c"
         },
         {
             "path": "server/app/modules/peanut/workflow/resources/config-schema.json",
@@ -24438,6 +24438,20 @@
                 "full"
             ],
             "source_sha256": "54e69f68b2d4aa0fb7142350ee7c7c1e0836078d53ff829e3b6c3f4573c74bda"
+        },
+        {
+            "path": "server/app/modules/peanut/workflow/src/Database/WorkflowSchemaMigrationProof.php",
+            "target": "server/app/modules/peanut/workflow/src/Database/WorkflowSchemaMigrationProof.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "ef08670d38a4bcc8f90e05779c71336044cce4aff5cc2d6bc8b7bb6de4f09fd0"
         },
         {
             "path": "server/app/modules/peanut/workflow/src/Definition/WorkflowActionInput.php",
@@ -25711,7 +25725,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c334b134bb2330fe1f01b7da459e3e3991791c8e47af43736e0436dee8b1bf6d"
+            "source_sha256": "3cb5d83f4cda809c92e426df4e4f887a1eac74583060250e65b36589d1d5521e"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",
@@ -31301,6 +31315,19 @@
         {
             "path": "server/tests/Productization/ThinkPhpEditionIntegrationTest.php",
             "target": "server/tests/Productization/ThinkPhpEditionIntegrationTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Productization/WorkflowSourcePreservationContractTest.php",
+            "target": "server/tests/Productization/WorkflowSourcePreservationContractTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

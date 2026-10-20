@@ -54,7 +54,8 @@
       "PeanutAdmin\\Modules\\Workflow\\Application\\WorkflowManagedDefinitions",
       "PeanutAdmin\\Modules\\Workflow\\Application\\WorkflowLifecycleQueries",
       "PeanutAdmin\\Modules\\Workflow\\Application\\WorkflowNotificationDelivery",
-      "PeanutAdmin\\Modules\\Workflow\\Application\\WorkflowUpgradePreflight"
+      "PeanutAdmin\\Modules\\Workflow\\Application\\WorkflowUpgradePreflight",
+      "PeanutAdmin\\Modules\\Workflow\\Database\\WorkflowSchemaMigrationProof"
     ],
     "events": []
   },

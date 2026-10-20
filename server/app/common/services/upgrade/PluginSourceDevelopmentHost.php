@@ -26,6 +26,7 @@ final class PluginSourceDevelopmentHost
         'official.import-export' => \PeanutAdmin\Modules\ImportExport\Contract\ImportExportMigrationPreservation::class,
         'official.notification' => \PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::class,
         'official.task' => \PeanutAdmin\Modules\Task\Job\Database\TaskSchemaMigrationProof::class,
+        'peanut.workflow' => \PeanutAdmin\Modules\Workflow\Database\WorkflowSchemaMigrationProof::class,
     ];
 
     public function __construct(private readonly App $app) {}
@@ -284,7 +285,11 @@ final class PluginSourceDevelopmentHost
         if (count($rows) !== 1 || $rows[0]['checksum'] !== $sha || !in_array($rows[0]['status'], ['applying', 'applied'], true)
             || ($rows[0]['status'] === 'applied' && $rows[0]['resolution_kind'] !== 'adopted')) { throw new RuntimeException('PLUGIN_SOURCE_STAGE_RECEIPT_INVALID'); }
         $file = (new \ReflectionClass($contract))->getFileName();
-        if (!is_string($file) || realpath($file) !== $file || !str_starts_with($file, rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR) . '/app/modules/official/')) {
+        $modulesRoot = rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR) . '/app/modules/';
+        $allowedPath = is_string($file) && ($module === 'peanut.workflow'
+            ? $file === $modulesRoot . 'peanut/workflow/src/Database/WorkflowSchemaMigrationProof.php'
+            : str_starts_with($file, $modulesRoot . 'official/'));
+        if (!$allowedPath || realpath($file) !== $file) {
             throw new RuntimeException('PLUGIN_SOURCE_STAGE_RECEIPT_INVALID');
         }
         $this->mutation['stages'][] = ['ordinal' => count($this->mutation['stages']) + 1, 'module_key' => $module,

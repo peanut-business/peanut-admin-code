@@ -49,6 +49,13 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         'official.document:20261013120000_add_document_business_barriers' => 'e015617440e433d0d443f7c4c13b2bf02e35b4403e25c1009747d5d1d707f579',
     ];
     private const PRESERVATION_STAGES = [
+        'peanut.workflow:20260921-register-module-schema' => ['f0a21d63c83afcd2438fc327bf6ad97a59d82daa571bc4de51d74c32eb487ff7', \PeanutAdmin\Modules\Workflow\Database\WorkflowSchemaMigrationProof::class, []],
+        'peanut.workflow:20261012-workflow-managed-template' => ['fd02893a4b7a0ea60aa6c5434ff8b46f11e35bec94f10a76fc0b0f64609282a5', \PeanutAdmin\Modules\Workflow\Database\WorkflowSchemaMigrationProof::class,
+            ['peanut.workflow:20260921-register-module-schema']],
+        'peanut.workflow:20261012-workflow-notification-facts' => ['ff26361f27773b9500fe6484729a26c0655d18f893cac8739bae9edfec8f6378', \PeanutAdmin\Modules\Workflow\Database\WorkflowSchemaMigrationProof::class,
+            ['peanut.workflow:20260921-register-module-schema', 'peanut.workflow:20261012-workflow-managed-template']],
+        'peanut.workflow:20261012-workflow-v2-execution' => ['f46f8b9a7a567584988e3520669daa1a8f893b69d837a1dedf223deb4f2a1b09', \PeanutAdmin\Modules\Workflow\Database\WorkflowSchemaMigrationProof::class,
+            ['peanut.workflow:20260921-register-module-schema', 'peanut.workflow:20261012-workflow-managed-template', 'peanut.workflow:20261012-workflow-notification-facts']],
         'official.notification:20260921-adopt-notification-delivery-schema' => ['eaef582cd762c803f3f7d213687f61d43fd3634e9f0b984471f11648e10979fb', NotificationUpgradePreflight::class,
             ['official.notification:20260826-namespace-permission-keys']],
         'official.notification:20261012-notification-producer-identity' => ['7c01bc1bf1f309e879ff3014f89418157abbce45374a58064d1a6dc94fca07ce', NotificationUpgradePreflight::class,
