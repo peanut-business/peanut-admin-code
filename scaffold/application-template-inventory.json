@@ -836,7 +836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2a2c26c7363511e632ede9f91945de7325b6f51f1e6ac2aa23c35f5efaad804c"
+            "source_sha256": "bcfe0353997f028d2efabd0408575ac529df70bd44dcd46f68049921e4654e88"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -3823,7 +3823,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c28896687d301956c3b31387480e9418f18880c7e483c830c2f8401ec1e2ee88"
+            "source_sha256": "93b72f6a4335ab4ef943e13961a0b4f1b91f36ca27f5f8f90009c31ebdc2f39c"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",
@@ -4684,7 +4684,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "380d333c76e5ae7929f4ee8f911e4ad1824fe829ef2da6fae21a61aa0573ba5b"
+            "source_sha256": "c7a0105bbd1a2e0979181cf098aae94cc4796963b3ad73dc33c53e470430fb14"
         },
         {
             "path": "server/.env.example",
