@@ -6386,7 +6386,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e63925e874b2c3c732e732bc37f6bce7549e48fe27ef58d00bcb5f9346cc386e"
+            "source_sha256": "36a9d8b70be8729831b3ba7a29dde66db0c8cbaaad00bd9e29084f04679e2dc2"
         },
         {
             "path": "server/app/command/BundlePack.php",
@@ -9122,7 +9122,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dee68a6fcf7d95ad677074b89162325b3d284f1ce4544549160280ccd83c1c07"
+            "source_sha256": "bc7b82514f85603847a9d3796d980d8519854e7ce7bd96e3865c6adc66df01f8"
         },
         {
             "path": "server/app/common/services/upgrade/PluginSourceDevelopmentHost.php",
@@ -9150,7 +9150,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c0210a2f2723a0678769eb0591d5b56bae39f374c18667025e3654e0a65c34ec"
+            "source_sha256": "644f99a3797952eef48ed8e0d3beea28838bc136dc7811d3d54bf3300e5ee952"
         },
         {
             "path": "server/app/common/services/upgrade/SourceDevelopmentMaintenanceAdmission.php",
@@ -18129,7 +18129,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d5fec449cc2b72eeb62c577eb500c08f3ba64a9f1c49ebc6f146a1dddbd3181c"
+            "source_sha256": "06f7807dfd7c4cb4069dd911ad5db00f534c0f9cd0f1126ff049671527a5c58f"
         },
         {
             "path": "server/app/modules/official/notification/src/Contract/VerificationCodeCommands.php",
@@ -30454,6 +30454,19 @@
             ]
         },
         {
+            "path": "server/tests/Productization/ApplicationFailureSnapshotContractTest.php",
+            "target": "server/tests/Productization/ApplicationFailureSnapshotContractTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Productization/ArticleExportContractTest.php",
             "target": "server/tests/Productization/ArticleExportContractTest.php",
             "classification": "excluded",
@@ -31276,6 +31289,19 @@
         {
             "path": "server/tests/Productization/ServerUpdatePlanTest.php",
             "target": "server/tests/Productization/ServerUpdatePlanTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Productization/SmsReservationSchemaContractTest.php",
+            "target": "server/tests/Productization/SmsReservationSchemaContractTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",

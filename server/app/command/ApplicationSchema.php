@@ -18,7 +18,7 @@ final class ApplicationSchema extends ContextualCommand
     protected function configure()
     {
         $this->setName('schema:application')->setDescription('Inspect or execute the bound application SQL stage')
-            ->addArgument('operation', Argument::REQUIRED, 'preflight, backup, apply, verify or source-only verify-receipt')
+            ->addArgument('operation', Argument::REQUIRED, 'preflight, backup, apply, verify, or source-only verify-receipt / snapshot-failure')
             ->addOption('scope', null, Option::VALUE_REQUIRED, 'Explicit source-development maintenance scope', '')
             ->addOption('owner', null, Option::VALUE_REQUIRED, 'Owner of the current native resource grant')
             ->addOption('thread', null, Option::VALUE_REQUIRED, 'Thread of the current native resource grant')

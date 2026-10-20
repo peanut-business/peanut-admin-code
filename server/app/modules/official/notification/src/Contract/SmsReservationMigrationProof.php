@@ -206,7 +206,10 @@ final class SmsReservationMigrationProof
             }
             $expected['indexes'][$name] = $parts;
         }
-        ksort($expected['indexes']);
+        // Index names form an unordered map; MySQL's metadata collation may
+        // order PRIMARY differently from PHP. Index parts retain their order.
+        ksort($expected['indexes'], SORT_STRING);
+        ksort($after['indexes'], SORT_STRING);
         $check = $after['checks'][self::CHECK] ?? [];
         if (($check['ENFORCED'] ?? null) !== 'YES'
             || self::predicate((string) ($check['CHECK_CLAUSE'] ?? '')) !== self::predicate(self::PREDICATE)) {

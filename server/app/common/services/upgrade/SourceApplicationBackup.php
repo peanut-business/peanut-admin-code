@@ -804,7 +804,12 @@ final class SourceApplicationBackup
     public static function capture(array $binding, array $baseline, string $baselineSha, array $scope, array $tool, string $directory, callable $recheck, string $purpose = 'application-schema'): array
     {
         $captureStarted = time();
-        if (!in_array($purpose, ['application-schema', 'plugin-lifecycle', 'installation-partial'], true)) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SOURCE_UNSUPPORTED'); }
+        if (!in_array($purpose, ['application-schema', 'application-failure', 'plugin-lifecycle', 'installation-partial'], true)) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SOURCE_UNSUPPORTED'); }
+        $failure = $purpose === 'application-failure';
+        if ($failure && (($baseline['failure_afterimage'] ?? null) !== true || !is_array($baseline['failed_migration'] ?? null)
+            || ($baseline['executed_prefix'] ?? null) !== [] || !is_array($baseline['original_backup'] ?? null))) {
+            throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_ORIGIN_REQUIRED');
+        }
         $partial = $purpose === 'installation-partial';
         $effectMetadata = $partial && ($binding['authority']['kind'] ?? null) === 'app-native-owner'
             ? self::appMetadataOrigin($binding, $baseline, $scope) : null;
@@ -940,6 +945,10 @@ final class SourceApplicationBackup
                 $restore['requirements'][] = 'If originally absent, this backup records absence, not permission to delete a current receipt. Remove only a proven receipt created by this exact operation after preserving failure evidence and verifying no later attempt/use. A directory originally absent may be removed only if proven created by this operation and still empty; never recurse or remove other files. A rename followed by directory-fsync error may already have persisted a new receipt: reconcile original-owner filesystem facts, do not assume DB rollback or automatically retry/delete.';
             }
         }
+        if ($failure) {
+            $restore['protocol'] = 'peanut.source-application-failure-restore-instructions.v1';
+            $restore['purpose'] = 'Failed afterimage preservation only; not a pre-migration backup or apply admission.';
+        }
         self::write($directory . '/RESTORE.json', $restore);
         $receipts = [];
         foreach (['probe-before' => 'probe-before.txt', 'dump' => 'database.sql', 'probe-after' => 'probe-after.txt'] as $phase => $file) {
@@ -954,6 +963,7 @@ final class SourceApplicationBackup
             'receipts' => $receipts,
             'observed_at' => time(), 'restore_status' => 'not_executed', 'qualification' => 'not_run', 'execution_admitted' => false];
         $record['capture_started_at'] = $captureStarted;
+        if ($failure) { $record['protocol'] = 'peanut.source-application-failure-snapshot.v1'; $record['failure'] = $baseline; }
         if ($partial) { $record['protocol'] = 'peanut.installation-partial-backup.v1'; $record['installation_originals'] = $originalFiles; }
         if ($receiptBackup !== null) { $record['notification_forward_receipt'] = $receiptBackup; }
         self::write($directory . '/backup.json', $record);
@@ -967,6 +977,7 @@ final class SourceApplicationBackup
             'restore_contract_sha256' => hash_file('sha256', $directory . '/RESTORE.json'),
             'receipts' => $receipts];
         $recovery['capture_started_at'] = $captureStarted;
+        if ($failure) { $recovery['protocol'] = 'peanut.source-application-failure-reference.v1'; }
         if ($partial) { $recovery['protocol'] = 'peanut.installation-partial-recovery.v1'; }
         $recovery['pending'] = $baseline['pending'];
         $recovery['selected'] = $record['selected'];

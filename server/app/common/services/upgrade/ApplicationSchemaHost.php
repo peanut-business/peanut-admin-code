@@ -534,13 +534,14 @@ final class ApplicationSchemaHost
     public function sourceDevelopment(string $operation, array $actor, string $planPath, string $resultPath, string $maintenancePath, string $recoveryPath, string $backupTool, string $backupOutput, string $metadataTool = ''): array
     {
         $this->sourceMetadataTool = $metadataTool;
-        if (!in_array($operation, ['preflight', 'apply', 'verify', 'verify-receipt', 'backup'], true)
+        $backupOperation = in_array($operation, ['backup', 'snapshot-failure'], true);
+        if (!in_array($operation, ['preflight', 'apply', 'verify', 'verify-receipt', 'backup', 'snapshot-failure'], true)
             || ($operation === 'verify-receipt' && $metadataTool !== '')
             || ($operation === 'preflight' && ($planPath !== '' || $resultPath !== ''))
             || ($operation === 'apply' && ($planPath === '' || $resultPath !== ''))
             || (($maintenancePath === '') !== ($recoveryPath === ''))
-            || ($operation === 'backup' && ($planPath === '' || $resultPath !== '' || $maintenancePath !== '' || $recoveryPath !== '' || $backupTool === '' || $backupOutput === ''))
-            || ($operation !== 'backup' && ($backupTool !== '' || $backupOutput !== ''))
+            || ($backupOperation && ($planPath === '' || $resultPath !== '' || $maintenancePath !== '' || $recoveryPath !== '' || $backupTool === '' || $backupOutput === ''))
+            || (!$backupOperation && ($backupTool !== '' || $backupOutput !== ''))
             || (in_array($operation, ['verify', 'verify-receipt'], true) && ($resultPath === '' || $planPath !== '' || $maintenancePath !== '' || $recoveryPath !== ''))) {
             throw new RuntimeException('APPLICATION_SCHEMA_ARGUMENTS_INVALID');
         }
@@ -553,7 +554,8 @@ final class ApplicationSchemaHost
             throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_CONTEXT_REQUIRED');
         }
         // File/registry/actor/native lease admission must precede master initialization.
-        $admission = $this->sourceDevelopmentAdmission($actor, $operation === 'apply');
+        $ddl = in_array($operation, ['apply', 'snapshot-failure'], true);
+        $admission = $this->sourceDevelopmentAdmission($actor, $ddl);
         $config = \guardedDatabaseConfig();
         if ($operation === 'verify-receipt') { $this->assertReceiptLedgerRead($config); }
         $connection = \think\facade\Db::connect();
@@ -565,7 +567,7 @@ final class ApplicationSchemaHost
         $connection->query('SELECT CONNECTION_ID()', [], true);
         $pdo = $connection->getPdo();
         if (!$pdo instanceof PDO || $pdo->inTransaction()) { throw new RuntimeException('APPLICATION_SCHEMA_MASTER_MISMATCH'); }
-        $facts = fn(): array => $this->sourceDevelopmentFacts($pdo, $connection, $actor, $context->requestId(), $operation === 'apply');
+        $facts = fn(): array => $this->sourceDevelopmentFacts($pdo, $connection, $actor, $context->requestId(), $ddl);
         $initial = $facts();
         if (!$this->sourceSame(array_diff_key($initial, ['database' => true]), $admission)) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_DRIFT'); }
         if ($operation === 'verify-receipt') {
@@ -575,6 +577,9 @@ final class ApplicationSchemaHost
         $files = \applicationMigrationFiles($this->serverRoot . '/database');
         $versions = \applicationReleaseVersions($this->serverRoot);
         $target = \applicationMigrationTargetVersion($this->serverRoot, $versions);
+        if ($operation === 'snapshot-failure') {
+            return $this->sourceFailureSnapshot($pdo, $initial, $facts, $files, $planPath, $backupTool, $backupOutput);
+        }
         $runner = new ApplicationMigrationRunner($config, $pdo);
         if ($operation === 'backup') {
             return $this->sourceDevelopmentBackup($pdo, $runner, $initial, $facts, $files, $target, $versions, $planPath, $backupTool, $backupOutput);
@@ -846,6 +851,156 @@ final class ApplicationSchemaHost
         if ($this->sourceMetadataTool !== '') { $plan['metadata_tool'] = $this->sourceMetadataTool; }
         $plan['document_sha256'] = $this->digest($plan);
         return $plan;
+    }
+
+    /** Preserve the live failed state; never invokes the runner or supplies execution/recovery admission. */
+    private function sourceFailureSnapshot(PDO $pdo, array $binding, callable $facts, array $files, string $planPath, string $toolId, string $output): array
+    {
+        $this->sourceProtectedFile($planPath);
+        $planBytes = file_get_contents($planPath);
+        if (!is_string($planBytes)) { throw new RuntimeException('APPLICATION_SCHEMA_DOCUMENT_INVALID'); }
+        $planSha = hash('sha256', $planBytes);
+        $plan = json_decode($planBytes, true, 512, JSON_THROW_ON_ERROR);
+        if (!is_array($plan)) { throw new RuntimeException('APPLICATION_SCHEMA_DOCUMENT_INVALID'); }
+        unset($planBytes);
+        $this->assertSourceDocument($plan, 'peanut.source-development-schema-plan.v1');
+        $previous = $plan['binding'] ?? [];
+        // A new native lease may rebind the environment's proof path. Both
+        // environment digests remain recorded in their respective bindings.
+        foreach (['database', 'resource_id', 'endpoint_id', 'registry_sha256', 'installation_originals'] as $key) {
+            if (!$this->sourceSame($previous[$key] ?? null, $binding[$key] ?? null)) { throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_ORIGIN_CHANGED'); }
+        }
+        if (($previous['source']['root'] ?? null) !== $binding['source']['root'] || ($plan['metadata_tool'] ?? '') !== $this->sourceMetadataTool) {
+            throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_ORIGIN_CHANGED');
+        }
+        foreach (['owner', 'thread', 'session', 'gate'] as $key) {
+            if (($previous['authority'][$key] ?? null) !== $binding['authority'][$key]) { throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_ORIGIN_CHANGED'); }
+        }
+        $baseline = $plan['baseline'] ?? []; $pending = $baseline['pending'] ?? [];
+        if (!is_array($pending) || $pending === [] || !array_is_list($pending)) { throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_PLAN_REQUIRED'); }
+        $actualFiles = [];
+        foreach ($files as $file) { $actualFiles[basename($file, '.sql')] = hash_file('sha256', $file); }
+        foreach ($pending as $id) {
+            if (!is_string($id) || ($actualFiles[$id] ?? null) !== ($baseline['selected'][$id] ?? null)) {
+                throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_SQL_CHANGED');
+            }
+        }
+        $origin = $plan['evidence']['recovery']['references'] ?? [];
+        foreach (['backup_manifest', 'backup_payload'] as $key) {
+            $reference = $origin[$key] ?? [];
+            $this->sourceProtectedFile($reference['path'] ?? '', null);
+            if (hash_file('sha256', $reference['path']) !== ($reference['sha256'] ?? null)) {
+                throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_BACKUP_CHANGED');
+            }
+        }
+        $backup = $this->sourceProtectedJson($origin['backup_manifest']['path']);
+        if (($backup['protocol'] ?? null) !== 'peanut.source-application-backup.v1' || ($backup['status'] ?? null) !== 'captured'
+            || !$this->sourceSame($backup['binding'] ?? null, $previous) || !$this->sourceSame($backup['backup_payload'] ?? null, $origin['backup_payload'])
+            || ($backup['baseline_sha256'] ?? null) !== $this->digest($baseline)
+            || !$this->sourceSame($backup['scope'] ?? null, $plan['backup_scope'] ?? null)
+            || ($backup['pending'] ?? null) !== $pending
+            || !$this->sourceSame($backup['selected'] ?? null, array_intersect_key($baseline['selected'], array_flip($pending)))
+            || ($backup['backup_payload']['bytes'] ?? null) !== filesize($origin['backup_payload']['path'])
+            || array_column($backup['receipts'] ?? [], 'phase') !== ['probe-before', 'dump', 'probe-after']) {
+            throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_BACKUP_CHANGED');
+        }
+        $restorePath = $backup['restore_instructions']['path'] ?? '';
+        $restore = $this->sourceProtectedJson($restorePath);
+        if (hash_file('sha256', $restorePath) !== ($backup['restore_instructions']['sha256'] ?? null)
+            || hash_file('sha256', $restorePath) !== ($origin['restore_contract_sha256'] ?? null)
+            || ($restore['protocol'] ?? null) !== 'peanut.source-application-restore-instructions.v1' || ($restore['executed'] ?? null) !== false
+            || !$this->sourceSame($restore['source'] ?? null, $previous['source']) || !$this->sourceSame($restore['database'] ?? null, $previous['database'])
+            || !$this->sourceSame($restore['native_client'] ?? null, $backup['native_client'] ?? null)
+            || !$this->sourceSame($restore['payload'] ?? null, $origin['backup_payload']) || ($restore['tables'] ?? null) !== $backup['scope']['tables']
+            || ($origin['restore_tool']['path'] ?? null) !== __DIR__ . '/SourceApplicationBackup.php'
+            || ($origin['restore_tool']['sha256'] ?? null) !== ($backup['adapter_sha256'] ?? null)) {
+            throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_BACKUP_CHANGED');
+        }
+        $originFiles = [$planPath => $planSha, $restorePath => $origin['restore_contract_sha256']];
+        foreach ($backup['receipts'] as $receipt) {
+            $stdout = dirname($origin['backup_manifest']['path']) . '/' . match ($receipt['phase']) {
+                'probe-before' => 'probe-before.txt', 'dump' => 'database.sql', 'probe-after' => 'probe-after.txt',
+            };
+            if (($receipt['path'] ?? null) !== $stdout . '.process.json') { throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_BACKUP_CHANGED'); }
+            $terminal = $this->sourceProtectedJson($receipt['path']);
+            $this->sourceProtectedFile($stdout, $receipt['phase'] === 'dump' ? null : 4194304);
+            $actual = ['path' => $stdout, 'sha256' => hash_file('sha256', $stdout), 'bytes' => filesize($stdout)];
+            if (hash_file('sha256', $receipt['path']) !== ($receipt['sha256'] ?? null)
+                || ($terminal['phase'] ?? null) !== $receipt['phase'] || ($terminal['local_process_terminal'] ?? null) !== true || ($terminal['rc'] ?? null) !== 0
+                || ($terminal['local_deadline_exceeded'] ?? null) !== false || ($terminal['remote_success_terminal_confirmed'] ?? null) !== true
+                || !$this->sourceSame($terminal['stdout'] ?? null, $actual)
+                || ($receipt['phase'] === 'dump' && !$this->sourceSame($actual, $origin['backup_payload']))) {
+                throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_BACKUP_CHANGED');
+            }
+            $originFiles[$stdout] = $actual['sha256']; $originFiles[$receipt['path']] = $receipt['sha256'];
+        }
+        $registry = \projectResourceRegistry($registrySha);
+        $tools = array_values(array_filter($registry['resources']['tooling'] ?? [], static fn(array $row): bool => ($row['stable_resource_id'] ?? null) === $toolId));
+        $resources = \activeLeaseResources(\requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF'));
+        if (count($tools) !== 1 || $registrySha !== $binding['registry_sha256']
+            || !in_array($toolId, $resources['tooling-resource-id'] ?? [], true) || !in_array($output, $resources['output-dir'] ?? [], true)) {
+            throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_NATIVE_TOOL_OUTPUT_REQUIRED');
+        }
+        return \app\common\infrastructure\scaffold\ScaffoldUpgradeRunner::sourceProductLock(dirname($this->serverRoot),
+            function () use ($pdo, $binding, $facts, $planPath, $planSha, $baseline, $pending, $tools, $output, $origin, $originFiles): array {
+                $lockName = 'peanut_migrate_' . substr(hash('sha256', $binding['database']['database']), 0, 48);
+                $lock = $pdo->prepare('SELECT GET_LOCK(?, 10)');
+                try { $lock->execute([$lockName]); $held = (int) $lock->fetchColumn() === 1; }
+                finally { $lock->closeCursor(); }
+                if (!$held) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SCHEMA_LOCK_REQUIRED'); }
+                try {
+                    $ledger = $pdo->query('SELECT * FROM pa_schema_migration ORDER BY migration_id')->fetchAll(PDO::FETCH_ASSOC);
+                    $failed = $this->sourceFailureLedger($ledger, $baseline, $this->sourceLedgerShape($pdo));
+                    $guard = function () use ($pdo, $binding, $facts, $ledger, $lockName, $planPath, $planSha, $origin, $originFiles): void {
+                        if ($facts() !== $binding || hash_file('sha256', $planPath) !== $planSha
+                            || $pdo->query('SELECT * FROM pa_schema_migration ORDER BY migration_id')->fetchAll(PDO::FETCH_ASSOC) !== $ledger) {
+                            throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_SNAPSHOT_CHANGED');
+                        }
+                        foreach (['backup_manifest', 'backup_payload'] as $key) {
+                            $this->sourceProtectedFile($origin[$key]['path'], null);
+                            if (hash_file('sha256', $origin[$key]['path']) !== $origin[$key]['sha256']) { throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_BACKUP_CHANGED'); }
+                        }
+                        foreach ($originFiles as $path => $sha) {
+                            $this->sourceProtectedFile($path, null);
+                            if (hash_file('sha256', $path) !== $sha) { throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_BACKUP_CHANGED'); }
+                        }
+                        $check = $pdo->prepare('SELECT IS_USED_LOCK(?) = CONNECTION_ID()');
+                        try { $check->execute([$lockName]); $held = (int) $check->fetchColumn() === 1; }
+                        finally { $check->closeCursor(); }
+                        if (!$held) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SCHEMA_LOCK_REQUIRED'); }
+                    };
+                    $scope = SourceApplicationBackup::scope($pdo, $pending, $binding, $this->sourceMetadataTool, $guard);
+                    $image = ['pending' => $pending, 'selected' => $baseline['selected'], 'failure_afterimage' => true,
+                        'original_plan' => ['path' => $planPath, 'sha256' => $planSha], 'original_backup' => $origin,
+                        'executed_prefix' => [], 'failed_migration' => $failed, 'ledger' => $ledger];
+                    $recheck = function () use ($pdo, $pending, $binding, $guard, $scope): void {
+                        $guard();
+                        if (!$this->sourceSame(SourceApplicationBackup::scope($pdo, $pending, $binding, $this->sourceMetadataTool, $guard), $scope)) {
+                            throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_SNAPSHOT_CHANGED');
+                        }
+                    };
+                    $result = SourceApplicationBackup::capture($binding, $image, $this->digest($image), $scope, $tools[0], $output, $recheck, 'application-failure');
+                    return $result + ['scope' => 'application-schema', 'maintenance_scope' => 'source-development',
+                        'failure_afterimage' => true, 'migration' => 'not_run', 'plugins' => 'not_run', 'product_database' => 'not_verified'];
+                } finally { $pdo->prepare('SELECT RELEASE_LOCK(?)')->execute([$lockName]); }
+            });
+    }
+
+    private function sourceFailureLedger(array $ledger, array $baseline, array $shape): array
+    {
+        $pending = $baseline['pending'];
+        $failed = array_values(array_filter($ledger, static fn(array $row): bool => $row['status'] === 'failed'));
+        $executed = array_values(array_filter($ledger, static fn(array $row): bool => in_array($row['migration_id'], $pending, true)));
+        $old = array_values(array_filter($ledger, static fn(array $row): bool => !in_array($row['migration_id'], $pending, true)));
+        if (count($failed) !== 1 || $executed !== $failed || $failed[0]['migration_id'] !== $pending[0]
+            || $failed[0]['checksum'] !== $baseline['selected'][$pending[0]]
+            || $failed[0]['release_version'] !== $baseline['release_versions'][$pending[0]]
+            || $failed[0]['started_at'] === null || $failed[0]['finished_at'] === null || !is_string($failed[0]['error_code'])
+            || $this->digest($old) !== $baseline['application_rows_sha256'] || count($old) !== $baseline['application_rows_count']
+            || $this->digest($shape) !== $baseline['application_shape_sha256']) {
+            throw new RuntimeException('APPLICATION_SCHEMA_FAILED_LEDGER_REQUIRED');
+        }
+        return $failed[0];
     }
 
     private function sourceDevelopmentBackup(PDO $pdo, ApplicationMigrationRunner $runner, array $binding, callable $facts, array $files,
