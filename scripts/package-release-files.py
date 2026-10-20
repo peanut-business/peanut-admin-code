@@ -10,6 +10,7 @@ import re
 import shutil
 import stat
 import subprocess
+import sys
 import tarfile
 from pathlib import Path, PurePosixPath
 
@@ -800,13 +801,138 @@ def verify_archive(archive: Path, expected_sha256: str) -> None:
             raise ValueError('archive plugin projection differs from server release identity')
 
 
-def development_runtime(source: Path, target: Path) -> None:
+def internal_projection_context(source: Path, target: Path, admission_path: Path):
+    """Consume only the native Runner's current verified internal transaction and exact graph inputs."""
+    canonical = lambda value: json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()
+    digest = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
+    owner = (source / 'server').stat().st_uid
+    def private(path):
+        if path.resolve(strict=True) != path or path.is_symlink(): raise ValueError('projection private path is not canonical')
+        info = path.stat()
+        if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or stat.S_IMODE(info.st_mode) != 0o600 or info.st_uid not in (0, owner):
+            raise ValueError('projection private record is unsafe')
+        return json.loads(path.read_bytes())
+    admission = private(admission_path)
+    workspace = Path(admission['workspace']); checkpoint = workspace / 'source-runtime.json'
+    if admission_path.parent != workspace / 'recovery' or workspace.resolve() != workspace or workspace.stat().st_mode & 0o077:
+        raise ValueError('projection workspace is unsafe')
+    state = private(checkpoint); recorded = state.pop('state_sha256', None); binding = state['binding']
+    if recorded != hashlib.sha256(canonical(state)).hexdigest() or state.get('protocol') != 'peanut.source-runtime-transition.v1' \
+            or state['phase'] != 'source-verified' or state['activation_started'] is not False or state['intents'] \
+            or binding['instance_root'] != str(source) or binding['workspace'] != str(workspace) \
+            or binding.get('source_input_kind') != 'raw-internal-preinstall-scaffold' or 'internal_preinstall' not in binding \
+            or target != workspace / 'prepared' or target.exists() or target.is_symlink() \
+            or admission.get('protocol') != 'peanut.applied-source-tool-admission.v1' or admission.get('command') != 'runtime-transition' \
+            or admission.get('repair') != 'source-verified-projection' or admission.get('maximum_uses') != 1 \
+            or admission.get('instance_root') != str(source) or admission.get('candidate') != binding['candidate'] \
+            or admission.get('checkpoint_sha256') != digest(checkpoint):
+        raise ValueError('projection is not the current verified internal transaction')
+    pins = admission['corrected_source']['files']
+    if list(pins) != ['scripts/upgrade', 'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php', 'scripts/package-release-files.py'] \
+            or Path(__file__).resolve() != Path(admission['corrected_source']['root']) / 'scripts/package-release-files.py' \
+            or digest(Path(__file__).resolve()) != pins['scripts/package-release-files.py']['sha256']:
+        raise ValueError('projection producer is not the exact admitted third tool')
+    # The pipe is an ephemeral result handoff. Its claims are also bound to the existing protected proof and ledger.
+    if not stat.S_ISFIFO(os.fstat(0).st_mode): raise ValueError('projection requires the native parent pipe')
+    handoff = json.loads(sys.stdin.buffer.read(32 * 1024 * 1024 + 1))
+    if handoff.get('parent_pid') != os.getppid() or handoff.get('admission_sha256') != digest(admission_path) \
+            or handoff.get('checkpoint_sha256') != digest(checkpoint) or handoff.get('source_proof') != state['source_proof']:
+        raise ValueError('projection parent result changed')
+    plan_path = Path(binding['plan_path']); plan = document(plan_path.parent, plan_path.name)
+    if digest(plan_path) != admission['plan_file_sha256'] or hashlib.sha256(canonical(plan['identity'])).hexdigest() != admission['plan_identity_sha256']:
+        raise ValueError('projection plan changed')
+    events = [json.loads(line) for line in regular_file(source, '.peanut/upgrades/ledger.ndjson').read_text().splitlines() if line]
+    events = [event for event in events if event.get('candidate') == binding['candidate']]
+    if [(e.get('operation'), e.get('status')) for e in events] != [('preflight', 'ready'), ('apply', 'started'), ('apply', 'applied'), ('verify', 'verified')]:
+        raise ValueError('projection requires the original complete verified history')
+    proof = state['source_proof']
+    if proof['candidate'] != binding['candidate'] or proof['plan_sha256'] != binding['plan_sha256'] \
+            or proof['package_inventory_sha256'] != binding['package_inventory_sha256'] \
+            or proof['verify_event_sha256'] != hashlib.sha256(canonical(events[3])).hexdigest() \
+            or proof['apply_event_sha256'] != hashlib.sha256(canonical(events[2])).hexdigest() \
+            or proof['managed_sha256'] != events[3]['post_sha256'] or events[2]['post_sha256'] != events[3]['post_sha256']:
+        raise ValueError('projection verified graph result is not the original source proof')
+    projection = plan['identity'].get('plugin_target', {}).get('projection', plan['identity']['plugin_projection'])
+    def graph_inputs():
+        files = {}; directories = set()
+        manifest = document(source, MANIFEST)
+        ownership = {'managed': {}, 'app-owned': {}}
+        for row in manifest['files']:
+            classification = row.get('classification')
+            group = 'managed' if classification in ('managed', 'generated-managed') else classification
+            if group not in ownership: continue
+            relative = safe_relative(row['path']); path = source / relative
+            value = {'present': False, 'sha256': None, 'mode': None}
+            if path.exists() or path.is_symlink():
+                path = regular_file(source, relative)
+                value = {'present': True, 'sha256': digest(path), 'mode': stat.S_IMODE(path.stat().st_mode)}
+            if relative in ownership[group]: raise ValueError('duplicate projection ownership input')
+            ownership[group][relative] = value
+        for group, expected in [('managed', proof['managed_sha256']), ('app-owned', proof['app_owned_sha256'])]:
+            # PHP's native empty associative accumulator serializes as []; retain that exact digest contract.
+            actual = 'sha256:' + hashlib.sha256(canonical(ownership[group] or [])).hexdigest()
+            if actual != expected: raise ValueError('projection ownership differs from verified source proof')
+        def add(relative):
+            path = regular_file(source, relative)
+            files[relative] = {'present': True, 'sha256': digest(path), 'mode': stat.S_IMODE(path.stat().st_mode)}
+        for relative in set(projection['artifact_paths']) | {'server/composer.json', 'web/package.json', MANIFEST, 'release-versions.json'}: add(relative)
+        for relative in projection['root_paths']:
+            root = reject_symlinked_path(source, relative)
+            if not root.is_dir(): raise ValueError('projection graph root disappeared')
+            directories.add(relative)
+            for base, names, paths in os.walk(root, followlinks=False, onerror=lambda error: (_ for _ in ()).throw(error)):
+                for name in names:
+                    path = Path(base) / name
+                    if path.is_symlink(): raise ValueError('projection graph directory is linked')
+                    directories.add(path.relative_to(source).as_posix())
+                for name in paths: add((Path(base) / name).relative_to(source).as_posix())
+        if (source / '.local/module-source-adoption/journal.json').exists() or (source / '.local/module-source-adoption/journal.json').is_symlink():
+            raise ValueError('projection graph has a recovery journal')
+        # Independently bind complete module AND frontend contents to the graph the plan/verified event certified.
+        for plugin in projection['plugins'].values():
+            roots = plugin['module_roots'] + plugin['frontend_roots']
+            contents = {name: row['sha256'] for name, row in files.items() if any(name.startswith(root + '/') for root in roots)}
+            value = ''.join(f'{name}\0{contents[name]}\n' for name in sorted(contents)).encode()
+            if plugin['source_contract']['type'] != 'canonical-contents' or hashlib.sha256(value).hexdigest() != plugin['source_sha256'] \
+                    or files[plugin['manifest']] != plugin['manifest_state']:
+                raise ValueError('projection graph contents differ from the certified plan')
+        if files['plugins.lock'] != projection['lock_state']: raise ValueError('projection graph lock changed')
+        return {'files': dict(sorted(files.items())), 'directories': sorted(directories)}
+    def fence():
+        if graph_inputs() != handoff['graph_inputs'] or digest(checkpoint) != handoff['checkpoint_sha256'] \
+                or digest(admission_path) != handoff['admission_sha256']:
+            raise ValueError('projection graph input fence changed')
+    fence()
+    log_prefix = Path(handoff['log_prefix'])
+    if log_prefix.parent != workspace / 'recovery' or re.fullmatch(re.escape(admission['action_id']) + r'-[0-9]{3}-projection', log_prefix.name) is None:
+        raise ValueError('projection diagnostic prefix is not bound')
+    return fence, log_prefix, workspace / 'trusted'
+
+
+def development_runtime(source: Path, target: Path, source_admission: Path | None = None) -> None:
     """Opt-in local immutable program projection; never a distributable release."""
     source = reject_symlinked_path(source).resolve(strict=True)
     target = reject_symlinked_path(target)
     reject_nested_paths(source, target, 'development output must be outside the application')
     if target.exists():
         raise ValueError('development output must not exist')
+    internal = internal_projection_context(source, target, source_admission) if source_admission is not None else None
+    helper_root = internal[2] if internal is not None else Path(__file__).resolve().parent.parent
+    def execute(stage, arguments):
+        if internal is None: return subprocess.run(arguments, check=True, capture_output=True)
+        handles = []
+        for suffix in ('stdout', 'stderr'):
+            path = Path(str(internal[1]) + '-' + stage + '.' + suffix)
+            descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            handles.append(os.fdopen(descriptor, 'wb'))
+        try:
+            result = subprocess.run(arguments, stdin=subprocess.DEVNULL, stdout=handles[0], stderr=handles[1])
+        finally:
+            for handle in handles: handle.flush(); os.fsync(handle.fileno()); handle.close()
+        stdout = Path(str(internal[1]) + '-' + stage + '.stdout').read_bytes()
+        stderr = Path(str(internal[1]) + '-' + stage + '.stderr').read_bytes()
+        if result.returncode: raise ValueError(f'projection subprocess stage={stage} rc={result.returncode} stderr_sha256={hashlib.sha256(stderr).hexdigest()}')
+        return subprocess.CompletedProcess(arguments, result.returncode, stdout, stderr)
     manifest = document(source, MANIFEST)
     if manifest.get('protocol') != 'peanut.application-scaffold.v2' or manifest.get('schema_version') != 2:
         raise ValueError('development runtime requires a real generated APP identity')
@@ -814,18 +940,16 @@ def development_runtime(source: Path, target: Path) -> None:
     if versions.get('schema_version') != 3:
         raise ValueError('development runtime requires the native v3 dependency identity')
     # These existing native readers check Edition and v3 dependency provenance. No business bootstrap.
-    identity = subprocess.run(['php', '-r',
+    identity = execute('identity', ['php', '-r',
         'require $argv[2]."/server/app/common/value/installation/ApplicationSourceIdentity.php"; '
         'require $argv[1]."/server/vendor/autoload.php"; '
         '$s=\\app\\common\\value\\installation\\ApplicationSourceIdentity::loadGeneratedApp($argv[1]."/server"); '
         'echo json_encode(["application"=>$s->applicationIdentity(),"versions"=>$s->versions(),'
         '"tenant_bootstrap"=>$s->tenantBootstrapContract($s->applicationIdentity()["edition"])]);',
-        str(source), str(Path(__file__).resolve().parent.parent)], check=True, capture_output=True)
+        str(source), str(helper_root)])
     declaration = json.loads(identity.stdout)
-    subprocess.run(['node', str(regular_file(source, 'scripts/release-dependency-locks.mjs')),
-                    str(source), '--installed'], check=True, capture_output=True)
-    subprocess.run(['python3', str(regular_file(source, 'server/docker/scripts/vendor-state.py')),
-                    'check', '--server', str(source/'server')], check=True, capture_output=True)
+    execute('locks', ['node', str(regular_file(source, 'scripts/release-dependency-locks.mjs')), str(source), '--installed'])
+    execute('vendor', ['python3', str(regular_file(source, 'server/docker/scripts/vendor-state.py')), 'check', '--server', str(source/'server')])
     vendor_receipt = document(source, 'server/vendor/.peanut-complete.json')
     native_archives = vendor_receipt.get('local_archives', {})
     if not isinstance(native_archives, dict) or len(native_archives) > 1:
@@ -844,12 +968,13 @@ def development_runtime(source: Path, target: Path) -> None:
         # the source vendor itself is still never copied.
         for relative in (MANIFEST, 'release-versions.json'):
             owner_inputs[relative] = hashlib.sha256(regular_file(source, relative).read_bytes()).hexdigest()
-    subprocess.run(['php', '-r',
+    if internal is None:
+        subprocess.run(['php', '-r',
                     'require $argv[2]."/server/app/platform/infrastructure/plugin/PluginLockResolver.php"; '
                     'require $argv[1]."/server/vendor/autoload.php"; '
                     '\\app\\platform\\infrastructure\\plugin\\PluginLockResolver::forSourceUpgrade($argv[1]);',
-                   str(source), str(Path(__file__).resolve().parent.parent)],
-                   check=True, capture_output=True)
+                   str(source), str(helper_root)],
+                       check=True, capture_output=True)
     entries = manifest.get('files', [])
     if not isinstance(entries, list) or not entries:
         raise ValueError('development APP source inventory is missing')
@@ -992,6 +1117,7 @@ def development_runtime(source: Path, target: Path) -> None:
             raise ValueError('development identity changed during projection')
     if (server/'.peanut/release-identity.json').exists():
         raise ValueError('development source cannot already declare a release identity')
+    if internal is not None: internal[0]()
     (server/'.peanut/development-runtime.json').write_text(json.dumps(value, ensure_ascii=False, indent=2)+'\n')
     (server/'.peanut/development-runtime.json').chmod(0o644)
 
@@ -1009,7 +1135,10 @@ def main() -> None:
     parser.add_argument('--server-only', action='store_true')
     parser.add_argument('--archive', type=Path)
     parser.add_argument('--expected-sha256')
+    parser.add_argument('--source-transition-admission', type=Path)
     args = parser.parse_args()
+    if args.source_transition_admission is not None and args.action != 'development-runtime':
+        raise ValueError('source transition admission is limited to development projection')
     if args.internal_candidate and (args.generated_template or args.server_only or args.action not in ('snapshot', 'assemble')):
         raise ValueError('internal candidate requires complete APP snapshot/assemble')
     if ((args.candidate_scaffold_manifest is None) != (args.candidate_core_inputs is None)
@@ -1032,7 +1161,7 @@ def main() -> None:
     if args.action == 'development-runtime':
         if args.server_only or args.generated_template or args.build_root is not None:
             raise ValueError('development runtime is separate from release packaging')
-        development_runtime(source, args.target)
+        development_runtime(source, args.target, args.source_transition_admission)
         print('package-files: explicit development runtime projection complete; not a release')
         return
     manifest, git = snapshot(source, destination, args.generated_template, args.internal_candidate,

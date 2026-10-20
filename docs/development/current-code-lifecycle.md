@@ -204,6 +204,12 @@ php SOURCE/scripts/upgrade runtime-open --scope=source --instance-root=R --works
 
 open 仍须原生安装完成及当前 admitted／未激活证明、真实部署 head、完整 verified 来源、停止容器与关闭流量；其 admission 与 verified 事件绑定同一修正来源。原生安装完成按既有合同保留 `partial_origin_deployment` 并推进部署 binding，`origin_binding_sha256` 使用该原部署前沿重建核对，修正机制本身不写 binding。每次均重核旧 tools／依赖、source recovery、实际前后像、当前资源登记及原 owner 窗口；不增加 verify、transition、安装或 open 额度，失败与未知结果保留且不自动重放。
 
+若同一事务实际停在 `source-verified`、vendor 已 forward/completed 而投影尚未创建，保护 admission 可选择唯一 `repair=source-verified-projection`；只属于 runtime-transition 及其后 runtime-open，不属于 verify 或普通投影。它在原两工具之外准确增加 `scripts/package-release-files.py` 的 old/new SHA、模式和 Git 来源，其他旧闭包不改。transition 另绑定 `vendor_switch_sha256`，核原/目标 vendor proof、同 transition/plan 的 completed journal、未激活、无程序写意图/下一 head/投影目录；只检查已切换的 vendor，不再 stage/switch，不倒退 phase。原 verified 事件和首份 admission 不改，新维护来源通过 `origin_admission` 引用原 verified 来源；open 还以 `transition_admission` 的 path/sha256 绑定同一修复来源、决定和 vendor journal，仍须原生安装完成。
+
+真实 Runner 在原锁内重新读取现有 verified source proof，调用既有 internal Resolver 完整图检查，并在检查前后比对图全部 artifact、模块/前端根（包含新增文件、空目录）、源身份及依赖声明输入。结果经该次父子管道交给受审第三 producer；producer 只接该保护事务、原 plan/完整 verified ledger/source proof 及相同输入，独立核 canonical 模块与前端内容、manifest/lock pins，生成前后重核输入 fence。它复用已经完成的真实图证明，不在子进程伪造 issuer，不放宽普通 `forSourceUpgrade` 的 release 根拒绝。PHP helper 仍从原 trusted 加载。准确同 R 投影完成后，原冻结 host 的 source-project 再核全部后像；原身份退休、写意图、CAS head、native admission 和安装后 open 继续原链，不用其他 APP 或新运行实例替代。
+
+该有限维护入口将每次 child 的原始 stdout/stderr 保存到原 W/recovery 内 action/顺序/阶段专属的 0600、独占新建文件，目录保持原 owner 私有；producer 的原 PHP/node/vendor 子进程同样在抛错前保存原字节。日志不存环境或额外命令凭据，不回显原始 stderr；对外只返回阶段、退出码和摘要，原始文件仅在本地受保护证据中读取。没有为了采日志单独重放动作；部分投影、未知 vendor/journal 或写入失败均保全并停止对应动作，不能删除现场或靠重用 action 名字重试。原失败次数保留，新的明确工程授权下实际次数单独记录；源码修复不自带运行、数据库恢复、清库或发布授权。
+
 尚未写源码的 `preparing` 取消与源码恢复分开。prepare 和 preparing-cancel 检查同 candidate 的完整账本；只有 operation=`preflight`、status=`ready` 且原 plan／identity 摘要完全相同的事件属于只读前置。任一 started、failed、recovered、实际变更或未知事件均阻止该分支，后来的 READY 不能遮盖旧事件；通用账本状态和 applied／verified 的实际证明不变。
 
 冻结工具自身存在已确认取消缺陷时，仅允许从已审 Git 源码入口执行：

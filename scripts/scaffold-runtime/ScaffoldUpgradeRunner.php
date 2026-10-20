@@ -31,6 +31,9 @@ final class ScaffoldUpgradeRunner
     private ?array $internalPreinstall = null;
     /** Issued only by fresh native origin checks or a fully validated runtime checkpoint in this process. */
     private ?array $internalGraphOrigin = null;
+    /** Only the protected, currently checked maintenance admission selects the fixed third producer. */
+    private ?array $sourceToolCorrection = null;
+    private int $diagnosticSequence = 0;
 
     /** Read-only graph admission for the existing Resolver; an arbitrary plan array is not an issuer. */
     public function assertInternalPreinstallSourceGraph(string $projectRoot): void
@@ -3733,17 +3736,104 @@ final class ScaffoldUpgradeRunner
         ]);
     }
 
+    /** The complete graph's mutable APP inputs, including empty directories and additions. */
+    private function runtimeProjectionInputs(string $root, array $projection): array
+    {
+        $files = []; $directories = [];
+        $add = function (string $relative) use ($root, &$files): void {
+            $path = ScaffoldPathGuard::existingFileWithin($root, $root . '/' . $relative, 'SOURCE_PROJECTION_GRAPH_INPUT_UNSAFE');
+            $files[$relative] = $this->regularFileState($path, $relative);
+        };
+        foreach (array_unique([...$projection['artifact_paths'], 'server/composer.json', 'web/package.json',
+            '.peanut/application-manifest.json', 'release-versions.json']) as $relative) { $add($relative); }
+        foreach ($projection['root_paths'] as $relative) {
+            $path = $root . '/' . $relative;
+            if (realpath($path) !== $path || !is_dir($path)) { throw new RuntimeException('SOURCE_PROJECTION_GRAPH_ROOT_UNSAFE'); }
+            $directories[] = $relative;
+            $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::SELF_FIRST);
+            foreach ($iterator as $entry) {
+                if ($entry->isLink()) { throw new RuntimeException('SOURCE_PROJECTION_GRAPH_LINK'); }
+                $name = substr($entry->getPathname(), strlen($root) + 1);
+                if ($entry->isDir()) { $directories[] = $name; } else { $add($name); }
+            }
+        }
+        if (file_exists($root . '/.local/module-source-adoption/journal.json') || is_link($root . '/.local/module-source-adoption/journal.json')) {
+            throw new RuntimeException('SOURCE_PROJECTION_GRAPH_RECOVERY_PENDING');
+        }
+        ksort($files, SORT_STRING); $directories = array_values(array_unique($directories)); sort($directories, SORT_STRING);
+        return ['files' => $files, 'directories' => $directories];
+    }
+
+    /** This is a single parent/child handoff of the actual native graph result, not a new persisted proof authority. */
+    private function runtimeProjectVerifiedInternal(string $root, array $state): void
+    {
+        $correction = $this->sourceToolCorrection; $admission = $correction['document']; $workspace = $state['binding']['workspace'];
+        $this->runtimeHost($state, 'check');
+        $plan = $this->runtimePackage($root, $state);
+        $projection = $plan['identity']['plugin_target']['projection'] ?? $plan['identity']['plugin_projection'];
+        unset($plan);
+        $before = $this->runtimeProjectionInputs($root, $projection);
+        // Runs the real Resolver with this live, lock-holding Runner issuer; never the ordinary release-root route.
+        $proof = $this->runtimeVerifiedSource($root, $state);
+        if ($proof !== $state['source_proof'] || $before !== $this->runtimeProjectionInputs($root, $projection)) {
+            throw new RuntimeException('SOURCE_PROJECTION_GRAPH_CHANGED');
+        }
+        $producer = $admission['corrected_source']['root'] . '/scripts/package-release-files.py';
+        $handoff = ['parent_pid' => getmypid(), 'admission_sha256' => hash_file('sha256', $correction['path']),
+            'checkpoint_sha256' => hash_file('sha256', $workspace . '/source-runtime.json'),
+            'source_proof' => $proof, 'graph_inputs' => $before];
+        [$code, $output, $error] = $this->runtimeCapture($state, 'projection', ['python3', $producer, 'development-runtime',
+            '--application-root=' . $root, '--target=' . $workspace . '/prepared', '--source-transition-admission=' . $correction['path']], $handoff);
+        if ($code !== 0) { throw new RuntimeException('SOURCE_RUNTIME_PROJECTION_FAILED: ' . $code . ':' . hash('sha256', $error)); }
+        if ($before !== $this->runtimeProjectionInputs($root, $projection)) { throw new RuntimeException('SOURCE_PROJECTION_GRAPH_CHANGED'); }
+    }
+
+    /** Raw bytes remain owner-private; callers expose only fixed phase, rc and digest. */
+    private function runtimeCapture(array $state, string $phase, array $command, ?array $input = null): array
+    {
+        $directory = $state['binding']['workspace'] . '/recovery';
+        if (realpath($directory) !== $directory || !is_dir($directory) || (fileperms($directory) & 0077) !== 0) {
+            throw new RuntimeException('SOURCE_RUNTIME_DIAGNOSTIC_DIRECTORY_UNSAFE');
+        }
+        $prefix = $directory . '/' . $this->sourceToolCorrection['document']['action_id'] . '-' . sprintf('%03d', ++$this->diagnosticSequence) . '-' . $phase;
+        $handles = [];
+        foreach (['stdout', 'stderr'] as $extension) {
+            $handle = fopen($prefix . '.' . $extension, 'x');
+            if ($handle === false || !chmod($prefix . '.' . $extension, 0600)) { throw new RuntimeException('SOURCE_RUNTIME_DIAGNOSTIC_CREATE_FAILED'); }
+            $handles[] = $handle;
+        }
+        if ($input !== null) { $input['log_prefix'] = $prefix; }
+        $process = proc_open($command, [0 => $input === null ? ['file', '/dev/null', 'r'] : ['pipe', 'r'], 1 => $handles[0], 2 => $handles[1]], $pipes);
+        if (!is_resource($process)) { throw new RuntimeException('SOURCE_RUNTIME_HOST_UNAVAILABLE'); }
+        if ($input !== null) {
+            $bytes = self::canonicalJson($input); $offset = 0;
+            while ($offset < strlen($bytes)) {
+                $written = fwrite($pipes[0], substr($bytes, $offset));
+                if ($written === false || $written === 0) { fclose($pipes[0]); proc_close($process); throw new RuntimeException('SOURCE_RUNTIME_PROJECTION_HANDOFF_FAILED'); }
+                $offset += $written;
+            }
+            fclose($pipes[0]);
+        }
+        $code = proc_close($process);
+        foreach ($handles as $handle) { fflush($handle); fsync($handle); fclose($handle); }
+        return [$code, (string) file_get_contents($prefix . '.stdout'), (string) file_get_contents($prefix . '.stderr')];
+    }
+
     private function runtimeHost(array $state, string $phase): array
     {
         $workspace = $state['binding']['workspace'];
         $command = ['python3', $workspace . '/trusted/scripts/product-upgrade-host', 'source-' . $phase,
             '--instance-root=' . $state['binding']['instance_root'], '--workspace=' . $workspace];
+        if (($this->sourceToolCorrection['document']['repair'] ?? null) === 'source-verified-projection') {
+            [$code, $output, $error] = $this->runtimeCapture($state, $phase, $command);
+        } else {
         $process = proc_open($command, [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
         if (!is_resource($process)) { throw new RuntimeException('SOURCE_RUNTIME_HOST_UNAVAILABLE'); }
         $output = stream_get_contents($pipes[1]);
         $error = stream_get_contents($pipes[2]);
         fclose($pipes[1]); fclose($pipes[2]);
         $code = proc_close($process);
+        }
         if ($code !== 0 || strlen((string) $output) > 32768) {
             throw new RuntimeException('SOURCE_RUNTIME_HOST_FAILED: ' . $phase . ':' . $code . ':' . hash('sha256', (string) $error));
         }
@@ -4321,7 +4411,10 @@ final class ScaffoldUpgradeRunner
             $state['vendor_reuse'] = $target['reuse'];
             $state = $this->runtimeSave($path, $state);
         }
-        if (!$state['vendor_reuse']) {
+        if (($this->sourceToolCorrection['document']['repair'] ?? null) === 'source-verified-projection') {
+            // The failed project already completed its native vendor journal. Never stage/switch it again.
+            $this->runtimeHost($state, 'vendor-check');
+        } elseif (!$state['vendor_reuse']) {
             $state['vendor_intent'] = true;
             $state = $this->runtimeSave($path, $state);
             $this->runtimeHost($state, 'vendor-switch');
@@ -4329,6 +4422,9 @@ final class ScaffoldUpgradeRunner
         if (!isset($state['prepared_identity_sha256'])) {
             $state['phase'] = 'source-verified';
             $state = $this->runtimeSave($path, $state);
+            if (($this->sourceToolCorrection['document']['repair'] ?? null) === 'source-verified-projection') {
+                $this->runtimeProjectVerifiedInternal($root, $state);
+            }
             $this->runtimeHost($state, 'project');
             $identity = $this->runtimeRead(dirname($path) . '/prepared/server/.peanut/development-runtime.json');
             $state['prepared_identity_sha256'] = hash_file('sha256', dirname($path) . '/prepared/server/.peanut/development-runtime.json');
@@ -4412,6 +4508,7 @@ final class ScaffoldUpgradeRunner
             || ($admission['command'] ?? null) !== $command) { throw new RuntimeException('SOURCE_TOOL_RESUME_COMMAND_INVALID'); }
         $workspace = $admission['workspace']; $checkpoint = $workspace . '/source-runtime.json';
         $state = $this->runtimeRead($checkpoint); unset($state['state_sha256']); $binding = $state['binding'];
+        $projectionRepair = ($admission['repair'] ?? null) === 'source-verified-projection';
         $source = $admission['corrected_source']['root'];
         if (realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')) !== $source . '/scripts/upgrade'
             || realpath(__FILE__) !== $source . '/scripts/scaffold-runtime/ScaffoldUpgradeRunner.php'
@@ -4422,12 +4519,28 @@ final class ScaffoldUpgradeRunner
             throw new RuntimeException('SOURCE_TOOL_RESUME_TRANSACTION_INVALID');
         }
         if (($command === 'runtime-open' && ($state['phase'] !== 'admitted' || !isset($state['installation_completion'])))
-            || ($command !== 'runtime-open' && ($state['phase'] !== 'prepared' || isset($state['installation_completion']) || $state['intents'] !== []))) {
+            || ($command !== 'runtime-open' && ($state['phase'] !== ($projectionRepair ? 'source-verified' : 'prepared')
+                || isset($state['installation_completion']) || $state['intents'] !== []))) {
             throw new RuntimeException('SOURCE_TOOL_RESUME_PHASE_INVALID');
         }
         $current = \productUpgradeSourceToolAdmission($path, $checkpoint, $state, $source, 'peanut.applied-source-tool-admission.v1');
         if (self::canonicalJson($current) !== self::canonicalJson($admission)) { throw new RuntimeException('SOURCE_TOOL_RESUME_ADMISSION_CHANGED'); }
         [$proof, $metadata] = $this->runtimeToolCorrectionWindow($root, $state, $admission);
+        if ($projectionRepair) {
+            $journalPath = $workspace . '/dependency-switch.json';
+            $journal = $this->runtimeRead($journalPath);
+            if ($command === 'verify' || ($state['vendor_reuse'] ?? null) !== false || ($state['vendor_intent'] ?? null) !== true
+                || hash_file('sha256', $journalPath) !== ($admission['vendor_switch_sha256'] ?? null)
+                || ($journal['direction'] ?? null) !== 'forward' || ($journal['status'] ?? null) !== 'completed'
+                || ($journal['transition_id'] ?? null) !== $state['transition_id'] || ($journal['plan_sha256'] ?? null) !== $binding['plan_sha256']
+                || ($journal['old_proof_sha256'] ?? null) !== $state['vendor_original_sha256']
+                || ($journal['target_proof_sha256'] ?? null) !== $state['vendor_target_sha256']
+                || ($command === 'runtime-transition' && (isset($state['prepared_identity_sha256']) || isset($state['prepared_identity'])
+                    || isset($state['head_intent']) || isset($state['published_head_sha256'])
+                    || file_exists($workspace . '/prepared') || is_link($workspace . '/prepared')))) {
+                throw new RuntimeException('SOURCE_TOOL_PROJECTION_VENDOR_FRONTIER_INVALID');
+            }
+        }
         $recovery = $root . '/.peanut/upgrades/backups/' . $binding['candidate'] . '/recovery.json';
         if ($root . '/' . $state['source_recovery'] !== $recovery || realpath($recovery) !== $recovery || !is_file($recovery)
             || lstat($recovery)['nlink'] !== 1 || (fileperms($recovery) & 0777) !== 0600
@@ -4462,21 +4575,37 @@ final class ScaffoldUpgradeRunner
                 || ($first['instance_root'] ?? null) !== $root || ($first['workspace'] ?? null) !== $workspace
                 || ($first['candidate'] ?? null) !== $binding['candidate']
                 || ($first['origin_binding_sha256'] ?? null) !== $admission['origin_binding_sha256']
-                || ($first['authority'] ?? null) !== $admission['authority']
-                || ($first['corrected_source'] ?? null) !== $admission['corrected_source']) { throw new RuntimeException('SOURCE_TOOL_RESUME_ORIGIN_CHANGED'); }
+                || (!$projectionRepair && (($first['authority'] ?? null) !== $admission['authority']
+                    || ($first['corrected_source'] ?? null) !== $admission['corrected_source']))) { throw new RuntimeException('SOURCE_TOOL_RESUME_ORIGIN_CHANGED'); }
             $verified = $events[array_key_last($events)]['tool_correction'] ?? [];
             if (($verified['origin_admission'] ?? null) !== $origin
-                || ($verified['corrected_source'] ?? null) !== $admission['corrected_source']
+                || ($verified['corrected_source'] ?? null) !== ($projectionRepair ? ($first['corrected_source'] ?? null) : $admission['corrected_source'])
                 || ($verified['origin_binding_sha256'] ?? null) !== $admission['origin_binding_sha256']) {
                 throw new RuntimeException('SOURCE_TOOL_RESUME_VERIFIED_ORIGIN_REQUIRED');
             }
         }
+        if ($projectionRepair && $command === 'runtime-open') {
+            $transition = $admission['transition_admission'] ?? [];
+            $transitionPath = $transition['path'] ?? '';
+            if (!is_string($transitionPath) || realpath($transitionPath) !== $transitionPath
+                || dirname($transitionPath) !== $workspace . '/recovery' || !is_file($transitionPath)
+                || lstat($transitionPath)['nlink'] !== 1 || (fileperms($transitionPath) & 0777) !== 0600
+                || !in_array(fileowner($transitionPath), [0, fileowner($root . '/server')], true)
+                || hash_file('sha256', $transitionPath) !== ($transition['sha256'] ?? null)) { throw new RuntimeException('SOURCE_TOOL_PROJECTION_TRANSITION_REQUIRED'); }
+            $prior = $this->runtimeRead($transitionPath);
+            foreach (['protocol', 'repair', 'instance_root', 'workspace', 'candidate', 'corrected_source', 'authority', 'origin_admission', 'origin_binding_sha256', 'vendor_switch_sha256'] as $key) {
+                if (($prior[$key] ?? null) !== ($admission[$key] ?? null)) { throw new RuntimeException('SOURCE_TOOL_PROJECTION_TRANSITION_CHANGED'); }
+            }
+            if (($prior['command'] ?? null) !== 'runtime-transition') { throw new RuntimeException('SOURCE_TOOL_PROJECTION_TRANSITION_CHANGED'); }
+        }
+        $this->sourceToolCorrection = ['path' => $path, 'document' => $admission];
         $checked = $this->runtimeCheckpoint($checkpoint, $root);
         if (self::canonicalJson($checked) !== self::canonicalJson($state)) { throw new RuntimeException('SOURCE_TOOL_RESUME_CHECKPOINT_CHANGED'); }
         $pending = \PeanutServerUpdatePlan::sourcePending($root . '/server');
         if (($pending['checkpoint'] ?? null) !== $checkpoint || ($pending['transition_id'] ?? null) !== $state['transition_id']
             || ($pending['binding_sha256'] ?? null) !== hash('sha256', self::canonicalJson($binding))
-            || ($pending['phase'] ?? null) !== $state['phase'] || ($pending['activation_started'] ?? null) !== false
+            || ($pending['phase'] ?? null) !== ($projectionRepair && $command === 'runtime-transition' ? 'prepared' : $state['phase'])
+            || ($pending['activation_started'] ?? null) !== false
             || file_exists($root . '/server/runtime/upgrade/.traffic-ready') || is_link($root . '/server/runtime/upgrade/.traffic-ready')) {
             throw new RuntimeException('SOURCE_TOOL_RESUME_PENDING_CHANGED');
         }

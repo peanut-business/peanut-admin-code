@@ -311,9 +311,17 @@ function productUpgradeSourceToolAdmission(string $path, string $checkpoint, arr
         || !in_array(fileowner($authorityPath), [0, $owner], true)
         || ($authority['sha256'] ?? null) !== hash_file('sha256', $authorityPath)) { throw new RuntimeException('SOURCE_RUNTIME_CANCEL_AUTHORITY_REQUIRED'); }
     $provenance = $admission['corrected_source'] ?? [];
+    $correctionFiles = ['scripts/upgrade', 'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php'];
+    if (($admission['repair'] ?? null) === 'source-verified-projection') {
+        if ($protocol !== 'peanut.applied-source-tool-admission.v1'
+            || !in_array($admission['command'] ?? null, ['runtime-transition', 'runtime-open'], true)) {
+            throw new RuntimeException('SOURCE_TOOL_PROJECTION_COMMAND_INVALID');
+        }
+        $correctionFiles[] = 'scripts/package-release-files.py';
+    } elseif (isset($admission['repair'])) { throw new RuntimeException('SOURCE_TOOL_REPAIR_INVALID'); }
     if (($provenance['root'] ?? null) !== $source || realpath($source) !== $source
         || realpath(__FILE__) !== $source . '/scripts/upgrade'
-        || array_keys($provenance['files'] ?? []) !== ['scripts/upgrade', 'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php']) {
+        || array_keys($provenance['files'] ?? []) !== $correctionFiles) {
         throw new RuntimeException('SOURCE_RUNTIME_CANCEL_CORRECTION_INVALID');
     }
     foreach ($provenance['files'] as $relative => $pin) {
