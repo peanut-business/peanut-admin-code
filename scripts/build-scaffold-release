@@ -56,6 +56,9 @@ if (isset($options['internal-core-inputs'])) {
 // their source commits predate the current release-versions contract and must
 // not be rejected merely because the current template version is newer.
 if (!$check) {
+    if (file_exists($options['output']) || is_link($options['output'])) {
+        throw new RuntimeException('SCAFFOLD_RELEASE_OUTPUT_EXISTS');
+    }
     try {
         $contract = json_decode((string) file_get_contents($root . '/release-versions.json'), true, 64, JSON_THROW_ON_ERROR);
         if (($contract['schema_version'] ?? null) !== 3
@@ -346,6 +349,12 @@ try {
         } echo "SCAFFOLD-RELEASE-{$options['version']} verified\n";
     } else {
         releaseWrite($manifestPath, $json, 0644);
+        if ($edition !== null && $internalProjection === null) {
+            // The same native projection produces both creation defaults and the
+            // managed upgrade payload; packaging does not regenerate an APP.
+            releaseRun(['python3', $root . '/scripts/package-scaffold-template.py',
+                '--application', $application, '--output', rtrim($options['output'], '/')]);
+        }
         echo "wrote {$manifestPath} with " . count($files) . " managed files\n";
     }
     // Historical in-repository releases remain versioned inputs. A freshly built

@@ -159,7 +159,7 @@ function excluded(string $path): bool
             'AGENTS.md', 'AGENT_EXECUTION_RULES.md', 'SECURITY.md',
             'resources/codegraph-registry.json', 'resources/service-registry.json',
             'resources/consumer-ready-control.json',
-            'scripts/create-app', 'scripts/build-application-template-inventory', 'scripts/build-scaffold-release',
+            'scripts/create-app', 'scripts/build-application-template-inventory', 'scripts/build-scaffold-release', 'scripts/package-scaffold-template.py',
             'scripts/check-test-integrity', 'scripts/generate-all-modules-packaging-evidence',
             'scripts/build-edition-installers', 'scripts/build-edition-upgrades',
             'scripts/core-qualification-runner',

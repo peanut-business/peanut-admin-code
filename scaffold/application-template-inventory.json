@@ -3593,6 +3593,19 @@
             "source_sha256": "8f1665f0e4e03dfe2e2adac46b1cb3b9b45403e6304634a5ca096411f6bdb69a"
         },
         {
+            "path": "scripts/package-scaffold-template.py",
+            "target": "scripts/package-scaffold-template.py",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "scripts/prepare-product-release-candidate",
             "target": "scripts/prepare-product-release-candidate",
             "classification": "excluded",

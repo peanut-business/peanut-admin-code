@@ -841,7 +841,10 @@ final class ApplicationCreator
     private function textTransform(string $content, array $parameters, string $path): string
     {
         // Fixed artifacts and immutable migration source identities survive APP branding byte-for-byte.
-        if (str_starts_with($path, 'server/database/baselines/') || str_starts_with($path, 'server/database/migrations/')) {
+        if (str_starts_with($path, 'server/database/baselines/') || str_starts_with($path, 'server/database/migrations/')
+            || preg_match('#^(?:server/app/modules|(?:web|platform|uniapp)/src/modules|pc/modules)/#D', $path) === 1) {
+            // Official Module contents belong to their published identity. APP branding
+            // must not mutate their canonical contents or dependency fingerprints.
             return $content;
         }
         $content = str_replace(
