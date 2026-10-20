@@ -3837,7 +3837,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1b3143b228a87de2693891a10b11fba5c511656aeeee3cb4dc47727eb4b57a19"
+            "source_sha256": "327dab28c8bc24ef6e5df155b9fbb67d2422b815c0e069dc73f0674d6bba1645"
         },
         {
             "path": "scripts/scaffold-runtime/ReleaseDependencyIdentity.php",
@@ -3865,7 +3865,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d43cf3711597dff66fc24f17f6a278a0ded7926e1a96f52f4a3569d6899f7895"
+            "source_sha256": "589f215a54bc93f565baa8312a42115ee60aecbc9494b05e8baedededa12c335"
         },
         {
             "path": "scripts/scaffold-runtime/ScaffoldPathGuard.php",
@@ -3907,7 +3907,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0cd198cc240ed30fc62df68ef1d5de285b9d931402061354385d6aec84f83483"
+            "source_sha256": "0072d23c641d6c5e8b361832e64e7f4392e21469d0319e4deb0b04e8725b8771"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",
@@ -3935,7 +3935,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a910e407859700b0d79b52e856f47515a83db41bfe6a68d2aa0de5d939fb77e5"
+            "source_sha256": "2e84cb90abef05e59133d0e350ba9902d2c16a25240c39bc681a93ea39ddebda"
         },
         {
             "path": "scripts/seed-demo-data",
@@ -4794,7 +4794,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f4008746af2c6999504d4d7bbd7ea9b4c0837396ae02d1a779c1658a26deacaf"
+            "source_sha256": "e5f3de3a445b14501e35a7c602136ff444d63dde7296f21f3e496174c64e65cc"
         },
         {
             "path": "server/.env.example",
@@ -31119,6 +31119,19 @@
         {
             "path": "server/tests/Productization/ProviderQualificationContractTest.php",
             "target": "server/tests/Productization/ProviderQualificationContractTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Productization/RecordedScaffoldBaselineTest.php",
+            "target": "server/tests/Productization/RecordedScaffoldBaselineTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
