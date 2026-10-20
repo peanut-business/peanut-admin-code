@@ -765,7 +765,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "34a14210a91093d3b6a9efa732f4d82be8beeb14201e024998bd880334729c7b"
+                "sha256": "895d97d31b38e29bf80fbf6fff15847558581888efd5b4df9c252fad55714530"
             },
             "trust": {
                 "channel": "bundled",
@@ -867,7 +867,7 @@
                 }
             ],
             "manifest": "plugins/official.identity/plugin.json",
-            "manifest_sha256": "b526ed2d65cbdff768cc93023c48f19d8af7b749c4cc248a265a803467fb997f"
+            "manifest_sha256": "7a4c16a32fd5996f4cfbbd4e6531b3affc257301bfb741cf31136a368da4e4db"
         },
         {
             "key": "official.import-export",

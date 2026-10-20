@@ -2457,7 +2457,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0dda1b4259a150a7f2099c3e361cc68750fbb638d59a9ae6c09ba83df3d10027"
+            "source_sha256": "c0fa8029513cdbcf17b67d663d66b4eac69647db4281dd55c4011f6a5adecf8d"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2594,7 +2594,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b526ed2d65cbdff768cc93023c48f19d8af7b749c4cc248a265a803467fb997f"
+            "source_sha256": "7a4c16a32fd5996f4cfbbd4e6531b3affc257301bfb741cf31136a368da4e4db"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -8140,7 +8140,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f749b3733db05c857999d1049db8a97a5b1118fe7dbc0c3cca8c8d5e653ba13b"
+            "source_sha256": "dff63a215544d4d6816a9378221b53b6fdbdf1981afab279db9a2cd453465113"
         },
         {
             "path": "server/app/common/infrastructure/migration/PeanutMigrationAdapter.php",
@@ -14754,7 +14754,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "141fa84c06dd2c913b5bd8d48dc4756040b9f2f6e726f913b322ddce3c89df4d"
+            "source_sha256": "bb57e18bf9fe40a9cfcb3300227367ae31c565bedac36bc71a07275239ef8576"
         },
         {
             "path": "server/app/modules/official/identity/src/Persistence/Model/Account.php",

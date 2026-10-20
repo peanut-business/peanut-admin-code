@@ -75,7 +75,7 @@ final class ImmutableSqlMigration extends Migrator
 
     private function databaseClock(PDO $pdo): array
     {
-        $statement = $pdo->query('SELECT DATABASE() AS database_name, CONNECTION_ID() AS connection_id, UNIX_TIMESTAMP() AS unix_second, UTC_TIMESTAMP(3) AS utc_timestamp');
+        $statement = $pdo->query('SELECT DATABASE() AS database_name, CONNECTION_ID() AS connection_id, UNIX_TIMESTAMP() AS unix_second, UTC_TIMESTAMP(3) AS `utc_timestamp`');
         try { $row = $statement->fetch(PDO::FETCH_ASSOC); }
         finally { $statement->closeCursor(); }
         if (!is_array($row) || !is_string($row['database_name'] ?? null) || $row['database_name'] === '') {

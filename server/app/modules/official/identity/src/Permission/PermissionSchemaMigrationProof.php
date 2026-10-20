@@ -371,7 +371,7 @@ SQL;
 
     private static function connection(PDO $pdo): array
     {
-        $row = self::query($pdo, 'SELECT DATABASE() AS `database`,@@server_uuid AS server_uuid,CAST(CONNECTION_ID() AS CHAR) AS connection_id,UTC_TIMESTAMP(3) AS utc_timestamp')[0];
+        $row = self::query($pdo, 'SELECT DATABASE() AS `database`,@@server_uuid AS server_uuid,CAST(CONNECTION_ID() AS CHAR) AS connection_id,UTC_TIMESTAMP(3) AS `utc_timestamp`')[0];
         if (!is_string($row['database']) || $row['database'] === '' || !is_string($row['server_uuid']) || !self::utc($row['utc_timestamp'])) { self::fail('CONNECTION_OBSERVATION_INVALID'); }
         return $row;
     }
