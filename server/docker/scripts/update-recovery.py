@@ -252,8 +252,12 @@ def source_database_binding(server, ordinary=False):
     registry_path = server / 'private/resources/project-resources.json'
     regular(registry_path, 0o600)
     registry = read_json(registry_path)
-    manifest = read_json(server / '.peanut/release-identity.json' if ordinary
-                         else server.parent / '.peanut/application-manifest.json')
+    if ordinary:
+        identity_path = server / '.peanut/release-identity.json'
+        regular(identity_path, 0o644)
+        manifest = json.loads(identity_path.read_text())
+    else:
+        manifest = read_json(server.parent / '.peanut/application-manifest.json')
     rows = [row for row in registry.get('resources', {}).get('databases', [])
             if row.get('stable_resource_id') == value('PEANUT_DATABASE_RESOURCE_ID')]
     if registry.get('authority', {}).get('role') != 'application' \
@@ -432,7 +436,7 @@ def root_client(server, workspace, provider, operation, *, sql=None, input_file=
     evidence = {'operation': operation, 'status': 'started', 'provider': provider, 'started_at': int(time.time()),
                 'argv_sha256': hashlib.sha256(json.dumps(argv).encode()).hexdigest(),
                 'product_plan_sha256': product_binding(workspace)[0]['plan_sha256']}
-    durable(process_path, json.dumps(evidence, sort_keys=True).encode())
+    durable(stem.with_suffix('.started.json'), json.dumps(evidence, sort_keys=True).encode())
     environment = {key: value for key, value in os.environ.items() if key in ('HOME', 'SSH_AUTH_SOCK')}
     environment.update(PATH='/usr/bin:/bin:/usr/sbin:/sbin', LANG='C', LC_ALL='C')
     with stdout.open('xb') as out, stderr.open('xb') as err:
