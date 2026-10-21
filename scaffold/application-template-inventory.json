@@ -27790,7 +27790,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "eb4136640d96c532207b998517dd28f17325d60176587f19cf8abfdff14be034"
+            "source_sha256": "5a606e3114632d75ff60ab2592a930248013f81132e3ef0d84ce9e49c02c204b"
         },
         {
             "path": "server/docker/compose.yaml",
@@ -27874,7 +27874,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2cffe4994258b676ce51c20f4ba2e1e6a7375ae3e67995704fa978d7f16c541f"
+            "source_sha256": "a2c153d92246242aa1f9866ff122f92e2d32544f1b4d931f59be940f33a60601"
         },
         {
             "path": "server/docker/conf/php-fpm.conf",

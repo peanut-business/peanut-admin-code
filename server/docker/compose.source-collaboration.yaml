@@ -14,7 +14,7 @@ services:
       - "127.0.0.1:${COLLABORATION_WSS_PORT:?}:443"
     volumes:
       - ./conf/nginx.source-collaboration.conf.template:/etc/nginx/templates/default.conf.template:ro
-      - ./tls:/run/peanut-collaboration-tls:ro
+      - ./tls:/etc/nginx/peanut-collaboration-tls:ro
     tmpfs:
       - /etc/nginx/conf.d:rw,noexec,nosuid,size=1m
       - /var/cache/nginx:rw,noexec,nosuid,size=16m

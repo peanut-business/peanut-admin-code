@@ -3,8 +3,8 @@
 server {
     listen 8443 ssl;
     server_name ${COLLABORATION_PHP_TLS_HOST} ${COLLABORATION_CONTROL_TLS_HOST};
-    ssl_certificate /run/peanut-collaboration-tls/certificate.pem;
-    ssl_certificate_key /run/peanut-collaboration-tls/private-key.pem;
+    ssl_certificate /etc/nginx/peanut-collaboration-tls/certificate.pem;
+    ssl_certificate_key /etc/nginx/peanut-collaboration-tls/private-key.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
     client_max_body_size 32m;
     location ~ ^/adminapi/internal/collaboration/v1/(?:authorize|check|load|store|receipt|references|target(?:/prepare)?|recovery|revoke)$ {
@@ -31,8 +31,8 @@ server {
 server {
     listen 443 ssl;
     server_name ${COLLABORATION_WSS_HOSTNAME};
-    ssl_certificate /run/peanut-collaboration-tls/certificate.pem;
-    ssl_certificate_key /run/peanut-collaboration-tls/private-key.pem;
+    ssl_certificate /etc/nginx/peanut-collaboration-tls/certificate.pem;
+    ssl_certificate_key /etc/nginx/peanut-collaboration-tls/private-key.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
     location ^~ /internal/ { return 404; }
     location ^~ /adminapi/ { return 404; }
