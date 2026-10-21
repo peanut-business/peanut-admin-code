@@ -1,5 +1,7 @@
 # 源码维护：安装基线与迁移协议
 
+Task 已存在三表的 profile 升级若在原生 SQL 后失败，可用 `plugin:upgrade official.task --scope=source-development --dry-run --snapshot-operation=<原失败回执>` 封存失败后像；同时提供真实 actor、登记的 `--metadata-tool`、`--backup-tool` 和新 `--backup-output`。入口只接受固定 namespace/adopt/profile 来源、仅 adopt 已接受的原失败链；当前 Task 包、原 SQL 和 owner 字节必须仍与失败来源一致，当前数据库与整份模块账本须匹配。新 owner 在自己的有效 exclusive/DDL 租约下持实际产品、schema 和 Task package 锁，使用原生选表备份封存当前结构与数据。专用 `peanut.source-task-failure-forensic.v1`／reference 协议仅用于取证，不是原前态、恢复资格、迁移 apply 准入或产品资格；不执行 SQL 恢复，也不补写原 safe_after。
+
 这是当前源码中已存在的受限维护协议参考，不是普通APP安装步骤或自动派工依据。源级、模块和生产迁移各走自己的入口；固定SQL来源、原账本、业务保全、备份和真实权限不得省略。本文不声称当前数据库已经执行或恢复通过。
 
 应用和模块的版本化 SQL 使用锁定的 `topthink/think-migration` 官方执行器及真实 `Migrator`，通过其 MySQL Adapter 扩展读取、更新原有 `pa_schema_migration`／`pa_module_migration` 唯一账本；不复制旧历史到另一张 `migrations` 表。Peanut 生命周期保留原 SQL 顺序、目标发行选择、checksum、applying／failed、repair／adopt、业务 preflight、安装身份与恢复；执行成功仅由官方 `migrated()` 回调写入。完整 text key 是持久化身份，官方整数版本使用固定 SHA-256 前 60 位加一的投影，先检查源文件与该 scope 历史 key 并集，碰撞即拒绝，不按数组顺序重编号。这个整数不表示日期或回退目标。SQL 保留自身事务边界并排空多结果集，不在不可逆 DDL 外再套事务。

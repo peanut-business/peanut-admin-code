@@ -2523,6 +2523,17 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         });
     }
 
+    /** The native forensic host grants only a read-only snapshot capability. */
+    public function withTaskForensicLock(\PDO $pdo, callable $operation): array
+    {
+        $host = app()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class);
+        $host->requireTaskForensic($pdo, false);
+        return $this->withPackageLock('official.task', static function () use ($host, $pdo, $operation): array {
+            $host->requireTaskForensic($pdo);
+            return $operation();
+        });
+    }
+
     private function withPackageLock(string $pluginKey, callable $operation): array
     {
         try {

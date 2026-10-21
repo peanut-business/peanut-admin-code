@@ -856,7 +856,12 @@ final class SourceApplicationBackup
     {
         $captureStarted = time();
         if (!in_array($purpose, ['application-schema', 'application-failure', 'application-restoration', 'plugin-lifecycle',
-            'identity-recovery-snapshot', 'identity-recovery-postimage', 'installation-partial'], true)) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SOURCE_UNSUPPORTED'); }
+            'identity-recovery-snapshot', 'identity-recovery-postimage', 'installation-partial', 'task-failure-forensic'], true)) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SOURCE_UNSUPPORTED'); }
+        $taskForensic = $purpose === 'task-failure-forensic';
+        if ($taskForensic && (($baseline['forensic_only'] ?? null) !== true || ($baseline['plugin_key'] ?? null) !== 'official.task'
+            || !is_array($baseline['original_failure'] ?? null) || ($baseline['recovery_admission'] ?? null) !== false)) {
+            throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_ORIGIN_REQUIRED');
+        }
         $identitySnapshot = $purpose === 'identity-recovery-snapshot';
         $identityPostimage = $purpose === 'identity-recovery-postimage';
         if (($identitySnapshot || $identityPostimage) && (($baseline['recovery_profile'] ?? null) !== 'identity-native-install-v1'
@@ -1003,7 +1008,7 @@ final class SourceApplicationBackup
                 'The recorded tables are the original object set. Later module-created objects are not removed by replaying this dump; reconcile their actual ownership and separately authorize their exact recovery, never clear the schema.',
                 'An old pre-install empty dump is not this partial afterimage. No automatic restore or installation retry is performed.'];
         }
-        if ($purpose === 'plugin-lifecycle' || $identitySnapshot || $identityPostimage) {
+        if ($purpose === 'plugin-lifecycle' || $identitySnapshot || $identityPostimage || $taskForensic) {
             $restore['absent_original_tables'] = $scope['absent_original_tables'];
             $restore['requirements'][] = 'Restore admission must separately cover removal of only the recorded originally absent tables created by this exact operation; the payload cannot recreate absence and no DROP is executed here.';
             $restore['requirements'][] = 'Shared catalog restoration excludes all affected writers, including other tenants/tasks. Preserve audit/failure/unknown evidence before any authorized ledger/audit rollback; never erase it as routine cleanup.';
@@ -1021,6 +1026,10 @@ final class SourceApplicationBackup
         if ($identitySnapshot || $identityPostimage) {
             $restore['purpose'] = $identitySnapshot ? 'Preserve this actual operation afterimage; never a pre-operation backup or apply admission.'
                 : 'Restoration postimage only; completion requires the original present-table bytes and every original absence.';
+        }
+        if ($taskForensic) {
+            $restore['protocol'] = 'peanut.source-task-forensic-instructions.v1';
+            $restore['purpose'] = 'Failure afterimage preservation only; no restore, lifecycle apply or recovery admission.';
         }
         self::write($directory . '/RESTORE.json', $restore);
         $receipts = [];
@@ -1042,6 +1051,7 @@ final class SourceApplicationBackup
             $record['protocol'] = $identitySnapshot ? 'peanut.source-identity-operation-snapshot.v1' : 'peanut.source-identity-operation-postimage.v1';
             $record['identity_operation'] = $baseline;
         }
+        if ($taskForensic) { $record['protocol'] = 'peanut.source-task-failure-forensic.v1'; $record['task_failure'] = $baseline; $record['recovery_admission'] = false; }
         if ($partial) { $record['protocol'] = 'peanut.installation-partial-backup.v1'; $record['installation_originals'] = $originalFiles; }
         if ($receiptBackup !== null) { $record['notification_forward_receipt'] = $receiptBackup; }
         self::write($directory . '/backup.json', $record);
@@ -1058,6 +1068,7 @@ final class SourceApplicationBackup
         if ($failure) { $recovery['protocol'] = 'peanut.source-application-failure-reference.v1'; }
         if ($restored) { $recovery['protocol'] = 'peanut.source-application-restoration-reference.v1'; }
         if ($identitySnapshot || $identityPostimage) { $recovery['protocol'] = 'peanut.source-identity-recovery-reference.v1'; }
+        if ($taskForensic) { $recovery['protocol'] = 'peanut.source-task-forensic-reference.v1'; $recovery['recovery_admission'] = false; }
         if ($partial) { $recovery['protocol'] = 'peanut.installation-partial-recovery.v1'; }
         $recovery['pending'] = $baseline['pending'];
         $recovery['selected'] = $record['selected'];
