@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import re
+import stat
 import subprocess
 import sys
 import tempfile
@@ -50,10 +51,10 @@ def ordinary(path, private=True):
     return stat
 
 
-def environment(path):
+def environment(path, payload=None):
     ordinary(path)
     rows = {}
-    for line in path.read_text().splitlines():
+    for line in (path.read_text() if payload is None else payload.decode()).splitlines():
         if not line or line.startswith('#'):
             continue
         key, separator, value = line.partition('=')
@@ -133,7 +134,7 @@ def validate_configuration(data, server):
     if type(data['config_revision']) is not int or data['config_revision'] < 1 or not IMAGE.fullmatch(data['image']):
         raise ValueError('COLLABORATION_IMAGE_REVISION_INVALID')
     root = Path(data['service_root'])
-    if not root.is_absolute() or root.resolve() != root or root.is_symlink() or not (root / 'docker/compose.yaml').is_file():
+    if not root.is_absolute() or root.resolve() != root or root.is_symlink() or not (root / 'compose.yaml').is_file():
         raise ValueError('COLLABORATION_INDEPENDENT_SERVICE_REQUIRED')
     if not re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,62}', data['compose_project']) or not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}', data['network']):
         raise ValueError('COLLABORATION_INDEPENDENT_SERVICE_BINDING_INVALID')
@@ -171,28 +172,43 @@ def env_payload(values, compose=False):
     return ''.join(key + '=' + quote(value) + '\n' for key, value in values.items()).encode()
 
 
-def publish_independent_service(server, data, node, owner):
+def independent_service_values(data, existing=None):
     root = Path(data['service_root'])
-    existing = environment(root / 'docker/.env')
-    port = existing.get('COLLABORATION_PORT', '')
-    # The independent Compose port expression also supports an explicit loopback
-    # binding. Preserve it when publishing; a source-only service need not listen
-    # on every host interface. Other address/port expressions fail closed.
-    port_number = port.removeprefix('127.0.0.1:')
-    if not re.fullmatch(r'[0-9]{1,5}', port_number) or not 1 <= int(port_number) <= 65535:
+    if existing is None:
+        existing = environment(root / '.env')
+    port = existing.get('PORT', '1234')
+    bind = existing.get('BIND_ADDRESS', '127.0.0.1')
+    if not re.fullmatch(r'[0-9]{1,5}', port) or not 1 <= int(port) <= 65535:
         raise ValueError('COLLABORATION_SERVICE_PORT_REQUIRED')
-    for directory in (root / 'docker', root / 'certs', server / 'private/collaboration', server / SERVICE_DIRECTORY):
+    if ipaddress.ip_address(bind).version != 4:
+        raise ValueError('COLLABORATION_SERVICE_BIND_INVALID')
+    # Preserve the service owner's explicit advanced settings; only publish
+    # this application's paired identity and selected integration coordinates.
+    return {**existing, 'BASE_URL': data['php_origin'].rstrip('/') + '/adminapi/internal/collaboration',
+            'INSTANCE_ID': data['instance_id'], 'SERVICE_INSTANCE_ID': data['service_instance_id'],
+            'KEY_ID': data['key_id'], 'SERVICE_SECRET': data['secret'], 'CA_SHA256': data['ca_sha256'],
+            'COMPOSE_PROJECT_NAME': data['compose_project'], 'NETWORK': data['network'],
+            'PORT': port, 'BIND_ADDRESS': bind}
+
+
+def publish_independent_service(server, data, owner):
+    root = Path(data['service_root'])
+    path = root / '.env'
+    ordinary(path)
+    with os.fdopen(os.open(path, os.O_RDONLY | os.O_NOFOLLOW), 'rb') as stream:
+        service_owner = os.fstat(stream.fileno())
+        if not stat.S_ISREG(service_owner.st_mode) or service_owner.st_nlink != 1 or service_owner.st_mode & 0o777 != 0o600:
+            raise ValueError('COLLABORATION_FILE_PERMISSIONS_INVALID')
+        previous = stream.read()
+    runtime = independent_service_values(data, environment(path, previous))
+    for directory in (root / 'certs', server / 'private/collaboration', server / SERVICE_DIRECTORY):
         if not directory.exists(): directory.mkdir(mode=0o755)
         if directory.is_symlink() or directory.resolve() != directory or not directory.is_dir() or directory.stat().st_mode & 0o022:
             raise ValueError('COLLABORATION_DIRECTORY_UNSAFE')
     ca = (server / 'docker/tls/ca.pem').read_bytes()
     atomic(root / 'certs/ca.pem', ca, private=False)
     atomic(server / SERVICE_CA, ca, owner=owner, private=False)
-    runtime = {key: node[key] for key in ('COLLABORATION_INSTANCE_ID', 'COLLABORATION_SERVICE_INSTANCE_ID',
-               'COLLABORATION_CA_SHA256', 'COLLABORATION_KEY_ID', 'COLLABORATION_EDITION', 'COLLABORATION_PHP_ORIGIN')}
-    runtime.update(COMPOSE_PROJECT_NAME=data['compose_project'], COLLABORATION_NETWORK=data['network'],
-                   COLLABORATION_PORT=port, COLLABORATION_SECRET=data['secret'])
-    atomic(root / 'docker/.env', env_payload(runtime, True))
+    atomic(path, env_payload(runtime, True), digest(previous), service_owner)
 
 
 def enable(server, data, expected_revision):
@@ -201,10 +217,6 @@ def enable(server, data, expected_revision):
         path = server / '.env'; owner = ordinary(path); old = path.read_bytes(); values = environment(path)
         revision = int(values.get('COLLABORATION_CONFIG_REVISION', '0'))
         config_sha = digest(json.dumps(data, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode())
-        if values.get('COLLABORATION_CONFIG_SHA256') == config_sha and values.get('COLLABORATION_ENABLED') == 'enabled':
-            return result('enable', values)
-        if revision != expected_revision or data['config_revision'] != revision + 1 or values.get('COLLABORATION_ENABLED') == 'enabled':
-            raise ValueError('COLLABORATION_CONFIGURATION_CAS_CONFLICT')
         if values.get('DEPLOYMENT_MODE') != data['edition']:
             raise ValueError('COLLABORATION_EDITION_MISMATCH')
         node = {'COLLABORATION_IMAGE': data['image'], 'COLLABORATION_INSTANCE_ID': data['instance_id'],
@@ -222,7 +234,20 @@ def enable(server, data, expected_revision):
                    'COLLABORATION_CA_SHA256': data['ca_sha256'], 'COLLABORATION_CONFIG_REVISION': str(data['config_revision']),
                    'COLLABORATION_CONFIG_SHA256': config_sha, 'COLLABORATION_SERVICE_ROOT': data['service_root'],
                    'COLLABORATION_COMPOSE_PROJECT': data['compose_project']}
-        publish_independent_service(server, data, node, owner)
+        if values.get('COLLABORATION_CONFIG_SHA256') == config_sha and values.get('COLLABORATION_ENABLED') == 'enabled':
+            root = Path(data['service_root'])
+            if any(values.get(key) != value for key, value in updates.items()) \
+                    or environment(root / '.env') != independent_service_values(data) \
+                    or environment(server / 'docker/collaboration.env') != node:
+                raise ValueError('COLLABORATION_CONFIGURATION_PUBLICATION_MISMATCH')
+            for ca in (root / 'certs/ca.pem', server / SERVICE_CA):
+                ordinary(ca, False)
+                if digest(ca.read_bytes()) != data['ca_sha256']:
+                    raise ValueError('COLLABORATION_CA_REFERENCE_INVALID')
+            return result('enable', values)
+        if revision != expected_revision or data['config_revision'] != revision + 1 or values.get('COLLABORATION_ENABLED') == 'enabled':
+            raise ValueError('COLLABORATION_CONFIGURATION_CAS_CONFLICT')
+        publish_independent_service(server, data, owner)
         atomic(server / 'docker/collaboration.env', env_payload(node, True))
         retired = {'COLLABORATION_SERVICE_SECRET_FILE', 'COLLABORATION_TICKET_SECRET_FILE',
                    'RICH_TEXT_COLLABORATION_URL', 'RICH_TEXT_COLLABORATION_SECRET'}

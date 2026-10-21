@@ -3,7 +3,7 @@
 The default `compose.yaml` contains PHP, Nginx and MySQL. The optional
 `compose.collaboration.yaml` overlay adds the application's verified HTTPS/WSS
 ingress. The independent `peanut-hocuspocus` repository owns the Node program,
-its lockfile, build and `docker/compose.yaml`. Node reads its configuration and
+its lockfile, build and root `compose.yaml`. Node reads its configuration and
 listens directly. It does not prepare or activate PHP, invoke a PHP container,
 or obtain a global process activation before starting.
 
@@ -20,15 +20,19 @@ is a directly configured private string of 32–4096 UTF-8 bytes, without newlin
 carriage return or NUL. Store the completed input as an ordinary, single-link
 0600 file; never commit it or print it. No service-secret file or ticket-secret
 file is required. The same secret is published as `COLLABORATION_SECRET` to PHP
-and Node. Instance, service instance and key identities remain explicit.
+and `SERVICE_SECRET` to Node. Instance, service instance and key identities remain explicit.
 
 Select the independent `service_root`, Compose project and registered interface
-network. First copy that service's `docker/.env.example` to `docker/.env` (0600)
-and assign its explicit `COLLABORATION_PORT`. Node's internal port remains 80;
-the host port is an independent deployment choice. The program mount is the
-service repository root, relative to its `docker/` directory; the only other
-mount is its readonly `certs/` directory. There are no named volumes, application
-source mounts or Node document copies. Persistence stays behind the PHP APIs.
+network. First copy that service's root `.env.example` to `.env` (0600).
+Its `PORT` and `BIND_ADDRESS` select the host listener (defaults 1234 and
+127.0.0.1); publication preserves those choices and other advanced settings.
+Node's internal port remains 80. The publisher supplies `BASE_URL` with the
+`/adminapi/internal/collaboration` base path, `SERVICE_SECRET`, `INSTANCE_ID`,
+`SERVICE_INSTANCE_ID` and `KEY_ID`. The service's default API map supplies the
+relative `v1/` operation paths. Its precise readonly mounts contain dist,
+dependencies, package metadata and API configuration, with the public CA added
+by an explicit overlay. There are no named volumes, application source mounts
+or Node document copies. Persistence stays behind the PHP APIs.
 
 Provide the application's `server/docker/tls/certificate.pem`, `private-key.pem`
 and `ca.pem`. The private key must be 0600; the public CA must be 0444 or 0644.
@@ -53,12 +57,19 @@ reload, probe, build or pull services. Backend revision/digest fields protect
 the application's configuration publication with compare-and-swap; Node has no
 configuration revision/digest requirement. An already enabled configuration can
 only be repeated unchanged. Interrupted publication is not runtime readiness.
-Plan/status report `runtime_state=not_observed`; errors never include secret
-values or captured subprocess output.
+Repeating an enabled configuration also verifies its current PHP, ingress,
+independent root configuration and CA outputs without rewriting them; a
+publication mismatch is rejected. Plan/status report
+`runtime_state=not_observed`; errors never include secret values or captured
+subprocess output.
 
 The independent service uses ordinary owner-invoked Compose commands from its
-own `docker/` directory: `docker compose up -d`, `docker compose ps` and
-`docker compose logs`. Prepare its dependencies and build using its own locked
+repository root. This selected private-CA/cross-Compose integration explicitly
+uses `docker compose -f compose.yaml -f docker/ca.example.yaml -f docker/network.example.yaml`;
+the publisher supplies the paired `CA_SHA256`, `NETWORK` and
+`COMPOSE_PROJECT_NAME` values. Append the normal `up -d`, `ps` or `logs`
+operation. Ordinary service deployments need neither overlay unless selected.
+Prepare its dependencies and build using its own locked
 instructions before starting. The APP's existing `start.sh` starts only its
 PHP/Nginx/MySQL composition and optional ingress. It does not start Node or make
 Node's startup depend on an application deployment command.
@@ -112,12 +123,12 @@ docker compose --env-file collaboration.env --env-file .env.source-collaboration
 docker compose --env-file collaboration.env --env-file .env.source-collaboration -f compose.source-collaboration.yaml up -d
 ```
 
-Start the independent Node service from its own `docker/` directory on the same
-registered network **before starting this ingress**: Nginx resolves the
+Start the independent Node service from its repository root with the selected
+CA/network overlays on the same registered network **before starting this ingress**: Nginx resolves the
 `collaboration` network alias while loading its configuration. Node can listen
 while the backend TLS ingress is not yet ready; that is not an authorization or
-save success. Its `COLLABORATION_PORT` may be a plain port
-or `127.0.0.1:<port>`; the publisher preserves that explicit loopback binding.
+save success. Its `PORT` and `BIND_ADDRESS` remain the service owner's explicit
+listener choices; the publisher preserves that loopback binding.
 Record the actual source, images, network, ports, certificate and service identity
 before starting either composition. A healthy ingress is not a document save or
 realtime qualification. Stop only the current owner's ingress through this same

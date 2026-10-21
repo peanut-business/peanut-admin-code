@@ -170,10 +170,22 @@ final readonly class AuditService implements \PeanutAdmin\Kernel\Audit\AuditWrit
         $fact = $row->metadata_json;
         if (!is_array($fact) || $fact['schema_version'] !== 1 || $fact['producer'] !== 'official.identity'
             || $fact['tenant_id'] !== $tenantId || $fact['fact_id'] !== $factId || $fact['negative_action'] !== 'invalidate_old_grant'
-            || !hash_equals($hash, hash('sha256', self::revocationJson($fact)))
-            || $producer && ($fact['actor'] !== ['tenant_id' => $context->tenant->tenantId, 'account_id' => $context->tenant->accountId, 'member_id' => $context->tenant->memberId]
-                || $fact['producer_operation_id'] !== $context->tenant->requestId)) {
+            || !hash_equals($hash, hash('sha256', self::revocationJson($fact)))) {
             throw new \DomainException('IDENTITY_REVOCATION_FACT_MISMATCH');
+        }
+        if ($producer) {
+            $actor = $fact['actor'] ?? null;
+            if (!is_array($actor)) {
+                throw new \DomainException('IDENTITY_REVOCATION_FACT_MISMATCH');
+            }
+            $expectedActor = ['tenant_id' => $context->tenant->tenantId, 'account_id' => $context->tenant->accountId, 'member_id' => $context->tenant->memberId];
+            // MySQL JSON object ordering is not the producer's insertion order.
+            // Keep exact keys and PHP value types after normalizing only order.
+            ksort($actor, SORT_STRING);
+            ksort($expectedActor, SORT_STRING);
+            if ($actor !== $expectedActor || $fact['producer_operation_id'] !== $context->tenant->requestId) {
+                throw new \DomainException('IDENTITY_REVOCATION_FACT_MISMATCH');
+            }
         }
         return $fact + ['fact_sha256' => $hash, 'audit_id' => (int) $row->id];
     }
