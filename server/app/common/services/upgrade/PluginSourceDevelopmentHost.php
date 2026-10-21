@@ -214,6 +214,7 @@ final class PluginSourceDevelopmentHost
                                         if (($row['status'] ?? null) !== 'applied' || ($row['checksum'] ?? null) !== $effects['selected'][$key]
                                             || !in_array($row['resolution_kind'] ?? null, ['executed', 'adopted'], true)) { throw new RuntimeException('PLUGIN_SOURCE_LEDGER_INCOMPLETE'); }
                                     }
+                                    $this->assertAppendOnlyRepairs($effects, $ledger);
                                     $stages = $this->mutation['stages'];
                                     $seen = array_column($stages, 'migration_key'); $wanted = $effects['pending']; sort($seen, SORT_STRING); sort($wanted, SORT_STRING);
                                     if ($seen !== $wanted) { throw new RuntimeException('PLUGIN_SOURCE_STAGE_RECEIPTS_INCOMPLETE'); }
@@ -1201,6 +1202,22 @@ final class PluginSourceDevelopmentHost
         return $path;
     }
 
+    private function assertAppendOnlyRepairs(array $effects, array $ledger): void
+    {
+        $rows = array_column($ledger, null, 'migration_key');
+        foreach ($effects['append_only_repairs'] ?? [] as $key => $relation) {
+            $original = $rows[$key] ?? []; $repair = $rows[$relation['repair_key']] ?? [];
+            if (($original['status'] ?? null) !== 'failed' || ($original['checksum'] ?? null) !== $relation['original_sha256']
+                || self::digest($original) !== $relation['original_ledger_sha256'] || ($original['resolution_kind'] ?? null) !== null
+                || ($original['provenance_json'] ?? null) !== null || ($repair['status'] ?? null) !== 'applied'
+                || ($repair['checksum'] ?? null) !== $relation['repair_sha256'] || ($repair['resolution_kind'] ?? null) !== 'executed'
+                || ($repair['provenance_json'] ?? null) !== null || ($repair['module_key'] ?? null) !== ($original['module_key'] ?? null)
+                || !is_string($repair['finished_at'] ?? null) || ($repair['error_code'] ?? null) !== null) {
+                throw new RuntimeException('PLUGIN_SOURCE_APPEND_ONLY_REPAIR_INCOMPLETE');
+            }
+        }
+    }
+
     private function assertReceiptSource(string $head, string $file, string $sha): void
     {
         $root = dirname(rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR));
@@ -1286,6 +1303,7 @@ final class PluginSourceDevelopmentHost
             $seen = array_column($stages, 'migration_key'); $wanted = $effects['pending']; sort($seen, SORT_STRING); sort($wanted, SORT_STRING);
             if ($seen !== $wanted) { throw new RuntimeException('PLUGIN_SOURCE_ORIGINAL_COMPLETION_CHANGED'); }
             $byKey = array_column($ledger, null, 'migration_key');
+            $this->assertAppendOnlyRepairs($effects, $ledger);
             if (count($byKey) !== count($ledger)) { throw new RuntimeException('PLUGIN_SOURCE_ORIGINAL_COMPLETION_CHANGED'); }
             foreach ($stages as $index => $stage) {
                 $key = $stage['migration_key'] ?? ''; $sha = $effects['selected'][$key] ?? '';

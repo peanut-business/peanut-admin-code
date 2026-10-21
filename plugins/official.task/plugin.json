@@ -1,11 +1,11 @@
 {
     "schema_version": 1,
     "key": "official.task",
-    "version": "1.0.13",
+    "version": "1.0.14",
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "478ae1660be600dd104fad02999e595aba8b60657872db7b3d5f47121b1fd334"
+        "sha256": "38fe80dc1ba2942591383d993ce53c7487d8de01df6c056eace7b1f0e27a2dc7"
     },
     "trust": {
         "channel": "bundled",
@@ -39,7 +39,7 @@
             "modules": [
                 {
                     "key": "official.task",
-                    "version": "1.0.13",
+                    "version": "1.0.14",
                     "kernel_constraint": "^1.0",
                     "dependencies": [
                         {
@@ -65,6 +65,10 @@
                             {
                                 "key": "official.task:20261015020000_add_negative_fact_job_profile",
                                 "sha256": "2217e8a0cfc44e2c4c6c1a76a0413ed2448c5695e32f2a31a6a2a3072f44dbd4"
+                            },
+                            {
+                                "key": "official.task:20261021010000_verify_negative_fact_job_profile",
+                                "sha256": "5618ab95890f84ccd3b009199c55ebe399e9021a282f8d5e1e375c2772408cf1"
                             }
                         ]
                     }

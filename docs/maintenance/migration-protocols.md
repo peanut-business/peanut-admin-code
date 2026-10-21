@@ -1,5 +1,7 @@
 # 源码维护：安装基线与迁移协议
 
+Task 1.0.14 增加固定 `20261021010000_verify_negative_fact_job_profile` 修复迁移，声明修复原 profile key，SQL 仅为 `SELECT 1`。已有 profile 失败记录保持原 checksum、状态、错误和时间；计划分别显示 `awaiting_repair`／`repaired` 与原行摘要，实际 pending 和 accepted stages 只覆盖新执行 key。仅当前固定修复阶段允许它的真实 failed 前驱；新阶段先确认完整 profile 字段、约束和索引，执行后核三表元数据及全部原账本不变。完成及只读回执验证同时核原失败行全摘要和新修复 applied/executed；未完成修复不解除依赖，不重放原 SQL，也不将旧行改成 applied。原 profile 的后态证明只对固定六个既有 CHECK、未改变的 ASCII 列域允许已观察的 `_utf8mb4`→`_ascii` 字节形式变化；其他表达式、ENFORCED、值、运算符、分组和转义仍严格核对。
+
 Task 已存在三表的 profile 升级若在原生 SQL 后失败，可用 `plugin:upgrade official.task --scope=source-development --dry-run --snapshot-operation=<原失败回执>` 封存失败后像；同时提供真实 actor、登记的 `--metadata-tool`、`--backup-tool` 和新 `--backup-output`。入口只接受固定 namespace/adopt/profile 来源、仅 adopt 已接受的原失败链；当前 Task 包、原 SQL 和 owner 字节必须仍与失败来源一致，当前数据库与整份模块账本须匹配。新 owner 在自己的有效 exclusive/DDL 租约下持实际产品、schema 和 Task package 锁，使用原生选表备份封存当前结构与数据。专用 `peanut.source-task-failure-forensic.v1`／reference 协议仅用于取证，不是原前态、恢复资格、迁移 apply 准入或产品资格；不执行 SQL 恢复，也不补写原 safe_after。
 
 这是当前源码中已存在的受限维护协议参考，不是普通APP安装步骤或自动派工依据。源级、模块和生产迁移各走自己的入口；固定SQL来源、原账本、业务保全、备份和真实权限不得省略。本文不声称当前数据库已经执行或恢复通过。

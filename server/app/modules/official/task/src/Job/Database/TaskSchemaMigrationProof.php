@@ -9,16 +9,30 @@ use PDO;
 use RuntimeException;
 use Throwable;
 
-/** The two immutable Task DDL stages. No task payload snapshots, SQL execution or recovery writes. */
+/** Fixed Task DDL and append-only verification stages; no payload snapshots, SQL execution or recovery writes. */
 final class TaskSchemaMigrationProof
 {
     private const ADOPT = 'official.task:20260921-adopt-task-job-schema';
     private const PROFILE = 'official.task:20261015020000_add_negative_fact_job_profile';
+    private const REPAIR = 'official.task:20261021010000_verify_negative_fact_job_profile';
     private const SOURCES = [
         self::ADOPT => 'f04762aeab007bea0b0c4ce277d8f7781a694b17891f1193f303d0481366f21a',
         self::PROFILE => '2217e8a0cfc44e2c4c6c1a76a0413ed2448c5695e32f2a31a6a2a3072f44dbd4',
+        self::REPAIR => '5618ab95890f84ccd3b009199c55ebe399e9021a282f8d5e1e375c2772408cf1',
     ];
     private const TABLES = ['pa_task_job', 'pa_task_job_attempt', 'pa_task_job_event'];
+    private const RECOMPILED_CHECKS = [
+        'pa_task_job' => [
+            'chk_task_job_completion' => '((`status` in (_ascii\\\'succeeded\\\',_ascii\\\'dead\\\',_ascii\\\'cancelled\\\')) = (`completed_at` is not null))',
+            'chk_task_job_key' => 'regexp_like(`job_key`,_ascii\\\'^job_[0-9a-f]{32}$\\\')',
+            'chk_task_job_lease' => '((`status` = _ascii\\\'running\\\') = ((`lease_owner_hash` is not null) and (`lease_token_hash` is not null) and (`lease_expires_at` is not null)))',
+            'chk_task_job_payload_hash' => 'regexp_like(`payload_hash`,_ascii\\\'^[0-9a-f]{64}$\\\')',
+            'chk_task_job_status' => '(`status` in (_ascii\\\'queued\\\',_ascii\\\'running\\\',_ascii\\\'succeeded\\\',_ascii\\\'dead\\\',_ascii\\\'cancelled\\\'))',
+        ],
+        'pa_task_job_event' => [
+            'chk_task_event_key' => 'regexp_like(`event_key`,_ascii\\\'^tenant\\\\\\\\.task\\\\\\\\.[a-z_]+$\\\')',
+        ],
+    ];
     private const PROFILE_CHECK = "(authorization_profile='member' AND created_by_member_id IS NOT NULL AND producer_fact_key IS NULL) OR (authorization_profile='identity_negative_fact' AND created_by_member_id IS NULL AND producer_fact_key IS NOT NULL AND task_type='identity.revocation.propagate' AND handler_key='identity.revocation.propagate')";
 
     public static function before(PDO $pdo, array $exactMigration): array
@@ -32,6 +46,7 @@ final class TaskSchemaMigrationProof
             $ledger = self::ledger($pdo, $exactMigration);
             $tables = self::tables($pdo);
             if ($key === self::PROFILE) { self::profilePrestate($pdo, $tables); }
+            if ($key === self::REPAIR) { self::completeProfile($pdo, $tables); }
             if ($ledger !== self::ledger($pdo, $exactMigration)) { self::fail('LEDGER_CHANGED'); }
             return ['module_key' => 'official.task', 'migration_key' => $key, 'checksum' => self::SOURCES[$key],
                 'pdo_object_id' => spl_object_id($pdo), 'connection' => self::connection($pdo),
@@ -68,6 +83,9 @@ final class TaskSchemaMigrationProof
                         ++$created;
                     }
                 }
+            } elseif ($key === self::REPAIR) {
+                self::completeProfile($pdo, $after);
+                if ($before['tables'] !== $after) { self::fail('REPAIR_METADATA_CHANGED'); }
             } else {
                 self::profilePoststate($before['tables'], $after, $pdo);
             }
@@ -75,13 +93,15 @@ final class TaskSchemaMigrationProof
             return ['module_key' => 'official.task', 'migration_key' => $key, 'checksum' => self::SOURCES[$key],
                 'preservation_verified' => true, 'metadata_sha256' => hash('sha256', serialize($after)),
                 'ledger_sha256' => hash('sha256', serialize($before['ledger'])), 'created_empty_tables' => $created,
-                'data_proof' => 'exact native DDL and target conversion preconditions; no payload/history row scan', 'readonly' => true];
+                'data_proof' => $key === self::REPAIR ? 'fixed native SELECT 1; no Task DDL/DML; complete metadata and original ledger unchanged'
+                    : 'exact native DDL and target conversion preconditions; no payload/history row scan', 'readonly' => true];
         });
     }
 
     private static function profilePrestate(PDO $pdo, array $tables): void
     {
         foreach (self::TABLES as $table) { if ($tables[$table] === null) { self::fail('PROFILE_PRESTATE_INVALID'); } }
+        self::assertFixedChecks($tables);
         $job = $tables['pa_task_job']; $event = $tables['pa_task_job_event'];
         $actor = $job['columns']['created_by_member_id'] ?? [];
         // No numeric/domain conversion is admitted. Relaxing NOT NULL on this exact existing type preserves values.
@@ -157,7 +177,58 @@ final class TaskSchemaMigrationProof
                 ksort($after[$table][$map], SORT_STRING);
             }
         }
+        self::acceptFixedCheckRecompilation($expected, $after);
         if ($expected !== $after) { self::fail('PROFILE_POSTSTATE_INVALID'); }
+    }
+
+    private static function completeProfile(PDO $pdo, array $tables): void
+    {
+        self::profilePrestate($pdo, $tables);
+        if (!isset($tables['pa_task_job']['columns']['authorization_profile'], $tables['pa_task_job']['columns']['producer_fact_key'],
+            $tables['pa_task_job']['indexes']['uk_task_negative_fact'], $tables['pa_task_job']['checks']['chk_task_job_profile'],
+            $tables['pa_task_job_event']['columns']['event_reference'], $tables['pa_task_job_event']['indexes']['uk_task_event_reference'])
+            || $tables['pa_task_job']['columns']['created_by_member_id']['IS_NULLABLE'] !== 'YES') { self::fail('REPAIR_PROFILE_INCOMPLETE'); }
+    }
+
+    /** Only these six original CHECKs, over their unchanged ASCII columns, have two observed renderings. */
+    private static function assertFixedChecks(array $tables): void
+    {
+        foreach (['pa_task_job' => ['status' => 'varchar(16)', 'job_key' => 'varchar(64)', 'payload_hash' => 'char(64)'],
+            'pa_task_job_event' => ['event_key' => 'varchar(64)']] as $table => $columns) {
+            foreach ($columns as $column => $type) {
+                $domain = $tables[$table]['columns'][$column] ?? [];
+                if (($domain['COLUMN_TYPE'] ?? null) !== $type || ($domain['CHARACTER_SET_NAME'] ?? null) !== 'ascii'
+                    || ($domain['COLLATION_NAME'] ?? null) !== 'ascii_bin' || ($domain['IS_NULLABLE'] ?? null) !== 'NO') { self::fail('FIXED_CHECK_DOMAIN_INVALID'); }
+            }
+        }
+        foreach (self::RECOMPILED_CHECKS as $table => $checks) {
+            foreach ($checks as $key => $ascii) {
+                $check = $tables[$table]['checks'][$key] ?? [];
+                $expected = ['CONSTRAINT_NAME' => $key, 'ENFORCED' => 'YES', 'CHECK_CLAUSE' => $ascii];
+                $legacy = $expected; $legacy['CHECK_CLAUSE'] = str_replace('_ascii', '_utf8mb4', $ascii);
+                if ($check !== $expected && $check !== $legacy) { self::fail('FIXED_CHECK_INVALID'); }
+            }
+        }
+    }
+
+    private static function acceptFixedCheckRecompilation(array &$expected, array $after): void
+    {
+        self::assertFixedChecks($expected); self::assertFixedChecks($after);
+        foreach (self::RECOMPILED_CHECKS as $table => $checks) {
+            foreach ($checks as $key => $ascii) {
+                $before = $expected[$table]['checks'][$key] ?? null; $current = $after[$table]['checks'][$key] ?? null;
+                if ($before === $current) { continue; }
+                $column = match ($key) {
+                    'chk_task_job_key' => 'job_key', 'chk_task_job_payload_hash' => 'payload_hash', 'chk_task_event_key' => 'event_key', default => 'status',
+                };
+                $domain = $expected[$table]['columns'][$column] ?? [];
+                $beforeClause = str_replace('_ascii', '_utf8mb4', $ascii);
+                if (($domain['CHARACTER_SET_NAME'] ?? null) !== 'ascii' || $domain !== ($after[$table]['columns'][$column] ?? null)
+                    || $before !== ['CONSTRAINT_NAME' => $key, 'ENFORCED' => 'YES', 'CHECK_CLAUSE' => $beforeClause]
+                    || $current !== ['CONSTRAINT_NAME' => $key, 'ENFORCED' => 'YES', 'CHECK_CLAUSE' => $ascii]) { self::fail('PROFILE_CHECK_RECOMPILATION_INVALID'); }
+                $expected[$table]['checks'][$key] = $current;
+            }
+        }
     }
 
     private static function column(string $name, string $type, bool $nullable, ?string $default, string $collation): array
@@ -279,7 +350,12 @@ final class TaskSchemaMigrationProof
             if (!is_array($row) || ($row['module_key'] ?? null) !== 'official.task') { self::fail('LEDGER_INVALID'); }
             if (($row['migration_key'] ?? null) === $stage['migration_key']) {
                 if (($row['status'] ?? null) !== 'applying' || ($row['checksum'] ?? null) !== $stage['checksum']) { self::fail('LEDGER_INVALID'); } ++$current;
-            } elseif (($row['status'] ?? null) !== 'applied') { self::fail('LEDGER_INVALID'); }
+            } elseif (($row['status'] ?? null) !== 'applied') {
+                if ($stage['migration_key'] !== self::REPAIR || ($row['migration_key'] ?? null) !== self::PROFILE
+                    || ($row['checksum'] ?? null) !== self::SOURCES[self::PROFILE] || ($row['status'] ?? null) !== 'failed'
+                    || ($row['resolution_kind'] ?? null) !== null || ($row['provenance_json'] ?? null) !== null
+                    || ($row['error_code'] ?? null) !== 'MODULE_MIGRATION_FAILED' || !is_string($row['finished_at'] ?? null)) { self::fail('LEDGER_INVALID'); }
+            }
         }
         if ($current !== 1) { self::fail('LEDGER_INVALID'); }
         usort($rows, static fn(array $a, array $b): int => strcmp($a['migration_key'], $b['migration_key'])); return $rows;

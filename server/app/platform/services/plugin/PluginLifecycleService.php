@@ -77,6 +77,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             ['official.task:20260826-namespace-permission-keys']],
         'official.task:20261015020000_add_negative_fact_job_profile' => ['2217e8a0cfc44e2c4c6c1a76a0413ed2448c5695e32f2a31a6a2a3072f44dbd4', TaskSchemaMigrationProof::class,
             ['official.task:20260826-namespace-permission-keys', 'official.task:20260921-adopt-task-job-schema']],
+        'official.task:20261021010000_verify_negative_fact_job_profile' => ['5618ab95890f84ccd3b009199c55ebe399e9021a282f8d5e1e375c2772408cf1', TaskSchemaMigrationProof::class,
+            ['official.task:20260826-namespace-permission-keys', 'official.task:20260921-adopt-task-job-schema', 'official.task:20261015020000_add_negative_fact_job_profile']],
     ];
 
     /** @param array<string,mixed> $moduleConfig */
@@ -810,7 +812,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             $mayApply = $mayApply && $module['may_apply'];
             $planningComplete = $planningComplete && $module['planning_complete'];
             foreach ($module['migrations'] as $migration) {
-                if ($migration['disposition'] !== 'already_applied') { $pending[] = ['module_key' => $moduleKey, ...$migration]; }
+                if (!in_array($migration['disposition'], ['already_applied', 'awaiting_repair', 'repaired'], true)) { $pending[] = ['module_key' => $moduleKey, ...$migration]; }
             }
             foreach ($module['preflight_reports'] as $report) {
                 if ($moduleKey === 'peanut.workflow') { $workflowPreflight = $report; }
@@ -1593,12 +1595,14 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                     }
                     ++$current;
                 } else {
-                    if ($row['status'] !== 'applied' || strcmp($rowKey, $key) >= 0) {
+                    $repair = $row['status'] === 'failed'
+                        ? self::migrationRepairResolution($pdo, $moduleKey, $row, $files, self::migrationRepairMap($moduleKey, $files), $key) : null;
+                    if (($row['status'] !== 'applied' && !in_array($repair['state'] ?? null, ['applying', 'applied'], true)) || strcmp($rowKey, $key) >= 0) {
                         throw new PluginLifecycleException('MODULE_MIGRATION_STAGE_INVALID', 'Only genuine earlier completed stages may precede this stage.');
                     }
                     // Keep native historical checksums and repair/adoption provenance;
                     // do not normalize history to today's source hashes.
-                    self::assertResolution($row, $adoptions['targets'][$rowKey] ?? null, $pdo, $plugin->key);
+                    if ($row['status'] === 'applied') { self::assertResolution($row, $adoptions['targets'][$rowKey] ?? null, $pdo, $plugin->key); }
                 }
             }
             if ($current !== 1 || array_diff(self::PRESERVATION_STAGES[$key][2], array_keys($seen)) !== []) {
@@ -1626,15 +1630,17 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     public static function assertResolvedMigrationRows(string $moduleKey, array $files, \PDO $pdo): void
     {
         self::assertMigrationSchema();
-        $adoptions = self::migrationAdoptions($moduleKey, $files, self::migrationRepairMap($moduleKey, $files));
+        $repairs = self::migrationRepairMap($moduleKey, $files);
+        $adoptions = self::migrationAdoptions($moduleKey, $files, $repairs);
         $pluginKey = Db::name('plugin_module')->where('module_key', $moduleKey)->value('plugin_key');
         foreach ($files as $key => $path) {
             if (isset($adoptions['declarations'][$key])) { continue; }
             $row = Db::name('module_migration')->where('module_key', $moduleKey)->where('migration_key', $key)->find();
-            if (!is_array($row) || $row['status'] !== 'applied' || $row['checksum'] !== hash_file('sha256', $path)) {
+            $repair = is_array($row) && $row['status'] === 'failed' ? self::migrationRepairResolution($pdo, $moduleKey, $row, $files, $repairs) : null;
+            if (!is_array($row) || ($row['status'] !== 'applied' && ($repair['state'] ?? null) !== 'applied') || $row['checksum'] !== hash_file('sha256', $path)) {
                 throw new PluginLifecycleException('MODULE_MIGRATION_REPAIR_REQUIRED', 'Module migration requirements are unresolved.');
             }
-            self::assertResolution($row, $adoptions['targets'][$key] ?? null, $pdo, (string) $pluginKey);
+            if ($row['status'] === 'applied') { self::assertResolution($row, $adoptions['targets'][$key] ?? null, $pdo, (string) $pluginKey); }
         }
         if (Db::connect()->getPdo() !== $pdo || !$pdo->inTransaction()) {
             throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Preservation snapshot changed.');
@@ -2135,7 +2141,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             if ($row !== null && $row['checksum'] !== $checksum) {
                 throw new PluginLifecycleException('MODULE_MIGRATION_CHECKSUM_MISMATCH', "Migration changed: {$key}");
             }
-            $status = $row['status'] ?? 'missing'; $report = null; $admission = null;
+            $status = $row['status'] ?? 'missing'; $report = null; $admission = null; $repairResolution = null;
             if ($status === 'applied') {
                 $pdo = Db::connect()->getPdo();
                 if (!$pdo instanceof \PDO) { throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Master connection is unavailable.'); }
@@ -2143,11 +2149,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 $disposition = 'already_applied';
             } elseif ($row !== null) {
                 if (!isset($repairs[$key])) { throw new PluginLifecycleException('MODULE_MIGRATION_REPAIR_REQUIRED', "Append-only repair required: {$key}"); }
-                $disposition = 'execute';
-                if (!$willMigrate && Db::name('module_migration')->where('module_key', $moduleKey)->where('migration_key', $repairs[$key])->where('status', 'applied')->count() !== 1) {
-                    $disposition = 'reject';
-                } elseif (!$willMigrate) { $disposition = 'already_applied';
-                }
+                $repairResolution = self::migrationRepairResolution($pdo, $moduleKey, $row, $files, $repairs);
+                $disposition = ($repairResolution['state'] ?? null) === 'applied' ? 'repaired' : ($willMigrate ? 'awaiting_repair' : 'reject');
             } else {
                 $disposition = $willMigrate ? 'execute' : 'reject';
                 if (isset($adoptions['targets'][$key])) {
@@ -2198,6 +2201,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 'executes_original_sql' => $row === null && in_array($disposition, ['execute', 'after_predecessor'], true),
                 'repair' => $repairs[$key] ?? null, 'adoption' => $adoptions['targets'][$key] ?? null,
                 'apply_admission' => $admission, 'disposition' => $disposition];
+            if ($repairResolution !== null) { $migrations[array_key_last($migrations)]['repair_resolution'] = $repairResolution; }
         }
         foreach (Db::name('module_migration')->where('module_key', $moduleKey)->column('migration_key') as $key) {
             if (!isset($files[$key]) || isset($adoptions['declarations'][$key])) {
@@ -2379,6 +2383,40 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         }
         ksort($files, SORT_STRING);
         return $files;
+    }
+
+    /** Append-only resolution never changes the original failure or claims its SQL executed. */
+    private static function migrationRepairResolution(\PDO $pdo, string $moduleKey, array $original, array $files, array $repairs, ?string $applyingKey = null): ?array
+    {
+        $key = $original['migration_key'] ?? ''; $repairKey = $repairs[$key] ?? null;
+        if ($repairKey === null) { return null; }
+        if (($original['module_key'] ?? null) !== $moduleKey || ($original['status'] ?? null) !== 'failed'
+            || !isset($files[$key], $files[$repairKey]) || ($original['checksum'] ?? null) !== hash_file('sha256', $files[$key])
+            || ($original['resolution_kind'] ?? null) !== null || ($original['provenance_json'] ?? null) !== null
+            || !is_string($original['finished_at'] ?? null) || !is_string($original['error_code'] ?? null) || $original['error_code'] === '') {
+            throw new PluginLifecycleException('MODULE_MIGRATION_REPAIR_INVALID', 'Only a complete original failure and its immutable declared repair may resolve history.');
+        }
+        $sha = hash_file('sha256', $files[$repairKey]);
+        $query = $pdo->prepare('SELECT * FROM pa_module_migration WHERE module_key=? AND migration_key=?');
+        try { $query->execute([$moduleKey, $repairKey]); $rows = $query->fetchAll(\PDO::FETCH_ASSOC); } finally { $query->closeCursor(); }
+        if (count($rows) > 1) { throw new PluginLifecycleException('MODULE_MIGRATION_REPAIR_INVALID', 'Ambiguous repair history.'); }
+        $repair = $rows[0] ?? null; $state = 'pending';
+        if ($repair !== null) {
+            if ($repair['checksum'] !== $sha || $repair['module_key'] !== $moduleKey || $repair['migration_key'] !== $repairKey) {
+                throw new PluginLifecycleException('MODULE_MIGRATION_REPAIR_INVALID', 'Repair source changed.');
+            }
+            if ($repair['status'] === 'applied') {
+                if ($repair['resolution_kind'] !== 'executed' || $repair['provenance_json'] !== null || !is_string($repair['finished_at']) || $repair['error_code'] !== null) {
+                    throw new PluginLifecycleException('MODULE_MIGRATION_REPAIR_INVALID', 'Repair must have genuine native completion.');
+                }
+                $state = 'applied';
+            } elseif ($repairKey === $applyingKey && $repair['status'] === 'applying' && $repair['resolution_kind'] === null
+                && $repair['provenance_json'] === null && $repair['finished_at'] === null && $repair['error_code'] === null) { $state = 'applying'; }
+        }
+        return ['original_key' => $key, 'original_sha256' => $original['checksum'], 'original_status' => 'failed',
+            'original_ledger_sha256' => hash('sha256', json_encode(self::canonicalJsonValue($original), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)),
+            'repair_key' => $repairKey, 'repair_sha256' => $sha,
+            'state' => $state, 'executes_original_sql' => false];
     }
 
     /** @param array<string,string> $files @return array<string,string> predecessor => repair */

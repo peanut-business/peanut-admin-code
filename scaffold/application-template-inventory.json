@@ -2457,7 +2457,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5ade2f62ce48d3eb5f3a96daf595a6f46b994fd1b756da6ab8753f223520794d"
+            "source_sha256": "7761ce9f762556cf0ccd865ce9aec9c75092aab2fbee33b24eeac5f3e91f84f8"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2748,7 +2748,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a9f8be6ddda56f4f8502dafd67a34a1cc333d26d7b5b560b928bd09724e3d8a8"
+            "source_sha256": "e54da8a3809cfdc6fa55f65738bea10a4627d3f3db985cc6e919a4d3d1016cd8"
         },
         {
             "path": "plugins/peanut.artifact-revision/plugin.json",
@@ -9187,7 +9187,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8881245fefa9659793873c9bca6667f9436122169f9acab4508840e1338819f2"
+            "source_sha256": "03c0238f7519db5690d09914737018695fa2d73793499a55a8c6b4db3be81492"
         },
         {
             "path": "server/app/common/services/upgrade/SourceApplicationBackup.php",
@@ -9201,7 +9201,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "db0249f869015d2cbfb2a1ff0e78e9b62d9331503bc0554942eb55280b36d75c"
+            "source_sha256": "b06c623ddff724f9fbe2b419b51e6e3aab2abcf7a5b2783b4e88f9ca4d76d0e9"
         },
         {
             "path": "server/app/common/services/upgrade/SourceApplicationDump.php",
@@ -22712,6 +22712,20 @@
             "source_sha256": "2217e8a0cfc44e2c4c6c1a76a0413ed2448c5695e32f2a31a6a2a3072f44dbd4"
         },
         {
+            "path": "server/app/modules/official/task/database/migrations/20261021010000_verify_negative_fact_job_profile.sql",
+            "target": "server/app/modules/official/task/database/migrations/20261021010000_verify_negative_fact_job_profile.sql",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "5618ab95890f84ccd3b009199c55ebe399e9021a282f8d5e1e375c2772408cf1"
+        },
+        {
             "path": "server/app/modules/official/task/job/README.md",
             "target": "server/app/modules/official/task/job/README.md",
             "classification": "managed",
@@ -22737,7 +22751,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8511bc03c4ecc639a8df22cf8bc7f859778574753dd1e04f209e9bfc5475ee8d"
+            "source_sha256": "0d86907725919a88641df221444e273e748979d7e86b17fa74026b18cd7f6304"
         },
         {
             "path": "server/app/modules/official/task/resources/menus.json",
@@ -23115,7 +23129,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "49a21e19af2461fc28b9413e428d53727810b3edb89b96bec77604fbec75ac12"
+            "source_sha256": "de84dc5480b16435e3ae39bf0873a34ce8506de8c2923488651ff49748eb46ba"
         },
         {
             "path": "server/app/modules/official/task/src/Job/Execution/JobAuthorizationFence.php",
@@ -25804,7 +25818,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1a6fee6718554574cc628f8d0507a7ec934da1cf96458e2d43d30c392a57ebff"
+            "source_sha256": "3bad4f33ca8b0c6786030eb3cba88dfc9d1980dd4021c2ae57139eaae6eb9239"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",

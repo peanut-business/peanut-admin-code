@@ -82,6 +82,8 @@ final class SourceApplicationBackup
             ['pa_task_job', 'pa_task_job_attempt', 'pa_task_job_event'], 'PeanutAdmin\\Modules\\Task\\Job\\Database\\TaskSchemaMigrationProof'],
         'official.task:20261015020000_add_negative_fact_job_profile' => ['2217e8a0cfc44e2c4c6c1a76a0413ed2448c5695e32f2a31a6a2a3072f44dbd4',
             ['pa_task_job', 'pa_task_job_event'], 'PeanutAdmin\\Modules\\Task\\Job\\Database\\TaskSchemaMigrationProof'],
+        'official.task:20261021010000_verify_negative_fact_job_profile' => ['5618ab95890f84ccd3b009199c55ebe399e9021a282f8d5e1e375c2772408cf1',
+            ['pa_task_job', 'pa_task_job_attempt', 'pa_task_job_event'], 'PeanutAdmin\\Modules\\Task\\Job\\Database\\TaskSchemaMigrationProof'],
     ];
     private const TABLES = [
         '20260909-notification-sms-reservation' => ['pa_notice_log'],
@@ -673,7 +675,7 @@ final class SourceApplicationBackup
     public static function pluginEffects(array $plan): array
     {
         $tables = self::CATALOG_TABLES; $requirements = []; $pending = []; $selected = [];
-        $filePending = false; $writeRequirements = []; $receipt = null;
+        $filePending = false; $writeRequirements = []; $receipt = null; $repairs = [];
         if (!is_array($plan['modules'] ?? null) || $plan['modules'] === []) { throw new RuntimeException('PLUGIN_SOURCE_MODULE_PLAN_REQUIRED'); }
         foreach ($plan['modules'] as $module) {
             $key = $module['module_key'] ?? null;
@@ -691,6 +693,25 @@ final class SourceApplicationBackup
                     throw new RuntimeException('PLUGIN_SOURCE_MIGRATION_IDENTITY_REQUIRED');
                 }
                 $selected[$id] = $sha;
+                if (in_array($migration['disposition'] ?? null, ['awaiting_repair', 'repaired'], true)) {
+                    $relation = $migration['repair_resolution'] ?? [];
+                    $repairKey = 'official.task:20261021010000_verify_negative_fact_job_profile';
+                    $target = array_values(array_filter($module['migrations'], static fn(array $row): bool => ($row['migration_key'] ?? null) === $repairKey));
+                    if ($key !== 'official.task' || $id !== 'official.task:20261015020000_add_negative_fact_job_profile'
+                        || $sha !== self::MODULE_DDL_STAGES[$id][0] || ($migration['ledger_status'] ?? null) !== 'failed'
+                        || ($migration['executes_original_sql'] ?? null) !== false || ($migration['repair'] ?? null) !== $repairKey
+                        || ($relation['original_key'] ?? null) !== $id || ($relation['original_sha256'] ?? null) !== $sha
+                        || ($relation['original_status'] ?? null) !== 'failed' || ($relation['executes_original_sql'] ?? null) !== false
+                        || ($relation['repair_key'] ?? null) !== $repairKey || ($relation['repair_sha256'] ?? null) !== self::MODULE_DDL_STAGES[$repairKey][0]
+                        || preg_match('/\A[a-f0-9]{64}\z/D', (string) ($relation['original_ledger_sha256'] ?? '')) !== 1
+                        || count($target) !== 1 || ($target[0]['sha256'] ?? null) !== $relation['repair_sha256']
+                        || !in_array([$migration['disposition'], $relation['state'] ?? null, $target[0]['disposition'] ?? null],
+                            [['awaiting_repair', 'pending', 'execute'], ['repaired', 'applied', 'already_applied']], true)) {
+                        throw new RuntimeException('PLUGIN_SOURCE_REPAIR_RELATION_INVALID');
+                    }
+                    $repairs[$id] = $relation;
+                    continue;
+                }
                 if (($migration['disposition'] ?? null) === 'already_applied') { continue; }
                 $pending[] = $id; $tables[] = 'pa_module_migration';
                 $importExport = self::IMPORT_EXPORT_STAGES[$id] ?? null;
@@ -754,7 +775,7 @@ final class SourceApplicationBackup
                 'contract' => 'PeanutAdmin\\Modules\\File\\Contract\\FileMigrationPreservation',
                 'api' => 'before(PDO, canonicalMigrationKey), after(PDO, privateBefore); native File report remains disposition authority'];
         }
-        return ['protocol' => 'peanut.source-plugin-effects.v1', 'tables' => $tables,
+        $effects = ['protocol' => 'peanut.source-plugin-effects.v1', 'tables' => $tables,
             'pending' => $pending, 'selected' => $selected, 'closure_complete' => $requirements === [], 'requirements' => $requirements,
             'write_requirements' => $writeRequirements, 'notification_forward_receipt' => $receipt,
             'transaction_boundary' => 'begin lifecycle, each migration/adoption, catalog registration and failure marking commit separately; failed status is best effort',
@@ -763,6 +784,8 @@ final class SourceApplicationBackup
                 'Notification forward binding is a separate fixed protected file; preserve exact original bytes or proven absence independently of selected-table SQL'],
             'trigger_effects' => 'not authorized by the fixed source closure; inspect visible definitions and resolve external writes before any lifecycle mutation',
             'execution_admitted' => false];
+        if ($repairs !== []) { $effects['append_only_repairs'] = $repairs; }
+        return $effects;
     }
 
     /** Missing tables are explicit pre-state, never silently replaced by an empty dump table. */
