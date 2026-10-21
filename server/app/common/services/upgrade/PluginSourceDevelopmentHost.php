@@ -23,6 +23,8 @@ final class PluginSourceDevelopmentHost
     private ?array $failureForensic = null;
     private array $identityRecoveryFiles = [];
     private string $sourceMetadataTool = '';
+    private string $notificationPredecessor = '';
+    private ?array $notificationLineage = null;
     private const IDENTITY_EXTERNAL_REFERENCES = [
         'pa_platform_role_permission' => ['permission_id' => ['pa_permission', 'id']],
         'pa_role_permission' => ['permission_id' => ['pa_permission', 'id']],
@@ -45,9 +47,14 @@ final class PluginSourceDevelopmentHost
 
     public function __construct(private readonly App $app) {}
 
-    public function plan(string $operation, string $pluginKey, array $actor, callable $readPlan, string $toolId = '', string $output = '', ?array $execution = null, string $metadataTool = ''): array
+    public function plan(string $operation, string $pluginKey, array $actor, callable $readPlan, string $toolId = '', string $output = '', ?array $execution = null, string $metadataTool = '', string $notificationPredecessor = ''): array
     {
         $this->sourceMetadataTool = $metadataTool;
+        if ($notificationPredecessor !== '' && ($operation !== 'upgrade' || $pluginKey !== 'official.notification')) {
+            throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_PREDECESSOR_INVALID');
+        }
+        $this->notificationPredecessor = $notificationPredecessor;
+        $this->notificationLineage = null;
         $applying = $execution !== null;
         if ($applying && ($toolId !== '' || $output !== '' || !is_callable($execution['mutate'] ?? null))) { throw new RuntimeException('PLUGIN_SOURCE_ARGUMENTS_INVALID'); }
         if (($toolId === '') !== ($output === '')) { throw new RuntimeException('PLUGIN_SOURCE_BACKUP_ARGUMENTS_REQUIRED'); }
@@ -114,6 +121,9 @@ final class PluginSourceDevelopmentHost
                                 'application' => $selection, 'plugin' => $native, 'lifecycle_effects' => $effects, 'execution_admitted' => false,
                                 'recovery' => 'not_attested', 'product_database' => 'not_verified'];
                             if ($this->sourceMetadataTool !== '') { $report['metadata_tool'] = $this->sourceMetadataTool; }
+                            if ($this->notificationPredecessor !== '') {
+                                $report['notification_predecessor'] = $this->notificationRepairEvidence($pdo)['lineage'];
+                            }
                             if ($applying) {
                                 if ($this->sourceMetadataTool === '') {
                                 $grants = $pdo->query('SHOW GRANTS')->fetchAll(PDO::FETCH_COLUMN);
@@ -568,6 +578,162 @@ final class PluginSourceDevelopmentHost
                 });
         });
         return $result;
+    }
+
+    /** Fixed predecessor evidence, available only inside this source request's native locks. */
+    public function notificationRepairEvidence(PDO $pdo): array
+    {
+        if ($this->notificationPredecessor === '' || (($this->planning['pdo'] ?? null) !== $pdo && ($this->mutation['pdo'] ?? null) !== $pdo)) {
+            throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_PREDECESSOR_REQUIRED');
+        }
+        $evidence = $this->readNotificationPredecessor($this->notificationPredecessor);
+        $live = PluginLifecycleService::notificationReceiptSnapshot($evidence['lineage']['live_binding']['path']);
+        unset($live['contents']);
+        if (self::digest($live) !== self::digest($evidence['lineage']['live_binding'])) {
+            throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_PREDECESSOR_BINDING_CHANGED');
+        }
+        if (InstallationExecutionHost::migrationDatabaseIdentity($pdo) !== $evidence['database']) {
+            throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_PREDECESSOR_DATABASE_CHANGED');
+        }
+        $q = $pdo->prepare('SELECT * FROM pa_module_migration WHERE module_key=? AND migration_key<>? ORDER BY migration_key');
+        try { $q->execute(['official.notification', \PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::REPAIR_KEY]);
+            $rows = $q->fetchAll(PDO::FETCH_ASSOC); } finally { $q->closeCursor(); }
+        if (self::digest($rows) !== $evidence['lineage']['original_ledger_sha256']) {
+            throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_PREDECESSOR_LEDGER_CHANGED');
+        }
+        if ($this->notificationLineage !== null && self::digest($this->notificationLineage) !== self::digest($evidence['lineage'])) {
+            throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_PREDECESSOR_CHANGED');
+        }
+        $this->notificationLineage ??= $evidence['lineage'];
+        return $evidence;
+    }
+
+    private function readNotificationPredecessor(string $path): array
+    {
+        $root = rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR);
+        $bytes = SourceApplicationBackup::protectedPluginBytes($path, $root);
+        $backup = json_decode($bytes, true, 64, JSON_THROW_ON_ERROR);
+        $baseline = $backup['notification_failure'] ?? [];
+        $ref = $baseline['original_failure'] ?? [];
+        if (dirname($ref['path'] ?? '') !== $this->receiptDirectory(false)
+            || preg_match('/\Aresult-[a-f0-9]{32}\.json\z/D', basename($ref['path'] ?? '')) !== 1) {
+            throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_PREDECESSOR_INVALID');
+        }
+        $originalBytes = SourceApplicationBackup::protectedPluginBytes($ref['path'] ?? '', $root);
+        $original = json_decode($originalBytes, true, 64, JSON_THROW_ON_ERROR);
+        $document = $original; unset($document['document_sha256']);
+        $expected = [
+            'official.notification:20260826-namespace-permission-keys' => '8be087e7adacb8d34f2fa61111e683a7b15af4b62d93910d3a9655f1a605f606',
+            'official.notification:20260921-adopt-notification-delivery-schema' => 'eaef582cd762c803f3f7d213687f61d43fd3634e9f0b984471f11648e10979fb',
+            'official.notification:20261012-notification-producer-identity' => '7c01bc1bf1f309e879ff3014f89418157abbce45374a58064d1a6dc94fca07ce',
+        ];
+        $ledger = $original['ledger'] ?? [];
+        if (($backup['protocol'] ?? null) !== 'peanut.source-notification-failure-forensic.v1' || ($backup['status'] ?? null) !== 'captured'
+            || ($backup['recovery_admission'] ?? null) !== false || ($backup['execution_admitted'] ?? null) !== false
+            || ($baseline['forensic_only'] ?? null) !== true || ($baseline['recovery_admission'] ?? null) !== false
+            || ($backup['baseline_sha256'] ?? null) !== self::digest($baseline)
+            || ($ref['sha256'] ?? null) !== hash('sha256', $originalBytes)
+            || ($original['document_sha256'] ?? null) !== self::digest($document)
+            || ($original['protocol'] ?? null) !== 'peanut.source-plugin-failure.v1' || ($original['status'] ?? null) !== 'failed'
+            || ($original['operation'] ?? null) !== 'upgrade' || ($original['plugin_key'] ?? null) !== 'official.notification'
+            || ($original['binding']['source']['root'] ?? null) !== dirname($root)
+            || ($backup['binding']['source']['root'] ?? null) !== dirname($root)
+            || ($original['failure_phase'] ?? null) !== 'native_lifecycle'
+            || ($original['baseline']['selected'] ?? null) !== $expected || ($baseline['selected'] ?? null) !== $expected
+            || self::digest($backup['binding']['database'] ?? []) !== self::digest($original['binding']['database'] ?? [])
+            || count($ledger) !== 3 || array_column($ledger, 'migration_key') !== array_keys($expected)
+            || array_column($ledger, 'checksum') !== array_values($expected)
+            || array_column($ledger, 'status') !== ['applied', 'applied', 'failed']
+            || array_column($ledger, 'resolution_kind') !== [null, 'executed', null]
+            || ($ledger[2]['error_code'] ?? null) !== 'MODULE_MIGRATION_FAILED' || !is_string($ledger[2]['finished_at'] ?? null)
+            || ($ledger[2]['provenance_json'] ?? null) !== null
+            || count($original['ordered_stages'] ?? []) !== 1
+            || ($original['ordered_stages'][0]['migration_key'] ?? null) !== array_keys($expected)[1]
+            || ($original['ordered_stages'][0]['accepted_while'] ?? null) !== 'applying'
+            || ($original['ordered_stages'][0]['safe_after']['preservation_verified'] ?? null) !== true
+            || ($original['ordered_stages'][0]['safe_after']['created_empty_tables'] ?? null) !== 6
+            || ($original['notification_receipt_write']['phase'] ?? null) !== 'transition_accepted') {
+            throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_PREDECESSOR_INVALID');
+        }
+        foreach (['pa_notification_template', 'pa_notification_message', 'pa_notification_attachment', 'pa_notification_outbox',
+            'pa_sms_rate_bucket', 'pa_notification_event', 'pa_notification_task_actor'] as $table) {
+            if (!in_array($table, $backup['scope']['tables'] ?? [], true) || !isset($backup['scope']['objects'][$table])) {
+                throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_PREDECESSOR_SCOPE_CHANGED');
+            }
+        }
+        if (array_column($backup['receipts'] ?? [], 'phase') !== ['probe-before', 'dump', 'probe-after']) {
+            throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_PREDECESSOR_PAYLOAD_CHANGED');
+        }
+        foreach ([$backup['backup_payload'] ?? [], $backup['restore_instructions'] ?? [], ...($backup['receipts'] ?? [])] as $file) {
+            $data = SourceApplicationBackup::protectedPluginBytes($file['path'] ?? '', $root);
+            if (($file['sha256'] ?? null) !== hash('sha256', $data)) { throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_PREDECESSOR_PAYLOAD_CHANGED'); }
+            if (isset($file['phase'])) {
+                $process = json_decode($data, true, 64, JSON_THROW_ON_ERROR);
+                if (($process['phase'] ?? null) !== $file['phase'] || ($process['rc'] ?? null) !== 0
+                    || ($process['local_process_terminal'] ?? null) !== true || ($process['remote_success_terminal_confirmed'] ?? null) !== true
+                    || ($process['local_deadline_exceeded'] ?? null) !== false || ($process['local_output_limit_exceeded'] ?? null) !== false) {
+                    throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_PREDECESSOR_PAYLOAD_CHANGED');
+                }
+            }
+        }
+        $state = $original['notification_receipt_write'];
+        $payload = $state['transition']['payload'] ?? [];
+        $sealedBytes = SourceApplicationBackup::protectedPluginBytes($payload['path'] ?? '', $root);
+        $sealed = json_decode($sealedBytes, true, 64, JSON_THROW_ON_ERROR);
+        $binding = $sealed['binding'] ?? [];
+        // The forensic dump binds the receipt snapshot; its already sealed native
+        // afterimage is the protected byte source, retained with the original failure.
+        $receipt = $backup['scope']['notification_forward_receipt'] ?? [];
+        if (hash('sha256', $sealedBytes) !== ($state['current']['sha256'] ?? null)
+            || hash('sha256', $sealedBytes) !== ($payload['sha256'] ?? null)
+            || strlen($sealedBytes) !== ($payload['bytes'] ?? null)
+            || ($sealed['sha256'] ?? null) !== self::digest($binding)
+            || ($state['transition']['binding_sha256'] ?? null) !== self::digest($binding)
+            || ($state['transition']['target_sha256'] ?? null) !== self::digest($binding['target'] ?? [])
+            || self::digest($receipt) !== self::digest($state['current'])
+            || ($binding['instance'] ?? null) === null || count($binding['attempts'] ?? []) !== 2
+            || ($binding['attempts'][1]['request_id'] ?? null) !== ($original['request_id'] ?? null)) {
+            throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_PREDECESSOR_BINDING_CHANGED');
+        }
+        $head = $original['binding']['source']['head'] ?? '';
+        $project = dirname($root);
+        $committed = static function (string $file) use ($head, $project): string {
+            if (preg_match('/\A[a-f0-9]{40}\z/D', $head) !== 1) { throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_PREDECESSOR_SOURCE_CHANGED'); }
+            $data = \leaseGit(['-C', $project, 'show', $head . ':' . $file]) . "\n";
+            if (hash('sha1', 'blob ' . strlen($data) . "\0" . $data) !== \leaseGit(['-C', $project, 'rev-parse', $head . ':' . $file])) {
+                throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_PREDECESSOR_SOURCE_CHANGED');
+            }
+            return $data;
+        };
+        $lockBytes = $committed('plugins.lock'); $lock = json_decode($lockBytes, true, 64, JSON_THROW_ON_ERROR);
+        $entries = array_values(array_filter($lock['plugins'] ?? [], static fn(array $entry): bool => ($entry['key'] ?? null) === 'official.notification'));
+        $package = $binding['target']['package'] ?? [];
+        if (count($entries) !== 1 || ($package['lock_digest'] ?? null) !== hash('sha256', $lockBytes)
+            || ($package['artifact_sha256'] ?? null) !== ($entries[0]['source']['sha256'] ?? null)
+            || ($package['version'] ?? null) !== ($entries[0]['version'] ?? null)
+            || ($package['key'] ?? null) !== 'official.notification'
+            || ($package['source'] ?? null) !== (($entries[0]['source']['type'] ?? '') . ':' . ($entries[0]['source']['reference'] ?? ''))
+            || hash('sha256', $committed('plugins/official.notification/plugin.json')) !== ($binding['target']['manifest_sha256'] ?? null)
+            || hash('sha256', $committed('server/app/modules/official/notification/module.json')) !== ($binding['target']['module_manifest_sha256'] ?? null)
+            || hash('sha256', $committed('server/app/modules/official/notification/src/Contract/NotificationUpgradePreflight.php')) !== ($original['ordered_stages'][0]['contract_sha256'] ?? null)) {
+            throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_PREDECESSOR_SOURCE_CHANGED');
+        }
+        $entry = $entries[0];
+        $descriptor = new \app\platform\value\plugin\PluginDescriptor($entry['key'], $entry['version'], $entry['source'], hash('sha256', $lockBytes),
+            $entry['manifest_sha256'], $entry['composer'], $entry['npm'], $entry['frontend'], [], $entry['trust']);
+        if (self::digest($descriptor->publicIdentity()) !== self::digest($package)) {
+            throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_PREDECESSOR_SOURCE_CHANGED');
+        }
+        foreach ($expected as $key => $sha) {
+            if (hash('sha256', $committed('server/app/modules/official/notification/database/migrations/' . substr($key, strlen('official.notification:')) . '.sql')) !== $sha) {
+                throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_PREDECESSOR_SOURCE_CHANGED');
+            }
+        }
+        return ['database' => $original['binding']['database'], 'binding' => $binding, 'ledger' => $ledger,
+            'lineage' => ['protocol' => 'peanut.notification-producer-repair-predecessor.v1',
+                'forensic' => ['path' => $path, 'sha256' => hash('sha256', $bytes)], 'failure' => $ref,
+                'sealed_binding' => $payload, 'live_binding' => $state['current'],
+                'original_target' => $binding['target'], 'original_ledger_sha256' => self::digest($ledger)]];
     }
 
     public function requireFailureForensic(PDO $pdo, string $pluginKey, bool $packageLocked = true): void
@@ -1492,6 +1658,7 @@ final class PluginSourceDevelopmentHost
     public function requireMutation(PDO $pdo, string $pluginKey): array
     {
         $this->assertMutationLocks($pdo, $pluginKey);
+        if ($this->notificationPredecessor !== '') { $this->notificationRepairEvidence($pdo); }
         $expectedReceipt = $this->mutation['notification_receipt']['current'];
         if ($expectedReceipt !== null) {
             $actualReceipt = PluginLifecycleService::notificationReceiptSnapshot($expectedReceipt['path']);
@@ -1575,6 +1742,15 @@ final class PluginSourceDevelopmentHost
         if (($transition['kind'] ?? null) !== self::notificationTransitionKind($prior, $binding, $record['admission'])) {
             throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_TRANSITION_REQUIRED');
         }
+        if (isset($binding['lineage'])) {
+            $predecessor = $this->readNotificationPredecessor($binding['lineage']['forensic']['path'] ?? '');
+            if (self::digest($predecessor['lineage']) !== self::digest($binding['lineage'])
+                || self::digest($binding['lineage']) !== self::digest($record['native_plan']['modules'][0]['notification_forward_predecessor'] ?? null)
+                || self::digest($binding['lineage']) !== self::digest($record['execution_plan']['modules'][0]['notification_forward_predecessor'] ?? null)
+                || !version_compare((string) ($binding['target']['package']['version'] ?? ''), (string) ($predecessor['lineage']['original_target']['package']['version'] ?? ''), '>')) {
+                throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_PREDECESSOR_SOURCE_CHANGED');
+            }
+        }
         $package = $binding['target']['package'] ?? [];
         if (($record['protocol'] ?? null) === 'peanut.source-plugin-failure.v1' && ($record['status'] ?? null) === 'failed') {
             // A failure has no successful result. Resolve the unchanged original
@@ -1611,7 +1787,7 @@ final class PluginSourceDevelopmentHost
                 || ($binding['request_id'] ?? null) !== $admission['request_id']) {
                 throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_TRANSITION_REQUIRED');
             }
-            return 'create';
+            return isset($binding['lineage']) ? 'create_repair' : 'create';
         }
         $expected = $prior; $expected['attempts'][] = $attempts[array_key_last($attempts)];
         if (self::digest($binding) !== self::digest($expected)) { throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_TRANSITION_REQUIRED'); }

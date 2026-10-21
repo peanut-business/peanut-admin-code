@@ -1190,11 +1190,11 @@
         },
         {
             "key": "official.notification",
-            "version": "1.0.9",
+            "version": "1.0.10",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "f5571d480c5a12da6cc9cea6628b9a35b978eb2a5b8d486920bb1a6482468010"
+                "sha256": "932d9c2d8444d9f23b4cec6c376dc4d8c81d0701c2a45b27647efdbe9cc234d3"
             },
             "trust": {
                 "channel": "bundled",
@@ -1228,7 +1228,7 @@
                     "modules": [
                         {
                             "key": "official.notification",
-                            "version": "1.0.9",
+                            "version": "1.0.10",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
@@ -1262,6 +1262,10 @@
                                     {
                                         "key": "official.notification:20261012-notification-producer-identity",
                                         "sha256": "7c01bc1bf1f309e879ff3014f89418157abbce45374a58064d1a6dc94fca07ce"
+                                    },
+                                    {
+                                        "key": "official.notification:20261021-notification-producer-repair",
+                                        "sha256": "ba16c7a9ed27c293eff812c9341ba1e6657eeb3af3a66626d1b8cc99e4d526ad"
                                     }
                                 ]
                             }
@@ -1299,7 +1303,7 @@
                 }
             ],
             "manifest": "plugins/official.notification/plugin.json",
-            "manifest_sha256": "e1b428ffd36bc9cbe81515de79586f5bda740a31c0db893a3aff9daba1d06f51"
+            "manifest_sha256": "49a646087eda0e2f255a1dda70d5315be5b876b79609572a1400cdc0eca2642a"
         },
         {
             "key": "official.oauth",

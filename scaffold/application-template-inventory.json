@@ -2470,7 +2470,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "52b7c08e7db741a815e627a547079d84ce3974b9ff609a911c7826a028f4f82e"
+            "source_sha256": "dcf0c52b4abbc881818c7bb85881404b3fbac6040c98d34bb0a9c32a0df11243"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2663,7 +2663,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e1b428ffd36bc9cbe81515de79586f5bda740a31c0db893a3aff9daba1d06f51"
+            "source_sha256": "49a646087eda0e2f255a1dda70d5315be5b876b79609572a1400cdc0eca2642a"
         },
         {
             "path": "plugins/official.oauth/plugin.json",
@@ -6786,7 +6786,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4ed7cdf4424fde63e209b536897ad8ca865852bf618b2d91d2cea3ac4c1731bf"
+            "source_sha256": "efd655f322163a35fc1d3ec689393ff91561da2121849dffc589e37c1f29a37f"
         },
         {
             "path": "server/app/command/PluginInstall.php",
@@ -9214,7 +9214,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5768ab8b02e734452ae7e753edfd13720e09e1a41b4e99f8a2010d77f33ff212"
+            "source_sha256": "6f748fc636522d6c52080bf8710f5f0d3547e1e0454d81405c5ca6ed9e6487fb"
         },
         {
             "path": "server/app/common/services/upgrade/SourceApplicationBackup.php",
@@ -9228,7 +9228,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b489455cda3b8f65249044a4ffd099b92cf250ad643bd6418793f7beb19ecd07"
+            "source_sha256": "22c8ad3ea45ab6b71985eb0b7e488f9646a53a4dd4151435a296e40b34ef1345"
         },
         {
             "path": "server/app/common/services/upgrade/SourceApplicationDump.php",
@@ -18014,6 +18014,20 @@
             "source_sha256": "7c01bc1bf1f309e879ff3014f89418157abbce45374a58064d1a6dc94fca07ce"
         },
         {
+            "path": "server/app/modules/official/notification/database/migrations/20261021-notification-producer-repair.sql",
+            "target": "server/app/modules/official/notification/database/migrations/20261021-notification-producer-repair.sql",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "ba16c7a9ed27c293eff812c9341ba1e6657eeb3af3a66626d1b8cc99e4d526ad"
+        },
+        {
             "path": "server/app/modules/official/notification/delivery/README.md",
             "target": "server/app/modules/official/notification/delivery/README.md",
             "classification": "managed",
@@ -18039,7 +18053,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f74daa06a8bc658a0f10969ce5265bf1b178fd9d0026006a7d3b6be1bc482fcf"
+            "source_sha256": "b90b56c5355a1424e31477cfab6d5858e29632ca793223dc4b1ec2e2cbb29754"
         },
         {
             "path": "server/app/modules/official/notification/resources/menus.json",
@@ -18235,7 +18249,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "317d76106eff70da91145bc85e1926cd5c838f57b63749022c06767e157ee669"
+            "source_sha256": "5079af646065f9efaf1922e6dcc48b9ce3a4485b5e560577031fd089e3d69715"
         },
         {
             "path": "server/app/modules/official/notification/src/Contract/SmsReservationMigrationProof.php",
@@ -25887,7 +25901,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fa05c2ccdb6b668b86d19faee8f2b6046b99613fbf462c9b9562d4a1aa4222bb"
+            "source_sha256": "89debdcb5732a94a8ee9dd1b8150893958a49016f6544c5f03b7c8e4d5349389"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",

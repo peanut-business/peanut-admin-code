@@ -77,6 +77,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             ['official.notification:20260826-namespace-permission-keys']],
         'official.notification:20261012-notification-producer-identity' => ['7c01bc1bf1f309e879ff3014f89418157abbce45374a58064d1a6dc94fca07ce', NotificationUpgradePreflight::class,
             ['official.notification:20260826-namespace-permission-keys', 'official.notification:20260921-adopt-notification-delivery-schema']],
+        'official.notification:20261021-notification-producer-repair' => ['ba16c7a9ed27c293eff812c9341ba1e6657eeb3af3a66626d1b8cc99e4d526ad', NotificationUpgradePreflight::class,
+            ['official.notification:20260826-namespace-permission-keys', 'official.notification:20260921-adopt-notification-delivery-schema', 'official.notification:20261012-notification-producer-identity']],
         'official.task:20260921-adopt-task-job-schema' => ['f04762aeab007bea0b0c4ce277d8f7781a694b17891f1193f303d0481366f21a', TaskSchemaMigrationProof::class,
             ['official.task:20260826-namespace-permission-keys']],
         'official.task:20261015020000_add_negative_fact_job_profile' => ['2217e8a0cfc44e2c4c6c1a76a0413ed2448c5695e32f2a31a6a2a3072f44dbd4', TaskSchemaMigrationProof::class,
@@ -1747,7 +1749,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             $producer = \PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::MIGRATION_KEY;
             $expected = [$namespace => '8be087e7adacb8d34f2fa61111e683a7b15af4b62d93910d3a9655f1a605f606',
                 $adoption => 'eaef582cd762c803f3f7d213687f61d43fd3634e9f0b984471f11648e10979fb',
-                $producer => '7c01bc1bf1f309e879ff3014f89418157abbce45374a58064d1a6dc94fca07ce'];
+                $producer => '7c01bc1bf1f309e879ff3014f89418157abbce45374a58064d1a6dc94fca07ce',
+                NotificationUpgradePreflight::REPAIR_KEY => 'ba16c7a9ed27c293eff812c9341ba1e6657eeb3af3a66626d1b8cc99e4d526ad'];
             if (array_keys($files) !== array_keys($expected) || count($planned) !== 2
                 || array_column($planned, 'migration_key') !== [$namespace, $adoption]) { return null; }
             foreach ($expected as $key => $sha) {
@@ -1803,7 +1806,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 };
                 switch ($operation) {
                     case 'ledger':
-                        return $read('SELECT migration_key,checksum,status FROM pa_module_migration WHERE module_key=? ORDER BY migration_key', ['official.notification']);
+                    return $read('SELECT * FROM pa_module_migration WHERE module_key=? ORDER BY migration_key', ['official.notification']);
                     case 'parent_keys':
                         self::notificationForwardParentKeys($read);
                         return [];
@@ -1954,7 +1957,10 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 }
                 return;
             }
-            if (!is_array($old['plugin']) || $old['plugin']['status'] !== 'active' || count($old['modules']) !== 1
+            $lineage = null;
+            if (($old['plugin']['status'] ?? null) === 'failed') {
+                $lineage = $this->notificationRepairLineage($plugin, $pdo, $old, $instance);
+            } elseif (!is_array($old['plugin']) || $old['plugin']['status'] !== 'active' || count($old['modules']) !== 1
                 || $old['modules'][0]['status'] !== 'active' || count($old['ownership']) !== 1
                 || $old['ownership'][0]['module_key'] !== 'official.notification') {
                 throw new PluginLifecycleException('NOTIFICATION_FORWARD_OLD_IDENTITY_UNKNOWN', 'A new forward operation requires the real active old installation.');
@@ -1967,9 +1973,37 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 'old' => $old, 'target' => $target, 'initial_schema_report' => $report,
                 'attempts' => [['before' => $old, 'module_status' => $upgrade ? 'upgrading' : 'installing', 'request_id' => $context->requestId(), 'created_at' => $this->now()]],
                 'admission' => $admission, 'request_id' => $context->requestId(), 'created_at' => $this->now()];
+            if ($lineage !== null) { $binding['lineage'] = $lineage; }
             $this->writeNotificationForwardReceipt($pdo, $plugin, $path, $binding, null, $report, $instance, $old, $admission, $target);
         });
         return true;
+    }
+
+    private function notificationRepairLineage(PluginDescriptor $plugin, \PDO $pdo, array $current, array $instance): array
+    {
+        $evidence = app()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->notificationRepairEvidence($pdo);
+        $previous = $evidence['binding']; $target = $previous['target'];
+        $attempt = $previous['attempts'][array_key_last($previous['attempts'])]['before'];
+        $row = $current['plugin']; $module = $current['modules'][0] ?? [];
+        if ($plugin->key !== 'official.notification' || !is_array($row) || $row['status'] !== 'failed'
+            || !version_compare($plugin->version, $target['package']['version'], '>')
+            || self::json($instance) !== self::json($previous['instance'])
+            || count($current['modules']) !== 1 || $module['status'] !== 'failed'
+            || self::json($current['ownership']) !== self::json($previous['old']['ownership'])
+            || (int) $row['revision'] !== (int) $attempt['plugin']['revision'] + 2
+            || (int) $module['revision'] !== (int) $attempt['modules'][0]['revision'] + 2
+            || $row['installed_version'] !== $target['package']['version'] || $row['source'] !== $target['package']['source']
+            || $row['artifact_sha256'] !== $target['package']['artifact_sha256'] || $row['lock_digest'] !== $target['package']['lock_digest']
+            || $module['installed_version'] !== $target['module_version'] || $module['manifest_digest'] !== $target['module_manifest_digest']) {
+            throw new PluginLifecycleException('NOTIFICATION_FORWARD_REPAIR_PREDECESSOR_INVALID', 'The actual failed producer and strictly higher repair package are required.');
+        }
+        $files = self::migrationFiles($plugin->moduleRoots['official.notification'], $this->pluginManifests($plugin)['official.notification'], true);
+        $repairs = self::migrationRepairMap('official.notification', $files);
+        if (($repairs[NotificationUpgradePreflight::MIGRATION_KEY] ?? null) !== NotificationUpgradePreflight::REPAIR_KEY
+            || hash_file('sha256', $files[NotificationUpgradePreflight::REPAIR_KEY]) !== self::PRESERVATION_STAGES[NotificationUpgradePreflight::REPAIR_KEY][0]) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_REPAIR_INVALID', 'The fixed producer verification repair is required.');
+        }
+        return $evidence['lineage'];
     }
 
     private function writeNotificationForwardReceipt(\PDO $pdo, PluginDescriptor $plugin, string $path, array $binding,
@@ -2269,9 +2303,19 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             }
         }
         $receipt = null;
+        $predecessor = null;
         if ($notificationForward !== null) {
             $receipt = self::notificationReceiptSnapshot($this->notificationReceiptPath($plugin));
             unset($receipt['contents']);
+            $current = $this->notificationInstalledState($plugin, false);
+            if ($receipt['exists'] && isset(self::readNotificationReceipt($receipt['path'])['lineage'])) {
+                $predecessor = app()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->notificationRepairEvidence($pdo)['lineage'];
+                if (self::json($predecessor) !== self::json(self::readNotificationReceipt($receipt['path'])['lineage'])) {
+                    throw new PluginLifecycleException('NOTIFICATION_FORWARD_REPAIR_PREDECESSOR_INVALID', 'The bound repair lineage changed.');
+                }
+            } elseif (($current['plugin']['status'] ?? null) === 'failed' && !$this->sameIdentity($plugin, $current['plugin']) && !$receipt['exists']) {
+                $predecessor = $this->notificationRepairLineage($plugin, $pdo, $current, self::migrationInstance($pdo));
+            }
         }
         return ['may_apply' => $mayApply && $prerequisite === null && !$sourceDeferred, 'planning_complete' => $mayApply,
             'source_admission_deferred' => $sourceDeferred,
@@ -2280,7 +2324,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             'migrations' => $migrations, 'preflight_reports' => $reports,
             'adoption_declarations' => array_values($adoptions['targets']),
             'notification_forward_schema' => $notificationForward, 'notification_forward_admission' => $notificationAdmission,
-            'notification_forward_receipt' => $receipt];
+            'notification_forward_receipt' => $receipt, 'notification_forward_predecessor' => $predecessor];
     }
 
     private static function assertAdoptionPrerequisites(array $migrations): void

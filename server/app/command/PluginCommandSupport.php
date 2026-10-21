@@ -33,7 +33,7 @@ trait PluginCommandSupport
 
     private function configureSourceDevelopmentOptions(): void
     {
-        foreach (['scope', 'owner', 'thread', 'session', 'gate', 'backup-tool', 'backup-output', 'metadata-tool', 'source-plan', 'maintenance', 'recovery', 'verify-receipt', 'snapshot-operation', 'restore-operation'] as $name) {
+        foreach (['scope', 'owner', 'thread', 'session', 'gate', 'backup-tool', 'backup-output', 'metadata-tool', 'source-plan', 'maintenance', 'recovery', 'verify-receipt', 'snapshot-operation', 'restore-operation', 'notification-predecessor'] as $name) {
             $this->addOption($name, null, \think\console\input\Option::VALUE_REQUIRED, 'Native source-development plan ' . $name, '');
         }
     }
@@ -50,6 +50,9 @@ trait PluginCommandSupport
             foreach (['owner', 'thread', 'session', 'gate'] as $name) { $actor[$name] = $input->getOption($name); }
             $snapshot = (string) $input->getOption('snapshot-operation');
             $restore = (string) $input->getOption('restore-operation');
+            if ($input->getOption('notification-predecessor') !== '' && ($snapshot !== '' || $restore !== '' || $input->getOption('verify-receipt') !== '')) {
+                throw new PluginLifecycleException('PLUGIN_SOURCE_ARGUMENTS_INVALID', 'Notification predecessor belongs only to its normal source plan, backup and apply.');
+            }
             if ($snapshot !== '' && (($operation === 'upgrade' && in_array($key, ['official.task', 'official.notification'], true))
                 || ($operation === 'install' && $key === 'peanut.workflow'))) {
                 if (!$dryRun || $restore !== '') { throw new PluginLifecycleException('PLUGIN_SOURCE_ARGUMENTS_INVALID', 'Failure forensic snapshot is read-only.'); }
@@ -112,13 +115,14 @@ trait PluginCommandSupport
                 (string) $input->getOption('backup-tool'), (string) $input->getOption('backup-output'),
                 $execution,
                 (string) $input->getOption('metadata-tool'),
+                (string) $input->getOption('notification-predecessor'),
             );
         }, true);
     }
 
     private function hasSourceDevelopmentOptions(\think\console\Input $input): bool
     {
-        foreach (['scope', 'owner', 'thread', 'session', 'gate', 'backup-tool', 'backup-output', 'metadata-tool', 'source-plan', 'maintenance', 'recovery', 'verify-receipt', 'snapshot-operation', 'restore-operation'] as $name) {
+        foreach (['scope', 'owner', 'thread', 'session', 'gate', 'backup-tool', 'backup-output', 'metadata-tool', 'source-plan', 'maintenance', 'recovery', 'verify-receipt', 'snapshot-operation', 'restore-operation', 'notification-predecessor'] as $name) {
             if ($input->getOption($name) !== '') { return true; }
         }
         return false;

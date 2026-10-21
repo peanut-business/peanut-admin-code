@@ -79,10 +79,12 @@ final readonly class NotificationUpgradePreflight
     }
 
     public const ADOPTION_KEY = 'official.notification:20260921-adopt-notification-delivery-schema';
+    public const REPAIR_KEY = 'official.notification:20261021-notification-producer-repair';
     private const SQL_SHA256 = [
         'official.notification:20260826-namespace-permission-keys' => '8be087e7adacb8d34f2fa61111e683a7b15af4b62d93910d3a9655f1a605f606',
         self::ADOPTION_KEY => 'eaef582cd762c803f3f7d213687f61d43fd3634e9f0b984471f11648e10979fb',
         self::MIGRATION_KEY => '7c01bc1bf1f309e879ff3014f89418157abbce45374a58064d1a6dc94fca07ce',
+        self::REPAIR_KEY => 'ba16c7a9ed27c293eff812c9341ba1e6657eeb3af3a66626d1b8cc99e4d526ad',
     ];
 
     /** Current committed applying stage, not the ordinary all-applied forward report. No row snapshots. */
@@ -91,7 +93,7 @@ final readonly class NotificationUpgradePreflight
         return self::stageSnapshot($pdo, static function () use ($pdo, $exactMigration): array {
             $key = $exactMigration['migration_key'] ?? null;
             if (($exactMigration['module_key'] ?? null) !== 'official.notification'
-                || !in_array($key, [self::ADOPTION_KEY, self::MIGRATION_KEY], true)
+                || !in_array($key, [self::ADOPTION_KEY, self::MIGRATION_KEY, self::REPAIR_KEY], true)
                 || ($exactMigration['checksum'] ?? null) !== self::SQL_SHA256[$key]
                 || !($exactMigration['stageLedger'] ?? null) instanceof \Closure) {
                 throw new \RuntimeException('NOTIFICATION_STAGE_IDENTITY_INVALID');
@@ -99,10 +101,17 @@ final readonly class NotificationUpgradePreflight
             self::stageSources();
             $ledger = self::stageLedger($pdo, $exactMigration);
             $producer = $key === self::MIGRATION_KEY;
-            $expected = self::forwardSchemas($pdo, false);
-            $tables = $producer ? ['pa_notification_message', 'pa_notification_task_actor'] : [...array_keys($expected), 'pa_notification_task_actor'];
+            $repair = $key === self::REPAIR_KEY;
+            $expected = self::forwardSchemas($pdo, $repair);
+            $tables = $repair ? array_keys($expected) : ($producer ? ['pa_notification_message', 'pa_notification_task_actor'] : [...array_keys($expected), 'pa_notification_task_actor']);
             $observed = self::stageTables($pdo, $tables);
-            if ($producer) {
+            if ($repair) {
+                foreach ($expected as $table => $schema) {
+                    if (self::canonical($observed[$table]['schema'] ?? null) !== self::canonical($schema)) {
+                        throw new \RuntimeException('NOTIFICATION_STAGE_REPAIR_SCHEMA_INVALID');
+                    }
+                }
+            } elseif ($producer) {
                 if (self::canonical($observed['pa_notification_message']['schema'] ?? null) !== self::canonical($expected['pa_notification_message'])
                     || $observed['pa_notification_task_actor'] !== null
                     || self::canonical(self::tableSchema($pdo, 'pa_notification_outbox')) !== self::canonical($expected['pa_notification_outbox'])) {
@@ -134,7 +143,7 @@ final readonly class NotificationUpgradePreflight
         return self::stageSnapshot($pdo, static function () use ($pdo, $before): array {
             $key = $before['migration_key'] ?? null;
             if (($before['module_key'] ?? null) !== 'official.notification'
-                || !in_array($key, [self::ADOPTION_KEY, self::MIGRATION_KEY], true)
+                || !in_array($key, [self::ADOPTION_KEY, self::MIGRATION_KEY, self::REPAIR_KEY], true)
                 || ($before['checksum'] ?? null) !== self::SQL_SHA256[$key]
                 || ($before['pdo_object_id'] ?? null) !== spl_object_id($pdo)
                 || ($before['connection'] ?? null) !== self::stageConnection($pdo)
@@ -144,20 +153,23 @@ final readonly class NotificationUpgradePreflight
             self::stageSources();
             if ($before['ledger'] !== self::stageLedger($pdo, $before)) { throw new \RuntimeException('NOTIFICATION_STAGE_LEDGER_CHANGED'); }
             $producer = $key === self::MIGRATION_KEY;
-            $expected = self::forwardSchemas($pdo, $producer);
-            $tables = $producer ? ['pa_notification_message', 'pa_notification_task_actor'] : [...array_keys($expected), 'pa_notification_task_actor'];
+            $repair = $key === self::REPAIR_KEY;
+            $expected = self::forwardSchemas($pdo, $producer || $repair);
+            $tables = $repair ? array_keys($expected) : ($producer ? ['pa_notification_message', 'pa_notification_task_actor'] : [...array_keys($expected), 'pa_notification_task_actor']);
             if (array_keys($before['tables']) !== $tables) { throw new \RuntimeException('NOTIFICATION_STAGE_INPUT_INVALID'); }
             $observed = self::stageTables($pdo, $tables);
             $created = 0;
             foreach ($observed as $table => $image) {
-                if ($table === 'pa_notification_task_actor' && !$producer) {
+                if ($table === 'pa_notification_task_actor' && !$producer && !$repair) {
                     if ($image !== null) { throw new \RuntimeException('NOTIFICATION_STAGE_POSTSTATE_INVALID'); }
                     continue;
                 }
                 if (self::canonical($image['schema'] ?? null) !== self::canonical($expected[$table] ?? null)) {
                     throw new \RuntimeException('NOTIFICATION_STAGE_POSTSTATE_INVALID');
                 }
-                if ($before['tables'][$table] === null) {
+                if ($repair) {
+                    if ($image !== $before['tables'][$table]) { throw new \RuntimeException('NOTIFICATION_STAGE_REPAIR_METADATA_CHANGED'); }
+                } elseif ($before['tables'][$table] === null) {
                     // Fixed source CREATE has no seed DML; also reject an unexpected post-create consumer.
                     if ((int) self::readRows($pdo, 'SELECT EXISTS(SELECT 1 FROM `' . $table . '`) AS present')[0]['present'] !== 0) {
                         throw new \RuntimeException('NOTIFICATION_STAGE_NEW_TABLE_NOT_EMPTY');
@@ -165,7 +177,8 @@ final readonly class NotificationUpgradePreflight
                     ++$created;
                 } else {
                     if ($image['auto_increment'] !== $before['tables'][$table]['auto_increment']
-                        || self::withoutProducerDefinitions($image['ddl']) !== $before['tables'][$table]['ddl']) {
+                        || self::producerCheckRepresentation(self::withoutProducerDefinitions($image['ddl']))
+                            !== self::producerCheckRepresentation($before['tables'][$table]['ddl'])) {
                         throw new \RuntimeException('NOTIFICATION_STAGE_EXISTING_METADATA_CHANGED');
                     }
                     // Only five nullable ADD COLUMNs and one index: native atomic DDL preserves every old value
@@ -176,7 +189,8 @@ final readonly class NotificationUpgradePreflight
             return ['module_key' => 'official.notification', 'migration_key' => $key, 'checksum' => self::SQL_SHA256[$key],
                 'preservation_verified' => true, 'metadata_sha256' => hash('sha256', self::canonical($observed)),
                 'ledger_sha256' => hash('sha256', self::canonical($before['ledger'])), 'created_empty_tables' => $created,
-                'data_proof' => 'immutable native DDL under host writer exclusion; no history row scan', 'readonly' => true];
+                'data_proof' => $repair ? 'fixed native SELECT 1; all seven table metadata and allocators unchanged; original failed ledger retained'
+                    : 'immutable native DDL under host writer exclusion; no history row scan', 'readonly' => true];
         });
     }
 
@@ -216,6 +230,20 @@ final readonly class NotificationUpgradePreflight
         return $ddl;
     }
 
+    /** ALTER recompiles these ASCII-column CHECK literals. Full typed CHECK AST,
+     * columns, index parts, foreign keys and enforcement are checked separately.
+     * Preserve every other SHOW CREATE byte, including all table options. */
+    private static function producerCheckRepresentation(string $ddl): string
+    {
+        foreach (['archive', 'key', 'read', 'status'] as $suffix) {
+            $name = 'chk_notification_message_' . $suffix;
+            $ddl = preg_replace_callback('/^  CONSTRAINT `' . $name . '` CHECK \([^\n]*\)[^\n]*$/m',
+                static fn(array $line): string => preg_replace("/_(?:ascii|utf8mb4)'/", "_ascii'", $line[0]), $ddl, 1, $count);
+            if ($count !== 1) { throw new \RuntimeException('NOTIFICATION_STAGE_CHECK_REPRESENTATION_UNKNOWN'); }
+        }
+        return $ddl;
+    }
+
     private static function stageLedger(PDO $pdo, array $stage): array
     {
         if (!($stage['stageLedger'] ?? null) instanceof \Closure) { throw new \RuntimeException('NOTIFICATION_STAGE_LEDGER_READER_REQUIRED'); }
@@ -227,7 +255,11 @@ final readonly class NotificationUpgradePreflight
             if (($row['migration_key'] ?? null) === $stage['migration_key']) {
                 if (($row['status'] ?? null) !== 'applying' || ($row['checksum'] ?? null) !== $stage['checksum']) { throw new \RuntimeException('NOTIFICATION_STAGE_LEDGER_INVALID'); }
                 ++$current;
-            } elseif (($row['status'] ?? null) !== 'applied') { throw new \RuntimeException('NOTIFICATION_STAGE_LEDGER_INVALID'); }
+            } elseif (($row['status'] ?? null) !== 'applied') {
+                if ($stage['migration_key'] !== self::REPAIR_KEY || !self::failedProducer($row)) {
+                    throw new \RuntimeException('NOTIFICATION_STAGE_LEDGER_INVALID');
+                }
+            }
         }
         if ($current !== 1) { throw new \RuntimeException('NOTIFICATION_STAGE_LEDGER_INVALID'); }
         usort($rows, static fn(array $a, array $b): int => strcmp($a['migration_key'], $b['migration_key']));
@@ -237,7 +269,7 @@ final readonly class NotificationUpgradePreflight
 
     private static function stageSources(): void
     {
-        foreach ([self::ADOPTION_KEY, self::MIGRATION_KEY] as $key) {
+        foreach ([self::ADOPTION_KEY, self::MIGRATION_KEY, self::REPAIR_KEY] as $key) {
             $path = dirname(__DIR__, 2) . '/database/migrations/' . substr($key, strlen('official.notification:')) . '.sql';
             if (!is_file($path) || is_link($path) || hash_file('sha256', $path) !== self::SQL_SHA256[$key]) {
                 throw new \RuntimeException('NOTIFICATION_STAGE_SOURCE_CHANGED');
@@ -307,7 +339,12 @@ final readonly class NotificationUpgradePreflight
             $ledger = $platformPreflight($pdo, 'ledger');
             $rows = array_column($ledger, null, 'migration_key');
             foreach ($rows as $key => $row) {
-                if (!isset(self::SQL_SHA256[$key]) || $row['checksum'] !== self::SQL_SHA256[$key] || $row['status'] !== 'applied') {
+                $failed = $key === self::MIGRATION_KEY && self::failedProducer($row);
+                $repairApplying = $key === self::REPAIR_KEY && $row['status'] === 'applying'
+                    && ($row['resolution_kind'] ?? null) === null && ($row['provenance_json'] ?? null) === null
+                    && ($row['finished_at'] ?? null) === null && ($row['error_code'] ?? null) === null;
+                if (!isset(self::SQL_SHA256[$key]) || $row['checksum'] !== self::SQL_SHA256[$key]
+                    || ($row['status'] !== 'applied' && !$failed && !$repairApplying)) {
                     throw new \RuntimeException('NOTIFICATION_FORWARD_LEDGER_UNRESOLVED');
                 }
             }
@@ -357,7 +394,9 @@ final readonly class NotificationUpgradePreflight
             if ($connection->getPdo() !== $pdo || !$pdo->inTransaction()) {
                 throw new \RuntimeException('NOTIFICATION_FORWARD_SNAPSHOT_CHANGED');
             }
-            return ['module_key' => 'official.notification', 'status' => $produced ? 'producer_complete' : ($adopted ? 'producer_pending' : 'adoption_required'),
+            $repairRequired = isset($rows[self::MIGRATION_KEY]) && self::failedProducer($rows[self::MIGRATION_KEY])
+                && ($rows[self::REPAIR_KEY]['status'] ?? null) !== 'applied';
+            return ['module_key' => 'official.notification', 'status' => $repairRequired ? 'producer_repair_required' : ($produced ? 'producer_complete' : ($adopted ? 'producer_pending' : 'adoption_required')),
                 'may_apply' => true, 'structural_admission_only' => true, 'ledger' => $ledger,
                 'schema_sha256' => hash('sha256', self::canonical($observed)), 'legacy' => $legacy,
                 'producer_preflight' => ['status' => 'not_evaluated', 'may_apply' => false, 'pending_count' => null],
@@ -369,6 +408,16 @@ final readonly class NotificationUpgradePreflight
         } finally {
             if ($started && $pdo instanceof PDO && $pdo->inTransaction()) { $pdo->rollBack(); }
         }
+    }
+
+    private static function failedProducer(array $row): bool
+    {
+        return ($row['module_key'] ?? null) === 'official.notification'
+            && ($row['migration_key'] ?? null) === self::MIGRATION_KEY
+            && ($row['checksum'] ?? null) === self::SQL_SHA256[self::MIGRATION_KEY]
+            && ($row['status'] ?? null) === 'failed' && ($row['resolution_kind'] ?? null) === null
+            && ($row['provenance_json'] ?? null) === null && ($row['error_code'] ?? null) === 'MODULE_MIGRATION_FAILED'
+            && is_string($row['finished_at'] ?? null);
     }
 
     /** Exact owned schema contract derived only from the two immutable, checksum-checked SQL files. */

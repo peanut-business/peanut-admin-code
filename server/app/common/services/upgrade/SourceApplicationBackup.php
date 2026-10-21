@@ -84,6 +84,9 @@ final class SourceApplicationBackup
             'PeanutAdmin\\Modules\\Notification\\Contract\\NotificationUpgradePreflight'],
         'official.notification:20261012-notification-producer-identity' => ['7c01bc1bf1f309e879ff3014f89418157abbce45374a58064d1a6dc94fca07ce',
             ['pa_notification_message', 'pa_notification_task_actor'], 'PeanutAdmin\\Modules\\Notification\\Contract\\NotificationUpgradePreflight'],
+        'official.notification:20261021-notification-producer-repair' => ['ba16c7a9ed27c293eff812c9341ba1e6657eeb3af3a66626d1b8cc99e4d526ad',
+            ['pa_notification_template', 'pa_notification_message', 'pa_notification_attachment', 'pa_notification_outbox',
+                'pa_sms_rate_bucket', 'pa_notification_event', 'pa_notification_task_actor'], 'PeanutAdmin\\Modules\\Notification\\Contract\\NotificationUpgradePreflight'],
         'official.task:20260921-adopt-task-job-schema' => ['f04762aeab007bea0b0c4ce277d8f7781a694b17891f1193f303d0481366f21a',
             ['pa_task_job', 'pa_task_job_attempt', 'pa_task_job_event'], 'PeanutAdmin\\Modules\\Task\\Job\\Database\\TaskSchemaMigrationProof'],
         'official.task:20261015020000_add_negative_fact_job_profile' => ['2217e8a0cfc44e2c4c6c1a76a0413ed2448c5695e32f2a31a6a2a3072f44dbd4',
@@ -705,6 +708,7 @@ final class SourceApplicationBackup
                         'official.task:20261015020000_add_negative_fact_job_profile' => 'official.task:20261021010000_verify_negative_fact_job_profile',
                         'peanut.workflow:20261012-workflow-managed-template' => 'peanut.workflow:20261012-workflow-managed-template-repair-20261021',
                         'peanut.workflow:20261012-workflow-v2-execution' => 'peanut.workflow:20261012-workflow-v2-repair-20261021',
+                        'official.notification:20261012-notification-producer-identity' => 'official.notification:20261021-notification-producer-repair',
                         default => null,
                     };
                     $target = array_values(array_filter($module['migrations'], static fn(array $row): bool => ($row['migration_key'] ?? null) === $repairKey));
