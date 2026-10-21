@@ -45,8 +45,8 @@ import { spawn } from "node:child_process";
 const [repository, core, client, command, ...args] = process.argv.slice(1);
 const readJson = (path) => JSON.parse(readFileSync(path, "utf8"));
 const workspace = readJson(join(core, "package.json"));
-if (workspace.name !== "@peanut-admin/web-workspace" || typeof workspace.scripts?.watch !== "string") {
-    throw new Error("Selected Core workspace needs its native watch script");
+if (workspace.name !== "@peanut-admin/web-workspace") {
+    throw new Error("Selected Core workspace identity is invalid");
 }
 const packages = new Map();
 for (const entry of readdirSync(join(core, "packages"), { withFileTypes: true })) {
@@ -75,6 +75,9 @@ function select(name) {
         if (packages.has(dependency)) select(dependency);
     }
     if (!existsSync(join(root, "tsconfig.json"))) throw new Error(`Core compiler configuration missing: ${name}`);
+    if (typeof manifest.scripts?.watch !== "string" || manifest.scripts.watch.trim() === "") {
+        throw new Error(`Core package has no native watch script: ${name}`);
+    }
     selected.push({ name, root });
 }
 direct.forEach(select);
@@ -129,7 +132,7 @@ process.on("SIGTERM", () => stop(143));
 process.on("SIGHUP", () => stop(129));
 for (const { name, root } of selected) {
     console.log(`local Core watch: ${name}`);
-    start(name, "corepack", ["pnpm", "run", "watch", "--project", join(root, "tsconfig.json")], core, true);
+    start(name, "corepack", ["pnpm", "--filter", name, "run", "watch"], core, true);
 }
 start(client, command, args, process.cwd(), false);
 ' "$repo_dir" "$core_web_dir" "$core_client" "$@"

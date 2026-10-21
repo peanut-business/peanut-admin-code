@@ -3439,7 +3439,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "851ecf9b5075fc826ceb13d5600e581b437e0f069c3bfa85ec8e00e1727e29cf"
+            "source_sha256": "d5d89f63f72b73c41f9e798bdbbac8fcfd9649dea3e9594f053e8c96baf33d16"
         },
         {
             "path": "scripts/local-core-composer",
