@@ -477,9 +477,9 @@ final class SourceApplicationBackup
     private static function metadataSql(array $tables, array $session, string $nonce, ?array $effects = null): string
     {
         $sql = "SET SESSION sql_mode='" . $session['sql_mode'] . "'; SET SESSION sql_quote_show_create=" . (int) $session['quote_names']
-            . "; SET TRANSACTION READ ONLY; START TRANSACTION READ ONLY;"
+            . "; SET SESSION information_schema_stats_expiry=0; SET TRANSACTION READ ONLY; START TRANSACTION READ ONLY;"
             . " SELECT HEX(JSON_OBJECT('server_uuid',@@server_uuid,'server_hostname',@@hostname,'server_port',@@port,'database',DATABASE(),"
-            . "'version',VERSION(),'partial_revokes',@@GLOBAL.partial_revokes)); SHOW GRANTS; SELECT 'GRANTS_END_" . $nonce . "';"
+            . "'version',VERSION(),'partial_revokes',@@GLOBAL.partial_revokes,'stats_expiry',@@SESSION.information_schema_stats_expiry)); SHOW GRANTS; SELECT 'GRANTS_END_" . $nonce . "';"
             . " SELECT HEX(JSON_OBJECT('tables',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('name',TABLE_NAME,'type',TABLE_TYPE,'engine',ENGINE,"
             . "'auto_increment',CAST(AUTO_INCREMENT AS CHAR))) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()),JSON_ARRAY()),"
             . "'foreign_keys',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('CONSTRAINT_SCHEMA',k.CONSTRAINT_SCHEMA,'CONSTRAINT_NAME',k.CONSTRAINT_NAME,"
@@ -519,6 +519,7 @@ final class SourceApplicationBackup
         }
         if (($identity['version'] ?? null) !== $serverVersion || $serverVersion !== ($contract['mysql_version'] ?? null)
             || preg_match('/\A8\.4\.[0-9]+\z/D', $serverVersion) !== 1 || !str_contains($lines[1], 'Ver ' . $serverVersion . ' ')
+            || ($identity['stats_expiry'] ?? null) !== 0
             || !in_array($identity['partial_revokes'] ?? null, [0, false], true)) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_VISIBILITY_REQUIRED'); }
         $end = array_search('GRANTS_END_' . $nonce, $lines, true);
         if (!is_int($end) || $end < 4) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_OUTPUT_INVALID'); }
@@ -760,6 +761,15 @@ final class SourceApplicationBackup
 
     private static function observe(PDO $pdo, array $tables, bool $allowMissing, ?array $effectMetadata = null): array
     {
+        $query = $pdo->query('SELECT @@SESSION.information_schema_stats_expiry AS expiry');
+        $stats = $query->fetch(PDO::FETCH_ASSOC); $query->closeCursor();
+        if (!is_array($stats) || preg_match('/\A[0-9]{1,10}\z/D', (string) ($stats['expiry'] ?? '')) !== 1
+            || (int) $stats['expiry'] > 4294967295) { throw new RuntimeException('APPLICATION_SCHEMA_METADATA_STATS_SESSION_INVALID'); }
+        $expiry = (string) $stats['expiry'];
+        try {
+        // TABLES.AUTO_INCREMENT must describe the same current engine state as
+        // SHOW CREATE. Never accept an old information_schema statistics cache.
+        $pdo->exec('SET SESSION information_schema_stats_expiry=0');
         $affected = $tables; $present = [];
         $objects = [];
         foreach ($tables as $table) {
@@ -816,6 +826,7 @@ final class SourceApplicationBackup
             'backup_status' => 'not_created', 'restore_status' => 'not_executed', 'execution_admitted' => false];
         if ($allowMissing) { $scope['affected_tables'] = $affected; $scope['absent_original_tables'] = array_values(array_diff($affected, $present)); }
         return $scope;
+        } finally { $pdo->exec('SET SESSION information_schema_stats_expiry=' . $expiry); }
     }
 
     /** Calls only fixed probe/dump programs; emits no database writes or restore command execution. */

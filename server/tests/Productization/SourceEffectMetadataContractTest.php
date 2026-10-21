@@ -38,12 +38,52 @@ $changed = $access; $changed['tables'][0]['rows'] = [['1']]; $invalidReads[] = $
 $changed = $access; $changed['tables'][0]['access'] = 'unknown'; $invalidReads[] = $changed;
 foreach ($invalidReads as $changed) { effectMetadataExpect(!$covered($changed), 'Incomplete/foreign read scope acquired admission.'); }
 
+final class EffectStatsStatement extends PDOStatement
+{
+    public function __construct(private int $expiry) {}
+    public function fetch(int $mode = PDO::FETCH_DEFAULT, int $cursorOrientation = PDO::FETCH_ORI_NEXT, int $cursorOffset = 0): mixed { return ['expiry' => $this->expiry]; }
+    public function closeCursor(): bool { return true; }
+}
+final class EffectStatsPdo extends PDO
+{
+    public array $commands = [];
+    public function __construct(public int $expiry) {}
+    public function query(string $query, ?int $fetchMode = null, mixed ...$fetchModeArgs): PDOStatement|false
+    {
+        if ($query !== 'SELECT @@SESSION.information_schema_stats_expiry AS expiry') { throw new LogicException('Unexpected query.'); }
+        return new EffectStatsStatement($this->expiry);
+    }
+    public function exec(string $statement): int|false
+    {
+        if (preg_match('/\ASET SESSION information_schema_stats_expiry=([0-9]+)\z/D', $statement, $match) !== 1) { throw new LogicException('Unexpected write.'); }
+        $this->commands[] = $statement; $this->expiry = (int) $match[1]; return 0;
+    }
+    public function prepare(string $query, array $options = []): PDOStatement|false
+    {
+        effectMetadataExpect($this->expiry === 0, 'Ordinary observation used cached statistics.');
+        throw new RuntimeException('TABLE_READ_FAILED');
+    }
+}
+$observe = new ReflectionMethod(SourceApplicationBackup::class, 'observe');
+foreach ([0, 86400] as $expiry) {
+    $pdo = new EffectStatsPdo($expiry); $observe->invoke(null, $pdo, [], true);
+    effectMetadataExpect($pdo->expiry === $expiry && count($pdo->commands) === 2, 'Successful observation did not restore its session.');
+}
+foreach (['pa_existing' => 'TABLE_READ_FAILED', 'invalid-table' => 'APPLICATION_SCHEMA_BACKUP_TABLE_UNSUPPORTED'] as $table => $reason) {
+    $pdo = new EffectStatsPdo(86400);
+    try { $observe->invoke(null, $pdo, [$table], true); throw new LogicException('Expected refusal.'); }
+    catch (RuntimeException $error) { effectMetadataExpect($error->getMessage() === $reason, 'Wrong refusal.'); }
+    effectMetadataExpect($pdo->expiry === 86400 && count($pdo->commands) === 2, 'Failed observation did not restore its session.');
+}
+
 $sql = new ReflectionMethod(SourceApplicationBackup::class, 'metadataSql');
 $parse = new ReflectionMethod(SourceApplicationBackup::class, 'parseMetadata');
 $session = ['sql_mode' => 'STRICT_TRANS_TABLES', 'quote_names' => 1];
 $nonce = str_repeat('b', 32);
 $whole = $sql->invoke(null, ['pa_existing'], $session, $nonce);
 $selected = $sql->invoke(null, ['pa_existing'], $session, $nonce, ['pa_existing', 'pa_future']);
+effectMetadataExpect(str_contains($selected, 'SET SESSION information_schema_stats_expiry=0;')
+    && str_contains($selected, "'stats_expiry',@@SESSION.information_schema_stats_expiry"), 'Native observer did not bind uncached session statistics.');
 effectMetadataExpect(!str_contains($whole, 'TABLE_NAME IN'), 'Existing whole-schema partial reader changed.');
 foreach (["TABLE_NAME IN ('pa_existing','pa_future')", "k.TABLE_NAME IN ('pa_existing','pa_future')",
     "k.REFERENCED_TABLE_NAME IN ('pa_existing','pa_future')", "EVENT_OBJECT_TABLE IN ('pa_existing','pa_future')"] as $predicate) {
@@ -58,7 +98,7 @@ if (!is_dir(dirname($directory))) { mkdir(dirname($directory), 0700, true); }
 mkdir($directory, 0700);
 $path = $directory . '/metadata.txt';
 $binding = ['database' => ['server_uuid' => 'uuid-one', 'server_hostname' => 'db-host', 'server_port' => 3306, 'database' => 'selected_db']];
-$identity = $binding['database'] + ['version' => '8.4.10', 'partial_revokes' => 0];
+$identity = $binding['database'] + ['version' => '8.4.10', 'partial_revokes' => 0, 'stats_expiry' => 0];
 $fk = ['CONSTRAINT_SCHEMA' => 'outside_db', 'CONSTRAINT_NAME' => 'incoming', 'TABLE_SCHEMA' => 'outside_db',
     'TABLE_NAME' => 'foreign_child', 'COLUMN_NAME' => 'parent_id', 'ORDINAL_POSITION' => 1,
     'REFERENCED_TABLE_SCHEMA' => 'selected_db', 'REFERENCED_TABLE_NAME' => 'pa_existing', 'REFERENCED_COLUMN_NAME' => 'id',
@@ -87,6 +127,8 @@ try {
     $wrongIdentity = $identity; $wrongIdentity['server_uuid'] = 'uuid-other';
     $hiddenTable = $data; $hiddenTable['tables'][0]['name'] = 'pa_unselected';
     $revoked = $identity; $revoked['partial_revokes'] = 1;
+    $cached = $identity; $cached['stats_expiry'] = 86400;
+    $unknownStats = $identity; unset($unknownStats['stats_expiry']);
     foreach ([
         $render($wrongIdentity, $data, $grants, $nonce),
         $render($identity, $hiddenTable, $grants, $nonce),
@@ -94,6 +136,8 @@ try {
         $render($identity, $data, ['GRANT SELECT ON *.* TO `limited`@`%`'], $nonce),
         $render($identity, $data, $grants, str_repeat('c', 32)),
         $render($revoked, $data, $grants, $nonce),
+        $render($cached, $data, $grants, $nonce),
+        $render($unknownStats, $data, $grants, $nonce),
     ] as $invalid) {
         $rejected = false;
         try { $run($invalid); } catch (RuntimeException) { $rejected = true; }
@@ -103,4 +147,4 @@ try {
     if (is_file($path)) { unlink($path); }
     rmdir($directory);
 }
-echo "SOURCE-EFFECT-METADATA-CONTRACT passed: parser/scope; full14, DDL and receipt reads accepted, 18 read-scope omissions refused; native SSH/MySQL execution NOT_RUN\n";
+echo "SOURCE-EFFECT-METADATA-CONTRACT passed: parser/scope; full14, DDL and receipt reads accepted, 18 read-scope omissions refused; 4 session-restoration cases, native cached/unknown stats refused; native SSH/MySQL execution NOT_RUN\n";
