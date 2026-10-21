@@ -975,16 +975,13 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
     metadata, resources = lease_fields(args.lease)
     expect(metadata.get("candidate") == args.candidate and metadata.get("status") == "ACTIVE"
            and metadata.get("worktree") == str(ROOT), "active native source lease differs")
-    expect(all(("application-root", app["root"]) in resources
-               and ("resource-id", app["resource_id"]) in resources
-               and ("database", app["database"]) in resources
-               and ("endpoint", app["endpoint_id"]) in resources for app in (author_app, consumer_app)),
-           "fixed APPs/resources/databases must be explicitly leased")
     def app_environment(app: dict[str, Any]) -> dict[str, str]:
         path = native["file_reference"](app["environment"])
         expect(path.stat().st_mode & 0o777 == 0o600, "APP environment is not private")
+        admission = native["runtime_admission"](app, app["root"], app["head"])
+        native["verify_runtime_admission"](admission, qualification["owner"], qualification["thread"])
         return {"PEANUT_SERVER_ENV_FILE": str(path), "PEANUT_RESOURCE_REGISTRY": os.environ["PEANUT_RESOURCE_REGISTRY"],
-                "P0E_HOST_LEASE_PROOF": qualification["lease_proof_dir"]}
+                "P0E_HOST_LEASE_PROOF": admission["proof_dir"], "PEANUT_RESOURCE_LEASE_PROOF": admission["proof_dir"]}
     author_env, consumer_env = app_environment(author_app), app_environment(consumer_app)
     for app, env in ((author_app, author_env), (consumer_app, consumer_env)):
         status = json_output(command([str(PHP), "server/database/install.php", "--status"],

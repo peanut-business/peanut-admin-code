@@ -16,6 +16,8 @@ SESSION=""
 ENV_FILE=""
 IDENTITY_FILE=""
 QUALIFICATION_PLAN=""
+LIFECYCLE_INPUT=""
+LIFECYCLE_INPUT_SHA256=""
 PLAYWRIGHT_CLI=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -31,6 +33,8 @@ while [[ $# -gt 0 ]]; do
     --env-file) ENV_FILE="${2:-}"; shift 2 ;;
     --identity-file) IDENTITY_FILE="${2:-}"; shift 2 ;;
     --qualification-plan) QUALIFICATION_PLAN="${2:-}"; shift 2 ;;
+    --lifecycle-input) LIFECYCLE_INPUT="${2:-}"; shift 2 ;;
+    --lifecycle-input-sha256) LIFECYCLE_INPUT_SHA256="${2:-}"; shift 2 ;;
     --playwright-cli) PLAYWRIGHT_CLI="${2:-}"; shift 2 ;;
     *) die "unknown option: $1" ;;
   esac
@@ -71,10 +75,10 @@ if [[ "$PROFILE" == baseline ]]; then
     local_url "${TENANT_BETA_URL%/}/" || die '--tenant-beta-url must name the registered Beta origin'
   fi
   [[ "$QUALIFICATION_PLAN" == /* && -f "$QUALIFICATION_PLAN" && ! -L "$QUALIFICATION_PLAN" ]] || die 'baseline business writes require the native qualification plan'
-  DOCUMENTATION_CONTRACT="$(python3 - "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)" "$QUALIFICATION_PLAN" "$MODE" "$TENANT_ADMIN_URL" "$TENANT_BETA_URL" "$PLATFORM_URL" "$DOCS_URL" "$SESSION" "$ENV_FILE" "$OUTPUT_DIR" "$DOCUMENTATION_ROOT" <<'PY'
+  DOCUMENTATION_CONTRACT="$(python3 - "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)" "$QUALIFICATION_PLAN" "$MODE" "$TENANT_ADMIN_URL" "$TENANT_BETA_URL" "$PLATFORM_URL" "$DOCS_URL" "$SESSION" "$ENV_FILE" "$OUTPUT_DIR" "$DOCUMENTATION_ROOT" "$LIFECYCLE_INPUT" "$LIFECYCLE_INPUT_SHA256" <<'PY'
 import argparse, json, os, runpy, sys
 from pathlib import Path
-tool_root, path, mode, alpha, beta, platform, docs, session, environment, output, documentation_root = sys.argv[1:]
+tool_root, path, mode, alpha, beta, platform, docs, session, environment, output, documentation_root, lifecycle_input, lifecycle_digest = sys.argv[1:]
 root = Path(tool_root)
 value = json.loads(Path(path).read_text())
 os.environ['PEANUT_RESOURCE_REGISTRY'] = value['registry_path']
@@ -82,35 +86,43 @@ native = runpy.run_path(str(root / 'scripts/p0e-runtime-qualification'))
 args = argparse.Namespace(candidate=value['candidate'], run_id=value['run_id'], lease=value['lease'],
     owner=value['owner'], thread=value['thread'], parent_lease=value['parent_lease'],
     output_dir=value['paths']['output-dir'], cache_dir=value['paths']['cache-dir'],
-    http_port=value['ports']['http'], docs_port=value['ports']['docs'], minimum_release=False,
+    lifecycle_input=lifecycle_input, lifecycle_input_sha256=lifecycle_digest, minimum_release=False,
     through_group=None, groups=','.join(value['groups']))
+binding = value.get('qualification_tool_binding')
+if binding:
+    args.source_root = binding['source_root']
+    args.qualification_tool_commit = binding['tool_commit']
+    args.qualification_tool_files_sha256 = binding['tool_files_sha256']
+    native['configure_source'](args)
+    root = Path(binding['source_root'])
 if not args.owner or not args.thread or value['worktree'] != str(root):
     raise ValueError('qualification owner/thread/worktree mismatch')
 actual = native['plan'](args, require_clean=True)
-for key in ['gate','candidate','candidate_tree','registry_sha256','database_resource_scope','databases',
-            'browser_hosts','paths','ports','lease_resources','worktree','resource_id','group_inputs']:
+for key in ['gate','candidate','candidate_tree','registry_sha256','paths','lease_resources','worktree',
+            'lifecycle_inputs','template_artifacts','groups']:
     if value[key] != actual[key]: raise ValueError('qualification plan mismatch: ' + key)
 native['verify_lease'](args, actual)
-http = value['ports']['http']
-expected = [f"http://{value['browser_hosts'][key]}:{http}" for key in ['tenant_admin','tenant_beta','platform']]
+app = actual['lifecycle_inputs']['applications'][mode]
+runtime = app['runtime']
+expected = [runtime[key].rstrip('/') for key in ['tenant_admin_url','tenant_beta_url','platform_url']]
 if [alpha.rstrip('/'), beta.rstrip('/'), platform.rstrip('/')] != expected:
     raise ValueError('browser origin mismatch')
-if docs.rstrip('/') != f"http://127.0.0.1:{value['ports']['docs']}" or session != 'p0e-' + args.run_id:
+if docs.rstrip('/') != runtime['docs_url'].rstrip('/') or session != 'p0e-' + args.run_id + '-' + mode:
     raise ValueError('docs/session mismatch')
-if str(Path(path).resolve()) != str(root / 'output' / session / 'plan.json'):
+if str(Path(path).resolve()) != str(Path(value['paths']['output-dir']) / 'plan.json'):
     raise ValueError('plan location mismatch')
-if str(Path(environment).resolve()) != str(Path(value['paths']['cache-dir']) / 'runtime-credentials.env'):
+if str(Path(environment).resolve()) != str(native['file_reference'](app['browser_credentials'])):
     raise ValueError('credentials location mismatch')
 if Path(output).resolve() != Path(value['paths']['output-dir']) / 'browser' / mode:
     raise ValueError('browser output mismatch')
 if mode + '-browser' not in value['groups']:
     raise ValueError('browser group not selected')
-expected_root = Path(value['paths']['cache-dir']) / f"peanut-admin-{value['target_release']['version']}-{mode}"
+expected_root = Path(app['root'])
 if Path(documentation_root).is_symlink() or Path(documentation_root).resolve() != expected_root:
     raise ValueError('released documentation root mismatch')
 manifest = native['read_json'](expected_root / '.peanut/application-manifest.json')
-if (manifest.get('template') != {'version': value['target_release']['version'],
-    'inventory_sha256': value['candidate_inventory_sha256'], 'source_commit': value['candidate'], 'source_tree': value['candidate_tree']}
+if (manifest.get('template') != {'version': actual['template_artifacts']['version'],
+    'inventory_sha256': actual['template_artifacts']['source']['inventory_sha256'], 'source_commit': value['candidate'], 'source_tree': value['candidate_tree']}
     or manifest.get('application', {}).get('edition') != mode
     or manifest.get('generation_source', {}).get('commit') != value['candidate']
     or manifest.get('generation_source', {}).get('tree') != value['candidate_tree']):
@@ -242,9 +254,9 @@ cli open "$TENANT_ADMIN_URL/admin/login" >"$LOG" 2>&1
 OPENED=1
 cli resize 1440 1000 >>"$LOG" 2>&1
 cli snapshot >"$OUTPUT_DIR/$MODE-initial-snapshot.txt" 2>>"$LOG"
-browser_environment="$(node - "$ENV_FILE" "$MODE" "$PROFILE" "$TENANT_ADMIN_URL" "$TENANT_BETA_URL" "$PLATFORM_URL" "$DOCS_URL" "$OUTPUT_DIR" "$IDENTITY_FILE" "$SESSION" "$DOCUMENTATION_CONTRACT" <<'NODE'
+browser_environment="$(node - "$ENV_FILE" "$MODE" "$PROFILE" "$TENANT_ADMIN_URL" "$TENANT_BETA_URL" "$PLATFORM_URL" "$DOCS_URL" "$OUTPUT_DIR" "$IDENTITY_FILE" "$SESSION" "$DOCUMENTATION_CONTRACT" "$QUALIFICATION_PLAN" <<'NODE'
 const fs = require('node:fs');
-const [path, mode, profile, tenantAdminUrl, tenantBetaUrl, platformUrl, docsUrl, outputDir, identityPath, session, documentationContract] = process.argv.slice(2);
+const [path, mode, profile, tenantAdminUrl, tenantBetaUrl, platformUrl, docsUrl, outputDir, identityPath, session, documentationContract, qualificationPlan] = process.argv.slice(2);
 const values = Object.fromEntries(fs.readFileSync(path, 'utf8').trim().split(/\r?\n/u).map((line) => line.split(/=(.*)/s, 2)));
 process.stdout.write(JSON.stringify({
   P0E_BROWSER_MODE: mode,
@@ -255,7 +267,8 @@ process.stdout.write(JSON.stringify({
   P0E_BROWSER_DOCS_URL: docsUrl,
   P0E_BROWSER_DOCUMENTATION_CONTRACT: documentationContract,
   P0E_BROWSER_OUTPUT_DIR: outputDir,
-  P0E_BROWSER_RUN_ID: session.startsWith('p0e-') ? session.slice(4) : '',
+  P0E_BROWSER_RUN_ID: profile === 'baseline' ? JSON.parse(fs.readFileSync(qualificationPlan, 'utf8')).run_id
+    : (session.startsWith('p0e-') ? session.slice(4) : ''),
   P0E_BROWSER_IDENTITY_JSON: identityPath ? fs.readFileSync(identityPath, 'utf8') : '',
   P0E_ADMIN_INITIAL_EMAIL: values.P0E_ADMIN_INITIAL_EMAIL || '',
   P0E_ADMIN_INITIAL_PASSWORD: values.P0E_ADMIN_INITIAL_PASSWORD || '',
