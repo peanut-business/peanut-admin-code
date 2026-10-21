@@ -4938,7 +4938,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e1eb406f9deec87f58132f7c5dfa284ba5087139cf70e5fa380713c1f85434b6"
+            "source_sha256": "bce38f89213af577c84cbe0c652a89aa9c1eedf03390147d17999c1dde7a81b8"
         },
         {
             "path": "server/.travis.yml",
@@ -27706,7 +27706,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "66fb733ad5e69378b0a7029bbd798aca422b14e68f45689018e11b6086986fa9"
+            "source_sha256": "819ee60420963fdb56c36f3da7dbdfe1f22cf4838686bf0a9731dbbe9457b57f"
         },
         {
             "path": "server/docker/Dockerfile",
@@ -27779,6 +27779,20 @@
             "source_sha256": "8757d79e43028ec8c417dd706f6c60062dbfcf8bdf93c3cc2a08ed212f45d7fc"
         },
         {
+            "path": "server/docker/compose.source-collaboration.yaml",
+            "target": "server/docker/compose.source-collaboration.yaml",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "eb4136640d96c532207b998517dd28f17325d60176587f19cf8abfdff14be034"
+        },
+        {
             "path": "server/docker/compose.yaml",
             "target": "server/docker/compose.yaml",
             "classification": "managed",
@@ -27849,6 +27863,20 @@
             "source_sha256": "6c738062df06cea5f01211a80422b311edc7775d0387aee5c6e5eb23a14cec92"
         },
         {
+            "path": "server/docker/conf/nginx.source-collaboration.conf.template",
+            "target": "server/docker/conf/nginx.source-collaboration.conf.template",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "2cffe4994258b676ce51c20f4ba2e1e6a7375ae3e67995704fa978d7f16c541f"
+        },
+        {
             "path": "server/docker/conf/php-fpm.conf",
             "target": "server/docker/conf/php-fpm.conf",
             "classification": "managed",
@@ -27902,7 +27930,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "46a7717379fefc11073eb83b40fc4769d345348ddf47af33e850025baa4a7bd6"
+            "source_sha256": "fd47a33bae306196fb595655e5f3bd9cbf7d2a769a71d5437429d2ef3e3044e7"
         },
         {
             "path": "server/docker/scripts/configure-runtime.py",

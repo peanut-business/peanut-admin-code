@@ -175,7 +175,11 @@ def publish_independent_service(server, data, node, owner):
     root = Path(data['service_root'])
     existing = environment(root / 'docker/.env')
     port = existing.get('COLLABORATION_PORT', '')
-    if not re.fullmatch(r'[0-9]{1,5}', port) or not 1 <= int(port) <= 65535:
+    # The independent Compose port expression also supports an explicit loopback
+    # binding. Preserve it when publishing; a source-only service need not listen
+    # on every host interface. Other address/port expressions fail closed.
+    port_number = port.removeprefix('127.0.0.1:')
+    if not re.fullmatch(r'[0-9]{1,5}', port_number) or not 1 <= int(port_number) <= 65535:
         raise ValueError('COLLABORATION_SERVICE_PORT_REQUIRED')
     for directory in (root / 'docker', root / 'certs', server / 'private/collaboration', server / SERVICE_DIRECTORY):
         if not directory.exists(): directory.mkdir(mode=0o755)
@@ -209,7 +213,8 @@ def enable(server, data, expected_revision):
                 'COLLABORATION_PHP_ORIGIN': data['php_origin'], 'COLLABORATION_PHP_TLS_HOST': urlsplit(data['php_origin']).hostname,
                 'COLLABORATION_CONTROL_TLS_HOST': urlsplit(data['control_origin']).hostname,
                 'COLLABORATION_WSS_BIND': data['wss_bind'], 'COLLABORATION_WSS_PORT': str(data['wss_port']),
-                'COLLABORATION_WSS_HOSTNAME': data['wss_hostname'].lower()}
+                   'COLLABORATION_WSS_HOSTNAME': data['wss_hostname'].lower(),
+                   'COLLABORATION_NETWORK': data['network']}
         updates = {'COLLABORATION_ENABLED': 'enabled', 'COLLABORATION_INSTANCE_ID': data['instance_id'],
                    'COLLABORATION_SERVICE_INSTANCE_ID': data['service_instance_id'], 'COLLABORATION_SERVICE_KEY_ID': data['key_id'],
                    'COLLABORATION_SECRET': data['secret'], 'COLLABORATION_CONTROL_ORIGIN': data['control_origin'],

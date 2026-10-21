@@ -19,6 +19,9 @@ Thumbs.db
 /private/resources/
 /private/credential-maintenance/
 /private/credentials/
+/private/collaboration/
+/docker/tls/
+/docker/collaboration.env
 /docker/mysql/*
 !/docker/mysql/.gitkeep
 /docker/secrets/*

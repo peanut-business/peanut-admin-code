@@ -82,3 +82,43 @@ receipts and failure budgets. Do not adopt or restart an unknown process to
 manufacture a new identity. Historical migrations, stored evidence and existing
 recovery snapshots remain unchanged; source changes do not establish runtime
 switching or release qualification.
+
+## Source development with host PHP
+
+An already installed source checkout can keep its registered host PHP listener
+and use `compose.source-collaboration.yaml` explicitly. This composition starts
+only a TLS ingress: it does not mount PHP source, adopt deployment identities,
+seal vendor, change host file ownership, start MySQL, or start Node. It is never
+selected by the APP startup composition above. Docker must actually reach the
+registered PHP listener through `host.docker.internal`; verify that route before
+using the composition. Do not change the host listener to a public binding to
+make an unverified route work.
+
+Use the same configuration publisher and certificate checks. Set `php_origin`
+to the ingress's registered Docker DNS name on HTTPS port 8443 and
+`control_origin` to `https://localhost:8443`; the leaf must cover both names and
+the selected WSS hostname. This explicit development composition publishes its
+management port **only at 127.0.0.1:8443** and WSS only on loopback. The production
+overlay retains container-only management TLS. Neither endpoint disables the
+existing HMAC, token, tenant, document or current-permission checks.
+
+In an ignored, private `server/docker/.env.source-collaboration`, set the
+registered `SOURCE_COLLABORATION_PROJECT` and numeric `SOURCE_PHP_PORT`. After
+normal configuration publication, use both that file and `collaboration.env`:
+
+```sh
+cd server/docker
+docker compose --env-file collaboration.env --env-file .env.source-collaboration -f compose.source-collaboration.yaml config --quiet
+docker compose --env-file collaboration.env --env-file .env.source-collaboration -f compose.source-collaboration.yaml up -d
+```
+
+Start the independent Node service from its own `docker/` directory on the same
+registered network **before starting this ingress**: Nginx resolves the
+`collaboration` network alias while loading its configuration. Node can listen
+while the backend TLS ingress is not yet ready; that is not an authorization or
+save success. Its `COLLABORATION_PORT` may be a plain port
+or `127.0.0.1:<port>`; the publisher preserves that explicit loopback binding.
+Record the actual source, images, network, ports, certificate and service identity
+before starting either composition. A healthy ingress is not a document save or
+realtime qualification. Stop only the current owner's ingress through this same
+explicit composition; Node still requires its independent durable drain.
