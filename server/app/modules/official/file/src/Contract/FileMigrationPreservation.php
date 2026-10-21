@@ -207,14 +207,19 @@ final readonly class FileMigrationPreservation
     private function snapshot(PDO $pdo): array
     {
         $owned = !$pdo->inTransaction();
+        $started = false; $statistics = null;
         // Only our new snapshot gets explicit RR/READ ONLY. A caller-owned transaction
         // retains its characteristics and requires the caller's held writer/DDL exclusion.
-        if ($owned) {
-            $pdo->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
-            $pdo->exec('SET TRANSACTION READ ONLY');
-            $pdo->beginTransaction();
-        }
         try {
+            $value = $this->query($pdo, 'SELECT @@SESSION.information_schema_stats_expiry AS expiry')[0]['expiry'] ?? null;
+            if (!is_int($value) && (!is_string($value) || preg_match('/\A[0-9]+\z/D', $value) !== 1)) { self::fail('STATISTICS_UNAVAILABLE'); }
+            $statistics = (int) $value;
+            $pdo->exec('SET SESSION information_schema_stats_expiry=0');
+            if ($owned) {
+                $pdo->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+                $pdo->exec('SET TRANSACTION READ ONLY');
+                $pdo->beginTransaction(); $started = true;
+            }
             $identity = $this->identity($pdo);
             $this->visibility($pdo, $identity['database']);
             $tables = [];
@@ -231,8 +236,10 @@ final readonly class FileMigrationPreservation
             if ($identity !== $this->identity($pdo)) { self::fail('DATABASE_CHANGED'); }
             return ['identity' => $identity, 'tables' => $tables];
         } finally {
-            if ($owned) {
-                if (!$pdo->inTransaction() || !$pdo->rollBack()) { self::fail('SNAPSHOT_CLOSE_FAILED'); }
+            try {
+                if ($started && (!$pdo->inTransaction() || !$pdo->rollBack())) { self::fail('SNAPSHOT_CLOSE_FAILED'); }
+            } finally {
+                if ($statistics !== null) { $pdo->exec('SET SESSION information_schema_stats_expiry=' . $statistics); }
             }
         }
     }
@@ -240,7 +247,7 @@ final readonly class FileMigrationPreservation
     private function metadata(PDO $pdo, string $table): ?array
     {
         $info = $this->query($pdo,
-            'SELECT ENGINE,TABLE_TYPE,TABLE_COLLATION,AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$table]);
+            'SELECT ENGINE,TABLE_TYPE,TABLE_COLLATION FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$table]);
         if ($info === []) { return null; }
         if (count($info) !== 1 || $info[0]['ENGINE'] !== 'InnoDB' || $info[0]['TABLE_TYPE'] !== 'BASE TABLE') {
             self::fail('TABLE_SHAPE_UNKNOWN');
@@ -251,6 +258,12 @@ final readonly class FileMigrationPreservation
             'SELECT COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,COLUMN_DEFAULT,EXTRA,GENERATION_EXPRESSION,CHARACTER_SET_NAME,COLLATION_NAME'
             . ' FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY ORDINAL_POSITION', [$table]);
         if ($columns === []) { self::fail('COLUMNS_UNKNOWN'); }
+        // SHOW CREATE initializes a new empty InnoDB allocator before this uncached read.
+        $allocator = $this->query($pdo, 'SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$table]);
+        if (count($allocator) !== 1 || !array_key_exists('AUTO_INCREMENT', $allocator[0])) { self::fail('STATISTICS_UNAVAILABLE'); }
+        $auto = $allocator[0]['AUTO_INCREMENT'];
+        $hasAuto = array_filter($columns, static fn(array $column): bool => str_contains($column['EXTRA'], 'auto_increment')) !== [];
+        if ($hasAuto ? preg_match('/\A[1-9][0-9]*\z/D', (string) $auto) !== 1 : $auto !== null) { self::fail('STATISTICS_UNAVAILABLE'); }
         foreach ($columns as $column) {
             self::q($column['COLUMN_NAME']);
             if ($column['GENERATION_EXPRESSION'] !== '') { self::fail('GENERATED_COLUMN_UNKNOWN'); }
@@ -264,7 +277,7 @@ final readonly class FileMigrationPreservation
             . ' FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND EVENT_OBJECT_TABLE=? ORDER BY TRIGGER_NAME', [$table]);
         return ['physical_table' => $table, 'ddl' => $ddl[0]['Create Table'], 'columns' => $columns,
             'primary' => $primary, 'triggers' => $triggers,
-            'auto_increment' => $info[0]['AUTO_INCREMENT'] === null ? null : (string) $info[0]['AUTO_INCREMENT']];
+            'auto_increment' => $auto === null ? null : (string) $auto];
     }
 
     /** Bounded keyset pages, including composite/string keys; no all-table PDO result buffer or row DTO. */

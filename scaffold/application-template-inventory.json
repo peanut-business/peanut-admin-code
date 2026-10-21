@@ -2457,7 +2457,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3bc369ca75d9f474c78177759747e41cf5bbb2298bfc37c24be1fb04d00217ab"
+            "source_sha256": "6323eed27371efdd11e52838d197d5e99c30e6568776a14ce79afe9de63357ef"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2580,7 +2580,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "062a00c2af631850fa8b2ab2746c799b691f92ce57becc8176dfd0425b5298d2"
+            "source_sha256": "dfa6b631d39602471a59978674ae877ccfb260c2c73c73d038a7a92ad9811827"
         },
         {
             "path": "plugins/official.identity/plugin.json",
@@ -12215,7 +12215,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d1ec1c0b511ab3a15b22b91a3114f11c0ac6c3ef41aa8a1c6e51d7716794fb77"
+            "source_sha256": "10bc43232925e25a90e810c39689d05e4f122a27e1e937ae8e6f4cac8149532a"
         },
         {
             "path": "server/app/modules/official/file/database/migrations/20260823-unify-storage-service.sql",
@@ -12355,7 +12355,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "57e90896ef13610538f28974f848729b12f367755f7f5ec1cf89d715ec08eba3"
+            "source_sha256": "ddc2d3d818b921c6e434bab2185557aac3269f7433a312e8df1d20219933e9df"
         },
         {
             "path": "server/app/modules/official/file/resources/menus.json",
@@ -12593,7 +12593,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "34ff93a0300226e5a968ea5d4bba3ea998f1085ce14fe8c99c85a4d83a02b017"
+            "source_sha256": "97e8df6314efdcb8191d6700c9185055aa002807f60076e6d4aa865e33f3edec"
         },
         {
             "path": "server/app/modules/official/file/src/Contract/FileMigrationPreservation.php",
@@ -12607,7 +12607,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "042a313b82d9426aa109f2634db53b627b2b1b50c70862fb815fc80491062fdd"
+            "source_sha256": "8c222ee0ad025e9b3362483cd7955dddd728397598b006fe8c09b381832cf149"
         },
         {
             "path": "server/app/modules/official/file/src/Contract/FileReferenceCommands.php",

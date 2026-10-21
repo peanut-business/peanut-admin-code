@@ -133,14 +133,27 @@ JSON;
                 return $this->result($oldMigrationKey, 'reject', $checks, 'PARTIAL_IMAGE_SCHEMA');
             }
             if ($position === 0) {
-                // With uri/storage removed, nonempty legacy material mappings cannot be reconstructed honestly.
+                // Unknown history still needs the narrow reconstructable legacy mapping.
+                // A genuine completed application migration can subsequently receive normal
+                // File business writes; those rows must satisfy the full current poststate,
+                // not be misidentified as output of the old export.csv conversion.
+                $recorded = $history['historical_application_migration_observation'] === 'recorded_applied';
+                if ($recorded && $history['historical_application_migration'] !== [
+                    'source' => 'application-migration-ledger', 'migration_id' => '20260823-unify-storage-service',
+                    'release_version' => '3.0.6', 'checksum' => 'f79c35b2fe8414dc172a81a45183d2a52eadb05833a704149780b36e400ca2d4',
+                    'status' => 'applied', 'claim' => 'recorded_applied',
+                ]) { throw new \RuntimeException('APPLICATION_MIGRATION_LEDGER_INVALID'); }
                 $checks['unify']['unverifiable_material_rows'] = $this->count($pdo, 'SELECT COUNT(*) FROM ' . self::q($names['file']));
                 $checks['unify']['legacy_storage_config_rows'] = $this->count($pdo, 'SELECT COUNT(*) FROM ' . self::q($names['config']) . " WHERE `type`='storage'");
                 $checks['unify']['default_route_mismatches'] = $this->count($pdo,
                     "SELECT COUNT(*) FROM (SELECT 'public' AS access_type UNION ALL SELECT 'private') a WHERE NOT EXISTS (SELECT 1 FROM " . self::q($names['storage_route']) . ' r JOIN ' . self::q($names['storage_space']) . ' s ON s.id=r.space_id JOIN ' . self::q($names['storage_account']) . " c ON c.id=s.account_id WHERE r.route_key=CONCAT('default.',a.access_type) AND r.access_type=a.access_type AND s.space_key=CONCAT('local-',a.access_type) AND s.access_type=a.access_type AND s.local_path=CONCAT(a.access_type,'/storage') AND c.account_key='local' AND c.driver='local')");
                 $checks['unify']['unverifiable_object_mapping_rows'] = $this->count($pdo,
                     'SELECT COUNT(*) FROM ' . self::q($names['file_object']) . ' o JOIN ' . self::q($names['storage_space']) . " s ON s.id=o.storage_space_id WHERE o.purpose<>'export.csv' OR o.access_type<>'private' OR o.disposition<>'attachment' OR s.space_key<>'local-private'");
-                if (array_sum($checks['unify']) !== 0) {
+                $mapping = $recorded ? array_diff_key($checks['unify'], array_flip([
+                    'unverifiable_material_rows', 'unverifiable_object_mapping_rows',
+                ])) : $checks['unify'];
+                $checks['adoption_basis'] = $recorded ? 'recorded_application_execution_and_current_poststate' : 'reconstructed_legacy_mapping_and_current_poststate';
+                if (array_sum($mapping) !== 0) {
                     return $this->result($oldMigrationKey, 'reject', $checks, 'UNIFY_MAPPING_PROOF_UNAVAILABLE');
                 }
                 $disposition = 'adopt';
