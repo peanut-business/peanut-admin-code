@@ -212,7 +212,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "51582be095db101f71e095c5122c6d21f6333dcd81f6b5a04b4106ef9c394e34"
+                "sha256": "50471aff1b92f0072cab2f3f3514df8f2975e06d26625b3bb5807da6cf40aba8"
             },
             "trust": {
                 "channel": "bundled",
@@ -317,7 +317,7 @@
                 }
             ],
             "manifest": "plugins/official.article/plugin.json",
-            "manifest_sha256": "7fcf5a6793218c6cec673f4ab646adb8281ba45f0b7084ec070a250f62b52c65"
+            "manifest_sha256": "bbdf4508c9b16451884c294a5ac37c1c784bce0b51624551eac8c57a6373f0a5"
         },
         {
             "key": "official.collaboration",
@@ -875,7 +875,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "c43aa1cd7d88dcb3697a66c703abecbb53c22596c278d1628334348368316eac"
+                "sha256": "e769088b42e82f423a63d650fcbd747d7ca1bd7c92b38dd050cc5f279ef8df79"
             },
             "trust": {
                 "channel": "bundled",
@@ -984,7 +984,7 @@
                 }
             ],
             "manifest": "plugins/official.import-export/plugin.json",
-            "manifest_sha256": "a72119dcfb2936a17cd80153befd33918c720620bac8a2acf469f16c209bebe9"
+            "manifest_sha256": "4f7f0833f2b8511205e7ed23631669a459d75e61f932c555484b1753cc57da48"
         },
         {
             "key": "official.integration",
@@ -1089,7 +1089,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "c015e9828ddf5c7ee59b431294061850cc75c4781dd24e2d883a9b1bae806a4a"
+                "sha256": "bed2b62d316529721d7b38efa5ae24fa0f79aecaf786f26289e03978aec55bf9"
             },
             "trust": {
                 "channel": "bundled",
@@ -1186,7 +1186,7 @@
                 }
             ],
             "manifest": "plugins/official.member/plugin.json",
-            "manifest_sha256": "d32bae823213cf053d00edeb654c6ddaddc313326e674a4025edb35d48b2fd19"
+            "manifest_sha256": "152ec989434647d9fe2c504d0be28fda031ccf4c03c9cf5e422c0a5746c27d71"
         },
         {
             "key": "official.notification",
@@ -1194,7 +1194,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "da52bc878e1a5904935931ac721578f1a6ebbfe475bda8846fc39c0ba2a8691d"
+                "sha256": "f5571d480c5a12da6cc9cea6628b9a35b978eb2a5b8d486920bb1a6482468010"
             },
             "trust": {
                 "channel": "bundled",
@@ -1299,7 +1299,7 @@
                 }
             ],
             "manifest": "plugins/official.notification/plugin.json",
-            "manifest_sha256": "642df9e2c19dd82f4e3b4e08bf7f478cfb0c8cf35de11c1a5162e8c844b0d9e0"
+            "manifest_sha256": "e1b428ffd36bc9cbe81515de79586f5bda740a31c0db893a3aff9daba1d06f51"
         },
         {
             "key": "official.oauth",

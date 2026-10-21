@@ -7,6 +7,7 @@ namespace PeanutAdmin\Modules\Article\Contract;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\InstallationExecutionContext;
 use app\common\execution\InstanceExecutionContext;
+use app\common\services\upgrade\MySqlMetadataObservation;
 use PDO;
 use RuntimeException;
 use think\facade\Db;
@@ -163,10 +164,24 @@ final readonly class ArticleMigrationPreservation
         if (preg_match('/^  CONSTRAINT `chk_article_body_binding` CHECK \((.+)\)(,?)$/m', $ddl, $match) !== 1) {
             self::fail('BINDING_CHECK_UNKNOWN');
         }
-        $expression = preg_replace('/[\s`()]+|_(?:utf8mb4|ascii)/', '', $match[1]);
-        $head = 'body_revision_idisnullandbody_source_state_seqisnullandbody_snapshot_sha256isnullorbody_document_idisnotnullandbody_revision_idisnotnullandbody_source_state_seqisnotnullandbody_snapshot_sha256isnotnulland';
-        if (!in_array($expression, [$head . "body_snapshot_sha256regexp'^[a-f0-9]{64}$'",
-            $head . "regexp_likebody_snapshot_sha256,'^[a-f0-9]{64}$'"], true)) { self::fail('BINDING_CHECK_UNKNOWN'); }
+        $tokens = MySqlMetadataObservation::checkTokens($match[1]);
+        if ($tokens === null) { self::fail('BINDING_CHECK_UNKNOWN'); }
+        $expression = implode('', $tokens);
+        $left = 'body_revision_idisnullandbody_source_state_seqisnullandbody_snapshot_sha256isnull';
+        $right = 'body_document_idisnotnullandbody_revision_idisnotnullandbody_source_state_seqisnotnullandbody_snapshot_sha256isnotnulland';
+        $nativeLeft = '(body_revision_idisnull)and(body_source_state_seqisnull)and(body_snapshot_sha256isnull)';
+        $nativeRight = '(body_document_idisnotnull)and(body_revision_idisnotnull)and(body_source_state_seqisnotnull)and(body_snapshot_sha256isnotnull)and';
+        $regexp = "body_snapshot_sha256regexp'^[a-f0-9]{64}$'";
+        $function = "regexp_like(body_snapshot_sha256,'^[a-f0-9]{64}$')";
+        $forms = ["($left)or($right$regexp)", "($left)or($right$function)",
+            "($nativeLeft)or($nativeRight$function)", "($nativeLeft)or($nativeRight($regexp))"];
+        $known = false;
+        foreach ($forms as $form) {
+            for ($i = 0; $i <= 4; ++$i) {
+                $known = $known || $expression === str_repeat('(', $i) . $form . str_repeat(')', $i);
+            }
+        }
+        if (!$known) { self::fail('BINDING_CHECK_UNKNOWN'); }
         $ddl = preg_replace('/^  CONSTRAINT `chk_article_body_binding` CHECK [^\r\n]+\r?\n/m', '', $ddl, -1, $removed);
         if ($removed !== 1 || !is_string($ddl)) { self::fail('BINDING_CHECK_UNKNOWN'); }
         $table['ddl'] = preg_replace('/,\r?\n\) ENGINE=/', "\n) ENGINE=", $ddl);
@@ -176,6 +191,11 @@ final readonly class ArticleMigrationPreservation
 
     /** No transaction mutation or business-row scan; the caller must hold the native writer/DDL window. */
     private function snapshot(PDO $pdo): array
+    {
+        return MySqlMetadataObservation::uncached($pdo, fn(): array => $this->snapshotObserved($pdo));
+    }
+
+    private function snapshotObserved(PDO $pdo): array
     {
         $identity = $this->identity($pdo);
         $this->visibility($pdo, $identity['database_name']);
@@ -196,7 +216,7 @@ final readonly class ArticleMigrationPreservation
 
     private function metadata(PDO $pdo, string $table): ?array
     {
-        $info = $this->query($pdo, 'SELECT ENGINE,TABLE_TYPE,TABLE_COLLATION,AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$table]);
+        $info = $this->query($pdo, 'SELECT ENGINE,TABLE_TYPE,TABLE_COLLATION FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$table]);
         if ($info === []) { return null; }
         if (count($info) !== 1 || $info[0]['ENGINE'] !== 'InnoDB' || $info[0]['TABLE_TYPE'] !== 'BASE TABLE') { self::fail('TABLE_SHAPE_UNKNOWN'); }
         $ddl = $this->query($pdo, 'SHOW CREATE TABLE ' . self::q($table));
@@ -204,6 +224,12 @@ final readonly class ArticleMigrationPreservation
         $columns = $this->query($pdo,
             'SELECT COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,COLUMN_DEFAULT,EXTRA,GENERATION_EXPRESSION,CHARACTER_SET_NAME,COLLATION_NAME'
             . ' FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY ORDINAL_POSITION', [$table]);
+        $counter = $this->query($pdo, 'SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$table]);
+        if (count($counter) !== 1 || !array_key_exists('AUTO_INCREMENT', $counter[0])) { self::fail('ALLOCATOR_UNKNOWN'); }
+        $allocator = $counter[0]['AUTO_INCREMENT'];
+        if (array_filter($columns, static fn(array $column): bool => str_contains($column['EXTRA'], 'auto_increment')) !== []
+            && (!is_string($allocator) && !is_int($allocator)
+                || preg_match('/\A[1-9][0-9]*\z/D', (string) $allocator) !== 1)) { self::fail('ALLOCATOR_UNKNOWN'); }
         $indexes = $this->query($pdo,
             'SELECT INDEX_NAME,NON_UNIQUE,SEQ_IN_INDEX,COLUMN_NAME,SUB_PART,EXPRESSION FROM information_schema.STATISTICS'
             . ' WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY INDEX_NAME,SEQ_IN_INDEX', [$table]);
@@ -215,7 +241,7 @@ final readonly class ArticleMigrationPreservation
             . ' FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND EVENT_OBJECT_TABLE=? ORDER BY TRIGGER_NAME', [$table]);
         return ['ddl' => $ddl[0]['Create Table'], 'columns' => $columns, 'indexes' => $indexes, 'primary' => $primary,
             'triggers' => $triggers, 'collation' => $info[0]['TABLE_COLLATION'],
-            'auto_increment' => $info[0]['AUTO_INCREMENT'] === null ? null : (string) $info[0]['AUTO_INCREMENT']];
+            'auto_increment' => $allocator === null ? null : (string) $allocator];
     }
 
     private function identity(PDO $pdo): array

@@ -2470,7 +2470,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "93ec10736094c656bcaa887e5b6de573b7110d81b1c190cd6ca98698122a6173"
+            "source_sha256": "52b7c08e7db741a815e627a547079d84ce3974b9ff609a911c7826a028f4f82e"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2537,7 +2537,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7fcf5a6793218c6cec673f4ab646adb8281ba45f0b7084ec070a250f62b52c65"
+            "source_sha256": "bbdf4508c9b16451884c294a5ac37c1c784bce0b51624551eac8c57a6373f0a5"
         },
         {
             "path": "plugins/official.collaboration/plugin.json",
@@ -2621,7 +2621,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a72119dcfb2936a17cd80153befd33918c720620bac8a2acf469f16c209bebe9"
+            "source_sha256": "4f7f0833f2b8511205e7ed23631669a459d75e61f932c555484b1753cc57da48"
         },
         {
             "path": "plugins/official.integration/plugin.json",
@@ -2649,7 +2649,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d32bae823213cf053d00edeb654c6ddaddc313326e674a4025edb35d48b2fd19"
+            "source_sha256": "152ec989434647d9fe2c504d0be28fda031ccf4c03c9cf5e422c0a5746c27d71"
         },
         {
             "path": "plugins/official.notification/plugin.json",
@@ -2663,7 +2663,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "642df9e2c19dd82f4e3b4e08bf7f478cfb0c8cf35de11c1a5162e8c844b0d9e0"
+            "source_sha256": "e1b428ffd36bc9cbe81515de79586f5bda740a31c0db893a3aff9daba1d06f51"
         },
         {
             "path": "plugins/official.oauth/plugin.json",
@@ -9189,6 +9189,20 @@
             "source_sha256": "9c96774a139d790b653caf7a86ba271868013d899d7cecd7d32b4c92d8a19232"
         },
         {
+            "path": "server/app/common/services/upgrade/MySqlMetadataObservation.php",
+            "target": "server/app/common/services/upgrade/MySqlMetadataObservation.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "28e1ffc0f3b80751908f12bebb9bd733496bc580e82e3ce9693ee8ba50ee3816"
+        },
+        {
             "path": "server/app/common/services/upgrade/PluginSourceDevelopmentHost.php",
             "target": "server/app/common/services/upgrade/PluginSourceDevelopmentHost.php",
             "classification": "managed",
@@ -10674,7 +10688,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3d2c7e0c9201688487b7472dc865c074c1bc9352a479976eb2657012b58e3f34"
+            "source_sha256": "fba9635be95f697928a5fc2c698067e210f0de59ead77a4a7bc442b438b14b88"
         },
         {
             "path": "server/app/modules/official/article/src/Contract/ArticleQueries.php",
@@ -15728,7 +15742,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "88bcdbb8e678d2c5a35e4c215295c324ce67c65dcd433c630af210b0f64cdd1b"
+            "source_sha256": "82aa8a337f76479b12ef75aa88f385e7eb2ae21e46733077306db1c1d4754386"
         },
         {
             "path": "server/app/modules/official/import_export/src/Contract/ImportExportQueries.php",
@@ -17563,7 +17577,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "85bb86de28a3041893d968121f7d3169e2144386cd116fbbb1ee7af0655c792d"
+            "source_sha256": "71d2887637d5cdd765b761b8ce2931b0167be235892981fe579ae655986177be"
         },
         {
             "path": "server/app/modules/official/member/src/Contract/MemberSessionStore.php",
@@ -18221,7 +18235,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "898693e44ab1220e0f356896ebb67cc0df785dd8ddfdf6a46e822b51714f1585"
+            "source_sha256": "317d76106eff70da91145bc85e1926cd5c838f57b63749022c06767e157ee669"
         },
         {
             "path": "server/app/modules/official/notification/src/Contract/SmsReservationMigrationProof.php",

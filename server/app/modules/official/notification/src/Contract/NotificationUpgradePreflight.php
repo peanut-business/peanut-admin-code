@@ -7,6 +7,7 @@ namespace PeanutAdmin\Modules\Notification\Contract;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\InstanceExecutionContext;
 use app\common\execution\InstallationExecutionContext;
+use app\common\services\upgrade\MySqlMetadataObservation;
 use PDO;
 use think\facade\Db;
 
@@ -184,9 +185,22 @@ final readonly class NotificationUpgradePreflight
         $result = [];
         foreach ($tables as $table) {
             $schema = self::tableSchema($pdo, $table);
-            $result[$table] = $schema === null ? null : ['schema' => $schema,
-                'auto_increment' => self::readRows($pdo, 'SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$table])[0]['AUTO_INCREMENT'],
-                'ddl' => array_values(self::readRows($pdo, 'SHOW CREATE TABLE `' . $table . '`')[0])[1]];
+            if ($schema === null) { $result[$table] = null; continue; }
+            $ddl = self::readRows($pdo, 'SHOW CREATE TABLE `' . $table . '`');
+            if (count($ddl) !== 1 || !is_string($ddl[0]['Create Table'] ?? null)) {
+                throw new \RuntimeException('NOTIFICATION_STAGE_DDL_UNKNOWN');
+            }
+            $counter = self::readRows($pdo, 'SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$table]);
+            if (count($counter) !== 1 || !array_key_exists('AUTO_INCREMENT', $counter[0])) {
+                throw new \RuntimeException('NOTIFICATION_STAGE_ALLOCATOR_UNKNOWN');
+            }
+            $allocator = $counter[0]['AUTO_INCREMENT'];
+            if (array_filter($schema['columns'], static fn(array $column): bool => str_contains($column['extra'], 'auto_increment')) !== []
+                && ((!is_string($allocator) && !is_int($allocator)) || preg_match('/\A[1-9][0-9]*\z/D', (string) $allocator) !== 1)) {
+                throw new \RuntimeException('NOTIFICATION_STAGE_ALLOCATOR_UNKNOWN');
+            }
+            $result[$table] = ['schema' => $schema, 'auto_increment' => $allocator === null ? null : (string) $allocator,
+                'ddl' => $ddl[0]['Create Table']];
         }
         return $result;
     }
@@ -237,6 +251,11 @@ final readonly class NotificationUpgradePreflight
     }
 
     private static function stageSnapshot(PDO $pdo, \Closure $read): array
+    {
+        return MySqlMetadataObservation::uncached($pdo, static fn(): array => self::stageSnapshotObserved($pdo, $read));
+    }
+
+    private static function stageSnapshotObserved(PDO $pdo, \Closure $read): array
     {
         $started = false;
         try {
@@ -395,7 +414,7 @@ final readonly class NotificationUpgradePreflight
 
     private static function schemaLine(array &$schema, string $line, string $charset, string $collation): void
     {
-        if (preg_match('/^`([a-z_]+)` ([A-Z]+(?:\([0-9,]+\))?(?: UNSIGNED)?)(.*)$/', $line, $m)) {
+        if (preg_match('/^`([a-z_][a-z0-9_]*)` ([A-Z]+(?:\([0-9,]+\))?(?: UNSIGNED)?)(.*)$/', $line, $m)) {
             $text = preg_match('/^(?:VARCHAR|CHAR|TEXT)/', $m[2]) === 1;
             preg_match('/CHARACTER SET ([a-z0-9]+)/', $m[3], $cs); preg_match('/COLLATE ([a-z0-9_]+)/', $m[3], $co);
             preg_match('/DEFAULT (?:\x27([^\x27]*)\x27|([0-9]+))/', $m[3], $default);
@@ -405,7 +424,7 @@ final readonly class NotificationUpgradePreflight
                 'charset' => $text ? ($cs[1] ?? $charset) : null, 'collation' => $text ? ($co[1] ?? $collation) : null];
             return;
         }
-        if (preg_match('/^(PRIMARY KEY|UNIQUE KEY `([a-z_]+)`|KEY `([a-z_]+)`) \(([^)]+)\)$/', $line, $m)) {
+        if (preg_match('/^(PRIMARY KEY|UNIQUE KEY `([a-z_][a-z0-9_]*)`|KEY `([a-z_][a-z0-9_]*)`) \(([^)]+)\)$/', $line, $m)) {
             $name = $m[1] === 'PRIMARY KEY' ? 'PRIMARY' : (($m[2] ?? '') !== '' ? $m[2] : $m[3]);
             $schema['indexes'][$name] = ['unique' => !str_starts_with($m[1], 'KEY '), 'columns' => self::columnNames($m[4])]; return;
         }
@@ -422,7 +441,7 @@ final readonly class NotificationUpgradePreflight
     {
         $result = [];
         foreach (explode(',', $list) as $column) {
-            if (!preg_match('/^`([a-z_]+)`$/D', trim($column), $m)) { throw new \RuntimeException('NOTIFICATION_FORWARD_INDEX_UNKNOWN'); }
+            if (!preg_match('/^`([a-z_][a-z0-9_]*)`$/D', trim($column), $m)) { throw new \RuntimeException('NOTIFICATION_FORWARD_INDEX_UNKNOWN'); }
             $result[] = $m[1];
         }
         return $result;

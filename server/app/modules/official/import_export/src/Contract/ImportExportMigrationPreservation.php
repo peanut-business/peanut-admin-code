@@ -7,6 +7,7 @@ namespace PeanutAdmin\Modules\ImportExport\Contract;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\InstallationExecutionContext;
 use app\common\execution\InstanceExecutionContext;
+use app\common\services\upgrade\MySqlMetadataObservation;
 use app\platform\services\plugin\PluginLifecycleService;
 use PDO;
 use PDOException;
@@ -139,6 +140,11 @@ final readonly class ImportExportMigrationPreservation
 
     private function snapshot(PDO $pdo, array $nativeParents): array
     {
+        return MySqlMetadataObservation::uncached($pdo, fn(): array => $this->snapshotObserved($pdo, $nativeParents));
+    }
+
+    private function snapshotObserved(PDO $pdo, array $nativeParents): array
+    {
         $identity = $this->query($pdo, 'SELECT DATABASE() AS database_name,@@server_uuid AS server_uuid,CONNECTION_ID() AS connection_id,@@foreign_key_checks AS foreign_key_checks')[0];
         if ($identity['foreign_key_checks'] !== '1') { self::fail('FOREIGN_KEY_CHECKS_REQUIRED'); }
         if (!is_string($identity['database_name']) || preg_match('/\A[a-zA-Z0-9_]+\z/D', $identity['database_name']) !== 1) {
@@ -235,6 +241,8 @@ final readonly class ImportExportMigrationPreservation
         $rows = $this->query($pdo, 'SELECT TABLE_TYPE,ENGINE,TABLE_COLLATION,AUTO_INCREMENT,CAST(TABLE_COMMENT AS BINARY) AS TABLE_COMMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$name]);
         if (count($rows) !== 1 || $rows[0]['TABLE_TYPE'] !== 'BASE TABLE' || $rows[0]['ENGINE'] !== 'InnoDB') { self::fail('BASE_INNODB_REQUIRED'); }
         $columns = $this->query($pdo, 'SELECT COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,COLUMN_DEFAULT,EXTRA,GENERATION_EXPRESSION,CHARACTER_SET_NAME,COLLATION_NAME,CAST(COLUMN_COMMENT AS BINARY) AS COLUMN_COMMENT,ORDINAL_POSITION FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY ORDINAL_POSITION', [$name]);
+        if (array_filter($columns, static fn(array $column): bool => str_contains($column['EXTRA'], 'auto_increment')) !== []
+            && preg_match('/\A[1-9][0-9]*\z/D', (string) $rows[0]['AUTO_INCREMENT']) !== 1) { self::fail('ALLOCATOR_UNKNOWN'); }
         $indexes = $this->query($pdo, 'SELECT INDEX_NAME,NON_UNIQUE,COLUMN_NAME,SUB_PART,EXPRESSION,INDEX_TYPE,IS_VISIBLE,COLLATION FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY INDEX_NAME,SEQ_IN_INDEX', [$name]);
         $foreign = $this->query($pdo, 'SELECT k.CONSTRAINT_NAME,k.COLUMN_NAME,k.REFERENCED_TABLE_SCHEMA,k.REFERENCED_TABLE_NAME,k.REFERENCED_COLUMN_NAME,r.DELETE_RULE,r.UPDATE_RULE,r.MATCH_OPTION FROM information_schema.KEY_COLUMN_USAGE k JOIN information_schema.REFERENTIAL_CONSTRAINTS r ON r.CONSTRAINT_SCHEMA=k.CONSTRAINT_SCHEMA AND r.CONSTRAINT_NAME=k.CONSTRAINT_NAME AND r.TABLE_NAME=k.TABLE_NAME WHERE k.TABLE_SCHEMA=DATABASE() AND k.TABLE_NAME=? ORDER BY k.CONSTRAINT_NAME,k.ORDINAL_POSITION', [$name]);
         $checks = $this->query($pdo, "SELECT t.CONSTRAINT_NAME,t.ENFORCED,CAST(c.CHECK_CLAUSE AS BINARY) AS CHECK_CLAUSE FROM information_schema.TABLE_CONSTRAINTS t JOIN information_schema.CHECK_CONSTRAINTS c ON c.CONSTRAINT_SCHEMA=t.CONSTRAINT_SCHEMA AND c.CONSTRAINT_NAME=t.CONSTRAINT_NAME WHERE t.TABLE_SCHEMA=DATABASE() AND t.TABLE_NAME=? AND t.CONSTRAINT_TYPE='CHECK' ORDER BY t.CONSTRAINT_NAME", [$name]);
@@ -271,19 +279,9 @@ final readonly class ImportExportMigrationPreservation
 
     private function clause(string $clause): string
     {
-        $parts = preg_split(<<<'RX'
-~('(?:''|\\.|[^'\\])*')~s
-RX, $clause, -1, PREG_SPLIT_DELIM_CAPTURE);
-        if ($parts === false) { self::fail('CLAUSE_OBSERVATION_FAILED'); }
-        $out = '';
-        foreach ($parts as $i => $part) {
-            if ($i % 2 === 1) { $out .= $part; continue; }
-            $part = preg_replace_callback('/\b(?:regexp_like|regexp|is|not|null|and|or|in|coalesce)\b/i', static fn(array $m): string => strtolower($m[0]), $part);
-            $part = preg_replace('/[\s`]+/', '', $part);
-            if ($i + 1 < count($parts)) { $part = preg_replace('/_(?:utf8mb4|ascii)\z/i', '', $part); }
-            $out .= $part;
-        }
-        return $out;
+        $tokens = MySqlMetadataObservation::checkTokens($clause);
+        if ($tokens === null) { self::fail('CLAUSE_OBSERVATION_FAILED'); }
+        return implode('', $tokens);
     }
 
     private function context(PDO $pdo): InstanceExecutionContext|InstallationExecutionContext

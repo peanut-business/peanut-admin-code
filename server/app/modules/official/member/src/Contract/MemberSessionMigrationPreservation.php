@@ -7,6 +7,7 @@ namespace PeanutAdmin\Modules\Member\Contract;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\InstallationExecutionContext;
 use app\common\execution\InstanceExecutionContext;
+use app\common\services\upgrade\MySqlMetadataObservation;
 use app\platform\services\plugin\PluginLifecycleService;
 use PDO;
 use PDOException;
@@ -229,19 +230,9 @@ final readonly class MemberSessionMigrationPreservation
     /** Only the fixed predicates' source and native MySQL spellings; logical grouping and regex case remain significant. */
     private function knownCheck(string $name, string $clause): bool
     {
-        // Preserve quoted literals byte-for-byte, including SQL doubled quotes and backslash escapes.
-        $parts = preg_split(<<<'RX'
-~('(?:''|\\.|[^'\\])*')~s
-RX, $clause, -1, PREG_SPLIT_DELIM_CAPTURE);
-        if ($parts === false) { return false; }
-        $clause = '';
-        foreach ($parts as $i => $part) {
-            if ($i % 2 === 1) { $clause .= $part; continue; }
-            $part = preg_replace_callback('/\b(?:regexp_like|regexp|is|not|null|and|or)\b/i', static fn(array $m): string => strtolower($m[0]), $part);
-            $part = preg_replace('/[\s`]+/', '', $part);
-            if ($i + 1 < count($parts)) { $part = preg_replace('/_(?:utf8mb4|ascii)\z/i', '', $part); }
-            $clause .= $part;
-        }
+        $tokens = MySqlMetadataObservation::checkTokens($clause);
+        if ($tokens === null) { return false; }
+        $clause = implode('', $tokens);
         $forms = match ($name) {
             'chk_member_security_session_revision','chk_member_session_record_revision' => ['session_revision>=1'],
             'chk_member_session_hash' => ["session_hashregexp'^[0-9a-f]{64}$'", "regexp_like(session_hash,'^[0-9a-f]{64}$')"],
