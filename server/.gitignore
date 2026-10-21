@@ -17,6 +17,8 @@ Thumbs.db
 !/private/storage/.gitkeep
 /private/installation/
 /private/resources/
+/private/credential-maintenance/
+/private/credentials/
 /docker/mysql/*
 !/docker/mysql/.gitkeep
 /docker/secrets/*

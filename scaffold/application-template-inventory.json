@@ -4938,7 +4938,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "aae0cd160296af13d295b910379670b34c423c992d67e4740094c5e74837f556"
+            "source_sha256": "e1eb406f9deec87f58132f7c5dfa284ba5087139cf70e5fa380713c1f85434b6"
         },
         {
             "path": "server/.travis.yml",
