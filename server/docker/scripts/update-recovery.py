@@ -667,8 +667,8 @@ def backup(args):
     print(json.dumps({"status": "complete", "update_id": plan["update_id"], "database_dump_sha256": record["database_dump_sha256"]}))
 
 
-def verify(args):
-    server, workspace, plan, journal, plan_sha, identity = instance(args)
+def verify_backup_attachments(server, workspace, plan, plan_sha, identity):
+    """Read-only integrity of the paired backup, independent of live recovery admission."""
     check_backup_signature(server, workspace)
     record = read_json(workspace / "backup.json")
     if record.get("protocol") != "peanut.server-update-backup.v1" or record.get("update_id") != plan["update_id"] or record.get("plan_sha256") != plan_sha or record.get("database_identity") != identity:
@@ -748,6 +748,15 @@ def verify(args):
                 if path.parent != workspace / 'root-client': raise ValueError('privileged output escaped its workspace')
                 regular(path, 0o600)
                 if sha(path) != process[key]['sha256']: raise ValueError('privileged command output changed')
+    return record
+
+
+def verify(args):
+    server, workspace, plan, journal, plan_sha, identity = instance(args)
+    record = verify_backup_attachments(server, workspace, plan, plan_sha, identity)
+    if record['database_provider']['source'] == 'registered':
+        observation = read_json(workspace / 'recovery/database-metadata.json')
+        provider = record['database_provider']
         current = root_observation(server, workspace, provider)
         if any(current[key] != observation[key] for key in ('mysql_sha256', 'mysqldump_sha256')):
             raise ValueError('registered privileged client binaries changed since backup')
