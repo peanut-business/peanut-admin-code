@@ -513,6 +513,26 @@ $schemas = [
 ];
 
 $policyId = ['anyOf' => [['type' => 'integer', 'minimum' => 1], ['type' => 'string', 'pattern' => '^[1-9][0-9]{0,17}$']]];
+$permissionKeys = ['type' => 'array', 'items' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 160]];
+$schemas['AdminRolePermissions'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['role_id', 'key', 'revision', 'permission_keys'], 'properties' => [
+        'role_id' => $ref('NumericStringId'), 'key' => ['type' => 'string'],
+        'revision' => $ref('NumericStringId'), 'permission_keys' => $permissionKeys,
+    ]];
+$schemas['AdminRolePermissionsReplaceRequest'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['role_id', 'expected_revision', 'permission_keys'], 'properties' => [
+        'role_id' => $policyId, 'expected_revision' => $policyId,
+        'permission_keys' => $permissionKeys + ['maxItems' => 1000],
+    ]];
+$schemas['AdminRolePermissionCatalogPage'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['items', 'total', 'page_no', 'page_size'], 'properties' => [
+        'items' => ['type' => 'array', 'items' => ['type' => 'object', 'additionalProperties' => false,
+            'required' => ['key', 'name', 'module_key'], 'properties' => [
+                'key' => ['type' => 'string'], 'name' => ['type' => 'string'], 'module_key' => ['type' => 'string'],
+            ]]],
+        'total' => ['type' => 'integer', 'minimum' => 0], 'page_no' => ['type' => 'integer', 'minimum' => 1],
+        'page_size' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 100],
+    ]];
 $policyConfig = ['anyOf' => [['type' => 'object', 'nullable' => true, 'maxProperties' => 0, 'additionalProperties' => false], ['type' => 'array', 'nullable' => true, 'maxItems' => 0, 'items' => ['type' => 'string']]]];
 $policyTarget = ['type' => 'object', 'additionalProperties' => false, 'required' => ['target_id'],
     'properties' => ['target_id' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 160]]];
@@ -660,6 +680,15 @@ $add($paths, 'GET', '/adminapi/role/detail', $operation('getAdminRole', 'AdminRo
 $add($paths, 'POST', '/adminapi/role/add', $operation('createAdminRole', 'AdminRoles', $mutation + ['409' => $error], requestBody: $jsonBody($ref('AdminRoleWriteRequest'))));
 $add($paths, 'POST', '/adminapi/role/edit', $operation('updateAdminRole', 'AdminRoles', $mutation + ['404' => $error, '409' => $error], requestBody: $jsonBody($ref('AdminRoleWriteRequest'))));
 $add($paths, 'POST', '/adminapi/role/delete', $operation('archiveAdminRole', 'AdminRoles', $mutation + ['404' => $error, '409' => $error], requestBody: $idBody));
+$add($paths, 'GET', '/adminapi/role/permissions', $operation('getAdminRolePermissions', 'AdminRoles', $ok('AdminRolePermissions') + ['404' => $error, '422' => $error], [
+    ['name' => 'role_id', 'in' => 'query', 'required' => true, 'schema' => $policyId],
+]));
+$add($paths, 'PUT', '/adminapi/role/permissions', $operation('replaceAdminRolePermissions', 'AdminRoles', $ok('AdminRolePermissions') + ['404' => $error, '409' => $error, '412' => $error, '422' => $error, '428' => $error], requestBody: $jsonBody($ref('AdminRolePermissionsReplaceRequest'))));
+$add($paths, 'GET', '/adminapi/role/permissions/catalog', $operation('getAdminRolePermissionCatalog', 'AdminRoles', $ok('AdminRolePermissionCatalogPage') + ['422' => $error], [
+    ['name' => 'page_no', 'in' => 'query', 'schema' => ['type' => 'integer', 'minimum' => 1]],
+    ['name' => 'page_size', 'in' => 'query', 'schema' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 100]],
+    ['name' => 'search', 'in' => 'query', 'schema' => ['type' => 'string', 'maxLength' => 120]],
+]));
 $policyQuery = [$query('role_id', $policyId, true), $query('resource_key', ['type' => 'string', 'minLength' => 1, 'maxLength' => 160], true), $query('operation', ['type' => 'string', 'minLength' => 1, 'maxLength' => 96], true)];
 $add($paths, 'GET', '/adminapi/role/data-policy', $operation('getAdminRoleDataPolicy', 'AdminRoles', $ok('AdminDataPolicy') + ['404' => $error, '422' => $error], $policyQuery));
 $add($paths, 'PUT', '/adminapi/role/data-policy', $operation('replaceAdminRoleDataPolicy', 'AdminRoles', $ok('AdminDataPolicy') + ['404' => $error, '409' => $error, '412' => $error, '422' => $error, '428' => $error], requestBody: $jsonBody($ref('AdminDataPolicyReplaceRequest'))));

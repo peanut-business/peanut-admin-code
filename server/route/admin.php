@@ -62,6 +62,12 @@ Route::group(function () {
     Route::post('role/add', [RoleController::class, 'add']);
     Route::post('role/edit', [RoleController::class, 'edit']);
     Route::post('role/delete', [RoleController::class, 'delete']);
+    Route::get('role/permissions', [\app\adminapi\controller\auth\RolePermissionController::class, 'detail'])
+        ->completeMatch()->option(['peanut_permission' => 'core.role.read']);
+    Route::put('role/permissions', [\app\adminapi\controller\auth\RolePermissionController::class, 'replace'])
+        ->completeMatch()->option(['peanut_permission' => 'core.role.permission.assign']);
+    Route::get('role/permissions/catalog', [\app\adminapi\controller\auth\RolePermissionController::class, 'catalog'])
+        ->completeMatch()->option(['peanut_permission' => 'core.permission.read']);
     Route::get('role/data-policy', [\app\adminapi\controller\auth\DataPolicyController::class, 'detail'])
         ->completeMatch()->option(['peanut_permission' => 'core.role.data-policy.read']);
     Route::put('role/data-policy', [\app\adminapi\controller\auth\DataPolicyController::class, 'replace'])

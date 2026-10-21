@@ -1,4 +1,9 @@
 export default {
+  'systemRole.auth.menuPermissions': '菜单权限',
+  'systemRole.auth.actionPermissions': '操作权限',
+  'systemRole.auth.searchActions': '搜索操作权限',
+  'systemRole.auth.unavailable': '当前不可分配，请确认后取消此权限',
+  'systemRole.auth.catalogIncomplete': '权限目录未完整加载，请重新打开权限窗口',
   'menu.system.role': '角色管理',
 
   'systemRole.operation.create': '新增角色',

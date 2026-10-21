@@ -69,3 +69,42 @@ export function editRole(data: RoleBaseForm | RoleAuthForm) {
 export function deleteRole(id: number) {
   return axios.post('/adminapi/role/delete', { id });
 }
+
+export interface RolePermissionSnapshot {
+  role_id: string;
+  key: string;
+  revision: string;
+  permission_keys: string[];
+}
+
+export interface RolePermissionWrite {
+  role_id: string | number;
+  expected_revision: string;
+  permission_keys: string[];
+}
+
+export interface RolePermissionOption {
+  key: string;
+  name: string;
+  module_key: string;
+}
+
+export function getRolePermissions(roleId: number) {
+  return axios.get<RolePermissionSnapshot>('/adminapi/role/permissions', {
+    params: { role_id: roleId },
+  });
+}
+
+export function getRolePermissionCatalog(params: {
+  page_no: number;
+  page_size: number;
+}) {
+  return axios.get<{ items: RolePermissionOption[]; total: number }>(
+    '/adminapi/role/permissions/catalog',
+    { params }
+  );
+}
+
+export function replaceRolePermissions(data: RolePermissionWrite) {
+  return axios.put<RolePermissionSnapshot>('/adminapi/role/permissions', data);
+}

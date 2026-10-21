@@ -71,7 +71,7 @@
                 >{{ $t('systemRole.operation.edit') }}</el-button
               >
               <el-button
-                v-permission="['role/edit']"
+                v-permission="['core.role.permission.assign']"
                 link
                 size="small"
                 @click="handleAuth(row)"
@@ -161,6 +161,7 @@
       width="560px"
     >
       <div v-loading="authLoading" style="width: 100%">
+        <h4>{{ $t('systemRole.auth.menuPermissions') }}</h4>
         <div class="auth-toolbar">
           <el-checkbox
             :model-value="expandedKeys.length > 0"
@@ -190,12 +191,32 @@
             @check="handleTreeCheck"
           />
         </div>
+        <h4>{{ $t('systemRole.auth.actionPermissions') }}</h4>
+        <el-input
+          v-model="permissionSearch"
+          clearable
+          :placeholder="$t('systemRole.auth.searchActions')"
+        />
+        <el-checkbox-group
+          v-model="extraPermissionKeys"
+          class="action-permissions"
+        >
+          <el-checkbox
+            v-for="permission in visibleActionPermissions"
+            :key="permission.key"
+            :value="permission.key"
+            :title="permission.key"
+          >
+            {{ permission.name }} <small>{{ permission.module_key }}</small>
+          </el-checkbox>
+        </el-checkbox-group>
       </div>
       <template #footer
         ><el-button @click="authVisible = false">取消</el-button
         ><el-button
           type="primary"
           :loading="authSubmitLoading"
+          :disabled="authLoading || authRoleKey === 'core.tenant-owner'"
           @click="handleAuthSubmit"
           >保存</el-button
         ></template
@@ -216,9 +237,12 @@
     addRole,
     deleteRole,
     editRole,
-    getRoleDetail,
+    getRolePermissions,
+    getRolePermissionCatalog,
+    replaceRolePermissions,
     getRoleList,
-    type RoleAuthForm,
+    type RolePermissionWrite,
+    type RolePermissionOption,
     type RoleBaseForm,
     type RoleRecord,
   } from '@/api/system/role';
@@ -361,13 +385,15 @@
   const expandedKeys = ref<string[]>([]);
   const authCheckedKeys = ref<string[]>([]);
   const authHalfCheckedKeys = ref<string[]>([]);
-  const authForm = reactive<RoleAuthForm>({
-    id: 0,
-    name: '',
-    desc: '',
-    sort: 0,
-    menu_keys: [],
+  const authForm = reactive<RolePermissionWrite>({
+    role_id: 0,
+    expected_revision: '',
+    permission_keys: [],
   });
+  const authRoleKey = ref('');
+  const permissionCatalog = ref<RolePermissionOption[]>([]);
+  const extraPermissionKeys = ref<string[]>([]);
+  const permissionSearch = ref('');
 
   // Element Plus exposes default tree state as initialization-only props. Re-key
   // the tree whenever our controlled permission state changes so the toolbar
@@ -417,6 +443,33 @@
     return nodes;
   });
 
+  const menuPermissionKeys = computed(
+    () =>
+      new Set(
+        [...menuNodeMap.value.values()]
+          .map((node) => node.perms)
+          .filter(Boolean)
+      )
+  );
+  const visibleActionPermissions = computed(() => {
+    const options = permissionCatalog.value.filter(
+      (item) => !menuPermissionKeys.value.has(item.key)
+    );
+    const available = new Set(options.map((item) => item.key));
+    for (const key of extraPermissionKeys.value) {
+      if (!available.has(key))
+        options.push({
+          key,
+          name: t('systemRole.auth.unavailable'),
+          module_key: key,
+        });
+    }
+    const search = permissionSearch.value.trim().toLowerCase();
+    return options.filter((item) =>
+      `${item.name} ${item.key}`.toLowerCase().includes(search)
+    );
+  });
+
   const isAllChecked = computed(
     () =>
       allMenuIds.value.length > 0 &&
@@ -462,9 +515,26 @@
   };
 
   const loadMenuTree = async () => {
-    if (menuTree.value.length > 0) return;
     const { data } = await getMenuAll();
     menuTree.value = data;
+  };
+
+  const loadPermissionCatalog = async () => {
+    const items: RolePermissionOption[] = [];
+    let page = 1;
+    let total = 0;
+    do {
+      const { data } = await getRolePermissionCatalog({
+        page_no: page,
+        page_size: 100,
+      });
+      total = data.total;
+      if (data.items.length === 0 && items.length < total)
+        throw new Error(t('systemRole.auth.catalogIncomplete'));
+      items.push(...data.items);
+      page += 1;
+    } while (items.length < total);
+    permissionCatalog.value = items;
   };
 
   const handleAuth = async (record: RoleRecord) => {
@@ -472,17 +542,24 @@
     authLoading.value = true;
     try {
       const [{ data }] = await Promise.all([
-        getRoleDetail(record.id),
+        getRolePermissions(record.id),
         loadMenuTree(),
+        loadPermissionCatalog(),
       ]);
-      const menuIds = data.menu_keys;
+      const permissions = new Set(data.permission_keys);
+      const menuIds = [...menuNodeMap.value.values()]
+        .filter((node) => node.perms && permissions.has(node.perms))
+        .map((node) => node.menu_key);
       Object.assign(authForm, {
-        id: data.id,
-        name: data.name,
-        desc: data.desc,
-        sort: data.sort,
-        menu_keys: [...menuIds],
+        role_id: data.role_id,
+        expected_revision: data.revision,
+        permission_keys: [...data.permission_keys],
       });
+      authRoleKey.value = data.key;
+      extraPermissionKeys.value = data.permission_keys.filter(
+        (key) => !menuPermissionKeys.value.has(key)
+      );
+      permissionSearch.value = '';
       parentLinked.value = true;
       expandedKeys.value = [];
       normalizeLinkedState(menuIds);
@@ -602,12 +679,17 @@
     );
     authSubmitLoading.value = true;
     try {
-      await editRole({
-        id: authForm.id,
-        name: authForm.name,
-        desc: authForm.desc,
-        sort: authForm.sort,
-        menu_keys: menuIds,
+      await replaceRolePermissions({
+        role_id: authForm.role_id,
+        expected_revision: authForm.expected_revision,
+        permission_keys: [
+          ...new Set([
+            ...menuIds
+              .map((key) => menuNodeMap.value.get(key)?.perms)
+              .filter((key): key is string => Boolean(key)),
+            ...extraPermissionKeys.value,
+          ]),
+        ],
       });
       ElMessage.success(t('systemRole.tip.success'));
       authVisible.value = false;
@@ -638,10 +720,19 @@
   }
 
   .auth-tree {
-    height: 480px;
+    height: 240px;
     padding: 8px 12px;
     overflow: auto;
     border: 1px solid var(--color-neutral-3);
     border-radius: 4px;
+  }
+
+  .action-permissions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    max-height: 240px;
+    overflow: auto;
+    margin-top: 8px;
   }
 </style>

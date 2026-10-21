@@ -16,6 +16,8 @@
 
 部门/组织单元表达归属与分工，岗位表达职责，角色表达动作，范围绑定这份授权的对象。部门管理某资源不代表部门成员都能操作；岗位映射角色必须可追溯并定义变动/撤销，不能按名称判权。
 
+角色的菜单入口与领取、完成等操作权限共同由现有角色权限窗口配置。`GET /adminapi/role/permissions` 返回角色稳定 key、当前修订和完整权限键；`GET /adminapi/role/permissions/catalog` 分页返回当前租户可分配的权限名称、键及所属模块；`PUT /adminapi/role/permissions` 使用 `role_id`、`expected_revision`、`permission_keys` 原子替换。读取角色、读取目录和分配分别使用现有 `core.role.read`、`core.permission.read`、`core.role.permission.assign`，不以菜单可见性代替操作授权。窗口使用同一份权限快照回填菜单和操作，保存带上该快照修订；缺失修订返回 428、冲突返回 412，不能自动读取新修订后重试。内置 owner 权限仍禁止修改，平台、退役或模块不可用权限仍由 Identity 拒绝分配。
+
 例：张三“审核＋S1”“查看＋S2”，不能组合成“审核 S1/S2”。保留授权来源与范围；同动作允许按范围并集，同对象明确拒绝优先。临时/继承/撤销/缓存按统一授权机制，不留隐式权限。
 
 租户管理员通过 `GET /adminapi/role/data-policy/catalog` 分页查看当前已启用模块的资源操作；指定 `resource_key`、`operation` 时返回该操作允许的条件及目标类型。`GET /adminapi/role/data-policy` 使用 `role_id`、`resource_key`、`operation` 读取一份角色策略；`PUT` 同一路径提交这三个定位字段和 `policy`。读取与修改分别要求现有 `core.role.data-policy.read`、`core.role.data-policy.manage`，租户及操作者只来自当前真实会话。

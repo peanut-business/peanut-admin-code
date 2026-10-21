@@ -44,6 +44,19 @@ final readonly class RoleAdminService
         return $this->hydratePermissions($tenantId, [$row])[0];
     }
 
+    /** @return array{items: list<array<string, mixed>>, total: int} */
+    public function permissionCatalog(int $tenantId, \PeanutAdmin\Kernel\Authorization\Application\PageRequest $page, string $search = ''): array
+    {
+        $query = $this->assignablePermissionQuery($tenantId);
+        if ($search !== '') {
+            $query->whereLike('key|name', '%' . $search . '%');
+        }
+        $total = (int) (clone $query)->count();
+        $items = $query->field('key,name,module_key')->order('module_key,key')
+            ->limit($page->offset(), $page->pageSize)->select()->toArray();
+        return ['items' => array_values($items), 'total' => $total];
+    }
+
     /** @return array<string, mixed> */
     public function create(TenantContext $actor, string $key, string $name, ?string $description): array
     {
@@ -236,6 +249,15 @@ final readonly class RoleAdminService
         if ($permissionKeys === []) {
             return [];
         }
+        /** @var list<array{id: int, key: string}> $permissions */
+        $permissions = $this->assignablePermissionQuery($tenantId)->whereIn('key', $permissionKeys)
+            ->field('id,key')->order('key')->select()->toArray();
+
+        return $permissions;
+    }
+
+    private function assignablePermissionQuery(int $tenantId): \think\db\BaseQuery
+    {
         $modules = TenantModule::where('tenant_id', $tenantId)->where('status', 'enabled')
             ->where(function ($query): void {
                 $query->whereNull('effective_at')->whereOr('effective_at', '<=', new Raw('UTC_TIMESTAMP(3)'));
@@ -243,13 +265,9 @@ final readonly class RoleAdminService
                 $query->whereNull('expires_at')->whereOr('expires_at', '>', new Raw('UTC_TIMESTAMP(3)'));
             })->column('module_key');
 
-        /** @var list<array{id: int, key: string}> $permissions */
-        $permissions = Permission::whereIn('key', $permissionKeys)->where('status', 'active')
+        return Permission::where('status', 'active')
             // Application permissions are shipped by the host, not tenant-enabled Modules.
-            ->whereNotLike('key', 'platform.%')->whereIn('module_key', array_values(array_unique(['core', 'peanut.admin', ...$modules])))
-            ->field('id,key')->order('key')->select()->toArray();
-
-        return $permissions;
+            ->whereNotLike('key', 'platform.%')->whereIn('module_key', array_values(array_unique(['core', 'peanut.admin', ...$modules])));
     }
 
     /** @param list<array<string, mixed>> $rows

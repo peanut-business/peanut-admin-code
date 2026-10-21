@@ -1,4 +1,11 @@
 export default {
+  'systemRole.auth.menuPermissions': 'Menu permissions',
+  'systemRole.auth.actionPermissions': 'Action permissions',
+  'systemRole.auth.searchActions': 'Search action permissions',
+  'systemRole.auth.unavailable':
+    'Currently unavailable; review before removing',
+  'systemRole.auth.catalogIncomplete':
+    'The permission catalog did not load completely. Reopen the dialog.',
   'menu.system.role': 'Role',
 
   'systemRole.operation.create': 'New Role',
