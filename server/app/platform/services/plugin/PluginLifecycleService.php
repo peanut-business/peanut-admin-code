@@ -625,8 +625,12 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                         }
                         $stageLedger = $this->stageLedgerReader($pdo, $connection, $plugin, $manifest, $files, $adoptions,
                             $moduleKey, $migrationKey, $checksum, $batch, $now, $stageAdmission);
-                        $stageBefore = $stageContract[1]::before($pdo, ['module_key' => $moduleKey,
-                            'migration_key' => $migrationKey, 'checksum' => $checksum, 'stageLedger' => $stageLedger]);
+                        $stage = ['module_key' => $moduleKey, 'migration_key' => $migrationKey,
+                            'checksum' => $checksum, 'stageLedger' => $stageLedger];
+                        $stageBefore = $migrationKey === 'peanut.artifact-revision:20260921-register-module-schema'
+                            ? self::withMigrationParentFacts($pdo, $migrationKey, $checksum, 'before',
+                                static fn(array $facts): array => $stageContract[1]::before($pdo, $stage, $facts))
+                            : $stageContract[1]::before($pdo, $stage);
                         self::assertStageProofIdentity($pdo, $moduleKey, $migrationKey, $checksum, $stageBefore, false);
                         if ($stageBefore['stageLedger'] !== $stageLedger) {
                             throw new PluginLifecycleException('MODULE_MIGRATION_STAGE_CHANGED', 'The original live stage reader must be retained.');
@@ -698,7 +702,10 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                                 if (!is_array($stageBefore) || $executionBounds !== null) {
                                     throw new PluginLifecycleException('MODULE_MIGRATION_PRESERVATION_REQUIRED', 'The original DDL stage requires its private facts and no time allowance.');
                                 }
-                                $observed = $stageContract[1]::after($pdo, $stageBefore);
+                                $observed = $migrationKey === 'peanut.artifact-revision:20260921-register-module-schema'
+                                    ? self::withMigrationParentFacts($pdo, $migrationKey, $checksum, 'after',
+                                        static fn(array $facts): array => $stageContract[1]::after($pdo, $stageBefore, $facts))
+                                    : $stageContract[1]::after($pdo, $stageBefore);
                                 self::assertStageProofIdentity($pdo, $moduleKey, $migrationKey, $checksum, $observed, true);
                                 app()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->recordStage($pdo, $migrationKey, $checksum, $stageContract[1], $observed);
                                 $stageBefore = null;
@@ -1307,12 +1314,14 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     {
         $frame =& self::migrationParentFrame();
         if ($frame !== null || !in_array($phase, ['before', 'after'], true)
-            || (self::MEMBER_STAGES[$key] ?? self::IMPORT_EXPORT_STAGES[$key] ?? null) !== $sha) {
-            throw new PluginLifecycleException('MODULE_MIGRATION_PARENT_FACTS_INVALID', 'Only the two fixed native parent profiles are admitted.');
+            || (self::MEMBER_STAGES[$key] ?? self::IMPORT_EXPORT_STAGES[$key]
+                ?? ($key === 'peanut.artifact-revision:20260921-register-module-schema' ? self::PRESERVATION_STAGES[$key][0] : null)) !== $sha) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_PARENT_FACTS_INVALID', 'Only the fixed native parent profiles are admitted.');
         }
         $relative = match ($key) {
             'official.member:20260921-create-member-session' => 'app/modules/official/member/database/migrations/20260921-create-member-session.sql',
             'official.import-export:20260921-adopt-import-export-schema' => 'app/modules/official/import_export/database/migrations/20260921-adopt-import-export-schema.sql',
+            'peanut.artifact-revision:20260921-register-module-schema' => 'app/modules/peanut/artifact_revision/database/migrations/20260921-register-module-schema.sql',
         };
         $root = realpath(root_path());
         $binding = ['pdo' => $pdo, 'connection' => Db::connect(),
@@ -1322,11 +1331,16 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             'admission' => self::adoptionAdmission($pdo)];
         self::assertMigrationParentBinding($binding);
         // Each phase performs its own observation on the held native PDO, including after the whole SQL.
-        $facts = isset(self::MEMBER_STAGES[$key])
-            ? ['tenant_name' => 'pa_tenant', 'tenant' => self::memberTenantParent($pdo)]
-            : ['names' => ['tenant' => 'pa_tenant', 'tenant_member' => 'pa_tenant_member'],
+        $facts = match (true) {
+            isset(self::MEMBER_STAGES[$key]) => ['tenant_name' => 'pa_tenant', 'tenant' => self::memberTenantParent($pdo)],
+            $key === 'peanut.artifact-revision:20260921-register-module-schema' => ['parents' => [
+                'tenant' => \app\common\services\upgrade\MySqlMetadataObservation::tableSchema($pdo, 'pa_tenant'),
+                'tenant_member' => \app\common\services\upgrade\MySqlMetadataObservation::tableSchema($pdo, 'pa_tenant_member'),
+            ]],
+            default => ['names' => ['tenant' => 'pa_tenant', 'tenant_member' => 'pa_tenant_member'],
                 'parents' => ['pa_tenant' => self::importExportParentTable($pdo, 'pa_tenant'),
-                    'pa_tenant_member' => self::importExportParentTable($pdo, 'pa_tenant_member')]];
+                    'pa_tenant_member' => self::importExportParentTable($pdo, 'pa_tenant_member')]],
+        };
         self::assertMigrationParentBinding($binding);
         $input = ['token' => new \stdClass(), 'facts' => $facts];
         $frame = ['binding' => $binding, 'input' => $input];

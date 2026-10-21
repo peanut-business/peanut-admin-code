@@ -2470,7 +2470,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "408d85a7e9580af3d3ca2d610d8917e4282a70df2d152ba5b376897b2ea9e45b"
+            "source_sha256": "cade0467cfdf46bc2f17da830062c99fb1c75558b05971fd6e7be191f6395a8b"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2775,7 +2775,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b05938e0408e364f70c114ccf8f79e70cf99c4cde39bf24a34d44fe3994f6a76"
+            "source_sha256": "4099b794e695170fef93329ab4975fe95fbd2982205952bf48c0340d1b28a835"
         },
         {
             "path": "plugins/peanut.entitlement-quota/plugin.json",
@@ -23702,7 +23702,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "539dc24a1de47b277afa39958c07c937c34bd71176c2480575ebde286498ea5a"
+            "source_sha256": "628c1015f15fef0a0530c865379d435593d8db6b5c8fd81fa33530637d6e7252"
         },
         {
             "path": "server/app/modules/peanut/artifact_revision/src/Database/Schema.php",
@@ -25956,7 +25956,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "07b5dc87ce59620ae902b9b3ab87ab8555d02c93ace46a7eccb134a84eb3e8b1"
+            "source_sha256": "feec54203ee4238a51a7b08893ec65cb34c6bc2c5c43bd9f2be1e2b15cc43c9f"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",
