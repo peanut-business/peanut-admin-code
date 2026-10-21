@@ -33,7 +33,7 @@ trait PluginCommandSupport
 
     private function configureSourceDevelopmentOptions(): void
     {
-        foreach (['scope', 'owner', 'thread', 'session', 'gate', 'backup-tool', 'backup-output', 'metadata-tool', 'source-plan', 'maintenance', 'recovery', 'verify-receipt'] as $name) {
+        foreach (['scope', 'owner', 'thread', 'session', 'gate', 'backup-tool', 'backup-output', 'metadata-tool', 'source-plan', 'maintenance', 'recovery', 'verify-receipt', 'snapshot-operation', 'restore-operation'] as $name) {
             $this->addOption($name, null, \think\console\input\Option::VALUE_REQUIRED, 'Native source-development plan ' . $name, '');
         }
     }
@@ -48,6 +48,32 @@ trait PluginCommandSupport
             $dryRun = (bool) $input->getOption('dry-run');
             $actor = [];
             foreach (['owner', 'thread', 'session', 'gate'] as $name) { $actor[$name] = $input->getOption($name); }
+            $snapshot = (string) $input->getOption('snapshot-operation');
+            $restore = (string) $input->getOption('restore-operation');
+            if ($snapshot !== '' || $restore !== '') {
+                if ($operation !== 'install' || $key !== 'official.identity' || ($snapshot !== '' && $restore !== '')
+                    || ($snapshot !== '' ? !$dryRun : $dryRun)
+                    || ($snapshot !== '' ? $input->getOption('maintenance') !== '' : $input->getOption('maintenance') === '')
+                    || $input->getOption('backup-tool') === '' || $input->getOption('backup-output') === '' || $input->getOption('metadata-tool') === '') {
+                    throw new PluginLifecycleException('PLUGIN_SOURCE_ARGUMENTS_INVALID', 'Explicit Identity snapshot/restore arguments are required.');
+                }
+                foreach (['source-plan', 'recovery', 'verify-receipt'] as $name) {
+                    if ($input->getOption($name) !== '') { throw new PluginLifecycleException('PLUGIN_SOURCE_ARGUMENTS_INVALID', 'Recovery is separate from lifecycle apply/receipt verification.'); }
+                }
+                return $this->getApp()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->recoverIdentity(
+                    $actor, $snapshot !== '' ? $snapshot : $restore, $restore !== '',
+                    (string) $input->getOption('backup-tool'), (string) $input->getOption('backup-output'),
+                    (string) $input->getOption('metadata-tool'), (string) $input->getOption('maintenance'),
+                    function (\PDO $pdo, callable $held): array {
+                        // Resolve the native lifecycle only after the host's source/lease admission.
+                        $lifecycle = $this->pluginLifecycle();
+                        if (!$lifecycle instanceof \app\platform\services\plugin\PluginLifecycleService) {
+                            throw new PluginLifecycleException('PLUGIN_SOURCE_IDENTITY_RECOVERY_NATIVE_HOST_REQUIRED', 'The native lifecycle lock is required.');
+                        }
+                        return $lifecycle->withIdentityRecoveryLock($pdo, $held);
+                    },
+                );
+            }
             $receipt = (string) $input->getOption('verify-receipt');
             if ($receipt !== '') {
                 if (!$dryRun) { throw new PluginLifecycleException('PLUGIN_SOURCE_ARGUMENTS_INVALID', 'Receipt verification is read-only.'); }
@@ -80,7 +106,7 @@ trait PluginCommandSupport
 
     private function hasSourceDevelopmentOptions(\think\console\Input $input): bool
     {
-        foreach (['scope', 'owner', 'thread', 'session', 'gate', 'backup-tool', 'backup-output', 'metadata-tool', 'source-plan', 'maintenance', 'recovery', 'verify-receipt'] as $name) {
+        foreach (['scope', 'owner', 'thread', 'session', 'gate', 'backup-tool', 'backup-output', 'metadata-tool', 'source-plan', 'maintenance', 'recovery', 'verify-receipt', 'snapshot-operation', 'restore-operation'] as $name) {
             if ($input->getOption($name) !== '') { return true; }
         }
         return false;

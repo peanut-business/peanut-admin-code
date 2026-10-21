@@ -833,7 +833,15 @@ final class SourceApplicationBackup
     public static function capture(array $binding, array $baseline, string $baselineSha, array $scope, array $tool, string $directory, callable $recheck, string $purpose = 'application-schema'): array
     {
         $captureStarted = time();
-        if (!in_array($purpose, ['application-schema', 'application-failure', 'application-restoration', 'plugin-lifecycle', 'installation-partial'], true)) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SOURCE_UNSUPPORTED'); }
+        if (!in_array($purpose, ['application-schema', 'application-failure', 'application-restoration', 'plugin-lifecycle',
+            'identity-recovery-snapshot', 'identity-recovery-postimage', 'installation-partial'], true)) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SOURCE_UNSUPPORTED'); }
+        $identitySnapshot = $purpose === 'identity-recovery-snapshot';
+        $identityPostimage = $purpose === 'identity-recovery-postimage';
+        if (($identitySnapshot || $identityPostimage) && (($baseline['recovery_profile'] ?? null) !== 'identity-native-install-v1'
+            || !in_array($baseline['operation_status'] ?? null, ['failed', 'completed'], true)
+            || !is_array($baseline['operation_receipt'] ?? null) || !is_array($baseline['original_backup'] ?? null))) {
+            throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_RECOVERY_ORIGIN_REQUIRED');
+        }
         $failure = $purpose === 'application-failure';
         $restored = $purpose === 'application-restoration';
         if ($restored && (($baseline['restoration_postimage'] ?? null) !== true || !is_array($baseline['failure_snapshot'] ?? null))) {
@@ -973,7 +981,7 @@ final class SourceApplicationBackup
                 'The recorded tables are the original object set. Later module-created objects are not removed by replaying this dump; reconcile their actual ownership and separately authorize their exact recovery, never clear the schema.',
                 'An old pre-install empty dump is not this partial afterimage. No automatic restore or installation retry is performed.'];
         }
-        if ($purpose === 'plugin-lifecycle') {
+        if ($purpose === 'plugin-lifecycle' || $identitySnapshot || $identityPostimage) {
             $restore['absent_original_tables'] = $scope['absent_original_tables'];
             $restore['requirements'][] = 'Restore admission must separately cover removal of only the recorded originally absent tables created by this exact operation; the payload cannot recreate absence and no DROP is executed here.';
             $restore['requirements'][] = 'Shared catalog restoration excludes all affected writers, including other tenants/tasks. Preserve audit/failure/unknown evidence before any authorized ledger/audit rollback; never erase it as routine cleanup.';
@@ -988,6 +996,10 @@ final class SourceApplicationBackup
             $restore['purpose'] = 'Failed afterimage preservation only; not a pre-migration backup or apply admission.';
         }
         if ($restored) { $restore['protocol'] = 'peanut.source-application-restoration-restore-instructions.v1'; }
+        if ($identitySnapshot || $identityPostimage) {
+            $restore['purpose'] = $identitySnapshot ? 'Preserve this actual operation afterimage; never a pre-operation backup or apply admission.'
+                : 'Restoration postimage only; completion requires the original present-table bytes and every original absence.';
+        }
         self::write($directory . '/RESTORE.json', $restore);
         $receipts = [];
         foreach (['probe-before' => 'probe-before.txt', 'dump' => 'database.sql', 'probe-after' => 'probe-after.txt'] as $phase => $file) {
@@ -1004,6 +1016,10 @@ final class SourceApplicationBackup
         $record['capture_started_at'] = $captureStarted;
         if ($failure) { $record['protocol'] = 'peanut.source-application-failure-snapshot.v1'; $record['failure'] = $baseline; }
         if ($restored) { $record['protocol'] = 'peanut.source-application-restoration-snapshot.v1'; $record['restoration'] = $baseline; }
+        if ($identitySnapshot || $identityPostimage) {
+            $record['protocol'] = $identitySnapshot ? 'peanut.source-identity-operation-snapshot.v1' : 'peanut.source-identity-operation-postimage.v1';
+            $record['identity_operation'] = $baseline;
+        }
         if ($partial) { $record['protocol'] = 'peanut.installation-partial-backup.v1'; $record['installation_originals'] = $originalFiles; }
         if ($receiptBackup !== null) { $record['notification_forward_receipt'] = $receiptBackup; }
         self::write($directory . '/backup.json', $record);
@@ -1019,6 +1035,7 @@ final class SourceApplicationBackup
         $recovery['capture_started_at'] = $captureStarted;
         if ($failure) { $recovery['protocol'] = 'peanut.source-application-failure-reference.v1'; }
         if ($restored) { $recovery['protocol'] = 'peanut.source-application-restoration-reference.v1'; }
+        if ($identitySnapshot || $identityPostimage) { $recovery['protocol'] = 'peanut.source-identity-recovery-reference.v1'; }
         if ($partial) { $recovery['protocol'] = 'peanut.installation-partial-recovery.v1'; }
         $recovery['pending'] = $baseline['pending'];
         $recovery['selected'] = $record['selected'];
@@ -1110,6 +1127,63 @@ final class SourceApplicationBackup
             'terminal' => ['path' => $directory . '/restore.stdout.process.json', 'sha256' => hash_file('sha256', $directory . '/restore.stdout.process.json')]];
     }
 
+    /** Explicit fixed Identity inverse through the same native protected-stdin executor. */
+    public static function restoreIdentityOperation(PDO $pdo, array $binding, array $tool, string $originalManifest, string $capsuleManifest,
+        string $directory, int $windowExpires, callable $guard): array
+    {
+        $host = app()->make(PluginSourceDevelopmentHost::class);
+        $host->requireIdentityRecovery($pdo, 'official.identity');
+        $guard(); $serverRoot = $binding['source']['root'] . '/server';
+        $originalBytes = self::protectedPluginBytes($originalManifest, $serverRoot);
+        $capsuleBytes = self::protectedPluginBytes($capsuleManifest, $serverRoot);
+        $original = json_decode($originalBytes, true, 64, JSON_THROW_ON_ERROR);
+        $capsule = json_decode($capsuleBytes, true, 64, JSON_THROW_ON_ERROR);
+        $guard();
+        $contract = $tool['source_schema_backup'] ?? [];
+        if (($original['protocol'] ?? null) !== 'peanut.source-plugin-backup.v1'
+            || ($capsule['protocol'] ?? null) !== 'peanut.source-identity-operation-snapshot.v1'
+            || ($capsule['identity_operation']['recovery_profile'] ?? null) !== 'identity-native-install-v1'
+            || ($capsule['identity_operation']['original_backup'] ?? null) !== ['path' => $originalManifest, 'sha256' => hash('sha256', $originalBytes)]
+            || ($original['binding']['database'] ?? null) !== $binding['database'] || ($capsule['binding']['database'] ?? null) !== $binding['database']
+            || ($contract['database_resource_id'] ?? null) !== $binding['resource_id'] || ($contract['database'] ?? null) !== $binding['database']['database']
+            || ($tool['transport'] ?? null) !== 'ssh-docker-exec'
+            || array_diff($capsule['scope']['tables'] ?? [], $contract['tables'] ?? []) !== []) {
+            throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_RECOVERY_ORIGIN_REQUIRED');
+        }
+        $read = static function (array $record) use ($serverRoot): array {
+            $payload = $record['backup_payload'] ?? [];
+            $bytes = self::protectedPluginBytes($payload['path'] ?? '', $serverRoot, null);
+            if (!is_string($bytes) || hash('sha256', $bytes) !== ($payload['sha256'] ?? null) || strlen($bytes) !== ($payload['bytes'] ?? null)) {
+                throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_RECOVERY_PAYLOAD_CHANGED');
+            }
+            return SourceApplicationDump::read($bytes, $record['scope']['tables']);
+        };
+        $old = $read($original); $now = $read($capsule);
+        $derived = SourceApplicationDump::restoreIdentity($old, $now);
+        $guard();
+        if (realpath(dirname($directory)) !== dirname($directory) || file_exists($directory) || is_link($directory)
+            || !mkdir($directory, 0700)) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_OUTPUT_UNSAFE'); }
+        $path = $directory . '/identity-inverse.sql'; self::writeBytes($path, $derived);
+        $reference = ['path' => $path, 'sha256' => hash('sha256', $derived), 'bytes' => strlen($derived)];
+        self::write($directory . '/derivation.json', ['protocol' => 'peanut.source-identity-inverse.v1',
+            'original_backup' => ['path' => $originalManifest, 'sha256' => hash('sha256', $originalBytes)],
+            'operation_capsule' => ['path' => $capsuleManifest, 'sha256' => hash('sha256', $capsuleBytes)],
+            'original_payload' => $original['backup_payload'], 'capsule_payload' => $capsule['backup_payload'], 'derived_payload' => $reference,
+            'constraint_checks' => 'enabled throughout; shared parents never dropped; generated values never written',
+            'atomicity' => 'DML transaction only; CREATE removal, ADD inverse and allocator DDL not atomic; interruption requires reconciliation',
+            'executed' => false]);
+        $seconds = $contract['timeout_seconds'] ?? null;
+        if (!is_int($seconds) || $seconds < 30 || $seconds > 600) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_LIFETIME_REQUIRED'); }
+        $recheck = static function () use ($host, $pdo, $guard): void { $host->requireIdentityRecovery($pdo, 'official.identity'); $guard(); };
+        self::remote($tool, self::clientShell($tool, 'mysql_command', $seconds,
+            ['--no-defaults', '--no-login-paths', '--skip-reconnect', '--binary-mode', '--default-character-set=utf8mb4', '-uroot', '--database=' . $binding['database']['database']]),
+            $directory . '/restore.stdout', $directory . '/restore.stderr', 'restore-identity-operation', $seconds,
+            min($windowExpires, (int) $binding['authority']['expires_at']), $recheck, null, $reference, $recheck);
+        return ['payload' => $reference,
+            'derivation' => ['path' => $directory . '/derivation.json', 'sha256' => hash_file('sha256', $directory . '/derivation.json')],
+            'terminal' => ['path' => $directory . '/restore.stdout.process.json', 'sha256' => hash_file('sha256', $directory . '/restore.stdout.process.json')]];
+    }
+
     public static function partialInstallationBackup(string $path, string $serverRoot, array $binding, array $baseline, ?array $expectedScope = null): array
     {
         $directory = realpath(dirname($path));
@@ -1168,10 +1242,31 @@ final class SourceApplicationBackup
     /** Reads a protected local source document; its contents alone never authorize mutation. */
     public static function protectedPluginJson(string $path, string $serverRoot): array
     {
-        self::pluginFile($path, $serverRoot);
-        $value = json_decode((string) file_get_contents($path), true, 64, JSON_THROW_ON_ERROR);
+        $value = json_decode(self::protectedPluginBytes($path, $serverRoot), true, 64, JSON_THROW_ON_ERROR);
         if (!is_array($value) || array_is_list($value)) { throw new RuntimeException('PLUGIN_SOURCE_DOCUMENT_INVALID'); }
         return $value;
+    }
+
+    /** One protected read binds validation, parsing and digest to the same bytes. */
+    public static function protectedPluginBytes(string $path, string $serverRoot, ?int $maximum = 4194304): string
+    {
+        $stat = self::pluginFile($path, $serverRoot, $maximum);
+        $stream = fopen($path, 'rb');
+        if (!is_resource($stream)) { throw new RuntimeException('PLUGIN_SOURCE_DOCUMENT_UNSAFE'); }
+        try {
+            $opened = fstat($stream); $bytes = stream_get_contents($stream); $after = fstat($stream);
+            clearstatcache(true, $path); $physical = lstat($path);
+            $fields = array_flip(['dev', 'ino', 'mode', 'nlink', 'uid', 'gid', 'size', 'mtime', 'ctime']);
+            foreach ([$opened, $after, $physical] as $actual) {
+                if (!is_array($actual) || array_intersect_key($stat, $fields) !== array_intersect_key($actual, $fields)) {
+                    throw new RuntimeException('PLUGIN_SOURCE_DOCUMENT_CHANGED');
+                }
+            }
+            if (is_link($path) || realpath($path) !== $path || !is_string($bytes) || strlen($bytes) !== $stat['size']) {
+                throw new RuntimeException('PLUGIN_SOURCE_DOCUMENT_CHANGED');
+            }
+            return $bytes;
+        } finally { fclose($stream); }
     }
 
     /** Only this canonical public program identity may be a 0644 partial original. Payloads stay 0600. */
@@ -1205,13 +1300,14 @@ final class SourceApplicationBackup
             'device' => $stat['dev'], 'inode' => $stat['ino'], 'uid' => $stat['uid'], 'gid' => $stat['gid'], 'bytes' => $stat['size']], $bytes];
     }
 
-    private static function pluginFile(string $path, string $serverRoot, ?int $maximum = 4194304): void
+    private static function pluginFile(string $path, string $serverRoot, ?int $maximum = 4194304): array
     {
         $stat = @lstat($path); $owner = fileowner(rtrim($serverRoot, DIRECTORY_SEPARATOR));
         if (realpath($path) !== $path || !is_file($path) || is_link($path) || !is_array($stat)
             || $stat['nlink'] !== 1 || ($stat['mode'] & 0777) !== 0600 || !in_array($stat['uid'], [0, $owner], true)
             || !function_exists('posix_geteuid') || !in_array(posix_geteuid(), [0, $owner], true)
             || ($maximum !== null && $stat['size'] > $maximum)) { throw new RuntimeException('PLUGIN_SOURCE_DOCUMENT_UNSAFE'); }
+        return $stat;
     }
 
     /** Actual native capture and current exclusion references, never a restore or SQL authorization. */

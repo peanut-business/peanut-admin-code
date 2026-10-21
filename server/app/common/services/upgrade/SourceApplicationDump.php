@@ -36,6 +36,14 @@ final class SourceApplicationDump
         '/*!50503 SET character_set_client = utf8mb4 */;',
     ];
     private const TABLE_SUFFIX = '/*!40101 SET character_set_client = @saved_cs_client */;';
+    // Parent-first catalog order; inverse deletes only new rows in reverse.
+    private const IDENTITY_CATALOGS = ['pa_permission', 'pa_target_type', 'pa_data_condition_definition',
+        'pa_protected_resource', 'pa_resource_operation', 'pa_resource_operation_target_type',
+        'pa_resource_operation_permission', 'pa_resource_operation_condition', 'pa_menu_definition',
+        'pa_setting_definition', 'pa_reference_code_set'];
+    private const IDENTITY_STATE = ['pa_module_migration', 'pa_module_installation', 'pa_plugin_module', 'pa_plugin_installation'];
+    private const IDENTITY_CREATED = ['pa_source_read_grant', 'pa_data_permission_target', 'pa_data_permission_condition',
+        'pa_data_permission_target_set', 'pa_data_permission_group', 'pa_data_permission_policy'];
 
     /** All expected tables must occur exactly once and in native dump order. Data stays private. */
     public static function read(string $bytes, array $tables): array
@@ -59,7 +67,7 @@ final class SourceApplicationDump
             $rows = 0;
             while (isset($statements[$position]) && str_starts_with(trim($statements[$position]['bytes']), 'INSERT ')) {
                 $insert = $statements[$position++];
-                self::insert($insert, $table); $block .= $insert['bytes']; ++$rows;
+                self::insert($insert, $table, self::insertColumns(trim($create['bytes']), $table)); $block .= $insert['bytes']; ++$rows;
             }
             $blocks[$table] = ['bytes' => $block, 'sha256' => hash('sha256', $block), 'insert_rows' => $rows,
                 'source_offset' => $sourceOffset, 'source_bytes' => strlen($block)];
@@ -159,7 +167,118 @@ final class SourceApplicationDump
         return $sql . "SET SQL_MODE=@restore_sql_mode;\nSET TIME_ZONE=@restore_time_zone;\n";
     }
 
-    /** Strict native row literals for only the four referenced application tables. Never executes SQL. */
+    /**
+     * Fixed Identity inverse derivation, never an executor. The host must prove
+     * the real lifecycle/capsule, owned CREATEs, current FK closure and stopped
+     * writers. No shared table or original parent identity is dropped/replaced.
+     */
+    public static function restoreIdentity(array $original, array $current): string
+    {
+        $catalogs = [...self::IDENTITY_CATALOGS, ...self::IDENTITY_STATE];
+        $parents = ['pa_department', 'pa_tenant_audit_event'];
+        $allowed = [...$catalogs, ...$parents, ...self::IDENTITY_CREATED];
+        $oldTables = array_keys($original['tables']); $nowTables = array_keys($current['tables']);
+        if (array_diff($oldTables, $allowed) !== [] || array_diff($nowTables, $allowed) !== []
+            || array_intersect($oldTables, self::IDENTITY_CREATED) !== []
+            || array_diff(array_diff([...$catalogs, ...$parents], ['pa_reference_code_set']), $oldTables) !== []
+            || array_diff($oldTables, $nowTables) !== []
+            || array_diff($nowTables, $oldTables, self::IDENTITY_CREATED) !== []) { self::fail(); }
+        $ddl = ''; $updates = []; $deletes = []; $allocators = ''; $missingBindings = '';
+        foreach (self::IDENTITY_CREATED as $table) {
+            if (!isset($current['tables'][$table])) { continue; }
+            $image = self::parentImage($current['tables'][$table]['bytes'], $table);
+            if ($image['rows'] !== [] || !in_array($image['allocator'], [null, '1'], true)) { self::fail(); }
+            $ddl .= 'DROP TABLE `' . $table . "`;\n";
+        }
+        foreach ($oldTables as $table) {
+            $old = self::parentImage($original['tables'][$table]['bytes'], $table);
+            $now = self::parentImage($current['tables'][$table]['bytes'], $table);
+            if (in_array($table, $parents, true)) {
+                $ddl .= self::identityParentInverse($table, $old, $now);
+                continue;
+            }
+            if ($old['columns'] !== $now['columns'] || $old['shape'] !== $now['shape']) { self::fail(); }
+            if (array_diff_key($old['rows'], $now['rows']) !== [] && $table !== 'pa_resource_operation_permission') { self::fail(); }
+            // Unknown unique-key rewrites/swaps need reconciliation, not a broad DELETE/REPLACE.
+            $keys = ['id'];
+            preg_match_all('/^  UNIQUE KEY `[^`]+` \(([^\r\n]+)\),?$/m', $old['shape'], $matches);
+            foreach ($matches[1] as $index) {
+                preg_match_all('/`([a-z][a-z0-9_]*)`/', $index, $parts);
+                $keys = [...$keys, ...$parts[1]];
+            }
+            if ($table === 'pa_resource_operation_condition') { $keys[] = 'selector_resource_key'; }
+            foreach ($old['rows'] as $id => $row) {
+                if (!isset($now['rows'][$id])) {
+                    $missingBindings .= 'INSERT INTO `' . $table . '` (`' . implode('`,`', $old['columns']) . '`) VALUES (' . implode(',', $row) . ");\n";
+                    continue;
+                }
+                $set = [];
+                foreach ($row as $column => $literal) {
+                    if ($now['rows'][$id][$column] === $literal) { continue; }
+                    if (in_array($column, $keys, true) || $table === 'pa_module_migration'
+                        || (in_array($table, self::IDENTITY_STATE, true)
+                            && ($row['module_key'] ?? $row['plugin_key'] ?? null) !== "'official.identity'")) { self::fail(); }
+                    $set[] = '`' . $column . '`=' . $literal;
+                }
+                if ($set !== []) { $updates[$table][] = 'UPDATE `' . $table . '` SET ' . implode(',', $set) . ' WHERE `id`=' . $row['id'] . ";\n"; }
+            }
+            foreach (array_diff_key($now['rows'], $old['rows']) as $row) {
+                if (in_array($table, self::IDENTITY_STATE, true)
+                    && ($row['module_key'] ?? $row['plugin_key'] ?? null) !== "'official.identity'") { self::fail(); }
+                if ($table === 'pa_module_migration' && !in_array($row['migration_key'] ?? null,
+                    array_map(static fn(string $key): string => "'" . $key . "'", array_keys(\PeanutAdmin\Modules\Identity\Database\IdentitySchemaMigrationProof::recoveryStages())), true)) { self::fail(); }
+                $deletes[$table][] = 'DELETE FROM `' . $table . '` WHERE `id`=' . $row['id'] . ";\n";
+            }
+            if ($old['allocator'] !== $now['allocator']) {
+                if (!preg_match('/^  `id` [^\r\n]*AUTO_INCREMENT/m', $old['shape'])) { self::fail(); }
+                $allocators .= 'ALTER TABLE `' . $table . '` AUTO_INCREMENT=' . ($old['allocator'] ?? '1') . ";\n";
+            }
+        }
+        $sql = "SET FOREIGN_KEY_CHECKS=1;\nSET UNIQUE_CHECKS=1;\nSET NAMES utf8mb4;\nSET @restore_sql_mode=@@SQL_MODE;\nSET @restore_time_zone=@@TIME_ZONE;\nSET SQL_MODE='NO_AUTO_VALUE_ON_ZERO';\nSET TIME_ZONE='+00:00';\n" . $ddl . "START TRANSACTION;\n";
+        // Remove replacement relation IDs before restoring missing original IDs.
+        foreach (['pa_resource_operation_condition', 'pa_resource_operation_permission', 'pa_resource_operation_target_type'] as $table) {
+            $sql .= implode('', $deletes[$table] ?? []); unset($deletes[$table]);
+        }
+        foreach (self::IDENTITY_CATALOGS as $table) { $sql .= implode('', $updates[$table] ?? []); }
+        $sql .= $missingBindings;
+        foreach (array_reverse(self::IDENTITY_CATALOGS) as $table) { $sql .= implode('', $deletes[$table] ?? []); }
+        // Installation and migration state follows business catalogs; plugin_module precedes its parent.
+        foreach (self::IDENTITY_STATE as $table) { $sql .= implode('', $updates[$table] ?? []) . implode('', $deletes[$table] ?? []); }
+        return $sql . "COMMIT;\n" . $allocators . "SET SQL_MODE=@restore_sql_mode;\nSET TIME_ZONE=@restore_time_zone;\n";
+    }
+
+    private static function identityParentInverse(string $table, array $old, array $now): string
+    {
+        $fields = $table === 'pa_department'
+            ? ['leader' => "''", 'mobile' => "''", 'leader_member_id' => 'NULL']
+            : ['revocation_fact_key' => 'NULL', 'revocation_fact_sha256' => 'NULL'];
+        $indexes = $table === 'pa_department' ? ['idx_department_leader_member'] : ['uk_identity_revocation_fact', 'idx_identity_revocation_scan'];
+        $added = array_values(array_diff($now['columns'], $old['columns']));
+        if (array_diff($old['columns'], $now['columns']) !== [] || array_diff($added, array_keys($fields)) !== []
+            || array_keys($old['rows']) !== array_keys($now['rows']) || $old['allocator'] !== $now['allocator']) { self::fail(); }
+        foreach ($old['rows'] as $id => $row) {
+            foreach ($row as $name => $literal) { if ($now['rows'][$id][$name] !== $literal) { self::fail(); } }
+            foreach ($added as $name) { if ($now['rows'][$id][$name] !== $fields[$name]) { self::fail(); } }
+        }
+        $shape = $now['shape']; $operations = [];
+        foreach ($indexes as $index) {
+            $pattern = '/^  (?:UNIQUE )?KEY `' . $index . '` \([^\r\n]+\),?\n/m';
+            if (preg_match($pattern, $old['shape']) === 1) { continue; }
+            $shape = preg_replace($pattern, '', $shape, -1, $count);
+            if ($count > 1) { self::fail(); }
+            if ($count === 1) { $operations[] = 'DROP INDEX `' . $index . '`'; }
+        }
+        foreach (array_reverse($added) as $name) {
+            $shape = preg_replace('/^  `' . $name . '` [^\r\n]+\n/m', '', $shape, -1, $count);
+            if ($count !== 1) { self::fail(); }
+            $operations[] = 'DROP COLUMN `' . $name . '`';
+        }
+        $normalize = static fn(string $value): string => str_replace(",\n) ENGINE=", "\n) ENGINE=", $value);
+        if ($normalize($shape) !== $normalize($old['shape'])) { self::fail(); }
+        return $operations === [] ? '' : 'ALTER TABLE `' . $table . '` ' . implode(', ', $operations) . ";\n";
+    }
+
+    /** Strict original-id row literals shared by the fixed application and Identity consumers. */
     private static function parentImage(string $block, string $table): array
     {
         [$statements] = self::statements($block); $create = null; $rows = [];
@@ -169,19 +288,16 @@ final class SourceApplicationDump
         }
         if (!is_string($create) || !str_contains($create, "\n  PRIMARY KEY (`id`)")
             || preg_match_all('/^  `([a-z][a-z0-9_]*)` [^\r\n]+$/m', $create, $matches) === false) { self::fail(); }
-        $columns = $matches[1];
+        $columns = self::insertColumns($create, $table) ?? $matches[1];
         if ($columns === [] || count(array_unique($columns)) !== count($columns) || $columns[0] !== 'id') { self::fail(); }
-        $literal = "(?:NULL|[-+]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][-+]?[0-9]+)?|0x[0-9A-Fa-f]*|(?:_binary\\s*)?'(?:[^'\\\\]|\\\\.|'')*')";
         foreach ($statements as $statement) {
             $text = trim($statement['bytes']);
             if (!str_starts_with($text, 'INSERT ')) { continue; }
-            self::insert($statement, $table);
-            $values = substr($text, strlen('INSERT INTO `' . $table . '` VALUES ('), -2);
-            preg_match_all('~' . $literal . '~s', $values, $matches);
-            if (count($matches[0]) !== count($columns) || preg_match('/\A[1-9][0-9]*\z/D', $matches[0][0]) !== 1) { self::fail(); }
-            $id = $matches[0][0];
+            $values = self::insert($statement, $table, self::insertColumns($create, $table));
+            if (count($values) !== count($columns) || preg_match('/\A[1-9][0-9]*\z/D', $values[0]) !== 1) { self::fail(); }
+            $id = $values[0];
             if (isset($rows[$id])) { self::fail(); }
-            $rows[$id] = array_combine($columns, $matches[0]);
+            $rows[$id] = array_combine($columns, $values);
         }
         $allocator = preg_match('/\) ENGINE=InnoDB AUTO_INCREMENT=([1-9][0-9]*) /', $create, $match) === 1 ? $match[1] : null;
         return ['columns' => $columns, 'rows' => $rows, 'allocator' => $allocator,
@@ -196,13 +312,31 @@ final class SourceApplicationDump
     }
 
     /** --skip-extended-insert emits one tuple containing only native scalar literals. */
-    private static function insert(array $statement, string $table): void
+    private static function insert(array $statement, string $table, ?array $columns = null): array
     {
-        $text = trim($statement['bytes']); $prefix = 'INSERT INTO `' . $table . '` VALUES (';
+        $text = trim($statement['bytes']);
+        $prefix = 'INSERT INTO `' . $table . '`' . ($columns === null ? '' : ' (`' . implode('`, `', $columns) . '`)') . ' VALUES (';
         if ($statement['comments'] !== 0 || !str_starts_with($text, $prefix) || !str_ends_with($text, ');')) { self::fail(); }
         $literal = "(?:NULL|[-+]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][-+]?[0-9]+)?|0x[0-9A-Fa-f]*|(?:_binary\\s*)?'(?:[^'\\\\]|\\\\.|'')*')";
         $values = substr($text, strlen($prefix), -2);
         if (preg_match('~\\A' . $literal . '(?:,' . $literal . ')*\\z~Ds', $values) !== 1) { self::fail(); }
+        preg_match_all('~\\G(' . $literal . ')(?:,|\\z)~s', $values, $matches);
+        if (implode(',', $matches[1]) !== $values || ($columns !== null && count($matches[1]) !== count($columns))) { self::fail(); }
+        return $matches[1];
+    }
+
+    /** MySQL 8.4 emits only named writable columns for this fixed generated table. */
+    private static function insertColumns(string $create, string $table): ?array
+    {
+        if ($table !== 'pa_resource_operation_condition') { return null; }
+        preg_match_all('/^  `([a-z][a-z0-9_]*)` ([^\r\n]+)$/m', $create, $matches, PREG_SET_ORDER);
+        $columns = []; $generated = [];
+        foreach ($matches as $match) {
+            if (str_contains($match[2], 'GENERATED ALWAYS')) { $generated[] = $match[1]; }
+            else { $columns[] = $match[1]; }
+        }
+        if ($generated !== ['selector_resource_key_norm'] || $columns === [] || $columns[0] !== 'id') { self::fail(); }
+        return $columns;
     }
 
     /** Semicolons inside quoted literals/identifiers/version comments cannot split a statement. */

@@ -2512,6 +2512,17 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         return 'pa:module-runtime:' . substr(hash('sha256', $pluginKey), 0, 40);
     }
 
+    /** Only the live source recovery host can enter this fixed package lock. */
+    public function withIdentityRecoveryLock(PDO $pdo, callable $operation): array
+    {
+        $host = app()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class);
+        $host->requireIdentityRecovery($pdo, 'official.identity', false);
+        return $this->withPackageLock('official.identity', static function () use ($host, $pdo, $operation): array {
+            $host->requireIdentityRecovery($pdo, 'official.identity');
+            return $operation();
+        });
+    }
+
     private function withPackageLock(string $pluginKey, callable $operation): array
     {
         try {

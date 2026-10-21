@@ -110,6 +110,95 @@ catch (RuntimeException $error) {
 }
 if (!$refused) { throw new RuntimeException('Session row mutation accepted.'); }
 echo "Application prefix derivation: stable parent identities, original literals/allocator, constrained session CHECK and unknown-change refusal; no SQL executed.\n";
+
+// Fixed Identity derivation: whole original catalogs, shared parent data and exact absence.
+$identityTables = [...$reflection->getConstant('IDENTITY_CATALOGS'), ...$reflection->getConstant('IDENTITY_STATE'), 'pa_department', 'pa_tenant_audit_event'];
+$identityTables = array_values(array_diff($identityTables, ['pa_reference_code_set']));
+$simpleColumns = "  `id` bigint unsigned NOT NULL AUTO_INCREMENT,\n  `module_key` varchar(96) NOT NULL,\n  `key` varchar(160) NOT NULL,\n  `payload` blob,\n";
+$oldIdentity = [];
+foreach ($identityTables as $name) { $oldIdentity[$name] = $parent($name, $simpleColumns, '', 1, '  UNIQUE KEY `unique_identity` (`key`)'); }
+$permissionOriginal = "INSERT INTO `pa_permission` VALUES (9,'legacy','stable',0x00FF);\n";
+$oldIdentity['pa_permission'] = $parent('pa_permission', $simpleColumns, $permissionOriginal, 10, '  UNIQUE KEY `unique_identity` (`key`)');
+$moduleLedgerColumns = str_replace("  `payload` blob,", "  `migration_key` varchar(160) NOT NULL,\n  `payload` blob,", $simpleColumns);
+$moduleLedgerOriginal = "INSERT INTO `pa_module_migration` VALUES (1,'other.module','old','other.module:original',NULL);\n";
+$oldIdentity['pa_module_migration'] = $parent('pa_module_migration', $moduleLedgerColumns, $moduleLedgerOriginal, 2);
+$bindingColumns = "  `id` bigint unsigned NOT NULL AUTO_INCREMENT,\n  `resource_operation_id` bigint unsigned NOT NULL,\n  `permission_id` bigint unsigned NOT NULL,\n";
+$oldIdentity['pa_resource_operation_permission'] = $parent('pa_resource_operation_permission', $bindingColumns, "INSERT INTO `pa_resource_operation_permission` VALUES (1,7,9);\n", 2);
+$conditionColumns = "  `id` bigint unsigned NOT NULL AUTO_INCREMENT,\n  `resource_operation_id` bigint unsigned NOT NULL,\n  `condition_definition_id` bigint unsigned NOT NULL,\n  `selector_resource_key` varchar(160) DEFAULT NULL,\n  `selector_resource_key_norm` varchar(160) GENERATED ALWAYS AS (coalesce(`selector_resource_key`,_utf8mb4'')) STORED,\n  `status` varchar(16) NOT NULL,\n";
+$oldIdentity['pa_resource_operation_condition'] = $parent('pa_resource_operation_condition', $conditionColumns, '', 1);
+$departmentColumns = "  `id` bigint unsigned NOT NULL AUTO_INCREMENT,\n  `tenant_id` bigint unsigned NOT NULL,\n  `name` varchar(160) NOT NULL,\n  `custom` blob,\n";
+$auditColumns = "  `id` bigint unsigned NOT NULL AUTO_INCREMENT,\n  `tenant_id` bigint unsigned NOT NULL,\n  `event_type` varchar(64) NOT NULL,\n  `payload` text,\n";
+$oldIdentity['pa_department'] = $parent('pa_department', $departmentColumns, "INSERT INTO `pa_department` VALUES (1,1,'original',0x00FF);\n", 2);
+$oldIdentity['pa_tenant_audit_event'] = $parent('pa_tenant_audit_event', $auditColumns, "INSERT INTO `pa_tenant_audit_event` VALUES (1,1,'old','keep');\n", 2);
+$parseIdentity = static function (array $blocks) use ($prefix, $suffix): array {
+    ksort($blocks, SORT_STRING);
+    return SourceApplicationDump::read($prefix . implode('', $blocks) . $suffix, array_keys($blocks));
+};
+$newIdentity = $oldIdentity;
+$moduleLedgerCurrent = $moduleLedgerOriginal . "INSERT INTO `pa_module_migration` VALUES (2,'official.identity','identity','official.identity:20260716020101_create_pa_data_permission_policy',NULL);\n";
+$newIdentity['pa_module_migration'] = $parent('pa_module_migration', $moduleLedgerColumns, $moduleLedgerCurrent, 3);
+$newIdentity['pa_permission'] = $parent('pa_permission', $simpleColumns,
+    "INSERT INTO `pa_permission` VALUES (9,'official.identity','stable',0x01FF);\nINSERT INTO `pa_permission` VALUES (11,'official.identity','new',NULL);\n", 12, '  UNIQUE KEY `unique_identity` (`key`)');
+$newIdentity['pa_resource_operation_permission'] = $parent('pa_resource_operation_permission', $bindingColumns, "INSERT INTO `pa_resource_operation_permission` VALUES (3,7,9);\n", 4);
+$namedCondition = 'INSERT INTO `pa_resource_operation_condition` (`id`, `resource_operation_id`, `condition_definition_id`, `selector_resource_key`, `status`) VALUES (2,7,3,NULL,\'active\');' . "\n";
+$newIdentity['pa_resource_operation_condition'] = $parent('pa_resource_operation_condition', $conditionColumns, $namedCondition, 3);
+$newDepartmentColumns = str_replace("  `custom`", "  `leader` varchar(50) NOT NULL DEFAULT '',\n  `leader_member_id` bigint unsigned DEFAULT NULL,\n  `mobile` varchar(20) NOT NULL DEFAULT '',\n  `custom`", $departmentColumns);
+$newIdentity['pa_department'] = $parent('pa_department', $newDepartmentColumns, "INSERT INTO `pa_department` VALUES (1,1,'original','',NULL,'',0x00FF);\n", 2, '  KEY `idx_department_leader_member` (`tenant_id`,`leader_member_id`)');
+$newAuditColumns = $auditColumns . "  `revocation_fact_key` varchar(64) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,\n  `revocation_fact_sha256` char(64) CHARACTER SET ascii COLLATE ascii_bin DEFAULT NULL,\n";
+$newIdentity['pa_tenant_audit_event'] = $parent('pa_tenant_audit_event', $newAuditColumns, "INSERT INTO `pa_tenant_audit_event` VALUES (1,1,'old','keep',NULL,NULL);\n", 2,
+    "  UNIQUE KEY `uk_identity_revocation_fact` (`revocation_fact_key`),\n  KEY `idx_identity_revocation_scan` (`tenant_id`,`event_type`,`id`)");
+foreach ($reflection->getConstant('IDENTITY_CREATED') as $name) { $newIdentity[$name] = $parent($name, $simpleColumns, '', 1); }
+foreach ($reflection->getConstant('IDENTITY_STATE') as $name) {
+    if ($name === 'pa_module_migration') { continue; }
+    $newIdentity[$name] = $parent($name, $simpleColumns, 'INSERT INTO `' . $name . "` VALUES (1,'official.identity','identity',NULL);\n", 2, '  UNIQUE KEY `unique_identity` (`key`)');
+}
+$identityOriginal = $parseIdentity($oldIdentity);
+$identityCurrent = $parseIdentity($newIdentity);
+$inverse = SourceApplicationDump::restoreIdentity($identityOriginal, $identityCurrent);
+foreach (["UPDATE `pa_permission` SET `module_key`='legacy',`payload`=0x00FF WHERE `id`=9;",
+    'DELETE FROM `pa_resource_operation_permission` WHERE `id`=3;',
+    'INSERT INTO `pa_resource_operation_permission` (`id`,`resource_operation_id`,`permission_id`) VALUES (1,7,9);',
+    'DELETE FROM `pa_module_migration` WHERE `id`=2;',
+    'ALTER TABLE `pa_department` DROP INDEX `idx_department_leader_member`, DROP COLUMN `mobile`, DROP COLUMN `leader_member_id`, DROP COLUMN `leader`;',
+    'ALTER TABLE `pa_tenant_audit_event` DROP INDEX `uk_identity_revocation_fact`, DROP INDEX `idx_identity_revocation_scan`, DROP COLUMN `revocation_fact_sha256`, DROP COLUMN `revocation_fact_key`;'] as $required) {
+    if (!str_contains($inverse, $required)) { throw new RuntimeException('Fixed Identity inverse lost: ' . $required); }
+}
+if (str_contains($inverse, 'FOREIGN_KEY_CHECKS=0') || str_contains($inverse, 'UNIQUE_CHECKS=0')
+    || str_contains($inverse, 'REPLACE ') || str_contains($inverse, 'selector_resource_key_norm')
+    || substr_count($inverse, 'DROP TABLE ') !== 6
+    || strpos($inverse, 'DROP TABLE `pa_data_permission_condition`') > strpos($inverse, 'DROP TABLE `pa_data_permission_target_set`')
+    || strpos($inverse, 'DELETE FROM `pa_plugin_module`') > strpos($inverse, 'DELETE FROM `pa_plugin_installation`')
+    || strpos($inverse, 'DELETE FROM `pa_resource_operation_permission`') > strpos($inverse, 'INSERT INTO `pa_resource_operation_permission`')) {
+    throw new RuntimeException('Identity inverse constraints, generated column or dependency order changed.');
+}
+$badIdentity = [];
+$bad = $newIdentity; $bad['pa_permission'] = $parent('pa_permission', $simpleColumns, '', 12, '  UNIQUE KEY `unique_identity` (`key`)'); $badIdentity[] = $bad;
+$bad = $newIdentity; $bad['pa_permission'] = str_replace("'stable'", "'changed'", $bad['pa_permission']); $badIdentity[] = $bad;
+$bad = $newIdentity; $bad['pa_plugin_module'] = str_replace("'official.identity'", "'other.module'", $bad['pa_plugin_module']); $badIdentity[] = $bad;
+$bad = $newIdentity; $bad['pa_source_read_grant'] = $parent('pa_source_read_grant', $simpleColumns, "INSERT INTO `pa_source_read_grant` VALUES (1,'official.identity','business',NULL);\n", 2); $badIdentity[] = $bad;
+$bad = $newIdentity; $bad['pa_source_read_grant'] = $parent('pa_source_read_grant', $simpleColumns, '', 2); $badIdentity[] = $bad;
+$bad = $newIdentity; $bad['pa_reference_code_set'] = $parent('pa_reference_code_set', $simpleColumns, '', 1); $badIdentity[] = $bad;
+$bad = $newIdentity; $bad['pa_department'] = str_replace('0x00FF', '0x01FF', $bad['pa_department']); $badIdentity[] = $bad;
+$bad = $newIdentity; $bad['pa_department'] = str_replace("'original',''", "'original','new'", $bad['pa_department']); $badIdentity[] = $bad;
+$bad = $newIdentity; $bad['pa_department'] = str_replace('AUTO_INCREMENT=2', 'AUTO_INCREMENT=3', $bad['pa_department']); $badIdentity[] = $bad;
+$bad = $newIdentity; $bad['pa_tenant_audit_event'] = str_replace("'keep'", "'changed'", $bad['pa_tenant_audit_event']); $badIdentity[] = $bad;
+$bad = $newIdentity; $bad['pa_target_type'] = str_replace('varchar(96)', 'varchar(97)', $bad['pa_target_type']); $badIdentity[] = $bad;
+$bad = $newIdentity; $bad['pa_module_migration'] = str_replace("'old'", "'changed'", $bad['pa_module_migration']); $badIdentity[] = $bad;
+$bad = $newIdentity; $bad['pa_module_migration'] = str_replace('official.identity:20260716020101_create_pa_data_permission_policy', 'official.identity:unknown', $bad['pa_module_migration']); $badIdentity[] = $bad;
+foreach ($badIdentity as $bad) {
+    try { SourceApplicationDump::restoreIdentity($identityOriginal, $parseIdentity($bad)); }
+    catch (RuntimeException $error) { if ($error->getMessage() === 'APPLICATION_SCHEMA_DUMP_FORMAT_UNSUPPORTED') { continue; } throw $error; }
+    throw new RuntimeException('Unknown Identity restoration accepted.');
+}
+foreach ([str_replace('`selector_resource_key`, `status`', '`selector_resource_key_norm`, `status`', $namedCondition),
+    str_replace('`condition_definition_id`, `selector_resource_key`', '`selector_resource_key`, `condition_definition_id`', $namedCondition),
+    str_replace('`status`) VALUES', '`status`, `status`) VALUES', $namedCondition)] as $invalidNamed) {
+    $bad = $newIdentity; $bad['pa_resource_operation_condition'] = $parent('pa_resource_operation_condition', $conditionColumns, $invalidNamed, 3);
+    try { $parseIdentity($bad); }
+    catch (RuntimeException $error) { if ($error->getMessage() === 'APPLICATION_SCHEMA_DUMP_FORMAT_UNSUPPORTED') { continue; } throw $error; }
+    throw new RuntimeException('Generated-column or reordered named INSERT accepted.');
+}
+echo "Identity inverse derivation: fixed scope/absence, shared PK/original hex literals, replacement binding IDs, generated-column exclusion, default-only parent ADD inverse and dependency order; 13 unsafe images/3 named-column mutations refused; MySQL/restore NOT_RUN.\n";
 if (in_array('--mysql', array_slice($argv, 1), true)) {
     require dirname(__DIR__) . '/Support/application-prefix-mysql.php';
 }

@@ -18,7 +18,17 @@ final class PluginSourceDevelopmentHost
 {
     private ?array $planning = null;
     private ?array $mutation = null;
+    private ?array $identityRecovery = null;
+    private array $identityRecoveryFiles = [];
     private string $sourceMetadataTool = '';
+    private const IDENTITY_EXTERNAL_REFERENCES = [
+        'pa_platform_role_permission' => ['permission_id' => ['pa_permission', 'id']],
+        'pa_role_permission' => ['permission_id' => ['pa_permission', 'id']],
+        'pa_tenant_member' => ['tenant_id' => ['pa_department', 'tenant_id'], 'primary_department_id' => ['pa_department', 'id']],
+        'pa_setting_deployment_value' => ['definition_id' => ['pa_setting_definition', 'id']],
+        'pa_setting_tenant_value' => ['definition_id' => ['pa_setting_definition', 'id']],
+        'pa_setting_target_value' => ['definition_id' => ['pa_setting_definition', 'id']],
+    ];
     private const CONTRACTS = [
         'official.identity' => \PeanutAdmin\Modules\Identity\Database\IdentitySchemaMigrationProof::class,
         'official.file' => \PeanutAdmin\Modules\File\Contract\FileMigrationPreservation::class,
@@ -41,7 +51,7 @@ final class PluginSourceDevelopmentHost
         if (($toolId === '') !== ($output === '')) { throw new RuntimeException('PLUGIN_SOURCE_BACKUP_ARGUMENTS_REQUIRED'); }
         $serverRoot = rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR);
         $context = $this->app->make(CurrentExecutionContext::class)->current();
-        if (!in_array($operation, ['install', 'upgrade'], true) || $pluginKey === '' || $this->planning !== null
+        if (!in_array($operation, ['install', 'upgrade'], true) || $pluginKey === '' || $this->planning !== null || $this->identityRecovery !== null
             || !$context instanceof InstanceExecutionContext || $context->operation() !== 'console.plugin:' . $operation
             || $context->instance->actorKey !== 'console' || PHP_SAPI !== 'cli'
             || $this->app->config->get('peanut.environment') !== 'development' || !$this->app->isDebug()
@@ -140,6 +150,14 @@ final class PluginSourceDevelopmentHost
                                 $evidence = fn(): array => SourceApplicationBackup::pluginRecovery($binding, $baseline, $scope,
                                     $execution['maintenance'], $execution['recovery'], $this->app->getRootPath());
                                 $proof = $evidence();
+                                if ($operation === 'install' && $pluginKey === 'official.identity'
+                                    && $effects['pending'] === array_keys(\PeanutAdmin\Modules\Identity\Database\IdentitySchemaMigrationProof::recoveryStages())) {
+                                    $recoveryPreflight = $this->identityRecoveryPreflight($pdo, $scope, $effects, $identity['database']);
+                                    if (($expected['identity_recovery_preflight'] ?? null) !== $recoveryPreflight) {
+                                        throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_RECOVERY_PREFLIGHT_CHANGED');
+                                    }
+                                    $this->identityRecoveryBaseline($proof['backup_payload'], $scope);
+                                }
                                 $recheck();
                                 $readLedger = static function () use ($pdo, $native): array {
                                     $query = $pdo->prepare('SELECT * FROM pa_module_migration WHERE module_key IN ('
@@ -279,9 +297,18 @@ final class PluginSourceDevelopmentHost
                                     }
                                     $recheck();
                                 };
+                                if ($operation === 'install' && $pluginKey === 'official.identity'
+                                    && $effects['pending'] === array_keys(\PeanutAdmin\Modules\Identity\Database\IdentitySchemaMigrationProof::recoveryStages())) {
+                                    $report['identity_recovery_preflight'] = $this->identityRecoveryPreflight($pdo, $scope, $effects, $identity['database']);
+                                }
                                 $report['backup'] = SourceApplicationBackup::capture($binding, $baseline, self::digest($baseline), $scope,
                                     $tools[0], $output, $checkBackup, 'plugin-lifecycle');
                                 $report['backup_scope'] = $scope;
+                                if (isset($report['identity_recovery_preflight'])) {
+                                    $captured = SourceApplicationBackup::protectedPluginJson($report['backup']['path'], $this->app->getRootPath());
+                                    $this->identityRecoveryBaseline($captured['backup_payload'], $scope);
+                                    $report['identity_baseline_supported'] = true;
+                                }
                             }
                             $recheck();
                             return $report;
@@ -291,6 +318,495 @@ final class PluginSourceDevelopmentHost
             if (!is_array($result)) { throw new RuntimeException('PLUGIN_SOURCE_PLAN_INCOMPLETE'); }
             return $result;
         });
+    }
+
+    /** Explicit source-only snapshot/reversal of one real Identity installation. */
+    public function recoverIdentity(array $actor, string $input, bool $restoring, string $toolId, string $output,
+        string $metadataTool, string $maintenance, callable $packageLock): array
+    {
+        $root = rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR);
+        $context = $this->app->make(CurrentExecutionContext::class)->current();
+        if (!$context instanceof InstanceExecutionContext || $context->operation() !== 'console.plugin:install'
+            || $context->instance->actorKey !== 'console' || PHP_SAPI !== 'cli'
+            || $this->app->config->get('peanut.environment') !== 'development' || !$this->app->isDebug()
+            || !in_array($this->app->config->get('deployment.mode'), ['standalone', 'multi-tenant'], true)
+            || $this->planning !== null || $this->mutation !== null || $this->identityRecovery !== null
+            || $toolId === '' || $metadataTool === '' || $output === '' || ($restoring ? $maintenance === '' : $maintenance !== '')) {
+            throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_RECOVERY_CONTEXT_REQUIRED');
+        }
+        $admission = new SourceDevelopmentMaintenanceAdmission($root);
+        $initial = $admission->capture($actor, true); // Before lifecycle/provider/PDO initialization.
+        $config = \guardedDatabaseConfig(); [$connection, $pdo] = $this->connect($config);
+        $identity = InstallationExecutionHost::migrationDatabaseIdentity($pdo); $binding = $initial + ['database' => $identity];
+        $registry = \projectResourceRegistry($registrySha); $resources = \activeLeaseResources(\requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF'));
+        $tools = array_values(array_filter($registry['resources']['tooling'] ?? [], static fn(array $tool): bool => ($tool['stable_resource_id'] ?? null) === $toolId));
+        if (count($tools) !== 1 || $registrySha !== $binding['registry_sha256'] || !in_array($toolId, $resources['tooling-resource-id'] ?? [], true)
+            || !in_array($output, $resources['output-dir'] ?? [], true)) { throw new RuntimeException('PLUGIN_SOURCE_BACKUP_NATIVE_TOOL_OUTPUT_REQUIRED'); }
+        $files = \applicationMigrationFiles($root . '/database'); $versions = \applicationReleaseVersions($root);
+        $runner = new ApplicationMigrationRunner($config, $pdo); $target = \applicationMigrationTargetVersion($root, $versions);
+        return ScaffoldUpgradeRunner::sourceProductLock(dirname($root), function () use ($runner, $files, $target, $versions, $pdo, $connection,
+            $admission, $actor, $initial, $identity, $binding, $context, $config, $tools, $input, $restoring, $metadataTool, $output, $maintenance, $packageLock, $root): array {
+            $result = null;
+            $runner->run($files, $target, $versions['release_sequence_version'], true, null,
+                function (PDO $actual, array $selection) use ($pdo, $connection, $admission, $actor, $initial, $identity, $binding, $context,
+                    $config, $tools, $input, $restoring, $metadataTool, $output, $maintenance, $packageLock, $root, &$result): void {
+                    if ($actual !== $pdo || $selection['pending'] !== [] || $pdo->inTransaction()) { throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_APPLICATION_PREREQUISITES_CHANGED'); }
+                    $guard = function () use ($pdo, $connection, $admission, $actor, $initial, $identity, $context, $config, $root): void {
+                        if ($this->app->make(CurrentExecutionContext::class)->current() !== $context || Db::connect() !== $connection
+                            || $connection->getPdo() !== $pdo || $admission->capture($actor, true) !== $initial
+                            || InstallationExecutionHost::migrationDatabaseIdentity($pdo) !== $identity || $pdo->inTransaction()) {
+                            throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_RECOVERY_BINDING_CHANGED');
+                        }
+                        ScaffoldUpgradeRunner::sourceProductLock(dirname($root), static fn() => null);
+                        $query = $pdo->prepare('SELECT IS_USED_LOCK(?) = CONNECTION_ID()');
+                        try {
+                            $query->execute(['peanut_migrate_' . substr(hash('sha256', $config['database']), 0, 48)]);
+                            if ((int) $query->fetchColumn() !== 1) { throw new RuntimeException('PLUGIN_SOURCE_SCHEMA_LOCK_REQUIRED'); }
+                        } finally { $query->closeCursor(); }
+                    };
+                    $guard(); $this->identityRecoveryFiles = []; $this->identityRecovery = ['pdo' => $pdo, 'guard' => $guard];
+                    try {
+                        $result = $packageLock($pdo, function () use ($pdo, $binding, $tools, $input, $restoring, $metadataTool, $output, $maintenance, $guard, $root): array {
+                            $this->requireIdentityRecovery($pdo, 'official.identity');
+                            $capsule = $restoring ? $this->identityNativeBackup($input, 'peanut.source-identity-operation-snapshot.v1') : null;
+                            $receiptPath = $restoring ? ($capsule['identity_operation']['operation_receipt']['path'] ?? '') : $input;
+                            $origin = $this->identityOperationOrigin($receiptPath, $binding); $effects = $origin['effects']; $original = $origin['original'];
+                            if ($restoring && $origin['record']['ledger'] === null) {
+                                throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_ORIGINAL_LEDGER_UNKNOWN');
+                            }
+                            $historicalEnd = $origin['maintenance']['expires_at'];
+                            $eligible = $origin['record']['observed_at'] < $historicalEnd && time() < $historicalEnd;
+                            if ($restoring && (($capsule['identity_operation']['recovery_eligible'] ?? null) !== true
+                                || ($capsule['identity_operation']['historical_window_end'] ?? null) !== $historicalEnd
+                                || ($capsule['capture_started_at'] ?? 0) < $origin['record']['observed_at']
+                                || ($capsule['observed_at'] ?? PHP_INT_MAX) >= $historicalEnd)) {
+                                throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_HISTORICAL_WINDOW_GAP');
+                            }
+                            if ($restoring && (($capsule['identity_operation']['operation_receipt'] ?? null) !== $origin['reference']
+                                || ($capsule['identity_operation']['original_backup'] ?? null) !== $origin['original_reference']
+                                || ($capsule['binding']['database'] ?? null) !== $binding['database'])) {
+                                throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_CAPSULE_CHANGED');
+                            }
+                            $scope = SourceApplicationBackup::pluginScope($pdo, $effects, $binding, $metadataTool, $guard);
+                            $external = $this->identityExternalBindings($pdo, $scope, $effects, $binding['database']['database']);
+                            $state = $this->identityOperationState($pdo); $stateSha = self::digest($state);
+                            $recordedLedger = $origin['record']['ledger'];
+                            if (is_array($recordedLedger)) { usort($recordedLedger, static fn(array $a, array $b): int => strcmp($a['migration_key'], $b['migration_key'])); }
+                            if ($recordedLedger !== null && $state['identity_ledger'] !== $recordedLedger) {
+                                throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_OPERATION_STATE_CHANGED');
+                            }
+                            $image = ['recovery_profile' => 'identity-native-install-v1', 'operation_status' => $origin['record']['status'],
+                                'recovery_eligible' => $eligible, 'historical_window_end' => $historicalEnd,
+                                'operation_receipt' => $origin['reference'], 'original_backup' => $origin['original_reference'],
+                                'pending' => $effects['pending'], 'selected' => $effects['selected'], 'state_sha256' => $stateSha,
+                                'external_bindings' => $external];
+                            $check = function () use ($pdo, $effects, $binding, $metadataTool, $guard, $scope, $stateSha, $eligible, $historicalEnd, $restoring): void {
+                                $this->requireIdentityRecovery($pdo, 'official.identity'); $guard();
+                                $this->identityRecoveryFilesGuard();
+                                if (!$restoring && $eligible && time() >= $historicalEnd) { throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_HISTORICAL_WINDOW_GAP'); }
+                                if (SourceApplicationBackup::pluginScope($pdo, $effects, $binding, $metadataTool, $guard) !== $scope
+                                    || self::digest($this->identityOperationState($pdo)) !== $stateSha) {
+                                    throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_SNAPSHOT_CHANGED');
+                                }
+                            };
+                            if (!$restoring) {
+                                $capture = SourceApplicationBackup::capture($binding, $image, self::digest($image), $scope, $tools[0], $output, $check, 'identity-recovery-snapshot');
+                                return ['protocol' => 'peanut.source-identity-operation-capture.v1', 'status' => 'captured', 'backup' => $capture,
+                                    'original_operation_status' => $origin['record']['status'], 'restoration' => 'not_executed',
+                                    'qualification' => 'not_run', 'product_database' => 'not_verified'];
+                            }
+                            if (self::digest($capsule['scope']) !== self::digest($scope)
+                                || ($capsule['identity_operation']['state_sha256'] ?? null) !== $stateSha
+                                || ($capsule['identity_operation']['external_bindings'] ?? null) !== $external) {
+                                throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_CAPSULE_CURRENT_STATE_CHANGED');
+                            }
+                            $outside = static fn(array $value): array => array_values(array_filter($value['foreign_keys'],
+                                static fn(array $fk): bool => in_array($fk['REFERENCED_TABLE_NAME'], $effects['tables'], true)
+                                    && !in_array($fk['TABLE_NAME'], $effects['tables'], true)));
+                            if (self::digest($outside($scope)) !== self::digest($outside($original['scope']))) {
+                                throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_EXTERNAL_DEFINITIONS_CHANGED');
+                            }
+                            $capsuleRef = ['path' => $input, 'sha256' => $this->identityRecoveryFileSha($input)];
+                            $window = $this->identityRecoveryWindow($maintenance, $binding, $capsuleRef, $scope);
+                            $windowGuard = function () use ($pdo, $guard, $maintenance, $binding, $capsuleRef, $scope, $window, $input): void {
+                                $this->requireIdentityRecovery($pdo, 'official.identity'); $guard();
+                                $this->identityRecoveryFilesGuard();
+                                if ($this->identityRecoveryFileSha($input) !== $capsuleRef['sha256']
+                                    || $this->identityRecoveryWindow($maintenance, $binding, $capsuleRef, $scope) !== $window) {
+                                    throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_RECOVERY_WINDOW_CHANGED');
+                                }
+                            };
+                            foreach (\PeanutAdmin\Modules\Identity\Database\IdentitySchemaMigrationProof::recoveryStages() as $key => [, $table, $kind]) {
+                                if ($kind !== 'create' || !in_array($table, $scope['tables'], true)) { continue; }
+                                if (in_array($table, $original['scope']['tables'], true) || !isset($origin['stages'][$key])) {
+                                    throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_CREATED_TABLE_OWNERSHIP_UNPROVEN');
+                                }
+                                \PeanutAdmin\Modules\Identity\Database\IdentitySchemaMigrationProof::recoveryCreatedTable($pdo, $key,
+                                    $origin['stages'][$key]['safe_after']['metadata_sha256']);
+                            }
+                            $parent = @lstat(dirname($output));
+                            if (realpath(dirname($output)) !== dirname($output) || !is_array($parent)
+                                || ($parent['mode'] & 0022) !== 0 || !in_array($parent['uid'], [0, posix_geteuid()], true)
+                                || file_exists($output) || is_link($output) || !mkdir($output, 0700)) {
+                                throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_OUTPUT_UNSAFE');
+                            }
+                            $phase = 'fresh_before_capture'; $inverse = null;
+                            try {
+                                $beforeCheck = function () use ($check, $windowGuard): void { $windowGuard(); $check(); };
+                                $fresh = SourceApplicationBackup::capture($binding, $image, self::digest($image), $scope, $tools[0], $output . '/before', $beforeCheck, 'identity-recovery-snapshot');
+                                $before = $this->identityNativeBackup($fresh['path'], 'peanut.source-identity-operation-snapshot.v1');
+                                if ($before['backup_payload']['sha256'] !== $capsule['backup_payload']['sha256']
+                                    || $before['backup_payload']['bytes'] !== $capsule['backup_payload']['bytes']) {
+                                    throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_FRESH_CAPSULE_CHANGED');
+                                }
+                                $windowGuard(); $phase = 'native_inverse';
+                                $inverse = SourceApplicationBackup::restoreIdentityOperation($pdo, $binding, $tools[0], $origin['original_reference']['path'], $input, $output . '/inverse', $window['expires_at'], $windowGuard);
+                                $phase = 'postimage_capture'; $windowGuard();
+                                $postScope = SourceApplicationBackup::pluginScope($pdo, $effects, $binding, $metadataTool, $windowGuard);
+                                $postExternal = $this->identityExternalBindings($pdo, $postScope, $effects, $binding['database']['database']);
+                                if ($postScope['tables'] !== $original['scope']['tables'] || $postScope['absent_original_tables'] !== $original['scope']['absent_original_tables']
+                                    || $postScope['objects'] !== $original['scope']['objects'] || $postScope['foreign_keys'] !== $original['scope']['foreign_keys']
+                                    || $postExternal !== $external) { throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_RESTORATION_POSTSTATE_CHANGED'); }
+                                $postImage = $image + ['operation_capsule' => $capsuleRef, 'restored_state_sha256' => self::digest($this->identityOperationState($pdo))];
+                                $postCheck = function () use ($pdo, $effects, $binding, $metadataTool, $windowGuard, $postScope, $postExternal): void {
+                                    $windowGuard();
+                                    if (SourceApplicationBackup::pluginScope($pdo, $effects, $binding, $metadataTool, $windowGuard) !== $postScope
+                                        || $this->identityExternalBindings($pdo, $postScope, $effects, $binding['database']['database']) !== $postExternal) {
+                                        throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_POSTIMAGE_CHANGED');
+                                    }
+                                };
+                                $post = SourceApplicationBackup::capture($binding, $postImage, self::digest($postImage), $postScope, $tools[0], $output . '/after', $postCheck, 'identity-recovery-postimage');
+                                $after = $this->identityNativeBackup($post['path'], 'peanut.source-identity-operation-postimage.v1');
+                                if ($after['backup_payload']['sha256'] !== $original['backup_payload']['sha256']
+                                    || $after['backup_payload']['bytes'] !== $original['backup_payload']['bytes']) {
+                                    throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_RESTORATION_BYTES_CHANGED');
+                                }
+                                $windowGuard();
+                                $record = ['protocol' => 'peanut.source-identity-operation-restoration.v1', 'status' => 'completed', 'binding' => $binding,
+                                    'original_operation' => $origin['reference'], 'original_operation_status' => $origin['record']['status'],
+                                    'original_backup' => $origin['original_reference'], 'capsule' => $capsuleRef, 'fresh_before' => $fresh, 'inverse' => $inverse,
+                                    'postimage' => $post, 'external_bindings' => $postExternal, 'maintenance' => $window,
+                                    'created_tables_removed' => array_values(array_diff($scope['tables'], $postScope['tables'])),
+                                    'original_absent_tables' => $original['scope']['absent_original_tables'],
+                                    'original_present_bytes_verified' => true, 'original_absence_verified' => true, 'observed_at' => time(),
+                                    'writer_sha256' => hash_file('sha256', __FILE__), 'product_database' => 'not_verified', 'qualification' => 'not_run'];
+                                $record['document_sha256'] = self::digest($record); $record['result_path'] = $this->saveReceipt($record);
+                                return $record;
+                            } catch (\Throwable $failure) {
+                                $record = ['protocol' => 'peanut.source-identity-restoration-failure.v1', 'status' => 'failed', 'binding' => $binding,
+                                    'capsule' => $capsuleRef, 'original_backup' => $origin['original_reference'], 'phase' => $phase, 'inverse' => $inverse,
+                                    'failure_type' => $failure::class, 'observed_at' => time(), 'replay' => 'forbidden_until_partial_state_reconciled',
+                                    'product_database' => 'not_verified', 'qualification' => 'not_run'];
+                                $record['document_sha256'] = self::digest($record); $this->saveReceipt($record); throw $failure;
+                            }
+                        });
+                    } finally { $this->identityRecovery = null; $this->identityRecoveryFiles = []; }
+                });
+            if (!is_array($result)) { throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_RECOVERY_INCOMPLETE'); }
+            return $result;
+        });
+    }
+
+    private function identityRecoveryPreflight(PDO $pdo, array $scope, array $effects, string $database): array
+    {
+        $proof = (new \ReflectionClass(\PeanutAdmin\Modules\Identity\Database\IdentitySchemaMigrationProof::class))->getFileName();
+        return ['profile' => 'identity-native-install-v1', 'external_bindings' => $this->identityExternalBindings($pdo, $scope, $effects, $database),
+            'inverse_producer_sha256' => hash_file('sha256', __DIR__ . '/SourceApplicationDump.php'),
+            'native_executor_sha256' => hash_file('sha256', __DIR__ . '/SourceApplicationBackup.php'), 'owner_proof_sha256' => hash_file('sha256', $proof),
+            'restoration' => 'not_run', 'qualification' => 'not_run'];
+    }
+
+    private function identityRecoveryBaseline(array $payload, array $scope): void
+    {
+        $bytes = SourceApplicationBackup::protectedPluginBytes($payload['path'] ?? '', $this->app->getRootPath(), null);
+        if (!is_string($bytes) || strlen($bytes) !== ($payload['bytes'] ?? null) || hash('sha256', $bytes) !== ($payload['sha256'] ?? null)) {
+            throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_ORIGINAL_BACKUP_CHANGED');
+        }
+        $original = SourceApplicationDump::read($bytes, $scope['tables']);
+        SourceApplicationDump::restoreIdentity($original, $original); // Parse original rows only; no SQL is executed.
+    }
+
+    private function identityOperationState(PDO $pdo): array
+    {
+        $all = $pdo->query('SELECT * FROM pa_module_migration ORDER BY id');
+        try { $ledger = $all->fetchAll(PDO::FETCH_ASSOC); } finally { $all->closeCursor(); }
+        $state = ['ledger' => $ledger, 'identity_ledger' => array_values(array_filter($ledger, static fn(array $row): bool => $row['module_key'] === 'official.identity'))];
+        usort($state['identity_ledger'], static fn(array $a, array $b): int => strcmp($a['migration_key'], $b['migration_key']));
+        foreach (['pa_plugin_installation' => 'plugin_key', 'pa_module_installation' => 'module_key', 'pa_plugin_module' => 'module_key'] as $table => $column) {
+            $query = $pdo->prepare('SELECT * FROM `' . $table . '` WHERE `' . $column . '`=? ORDER BY id');
+            try { $query->execute(['official.identity']); $state[$table] = $query->fetchAll(PDO::FETCH_ASSOC); } finally { $query->closeCursor(); }
+        }
+        return $state;
+    }
+
+    /** Only PK/FK bindings of affected parents are read outside the write set; no business values. */
+    private function identityExternalBindings(PDO $pdo, array $scope, array $effects, string $database): array
+    {
+        $this->assertEffectBoundary($scope, $effects, $database); $children = [];
+        foreach ($scope['derived_update_columns'] as $table => $columns) {
+            if ($table !== 'pa_resource_operation_condition' || $columns !== ['selector_resource_key_norm']) {
+                throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_DERIVED_WRITES_UNPROVEN');
+            }
+        }
+        foreach ($scope['foreign_keys'] as $fk) {
+            if ($fk['TABLE_SCHEMA'] !== $database || $fk['REFERENCED_TABLE_SCHEMA'] !== $database
+                || in_array($fk['UPDATE_RULE'], ['CASCADE', 'SET NULL'], true) || in_array($fk['DELETE_RULE'], ['CASCADE', 'SET NULL'], true)) {
+                throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_FOREIGN_EFFECT_UNPROVEN');
+            }
+            if (in_array($fk['REFERENCED_TABLE_NAME'], $effects['tables'], true) && !in_array($fk['TABLE_NAME'], $effects['tables'], true)) {
+                if ((self::IDENTITY_EXTERNAL_REFERENCES[$fk['TABLE_NAME']][$fk['COLUMN_NAME']] ?? null)
+                    !== [$fk['REFERENCED_TABLE_NAME'], $fk['REFERENCED_COLUMN_NAME']]) {
+                    throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_UNKNOWN_EXTERNAL_DEPENDENCY');
+                }
+                $children[$fk['TABLE_NAME']][] = $fk['COLUMN_NAME'];
+            }
+        }
+        ksort($children, SORT_STRING); $result = [];
+        $this->assertBackupReads(array_keys($children), \guardedDatabaseConfig());
+        $pdo->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ'); $pdo->exec('START TRANSACTION READ ONLY');
+        try {
+            foreach ($children as $table => $foreign) {
+                if (preg_match('/\Apa_[a-z0-9_]+\z/D', $table) !== 1) { throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_EXTERNAL_SCOPE_INVALID'); }
+                $query = $pdo->prepare("SELECT COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND CONSTRAINT_NAME='PRIMARY' ORDER BY ORDINAL_POSITION");
+                try { $query->execute([$table]); $primary = $query->fetchAll(PDO::FETCH_COLUMN); } finally { $query->closeCursor(); }
+                if ($primary === []) { throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_EXTERNAL_PRIMARY_KEY_REQUIRED'); }
+                sort($foreign, SORT_STRING); $columns = array_values(array_unique([...$primary, ...$foreign]));
+                foreach ($columns as $name) { if (preg_match('/\A[a-z][a-z0-9_]*\z/D', $name) !== 1) { throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_EXTERNAL_SCOPE_INVALID'); } }
+                $query = $pdo->query('SELECT `' . implode('`,`', $columns) . '` FROM `' . $table . '` ORDER BY `' . implode('`,`', $primary) . '`');
+                $hash = hash_init('sha256'); $count = 0;
+                try {
+                    while (($row = $query->fetch(PDO::FETCH_NUM)) !== false) {
+                        $bytes = serialize(array_map(static fn($value) => $value === null ? null : (string) $value, $row));
+                        hash_update($hash, strlen($bytes) . ':' . $bytes); ++$count;
+                    }
+                } finally { $query->closeCursor(); }
+                $result[$table] = ['columns' => $columns, 'rows' => $count, 'sha256' => hash_final($hash)];
+            }
+        } finally { if ($pdo->inTransaction()) { $pdo->rollBack(); } }
+        return $result;
+    }
+
+    private function identityRecoveryBytes(string $path, ?int $maximum = 4194304): string
+    {
+        $bytes = SourceApplicationBackup::protectedPluginBytes($path, rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR), $maximum);
+        $sha = hash('sha256', $bytes);
+        if (isset($this->identityRecoveryFiles[$path]) && $this->identityRecoveryFiles[$path] !== $sha) {
+            throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_ORIGIN_CHANGED');
+        }
+        $this->identityRecoveryFiles[$path] = $sha;
+        return $bytes;
+    }
+
+    private function identityRecoveryJson(string $path, string $root): array
+    {
+        $value = json_decode($this->identityRecoveryBytes($path), true, 64, JSON_THROW_ON_ERROR);
+        if (!is_array($value) || array_is_list($value)) { throw new RuntimeException('PLUGIN_SOURCE_DOCUMENT_INVALID'); }
+        return $value;
+    }
+
+    private function identityRecoveryFileSha(string $path): string
+    {
+        $this->identityRecoveryBytes($path, null);
+        return $this->identityRecoveryFiles[$path];
+    }
+
+    private function identityRecoveryFilesGuard(): void
+    {
+        foreach ($this->identityRecoveryFiles as $path => $sha) {
+            if (hash('sha256', SourceApplicationBackup::protectedPluginBytes($path, rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR), null)) !== $sha) {
+                throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_ORIGIN_CHANGED');
+            }
+        }
+    }
+
+    private function identityRecoveryWindow(string $path, array $binding, array $capsule, array $scope): array
+    {
+        $root = rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR); $window = $this->identityRecoveryJson($path, $root); $now = time();
+        foreach (['source', 'database', 'authority', 'registry_sha256'] as $field) {
+            if (self::digest([$window[$field] ?? null]) !== self::digest([$binding[$field]])) { throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_RECOVERY_WINDOW_REQUIRED'); }
+        }
+        if (($window['schema_version'] ?? null) !== 1 || ($window['protocol'] ?? null) !== 'peanut.source-identity-maintenance.v1'
+            || ($window['state'] ?? null) !== 'active' || ($window['operation'] ?? null) !== 'restore_identity_operation'
+            || ($window['operation_capsule'] ?? null) !== $capsule || ($window['scope'] ?? null) !== $scope['affected_tables']
+            || ($window['excluded_writers'] ?? null) !== ['http', 'workers', 'other-writers']
+            || !is_int($window['observed_at'] ?? null) || !is_int($window['expires_at'] ?? null)
+            || $window['observed_at'] < $binding['authority']['created_at'] || $window['observed_at'] > $now
+            || $window['expires_at'] <= $now || $window['expires_at'] > $binding['authority']['expires_at']
+            || !is_array($window['receipts'] ?? null) || $window['receipts'] === []) { throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_RECOVERY_WINDOW_REQUIRED'); }
+        foreach ($window['receipts'] as $receipt) {
+            $this->identityRecoveryBytes($receipt['path'] ?? '');
+            if ($this->identityRecoveryFileSha($receipt['path']) !== ($receipt['sha256'] ?? null)) { throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_RECOVERY_WINDOW_CHANGED'); }
+        }
+        return ['path' => $path, 'sha256' => $this->identityRecoveryFileSha($path), 'expires_at' => $window['expires_at'], 'external_writer_exclusion' => 'ops_protocol_gate_required_not_attested'];
+    }
+
+    /** Historical producer bytes remain verifiable without running an old checkout. */
+    private function identityHistoricalProgram(string $head, string $relative, string $sha): void
+    {
+        $root = dirname(rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR));
+        if (preg_match('/\A[a-f0-9]{40}\z/D', $head) !== 1 || preg_match('/\A[a-f0-9]{64}\z/D', $sha) !== 1
+            || !in_array($relative, ['server/app/common/services/upgrade/PluginSourceDevelopmentHost.php',
+                'server/app/common/services/upgrade/SourceApplicationBackup.php', 'server/app/platform/services/plugin/PluginLifecycleService.php'], true)
+            || \leaseGit(['-C', $root, 'merge-base', $head, 'HEAD']) !== $head) {
+            throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_HISTORICAL_SOURCE_REQUIRED');
+        }
+        $process = proc_open(['/usr/bin/git', '-C', $root, 'show', $head . ':' . $relative], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        if (!is_resource($process)) { throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_HISTORICAL_SOURCE_REQUIRED'); }
+        $bytes = stream_get_contents($pipes[1], 2097153); $error = stream_get_contents($pipes[2], 8192);
+        fclose($pipes[1]); fclose($pipes[2]); $rc = proc_close($process);
+        if ($rc !== 0 || !is_string($bytes) || strlen($bytes) > 2097152 || hash('sha256', $bytes) !== $sha) {
+            throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_HISTORICAL_SOURCE_CHANGED');
+        }
+    }
+
+    /** Read a genuine fixed native capture, including its complete terminal/output chain. */
+    private function identityNativeBackup(string $path, string $protocol): array
+    {
+        $root = rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR);
+        $record = $this->identityRecoveryJson($path, $root); $directory = dirname($path);
+        $payload = $record['backup_payload'] ?? []; $restore = $record['restore_instructions'] ?? [];
+        if (basename($path) !== 'backup.json' || ($record['protocol'] ?? null) !== $protocol || ($record['status'] ?? null) !== 'captured'
+            || ($payload['path'] ?? null) !== $directory . '/database.sql' || ($restore['path'] ?? null) !== $directory . '/RESTORE.json'
+            || !is_int($payload['bytes'] ?? null) || $payload['bytes'] < 1
+            || array_column($record['receipts'] ?? [], 'phase') !== ['probe-before', 'dump', 'probe-after']) {
+            throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_NATIVE_CAPTURE_REQUIRED');
+        }
+        $this->identityRecoveryBytes($payload['path'], null);
+        $instructions = $this->identityRecoveryJson($restore['path'], $root);
+        if ($this->identityRecoveryFileSha($payload['path']) !== ($payload['sha256'] ?? null) || strlen($this->identityRecoveryBytes($payload['path'], null)) !== $payload['bytes']
+            || $this->identityRecoveryFileSha($restore['path']) !== ($restore['sha256'] ?? null)
+            || ($instructions['payload'] ?? null) !== $payload || ($instructions['executed'] ?? null) !== false
+            || ($instructions['database'] ?? null) !== ($record['binding']['database'] ?? null)) {
+            throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_NATIVE_CAPTURE_CHANGED');
+        }
+        foreach ($record['receipts'] as $receipt) {
+            $out = $directory . '/' . match ($receipt['phase']) { 'probe-before' => 'probe-before.txt', 'dump' => 'database.sql', 'probe-after' => 'probe-after.txt' };
+            if ($receipt['path'] !== $out . '.process.json') { throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_NATIVE_CAPTURE_REQUIRED'); }
+            $terminal = $this->identityRecoveryJson($receipt['path'], $root);
+            $this->identityRecoveryBytes($out, $receipt['phase'] === 'dump' ? null : 16384);
+            if ($this->identityRecoveryFileSha($receipt['path']) !== $receipt['sha256'] || ($terminal['rc'] ?? null) !== 0
+                || ($terminal['local_process_terminal'] ?? null) !== true || ($terminal['local_deadline_exceeded'] ?? null) !== false
+                || ($terminal['local_output_limit_exceeded'] ?? null) !== false || ($terminal['remote_success_terminal_confirmed'] ?? null) !== true
+                || ($terminal['stdout'] ?? null) !== ['path' => $out, 'sha256' => $this->identityRecoveryFileSha($out), 'bytes' => strlen($this->identityRecoveryBytes($out, null))]) {
+                throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_NATIVE_CAPTURE_CHANGED');
+            }
+        }
+        $this->identityHistoricalProgram($record['binding']['source']['head'] ?? '', 'server/app/common/services/upgrade/SourceApplicationBackup.php', $record['adapter_sha256'] ?? '');
+        return $record;
+    }
+
+    private function identityOperationOrigin(string $path, array $binding): array
+    {
+        $root = rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR); $directory = $this->receiptDirectory(false);
+        if (preg_match('~\A' . preg_quote($directory, '~') . '/result-[a-f0-9]{32}\.json\z~D', $path) !== 1) {
+            throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_OPERATION_RECEIPT_REQUIRED');
+        }
+        $record = $this->identityRecoveryJson($path, $root); $document = $record; unset($document['document_sha256']);
+        $status = $record['status'] ?? null;
+        if (!in_array($status, ['completed', 'failed'], true)
+            || ($record['protocol'] ?? null) !== ($status === 'completed' ? 'peanut.source-plugin-result.v1' : 'peanut.source-plugin-failure.v1')
+            || ($record['document_sha256'] ?? null) !== self::digest($document)
+            || ($record['operation'] ?? null) !== 'install' || ($record['plugin_key'] ?? null) !== 'official.identity'
+            || ($record['binding']['source']['root'] ?? null) !== dirname($root)
+            || ($record['binding']['database'] ?? null) !== $binding['database']
+            || ($record['binding']['resource_id'] ?? null) !== $binding['resource_id'] || ($record['binding']['endpoint_id'] ?? null) !== $binding['endpoint_id']
+            || ($record['binding']['installation_originals'] ?? null) !== $binding['installation_originals']
+            || !is_int($record['observed_at'] ?? null) || $record['observed_at'] > time()
+            || !is_string($record['request_id'] ?? null) || $record['request_id'] === '') {
+            throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_OPERATION_RECEIPT_CHANGED');
+        }
+        $head = $record['binding']['source']['head'] ?? '';
+        $this->identityHistoricalProgram($head, 'server/app/common/services/upgrade/PluginSourceDevelopmentHost.php', $record['writer_sha256'] ?? '');
+        $this->identityHistoricalProgram($head, 'server/app/platform/services/plugin/PluginLifecycleService.php', $record['executor_sha256'] ?? '');
+        foreach (['plugins.lock', 'plugins/official.identity/plugin.json'] as $file) {
+            if (\leaseGit(['-C', dirname($root), 'rev-parse', $head . ':' . $file]) !== \leaseGit(['-C', dirname($root), 'hash-object', '--no-filters', '--', dirname($root) . '/' . $file])) {
+                throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_PACKAGE_CHANGED');
+            }
+        }
+        $native = $record['native_plan'] ?? []; $effects = SourceApplicationBackup::pluginEffects($native);
+        $stages = \PeanutAdmin\Modules\Identity\Database\IdentitySchemaMigrationProof::recoveryStages();
+        if (($record['native_plan_sha256'] ?? null) !== self::digest($native) || ($native['action'] ?? null) !== 'planned_install'
+            || array_column($native['modules'] ?? [], 'module_key') !== ['official.identity']
+            || ($effects['closure_complete'] ?? null) !== true || $effects['pending'] !== array_keys($stages)
+            || $effects['selected'] !== array_map(static fn(array $stage): string => $stage[0], $stages)
+            || self::digest($record['baseline']['lifecycle_effects'] ?? []) !== self::digest($effects)) {
+            throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_FIXED_OPERATION_REQUIRED');
+        }
+        $admission = $record['admission'] ?? []; $admissionSha = $admission['admission_digest'] ?? null; unset($admission['admission_digest']);
+        if (($admission['schema_version'] ?? null) !== 1 || ($admission['protocol'] ?? null) !== 'peanut.source-plugin-admission.v1'
+            || ($admission['scope'] ?? null) !== 'source-plugin' || ($admission['instance_root'] ?? null) !== $root
+            || ($admission['plugin_key'] ?? null) !== 'official.identity' || ($admission['operation'] ?? null) !== 'console.plugin:install'
+            || ($admission['request_id'] ?? null) !== $record['request_id'] || ($admission['database_identity'] ?? null) !== $binding['database']
+            || self::digest($admission['binding'] ?? []) !== self::digest($record['binding'])
+            || self::digest($admission['evidence'] ?? []) !== self::digest($record['evidence'])
+            || ($admission['plan_sha256'] ?? null) !== $record['native_plan_sha256'] || $admissionSha !== self::digest($admission)
+            || preg_match('/\A[a-f0-9]{64}\z/D', (string) ($admission['execution_plan_sha256'] ?? '')) !== 1) {
+            throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_ORIGINAL_ADMISSION_CHANGED');
+        }
+        foreach ($stages as $key => [$sha]) {
+            $this->assertReceiptSource($head, $root . '/app/modules/official/identity/database/migrations/' . substr($key, strlen('official.identity:')) . '.sql', $sha);
+        }
+        $ordered = $record['ordered_stages'] ?? null;
+        if (!is_array($ordered) || !array_is_list($ordered) || count($ordered) > 9 || !array_key_exists('ledger', $record)
+            || ($record['ledger'] !== null && !is_array($record['ledger'])) || ($status === 'completed' && $record['ledger'] === null)) {
+            throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_STAGE_RECEIPT_CHANGED');
+        }
+        $seen = []; $proofFile = (new \ReflectionClass(\PeanutAdmin\Modules\Identity\Database\IdentitySchemaMigrationProof::class))->getFileName();
+        foreach ($ordered as $index => $stage) {
+            $key = $stage['migration_key'] ?? '';
+            if (($stage['ordinal'] ?? null) !== $index + 1 || $key !== array_keys($stages)[$index]
+                || ($stage['module_key'] ?? null) !== 'official.identity' || ($stage['sql_sha256'] ?? null) !== $stages[$key][0]
+                || ($stage['contract'] ?? null) !== \PeanutAdmin\Modules\Identity\Database\IdentitySchemaMigrationProof::class
+                || ($stage['accepted_while'] ?? null) !== 'applying') { throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_STAGE_RECEIPT_CHANGED'); }
+            $this->assertReceiptSource($head, $proofFile, $stage['contract_sha256'] ?? '');
+            $this->assertSafeAfter($key, $stages[$key][0], $stage['contract'], $stage['safe_after'] ?? []);
+            $seen[$key] = $stage;
+        }
+        if ($status === 'completed' && count($seen) !== 9) { throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_STAGE_RECEIPT_CHANGED'); }
+        $originalRef = $record['evidence']['backup_manifest'] ?? []; $originalPath = $originalRef['path'] ?? '';
+        $original = $this->identityNativeBackup($originalPath, 'peanut.source-plugin-backup.v1');
+        if ($this->identityRecoveryFileSha($originalPath) !== ($originalRef['sha256'] ?? null)
+            || self::digest($original['binding']) !== self::digest($record['binding'])
+            || self::digest($original['scope']) !== self::digest($record['backup_scope'] ?? [])
+            || ($original['baseline_sha256'] ?? null) !== self::digest($record['baseline'])
+            || ($original['backup_payload'] ?? null) !== ($record['evidence']['backup_payload'] ?? null)
+            || ($original['restore_instructions']['sha256'] ?? null) !== ($record['evidence']['restore_contract_sha256'] ?? null)) {
+            throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_ORIGINAL_BACKUP_CHANGED');
+        }
+        $documents = [];
+        foreach (['maintenance', 'recovery'] as $kind) {
+            $ref = $record['evidence'][$kind] ?? []; $value = $this->identityRecoveryJson($ref['path'] ?? '', $root);
+            if ($this->identityRecoveryFileSha($ref['path']) !== ($ref['sha256'] ?? null)
+                || ($value['protocol'] ?? null) !== 'peanut.source-plugin-' . $kind . '.v1'
+                || self::digest($value['source'] ?? []) !== self::digest($record['binding']['source'])
+                || self::digest($value['authority'] ?? []) !== self::digest($record['binding']['authority'])
+                || ($value['database'] ?? null) !== $binding['database'] || ($value['registry_sha256'] ?? null) !== $record['binding']['registry_sha256']
+                || ($value['baseline_sha256'] ?? null) !== $original['baseline_sha256'] || ($value['pending'] ?? null) !== $effects['pending']
+                || self::digest($value['selected'] ?? []) !== self::digest($effects['selected']) || ($value['scope'] ?? null) !== $original['scope']['tables']
+                || !is_int($value['observed_at'] ?? null) || !is_int($value['expires_at'] ?? null)
+                || $value['observed_at'] < $record['binding']['authority']['created_at'] || $value['observed_at'] > $value['expires_at']
+                || $value['expires_at'] > $record['binding']['authority']['expires_at']
+                || !is_array($value['receipts'] ?? null) || $value['receipts'] === []) {
+                throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_ORIGINAL_WINDOW_CHANGED');
+            }
+            foreach ($value['receipts'] ?? [] as $receipt) {
+                $this->identityRecoveryBytes($receipt['path'] ?? '');
+                if ($this->identityRecoveryFileSha($receipt['path']) !== ($receipt['sha256'] ?? null)) { throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_ORIGINAL_WINDOW_CHANGED'); }
+            }
+            $documents[$kind] = $value;
+        }
+        if (($documents['maintenance']['state'] ?? null) !== 'active'
+            || ($documents['maintenance']['excluded_writers'] ?? null) !== ['http', 'workers', 'other-writers']
+            || !is_int($original['capture_started_at'] ?? null) || !is_int($original['observed_at'] ?? null)
+            || $original['capture_started_at'] < $documents['maintenance']['observed_at'] || $original['capture_started_at'] > $original['observed_at']
+            || $original['observed_at'] > $documents['maintenance']['expires_at'] || $record['observed_at'] < $original['observed_at']
+            || ($status === 'completed' && $record['observed_at'] >= $documents['maintenance']['expires_at'])
+            || ($documents['recovery']['backup_manifest'] ?? null) !== $originalRef
+            || ($documents['recovery']['backup_payload'] ?? null) !== $original['backup_payload']) {
+            throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_ORIGINAL_WINDOW_CHANGED');
+        }
+        return ['record' => $record, 'reference' => ['path' => $path, 'sha256' => $this->identityRecoveryFileSha($path)],
+            'maintenance' => $documents['maintenance'], 'original' => $original, 'original_reference' => $originalRef, 'effects' => $effects, 'stages' => $seen];
     }
 
     private function connect(array $config): array
@@ -430,7 +946,7 @@ final class PluginSourceDevelopmentHost
     {
         $root = rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR);
         $context = $this->app->make(CurrentExecutionContext::class)->current();
-        if (!in_array($operation, ['install', 'upgrade'], true) || $pluginKey === '' || $this->planning !== null || $this->mutation !== null
+        if (!in_array($operation, ['install', 'upgrade'], true) || $pluginKey === '' || $this->planning !== null || $this->mutation !== null || $this->identityRecovery !== null
             || !$context instanceof InstanceExecutionContext || $context->operation() !== 'console.plugin:' . $operation
             || $context->instance->actorKey !== 'console' || PHP_SAPI !== 'cli' || $this->app->config->get('peanut.environment') !== 'development'
             || !$this->app->isDebug() || !in_array($this->app->config->get('deployment.mode'), ['standalone', 'multi-tenant'], true)) {
@@ -561,6 +1077,25 @@ final class PluginSourceDevelopmentHost
             if ((int) $lock->fetchColumn() !== 1) { throw new RuntimeException('PLUGIN_SOURCE_PACKAGE_LOCK_REQUIRED'); }
         } finally { $lock->closeCursor(); }
         return $this->mutation['admission'];
+    }
+
+    /** This capability exists only in the real source/schema callback, never caller JSON. */
+    public function requireIdentityRecovery(PDO $pdo, string $key, bool $packageLocked = true): void
+    {
+        if ($key !== 'official.identity' || $this->identityRecovery === null || $this->identityRecovery['pdo'] !== $pdo
+            || $this->mutation !== null || $this->planning !== null || $pdo->inTransaction()) {
+            throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_RECOVERY_WINDOW_REQUIRED');
+        }
+        ($this->identityRecovery['guard'])();
+        if ($packageLocked) {
+            $name = \app\common\value\runtime\RuntimeNamespace::fromConfiguration()->advisoryLockName(
+                'pa:module-runtime:' . substr(hash('sha256', $key), 0, 40));
+            $query = $pdo->prepare('SELECT IS_USED_LOCK(?) = CONNECTION_ID()');
+            try {
+                $query->execute([$name]);
+                if ((int) $query->fetchColumn() !== 1) { throw new RuntimeException('PLUGIN_SOURCE_PACKAGE_LOCK_REQUIRED'); }
+            } finally { $query->closeCursor(); }
+        }
     }
 
     public function migrationAdmission(PDO $pdo): ?array

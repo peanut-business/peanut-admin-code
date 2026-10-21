@@ -95,6 +95,24 @@ final class IdentitySchemaMigrationProof
         });
     }
 
+    /** Fixed owner identities consumed by the source recovery host; no caller-selected SQL. */
+    public static function recoveryStages(): array { return self::STAGES; }
+
+    /** Cross-process recovery reads only an exact CREATE afterstate already accepted by this owner. */
+    public static function recoveryCreatedTable(PDO $pdo, string $key, string $metadataSha): array
+    {
+        return self::snapshot($pdo, static function () use ($pdo, $key, $metadataSha): array {
+            if (!isset(self::STAGES[$key]) || self::STAGES[$key][2] !== 'create'
+                || preg_match('/\A[a-f0-9]{64}\z/D', $metadataSha) !== 1) { self::fail('RECOVERY_INPUT_INVALID'); }
+            self::source($key); $table = self::STAGES[$key][1]; $metadata = self::table($pdo, $table);
+            if ($metadata === null || hash('sha256', serialize($metadata)) !== $metadataSha
+                || (int) self::query($pdo, 'SELECT EXISTS(SELECT 1 FROM `' . $table . '`) AS present')[0]['present'] !== 0) {
+                self::fail('RECOVERY_CREATE_POSTSTATE_CHANGED');
+            }
+            return ['table' => $table, 'metadata_sha256' => $metadataSha, 'empty' => true, 'readonly' => true];
+        });
+    }
+
     private static function assertAlter(array $before, array $after, string $kind): void
     {
         $expected = self::expectedAlter($before, $kind);

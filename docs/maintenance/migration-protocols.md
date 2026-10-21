@@ -110,3 +110,13 @@ preflight 的 `backup_scope` 只从本次 pending 的固定 SQL 取表并加入�
 认证 CHECK／IP 索引迁移没有行 DML，由 Identity 的公开业务证明检查必要 client 前态、原目标定义及精确目标后态。源码 Host 与发行直接消费者共用其 before／after 宿主方法，在同 PDO 的原 SQL 前后消费，仅 held callback 保留私有观察；官方 applied 前必须绑定同 id／hash／readonly 的 `target_metadata_verified=true`，只封存安全成功字段和目标元数据摘要。Auth 不请求 SQL 时钟，不扫描令牌或事件原行，不因无关自定义列或触发器拒绝；两条 DDL 之间仍保留实际失败与恢复边界。独立 verify 复用既有 Auth 目标元数据比较，不能把它解释成历史业务行保全。
 
 File 四条 canonical adoption 目标若按既有证明选择执行原 SQL，官方执行器在标记 applied 前再次调用原 File 证明，必须观察到完整后态并返回 adopt；证明失败保留 failed 事实。此检查覆盖原证明的结构与数据不变量，逐原行保全、触发器影响及恢复范围仍须由实际迁移合同和维护窗口覆盖。
+
+Identity 首次源码安装的九条固定迁移另有窄恢复合同，仍使用上述原生捕获、客户端和产品／schema／package 锁。带 backup 的原计划封存 `identity_recovery_preflight`：固定逆向程序、原生执行器和业务证明源码摘要，以及范围外父表引用的 PK／FK 绑定摘要；原备份还须通过固定 inverse 的原件解析。实际 apply 在写入前重验这些输入。它只证明本次源码恢复合同可消费原件，不代表实际 MySQL 恢复或发行资格已经通过。
+
+`plugin:install official.identity --scope=source-development --dry-run --snapshot-operation=<原native操作结果>` 保全一次真实安装的后像，另需真实 actor 字段、`--metadata-tool`、`--backup-tool` 和新 `--backup-output`。原结果可以是完成或失败；目录／文件来源、原生产者 Git 字节、固定 SQL／包、原准入／窗口／备份／阶段回执均须成立，不把 catalog 阶段失败伪造成 failed migration。输出 `peanut.source-identity-operation-snapshot.v1`；它不是前态备份，不能作为下一次 apply 的 recovery。失败账本原观察为 UNKNOWN 时可保全，自动恢复仍拒绝。
+
+`plugin:install official.identity --scope=source-development --restore-operation=<上述capsule的backup.json> --maintenance=<本次窗口> --metadata-tool=<登记ID> --backup-tool=<登记ID> --backup-output=<新目录>` 是独立的显式恢复，不带 dry-run、source-plan、recovery 或 verify-receipt。窗口使用 `peanut.source-identity-maintenance.v1`，绑定当前 source/database/authority/registry、`operation=restore_identity_operation`、精确 `operation_capsule` 路径／摘要、固定 affected scope、有效期和实际排除 HTTP／workers／other-writers 的原始回执。当前 owner 使用自己的新原生 DDL／exclusive 准入；历史 writer 身份不继承权限。真实完成操作也可在尚未开放业务写入的受控窗口内明确逆转并保全其完成事实，不能制造失败来取得恢复资格。
+
+逆向只移除原本缺失、本次 owner after 已接受、当前元数据摘要相同且仍为空的六张表，按逆 FK 顺序执行；失败阶段没有可核的 CREATE 后态时停止。department／audit 只逆固定新增索引／列，原列、原行及 allocator 必须保持。共享 catalog 和安装／迁移表保留原 PK，以原件标量字面量恢复；仅 operation_permission 的原关系 ID 允许因正常删除重建而缺失，先移除替代行再插回原 ID。未知自然唯一键改写、原父身份缺失、范围外依赖、trigger、CASCADE／SET NULL 或未声明派生写均拒绝。condition 的 STORED 生成值不进入恢复 DML，选表 dump 仅接受其原顺序可写列清单；该格式依据固定 [MySQL 8.4.10 mysqldump 实现](https://github.com/mysql/mysql-server/blob/mysql-8.4.10/client/mysqldump.cc)，离线解析不替代非空生成列的真实恢复。
+
+原备份、操作回执和 capsule 必须始终位于原先登记的连续停写窗口内；窗口过期后的 snapshot 仅能取证，`recovery_eligible=false`，不能事后补声明取得恢复资格。读取原件、窗口、操作回执及全部原生终态／输出时，以同一次受保护读取固定解析与摘要，并在后续 guard 重验完整来源链。恢复前持锁重新捕获 fresh-before，完整原生字节须等于 capsule；随后才从原件／capsule 派生并以受保护摘要 stdin 进入同一原生 mysql，FK／unique 始终开启、禁止 reconnect。原生写入期限取本次维护窗口和租约较早者，启动须留出 timeout＋60 秒。DML 有事务，表移除、ADD 逆向和 allocator DDL 不是整体原子操作；中断保留阶段／终态和真实部分态，先对账、不自动重放。只有完整 postimage 等于原件、原 absence 恢复且范围外绑定未变，才封存 `peanut.source-identity-operation-restoration.v1`。该结果仍明确业务数据库和产品资格未验证，不自动重装、发行或开放写入。
