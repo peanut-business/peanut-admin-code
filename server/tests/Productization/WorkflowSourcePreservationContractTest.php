@@ -23,13 +23,13 @@ $migrations = array_map(static fn(string $file): array => [
 ], $files);
 $plan = ['modules' => [['module_key' => 'peanut.workflow', 'migrations' => $migrations]]];
 $effects = SourceApplicationBackup::pluginEffects($plan);
-workflowSourceExpect($effects['closure_complete'] === true && count($effects['pending']) === 5, 'The four fixed SQL stages and append-only verification lack recovery closure.');
+workflowSourceExpect($effects['closure_complete'] === true && count($effects['pending']) === 6, 'The four fixed SQL stages and two append-only verifications lack recovery closure.');
 foreach (['pa_workflow_definition', 'pa_workflow_definition_version', 'pa_workflow_instance', 'pa_workflow_work_item',
     'pa_workflow_event', 'pa_workflow_node_execution', 'pa_workflow_task_identity_link', 'pa_module_migration',
     'pa_permission', 'pa_plugin_installation', 'pa_module_installation', 'pa_plugin_module'] as $table) {
     workflowSourceExpect(in_array($table, $effects['tables'], true), 'Missing actual DDL/catalog recovery table: ' . $table);
 }
-workflowSourceExpect(count($effects['write_requirements']) === 5, 'Each executed stage must retain its business preservation requirement.');
+workflowSourceExpect(count($effects['write_requirements']) === 6, 'Each executed stage must retain its business preservation requirement.');
 foreach ($effects['write_requirements'] as $requirement) {
     workflowSourceExpect($requirement['contract'] === WorkflowSchemaMigrationProof::class, 'The native source host selected a different preservation contract.');
 }
@@ -73,7 +73,7 @@ foreach ($omitted['modules'][0]['migrations'] as &$migration) {
 }
 unset($migration);
 $omittedEffects = SourceApplicationBackup::pluginEffects($omitted);
-workflowSourceExpect($omittedEffects['closure_complete'] === true && count($omittedEffects['pending']) === 3
+workflowSourceExpect($omittedEffects['closure_complete'] === true && count($omittedEffects['pending']) === 4
     && $omittedEffects['repair_omissions'][$repairKey] === $relation, 'A genuine successful original lost explicit repair omission.');
 foreach (['failed_original', 'missing_witness', 'changed_repair'] as $fault) {
     $changed = $omitted;
@@ -101,6 +101,35 @@ unset($migration);
 $failedEffects = SourceApplicationBackup::pluginEffects($failed);
 workflowSourceExpect($failedEffects['closure_complete'] === true && isset($failedEffects['append_only_repairs'][$originalKey])
     && in_array($repairKey, $failedEffects['pending'], true) && !in_array($originalKey, $failedEffects['pending'], true), 'Failure repair replayed the original ALTER or lost its native relation.');
+
+$v2Original = 'peanut.workflow:20261012-workflow-v2-execution';
+$v2Repair = 'peanut.workflow:20261012-workflow-v2-repair-20261021';
+$v2Relation = array_replace($relation, ['original_key' => $v2Original, 'original_sha256' => $byKey[$v2Original]['sha256'],
+    'repair_key' => $v2Repair, 'repair_sha256' => $byKey[$v2Repair]['sha256']]);
+foreach (['omitted', 'failed'] as $state) {
+    $combined = $state === 'omitted' ? $omitted : $failed;
+    foreach ($combined['modules'][0]['migrations'] as &$migration) {
+        if ($migration['migration_key'] === $v2Original) {
+            $migration += ['executes_original_sql' => false];
+            $migration['ledger_status'] = $state === 'omitted' ? 'applied' : 'failed';
+            $migration['resolution_kind'] = $state === 'omitted' ? 'executed' : null;
+            $migration['disposition'] = $state === 'omitted' ? 'already_applied' : 'awaiting_repair';
+            if ($state === 'failed') { $migration['repair'] = $v2Repair; $migration['repair_resolution'] = array_replace($v2Relation, ['original_status' => 'failed', 'state' => 'pending']); }
+        } elseif ($migration['migration_key'] === $v2Repair && $state === 'omitted') {
+            $migration += ['ledger_status' => 'missing', 'executes_original_sql' => false, 'repair_omission' => $v2Relation];
+            $migration['disposition'] = 'repair_not_required';
+        }
+    }
+    unset($migration);
+    $combinedEffects = SourceApplicationBackup::pluginEffects($combined);
+    workflowSourceExpect($combinedEffects['closure_complete'] === true, 'Two fixed Workflow repair relations lost closure.');
+    if ($state === 'omitted') {
+        workflowSourceExpect(count($combinedEffects['repair_omissions']) === 2 && count($combinedEffects['pending']) === 2, 'Successful originals acquired synthetic repair execution.');
+    } else {
+        workflowSourceExpect(count($combinedEffects['append_only_repairs']) === 2
+            && !in_array($v2Original, $combinedEffects['pending'], true) && in_array($v2Repair, $combinedEffects['pending'], true), 'V2 repair replayed original DDL.');
+    }
+}
 
 $manifest = json_decode(file_get_contents($module . '/module.json'), true, 512, JSON_THROW_ON_ERROR);
 workflowSourceExpect(in_array(WorkflowSchemaMigrationProof::class, $manifest['contracts']['exports'], true), 'Host preservation contract is not exported by Workflow.');

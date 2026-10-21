@@ -2457,7 +2457,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6f0b4f25308ef5eb442468ac78fe850a0c544f98519fd0b436188e1b3c4feb14"
+            "source_sha256": "3bc369ca75d9f474c78177759747e41cf5bbb2298bfc37c24be1fb04d00217ab"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2790,7 +2790,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "33a16e5b72066afc875f7b75e34356747b49ce627e66edd3e3b88a6d93736892"
+            "source_sha256": "7a666d84dddb3c5d948431bb43d034feff703757922bf7835c27698d6a909889"
         },
         {
             "path": "release-versions.json",
@@ -9201,7 +9201,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "501a032e2bd1d1fc67c55ada9d7fbebe8e8fb4ecec6689e0ee8699ee5fefd96d"
+            "source_sha256": "904b8046b0ef5f4c4a3e95852f7e09004a41440531e11db9fdeb6cbc9e71fb25"
         },
         {
             "path": "server/app/common/services/upgrade/SourceApplicationDump.php",
@@ -24096,7 +24096,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "eb564309a4ee0f492b07305371b026daaac444520d9f0889542c81a35f640c1b"
+            "source_sha256": "ddef296dbf55c5e03cd8f110f02b9f7ff3a8b602d86ec7d8c6d6e51b011a9096"
         },
         {
             "path": "server/app/modules/peanut/workflow/database/migrations/20260921-register-module-schema.sql",
@@ -24169,6 +24169,20 @@
             "source_sha256": "f46f8b9a7a567584988e3520669daa1a8f893b69d837a1dedf223deb4f2a1b09"
         },
         {
+            "path": "server/app/modules/peanut/workflow/database/migrations/20261012-workflow-v2-repair-20261021.sql",
+            "target": "server/app/modules/peanut/workflow/database/migrations/20261012-workflow-v2-repair-20261021.sql",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "6607485b8db141a3ecb36578da3f3620917a3333b83308ee1d97846955bd7e60"
+        },
+        {
             "path": "server/app/modules/peanut/workflow/module.json",
             "target": "server/app/modules/peanut/workflow/module.json",
             "classification": "managed",
@@ -24180,7 +24194,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e937d968a8cd316511461dec3133a28321a8a589da3afa2a35831c6147340a4a"
+            "source_sha256": "4b32c0c718a893e2bdc8f29a3839fd46af98df85ea465b33520c5f345aeebd63"
         },
         {
             "path": "server/app/modules/peanut/workflow/resources/config-schema.json",
@@ -24558,7 +24572,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e009ba11009106d246119a686e58334ae6391e19802226456822816ce7531920"
+            "source_sha256": "e52f4144cd89e26104752a2e05f8863882f42b10b3b9aab3c6c38444408662ae"
         },
         {
             "path": "server/app/modules/peanut/workflow/src/Definition/WorkflowActionInput.php",
@@ -25832,7 +25846,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fadf15526bffb1b27882d0a262b11bc4147ce90386f2344c8621a3d75b76ac0c"
+            "source_sha256": "d9ec87f7eb39d18408ab896f226ce1a7cff1fd816d02eab8203b3cd6ac3aabcd"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",

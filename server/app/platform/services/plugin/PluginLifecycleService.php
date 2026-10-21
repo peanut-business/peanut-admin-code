@@ -71,6 +71,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             ['peanut.workflow:20260921-register-module-schema', 'peanut.workflow:20261012-workflow-managed-template']],
         'peanut.workflow:20261012-workflow-v2-execution' => ['f46f8b9a7a567584988e3520669daa1a8f893b69d837a1dedf223deb4f2a1b09', \PeanutAdmin\Modules\Workflow\Database\WorkflowSchemaMigrationProof::class,
             ['peanut.workflow:20260921-register-module-schema', 'peanut.workflow:20261012-workflow-managed-template', 'peanut.workflow:20261012-workflow-notification-facts']],
+        'peanut.workflow:20261012-workflow-v2-repair-20261021' => ['6607485b8db141a3ecb36578da3f3620917a3333b83308ee1d97846955bd7e60', \PeanutAdmin\Modules\Workflow\Database\WorkflowSchemaMigrationProof::class,
+            ['peanut.workflow:20260921-register-module-schema', 'peanut.workflow:20261012-workflow-managed-template', 'peanut.workflow:20261012-workflow-notification-facts', 'peanut.workflow:20261012-workflow-v2-execution']],
         'official.notification:20260921-adopt-notification-delivery-schema' => ['eaef582cd762c803f3f7d213687f61d43fd3634e9f0b984471f11648e10979fb', NotificationUpgradePreflight::class,
             ['official.notification:20260826-namespace-permission-keys']],
         'official.notification:20261012-notification-producer-identity' => ['7c01bc1bf1f309e879ff3014f89418157abbce45374a58064d1a6dc94fca07ce', NotificationUpgradePreflight::class,
@@ -2466,12 +2468,15 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     /** A fixed verification-only repair is unnecessary for a genuinely successful original; no synthetic ledger row. */
     private static function workflowRepairOmission(string $moduleKey, string $key, array $files, \PDO $pdo): ?array
     {
-        $repair = 'peanut.workflow:20261012-workflow-managed-template-repair-20261021';
-        $original = 'peanut.workflow:20261012-workflow-managed-template';
-        if ($moduleKey !== 'peanut.workflow' || $key !== $repair) { return null; }
+        $pairs = [
+            'peanut.workflow:20261012-workflow-managed-template-repair-20261021' => ['peanut.workflow:20261012-workflow-managed-template', 'fd02893a4b7a0ea60aa6c5434ff8b46f11e35bec94f10a76fc0b0f64609282a5', 'f3416b6c726a4a97ef70df967f14227c328c0ced156ac98656200f44712e5993'],
+            'peanut.workflow:20261012-workflow-v2-repair-20261021' => ['peanut.workflow:20261012-workflow-v2-execution', 'f46f8b9a7a567584988e3520669daa1a8f893b69d837a1dedf223deb4f2a1b09', '6607485b8db141a3ecb36578da3f3620917a3333b83308ee1d97846955bd7e60'],
+        ];
+        if ($moduleKey !== 'peanut.workflow' || !isset($pairs[$key])) { return null; }
+        $repair = $key; [$original, $originalSha, $repairSha] = $pairs[$key];
         if (!isset($files[$original], $files[$repair])
-            || hash_file('sha256', $files[$original]) !== 'fd02893a4b7a0ea60aa6c5434ff8b46f11e35bec94f10a76fc0b0f64609282a5'
-            || hash_file('sha256', $files[$repair]) !== 'f3416b6c726a4a97ef70df967f14227c328c0ced156ac98656200f44712e5993') {
+            || hash_file('sha256', $files[$original]) !== $originalSha
+            || hash_file('sha256', $files[$repair]) !== $repairSha) {
             throw new PluginLifecycleException('MODULE_MIGRATION_REPAIR_INVALID', 'Fixed Workflow repair source changed.');
         }
         $q = $pdo->prepare('SELECT * FROM pa_module_migration WHERE module_key=? AND migration_key=?');

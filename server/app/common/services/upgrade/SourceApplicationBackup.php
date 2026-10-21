@@ -76,6 +76,9 @@ final class SourceApplicationBackup
         'peanut.workflow:20261012-workflow-v2-execution' => ['f46f8b9a7a567584988e3520669daa1a8f893b69d837a1dedf223deb4f2a1b09',
             ['pa_workflow_definition', 'pa_workflow_definition_version', 'pa_workflow_instance', 'pa_workflow_work_item', 'pa_workflow_event', 'pa_workflow_node_execution', 'pa_workflow_task_identity_link'],
             'PeanutAdmin\\Modules\\Workflow\\Database\\WorkflowSchemaMigrationProof'],
+        'peanut.workflow:20261012-workflow-v2-repair-20261021' => ['6607485b8db141a3ecb36578da3f3620917a3333b83308ee1d97846955bd7e60',
+            ['pa_workflow_definition', 'pa_workflow_definition_version', 'pa_workflow_instance', 'pa_workflow_work_item', 'pa_workflow_event', 'pa_workflow_node_execution', 'pa_workflow_task_identity_link'],
+            'PeanutAdmin\\Modules\\Workflow\\Database\\WorkflowSchemaMigrationProof'],
         'official.notification:20260921-adopt-notification-delivery-schema' => ['eaef582cd762c803f3f7d213687f61d43fd3634e9f0b984471f11648e10979fb',
             ['pa_notification_template', 'pa_notification_message', 'pa_notification_attachment', 'pa_notification_outbox', 'pa_sms_rate_bucket', 'pa_notification_event'],
             'PeanutAdmin\\Modules\\Notification\\Contract\\NotificationUpgradePreflight'],
@@ -701,6 +704,7 @@ final class SourceApplicationBackup
                     $repairKey = match ($id) {
                         'official.task:20261015020000_add_negative_fact_job_profile' => 'official.task:20261021010000_verify_negative_fact_job_profile',
                         'peanut.workflow:20261012-workflow-managed-template' => 'peanut.workflow:20261012-workflow-managed-template-repair-20261021',
+                        'peanut.workflow:20261012-workflow-v2-execution' => 'peanut.workflow:20261012-workflow-v2-repair-20261021',
                         default => null,
                     };
                     $target = array_values(array_filter($module['migrations'], static fn(array $row): bool => ($row['migration_key'] ?? null) === $repairKey));
@@ -720,11 +724,15 @@ final class SourceApplicationBackup
                     continue;
                 }
                 if (($migration['disposition'] ?? null) === 'repair_not_required') {
-                    $original = 'peanut.workflow:20261012-workflow-managed-template';
-                    $repair = 'peanut.workflow:20261012-workflow-managed-template-repair-20261021';
+                    $repair = $id;
+                    $original = match ($repair) {
+                        'peanut.workflow:20261012-workflow-managed-template-repair-20261021' => 'peanut.workflow:20261012-workflow-managed-template',
+                        'peanut.workflow:20261012-workflow-v2-repair-20261021' => 'peanut.workflow:20261012-workflow-v2-execution',
+                        default => null,
+                    };
                     $relation = $migration['repair_omission'] ?? [];
                     $target = array_values(array_filter($module['migrations'], static fn(array $row): bool => ($row['migration_key'] ?? null) === $original));
-                    if ($key !== 'peanut.workflow' || $id !== $repair || $sha !== self::MODULE_DDL_STAGES[$repair][0]
+                    if ($key !== 'peanut.workflow' || $original === null || $sha !== self::MODULE_DDL_STAGES[$repair][0]
                         || ($migration['ledger_status'] ?? null) !== 'missing' || ($migration['executes_original_sql'] ?? null) !== false
                         || count($target) !== 1 || ($target[0]['sha256'] ?? null) !== self::MODULE_DDL_STAGES[$original][0]
                         || ($target[0]['ledger_status'] ?? null) !== 'applied' || ($target[0]['disposition'] ?? null) !== 'already_applied'
