@@ -2470,7 +2470,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "218a799962c6171fbba096c9e0bf8738ec416750543985302d1e8ad5e0f92efe"
+            "source_sha256": "086859e7ad2b2ae36cfad8aa9d4508aac641e274a1df6ad7fc89f90da042b220"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2593,7 +2593,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5f97c7b45f4b6ef19009f2ff0173eda43f670ae680708636e5e7e1d1d962afce"
+            "source_sha256": "976b3a22fa8302200845b4ccc0e7735d104508a3be8084909fad641889ff53b9"
         },
         {
             "path": "plugins/official.identity/plugin.json",
@@ -9228,7 +9228,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0dc517cb978d1de55c67565bc74f701a65894bb2b80b5631cc8851f154c71b91"
+            "source_sha256": "fe25a2848bfd57d4adb2c9403aedbc474e0059840ea27c8271f31ca975461dba"
         },
         {
             "path": "server/app/common/services/upgrade/SourceApplicationDump.php",
@@ -12440,6 +12440,20 @@
             "source_sha256": "3827e993c38855ce94ceaa2b7c0ae8c7082a9d231476e6c42358cd29f977edb7"
         },
         {
+            "path": "server/app/modules/official/file/database/migrations/20261021060200_file_visibility_object_state-repair-20261021.sql",
+            "target": "server/app/modules/official/file/database/migrations/20261021060200_file_visibility_object_state-repair-20261021.sql",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "76538d58ff041c940360550f3b34c584f0385ebc0f6163e4256f0c0e74b6bc4d"
+        },
+        {
             "path": "server/app/modules/official/file/database/migrations/20261021060200_file_visibility_object_state.sql",
             "target": "server/app/modules/official/file/database/migrations/20261021060200_file_visibility_object_state.sql",
             "classification": "managed",
@@ -12465,7 +12479,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5a23bc62b13e66bbfa6bf14cd4b4f311f2875bf7b827b0b72d17f3829a4d4460"
+            "source_sha256": "81e54af58e40881d703dd5831133c049fd83c27e248ac8875e819fba84242de2"
         },
         {
             "path": "server/app/modules/official/file/resources/menus.json",
@@ -12703,7 +12717,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c1701cddf7572e3ba9f8f9aa49f7022e9631204ca2192299111d0ac4b9f79a19"
+            "source_sha256": "4ed6b306bf87073b79df8ae255917cff0e517d3230a8bee8444f889377aa9149"
         },
         {
             "path": "server/app/modules/official/file/src/Contract/FileMigrationPreservation.php",
@@ -12717,7 +12731,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b2be40762af2382dde22afb8aad6707c111d25298175bcc90ccbfe690b63dde5"
+            "source_sha256": "cedfb84bc0d06e1fe229ce0b61f4f0d9d4c9fc3fd48a006f38f28e389c075b87"
         },
         {
             "path": "server/app/modules/official/file/src/Contract/FileReferenceCommands.php",
@@ -26054,7 +26068,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b834d9e86490091e40b4a9bc0d10d8ad578105bc8787608d907151c4b81d8048"
+            "source_sha256": "9e2f6acdc4c429e64131328a0898b9785a37e1583bf2e53e70fe8d4551a0d819"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",

@@ -127,7 +127,7 @@ JSON;
                 if ($bad !== 0) {
                     throw new \RuntimeException('FILE_RELATIONSHIP_MISMATCH');
                 }
-                $checks['visibility_native_profile'] = 'fixed_two_stages_applied_and_complete_schema';
+                $checks['visibility_native_profile'] = 'complete_schema_with_native_completion_or_held_continuation';
             }
             $hasImageIndex = isset($object['indexes']['uk_file_object_tenant_key']);
             if (!$hasImageIndex) { unset($basePost['file_object']['indexes']['uk_file_object_tenant_key']); }

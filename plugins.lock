@@ -632,11 +632,11 @@
         },
         {
             "key": "official.file",
-            "version": "1.0.17",
+            "version": "1.0.18",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "6f14995fcf2a082317b0ad975fc96c0b29a170eb8af6a3479cf36dd735f8d805"
+                "sha256": "14746e25f355f3640b7e39e6fccd6bc4a2b51058337d23701489974176180cbe"
             },
             "trust": {
                 "channel": "bundled",
@@ -670,7 +670,7 @@
                     "modules": [
                         {
                             "key": "official.file",
-                            "version": "1.0.17",
+                            "version": "1.0.18",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
@@ -732,6 +732,10 @@
                                     {
                                         "key": "official.file:20261021060200_file_visibility_object_state",
                                         "sha256": "93ab8b34a84124f7d6ed86e7f36a7ea76e6ac122cc64f58810387506bef65b6b"
+                                    },
+                                    {
+                                        "key": "official.file:20261021060200_file_visibility_object_state-repair-20261021",
+                                        "sha256": "76538d58ff041c940360550f3b34c584f0385ebc0f6163e4256f0c0e74b6bc4d"
                                     }
                                 ]
                             }
@@ -769,7 +773,7 @@
                 }
             ],
             "manifest": "plugins/official.file/plugin.json",
-            "manifest_sha256": "5f97c7b45f4b6ef19009f2ff0173eda43f670ae680708636e5e7e1d1d962afce"
+            "manifest_sha256": "976b3a22fa8302200845b4ccc0e7735d104508a3be8084909fad641889ff53b9"
         },
         {
             "key": "official.identity",

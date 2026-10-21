@@ -16,6 +16,8 @@ use think\facade\Db;
 /** File-only unchanged-row/delta checks. Admission, adoption proof and recovery belong to the caller. */
 final readonly class FileMigrationPreservation
 {
+    public const VISIBILITY_REPAIR = 'official.file:20261021060200_file_visibility_object_state-repair-20261021';
+    public const VISIBILITY_REPAIR_SHA = '76538d58ff041c940360550f3b34c584f0385ebc0f6163e4256f0c0e74b6bc4d';
     public const VISIBILITY_STAGES = [
         'official.file:20261021060100_file_visibility_batches' => '3827e993c38855ce94ceaa2b7c0ae8c7082a9d231476e6c42358cd29f977edb7',
         'official.file:20261021060200_file_visibility_object_state' => '93ab8b34a84124f7d6ed86e7f36a7ea76e6ac122cc64f58810387506bef65b6b',
@@ -74,8 +76,9 @@ final readonly class FileMigrationPreservation
     {
         $this->context($pdo);
         $key = $stage['migration_key'] ?? '';
-        if (($stage['module_key'] ?? null) !== 'official.file' || !isset(self::VISIBILITY_STAGES[$key])
-            || ($stage['checksum'] ?? null) !== self::VISIBILITY_STAGES[$key]
+        $sources = self::VISIBILITY_STAGES + [self::VISIBILITY_REPAIR => self::VISIBILITY_REPAIR_SHA];
+        if (($stage['module_key'] ?? null) !== 'official.file' || !isset($sources[$key])
+            || ($stage['checksum'] ?? null) !== $sources[$key]
             || !($stage['stageLedger'] ?? null) instanceof \Closure) {
             self::fail('NATIVE_STAGE_REQUIRED');
         }
@@ -86,12 +89,19 @@ final readonly class FileMigrationPreservation
         $new = [];
         foreach ($rows as $row) {
             $active = ($row['migration_key'] ?? null) === $key;
+            if ($key === self::VISIBILITY_REPAIR && $row['migration_key'] === array_key_last(self::VISIBILITY_STAGES)
+                && $row['status'] === 'failed' && $row['checksum'] === self::VISIBILITY_STAGES[$row['migration_key']]
+                && $row['resolution_kind'] === null && $row['provenance_json'] === null
+                && $row['error_code'] === 'MODULE_MIGRATION_ADOPTION_DRIFT' && is_string($row['finished_at'])) {
+                $new[] = $row['migration_key'];
+                continue;
+            }
             if (($row['module_key'] ?? null) !== 'official.file' || ($row['status'] ?? null) !== ($active ? 'applying' : 'applied')
                 || ($row['error_code'] ?? null) !== null) {
                 self::fail('LEDGER_CHANGED');
             }
-            if (isset(self::VISIBILITY_STAGES[$row['migration_key']])) {
-                if (($row['checksum'] ?? null) !== self::VISIBILITY_STAGES[$row['migration_key']]
+            if (isset($sources[$row['migration_key']])) {
+                if (($row['checksum'] ?? null) !== $sources[$row['migration_key']]
                     || ($row['resolution_kind'] ?? null) !== ($active ? null : 'executed')
                     || ($row['provenance_json'] ?? null) !== null
                     || ($active ? ($row['finished_at'] ?? null) !== null : !is_string($row['finished_at'] ?? null))) {
@@ -100,11 +110,19 @@ final readonly class FileMigrationPreservation
                 $new[] = $row['migration_key'];
             }
         }
-        $position = array_search($key, array_keys(self::VISIBILITY_STAGES), true);
-        if ($new !== array_slice(array_keys(self::VISIBILITY_STAGES), 0, $position + 1)) {
+        $position = array_search($key, array_keys($sources), true);
+        if ($new !== array_slice(array_keys($sources), 0, $position + 1)) {
             self::fail('LEDGER_CHANGED');
         }
         return $rows;
+    }
+
+    /** A new observation of the complete extended graph; never an old stage's missing safe_after. */
+    public function repairReadiness(PDO $pdo): array
+    {
+        $before = $this->before($pdo, self::VISIBILITY_REPAIR);
+        return $before['safe_summary'] + ['may_apply' => true, 'readonly' => true,
+            'scope' => 'current fixed File visibility shape and unchanged-row repair readiness; not original completion'];
     }
 
     /** Return only safe_summary to logs/plans. Keep private_state in the held callback and pass it to after(). */
@@ -114,7 +132,8 @@ final readonly class FileMigrationPreservation
             $context = $this->context($pdo);
             $sqlHash = $this->sqlHash($canonicalMigrationKey);
             $active = $pdo->inTransaction();
-            $snapshot = $this->snapshot($pdo, isset(self::VISIBILITY_STAGES[$canonicalMigrationKey]));
+            $visibility = isset(self::VISIBILITY_STAGES[$canonicalMigrationKey]) || $canonicalMigrationKey === self::VISIBILITY_REPAIR;
+            $snapshot = $this->snapshot($pdo, $visibility);
             if (isset(self::VISIBILITY_STAGES[$canonicalMigrationKey])) {
                 $schema = $snapshot['tables']['file_object']['metadata']['complete'] ?? null;
                 if (!is_array($schema)) {
@@ -134,6 +153,9 @@ final readonly class FileMigrationPreservation
                         $this->visibilityTable($pdo, $name, $snapshot['tables'][$name]['metadata']['complete']);
                     }
                 }
+            }
+            if ($canonicalMigrationKey === self::VISIBILITY_REPAIR) {
+                $this->visibilityRepairShape($pdo, $snapshot['tables']);
             }
             $delta = $this->delta($snapshot['tables'], $canonicalMigrationKey);
             $unify = $delta['empty_legacy_unify'] ? [
@@ -174,7 +196,7 @@ final readonly class FileMigrationPreservation
             if ($privateBefore['sql_sha256'] !== $sqlHash) { self::fail('SOURCE_CHANGED'); }
             $old = $privateBefore['snapshot'];
             $delta = $this->delta($old['tables'], $key);
-            $new = $this->snapshot($pdo, isset(self::VISIBILITY_STAGES[$key]));
+            $new = $this->snapshot($pdo, isset(self::VISIBILITY_STAGES[$key]) || $key === self::VISIBILITY_REPAIR);
             if ($old['identity'] !== $new['identity']) { self::fail('DATABASE_CHANGED'); }
             if ($delta['empty_legacy_unify']) {
                 $this->assertEmptyLegacyUnify($pdo, $key, $old['tables'], $new['tables'], $privateBefore['unify']);
@@ -221,9 +243,10 @@ final readonly class FileMigrationPreservation
             return ['module_key' => 'official.file', 'migration_key' => $key, 'sql_sha256' => $sqlHash,
                 'preservation_verified' => true, 'before_sha256' => $privateBefore['before_sha256'],
                 'after_sha256' => self::hash($new), 'table_counts' => self::counts($new['tables']),
-                'delta_kind' => isset(self::VISIBILITY_STAGES[$key]) ? 'file_visibility_append_only'
+                'delta_kind' => $key === self::VISIBILITY_REPAIR ? 'file_visibility_verification_only'
+                    : (isset(self::VISIBILITY_STAGES[$key]) ? 'file_visibility_append_only'
                     : ($delta['empty_legacy_unify'] ? 'empty_r1_file_unify'
-                    : ($delta['new_tables'] === [] ? 'no_business_delta' : 'empty_file_family_increment')),
+                    : ($delta['new_tables'] === [] ? 'no_business_delta' : 'empty_file_family_increment'))),
                 'delta_sha256' => self::hash($delta)];
         });
     }
@@ -244,6 +267,9 @@ final readonly class FileMigrationPreservation
         }
         foreach (self::BASE as $name) {
             if (($tables[$name] ?? null) === null) { self::fail('BASE_POSTSTATE_REQUIRED'); }
+        }
+        if ($key === self::VISIBILITY_REPAIR) {
+            return ['new_tables' => [], 'image_index' => false, 'empty_legacy_unify' => false];
         }
         if (isset(self::VISIBILITY_STAGES[$key])) {
             $first = $key === array_key_first(self::VISIBILITY_STAGES);
@@ -337,7 +363,9 @@ final readonly class FileMigrationPreservation
             $identity = $this->identity($pdo);
             $this->visibility($pdo, $identity['database']);
             $tables = [];
-            foreach (array_merge(self::BASE, ...self::FAMILIES) as $name) {
+            $names = array_merge(self::BASE, ...self::FAMILIES);
+            if ($visibility) { $names[] = 'file_cate'; }
+            foreach ($names as $name) {
                 $physical = Db::name($name)->getTable();
                 if (!is_string($physical)) {
                     self::fail('TABLE_IDENTITY_UNKNOWN');
@@ -502,6 +530,30 @@ final readonly class FileMigrationPreservation
         }
     }
 
+    private function visibilityRepairShape(PDO $pdo, array $tables): void
+    {
+        foreach ([...array_merge(self::BASE, ...self::FAMILIES), 'file_cate'] as $name) {
+            if (($tables[$name] ?? null) === null) { self::fail('REPAIR_GRAPH_INCOMPLETE'); }
+        }
+        $schema = $tables['file_object']['metadata']['complete'];
+        $column = $schema['columns']['visibility_batch_key'] ?? null;
+        if (!is_array($column) || $column['COLUMN_TYPE'] !== 'varchar(64)' || $column['IS_NULLABLE'] !== 'YES'
+            || $column['COLUMN_DEFAULT'] !== null || $column['CHARACTER_SET_NAME'] !== 'ascii'
+            || $column['COLLATION_NAME'] !== 'ascii_bin' || $column['EXTRA'] !== ''
+            || ($schema['columns']['status']['COLUMN_TYPE'] ?? null) !== 'varchar(32)'
+            || (string) $pdo->query('SELECT COUNT(*) FROM pa_file_object WHERE visibility_batch_key IS NOT NULL')->fetchColumn() !== '0') {
+            self::fail('REPAIR_SHAPE_UNKNOWN');
+        }
+        $checks = array_column($schema['checks'], null, 'CONSTRAINT_NAME');
+        foreach ($this->visibilityChecks(true) as $name => $expression) {
+            if (($checks[$name]['CHECK_CLAUSE'] ?? null) !== $expression) { self::fail('REPAIR_SHAPE_UNKNOWN'); }
+        }
+        foreach (['file_visibility_batch', 'file_visibility_item'] as $name) {
+            $this->visibilityTable($pdo, $name, $tables[$name]['metadata']['complete']);
+            if ($tables[$name]['count'] !== 0) { self::fail('REPAIR_GRAPH_CHANGED'); }
+        }
+    }
+
     private function visibilityChecks(bool $after): array
     {
         $expressions = [
@@ -637,8 +689,8 @@ final readonly class FileMigrationPreservation
 
     private function sqlHash(string $key): string
     {
-        $hash = self::SQL_HASHES[$key] ?? self::VISIBILITY_STAGES[$key] ?? null;
-        if ($hash === null || (!isset(self::VISIBILITY_STAGES[$key]) && !in_array($key, FileMigrationAdoptionProof::MIGRATION_KEYS, true))) {
+        $hash = self::SQL_HASHES[$key] ?? self::VISIBILITY_STAGES[$key] ?? ($key === self::VISIBILITY_REPAIR ? self::VISIBILITY_REPAIR_SHA : null);
+        if ($hash === null) {
             self::fail('MIGRATION_UNKNOWN');
         }
         $path = dirname(__DIR__, 2) . '/database/migrations/' . substr($key, strlen('official.file:')) . '.sql';

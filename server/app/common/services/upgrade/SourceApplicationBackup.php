@@ -45,6 +45,11 @@ final class SourceApplicationBackup
             ['pa_import_export_operation', 'pa_import_export_row_error']],
     ];
     private const MODULE_DDL_STAGES = [
+        'official.file:20261021060200_file_visibility_object_state-repair-20261021' => ['76538d58ff041c940360550f3b34c584f0385ebc0f6163e4256f0c0e74b6bc4d',
+            ['pa_file','pa_file_cate','pa_file_object','pa_storage_account','pa_storage_space','pa_storage_route',
+                'pa_file_image_asset','pa_file_derivative','pa_file_delivery_nonce','pa_file_delivery_grant','pa_file_reference',
+                'pa_file_immutable_snapshot','pa_file_visibility_batch','pa_file_visibility_item'],
+            'PeanutAdmin\\Modules\\File\\Contract\\FileMigrationPreservation'],
         'official.file:20261021060100_file_visibility_batches' => ['3827e993c38855ce94ceaa2b7c0ae8c7082a9d231476e6c42358cd29f977edb7',
             ['pa_file_visibility_batch','pa_file_visibility_item'], 'PeanutAdmin\\Modules\\File\\Contract\\FileMigrationPreservation'],
         'official.file:20261021060200_file_visibility_object_state' => ['93ab8b34a84124f7d6ed86e7f36a7ea76e6ac122cc64f58810387506bef65b6b',
@@ -735,6 +740,7 @@ final class SourceApplicationBackup
                 if (in_array($migration['disposition'] ?? null, ['awaiting_repair', 'repaired'], true)) {
                     $relation = $migration['repair_resolution'] ?? [];
                     $repairKey = match ($id) {
+                        'official.file:20261021060200_file_visibility_object_state' => 'official.file:20261021060200_file_visibility_object_state-repair-20261021',
                         'official.collaboration:20261012120000_create_collaboration_runtime' => 'official.collaboration:20261012120000_create_collaboration_runtime-repair-20261021',
                         'official.task:20261015020000_add_negative_fact_job_profile' => 'official.task:20261021010000_verify_negative_fact_job_profile',
                         'peanut.workflow:20261012-workflow-managed-template' => 'peanut.workflow:20261012-workflow-managed-template-repair-20261021',
@@ -762,6 +768,7 @@ final class SourceApplicationBackup
                 if (($migration['disposition'] ?? null) === 'repair_not_required') {
                     $repair = $id;
                     $original = match ($repair) {
+                        'official.file:20261021060200_file_visibility_object_state-repair-20261021' => 'official.file:20261021060200_file_visibility_object_state',
                         'official.collaboration:20261012120000_create_collaboration_runtime-repair-20261021' => 'official.collaboration:20261012120000_create_collaboration_runtime',
                         'peanut.workflow:20261012-workflow-managed-template-repair-20261021' => 'peanut.workflow:20261012-workflow-managed-template',
                         'peanut.workflow:20261012-workflow-v2-repair-20261021' => 'peanut.workflow:20261012-workflow-v2-execution',
@@ -769,7 +776,7 @@ final class SourceApplicationBackup
                     };
                     $relation = $migration['repair_omission'] ?? [];
                     $target = array_values(array_filter($module['migrations'], static fn(array $row): bool => ($row['migration_key'] ?? null) === $original));
-                    if (!in_array($key, ['peanut.workflow', 'official.collaboration'], true) || $original === null || $sha !== self::MODULE_DDL_STAGES[$repair][0]
+                    if (!in_array($key, ['peanut.workflow', 'official.collaboration', 'official.file'], true) || $original === null || $sha !== self::MODULE_DDL_STAGES[$repair][0]
                         || ($migration['ledger_status'] ?? null) !== 'missing' || ($migration['executes_original_sql'] ?? null) !== false
                         || count($target) !== 1 || ($target[0]['sha256'] ?? null) !== self::MODULE_DDL_STAGES[$original][0]
                         || ($target[0]['ledger_status'] ?? null) !== 'applied' || ($target[0]['disposition'] ?? null) !== 'already_applied'

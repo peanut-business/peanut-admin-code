@@ -52,6 +52,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         'official.file:20261021060100_file_visibility_batches' => ['3827e993c38855ce94ceaa2b7c0ae8c7082a9d231476e6c42358cd29f977edb7', FileMigrationPreservation::class, []],
         'official.file:20261021060200_file_visibility_object_state' => ['93ab8b34a84124f7d6ed86e7f36a7ea76e6ac122cc64f58810387506bef65b6b', FileMigrationPreservation::class,
             ['official.file:20261021060100_file_visibility_batches']],
+        FileMigrationPreservation::VISIBILITY_REPAIR => [FileMigrationPreservation::VISIBILITY_REPAIR_SHA, FileMigrationPreservation::class,
+            ['official.file:20261021060100_file_visibility_batches', 'official.file:20261021060200_file_visibility_object_state']],
         'peanut.artifact-revision:20260921-register-module-schema' => ['fe70a60a35892fc6352764a4ee8eb065ca8a19e067ab99ccb91c79c21ce95e39', \PeanutAdmin\Modules\ArtifactRevision\Database\ArtifactRevisionMigrationPreservation::class, []],
         'fixture.workflow-business:20261012050100_workflow_business' => ['34c60bca6ac1dd7bdb31a77be9a137ae99f7de8b863e9d309f4f7075d094a99c', \PeanutAdmin\Fixtures\WorkflowBusiness\Database\WorkflowBusinessMigrationPreservation::class, []],
         'fixture.workflow-business:20261012050200_workflow_collaboration' => ['fd9e10722653314d2fdfd28bd9bbafd969a4e00eaec64a6c970053a259d04399', \PeanutAdmin\Fixtures\WorkflowBusiness\Database\WorkflowBusinessMigrationPreservation::class,
@@ -530,7 +532,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                     if ($row['status'] === 'applied') {
                         $pdo = Db::connect()->getPdo();
                         if (!$pdo instanceof \PDO) { throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Master connection is unavailable.'); }
-                        self::assertResolution($row, $adoptions['targets'][$migrationKey] ?? null, $pdo, $plugin->key);
+                        self::assertResolution($row, $adoptions['targets'][$migrationKey] ?? null, $pdo, $plugin->key,
+                            $moduleKey === 'official.file' ? self::fileVisibilityHistoryReader($pdo, $files) : null);
                         continue;
                     }
                     if (!isset($repairs[$migrationKey])) {
@@ -1453,30 +1456,83 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             'checks' => array_column($checks, null, 'CONSTRAINT_NAME'), 'triggers' => $triggers];
     }
 
-    private static function fileMigrationProof(string $key, ?\PDO $pdo = null): array
+    private static function fileMigrationProof(string $key, ?\PDO $pdo = null, ?\Closure $heldVisibility = null): array
     {
         // The fixed application owner reader executes inside the File proof's actual snapshot,
         // not on another Runner connection or from caller-supplied history/provenance data.
-        return app()->make(FileMigrationAdoptionProof::class)->report($key, self::fileApplicationMigrationHistory(...), $pdo, self::fileVisibilityMigrationHistory(...));
+        return app()->make(FileMigrationAdoptionProof::class)->report($key, self::fileApplicationMigrationHistory(...), $pdo,
+            static fn(\PDO $actual): bool => self::fileVisibilityMigrationHistory($actual, $heldVisibility));
     }
 
-    private static function fileVisibilityMigrationHistory(\PDO $pdo): bool
+    /** Native facts are frozen here, never supplied by a Module or recursively read through assertResolution. */
+    private static function fileVisibilityHistoryReader(\PDO $pdo, array $files, ?string $current = null, ?array $admission = null): ?\Closure
+    {
+        $last = array_key_last(FileMigrationPreservation::VISIBILITY_STAGES);
+        if (!isset($files[$last], $files[FileMigrationPreservation::VISIBILITY_REPAIR])) { return null; }
+        $read = static function (\PDO $actual): array {
+            $q = $actual->prepare('SELECT * FROM pa_module_migration WHERE module_key=? ORDER BY id');
+            try { $q->execute(['official.file']); return $q->fetchAll(\PDO::FETCH_ASSOC); }
+            finally { $q->closeCursor(); }
+        };
+        $rows = $read($pdo); $byKey = array_column($rows, null, 'migration_key');
+        if ($current === null && ($byKey[FileMigrationPreservation::VISIBILITY_REPAIR]['status'] ?? null) === 'applied') { return null; }
+        if (($byKey[$last]['status'] ?? null) !== 'failed' && $current !== $last) { return null; }
+        if ($current !== null && (!in_array($current, [$last, FileMigrationPreservation::VISIBILITY_REPAIR], true) || $admission === null)) { return null; }
+        $connection = Db::connect(); $context = app()->make(CurrentExecutionContext::class)->current();
+        $hashes = array_map(static fn(string $path): string => hash_file('sha256', $path), $files);
+        return static function (\PDO $actual) use ($pdo, $connection, $context, $files, $hashes, $rows, $read, $current, $admission): array {
+            if ($actual !== $pdo || Db::connect() !== $connection || $connection->getPdo() !== $pdo || !$pdo->inTransaction()
+                || app()->make(CurrentExecutionContext::class)->current() !== $context || $read($pdo) !== $rows
+                || array_map(static fn(string $path): string => hash_file('sha256', $path), $files) !== $hashes
+                || ($admission !== null && self::json(self::adoptionAdmission($pdo)) !== self::json($admission))) {
+                throw new PluginLifecycleException('MODULE_MIGRATION_STAGE_CHANGED', 'The native File history observation changed.');
+            }
+            if ($current !== array_key_last(FileMigrationPreservation::VISIBILITY_STAGES)) {
+                app()->make(FileMigrationPreservation::class)->repairReadiness($pdo);
+            }
+            return ['ledger' => $rows, 'current_stage' => $current];
+        };
+    }
+
+    private static function fileVisibilityMigrationHistory(\PDO $pdo, ?\Closure $held = null): bool
     {
         if (Db::connect()->getPdo() !== $pdo || !$pdo->inTransaction()) {
             throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'File later-schema history must share its actual snapshot.');
         }
+        $q = $pdo->prepare('SELECT * FROM pa_module_migration WHERE module_key=? ORDER BY id');
+        try { $q->execute(['official.file']); $rows = $q->fetchAll(\PDO::FETCH_ASSOC); }
+        finally { $q->closeCursor(); }
+        $byKey = array_column($rows, null, 'migration_key');
+        $witness = $held === null ? null : $held($pdo);
+        if ($witness !== null && ($witness['ledger'] ?? null) !== $rows) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_STAGE_CHANGED', 'File history must share the held ledger.');
+        }
+        $sources = FileMigrationPreservation::VISIBILITY_STAGES + [FileMigrationPreservation::VISIBILITY_REPAIR => FileMigrationPreservation::VISIBILITY_REPAIR_SHA];
+        $files = [];
+        foreach ($sources as $key => $sha) {
+            $path = root_path() . 'app/modules/official/file/database/migrations/' . substr($key, strlen('official.file:')) . '.sql';
+            if (!is_file($path) || is_link($path) || hash_file('sha256', $path) !== $sha) {
+                throw new PluginLifecycleException('MODULE_MIGRATION_CHECKSUM_MISMATCH', 'Fixed File visibility history source changed.');
+            }
+            $files[$key] = $path;
+        }
         foreach (FileMigrationPreservation::VISIBILITY_STAGES as $key => $sha) {
-            $q = $pdo->prepare('SELECT checksum,status,resolution_kind,provenance_json,error_code FROM pa_module_migration WHERE module_key=? AND migration_key=?');
-            try {
-                $q->execute(['official.file',$key]);
-                $rows = $q->fetchAll(\PDO::FETCH_ASSOC);
-            } finally {
-                $q->closeCursor();
+            $row = $byKey[$key] ?? [];
+            if (($row['checksum'] ?? null) !== $sha || ($row['provenance_json'] ?? null) !== null) {
+                throw new PluginLifecycleException('MODULE_MIGRATION_PRESERVATION_REQUIRED', 'File visibility history is incomplete.');
             }
-            if (count($rows) !== 1 || $rows[0] !== ['checksum' => $sha, 'status' => 'applied', 'resolution_kind' => 'executed',
-                'provenance_json' => null, 'error_code' => null]) {
-                throw new PluginLifecycleException('MODULE_MIGRATION_PRESERVATION_REQUIRED', 'File extended shape needs its real executed native stages.');
+            if ($row['status'] === 'applied' && $row['resolution_kind'] === 'executed' && $row['error_code'] === null && is_string($row['finished_at'])) { continue; }
+            if ($key === array_key_last(FileMigrationPreservation::VISIBILITY_STAGES)) {
+                if (($witness['current_stage'] ?? null) === $key && $row['status'] === 'applying'
+                    && $row['resolution_kind'] === null && $row['error_code'] === null && $row['finished_at'] === null) { continue; }
+                if ($row['status'] === 'failed' && $row['error_code'] === 'MODULE_MIGRATION_ADOPTION_DRIFT') {
+                    $repair = self::migrationRepairResolution($pdo, 'official.file', $row, $files,
+                        [$key => FileMigrationPreservation::VISIBILITY_REPAIR], $witness['current_stage'] ?? null);
+                    if (($repair['state'] ?? null) === 'applied'
+                        || ($witness !== null && in_array($repair['state'] ?? null, ['pending', 'applying'], true))) { continue; }
+                }
             }
+            throw new PluginLifecycleException('MODULE_MIGRATION_PRESERVATION_REQUIRED', 'File extended shape needs real completion or its held native continuation.');
         }
         return true;
     }
@@ -1582,7 +1638,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         return $transfers;
     }
 
-    private static function assertAdopted(array $row, array $declaration, \PDO $pdo, string $pluginKey): array
+    private static function assertAdopted(array $row, array $declaration, \PDO $pdo, string $pluginKey, ?\Closure $heldVisibility = null): array
     {
         try { $proof = json_decode((string) ($row['provenance_json'] ?? ''), true, 64, JSON_THROW_ON_ERROR); }
         catch (\JsonException) { throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_PROVENANCE_INVALID', 'Adopted migration has no valid provenance.'); }
@@ -1613,7 +1669,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_PROVENANCE_INVALID', 'Adoption source identity is incomplete.');
             }
         }
-        $current = self::fileMigrationProof($declaration['migration_key'], $pdo->inTransaction() ? $pdo : null);
+        $current = self::fileMigrationProof($declaration['migration_key'], $pdo->inTransaction() ? $pdo : null, $heldVisibility);
         if (($current['disposition'] ?? null) !== 'adopt' || ($current['may_apply'] ?? null) !== true || Db::connect()->getPdo() !== $pdo) {
             throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_DRIFT', 'Adopted migration postconditions no longer hold.');
         }
@@ -1685,8 +1741,9 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             finally { $query->closeCursor(); }
         };
         $original = $read();
+        $fileHistory = $moduleKey === 'official.file' ? self::fileVisibilityHistoryReader($pdo, $files, $key, $admission) : null;
         $reader = static function (\PDO $actual) use ($pdo, $connection, $plugin, $manifest, $files, $adoptions,
-            $moduleKey, $key, $sha, $batch, $started, $admission, $context, $read, $original): array {
+            $moduleKey, $key, $sha, $batch, $started, $admission, $context, $read, $original, $fileHistory): array {
             if ($actual !== $pdo || Db::connect() !== $connection || $connection->getPdo() !== $pdo || !$pdo->inTransaction()
                 || app()->make(CurrentExecutionContext::class)->current() !== $context
                 || self::json(self::adoptionAdmission($pdo)) !== self::json($admission)) {
@@ -1715,7 +1772,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                     }
                     // Keep native historical checksums and repair/adoption provenance;
                     // do not normalize history to today's source hashes.
-                    if ($row['status'] === 'applied') { self::assertResolution($row, $adoptions['targets'][$rowKey] ?? null, $pdo, $plugin->key); }
+                    if ($row['status'] === 'applied') { self::assertResolution($row, $adoptions['targets'][$rowKey] ?? null, $pdo, $plugin->key, $fileHistory); }
                 }
             }
             if ($current !== 1 || array_diff(self::PRESERVATION_STAGES[$key][2], array_keys($seen)) !== []) {
@@ -1761,12 +1818,12 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         }
     }
 
-    private static function assertResolution(array $row, ?array $declaration, \PDO $pdo, string $pluginKey): ?array
+    private static function assertResolution(array $row, ?array $declaration, \PDO $pdo, string $pluginKey, ?\Closure $heldVisibility = null): ?array
     {
         $kind = $row['resolution_kind'] ?? null;
         if ($kind === 'adopted') {
             if ($declaration === null) { throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_PROVENANCE_INVALID', 'Adoption declaration is missing.'); }
-            return self::assertAdopted($row, $declaration, $pdo, $pluginKey);
+            return self::assertAdopted($row, $declaration, $pdo, $pluginKey, $heldVisibility);
         } elseif (!in_array($kind, [null, 'executed'], true) || ($row['provenance_json'] ?? null) !== null) {
             throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_PROVENANCE_INVALID', 'Migration resolution source is invalid.');
         }
@@ -2274,6 +2331,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         $repairs = self::migrationRepairMap($moduleKey, $files);
         $adoptions = self::migrationAdoptions($moduleKey, $files, $repairs);
         $migrations = []; $reports = []; $mayApply = true; $sourceDeferred = false;
+        $fileHistory = $moduleKey === 'official.file' ? self::fileVisibilityHistoryReader($pdo, $files) : null;
         $notificationForward = $willMigrate && $moduleKey === 'official.notification' && ($notificationForwardOverride ?? $this->notificationForwardRequired($plugin))
             ? self::notificationForwardSchemaReport() : null;
         $notificationAdmission = null;
@@ -2306,7 +2364,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             if ($status === 'applied') {
                 $pdo = Db::connect()->getPdo();
                 if (!$pdo instanceof \PDO) { throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Master connection is unavailable.'); }
-                $report = self::assertResolution($row, $adoptions['targets'][$key] ?? null, $pdo, $plugin->key);
+                $report = self::assertResolution($row, $adoptions['targets'][$key] ?? null, $pdo, $plugin->key, $fileHistory);
                 $disposition = 'already_applied';
             } elseif ($row !== null) {
                 if (!isset($repairs[$key])) { throw new PluginLifecycleException('MODULE_MIGRATION_REPAIR_REQUIRED', "Append-only repair required: {$key}"); }
@@ -2317,6 +2375,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 $repairOmission = self::workflowRepairOmission($moduleKey, $key, $files, $pdo);
                 if ($repairOmission !== null) {
                     $disposition = 'repair_not_required';
+                } elseif ($willMigrate && $moduleKey === 'official.file' && $key === FileMigrationPreservation::VISIBILITY_REPAIR && $fileHistory !== null) {
+                    $report = app()->make(FileMigrationPreservation::class)->repairReadiness($pdo);
                 } elseif (isset($adoptions['targets'][$key])) {
                     $report = self::fileMigrationProof($key);
                     $disposition = $willMigrate && ($report['may_apply'] ?? null) === true ? ($report['disposition'] ?? 'reject') : 'reject';
@@ -2607,6 +2667,26 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     /** A fixed verification-only repair is unnecessary for a genuinely successful original; no synthetic ledger row. */
     private static function workflowRepairOmission(string $moduleKey, string $key, array $files, \PDO $pdo): ?array
     {
+        if ($moduleKey === 'official.file' && $key === FileMigrationPreservation::VISIBILITY_REPAIR) {
+            $original = array_key_last(FileMigrationPreservation::VISIBILITY_STAGES);
+            foreach (FileMigrationPreservation::VISIBILITY_STAGES + [$key => FileMigrationPreservation::VISIBILITY_REPAIR_SHA] as $source => $sha) {
+                if (!isset($files[$source]) || hash_file('sha256', $files[$source]) !== $sha) {
+                    throw new PluginLifecycleException('MODULE_MIGRATION_REPAIR_INVALID', 'Fixed File repair source changed.');
+                }
+            }
+            $q = $pdo->prepare('SELECT * FROM pa_module_migration WHERE module_key=? AND migration_key=?');
+            try { $q->execute([$moduleKey, $original]); $rows = $q->fetchAll(\PDO::FETCH_ASSOC); }
+            finally { $q->closeCursor(); }
+            if ($rows === [] || (count($rows) === 1 && $rows[0]['status'] === 'failed')) { return null; }
+            $row = $rows[0] ?? [];
+            if (count($rows) !== 1 || $row['status'] !== 'applied' || $row['checksum'] !== FileMigrationPreservation::VISIBILITY_STAGES[$original]
+                || $row['resolution_kind'] !== 'executed' || $row['provenance_json'] !== null || $row['error_code'] !== null || !is_string($row['finished_at'])) {
+                throw new PluginLifecycleException('MODULE_MIGRATION_REPAIR_INVALID', 'A genuine successful File original is required.');
+            }
+            return ['original_key' => $original, 'original_sha256' => $row['checksum'], 'original_status' => 'applied',
+                'original_ledger_sha256' => hash('sha256', self::json($row)), 'repair_key' => $key,
+                'repair_sha256' => FileMigrationPreservation::VISIBILITY_REPAIR_SHA, 'executes_original_sql' => false];
+        }
         if ($moduleKey === 'official.collaboration'
             && $key === 'official.collaboration:20261012120000_create_collaboration_runtime-repair-20261021') {
             $originals = [
