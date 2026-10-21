@@ -28502,7 +28502,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "da8590cc6727385f971e09651f7b5564aeef1ee3417191a21e46379dd315eb68"
+            "source_sha256": "7dc2b56cfeb7f98b00ad7782ddb8c8c6d8de0e0fd8bf82b016127fbd06981401"
         },
         {
             "path": "server/public/static/.gitignore",
