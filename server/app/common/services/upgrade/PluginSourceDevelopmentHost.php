@@ -150,6 +150,7 @@ final class PluginSourceDevelopmentHost
                                 $evidence = fn(): array => SourceApplicationBackup::pluginRecovery($binding, $baseline, $scope,
                                     $execution['maintenance'], $execution['recovery'], $this->app->getRootPath());
                                 $proof = $evidence();
+                                $recoveryPreflight = null;
                                 if ($operation === 'install' && $pluginKey === 'official.identity'
                                     && $effects['pending'] === array_keys(\PeanutAdmin\Modules\Identity\Database\IdentitySchemaMigrationProof::recoveryStages())) {
                                     $recoveryPreflight = $this->identityRecoveryPreflight($pdo, $scope, $effects, $identity['database']);
@@ -200,6 +201,9 @@ final class PluginSourceDevelopmentHost
                                     $lifecycleCompleted = true;
                                     $this->requireMutation($pdo, $pluginKey);
                                     if ($pdo->inTransaction()) { throw new RuntimeException('PLUGIN_SOURCE_TRANSACTION_INCOMPLETE'); }
+                                    if ($recoveryPreflight !== null && $this->identityExternalBindings($pdo, $scope, $effects, $identity['database']) !== $recoveryPreflight['external_bindings']) {
+                                        throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_EXTERNAL_BINDINGS_CHANGED');
+                                    }
                                     $ledger = $readLedger(); $byKey = array_column($ledger, null, 'migration_key');
                                     foreach ($oldLedger as $row) {
                                         if (($byKey[$row['migration_key']] ?? null) !== $row) { throw new RuntimeException('PLUGIN_SOURCE_OLD_LEDGER_CHANGED'); }
@@ -229,7 +233,7 @@ final class PluginSourceDevelopmentHost
                                     $this->requireMutation($pdo, $pluginKey);
                                     $record = ['protocol' => 'peanut.source-plugin-result.v1', 'status' => 'completed', 'operation' => $operation,
                                         'plugin_key' => $pluginKey, 'binding' => $binding, 'native_plan_sha256' => self::digest($native),
-                                        'evidence' => $proof, 'result' => $result, 'ledger' => $ledger,
+                                        'evidence' => $proof, 'result' => $result, 'ledger' => $ledger, 'identity_recovery_preflight' => $recoveryPreflight,
                                         'native_plan' => $native, 'execution_plan' => $ready, 'baseline' => $baseline, 'backup_scope' => $scope,
                                         'admission' => $this->mutation['admission'], 'ordered_stages' => $stages, 'observed_at' => $acceptedAt,
                                         'request_id' => $context->requestId(), 'writer_sha256' => $writerSha, 'executor_sha256' => $executorSha,
@@ -252,6 +256,7 @@ final class PluginSourceDevelopmentHost
                                             'operation' => $operation, 'plugin_key' => $pluginKey, 'binding' => $binding,
                                             'native_plan' => $native, 'native_plan_sha256' => self::digest($native),
                                             'baseline' => $baseline, 'backup_scope' => $scope, 'evidence' => $proof,
+                                            'identity_recovery_preflight' => $recoveryPreflight, 'external_bindings_after_failure' => 'not_verified',
                                             'admission' => $this->mutation['admission'], 'old_ledger' => $oldLedger,
                                             'ledger' => $ledger, 'ledger_observation' => $ledger === null ? 'unknown' : 'observed_after_failure',
                                             'ordered_stages' => $this->mutation['stages'], 'request_id' => $context->requestId(),
@@ -389,6 +394,10 @@ final class PluginSourceDevelopmentHost
                             }
                             $scope = SourceApplicationBackup::pluginScope($pdo, $effects, $binding, $metadataTool, $guard);
                             $external = $this->identityExternalBindings($pdo, $scope, $effects, $binding['database']['database']);
+                            $originalExternal = $origin['record']['identity_recovery_preflight']['external_bindings'] ?? null;
+                            $preserved = is_array($originalExternal) && $external === $originalExternal;
+                            $eligible = $eligible && $preserved;
+                            if ($restoring && !$preserved) { throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_EXTERNAL_BINDINGS_CHANGED'); }
                             $state = $this->identityOperationState($pdo); $stateSha = self::digest($state);
                             $recordedLedger = $origin['record']['ledger'];
                             if (is_array($recordedLedger)) { usort($recordedLedger, static fn(array $a, array $b): int => strcmp($a['migration_key'], $b['migration_key'])); }
@@ -399,13 +408,14 @@ final class PluginSourceDevelopmentHost
                                 'recovery_eligible' => $eligible, 'historical_window_end' => $historicalEnd,
                                 'operation_receipt' => $origin['reference'], 'original_backup' => $origin['original_reference'],
                                 'pending' => $effects['pending'], 'selected' => $effects['selected'], 'state_sha256' => $stateSha,
-                                'external_bindings' => $external];
-                            $check = function () use ($pdo, $effects, $binding, $metadataTool, $guard, $scope, $stateSha, $eligible, $historicalEnd, $restoring): void {
+                                'external_bindings' => $external, 'original_external_bindings_preserved' => $preserved];
+                            $check = function () use ($pdo, $effects, $binding, $metadataTool, $guard, $scope, $stateSha, $eligible, $historicalEnd, $restoring, $external): void {
                                 $this->requireIdentityRecovery($pdo, 'official.identity'); $guard();
                                 $this->identityRecoveryFilesGuard();
                                 if (!$restoring && $eligible && time() >= $historicalEnd) { throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_HISTORICAL_WINDOW_GAP'); }
                                 if (SourceApplicationBackup::pluginScope($pdo, $effects, $binding, $metadataTool, $guard) !== $scope
-                                    || self::digest($this->identityOperationState($pdo)) !== $stateSha) {
+                                    || self::digest($this->identityOperationState($pdo)) !== $stateSha
+                                    || $this->identityExternalBindings($pdo, $scope, $effects, $binding['database']['database']) !== $external) {
                                     throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_SNAPSHOT_CHANGED');
                                 }
                             };
