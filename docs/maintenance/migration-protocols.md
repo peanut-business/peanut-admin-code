@@ -4,6 +4,8 @@ Task 1.0.14 增加固定 `20261021010000_verify_negative_fact_job_profile` 修�
 
 Task 已存在三表的 profile 升级若在原生 SQL 后失败，可用 `plugin:upgrade official.task --scope=source-development --dry-run --snapshot-operation=<原失败回执>` 封存失败后像；同时提供真实 actor、登记的 `--metadata-tool`、`--backup-tool` 和新 `--backup-output`。入口只接受固定 namespace/adopt/profile 来源、仅 adopt 已接受的原失败链；当前 Task 包、原 SQL 和 owner 字节必须仍与失败来源一致，当前数据库与整份模块账本须匹配。新 owner 在自己的有效 exclusive/DDL 租约下持实际产品、schema 和 Task package 锁，使用原生选表备份封存当前结构与数据。专用 `peanut.source-task-failure-forensic.v1`／reference 协议仅用于取证，不是原前态、恢复资格、迁移 apply 准入或产品资格；不执行 SQL 恢复，也不补写原 safe_after。
 
+Workflow 原生安装若在 initial 已接受、managed-template 执行后失败，可在改变模块包之前使用同一入口的 `plugin:install peanut.workflow --scope=source-development --dry-run --snapshot-operation=<原失败回执>` 分支封存。它仅接受固定四份 SQL、唯一 initial applied／managed failed 的完整原账本与原包锁；原前态缺失的五张表必须是此次 initial 创建且当前仍为空，另外两张未来表仍缺失。原十四张既有表与本次新五表都纳入完整原生捕获，持实际 Workflow package 锁；`peanut.source-workflow-failure-forensic.v1`／reference 只保全真实部分状态，不重放 ALTER、不改 failed 行、不签发恢复或下一次安装准入。两个分支都必须精确申领工具 `tooling-resource-id`、固定 effect-metadata 父目录及 `backup-output` 本身的 `output-dir`；操作父目录不能代替子目录权限。
+
 这是当前源码中已存在的受限维护协议参考，不是普通APP安装步骤或自动派工依据。源级、模块和生产迁移各走自己的入口；固定SQL来源、原账本、业务保全、备份和真实权限不得省略。本文不声称当前数据库已经执行或恢复通过。
 
 应用和模块的版本化 SQL 使用锁定的 `topthink/think-migration` 官方执行器及真实 `Migrator`，通过其 MySQL Adapter 扩展读取、更新原有 `pa_schema_migration`／`pa_module_migration` 唯一账本；不复制旧历史到另一张 `migrations` 表。Peanut 生命周期保留原 SQL 顺序、目标发行选择、checksum、applying／failed、repair／adopt、业务 preflight、安装身份与恢复；执行成功仅由官方 `migrated()` 回调写入。完整 text key 是持久化身份，官方整数版本使用固定 SHA-256 前 60 位加一的投影，先检查源文件与该 scope 历史 key 并集，碰撞即拒绝，不按数组顺序重编号。这个整数不表示日期或回退目标。SQL 保留自身事务边界并排空多结果集，不在不可逆 DDL 外再套事务。

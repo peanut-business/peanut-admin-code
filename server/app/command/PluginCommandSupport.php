@@ -50,15 +50,16 @@ trait PluginCommandSupport
             foreach (['owner', 'thread', 'session', 'gate'] as $name) { $actor[$name] = $input->getOption($name); }
             $snapshot = (string) $input->getOption('snapshot-operation');
             $restore = (string) $input->getOption('restore-operation');
-            if ($operation === 'upgrade' && $key === 'official.task' && $snapshot !== '') {
-                if (!$dryRun || $restore !== '') { throw new PluginLifecycleException('PLUGIN_SOURCE_ARGUMENTS_INVALID', 'Task forensic snapshot is read-only.'); }
+            if ($snapshot !== '' && (($operation === 'upgrade' && $key === 'official.task')
+                || ($operation === 'install' && $key === 'peanut.workflow'))) {
+                if (!$dryRun || $restore !== '') { throw new PluginLifecycleException('PLUGIN_SOURCE_ARGUMENTS_INVALID', 'Failure forensic snapshot is read-only.'); }
                 foreach (['source-plan', 'maintenance', 'recovery', 'verify-receipt'] as $name) {
-                    if ($input->getOption($name) !== '') { throw new PluginLifecycleException('PLUGIN_SOURCE_ARGUMENTS_INVALID', 'Task forensic snapshot grants no lifecycle or restore admission.'); }
+                    if ($input->getOption($name) !== '') { throw new PluginLifecycleException('PLUGIN_SOURCE_ARGUMENTS_INVALID', 'Failure forensic snapshot grants no lifecycle or restore admission.'); }
                 }
-                return $this->getApp()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->snapshotTaskFailure(
-                    $actor, $snapshot, (string) $input->getOption('backup-tool'), (string) $input->getOption('backup-output'),
+                return $this->getApp()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->snapshotFailure(
+                    $key, $actor, $snapshot, (string) $input->getOption('backup-tool'), (string) $input->getOption('backup-output'),
                     (string) $input->getOption('metadata-tool'),
-                    fn(\PDO $pdo, callable $held): array => $this->pluginLifecycle()->withTaskForensicLock($pdo, $held),
+                    fn(\PDO $pdo, callable $held): array => $this->pluginLifecycle()->withFailureForensicLock($key, $pdo, $held),
                 );
             }
             if ($snapshot !== '' || $restore !== '') {

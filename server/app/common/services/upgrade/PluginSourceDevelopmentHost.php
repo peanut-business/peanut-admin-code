@@ -19,7 +19,7 @@ final class PluginSourceDevelopmentHost
     private ?array $planning = null;
     private ?array $mutation = null;
     private ?array $identityRecovery = null;
-    private ?array $taskForensic = null;
+    private ?array $failureForensic = null;
     private array $identityRecoveryFiles = [];
     private string $sourceMetadataTool = '';
     private const IDENTITY_EXTERNAL_REFERENCES = [
@@ -52,7 +52,7 @@ final class PluginSourceDevelopmentHost
         if (($toolId === '') !== ($output === '')) { throw new RuntimeException('PLUGIN_SOURCE_BACKUP_ARGUMENTS_REQUIRED'); }
         $serverRoot = rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR);
         $context = $this->app->make(CurrentExecutionContext::class)->current();
-        if (!in_array($operation, ['install', 'upgrade'], true) || $pluginKey === '' || $this->planning !== null || $this->identityRecovery !== null || $this->taskForensic !== null
+        if (!in_array($operation, ['install', 'upgrade'], true) || $pluginKey === '' || $this->planning !== null || $this->identityRecovery !== null || $this->failureForensic !== null
             || !$context instanceof InstanceExecutionContext || $context->operation() !== 'console.plugin:' . $operation
             || $context->instance->actorKey !== 'console' || PHP_SAPI !== 'cli'
             || $this->app->config->get('peanut.environment') !== 'development' || !$this->app->isDebug()
@@ -327,16 +327,40 @@ final class PluginSourceDevelopmentHost
         });
     }
 
-    /** Preserve a real failed Task upgrade under the normal native source/schema/package locks. */
-    public function snapshotTaskFailure(array $actor, string $input, string $toolId, string $output, string $metadataTool, callable $packageLock): array
+    /** Preserve only the two fixed native failure profiles; grants no lifecycle or restore admission. */
+    public function snapshotFailure(string $pluginKey, array $actor, string $input, string $toolId, string $output, string $metadataTool, callable $packageLock): array
     {
+        $profiles = [
+            'official.task' => ['operation' => 'upgrade', 'module_root' => 'official/task',
+                'owner' => 'Job/Database/TaskSchemaMigrationProof.php',
+                'selected' => [
+                    'official.task:20260826-namespace-permission-keys' => '81bff457523333ad56c1d30fb84094fbf3941902c37a56f27fe291c09145d131',
+                    'official.task:20260921-adopt-task-job-schema' => 'f04762aeab007bea0b0c4ce277d8f7781a694b17891f1193f303d0481366f21a',
+                    'official.task:20261015020000_add_negative_fact_job_profile' => '2217e8a0cfc44e2c4c6c1a76a0413ed2448c5695e32f2a31a6a2a3072f44dbd4',
+                ], 'first' => 'official.task:20260921-adopt-task-job-schema',
+                'failed' => 'official.task:20261015020000_add_negative_fact_job_profile', 'created' => [],
+                'purpose' => 'task-failure-forensic'],
+            'peanut.workflow' => ['operation' => 'install', 'module_root' => 'peanut/workflow',
+                'owner' => 'Database/WorkflowSchemaMigrationProof.php',
+                'selected' => [
+                    'peanut.workflow:20260921-register-module-schema' => 'f0a21d63c83afcd2438fc327bf6ad97a59d82daa571bc4de51d74c32eb487ff7',
+                    'peanut.workflow:20261012-workflow-managed-template' => 'fd02893a4b7a0ea60aa6c5434ff8b46f11e35bec94f10a76fc0b0f64609282a5',
+                    'peanut.workflow:20261012-workflow-notification-facts' => 'ff26361f27773b9500fe6484729a26c0655d18f893cac8739bae9edfec8f6378',
+                    'peanut.workflow:20261012-workflow-v2-execution' => 'f46f8b9a7a567584988e3520669daa1a8f893b69d837a1dedf223deb4f2a1b09',
+                ], 'first' => 'peanut.workflow:20260921-register-module-schema',
+                'failed' => 'peanut.workflow:20261012-workflow-managed-template',
+                'created' => ['pa_workflow_definition', 'pa_workflow_definition_version', 'pa_workflow_event', 'pa_workflow_instance', 'pa_workflow_work_item'],
+                'purpose' => 'workflow-failure-forensic'],
+        ];
+        $profile = $profiles[$pluginKey] ?? null;
+        if ($profile === null) { throw new RuntimeException('PLUGIN_SOURCE_FAILURE_FORENSIC_PROFILE_REQUIRED'); }
         $root = rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR);
         $context = $this->app->make(CurrentExecutionContext::class)->current();
-        if (!$context instanceof InstanceExecutionContext || $context->operation() !== 'console.plugin:upgrade'
+        if (!$context instanceof InstanceExecutionContext || $context->operation() !== 'console.plugin:' . $profile['operation']
             || $context->instance->actorKey !== 'console' || PHP_SAPI !== 'cli'
             || $this->app->config->get('peanut.environment') !== 'development' || !$this->app->isDebug()
             || !in_array($this->app->config->get('deployment.mode'), ['standalone', 'multi-tenant'], true)
-            || $this->planning !== null || $this->mutation !== null || $this->identityRecovery !== null || $this->taskForensic !== null
+            || $this->planning !== null || $this->mutation !== null || $this->identityRecovery !== null || $this->failureForensic !== null
             || $toolId === '' || $output === '' || $metadataTool === '') { throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_CONTEXT_REQUIRED'); }
         $admission = new SourceDevelopmentMaintenanceAdmission($root);
         $initial = $admission->capture($actor, true);
@@ -344,36 +368,37 @@ final class PluginSourceDevelopmentHost
         $original = json_decode($originalBytes, true, 64, JSON_THROW_ON_ERROR); $originalSha = hash('sha256', $originalBytes);
         if (!is_array($original) || array_is_list($original)) { throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_ORIGIN_REQUIRED'); }
         $digest = $original['document_sha256'] ?? null; $document = $original; unset($document['document_sha256']);
-        $adopt = 'official.task:20260921-adopt-task-job-schema';
-        $profile = 'official.task:20261015020000_add_negative_fact_job_profile';
+        $pending = array_keys($profile['selected']);
+        if ($pluginKey === 'official.task') { array_shift($pending); }
         if (($original['protocol'] ?? null) !== 'peanut.source-plugin-failure.v1' || ($original['status'] ?? null) !== 'failed'
-            || ($original['operation'] ?? null) !== 'upgrade' || ($original['plugin_key'] ?? null) !== 'official.task'
+            || ($original['operation'] ?? null) !== $profile['operation'] || ($original['plugin_key'] ?? null) !== $pluginKey
             || ($original['failure_phase'] ?? null) !== 'native_lifecycle' || !is_string($digest) || !hash_equals($digest, self::digest($document))
-            || ($original['baseline']['pending'] ?? null) !== [$adopt, $profile]
-            || ($original['baseline']['selected'] ?? null) !== [
-                'official.task:20260826-namespace-permission-keys' => '81bff457523333ad56c1d30fb84094fbf3941902c37a56f27fe291c09145d131',
-                $adopt => 'f04762aeab007bea0b0c4ce277d8f7781a694b17891f1193f303d0481366f21a',
-                $profile => '2217e8a0cfc44e2c4c6c1a76a0413ed2448c5695e32f2a31a6a2a3072f44dbd4',
-            ]
-            || count($original['ordered_stages'] ?? []) !== 1 || ($original['ordered_stages'][0]['migration_key'] ?? null) !== $adopt
+            || ($original['baseline']['pending'] ?? null) !== $pending
+            || ($original['baseline']['selected'] ?? null) !== $profile['selected']
+            || count($original['ordered_stages'] ?? []) !== 1 || ($original['ordered_stages'][0]['migration_key'] ?? null) !== $profile['first']
             || ($original['ordered_stages'][0]['accepted_while'] ?? null) !== 'applying') { throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_ORIGIN_REQUIRED'); }
+        if ($pluginKey === 'peanut.workflow' && (count($original['ledger'] ?? []) !== 2
+            || ($original['ordered_stages'][0]['safe_after']['preservation_verified'] ?? null) !== true
+            || ($original['ordered_stages'][0]['safe_after']['created_empty_tables'] ?? null) !== count($profile['created']))) {
+            throw new RuntimeException('PLUGIN_SOURCE_FAILURE_FORENSIC_ORIGIN_REQUIRED');
+        }
         $native = $original['native_plan'] ?? [];
-        if (($native['plugin_key'] ?? null) !== 'official.task' || array_column($native['modules'] ?? [], 'module_key') !== ['official.task']
+        if (($native['plugin_key'] ?? $native['key'] ?? null) !== $pluginKey || array_column($native['modules'] ?? [], 'module_key') !== [$pluginKey]
             || ($original['native_plan_sha256'] ?? null) !== self::digest($native)) { throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_PLAN_CHANGED'); }
         $effects = SourceApplicationBackup::pluginEffects($native);
-        $expectedBaseline = ['pending' => $effects['pending'], 'selected' => $effects['selected'], 'operation' => 'upgrade',
-            'plugin_key' => 'official.task', 'native_plan_sha256' => self::digest($native), 'lifecycle_effects' => $effects];
+        $expectedBaseline = ['pending' => $effects['pending'], 'selected' => $effects['selected'], 'operation' => $profile['operation'],
+            'plugin_key' => $pluginKey, 'native_plan_sha256' => self::digest($native), 'lifecycle_effects' => $effects];
         if (($effects['closure_complete'] ?? null) !== true || self::digest($expectedBaseline) !== self::digest($original['baseline'])) {
             throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_EFFECTS_CHANGED');
         }
         $source = $original['binding']['source'] ?? [];
         if (($source['root'] ?? null) !== dirname($root)) { throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_SOURCE_CHANGED'); }
-        $this->assertReceiptSource($source['head'] ?? '', $root . '/app/modules/official/task/src/Job/Database/TaskSchemaMigrationProof.php',
+        $this->assertReceiptSource($source['head'] ?? '', $root . '/app/modules/' . $profile['module_root'] . '/src/' . $profile['owner'],
             $original['ordered_stages'][0]['contract_sha256'] ?? '');
-        // Do not move to a different Task package before preserving its actual failed state.
+        // Do not move to a different package before preserving its actual failed state.
         $this->assertReceiptSource($source['head'], dirname($root) . '/plugins.lock', hash_file('sha256', dirname($root) . '/plugins.lock'));
         foreach ($original['baseline']['selected'] ?? [] as $key => $sha) {
-            $this->assertReceiptSource($source['head'], $root . '/app/modules/official/task/database/migrations/' . substr($key, strlen('official.task:')) . '.sql', $sha);
+            $this->assertReceiptSource($source['head'], $root . '/app/modules/' . $profile['module_root'] . '/database/migrations/' . substr($key, strlen($pluginKey . ':')) . '.sql', $sha);
         }
         $reference = $original['evidence']['backup_manifest'] ?? [];
         $backupBytes = SourceApplicationBackup::protectedPluginBytes($reference['path'] ?? '', $root);
@@ -395,10 +420,10 @@ final class PluginSourceDevelopmentHost
         $files = \applicationMigrationFiles($root . '/database'); $versions = \applicationReleaseVersions($root);
         $result = null;
         ScaffoldUpgradeRunner::sourceProductLock(dirname($root), function () use ($root, $pdo, $connection, $actor, $admission, $initial, $identity,
-            $binding, $context, $config, $files, $versions, $original, $input, $originalSha, $backup, $toolId, $tools, $output, $metadataTool, $packageLock, $profile, &$result): void {
+            $binding, $context, $config, $files, $versions, $original, $input, $originalSha, $backup, $toolId, $tools, $output, $metadataTool, $packageLock, $profile, $pluginKey, &$result): void {
             (new ApplicationMigrationRunner($config, $pdo))->run($files, \applicationMigrationTargetVersion($root, $versions), $versions['release_sequence_version'], true, null,
                 function (PDO $actual, array $selection) use ($root, $pdo, $connection, $actor, $admission, $initial, $identity, $binding, $context, $config,
-                    $original, $input, $originalSha, $backup, $toolId, $tools, $output, $metadataTool, $packageLock, $profile, &$result): void {
+                    $original, $input, $originalSha, $backup, $toolId, $tools, $output, $metadataTool, $packageLock, $profile, $pluginKey, &$result): void {
                     if ($actual !== $pdo || $selection['pending'] !== []) { throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_APPLICATION_PENDING'); }
                     $guard = function () use ($root, $pdo, $connection, $actor, $admission, $initial, $identity, $context, $config, $input, $originalSha, $original): void {
                         if ($this->app->make(CurrentExecutionContext::class)->current() !== $context || Db::connect() !== $connection || $connection->getPdo() !== $pdo
@@ -414,43 +439,58 @@ final class PluginSourceDevelopmentHost
                             if ((int) $q->fetchColumn() !== 1) { throw new RuntimeException('PLUGIN_SOURCE_SCHEMA_LOCK_REQUIRED'); }
                         } finally { $q->closeCursor(); }
                     };
-                    $guard(); $this->taskForensic = ['pdo' => $pdo, 'guard' => $guard];
+                    $guard(); $this->failureForensic = ['pdo' => $pdo, 'guard' => $guard, 'plugin_key' => $pluginKey];
                     try {
-                        $result = $packageLock($pdo, function () use ($pdo, $guard, $original, $input, $originalSha, $backup, $binding, $toolId, $tools, $output, $metadataTool, $profile): array {
-                            $check = function () use ($pdo, $guard, $original, $profile): void {
-                                $guard(); $this->requireTaskForensic($pdo);
-                                $q = $pdo->query("SELECT * FROM pa_module_migration WHERE module_key='official.task' ORDER BY migration_key");
-                                try { $rows = $q->fetchAll(PDO::FETCH_ASSOC); } finally { $q->closeCursor(); }
+                        $result = $packageLock($pdo, function () use ($pdo, $guard, $original, $input, $originalSha, $backup, $binding, $toolId, $tools, $output, $metadataTool, $profile, $pluginKey): array {
+                            $check = function () use ($pdo, $guard, $original, $profile, $pluginKey): void {
+                                $guard(); $this->requireFailureForensic($pdo, $pluginKey);
+                                $q = $pdo->prepare('SELECT * FROM pa_module_migration WHERE module_key=? ORDER BY migration_key');
+                                try { $q->execute([$pluginKey]); $rows = $q->fetchAll(PDO::FETCH_ASSOC); } finally { $q->closeCursor(); }
                                 $expected = $original['ledger']; usort($expected, static fn(array $a, array $b): int => strcmp($a['migration_key'], $b['migration_key']));
                                 if (self::digest($rows) !== self::digest($expected)) { throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_LEDGER_CHANGED'); }
+                                if ($pluginKey === 'peanut.workflow' && (array_column($rows, 'migration_key') !== [$profile['first'], $profile['failed']]
+                                    || $rows[0]['status'] !== 'applied' || $rows[0]['resolution_kind'] !== 'executed'
+                                    || $rows[0]['checksum'] !== $profile['selected'][$profile['first']]
+                                    || $rows[1]['checksum'] !== $profile['selected'][$profile['failed']])) {
+                                    throw new RuntimeException('PLUGIN_SOURCE_FAILURE_FORENSIC_LEDGER_CHANGED');
+                                }
                                 $failed = array_values(array_filter($rows, static fn(array $row): bool => $row['status'] !== 'applied'));
-                                if (count($failed) !== 1 || $failed[0]['migration_key'] !== $profile || $failed[0]['status'] !== 'failed'
+                                if (count($failed) !== 1 || $failed[0]['migration_key'] !== $profile['failed'] || $failed[0]['status'] !== 'failed'
                                     || $failed[0]['resolution_kind'] !== null || $failed[0]['provenance_json'] !== null) { throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_LEDGER_CHANGED'); }
+                                foreach ($profile['created'] as $table) {
+                                    $q = $pdo->query('SELECT EXISTS(SELECT 1 FROM `' . $table . '`)');
+                                    try { if ((string) $q->fetchColumn() !== '0') { throw new RuntimeException('PLUGIN_SOURCE_FAILURE_FORENSIC_NEW_TABLE_NOT_EMPTY'); } }
+                                    finally { $q->closeCursor(); }
+                                }
                             };
                             $check(); $effects = $original['baseline']['lifecycle_effects'];
                             $scope = SourceApplicationBackup::pluginScope($pdo, $effects, $binding, $metadataTool, $check);
-                            if ($scope['tables'] !== $backup['scope']['tables'] || $scope['absent_original_tables'] !== $backup['scope']['absent_original_tables']) {
+                            $present = [...$backup['scope']['tables'], ...$profile['created']]; sort($present, SORT_STRING);
+                            $absent = array_values(array_diff($backup['scope']['absent_original_tables'], $profile['created']));
+                            if (array_diff($profile['created'], $backup['scope']['absent_original_tables']) !== []
+                                || $scope['tables'] !== $present || $scope['absent_original_tables'] !== $absent) {
                                 throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_OBJECTS_CHANGED');
                             }
                             $baseline = $original['baseline'] + ['forensic_only' => true, 'original_failure' => ['path' => $input, 'sha256' => $originalSha], 'recovery_admission' => false];
-                            $captured = SourceApplicationBackup::capture($binding, $baseline, self::digest($baseline), $scope, $tools[0], $output, $check, 'task-failure-forensic');
+                            $captured = SourceApplicationBackup::capture($binding, $baseline, self::digest($baseline), $scope, $tools[0], $output, $check, $profile['purpose']);
                             if (SourceApplicationBackup::pluginScope($pdo, $effects, $binding, $metadataTool, $check) !== $scope) { throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_SCOPE_CHANGED'); }
-                            $check(); return ['protocol' => 'peanut.source-task-failure-forensic-result.v1', 'status' => 'captured', 'original_failure' => $baseline['original_failure'],
+                            $check(); return ['protocol' => 'peanut.source-' . ($pluginKey === 'official.task' ? 'task' : 'workflow') . '-failure-forensic-result.v1', 'status' => 'captured', 'original_failure' => $baseline['original_failure'],
                                 'backup' => $captured, 'source_schema_package_locks' => 'held', 'restore' => 'not_executed', 'recovery_admission' => false, 'qualification' => 'not_run'];
                         });
-                    } finally { $this->taskForensic = null; }
+                    } finally { $this->failureForensic = null; }
                 });
         });
         return $result;
     }
 
-    public function requireTaskForensic(PDO $pdo, bool $packageLocked = true): void
+    public function requireFailureForensic(PDO $pdo, string $pluginKey, bool $packageLocked = true): void
     {
-        if ($this->taskForensic === null || $this->taskForensic['pdo'] !== $pdo || $this->mutation !== null || $this->planning !== null
+        if (!in_array($pluginKey, ['official.task', 'peanut.workflow'], true) || $this->failureForensic === null
+            || $this->failureForensic['pdo'] !== $pdo || $this->failureForensic['plugin_key'] !== $pluginKey || $this->mutation !== null || $this->planning !== null
             || $this->identityRecovery !== null || $pdo->inTransaction()) { throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_WINDOW_REQUIRED'); }
-        ($this->taskForensic['guard'])();
+        ($this->failureForensic['guard'])();
         if ($packageLocked) {
-            $name = \app\common\value\runtime\RuntimeNamespace::fromConfiguration()->advisoryLockName('pa:module-runtime:' . substr(hash('sha256', 'official.task'), 0, 40));
+            $name = \app\common\value\runtime\RuntimeNamespace::fromConfiguration()->advisoryLockName('pa:module-runtime:' . substr(hash('sha256', $pluginKey), 0, 40));
             $q = $pdo->prepare('SELECT IS_USED_LOCK(?) = CONNECTION_ID()');
             try { $q->execute([$name]); if ((int) $q->fetchColumn() !== 1) { throw new RuntimeException('PLUGIN_SOURCE_PACKAGE_LOCK_REQUIRED'); } }
             finally { $q->closeCursor(); }
@@ -467,7 +507,7 @@ final class PluginSourceDevelopmentHost
             || $context->instance->actorKey !== 'console' || PHP_SAPI !== 'cli'
             || $this->app->config->get('peanut.environment') !== 'development' || !$this->app->isDebug()
             || !in_array($this->app->config->get('deployment.mode'), ['standalone', 'multi-tenant'], true)
-            || $this->planning !== null || $this->mutation !== null || $this->identityRecovery !== null || $this->taskForensic !== null
+            || $this->planning !== null || $this->mutation !== null || $this->identityRecovery !== null || $this->failureForensic !== null
             || $toolId === '' || $metadataTool === '' || $output === '' || (!$restoring && $preview) || ($restoring ? $maintenance === '' : $maintenance !== '')) {
             throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_RECOVERY_CONTEXT_REQUIRED');
         }
