@@ -1,8 +1,21 @@
-name: Scaffold template candidate
+name: Scaffold templates and qualified release
 
-# This builds template candidates only. Formal publication uses the release gate.
 on:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish only the already fully qualified exact main source and build bytes
+        type: boolean
+        default: false
+      qualification_run_id:
+        description: Successful same-repository Actions run holding the complete qualified transport
+        type: string
+      qualification_transport_sha256:
+        description: Independently recorded SHA-256 of scaffold-full-qualification.tgz
+        type: string
+      main_integration_sha256:
+        description: SHA-256 of the native premerge main integration receipt in that transport
+        type: string
 
 permissions:
   contents: read
@@ -13,6 +26,7 @@ concurrency:
 
 jobs:
   templates:
+    if: ${{ !inputs.publish }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -74,6 +88,7 @@ jobs:
             ${{ runner.temp }}/scaffold-templates/multi-tenant/peanut-scaffold-multi-tenant.json
           if-no-files-found: error
           retention-days: 7
+
       - uses: actions/upload-artifact@v4
         with:
           name: scaffold-template-qualification-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -82,3 +97,130 @@ jobs:
             ${{ runner.temp }}/scaffold-template-qualification.tgz.sha256
           if-no-files-found: error
           retention-days: 7
+
+  publish:
+    if: ${{ inputs.publish && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Authenticate the existing qualified transport run
+        uses: actions/github-script@v7
+        env:
+          QUALIFICATION_RUN_ID: ${{ inputs.qualification_run_id }}
+          TRANSPORT_SHA256: ${{ inputs.qualification_transport_sha256 }}
+          INTEGRATION_SHA256: ${{ inputs.main_integration_sha256 }}
+        with:
+          script: |
+            const id = process.env.QUALIFICATION_RUN_ID;
+            if (!/^[1-9][0-9]*$/.test(id) || !/^[a-f0-9]{64}$/.test(process.env.TRANSPORT_SHA256)
+              || !/^[a-f0-9]{64}$/.test(process.env.INTEGRATION_SHA256)) throw new Error('Exact qualified transfer inputs required');
+            const { data: run } = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: Number(id) });
+            if (run.head_sha !== context.sha || run.head_repository?.full_name !== context.payload.repository.full_name
+              || run.status !== 'completed' || run.conclusion !== 'success'
+              || run.event !== 'workflow_dispatch') throw new Error('Qualification run source, origin or completion differs');
+            const { data } = await github.rest.actions.listWorkflowRunArtifacts({ ...context.repo, run_id: Number(id) });
+            const found = data.artifacts.filter(a => a.name === `scaffold-full-qualification-${context.sha}` && !a.expired);
+            if (found.length !== 1) throw new Error('One complete full qualification transport is required');
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.qualification_run_id }}
+          name: scaffold-full-qualification-${{ github.sha }}
+          path: ${{ runner.temp }}/qualified-transfer
+      - name: Verify and unpack the complete qualified bytes
+        shell: bash
+        env:
+          EXPECTED_TRANSPORT_SHA256: ${{ inputs.qualification_transport_sha256 }}
+          EXPECTED_INTEGRATION_SHA256: ${{ inputs.main_integration_sha256 }}
+        run: |
+          set -Eeuo pipefail
+          export QUALIFIED_ROOT="$RUNNER_TEMP/qualified-release"
+          python3 - <<'PY'
+          import hashlib, json, os, subprocess, tarfile
+          from pathlib import Path
+          archive = Path(os.environ['RUNNER_TEMP']) / 'qualified-transfer/scaffold-full-qualification.tgz'
+          if archive.is_symlink() or not archive.is_file(): raise ValueError('Missing regular qualified transport')
+          h = hashlib.sha256()
+          with archive.open('rb') as stream:
+              for block in iter(lambda: stream.read(1024 * 1024), b''): h.update(block)
+          if h.hexdigest() != os.environ['EXPECTED_TRANSPORT_SHA256']: raise ValueError('Qualified transfer digest differs')
+          root = Path(os.environ['QUALIFIED_ROOT'])
+          root.mkdir(mode=0o700)
+          with tarfile.open(archive, 'r:gz') as package:
+              members = package.getmembers()
+              if not members or len(members) > 200000 or len({m.name for m in members}) != len(members): raise ValueError('Invalid member set')
+              if sum(m.size for m in members) > 8 * 1024**3: raise ValueError('Transfer too large')
+              for member in members:
+                  path = Path(member.name)
+                  if path.is_absolute() or '..' in path.parts or not path.parts or path.parts[0] not in ('scaffold-templates', 'qualification'):
+                      raise ValueError('Transfer path outside qualified roots')
+                  if not (member.isdir() or member.isfile()) or member.mode not in (0o600, 0o644, 0o700, 0o755): raise ValueError('Unsupported transfer member')
+              package.extractall(root, filter='data')
+          summary = json.loads((root / 'qualification/summary.json').read_text())
+          if summary.get('status') != 'passed' or summary.get('scope') != 'full' or summary.get('candidate') != os.environ['GITHUB_SHA']:
+              raise ValueError('A real complete exact-source qualification is required')
+          groups = json.loads(Path('server/tests/fixtures/p0e-runtime-qualification/matrix.json').read_text())['groups']
+          if len(groups) != 8 or summary.get('planned_groups') != groups or summary.get('full_gate_groups') != groups:
+              raise ValueError('Eight-group contract differs')
+          if any(summary.get('groups', {}).get(g, {}).get('status') != 'passed' for g in groups): raise ValueError('Qualification incomplete')
+          if not summary.get('template_artifacts'): raise ValueError('Qualified template identities missing')
+          tree = subprocess.check_output(['git', 'rev-parse', 'HEAD^{tree}'], text=True).strip()
+          if summary.get('candidate_tree') != tree: raise ValueError('Qualified source tree differs')
+          plan = json.loads((root / 'qualification/plan.json').read_text())
+          checkpoint = json.loads((root / 'qualification/checkpoint.json').read_text())
+          for value in (plan, checkpoint):
+              if value.get('candidate') != os.environ['GITHUB_SHA'] or value.get('candidate_tree') != tree:
+                  raise ValueError('Native plan/checkpoint source differs')
+              if value.get('lifecycle_inputs') != summary.get('lifecycle_inputs') or value.get('template_artifacts') != summary['template_artifacts']:
+                  raise ValueError('Native plan/checkpoint adoption/artifact inputs differ')
+          if checkpoint.get('groups') != summary['groups']: raise ValueError('Native checkpoint group closure differs')
+          for group in groups:
+              path = root / 'qualification/groups' / (group + '.json')
+              if hashlib.sha256(path.read_bytes()).hexdigest() != summary['groups'][group].get('receipt', {}).get('sha256'):
+                  raise ValueError('Native group receipt digest differs')
+              result = json.loads(path.read_text())
+              if result.get('status') != 'passed' or result.get('candidate') != os.environ['GITHUB_SHA'] or result.get('candidate_tree') != tree:
+                  raise ValueError('Native group result differs')
+              if result.get('lifecycle_input_sha256') != summary['lifecycle_inputs']['input_sha256']:
+                  raise ValueError('Native group was executed with different inputs')
+          receipt = root / 'qualification/main-integration.json'
+          if hashlib.sha256(receipt.read_bytes()).hexdigest() != os.environ['EXPECTED_INTEGRATION_SHA256']:
+              raise ValueError('Main integration receipt changed')
+          PY
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: json, mbstring, pdo_mysql, sodium, dom, fileinfo, curl, zip
+          tools: composer:2.10.2
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.23.2'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.6
+          run_install: false
+      - name: Prepare only the committed verifier dependencies
+        run: |
+          composer --working-dir=server install --no-dev --no-plugins --no-scripts --no-interaction --no-progress --prefer-dist
+          pnpm --dir web install --frozen-lockfile --ignore-scripts
+      - name: Publish the existing qualified native roots through the sole publisher
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          version="$(node -p "JSON.parse(require('node:fs').readFileSync('release-versions.json','utf8')).scaffold_template")"
+          scripts/publish-github-release "$version" \
+            --qualification "$RUNNER_TEMP/qualified-release/qualification/summary.json" \
+            --template-artifacts "$RUNNER_TEMP/qualified-release/scaffold-templates" \
+            --main-integration="$RUNNER_TEMP/qualified-release/qualification/main-integration.json" \
+            --output "$RUNNER_TEMP/published-release"
