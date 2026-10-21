@@ -1008,25 +1008,43 @@ class Runner:
     def plugin_lifecycle(self) -> dict[str, Any]:
         code = self.inputs["code_runtime"]
         env = self.environment(code)
-        markers = {"server/tests/Multitenancy/MemberUploadTenantWiringTest.php": "MT03-MEMBER-UPLOAD-TENANT-WIRING-001 passed",
-            "server/tests/Multitenancy/TaskImportExportTenantIsolationTest.php": "MT03-TASK-IMPORT-EXPORT-TENANT-ISOLATION-001 passed (49 checks)",
-            "server/fixtures/plugin-module-lifecycle/run.php": "PLUGIN-MODULE-LIFECYCLE-DB-001 passed"}
-        results = {}
-        # These existing assertions remain mandatory. Their old fresh-schema
-        # producers cannot safely execute against the installed Code resource.
-        # Stop before either can seed tenant 101 or run the old init.sql.
-        member = (ROOT / "server/tests/Multitenancy/MemberUploadTenantWiringTest.php").read_text()
-        asynchronous = (ROOT / "server/tests/Multitenancy/TaskImportExportTenantIsolationTest.php").read_text()
-        if "_plugin_lifecycle$/D" in member or "asyncTenantSchema($pdo" in asynchronous:
-            raise NotRun("plugin-lifecycle: native service assertions still require the retired fresh-schema contract; no installed database was modified")
-        for source, marker in markers.items():
-            process = command(["php", source], cwd=ROOT, env=env, capture=True)
+        producers = {
+            "server/tests/Multitenancy/MemberUploadTenantWiringTest.php": (
+                "member-upload", "installed-member-upload-write-ahead-protection-unavailable"),
+            "server/tests/Multitenancy/TaskImportExportTenantIsolationTest.php": (
+                "task-import-export", "installed-async-lifecycle-write-ahead-protection-unavailable"),
+        }
+        blockers = {}
+        # These entries currently report their native capability gap without
+        # bootstrap, connections or mutations. No flag/receipt enables writes.
+        # Consume explicit exit/status contracts, never grep source spellings to
+        # decide whether it is safe to modify an installed database.
+        for source, (producer, reason) in producers.items():
+            process = command(["php", source], cwd=ROOT, env=env, capture=True, check=False)
             log = self.output / "groups" / (Path(source).name + ".log")
             log.write_text((process.stdout or "") + (process.stderr or ""), encoding="utf-8")
-            if marker not in process.stdout.splitlines():
-                fail("Code native Plugin/service isolation assertion did not complete")
-            results[source] = {"source_sha256": sha256(ROOT / source), "completion_marker": marker, "log_sha256": sha256(log)}
-        return {"runtime_root": str(ROOT), "resource_id": code["resource_id"], "database": code["database"], "native_assertions": results}
+            try:
+                result = json.loads(process.stdout)
+            except (ValueError, TypeError):
+                fail("installed lifecycle producer did not return its explicit NotRun contract")
+            if (process.returncode != 3 or not isinstance(result, dict)
+                    or result.get("status") != "not_run" or result.get("producer") != producer
+                    or result.get("reason") != reason):
+                fail("installed lifecycle producer contract changed; reconcile before any execution")
+            blockers[source] = {**result, "source_sha256": sha256(ROOT / source), "log_sha256": sha256(log)}
+        # The unchanged fixture globally synchronizes the Module catalog and
+        # requires zero active non-fixture Modules. Installed Code cannot meet
+        # that prerequisite. Its DB/catalog/lock/failure-artifact writes require
+        # a separately reviewed native interface; never run it after services.
+        fixture = "server/fixtures/plugin-module-lifecycle/run.php"
+        blockers[fixture] = {"status": "not_run", "source_sha256": sha256(ROOT / fixture),
+            "reason": "installed-code-global-catalog-and-source-write-protection-unavailable"}
+        self.write_json(self.output / "groups" / "plugin-lifecycle-not-run.json", {
+            "status": "not_run", "candidate": self.args.candidate,
+            "runtime_root": str(ROOT), "resource_id": code["resource_id"], "database": code["database"],
+            "blockers": blockers, "qualification_writes_started": False,
+            "recovery": "retain actual state; no automatic restore, reset, reinstall or cleanup"})
+        raise NotRun("plugin-lifecycle: installed service assertions need native pre-write DB/storage protection and authenticated identities; fixture also needs installed catalog/source protection; no qualification writes started")
 
     def consumer_module_lifecycle(self) -> dict[str, Any]:
         output = self.cache / "consumer-module-lifecycle"
