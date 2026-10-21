@@ -11,6 +11,28 @@ use app\platform\services\plugin\PluginLifecycleService;
 /** Existing native mysqldump for admitted application/Plugin effects and bounded partial installation. */
 final class SourceApplicationBackup
 {
+    /** Only qualificationEntry installs this frame, after native capture and live admission. */
+    private static ?array $installedQualification = null;
+
+    public static function assertInstalledQualificationWrite(?PDO $pdo): void
+    {
+        $frame = self::$installedQualification;
+        if ($frame === null) { return; }
+        if ($frame['pdo'] !== $pdo) { throw new RuntimeException('QUALIFICATION_NATIVE_MASTER_REQUIRED'); }
+        ($frame['guard'])(true);
+    }
+
+    public static function installedQualificationAdmission(?PDO $pdo, string $pluginKey): ?array
+    {
+        $frame = self::$installedQualification;
+        if ($frame === null) { return null; }
+        if ($frame['producer'] !== 'plugin-module-lifecycle' || $pluginKey !== 'fixture.delivery-record') {
+            throw new RuntimeException('QUALIFICATION_PLUGIN_SCOPE_CHANGED');
+        }
+        self::assertInstalledQualificationWrite($pdo);
+        return $frame['binding'];
+    }
+
     public static function qualificationDigest(array $value): string { return self::pluginDigest($value); }
 
     /**
@@ -21,17 +43,20 @@ final class SourceApplicationBackup
      * tokens + alpha_role_id. Plugin: admin token + admin_role_id. IDs select preimages
      * only; the host verifies actual sessions after capture. Without --execute the
      * native plan returns the binding/baseline/scope for the existing stop-writer issuer.
+     * --verify-result reacquires the native locks and current admission without replay.
      */
     public static function qualificationEntry(string $producer, array $arguments): int
     {
+        if (self::$installedQualification !== null) { throw new RuntimeException('QUALIFICATION_NESTED_ENTRY_REFUSED'); }
         $options = [];
         for ($i = 1; $i < count($arguments); $i++) {
-            if ($arguments[$i] === '--execute') { $options['execute'] = true; continue; }
+            if (in_array($arguments[$i], ['--execute', '--verify-result'], true)) { $options[substr($arguments[$i], 2)] = true; continue; }
             if (!in_array($arguments[$i], ['--input', '--input-sha256'], true) || !isset($arguments[$i + 1])) {
-                fwrite(STDERR, "Use --input <private-json> --input-sha256 <sha256> [--execute]\n"); return 2;
+                fwrite(STDERR, "Use --input <private-json> --input-sha256 <sha256> [--execute|--verify-result]\n"); return 2;
             }
             $options[substr($arguments[$i], 2)] = $arguments[++$i];
         }
+        if (($options['execute'] ?? false) && ($options['verify-result'] ?? false)) { return 2; }
         if (!isset($options['input'], $options['input-sha256'])) {
             echo json_encode(['status' => 'not_run', 'producer' => $producer, 'reason' => 'installed-qualification-input-required',
                 'qualification_writes_started' => false, 'required' => ['native actor and exclusive resource lease', 'current installed database',
@@ -119,12 +144,16 @@ final class SourceApplicationBackup
                                         }
                                     };
                                     $guard();
-                                    $tables = $pdo->query('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() ORDER BY TABLE_NAME')->fetchAll(PDO::FETCH_COLUMN);
-                                    if ($producer === 'plugin-module-lifecycle' && !in_array('pa_fixture_delivery_record', $tables, true)) { $tables[] = 'pa_fixture_delivery_record'; sort($tables, SORT_STRING); }
+                                    if ($options['verify-result'] ?? false) {
+                                        $result = self::qualificationCompleted($producer, $input, hash('sha256', $raw), $binding, $serverRoot, $admission, $guard);
+                                        echo json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES) . "\n";
+                                        return;
+                                    }
+                                    $tables = $producer === 'plugin-module-lifecycle' ? ['pa_fixture_delivery_record'] : [];
                                     // Includes indirect catalog, audit, allocator, FK and job effects. Unknown objects fail closed.
                                     $scope = $app->make(\app\common\execution\ExecutionContextStore::class)->run(
                                         new \app\common\execution\InstanceExecutionContext('console.qualification:installed', 'qualification-metadata-' . bin2hex(random_bytes(12))),
-                                        static fn(): array => self::sourceEffectScope($pdo, $tables, true, $binding, $input['metadata_tool'] ?? '', $guard));
+                                        static fn(): array => self::sourceEffectScope($pdo, $tables, true, $binding, $input['metadata_tool'] ?? '', $guard, true));
                                     if ($scope['triggers'] !== []) { throw new RuntimeException('QUALIFICATION_TRIGGER_EFFECTS_UNSUPPORTED'); }
                                     foreach ($scope['foreign_keys'] as $fk) {
                                         if ($fk['TABLE_SCHEMA'] !== $identity['database'] || $fk['REFERENCED_TABLE_SCHEMA'] !== $identity['database']) {
@@ -182,10 +211,10 @@ final class SourceApplicationBackup
                                     $check();
                                     $attempt = $output . '/qualification-attempt.json';
                                     self::write($attempt, $result + ['status' => 'running', 'backup' => $backup, 'file_backup' => $fileOutput]);
-                                    $writeGuard = static function () use ($admission, $actor, $producer, $initial, $identity, $pdo, $connection,
+                                    $writeGuard = static function (bool $allowTransaction = false) use ($admission, $actor, $producer, $initial, $identity, $pdo, $connection,
                                         $input, $binding, $baseline, $scope, $window, $originals): void {
                                         $live = $producer === 'plugin-module-lifecycle' ? $admission->qualificationCapture($actor) : $admission->capture($actor, true);
-                                        if ($live !== $initial || \think\facade\Db::connect() !== $connection || $connection->getPdo() !== $pdo || $pdo->inTransaction()
+                                        if ($live !== $initial || \think\facade\Db::connect() !== $connection || $connection->getPdo() !== $pdo || ($pdo->inTransaction() && !$allowTransaction)
                                             || \app\common\services\installation\InstallationExecutionHost::migrationDatabaseIdentity($pdo) !== $identity
                                             || $admission->qualificationWindow($input['maintenance'], $binding, $baseline, $scope['tables']) !== $window) { throw new RuntimeException('QUALIFICATION_WRITE_ADMISSION_CHANGED'); }
                                         $lock = $pdo->prepare('SELECT IS_USED_LOCK(?) = CONNECTION_ID()');
@@ -198,6 +227,7 @@ final class SourceApplicationBackup
                                     };
                                     $writeGuard();
                                     $started = true;
+                                    self::$installedQualification = ['pdo' => $pdo, 'guard' => $writeGuard, 'producer' => $producer, 'binding' => $binding];
                                     $principals = $authenticate();
                                     $actualTenants = array_values(array_unique(array_map(static fn($principal): int => $principal->tenantId, $principals)));
                                     if ($producer === 'member-upload') { $actualTenants[] = (int) ($input['other_tenant_id'] ?? 0); }
@@ -219,20 +249,24 @@ final class SourceApplicationBackup
                                             throw new RuntimeException('QUALIFICATION_ORIGINAL_FILE_CHANGED');
                                         }
                                     }
-                                    $guard();
                                     self::qualificationVerifyFiles($originals, $fileOutput, $serverRoot);
+                                    $writeGuard();
                                     $result = ['protocol' => 'peanut.installed-lifecycle-result.v1', 'status' => 'passed', 'producer' => $producer,
                                         'binding' => $binding, 'input_sha256' => hash('sha256', $raw), 'backup' => $backup,
                                         'file_backup' => ['path' => $fileOutput . '/files.json', 'sha256' => hash_file('sha256', $fileOutput . '/files.json')],
                                         'qualification_writes_started' => true, 'restore' => 'not_executed'];
                                     self::write($output . '/qualification-result.json', $result);
+                                    $writeGuard();
+                                    // Emit success while the original source/schema locks and full window still hold.
+                                    echo json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES) . "\n";
                                 });
                             if (!is_array($result)) { throw new RuntimeException('QUALIFICATION_RESULT_MISSING'); }
                             return $result;
                         });
                 };
             $result = $run();
-            echo json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES) . "\n"; return 0;
+            if (!in_array($result['status'] ?? null, ['passed', 'verified'], true)) { echo json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES) . "\n"; }
+            return 0;
         } catch (\Throwable $error) {
             echo json_encode(['status' => $started ? 'failed' : 'not_run', 'producer' => $producer,
                 'reason' => $started ? 'installed-assertion-failed-retain-scene' : 'installed-qualification-admission-refused',
@@ -240,7 +274,31 @@ final class SourceApplicationBackup
                 'error_class' => $error::class, 'qualification_writes_started' => $started,
                 'recovery' => 'retain actual DB/storage/source and protected backup; no automatic restore or retry'], JSON_THROW_ON_ERROR) . "\n";
             return $started ? 1 : 3;
+        } finally { self::$installedQualification = null; }
+    }
+
+    /** Current native consumer admission; never replay assertions or create another backup. */
+    private static function qualificationCompleted(string $producer, array $input, string $inputSha, array $binding, string $serverRoot,
+        SourceDevelopmentMaintenanceAdmission $admission, callable $guard): array
+    {
+        $directory = $input['backup_output'] ?? '';
+        $resultPath = $directory . '/qualification-result.json';
+        $result = self::protectedPluginJson($resultPath, $serverRoot);
+        $attempt = self::protectedPluginJson($directory . '/qualification-attempt.json', $serverRoot);
+        if (($result['protocol'] ?? null) !== 'peanut.installed-lifecycle-result.v1' || ($result['status'] ?? null) !== 'passed'
+            || ($result['producer'] ?? null) !== $producer || ($result['input_sha256'] ?? null) !== $inputSha
+            || ($result['binding'] ?? null) !== $binding || ($attempt['binding'] ?? null) !== $binding
+            || ($attempt['baseline']['input_sha256'] ?? null) !== $inputSha || ($attempt['backup'] ?? null) !== ($result['backup'] ?? null)) {
+            throw new RuntimeException('QUALIFICATION_COMPLETED_ORIGIN_CHANGED');
         }
+        $baseline = $attempt['baseline']; $scope = $attempt['scope'];
+        self::pluginRecovery($binding, $baseline, $scope, $input['maintenance'], $directory . '/recovery.json', $serverRoot);
+        self::qualificationVerifyFiles($scope['qualification_file_preimages'], $scope['qualification_file_backup'], $serverRoot);
+        $guard();
+        $window = $admission->qualificationWindow($input['maintenance'], $binding, $baseline, $scope['tables']);
+        return ['protocol' => 'peanut.installed-lifecycle-consumption.v1', 'status' => 'verified', 'producer' => $producer,
+            'input_sha256' => $inputSha, 'binding' => $binding, 'window' => $window,
+            'result' => ['path' => $resultPath, 'sha256' => hash_file('sha256', $resultPath)]];
     }
 
     /** Exact local bytes/absence; links, special files and escaping parent links are unsupported. */
@@ -471,7 +529,7 @@ final class SourceApplicationBackup
     }
 
     /** Live source issuer, using the existing fixed remote metadata reader. No caller receipt or SQL is accepted. */
-    private static function sourceEffectScope(PDO $pdo, array $tables, bool $allowMissing, array $binding, string $toolId, ?callable $guard): array
+    private static function sourceEffectScope(PDO $pdo, array $tables, bool $allowMissing, array $binding, string $toolId, ?callable $guard, bool $wholeSchema = false): array
     {
         $root = $binding['source']['root'] ?? '';
         $serverRoot = $root . '/server';
@@ -479,12 +537,13 @@ final class SourceApplicationBackup
         if (PHP_SAPI !== 'cli' || !$context instanceof \app\common\execution\InstanceExecutionContext
             || !in_array($context->operation(), ['console.schema:application', 'console.plugin:install', 'console.plugin:upgrade', 'console.qualification:installed'], true)
             || $context->instance->actorKey !== 'console' || !is_callable($guard)
-            || realpath($root) !== $root || realpath($serverRoot) !== $serverRoot || $tables === []) {
+            || realpath($root) !== $root || realpath($serverRoot) !== $serverRoot || ($tables === [] && !$wholeSchema)) {
             throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_METADATA_CONTEXT_REQUIRED');
         }
         $actor = array_intersect_key($binding['authority'] ?? [], array_flip(['owner', 'thread', 'session', 'gate']));
         $admission = new SourceDevelopmentMaintenanceAdmission($serverRoot);
         $ddl = in_array($binding['authority']['operation'] ?? null, ['ddl', 'exclusive'], true);
+        if ($wholeSchema && !$ddl) { throw new RuntimeException('QUALIFICATION_EXCLUSIVE_LEASE_REQUIRED'); }
         $recheck = static function () use ($pdo, $binding, $actor, $admission, $ddl, $guard, $root): void {
             $guard();
             $actual = $admission->capture($actor, $ddl) + ['database' => \app\common\services\installation\InstallationExecutionHost::migrationDatabaseIdentity($pdo)];
@@ -532,6 +591,7 @@ final class SourceApplicationBackup
         $present = [];
         foreach ($tables as $table) {
             if (!is_string($table) || preg_match('/\Apa_[a-z0-9_]+\z/D', $table) !== 1) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_TABLE_UNSUPPORTED'); }
+            if ($wholeSchema) { continue; }
             $query = $pdo->prepare('SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');
             $query->execute([$table]); $exists = (int) $query->fetchColumn(); $query->closeCursor();
             if ($exists === 1) { $present[] = $table; }
@@ -563,6 +623,27 @@ final class SourceApplicationBackup
         }
         $nonce = bin2hex(random_bytes(16)); $directory = $parent . '/' . $nonce;
         if (!mkdir($directory, 0700)) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_METADATA_DIRECTORY_REQUIRED'); }
+        $inventory = null;
+        if ($wholeSchema) {
+            // Discover through the privileged, identity/grant-verified native reader first.
+            // Never filter the evidence by the ordinary account's unproven visibility.
+            $inventoryOutput = $directory . '/schema-inventory.txt';
+            $inventoryShell = self::quote([$tool['digest_command'], $tool['mysql_command']]) . ' && '
+                . self::quote([$tool['mysql_command'], '--version']) . ' && ('
+                . self::clientShell($tool, 'mysql_command', $seconds, ['--no-defaults', '--no-login-paths', '--default-character-set=utf8mb4',
+                    '--batch', '--skip-column-names', '-uroot', '--database=' . $database,
+                    '--execute=' . self::metadataSql([], $session, $nonce)]) . ')';
+            self::remote($tool, $inventoryShell, $inventoryOutput, $directory . '/schema-inventory.stderr', 'schema-inventory',
+                $seconds, (int) $binding['authority']['expires_at'], $recheck, 8388608);
+            $inventory = self::parseMetadata($inventoryOutput, [], $nonce, $binding, $contract,
+                (string) $pdo->getAttribute(PDO::ATTR_SERVER_VERSION), inventoryOnly: true);
+            $present = $inventory['inventory'];
+            $ordinary = $pdo->query('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() ORDER BY TABLE_NAME')->fetchAll(PDO::FETCH_COLUMN);
+            sort($ordinary, SORT_STRING);
+            if ($ordinary !== $present || array_diff($present, $contract['tables']) !== []) { throw new RuntimeException('QUALIFICATION_SCHEMA_VISIBILITY_INCOMPLETE'); }
+            $tables = array_values(array_unique([...$tables, ...$present])); sort($tables, SORT_STRING);
+            if (count($tables) > 512) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_TABLE_UNSUPPORTED'); }
+        }
         $request = ['protocol' => 'peanut.source-development-effect-request.v1', 'binding' => $binding,
             'tool_id' => $toolId, 'tool_sha256' => self::pluginDigest($tool), 'tables' => $tables, 'present' => $present,
             'session' => $session, 'adapter_sha256' => hash_file('sha256', __FILE__), 'nonce' => $nonce, 'observed_at' => time()];
@@ -571,7 +652,7 @@ final class SourceApplicationBackup
             . self::quote([$tool['mysql_command'], '--version']) . ' && ('
             . self::clientShell($tool, 'mysql_command', $seconds, ['--no-defaults', '--no-login-paths', '--default-character-set=utf8mb4',
                 '--batch', '--skip-column-names', '-uroot', '--database=' . $database,
-                '--execute=' . self::metadataSql($present, $session, $nonce, $tables)]) . ')';
+                '--execute=' . self::metadataSql($present, $session, $nonce, $wholeSchema ? null : $tables)]) . ')';
         if (strlen($shell) > 65536) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_COVERAGE_REQUIRED'); }
         $output = $directory . '/metadata.txt'; $error = $directory . '/metadata.stderr';
         self::remote($tool, $shell, $output, $error, 'effect-metadata', $seconds, (int) $binding['authority']['expires_at'], $recheck, 8388608);
@@ -596,6 +677,11 @@ final class SourceApplicationBackup
             'client' => $parsed['client'], 'process_sha256' => hash_file('sha256', $output . '.process.json'), 'observed_at' => time()]);
         $scope['metadata_visibility'] = 'complete native source metadata; ordinary PDO unchanged';
         $scope['metadata_observer'] = ['tool_id' => $toolId, 'tool_sha256' => self::pluginDigest($tool), 'client' => $parsed['client']];
+        if ($inventory !== null) {
+            $scope['metadata_observer']['whole_schema_inventory'] = ['tables' => $inventory['inventory'],
+                'path' => $inventoryOutput, 'sha256' => hash_file('sha256', $inventoryOutput),
+                'process_sha256' => hash_file('sha256', $inventoryOutput . '.process.json')];
+        }
         return $scope;
     }
 
@@ -863,7 +949,7 @@ final class SourceApplicationBackup
     }
 
     private static function parseMetadata(string $path, array $tables, string $nonce, array $binding, array $contract, string $serverVersion,
-        string $ordering = 'ddl-before-statistics', ?string $protectedBytes = null,
+        string $ordering = 'ddl-before-statistics', ?string $protectedBytes = null, bool $inventoryOnly = false,
     ): array
     {
         $lines = preg_split('/\r?\n/', rtrim($protectedBytes ?? (string) file_get_contents($path), "\r\n"));
@@ -902,6 +988,20 @@ final class SourceApplicationBackup
         if (($ordering === 'ddl-before-statistics' && ($lines[$end + 1] ?? null) !== 'DDL_BEFORE_STATISTICS_' . $nonce)
             || count($lines) !== $expectedLines) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_OUTPUT_INVALID'); }
         $data = $decode($lines[$statisticsAt] ?? ''); $objects = [];
+        if ($inventoryOnly) {
+            if ($tables !== [] || !is_array($data['tables'] ?? null) || !array_is_list($data['tables']) || $data['tables'] === []) {
+                throw new RuntimeException('QUALIFICATION_SCHEMA_INVENTORY_INVALID');
+            }
+            $names = [];
+            foreach ($data['tables'] as $row) {
+                $name = $row['name'] ?? null;
+                if (!is_string($name) || preg_match('/\Apa_[a-z0-9_]+\z/D', $name) !== 1 || isset($names[$name])
+                    || ($row['type'] ?? null) !== 'BASE TABLE' || ($row['engine'] ?? null) !== 'InnoDB') { throw new RuntimeException('QUALIFICATION_SCHEMA_INVENTORY_UNSUPPORTED'); }
+                $names[$name] = true;
+            }
+            $names = array_keys($names); sort($names, SORT_STRING);
+            return ['inventory' => $names];
+        }
         foreach ($data['tables'] ?? [] as $row) {
             if (!is_string($row['name'] ?? null) || !in_array($row['name'], $tables, true) || isset($objects[$row['name']])
                 || ($row['type'] ?? null) !== 'BASE TABLE' || ($row['engine'] ?? null) !== 'InnoDB') { throw new RuntimeException('INSTALL_PARTIAL_METADATA_COVERAGE_REQUIRED'); }

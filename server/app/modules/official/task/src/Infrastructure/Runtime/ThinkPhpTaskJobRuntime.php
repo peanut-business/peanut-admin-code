@@ -118,6 +118,7 @@ final readonly class ThinkPhpTaskJobRuntime implements TaskJobRuntime
                 );
             },
             negativeSigningKey: $this->signingKey,
+            executionFence: static fn() => \app\common\services\upgrade\SourceApplicationBackup::assertInstalledQualificationWrite(\think\facade\Db::connect()->getPdo()),
         );
 
         $processed = 0;

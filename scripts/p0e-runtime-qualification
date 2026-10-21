@@ -1064,6 +1064,21 @@ class Runner:
             file_reference(backup)
             file_reference(backup.get("recovery_references", {}))
             file_reference(result.get("file_backup", {}))
+            # Reacquire the native source/schema locks and current full maintenance
+            # admission after reading every attachment; a past passed record is insufficient.
+            self.environment(code)
+            verified = command(["php", source, "--input", str(file_reference(reference)),
+                "--input-sha256", reference["sha256"], "--verify-result"], cwd=ROOT, env=env, capture=True, check=False)
+            try:
+                consumption = json.loads(verified.stdout)
+            except (ValueError, TypeError):
+                fail("installed producer consumption admission is unknown; retain actual scene")
+            if (verified.returncode != 0 or consumption.get("protocol") != "peanut.installed-lifecycle-consumption.v1"
+                    or consumption.get("status") != "verified" or consumption.get("producer") != producer
+                    or consumption.get("input_sha256") != reference["sha256"] or consumption.get("binding") != binding):
+                fail("installed producer no longer has current native consumption admission")
+            file_reference(consumption.get("result", {}))
+            results[producer]["current_native_consumption"] = consumption
         return {"runtime_root": str(ROOT), "resource_id": code["resource_id"], "database": code["database"], "producers": results}
 
     def consumer_module_lifecycle(self) -> dict[str, Any]:

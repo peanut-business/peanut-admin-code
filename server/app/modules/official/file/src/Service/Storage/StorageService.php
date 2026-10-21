@@ -119,13 +119,16 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
         ];
         $this->reserveObject($tenantId, $attributes);
         try {
+            self::installedWriteFence();
             $driver->put($objectKey, $sourcePath);
+            self::installedWriteFence();
             if (!$this->markObjectReady($tenantId, $fileKey)) {
                 throw new \RuntimeException('文件对象账本未能切换到 ready');
             }
         } catch (\Throwable $error) {
             $deleteFailure = null;
             try {
+                self::installedWriteFence();
                 $driver->delete($objectKey);
             } catch (\Throwable $exception) {
                 $deleteFailure = $exception;
@@ -203,6 +206,7 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
     /** File-internal metadata rollback only; absent from FileStorage and all HTTP actions. */
     public function discardFailedUpload(TenantContext|\PeanutAdmin\Kernel\Context\AuthenticatedMemberContext $context, array $stored): void
     {
+        self::installedWriteFence();
         $key = $stored['file_key'] ?? '';
         $receipt = is_string($key) ? ($this->newUploads->{$key} ?? null) : null;
         $actor = $context instanceof TenantContext ? $this->execution->tenantAdmin() : $this->execution->member();
@@ -231,6 +235,7 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
             }
         });
         try {
+            self::installedWriteFence();
             $receipt = $this->drivers->make($object, $object)->delete((string) $object['object_key']);
             $metadata = ['provider_delete_acknowledged' => true, 'provider_outcome' => $receipt->outcome];
             $event = 'file.upload.compensated';
@@ -239,6 +244,7 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
             $metadata = ['provider_delete_acknowledged' => false, 'cleanup_pending' => true];
             $event = 'file.upload.compensation_pending';
         }
+        self::installedWriteFence();
         if ($context instanceof TenantContext) {
             $this->audit->appendTenantMember($context, $event, 'file.upload.compensate', 'file', $key, null, null, 0, null, $metadata);
         } else {
@@ -604,6 +610,7 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
             throw BusinessException::notFound('STORAGE_DELIVERY_NOT_FOUND', '文件不存在或不可用');
         }
         try {
+            self::installedWriteFence();
             $claims = $this->deliveryTokens->verifyAndConsume(
                 $token,
                 $tenantId,
@@ -1056,12 +1063,19 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
         }
     }
 
+    /** A private, already-admitted qualification frame only tightens the native writes. */
+    private static function installedWriteFence(): void
+    {
+        \app\common\services\upgrade\SourceApplicationBackup::assertInstalledQualificationWrite(Db::connect()->getPdo());
+    }
+
     private function reserveObject(int $tenantId, array $data): void
     {
         $tenantId = $this->logicalTenantId($tenantId);
         if (!str_starts_with((string) ($data['object_key'] ?? ''), $this->ownerPrefix($tenantId))) {
             throw new \DomainException('STORAGE_OBJECT_OWNER_MISMATCH');
         }
+        self::installedWriteFence();
         FileObject::create([
             ...$data,
             ...($this->dataScopePolicy->usesTenantColumn() ? ['tenant_id' => $tenantId] : []),
@@ -1085,6 +1099,7 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
 
     private function archive(int $tenantId, string $fileKey): bool
     {
+        self::installedWriteFence();
         return $this->ownedObjects($this->logicalTenantId($tenantId))
             ->where('file_key', $fileKey)->where('status', 'ready')
             ->update([
@@ -1097,6 +1112,7 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
 
     private function restore(int $tenantId, string $fileKey): void
     {
+        self::installedWriteFence();
         $this->ownedObjects($this->logicalTenantId($tenantId))
             ->where('file_key', $fileKey)->where('status', 'archived')
             ->update([
@@ -1122,6 +1138,7 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
 
     private function changeStatus(int $tenantId, string $fileKey, string $from, string $to): bool
     {
+        self::installedWriteFence();
         return $this->ownedObjects($this->logicalTenantId($tenantId))
             ->where('file_key', $fileKey)->where('status', $from)
             ->update([

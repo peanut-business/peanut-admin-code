@@ -2503,6 +2503,12 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
 
     private static function sourceMutationGuard(string $pluginKey, ?string $operation = null): ?\app\common\services\upgrade\PluginSourceDevelopmentHost
     {
+        $pdo = Db::connect()->getPdo();
+        if (\app\common\services\upgrade\SourceApplicationBackup::installedQualificationAdmission($pdo, $pluginKey) !== null) {
+            $host = app()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class);
+            $host->requireMutation($pdo, $pluginKey);
+            return $host;
+        }
         $context = app()->make(CurrentExecutionContext::class)->current();
         if (!$context instanceof InstanceExecutionContext || !str_starts_with($context->operation(), 'console.plugin:')) { return null; }
         require_once root_path() . 'database/install.php';

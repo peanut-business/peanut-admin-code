@@ -38,20 +38,20 @@ final readonly class CsvOperationRunner
         $jobKey = $execution->jobKey;
         $attempt = $execution->attemptNumber;
         $execution->checkpoint();
-        $operation = $this->beginAttempt($context->tenantContext->tenantId, $operationKey, $jobKey, $attempt);
+        $operation = $this->beginAttempt($execution, $context->tenantContext->tenantId, $operationKey, $jobKey, $attempt);
         try {
-            $this->audit($context, $operation, 'started', ['attempt' => $attempt]);
+            $this->audit($execution, $context, $operation, 'started', ['attempt' => $attempt]);
             $provider = $this->providers->require($operation->providerKey);
             if (!hash_equals($operation->schemaRevision, $provider->schema()->revision)) {
                 $execution->assertLeaseOwned();
-                $result = $this->finish($operation->tenantId, $operation->id, $jobKey, $attempt, 'failed', null, null, 0, 'IMPORT_EXPORT_SCHEMA_MISMATCH');
-                $this->audit($context, $result, 'failed', ['error_code' => 'IMPORT_EXPORT_SCHEMA_MISMATCH']);
+                $result = $this->finish($execution, $operation->tenantId, $operation->id, $jobKey, $attempt, 'failed', null, null, 0, 'IMPORT_EXPORT_SCHEMA_MISMATCH');
+                $this->audit($execution, $context, $result, 'failed', ['error_code' => 'IMPORT_EXPORT_SCHEMA_MISMATCH']);
                 return $result;
             }
             $result = $operation->direction === 'import'
                 ? $this->runImport($context, $operation, $execution)
                 : $this->runExport($context, $operation, $execution);
-            $this->audit($context, $result, $result->status, ['processed_rows' => $result->processedRows, 'accepted_rows' => $result->acceptedRows, 'rejected_rows' => $result->rejectedRows]);
+            $this->audit($execution, $context, $result, $result->status, ['processed_rows' => $result->processedRows, 'accepted_rows' => $result->acceptedRows, 'rejected_rows' => $result->rejectedRows]);
             return $result;
         } catch (LeaseLostException|AuthException|ModuleException|TaskJobException $exception) {
             throw $exception;
@@ -59,6 +59,7 @@ final readonly class CsvOperationRunner
             $execution->assertLeaseOwned();
             $current = $this->repository->get($operation->tenantId, $operation->operationKey);
             $checkpoint = $this->checkpointProgressOrCancel(
+                $execution,
                 $operation->tenantId,
                 $operation->id,
                 $jobKey,
@@ -68,13 +69,13 @@ final readonly class CsvOperationRunner
                 $current->rejectedRows,
             );
             if ($checkpoint->status === 'cancelled') {
-                $this->audit($context, $checkpoint, 'cancelled', ['processed_rows' => $checkpoint->processedRows]);
+                $this->audit($execution, $context, $checkpoint, 'cancelled', ['processed_rows' => $checkpoint->processedRows]);
                 return $checkpoint;
             }
             if ($attempt >= 3) {
                 $execution->assertLeaseOwned();
-                $failed = $this->finish($operation->tenantId, $operation->id, $jobKey, $attempt, 'failed', null, null, $current->processedRows, $exception->safeCode);
-                $this->audit($context, $failed, $failed->status, $failed->status === 'cancelled' ? ['processed_rows' => $failed->processedRows] : ['error_code' => $exception->safeCode]);
+                $failed = $this->finish($execution, $operation->tenantId, $operation->id, $jobKey, $attempt, 'failed', null, null, $current->processedRows, $exception->safeCode);
+                $this->audit($execution, $context, $failed, $failed->status, $failed->status === 'cancelled' ? ['processed_rows' => $failed->processedRows] : ['error_code' => $exception->safeCode]);
                 if ($failed->status === 'cancelled') {
                     return $failed;
                 }
@@ -85,8 +86,8 @@ final readonly class CsvOperationRunner
             if (!in_array($exception->problemCode, ['IMPORT_EXPORT_STATE_CONFLICT', 'IMPORT_EXPORT_PERMISSION_DENIED'], true)) {
                 $current = $this->repository->get($operation->tenantId, $operation->operationKey);
                 $execution->assertLeaseOwned();
-                $failed = $this->finish($operation->tenantId, $operation->id, $jobKey, $attempt, 'failed', null, null, $current->processedRows, $exception->problemCode);
-                $this->audit($context, $failed, $failed->status, $failed->status === 'cancelled' ? ['processed_rows' => $failed->processedRows] : ['error_code' => $exception->problemCode]);
+                $failed = $this->finish($execution, $operation->tenantId, $operation->id, $jobKey, $attempt, 'failed', null, null, $current->processedRows, $exception->problemCode);
+                $this->audit($execution, $context, $failed, $failed->status, $failed->status === 'cancelled' ? ['processed_rows' => $failed->processedRows] : ['error_code' => $exception->problemCode]);
                 if ($failed->status === 'cancelled') {
                     return $failed;
                 }
@@ -115,8 +116,8 @@ final readonly class CsvOperationRunner
             $execution->assertLeaseOwned();
             $current = $this->repository->get($operation->tenantId, $operation->operationKey);
             $execution->assertLeaseOwned();
-            $failed = $this->finish($operation->tenantId, $operation->id, $jobKey, $attempt, 'failed', null, null, $current->processedRows, 'IMPORT_EXPORT_INTERNAL_ERROR');
-            $this->audit($context, $failed, $failed->status, $failed->status === 'cancelled' ? ['processed_rows' => $failed->processedRows] : ['error_code' => 'IMPORT_EXPORT_INTERNAL_ERROR']);
+            $failed = $this->finish($execution, $operation->tenantId, $operation->id, $jobKey, $attempt, 'failed', null, null, $current->processedRows, 'IMPORT_EXPORT_INTERNAL_ERROR');
+            $this->audit($execution, $context, $failed, $failed->status, $failed->status === 'cancelled' ? ['processed_rows' => $failed->processedRows] : ['error_code' => 'IMPORT_EXPORT_INTERNAL_ERROR']);
             if ($failed->status === 'cancelled') {
                 return $failed;
             }
@@ -133,6 +134,7 @@ final readonly class CsvOperationRunner
             throw ImportExportException::internal();
         }
         $stream = $this->files->openCsvInput($context, $operation->inputFileKey);
+        $execution->assertLeaseOwned();
         if (!is_resource($stream)) {
             throw ImportExportException::fileUnavailable();
         }
@@ -149,7 +151,7 @@ final readonly class CsvOperationRunner
         $processed = $accepted = $rejected = $issueCount = 0;
         while (($values = fgetcsv($stream, 1048577, ',', '"', '')) !== false) {
             $execution->checkpoint();
-            $checkpoint = $this->checkpointProgressOrCancel($operation->tenantId, $operation->id, $jobKey, $attempt, $processed, $accepted, $rejected);
+            $checkpoint = $this->checkpointProgressOrCancel($execution, $operation->tenantId, $operation->id, $jobKey, $attempt, $processed, $accepted, $rejected);
             if ($checkpoint->status === 'cancelled') {
                 return $checkpoint;
             }
@@ -177,7 +179,7 @@ final readonly class CsvOperationRunner
                     throw ImportExportException::limitExceeded();
                 }
                 foreach ($issues as $issue) {
-                    $this->addRowIssue($operation->tenantId, $operation->id, $rowNumber, $issue);
+                    $this->addRowIssue($execution, $operation->tenantId, $operation->id, $rowNumber, $issue);
                 }
             } else {
                 $execution->checkpoint();
@@ -185,16 +187,16 @@ final readonly class CsvOperationRunner
                 $execution->assertLeaseOwned();
                 ++$accepted;
             }
-            $checkpoint = $this->checkpointProgressOrCancel($operation->tenantId, $operation->id, $jobKey, $attempt, $processed, $accepted, $rejected);
+            $checkpoint = $this->checkpointProgressOrCancel($execution, $operation->tenantId, $operation->id, $jobKey, $attempt, $processed, $accepted, $rejected);
             if ($checkpoint->status === 'cancelled') {
                 return $checkpoint;
             }
-            $this->auditProgress($context, $checkpoint);
+            $this->auditProgress($execution, $context, $checkpoint);
         }
         $execution->checkpoint();
-        $errorFile = $rejected > 0 ? $this->storeErrorReport($context, $operation) : null;
+        $errorFile = $rejected > 0 ? $this->storeErrorReport($execution, $context, $operation) : null;
         $execution->assertLeaseOwned();
-        return $this->finish($operation->tenantId, $operation->id, $jobKey, $attempt, 'succeeded', null, $errorFile, $processed);
+        return $this->finish($execution, $operation->tenantId, $operation->id, $jobKey, $attempt, 'succeeded', null, $errorFile, $processed);
     }
 
     private function runExport(AuthorizedOperationContext $context, OperationRecord $operation, JobExecution $execution): OperationRecord
@@ -212,7 +214,7 @@ final readonly class CsvOperationRunner
         $processed = 0;
         do {
             $execution->checkpoint();
-            $checkpoint = $this->checkpointProgressOrCancel($operation->tenantId, $operation->id, $jobKey, $attempt, $processed, $processed, 0);
+            $checkpoint = $this->checkpointProgressOrCancel($execution, $operation->tenantId, $operation->id, $jobKey, $attempt, $processed, $processed, 0);
             if ($checkpoint->status === 'cancelled') {
                 return $checkpoint;
             }
@@ -233,11 +235,11 @@ final readonly class CsvOperationRunner
                     throw ImportExportException::limitExceeded();
                 }
             }
-            $checkpoint = $this->checkpointProgressOrCancel($operation->tenantId, $operation->id, $jobKey, $attempt, $processed, $processed, 0);
+            $checkpoint = $this->checkpointProgressOrCancel($execution, $operation->tenantId, $operation->id, $jobKey, $attempt, $processed, $processed, 0);
             if ($checkpoint->status === 'cancelled') {
                 return $checkpoint;
             }
-            $this->auditProgress($context, $checkpoint);
+            $this->auditProgress($execution, $context, $checkpoint);
             $cursor = $batch->nextCursor;
         } while ($cursor !== null);
         rewind($stream);
@@ -246,10 +248,10 @@ final readonly class CsvOperationRunner
         $execution->assertLeaseOwned();
         self::assertFileKey($fileKey);
         $execution->assertLeaseOwned();
-        return $this->finish($operation->tenantId, $operation->id, $jobKey, $attempt, 'succeeded', $fileKey, null, $processed);
+        return $this->finish($execution, $operation->tenantId, $operation->id, $jobKey, $attempt, 'succeeded', $fileKey, null, $processed);
     }
 
-    private function storeErrorReport(AuthorizedOperationContext $context, OperationRecord $operation): string
+    private function storeErrorReport(JobExecution $execution, AuthorizedOperationContext $context, OperationRecord $operation): string
     {
         $stream = fopen('php://temp/maxmemory:' . self::MAX_BYTES, 'w+b');
         if (!is_resource($stream)) {
@@ -260,19 +262,25 @@ final readonly class CsvOperationRunner
             fputcsv($stream, [$issue['row_number'], $issue['column_key'] ?? '', $issue['error_code']], ',', '"', '');
         }
         rewind($stream);
+        $execution->assertLeaseOwned();
         $fileKey = $this->files->storePrivateCsv($context, $operation->operationKey, 'errors', 'import-errors.csv', $stream);
+        $execution->assertLeaseOwned();
         self::assertFileKey($fileKey);
         return $fileKey;
     }
 
-    private function beginAttempt(int $tenantId, string $operationKey, string $jobKey, int $attempt): OperationRecord
+    private function beginAttempt(JobExecution $execution, int $tenantId, string $operationKey, string $jobKey, int $attempt): OperationRecord
     {
-        return Db::transaction(
-            fn(): OperationRecord => $this->repository->beginAttempt($tenantId, $operationKey, $jobKey, $attempt),
-        );
+        return Db::transaction(function () use ($execution, $tenantId, $operationKey, $jobKey, $attempt): OperationRecord {
+            $execution->assertLeaseOwned();
+            $result = $this->repository->beginAttempt($tenantId, $operationKey, $jobKey, $attempt);
+            $execution->assertLeaseOwned();
+            return $result;
+        });
     }
 
     private function checkpointProgressOrCancel(
+        JobExecution $execution,
         int $tenantId,
         int $operationId,
         string $jobKey,
@@ -281,8 +289,9 @@ final readonly class CsvOperationRunner
         int $accepted,
         int $rejected,
     ): OperationRecord {
-        return Db::transaction(
-            fn(): OperationRecord => $this->repository->checkpointProgressOrCancel(
+        return Db::transaction(function () use ($execution, $tenantId, $operationId, $jobKey, $attempt, $processed, $accepted, $rejected): OperationRecord {
+            $execution->assertLeaseOwned();
+            $result = $this->repository->checkpointProgressOrCancel(
                 $tenantId,
                 $operationId,
                 $jobKey,
@@ -290,18 +299,23 @@ final readonly class CsvOperationRunner
                 $processed,
                 $accepted,
                 $rejected,
-            ),
-        );
+            );
+            $execution->assertLeaseOwned();
+            return $result;
+        });
     }
 
-    private function addRowIssue(int $tenantId, int $operationId, int $rowNumber, RowIssue $issue): void
+    private function addRowIssue(JobExecution $execution, int $tenantId, int $operationId, int $rowNumber, RowIssue $issue): void
     {
-        Db::transaction(function () use ($tenantId, $operationId, $rowNumber, $issue): void {
+        Db::transaction(function () use ($execution, $tenantId, $operationId, $rowNumber, $issue): void {
+            $execution->assertLeaseOwned();
             $this->repository->addRowIssue($tenantId, $operationId, $rowNumber, $issue);
+            $execution->assertLeaseOwned();
         });
     }
 
     private function finish(
+        JobExecution $execution,
         int $tenantId,
         int $operationId,
         string $jobKey,
@@ -312,8 +326,9 @@ final readonly class CsvOperationRunner
         int $totalRows,
         ?string $errorCode = null,
     ): OperationRecord {
-        return Db::transaction(
-            fn(): OperationRecord => $this->repository->finish(
+        return Db::transaction(function () use ($execution, $tenantId, $operationId, $jobKey, $attempt, $status, $resultFileKey, $errorFileKey, $totalRows, $errorCode): OperationRecord {
+            $execution->assertLeaseOwned();
+            $result = $this->repository->finish(
                 $tenantId,
                 $operationId,
                 $jobKey,
@@ -323,8 +338,10 @@ final readonly class CsvOperationRunner
                 $errorFileKey,
                 $totalRows,
                 $errorCode,
-            ),
-        );
+            );
+            $execution->assertLeaseOwned();
+            return $result;
+        });
     }
 
     private static function assertFileKey(string $key): void
@@ -342,12 +359,12 @@ final readonly class CsvOperationRunner
         return preg_match('/^(?:\xEF\xBB\xBF)?[\x09\x0B\x0C\x0D\x20]*[=+@-]/', $value) === 1 ? "'" . $value : $value;
     }
 
-    private function auditProgress(AuthorizedOperationContext $context, OperationRecord $operation): void
+    private function auditProgress(JobExecution $execution, AuthorizedOperationContext $context, OperationRecord $operation): void
     {
         if ($operation->processedRows !== 1 && $operation->processedRows % 1000 !== 0) {
             return;
         }
-        $this->audit($context, $operation, 'progress', [
+        $this->audit($execution, $context, $operation, 'progress', [
             'processed_rows' => $operation->processedRows,
             'accepted_rows' => $operation->acceptedRows,
             'rejected_rows' => $operation->rejectedRows,
@@ -355,16 +372,20 @@ final readonly class CsvOperationRunner
     }
 
     /** @param array<string, int|string> $metadata */
-    private function audit(AuthorizedOperationContext $context, OperationRecord $operation, string $event, array $metadata): void
+    private function audit(JobExecution $execution, AuthorizedOperationContext $context, OperationRecord $operation, string $event, array $metadata): void
     {
-        $this->audit->tenantMember(
-            $context->tenantContext,
-            'tenant.import_export.' . $event,
-            'peanut.import-export.execute',
-            'import_export_operation',
-            $operation->operationKey,
-            targetCount: 1,
-            metadata: ['direction' => $operation->direction, 'provider_key' => $operation->providerKey, 'revision' => $operation->revision] + $metadata,
-        );
+        Db::transaction(function () use ($execution, $context, $operation, $event, $metadata): void {
+            $execution->assertLeaseOwned();
+            $this->audit->tenantMember(
+                $context->tenantContext,
+                'tenant.import_export.' . $event,
+                'peanut.import-export.execute',
+                'import_export_operation',
+                $operation->operationKey,
+                targetCount: 1,
+                metadata: ['direction' => $operation->direction, 'provider_key' => $operation->providerKey, 'revision' => $operation->revision] + $metadata,
+            );
+            $execution->assertLeaseOwned();
+        });
     }
 }

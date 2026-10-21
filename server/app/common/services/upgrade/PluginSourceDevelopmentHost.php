@@ -1478,6 +1478,7 @@ final class PluginSourceDevelopmentHost
     /** Fresh metadata at real SQL boundaries; DML transaction guards keep their existing contract. */
     public function observeEffects(PDO $pdo): void
     {
+        SourceApplicationBackup::assertInstalledQualificationWrite($pdo);
         if ($this->mutation === null || $this->sourceMetadataTool === '') { return; }
         $this->requireMutation($pdo, $this->mutation['plugin_key']);
         $observedEffects = $this->mutation['effects'];
@@ -1766,6 +1767,17 @@ final class PluginSourceDevelopmentHost
     /** No caller JSON can create this capability; it exists only inside the held native callback. */
     public function requireMutation(PDO $pdo, string $pluginKey): array
     {
+        $qualification = SourceApplicationBackup::installedQualificationAdmission($pdo, $pluginKey);
+        if ($qualification !== null) {
+            $name = \app\common\value\runtime\RuntimeNamespace::fromConfiguration()->advisoryLockName(
+                'pa:module-runtime:' . substr(hash('sha256', $pluginKey), 0, 40));
+            $lock = $pdo->prepare('SELECT IS_USED_LOCK(?) = CONNECTION_ID()');
+            try {
+                $lock->execute([$name]);
+                if ((int) $lock->fetchColumn() !== 1) { throw new RuntimeException('PLUGIN_SOURCE_PACKAGE_LOCK_REQUIRED'); }
+            } finally { $lock->closeCursor(); }
+            return ['operation' => 'console.qualification:installed', 'binding' => $qualification];
+        }
         $this->assertMutationLocks($pdo, $pluginKey);
         if ($this->notificationPredecessor !== '') { $this->notificationRepairEvidence($pdo); }
         $expectedReceipt = $this->mutation['notification_receipt']['current'];
