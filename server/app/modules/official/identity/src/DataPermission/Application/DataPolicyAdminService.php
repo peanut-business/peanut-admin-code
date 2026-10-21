@@ -6,7 +6,6 @@ namespace PeanutAdmin\Modules\Identity\DataPermission\Application;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use JsonException;
 use PeanutAdmin\Modules\Identity\DataPermission\Model\DataPermissionConditionRecord;
 use PeanutAdmin\Modules\Identity\DataPermission\Model\DataPermissionGroupRecord;
 use PeanutAdmin\Modules\Identity\DataPermission\Model\DataPermissionPolicyRecord;
@@ -54,6 +53,20 @@ final readonly class DataPolicyAdminService
     public function targetCardinality(int $tenantId, string $resourceKey, string $operation): string
     {
         return (string) $this->operation($tenantId, $resourceKey, $operation)['target_cardinality'];
+    }
+
+    /** Current registered conditions for one available resource operation. */
+    public function catalog(int $tenantId, string $resourceKey, string $operation): array
+    {
+        $catalog = $this->operation($tenantId, $resourceKey, $operation);
+        $conditions = [];
+        foreach ($this->allowedConditions((int) $catalog['operation_id']) as $variants) {
+            foreach ($variants as $condition) {
+                $conditions[] = array_intersect_key($condition, array_flip(['condition_key', 'target_mode', 'selector_resource_key']));
+            }
+        }
+        return ['resource_key' => $resourceKey, 'operation' => $operation,
+            'target_cardinality' => $catalog['target_cardinality'], 'conditions' => $conditions];
     }
 
     /** @param array<string, mixed> $payload
@@ -629,9 +642,10 @@ final readonly class DataPolicyAdminService
                     ? null
                     : $this->targetSet((int) $policy['tenant_id'], (int) $condition['target_set_id']);
                 unset($condition['target_set_id']);
-                $condition['config'] = $condition['config_json'] === null
-                    ? null
-                    : $this->decode((string) $condition['config_json']);
+                if ($condition['config_json'] !== null && !is_array($condition['config_json'])) {
+                    throw new AdminAccessException('DATABASE_DATA_INVALID', 500, 'Stored policy configuration is invalid.');
+                }
+                $condition['config'] = $condition['config_json'];
                 unset($condition['config_json']);
                 $conditions[] = $this->normalize($condition);
             }
@@ -739,18 +753,6 @@ final readonly class DataPolicyAdminService
         } catch (Throwable) {
             throw AdminAccessException::invalid('DATA_POLICY_PERIOD_INVALID', "{$field} must be an ISO-8601 timestamp.");
         }
-    }
-
-    /** @return array<string, mixed> */
-    private function decode(string $json): array
-    {
-        try {
-            $value = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            throw new AdminAccessException('DATABASE_DATA_INVALID', 500, 'Stored policy configuration is invalid.');
-        }
-
-        return is_array($value) ? $value : [];
     }
 
     /** @param array<string, mixed> $row

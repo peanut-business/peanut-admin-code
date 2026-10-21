@@ -8,7 +8,7 @@
         },
         {
             "path": "server/app/api/metadata/application/adminapi.php",
-            "sha256": "c4329527c7c82535a2dd333d044b553591f83b10c3810c30b54c2301348090b8"
+            "sha256": "c1288820b3570ea20748b07e8873a377acd9bf4140ba134150eb69ba52cd8ff8"
         },
         {
             "path": "server/app/api/metadata/application/common.php",
@@ -64,7 +64,7 @@
         },
         {
             "path": "server/app/modules/official/file/route/app.php",
-            "sha256": "8a8f2e00b0973ffdb41dddbf78a91fd120651bd8722a38a46fbb18e09a822971"
+            "sha256": "0e87c403be754a53f9e25d4e789e3ae35a8d2fc23b138f0686e092ed53819abf"
         },
         {
             "path": "server/app/modules/official/import_export/api/metadata/openapi.php",
@@ -160,7 +160,7 @@
         },
         {
             "path": "server/route/admin.php",
-            "sha256": "49563046fd127aeb24299f76cc23c92ea3572a8ec5a8321ad8b3b2d476816f5f"
+            "sha256": "f2b156207bbef01ecc62d98635ab1193b4f1035c51d6e7db7a59ef971015f39b"
         },
         {
             "path": "server/route/app.php",
@@ -192,33 +192,33 @@
         ]
     },
     "summary": {
-        "route_count": 431,
-        "generated_api_operations": 385,
+        "route_count": 434,
+        "generated_api_operations": 388,
         "route_only_operations": 46,
-        "complete_operations": 374,
+        "complete_operations": 377,
         "partial_operations": 11,
-        "runtime_routes": 431,
-        "documented_operations": 385,
+        "runtime_routes": 434,
+        "documented_operations": 388,
         "undocumented_routes": 46,
-        "automatic_route_metadata": 431,
+        "automatic_route_metadata": 434,
         "requires_owner_contract": 46,
         "owners": 20,
         "runtime_inventory": {
-            "total": 431,
+            "total": 434,
             "methods": {
                 "DELETE": 4,
-                "GET": 186,
+                "GET": 188,
                 "POST": 235,
-                "PUT": 6
+                "PUT": 7
             },
             "applications": {
-                "adminapi": 311,
+                "adminapi": 314,
                 "api": 47,
                 "installation": 9,
                 "platform": 64
             },
             "owners": {
-                "application:adminapi": 92,
+                "application:adminapi": 95,
                 "application:api": 18,
                 "application:installation": 9,
                 "application:platform": 58,
@@ -243,7 +243,7 @@
         }
     },
     "owners": {
-        "application:adminapi": 92,
+        "application:adminapi": 95,
         "application:api": 18,
         "application:installation": 9,
         "application:platform": 58,
@@ -456,7 +456,7 @@
             },
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 61
+                "line": 66
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": "server/app/modules/official/file/api/metadata/openapi.php"
@@ -806,7 +806,7 @@
             },
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 64
+                "line": 69
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": "server/app/modules/official/file/api/metadata/openapi.php"
@@ -820,7 +820,7 @@
             },
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 67
+                "line": 72
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": "server/app/modules/official/file/api/metadata/openapi.php"
@@ -834,7 +834,7 @@
             },
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 76
+                "line": 81
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": "server/app/modules/official/file/api/metadata/openapi.php"
@@ -848,7 +848,7 @@
             },
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 70
+                "line": 75
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": "server/app/modules/official/file/api/metadata/openapi.php"
@@ -862,7 +862,7 @@
             },
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 73
+                "line": 78
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": "server/app/modules/official/file/api/metadata/openapi.php"
@@ -1270,7 +1270,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 68
+                "line": 74
             },
             "documented": true,
             "openapi_operation_id": "getAdministrator",
@@ -1333,7 +1333,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 67
+                "line": 73
             },
             "documented": true,
             "openapi_operation_id": "listAdministrators",
@@ -1396,7 +1396,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 69
+                "line": 75
             },
             "documented": true,
             "openapi_operation_id": "getCurrentAdministrator",
@@ -1549,7 +1549,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 36
+                "line": 41
             },
             "documented": true,
             "openapi_operation_id": "listFileAssets",
@@ -1627,7 +1627,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 30
+                "line": 32
             },
             "documented": true,
             "openapi_operation_id": "recentFileVisibilityBatches",
@@ -1705,7 +1705,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 32
+                "line": 35
             },
             "documented": true,
             "openapi_operation_id": "getFileVisibilityBatch",
@@ -3688,7 +3688,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 138
+                "line": 144
             },
             "documented": true,
             "openapi_operation_id": "getAgreementConfig",
@@ -3796,7 +3796,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 136
+                "line": 142
             },
             "documented": true,
             "openapi_operation_id": "getCopyrightConfig",
@@ -3859,7 +3859,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 144
+                "line": 150
             },
             "documented": true,
             "openapi_operation_id": "getLoginConfig",
@@ -3922,7 +3922,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 140
+                "line": 146
             },
             "documented": true,
             "openapi_operation_id": "getStatisticsConfig",
@@ -3985,7 +3985,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 142
+                "line": 148
             },
             "documented": true,
             "openapi_operation_id": "getMemberProfileConfig",
@@ -4048,7 +4048,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 134
+                "line": 140
             },
             "documented": true,
             "openapi_operation_id": "getWebsiteConfig",
@@ -4111,7 +4111,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 167
+                "line": 173
             },
             "documented": true,
             "openapi_operation_id": "listDecorationArticleOptions",
@@ -4175,7 +4175,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 160
+                "line": 166
             },
             "documented": true,
             "openapi_operation_id": "getMobileDecorationPage",
@@ -4238,7 +4238,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 159
+                "line": 165
             },
             "documented": true,
             "openapi_operation_id": "listMobileDecorationPages",
@@ -4302,7 +4302,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 165
+                "line": 171
             },
             "documented": true,
             "openapi_operation_id": "getPcDecorationPage",
@@ -4365,7 +4365,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 164
+                "line": 170
             },
             "documented": true,
             "openapi_operation_id": "listPcDecorationPages",
@@ -4428,7 +4428,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 162
+                "line": 168
             },
             "documented": true,
             "openapi_operation_id": "getDecorationTabbar",
@@ -4494,7 +4494,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 78
+                "line": 84
             },
             "documented": true,
             "openapi_operation_id": "listActiveDepartments",
@@ -4557,7 +4557,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 80
+                "line": 86
             },
             "documented": true,
             "openapi_operation_id": "getDepartment",
@@ -4623,7 +4623,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 79
+                "line": 85
             },
             "documented": true,
             "openapi_operation_id": "listDepartmentLeaderOptions",
@@ -4689,7 +4689,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 77
+                "line": 83
             },
             "documented": true,
             "openapi_operation_id": "listDepartments",
@@ -4752,7 +4752,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 106
+                "line": 112
             },
             "documented": true,
             "openapi_operation_id": "listLegacyDictionaryEntriesByType",
@@ -4818,7 +4818,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 107
+                "line": 113
             },
             "documented": true,
             "openapi_operation_id": "getLegacyDictionaryEntry",
@@ -4883,7 +4883,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 105
+                "line": 111
             },
             "documented": true,
             "openapi_operation_id": "listLegacyDictionaryEntries",
@@ -4947,7 +4947,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 97
+                "line": 103
             },
             "documented": true,
             "openapi_operation_id": "listEnabledLegacyDictionaryTypes",
@@ -5013,7 +5013,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 98
+                "line": 104
             },
             "documented": true,
             "openapi_operation_id": "getLegacyDictionaryType",
@@ -5078,7 +5078,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 96
+                "line": 102
             },
             "documented": true,
             "openapi_operation_id": "listLegacyDictionaryTypes",
@@ -5142,7 +5142,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 116
+                "line": 122
             },
             "documented": true,
             "openapi_operation_id": "getGeneratorImport",
@@ -5206,7 +5206,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 123
+                "line": 129
             },
             "documented": true,
             "openapi_operation_id": "downloadGeneratedApplicationCode",
@@ -5269,7 +5269,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 115
+                "line": 121
             },
             "documented": true,
             "openapi_operation_id": "listGeneratorImports",
@@ -5332,7 +5332,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 124
+                "line": 130
             },
             "documented": true,
             "openapi_operation_id": "listGeneratorModels",
@@ -5395,7 +5395,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 114
+                "line": 120
             },
             "documented": true,
             "openapi_operation_id": "listGeneratorSourceTables",
@@ -5458,7 +5458,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 88
+                "line": 94
             },
             "documented": true,
             "openapi_operation_id": "listActiveJobs",
@@ -5521,7 +5521,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 89
+                "line": 95
             },
             "documented": true,
             "openapi_operation_id": "getJob",
@@ -5584,7 +5584,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 87
+                "line": 93
             },
             "documented": true,
             "openapi_operation_id": "listJobs",
@@ -5647,7 +5647,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 131
+                "line": 137
             },
             "documented": true,
             "openapi_operation_id": "listOperationLogs",
@@ -7339,7 +7339,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 43
+                "line": 48
             },
             "documented": true,
             "openapi_operation_id": "listFileCategories",
@@ -7490,7 +7490,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 41
+                "line": 46
             },
             "documented": true,
             "openapi_operation_id": "pendingDocumentFileSnapshots",
@@ -9990,7 +9990,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 148
+                "line": 154
             },
             "documented": true,
             "openapi_operation_id": "getFirstRunReadinessChecklist",
@@ -10057,6 +10057,136 @@
             },
             "documented": true,
             "openapi_operation_id": "listAllAdminRoles",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": []
+            }
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/role/data-policy",
+            "runtime_path": "/adminapi/role/data-policy",
+            "application": "adminapi",
+            "owner": {
+                "type": "application",
+                "key": "adminapi"
+            },
+            "controller": "app\\adminapi\\controller\\auth\\DataPolicyController",
+            "action": "detail",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "tenant_action",
+                    "key": "core.role.data-policy.read"
+                }
+            ],
+            "errors": [
+                401,
+                403,
+                404,
+                422
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/route/admin.php",
+                "line": 65
+            },
+            "documented": true,
+            "openapi_operation_id": "getAdminRoleDataPolicy",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": []
+            }
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/role/data-policy/catalog",
+            "runtime_path": "/adminapi/role/data-policy/catalog",
+            "application": "adminapi",
+            "owner": {
+                "type": "application",
+                "key": "adminapi"
+            },
+            "controller": "app\\adminapi\\controller\\auth\\DataPolicyController",
+            "action": "catalog",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "tenant_action",
+                    "key": "core.role.data-policy.read"
+                }
+            ],
+            "errors": [
+                401,
+                403,
+                404,
+                422
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/route/admin.php",
+                "line": 69
+            },
+            "documented": true,
+            "openapi_operation_id": "getAdminRoleDataPolicyCatalog",
             "contract_quality": "complete",
             "sdk_consumers": [
                 "web/src/generated/openapi.d.ts"
@@ -10242,7 +10372,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 151
+                "line": 157
             },
             "documented": true,
             "openapi_operation_id": "getHotSearchConfig",
@@ -10305,7 +10435,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 155
+                "line": 161
             },
             "documented": true,
             "openapi_operation_id": "getTransactionConfig",
@@ -10368,7 +10498,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 127
+                "line": 133
             },
             "documented": true,
             "openapi_operation_id": "getSystemInformation",
@@ -11805,7 +11935,7 @@
             "middleware": [],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 54
+                "line": 59
             },
             "documented": true,
             "openapi_operation_id": "deliverTenantFile",
@@ -12470,7 +12600,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 61
+                "line": 66
             },
             "documented": false,
             "openapi_operation_id": null,
@@ -13851,7 +13981,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 71
+                "line": 77
             },
             "documented": true,
             "openapi_operation_id": "createAdministrator",
@@ -13917,7 +14047,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 73
+                "line": 79
             },
             "documented": true,
             "openapi_operation_id": "deleteAdministrator",
@@ -13983,7 +14113,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 72
+                "line": 78
             },
             "documented": true,
             "openapi_operation_id": "updateAdministrator",
@@ -14047,7 +14177,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 70
+                "line": 76
             },
             "documented": true,
             "openapi_operation_id": "updateCurrentAdministrator",
@@ -14113,7 +14243,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 74
+                "line": 80
             },
             "documented": true,
             "openapi_operation_id": "setAdministratorStatus",
@@ -14268,7 +14398,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 28
+                "line": 29
             },
             "documented": true,
             "openapi_operation_id": "submitFileVisibility",
@@ -14346,7 +14476,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 34
+                "line": 38
             },
             "documented": true,
             "openapi_operation_id": "resumeFileVisibilityBatch",
@@ -17202,7 +17332,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 139
+                "line": 145
             },
             "documented": true,
             "openapi_operation_id": "saveAgreementConfig",
@@ -17266,7 +17396,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 137
+                "line": 143
             },
             "documented": true,
             "openapi_operation_id": "saveCopyrightConfig",
@@ -17330,7 +17460,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 145
+                "line": 151
             },
             "documented": true,
             "openapi_operation_id": "saveLoginConfig",
@@ -17394,7 +17524,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 141
+                "line": 147
             },
             "documented": true,
             "openapi_operation_id": "saveStatisticsConfig",
@@ -17458,7 +17588,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 143
+                "line": 149
             },
             "documented": true,
             "openapi_operation_id": "saveMemberProfileConfig",
@@ -17522,7 +17652,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 135
+                "line": 141
             },
             "documented": true,
             "openapi_operation_id": "saveWebsiteConfig",
@@ -17588,7 +17718,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 161
+                "line": 167
             },
             "documented": true,
             "openapi_operation_id": "saveMobileDecorationPage",
@@ -17654,7 +17784,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 166
+                "line": 172
             },
             "documented": true,
             "openapi_operation_id": "savePcDecorationPage",
@@ -17718,7 +17848,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 163
+                "line": 169
             },
             "documented": true,
             "openapi_operation_id": "saveDecorationTabbar",
@@ -17784,7 +17914,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 81
+                "line": 87
             },
             "documented": true,
             "openapi_operation_id": "createDepartment",
@@ -17850,7 +17980,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 83
+                "line": 89
             },
             "documented": true,
             "openapi_operation_id": "archiveDepartment",
@@ -17916,7 +18046,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 82
+                "line": 88
             },
             "documented": true,
             "openapi_operation_id": "updateDepartment",
@@ -17982,7 +18112,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 84
+                "line": 90
             },
             "documented": true,
             "openapi_operation_id": "setDepartmentStatus",
@@ -18047,7 +18177,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 108
+                "line": 114
             },
             "documented": true,
             "openapi_operation_id": "createLegacyDictionaryEntry",
@@ -18113,7 +18243,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 110
+                "line": 116
             },
             "documented": true,
             "openapi_operation_id": "deleteLegacyDictionaryEntry",
@@ -18179,7 +18309,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 109
+                "line": 115
             },
             "documented": true,
             "openapi_operation_id": "updateLegacyDictionaryEntry",
@@ -18245,7 +18375,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 111
+                "line": 117
             },
             "documented": true,
             "openapi_operation_id": "setLegacyDictionaryEntryStatus",
@@ -18311,7 +18441,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 99
+                "line": 105
             },
             "documented": true,
             "openapi_operation_id": "createLegacyDictionaryType",
@@ -18377,7 +18507,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 101
+                "line": 107
             },
             "documented": true,
             "openapi_operation_id": "deleteLegacyDictionaryType",
@@ -18443,7 +18573,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 100
+                "line": 106
             },
             "documented": true,
             "openapi_operation_id": "updateLegacyDictionaryType",
@@ -18509,7 +18639,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 102
+                "line": 108
             },
             "documented": true,
             "openapi_operation_id": "setLegacyDictionaryTypeStatus",
@@ -18575,7 +18705,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 120
+                "line": 126
             },
             "documented": true,
             "openapi_operation_id": "deleteGeneratorImports",
@@ -18640,7 +18770,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 122
+                "line": 128
             },
             "documented": true,
             "openapi_operation_id": "generateApplicationCode",
@@ -18704,7 +18834,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 117
+                "line": 123
             },
             "documented": true,
             "openapi_operation_id": "importGeneratorTables",
@@ -18768,7 +18898,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 121
+                "line": 127
             },
             "documented": true,
             "openapi_operation_id": "previewGeneratorImport",
@@ -18832,7 +18962,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 118
+                "line": 124
             },
             "documented": true,
             "openapi_operation_id": "syncGeneratorImport",
@@ -18896,7 +19026,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 119
+                "line": 125
             },
             "documented": true,
             "openapi_operation_id": "updateGeneratorImport",
@@ -19542,7 +19672,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 90
+                "line": 96
             },
             "documented": true,
             "openapi_operation_id": "createJob",
@@ -19607,7 +19737,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 92
+                "line": 98
             },
             "documented": true,
             "openapi_operation_id": "deleteJob",
@@ -19673,7 +19803,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 91
+                "line": 97
             },
             "documented": true,
             "openapi_operation_id": "updateJob",
@@ -19738,7 +19868,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 93
+                "line": 99
             },
             "documented": true,
             "openapi_operation_id": "setJobStatus",
@@ -19802,7 +19932,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 132
+                "line": 138
             },
             "documented": true,
             "openapi_operation_id": "clearOperationLogs",
@@ -21919,7 +22049,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 44
+                "line": 49
             },
             "documented": true,
             "openapi_operation_id": "createFileCategory",
@@ -21995,7 +22125,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 46
+                "line": 51
             },
             "documented": true,
             "openapi_operation_id": "deleteFileCategory",
@@ -22071,7 +22201,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 45
+                "line": 50
             },
             "documented": true,
             "openapi_operation_id": "updateFileCategory",
@@ -22147,7 +22277,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 40
+                "line": 45
             },
             "documented": true,
             "openapi_operation_id": "deleteFiles",
@@ -22223,7 +22353,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 38
+                "line": 43
             },
             "documented": true,
             "openapi_operation_id": "moveFiles",
@@ -22299,7 +22429,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 39
+                "line": 44
             },
             "documented": true,
             "openapi_operation_id": "renameFile",
@@ -22376,7 +22506,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 42
+                "line": 47
             },
             "documented": true,
             "openapi_operation_id": "recoverDocumentFileSnapshot",
@@ -25428,7 +25558,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 152
+                "line": 158
             },
             "documented": true,
             "openapi_operation_id": "saveHotSearchConfig",
@@ -25492,7 +25622,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 156
+                "line": 162
             },
             "documented": true,
             "openapi_operation_id": "saveTransactionConfig",
@@ -25556,7 +25686,7 @@
             ],
             "source": {
                 "file": "server/route/admin.php",
-                "line": 128
+                "line": 134
             },
             "documented": true,
             "openapi_operation_id": "clearSystemCache",
@@ -27112,7 +27242,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 55
+                "line": 60
             },
             "documented": true,
             "openapi_operation_id": "uploadMemberImage",
@@ -27509,7 +27639,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 64
+                "line": 69
             },
             "documented": false,
             "openapi_operation_id": null,
@@ -27573,7 +27703,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 67
+                "line": 72
             },
             "documented": false,
             "openapi_operation_id": null,
@@ -27637,7 +27767,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 76
+                "line": 81
             },
             "documented": false,
             "openapi_operation_id": null,
@@ -27701,7 +27831,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 70
+                "line": 75
             },
             "documented": false,
             "openapi_operation_id": null,
@@ -27765,7 +27895,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 73
+                "line": 78
             },
             "documented": false,
             "openapi_operation_id": null,
@@ -30299,6 +30429,74 @@
                     "response_schemas",
                     "business_errors"
                 ]
+            }
+        },
+        {
+            "method": "PUT",
+            "path": "/adminapi/role/data-policy",
+            "runtime_path": "/adminapi/role/data-policy",
+            "application": "adminapi",
+            "owner": {
+                "type": "application",
+                "key": "adminapi"
+            },
+            "controller": "app\\adminapi\\controller\\auth\\DataPolicyController",
+            "action": "replace",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "tenant_action",
+                    "key": "core.role.data-policy.manage"
+                }
+            ],
+            "errors": [
+                401,
+                403,
+                404,
+                409,
+                412,
+                422,
+                428
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/route/admin.php",
+                "line": 67
+            },
+            "documented": true,
+            "openapi_operation_id": "replaceAdminRoleDataPolicy",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": []
             }
         },
         {

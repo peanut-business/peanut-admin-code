@@ -781,7 +781,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b718e1f0a5835131948d3849dcc8a238c3d5b88d44e2e664eaafc33811979a4d"
+            "source_sha256": "a952d92b7dc6edc692726937e23ab24fbaa5a05cd343064d33bbcda577e70113"
         },
         {
             "path": "docs/architecture/module-development-delivery.md",
@@ -2470,7 +2470,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0cf820ac9c3ddf8bd41ad96e0966006e9e4e7e070b2cd8271caf3f93bf93ab16"
+            "source_sha256": "50d1fbc843d784732857128693882e997257111bf8afff5f1a13a8aff36d8cdf"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2607,7 +2607,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2c3173a27594ca4693435504e01dcc60cccdf86bd5328a123a60966e6c05281c"
+            "source_sha256": "5452ef8b0530032c88790b9a18f1f8fcd615f921f7fcd80d06313946c6e33b41"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -5095,6 +5095,20 @@
             "source_sha256": "837218e929b1574a06a85aa4fbf425a2937196f0ac018481cd76bebaf4e5b6f3"
         },
         {
+            "path": "server/app/adminapi/controller/auth/DataPolicyController.php",
+            "target": "server/app/adminapi/controller/auth/DataPolicyController.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "b3de5b717c05c4d727e647749cd8746dd76e53a0fd5a0a77537aca883a8b09ca"
+        },
+        {
             "path": "server/app/adminapi/controller/auth/LoginController.php",
             "target": "server/app/adminapi/controller/auth/LoginController.php",
             "classification": "managed",
@@ -6086,7 +6100,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c4329527c7c82535a2dd333d044b553591f83b10c3810c30b54c2301348090b8"
+            "source_sha256": "c1288820b3570ea20748b07e8873a377acd9bf4140ba134150eb69ba52cd8ff8"
         },
         {
             "path": "server/app/api/metadata/application/common.php",
@@ -14411,7 +14425,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7cfa1d2e627ab929e9b1c3eb24733ab1efcbe70e32b3df00ca3e75735aa33824"
+            "source_sha256": "f0b9ef18b70c80021930980629482c3032ae350997aff1d8e98da5fd65f288b8"
         },
         {
             "path": "server/app/modules/official/identity/src/DataPermission/Application/EffectiveAccessPreviewService.php",
@@ -28390,7 +28404,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a9715ad2ff02fa106d32bdc293c7e097ccfd0d0e96810ca40f6ff8b0e93d9590"
+            "source_sha256": "09e89f25b19a2f84ef647f81dd0b4a896975a62a6aaf363a85dfbb2b0d56c2e1"
         },
         {
             "path": "server/generated/openapi.json",
@@ -28404,7 +28418,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e0a8bc4ff298f384fbfe42e52cbb6866c98b27513d0bb4c9e4bf27b408409d81"
+            "source_sha256": "93f164c12cd6d5c6478c36370cb071198ddd8fa1e450b62cbea7df9ac5eb82c5"
         },
         {
             "path": "server/private/storage/.gitkeep",
@@ -28838,7 +28852,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "49563046fd127aeb24299f76cc23c92ea3572a8ec5a8321ad8b3b2d476816f5f"
+            "source_sha256": "f2b156207bbef01ecc62d98635ab1193b4f1035c51d6e7db7a59ef971015f39b"
         },
         {
             "path": "server/route/app.php",
@@ -35874,7 +35888,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f1fb52f51f278d6de860092ac808a5142ba63b65b0e8b8a5816d1e51dcf749ff"
+            "source_sha256": "06ee7fa4eef1e632b621e9fbb8ba8750c9141ec254e196fada2cf04290ad29eb"
         },
         {
             "path": "web/src/hooks/chart-option.ts",

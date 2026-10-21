@@ -18,6 +18,10 @@
 
 例：张三“审核＋S1”“查看＋S2”，不能组合成“审核 S1/S2”。保留授权来源与范围；同动作允许按范围并集，同对象明确拒绝优先。临时/继承/撤销/缓存按统一授权机制，不留隐式权限。
 
+租户管理员通过 `GET /adminapi/role/data-policy/catalog` 分页查看当前已启用模块的资源操作；指定 `resource_key`、`operation` 时返回该操作允许的条件及目标类型。`GET /adminapi/role/data-policy` 使用 `role_id`、`resource_key`、`operation` 读取一份角色策略；`PUT` 同一路径提交这三个定位字段和 `policy`。读取与修改分别要求现有 `core.role.data-policy.read`、`core.role.data-policy.manage`，租户及操作者只来自当前真实会话。
+
+首次配置使用空 `expected_revision`；修改已有策略必须带上读取到的修订，缺失返回 428、过期返回 412。策略只接受登记条件、合法目标、状态、期限及原因；角色动作权限不会自动产生数据范围。配置和办理权限分别验证，不能用租户 owner 绕过普通办理人的对象范围。
+
 ## 4. 人员和终端的共同处理
 
 | 场景 | 身份与限制 |

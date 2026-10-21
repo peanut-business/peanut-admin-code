@@ -512,6 +512,87 @@ $schemas = [
     ],
 ];
 
+$policyId = ['anyOf' => [['type' => 'integer', 'minimum' => 1], ['type' => 'string', 'pattern' => '^[1-9][0-9]{0,17}$']]];
+$policyConfig = ['anyOf' => [['type' => 'object', 'nullable' => true, 'maxProperties' => 0, 'additionalProperties' => false], ['type' => 'array', 'nullable' => true, 'maxItems' => 0, 'items' => ['type' => 'string']]]];
+$policyTarget = ['type' => 'object', 'additionalProperties' => false, 'required' => ['target_id'],
+    'properties' => ['target_id' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 160]]];
+$schemas['AdminDataPolicyTargetSetWrite'] = ['type' => 'object', 'additionalProperties' => false, 'nullable' => true,
+    'required' => ['name', 'target_resource_key', 'targets'], 'properties' => [
+        'name' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 120],
+        'target_resource_key' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 160],
+        'targets' => ['type' => 'array', 'minItems' => 1, 'maxItems' => 500, 'items' => $policyTarget],
+    ]];
+$schemas['AdminDataPolicyConditionWrite'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['condition_key'], 'properties' => [
+        'condition_key' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 160],
+        'target_set' => $ref('AdminDataPolicyTargetSetWrite'), 'config' => $policyConfig,
+    ]];
+$schemas['AdminDataPolicyGroupWrite'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['name', 'conditions'], 'properties' => [
+        'name' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 120],
+        'conditions' => ['type' => 'array', 'minItems' => 1, 'maxItems' => 20, 'items' => $ref('AdminDataPolicyConditionWrite')],
+    ]];
+$schemas['AdminDataPolicyWrite'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['status', 'groups'], 'properties' => [
+        'status' => ['type' => 'string', 'enum' => ['active', 'disabled']],
+        'reason' => ['type' => 'string', 'maxLength' => 300, 'nullable' => true],
+        'valid_from' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
+        'valid_until' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
+        'groups' => ['type' => 'array', 'maxItems' => 50, 'items' => $ref('AdminDataPolicyGroupWrite')],
+    ]];
+$schemas['AdminDataPolicyReplaceRequest'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['role_id', 'resource_key', 'operation', 'policy'], 'properties' => [
+        'role_id' => $policyId, 'resource_key' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 160],
+        'operation' => ['type' => 'string', 'minLength' => 1, 'maxLength' => 96],
+        'expected_revision' => ['anyOf' => [['type' => 'integer', 'minimum' => 1, 'nullable' => true], ['type' => 'string', 'pattern' => '^[1-9][0-9]{0,17}$', 'nullable' => true]]], 'policy' => $ref('AdminDataPolicyWrite'),
+    ]];
+$schemas['AdminDataPolicyTargetSet'] = ['type' => 'object', 'additionalProperties' => false, 'nullable' => true,
+    'required' => ['id', 'name', 'target_mode', 'target_resource_key', 'status', 'revision', 'targets'], 'properties' => [
+        'id' => $ref('NumericStringId'), 'name' => ['type' => 'string'], 'target_mode' => ['type' => 'string'],
+        'target_resource_key' => ['type' => 'string'], 'status' => ['type' => 'string'],
+        'revision' => $ref('NumericStringId'), 'targets' => ['type' => 'array', 'items' => $policyTarget],
+    ]];
+$schemas['AdminDataPolicyCondition'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['id', 'condition_key', 'status', 'revision', 'target_set', 'config'], 'properties' => [
+        'id' => $ref('NumericStringId'), 'condition_key' => ['type' => 'string'], 'status' => ['type' => 'string'],
+        'revision' => $ref('NumericStringId'), 'target_set' => $ref('AdminDataPolicyTargetSet'), 'config' => $policyConfig,
+    ]];
+$schemas['AdminDataPolicyGroup'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['id', 'name', 'match_mode', 'sort_order', 'status', 'revision', 'conditions'], 'properties' => [
+        'id' => $ref('NumericStringId'), 'name' => ['type' => 'string'], 'match_mode' => ['type' => 'string'],
+        'sort_order' => ['type' => 'integer'], 'status' => ['type' => 'string'], 'revision' => $ref('NumericStringId'),
+        'conditions' => ['type' => 'array', 'items' => $ref('AdminDataPolicyCondition')],
+    ]];
+$schemas['AdminDataPolicy'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['id', 'tenant_id', 'role_id', 'resource_key', 'operation', 'status', 'valid_from', 'valid_until', 'revision', 'reason', 'created_at', 'updated_at', 'groups'], 'properties' => [
+        'id' => $ref('NumericStringId'), 'tenant_id' => $ref('NumericStringId'), 'role_id' => $ref('NumericStringId'),
+        'resource_key' => ['type' => 'string'], 'operation' => ['type' => 'string'],
+        'status' => ['type' => 'string', 'enum' => ['active', 'disabled']],
+        'valid_from' => ['type' => 'string', 'nullable' => true], 'valid_until' => ['type' => 'string', 'nullable' => true],
+        'revision' => $ref('NumericStringId'), 'reason' => ['type' => 'string', 'nullable' => true],
+        'created_at' => ['type' => 'string'], 'updated_at' => ['type' => 'string'],
+        'groups' => ['type' => 'array', 'items' => $ref('AdminDataPolicyGroup')],
+    ]];
+$schemas['AdminDataPolicyOperation'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['resource_key', 'module_key', 'operation', 'access_mode', 'target_cardinality'], 'properties' => [
+        'resource_key' => ['type' => 'string'], 'module_key' => ['type' => 'string'], 'operation' => ['type' => 'string'],
+        'access_mode' => ['type' => 'string'], 'target_cardinality' => ['type' => 'string'],
+    ]];
+$schemas['AdminDataPolicyCatalogPage'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['items', 'total', 'page_no', 'page_size'], 'properties' => [
+        'items' => ['type' => 'array', 'items' => $ref('AdminDataPolicyOperation')], 'total' => ['type' => 'integer'],
+        'page_no' => ['type' => 'integer'], 'page_size' => ['type' => 'integer'],
+    ]];
+$schemas['AdminDataPolicyOperationConditions'] = ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['resource_key', 'operation', 'target_cardinality', 'conditions'], 'properties' => [
+        'resource_key' => ['type' => 'string'], 'operation' => ['type' => 'string'], 'target_cardinality' => ['type' => 'string'],
+        'conditions' => ['type' => 'array', 'items' => ['type' => 'object', 'additionalProperties' => false,
+            'required' => ['condition_key', 'target_mode', 'selector_resource_key'], 'properties' => [
+                'condition_key' => ['type' => 'string'], 'target_mode' => ['type' => 'string'],
+                'selector_resource_key' => ['type' => 'string', 'nullable' => true],
+            ]]],
+    ]];
+
 $ok = static fn(string $schema): array => ['200' => $success($ref($schema)), '401' => $error, '403' => $error];
 $mutation = ['200' => $emptySuccess, '401' => $error, '403' => $error, '422' => $error];
 $menuKeySchema = ['type' => 'string', 'minLength' => 1, 'maxLength' => 160];
@@ -579,6 +660,13 @@ $add($paths, 'GET', '/adminapi/role/detail', $operation('getAdminRole', 'AdminRo
 $add($paths, 'POST', '/adminapi/role/add', $operation('createAdminRole', 'AdminRoles', $mutation + ['409' => $error], requestBody: $jsonBody($ref('AdminRoleWriteRequest'))));
 $add($paths, 'POST', '/adminapi/role/edit', $operation('updateAdminRole', 'AdminRoles', $mutation + ['404' => $error, '409' => $error], requestBody: $jsonBody($ref('AdminRoleWriteRequest'))));
 $add($paths, 'POST', '/adminapi/role/delete', $operation('archiveAdminRole', 'AdminRoles', $mutation + ['404' => $error, '409' => $error], requestBody: $idBody));
+$policyQuery = [$query('role_id', $policyId, true), $query('resource_key', ['type' => 'string', 'minLength' => 1, 'maxLength' => 160], true), $query('operation', ['type' => 'string', 'minLength' => 1, 'maxLength' => 96], true)];
+$add($paths, 'GET', '/adminapi/role/data-policy', $operation('getAdminRoleDataPolicy', 'AdminRoles', $ok('AdminDataPolicy') + ['404' => $error, '422' => $error], $policyQuery));
+$add($paths, 'PUT', '/adminapi/role/data-policy', $operation('replaceAdminRoleDataPolicy', 'AdminRoles', $ok('AdminDataPolicy') + ['404' => $error, '409' => $error, '412' => $error, '422' => $error, '428' => $error], requestBody: $jsonBody($ref('AdminDataPolicyReplaceRequest'))));
+$add($paths, 'GET', '/adminapi/role/data-policy/catalog', $operation('getAdminRoleDataPolicyCatalog', 'AdminRoles', ['200' => $success(['oneOf' => [$ref('AdminDataPolicyCatalogPage'), $ref('AdminDataPolicyOperationConditions')]]), '401' => $error, '403' => $error, '404' => $error, '422' => $error], [
+    $query('resource_key', ['type' => 'string', 'minLength' => 1, 'maxLength' => 160]), $query('operation', ['type' => 'string', 'minLength' => 1, 'maxLength' => 96]),
+    $query('page_no', ['type' => 'integer', 'minimum' => 1]), $query('page_size', ['type' => 'integer', 'minimum' => 1, 'maximum' => 100]),
+]));
 
 // 部门与岗位。
 $directoryNode = ['type' => 'object', 'additionalProperties' => false,

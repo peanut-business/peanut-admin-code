@@ -1178,6 +1178,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/adminapi/role/data-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminRoleDataPolicy"];
+        put: operations["replaceAdminRoleDataPolicy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/role/data-policy/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminRoleDataPolicyCatalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/adminapi/dept/lists": {
         parameters: {
             query?: never;
@@ -7221,6 +7253,106 @@ export interface components {
             status: "accepted";
             tenant_status: string;
         };
+        AdminDataPolicyTargetSetWrite: {
+            name: string;
+            target_resource_key: string;
+            targets: {
+                target_id: string;
+            }[];
+        } | null;
+        AdminDataPolicyConditionWrite: {
+            condition_key: string;
+            target_set?: components["schemas"]["AdminDataPolicyTargetSetWrite"];
+            config?: (Record<string, never> | null) | (string[] | null);
+        };
+        AdminDataPolicyGroupWrite: {
+            name: string;
+            conditions: components["schemas"]["AdminDataPolicyConditionWrite"][];
+        };
+        AdminDataPolicyWrite: {
+            /** @enum {string} */
+            status: "active" | "disabled";
+            reason?: string | null;
+            /** Format: date-time */
+            valid_from?: string | null;
+            /** Format: date-time */
+            valid_until?: string | null;
+            groups: components["schemas"]["AdminDataPolicyGroupWrite"][];
+        };
+        AdminDataPolicyReplaceRequest: {
+            role_id: number | string;
+            resource_key: string;
+            operation: string;
+            expected_revision?: (number | null) | (string | null);
+            policy: components["schemas"]["AdminDataPolicyWrite"];
+        };
+        AdminDataPolicyTargetSet: {
+            id: components["schemas"]["NumericStringId"];
+            name: string;
+            target_mode: string;
+            target_resource_key: string;
+            status: string;
+            revision: components["schemas"]["NumericStringId"];
+            targets: {
+                target_id: string;
+            }[];
+        } | null;
+        AdminDataPolicyCondition: {
+            id: components["schemas"]["NumericStringId"];
+            condition_key: string;
+            status: string;
+            revision: components["schemas"]["NumericStringId"];
+            target_set: components["schemas"]["AdminDataPolicyTargetSet"];
+            config: (Record<string, never> | null) | (string[] | null);
+        };
+        AdminDataPolicyGroup: {
+            id: components["schemas"]["NumericStringId"];
+            name: string;
+            match_mode: string;
+            sort_order: number;
+            status: string;
+            revision: components["schemas"]["NumericStringId"];
+            conditions: components["schemas"]["AdminDataPolicyCondition"][];
+        };
+        AdminDataPolicy: {
+            id: components["schemas"]["NumericStringId"];
+            tenant_id: components["schemas"]["NumericStringId"];
+            role_id: components["schemas"]["NumericStringId"];
+            resource_key: string;
+            operation: string;
+            /** @enum {string} */
+            status: "active" | "disabled";
+            valid_from: string | null;
+            valid_until: string | null;
+            revision: components["schemas"]["NumericStringId"];
+            reason: string | null;
+            created_at: string;
+            updated_at: string;
+            groups: components["schemas"]["AdminDataPolicyGroup"][];
+        };
+        AdminDataPolicyOperation: {
+            resource_key: string;
+            module_key: string;
+            operation: string;
+            access_mode: string;
+            target_cardinality: string;
+        };
+        AdminDataPolicyCatalogPage: {
+            items: components["schemas"]["AdminDataPolicyOperation"][];
+            total: number;
+            page_no: number;
+            page_size: number;
+        };
+        AdminDataPolicyOperationConditions: {
+            resource_key: string;
+            operation: string;
+            target_cardinality: string;
+            conditions: {
+                condition_key: string;
+                target_mode: string;
+                selector_resource_key: string | null;
+            }[];
+        };
         PlatformAuthentication: {
             /** @enum {string} */
             state: "authenticated";
@@ -13244,6 +13376,109 @@ export interface operations {
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getAdminRoleDataPolicy: {
+        parameters: {
+            query: {
+                role_id: number | string;
+                resource_key: string;
+                operation: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["AdminDataPolicy"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    replaceAdminRoleDataPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminDataPolicyReplaceRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["AdminDataPolicy"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            412: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            428: components["responses"]["ErrorResponse"];
+        };
+    };
+    getAdminRoleDataPolicyCatalog: {
+        parameters: {
+            query?: {
+                resource_key?: string;
+                operation?: string;
+                page_no?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["AdminDataPolicyCatalogPage"] | components["schemas"]["AdminDataPolicyOperationConditions"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };
