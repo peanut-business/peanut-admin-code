@@ -1178,6 +1178,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/adminapi/role/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminRolePermissions"];
+        put: operations["replaceAdminRolePermissions"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/role/permissions/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminRolePermissionCatalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/adminapi/role/data-policy": {
         parameters: {
             query?: never;
@@ -7252,6 +7284,27 @@ export interface components {
             /** @enum {string} */
             status: "accepted";
             tenant_status: string;
+        };
+        AdminRolePermissions: {
+            role_id: components["schemas"]["NumericStringId"];
+            key: string;
+            revision: components["schemas"]["NumericStringId"];
+            permission_keys: string[];
+        };
+        AdminRolePermissionsReplaceRequest: {
+            role_id: number | string;
+            expected_revision: number | string;
+            permission_keys: string[];
+        };
+        AdminRolePermissionCatalogPage: {
+            items: {
+                key: string;
+                name: string;
+                module_key: string;
+            }[];
+            total: number;
+            page_no: number;
+            page_size: number;
         };
         AdminDataPolicyTargetSetWrite: {
             name: string;
@@ -13376,6 +13429,105 @@ export interface operations {
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getAdminRolePermissions: {
+        parameters: {
+            query: {
+                role_id: number | string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["AdminRolePermissions"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    replaceAdminRolePermissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminRolePermissionsReplaceRequest"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["AdminRolePermissions"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            412: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            428: components["responses"]["ErrorResponse"];
+        };
+    };
+    getAdminRolePermissionCatalog: {
+        parameters: {
+            query?: {
+                page_no?: number;
+                page_size?: number;
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["AdminRolePermissionCatalogPage"];
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };
