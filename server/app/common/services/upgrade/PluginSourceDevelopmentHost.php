@@ -20,6 +20,7 @@ final class PluginSourceDevelopmentHost
     private ?array $mutation = null;
     private string $sourceMetadataTool = '';
     private const CONTRACTS = [
+        'official.identity' => \PeanutAdmin\Modules\Identity\Database\IdentitySchemaMigrationProof::class,
         'official.file' => \PeanutAdmin\Modules\File\Contract\FileMigrationPreservation::class,
         'official.document' => \PeanutAdmin\Modules\Document\Contract\DocumentMigrationPreservation::class,
         'official.article' => \PeanutAdmin\Modules\Article\Contract\ArticleMigrationPreservation::class,
@@ -160,6 +161,8 @@ final class PluginSourceDevelopmentHost
                                         'plan_sha256' => self::digest($native), 'binding' => $binding, 'evidence' => $proof,
                                         'external_writer_exclusion' => 'ops_protocol_gate_required_not_attested']];
                                 $this->mutation['admission']['admission_digest'] = self::digest($this->mutation['admission']);
+                                $enteredLifecycle = false;
+                                $lifecycleCompleted = false;
                                 try {
                                     $this->requireMutation($pdo, $pluginKey);
                                     $ready = $readPlan(static fn(array $plan): array => $plan);
@@ -174,7 +177,9 @@ final class PluginSourceDevelopmentHost
                                     $this->requireMutation($pdo, $pluginKey);
                                     // The outer read-plan callback still holds the native package lock.
                                     // Only this call enters the original lifecycle, never a copied SQL runner.
+                                    $enteredLifecycle = true;
                                     $result = ($execution['mutate'])();
+                                    $lifecycleCompleted = true;
                                     $this->requireMutation($pdo, $pluginKey);
                                     if ($pdo->inTransaction()) { throw new RuntimeException('PLUGIN_SOURCE_TRANSACTION_INCOMPLETE'); }
                                     $ledger = $readLedger(); $byKey = array_column($ledger, null, 'migration_key');
@@ -216,6 +221,39 @@ final class PluginSourceDevelopmentHost
                                     $record['result_path'] = $this->saveReceipt($record);
                                     $this->requireMutation($pdo, $pluginKey);
                                     return $record;
+                                } catch (\Throwable $failure) {
+                                    if ($enteredLifecycle) {
+                                        // Preserve what this real invocation actually observed. A catalog
+                                        // failure need not have a failed migration; never manufacture one.
+                                        $ledger = null;
+                                        if (!$pdo->inTransaction()) {
+                                            try { $recheck(); $ledger = $readLedger(); }
+                                            catch (\Throwable) { /* Unknown connection/authority stays unknown. */ }
+                                        }
+                                        $record = ['protocol' => 'peanut.source-plugin-failure.v1', 'status' => 'failed',
+                                            'operation' => $operation, 'plugin_key' => $pluginKey, 'binding' => $binding,
+                                            'native_plan' => $native, 'native_plan_sha256' => self::digest($native),
+                                            'baseline' => $baseline, 'backup_scope' => $scope, 'evidence' => $proof,
+                                            'admission' => $this->mutation['admission'], 'old_ledger' => $oldLedger,
+                                            'ledger' => $ledger, 'ledger_observation' => $ledger === null ? 'unknown' : 'observed_after_failure',
+                                            'ordered_stages' => $this->mutation['stages'], 'request_id' => $context->requestId(),
+                                            'failure_phase' => $lifecycleCompleted ? 'completion_validation_or_receipt' : 'native_lifecycle',
+                                            'native_result' => $lifecycleCompleted ? $result : null,
+                                            'failure_type' => $failure::class,
+                                            'observed_at' => time(), 'writer_sha256' => hash_file('sha256', __FILE__),
+                                            'executor_sha256' => hash_file('sha256', rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR)
+                                                . '/app/platform/services/plugin/PluginLifecycleService.php'),
+                                            'database_afterimage' => 'not_captured', 'restoration' => 'not_executed',
+                                            'product_database' => 'not_verified', 'qualification' => 'not_run'];
+                                        $record['document_sha256'] = self::digest($record);
+                                        // Failure to durably preserve the record is itself a stop, not a
+                                        // reason to retry the lifecycle or silently discard the error.
+                                        try { $this->saveReceipt($record); }
+                                        catch (\Throwable $receiptFailure) {
+                                            throw new RuntimeException('PLUGIN_SOURCE_FAILURE_RECEIPT_WRITE_FAILED', 0, $receiptFailure);
+                                        }
+                                    }
+                                    throw $failure;
                                 } finally { $this->mutation = null; }
                             }
                             if ($toolId !== '') {

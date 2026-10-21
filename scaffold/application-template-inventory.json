@@ -2457,7 +2457,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9ce18b261a3cdb69499f29ba930ac55433fe5b61ede11e9e0ac83942afcc62d8"
+            "source_sha256": "22f820f1f22e1806490dc74ec8bbb53046ca99790b47680ecb954ec5636851a5"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2594,7 +2594,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "932bc857b46cd2f066b176d6060dd441ba3ccc26b6552357c306fbc1397b3beb"
+            "source_sha256": "93adf0c2bc5e01f1d06e9114fc5d0c6ec0606861f0680d6f66a65a0ab6b7141b"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -9187,7 +9187,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f3c01d263a20bcbc3fefb2d00c3f665d079318a16c5ecef3d2ca28d58eac60be"
+            "source_sha256": "561d46ffe5c591a2efd1c014944a68b6a05d78a23e22eb954c04d8ad67c23cfb"
         },
         {
             "path": "server/app/common/services/upgrade/SourceApplicationBackup.php",
@@ -9201,7 +9201,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "81ec4b22eac500c854151a3b60b517b4b56b64a8cd22c393daa9960c473c5793"
+            "source_sha256": "52693ac1546709b3704b793254555aa0202f2d527494dea0e04f94d060f82e48"
         },
         {
             "path": "server/app/common/services/upgrade/SourceApplicationDump.php",
@@ -13307,7 +13307,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c9ba49baea36b6b8c51c16ccd72bc76eb5afb122a4a67c039ee9d668b48088f3"
+            "source_sha256": "7747c47ad4f4b15123980040c3c6b2a0510ab463129892dc354300dd357039ed"
         },
         {
             "path": "server/app/modules/official/identity/src/Audit/AuditService.php",
@@ -14358,6 +14358,20 @@
                 "full"
             ],
             "source_sha256": "64d6b24c289b2510cbece8f04254b8f1d9d1ea9d0db7daa931fbb84208b2f3e5"
+        },
+        {
+            "path": "server/app/modules/official/identity/src/Database/IdentitySchemaMigrationProof.php",
+            "target": "server/app/modules/official/identity/src/Database/IdentitySchemaMigrationProof.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "732c5a7ca54e4d336dbd2c5d121ff8f48c6bfddf8854f3d826eab79871a5f9d5"
         },
         {
             "path": "server/app/modules/official/identity/src/Http/TenantAuthEndpoint.php",
@@ -25790,7 +25804,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "014b8b460189b60e8e2b4c2697dd3dcb211608f46482866c08587d799d2701d5"
+            "source_sha256": "223a3d3a8c5c1f46eac504a8e75d1538b4e296d15b5f3952717540c27863a072"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",
@@ -30804,6 +30818,19 @@
                 "full"
             ],
             "source_sha256": "2118665f8367d856ac36e6c361f0ee0aabb855a18f02b399d2f434e51754638c"
+        },
+        {
+            "path": "server/tests/Productization/IdentitySchemaContractTest.php",
+            "target": "server/tests/Productization/IdentitySchemaContractTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
         },
         {
             "path": "server/tests/Productization/InstallRuntimeConfigurationUidTest.php",
