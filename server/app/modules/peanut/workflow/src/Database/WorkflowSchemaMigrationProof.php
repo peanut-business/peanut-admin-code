@@ -328,15 +328,20 @@ final class WorkflowSchemaMigrationProof
     /** Compare this module's fixed predicates, retaining AND/OR grouping and literal case. Never execute metadata SQL. */
     private static function tokens(string $expression): array
     {
-        preg_match_all("/'(?:''|[^'])*'|`[a-z][a-z0-9_]*`|[A-Za-z_][A-Za-z0-9_]*|[0-9]+|>=|<=|<>|!=|[(),=<>]/", $expression, $matches, PREG_OFFSET_CAPTURE);
+        // MySQL metadata may escape literal delimiters. Recognize only a complete
+        // literal token; never unescape operators, grouping or arbitrary SQL.
+        $pattern = <<<'REGEX'
+~\G(?:\s+|\\'(?<metadata_literal>[^'\\]*)\\'|(?<literal>'(?:''|[^'])*')|(?<token>`[a-z][a-z0-9_]*`|[A-Za-z_][A-Za-z0-9_]*|[0-9]+|>=|<=|<>|!=|[(),=<>]))~
+REGEX;
         $tokens = []; $offset = 0;
-        foreach ($matches[0] as [$token, $position]) {
-            if (trim(substr($expression, $offset, $position - $offset)) !== '') { self::fail('EXPRESSION_UNSUPPORTED'); }
-            $offset = $position + strlen($token);
-            if ($token[0] !== "'") { $token = strtolower(trim($token, '`')); }
-            $tokens[] = $token;
+        while ($offset < strlen($expression)) {
+            if (preg_match($pattern, $expression, $match, PREG_UNMATCHED_AS_NULL, $offset) !== 1) { self::fail('EXPRESSION_UNSUPPORTED'); }
+            $offset += strlen($match[0]);
+            if (trim($match[0]) === '') { continue; }
+            $tokens[] = $match['metadata_literal'] !== null ? "'" . $match['metadata_literal'] . "'"
+                : ($match['literal'] ?? strtolower(trim($match['token'], '`')));
         }
-        if (trim(substr($expression, $offset)) !== '' || $tokens === []) { self::fail('EXPRESSION_UNSUPPORTED'); }
+        if ($tokens === []) { self::fail('EXPRESSION_UNSUPPORTED'); }
         $normalized = [];
         foreach ($tokens as $index => $token) {
             if (in_array($token, ['_ascii', '_utf8mb4', '_utf8mb3', '_binary'], true) && str_starts_with($tokens[$index + 1] ?? '', "'")) { continue; }
