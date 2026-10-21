@@ -9,7 +9,7 @@ use PeanutAdmin\Kernel\Context\SystemActorRegistry;
 use PeanutAdmin\Kernel\Context\SystemContextFactory;
 use PeanutAdmin\Modules\Identity\Context\Persistence\ThinkPhpSystemTenantResolver;
 use PeanutAdmin\Modules\Identity\Identity\Maintenance\IdentityCredentialRecovery;
-use app\platform\services\plugin\PluginLifecycleService;
+use app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider;
 use PDO;
 use RuntimeException;
 use think\App;
@@ -135,7 +135,7 @@ final readonly class SourceSharedCredentialRecovery
 
     private function adoptedIdentity(): array
     {
-        $plan = $this->app->make(PluginLifecycleService::class)->reconcilePlan('official.identity');
+        $plan = $this->app->make(ThinkPhpModuleGovernanceProvider::class)->pluginLifecycle()->reconcilePlan('official.identity');
         return $this->adoptedIdentityPlan($plan);
     }
 
