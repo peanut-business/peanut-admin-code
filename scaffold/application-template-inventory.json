@@ -2457,7 +2457,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6323eed27371efdd11e52838d197d5e99c30e6568776a14ce79afe9de63357ef"
+            "source_sha256": "9efb1bd600f9518ec032f322a6f06f15275fc6a357731c508d5ae36929999426"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2566,7 +2566,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "abf29c268b094108c0b5edf29fddb21150da44dd4056879ce3baa456a5d03e86"
+            "source_sha256": "82e046aaf5741247150822e4b173c83e3ea7171d5adda817cb8250f8cc67bfd2"
         },
         {
             "path": "plugins/official.file/plugin.json",
@@ -11599,7 +11599,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cc85eaf21c9480f24a4432e674c48190da2e5049756249583e2cdd8211b7fdce"
+            "source_sha256": "dbf2daad2420087e4af66c18d9f2f124ec0f639992ab50e7721165f52e30422f"
         },
         {
             "path": "server/app/modules/official/document/database/migrations/20261012050000_create_business_documents.sql",
@@ -11641,7 +11641,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ab718f90e0fbb49d78d6e2e0cd0da56c9ae2c43a56b624347c53464fab425d75"
+            "source_sha256": "fae361e0a5a1468fb4e9b4a07194eeebad4c77f05b12d45db252a117920a7270"
         },
         {
             "path": "server/app/modules/official/document/resources/menus.json",
@@ -11823,7 +11823,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9fc1733c4478e8244bba73567cb4ea80f9e1d8597a00f4ffb54b94802010ad71"
+            "source_sha256": "00c9e9a3f893c7ef3bc4e863c26d355de9ddbff2da054a3df87d4176137bcaa8"
         },
         {
             "path": "server/app/modules/official/document/src/Contract/DocumentOwnerContributor.php",

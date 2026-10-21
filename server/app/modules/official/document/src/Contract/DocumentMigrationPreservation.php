@@ -160,25 +160,33 @@ final readonly class DocumentMigrationPreservation
     /** Metadata is protected by the caller's held DDL/writer exclusion, not by an MVCC claim. */
     private function snapshot(PDO $pdo): array
     {
-        $identity = $this->identity($pdo);
-        $this->visibility($pdo, $identity['database_name']);
-        $tables = [];
-        foreach (self::COLUMNS as $name => $_) {
-            $physical = Db::name($name)->getTable();
-            if ($physical !== 'pa_' . $name) { self::fail('EXECUTE_PREFIX_UNSUPPORTED'); }
-            $tables[$name] = $this->metadata($pdo, $physical);
+        $value = $this->query($pdo, 'SELECT @@SESSION.information_schema_stats_expiry AS expiry')[0]['expiry'] ?? null;
+        if (!is_int($value) && (!is_string($value) || preg_match('/\A[0-9]+\z/D', $value) !== 1)) { self::fail('STATISTICS_UNAVAILABLE'); }
+        $statistics = (int) $value;
+        try {
+            $pdo->exec('SET SESSION information_schema_stats_expiry=0');
+            $identity = $this->identity($pdo);
+            $this->visibility($pdo, $identity['database_name']);
+            $tables = [];
+            foreach (self::COLUMNS as $name => $_) {
+                $physical = Db::name($name)->getTable();
+                if ($physical !== 'pa_' . $name) { self::fail('EXECUTE_PREFIX_UNSUPPORTED'); }
+                $tables[$name] = $this->metadata($pdo, $physical);
+            }
+            $phase = $this->query($pdo,
+                'SELECT TABLE_NAME,CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS'
+                . ' WHERE CONSTRAINT_SCHEMA=DATABASE() AND CONSTRAINT_NAME=? ORDER BY TABLE_NAME', [self::PHASE_CHECK]);
+            if ($identity !== $this->identity($pdo)) { self::fail('DATABASE_CHANGED'); }
+            return ['identity' => $identity, 'tables' => $tables, 'phase_constraint' => $phase];
+        } finally {
+            $pdo->exec('SET SESSION information_schema_stats_expiry=' . $statistics);
         }
-        $phase = $this->query($pdo,
-            'SELECT TABLE_NAME,CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS'
-            . ' WHERE CONSTRAINT_SCHEMA=DATABASE() AND CONSTRAINT_NAME=? ORDER BY TABLE_NAME', [self::PHASE_CHECK]);
-        if ($identity !== $this->identity($pdo)) { self::fail('DATABASE_CHANGED'); }
-        return ['identity' => $identity, 'tables' => $tables, 'phase_constraint' => $phase];
     }
 
     private function metadata(PDO $pdo, string $table): ?array
     {
         $info = $this->query($pdo,
-            'SELECT ENGINE,TABLE_TYPE,TABLE_COLLATION,AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$table]);
+            'SELECT ENGINE,TABLE_TYPE,TABLE_COLLATION FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$table]);
         if ($info === []) { return null; }
         if (count($info) !== 1 || $info[0]['ENGINE'] !== 'InnoDB' || $info[0]['TABLE_TYPE'] !== 'BASE TABLE'
             || $info[0]['TABLE_COLLATION'] !== 'utf8mb4_unicode_ci') { self::fail('TABLE_SHAPE_UNKNOWN'); }
@@ -187,6 +195,13 @@ final readonly class DocumentMigrationPreservation
         $columns = $this->query($pdo,
             'SELECT COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,COLUMN_DEFAULT,EXTRA,GENERATION_EXPRESSION,CHARACTER_SET_NAME,COLLATION_NAME'
             . ' FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY ORDINAL_POSITION', [$table]);
+        // Initialize cold InnoDB metadata with SHOW CREATE before reading the uncached allocator.
+        $allocator = $this->query($pdo, 'SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$table]);
+        $auto = $allocator[0]['AUTO_INCREMENT'] ?? null;
+        if (count($allocator) !== 1 || preg_match('/\A[1-9][0-9]*\z/D', (string) $auto) !== 1
+            || array_filter($columns, static fn(array $column): bool => str_contains($column['EXTRA'], 'auto_increment')) === []) {
+            self::fail('STATISTICS_UNAVAILABLE');
+        }
         $primary = array_column($this->query($pdo,
             "SELECT COLUMN_NAME FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND INDEX_NAME='PRIMARY' ORDER BY SEQ_IN_INDEX", [$table]), 'COLUMN_NAME');
         $triggers = $this->query($pdo,
@@ -194,7 +209,7 @@ final readonly class DocumentMigrationPreservation
             . 'SQL_MODE,DEFINER,CHARACTER_SET_CLIENT,COLLATION_CONNECTION,DATABASE_COLLATION,CREATED'
             . ' FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND EVENT_OBJECT_TABLE=? ORDER BY TRIGGER_NAME', [$table]);
         return ['ddl' => $ddl[0]['Create Table'], 'columns' => $columns, 'primary' => $primary, 'triggers' => $triggers,
-            'auto_increment' => $info[0]['AUTO_INCREMENT'] === null ? null : (string) $info[0]['AUTO_INCREMENT']];
+            'auto_increment' => (string) $auto];
     }
 
     private function identity(PDO $pdo): array
