@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace app\command;
 
+use app\common\services\upgrade\SourceSharedCredentialRecovery;
 use PeanutAdmin\Kernel\Context\SystemActorDefinition;
 use PeanutAdmin\Kernel\Context\SystemActorRegistry;
 use PeanutAdmin\Kernel\Context\SystemContextFactory;
@@ -15,18 +16,23 @@ use think\console\Input;
 use think\console\Output;
 use think\console\input\Option;
 
-/** Local-only, two-target credential recovery for the recorded initial identities. */
+/** Local credential recovery with separate initial-grant and current shared-account admission. */
 final class IdentityCredentialRecovery extends Command
 {
     protected function configure(): void
     {
         $this->setName('identity:credential-recover')
-            ->setDescription('Preflight or recover one of the recorded initial Identity credentials locally')
+            ->setDescription('Preflight or recover local Identity credentials with explicit initial or current shared admission')
             ->addOption('target', null, Option::VALUE_REQUIRED, 'tenant-owner or platform-operator')
             ->addOption('run-id', null, Option::VALUE_REQUIRED, 'The initial identity grant run id')
             ->addOption('execute', null, Option::VALUE_NONE, 'Perform the approved credential recovery; default is read-only preflight')
             ->addOption('approval-ref', null, Option::VALUE_REQUIRED, 'Root approval reference recorded in audit')
             ->addOption('password-file', null, Option::VALUE_REQUIRED, 'APP-owned 0600 one-line password file');
+        $this->addOption('mode', null, Option::VALUE_REQUIRED, 'initial or current-existing-shared', 'initial');
+        foreach (['owner', 'thread', 'session', 'operation-id', 'tenant-code', 'account-id', 'credential-id', 'plan-sha256'] as $name) {
+            $this->addOption($name, null, Option::VALUE_REQUIRED, 'Current shared source-maintenance ' . $name);
+        }
+        $this->addOption('gate', null, Option::VALUE_REQUIRED, 'Registered source-maintenance gate', 'shared-development');
     }
 
     protected function execute(Input $input, Output $output): int
@@ -38,6 +44,25 @@ final class IdentityCredentialRecovery extends Command
 
         $password = null;
         try {
+            $mode = (string) $input->getOption('mode');
+            if ($mode === 'current-existing-shared') {
+                if ((string) $input->getOption('target') !== '' || (string) $input->getOption('run-id') !== '') {
+                    throw new RuntimeException('IDENTITY_RECOVERY_CURRENT_INPUT_INVALID');
+                }
+                $options = [];
+                foreach (['owner', 'thread', 'session', 'gate', 'operation-id', 'tenant-code', 'account-id', 'credential-id', 'plan-sha256', 'approval-ref', 'password-file'] as $name) {
+                    $options[str_replace('-', '_', $name)] = (string) $input->getOption($name);
+                }
+                foreach (['account_id', 'credential_id'] as $name) {
+                    if (preg_match('/\A[1-9][0-9]{0,17}\z/D', $options[$name]) !== 1) { throw new RuntimeException('IDENTITY_RECOVERY_CURRENT_INPUT_INVALID'); }
+                    $options[$name] = (int) $options[$name];
+                }
+                $options['execute'] = ($input->getOption('execute') ?? false) === true;
+                $result = $this->getApp()->make(SourceSharedCredentialRecovery::class)->run($options);
+                $output->writeln(json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+                return 0;
+            }
+            if ($mode !== 'initial') { throw new RuntimeException('IDENTITY_RECOVERY_MODE_INVALID'); }
             $target = (string) $input->getOption('target');
             $runId = (string) $input->getOption('run-id');
             if (!in_array($target, ['tenant-owner', 'platform-operator'], true)) {
@@ -150,10 +175,16 @@ final class IdentityCredentialRecovery extends Command
             return 0;
         } catch (\Throwable $exception) {
             $code = $exception instanceof RuntimeException ? $exception->getMessage() : '';
-            if (preg_match('/^IDENTITY_RECOVERY_[A-Z0-9_]+$/D', $code) !== 1) {
+            if (preg_match('/^IDENTITY_(?:RECOVERY|CURRENT_RECOVERY)_[A-Z0-9_]+$/D', $code) !== 1) {
                 $code = 'IDENTITY_RECOVERY_FAILED';
             }
-            $output->writeln(json_encode(['error' => $code], JSON_THROW_ON_ERROR));
+            $failure = ['error' => $code];
+            if (($mode ?? null) === 'current-existing-shared') {
+                $failure['diagnostic'] = ['class' => get_class($exception), 'file' => basename($exception->getFile()),
+                    'line' => $exception->getLine(), 'reason_sha256' => hash('sha256', $exception->getMessage())];
+                $failure['recovery'] = 'If an attempt exists, reconcile its operation ID and both audit streams; never replay an unknown outcome.';
+            }
+            $output->writeln(json_encode($failure, JSON_THROW_ON_ERROR));
             return 1;
         } finally {
             if (is_string($password) && function_exists('sodium_memzero')) {

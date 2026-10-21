@@ -669,7 +669,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9d83d55515b3a831274a03276ac79225462f0d7b152f26e93ae317d2f6848747"
+            "source_sha256": "c6bbdd2e12c7786c01cd06dfa7750fa3a8a6db50473513679dd8fc6867492bb9"
         },
         {
             "path": "docs/architecture/cli-and-recipes.md",
@@ -980,6 +980,19 @@
         {
             "path": "docs/maintenance/README.md",
             "target": "docs/maintenance/README.md",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "docs/maintenance/identity-credentials.md",
+            "target": "docs/maintenance/identity-credentials.md",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -2457,7 +2470,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9efb1bd600f9518ec032f322a6f06f15275fc6a357731c508d5ae36929999426"
+            "source_sha256": "93ec10736094c656bcaa887e5b6de573b7110d81b1c190cd6ca98698122a6173"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2594,7 +2607,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fc590b044d7e3c7d9fe0d93ca580326947f7c596ff50ba74397ae80443cd840a"
+            "source_sha256": "04cd1d64dd73c4d6678e2fcc00af08b2ebdc5b39c90abbcd89802bf6b2b434b4"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -6521,7 +6534,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c7a6b4723419b5a70e01a8d9106f8ea2d2ac5bd8a0fd09a294d97da2574316fb"
+            "source_sha256": "0fe675e913960654f619d6ebc38808028dae3c18b024d2e468c205cf618b8fe3"
         },
         {
             "path": "server/app/command/ModuleAdoptPackage.php",
@@ -9230,6 +9243,20 @@
                 "full"
             ],
             "source_sha256": "fc2331e691ae634a3cdc4e33e9ee884ea814d1480eb797f7d1ead8c68bcc9524"
+        },
+        {
+            "path": "server/app/common/services/upgrade/SourceSharedCredentialRecovery.php",
+            "target": "server/app/common/services/upgrade/SourceSharedCredentialRecovery.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "e24d9ed600a6ba156293488a240010028402f4c546a3bbfb3b969e1245c7e597"
         },
         {
             "path": "server/app/common/support/ExportPageInfo.php",
@@ -14441,7 +14468,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b6103b5fb2ecbebae340076ea45d647d90c7b70de1bf3900b9e6e65938e08d98"
+            "source_sha256": "3e5fe895872162eb7c0e49d58ea03083a9873f27ea2a4aacb9148750d86a4f03"
         },
         {
             "path": "server/app/modules/official/identity/src/Identity/Query/ThinkPhpPlatformOperatorIdentityQuery.php",

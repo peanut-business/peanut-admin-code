@@ -26,7 +26,7 @@ use RuntimeException;
 use think\db\Raw;
 use think\facade\Db;
 
-/** One-run recovery of the APP-owned initial owner and platform-operator identities. */
+/** Local credential maintenance; initial and current shared identities have separate admission contracts. */
 final readonly class IdentityCredentialRecovery
 {
     public const TENANT_OWNER_ACTOR = 'peanut.identity.credential-recovery.tenant-owner';
@@ -178,6 +178,122 @@ final readonly class IdentityCredentialRecovery
         );
     }
 
+    /** Current local maintenance never infers an initial grant or changes either administrative role. */
+    public function inspectCurrentSharedAccount(
+        TenantSystemContext $tenant,
+        PlatformSystemContext $platform,
+        int $accountId,
+        int $credentialId,
+    ): array {
+        $this->assertCurrentSharedContexts($tenant, $platform);
+        return $this->currentSharedSnapshot($tenant->tenantId, $accountId, $credentialId, false);
+    }
+
+    /** The native CLI owns the protected current plan and must revalidate it inside this transaction. */
+    public function recoverCurrentSharedAccount(
+        TenantSystemContext $tenant,
+        PlatformSystemContext $platform,
+        #[SensitiveParameter] string $newPassword,
+        array $plan,
+        callable $nativeGuard,
+    ): array {
+        $this->assertCurrentSharedContexts($tenant, $platform);
+        $origin = $plan['caller_origin'] ?? [];
+        $before = $plan['snapshot'] ?? null;
+        if (($plan['protocol'] ?? null) !== 'peanut.current-shared-credential-maintenance.v1'
+            || ($plan['mode'] ?? null) !== 'current-existing-shared' || ($plan['status'] ?? null) !== 'approved'
+            || ($origin['kind'] ?? null) !== 'local-cli' || ($origin['uid'] ?? null) !== posix_geteuid()
+            || ($origin['username'] ?? null) !== (posix_getpwuid(posix_geteuid())['name'] ?? null)
+            || !is_array($before) || ($before['eligible'] ?? null) !== true
+            || ($before['tenant_id'] ?? null) !== $tenant->tenantId
+            || ($plan['operation_id'] ?? null) !== $tenant->operationId || $tenant->operationId !== $platform->operationId
+            || preg_match('/\A[a-z0-9][a-z0-9._-]{0,63}\z/D', $tenant->operationId) !== 1
+            || !is_string($plan['plan_sha256'] ?? null) || preg_match('/\A[a-f0-9]{64}\z/D', $plan['plan_sha256']) !== 1
+            || !is_string($plan['approval_ref'] ?? null) || $plan['approval_ref'] === ''
+            || !is_string($plan['password_ref'] ?? null) || !str_starts_with($plan['password_ref'], 'server/private/credentials/')) {
+            throw new RuntimeException('IDENTITY_CURRENT_RECOVERY_PLAN_INVALID');
+        }
+        $nativeGuard();
+        $operation = $plan['operation_id'];
+        $metadata = ['mode' => 'current-existing-shared', 'approval_ref' => $plan['approval_ref'],
+            'operation_id' => $operation, 'password_ref' => $plan['password_ref'], 'caller_origin' => $origin,
+            'plan_sha256' => $plan['plan_sha256'],
+            'affected_surfaces' => ['tenant', 'platform']];
+        return $this->recover(
+            'current-shared', $before['account_id'], $before['credential_id'], $newPassword,
+            $operation, $operation, $plan['approval_ref'], $origin['username'], $plan['password_ref'],
+            function () use ($nativeGuard, $before): array {
+                $nativeGuard();
+                $current = $this->currentSharedSnapshot($before['tenant_id'], $before['account_id'], $before['credential_id'], true);
+                if ($current !== $before) { throw new RuntimeException('IDENTITY_CURRENT_RECOVERY_TARGET_CHANGED'); }
+                return $current;
+            },
+            function (array $old, array $after, array $revoked) use ($tenant, $platform, $metadata, $operation, $nativeGuard): void {
+                $current = $this->currentSharedSnapshot($old['tenant_id'], $old['account_id'], $old['credential_id'], true);
+                $expected = $old;
+                $expected['credential_revision']++;
+                $expected['security_revision']++;
+                if ($current !== $expected) { throw new RuntimeException('IDENTITY_CURRENT_RECOVERY_POSTSTATE_CHANGED'); }
+                $beforeJson = $this->json($old);
+                $afterJson = $this->json($after + ['revoked' => $revoked, 'affected_surfaces' => ['tenant', 'platform']]);
+                $this->audit->appendTenantEvent($old['tenant_id'], 'identity.credential.recovered', self::TENANT_OWNER_OPERATION,
+                    'success', null, $old['tenant_id'], null, null, null, 'tenant_system', 'credential',
+                    (string) $old['credential_id'], null, null, 1, null, $this->json($metadata), $operation, $operation,
+                    null, null, $beforeJson, $afterJson, $this->json($metadata + ['actor_key' => $tenant->actorKey]));
+                $this->audit->appendPlatformEvent('identity.credential.recovered', self::PLATFORM_OPERATOR_OPERATION,
+                    'success', null, null, null, 'credential', (string) $old['credential_id'], $operation, $operation,
+                    null, null, $beforeJson, $afterJson, $this->json($metadata + ['actor_key' => $platform->actorKey]));
+                $nativeGuard();
+            },
+        );
+    }
+
+    private function assertCurrentSharedContexts(TenantSystemContext $tenant, PlatformSystemContext $platform): void
+    {
+        if (PHP_SAPI !== 'cli' || !function_exists('posix_geteuid') || !function_exists('posix_getpwuid')
+            || $tenant->actorKey !== self::TENANT_OWNER_ACTOR || $tenant->operation !== self::TENANT_OWNER_OPERATION
+            || $platform->actorKey !== self::PLATFORM_OPERATOR_ACTOR || $platform->operation !== self::PLATFORM_OPERATOR_OPERATION
+            || $tenant->operationId === '' || $tenant->operationId !== $platform->operationId) {
+            throw new RuntimeException('IDENTITY_CURRENT_RECOVERY_CONTEXT_INVALID');
+        }
+    }
+
+    private function currentSharedSnapshot(int $tenantId, int $accountId, int $credentialId, bool $lock): array
+    {
+        if (min($tenantId, $accountId, $credentialId) < 1) { throw new RuntimeException('IDENTITY_CURRENT_RECOVERY_TARGET_INVALID'); }
+        $tenant = Tenant::where('id', $tenantId)->field(['id', 'status'])->lock($lock)->find();
+        $account = Account::where('id', $accountId)->field(['id', 'status', 'security_revision', 'locked_until', 'last_login_at'])->lock($lock)->find();
+        $credential = Credential::where('id', $credentialId)->where('account_id', $accountId)
+            ->field(['id', 'kind', 'identifier_type', 'identifier_normalized', 'status', 'revision', 'failed_attempts', 'locked_until', 'expires_at'])->lock($lock)->find();
+        $members = TenantMember::where('account_id', $accountId)
+            ->field(['id', 'tenant_id', 'status'])->lock($lock)->select()->toArray();
+        $operators = PlatformOperator::where('account_id', $accountId)->field(['id', 'status'])->lock($lock)->select()->toArray();
+        if ($tenant === null || $account === null || $credential === null || count($members) !== 1 || count($operators) !== 1
+            || (string) $tenant['status'] !== 'active' || (string) $account['status'] !== 'active'
+            || $account['locked_until'] !== null || (int) $members[0]['tenant_id'] !== $tenantId
+            || $members[0]['status'] !== 'active' || $operators[0]['status'] !== 'active'
+            || (string) $credential['kind'] !== 'email_password' || (string) $credential['identifier_type'] !== 'email'
+            || (string) $credential['status'] !== 'active' || $credential['locked_until'] !== null
+            || (int) $credential['failed_attempts'] !== 0 || $credential['expires_at'] !== null) {
+            throw new RuntimeException('IDENTITY_CURRENT_RECOVERY_TARGET_INELIGIBLE');
+        }
+        $ownerRoles = MemberRole::alias('binding')->join('role role', 'role.id=binding.role_id AND role.tenant_id=binding.tenant_id')
+            ->where('binding.tenant_id', $tenantId)->where('binding.tenant_member_id', $members[0]['id'])
+            ->where('role.key', 'core.tenant-owner')->where('role.is_builtin', 1)->where('role.status', 'active')
+            ->field(['binding.id' => 'binding_id', 'role.id' => 'role_id'])->lock($lock)->select()->toArray();
+        $platformRoles = Db::name('platform_operator_role')->alias('binding')->join('platform_role role', 'role.id=binding.platform_role_id')
+            ->where('binding.platform_operator_id', $operators[0]['id'])->where('role.key', 'platform.bootstrap-owner')->where('role.status', 'active')
+            ->field(['binding.id' => 'binding_id', 'role.id' => 'role_id'])->lock($lock)->select()->toArray();
+        if (count($ownerRoles) !== 1 || count($platformRoles) !== 1) { throw new RuntimeException('IDENTITY_CURRENT_RECOVERY_ROLES_CHANGED'); }
+        return ['eligible' => true, 'tenant_id' => $tenantId, 'member_id' => (int) $members[0]['id'],
+            'operator_id' => (int) $operators[0]['id'], 'account_id' => $accountId, 'credential_id' => $credentialId,
+            'tenant_role_id' => (int) $ownerRoles[0]['role_id'], 'tenant_role_binding_id' => (int) $ownerRoles[0]['binding_id'],
+            'platform_role_id' => (int) $platformRoles[0]['role_id'], 'platform_role_binding_id' => (int) $platformRoles[0]['binding_id'],
+            'identifier_sha256' => hash('sha256', (string) $credential['identifier_normalized']),
+            'last_login_at' => $account['last_login_at'], 'security_revision' => (int) $account['security_revision'],
+            'credential_revision' => (int) $credential['revision'], ...$this->accountSessionCounts($accountId)];
+    }
+
     /** @param callable(): array<string, mixed> $snapshot
      *  @param callable(array<string, mixed>, array<string, mixed>, array<string, int>): void $writeAudit
      *  @return array<string, int|string>
@@ -259,22 +375,26 @@ final readonly class IdentityCredentialRecovery
                 $challenges = LoginChallenge::where('account_id', $accountId)
                     ->where('status', 'active')
                     ->update(['status' => 'revoked', 'revoked_at' => new Raw('UTC_TIMESTAMP(3)')]);
-                AuthSecurityEvent::insert([
-                    'audience' => $surface === 'tenant-owner' ? 'tenant' : 'platform',
-                    'event_type' => 'password_changed',
-                    'outcome' => 'success',
-                    'reason_code' => 'maintenance_credential_recovery',
-                    'account_id' => $accountId,
-                    'credential_id' => $credentialId,
-                    'request_id' => $requestId,
-                    'metadata_json' => $this->json([
-                        'run_id' => $runId,
-                        'approval_ref' => $approvalRef,
-                        'maintenance_principal' => $maintenancePrincipal,
-                        'password_ref' => $passwordRef,
-                    ]),
-                    'occurred_at' => new Raw('UTC_TIMESTAMP(3)'),
-                ]);
+                $audiences = $surface === 'current-shared' ? ['tenant', 'platform'] : [$surface === 'tenant-owner' ? 'tenant' : 'platform'];
+                foreach ($audiences as $audience) {
+                    AuthSecurityEvent::insert([
+                        'audience' => $audience,
+                        'event_type' => 'password_changed',
+                        'outcome' => 'success',
+                        'reason_code' => 'maintenance_credential_recovery',
+                        'account_id' => $accountId,
+                        'credential_id' => $credentialId,
+                        'request_id' => $requestId,
+                        'metadata_json' => $this->json([
+                            'run_id' => $runId,
+                            'approval_ref' => $approvalRef,
+                            'maintenance_principal' => $maintenancePrincipal,
+                            'password_ref' => $passwordRef,
+                            ...($surface === 'current-shared' ? ['mode' => 'current-existing-shared'] : []),
+                        ]),
+                        'occurred_at' => new Raw('UTC_TIMESTAMP(3)'),
+                    ]);
+                }
 
                 $after = [
                     'surface' => $surface,
