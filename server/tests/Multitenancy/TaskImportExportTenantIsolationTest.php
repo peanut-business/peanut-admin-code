@@ -92,6 +92,35 @@ function taskImportExportInstalledAssertions(
     $pending = $pdo->prepare("SELECT COUNT(*) FROM pa_task_job WHERE tenant_id IN (?,?) AND status IN ('queued','running')");
     $pending->execute([$tenantId, $otherTenantId]);
     expectAsyncTenant((int) $pending->fetchColumn() === 0, 'existing Tenant work must not be claimed by qualification workers');
+    // Reject unsuitable existing principals before the first qualification write.
+    // Native principal roles are active memberships; native export authorization
+    // also verifies the current session and effective Module/Permission state.
+    $authorization = $app->make(AdminAuthorizationService::class);
+    $alphaPrincipal = $authorization->principal($alphaTenant);
+    expectAsyncTenant(!$alphaPrincipal->root, 'revocation assertion requires a non-Root installed principal');
+    $activeRoleIds = array_column($alphaPrincipal->roles, 'id');
+    expectAsyncTenant($activeRoleIds !== [], 'native principal has no active Roles');
+    $sources = $pdo->prepare('SELECT role_id FROM pa_role_permission WHERE tenant_id=? AND permission_id=? AND role_id IN (' . implode(',', array_fill(0, count($activeRoleIds), '?')) . ')');
+    $sources->execute([$tenantId, $exportPermission, ...$activeRoleIds]);
+    $sourceRoles = array_map('intval', $sources->fetchAll(PDO::FETCH_COLUMN));
+    expectAsyncTenant($sourceRoles === [$alphaRoleId], 'specified Role must be the sole effective export grant source');
+    $alpha = $authorization->authorizedAsyncExport($alphaTenant, $alphaPrincipal);
+    $beta = $authorization->authorizedAsyncExport($betaTenant, $authorization->principal($betaTenant));
+
+    $auditFailureRequest = $auditFailureTenant->requestId;
+    expectAsyncTenant(trim($auditFailureRequest) !== '', 'independent host audit failure request ID is required');
+    $auditCollation = $pdo->query("SELECT COLLATION_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='pa_tenant_audit_event' AND COLUMN_NAME='request_id'")->fetchColumn();
+    expectAsyncTenant(is_string($auditCollation) && preg_match('/^utf8mb4_[a-z0-9_]+$/D', $auditCollation) === 1, 'native audit request ID collation is unavailable');
+    $sameRequest = $pdo->prepare("SELECT CONVERT(? USING utf8mb4) COLLATE {$auditCollation} = CONVERT(? USING utf8mb4)");
+    foreach ([$alphaTenant, $betaTenant, $noExportTenant] as $otherContext) {
+        $sameRequest->execute([$auditFailureRequest, $otherContext->requestId]);
+        expectAsyncTenant((int) $sameRequest->fetchColumn() === 0, 'audit failure request ID must differ from every other input context');
+    }
+    // The later CHECK applies to the whole table, across all Tenants. Reject any
+    // historical use under that same column collation; never remove old events.
+    $usedRequest = $pdo->prepare('SELECT COUNT(*) FROM pa_tenant_audit_event WHERE request_id=?');
+    $usedRequest->execute([$auditFailureRequest]);
+    expectAsyncTenant((int) $usedRequest->fetchColumn() === 0, 'audit failure host request ID has already been used');
     $fileCountBefore = (int) $pdo->query('SELECT COUNT(*) FROM pa_file_object')->fetchColumn();
     $alphaMarker = 'alpha-only-' . $runId;
     $betaMarker = 'beta-only-' . $runId;
@@ -109,9 +138,6 @@ function taskImportExportInstalledAssertions(
     expectAsyncTenant(in_array('peanut.import-export.execute', $handlerKeys, true), 'unified worker lost Import/Export handler');
     expectAsyncTenant(in_array('notification.inbox', $handlerKeys, true), 'unified worker lost Notification inbox handler');
     expectAsyncTenant(in_array('notification.sms', $handlerKeys, true), 'unified worker lost Notification SMS handler');
-    $authorization = $app->make(AdminAuthorizationService::class);
-    $alpha = $authorization->authorizedAsyncExport($alphaTenant, $authorization->principal($alphaTenant));
-    $beta = $authorization->authorizedAsyncExport($betaTenant, $authorization->principal($betaTenant));
     try {
         $authorization->authorizedAsyncExport($noExportTenant, $authorization->principal($noExportTenant));
         throw new RuntimeException('native permission-less async submission succeeded');
@@ -172,7 +198,6 @@ function taskImportExportInstalledAssertions(
     $operationCountAfterIdempotency = (int) $pdo->query('SELECT COUNT(*) FROM pa_import_export_operation')->fetchColumn();
     $jobCountAfterIdempotency = (int) $pdo->query('SELECT COUNT(*) FROM pa_task_job')->fetchColumn();
     // 仅让本次新提交的审计写入失败，不能让既有成功记录阻止安装故障注入约束。
-    $auditFailureRequest = $auditFailureTenant->requestId;
     $auditFailureContext = $authorization->authorizedAsyncExport(
         $auditFailureTenant,
         $authorization->principal($auditFailureTenant),
