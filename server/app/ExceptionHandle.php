@@ -45,6 +45,10 @@ class ExceptionHandle extends Handle
      */
     public function render($request, Throwable $e): Response
     {
+        // Framework response exceptions already own a complete response (including redirects).
+        if ($e instanceof HttpResponseException) {
+            return parent::render($request, $e);
+        }
         $response = $this->app->make(HostApiProblemRenderer::class)->render($request, $e);
         if ($response instanceof Response) {
             return $response;

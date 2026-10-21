@@ -136,27 +136,37 @@ export interface MemberExportResult {
   file_name: string;
 }
 
-export function getMemberList(params: MemberListParams = {}) {
+export function getMemberList(
+  params: MemberListParams = {},
+  signal?: AbortSignal
+) {
   return axios.get<MemberListResult>('/adminapi/official.member.list', {
     params,
+    signal,
   });
 }
 
-export function getMemberExportInfo(params: MemberListParams) {
+export function getMemberExportInfo(
+  params: MemberListParams,
+  signal?: AbortSignal
+) {
   return axios.get<MemberExportInfo>('/adminapi/official.member.list', {
     params: { ...params, export: 1 },
+    signal,
   });
 }
 
-export function exportMembers(params: MemberListParams) {
+export function exportMembers(params: MemberListParams, signal?: AbortSignal) {
   return axios.get<MemberExportResult>('/adminapi/official.member.list', {
     params: { ...params, export: 2 },
+    signal,
   });
 }
 
-export function getMemberDetail(id: number) {
+export function getMemberDetail(id: number, signal?: AbortSignal) {
   return axios.get<MemberDetail>('/adminapi/official.member.detail', {
     params: { id },
+    signal,
   });
 }
 
@@ -191,8 +201,10 @@ export function adjustMemberMoney(
 }
 
 // 标签
-export function getMemberTagList() {
-  return axios.get<MemberTagRecord[]>('/adminapi/official.member.tag.list');
+export function getMemberTagList(signal?: AbortSignal) {
+  return axios.get<MemberTagRecord[]>('/adminapi/official.member.tag.list', {
+    signal,
+  });
 }
 
 export function addMemberTag(data: MemberTagForm) {

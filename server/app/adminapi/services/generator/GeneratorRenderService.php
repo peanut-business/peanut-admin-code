@@ -1642,13 +1642,14 @@ PHP, $c + compact('softRoutes'));
 
     private static function mergeHostRouteRegistry(array $c): string
     {
-        $marker = '] as $moduleRoute) {';
+        // The host also has an inline optional-module loop. Only the multiline registry owns generated routes.
+        $marker = "\n] as \$moduleRoute) {";
         if (substr_count($c['hostRouteSource'], $marker) !== 1) {
             throw new RuntimeException('管理端 Module 路由登记入口无法安全合并');
         }
         return str_replace(
             $marker,
-            "    {$c['moduleRouteRegistration']}\n{$marker}",
+            "\n    {$c['moduleRouteRegistration']}{$marker}",
             $c['hostRouteSource'],
         );
     }

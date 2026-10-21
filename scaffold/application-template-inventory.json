@@ -2470,7 +2470,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c67f2703538e6d020c0eed730ab062a312ee71ca6711b061c527bee2f72234b3"
+            "source_sha256": "c2907983af7d3fa4a9dd2dbb81514623d93c0c6e1ca02f58136fb7f97ec94bb1"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2649,7 +2649,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "152ec989434647d9fe2c504d0be28fda031ccf4c03c9cf5e422c0a5746c27d71"
+            "source_sha256": "172f58c6346ee56d25545f8e326778cfd29210aa616ccd0f5e0f8688ef01df41"
         },
         {
             "path": "plugins/official.notification/plugin.json",
@@ -5036,7 +5036,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9fb81125a053778372d9a7f800a0661995ca295327e082f06207938ce8d52ff8"
+            "source_sha256": "3eb4f28f2c09de20caa546629a0426d9e91dfb90765bd885e451832bd5dfc609"
         },
         {
             "path": "server/app/Request.php",
@@ -5680,7 +5680,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7868cb9b36bb0e4dbd54538eb8a17f2afd5d2a780224343e8455e21d252c7cf0"
+            "source_sha256": "d114d8e9d7a5af3df6360b11d3ac072c72d961032020c339dd3405e9998e6631"
         },
         {
             "path": "server/app/adminapi/services/generator/GeneratorService.php",
@@ -7950,7 +7950,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "34a5b3d4d7beed52a80f42f51a6420b2fe05e0563b70a0dbb59ded93ace5d8f6"
+            "source_sha256": "2c53b11d0df7580c2b4873e9e780181dd28f350abd8c51bcc4c920ffa891d0b4"
         },
         {
             "path": "server/app/common/http/HostApiProblemRenderer.php",
@@ -37532,7 +37532,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2bd32ec04c1b5b34179598c53f879ba8ad8078899a98a8868174e7de32c10a18"
+            "source_sha256": "a0d909e6abbe29039af88491041930f540297a5efb83cf0a7372d43d133748c8"
         },
         {
             "path": "web/src/modules/official-member/contribution.ts",
@@ -37630,7 +37630,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "08cb29499dc15f5a06622ad7cd7f466fe42486ed35c09e3e5e907bbefb37d061"
+            "source_sha256": "4c37690c11423ea0e42ae1d7cf4a19ddd6d708bff9f781f860d914ed69065965"
         },
         {
             "path": "web/src/modules/official-member/views/list/locale/en-US.ts",

@@ -478,13 +478,15 @@
 </template>
 
 <script lang="ts" setup>
-  import { computed, onMounted, reactive, ref } from 'vue';
+  import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
   import { useI18n } from 'vue-i18n';
   import { Download, Plus, Refresh, Search } from '@element-plus/icons-vue';
   import { ElMessage } from 'element-plus';
   import type { FormInstance } from 'element-plus';
   import useLoading from '@/hooks/loading';
   import { hasPermission } from '@/hooks/permission';
+  import { useUserStore } from '@/store';
+  import { getSessionSnapshot } from '@/utils/auth';
   import {
     addMember,
     adjustMemberMoney,
@@ -508,6 +510,35 @@
   const { loading, setLoading } = useLoading(true);
   const renderData = ref<MemberRecord[]>([]);
   const tagOptions = ref<MemberTagRecord[]>([]);
+
+  const user = useUserStore();
+  const generation = ref(getSessionSnapshot().generation);
+  const unsubscribe = user.$subscribe(
+    () => {
+      generation.value = getSessionSnapshot().generation;
+    },
+    { flush: 'sync' }
+  );
+  const contextKey = computed(() =>
+    JSON.stringify([
+      generation.value,
+      user.id,
+      user.accountId,
+      user.tenantName,
+      user.role,
+      user.permissions,
+    ])
+  );
+  let disposed = false;
+  let listing: AbortController | undefined;
+  let detailRequest: AbortController | undefined;
+  let tagsRequest: AbortController | undefined;
+  let exportRequest: AbortController | undefined;
+  const active = (controller: AbortController, key: string, session: number) =>
+    !disposed &&
+    !controller.signal.aborted &&
+    contextKey.value === key &&
+    getSessionSnapshot().generation === session;
 
   const queryParams = reactive({
     keyword: '',
@@ -541,14 +572,23 @@
   });
 
   const fetchData = async (page = 1) => {
+    listing?.abort();
+    const controller = new AbortController();
+    listing = controller;
+    const key = contextKey.value;
+    const session = getSessionSnapshot().generation;
     setLoading(true);
     try {
-      const { data } = await getMemberList(listParams(page));
+      const { data } = await getMemberList(listParams(page), controller.signal);
+      if (!active(controller, key, session)) return;
       renderData.value = data.lists;
       pagination.current = data.pageNo;
       pagination.total = data.count;
+    } catch {
+      // The shared interceptor owns current business errors and cancellation.
     } finally {
-      setLoading(false);
+      if (listing === controller && active(controller, key, session))
+        setLoading(false);
     }
   };
   const search = () => fetchData(1);
@@ -655,19 +695,34 @@
       }[detail.sex] || t('member.sex.unknown'))
   );
   const refreshDetail = async () => {
-    if (!detail.id) return;
-    const { data } = await getMemberDetail(detail.id);
-    Object.assign(detail, data);
+    if (!detail.id || !detailDrawerVisible.value) return;
+    detailRequest?.abort();
+    const controller = new AbortController();
+    detailRequest = controller;
+    const id = detail.id;
+    const key = contextKey.value;
+    const session = getSessionSnapshot().generation;
+    detailLoading.value = true;
+    try {
+      const { data } = await getMemberDetail(id, controller.signal);
+      if (
+        active(controller, key, session) &&
+        detailDrawerVisible.value &&
+        detail.id === id
+      ) {
+        Object.assign(detail, data);
+      }
+    } catch {
+      // The shared interceptor displays the current request's error.
+    } finally {
+      if (detailRequest === controller && active(controller, key, session))
+        detailLoading.value = false;
+    }
   };
   const openDetail = async (record: MemberRecord) => {
     Object.assign(detail, emptyDetail(), { id: record.id });
     detailDrawerVisible.value = true;
-    detailLoading.value = true;
-    try {
-      await refreshDetail();
-    } finally {
-      detailLoading.value = false;
-    }
+    await refreshDetail();
   };
 
   const fieldModalVisible = ref(false);
@@ -792,21 +847,35 @@
     file_name: '',
   });
   const openExport = async () => {
+    exportRequest?.abort();
+    const controller = new AbortController();
+    exportRequest = controller;
+    const key = contextKey.value;
+    const session = getSessionSnapshot().generation;
     exportVisible.value = true;
     exportInfoLoading.value = true;
+    Object.assign(exportInfo, emptyExportInfo());
     try {
-      const { data } = await getMemberExportInfo(listParams(1));
+      const { data } = await getMemberExportInfo(
+        listParams(1),
+        controller.signal
+      );
+      if (!active(controller, key, session) || !exportVisible.value) return;
       Object.assign(exportInfo, data);
       exportForm.page_type = 0;
       exportForm.page_start = data.page_start;
       exportForm.page_end = data.page_end;
       exportForm.file_name = data.file_name;
+    } catch {
+      if (active(controller, key, session)) exportVisible.value = false;
     } finally {
-      exportInfoLoading.value = false;
+      if (exportRequest === controller && active(controller, key, session))
+        exportInfoLoading.value = false;
     }
   };
   const handleExport = async () => {
-    if (exportInfoLoading.value) return false;
+    if (exportInfoLoading.value || exportLoading.value || !exportVisible.value)
+      return false;
     if (
       exportForm.page_type === 1 &&
       exportForm.page_end < exportForm.page_start
@@ -814,12 +883,22 @@
       ElMessage.error(t('member.export.invalidRange'));
       return false;
     }
+    exportRequest?.abort();
+    const controller = new AbortController();
+    exportRequest = controller;
+    const key = contextKey.value;
+    const session = getSessionSnapshot().generation;
     exportLoading.value = true;
     try {
-      const { data } = await exportMembers({
-        ...listParams(1),
-        ...exportForm,
-      });
+      const { data } = await exportMembers(
+        {
+          ...listParams(1),
+          ...exportForm,
+        },
+        controller.signal
+      );
+      if (!active(controller, key, session) || !exportVisible.value)
+        return false;
       const link = document.createElement('a');
       link.href = data.url;
       link.download = data.file_name;
@@ -830,17 +909,89 @@
       ElMessage.success(t('member.export.success'));
       exportVisible.value = false;
       return true;
+    } catch {
+      return false;
     } finally {
-      exportLoading.value = false;
+      if (exportRequest === controller) exportLoading.value = false;
     }
   };
 
-  onMounted(async () => {
-    const tagsPromise = hasPermission('official.member.tag.list')
-      ? getMemberTagList()
-      : Promise.resolve(null);
-    const [, tagsRes] = await Promise.all([fetchData(1), tagsPromise]);
-    tagOptions.value = tagsRes?.data ?? [];
+  const fetchTags = async () => {
+    tagsRequest?.abort();
+    if (!hasPermission('official.member.tag.list')) return;
+    const controller = new AbortController();
+    tagsRequest = controller;
+    const key = contextKey.value;
+    const session = getSessionSnapshot().generation;
+    try {
+      const { data } = await getMemberTagList(controller.signal);
+      if (active(controller, key, session)) tagOptions.value = data;
+    } catch {
+      // Permission failures must leave the cleared options empty.
+    }
+  };
+  watch(
+    detailDrawerVisible,
+    (visible) => {
+      if (!visible) {
+        detailRequest?.abort();
+        detailLoading.value = false;
+        Object.assign(detail, emptyDetail());
+        fieldModalVisible.value = false;
+        balanceModalVisible.value = false;
+      }
+    },
+    { flush: 'sync' }
+  );
+  watch(
+    exportVisible,
+    (visible) => {
+      if (!visible) {
+        exportRequest?.abort();
+        exportInfoLoading.value = false;
+        exportLoading.value = false;
+      }
+    },
+    { flush: 'sync' }
+  );
+  watch(
+    contextKey,
+    () => {
+      listing?.abort();
+      detailRequest?.abort();
+      tagsRequest?.abort();
+      exportRequest?.abort();
+      detailDrawerVisible.value = false;
+      exportVisible.value = false;
+      modalVisible.value = false;
+      renderData.value = [];
+      tagOptions.value = [];
+      Object.assign(detail, emptyDetail());
+      Object.assign(exportInfo, emptyExportInfo());
+      resetForm();
+      queryParams.keyword = '';
+      queryParams.channel = '';
+      queryParams.createTime = [];
+      pagination.current = 1;
+      pagination.total = 0;
+      if (hasPermission('official.member.list')) void fetchData(1);
+      else setLoading(false);
+      void fetchTags();
+    },
+    { immediate: true, flush: 'sync' }
+  );
+  const storageChanged = () => {
+    generation.value = getSessionSnapshot().generation;
+  };
+  window.addEventListener('storage', storageChanged);
+  onBeforeUnmount(() => {
+    disposed = true;
+    listing?.abort();
+    detailRequest?.abort();
+    tagsRequest?.abort();
+    exportRequest?.abort();
+    unsubscribe();
+    window.removeEventListener('storage', storageChanged);
   });
 </script>
 

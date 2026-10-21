@@ -18,6 +18,7 @@ use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
 use PeanutAdmin\Kernel\Module\ModuleException;
 use PeanutAdmin\Modules\Ops\Domain\Application\OpsConsoleException;
 use think\exception\RouteNotFoundException;
+use think\exception\HttpException;
 use think\exception\ValidateException;
 
 /** Maps stable domain failures into the single public API error type. */
@@ -32,6 +33,13 @@ final class ApiProblemMapper
                 404,
                 'Route not found.',
             ),
+            $exception instanceof HttpException
+                && $exception->getStatusCode() >= 400 && $exception->getStatusCode() <= 599 => new ApiProblem(
+                    'HTTP_ERROR_' . $exception->getStatusCode(),
+                    $exception->getStatusCode(),
+                    'HTTP request was rejected.',
+                    headers: $exception->getHeaders(),
+                ),
             $exception instanceof BusinessException => new ApiProblem(
                 $exception->errorCode,
                 $exception->httpStatus,
