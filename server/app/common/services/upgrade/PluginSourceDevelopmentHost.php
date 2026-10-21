@@ -336,6 +336,17 @@ final class PluginSourceDevelopmentHost
     public function snapshotFailure(string $pluginKey, array $actor, string $input, string $toolId, string $output, string $metadataTool, callable $packageLock): array
     {
         $profiles = [
+            'official.notification' => ['operation' => 'upgrade', 'module_root' => 'official/notification',
+                'owner' => 'Contract/NotificationUpgradePreflight.php',
+                'selected' => [
+                    'official.notification:20260826-namespace-permission-keys' => '8be087e7adacb8d34f2fa61111e683a7b15af4b62d93910d3a9655f1a605f606',
+                    'official.notification:20260921-adopt-notification-delivery-schema' => 'eaef582cd762c803f3f7d213687f61d43fd3634e9f0b984471f11648e10979fb',
+                    'official.notification:20261012-notification-producer-identity' => '7c01bc1bf1f309e879ff3014f89418157abbce45374a58064d1a6dc94fca07ce',
+                ], 'first' => 'official.notification:20260921-adopt-notification-delivery-schema',
+                'failed' => 'official.notification:20261012-notification-producer-identity',
+                'created' => ['pa_notification_template', 'pa_notification_message', 'pa_notification_attachment', 'pa_notification_outbox',
+                    'pa_sms_rate_bucket', 'pa_notification_event', 'pa_notification_task_actor'],
+                'purpose' => 'notification-failure-forensic'],
             'official.task' => ['operation' => 'upgrade', 'module_root' => 'official/task',
                 'owner' => 'Job/Database/TaskSchemaMigrationProof.php',
                 'selected' => [
@@ -393,7 +404,7 @@ final class PluginSourceDevelopmentHost
         }
         $digest = $original['document_sha256'] ?? null; $document = $original; unset($document['document_sha256']);
         $pending = array_keys($profile['selected']);
-        if ($pluginKey === 'official.task') { array_shift($pending); }
+        if (in_array($pluginKey, ['official.task', 'official.notification'], true)) { array_shift($pending); }
         if ($workflowV2) { $pending = array_slice($pending, 2); }
         if (($original['protocol'] ?? null) !== 'peanut.source-plugin-failure.v1' || ($original['status'] ?? null) !== 'failed'
             || ($original['operation'] ?? null) !== $profile['operation'] || ($original['plugin_key'] ?? null) !== $pluginKey
@@ -417,6 +428,15 @@ final class PluginSourceDevelopmentHost
         if (($native['plugin_key'] ?? $native['key'] ?? null) !== $pluginKey || array_column($native['modules'] ?? [], 'module_key') !== [$pluginKey]
             || ($original['native_plan_sha256'] ?? null) !== self::digest($native)) { throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_PLAN_CHANGED'); }
         $effects = SourceApplicationBackup::pluginEffects($native);
+        if ($pluginKey === 'official.notification') {
+            $this->assertNotificationReceiptWrite($original, $effects);
+            if (count($original['ledger'] ?? []) !== 3
+                || ($original['ordered_stages'][0]['safe_after']['preservation_verified'] ?? null) !== true
+                || ($original['ordered_stages'][0]['safe_after']['created_empty_tables'] ?? null) !== 6
+                || ($original['notification_receipt_write']['phase'] ?? null) !== 'transition_accepted') {
+                throw new RuntimeException('PLUGIN_SOURCE_FAILURE_FORENSIC_ORIGIN_REQUIRED');
+            }
+        }
         $expectedBaseline = ['pending' => $effects['pending'], 'selected' => $effects['selected'], 'operation' => $profile['operation'],
             'plugin_key' => $pluginKey, 'native_plan_sha256' => self::digest($native), 'lifecycle_effects' => $effects];
         if (($effects['closure_complete'] ?? null) !== true || self::digest($expectedBaseline) !== self::digest($original['baseline'])) {
@@ -480,6 +500,21 @@ final class PluginSourceDevelopmentHost
                                 $expected = $original['ledger']; usort($expected, static fn(array $a, array $b): int => strcmp($a['migration_key'], $b['migration_key']));
                                 if (self::digest($rows) !== self::digest($expected)) { throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_LEDGER_CHANGED'); }
                                 $v2 = $pluginKey === 'peanut.workflow' && count($profile['selected']) === 5;
+                                if ($pluginKey === 'official.notification') {
+                                    if (array_column($rows, 'migration_key') !== array_keys($profile['selected'])
+                                        || array_column($rows, 'checksum') !== array_values($profile['selected'])
+                                        || array_column($rows, 'status') !== ['applied', 'applied', 'failed']
+                                        || array_column($rows, 'resolution_kind') !== [null, 'executed', null]
+                                        || $rows[2]['error_code'] !== 'MODULE_MIGRATION_FAILED' || !is_string($rows[2]['finished_at'])) {
+                                        throw new RuntimeException('PLUGIN_SOURCE_FAILURE_FORENSIC_LEDGER_CHANGED');
+                                    }
+                                    $this->assertNotificationReceiptWrite($original, $original['baseline']['lifecycle_effects']);
+                                    $observed = PluginLifecycleService::notificationReceiptSnapshot($original['notification_receipt_write']['current']['path']);
+                                    unset($observed['contents']);
+                                    if (self::digest($observed) !== self::digest($original['notification_receipt_write']['current'])) {
+                                        throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_RECEIPT_CHANGED');
+                                    }
+                                }
                                 if ($v2) {
                                     if (array_column($rows, 'migration_key') !== array_keys($profile['selected'])
                                         || array_column($rows, 'status') !== ['applied', 'failed', 'applied', 'applied', 'failed']
@@ -511,6 +546,11 @@ final class PluginSourceDevelopmentHost
                                 }
                             };
                             $check(); $effects = $original['baseline']['lifecycle_effects'];
+                            // Capture the accepted failure afterimage, while the baseline still
+                            // retains the immutable pre-operation receipt and its recovery chain.
+                            if ($pluginKey === 'official.notification') {
+                                $effects['notification_forward_receipt'] = $original['notification_receipt_write']['current'];
+                            }
                             $scope = SourceApplicationBackup::pluginScope($pdo, $effects, $binding, $metadataTool, $check);
                             $present = [...$backup['scope']['tables'], ...$profile['created']]; sort($present, SORT_STRING);
                             $absent = array_values(array_diff($backup['scope']['absent_original_tables'], $profile['created']));
@@ -521,7 +561,7 @@ final class PluginSourceDevelopmentHost
                             $baseline = $original['baseline'] + ['forensic_only' => true, 'original_failure' => ['path' => $input, 'sha256' => $originalSha], 'recovery_admission' => false];
                             $captured = SourceApplicationBackup::capture($binding, $baseline, self::digest($baseline), $scope, $tools[0], $output, $check, $profile['purpose']);
                             if (SourceApplicationBackup::pluginScope($pdo, $effects, $binding, $metadataTool, $check) !== $scope) { throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_SCOPE_CHANGED'); }
-                            $check(); return ['protocol' => 'peanut.source-' . ($pluginKey === 'official.task' ? 'task' : 'workflow') . '-failure-forensic-result.v1', 'status' => 'captured', 'original_failure' => $baseline['original_failure'],
+                            $check(); return ['protocol' => 'peanut.source-' . match ($pluginKey) { 'official.task' => 'task', 'official.notification' => 'notification', default => 'workflow' } . '-failure-forensic-result.v1', 'status' => 'captured', 'original_failure' => $baseline['original_failure'],
                                 'backup' => $captured, 'source_schema_package_locks' => 'held', 'restore' => 'not_executed', 'recovery_admission' => false, 'qualification' => 'not_run'];
                         });
                     } finally { $this->failureForensic = null; }
@@ -532,7 +572,7 @@ final class PluginSourceDevelopmentHost
 
     public function requireFailureForensic(PDO $pdo, string $pluginKey, bool $packageLocked = true): void
     {
-        if (!in_array($pluginKey, ['official.task', 'peanut.workflow'], true) || $this->failureForensic === null
+        if (!in_array($pluginKey, ['official.task', 'peanut.workflow', 'official.notification'], true) || $this->failureForensic === null
             || $this->failureForensic['pdo'] !== $pdo || $this->failureForensic['plugin_key'] !== $pluginKey || $this->mutation !== null || $this->planning !== null
             || $this->identityRecovery !== null || $pdo->inTransaction()) { throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_WINDOW_REQUIRED'); }
         ($this->failureForensic['guard'])();
@@ -1536,7 +1576,20 @@ final class PluginSourceDevelopmentHost
             throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_TRANSITION_REQUIRED');
         }
         $package = $binding['target']['package'] ?? [];
-        if (self::digest($package) !== self::digest(array_intersect_key($record['result'], $package))) {
+        if (($record['protocol'] ?? null) === 'peanut.source-plugin-failure.v1' && ($record['status'] ?? null) === 'failed') {
+            // A failure has no successful result. Resolve the unchanged original
+            // locked package instead; this branch grants forensic capture only.
+            $root = dirname(rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR));
+            $this->assertReceiptSource($record['binding']['source']['head'], $root . '/plugins.lock', hash_file('sha256', $root . '/plugins.lock'));
+            $plugins = \app\platform\infrastructure\plugin\PluginLockResolver::forSourceUpgrade($root);
+            $identity = isset($plugins['official.notification']) ? $plugins['official.notification']->publicIdentity() : [];
+            if (($record['native_plan_sha256'] ?? null) !== self::digest($record['native_plan'] ?? [])
+                || ($record['native_plan']['plugin_key'] ?? null) !== 'official.notification'
+                || ($record['native_plan']['to_version'] ?? null) !== ($identity['version'] ?? null)) {
+                throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_TARGET_CHANGED');
+            }
+        } else { $identity = $record['result'] ?? []; }
+        if (self::digest($package) !== self::digest(array_intersect_key($identity, $package))) {
             throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_TARGET_CHANGED');
         }
         $head = $record['binding']['source']['head']; $root = dirname(rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR));

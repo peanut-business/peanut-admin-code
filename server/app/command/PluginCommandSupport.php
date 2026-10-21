@@ -50,7 +50,7 @@ trait PluginCommandSupport
             foreach (['owner', 'thread', 'session', 'gate'] as $name) { $actor[$name] = $input->getOption($name); }
             $snapshot = (string) $input->getOption('snapshot-operation');
             $restore = (string) $input->getOption('restore-operation');
-            if ($snapshot !== '' && (($operation === 'upgrade' && $key === 'official.task')
+            if ($snapshot !== '' && (($operation === 'upgrade' && in_array($key, ['official.task', 'official.notification'], true))
                 || ($operation === 'install' && $key === 'peanut.workflow'))) {
                 if (!$dryRun || $restore !== '') { throw new PluginLifecycleException('PLUGIN_SOURCE_ARGUMENTS_INVALID', 'Failure forensic snapshot is read-only.'); }
                 foreach (['source-plan', 'maintenance', 'recovery', 'verify-receipt'] as $name) {
