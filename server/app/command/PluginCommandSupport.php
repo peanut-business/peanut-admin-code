@@ -108,7 +108,7 @@ trait PluginCommandSupport
             return $this->getApp()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->plan(
                 $operation, $key, $actor,
                 fn(callable $consume): array => $operation === 'upgrade'
-                    ? $this->pluginLifecycle()->upgrade($key, true, $consume) : $this->pluginLifecycle()->reconcilePlan($key, false, $consume),
+                    ? $this->pluginLifecycle()->upgrade($key, true, $consume) : $this->pluginLifecycle()->installPlan($key, $consume),
                 (string) $input->getOption('backup-tool'), (string) $input->getOption('backup-output'),
                 $execution,
                 (string) $input->getOption('metadata-tool'),

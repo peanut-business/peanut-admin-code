@@ -9,6 +9,12 @@ interface PluginLifecycleCommands
     /** @return array<string,mixed> */
     public function install(string $pluginKey): array;
 
+    /** Reads the actual install/resume policy without changing lifecycle state.
+     * Optional native consumer runs before the same package advisory lock is released.
+     * @return array<string,mixed>
+     */
+    public function installPlan(string $pluginKey, ?callable $consumePlan = null): array;
+
     /** @return array<string,mixed> */
     public function reconcile(string $pluginKey): array;
 

@@ -6773,7 +6773,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2bc2720e23f7de2ec7c35a153e333c1477f4ef8ba85b62617d499c4491dc689c"
+            "source_sha256": "4e5da85f46fcdd1f150c189ec4976f49fc9ef6cd5a6c60bad8810dfdb8f53622"
         },
         {
             "path": "server/app/command/PluginInstall.php",
@@ -7278,7 +7278,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dc68317c1c0357e1043781db8aeed7007a88b15a78280fbe86f2afa2d19cf4b4"
+            "source_sha256": "4f7b019b6604d8af2c16ffc869115c8a78ede04363436b0efadae19d0c107fdc"
         },
         {
             "path": "server/app/common/contract/module/TenantModuleCommands.php",
@@ -25832,7 +25832,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "304cf71805bfcc4219e75d197c507627fd8a11537b578c60581303bb5b86b4c3"
+            "source_sha256": "fadf15526bffb1b27882d0a262b11bc4147ce90386f2344c8621a3d75b76ac0c"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",

@@ -128,16 +128,9 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 throw new PluginLifecycleException((string) $current['last_error_code'], 'Module uninstall recovery must finish before install.');
             }
             if (is_array($current) && in_array($current['status'], ['failed', 'installing'], true)) {
-                $sameIdentity = $this->sameIdentity($plugin, $current);
-                $forwardRepair = version_compare($plugin->version, (string) $current['installed_version'], '>');
-                if (!$sameIdentity && !$forwardRepair) {
-                    throw new PluginLifecycleException(
-                        'PLUGIN_INSTALL_RECOVERY_IDENTITY_MISMATCH',
-                        'Install recovery requires the same immutable package or a higher repair version.',
-                    );
-                }
+                $identity = $this->installRecoveryIdentity($plugin, $current);
                 $result = $this->activate($plugin, $manifests, false);
-                $result['operation'] = $forwardRepair ? 'recovered' : 'resumed';
+                $result['operation'] = $identity['higher_version'] ? 'recovered' : 'resumed';
                 return $result;
             }
             if (is_array($current) && !in_array($current['status'], ['uninstalled'], true)) {
@@ -161,24 +154,60 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     /** Uses the native lock/manifest/ownership rules, without entering lifecycle mutation or recovery. */
     public function reconcilePlan(string $pluginKey, bool $preserveDisabled = false, ?callable $consumePlan = null): array
     {
-        return $this->withPackageLock($pluginKey, function () use ($pluginKey, $preserveDisabled, $consumePlan): array {
+        return $this->nativeReadPlan($pluginKey, false, $preserveDisabled, $consumePlan);
+    }
+
+    /** Read only the actual install/resume policy; release plans retain their independent active-state gate. */
+    public function installPlan(string $pluginKey, ?callable $consumePlan = null): array
+    {
+        return $this->nativeReadPlan($pluginKey, true, false, $consumePlan);
+    }
+
+    private function installRecoveryIdentity(PluginDescriptor $plugin, array $current): array
+    {
+        $sameIdentity = $this->sameIdentity($plugin, $current);
+        $forwardRepair = version_compare($plugin->version, (string) $current['installed_version'], '>');
+        if (!$sameIdentity && !$forwardRepair) {
+            throw new PluginLifecycleException('PLUGIN_INSTALL_RECOVERY_IDENTITY_MISMATCH',
+                'Install recovery requires the same immutable package or a higher repair version.');
+        }
+        return ['original_status' => $current['status'], 'original_installation_sha256' => hash('sha256', self::json($current)),
+            'same_identity' => $sameIdentity, 'higher_version' => $forwardRepair];
+    }
+
+    private function nativeReadPlan(string $pluginKey, bool $install, bool $preserveDisabled, ?callable $consumePlan): array
+    {
+        return $this->withPackageLock($pluginKey, function () use ($pluginKey, $install, $preserveDisabled, $consumePlan): array {
             $plugin = $this->resolver->require($pluginKey);
             $this->assertTrustEligible($plugin);
             $manifests = $this->pluginManifests($plugin);
             $current = $this->pluginInstallation($pluginKey, false);
-            if (is_array($current) && $current['status'] !== 'active') {
+            $recovery = null; $installAction = 'planned_install';
+            if ($install && is_array($current)) {
+                if ($current['status'] === 'active' && $this->sameIdentity($plugin, $current)) {
+                    $installAction = $this->allPluginModulesActive($pluginKey) ? 'planned_unchanged' : 'planned_reactivate';
+                } elseif (in_array($current['status'], ['failed', 'installing'], true)) {
+                    $recovery = $this->installRecoveryIdentity($plugin, $current);
+                } elseif ($current['status'] === 'maintenance'
+                    && in_array($current['last_error_code'] ?? null, ['MODULE_PURGE_IN_PROGRESS', 'MODULE_RETIRE_IN_PROGRESS'], true)) {
+                    throw new PluginLifecycleException((string) $current['last_error_code'], 'Module uninstall recovery must finish before install.');
+                } elseif ($current['status'] !== 'uninstalled') {
+                    throw new PluginLifecycleException('PLUGIN_ALREADY_INSTALLED', 'Use plugin:upgrade for an installed Plugin.');
+                }
+            }
+            if (!$install && is_array($current) && $current['status'] !== 'active') {
                 throw new PluginLifecycleException('PLUGIN_STATE_INVALID', 'Release plans require an active installation.');
             }
-            $this->assertPreflightOwnership($plugin, $manifests, is_array($current));
+            $this->assertPreflightOwnership($plugin, $manifests, !$install && is_array($current));
             if ($preserveDisabled && !is_array($current)) {
                 throw new PluginLifecycleException('PLUGIN_STATE_INVALID', 'A missing package cannot be preserved disabled.');
             }
-            if (is_array($current) && version_compare($plugin->version, (string) $current['installed_version'], '<')) {
+            if (!$install && is_array($current) && version_compare($plugin->version, (string) $current['installed_version'], '<')) {
                 throw new PluginLifecycleException('PLUGIN_DOWNGRADE_REJECTED', 'Release plans cannot downgrade a Plugin.');
             }
-            $action = $preserveDisabled ? 'preserve_disabled' : (!is_array($current) ? 'planned_install'
-                : ($this->sameIdentity($plugin, $current) ? 'planned_unchanged' : 'planned_upgrade'));
-            $willMigrate = in_array($action, ['planned_install', 'planned_upgrade'], true);
+            $action = $install ? $installAction : ($preserveDisabled ? 'preserve_disabled' : (!is_array($current) ? 'planned_install'
+                : ($this->sameIdentity($plugin, $current) ? 'planned_unchanged' : 'planned_upgrade')));
+            $willMigrate = in_array($action, ['planned_install', 'planned_upgrade', 'planned_reactivate'], true);
             $modules = [];
             $mayApply = true;
             $planningComplete = true;
@@ -203,6 +232,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 'from_version' => is_array($current) ? (string) $current['installed_version'] : null,
                 'manifest_sha256' => $plugin->manifestDigest, 'modules' => $modules,
                 'observation' => 'read-only interval; execution revalidates all native guards'];
+            if ($recovery !== null) { $plan['install_recovery'] = $recovery; }
             // Native source backup consumes the actual plan before this same
             // package lock is released. It cannot enter the mutation branch.
             return $consumePlan === null ? $plan : $consumePlan($plan);
