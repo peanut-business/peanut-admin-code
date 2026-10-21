@@ -12,6 +12,7 @@ use PDO;
 use RuntimeException;
 use think\App;
 use think\facade\Db;
+use app\platform\services\plugin\PluginLifecycleService;
 
 /** Holds the native source Plugin locks; only a live, bound apply admits writes. */
 final class PluginSourceDevelopmentHost
@@ -171,6 +172,7 @@ final class PluginSourceDevelopmentHost
                                 $this->mutation = ['pdo' => $pdo, 'plugin_key' => $pluginKey, 'operation' => $operation,
                                     'pending' => $effects['pending'], 'selected' => $effects['selected'], 'stages' => [],
                                     'effects' => $effects, 'binding' => $binding, 'recheck' => $recheck,
+                                    'notification_receipt' => ['current' => $effects['notification_forward_receipt'], 'phase' => 'unchanged', 'transition' => null],
                                     'check' => function () use ($recheck, $evidence, $proof): void {
                                         $recheck();
                                         if ($evidence() !== $proof) { throw new RuntimeException('PLUGIN_SOURCE_WINDOW_CHANGED'); }
@@ -238,9 +240,11 @@ final class PluginSourceDevelopmentHost
                                         'evidence' => $proof, 'result' => $result, 'ledger' => $ledger, 'identity_recovery_preflight' => $recoveryPreflight,
                                         'native_plan' => $native, 'execution_plan' => $ready, 'baseline' => $baseline, 'backup_scope' => $scope,
                                         'admission' => $this->mutation['admission'], 'ordered_stages' => $stages, 'observed_at' => $acceptedAt,
+                                        'notification_receipt_write' => $this->mutation['notification_receipt'],
                                         'request_id' => $context->requestId(), 'writer_sha256' => $writerSha, 'executor_sha256' => $executorSha,
                                         'verification_level' => 'native_same_process_lifecycle_completion',
                                         'cross_process_preservation' => 'not_verified', 'product_database' => 'not_verified', 'qualification' => 'not_run'];
+                                    $this->assertNotificationReceiptWrite($record, $effects);
                                     $record['document_sha256'] = self::digest($record);
                                     $record['result_path'] = $this->saveReceipt($record);
                                     $this->requireMutation($pdo, $pluginKey);
@@ -262,6 +266,7 @@ final class PluginSourceDevelopmentHost
                                             'admission' => $this->mutation['admission'], 'old_ledger' => $oldLedger,
                                             'ledger' => $ledger, 'ledger_observation' => $ledger === null ? 'unknown' : 'observed_after_failure',
                                             'ordered_stages' => $this->mutation['stages'], 'request_id' => $context->requestId(),
+                                            'notification_receipt_write' => $this->mutation['notification_receipt'],
                                             'failure_phase' => $lifecycleCompleted ? 'completion_validation_or_receipt' : 'native_lifecycle',
                                             'native_result' => $lifecycleCompleted ? $result : null,
                                             'failure_type' => $failure::class,
@@ -1180,7 +1185,9 @@ final class PluginSourceDevelopmentHost
     {
         if ($this->mutation === null || $this->sourceMetadataTool === '') { return; }
         $this->requireMutation($pdo, $this->mutation['plugin_key']);
-        $scope = SourceApplicationBackup::pluginScope($pdo, $this->mutation['effects'], $this->mutation['binding'],
+        $observedEffects = $this->mutation['effects'];
+        $observedEffects['notification_forward_receipt'] = $this->mutation['notification_receipt']['current'];
+        $scope = SourceApplicationBackup::pluginScope($pdo, $observedEffects, $this->mutation['binding'],
             $this->sourceMetadataTool, $this->mutation['recheck']);
         $this->assertEffectBoundary($scope, $this->mutation['effects'], $this->mutation['binding']['database']['database']);
     }
@@ -1390,6 +1397,7 @@ final class PluginSourceDevelopmentHost
                 || self::digest([$nativeAdmission['binding'] ?? null]) !== self::digest([$binding])
                 || self::digest([$nativeAdmission['evidence'] ?? null]) !== self::digest([$proof])
                 || self::digest([$record['evidence'] ?? null]) !== self::digest([$proof])) { throw new RuntimeException('PLUGIN_SOURCE_ORIGINAL_ADMISSION_CHANGED'); }
+            $this->assertNotificationReceiptWrite($record, $effects);
             $stages = $record['ordered_stages'] ?? null; $ledger = $record['ledger'] ?? null;
             if (!is_array($stages) || !array_is_list($stages) || !is_array($ledger) || !array_is_list($ledger)) { throw new RuntimeException('PLUGIN_SOURCE_ORIGINAL_COMPLETION_CHANGED'); }
             $seen = array_column($stages, 'migration_key'); $wanted = $effects['pending']; sort($seen, SORT_STRING); sort($wanted, SORT_STRING);
@@ -1443,6 +1451,18 @@ final class PluginSourceDevelopmentHost
     /** No caller JSON can create this capability; it exists only inside the held native callback. */
     public function requireMutation(PDO $pdo, string $pluginKey): array
     {
+        $this->assertMutationLocks($pdo, $pluginKey);
+        $expectedReceipt = $this->mutation['notification_receipt']['current'];
+        if ($expectedReceipt !== null) {
+            $actualReceipt = PluginLifecycleService::notificationReceiptSnapshot($expectedReceipt['path']);
+            unset($actualReceipt['contents']);
+            if ($actualReceipt !== $expectedReceipt) { throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_RECEIPT_CHANGED'); }
+        }
+        return $this->mutation['admission'];
+    }
+
+    private function assertMutationLocks(PDO $pdo, string $pluginKey): void
+    {
         if ($this->mutation === null || $this->mutation['pdo'] !== $pdo || $this->mutation['plugin_key'] !== $pluginKey) {
             throw new RuntimeException('PLUGIN_SOURCE_MUTATION_WINDOW_REQUIRED');
         }
@@ -1454,7 +1474,162 @@ final class PluginSourceDevelopmentHost
             $lock->execute([$name]);
             if ((int) $lock->fetchColumn() !== 1) { throw new RuntimeException('PLUGIN_SOURCE_PACKAGE_LOCK_REQUIRED'); }
         } finally { $lock->closeCursor(); }
-        return $this->mutation['admission'];
+    }
+
+    /** Original-window verification consumes the sealed afterimage, never a later live attempt. */
+    private function assertNotificationReceiptWrite(array $record, array $effects): void
+    {
+        $original = $effects['notification_forward_receipt'];
+        if ($original === null) { return; }
+        $state = $record['notification_receipt_write'] ?? null;
+        if (!is_array($state)) { throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_TRANSITION_REQUIRED'); }
+        if (($state['phase'] ?? null) === 'unchanged' && ($state['current'] ?? null) === $original
+            && ($state['transition'] ?? null) === null) { return; }
+        $transition = $state['transition'] ?? [];
+        $after = $transition['after'] ?? [];
+        $payload = $transition['payload'] ?? [];
+        $request = $record['request_id'];
+        $expectedPath = $this->receiptDirectory(false) . '/notification-' . hash('sha256', $request) . '.json';
+        if (($state['phase'] ?? null) !== 'transition_accepted' || ($transition['before'] ?? null) !== $original
+            || ($state['current'] ?? null) !== $after || ($state['observed_after'] ?? null) !== $after
+            || ($state['afterimage'] ?? null) !== $payload || ($after['path'] ?? null) !== $original['path']
+            || ($after['exists'] ?? null) !== true || ($after['directory_exists'] ?? null) !== true || ($after['mode'] ?? null) !== 0600
+            || ($transition['request_id'] ?? null) !== $request
+            || ($transition['admission_sha256'] ?? null) !== self::digest($record['admission'])
+            || ($payload['path'] ?? null) !== $expectedPath || ($payload['sha256'] ?? null) !== ($after['sha256'] ?? null)
+            || ($payload['bytes'] ?? null) !== ($after['bytes'] ?? null)) {
+            throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_TRANSITION_REQUIRED');
+        }
+        $bytes = SourceApplicationBackup::protectedPluginBytes($expectedPath, $this->app->getRootPath());
+        $document = json_decode($bytes, true, 64, JSON_THROW_ON_ERROR);
+        $binding = $document['binding'] ?? null;
+        if (!is_array($binding) || hash('sha256', $bytes) !== $after['sha256'] || strlen($bytes) !== $after['bytes']
+            || ($document['sha256'] ?? null) !== self::digest($binding)
+            || ($transition['binding_sha256'] ?? null) !== self::digest($binding)
+            || ($transition['target_sha256'] ?? null) !== self::digest($binding['target'] ?? [])) {
+            throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_AFTERIMAGE_REQUIRED');
+        }
+        $prior = null;
+        if ($original['exists']) {
+            $recoveryBytes = SourceApplicationBackup::protectedPluginBytes($record['evidence']['recovery']['path'], $this->app->getRootPath());
+            $recovery = json_decode($recoveryBytes, true, 64, JSON_THROW_ON_ERROR);
+            if (hash('sha256', $recoveryBytes) !== $record['evidence']['recovery']['sha256']
+                || self::digest($recovery['backup_manifest'] ?? []) !== self::digest($record['evidence']['backup_manifest'])) {
+                throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_ORIGINAL_CHANGED');
+            }
+            $backupBytes = SourceApplicationBackup::protectedPluginBytes($record['evidence']['backup_manifest']['path'], $this->app->getRootPath());
+            $backup = json_decode($backupBytes, true, 64, JSON_THROW_ON_ERROR);
+            $receiptBackup = $backup['notification_forward_receipt'] ?? [];
+            if (hash('sha256', $backupBytes) !== $record['evidence']['backup_manifest']['sha256']
+                || self::digest($receiptBackup['original'] ?? []) !== self::digest($original)
+                || ($receiptBackup['payload']['sha256'] ?? null) !== $original['sha256']
+                || ($receiptBackup['payload']['bytes'] ?? null) !== $original['bytes']) {
+                throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_ORIGINAL_CHANGED');
+            }
+            $priorBytes = SourceApplicationBackup::protectedPluginBytes($receiptBackup['payload']['path'], $this->app->getRootPath());
+            if (hash('sha256', $priorBytes) !== $original['sha256'] || strlen($priorBytes) !== $original['bytes']) {
+                throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_ORIGINAL_CHANGED');
+            }
+            $prior = json_decode($priorBytes, true, 64, JSON_THROW_ON_ERROR)['binding'];
+        }
+        if (($transition['kind'] ?? null) !== self::notificationTransitionKind($prior, $binding, $record['admission'])) {
+            throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_TRANSITION_REQUIRED');
+        }
+        $package = $binding['target']['package'] ?? [];
+        if (self::digest($package) !== self::digest(array_intersect_key($record['result'], $package))) {
+            throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_TARGET_CHANGED');
+        }
+        $head = $record['binding']['source']['head']; $root = dirname(rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR));
+        $this->assertReceiptSource($head, $root . '/plugins/official.notification/plugin.json', $binding['target']['manifest_sha256']);
+        $this->assertReceiptSource($head, $root . '/server/app/modules/official/notification/module.json', $binding['target']['module_manifest_sha256']);
+    }
+
+    private static function notificationTransitionKind(?array $prior, array $binding, array $admission): string
+    {
+        $attempts = $binding['attempts'] ?? null;
+        if (($binding['protocol'] ?? null) !== 'peanut.notification-forward-binding.v1' || !is_array($attempts)
+            || !array_is_list($attempts) || $attempts === []
+            || ($attempts[array_key_last($attempts)]['request_id'] ?? null) !== $admission['request_id']
+            || ($attempts[array_key_last($attempts)]['module_status'] ?? null) !== ($admission['operation'] === 'console.plugin:upgrade' ? 'upgrading' : 'installing')) {
+            throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_TRANSITION_REQUIRED');
+        }
+        if ($prior === null) {
+            if (count($attempts) !== 1 || self::digest($binding['admission'] ?? []) !== self::digest($admission)
+                || ($binding['request_id'] ?? null) !== $admission['request_id']) {
+                throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_TRANSITION_REQUIRED');
+            }
+            return 'create';
+        }
+        $expected = $prior; $expected['attempts'][] = $attempts[array_key_last($attempts)];
+        if (self::digest($binding) !== self::digest($expected)) { throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_TRANSITION_REQUIRED'); }
+        return 'append_attempt';
+    }
+
+    /** One fixed Notification writer, inside its existing native transaction and package lock. */
+    public function writeNotificationForwardReceipt(PDO $pdo, string $path, array $binding, ?array $previous, \Closure $writeAndValidate): void
+    {
+        $admission = $this->requireMutation($pdo, 'official.notification');
+        $state = $this->mutation['notification_receipt'];
+        $before = PluginLifecycleService::notificationReceiptSnapshot($path);
+        $originalBytes = $before['contents'] ?? null; unset($before['contents']);
+        if ($state['phase'] !== 'unchanged' || $state['transition'] !== null || $before !== $state['current']) {
+            throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_TRANSITION_REQUIRED');
+        }
+        if ($before['exists']) {
+            $priorBinding = json_decode($originalBytes, true, 64, JSON_THROW_ON_ERROR)['binding'];
+            if ($previous !== $priorBinding) {
+                throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_TRANSITION_REQUIRED');
+            }
+        } elseif ($previous !== null) {
+            throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_TRANSITION_REQUIRED');
+        }
+        $kind = self::notificationTransitionKind($previous, $binding, $admission);
+        $directory = $this->receiptDirectory(true);
+        $resources = \activeLeaseResources(\requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF'));
+        if (!in_array($directory, $resources['output-dir'] ?? [], true)) {
+            throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_OUTPUT_REQUIRED');
+        }
+        $payload = $directory . '/notification-' . hash('sha256', $admission['request_id']) . '.json';
+        if (file_exists($payload) || is_link($payload)) { throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_OUTPUT_REQUIRED'); }
+        $this->mutation['notification_receipt']['phase'] = 'write_entered';
+        $writeAndValidate();
+        $after = PluginLifecycleService::notificationReceiptSnapshot($path);
+        $bytes = $after['contents'] ?? null; unset($after['contents']);
+        if (!is_string($bytes) || self::digest(json_decode($bytes, true, 64, JSON_THROW_ON_ERROR)['binding']) !== self::digest($binding)
+            || $after['path'] !== $before['path'] || !$after['exists']) {
+            throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_WRITE_CHANGED');
+        }
+        $this->mutation['notification_receipt']['phase'] = 'durable_readback';
+        $this->mutation['notification_receipt']['observed_after'] = $after;
+        // The callback has ended. Check the unchanged window/PDO/source before accepting the new file value.
+        $this->assertMutationLocks($pdo, 'official.notification');
+        $this->mutation['notification_receipt']['afterimage'] = ['path' => $payload, 'sha256' => $after['sha256'], 'bytes' => strlen($bytes)];
+        $stream = fopen($payload, 'x');
+        if ($stream === false) { throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_AFTERIMAGE_REQUIRED'); }
+        try {
+            if (!chmod($payload, 0600) || fwrite($stream, $bytes) !== strlen($bytes) || !fflush($stream) || !fsync($stream)) {
+                throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_AFTERIMAGE_REQUIRED');
+            }
+        } finally { fclose($stream); }
+        $handle = fopen($directory, 'r');
+        if ($handle === false) { throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_AFTERIMAGE_REQUIRED'); }
+        try { if (!fsync($handle)) { throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_AFTERIMAGE_REQUIRED'); } }
+        finally { fclose($handle); }
+        $sealedBytes = SourceApplicationBackup::protectedPluginBytes($payload, $this->app->getRootPath());
+        if ($sealedBytes !== $bytes) { throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_AFTERIMAGE_REQUIRED'); }
+        $this->mutation['notification_receipt']['phase'] = 'afterimage_saved';
+        $this->assertMutationLocks($pdo, 'official.notification');
+        $current = PluginLifecycleService::notificationReceiptSnapshot($path); unset($current['contents']);
+        if ($current !== $after) { throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_WRITE_CHANGED'); }
+        $this->mutation['notification_receipt']['current'] = $after;
+        $this->mutation['notification_receipt']['transition'] = [
+            'before' => $before, 'after' => $after, 'request_id' => $admission['request_id'],
+            'admission_sha256' => self::digest($admission), 'target_sha256' => self::digest($binding['target']),
+            'binding_sha256' => self::digest($binding), 'kind' => $kind,
+            'payload' => ['path' => $payload, 'sha256' => $after['sha256'], 'bytes' => strlen($bytes)],
+        ];
+        $this->mutation['notification_receipt']['phase'] = 'transition_accepted';
+        $this->requireMutation($pdo, 'official.notification');
     }
 
     /** This capability exists only in the real source/schema callback, never caller JSON. */

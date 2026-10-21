@@ -1950,7 +1950,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                     || $attempts[array_key_last($attempts)]['module_status'] !== ($upgrade ? 'upgrading' : 'installing')) {
                     $previous = $binding;
                     $binding['attempts'][] = ['before' => $old, 'module_status' => $upgrade ? 'upgrading' : 'installing', 'request_id' => app()->make(CurrentExecutionContext::class)->current()->requestId(), 'created_at' => $this->now()];
-                    self::writeNotificationReceipt($path, $binding, $previous);
+                    $this->writeNotificationForwardReceipt($pdo, $plugin, $path, $binding, $previous, $report, $instance, $old, $admission, $target);
                 }
                 return;
             }
@@ -1967,14 +1967,28 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 'old' => $old, 'target' => $target, 'initial_schema_report' => $report,
                 'attempts' => [['before' => $old, 'module_status' => $upgrade ? 'upgrading' : 'installing', 'request_id' => $context->requestId(), 'created_at' => $this->now()]],
                 'admission' => $admission, 'request_id' => $context->requestId(), 'created_at' => $this->now()];
-            self::writeNotificationReceipt($path, $binding);
-            $persisted = self::readNotificationReceipt($path);
-            if (self::json($persisted) !== self::json($binding) || $this->notificationTarget($plugin) !== $target
-                || self::json(self::adoptionAdmission($pdo)) !== self::json($admission)) {
-                throw new PluginLifecycleException('NOTIFICATION_FORWARD_BINDING_CHANGED', 'Old/new binding was not durably preserved.');
-            }
+            $this->writeNotificationForwardReceipt($pdo, $plugin, $path, $binding, null, $report, $instance, $old, $admission, $target);
         });
         return true;
+    }
+
+    private function writeNotificationForwardReceipt(\PDO $pdo, PluginDescriptor $plugin, string $path, array $binding,
+        ?array $previous, array $report, array $instance, array $old, array $admission, array $target): void
+    {
+        $write = function () use ($plugin, $path, $binding, $previous, $report, $instance, $old, $target): void {
+            self::writeNotificationReceipt($path, $binding, $previous);
+            $persisted = self::readNotificationReceipt($path);
+            if (self::json($persisted) !== self::json($binding) || $this->notificationTarget($plugin) !== $target) {
+                throw new PluginLifecycleException('NOTIFICATION_FORWARD_BINDING_CHANGED', 'Old/new binding was not durably preserved.');
+            }
+            $this->assertNotificationBinding($plugin, $persisted, $report, $instance, $old);
+        };
+        $source = self::sourceMutationGuard($plugin->key);
+        if ($source === null) { $write(); }
+        else { $source->writeNotificationForwardReceipt($pdo, $path, $binding, $previous, $write); }
+        if (self::json(self::adoptionAdmission($pdo)) !== self::json($admission)) {
+            throw new PluginLifecycleException('NOTIFICATION_FORWARD_BINDING_CHANGED', 'Native admission changed after durable binding.');
+        }
     }
 
     /** Revalidation before each original SQL, after predecessor completion, and before catalog writes. */
@@ -2306,19 +2320,22 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         }
     }
 
-    private static function sourceMutationGuard(string $pluginKey, ?string $operation = null): void
+    private static function sourceMutationGuard(string $pluginKey, ?string $operation = null): ?\app\common\services\upgrade\PluginSourceDevelopmentHost
     {
         $context = app()->make(CurrentExecutionContext::class)->current();
-        if (!$context instanceof InstanceExecutionContext || !str_starts_with($context->operation(), 'console.plugin:')) { return; }
+        if (!$context instanceof InstanceExecutionContext || !str_starts_with($context->operation(), 'console.plugin:')) { return null; }
         require_once root_path() . 'database/install.php';
         if (\installationSourceDevelopmentMode(rtrim(root_path(), DIRECTORY_SEPARATOR))) {
             $pdo = Db::connect()->getPdo();
             if (!$pdo instanceof \PDO) { throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Native master is required.'); }
-            $admission = app()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->requireMutation($pdo, $pluginKey);
+            $host = app()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class);
+            $admission = $host->requireMutation($pdo, $pluginKey);
             if ($operation !== null && $admission['operation'] !== 'console.plugin:' . $operation) {
                 throw new PluginLifecycleException('PLUGIN_SOURCE_OPERATION_CHANGED', 'The held operation must match the original lifecycle.');
             }
+            return $host;
         }
+        return null;
     }
 
     private function adoptMigration(PluginDescriptor $plugin, string $moduleKey, ManifestDocument $manifest, array $declaration, int $batch): void
