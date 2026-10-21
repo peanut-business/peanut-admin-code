@@ -1245,6 +1245,16 @@ final class PluginSourceDevelopmentHost
     private function assertAppendOnlyRepairs(array $effects, array $ledger): void
     {
         $rows = array_column($ledger, null, 'migration_key');
+        foreach ($effects['repair_omissions'] ?? [] as $repairKey => $relation) {
+            $original = $rows[$relation['original_key']] ?? [];
+            if (isset($rows[$repairKey]) || ($original['module_key'] ?? null) !== 'peanut.workflow'
+                || ($original['status'] ?? null) !== 'applied' || ($original['checksum'] ?? null) !== $relation['original_sha256']
+                || ($original['resolution_kind'] ?? null) !== 'executed' || ($original['provenance_json'] ?? null) !== null
+                || ($original['error_code'] ?? null) !== null || !is_string($original['finished_at'] ?? null)
+                || self::digest($original) !== $relation['original_ledger_sha256']) {
+                throw new RuntimeException('PLUGIN_SOURCE_REPAIR_OMISSION_CHANGED');
+            }
+        }
         foreach ($effects['append_only_repairs'] ?? [] as $key => $relation) {
             $original = $rows[$key] ?? []; $repair = $rows[$relation['repair_key']] ?? [];
             if (($original['status'] ?? null) !== 'failed' || ($original['checksum'] ?? null) !== $relation['original_sha256']

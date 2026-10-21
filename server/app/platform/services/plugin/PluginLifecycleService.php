@@ -65,6 +65,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         'peanut.workflow:20260921-register-module-schema' => ['f0a21d63c83afcd2438fc327bf6ad97a59d82daa571bc4de51d74c32eb487ff7', \PeanutAdmin\Modules\Workflow\Database\WorkflowSchemaMigrationProof::class, []],
         'peanut.workflow:20261012-workflow-managed-template' => ['fd02893a4b7a0ea60aa6c5434ff8b46f11e35bec94f10a76fc0b0f64609282a5', \PeanutAdmin\Modules\Workflow\Database\WorkflowSchemaMigrationProof::class,
             ['peanut.workflow:20260921-register-module-schema']],
+        'peanut.workflow:20261012-workflow-managed-template-repair-20261021' => ['f3416b6c726a4a97ef70df967f14227c328c0ced156ac98656200f44712e5993', \PeanutAdmin\Modules\Workflow\Database\WorkflowSchemaMigrationProof::class,
+            ['peanut.workflow:20260921-register-module-schema', 'peanut.workflow:20261012-workflow-managed-template']],
         'peanut.workflow:20261012-workflow-notification-facts' => ['ff26361f27773b9500fe6484729a26c0655d18f893cac8739bae9edfec8f6378', \PeanutAdmin\Modules\Workflow\Database\WorkflowSchemaMigrationProof::class,
             ['peanut.workflow:20260921-register-module-schema', 'peanut.workflow:20261012-workflow-managed-template']],
         'peanut.workflow:20261012-workflow-v2-execution' => ['f46f8b9a7a567584988e3520669daa1a8f893b69d837a1dedf223deb4f2a1b09', \PeanutAdmin\Modules\Workflow\Database\WorkflowSchemaMigrationProof::class,
@@ -488,6 +490,13 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                     }
                     continue;
                 }
+                if (($decisions[$migrationKey]['disposition'] ?? null) === 'repair_not_required') {
+                    $pdo = Db::connect()->getPdo();
+                    if (!$pdo instanceof \PDO || self::workflowRepairOmission($moduleKey, $migrationKey, $files, $pdo) !== ($decisions[$migrationKey]['repair_omission'] ?? null)) {
+                        throw new PluginLifecycleException('MODULE_MIGRATION_REPAIR_INVALID', 'The held successful original repair witness changed.');
+                    }
+                    continue;
+                }
                 if (($decisions[$migrationKey]['disposition'] ?? null) === 'adopt') {
                     $this->adoptMigration($plugin, $moduleKey, $manifest, $adoptions['targets'][$migrationKey], $batch);
                     continue;
@@ -812,7 +821,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             $mayApply = $mayApply && $module['may_apply'];
             $planningComplete = $planningComplete && $module['planning_complete'];
             foreach ($module['migrations'] as $migration) {
-                if (!in_array($migration['disposition'], ['already_applied', 'awaiting_repair', 'repaired'], true)) { $pending[] = ['module_key' => $moduleKey, ...$migration]; }
+                if (!in_array($migration['disposition'], ['already_applied', 'awaiting_repair', 'repaired', 'repair_not_required'], true)) { $pending[] = ['module_key' => $moduleKey, ...$migration]; }
             }
             foreach ($module['preflight_reports'] as $report) {
                 if ($moduleKey === 'peanut.workflow') { $workflowPreflight = $report; }
@@ -1636,6 +1645,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         foreach ($files as $key => $path) {
             if (isset($adoptions['declarations'][$key])) { continue; }
             $row = Db::name('module_migration')->where('module_key', $moduleKey)->where('migration_key', $key)->find();
+            if ($row === null && self::workflowRepairOmission($moduleKey, $key, $files, $pdo) !== null) { continue; }
             $repair = is_array($row) && $row['status'] === 'failed' ? self::migrationRepairResolution($pdo, $moduleKey, $row, $files, $repairs) : null;
             if (!is_array($row) || ($row['status'] !== 'applied' && ($repair['state'] ?? null) !== 'applied') || $row['checksum'] !== hash_file('sha256', $path)) {
                 throw new PluginLifecycleException('MODULE_MIGRATION_REPAIR_REQUIRED', 'Module migration requirements are unresolved.');
@@ -2141,7 +2151,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             if ($row !== null && $row['checksum'] !== $checksum) {
                 throw new PluginLifecycleException('MODULE_MIGRATION_CHECKSUM_MISMATCH', "Migration changed: {$key}");
             }
-            $status = $row['status'] ?? 'missing'; $report = null; $admission = null; $repairResolution = null;
+            $status = $row['status'] ?? 'missing'; $report = null; $admission = null; $repairResolution = null; $repairOmission = null;
             if ($status === 'applied') {
                 $pdo = Db::connect()->getPdo();
                 if (!$pdo instanceof \PDO) { throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Master connection is unavailable.'); }
@@ -2153,7 +2163,10 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 $disposition = ($repairResolution['state'] ?? null) === 'applied' ? 'repaired' : ($willMigrate ? 'awaiting_repair' : 'reject');
             } else {
                 $disposition = $willMigrate ? 'execute' : 'reject';
-                if (isset($adoptions['targets'][$key])) {
+                $repairOmission = self::workflowRepairOmission($moduleKey, $key, $files, $pdo);
+                if ($repairOmission !== null) {
+                    $disposition = 'repair_not_required';
+                } elseif (isset($adoptions['targets'][$key])) {
                     $report = self::fileMigrationProof($key);
                     $disposition = $willMigrate && ($report['may_apply'] ?? null) === true ? ($report['disposition'] ?? 'reject') : 'reject';
                     if (!in_array($disposition, ['execute', 'adopt'], true)) { $disposition = 'reject'; }
@@ -2202,6 +2215,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 'repair' => $repairs[$key] ?? null, 'adoption' => $adoptions['targets'][$key] ?? null,
                 'apply_admission' => $admission, 'disposition' => $disposition];
             if ($repairResolution !== null) { $migrations[array_key_last($migrations)]['repair_resolution'] = $repairResolution; }
+            if ($repairOmission !== null) { $migrations[array_key_last($migrations)]['repair_omission'] = $repairOmission; }
         }
         foreach (Db::name('module_migration')->where('module_key', $moduleKey)->column('migration_key') as $key) {
             if (!isset($files[$key]) || isset($adoptions['declarations'][$key])) {
@@ -2417,6 +2431,32 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             'original_ledger_sha256' => hash('sha256', json_encode(self::canonicalJsonValue($original), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)),
             'repair_key' => $repairKey, 'repair_sha256' => $sha,
             'state' => $state, 'executes_original_sql' => false];
+    }
+
+    /** A fixed verification-only repair is unnecessary for a genuinely successful original; no synthetic ledger row. */
+    private static function workflowRepairOmission(string $moduleKey, string $key, array $files, \PDO $pdo): ?array
+    {
+        $repair = 'peanut.workflow:20261012-workflow-managed-template-repair-20261021';
+        $original = 'peanut.workflow:20261012-workflow-managed-template';
+        if ($moduleKey !== 'peanut.workflow' || $key !== $repair) { return null; }
+        if (!isset($files[$original], $files[$repair])
+            || hash_file('sha256', $files[$original]) !== 'fd02893a4b7a0ea60aa6c5434ff8b46f11e35bec94f10a76fc0b0f64609282a5'
+            || hash_file('sha256', $files[$repair]) !== 'f3416b6c726a4a97ef70df967f14227c328c0ced156ac98656200f44712e5993') {
+            throw new PluginLifecycleException('MODULE_MIGRATION_REPAIR_INVALID', 'Fixed Workflow repair source changed.');
+        }
+        $q = $pdo->prepare('SELECT * FROM pa_module_migration WHERE module_key=? AND migration_key=?');
+        try { $q->execute([$moduleKey, $original]); $rows = $q->fetchAll(\PDO::FETCH_ASSOC); } finally { $q->closeCursor(); }
+        if ($rows === [] || (count($rows) === 1 && $rows[0]['status'] === 'failed')) { return null; }
+        $row = $rows[0] ?? [];
+        if (count($rows) !== 1 || $row['module_key'] !== $moduleKey || $row['migration_key'] !== $original
+            || $row['status'] !== 'applied' || $row['checksum'] !== hash_file('sha256', $files[$original])
+            || $row['resolution_kind'] !== 'executed' || $row['provenance_json'] !== null || $row['error_code'] !== null
+            || !is_string($row['finished_at'])) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_REPAIR_INVALID', 'A real successful Workflow original is required.');
+        }
+        return ['original_key' => $original, 'original_sha256' => $row['checksum'], 'original_status' => 'applied',
+            'original_ledger_sha256' => hash('sha256', json_encode(self::canonicalJsonValue($row), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)),
+            'repair_key' => $repair, 'repair_sha256' => hash_file('sha256', $files[$repair]), 'executes_original_sql' => false];
     }
 
     /** @param array<string,string> $files @return array<string,string> predecessor => repair */

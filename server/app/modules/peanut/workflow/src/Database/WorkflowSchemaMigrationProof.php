@@ -9,16 +9,18 @@ use PDO;
 use RuntimeException;
 use Throwable;
 
-/** Read-only preservation assertions around the four immutable native Workflow SQL stages. */
+/** Read-only preservation assertions for fixed Workflow SQL and its append-only verification. */
 final class WorkflowSchemaMigrationProof
 {
     private const INITIAL = 'peanut.workflow:20260921-register-module-schema';
     private const MANAGED = 'peanut.workflow:20261012-workflow-managed-template';
+    private const REPAIR = 'peanut.workflow:20261012-workflow-managed-template-repair-20261021';
     private const FACTS = 'peanut.workflow:20261012-workflow-notification-facts';
     private const V2 = 'peanut.workflow:20261012-workflow-v2-execution';
     private const SOURCES = [
         self::INITIAL => 'f0a21d63c83afcd2438fc327bf6ad97a59d82daa571bc4de51d74c32eb487ff7',
         self::MANAGED => 'fd02893a4b7a0ea60aa6c5434ff8b46f11e35bec94f10a76fc0b0f64609282a5',
+        self::REPAIR => 'f3416b6c726a4a97ef70df967f14227c328c0ced156ac98656200f44712e5993',
         self::FACTS => 'ff26361f27773b9500fe6484729a26c0655d18f893cac8739bae9edfec8f6378',
         self::V2 => 'f46f8b9a7a567584988e3520669daa1a8f893b69d837a1dedf223deb4f2a1b09',
     ];
@@ -33,6 +35,40 @@ final class WorkflowSchemaMigrationProof
     private const NEW_COLUMNS = [
         'pa_workflow_node_execution' => 'id tenant_id instance_id node_execution_key node_key sequence_no cycle_no previous_actor_member_id node_type status revision allocation_mode aggregation_policy input_json action_input_json started_at people_json output_json selected_transition_key blocked_reason effect_key effect_receipt_json task_job_key created_at completed_at',
         'pa_workflow_task_identity_link' => 'id tenant_id work_item_id member_id relation_type sources_json',
+    ];
+    // Fixed initial + managed SQL shape, observed on native MySQL 8.4.10 and authenticated
+    // against the accepted initial graph. Same-schema names and the closed CHECK renders
+    // below are canonical; allocator values are independently observed and preserved.
+    private const MANAGED_SCHEMA_SHA256 = '5c8fdd9f2ce4a73bb315fd063a44d46ad96f5b219b129b01774fa6385e1b2052';
+    private const CHECK_RENDERINGS = [
+        'pa_workflow_definition' => [
+            'chk_workflow_definition_digest' => 'regexp_like(`draft_graph_sha256`,_ascii\\\'^[0-9a-f]{64}$\\\')',
+            'chk_workflow_definition_module_key' => 'regexp_like(`module_key`,_ascii\\\'^[a-z][a-z0-9]*([.-][a-z0-9]+)*$\\\')',
+            'chk_workflow_definition_retired_shape' => '(((`status` = _ascii\\\'retired\\\') and (`retired_at` is not null)) or ((`status` <> _ascii\\\'retired\\\') and (`retired_at` is null)))',
+            'chk_workflow_definition_status' => '(`status` in (_ascii\\\'draft\\\',_ascii\\\'active\\\',_ascii\\\'retired\\\'))',
+            'chk_workflow_definition_workflow_key' => 'regexp_like(`workflow_key`,_ascii\\\'^[a-z][a-z0-9]*([.-][a-z0-9]+)*$\\\')',
+        ],
+        'pa_workflow_definition_version' => [
+            'chk_workflow_definition_version_digest' => 'regexp_like(`graph_sha256`,_ascii\\\'^[0-9a-f]{64}$\\\')',
+        ],
+        'pa_workflow_instance' => [
+            'chk_workflow_instance_digest' => 'regexp_like(`subject_revision_sha256`,_ascii\\\'^[0-9a-f]{64}$\\\')',
+            'chk_workflow_instance_key' => 'regexp_like(`instance_key`,_ascii\\\'^instance_[0-9a-f]{32}$\\\')',
+            'chk_workflow_instance_status' => '(`status` in (_ascii\\\'active\\\',_ascii\\\'completed\\\',_ascii\\\'cancelled\\\'))',
+            'chk_workflow_instance_terminal_shape' => '(((`status` = _ascii\\\'active\\\') and (`completed_at` is null) and (`cancelled_at` is null)) or ((`status` = _ascii\\\'completed\\\') and (`completed_at` is not null) and (`cancelled_at` is null)) or ((`status` = _ascii\\\'cancelled\\\') and (`completed_at` is null) and (`cancelled_at` is not null)))',
+        ],
+        'pa_workflow_work_item' => [
+            'chk_workflow_work_item_key' => 'regexp_like(`work_item_key`,_ascii\\\'^work_[0-9a-f]{32}$\\\')',
+            'chk_workflow_work_item_source' => '(`assignment_source_kind` in (_ascii\\\'member\\\',_ascii\\\'role\\\',_ascii\\\'department\\\',_ascii\\\'initiator\\\',_ascii\\\'previous_actor\\\'))',
+            'chk_workflow_work_item_status' => '(`status` in (_ascii\\\'pending\\\',_ascii\\\'completed\\\',_ascii\\\'cancelled\\\'))',
+            'chk_workflow_work_item_terminal_shape' => '(((`status` = _ascii\\\'pending\\\') and (`decision` is null) and (`completed_by_member_id` is null) and (`completed_at` is null) and (`cancelled_at` is null)) or ((`status` = _ascii\\\'completed\\\') and (`decision` is not null) and (`completed_by_member_id` is not null) and (`completed_at` is not null) and (`cancelled_at` is null)) or ((`status` = _ascii\\\'cancelled\\\') and (`decision` is null) and (`completed_by_member_id` is null) and (`completed_at` is null) and (`cancelled_at` is not null)))',
+        ],
+        'pa_workflow_event' => [
+            'chk_workflow_event_actor_shape' => '(((`actor_type` = _ascii\\\'member\\\') and (`actor_member_id` is not null)) or ((`actor_type` = _ascii\\\'tenant_system\\\') and (`actor_member_id` is null)))',
+            'chk_workflow_event_comment_shape' => '(((`comment_text` is null) and (`comment_sha256` is null)) or ((`comment_text` is not null) and regexp_like(`comment_sha256`,_ascii\\\'^[0-9a-f]{64}$\\\')))',
+            'chk_workflow_event_key' => 'regexp_like(`event_key`,_ascii\\\'^tenant\\\\\\\\.workflow\\\\\\\\.[a-z_]+$\\\')',
+            'chk_workflow_event_subject_digest' => 'regexp_like(`subject_revision_sha256`,_ascii\\\'^[0-9a-f]{64}$\\\')',
+        ],
     ];
     private const FACT_COLUMNS = ['notification_fact_json', 'notification_outbox_json', 'notification_last_error'];
 
@@ -51,9 +87,10 @@ final class WorkflowSchemaMigrationProof
                 foreach ($tables as $table) { if ($table !== null) { self::fail('UNRECORDED_SCHEMA_REQUIRES_REVIEW'); } }
             } else {
                 self::assertPrefix($tables, $key);
+                if ($key !== self::MANAGED) { self::assertManagedSchema($tables, self::connection($pdo)['db'], $key === self::V2); }
             }
             $data = self::data($pdo, $tables);
-            if ($key === self::V2) {
+            if ($key === self::V2 || $key === self::REPAIR) {
                 foreach ($data as $rows) { if ($rows !== null && $rows['count'] !== 0) { self::fail('LEGACY_DATA_REQUIRES_REVIEW'); } }
             }
             if ($ledger !== self::ledger($pdo, $stage)) { self::fail('LEDGER_CHANGED'); }
@@ -87,6 +124,10 @@ final class WorkflowSchemaMigrationProof
                     if (self::rows($pdo, $table, array_keys($after[$table]['columns']))['count'] !== 0) { self::fail('CREATE_NOT_EMPTY'); }
                     ++$created;
                 }
+            } elseif ($key === self::REPAIR) {
+                self::assertManagedSchema($after, self::connection($pdo)['db']);
+                if ($before['tables'] !== $after) { self::fail('REPAIR_METADATA_CHANGED'); }
+                foreach ($before['data'] as $rows) { if ($rows !== null && $rows['count'] !== 0) { self::fail('LEGACY_DATA_REQUIRES_REVIEW'); } }
             } elseif ($key === self::V2) {
                 foreach ($before['data'] as $rows) { if ($rows !== null && $rows['count'] !== 0) { self::fail('LEGACY_DATA_REQUIRES_REVIEW'); } }
                 self::assertV2($before['tables'], $after);
@@ -104,6 +145,7 @@ final class WorkflowSchemaMigrationProof
                         self::fail('ADDED_VALUE_CHANGED');
                     }
                 }
+                self::assertManagedSchema($after, self::connection($pdo)['db'], $key === self::FACTS);
             }
             // Compare every original column of every original row, in primary-key order.
             // Payloads stay in this process and only their framed digest is retained.
@@ -114,7 +156,8 @@ final class WorkflowSchemaMigrationProof
                 'preservation_verified' => true, 'readonly' => true, 'created_empty_tables' => $created,
                 'metadata_sha256' => hash('sha256', serialize($after)), 'ledger_sha256' => hash('sha256', serialize($before['ledger'])),
                 'before_sha256' => hash('sha256', serialize($before['data'])), 'after_sha256' => hash('sha256', serialize($preserved)),
-                'data_proof' => 'same native PDO and stage ledger; original-column row digests; V2 requires empty originals; no graph conversion'];
+                'data_proof' => $key === self::REPAIR ? 'fixed native SELECT 1; complete managed schema, real allocators, original metadata/data/ledger unchanged'
+                    : 'same native PDO and stage ledger; original-column row digests; V2 requires empty originals; no graph conversion'];
         });
     }
 
@@ -139,7 +182,69 @@ final class WorkflowSchemaMigrationProof
             if (array_keys($after[$table]['columns']) !== [...$names, ...$columns]) { self::fail('COLUMN_DELTA_INVALID'); }
             foreach ($columns as $column) { unset($expected[$table]['columns'][$column]); }
         }
+        self::retainedChecks($before, $expected, array_keys($additions));
         if ($expected !== $before) { self::fail('UNDECLARED_METADATA_CHANGED'); }
+    }
+
+    /** Fixed complete native schema contract, independent of this instance's private before-image. */
+    private static function assertManagedSchema(array $tables, string $database, bool $facts = false): void
+    {
+        self::source(self::INITIAL); self::source(self::MANAGED);
+        self::assertPrefix($tables, $facts ? self::V2 : self::FACTS);
+        if ($facts) {
+            $position = count(explode(' ', self::BASE_COLUMNS['pa_workflow_event']));
+            foreach (self::FACT_COLUMNS as $column) {
+                $type = $column === 'notification_last_error' ? 'varchar(64)' : 'json';
+                $charset = $type === 'json' ? null : 'utf8mb4';
+                $expected = ['COLUMN_NAME' => $column, 'ORDINAL_POSITION' => (string) ++$position,
+                    'COLUMN_TYPE' => $type, 'IS_NULLABLE' => 'YES', 'COLUMN_DEFAULT' => null, 'EXTRA' => '',
+                    'CHARACTER_SET_NAME' => $charset, 'COLLATION_NAME' => $charset === null ? null : 'utf8mb4_0900_ai_ci',
+                    'COLUMN_COMMENT' => '', 'GENERATION_EXPRESSION' => ''];
+                if ($tables['pa_workflow_event']['columns'][$column] !== $expected) { self::fail('MANAGED_SCHEMA_INVALID'); }
+                unset($tables['pa_workflow_event']['columns'][$column]);
+            }
+        }
+        foreach ($tables as $table => &$metadata) {
+            if ($metadata === null) { continue; }
+            if ($metadata['info']['TABLE_SCHEMA'] !== $database
+                || preg_match('/\A[1-9][0-9]*\z/D', (string) ($metadata['info']['AUTO_INCREMENT'] ?? '')) !== 1) { self::fail('MANAGED_SCHEMA_INVALID'); }
+            $metadata['info']['TABLE_SCHEMA'] = '__current_schema__';
+            unset($metadata['info']['AUTO_INCREMENT']); // Compared as its real value by the same-stage whole-graph proof.
+            foreach ($metadata['foreign_keys'] as &$parts) {
+                foreach ($parts as &$part) {
+                    if ($part['REFERENCED_TABLE_SCHEMA'] !== $database) { self::fail('MANAGED_SCHEMA_INVALID'); }
+                    $part['REFERENCED_TABLE_SCHEMA'] = '__current_schema__';
+                }
+            }
+            unset($parts, $part);
+            foreach (self::CHECK_RENDERINGS[$table] ?? [] as $name => $render) {
+                $constraint = &$metadata['constraints'][$name];
+                if (($constraint['CONSTRAINT_TYPE'] ?? null) !== 'CHECK' || ($constraint['ENFORCED'] ?? null) !== 'YES'
+                    || !in_array($constraint['CHECK_CLAUSE'] ?? null, [$render, str_replace('_ascii', '_utf8mb4', $render)], true)) { self::fail('MANAGED_SCHEMA_INVALID'); }
+                $constraint['CHECK_CLAUSE'] = $render;
+                unset($constraint);
+            }
+            foreach (['indexes', 'constraints', 'foreign_keys'] as $key) { ksort($metadata[$key], SORT_STRING); }
+        }
+        unset($metadata);
+        if (hash('sha256', serialize($tables)) !== self::MANAGED_SCHEMA_SHA256) { self::fail('MANAGED_SCHEMA_INVALID'); }
+    }
+
+    /** Accept only the two complete native renders of this module's fixed retained CHECKs. */
+    private static function retainedChecks(array $before, array &$after, array $tables): void
+    {
+        foreach ($tables as $table) {
+            foreach (self::CHECK_RENDERINGS[$table] ?? [] as $name => $render) {
+                if (!isset($before[$table]['constraints'][$name], $after[$table]['constraints'][$name])) { continue; }
+                $old = $before[$table]['constraints'][$name]; $new = $after[$table]['constraints'][$name];
+                $allowed = [$render, str_replace('_ascii', '_utf8mb4', $render)];
+                if (($old['ENFORCED'] ?? null) !== 'YES' || ($new['ENFORCED'] ?? null) !== 'YES'
+                    || !in_array($old['CHECK_CLAUSE'] ?? null, $allowed, true) || !in_array($new['CHECK_CLAUSE'] ?? null, $allowed, true)) { self::fail('RETAINED_CHECK_INVALID'); }
+                $new['CHECK_CLAUSE'] = $old['CHECK_CLAUSE'];
+                if ($new !== $old) { self::fail('RETAINED_CHECK_INVALID'); }
+                $after[$table]['constraints'][$name] = $old;
+            }
+        }
     }
 
     private static function assertV2(array $before, array $after): void
@@ -183,6 +288,7 @@ final class WorkflowSchemaMigrationProof
             if (array_keys($after[$table]['columns']) !== explode(' ', self::NEW_COLUMNS[$table])) { self::fail('V2_CREATE_INVALID'); }
             $expected[$table] = null;
         }
+        self::retainedChecks($before, $expected, array_keys($added));
         if ($expected !== $before) { self::fail('UNDECLARED_METADATA_CHANGED'); }
         self::nullableColumn($after['pa_workflow_definition']['columns']['layout_json'], 'json');
         self::nullableColumn($after['pa_workflow_definition']['columns']['active_version'], 'int unsigned');
@@ -389,6 +495,11 @@ REGEX;
             $info = self::query($pdo, 'SELECT TABLE_SCHEMA,TABLE_TYPE,ENGINE,TABLE_COLLATION,CREATE_OPTIONS,TABLE_COMMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$table]);
             if ($info === []) { $result[$table] = null; continue; }
             if (count($info) !== 1 || $info[0]['TABLE_TYPE'] !== 'BASE TABLE' || $info[0]['ENGINE'] !== 'InnoDB') { self::fail('SCHEMA_REQUIRES_REVIEW'); }
+            // Initialize the native empty InnoDB allocator before reading uncached statistics.
+            self::query($pdo, 'SHOW CREATE TABLE `' . $table . '`');
+            $allocator = self::query($pdo, 'SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$table]);
+            if (count($allocator) !== 1 || preg_match('/\A[1-9][0-9]*\z/D', (string) ($allocator[0]['AUTO_INCREMENT'] ?? '')) !== 1) { self::fail('STATISTICS_UNAVAILABLE'); }
+            $info[0]['AUTO_INCREMENT'] = $allocator[0]['AUTO_INCREMENT'];
             $columns = self::query($pdo, 'SELECT COLUMN_NAME,ORDINAL_POSITION,COLUMN_TYPE,IS_NULLABLE,COLUMN_DEFAULT,EXTRA,CHARACTER_SET_NAME,COLLATION_NAME,COLUMN_COMMENT,GENERATION_EXPRESSION FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY ORDINAL_POSITION', [$table]);
             if (($columns[0]['COLUMN_NAME'] ?? null) !== 'id') { self::fail('SCHEMA_REQUIRES_REVIEW'); }
             $indexes = [];
@@ -433,13 +544,20 @@ REGEX;
         if (!is_array($rows)) { self::fail('LEDGER_INVALID'); }
         foreach ($rows as $row) {
             $key = $row['migration_key'] ?? null;
+            $repaired = $key === self::MANAGED && ($row['status'] ?? null) === 'failed'
+                && ($row['resolution_kind'] ?? null) === null && ($row['provenance_json'] ?? null) === null
+                && ($row['error_code'] ?? null) === 'MODULE_MIGRATION_FAILED' && is_string($row['finished_at'] ?? null)
+                && isset(array_column($rows, null, 'migration_key')[self::REPAIR]);
             if (($row['module_key'] ?? null) !== 'peanut.workflow' || !is_string($key) || !isset(self::SOURCES[$key])
                 || isset($seen[$key]) || ($row['checksum'] ?? null) !== self::SOURCES[$key]
-                || ($row['status'] ?? null) !== ($key === $stage['migration_key'] ? 'applying' : 'applied')
+                || (!$repaired && ($row['status'] ?? null) !== ($key === $stage['migration_key'] ? 'applying' : 'applied'))
                 || strcmp($key, $stage['migration_key']) > 0) { self::fail('LEDGER_INVALID'); }
             $seen[$key] = true;
         }
         $required = array_slice(array_keys(self::SOURCES), 0, array_search($stage['migration_key'], array_keys(self::SOURCES), true) + 1);
+        // A genuine successful original needs no repair ledger on historical consumers.
+        $original = array_column($rows, null, 'migration_key')[self::MANAGED] ?? [];
+        if (($original['status'] ?? null) === 'applied' && !isset($seen[self::REPAIR])) { $required = array_values(array_diff($required, [self::REPAIR])); }
         if (array_diff($required, array_keys($seen)) !== []) { self::fail('LEDGER_INVALID'); }
         return $rows;
     }
@@ -464,15 +582,23 @@ REGEX;
 
     private static function snapshot(PDO $pdo, Closure $read): array
     {
-        $started = false;
+        $started = false; $statistics = null;
         try {
             if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'mysql' || $pdo->getAttribute(PDO::ATTR_CASE) !== PDO::CASE_NATURAL || $pdo->inTransaction()) { self::fail('CONNECTION_UNSUPPORTED'); }
+            $statement = $pdo->query('SELECT @@SESSION.information_schema_stats_expiry');
+            try { $value = $statement->fetchColumn(); } finally { $statement->closeCursor(); }
+            if (!is_int($value) && (!is_string($value) || preg_match('/\A[0-9]+\z/D', $value) !== 1)) { self::fail('STATISTICS_UNAVAILABLE'); }
+            $statistics = (int) $value;
+            $pdo->exec('SET SESSION information_schema_stats_expiry=0');
             $pdo->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY'); $pdo->beginTransaction(); $started = true;
             $result = $read(); if (!$pdo->inTransaction()) { self::fail('SNAPSHOT_CHANGED'); } return $result;
         } catch (Throwable $error) {
             if ($error instanceof RuntimeException && str_starts_with($error->getMessage(), 'WORKFLOW_SCHEMA_STAGE_')) { throw $error; }
             throw new RuntimeException('WORKFLOW_SCHEMA_STAGE_OBSERVATION_FAILED', 0, $error);
-        } finally { if ($started && $pdo->inTransaction()) { $pdo->rollBack(); } }
+        } finally {
+            try { if ($started && $pdo->inTransaction()) { $pdo->rollBack(); } }
+            finally { if ($statistics !== null) { $pdo->exec('SET SESSION information_schema_stats_expiry=' . $statistics); } }
+        }
     }
 
     private static function fail(string $code): never
