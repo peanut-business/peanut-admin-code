@@ -121,7 +121,11 @@ final readonly class FileMigrationPreservation
     public function repairReadiness(PDO $pdo): array
     {
         $before = $this->before($pdo, self::VISIBILITY_REPAIR);
-        return $before['safe_summary'] + ['may_apply' => true, 'readonly' => true,
+        // Plans cross processes; the held stage snapshot retains CONNECTION_ID,
+        // while this readiness digest includes durable tables only.
+        return ['module_key' => 'official.file', 'migration_key' => self::VISIBILITY_REPAIR,
+            'sql_sha256' => self::VISIBILITY_REPAIR_SHA, 'table_counts' => $before['safe_summary']['table_counts'],
+            'metadata_sha256' => self::hash($before['private_state']['snapshot']['tables']), 'may_apply' => true, 'readonly' => true,
             'scope' => 'current fixed File visibility shape and unchanged-row repair readiness; not original completion'];
     }
 

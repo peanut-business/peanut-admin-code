@@ -2470,7 +2470,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "086859e7ad2b2ae36cfad8aa9d4508aac641e274a1df6ad7fc89f90da042b220"
+            "source_sha256": "d66125931f73198d79dfdb5bb77e432f50eb812771c3f4af5602860e8e767372"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2593,7 +2593,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "976b3a22fa8302200845b4ccc0e7735d104508a3be8084909fad641889ff53b9"
+            "source_sha256": "d028afbb5e9d9e2717b1ceff434ff4db68d1231896589b01f49afd8eae4b2117"
         },
         {
             "path": "plugins/official.identity/plugin.json",
@@ -12731,7 +12731,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cedfb84bc0d06e1fe229ce0b61f4f0d9d4c9fc3fd48a006f38f28e389c075b87"
+            "source_sha256": "eccc5bf484085d4be5804be640d75f267f58bf711b0a0b4262cdf89721d650e9"
         },
         {
             "path": "server/app/modules/official/file/src/Contract/FileReferenceCommands.php",
