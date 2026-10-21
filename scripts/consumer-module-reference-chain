@@ -976,12 +976,9 @@ def run_chain(args: argparse.Namespace) -> dict[str, Any]:
     expect(metadata.get("candidate") == args.candidate and metadata.get("status") == "ACTIVE"
            and metadata.get("worktree") == str(ROOT), "active native source lease differs")
     def app_environment(app: dict[str, Any]) -> dict[str, str]:
-        path = native["file_reference"](app["environment"])
-        expect(path.stat().st_mode & 0o777 == 0o600, "APP environment is not private")
         admission = native["runtime_admission"](app, app["root"], app["head"])
         native["verify_runtime_admission"](admission, qualification["owner"], qualification["thread"])
-        return {"PEANUT_SERVER_ENV_FILE": str(path), "PEANUT_RESOURCE_REGISTRY": os.environ["PEANUT_RESOURCE_REGISTRY"],
-                "P0E_HOST_LEASE_PROOF": admission["proof_dir"], "PEANUT_RESOURCE_LEASE_PROOF": admission["proof_dir"]}
+        return native["runtime_environment"](app, admission, php=str(PHP))
     author_env, consumer_env = app_environment(author_app), app_environment(consumer_app)
     for app, env in ((author_app, author_env), (consumer_app, consumer_env)):
         status = json_output(command([str(PHP), "server/database/install.php", "--status"],

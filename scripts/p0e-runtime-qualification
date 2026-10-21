@@ -366,6 +366,25 @@ def verify_runtime_admission(admission: dict[str, Any], owner: str, thread: str)
             fail("runtime proof contains another schema, endpoint or access operation")
 
 
+def runtime_environment(runtime: dict[str, Any], admission: dict[str, Any], *, php: str = "php") -> dict[str, str]:
+    path = file_reference(runtime["environment"])
+    root = canonical(admission["root"], directory=True)
+    # The native loader enforces sibling path, permissions, key allowlist and
+    # ambient rejection. Configuration belongs to the protected file, not env.
+    environment = {"PEANUT_SERVER_ENV_FILE": str(path), "PEANUT_RESOURCE_REGISTRY": str(REGISTRY_PATH)}
+    result = command([php, "-r",
+        "try { require $argv[1]; "
+        "foreach (['P0E_HOST_LEASE_PROOF','PEANUT_RESOURCE_LEASE_PROOF'] as $key) {"
+        "if (getenv($key) !== $argv[2]) { fwrite(STDERR, 'RUNTIME_ENVIRONMENT_PROOF_MISMATCH:'.$key); exit(2); }}"
+        "} catch (Throwable $e) { fwrite(STDERR, 'RUNTIME_ENVIRONMENT_LOAD_FAILED'); exit(2); }",
+        str(root / "server/bootstrap/environment.php"), admission["proof_dir"]],
+        cwd=root, env=environment, capture=True, check=False)
+    if result.returncode != 0:
+        fail("runtime protected environment must load natively and configure both proof keys to "
+             + admission["proof_dir"] + "; its configuration owner must update the selected file and repin its sha256 before planning")
+    return environment
+
+
 EDITIONS = ("standalone", "multi-tenant")
 APP_RESOURCES = {"standalone": "peanut-app-st-development-mysql84", "multi-tenant": "peanut-app-mt-development-mysql84"}
 
@@ -590,6 +609,10 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
         admissions.append(code)
     for app in inputs["applications"].values():
         admissions.append(runtime_admission(app, app["root"], app["head"]))
+    for admission in admissions:
+        runtime = inputs["code_runtime"] if admission["root"] == str(ROOT) else next(
+            app for app in inputs["applications"].values() if app["root"] == admission["root"])
+        runtime_environment(runtime, admission)
     # Runtime objects are registered separately; there is no caller-supplied resource list.
     registry_resources = read_json(REGISTRY_PATH)["resources"]
     for app in inputs["applications"].values():
@@ -807,8 +830,8 @@ def native_evidence(reference: dict[str, Any], app: dict[str, Any], kind: str) -
     if (set(backup.get("snapshots", {})) != native["SNAPSHOT_SET"]
             or set(backup.get("storage", {})) != set(native["STORAGE_NAMES"])):
         fail("native recovery omits protected configuration, uploads or installation identity")
-    if sha256(canonical(str(workspace / "recovery/database.sql.gz"))) != backup.get("database_dump_sha256"):
-        fail("native paired database backup changed")
+    native["verify_backup_attachments"](server, workspace, update, sha256(plan_path),
+        {k: app[k] for k in ("resource_id", "endpoint_id", "database")})
     for name, digest in backup["snapshots"].items():
         target = server / name
         if digest is None:
@@ -859,14 +882,12 @@ class Runner:
             fail("fixed lifecycle inputs changed; qualification cannot continue")
 
     def environment(self, runtime: dict[str, Any]) -> dict[str, str]:
-        path = file_reference(runtime["environment"])
         admissions = [a for a in self.plan["runtime_admissions"] if a["resource_id"] == runtime["resource_id"]]
         if len(admissions) != 1:
             fail("this runtime operation has no exact native admission")
         admission = admissions[0]
         verify_runtime_admission(admission, self.args.owner, self.args.thread)
-        return {"PEANUT_SERVER_ENV_FILE": str(path), "PEANUT_RESOURCE_REGISTRY": str(REGISTRY_PATH),
-                "P0E_HOST_LEASE_PROOF": admission["proof_dir"], "PEANUT_RESOURCE_LEASE_PROOF": admission["proof_dir"]}
+        return runtime_environment(runtime, admission)
 
     def initialize(self) -> None:
         for path in (self.output, self.cache):
