@@ -50,7 +50,10 @@ final readonly class SourceSharedCredentialRecovery
         $password = null;
         try {
             $passwordDigest = hash('sha256', $passwordBytes);
-            $pdo = Db::connect()->getPdo();
+            $this->assertFrameworkBinding();
+            $connection = Db::connect();
+            $connection->query('SELECT CONNECTION_ID()', [], true);
+            $pdo = $connection->getPdo();
             if (!$pdo instanceof PDO || $pdo->inTransaction()) { self::fail('FRAMEWORK_CONNECTION_INVALID'); }
             $database = $this->databaseIdentity($pdo);
             $this->assertFrameworkBinding();
