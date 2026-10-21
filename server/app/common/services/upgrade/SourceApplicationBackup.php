@@ -926,11 +926,11 @@ final class SourceApplicationBackup
     {
         $captureStarted = time();
         if (!in_array($purpose, ['application-schema', 'application-failure', 'application-restoration', 'plugin-lifecycle',
-            'identity-recovery-snapshot', 'identity-recovery-postimage', 'installation-partial', 'task-failure-forensic', 'workflow-failure-forensic', 'notification-failure-forensic'], true)) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SOURCE_UNSUPPORTED'); }
-        $forensicModule = match ($purpose) { 'task-failure-forensic' => 'task', 'workflow-failure-forensic' => 'workflow', 'notification-failure-forensic' => 'notification', default => null };
+            'identity-recovery-snapshot', 'identity-recovery-postimage', 'installation-partial', 'task-failure-forensic', 'workflow-failure-forensic', 'notification-failure-forensic', 'collaboration-failure-forensic'], true)) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SOURCE_UNSUPPORTED'); }
+        $forensicModule = match ($purpose) { 'task-failure-forensic' => 'task', 'workflow-failure-forensic' => 'workflow', 'notification-failure-forensic' => 'notification', 'collaboration-failure-forensic' => 'collaboration', default => null };
         $failureForensic = $forensicModule !== null;
         if ($failureForensic && (($baseline['forensic_only'] ?? null) !== true
-            || ($baseline['plugin_key'] ?? null) !== match ($forensicModule) { 'task' => 'official.task', 'notification' => 'official.notification', default => 'peanut.workflow' }
+            || ($baseline['plugin_key'] ?? null) !== match ($forensicModule) { 'task' => 'official.task', 'notification' => 'official.notification', 'collaboration' => 'official.collaboration', default => 'peanut.workflow' }
             || !is_array($baseline['original_failure'] ?? null) || ($baseline['recovery_admission'] ?? null) !== false)) {
             throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_ORIGIN_REQUIRED');
         }

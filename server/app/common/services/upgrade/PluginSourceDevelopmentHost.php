@@ -347,6 +347,18 @@ final class PluginSourceDevelopmentHost
     public function snapshotFailure(string $pluginKey, array $actor, string $input, string $toolId, string $output, string $metadataTool, callable $packageLock): array
     {
         $profiles = [
+            'official.collaboration' => ['operation' => 'install', 'module_root' => 'official/collaboration',
+                'owner' => 'Contract/CollaborationMigrationPreservation.php',
+                'selected' => [
+                    'official.collaboration:20261012120000_create_collaboration_runtime' => '0befec8d041ce121f624417fef9df343907b2686e57c8c0a8dde509d556813ac',
+                    'official.collaboration:20261013120100_add_collaboration_business_barriers' => '6cd0d6dab2b08f26371ba97d6887f0e3ae7f7e0b1fcdb3fa3f8a59c54e2f850b',
+                    'official.collaboration:20261013130000_add_instance_lifecycle' => 'e876c39e990491ba422ecb9067c8050ed98573b3ee457108de7d8955a084d6bd',
+                    'official.collaboration:20261014120000_add_native_collaboration_grants' => '15a44a7aaa282b9addcc8c7b72cae027197e5f68058244e881ffc48695ac2f18',
+                ], 'first' => 'official.collaboration:20261012120000_create_collaboration_runtime',
+                'failed' => 'official.collaboration:20261012120000_create_collaboration_runtime',
+                'created' => ['pa_collaboration_service_nonce', 'pa_collaboration_ticket', 'pa_collaboration_room',
+                    'pa_collaboration_connection', 'pa_collaboration_admission', 'pa_collaboration_barrier'],
+                'purpose' => 'collaboration-failure-forensic'],
             'official.notification' => ['operation' => 'upgrade', 'module_root' => 'official/notification',
                 'owner' => 'Contract/NotificationUpgradePreflight.php',
                 'selected' => [
@@ -415,6 +427,7 @@ final class PluginSourceDevelopmentHost
         }
         $digest = $original['document_sha256'] ?? null; $document = $original; unset($document['document_sha256']);
         $pending = array_keys($profile['selected']);
+        $firstCreate = $pluginKey === 'official.collaboration';
         if (in_array($pluginKey, ['official.task', 'official.notification'], true)) { array_shift($pending); }
         if ($workflowV2) { $pending = array_slice($pending, 2); }
         if (($original['protocol'] ?? null) !== 'peanut.source-plugin-failure.v1' || ($original['status'] ?? null) !== 'failed'
@@ -422,8 +435,13 @@ final class PluginSourceDevelopmentHost
             || ($original['failure_phase'] ?? null) !== 'native_lifecycle' || !is_string($digest) || !hash_equals($digest, self::digest($document))
             || ($original['baseline']['pending'] ?? null) !== $pending
             || ($original['baseline']['selected'] ?? null) !== $profile['selected']
-            || count($original['ordered_stages'] ?? []) !== ($workflowV2 ? 2 : 1) || ($original['ordered_stages'][0]['migration_key'] ?? null) !== $profile['first']
-            || ($original['ordered_stages'][0]['accepted_while'] ?? null) !== 'applying') { throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_ORIGIN_REQUIRED'); }
+            || !is_array($original['ordered_stages'] ?? null)
+            || count($original['ordered_stages']) !== ($firstCreate ? 0 : ($workflowV2 ? 2 : 1))
+            || (!$firstCreate && (($original['ordered_stages'][0]['migration_key'] ?? null) !== $profile['first']
+                || ($original['ordered_stages'][0]['accepted_while'] ?? null) !== 'applying'))) { throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_ORIGIN_REQUIRED'); }
+        if ($firstCreate && (($original['old_ledger'] ?? null) !== [] || count($original['ledger'] ?? []) !== 1)) {
+            throw new RuntimeException('PLUGIN_SOURCE_COLLABORATION_FORENSIC_FRESH_ORIGIN_REQUIRED');
+        }
         if ($workflowV2 && (array_column($original['ordered_stages'], 'migration_key') !== array_slice($pending, 0, 2)
             || array_column($original['ordered_stages'], 'accepted_while') !== ['applying', 'applying']
             || array_column(array_column($original['ordered_stages'], 'safe_after'), 'preservation_verified') !== [true, true]
@@ -455,8 +473,15 @@ final class PluginSourceDevelopmentHost
         }
         $source = $original['binding']['source'] ?? [];
         if (($source['root'] ?? null) !== dirname($root)) { throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_SOURCE_CHANGED'); }
-        $this->assertReceiptSource($source['head'] ?? '', $root . '/app/modules/' . $profile['module_root'] . '/src/' . $profile['owner'],
-            $original['ordered_stages'][0]['contract_sha256'] ?? '');
+        if ($firstCreate) {
+            $this->identityHistoricalProgram($source['head'] ?? '', 'server/app/common/services/upgrade/PluginSourceDevelopmentHost.php', $original['writer_sha256'] ?? '');
+            $this->identityHistoricalProgram($source['head'] ?? '', 'server/app/platform/services/plugin/PluginLifecycleService.php', $original['executor_sha256'] ?? '');
+        }
+        $ownerFile = $root . '/app/modules/' . $profile['module_root'] . '/src/' . $profile['owner'];
+        // A failed first observer has no accepted-after record. Verify the still-unchanged
+        // owner against the original committed source, never invent an accepted stage.
+        $this->assertReceiptSource($source['head'] ?? '', $ownerFile,
+            $firstCreate ? hash_file('sha256', $ownerFile) : ($original['ordered_stages'][0]['contract_sha256'] ?? ''));
         // Do not move to a different package before preserving its actual failed state.
         $this->assertReceiptSource($source['head'], dirname($root) . '/plugins.lock', hash_file('sha256', dirname($root) . '/plugins.lock'));
         foreach ($original['baseline']['selected'] ?? [] as $key => $sha) {
@@ -510,6 +535,13 @@ final class PluginSourceDevelopmentHost
                                 try { $q->execute([$pluginKey]); $rows = $q->fetchAll(PDO::FETCH_ASSOC); } finally { $q->closeCursor(); }
                                 $expected = $original['ledger']; usort($expected, static fn(array $a, array $b): int => strcmp($a['migration_key'], $b['migration_key']));
                                 if (self::digest($rows) !== self::digest($expected)) { throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_LEDGER_CHANGED'); }
+                                if ($pluginKey === 'official.collaboration' && (count($rows) !== 1
+                                    || $rows[0]['migration_key'] !== $profile['failed'] || $rows[0]['module_key'] !== $pluginKey
+                                    || $rows[0]['module_version'] !== '1.0.1' || $rows[0]['checksum'] !== $profile['selected'][$profile['failed']]
+                                    || $rows[0]['status'] !== 'failed' || $rows[0]['resolution_kind'] !== null || $rows[0]['provenance_json'] !== null
+                                    || $rows[0]['error_code'] !== 'MODULE_MIGRATION_FAILED' || !is_string($rows[0]['finished_at']))) {
+                                    throw new RuntimeException('PLUGIN_SOURCE_COLLABORATION_FORENSIC_LEDGER_CHANGED');
+                                }
                                 $v2 = $pluginKey === 'peanut.workflow' && count($profile['selected']) === 5;
                                 if ($pluginKey === 'official.notification') {
                                     if (array_column($rows, 'migration_key') !== array_keys($profile['selected'])
@@ -572,7 +604,7 @@ final class PluginSourceDevelopmentHost
                             $baseline = $original['baseline'] + ['forensic_only' => true, 'original_failure' => ['path' => $input, 'sha256' => $originalSha], 'recovery_admission' => false];
                             $captured = SourceApplicationBackup::capture($binding, $baseline, self::digest($baseline), $scope, $tools[0], $output, $check, $profile['purpose']);
                             if (SourceApplicationBackup::pluginScope($pdo, $effects, $binding, $metadataTool, $check) !== $scope) { throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_SCOPE_CHANGED'); }
-                            $check(); return ['protocol' => 'peanut.source-' . match ($pluginKey) { 'official.task' => 'task', 'official.notification' => 'notification', default => 'workflow' } . '-failure-forensic-result.v1', 'status' => 'captured', 'original_failure' => $baseline['original_failure'],
+                            $check(); return ['protocol' => 'peanut.source-' . match ($pluginKey) { 'official.task' => 'task', 'official.notification' => 'notification', 'official.collaboration' => 'collaboration', default => 'workflow' } . '-failure-forensic-result.v1', 'status' => 'captured', 'original_failure' => $baseline['original_failure'],
                                 'backup' => $captured, 'source_schema_package_locks' => 'held', 'restore' => 'not_executed', 'recovery_admission' => false, 'qualification' => 'not_run'];
                         });
                     } finally { $this->failureForensic = null; }
@@ -739,7 +771,7 @@ final class PluginSourceDevelopmentHost
 
     public function requireFailureForensic(PDO $pdo, string $pluginKey, bool $packageLocked = true): void
     {
-        if (!in_array($pluginKey, ['official.task', 'peanut.workflow', 'official.notification'], true) || $this->failureForensic === null
+        if (!in_array($pluginKey, ['official.task', 'peanut.workflow', 'official.notification', 'official.collaboration'], true) || $this->failureForensic === null
             || $this->failureForensic['pdo'] !== $pdo || $this->failureForensic['plugin_key'] !== $pluginKey || $this->mutation !== null || $this->planning !== null
             || $this->identityRecovery !== null || $pdo->inTransaction()) { throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_WINDOW_REQUIRED'); }
         ($this->failureForensic['guard'])();
