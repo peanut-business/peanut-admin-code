@@ -2470,7 +2470,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d66125931f73198d79dfdb5bb77e432f50eb812771c3f4af5602860e8e767372"
+            "source_sha256": "0cf820ac9c3ddf8bd41ad96e0966006e9e4e7e070b2cd8271caf3f93bf93ab16"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2593,7 +2593,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d028afbb5e9d9e2717b1ceff434ff4db68d1231896589b01f49afd8eae4b2117"
+            "source_sha256": "d1f43823b2c842d6033f2499cfc5e6e1e2535ad3760b903c63f46f7d6e5eec54"
         },
         {
             "path": "plugins/official.identity/plugin.json",
@@ -12535,7 +12535,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8a8f2e00b0973ffdb41dddbf78a91fd120651bd8722a38a46fbb18e09a822971"
+            "source_sha256": "0e87c403be754a53f9e25d4e789e3ae35a8d2fc23b138f0686e092ed53819abf"
         },
         {
             "path": "server/app/modules/official/file/src/Composition/Storage/AliyunStorageClientFactory.php",
@@ -13277,7 +13277,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d8fc93c536b4afa93f8df992e9d969619d840a00c76dce4e0b507132d7a54a13"
+            "source_sha256": "881bc173ae5e7186fe396ed49c8b68f9c2c1cadb8ea2ea7d897d06728aeb67a1"
         },
         {
             "path": "server/app/modules/official/file/src/Service/Storage/StorageConfigurationService.php",

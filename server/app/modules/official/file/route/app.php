@@ -24,14 +24,19 @@ if (($peanutRouteApplication ?? null) === 'adminapi') {
         Route::get('official.file.list', [FileController::class, 'lists']);
         Route::post('api/v1/files/resolve', [FileController::class, 'resolve']);
         Route::post('api/v1/files/visibility/preview', [\PeanutAdmin\Modules\File\Controller\FileVisibilityController::class, 'preview'])
+            ->completeMatch()
             ->option(['peanut_permission' => 'official.file.visibility.change']);
         Route::post('api/v1/files/visibility/batches', [\PeanutAdmin\Modules\File\Controller\FileVisibilityController::class, 'submit'])
+            ->completeMatch()
             ->option(['peanut_permission' => 'official.file.visibility.change']);
         Route::get('api/v1/files/visibility/batches', [\PeanutAdmin\Modules\File\Controller\FileVisibilityController::class, 'recent'])
+            ->completeMatch()
             ->option(['peanut_permission' => 'official.file.visibility.change']);
         Route::get('api/v1/files/visibility/batches/:batchKey', [\PeanutAdmin\Modules\File\Controller\FileVisibilityController::class, 'status'])
+            ->completeMatch()
             ->option(['peanut_permission' => 'official.file.visibility.change']);
         Route::post('api/v1/files/visibility/batches/:batchKey/resume', [\PeanutAdmin\Modules\File\Controller\FileVisibilityController::class, 'resume'])
+            ->completeMatch()
             ->option(['peanut_permission' => 'official.file.visibility.change']);
         Route::get('api/v1/files/assets', [FileController::class, 'assets'])
             ->option(['peanut_permission' => 'official.file.list']);

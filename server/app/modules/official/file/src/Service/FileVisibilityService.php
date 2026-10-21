@@ -119,7 +119,7 @@ final readonly class FileVisibilityService implements FileVisibility
             'created_at' => $batch['created_at'], 'updated_at' => $batch['updated_at'],
             'items' => array_map(static fn(array $item): array => ['file_key' => $item['file_key'], 'status' => $item['status'],
                 'step' => $item['step'], 'attempts' => (int) $item['attempts'], 'error_code' => $item['error_code'],
-                'receipts' => json_decode($item['receipts_json'], true, 32, JSON_THROW_ON_ERROR)], $items),
+                'receipts' => $item['receipts_json']], $items),
             'external_usage_complete' => false, 'downloaded_copies_recoverable' => false];
     }
 
@@ -209,8 +209,8 @@ final readonly class FileVisibilityService implements FileVisibility
                         $receipt = $this->storage->visibilityStorageStep(
                             $context,
                             $batchKey,
-                            json_decode($item['source_json'], true, 32, JSON_THROW_ON_ERROR),
-                            json_decode($item['target_json'], true, 32, JSON_THROW_ON_ERROR),
+                            $item['source_json'],
+                            $item['target_json'],
                             $step,
                         );
                         Db::transaction(function () use ($context, $batchKey, $fileKey, $step, $position, $receipt): void {
@@ -219,7 +219,7 @@ final readonly class FileVisibilityService implements FileVisibility
                             if ($current['step'] !== $step) {
                                 throw BusinessException::conflict('FILE_VISIBILITY_STEP_CHANGED', '批次阶段已改变');
                             }
-                            $receipts = json_decode($current['receipts_json'], true, 32, JSON_THROW_ON_ERROR);
+                            $receipts = $current['receipts_json'];
                             $receipts[$step] = $receipt;
                             if ($step === 'verify') {
                                 $changed = FileObject::where('file_key', $fileKey)->where('visibility_batch_key', $batchKey)
