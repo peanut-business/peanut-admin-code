@@ -2457,7 +2457,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4ed99eb0154f658f79e247f8719fd7e6df69f72ea3bd37b1a11ff256c18ff020"
+            "source_sha256": "5ade2f62ce48d3eb5f3a96daf595a6f46b994fd1b756da6ab8753f223520794d"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2748,7 +2748,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1471d6d4a04ee635a82fe911163362451777e96e912e9c060b85eadf15034135"
+            "source_sha256": "a9f8be6ddda56f4f8502dafd67a34a1cc333d26d7b5b560b928bd09724e3d8a8"
         },
         {
             "path": "plugins/peanut.artifact-revision/plugin.json",
@@ -23115,7 +23115,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0c3bdff20b581ae737bc1cb6fc1c69ad04d93acc573293e7e7bd139d8b8a795e"
+            "source_sha256": "49a21e19af2461fc28b9413e428d53727810b3edb89b96bec77604fbec75ac12"
         },
         {
             "path": "server/app/modules/official/task/src/Job/Execution/JobAuthorizationFence.php",

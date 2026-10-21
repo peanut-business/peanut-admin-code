@@ -1932,7 +1932,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "418837c17e8f096b5fb6245d72d01150168756da18636bc952e5599a723cd4dc"
+                "sha256": "478ae1660be600dd104fad02999e595aba8b60657872db7b3d5f47121b1fd334"
             },
             "trust": {
                 "channel": "bundled",
@@ -2029,7 +2029,7 @@
                 }
             ],
             "manifest": "plugins/official.task/plugin.json",
-            "manifest_sha256": "1471d6d4a04ee635a82fe911163362451777e96e912e9c060b85eadf15034135"
+            "manifest_sha256": "a9f8be6ddda56f4f8502dafd67a34a1cc333d26d7b5b560b928bd09724e3d8a8"
         },
         {
             "key": "peanut.artifact-revision",

@@ -142,16 +142,21 @@ final class TaskSchemaMigrationProof
             self::appendColumn($job['columns'], self::column('producer_fact_key', 'varchar(64)', true, null, 'ascii_bin'));
         }
         if (!isset($job['indexes']['uk_task_negative_fact'])) { $job['indexes']['uk_task_negative_fact'] = self::index('uk_task_negative_fact', ['authorization_profile', 'producer_fact_key']); }
-        ksort($job['indexes']);
         self::assertCheck($after['pa_task_job']['checks']['chk_task_job_profile'] ?? []);
         if (!isset($job['checks']['chk_task_job_profile'])) { $job['checks']['chk_task_job_profile'] = $after['pa_task_job']['checks']['chk_task_job_profile']; }
-        ksort($job['checks']); unset($job);
+        unset($job);
         $event = &$expected['pa_task_job_event'];
         if (!isset($event['columns']['event_reference'])) {
             self::appendColumn($event['columns'], self::column('event_reference', 'char(64)', true, null, 'ascii_bin'));
             $event['indexes']['uk_task_event_reference'] = self::index('uk_task_event_reference', ['job_id', 'event_reference']);
         }
-        ksort($event['indexes']); unset($event);
+        unset($event);
+        foreach (['pa_task_job', 'pa_task_job_event'] as $table) {
+            foreach (['indexes', 'checks'] as $map) {
+                ksort($expected[$table][$map], SORT_STRING);
+                ksort($after[$table][$map], SORT_STRING);
+            }
+        }
         if ($expected !== $after) { self::fail('PROFILE_POSTSTATE_INVALID'); }
     }
 
@@ -199,9 +204,13 @@ final class TaskSchemaMigrationProof
     {
         $result = [];
         foreach (self::TABLES as $table) {
+            $present = self::query($pdo, 'SELECT TABLE_TYPE,ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$table]);
+            if ($present === []) { $result[$table] = null; continue; }
+            if (count($present) !== 1 || $present[0]['TABLE_TYPE'] !== 'BASE TABLE' || $present[0]['ENGINE'] !== 'InnoDB') { self::fail('TABLE_UNSUPPORTED'); }
+            // SHOW CREATE initializes a new empty InnoDB allocator before its statistics are compared.
+            $ddl = array_values(self::query($pdo, 'SHOW CREATE TABLE `' . $table . '`')[0])[1];
             $meta = self::query($pdo, 'SELECT TABLE_TYPE,ENGINE,TABLE_COLLATION,AUTO_INCREMENT,CREATE_OPTIONS,TABLE_COMMENT,ROW_FORMAT'
                 . ' FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$table]);
-            if ($meta === []) { $result[$table] = null; continue; }
             if (count($meta) !== 1 || $meta[0]['TABLE_TYPE'] !== 'BASE TABLE' || $meta[0]['ENGINE'] !== 'InnoDB') { self::fail('TABLE_UNSUPPORTED'); }
             $columns = self::query($pdo, 'SELECT COLUMN_NAME,ORDINAL_POSITION,COLUMN_TYPE,IS_NULLABLE,COLUMN_DEFAULT,EXTRA,CHARACTER_SET_NAME,'
                 . 'COLLATION_NAME,COLUMN_COMMENT,GENERATION_EXPRESSION FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY ORDINAL_POSITION', [$table]);
@@ -216,7 +225,7 @@ final class TaskSchemaMigrationProof
                 . ' WHERE k.TABLE_SCHEMA=DATABASE() AND k.TABLE_NAME=? AND k.REFERENCED_TABLE_NAME IS NOT NULL ORDER BY k.CONSTRAINT_NAME,k.ORDINAL_POSITION', [$table]);
             $result[$table] = ['table' => $meta[0], 'columns' => array_column($columns, null, 'COLUMN_NAME'), 'indexes' => $indexes,
                 'checks' => array_column($checks, null, 'CONSTRAINT_NAME'), 'foreign_keys' => $foreign,
-                'ddl' => array_values(self::query($pdo, 'SHOW CREATE TABLE `' . $table . '`')[0])[1]];
+                'ddl' => $ddl];
         }
         return $result;
     }
@@ -296,15 +305,23 @@ final class TaskSchemaMigrationProof
 
     private static function snapshot(PDO $pdo, Closure $read): array
     {
-        $started = false;
+        $started = false; $statistics = null;
         try {
             if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'mysql' || $pdo->getAttribute(PDO::ATTR_CASE) !== PDO::CASE_NATURAL || $pdo->inTransaction()) { self::fail('CONNECTION_UNSUPPORTED'); }
+            $statement = $pdo->query('SELECT @@SESSION.information_schema_stats_expiry');
+            try { $value = $statement->fetchColumn(); } finally { $statement->closeCursor(); }
+            if (!is_int($value) && (!is_string($value) || preg_match('/\A[0-9]+\z/D', $value) !== 1)) { self::fail('STATISTICS_UNAVAILABLE'); }
+            $statistics = (int) $value;
+            $pdo->exec('SET SESSION information_schema_stats_expiry=0');
             $pdo->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY'); $pdo->beginTransaction(); $started = true;
             $result = $read(); if (!$pdo->inTransaction()) { self::fail('SNAPSHOT_CHANGED'); } return $result;
         } catch (Throwable $error) {
             if ($error instanceof RuntimeException && str_starts_with($error->getMessage(), 'TASK_SCHEMA_STAGE_')) { throw $error; }
             throw new RuntimeException('TASK_SCHEMA_STAGE_OBSERVATION_FAILED', 0, $error);
-        } finally { if ($started && $pdo->inTransaction()) { $pdo->rollBack(); } }
+        } finally {
+            try { if ($started && $pdo->inTransaction()) { $pdo->rollBack(); } }
+            finally { if ($statistics !== null) { $pdo->exec('SET SESSION information_schema_stats_expiry=' . $statistics); } }
+        }
     }
 
     private static function fail(string $code): never
