@@ -367,19 +367,45 @@ final class PluginSourceDevelopmentHost
         $originalBytes = SourceApplicationBackup::protectedPluginBytes($input, $root);
         $original = json_decode($originalBytes, true, 64, JSON_THROW_ON_ERROR); $originalSha = hash('sha256', $originalBytes);
         if (!is_array($original) || array_is_list($original)) { throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_ORIGIN_REQUIRED'); }
+        // A second, fixed Workflow failure shape: the managed repair and facts were
+        // accepted, then V2 failed. Preserve this actual afterimage before changing
+        // the package; neither failed original is converted into an applied row.
+        $workflowV2 = $pluginKey === 'peanut.workflow'
+            && isset($original['baseline']['selected']['peanut.workflow:20261012-workflow-managed-template-repair-20261021']);
+        if ($workflowV2) {
+            $profile['selected'] = [
+                'peanut.workflow:20260921-register-module-schema' => 'f0a21d63c83afcd2438fc327bf6ad97a59d82daa571bc4de51d74c32eb487ff7',
+                'peanut.workflow:20261012-workflow-managed-template' => 'fd02893a4b7a0ea60aa6c5434ff8b46f11e35bec94f10a76fc0b0f64609282a5',
+                'peanut.workflow:20261012-workflow-managed-template-repair-20261021' => 'f3416b6c726a4a97ef70df967f14227c328c0ced156ac98656200f44712e5993',
+                'peanut.workflow:20261012-workflow-notification-facts' => 'ff26361f27773b9500fe6484729a26c0655d18f893cac8739bae9edfec8f6378',
+                'peanut.workflow:20261012-workflow-v2-execution' => 'f46f8b9a7a567584988e3520669daa1a8f893b69d837a1dedf223deb4f2a1b09',
+            ];
+            $profile['first'] = 'peanut.workflow:20261012-workflow-managed-template-repair-20261021';
+            $profile['failed'] = 'peanut.workflow:20261012-workflow-v2-execution';
+            $profile['created'] = ['pa_workflow_node_execution', 'pa_workflow_task_identity_link'];
+            $profile['empty'] = ['pa_workflow_definition', 'pa_workflow_definition_version', 'pa_workflow_event',
+                'pa_workflow_instance', 'pa_workflow_work_item', ...$profile['created']];
+        }
         $digest = $original['document_sha256'] ?? null; $document = $original; unset($document['document_sha256']);
         $pending = array_keys($profile['selected']);
         if ($pluginKey === 'official.task') { array_shift($pending); }
+        if ($workflowV2) { $pending = array_slice($pending, 2); }
         if (($original['protocol'] ?? null) !== 'peanut.source-plugin-failure.v1' || ($original['status'] ?? null) !== 'failed'
             || ($original['operation'] ?? null) !== $profile['operation'] || ($original['plugin_key'] ?? null) !== $pluginKey
             || ($original['failure_phase'] ?? null) !== 'native_lifecycle' || !is_string($digest) || !hash_equals($digest, self::digest($document))
             || ($original['baseline']['pending'] ?? null) !== $pending
             || ($original['baseline']['selected'] ?? null) !== $profile['selected']
-            || count($original['ordered_stages'] ?? []) !== 1 || ($original['ordered_stages'][0]['migration_key'] ?? null) !== $profile['first']
+            || count($original['ordered_stages'] ?? []) !== ($workflowV2 ? 2 : 1) || ($original['ordered_stages'][0]['migration_key'] ?? null) !== $profile['first']
             || ($original['ordered_stages'][0]['accepted_while'] ?? null) !== 'applying') { throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_ORIGIN_REQUIRED'); }
-        if ($pluginKey === 'peanut.workflow' && (count($original['ledger'] ?? []) !== 2
+        if ($workflowV2 && (array_column($original['ordered_stages'], 'migration_key') !== array_slice($pending, 0, 2)
+            || array_column($original['ordered_stages'], 'accepted_while') !== ['applying', 'applying']
+            || array_column(array_column($original['ordered_stages'], 'safe_after'), 'preservation_verified') !== [true, true]
+            || array_column(array_column($original['ordered_stages'], 'safe_after'), 'created_empty_tables') !== [0, 0])) {
+            throw new RuntimeException('PLUGIN_SOURCE_FAILURE_FORENSIC_ORIGIN_REQUIRED');
+        }
+        if ($pluginKey === 'peanut.workflow' && (count($original['ledger'] ?? []) !== ($workflowV2 ? 5 : 2)
             || ($original['ordered_stages'][0]['safe_after']['preservation_verified'] ?? null) !== true
-            || ($original['ordered_stages'][0]['safe_after']['created_empty_tables'] ?? null) !== count($profile['created']))) {
+            || (!$workflowV2 && ($original['ordered_stages'][0]['safe_after']['created_empty_tables'] ?? null) !== count($profile['created'])))) {
             throw new RuntimeException('PLUGIN_SOURCE_FAILURE_FORENSIC_ORIGIN_REQUIRED');
         }
         $native = $original['native_plan'] ?? [];
@@ -448,16 +474,32 @@ final class PluginSourceDevelopmentHost
                                 try { $q->execute([$pluginKey]); $rows = $q->fetchAll(PDO::FETCH_ASSOC); } finally { $q->closeCursor(); }
                                 $expected = $original['ledger']; usort($expected, static fn(array $a, array $b): int => strcmp($a['migration_key'], $b['migration_key']));
                                 if (self::digest($rows) !== self::digest($expected)) { throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_LEDGER_CHANGED'); }
-                                if ($pluginKey === 'peanut.workflow' && (array_column($rows, 'migration_key') !== [$profile['first'], $profile['failed']]
+                                $v2 = $pluginKey === 'peanut.workflow' && count($profile['selected']) === 5;
+                                if ($v2) {
+                                    if (array_column($rows, 'migration_key') !== array_keys($profile['selected'])
+                                        || array_column($rows, 'status') !== ['applied', 'failed', 'applied', 'applied', 'failed']
+                                        || array_column($rows, 'resolution_kind') !== ['executed', null, 'executed', 'executed', null]
+                                        || array_column($rows, 'checksum') !== array_values($profile['selected'])) {
+                                        throw new RuntimeException('PLUGIN_SOURCE_FAILURE_FORENSIC_LEDGER_CHANGED');
+                                    }
+                                } elseif ($pluginKey === 'peanut.workflow' && (array_column($rows, 'migration_key') !== [$profile['first'], $profile['failed']]
                                     || $rows[0]['status'] !== 'applied' || $rows[0]['resolution_kind'] !== 'executed'
                                     || $rows[0]['checksum'] !== $profile['selected'][$profile['first']]
                                     || $rows[1]['checksum'] !== $profile['selected'][$profile['failed']])) {
                                     throw new RuntimeException('PLUGIN_SOURCE_FAILURE_FORENSIC_LEDGER_CHANGED');
                                 }
                                 $failed = array_values(array_filter($rows, static fn(array $row): bool => $row['status'] !== 'applied'));
-                                if (count($failed) !== 1 || $failed[0]['migration_key'] !== $profile['failed'] || $failed[0]['status'] !== 'failed'
-                                    || $failed[0]['resolution_kind'] !== null || $failed[0]['provenance_json'] !== null) { throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_LEDGER_CHANGED'); }
-                                foreach ($profile['created'] as $table) {
+                                if (array_column($failed, 'migration_key') !== ($v2
+                                    ? ['peanut.workflow:20261012-workflow-managed-template', $profile['failed']] : [$profile['failed']])) {
+                                    throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_LEDGER_CHANGED');
+                                }
+                                foreach ($failed as $row) {
+                                    if ($row['status'] !== 'failed' || $row['resolution_kind'] !== null || $row['provenance_json'] !== null
+                                        || ($v2 && ($row['error_code'] !== 'MODULE_MIGRATION_FAILED' || !is_string($row['finished_at'])))) {
+                                        throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_LEDGER_CHANGED');
+                                    }
+                                }
+                                foreach ($profile['empty'] ?? $profile['created'] as $table) {
                                     $q = $pdo->query('SELECT EXISTS(SELECT 1 FROM `' . $table . '`)');
                                     try { if ((string) $q->fetchColumn() !== '0') { throw new RuntimeException('PLUGIN_SOURCE_FAILURE_FORENSIC_NEW_TABLE_NOT_EMPTY'); } }
                                     finally { $q->closeCursor(); }
