@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PeanutAdmin\Modules\ArtifactRevision\Database;
 
 use app\common\services\upgrade\MySqlMetadataObservation;
+use app\platform\services\plugin\PluginLifecycleService;
 use Closure;
 use PDO;
 use RuntimeException;
@@ -21,17 +22,16 @@ final class ArtifactRevisionMigrationPreservation
         'pa_artifact' => 'peanut.artifact-revision:20260921-register-module-schema',
         'pa_artifact_revision' => 'peanut.artifact-revision:20260921-register-module-schema',
     ];
-    private const PARENTS = ['pa_tenant', 'pa_tenant_member'];
-
-    public static function before(PDO $pdo, array $stage): array
+    public static function before(PDO $pdo, array $stage, array $nativeParentFacts): array
     {
-        return self::snapshot($pdo, static function () use ($pdo, $stage): array {
+        self::identity($stage);
+        $parents = self::parents(PluginLifecycleService::verifiedMigrationParentFacts($pdo, $stage['migration_key'], 'before', $nativeParentFacts));
+        return self::snapshot($pdo, static function () use ($pdo, $stage, $parents): array {
             self::identity($stage); self::sources();
             $ledger = self::ledger($pdo, $stage); $tables = self::tables($pdo);
             foreach ($tables as $image) {
                 if ($image !== null) { self::fail('PRESTATE_TABLES_INVALID'); }
             }
-            $parents = self::parents($pdo);
             if ($ledger !== self::ledger($pdo, $stage)) { self::fail('LEDGER_CHANGED'); }
             return ['module_key' => self::MODULE, 'migration_key' => $stage['migration_key'], 'checksum' => $stage['checksum'],
                 'pdo_object_id' => spl_object_id($pdo), 'connection' => self::connection($pdo),
@@ -43,9 +43,11 @@ final class ArtifactRevisionMigrationPreservation
         });
     }
 
-    public static function after(PDO $pdo, array $before): array
+    public static function after(PDO $pdo, array $before, array $nativeParentFacts): array
     {
-        return self::snapshot($pdo, static function () use ($pdo, $before): array {
+        self::identity($before);
+        $parents = self::parents(PluginLifecycleService::verifiedMigrationParentFacts($pdo, $before['migration_key'], 'after', $nativeParentFacts));
+        return self::snapshot($pdo, static function () use ($pdo, $before, $parents): array {
             self::identity($before);
             if (($before['pdo_object_id'] ?? null) !== spl_object_id($pdo)
                 || ($before['connection'] ?? null) !== self::connection($pdo)
@@ -66,7 +68,6 @@ final class ArtifactRevisionMigrationPreservation
                 }
                 ++$created;
             }
-            $parents = self::parents($pdo);
             if ($before['parents'] !== $parents) { self::fail('PARENT_METADATA_CHANGED'); }
             if ($before['ledger'] !== self::ledger($pdo, $before)) { self::fail('LEDGER_CHANGED'); }
             return ['module_key' => self::MODULE, 'migration_key' => $before['migration_key'], 'checksum' => $before['checksum'],
@@ -94,13 +95,28 @@ final class ArtifactRevisionMigrationPreservation
         return $tables;
     }
 
-    private static function parents(PDO $pdo): array
+    /** Native aliases carry complete observations; this Module never reads another Module's tables. */
+    private static function parents(array $facts): array
     {
+        $input = $facts['parents'] ?? null;
+        $aliases = ['tenant', 'tenant_member'];
+        if (!is_array($input) || array_diff($aliases, array_keys($input)) !== []
+            || array_diff(array_keys($input), $aliases) !== []) { self::fail('PARENT_UNKNOWN'); }
         $parents = [];
-        foreach (self::PARENTS as $table) {
-            $parents[$table] = MySqlMetadataObservation::tableSchema($pdo, $table);
-            if ($parents[$table] === null || ($parents[$table]['metadata']['TABLE_TYPE'] ?? null) !== 'BASE TABLE'
-                || ($parents[$table]['metadata']['ENGINE'] ?? null) !== 'InnoDB') { self::fail('PARENT_UNKNOWN'); }
+        $fields = ['metadata', 'ddl', 'auto_increment', 'columns', 'indexes', 'foreign_keys', 'checks', 'triggers'];
+        foreach ($aliases as $alias) {
+            $image = $input[$alias];
+            if (!is_array($image) || array_diff($fields, array_keys($image)) !== []
+                || array_diff(array_keys($image), $fields) !== []
+                || !is_array($image['metadata']) || ($image['metadata']['TABLE_TYPE'] ?? null) !== 'BASE TABLE'
+                || ($image['metadata']['ENGINE'] ?? null) !== 'InnoDB'
+                || !is_string($image['ddl']) || $image['ddl'] === ''
+                || !is_array($image['columns']) || $image['columns'] === []
+                || !is_array($image['indexes']) || $image['indexes'] === []
+                || !is_array($image['foreign_keys']) || !is_array($image['checks']) || !is_array($image['triggers'])
+                || ($image['auto_increment'] !== null && (!is_string($image['auto_increment'])
+                    || preg_match('/\A[1-9][0-9]*\z/D', $image['auto_increment']) !== 1))) { self::fail('PARENT_UNKNOWN'); }
+            $parents[$alias] = $image;
         }
         return $parents;
     }
