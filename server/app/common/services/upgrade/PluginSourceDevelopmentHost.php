@@ -37,6 +37,7 @@ final class PluginSourceDevelopmentHost
         'official.identity' => \PeanutAdmin\Modules\Identity\Database\IdentitySchemaMigrationProof::class,
         'official.file' => \PeanutAdmin\Modules\File\Contract\FileMigrationPreservation::class,
         'official.document' => \PeanutAdmin\Modules\Document\Contract\DocumentMigrationPreservation::class,
+        'official.collaboration' => \PeanutAdmin\Modules\Collaboration\Contract\CollaborationMigrationPreservation::class,
         'official.article' => \PeanutAdmin\Modules\Article\Contract\ArticleMigrationPreservation::class,
         'official.member' => \PeanutAdmin\Modules\Member\Contract\MemberSessionMigrationPreservation::class,
         'official.import-export' => \PeanutAdmin\Modules\ImportExport\Contract\ImportExportMigrationPreservation::class,

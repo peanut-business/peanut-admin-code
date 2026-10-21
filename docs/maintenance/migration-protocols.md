@@ -1,5 +1,9 @@
 # 源码维护：安装基线与迁移协议
 
+Collaboration 的四份固定原 SQL 由原 PLS 的 stageLedger／before／SQL／after 链调用 `CollaborationMigrationPreservation`，备份闭包按各阶段精确 key／hash 覆盖八张所属表及共享 catalog／ledger。base 要求六表原不存在并创建为空；barriers 只允许 connection_id 可空及四列追加；runtime 只创建原不存在的空 runtime 表，保留其 utf8mb4_0900_ai_ci；grants 只追加三列、drained receipt、规定可空变化及原不存在的空 grant 表。原 SQL 不含行 DML，旧值依固定 ADD／可空语义保留，protocol_version 默认 1 不构成旧房间升级到协议 2。每阶段分别核完整账本、列、索引、FK、CHECK AST／ENFORCED、触发器、表选项和真实 allocator；CHECK 仅归一字面量引入符与不改变布尔优先级的分组，生成表达式未知则拒绝。先 SHOW CREATE 再读取 allocator，NULL 不补 1，新建空表必须为 1，观察后恢复 SESSION 元数据缓存设置。外部父表 pa_document 只观察保全，不加入恢复写集；原缺失八表的 absence 与恢复指引必须保留，捕获不表示恢复资格或业务通过。失败不得重放 SQL、改写旧账本或隐式恢复共享父表。
+
+fresh Collaboration 安装失败须先封存实际已提交前缀、部分 DDL、完整账本、审计和当前对象／数据后像，UNKNOWN 不重放。另行取得精确恢复准入后，才可判断原缺失表是否确由本操作创建、仍为空且没有后续使用或未知入向 FK／trigger；有业务数据或归属不明即停止该恢复链。保持 FK／unique 检查开启，所属对象的逆依赖顺序是 grant、barrier／admission、connection、ticket／room，runtime／service_nonce 无所属父依赖；只处理实际存在且已证明归属的对象，不删除 pa_document。共享 catalog／ledger 不整体 DROP／回灌，须保留原 PK／自然键和其他模块全行，仅恢复有证据的本操作差异，并保留失败审计。恢复后另核原完整结构／数据与八表 absence；此说明不是自动恢复器，也不声称恢复已执行或获得资格。
+
 Notification 的 producer 原 SQL 已执行而后态证明失败时，先在原包未改变前使用 `plugin:upgrade official.notification --scope=source-development --dry-run --snapshot-operation=<原失败回执>` 及原生备份参数封存固定失败后像。入口只接受 namespace applied、adoption executed/applied、producer failed 的完整三行账本、唯一已接受 adoption 六空表证明、当前七表为空及已接受的私有回执后像；取证不授予恢复或迁移资格。四个 message CHECK 的 `_utf8mb4`／`_ascii` 字面量引入符可由 MySQL ALTER 重编译，正常 producer 仅对这四处归一后比较 DDL，其余字节、完整 typed CHECK AST、ENFORCED、列、索引、外键、表选项和真实 allocator 仍需一致。
 
 更高版本的固定 `20261021-notification-producer-repair` 声明修复原 producer，SQL 仅为 `SELECT 1`。源码 normal plan、capture、apply 均显式提供 `--notification-predecessor=<原生取证 backup.json>`；原失败回执、封存 binding、原 Git lock／manifest／SQL、原完整账本摘要、实例及当前失败身份必须相符，不能扫描目录猜前任。新目标使用独立 binding，保存前任引用与摘要，原文件不修改；执行中持续核原 live binding 和原账本，历史复验消费封存字节。修复 before／after 核七表完整目标结构与 allocator 完全不变，原 failed 行保留，只有新修复行可由官方适配器真实写入 applied。该路径不把原 SQL 记为成功，也不跳过新计划、维护窗口、原生前态备份或正常发布资格。

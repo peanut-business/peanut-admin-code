@@ -321,11 +321,11 @@
         },
         {
             "key": "official.collaboration",
-            "version": "1.0.0",
+            "version": "1.0.1",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "473002ea5025146714a90a1d75eb9831c41162f361fcc5448a90c0209e4da085"
+                "sha256": "3c6fb785a5a7f533813c40e6b1333f8027c0e9e1faf213385e79fff0d9c34676"
             },
             "trust": {
                 "channel": "bundled",
@@ -359,7 +359,7 @@
                     "modules": [
                         {
                             "key": "official.collaboration",
-                            "version": "1.0.0",
+                            "version": "1.0.1",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
@@ -424,7 +424,7 @@
                 }
             ],
             "manifest": "plugins/official.collaboration/plugin.json",
-            "manifest_sha256": "0cc2128a22f67aced082e0d13cc25337d3c923deb3209e3d672432b80acbca4b"
+            "manifest_sha256": "290a27db7d110eeba3cfe2e0d239a9881a0b507b6b611c3c39e6ab200a36f55a"
         },
         {
             "key": "official.content-tools",

@@ -2470,7 +2470,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dcf0c52b4abbc881818c7bb85881404b3fbac6040c98d34bb0a9c32a0df11243"
+            "source_sha256": "7a4d41660ff1eabc85c48be0d2fab159a826a2bf29620c85320a4ee45ce59f1b"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2551,7 +2551,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0cc2128a22f67aced082e0d13cc25337d3c923deb3209e3d672432b80acbca4b"
+            "source_sha256": "290a27db7d110eeba3cfe2e0d239a9881a0b507b6b611c3c39e6ab200a36f55a"
         },
         {
             "path": "plugins/official.content-tools/plugin.json",
@@ -9214,7 +9214,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6f748fc636522d6c52080bf8710f5f0d3547e1e0454d81405c5ca6ed9e6487fb"
+            "source_sha256": "974b9b520e0331d23bf0a100f28e585af51474499079b65a18008089d636d55e"
         },
         {
             "path": "server/app/common/services/upgrade/SourceApplicationBackup.php",
@@ -9228,7 +9228,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "22c8ad3ea45ab6b71985eb0b7e488f9646a53a4dd4151435a296e40b34ef1345"
+            "source_sha256": "78568a4fef73480e7289962a35a9e60292de6c491f708be9df0610474cda6ed1"
         },
         {
             "path": "server/app/common/services/upgrade/SourceApplicationDump.php",
@@ -11080,7 +11080,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c11ec6d65c173470616ae5981d28f83cdadbf7e530adb50144196e79a3b678df"
+            "source_sha256": "aa3a9dde21479d9555ae096d80ee7760ca38728eb6cfcaa931e3ffce824afefe"
         },
         {
             "path": "server/app/modules/official/collaboration/resources/menus.json",
@@ -11137,6 +11137,20 @@
                 "full"
             ],
             "source_sha256": "878376e0138189ab5a424e43a299982a757a130befc98bc2a6e6c7cbeb6a161c"
+        },
+        {
+            "path": "server/app/modules/official/collaboration/src/Contract/CollaborationMigrationPreservation.php",
+            "target": "server/app/modules/official/collaboration/src/Contract/CollaborationMigrationPreservation.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "448bc44adc187707716b8fa8677c15e1f03ed2a00f4c2dd4db5d8982f55560de"
         },
         {
             "path": "server/app/modules/official/collaboration/src/Contract/CollaborationTransports.php",
@@ -25901,7 +25915,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "89debdcb5732a94a8ee9dd1b8150893958a49016f6544c5f03b7c8e4d5349389"
+            "source_sha256": "9e2c4bbc60889fcf89214b1ae5ddcc66bc6e9c166fd77913a830f995210e2dfd"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",

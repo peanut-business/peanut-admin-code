@@ -45,6 +45,15 @@ final class SourceApplicationBackup
             ['pa_import_export_operation', 'pa_import_export_row_error']],
     ];
     private const MODULE_DDL_STAGES = [
+        'official.collaboration:20261012120000_create_collaboration_runtime' => ['0befec8d041ce121f624417fef9df343907b2686e57c8c0a8dde509d556813ac',
+            ['pa_collaboration_service_nonce', 'pa_collaboration_ticket', 'pa_collaboration_room', 'pa_collaboration_connection', 'pa_collaboration_admission', 'pa_collaboration_barrier'],
+            'PeanutAdmin\\Modules\\Collaboration\\Contract\\CollaborationMigrationPreservation'],
+        'official.collaboration:20261013120100_add_collaboration_business_barriers' => ['6cd0d6dab2b08f26371ba97d6887f0e3ae7f7e0b1fcdb3fa3f8a59c54e2f850b',
+            ['pa_collaboration_barrier'], 'PeanutAdmin\\Modules\\Collaboration\\Contract\\CollaborationMigrationPreservation'],
+        'official.collaboration:20261013130000_add_instance_lifecycle' => ['e876c39e990491ba422ecb9067c8050ed98573b3ee457108de7d8955a084d6bd',
+            ['pa_collaboration_runtime'], 'PeanutAdmin\\Modules\\Collaboration\\Contract\\CollaborationMigrationPreservation'],
+        'official.collaboration:20261014120000_add_native_collaboration_grants' => ['15a44a7aaa282b9addcc8c7b72cae027197e5f68058244e881ffc48695ac2f18',
+            ['pa_collaboration_room', 'pa_collaboration_barrier', 'pa_collaboration_grant'], 'PeanutAdmin\\Modules\\Collaboration\\Contract\\CollaborationMigrationPreservation'],
         'official.identity:20260716020101_create_pa_data_permission_policy' => ['9ccbb19f70c230b27f97d1eeac818dfd08197406664cdf85ddd63a25cb51750e',
             ['pa_data_permission_policy'], 'PeanutAdmin\\Modules\\Identity\\Database\\IdentitySchemaMigrationProof'],
         'official.identity:20260716020102_create_pa_data_permission_group' => ['bac2408f49ffcfa3470e854b7550b5197d9cc9cf4c96ac74dd732572b9f91cbd',
