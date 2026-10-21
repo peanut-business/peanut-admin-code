@@ -188,12 +188,6 @@ export async function getInstallEnvironment(): Promise<InstallationPreflight> {
   return value;
 }
 
-export async function getInstallConfiguration(): Promise<InstallationConfiguration> {
-  const value = unwrap(await installationClient.get('/installapi/configuration'));
-  assertInstallationConfiguration(value);
-  return value;
-}
-
 function assertInstallationConfiguration(value: unknown): asserts value is InstallationConfiguration {
   if (!isRecord(value) || typeof value.state !== 'string'
     || !['unconfigured', 'configured', 'blocked', 'pending', 'installed'].includes(value.state) || typeof value.code !== 'string'
@@ -211,6 +205,12 @@ function assertInstallationConfiguration(value: unknown): asserts value is Insta
           && Number.isInteger(endpoint.port) && endpoint.port > 0 && endpoint.port <= 65535))))) {
     throw new Error('Installation configuration returned an invalid payload.');
   }
+}
+
+export async function getInstallConfiguration(): Promise<InstallationConfiguration> {
+  const value = unwrap(await installationClient.get('/installapi/configuration'));
+  assertInstallationConfiguration(value);
+  return value;
 }
 
 export async function configureInstall(token: string, input: InstallationConfigurationInput) {
