@@ -612,7 +612,8 @@ final class PluginSourceDevelopmentHost
         $old = $read($origin['original']); $now = $read($capsule);
         foreach ($old['tables'] as $name => $block) {
             if (!in_array($name, ['pa_module_installation', 'pa_module_migration', 'pa_plugin_installation', 'pa_plugin_module'], true)
-                && $block['bytes'] !== $now['tables'][$name]['bytes']) {
+                // Native dump statement blocks include the preceding table's separator whitespace.
+                && ltrim($block['bytes'], " \t\r\n") !== ltrim($now['tables'][$name]['bytes'], " \t\r\n")) {
                 throw new RuntimeException('PLUGIN_SOURCE_IDENTITY_FIRST_CREATE_ORIGINAL_ROWS_CHANGED');
             }
         }
@@ -627,7 +628,9 @@ final class PluginSourceDevelopmentHost
             'started_at' => $started, 'request_at' => $request['observed_at'], 'terminal_mtime' => $completed, 'finished_at' => $finished,
             'table' => $table, 'create_sql_sha256' => $observed['create_sql_sha256'],
             'original_observer_allocator' => $observed['auto_increment'], 'current_allocator' => $scope['objects'][$table]['auto_increment'],
-            'empty' => true, 'original_business_catalog_blocks_unchanged' => true, 'old_safe_after' => 'not_created', 'qualification' => 'not_run'];
+            'empty' => true, 'original_business_catalog_blocks_unchanged' => true,
+            'block_comparison' => 'exact SQL bytes excluding leading native statement separator whitespace only',
+            'old_safe_after' => 'not_created', 'qualification' => 'not_run'];
     }
 
     private function identityLedgerTime(mixed $value): int
