@@ -52,7 +52,7 @@ trait PluginCommandSupport
             $restore = (string) $input->getOption('restore-operation');
             if ($snapshot !== '' || $restore !== '') {
                 if ($operation !== 'install' || $key !== 'official.identity' || ($snapshot !== '' && $restore !== '')
-                    || ($snapshot !== '' ? !$dryRun : $dryRun)
+                    || ($snapshot !== '' && !$dryRun)
                     || ($snapshot !== '' ? $input->getOption('maintenance') !== '' : $input->getOption('maintenance') === '')
                     || $input->getOption('backup-tool') === '' || $input->getOption('backup-output') === '' || $input->getOption('metadata-tool') === '') {
                     throw new PluginLifecycleException('PLUGIN_SOURCE_ARGUMENTS_INVALID', 'Explicit Identity snapshot/restore arguments are required.');
@@ -71,7 +71,7 @@ trait PluginCommandSupport
                             throw new PluginLifecycleException('PLUGIN_SOURCE_IDENTITY_RECOVERY_NATIVE_HOST_REQUIRED', 'The native lifecycle lock is required.');
                         }
                         return $lifecycle->withIdentityRecoveryLock($pdo, $held);
-                    },
+                    }, $restore !== '' && $dryRun,
                 );
             }
             $receipt = (string) $input->getOption('verify-receipt');
@@ -101,7 +101,7 @@ trait PluginCommandSupport
                 $execution,
                 (string) $input->getOption('metadata-tool'),
             );
-        });
+        }, true);
     }
 
     private function hasSourceDevelopmentOptions(\think\console\Input $input): bool
@@ -113,7 +113,7 @@ trait PluginCommandSupport
     }
 
     /** The callable creates the native lifecycle only after any source admission. */
-    private function writePluginResult(Output $output, callable $operation): int
+    private function writePluginResult(Output $output, callable $operation, bool $sourceDiagnostics = false): int
     {
         try {
             $output->writeln((string) json_encode(
@@ -127,8 +127,17 @@ trait PluginCommandSupport
                 JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES,
             ));
             return 1;
-        } catch (\Throwable) {
-            $output->writeln('{"error":"PLUGIN_LIFECYCLE_FAILED"}');
+        } catch (\Throwable $failure) {
+            $record = ['error' => 'PLUGIN_LIFECYCLE_FAILED'];
+            if ($sourceDiagnostics) {
+                $record['diagnostic'] = [];
+                for ($error = $failure, $depth = 0; $error !== null && $depth < 8; $error = $error->getPrevious(), ++$depth) {
+                    $record['diagnostic'][] = ['class' => $error::class, 'file' => basename($error->getFile()), 'line' => $error->getLine(),
+                        'code' => preg_match('/\A[A-Z][A-Z0-9_]{0,127}\z/D', $error->getMessage()) === 1 ? $error->getMessage() : 'UNCLASSIFIED',
+                        'message_sha256' => hash('sha256', $error->getMessage())];
+                }
+            }
+            $output->writeln((string) json_encode($record, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
             return 1;
         }
     }

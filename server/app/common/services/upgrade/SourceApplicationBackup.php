@@ -480,7 +480,11 @@ final class SourceApplicationBackup
             . "; SET SESSION information_schema_stats_expiry=0; SET TRANSACTION READ ONLY; START TRANSACTION READ ONLY;"
             . " SELECT HEX(JSON_OBJECT('server_uuid',@@server_uuid,'server_hostname',@@hostname,'server_port',@@port,'database',DATABASE(),"
             . "'version',VERSION(),'partial_revokes',@@GLOBAL.partial_revokes,'stats_expiry',@@SESSION.information_schema_stats_expiry)); SHOW GRANTS; SELECT 'GRANTS_END_" . $nonce . "';"
-            . " SELECT HEX(JSON_OBJECT('tables',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('name',TABLE_NAME,'type',TABLE_TYPE,'engine',ENGINE,"
+            . " SELECT 'DDL_BEFORE_STATISTICS_" . $nonce . "';";
+        // SHOW CREATE opens InnoDB's lazy allocator before TABLES statistics are read.
+        // Keep the actual output, then read its real counter; never infer NULL means 1.
+        foreach ($tables as $table) { $sql .= " SELECT '" . $table . "'; SHOW CREATE TABLE " . chr(96) . $table . chr(96) . ';'; }
+        $sql .= " SELECT HEX(JSON_OBJECT('tables',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('name',TABLE_NAME,'type',TABLE_TYPE,'engine',ENGINE,"
             . "'auto_increment',CAST(AUTO_INCREMENT AS CHAR))) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()),JSON_ARRAY()),"
             . "'foreign_keys',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('CONSTRAINT_SCHEMA',k.CONSTRAINT_SCHEMA,'CONSTRAINT_NAME',k.CONSTRAINT_NAME,"
             . "'TABLE_SCHEMA',k.TABLE_SCHEMA,'TABLE_NAME',k.TABLE_NAME,'COLUMN_NAME',k.COLUMN_NAME,'ORDINAL_POSITION',k.ORDINAL_POSITION,"
@@ -499,13 +503,23 @@ final class SourceApplicationBackup
                 'WHERE (k.TABLE_SCHEMA=DATABASE() AND k.TABLE_NAME IN (' . $names . ')) OR (k.REFERENCED_TABLE_SCHEMA=DATABASE() AND k.REFERENCED_TABLE_NAME IN (' . $names . '))', $sql);
             $sql = str_replace('WHERE TRIGGER_SCHEMA=DATABASE())', 'WHERE TRIGGER_SCHEMA=DATABASE() AND EVENT_OBJECT_TABLE IN (' . $names . '))', $sql);
         }
-        foreach ($tables as $table) { $sql .= " SELECT '" . $table . "'; SHOW CREATE TABLE " . chr(96) . $table . chr(96) . ';'; }
         return $sql . ' ROLLBACK;';
     }
 
-    private static function parseMetadata(string $path, array $tables, string $nonce, array $binding, array $contract, string $serverVersion): array
+    /** Original failed-operation evidence only; the host must bind its producer, process and time. */
+    public static function historicalEffectMetadata(string $path, array $request, array $tool, string $serverRoot, string $ordering): array
     {
-        $lines = preg_split('/\r?\n/', rtrim((string) file_get_contents($path), "\r\n"));
+        $bytes = self::protectedPluginBytes($path, $serverRoot, 8388608);
+        $parsed = self::parseMetadata($path, $request['present'], $request['nonce'], $request['binding'],
+            $tool['source_schema_backup'], $tool['source_schema_backup']['mysql_version'], $ordering, $bytes);
+        return $parsed + ['ordering' => $ordering, 'qualification' => 'historical_failure_evidence_only',
+            'stdout' => ['path' => $path, 'sha256' => hash('sha256', $bytes), 'bytes' => strlen($bytes)]];
+    }
+
+    private static function parseMetadata(string $path, array $tables, string $nonce, array $binding, array $contract, string $serverVersion,
+        string $ordering = 'ddl-before-statistics', ?string $protectedBytes = null): array
+    {
+        $lines = preg_split('/\r?\n/', rtrim($protectedBytes ?? (string) file_get_contents($path), "\r\n"));
         if (count($lines) < 6 || preg_match('/\A([a-f0-9]{64})\s+/', $lines[0], $digest) !== 1) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_OUTPUT_INVALID'); }
         $decode = static function (string $hex): array {
             if ($hex === '' || strlen($hex) % 2 !== 0 || !ctype_xdigit($hex)) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_OUTPUT_INVALID'); }
@@ -532,7 +546,15 @@ final class SourceApplicationBackup
             $trigger = $trigger || (in_array($match[2], ['*.*', $schemaScope], true) && ($all || in_array('TRIGGER', $privileges, true)));
         }
         if (!$global || !$trigger) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_VISIBILITY_REQUIRED'); }
-        $data = $decode($lines[$end + 1] ?? ''); $objects = [];
+        if (!in_array($ordering, ['ddl-before-statistics', 'statistics-before-ddl'], true)) {
+            throw new RuntimeException('INSTALL_PARTIAL_METADATA_OUTPUT_INVALID');
+        }
+        $ddlStart = $end + 2;
+        $statisticsAt = $ordering === 'ddl-before-statistics' ? $ddlStart + count($tables) * 2 : $end + 1;
+        $expectedLines = $ddlStart + count($tables) * 2 + ($ordering === 'ddl-before-statistics' ? 1 : 0);
+        if (($ordering === 'ddl-before-statistics' && ($lines[$end + 1] ?? null) !== 'DDL_BEFORE_STATISTICS_' . $nonce)
+            || count($lines) !== $expectedLines) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_OUTPUT_INVALID'); }
+        $data = $decode($lines[$statisticsAt] ?? ''); $objects = [];
         foreach ($data['tables'] ?? [] as $row) {
             if (!is_string($row['name'] ?? null) || !in_array($row['name'], $tables, true) || isset($objects[$row['name']])
                 || ($row['type'] ?? null) !== 'BASE TABLE' || ($row['engine'] ?? null) !== 'InnoDB') { throw new RuntimeException('INSTALL_PARTIAL_METADATA_COVERAGE_REQUIRED'); }
@@ -540,10 +562,10 @@ final class SourceApplicationBackup
                 'auto_increment' => $row['auto_increment'] === null ? null : (string) $row['auto_increment']];
         }
         ksort($objects, SORT_STRING);
-        if (array_keys($objects) !== $tables || count($lines) !== $end + 2 + count($tables) * 2) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_COVERAGE_REQUIRED'); }
+        if (array_keys($objects) !== $tables) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_COVERAGE_REQUIRED'); }
         foreach ($tables as $i => $table) {
-            if ($lines[$end + 2 + $i * 2] !== $table) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_OUTPUT_INVALID'); }
-            $row = explode("\t", $lines[$end + 3 + $i * 2], 2);
+            if ($lines[$ddlStart + $i * 2] !== $table) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_OUTPUT_INVALID'); }
+            $row = explode("\t", $lines[$ddlStart + 1 + $i * 2], 2);
             if (count($row) !== 2 || $row[0] !== $table) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_OUTPUT_INVALID'); }
             $objects[$table]['create_sql_sha256'] = hash('sha256', self::mysqlBatchValue($row[1]));
         }
@@ -1132,7 +1154,7 @@ final class SourceApplicationBackup
         string $directory, int $windowExpires, callable $guard): array
     {
         $host = app()->make(PluginSourceDevelopmentHost::class);
-        $host->requireIdentityRecovery($pdo, 'official.identity');
+        $host->requireIdentityRecovery($pdo, 'official.identity', true, true);
         $guard(); $serverRoot = $binding['source']['root'] . '/server';
         $originalBytes = self::protectedPluginBytes($originalManifest, $serverRoot);
         $capsuleBytes = self::protectedPluginBytes($capsuleManifest, $serverRoot);
@@ -1174,7 +1196,7 @@ final class SourceApplicationBackup
             'executed' => false]);
         $seconds = $contract['timeout_seconds'] ?? null;
         if (!is_int($seconds) || $seconds < 30 || $seconds > 600) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_LIFETIME_REQUIRED'); }
-        $recheck = static function () use ($host, $pdo, $guard): void { $host->requireIdentityRecovery($pdo, 'official.identity'); $guard(); };
+        $recheck = static function () use ($host, $pdo, $guard): void { $host->requireIdentityRecovery($pdo, 'official.identity', true, true); $guard(); };
         self::remote($tool, self::clientShell($tool, 'mysql_command', $seconds,
             ['--no-defaults', '--no-login-paths', '--skip-reconnect', '--binary-mode', '--default-character-set=utf8mb4', '-uroot', '--database=' . $binding['database']['database']]),
             $directory . '/restore.stdout', $directory . '/restore.stderr', 'restore-identity-operation', $seconds,

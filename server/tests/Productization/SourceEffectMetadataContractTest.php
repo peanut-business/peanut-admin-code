@@ -90,6 +90,8 @@ foreach (["TABLE_NAME IN ('pa_existing','pa_future')", "k.TABLE_NAME IN ('pa_exi
     effectMetadataExpect(str_contains($selected, $predicate), 'Selected metadata omitted a fixed scope predicate.');
 }
 effectMetadataExpect(substr_count($selected, 'SHOW CREATE TABLE') === 1 && !str_contains($selected, 'SHOW CREATE TABLE `pa_future`'), 'Absent objects acquired invented SHOW CREATE.');
+effectMetadataExpect(strpos($selected, 'SHOW CREATE TABLE') < strpos($selected, "SELECT HEX(JSON_OBJECT('tables'")
+    && str_contains($selected, 'DDL_BEFORE_STATISTICS_' . $nonce), 'Native statistics preceded the InnoDB allocator-opening DDL read.');
 effectMetadataExpect(str_contains($selected, 'k.REFERENCED_TABLE_SCHEMA=DATABASE()') && str_contains($selected, 'ROLLBACK;'), 'Cross-schema incoming FK or read-only close was lost.');
 
 $directory = dirname(__DIR__, 3) . '/.local/tmp/source-effect-metadata-contract';
@@ -108,8 +110,9 @@ $data = ['tables' => [['name' => 'pa_existing', 'type' => 'BASE TABLE', 'engine'
 $render = static function (array $identity, array $data, array $grants, string $marker, bool $existing = true): string {
     $hex = static fn(array $value): string => bin2hex(json_encode($value, JSON_THROW_ON_ERROR));
     $lines = [str_repeat('a', 64) . '  /usr/bin/mysql', '/usr/bin/mysql Ver 8.4.10 for Linux', $hex($identity),
-        ...$grants, 'GRANTS_END_' . $marker, $hex($data)];
+        ...$grants, 'GRANTS_END_' . $marker, 'DDL_BEFORE_STATISTICS_' . $marker];
     if ($existing) { array_push($lines, 'pa_existing', 'pa_existing' . "\t" . 'CREATE TABLE `pa_existing` (`id` bigint unsigned NOT NULL)'); }
+    $lines[] = $hex($data);
     return implode("\n", $lines) . "\n";
 };
 $grants = ['GRANT ALL PRIVILEGES ON *.* TO `root`@`localhost`'];
@@ -122,6 +125,10 @@ try {
     effectMetadataExpect($observed['metadata']['foreign_keys'][0]['TABLE_SCHEMA'] === 'outside_db'
         && $observed['metadata']['foreign_keys'][0]['UPDATE_RULE'] === 'CASCADE', 'Incoming outside cascade was hidden.');
     effectMetadataExpect($observed['metadata']['objects']['pa_existing']['auto_increment'] === '4', 'Original table counter changed.');
+    $fresh = $data; $fresh['tables'][0]['auto_increment'] = '1';
+    effectMetadataExpect($run($render($identity, $fresh, $grants, $nonce))['metadata']['objects']['pa_existing']['auto_increment'] === '1', 'Counter 1 must be the actual native value even when DDL omits the table option.');
+    $unknownCounter = $data; $unknownCounter['tables'][0]['auto_increment'] = null;
+    effectMetadataExpect($run($render($identity, $unknownCounter, $grants, $nonce))['metadata']['objects']['pa_existing']['auto_increment'] === null, 'Unknown allocator was normalized to 1.');
     $empty = $data; $empty['tables'] = []; $empty['foreign_keys'] = [];
     effectMetadataExpect($run($render($identity, $empty, $grants, $nonce, false), [])['metadata']['objects'] === [], 'All-absent scope cannot be observed.');
     $wrongIdentity = $identity; $wrongIdentity['server_uuid'] = 'uuid-other';
@@ -129,6 +136,15 @@ try {
     $revoked = $identity; $revoked['partial_revokes'] = 1;
     $cached = $identity; $cached['stats_expiry'] = 86400;
     $unknownStats = $identity; unset($unknownStats['stats_expiry']);
+    $oldOrder = explode("\n", rtrim($render($identity, $data, $grants, $nonce), "\n"));
+    $aggregate = array_pop($oldOrder); array_splice($oldOrder, 5, 1, [$aggregate]); // Old statistics-first wire order.
+    file_put_contents($path, implode("\n", $oldOrder) . "\n"); chmod($path, 0600);
+    $historical = SourceApplicationBackup::historicalEffectMetadata($path,
+        ['present' => ['pa_existing'], 'nonce' => $nonce, 'binding' => $binding],
+        ['source_schema_backup' => ['mysql_version' => '8.4.10']], dirname(__DIR__, 2), 'statistics-before-ddl');
+    effectMetadataExpect($historical['qualification'] === 'historical_failure_evidence_only'
+        && $historical['metadata']['objects']['pa_existing']['auto_increment'] === '4'
+        && $historical['stdout']['sha256'] === hash_file('sha256', $path), 'Original protected metadata acquired current qualification or lost its actual bytes.');
     foreach ([
         $render($wrongIdentity, $data, $grants, $nonce),
         $render($identity, $hiddenTable, $grants, $nonce),
@@ -138,6 +154,7 @@ try {
         $render($revoked, $data, $grants, $nonce),
         $render($cached, $data, $grants, $nonce),
         $render($unknownStats, $data, $grants, $nonce),
+        implode("\n", $oldOrder) . "\n",
     ] as $invalid) {
         $rejected = false;
         try { $run($invalid); } catch (RuntimeException) { $rejected = true; }
@@ -147,4 +164,4 @@ try {
     if (is_file($path)) { unlink($path); }
     rmdir($directory);
 }
-echo "SOURCE-EFFECT-METADATA-CONTRACT passed: parser/scope; full14, DDL and receipt reads accepted, 18 read-scope omissions refused; 4 session-restoration cases, native cached/unknown stats refused; native SSH/MySQL execution NOT_RUN\n";
+echo "SOURCE-EFFECT-METADATA-CONTRACT passed: parser/scope; full14, DDL and receipt reads accepted, 18 read-scope omissions refused; 4 session-restoration cases; native DDL-before-statistics, real counter1/NULL, old-order/cached/unknown stats refusal; native SSH/MySQL execution NOT_RUN\n";
