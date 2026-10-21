@@ -1581,7 +1581,7 @@ final class PluginSourceDevelopmentHost
             // locked package instead; this branch grants forensic capture only.
             $root = dirname(rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR));
             $this->assertReceiptSource($record['binding']['source']['head'], $root . '/plugins.lock', hash_file('sha256', $root . '/plugins.lock'));
-            $plugins = \app\platform\infrastructure\plugin\PluginLockResolver::forSourceUpgrade($root);
+            $plugins = (new \app\platform\infrastructure\plugin\PluginLockResolver($root . '/server', $root . '/plugins.lock'))->all();
             $identity = isset($plugins['official.notification']) ? $plugins['official.notification']->publicIdentity() : [];
             if (($record['native_plan_sha256'] ?? null) !== self::digest($record['native_plan'] ?? [])
                 || ($record['native_plan']['plugin_key'] ?? null) !== 'official.notification'
