@@ -133,14 +133,20 @@ final class AuthClientSchemaMigrationProof
     /** Recognize the three source CHECK conjuncts without discarding logical grouping. */
     private static function clientCheck(string $clause): bool
     {
+        // MySQL CHECK_CONSTRAINTS can encode literal delimiters as backslash-quote.
+        // Decode only a complete metadata literal token, never expression syntax.
+        $pattern = <<<'REGEX'
+~\G(?:\s+|(?<identifier>`[a-z_]+`|"[a-z_]+")|(?:_[a-z0-9]+)?(?:\\'(?<metadata_literal>[^'\\]*)\\'|(?<literal>'(?:''|[^'])*'))|(?<word>[a-z_]+|[0-9]+|[(),]))~Ai
+REGEX;
         $tokens = []; $offset = 0;
         while ($offset < strlen($clause)) {
-            if (preg_match('/\G(?:\s+|(?<identifier>`[a-z_]+`|"[a-z_]+")|(?:_[a-z0-9]+)?(?<literal>\'(?:\'\'|[^\'])*\')|(?<word>[a-z_]+|[0-9]+|[(),]))/Ai',
+            if (preg_match($pattern,
                 $clause, $match, PREG_UNMATCHED_AS_NULL, $offset) !== 1) { return false; }
             $offset += strlen($match[0]);
             if (trim($match[0]) === '') { continue; }
-            $tokens[] = $match['literal'] ?? strtolower($match['identifier'] !== null
-                ? substr($match['identifier'], 1, -1) : $match['word']);
+            $tokens[] = $match['metadata_literal'] !== null ? "'" . $match['metadata_literal'] . "'"
+                : ($match['literal'] ?? strtolower($match['identifier'] !== null
+                    ? substr($match['identifier'], 1, -1) : $match['word']));
         }
         $tokens = self::unwrapped($tokens);
         $terms = []; $term = []; $depth = 0; $between = false;

@@ -2457,7 +2457,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9878f06fdd4e255e4f93b02a9dcb66996c1e61ca91cb7c7a02e4bc47fe1ff8f8"
+            "source_sha256": "9ce18b261a3cdb69499f29ba930ac55433fe5b61ede11e9e0ac83942afcc62d8"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2594,7 +2594,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6ec446efdddc804d800edab3142ae0a506bc5f5ddbb3d41c3700aebedcdf4214"
+            "source_sha256": "932bc857b46cd2f066b176d6060dd441ba3ccc26b6552357c306fbc1397b3beb"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -13419,7 +13419,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "66abab774246714872803b8128414a6fcd43b0283ee5095c4f4004129483bdad"
+            "source_sha256": "71e89101fd879bfcd1654958f82fc4fea5042ba7e6eb041e65c56b652f6cc944"
         },
         {
             "path": "server/app/modules/official/identity/src/Auth/AuthCredential.php",
@@ -30560,6 +30560,19 @@
         {
             "path": "server/tests/Productization/ArticleValidationScenesTest.php",
             "target": "server/tests/Productization/ArticleValidationScenesTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Productization/AuthClientSchemaContractTest.php",
+            "target": "server/tests/Productization/AuthClientSchemaContractTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
