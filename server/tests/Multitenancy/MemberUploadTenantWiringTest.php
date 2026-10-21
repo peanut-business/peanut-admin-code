@@ -27,6 +27,7 @@ function memberUploadInstalledAssertions(
     AuthenticatedMemberContext $member,
     int $otherTenantId,
     array $expectedDatabaseIdentity,
+    callable $guard,
 ): void
 {
     $installation = $app->make(app\common\services\installation\InstallationExecutionHost::class);
@@ -37,7 +38,10 @@ function memberUploadInstalledAssertions(
     $memberId = $member->memberId;
     $forgedMemberId = $memberId === 1 ? 2 : 1;
     expectMemberUpload($otherTenantId > 0 && $otherTenantId !== $tenantId, 'distinct installed Tenant is required');
-    $principal = $pdo->prepare("SELECT COUNT(*) FROM pa_tenant_member m JOIN pa_tenant t ON t.id=m.tenant_id WHERE m.id=? AND m.tenant_id=? AND m.status='active' AND t.status='active'");
+    $otherTenant = $pdo->prepare("SELECT COUNT(*) FROM pa_tenant WHERE id=? AND status='active'");
+    $otherTenant->execute([$otherTenantId]);
+    expectMemberUpload((int) $otherTenant->fetchColumn() === 1, 'other installed Tenant is unavailable');
+    $principal = $pdo->prepare("SELECT COUNT(*) FROM pa_member m JOIN pa_tenant t ON t.id=m.tenant_id WHERE m.id=? AND m.tenant_id=? AND m.status=1 AND m.delete_time IS NULL AND t.status='active'");
     $principal->execute([$memberId, $tenantId]);
     expectMemberUpload((int) $principal->fetchColumn() === 1, 'host member does not match the installed database');
     $serverRoot = dirname(__DIR__, 2);
@@ -86,6 +90,7 @@ function memberUploadInstalledAssertions(
         $app->instance('request', $request);
 
         $contexts = $app->make(ExecutionContextStore::class);
+        $guard();
         $response = $contexts->run(
             ConsumerExecutionContext::member($member, 'member.file.upload'),
             static function () use ($app): object {
@@ -141,15 +146,5 @@ function memberUploadInstalledAssertions(
     }
 }
 
-// No environment flag or receipt supplied by the caller can enable mutations.
-// Existing upgrade backups are plan-bound; a qualification mutation boundary
-// cannot be inferred from a past backup or a lease alone.
-echo json_encode([
-    'status' => 'not_run',
-    'producer' => 'member-upload',
-    'reason' => 'installed-member-upload-write-ahead-protection-unavailable',
-    'write_set_complete' => false,
-    'required_boundary' => 'exact resource/install identity, host-authenticated member, complete actual DB/storage write set, protected paired pre-write backup and writer state',
-    'recovery' => 'retain DB/storage on failure or unknown; no automatic restore or cleanup',
-], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES) . "\n";
-exit(3);
+require_once dirname(__DIR__, 2) . '/app/common/services/upgrade/SourceApplicationBackup.php';
+exit(app\common\services\upgrade\SourceApplicationBackup::qualificationEntry('member-upload', $argv));

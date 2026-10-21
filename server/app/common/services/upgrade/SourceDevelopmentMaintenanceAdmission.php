@@ -18,6 +18,17 @@ final readonly class SourceDevelopmentMaintenanceAdmission
 
     public function capture(array $actor, bool $ddl): array
     {
+        return $this->facts($actor, $ddl, false);
+    }
+
+    /** Only the two fixed, append-only qualification inputs may temporarily dirty source. */
+    public function qualificationCapture(array $actor): array
+    {
+        return $this->facts($actor, true, true);
+    }
+
+    private function facts(array $actor, bool $ddl, bool $fixtureInputs): array
+    {
         foreach (['owner', 'thread', 'session', 'gate'] as $key) {
             if (!is_string($actor[$key] ?? null) || trim($actor[$key]) === '' || preg_match('/[\x00-\x1f]/', $actor[$key])) {
                 throw new RuntimeException('APPLICATION_SCHEMA_NATIVE_ACTOR_REQUIRED');
@@ -33,7 +44,21 @@ final readonly class SourceDevelopmentMaintenanceAdmission
         $owner = fileowner($root);
         if (!is_int($owner) || !function_exists('posix_geteuid') || !in_array(posix_geteuid(), [0, $owner], true)) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_OWNER_REQUIRED'); }
         $head = \leaseGit(['-C', $root, 'rev-parse', 'HEAD^{commit}']);
-        if (\leaseGit(['-C', $root, 'status', '--porcelain', '--untracked-files=normal']) !== '') { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_DIRTY'); }
+        $dirty = \leaseGit(['-C', $root, 'status', '--porcelain', '--untracked-files=normal']);
+        if ($dirty !== '') {
+            $allowed = [
+                'server/app/modules/fixture/delivery_record/database/migrations/20260814999999_failure_fixture.sql' => "THIS IS AN INTENTIONAL FIXTURE FAILURE;\n",
+                'server/app/modules/fixture/delivery_record/database/migrations/20260815000000_failure_repair.sql' => "-- peanut-admin-repairs: fixture.delivery-record:20260814999999_failure_fixture\nSELECT 1;\n",
+            ];
+            foreach (explode("\n", $dirty) as $line) {
+                $relative = substr($line, 3);
+                if (!$fixtureInputs || !str_starts_with($line, '?? ') || !isset($allowed[$relative])
+                    || is_link($root . '/' . $relative) || !is_file($root . '/' . $relative)
+                    || hash_file('sha256', $root . '/' . $relative) !== hash('sha256', $allowed[$relative])) {
+                    throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_DIRTY');
+                }
+            }
+        }
         $registry = \projectResourceRegistry($registrySha);
         $config = \guardedDatabaseConfig();
         $deployment = \deploymentTargetContract($config['deployment_target']);
@@ -96,5 +121,33 @@ final readonly class SourceDevelopmentMaintenanceAdmission
     {
         if (!is_file($path) || is_link($path)) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_FILE_INVALID'); }
         return (string) hash_file('sha256', $path);
+    }
+
+    /** Existing operator stop-writer evidence, never synthesized by qualification. */
+    public function qualificationWindow(string $path, array $binding, array $baseline, array $tables): array
+    {
+        $record = SourceApplicationBackup::protectedPluginJson($path, $this->serverRoot);
+        foreach (['source', 'database', 'authority'] as $key) {
+            if (($record[$key] ?? null) !== $binding[$key]) { throw new RuntimeException('QUALIFICATION_WINDOW_BINDING_CHANGED'); }
+        }
+        if (($record['protocol'] ?? null) !== 'peanut.source-plugin-maintenance.v1'
+            || ($record['schema_version'] ?? null) !== 1 || ($record['state'] ?? null) !== 'active'
+            || ($record['excluded_writers'] ?? null) !== ['http', 'workers', 'other-writers']
+            || ($record['registry_sha256'] ?? null) !== $binding['registry_sha256']
+            || ($record['scope'] ?? null) !== $tables || ($record['pending'] ?? null) !== $baseline['pending']
+            || ($record['selected'] ?? null) !== $baseline['selected']
+            || ($record['baseline_sha256'] ?? null) !== SourceApplicationBackup::qualificationDigest($baseline)
+            || !is_int($record['observed_at'] ?? null) || $record['observed_at'] < $binding['authority']['created_at']
+            || $record['observed_at'] > time() || !is_int($record['expires_at'] ?? null)
+            || $record['expires_at'] <= time() + 60 || $record['expires_at'] > $binding['authority']['expires_at']
+            || !is_array($record['receipts'] ?? null) || $record['receipts'] === []) {
+            throw new RuntimeException('QUALIFICATION_STOP_WRITERS_REQUIRED');
+        }
+        foreach ($record['receipts'] as $receipt) {
+            SourceApplicationBackup::protectedPluginBytes($receipt['path'] ?? '', $this->serverRoot, null);
+            if (hash_file('sha256', $receipt['path']) !== ($receipt['sha256'] ?? null)) { throw new RuntimeException('QUALIFICATION_WINDOW_RECEIPT_CHANGED'); }
+        }
+        return ['path' => $path, 'sha256' => hash_file('sha256', $path), 'expires_at' => $record['expires_at'],
+            'writer_exclusion' => 'operator-protocol; receipts retained, not an SQL sandbox'];
     }
 }

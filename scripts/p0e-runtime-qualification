@@ -547,6 +547,16 @@ def lifecycle_inputs(args: argparse.Namespace, tree: str) -> dict[str, Any]:
     code_env = file_reference(code.get("environment", {}))
     if code_env.stat().st_mode & 0o777 != 0o600:
         fail("Code runtime environment must remain private")
+    installed = value.get("installed_lifecycle", {})
+    if not isinstance(installed, dict) or set(installed) - {"member-upload", "task-import-export", "plugin-module-lifecycle"}:
+        fail("installed lifecycle inputs contain an unknown producer")
+    for producer, reference in installed.items():
+        path = file_reference(reference)
+        if path.stat().st_mode & 0o777 != 0o600:
+            fail("installed lifecycle input must be private")
+        config = read_json(path)
+        if config.get("protocol") != "peanut.installed-lifecycle-input.v1" or config.get("producer") != producer:
+            fail("installed lifecycle producer/input binding differs")
     file_reference(value.get("consumer_identity_seed", {}))
     return {**value, "cli": cli, "template_artifacts": templates,
             "input_path": str(input_path), "input_sha256": args.lifecycle_input_sha256,
@@ -1007,44 +1017,54 @@ class Runner:
 
     def plugin_lifecycle(self) -> dict[str, Any]:
         code = self.inputs["code_runtime"]
-        env = self.environment(code)
         producers = {
-            "server/tests/Multitenancy/MemberUploadTenantWiringTest.php": (
-                "member-upload", "installed-member-upload-write-ahead-protection-unavailable"),
-            "server/tests/Multitenancy/TaskImportExportTenantIsolationTest.php": (
-                "task-import-export", "installed-async-lifecycle-write-ahead-protection-unavailable"),
+            "member-upload": "server/tests/Multitenancy/MemberUploadTenantWiringTest.php",
+            "task-import-export": "server/tests/Multitenancy/TaskImportExportTenantIsolationTest.php",
+            "plugin-module-lifecycle": "server/fixtures/plugin-module-lifecycle/run.php",
         }
-        blockers = {}
-        # These entries currently report their native capability gap without
-        # bootstrap, connections or mutations. No flag/receipt enables writes.
-        # Consume explicit exit/status contracts, never grep source spellings to
-        # decide whether it is safe to modify an installed database.
-        for source, (producer, reason) in producers.items():
-            process = command(["php", source], cwd=ROOT, env=env, capture=True, check=False)
+        inputs = self.inputs.get("installed_lifecycle", {})
+        missing = sorted(set(producers) - set(inputs))
+        if missing:
+            raise NotRun("plugin-lifecycle: missing native installed producer inputs: " + ", ".join(missing))
+        # Verify all three fixed configurations before the first producer writes.
+        for producer in producers:
+            config = read_json(file_reference(inputs[producer]))
+            actor = config.get("actor", {})
+            if (actor.get("owner") != self.args.owner or actor.get("thread") != self.args.thread
+                    or actor.get("gate") != database_registration(code)["lease_gate"]):
+                fail("installed producer must use this real runtime owner's native authority")
+        env = self.environment(code)
+        results = {}
+        for producer, source in producers.items():
+            reference = inputs[producer]
+            process = command(["php", source, "--input", str(file_reference(reference)),
+                "--input-sha256", reference["sha256"], "--execute"], cwd=ROOT, env=env, capture=True, check=False)
             log = self.output / "groups" / (Path(source).name + ".log")
             log.write_text((process.stdout or "") + (process.stderr or ""), encoding="utf-8")
             try:
                 result = json.loads(process.stdout)
             except (ValueError, TypeError):
-                fail("installed lifecycle producer did not return its explicit NotRun contract")
-            if (process.returncode != 3 or not isinstance(result, dict)
-                    or result.get("status") != "not_run" or result.get("producer") != producer
-                    or result.get("reason") != reason):
-                fail("installed lifecycle producer contract changed; reconcile before any execution")
-            blockers[source] = {**result, "source_sha256": sha256(ROOT / source), "log_sha256": sha256(log)}
-        # The unchanged fixture globally synchronizes the Module catalog and
-        # requires zero active non-fixture Modules. Installed Code cannot meet
-        # that prerequisite. Its DB/catalog/lock/failure-artifact writes require
-        # a separately reviewed native interface; never run it after services.
-        fixture = "server/fixtures/plugin-module-lifecycle/run.php"
-        blockers[fixture] = {"status": "not_run", "source_sha256": sha256(ROOT / fixture),
-            "reason": "installed-code-global-catalog-and-source-write-protection-unavailable"}
-        self.write_json(self.output / "groups" / "plugin-lifecycle-not-run.json", {
-            "status": "not_run", "candidate": self.args.candidate,
-            "runtime_root": str(ROOT), "resource_id": code["resource_id"], "database": code["database"],
-            "blockers": blockers, "qualification_writes_started": False,
-            "recovery": "retain actual state; no automatic restore, reset, reinstall or cleanup"})
-        raise NotRun("plugin-lifecycle: installed service assertions need native pre-write DB/storage protection and authenticated identities; fixture also needs installed catalog/source protection; no qualification writes started")
+                fail("installed lifecycle producer returned an unknown outcome; retain its native attempt and actual scene")
+            if not isinstance(result, dict) or result.get("producer") != producer:
+                fail("installed producer identity differs")
+            results[producer] = {**result, "source_sha256": sha256(ROOT / source), "log_sha256": sha256(log)}
+            self.write_json(self.output / "groups" / "plugin-lifecycle-producers.json", results)
+            if process.returncode == 3 and result.get("status") == "not_run" and result.get("qualification_writes_started") is False:
+                raise NotRun("plugin-lifecycle: " + producer + ": " + str(result.get("error_code", result.get("reason"))))
+            binding = result.get("binding", {})
+            if (process.returncode != 0 or result.get("status") != "passed"
+                    or result.get("protocol") != "peanut.installed-lifecycle-result.v1"
+                    or result.get("input_sha256") != reference["sha256"]
+                    or binding.get("source", {}).get("head") != self.args.candidate
+                    or binding.get("resource_id") != code["resource_id"]
+                    or binding.get("database", {}).get("database") != code["database"]
+                    or result.get("qualification_writes_started") is not True):
+                fail("installed lifecycle assertion failed or native input binding differs; retain actual DB/storage/source")
+            backup = result.get("backup", {})
+            file_reference(backup)
+            file_reference(backup.get("recovery_references", {}))
+            file_reference(result.get("file_backup", {}))
+        return {"runtime_root": str(ROOT), "resource_id": code["resource_id"], "database": code["database"], "producers": results}
 
     def consumer_module_lifecycle(self) -> dict[str, Any]:
         output = self.cache / "consumer-module-lifecycle"

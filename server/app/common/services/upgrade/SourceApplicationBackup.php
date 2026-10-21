@@ -11,6 +11,307 @@ use app\platform\services\plugin\PluginLifecycleService;
 /** Existing native mysqldump for admitted application/Plugin effects and bounded partial installation. */
 final class SourceApplicationBackup
 {
+    public static function qualificationDigest(array $value): string { return self::pluginDigest($value); }
+
+    /**
+     * Closed installed producers. Input is configuration, never an admission or a passed receipt.
+     * Required JSON: protocol, producer, actor{owner,thread,session,gate}, tenant_ids,
+     * tokens{name:{path,sha256}}, metadata_tool, backup_tool, backup_output, maintenance.
+     * Member: member token + other_tenant_id. Async: alpha/beta/no_export/audit_failure
+     * tokens + alpha_role_id. Plugin: admin token + admin_role_id. IDs select preimages
+     * only; the host verifies actual sessions after capture. Without --execute the
+     * native plan returns the binding/baseline/scope for the existing stop-writer issuer.
+     */
+    public static function qualificationEntry(string $producer, array $arguments): int
+    {
+        $options = [];
+        for ($i = 1; $i < count($arguments); $i++) {
+            if ($arguments[$i] === '--execute') { $options['execute'] = true; continue; }
+            if (!in_array($arguments[$i], ['--input', '--input-sha256'], true) || !isset($arguments[$i + 1])) {
+                fwrite(STDERR, "Use --input <private-json> --input-sha256 <sha256> [--execute]\n"); return 2;
+            }
+            $options[substr($arguments[$i], 2)] = $arguments[++$i];
+        }
+        if (!isset($options['input'], $options['input-sha256'])) {
+            echo json_encode(['status' => 'not_run', 'producer' => $producer, 'reason' => 'installed-qualification-input-required',
+                'qualification_writes_started' => false, 'required' => ['native actor and exclusive resource lease', 'current installed database',
+                    'host-authenticated token files', 'native backup and metadata tooling', 'current stop-writer evidence', 'DB/storage/source preimages']], JSON_THROW_ON_ERROR) . "\n";
+            return 3;
+        }
+        $started = false;
+        try {
+            $serverRoot = dirname(__DIR__, 4);
+            $raw = self::protectedPluginBytes($options['input'], $serverRoot);
+            if (!hash_equals(hash('sha256', $raw), $options['input-sha256'])) { throw new RuntimeException('QUALIFICATION_INPUT_CHANGED'); }
+            $input = json_decode($raw, true, 64, JSON_THROW_ON_ERROR);
+            if (($input['protocol'] ?? null) !== 'peanut.installed-lifecycle-input.v1' || ($input['producer'] ?? null) !== $producer
+                || !in_array($producer, ['member-upload', 'task-import-export', 'plugin-module-lifecycle'], true)) {
+                throw new RuntimeException('QUALIFICATION_INPUT_INVALID');
+            }
+            require_once $serverRoot . '/bootstrap/environment.php';
+            require_once $serverRoot . '/vendor/autoload.php';
+            $app = new \think\App($serverRoot); $app->initialize();
+            $contexts = $app->make(\app\common\execution\ExecutionContextStore::class);
+            if (!$contexts->isEmpty() || PHP_SAPI !== 'cli') { throw new RuntimeException('QUALIFICATION_NATIVE_CLI_REQUIRED'); }
+            $run = static function () use ($app, $serverRoot, $producer, $input, $raw, $options, &$started): array {
+                    $actor = $input['actor'] ?? [];
+                    $admission = new SourceDevelopmentMaintenanceAdmission($serverRoot);
+                    $initial = $admission->capture($actor, true);
+                    if (!in_array($initial['authority']['operation'], ['ddl', 'exclusive'], true)) { throw new RuntimeException('QUALIFICATION_EXCLUSIVE_LEASE_REQUIRED'); }
+                    $config = \guardedDatabaseConfig();
+                    $connection = \think\facade\Db::connect();
+                    foreach (['hostname' => 'host', 'hostport' => 'port', 'database' => 'database', 'username' => 'user', 'password' => 'password'] as $native => $guarded) {
+                        if ((string) $connection->getConfig($native) !== (string) $config[$guarded]) { throw new RuntimeException('QUALIFICATION_NATIVE_MASTER_REQUIRED'); }
+                    }
+                    if ($connection->getConfig('break_reconnect') !== false || (int) $connection->getConfig('deploy') !== 0 || $connection->getConfig('prefix') !== 'pa_') { throw new RuntimeException('QUALIFICATION_NATIVE_MASTER_REQUIRED'); }
+                    $connection->query('SELECT CONNECTION_ID()', [], true);
+                    $pdo = $connection->getPdo();
+                    if (!$pdo instanceof PDO || $pdo->inTransaction()) { throw new RuntimeException('QUALIFICATION_NATIVE_MASTER_REQUIRED'); }
+                    $identity = \app\common\services\installation\InstallationExecutionHost::migrationDatabaseIdentity($pdo);
+                    $binding = $initial + ['database' => $identity];
+                    $status = $app->make(\app\common\services\installation\InstallationExecutionHost::class)->status();
+                    if (($status['state'] ?? null) !== 'installed' || ($status['deployment_mode'] ?? null) !== 'multi-tenant') {
+                        throw new RuntimeException('QUALIFICATION_INSTALLED_MULTI_TENANT_REQUIRED');
+                    }
+                    $tokens = [];
+                    foreach ($input['tokens'] ?? [] as $name => $reference) {
+                        $bytes = self::protectedPluginBytes($reference['path'] ?? '', $serverRoot, 16384);
+                        if (!hash_equals(hash('sha256', $bytes), $reference['sha256'] ?? '')) { throw new RuntimeException('QUALIFICATION_TOKEN_FILE_CHANGED'); }
+                        $tokens[$name] = trim($bytes);
+                    }
+                    $authenticate = static function () use ($app, $tokens, $producer): array {
+                        $result = [];
+                        if ($producer === 'member-upload') {
+                            $token = $tokens['member'] ?? '';
+                            $verified = $app->make(\app\api\services\UserTokenService::class)->parseSessionToken($token);
+                            $result['member'] = $app->make(\app\common\infrastructure\member\MemberApiTenantContextResolver::class)
+                                ->resolve($verified['member_id'], $token, 'qualification-member-' . bin2hex(random_bytes(12)), $verified['tenant_id']);
+                        } else {
+                            foreach ($producer === 'task-import-export' ? ['alpha', 'beta', 'no_export', 'audit_failure'] : ['admin'] as $name) {
+                                $result[$name] = $app->make(\PeanutAdmin\Modules\Identity\Auth\TenantAuthService::class)
+                                    ->context($tokens[$name] ?? '', 'qualification-' . $name . '-' . bin2hex(random_bytes(12)));
+                            }
+                        }
+                        return $result;
+                    };
+                    // Declared IDs select preimages only; authentication happens after capture because
+                    // native validation can revoke an invalid session. It must also be protected.
+                    $tenants = $input['tenant_ids'] ?? [];
+                    if (!is_array($tenants) || $tenants === []) { throw new RuntimeException('QUALIFICATION_TENANT_REQUIRED'); }
+                    foreach ($tenants as $tenant) { if (!is_int($tenant) || $tenant < 1) { throw new RuntimeException('QUALIFICATION_TENANT_REQUIRED'); } }
+                    $tenants = array_values(array_unique($tenants));
+                    sort($tenants, SORT_NUMERIC);
+                    return \app\common\infrastructure\scaffold\ScaffoldUpgradeRunner::sourceProductLock(dirname($serverRoot),
+                        static function () use ($pdo, $connection, $admission, $actor, $initial, $binding, $identity, $app, $serverRoot,
+                            $producer, $input, $raw, $options, $authenticate, $tenants, $config, &$started): array {
+                            $files = \applicationMigrationFiles($serverRoot . '/database'); $versions = \applicationReleaseVersions($serverRoot);
+                            $result = null;
+                            (new ApplicationMigrationRunner($config, $pdo))->run($files, \applicationMigrationTargetVersion($serverRoot, $versions),
+                                $versions['release_sequence_version'], true, null,
+                                static function (PDO $actual, array $selection) use ($pdo, $connection, $admission, $actor, $initial, $binding, $identity,
+                                    $app, $serverRoot, $producer, $input, $raw, $options, $authenticate, $tenants, &$result, &$started): void {
+                                    if ($actual !== $pdo || $selection['pending'] !== []) { throw new RuntimeException('QUALIFICATION_APPLICATION_UPGRADE_REQUIRED'); }
+                                    $guard = static function () use ($pdo, $connection, $admission, $actor, $initial, $identity): void {
+                                        if (\think\facade\Db::connect() !== $connection || $connection->getPdo() !== $pdo || $pdo->inTransaction()
+                                            || $admission->capture($actor, true) !== $initial
+                                            || \app\common\services\installation\InstallationExecutionHost::migrationDatabaseIdentity($pdo) !== $identity) {
+                                            throw new RuntimeException('QUALIFICATION_BINDING_CHANGED');
+                                        }
+                                    };
+                                    $guard();
+                                    $tables = $pdo->query('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() ORDER BY TABLE_NAME')->fetchAll(PDO::FETCH_COLUMN);
+                                    if ($producer === 'plugin-module-lifecycle' && !in_array('pa_fixture_delivery_record', $tables, true)) { $tables[] = 'pa_fixture_delivery_record'; sort($tables, SORT_STRING); }
+                                    // Includes indirect catalog, audit, allocator, FK and job effects. Unknown objects fail closed.
+                                    $scope = $app->make(\app\common\execution\ExecutionContextStore::class)->run(
+                                        new \app\common\execution\InstanceExecutionContext('console.qualification:installed', 'qualification-metadata-' . bin2hex(random_bytes(12))),
+                                        static fn(): array => self::sourceEffectScope($pdo, $tables, true, $binding, $input['metadata_tool'] ?? '', $guard));
+                                    if ($scope['triggers'] !== []) { throw new RuntimeException('QUALIFICATION_TRIGGER_EFFECTS_UNSUPPORTED'); }
+                                    foreach ($scope['foreign_keys'] as $fk) {
+                                        if ($fk['TABLE_SCHEMA'] !== $identity['database'] || $fk['REFERENCED_TABLE_SCHEMA'] !== $identity['database']) {
+                                            throw new RuntimeException('QUALIFICATION_EXTERNAL_DATABASE_EFFECTS_UNSUPPORTED');
+                                        }
+                                    }
+                                    $paths = [];
+                                    if ($producer !== 'plugin-module-lifecycle') {
+                                        $routes = $pdo->query("SELECT a.driver,s.local_path FROM pa_storage_route r JOIN pa_storage_space s ON s.id=r.space_id JOIN pa_storage_account a ON a.id=s.account_id WHERE s.status='active' AND a.status='active'")->fetchAll(PDO::FETCH_ASSOC);
+                                        if ($routes === []) { throw new RuntimeException('QUALIFICATION_STORAGE_ROUTES_REQUIRED'); }
+                                        foreach ($routes as $route) {
+                                            if ($route['driver'] !== 'local' || !in_array($route['local_path'], ['public/storage', 'private/storage'], true)) { throw new RuntimeException('QUALIFICATION_STORAGE_EFFECTS_UNSUPPORTED'); }
+                                            // Include namespace parents/absence and every existing byte, since
+                                            // native drivers may create parents or compensate a failed upload.
+                                            $path = $serverRoot . '/' . $route['local_path'];
+                                            if (realpath(dirname($path)) !== dirname($path) || !is_dir(dirname($path))) { throw new RuntimeException('QUALIFICATION_STORAGE_PARENT_REQUIRED'); }
+                                            $paths[] = $path;
+                                        }
+                                    } else {
+                                        foreach (['plugins.lock', 'plugins/fixture.delivery-record', 'server/app/modules/fixture/delivery_record', 'web/src/modules/fixture-delivery-record'] as $path) { $paths[] = dirname($serverRoot) . '/' . $path; }
+                                    }
+                                    $paths = array_values(array_unique($paths)); sort($paths, SORT_STRING);
+                                    $originals = self::qualificationFiles($paths);
+                                    $scope['qualification_file_preimages'] = $originals;
+                                    $scope['qualification_file_backup'] = ($input['backup_output'] ?? '') . '-files';
+                                    $key = 'installed:' . $producer;
+                                    $baseline = ['pending' => [$key], 'selected' => [$key => hash('sha256', $raw)], 'qualification' => $producer,
+                                        'input_sha256' => hash('sha256', $raw), 'installation_originals' => $binding['installation_originals'],
+                                        'file_roots' => $paths];
+                                    $result = ['protocol' => 'peanut.installed-lifecycle-plan.v1', 'producer' => $producer, 'binding' => $binding,
+                                        'baseline' => $baseline, 'baseline_sha256' => self::pluginDigest($baseline), 'scope' => $scope,
+                                        'qualification_writes_started' => false];
+                                    if (!($options['execute'] ?? false)) { $result['status'] = 'planned'; return; }
+                                    $window = $admission->qualificationWindow($input['maintenance'] ?? '', $binding, $baseline, $scope['tables']);
+                                    $resources = \activeLeaseResources(\requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF'));
+                                    $output = $input['backup_output'] ?? ''; $fileOutput = $output . '-files';
+                                    foreach ([$output, $fileOutput] as $directory) {
+                                        if (!in_array($directory, $resources['output-dir'] ?? [], true)) { throw new RuntimeException('QUALIFICATION_OUTPUT_LEASE_REQUIRED'); }
+                                    }
+                                    foreach ($paths as $path) {
+                                        if (!in_array($path, $resources[$producer === 'plugin-module-lifecycle' ? 'source-path' : 'storage-path'] ?? [], true)) { throw new RuntimeException('QUALIFICATION_FILE_LEASE_REQUIRED'); }
+                                    }
+                                    $registry = \projectResourceRegistry($registrySha);
+                                    $tools = array_values(array_filter($registry['resources']['tooling'] ?? [], static fn(array $row): bool => ($row['stable_resource_id'] ?? null) === ($input['backup_tool'] ?? null)));
+                                    if (count($tools) !== 1 || $registrySha !== $binding['registry_sha256'] || !in_array($input['backup_tool'], $resources['tooling-resource-id'] ?? [], true)) { throw new RuntimeException('QUALIFICATION_BACKUP_TOOL_REQUIRED'); }
+                                    $check = static function () use ($guard, $paths, $originals, $admission, $input, $binding, $baseline, $scope, $window): void {
+                                        $guard();
+                                        if (self::qualificationFiles($paths) !== $originals || $admission->qualificationWindow($input['maintenance'], $binding, $baseline, $scope['tables']) !== $window) { throw new RuntimeException('QUALIFICATION_PREIMAGE_CHANGED'); }
+                                    };
+                                    $check();
+                                    self::qualificationCopyFiles($originals, $fileOutput);
+                                    $backup = self::capture($binding, $baseline, self::pluginDigest($baseline), $scope, $tools[0], $output, $check, 'plugin-lifecycle');
+                                    self::pluginRecovery($binding, $baseline, $scope, $input['maintenance'], $output . '/recovery.json', $serverRoot);
+                                    self::qualificationVerifyFiles($originals, $fileOutput, $serverRoot);
+                                    $check();
+                                    $attempt = $output . '/qualification-attempt.json';
+                                    self::write($attempt, $result + ['status' => 'running', 'backup' => $backup, 'file_backup' => $fileOutput]);
+                                    $writeGuard = static function () use ($admission, $actor, $producer, $initial, $identity, $pdo, $connection,
+                                        $input, $binding, $baseline, $scope, $window, $originals): void {
+                                        $live = $producer === 'plugin-module-lifecycle' ? $admission->qualificationCapture($actor) : $admission->capture($actor, true);
+                                        if ($live !== $initial || \think\facade\Db::connect() !== $connection || $connection->getPdo() !== $pdo || $pdo->inTransaction()
+                                            || \app\common\services\installation\InstallationExecutionHost::migrationDatabaseIdentity($pdo) !== $identity
+                                            || $admission->qualificationWindow($input['maintenance'], $binding, $baseline, $scope['tables']) !== $window) { throw new RuntimeException('QUALIFICATION_WRITE_ADMISSION_CHANGED'); }
+                                        $lock = $pdo->prepare('SELECT IS_USED_LOCK(?) = CONNECTION_ID()');
+                                        $lock->execute(['peanut_migrate_' . substr(hash('sha256', $identity['database']), 0, 48)]);
+                                        if ((int) $lock->fetchColumn() !== 1) { throw new RuntimeException('QUALIFICATION_SCHEMA_LOCK_REQUIRED'); }
+                                        foreach ($originals as $path => $original) {
+                                            if ($producer === 'plugin-module-lifecycle' && isset($original['sha256'])
+                                                && (!is_file($path) || is_link($path) || hash_file('sha256', $path) !== $original['sha256'])) { throw new RuntimeException('QUALIFICATION_ORIGINAL_FILE_CHANGED'); }
+                                        }
+                                    };
+                                    $writeGuard();
+                                    $started = true;
+                                    $principals = $authenticate();
+                                    $actualTenants = array_values(array_unique(array_map(static fn($principal): int => $principal->tenantId, $principals)));
+                                    if ($producer === 'member-upload') { $actualTenants[] = (int) ($input['other_tenant_id'] ?? 0); }
+                                    $actualTenants = array_values(array_unique($actualTenants)); sort($actualTenants, SORT_NUMERIC);
+                                    if ($actualTenants !== $tenants) { throw new RuntimeException('QUALIFICATION_AUTHENTICATED_TENANTS_CHANGED'); }
+                                    // Failure/UNKNOWN retains every preimage and actual postimage. No restore or cleanup here.
+                                    ob_start();
+                                    try {
+                                    if ($producer === 'member-upload') {
+                                        \memberUploadInstalledAssertions($app, $pdo, $principals['member'], (int) $input['other_tenant_id'], $identity, $writeGuard);
+                                    } elseif ($producer === 'task-import-export') {
+                                        \taskImportExportInstalledAssertions($app, $pdo, $principals['alpha'], $principals['beta'], $principals['no_export'], $principals['audit_failure'], (int) ($input['alpha_role_id'] ?? 0), $identity, $writeGuard);
+                                    } else {
+                                        \pluginLifecycleInstalledAssertions($app, $pdo, $principals['admin'], (int) ($input['admin_role_id'] ?? 0), $identity, $output . '/fixture-inputs', $writeGuard);
+                                    }
+                                    } finally { self::writeBytes($output . '/assertions.log', (string) ob_get_clean()); }
+                                    foreach ($originals as $path => $original) {
+                                        if (isset($original['sha256']) && (!is_file($path) || is_link($path) || hash_file('sha256', $path) !== $original['sha256'])) {
+                                            throw new RuntimeException('QUALIFICATION_ORIGINAL_FILE_CHANGED');
+                                        }
+                                    }
+                                    $guard();
+                                    self::qualificationVerifyFiles($originals, $fileOutput, $serverRoot);
+                                    $result = ['protocol' => 'peanut.installed-lifecycle-result.v1', 'status' => 'passed', 'producer' => $producer,
+                                        'binding' => $binding, 'input_sha256' => hash('sha256', $raw), 'backup' => $backup,
+                                        'file_backup' => ['path' => $fileOutput . '/files.json', 'sha256' => hash_file('sha256', $fileOutput . '/files.json')],
+                                        'qualification_writes_started' => true, 'restore' => 'not_executed'];
+                                    self::write($output . '/qualification-result.json', $result);
+                                });
+                            if (!is_array($result)) { throw new RuntimeException('QUALIFICATION_RESULT_MISSING'); }
+                            return $result;
+                        });
+                };
+            $result = $run();
+            echo json_encode($result, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES) . "\n"; return 0;
+        } catch (\Throwable $error) {
+            echo json_encode(['status' => $started ? 'failed' : 'not_run', 'producer' => $producer,
+                'reason' => $started ? 'installed-assertion-failed-retain-scene' : 'installed-qualification-admission-refused',
+                'error_code' => preg_match('/\A[A-Z][A-Z0-9_:.-]{2,150}\z/D', $error->getMessage()) === 1 ? $error->getMessage() : 'NATIVE_INPUT_OR_ASSERTION_REFUSED',
+                'error_class' => $error::class, 'qualification_writes_started' => $started,
+                'recovery' => 'retain actual DB/storage/source and protected backup; no automatic restore or retry'], JSON_THROW_ON_ERROR) . "\n";
+            return $started ? 1 : 3;
+        }
+    }
+
+    /** Exact local bytes/absence; links, special files and escaping parent links are unsupported. */
+    private static function qualificationFiles(array $roots): array
+    {
+        $files = [];
+        foreach ($roots as $root) {
+            $parent = $root;
+            while ($parent !== '/') {
+                if (is_link($parent)) { throw new RuntimeException('QUALIFICATION_FILE_LINK_UNSUPPORTED'); }
+                $parent = dirname($parent);
+            }
+            if (!file_exists($root)) { $files[$root] = ['exists' => false]; continue; }
+            $items = is_dir($root) ? new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS), \RecursiveIteratorIterator::SELF_FIRST) : [new \SplFileInfo($root)];
+            $files[$root] = ['exists' => true, 'directory' => is_dir($root), 'mode' => fileperms($root) & 0777, 'uid' => fileowner($root), 'gid' => filegroup($root)];
+            foreach ($items as $item) {
+                if ($item->isLink() || (!$item->isDir() && !$item->isFile())) { throw new RuntimeException('QUALIFICATION_FILE_TYPE_UNSUPPORTED'); }
+                $path = $item->getPathname();
+                $files[$path] = ['exists' => true, 'directory' => $item->isDir(), 'mode' => $item->getPerms() & 0777, 'uid' => $item->getOwner(), 'gid' => $item->getGroup()];
+                if ($item->isFile()) { $files[$path] += ['sha256' => hash_file('sha256', $path), 'bytes' => $item->getSize()]; }
+            }
+        }
+        ksort($files, SORT_STRING); return $files;
+    }
+
+    private static function qualificationCopyFiles(array $originals, string $directory): void
+    {
+        if (realpath(dirname($directory)) !== dirname($directory) || (fileperms(dirname($directory)) & 0022) !== 0
+            || !in_array(fileowner(dirname($directory)), [0, posix_geteuid()], true)
+            || file_exists($directory) || is_link($directory) || !mkdir($directory, 0700)) { throw new RuntimeException('QUALIFICATION_FILE_BACKUP_UNSAFE'); }
+        $manifest = [];
+        foreach ($originals as $path => $original) {
+            $payload = null;
+            if (isset($original['sha256'])) {
+                $target = $directory . '/' . hash('sha256', $path);
+                $source = fopen($path, 'rb'); $destination = fopen($target, 'x+b');
+                if ($source === false || $destination === false) {
+                    if (is_resource($source)) { fclose($source); }
+                    if (is_resource($destination)) { fclose($destination); }
+                    throw new RuntimeException('QUALIFICATION_FILE_BACKUP_CHANGED');
+                }
+                try {
+                    if (!chmod($target, 0600) || stream_copy_to_stream($source, $destination) !== $original['bytes']
+                        || !fflush($destination) || !fsync($destination)) { throw new RuntimeException('QUALIFICATION_FILE_BACKUP_CHANGED'); }
+                } finally { fclose($source); fclose($destination); }
+                if (hash_file('sha256', $target) !== $original['sha256'] || filesize($target) !== $original['bytes']) { throw new RuntimeException('QUALIFICATION_FILE_BACKUP_CHANGED'); }
+                $payload = ['path' => $target, 'sha256' => $original['sha256'], 'bytes' => $original['bytes']];
+            }
+            $manifest[$path] = ['original' => $original, 'payload' => $payload];
+        }
+        self::write($directory . '/files.json', ['protocol' => 'peanut.installed-lifecycle-file-preimages.v1', 'files' => $manifest,
+            'restore' => 'not_executed; reconcile exact failed afterimage and separately authorize recovery; never recurse-delete or restore after writers reopen']);
+    }
+
+    private static function qualificationVerifyFiles(array $originals, string $directory, string $serverRoot): void
+    {
+        $manifest = self::protectedPluginJson($directory . '/files.json', $serverRoot);
+        if (($manifest['protocol'] ?? null) !== 'peanut.installed-lifecycle-file-preimages.v1'
+            || array_keys($manifest['files'] ?? []) !== array_keys($originals)) { throw new RuntimeException('QUALIFICATION_FILE_BACKUP_CHANGED'); }
+        foreach ($originals as $path => $original) {
+            $record = $manifest['files'][$path];
+            if (($record['original'] ?? null) !== $original) { throw new RuntimeException('QUALIFICATION_FILE_BACKUP_CHANGED'); }
+            if (isset($original['sha256'])) {
+                $payload = $record['payload'] ?? [];
+                $expected = $directory . '/' . hash('sha256', $path);
+                self::protectedPluginBytes($expected, $serverRoot, null);
+                if ($payload !== ['path' => $expected, 'sha256' => $original['sha256'], 'bytes' => $original['bytes']]
+                    || hash_file('sha256', $expected) !== $original['sha256'] || filesize($expected) !== $original['bytes']) { throw new RuntimeException('QUALIFICATION_FILE_BACKUP_CHANGED'); }
+            } elseif (($record['payload'] ?? null) !== null) { throw new RuntimeException('QUALIFICATION_FILE_BACKUP_CHANGED'); }
+        }
+    }
     // ModuleCatalogApplier.apply always synchronizes core permissions/conditions,
     // even for a single selected Module. These are whole shared catalogs, not
     // module_key-filtered recovery data. No tenant settings values are written.
@@ -176,7 +477,7 @@ final class SourceApplicationBackup
         $serverRoot = $root . '/server';
         $context = app()->make(\app\common\execution\CurrentExecutionContext::class)->current();
         if (PHP_SAPI !== 'cli' || !$context instanceof \app\common\execution\InstanceExecutionContext
-            || !in_array($context->operation(), ['console.schema:application', 'console.plugin:install', 'console.plugin:upgrade'], true)
+            || !in_array($context->operation(), ['console.schema:application', 'console.plugin:install', 'console.plugin:upgrade', 'console.qualification:installed'], true)
             || $context->instance->actorKey !== 'console' || !is_callable($guard)
             || realpath($root) !== $root || realpath($serverRoot) !== $serverRoot || $tables === []) {
             throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_METADATA_CONTEXT_REQUIRED');
@@ -1122,6 +1423,14 @@ final class SourceApplicationBackup
                 'Restore only the selected tables. Database/accounts/storage/other tables are outside this payload; never DROP DATABASE.',
                 'The native dump includes selected-table DROP/CREATE/data/trigger statements. After explicit restore, verify original structure/data and outside dependencies; not only row counts.',
                 'Any interrupted/unknown restore requires reconciliation by its original owner; never automatically replay.']];
+        if (isset($scope['qualification_file_preimages'])) {
+            if ($purpose !== 'plugin-lifecycle' || !in_array($baseline['qualification'] ?? null, ['member-upload', 'task-import-export', 'plugin-module-lifecycle'], true)) { throw new RuntimeException('QUALIFICATION_FILE_BACKUP_ORIGIN_REQUIRED'); }
+            $fileManifest = $scope['qualification_file_backup'] . '/files.json';
+            self::qualificationVerifyFiles($scope['qualification_file_preimages'], $scope['qualification_file_backup'], $binding['source']['root'] . '/server');
+            $restore['qualification_file_preimages'] = ['manifest' => ['path' => $fileManifest, 'sha256' => hash_file('sha256', $fileManifest)],
+                'originals' => $scope['qualification_file_preimages']];
+            $restore['requirements'][] = 'Database and file preimages are paired for this installed qualification only. Files include original absence, owner/group/mode and exact byte payloads; the SQL dump cannot restore storage or source. Preserve the actual failed afterimage and separately authorize exact-object recovery under continued writer exclusion; no automatic file restoration or deletion.';
+        }
         if ($partial) {
             $restore['protocol'] = 'peanut.installation-partial-restore-instructions.v1';
             $restore['whole_schema'] = true; $restore['installation_originals'] = $originalFiles;
