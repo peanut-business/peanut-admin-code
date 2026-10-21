@@ -31547,6 +31547,19 @@
             ]
         },
         {
+            "path": "server/tests/Support/application-prefix-mysql.php",
+            "target": "server/tests/Support/application-prefix-mysql.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/tests/Unit/A1CompositionRegressionTest.php",
             "target": "server/tests/Unit/A1CompositionRegressionTest.php",
             "classification": "excluded",

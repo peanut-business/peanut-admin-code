@@ -99,6 +99,8 @@ SMS 保全复用 Notification 的公开业务证明；包含完整原行及候�
 
 preflight 的 `backup_scope` 只从本次 pending 的固定 SQL 取表并加入应用账本，记录原表 DDL／自增摘要、可见入出 FK 和触发器摘要。九条全部 pending 时是原有十一张受影响表；子集只取实际并集。元数据中引用的其他表不会自动变成恢复写集。schema 元数据可见性受当前账号限制，原生备份客户端另核同库直接 SELECT／TRIGGER 可见权限；备份期间必须排除受影响 DDL，不能把一致性事务当作 DDL 隔离。
 
+现有 `SourceApplicationDumpContractTest.php` 默认仅运行离线合同。显式 `--mysql --baseline=<private-json> --output=<new-private-directory> --tool=<registered-native-snapshot-tool> --owner=<real-thread>` 才运行已登记的逆向原语夹具资格：要求原生独占租约、固定源码／registry、原库 UUID 与两张既有账本的原始计数和摘要，以及可证明可见的初始对象集合。仅在原业务表不存在时创建固定夹具；两张旧账本始终只读，夹具及失败部分态保留，不使用空库清理。普通 PDO 执行生产 `restorePrefix()` 的原样载荷；原生工具仅 probe／dump。非空父行、真实 FK、CHECK、自增及断开连接前的 DML 保全结果单独记录；仅新建的 auth 夹具允许固定 block 逆向重建，父表不 DROP。这组结果不代表六条完整 Host 失败路线、迁移 runner 或 APP／生产资格通过，也不授权重放既有 applied ID。
+
 工具登记的 `transport` 必须为既有 `ssh-docker-exec`，包含真实 `ssh_command`、`ssh_alias`、`docker_command`、`container_name`、`mysql_command`、`mysqldump_command`、`timeout_command`、`digest_command`。`source_schema_backup` 精确登记 `database_resource_id`、`database`、允许的 `tables`、`mysql_version` 与 30–600 秒的 `timeout_seconds`，不使用 schema 前缀或任意 SQL。程序只在既有容器内读取其原 `MYSQL_ROOT_PASSWORD` 给固定客户端，不向本机传递密码。调用前后核对实际 server UUID、库名、主机、端口、MySQL 版本与两个客户端二进制摘要；远端命令有原生终止期限，失败保留私有输出和本地终态回执，不自动重试。
 
 成功调用原生 `mysqldump` 后，0700 目录保留 0600 的完整选表 `database.sql`、`backup.json`、原生进程回执、`RESTORE.json` 与 `recovery.json`。原生客户端以 InnoDB 一致性事务、逐行输出、binary hex、完整建表及 triggers 导出选定表；不带 `--databases`／`--add-drop-database`、routines、events 或表空间，不复制存储目录。普通输出只含位置、内容摘要和表清单，不含业务行。原生逻辑备份与快照限制依据 [MySQL 8.4 mysqldump 文档](https://dev.mysql.com/doc/refman/8.4/en/mysqldump.html)。

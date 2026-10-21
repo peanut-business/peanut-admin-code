@@ -102,10 +102,14 @@ if (!str_contains($restore, 'DROP CHECK `chk_tenant_session_client`, ADD ' . tri
 $restore = SourceApplicationDump::restorePrefix($sessionImage('', $sessionRow), $sessionImage($newCheck, $sessionRow), ['pa_tenant_session']);
 if (!str_contains($restore, 'ALTER TABLE `pa_tenant_session` DROP CHECK `chk_tenant_session_client`;')
     || str_contains($restore, 'ADD CONSTRAINT')) { throw new RuntimeException('Originally absent CHECK recovery lost.'); }
+$refused = false;
 try { SourceApplicationDump::restorePrefix($sessionImage($oldCheck, $sessionRow), $sessionImage($newCheck, str_replace('admin-web', 'other', $sessionRow)), ['pa_tenant_session']); }
 catch (RuntimeException $error) {
     if ($error->getMessage() !== 'APPLICATION_SCHEMA_DUMP_FORMAT_UNSUPPORTED') { throw $error; }
-    echo "Application prefix derivation: stable parent identities, original literals/allocator, constrained session CHECK and unknown-change refusal; no SQL executed.\n";
-    return;
+    $refused = true;
 }
-throw new RuntimeException('Session row mutation accepted.');
+if (!$refused) { throw new RuntimeException('Session row mutation accepted.'); }
+echo "Application prefix derivation: stable parent identities, original literals/allocator, constrained session CHECK and unknown-change refusal; no SQL executed.\n";
+if (in_array('--mysql', array_slice($argv, 1), true)) {
+    require dirname(__DIR__) . '/Support/application-prefix-mysql.php';
+}
