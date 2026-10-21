@@ -64,6 +64,16 @@ function taskImportExportInstalledAssertions(
 ): void
 {
     $GLOBALS['taskImportExportChecks'] = 0;
+    // Only these existing qualification DML operations use this same native transaction.
+    $write = static function (PDOStatement|string $sql, array $parameters = []) use ($pdo, $guard): void {
+        \think\facade\Db::transaction(static function () use ($pdo, $guard, $sql, $parameters): void {
+            $guard(true);
+            $statement = $sql instanceof PDOStatement ? $sql : $pdo->prepare($sql);
+            $guard(true);
+            $statement->execute($parameters);
+            $guard(true);
+        });
+    };
     $installation = $app->make(app\common\services\installation\InstallationExecutionHost::class);
     $status = $installation->status();
     expectAsyncTenant(($status['state'] ?? null) === 'installed' && ($status['deployment_mode'] ?? null) === 'multi-tenant', 'healthy installed multi-tenant Code is required');
@@ -137,7 +147,7 @@ function taskImportExportInstalledAssertions(
     $operationLogs = $pdo->prepare('INSERT INTO pa_operation_log (tenant_id,admin_id,username,uri,method,params,create_time) VALUES (?,?,?,?,?,?,UNIX_TIMESTAMP())');
     foreach ([[$alphaTenant, $alphaMarker], [$betaTenant, $betaMarker]] as [$principal, $marker]) {
         $guard();
-        $operationLogs->execute([$principal->tenantId, $principal->memberId, 'p3-' . $runId, 'p3/' . $runId, 'POST', json_encode(['marker' => $marker], JSON_THROW_ON_ERROR)]);
+        $write($operationLogs, [$principal->tenantId, $principal->memberId, 'p3-' . $runId, 'p3/' . $runId, 'POST', json_encode(['marker' => $marker], JSON_THROW_ON_ERROR)]);
     }
     $workerDefinitions = $app->make(TaskWorkerDefinitionRegistry::class)->resolve($app);
     $handlerKeys = [];
@@ -188,19 +198,19 @@ function taskImportExportInstalledAssertions(
     expectAsyncTenant($executionContexts->isEmpty(), 'worker execution context was not initially empty');
     $taskDisabled = submitOperationLogExport($runtime, $guard, $alpha, 'task-disabled-' . $runId);
     $guard();
-    $pdo->exec("UPDATE pa_tenant_module SET status = 'disabled', disabled_at = UTC_TIMESTAMP(3) WHERE tenant_id = {$tenantId} AND module_key = 'official.task'");
+    $write("UPDATE pa_tenant_module SET status = 'disabled', disabled_at = UTC_TIMESTAMP(3) WHERE tenant_id = {$tenantId} AND module_key = 'official.task'");
     expectAsyncTenant(runAsyncTenant($runtime, $guard, $executionContexts, $tenantId, 'installed-task-disabled-' . $runId) === 1, 'disabled Task Module job was not examined');
     expectAsyncTenant($pdo->query("SELECT status FROM pa_task_job WHERE job_key = " . $pdo->quote((string) $taskDisabled->taskJobKey))->fetchColumn() === 'dead', 'disabled Task Module executed');
     $guard();
-    $pdo->prepare("UPDATE pa_tenant_module SET status='enabled', disabled_at=? WHERE tenant_id=? AND module_key='official.task'")->execute([$originalDisabledAt['official.task'], $tenantId]);
+    $write("UPDATE pa_tenant_module SET status='enabled', disabled_at=? WHERE tenant_id=? AND module_key='official.task'", [$originalDisabledAt['official.task'], $tenantId]);
 
     $importExportDisabled = submitOperationLogExport($runtime, $guard, $alpha, 'import-export-disabled-' . $runId);
     $guard();
-    $pdo->exec("UPDATE pa_tenant_module SET status = 'disabled', disabled_at = UTC_TIMESTAMP(3) WHERE tenant_id = {$tenantId} AND module_key = 'official.import-export'");
+    $write("UPDATE pa_tenant_module SET status = 'disabled', disabled_at = UTC_TIMESTAMP(3) WHERE tenant_id = {$tenantId} AND module_key = 'official.import-export'");
     expectAsyncTenant(runAsyncTenant($runtime, $guard, $executionContexts, $tenantId, 'installed-import-export-disabled-' . $runId) === 1, 'disabled Import/Export Module job was not examined');
     expectAsyncTenant($pdo->query("SELECT status FROM pa_task_job WHERE job_key = " . $pdo->quote((string) $importExportDisabled->taskJobKey))->fetchColumn() === 'dead', 'disabled Import/Export Module executed');
     $guard();
-    $pdo->prepare("UPDATE pa_tenant_module SET status='enabled', disabled_at=? WHERE tenant_id=? AND module_key='official.import-export'")->execute([$originalDisabledAt['official.import-export'], $tenantId]);
+    $write("UPDATE pa_tenant_module SET status='enabled', disabled_at=? WHERE tenant_id=? AND module_key='official.import-export'", [$originalDisabledAt['official.import-export'], $tenantId]);
 
     $operationCountBeforeIdempotency = (int) $pdo->query('SELECT COUNT(*) FROM pa_import_export_operation')->fetchColumn();
     $jobCountBeforeIdempotency = (int) $pdo->query('SELECT COUNT(*) FROM pa_task_job')->fetchColumn();
@@ -223,6 +233,7 @@ function taskImportExportInstalledAssertions(
         "ALTER TABLE pa_tenant_audit_event ADD CONSTRAINT {$auditFailureConstraint} "
         . "CHECK (event_type <> 'tenant.import_export.submitted' OR request_id <> " . $pdo->quote($auditFailureRequest) . ")",
     );
+    $guard();
     try {
         submitOperationLogExport($runtime, $guard, $auditFailureContext, 'atomic-failure-' . $runId);
         throw new RuntimeException('atomic failure injection unexpectedly committed');
@@ -236,6 +247,7 @@ function taskImportExportInstalledAssertions(
     // Unexpected failure retains the scene for the native recovery owner.
     $guard();
     $pdo->exec("ALTER TABLE pa_tenant_audit_event DROP CHECK {$auditFailureConstraint}");
+    $guard();
     expectAsyncTenant((int) $pdo->query('SELECT COUNT(*) FROM pa_import_export_operation')->fetchColumn() === $operationCountAfterIdempotency, 'failed submission left an operation');
     expectAsyncTenant((int) $pdo->query('SELECT COUNT(*) FROM pa_task_job')->fetchColumn() === $jobCountAfterIdempotency, 'failed submission left a job');
 
@@ -244,28 +256,28 @@ function taskImportExportInstalledAssertions(
     $forged = str_replace('"tenant_id":' . $tenantId . ',', '"tenant_id":' . $otherTenantId . ',', $envelope);
     expectAsyncTenant($forged !== $envelope, 'signed envelope Tenant field was not found for tampering');
     $guard();
-    $pdo->prepare('UPDATE pa_task_job SET trusted_envelope = ? WHERE job_key = ?')->execute([$forged, $jobKey]);
+    $write('UPDATE pa_task_job SET trusted_envelope = ? WHERE job_key = ?', [$forged, $jobKey]);
     expectAsyncTenant(runAsyncTenant($runtime, $guard, $executionContexts, $tenantId, 'installed-forged-' . $runId) === 1, 'forged job was not claimed');
     expectAsyncTenant($pdo->query("SELECT status FROM pa_task_job WHERE job_key = " . $pdo->quote($jobKey))->fetchColumn() === 'dead', 'forged envelope did not fail closed');
     expectAsyncTenant((int) $pdo->query('SELECT COUNT(*) FROM pa_file_object')->fetchColumn() === $fileCountBefore, 'forged envelope produced an artifact');
 
     $suspended = submitOperationLogExport($runtime, $guard, $alpha, 'suspended-' . $runId);
     $guard();
-    $pdo->exec("UPDATE pa_tenant SET status = 'suspended', suspended_at = UTC_TIMESTAMP(3) WHERE id = {$tenantId}");
+    $write("UPDATE pa_tenant SET status = 'suspended', suspended_at = UTC_TIMESTAMP(3) WHERE id = {$tenantId}");
     expectAsyncTenant(runAsyncTenant($runtime, $guard, $executionContexts, $tenantId, 'installed-suspended-' . $runId) === 1, 'suspended Tenant job was not examined');
     expectAsyncTenant($pdo->query("SELECT status FROM pa_task_job WHERE job_key = " . $pdo->quote((string) $suspended->taskJobKey))->fetchColumn() === 'dead', 'suspended Tenant job executed');
     $guard();
-    $pdo->prepare("UPDATE pa_tenant SET status='active', suspended_at=? WHERE id=?")->execute([$originalSuspendedAt, $tenantId]);
+    $write("UPDATE pa_tenant SET status='active', suspended_at=? WHERE id=?", [$originalSuspendedAt, $tenantId]);
 
     $revoked = submitOperationLogExport($runtime, $guard, $alpha, 'revoked-' . $runId);
     $guard();
-    $pdo->exec("DELETE FROM pa_role_permission WHERE tenant_id = {$tenantId} AND role_id = {$alphaRoleId} AND permission_id = {$exportPermission}");
+    $write("DELETE FROM pa_role_permission WHERE tenant_id = {$tenantId} AND role_id = {$alphaRoleId} AND permission_id = {$exportPermission}");
     expectAsyncTenant(runAsyncTenant($runtime, $guard, $executionContexts, $tenantId, 'installed-revoked-' . $runId) === 1, 'revoked job was not examined');
     expectAsyncTenant($pdo->query("SELECT status FROM pa_task_job WHERE job_key = " . $pdo->quote((string) $revoked->taskJobKey))->fetchColumn() === 'dead', 'revoked native Permission still executed');
     $grantColumns = array_keys($originalGrant);
     foreach ($grantColumns as $column) { expectAsyncTenant(preg_match('/^[a-z_]+$/D', $column) === 1, 'unexpected native grant column'); }
     $guard();
-    $pdo->prepare('INSERT INTO pa_role_permission (`' . implode('`,`', $grantColumns) . '`) VALUES (' . implode(',', array_fill(0, count($grantColumns), '?')) . ')')->execute(array_values($originalGrant));
+    $write('INSERT INTO pa_role_permission (`' . implode('`,`', $grantColumns) . '`) VALUES (' . implode(',', array_fill(0, count($grantColumns), '?')) . ')', array_values($originalGrant));
 
     $success = submitOperationLogExport($runtime, $guard, $alpha, 'success-' . $runId);
     expectAsyncTenant(runAsyncTenant($runtime, $guard, $executionContexts, $tenantId, 'installed-success-' . $runId) === 1, 'successful job was not processed');
@@ -316,7 +328,7 @@ function taskImportExportInstalledAssertions(
     $secondDownload = $runtime->download($alpha, $completed->resultFileKey);
     parse_str((string) parse_url($secondDownload['url'], PHP_URL_QUERY), $deliveryQuery);
     $guard();
-    $pdo->exec("UPDATE pa_tenant SET status = 'suspended', suspended_at = UTC_TIMESTAMP(3) WHERE id = {$tenantId}");
+    $write("UPDATE pa_tenant SET status = 'suspended', suspended_at = UTC_TIMESTAMP(3) WHERE id = {$tenantId}");
     try {
         $guard();
         $storage->authorizedDownload(
@@ -329,7 +341,7 @@ function taskImportExportInstalledAssertions(
         expectAsyncTenant($exception->getMessage() === '文件不存在或不可用', 'suspended file denial changed');
     }
     $guard();
-    $pdo->prepare("UPDATE pa_tenant SET status='active', suspended_at=? WHERE id=?")->execute([$originalSuspendedAt, $tenantId]);
+    $write("UPDATE pa_tenant SET status='active', suspended_at=? WHERE id=?", [$originalSuspendedAt, $tenantId]);
     $guard();
     expectAsyncTenant(
         is_file($storage->authorizedDownload(
@@ -343,8 +355,7 @@ function taskImportExportInstalledAssertions(
     $thirdDownload = $runtime->download($alpha, $completed->resultFileKey);
     parse_str((string) parse_url($thirdDownload['url'], PHP_URL_QUERY), $deliveryQuery);
     $guard();
-    $pdo->prepare("UPDATE pa_file_object SET status='archived', archived_at=UTC_TIMESTAMP(3) WHERE tenant_id={$tenantId} AND file_key=?")
-        ->execute([(string) $deliveryQuery['file_key']]);
+    $write("UPDATE pa_file_object SET status='archived', archived_at=UTC_TIMESTAMP(3) WHERE tenant_id={$tenantId} AND file_key=?", [(string) $deliveryQuery['file_key']]);
     try {
         $guard();
         $storage->authorizedDownload(

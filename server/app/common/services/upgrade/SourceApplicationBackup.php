@@ -14,6 +14,9 @@ final class SourceApplicationBackup
     /** Only qualificationEntry installs this frame, after native capture and live admission. */
     private static ?array $installedQualification = null;
 
+    /** Observation only; no caller can install or change the private admitted frame. */
+    public static function hasInstalledQualification(): bool { return self::$installedQualification !== null; }
+
     public static function assertInstalledQualificationWrite(?PDO $pdo): void
     {
         $frame = self::$installedQualification;

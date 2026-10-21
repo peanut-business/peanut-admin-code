@@ -122,6 +122,16 @@ function pluginLifecycleCatalogSnapshot(PDO $pdo): array
 /** Installed native host supplies the authenticated principal inside paired protection. */
 function pluginLifecycleInstalledAssertions(App $app, PDO $pdo, TenantContext $context, int $roleId, array $expectedDatabaseIdentity, string $artifactDirectory, callable $guard): void
 {
+    // Only these existing qualification DML operations use this same native transaction.
+    $write = static function (PDOStatement|string $sql, array $parameters = []) use ($pdo, $guard): void {
+        \think\facade\Db::transaction(static function () use ($pdo, $guard, $sql, $parameters): void {
+            $guard(true);
+            $statement = $sql instanceof PDOStatement ? $sql : $pdo->prepare($sql);
+            $guard(true);
+            $statement->execute($parameters);
+            $guard(true);
+        });
+    };
     $serverRoot = dirname(__DIR__, 2);
     $projectRoot = dirname($serverRoot);
     pluginLifecycleExpect(\app\common\services\installation\InstallationExecutionHost::migrationDatabaseIdentity($pdo) === $expectedDatabaseIdentity, 'protected database identity changed');
@@ -184,9 +194,9 @@ function pluginLifecycleInstalledAssertions(App $app, PDO $pdo, TenantContext $c
         pluginLifecycleExpect(($service->install('fixture.delivery-record')['operation'] ?? null) === 'unchanged', 'repeat install was not idempotent');
         $migrationCountBeforeResume = (int) $pdo->query("SELECT COUNT(*) FROM pa_module_migration WHERE module_key='fixture.delivery-record'")->fetchColumn();
         $guard();
-        $pdo->exec("UPDATE pa_plugin_installation SET status='installing' WHERE plugin_key='fixture.delivery-record'");
+        $write("UPDATE pa_plugin_installation SET status='installing' WHERE plugin_key='fixture.delivery-record'");
         $guard();
-        $pdo->exec("UPDATE pa_module_installation SET status='installing' WHERE module_key='fixture.delivery-record'");
+        $write("UPDATE pa_module_installation SET status='installing' WHERE module_key='fixture.delivery-record'");
         $guard();
         $resumed = $service->install('fixture.delivery-record');
         pluginLifecycleExpect(($resumed['operation'] ?? null) === 'resumed', 'interrupted installing state did not resume');
@@ -209,9 +219,14 @@ function pluginLifecycleInstalledAssertions(App $app, PDO $pdo, TenantContext $c
         $record = static fn(string $reference): array => $executionContexts->run(
             new AdminExecutionContext($context, 'fixture.delivery-record.record'),
             static function () use ($modules, $commands, $reference, $guard): array {
-                $guard();
-                $modules->assertHttp('fixture.delivery-record', 'fixture.delivery-record.record');
-                return $commands->record($reference);
+                return \think\facade\Db::transaction(static function () use ($modules, $commands, $reference, $guard): array {
+                    $guard(true);
+                    $modules->assertHttp('fixture.delivery-record', 'fixture.delivery-record.record');
+                    $guard(true);
+                    $result = $commands->record($reference);
+                    $guard(true);
+                    return $result;
+                });
             },
         );
         foreach (['not-enabled', 'not-authorized'] as $phase) {
@@ -224,7 +239,7 @@ function pluginLifecycleInstalledAssertions(App $app, PDO $pdo, TenantContext $c
     ) VALUES (:tenant_id,'fixture.delivery-record','enabled','manual','{}',1,1,:now,:now,:now,:now)
     SQL);
                 $guard();
-                $enable->execute(['tenant_id' => (int) $member['tenant_id'], 'now' => $now]);
+                $write($enable, ['tenant_id' => (int) $member['tenant_id'], 'now' => $now]);
             }
             try {
                 $record($phase);
@@ -242,7 +257,7 @@ function pluginLifecycleInstalledAssertions(App $app, PDO $pdo, TenantContext $c
     VALUES (:tenant_id,:role_id,:permission_id,:member_id,:now)
     SQL);
         $guard();
-        $grant->execute([
+        $write($grant, [
             'tenant_id' => (int) $member['tenant_id'],
             'role_id' => (int) $member['role_id'],
             'permission_id' => $permissionId,
@@ -258,7 +273,7 @@ function pluginLifecycleInstalledAssertions(App $app, PDO $pdo, TenantContext $c
             pluginLifecycleExpect($exception->errorCode === 'PLUGIN_TENANT_MODULE_ACTIVE', 'uninstall refusal code changed');
         }
         $guard();
-        $pdo->exec("UPDATE pa_tenant_module SET status='disabled',disabled_at=UTC_TIMESTAMP(3),disabled_reason='fixture-test' WHERE module_key='fixture.delivery-record'");
+        $write("UPDATE pa_tenant_module SET status='disabled',disabled_at=UTC_TIMESTAMP(3),disabled_reason='fixture-test' WHERE module_key='fixture.delivery-record'");
         try {
             $record('disabled-after-grant');
             throw new RuntimeException('disabled Module accepted a command after permission grant');

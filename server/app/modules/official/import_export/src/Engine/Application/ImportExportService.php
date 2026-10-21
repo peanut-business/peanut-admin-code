@@ -115,6 +115,7 @@ final readonly class ImportExportService
         ]));
 
         return Db::transaction(function () use ($context, $direction, $providerKey, $fileKey, $schema, $mapping, $idempotencyKey, $requestHash, $retentionDays): OperationRecord {
+            \app\common\services\upgrade\SourceApplicationBackup::assertInstalledQualificationWrite(Db::connect()->getPdo());
             $operation = $this->repository->create(
                 $context->tenantContext->tenantId,
                 $context->tenantContext->memberId,
@@ -128,11 +129,14 @@ final readonly class ImportExportService
                 $requestHash,
                 $retentionDays,
             );
+            \app\common\services\upgrade\SourceApplicationBackup::assertInstalledQualificationWrite(Db::connect()->getPdo());
             if ($operation->taskJobKey !== null) {
                 return $operation;
             }
             $job = $this->publisher->publish($context, self::TASK_TYPE, ['operation_key' => $operation->operationKey], 'iox-' . $idempotencyKey);
+            \app\common\services\upgrade\SourceApplicationBackup::assertInstalledQualificationWrite(Db::connect()->getPdo());
             $operation = $this->repository->attachJob($context->tenantContext->tenantId, $operation->operationKey, $job->jobKey);
+            \app\common\services\upgrade\SourceApplicationBackup::assertInstalledQualificationWrite(Db::connect()->getPdo());
             $this->audit->tenantMember(
                 $context->tenantContext,
                 'tenant.import_export.submitted',
@@ -142,6 +146,7 @@ final readonly class ImportExportService
                 targetCount: 1,
                 metadata: ['direction' => $direction, 'provider_key' => $providerKey, 'retention_days' => $retentionDays, 'revision' => $operation->revision],
             );
+            \app\common\services\upgrade\SourceApplicationBackup::assertInstalledQualificationWrite(Db::connect()->getPdo());
             return $operation;
         });
     }

@@ -556,6 +556,8 @@ final class TenantAuthService
                 'access',
                 true,
             );
+            // The locked read may have waited beyond a native qualification window.
+            \app\common\services\upgrade\SourceApplicationBackup::assertInstalledQualificationWrite(Db::connect()->getPdo());
             if ($record === null) {
                 return new \PeanutAdmin\Kernel\Auth\AuthException('AUTH_TOKEN_INVALID', 401);
             }
@@ -569,11 +571,12 @@ final class TenantAuthService
             }
             $failure = $this->sessionFailure($record, $now);
             if ($failure !== null) {
+                \app\common\services\upgrade\SourceApplicationBackup::assertInstalledQualificationWrite(Db::connect()->getPdo());
                 $this->repository->revokeSession($record->sessionId, 'session_invalid', $now);
-
+                \app\common\services\upgrade\SourceApplicationBackup::assertInstalledQualificationWrite(Db::connect()->getPdo());
                 return $failure;
             }
-
+            \app\common\services\upgrade\SourceApplicationBackup::assertInstalledQualificationWrite(Db::connect()->getPdo());
             return $record->validated();
         });
 

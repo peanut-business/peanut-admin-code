@@ -107,6 +107,7 @@ final class FileUploadService implements FileUploads
                 $tenantId,
                 $imageMetadata,
             ): File {
+                \app\common\services\upgrade\SourceApplicationBackup::assertInstalledQualificationWrite(Db::connect()->getPdo());
                 $file = File::create([
                     'cid' => $cid,
                     'source_id' => $sourceId,
@@ -117,6 +118,7 @@ final class FileUploadService implements FileUploads
                 ]);
                 if ($imageMetadata instanceof ImageMetadata) {
                     $now = (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->format('Y-m-d H:i:s.v');
+                    \app\common\services\upgrade\SourceApplicationBackup::assertInstalledQualificationWrite(Db::connect()->getPdo());
                     FileImageAsset::create([
                         'tenant_id' => $tenantId,
                         'file_key' => $stored['file_key'],
@@ -127,6 +129,7 @@ final class FileUploadService implements FileUploads
                         'updated_at' => $now,
                     ]);
                 }
+                \app\common\services\upgrade\SourceApplicationBackup::assertInstalledQualificationWrite(Db::connect()->getPdo());
                 return $file;
             });
         } catch (\Throwable $exception) {
