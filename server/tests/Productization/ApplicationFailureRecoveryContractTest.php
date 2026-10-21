@@ -47,17 +47,28 @@ foreach ($invalidProfiles as $changed) {
 try { SourceApplicationBackup::failureRestoreTables('caller-selected-tables'); throw new LogicException('Unknown restore tables accepted.'); }
 catch (RuntimeException $error) { if ($error->getMessage() !== 'APPLICATION_SCHEMA_FAILURE_RESTORE_UNSUPPORTED') { throw $error; } }
 $fixed = $class->getConstant('PRESTATE_SQL'); $ids = array_keys($fixed);
-foreach (array_slice($ids, 3) as $offset => $id) {
-    $failure = ['failure_afterimage' => true, 'executed_prefix' => array_slice($ids, 0, $offset + 3), 'selected' => $fixed,
+foreach ([$navigationId, ...array_slice($ids, 3)] as $id) {
+    $index = array_search($id, $ids, true);
+    $failure = ['failure_afterimage' => true, 'executed_prefix' => array_slice($ids, 0, $index), 'selected' => $fixed,
         'failed_migration' => ['migration_id' => $id, 'status' => 'failed', 'checksum' => $fixed[$id], 'error_code' => 'NATIVE_TERMINAL_FAILURE']];
     if ($profileCheck->invoke($host, $failure) !== 'prefix:' . $id
-        || SourceApplicationBackup::failureRestoreTables('prefix:' . $id) !== SourceApplicationBackup::applicationTables(array_slice($ids, 0, $offset + 4))) {
+        || SourceApplicationBackup::failureRestoreTables('prefix:' . $id) !== SourceApplicationBackup::applicationTables(array_slice($ids, 0, $index + 1))) {
         throw new LogicException('Fixed remaining prefix coverage lost.');
     }
-    $failure['selected'][$smsId] = str_repeat('0', 64);
-    try { $profileCheck->invoke($host, $failure); }
+    $invalid = [];
+    $changed = $failure; $changed['selected'][$smsId] = str_repeat('0', 64); $invalid[] = $changed;
+    $changed = $failure; $changed['executed_prefix'] = []; $invalid[] = $changed;
+    $changed = $failure; $changed['failed_migration']['error_code'] = ''; $invalid[] = $changed;
+    foreach ($invalid as $changed) {
+        try { $profileCheck->invoke($host, $changed); }
+        catch (RuntimeException $error) { if ($error->getMessage() === 'APPLICATION_SCHEMA_FAILURE_RESTORE_UNSUPPORTED') { continue; } throw $error; }
+        throw new LogicException('Unbound remaining prefix accepted.');
+    }
+}
+foreach ([$smsId, $menuId] as $legacyOnly) {
+    try { SourceApplicationBackup::failureRestoreTables('prefix:' . $legacyOnly); }
     catch (RuntimeException $error) { if ($error->getMessage() === 'APPLICATION_SCHEMA_FAILURE_RESTORE_UNSUPPORTED') { continue; } throw $error; }
-    throw new LogicException('Unbound remaining prefix accepted.');
+    throw new LogicException('Legacy error-bound profile widened.');
 }
 $foreign = $class->getMethod('sourceFailureForeignKeys');
 $fk = ['TABLE_SCHEMA' => 'selected_db', 'TABLE_NAME' => 'pa_notice_log', 'COLUMN_NAME' => 'tenant_id',
@@ -216,4 +227,4 @@ try {
     try { SourceApplicationBackup::capture([], [], '', [], [], '', static fn() => null, 'application-restoration'); throw new LogicException('Unbound restoration image accepted.'); }
     catch (RuntimeException $error) { if ($error->getMessage() !== 'APPLICATION_SCHEMA_FAILURE_ORIGIN_REQUIRED') { throw $error; } }
 } finally { if (is_file($path)) { unlink($path); } unlink($receipt); rmdir($directory); }
-echo "Application recovery contract: 2 existing plus 6 fixed prefix profiles, retained parent references, cascade/cross-schema refusal, expired historical window and ordered UTC interval; original refusal groups retained; restore NOT_RUN.\n";
+echo "Application recovery contract: 2 existing plus 7 fixed prefix profiles including default navigation failure, retained parent references, cascade/cross-schema refusal, expired historical window and ordered UTC interval; original refusal groups retained; restore NOT_RUN.\n";

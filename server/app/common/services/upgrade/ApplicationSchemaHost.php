@@ -1118,7 +1118,7 @@ final class ApplicationSchemaHost
             return 'menu-stable-identities';
         }
         $ids = array_keys(self::PRESTATE_SQL); $index = array_search($id, $ids, true);
-        if ($index !== false && $index >= 3 && $prefix === array_slice($ids, 0, $index)
+        if ($index !== false && ($index === 1 || $index >= 3) && $prefix === array_slice($ids, 0, $index)
             && is_string($error) && $error !== '') {
             foreach (array_slice($ids, 0, $index) as $predecessor) {
                 if (($failure['selected'][$predecessor] ?? null) !== self::PRESTATE_SQL[$predecessor]) {

@@ -1007,7 +1007,7 @@ final class SourceApplicationBackup
     {
         if (str_starts_with($profile, 'prefix:')) {
             $id = substr($profile, 7); $ids = array_keys(self::TABLES); $index = array_search($id, $ids, true);
-            if ($index === false || $index < 3) { throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_RESTORE_UNSUPPORTED'); }
+            if ($index === false || ($index !== 1 && $index < 3)) { throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_RESTORE_UNSUPPORTED'); }
             return self::applicationTables(array_slice($ids, 0, $index + 1));
         }
         return match ($profile) {
