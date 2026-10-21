@@ -3750,6 +3750,73 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/adminapi/api/v1/files/visibility/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Read-only whole-batch preflight. Requires manage and visibility.change on every source and derivative. Unqualified external origins reject before intent. */
+        post: operations["previewFileVisibility"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/files/visibility/batches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["recentFileVisibilityBatches"];
+        put?: never;
+        /** @description Accept all objects atomically, then persist each nontransactional storage step. Duplicate requests return the original batch. Unknown HTTP outcomes require querying that batch. */
+        post: operations["submitFileVisibility"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/files/visibility/batches/{batchKey}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getFileVisibilityBatch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/api/v1/files/visibility/batches/{batchKey}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Explicit recovery of the same durable batch, under current permissions. Inspect original locations before retry; never reopen public access or replace the accepted plan. */
+        post: operations["resumeFileVisibilityBatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/adminapi/official.file.snapshot.pending": {
         parameters: {
             query?: never;
@@ -8585,6 +8652,95 @@ export interface components {
             state: "permission_denied" | "preview_unavailable" | "edit_unsupported" | "service_unavailable" | "read_only" | "available";
             unavailableReason: string | null;
             capabilityRevision: string;
+        };
+        FileVisibilityConfirmation: {
+            /** @enum {integer} */
+            version: 1;
+            batch_key: string;
+            actor: {
+                tenant_id: string;
+                account_id: string;
+                member_id: string;
+                client_key: string;
+                session_digest: string;
+                authorization_revision: string;
+            };
+            expires_at: number;
+            /** @enum {string} */
+            target: "private";
+            manifest: {
+                roots: string[];
+                files: {
+                    [key: string]: {
+                        source: {
+                            file_key: string;
+                            tenant_id: string;
+                            purpose: string;
+                            access_type: string;
+                            storage_space_id: string;
+                            object_key: string;
+                            original_name: string;
+                            media_type: string;
+                            size_bytes: string;
+                            sha256: string;
+                            revision: string;
+                            driver: string;
+                            local_path: string;
+                            space_key: string;
+                        };
+                        target: {
+                            storage_space_id: string;
+                            space_key: string;
+                            object_key: string;
+                            access_type: string;
+                            driver: string;
+                            local_path: string;
+                        };
+                    };
+                };
+                derivatives_sha256: string;
+                references_sha256: string;
+                registered_reference_count: number;
+                known_cdn: string[];
+                /** @enum {boolean} */
+                external_usage_complete: false;
+                warning: string;
+            };
+        };
+        FileVisibilityBatchSummary: {
+            batch_key: string;
+            /** @enum {string} */
+            status: "pending" | "running" | "completed" | "attention";
+            revision: number;
+            created_at: string;
+            updated_at: string;
+        };
+        FileVisibilityBatch: {
+            batch_key: string;
+            /** @enum {string} */
+            status: "pending" | "running" | "completed" | "attention";
+            revision: number;
+            created_at: string;
+            updated_at: string;
+        } & {
+            /** @enum {boolean} */
+            external_usage_complete: false;
+            /** @enum {boolean} */
+            downloaded_copies_recoverable: false;
+            items: {
+                file_key: string;
+                /** @enum {string} */
+                status: "restricting" | "verifying" | "ready_private" | "restricted_attention";
+                /** @enum {string} */
+                step: "copy" | "switch" | "close_source" | "verify" | "completed";
+                attempts: number;
+                error_code: string | null;
+                receipts: {
+                    [key: string]: {
+                        [key: string]: unknown;
+                    };
+                };
+            }[];
         };
         FileImageVariant: {
             variant_key: string;
@@ -18524,6 +18680,188 @@ export interface operations {
             404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
+        };
+    };
+    previewFileVisibility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    file_keys: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Current durable visibility state; never a claim that downloaded third-party copies were recalled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            confirmation: components["schemas"]["FileVisibilityConfirmation"];
+                            signature: string;
+                            /** @enum {boolean} */
+                            execution_started: false;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    recentFileVisibilityBatches: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current durable visibility state; never a claim that downloaded third-party copies were recalled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            items: components["schemas"]["FileVisibilityBatchSummary"][];
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    submitFileVisibility: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    confirmation: components["schemas"]["FileVisibilityConfirmation"];
+                    signature: string;
+                    /** @enum {boolean} */
+                    impact_confirmed: true;
+                };
+            };
+        };
+        responses: {
+            /** @description Current durable visibility state; never a claim that downloaded third-party copies were recalled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["FileVisibilityBatch"];
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    getFileVisibilityBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current durable visibility state; never a claim that downloaded third-party copies were recalled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["FileVisibilityBatch"];
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    resumeFileVisibilityBatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batchKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Current durable visibility state; never a claim that downloaded third-party copies were recalled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["FileVisibilityBatch"];
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
         };
     };
     pendingDocumentFileSnapshots: {

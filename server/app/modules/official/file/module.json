@@ -3,7 +3,7 @@
   "key": "official.file",
   "name": "File and Media",
   "description": "Tenant-owned media library, uploads and private file metadata.",
-  "version": "1.0.16",
+  "version": "1.0.17",
   "kernel_constraint": "^1.0",
   "license": "Apache-2.0",
   "php_package": "peanut-business/official-file",
@@ -44,11 +44,14 @@
       "pa_file_delivery_nonce",
       "pa_file_delivery_grant",
       "pa_file_reference",
-      "pa_file_immutable_snapshot"
+      "pa_file_immutable_snapshot",
+      "pa_file_visibility_batch",
+      "pa_file_visibility_item"
     ]
   },
   "contracts": {
     "exports": [
+      "PeanutAdmin\\Modules\\File\\Contract\\FileVisibility",
       "PeanutAdmin\\Modules\\File\\Contract\\FileMigrationAdoptionProof",
       "PeanutAdmin\\Modules\\File\\Contract\\FileMigrationPreservation",
       "PeanutAdmin\\Modules\\File\\Contract\\StorageQualificationQueries",
@@ -74,9 +77,6 @@
   "tenant": {
     "enableable": true,
     "disable_behavior": "reject_new_operations",
-    "requires": [
-      "official.identity",
-      "official.content-tools"
-    ]
+    "requires": ["official.identity", "official.content-tools"]
   }
 }

@@ -632,11 +632,11 @@
         },
         {
             "key": "official.file",
-            "version": "1.0.16",
+            "version": "1.0.17",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "1cacd9ca9de99490ef16ccfc6a82ed9e0f3a69d7f5b68b2a2d5d0357b2ff268c"
+                "sha256": "6f14995fcf2a082317b0ad975fc96c0b29a170eb8af6a3479cf36dd735f8d805"
             },
             "trust": {
                 "channel": "bundled",
@@ -670,7 +670,7 @@
                     "modules": [
                         {
                             "key": "official.file",
-                            "version": "1.0.16",
+                            "version": "1.0.17",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
@@ -684,7 +684,7 @@
                             ],
                             "permissions": {
                                 "path": "resources/permissions.json",
-                                "sha256": "471f9c5d89cb725cadb7ebacc69a4d0b3af6d0cee8cc62f0073fef21924c05a5"
+                                "sha256": "e0639ca36308220f2f9e7ca36972a9199fb6be1f44e25f61a41e00477faed5df"
                             },
                             "migrations": {
                                 "reversibility": "verified-backup-required",
@@ -724,6 +724,14 @@
                                     {
                                         "key": "official.file:20261016010300_adopt_document_snapshots",
                                         "sha256": "03f0310da23b0c19a8631edce0a07e96ea57a97d781a582ad87c99ab4136cd73"
+                                    },
+                                    {
+                                        "key": "official.file:20261021060100_file_visibility_batches",
+                                        "sha256": "3827e993c38855ce94ceaa2b7c0ae8c7082a9d231476e6c42358cd29f977edb7"
+                                    },
+                                    {
+                                        "key": "official.file:20261021060200_file_visibility_object_state",
+                                        "sha256": "93ab8b34a84124f7d6ed86e7f36a7ea76e6ac122cc64f58810387506bef65b6b"
                                     }
                                 ]
                             }
@@ -761,7 +769,7 @@
                 }
             ],
             "manifest": "plugins/official.file/plugin.json",
-            "manifest_sha256": "dfa6b631d39602471a59978674ae877ccfb260c2c73c73d038a7a92ad9811827"
+            "manifest_sha256": "5f97c7b45f4b6ef19009f2ff0173eda43f670ae680708636e5e7e1d1d962afce"
         },
         {
             "key": "official.identity",

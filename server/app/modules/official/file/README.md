@@ -51,3 +51,44 @@ Document proofs and commit with content/receipt. Absent/pending references survi
 until an actual epoch fence, and unknown targets retain pins until consumption or
 explicit cancellation. Persisted history references protect consumed targets;
 these methods create no delivery URL or original-download permission.
+
+## Visibility batches
+
+`FileVisibility` provides read-only preflight, whole-batch admission, durable
+per-object progress and explicit recovery. Management additionally requires
+`official.file.visibility.change`. The media page offers **设为私有** for selected
+resources and **可见性任务** for existing batches. Preflight includes the connected
+source/derivative closure, current revisions, storage locations and the digest
+and count of registered references. Its five-minute confirmation is bound to the
+current actor/session/authorization revision. Unknown external uses and already
+downloaded or third-party cached copies are explicitly outside recall guarantees.
+
+All objects must still match the confirmed plan before any batch is accepted.
+The durable intent, restricted object states and audit commit together. Existing
+delivery grants fail current status/revision checks immediately. Each object then
+records its private copy, location switch, original-location closure and byte
+verification separately; `file_key` and existing references stay unchanged. A
+failed/unknown physical step remains restricted and never rolls back to public.
+The same batch's explicit resume inspects the fixed original and target locations
+before doing the next step. A timeout is followed by a status query, not another
+batch submission. The ordinary upload purpose remains its default route, rather
+than an override of an existing object's current visibility.
+
+The current complete physical route is local `public/storage` to
+`private/storage`, with controlled delivery and direct-storage denial in both
+the PHP development ingress and deployment Nginx configuration. Private bytes
+are verified before source deletion; interrupted copies are reconciled at their
+fixed private target. Other origins reject preflight until their actual version,
+Bucket-policy and CDN closure can be qualified; provider ACL acknowledgement
+alone is insufficient. This source support does not claim object-storage/CDN
+qualification or successful runtime acceptance.
+
+Two fixed native migrations create the batch/item tables and then widen the
+object status field/add its operation binding. They use the existing File row
+preservation reader and native same-stage ledger capability. Every original row,
+allocator and unrelated schema component is retained; the second stage accepts
+only its fixed nullable column/status/CHECK delta. Legacy File adoption accepts
+the extended shape only with both actual executed migration rows and its exact
+schema. Backups cover the selected File recovery graph; restoring an old database
+after normal business has resumed is not an automatic operation. Business recovery
+continues the accepted private transition and does not republish an old source.

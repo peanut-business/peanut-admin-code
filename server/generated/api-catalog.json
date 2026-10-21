@@ -4,7 +4,7 @@
     "inputs": [
         {
             "path": "release-versions.json",
-            "sha256": "462686504ff48b78d89d9d1690e233c97a92724545ee41bdb83f17c4be4c278e"
+            "sha256": "6f5b9530a09fc228edf54266c84c41306d2726de3fba161a2f5db1bce5f48b8f"
         },
         {
             "path": "server/app/api/metadata/application/adminapi.php",
@@ -60,11 +60,11 @@
         },
         {
             "path": "server/app/modules/official/file/api/metadata/openapi.php",
-            "sha256": "d17954a16046281d551da50362993aa38d72bdf5ade9bae362186be7645f4430"
+            "sha256": "ec0c72acedbffd5588a4d4d08bcc14f9c69dd83137f59321f8b49991d83fe17f"
         },
         {
             "path": "server/app/modules/official/file/route/app.php",
-            "sha256": "9a740bd97f8760ad5251031a2f7760c839c519748d5c814628db46a8d4678ec7"
+            "sha256": "8a8f2e00b0973ffdb41dddbf78a91fd120651bd8722a38a46fbb18e09a822971"
         },
         {
             "path": "server/app/modules/official/import_export/api/metadata/openapi.php",
@@ -192,27 +192,27 @@
         ]
     },
     "summary": {
-        "route_count": 426,
-        "generated_api_operations": 380,
+        "route_count": 431,
+        "generated_api_operations": 385,
         "route_only_operations": 46,
-        "complete_operations": 369,
+        "complete_operations": 374,
         "partial_operations": 11,
-        "runtime_routes": 426,
-        "documented_operations": 380,
+        "runtime_routes": 431,
+        "documented_operations": 385,
         "undocumented_routes": 46,
-        "automatic_route_metadata": 426,
+        "automatic_route_metadata": 431,
         "requires_owner_contract": 46,
         "owners": 20,
         "runtime_inventory": {
-            "total": 426,
+            "total": 431,
             "methods": {
                 "DELETE": 4,
-                "GET": 184,
-                "POST": 232,
+                "GET": 186,
+                "POST": 235,
                 "PUT": 6
             },
             "applications": {
-                "adminapi": 306,
+                "adminapi": 311,
                 "api": 47,
                 "installation": 9,
                 "platform": 64
@@ -226,7 +226,7 @@
                 "module:official.article": 27,
                 "module:official.collaboration": 11,
                 "module:official.document": 12,
-                "module:official.file": 23,
+                "module:official.file": 28,
                 "module:official.import-export": 11,
                 "module:official.integration": 12,
                 "module:official.member": 22,
@@ -251,7 +251,7 @@
         "module:official.article": 27,
         "module:official.collaboration": 11,
         "module:official.document": 12,
-        "module:official.file": 23,
+        "module:official.file": 28,
         "module:official.import-export": 11,
         "module:official.integration": 12,
         "module:official.member": 22,
@@ -456,7 +456,7 @@
             },
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 51
+                "line": 61
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": "server/app/modules/official/file/api/metadata/openapi.php"
@@ -806,7 +806,7 @@
             },
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 54
+                "line": 64
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": "server/app/modules/official/file/api/metadata/openapi.php"
@@ -820,7 +820,7 @@
             },
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 57
+                "line": 67
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": "server/app/modules/official/file/api/metadata/openapi.php"
@@ -834,7 +834,7 @@
             },
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 66
+                "line": 76
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": "server/app/modules/official/file/api/metadata/openapi.php"
@@ -848,7 +848,7 @@
             },
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 60
+                "line": 70
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": "server/app/modules/official/file/api/metadata/openapi.php"
@@ -862,7 +862,7 @@
             },
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 63
+                "line": 73
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": "server/app/modules/official/file/api/metadata/openapi.php"
@@ -1549,10 +1549,166 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 26
+                "line": 36
             },
             "documented": true,
             "openapi_operation_id": "listFileAssets",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts",
+                "web/src/modules/official-file/generated/openapi.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": []
+            }
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/api/v1/files/visibility/batches",
+            "runtime_path": "/adminapi/api/v1/files/visibility/batches",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.file"
+            },
+            "controller": "PeanutAdmin\\Modules\\File\\Controller\\FileVisibilityController",
+            "action": "recent",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "official.file"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "official.file.visibility.change"
+                }
+            ],
+            "errors": [
+                400,
+                401,
+                403,
+                404,
+                409
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "official.file",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/file/route/app.php",
+                "line": 30
+            },
+            "documented": true,
+            "openapi_operation_id": "recentFileVisibilityBatches",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts",
+                "web/src/modules/official-file/generated/openapi.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": []
+            }
+        },
+        {
+            "method": "GET",
+            "path": "/adminapi/api/v1/files/visibility/batches/{batchKey}",
+            "runtime_path": "/adminapi/api/v1/files/visibility/batches/:batchKey",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.file"
+            },
+            "controller": "PeanutAdmin\\Modules\\File\\Controller\\FileVisibilityController",
+            "action": "status",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "official.file"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "official.file.visibility.change"
+                }
+            ],
+            "errors": [
+                400,
+                401,
+                403,
+                404,
+                409
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "official.file",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/file/route/app.php",
+                "line": 32
+            },
+            "documented": true,
+            "openapi_operation_id": "getFileVisibilityBatch",
             "contract_quality": "complete",
             "sdk_consumers": [
                 "web/src/generated/openapi.d.ts",
@@ -7183,7 +7339,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 33
+                "line": 43
             },
             "documented": true,
             "openapi_operation_id": "listFileCategories",
@@ -7334,7 +7490,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 31
+                "line": 41
             },
             "documented": true,
             "openapi_operation_id": "pendingDocumentFileSnapshots",
@@ -11649,7 +11805,7 @@
             "middleware": [],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 44
+                "line": 54
             },
             "documented": true,
             "openapi_operation_id": "deliverTenantFile",
@@ -12314,7 +12470,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 51
+                "line": 61
             },
             "documented": false,
             "openapi_operation_id": null,
@@ -14038,6 +14194,240 @@
             },
             "documented": true,
             "openapi_operation_id": "resolveFileAccess",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts",
+                "web/src/modules/official-file/generated/openapi.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": []
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/files/visibility/batches",
+            "runtime_path": "/adminapi/api/v1/files/visibility/batches",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.file"
+            },
+            "controller": "PeanutAdmin\\Modules\\File\\Controller\\FileVisibilityController",
+            "action": "submit",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "official.file"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "official.file.visibility.change"
+                }
+            ],
+            "errors": [
+                400,
+                401,
+                403,
+                404,
+                409
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "official.file",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/file/route/app.php",
+                "line": 28
+            },
+            "documented": true,
+            "openapi_operation_id": "submitFileVisibility",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts",
+                "web/src/modules/official-file/generated/openapi.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": []
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/files/visibility/batches/{batchKey}/resume",
+            "runtime_path": "/adminapi/api/v1/files/visibility/batches/:batchKey/resume",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.file"
+            },
+            "controller": "PeanutAdmin\\Modules\\File\\Controller\\FileVisibilityController",
+            "action": "resume",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "official.file"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "official.file.visibility.change"
+                }
+            ],
+            "errors": [
+                400,
+                401,
+                403,
+                404,
+                409
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "official.file",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/file/route/app.php",
+                "line": 34
+            },
+            "documented": true,
+            "openapi_operation_id": "resumeFileVisibilityBatch",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts",
+                "web/src/modules/official-file/generated/openapi.ts"
+            ],
+            "documentation": {
+                "status": "documented",
+                "automatic_metadata": [
+                    "route",
+                    "owner",
+                    "controller",
+                    "middleware",
+                    "auth",
+                    "permissions",
+                    "source"
+                ],
+                "requires_owner_contract": []
+            }
+        },
+        {
+            "method": "POST",
+            "path": "/adminapi/api/v1/files/visibility/preview",
+            "runtime_path": "/adminapi/api/v1/files/visibility/preview",
+            "application": "adminapi",
+            "owner": {
+                "type": "module",
+                "key": "official.file"
+            },
+            "controller": "PeanutAdmin\\Modules\\File\\Controller\\FileVisibilityController",
+            "action": "preview",
+            "auth": {
+                "mode": "tenant_permission",
+                "exception_registration": null
+            },
+            "permissions": [
+                {
+                    "kind": "module_capability",
+                    "key": "official.file"
+                },
+                {
+                    "kind": "tenant_action",
+                    "key": "official.file.visibility.change"
+                }
+            ],
+            "errors": [
+                400,
+                401,
+                403,
+                404,
+                409
+            ],
+            "middleware": [
+                {
+                    "class": "app\\adminapi\\http\\middleware\\LoginMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\common\\infrastructure\\module\\OfficialModuleMiddleware",
+                    "arguments": [
+                        "official.file",
+                        "http.admin"
+                    ]
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\AuthMiddleware",
+                    "arguments": []
+                },
+                {
+                    "class": "app\\adminapi\\http\\middleware\\OperationLogMiddleware",
+                    "arguments": []
+                }
+            ],
+            "source": {
+                "file": "server/app/modules/official/file/route/app.php",
+                "line": 26
+            },
+            "documented": true,
+            "openapi_operation_id": "previewFileVisibility",
             "contract_quality": "complete",
             "sdk_consumers": [
                 "web/src/generated/openapi.d.ts",
@@ -21529,7 +21919,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 34
+                "line": 44
             },
             "documented": true,
             "openapi_operation_id": "createFileCategory",
@@ -21605,7 +21995,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 36
+                "line": 46
             },
             "documented": true,
             "openapi_operation_id": "deleteFileCategory",
@@ -21681,7 +22071,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 35
+                "line": 45
             },
             "documented": true,
             "openapi_operation_id": "updateFileCategory",
@@ -21757,7 +22147,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 30
+                "line": 40
             },
             "documented": true,
             "openapi_operation_id": "deleteFiles",
@@ -21833,7 +22223,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 28
+                "line": 38
             },
             "documented": true,
             "openapi_operation_id": "moveFiles",
@@ -21909,7 +22299,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 29
+                "line": 39
             },
             "documented": true,
             "openapi_operation_id": "renameFile",
@@ -21986,7 +22376,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 32
+                "line": 42
             },
             "documented": true,
             "openapi_operation_id": "recoverDocumentFileSnapshot",
@@ -26722,7 +27112,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 45
+                "line": 55
             },
             "documented": true,
             "openapi_operation_id": "uploadMemberImage",
@@ -27119,7 +27509,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 54
+                "line": 64
             },
             "documented": false,
             "openapi_operation_id": null,
@@ -27183,7 +27573,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 57
+                "line": 67
             },
             "documented": false,
             "openapi_operation_id": null,
@@ -27247,7 +27637,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 66
+                "line": 76
             },
             "documented": false,
             "openapi_operation_id": null,
@@ -27311,7 +27701,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 60
+                "line": 70
             },
             "documented": false,
             "openapi_operation_id": null,
@@ -27375,7 +27765,7 @@
             ],
             "source": {
                 "file": "server/app/modules/official/file/route/app.php",
-                "line": 63
+                "line": 73
             },
             "documented": false,
             "openapi_operation_id": null,

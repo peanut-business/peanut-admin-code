@@ -49,6 +49,9 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         'official.document:20261013120000_add_document_business_barriers' => 'e015617440e433d0d443f7c4c13b2bf02e35b4403e25c1009747d5d1d707f579',
     ];
     private const PRESERVATION_STAGES = [
+        'official.file:20261021060100_file_visibility_batches' => ['3827e993c38855ce94ceaa2b7c0ae8c7082a9d231476e6c42358cd29f977edb7', FileMigrationPreservation::class, []],
+        'official.file:20261021060200_file_visibility_object_state' => ['93ab8b34a84124f7d6ed86e7f36a7ea76e6ac122cc64f58810387506bef65b6b', FileMigrationPreservation::class,
+            ['official.file:20261021060100_file_visibility_batches']],
         'peanut.artifact-revision:20260921-register-module-schema' => ['fe70a60a35892fc6352764a4ee8eb065ca8a19e067ab99ccb91c79c21ce95e39', \PeanutAdmin\Modules\ArtifactRevision\Database\ArtifactRevisionMigrationPreservation::class, []],
         'fixture.workflow-business:20261012050100_workflow_business' => ['34c60bca6ac1dd7bdb31a77be9a137ae99f7de8b863e9d309f4f7075d094a99c', \PeanutAdmin\Fixtures\WorkflowBusiness\Database\WorkflowBusinessMigrationPreservation::class, []],
         'fixture.workflow-business:20261012050200_workflow_collaboration' => ['fd9e10722653314d2fdfd28bd9bbafd969a4e00eaec64a6c970053a259d04399', \PeanutAdmin\Fixtures\WorkflowBusiness\Database\WorkflowBusinessMigrationPreservation::class,
@@ -186,7 +189,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         $forwardRepair = version_compare($plugin->version, (string) $current['installed_version'], '>');
         if (!$sameIdentity && !$forwardRepair) {
             throw new PluginLifecycleException('PLUGIN_INSTALL_RECOVERY_IDENTITY_MISMATCH',
-                'Install recovery requires the same immutable package or a higher repair version.');
+                'Install recovery requires the same immutable package or a higher repair version.',
+            );
         }
         return ['original_status' => $current['status'], 'original_installation_sha256' => hash('sha256', self::json($current)),
             'same_identity' => $sameIdentity, 'higher_version' => $forwardRepair];
@@ -624,13 +628,17 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                             throw new PluginLifecycleException('MODULE_MIGRATION_PRESERVATION_REQUIRED', 'The fixed stage contract and immutable source must match.');
                         }
                         $stageLedger = $this->stageLedgerReader($pdo, $connection, $plugin, $manifest, $files, $adoptions,
-                            $moduleKey, $migrationKey, $checksum, $batch, $now, $stageAdmission);
+                            $moduleKey, $migrationKey, $checksum, $batch, $now, $stageAdmission,
+                        );
                         $stage = ['module_key' => $moduleKey, 'migration_key' => $migrationKey,
                             'checksum' => $checksum, 'stageLedger' => $stageLedger];
-                        $stageBefore = $migrationKey === 'peanut.artifact-revision:20260921-register-module-schema'
+                        $stageBefore = $stageContract[1] === FileMigrationPreservation::class
+                            ? app()->make(FileMigrationPreservation::class)->stageBefore($pdo, $stage)
+                            : ($migrationKey === 'peanut.artifact-revision:20260921-register-module-schema'
                             ? self::withMigrationParentFacts($pdo, $migrationKey, $checksum, 'before',
-                                static fn(array $facts): array => $stageContract[1]::before($pdo, $stage, $facts))
-                            : $stageContract[1]::before($pdo, $stage);
+                                static fn(array $facts): array => $stageContract[1]::before($pdo, $stage, $facts),
+                            )
+                            : $stageContract[1]::before($pdo, $stage));
                         self::assertStageProofIdentity($pdo, $moduleKey, $migrationKey, $checksum, $stageBefore, false);
                         if ($stageBefore['stageLedger'] !== $stageLedger) {
                             throw new PluginLifecycleException('MODULE_MIGRATION_STAGE_CHANGED', 'The original live stage reader must be retained.');
@@ -702,10 +710,13 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                                 if (!is_array($stageBefore) || $executionBounds !== null) {
                                     throw new PluginLifecycleException('MODULE_MIGRATION_PRESERVATION_REQUIRED', 'The original DDL stage requires its private facts and no time allowance.');
                                 }
-                                $observed = $migrationKey === 'peanut.artifact-revision:20260921-register-module-schema'
+                                $observed = $stageContract[1] === FileMigrationPreservation::class
+                                    ? app()->make(FileMigrationPreservation::class)->stageAfter($pdo, $stageBefore)
+                                    : ($migrationKey === 'peanut.artifact-revision:20260921-register-module-schema'
                                     ? self::withMigrationParentFacts($pdo, $migrationKey, $checksum, 'after',
-                                        static fn(array $facts): array => $stageContract[1]::after($pdo, $stageBefore, $facts))
-                                    : $stageContract[1]::after($pdo, $stageBefore);
+                                        static fn(array $facts): array => $stageContract[1]::after($pdo, $stageBefore, $facts),
+                                    )
+                                    : $stageContract[1]::after($pdo, $stageBefore));
                                 self::assertStageProofIdentity($pdo, $moduleKey, $migrationKey, $checksum, $observed, true);
                                 app()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->recordStage($pdo, $migrationKey, $checksum, $stageContract[1], $observed);
                                 $stageBefore = null;
@@ -725,7 +736,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                                 }
                             }
                             self::sourceMutationGuard($plugin->key);
-                        });
+                        },
+                    );
                     if ($notificationForward && $moduleKey === 'official.notification') { $this->assertNotificationForward($plugin); }
                 } catch (\Throwable $exception) {
                     try {
@@ -903,7 +915,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     private static function assertMigrationSchema(): void
     {
         $rows = Db::connect()->query('SELECT COLUMN_NAME,DATA_TYPE,COLUMN_TYPE,IS_NULLABLE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND COLUMN_NAME IN (?,?)',
-            [Db::name('module_migration')->getTable(), 'resolution_kind', 'provenance_json'], true);
+            [Db::name('module_migration')->getTable(), 'resolution_kind', 'provenance_json'], true,
+        );
         $columns = array_column($rows, null, 'COLUMN_NAME');
         if (($columns['resolution_kind']['COLUMN_TYPE'] ?? null) !== 'varchar(16)'
             || ($columns['resolution_kind']['IS_NULLABLE'] ?? null) !== 'YES'
@@ -912,7 +925,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             throw new PluginLifecycleException('MODULE_MIGRATION_PROVENANCE_SCHEMA_REQUIRED', 'Apply the explicit application migration before module lifecycle operations.');
         }
         $constraints = Db::connect()->query('SELECT t.CONSTRAINT_NAME,c.CHECK_CLAUSE,t.ENFORCED FROM information_schema.TABLE_CONSTRAINTS t JOIN information_schema.CHECK_CONSTRAINTS c ON c.CONSTRAINT_SCHEMA=t.CONSTRAINT_SCHEMA AND c.CONSTRAINT_NAME=t.CONSTRAINT_NAME WHERE t.CONSTRAINT_SCHEMA=DATABASE() AND t.TABLE_NAME=? AND t.CONSTRAINT_NAME IN (?,?)',
-            [Db::name('module_migration')->getTable(), 'chk_module_migration_resolution', 'chk_module_migration_provenance'], true);
+            [Db::name('module_migration')->getTable(), 'chk_module_migration_resolution', 'chk_module_migration_provenance'], true,
+        );
         $expected = [
             'chk_module_migration_resolution' => "((resolution_kindisnull)or(resolution_kindin('executed','adopted')))",
             'chk_module_migration_provenance' => "((resolution_kind<=>'adopted')=(provenance_jsonisnotnull))",
@@ -1246,7 +1260,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             throw new PluginLifecycleException('MODULE_MIGRATION_PRESERVATION_REQUIRED', 'The fixed Member source contract is unavailable.');
         }
         $before = self::withMigrationParentFacts($pdo, $key, $sha, 'before',
-            static fn(array $facts): array => app()->make(MemberSessionMigrationPreservation::class)->before($pdo, $key, $facts));
+            static fn(array $facts): array => app()->make(MemberSessionMigrationPreservation::class)->before($pdo, $key, $facts),
+        );
         $safe = $before['safe_summary'] ?? null;
         if (Db::connect()->getPdo() !== $pdo || $pdo->inTransaction() || !is_array($safe)
             || ($safe['module_key'] ?? null) !== 'official.member' || ($safe['migration_key'] ?? null) !== $key
@@ -1260,7 +1275,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     private static function assertMemberPreserved(\PDO $pdo, string $key, string $sha, array $privateBefore): void
     {
         $after = self::withMigrationParentFacts($pdo, $key, $sha, 'after',
-            static fn(array $facts): array => app()->make(MemberSessionMigrationPreservation::class)->after($pdo, $privateBefore, $facts));
+            static fn(array $facts): array => app()->make(MemberSessionMigrationPreservation::class)->after($pdo, $privateBefore, $facts),
+        );
         if (Db::connect()->getPdo() !== $pdo || $pdo->inTransaction() || ($after['module_key'] ?? null) !== 'official.member'
             || ($after['migration_key'] ?? null) !== $key || ($after['sql_sha256'] ?? null) !== $sha
             || ($after['readonly'] ?? null) !== true || ($after['preservation_verified'] ?? null) !== true
@@ -1277,7 +1293,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             throw new PluginLifecycleException('MODULE_MIGRATION_PRESERVATION_REQUIRED', 'The fixed ImportExport source contract is unavailable.');
         }
         $before = self::withMigrationParentFacts($pdo, $key, $sha, 'before',
-            static fn(array $facts): array => app()->make(ImportExportMigrationPreservation::class)->before($pdo, $key, $facts));
+            static fn(array $facts): array => app()->make(ImportExportMigrationPreservation::class)->before($pdo, $key, $facts),
+        );
         $safe = $before['safe_summary'] ?? null;
         if (Db::connect()->getPdo() !== $pdo || $pdo->inTransaction() || !is_array($safe)
             || ($safe['module_key'] ?? null) !== 'official.import-export' || ($safe['migration_key'] ?? null) !== $key
@@ -1291,7 +1308,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     private static function assertImportExportPreserved(\PDO $pdo, string $key, string $sha, array $privateBefore): void
     {
         $after = self::withMigrationParentFacts($pdo, $key, $sha, 'after',
-            static fn(array $facts): array => app()->make(ImportExportMigrationPreservation::class)->after($pdo, $privateBefore, $facts));
+            static fn(array $facts): array => app()->make(ImportExportMigrationPreservation::class)->after($pdo, $privateBefore, $facts),
+        );
         if (Db::connect()->getPdo() !== $pdo || $pdo->inTransaction() || ($after['module_key'] ?? null) !== 'official.import-export'
             || ($after['migration_key'] ?? null) !== $key || ($after['sql_sha256'] ?? null) !== $sha
             || ($after['readonly'] ?? null) !== true || ($after['preservation_verified'] ?? null) !== true
@@ -1439,7 +1457,28 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     {
         // The fixed application owner reader executes inside the File proof's actual snapshot,
         // not on another Runner connection or from caller-supplied history/provenance data.
-        return app()->make(FileMigrationAdoptionProof::class)->report($key, self::fileApplicationMigrationHistory(...), $pdo);
+        return app()->make(FileMigrationAdoptionProof::class)->report($key, self::fileApplicationMigrationHistory(...), $pdo, self::fileVisibilityMigrationHistory(...));
+    }
+
+    private static function fileVisibilityMigrationHistory(\PDO $pdo): bool
+    {
+        if (Db::connect()->getPdo() !== $pdo || !$pdo->inTransaction()) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'File later-schema history must share its actual snapshot.');
+        }
+        foreach (FileMigrationPreservation::VISIBILITY_STAGES as $key => $sha) {
+            $q = $pdo->prepare('SELECT checksum,status,resolution_kind,provenance_json,error_code FROM pa_module_migration WHERE module_key=? AND migration_key=?');
+            try {
+                $q->execute(['official.file',$key]);
+                $rows = $q->fetchAll(\PDO::FETCH_ASSOC);
+            } finally {
+                $q->closeCursor();
+            }
+            if (count($rows) !== 1 || $rows[0] !== ['checksum' => $sha, 'status' => 'applied', 'resolution_kind' => 'executed',
+                'provenance_json' => null, 'error_code' => null]) {
+                throw new PluginLifecycleException('MODULE_MIGRATION_PRESERVATION_REQUIRED', 'File extended shape needs its real executed native stages.');
+            }
+        }
+        return true;
     }
 
     /** Application history is owned here; it never substitutes for the File Module's complete proof. */
@@ -1565,7 +1604,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         }
         $evidence = $proof['evidence']; $recordedEvidence = $evidence['proof_sha256'] ?? null; unset($evidence['proof_sha256']);
         if ($recordedEvidence !== hash('sha256', json_encode(self::canonicalJsonValue($evidence),
-            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE))) {
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+        ))) {
             throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_PROVENANCE_INVALID', 'Adoption proof digest changed.');
         }
         foreach (['artifact_sha256', 'lock_digest', 'manifest_sha256', 'module_manifest_sha256'] as $field) {
@@ -1600,7 +1640,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 || self::json($admission['binding']['database'] ?? null) !== self::json($admission['database_identity'])
                 || ($admission['external_writer_exclusion'] ?? null) !== 'ops_protocol_gate_required_not_attested'
                 || !is_string($digest) || !hash_equals($digest, hash('sha256', json_encode(self::canonicalJsonValue($admission),
-                    JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)))) { return false; }
+                    JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+                )))) { return false; }
             foreach (['plan_sha256', 'execution_plan_sha256', 'binding.source.files_sha256', 'binding.registry_sha256', 'evidence.maintenance.sha256',
                 'evidence.recovery.sha256', 'evidence.backup_manifest.sha256', 'evidence.backup_payload.sha256', 'evidence.restore_contract_sha256'] as $field) {
                 $value = $admission;
@@ -1620,7 +1661,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 || !isset($admission['maintenance'])) { return false; }
             $digest = $admission['admission_digest']; unset($admission['admission_digest']);
             return hash_equals($digest, hash('sha256', json_encode(self::canonicalJsonValue($admission),
-                JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)));
+                JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+            )));
         }
         return ($admission['instance_root'] ?? null) === realpath(root_path())
             && ($admission['protocol'] ?? null) === 'peanut.installation-module-admission.v1'
@@ -1633,7 +1675,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
 
     /** Fixed current-stage reader; no caller-supplied SQL, tables, module or ledger authority. */
     private function stageLedgerReader(\PDO $pdo, object $connection, PluginDescriptor $plugin, ManifestDocument $manifest,
-        array $files, array $adoptions, string $moduleKey, string $key, string $sha, int $batch, string $started, array $admission): \Closure
+        array $files, array $adoptions, string $moduleKey, string $key, string $sha, int $batch, string $started, array $admission,
+    ): \Closure
     {
         $context = app()->make(CurrentExecutionContext::class)->current();
         $read = static function () use ($pdo, $moduleKey): array {
@@ -2034,7 +2077,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     }
 
     private function writeNotificationForwardReceipt(\PDO $pdo, PluginDescriptor $plugin, string $path, array $binding,
-        ?array $previous, array $report, array $instance, array $old, array $admission, array $target): void
+        ?array $previous, array $report, array $instance, array $old, array $admission, array $target,
+    ): void
     {
         $write = function () use ($plugin, $path, $binding, $previous, $report, $instance, $old, $target): void {
             self::writeNotificationReceipt($path, $binding, $previous);
@@ -2363,7 +2407,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         foreach ($migrations as $migration) {
             if (($migration['apply_admission']['code'] ?? null) === 'MODULE_MIGRATION_ADOPTION_WINDOW_REQUIRED') {
                 throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_WINDOW_REQUIRED',
-                    'No held native adoption admission is available. Ops writer/DDL exclusion remains a separate prerequisite; no lifecycle state has been written.');
+                    'No held native adoption admission is available. Ops writer/DDL exclusion remains a separate prerequisite; no lifecycle state has been written.',
+                );
             }
         }
     }
@@ -2386,7 +2431,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 return $admission;
             } catch (\Throwable) {
                 throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_WINDOW_REQUIRED',
-                    'A held native server release admission bound to the actual master database is required.');
+                    'A held native server release admission bound to the actual master database is required.',
+                );
             }
         }
         try { return app()->make(InstallationExecutionHost::class)->migrationAdoptionAdmission($pdo); }
@@ -2461,7 +2507,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 'status' => 'applied', 'resolution_kind' => 'adopted', 'provenance_json' => self::json($provenance),
                 'started_at' => $now, 'finished_at' => $now, 'error_code' => null]);
             app()->make(AuditService::class)->appendPlatformEvent('module.migration.adopted', 'adopt', 'success', null,
-                null, null, 'module_migration', $key, $context->requestId(), $context->requestId(), null, null, null, null, self::json($provenance));
+                null, null, 'module_migration', $key, $context->requestId(), $context->requestId(), null, null, null, null, self::json($provenance),
+            );
             $after = self::fileMigrationProof($key, $pdo);
             if (self::json($proof) !== self::json($after) || Db::connect()->getPdo() !== $pdo || !$pdo->inTransaction()
                 || self::json(self::adoptionAdmission($pdo)) !== self::json($admission)) {

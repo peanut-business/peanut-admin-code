@@ -4,6 +4,11 @@
     <el-card class="general-card">
       <template #header>{{ $t('menu.system.file') }}</template>
       <div class="asset-selector-link">
+        <el-button
+          v-permission="['official.file.visibility.change']"
+          @click="openVisibility(false)"
+          >可见性任务</el-button
+        >
         <el-button @click="$router.push({ name: 'official.file.assets' })">
           {{ $t('systemFile.op.assetSelector') }}
         </el-button>
@@ -161,6 +166,12 @@
               >
                 {{ $t('systemFile.op.move') }}
               </el-button>
+              <el-button
+                v-permission="['official.file.visibility.change']"
+                size="small"
+                @click="openVisibility(true)"
+                >设为私有</el-button
+              >
               <el-popconfirm
                 v-permission="['official.file.delete']"
                 :title="$t('systemFile.op.batchDelete.confirm')"
@@ -313,6 +324,13 @@
       >
     </el-dialog>
 
+    <FileVisibilityDialog
+      v-model="visibilityVisible"
+      :file-keys="visibilityKeys"
+      :context-key="contextKey"
+      @changed="() => fetchFiles()"
+    />
+
     <!-- 移动分类 -->
     <el-dialog
       v-model="moveModalVisible"
@@ -376,6 +394,7 @@
     type FileRecord,
   } from '@/modules/official-file/api';
   import FileContentViewer from './FileContentViewer.vue';
+  import FileVisibilityDialog from './FileVisibilityDialog.vue';
 
   const { t } = useI18n();
   const { loading, setLoading } = useLoading(false);
@@ -456,6 +475,17 @@
   const searchName = ref('');
   const searchSource = ref<number | ''>('');
   const checkedIds = ref<number[]>([]);
+  const visibilityVisible = ref(false);
+  const visibilityKeys = ref<string[]>([]);
+  const openVisibility = (selection: boolean) => {
+    visibilityKeys.value = selection
+      ? renderData.value
+          .filter((item) => checkedIds.value.includes(item.id))
+          .map((item) => item.file_key)
+          .filter((key): key is string => typeof key === 'string')
+      : [];
+    visibilityVisible.value = true;
+  };
   const pagination = reactive({ current: 1, pageSize: 24, total: 0 });
 
   const fetchFiles = async (page = 1) => {

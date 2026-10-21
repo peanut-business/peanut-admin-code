@@ -778,6 +778,204 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
         return ['path' => $path, 'temporary' => $temporary];
     }
 
+    /** File-owned confirmation, domain separated from delivery tokens. No delivery URL is persisted. */
+    public function visibilityConfirmation(array $payload): string
+    {
+        return hash_hmac('sha256', "file.visibility.confirmation.v1\0" . self::visibilityJson($payload), $this->signingSecret);
+    }
+
+    /** Complete managed source/derivative closure. Call again under object locks before accepting the batch. */
+    public function visibilityManifest(TenantContext $context, array $roots, string $batchKey, bool $lock = false): array
+    {
+        $this->authorization->requireManagementPermission($context, 'official.file.visibility.change');
+        if ($roots === [] || count($roots) > 100 || count(array_unique($roots)) !== count($roots)
+            || preg_match('/^batch_[a-f0-9]{32}$/D', $batchKey) !== 1) {
+            throw BusinessException::invalid('FILE_VISIBILITY_INPUT_INVALID', '请选择有效资源');
+        }
+        foreach ($roots as $key) {
+            if (!is_string($key) || preg_match('/^file_[a-f0-9]{32}$/D', $key) !== 1) {
+                throw BusinessException::invalid('FILE_VISIBILITY_INPUT_INVALID', '资源标识无效');
+            }
+        }
+        sort($roots, SORT_STRING);
+        $keys = $roots;
+        do {
+            $oldKeys = $keys;
+            $links = \PeanutAdmin\Modules\File\Model\Storage\FileDerivative::where([])
+                ->where(function (BaseQuery $query) use ($keys): void {
+                    $query->whereIn('source_file_key', $keys)->whereOr('derivative_file_key', 'in', $keys);
+                })->order(['source_file_key' => 'asc', 'variant_key' => 'asc'])->select()->toArray();
+            foreach ($links as $link) {
+                $keys[] = (string) $link['source_file_key'];
+                $keys[] = (string) $link['derivative_file_key'];
+            }
+            $keys = array_values(array_unique($keys));
+            sort($keys, SORT_STRING);
+            if (count($keys) > 100) {
+                throw BusinessException::invalid('FILE_VISIBILITY_CLOSURE_LIMIT', '关联资源过多，请缩小批次');
+            }
+        } while ($oldKeys !== $keys);
+        $files = [];
+        foreach ($keys as $key) {
+            if ($lock) {
+                $row = $this->ownedObjects($context->tenantId)->where('file_key', $key)->lock(true)->find();
+                if ($row === null) {
+                    throw BusinessException::notFound('FILE_VISIBILITY_OBJECT_NOT_FOUND', '资源不存在');
+                }
+            }
+            $object = $this->objectForTenant($context->tenantId, $key, false);
+            if ($object === null || $object['status'] !== 'ready' || $object['access_type'] !== 'public'
+                || ($object['visibility_batch_key'] ?? null) !== null || !is_string($object['sha256'])
+                || preg_match('/^[a-f0-9]{64}$/D', $object['sha256']) !== 1) {
+                throw BusinessException::conflict('FILE_VISIBILITY_OBJECT_NOT_STABLE', '资源不可切换或已被其他操作占用');
+            }
+            $this->authorization->authorize($context, $object, 'manage');
+            $target = $this->route((string) $object['purpose'], 'private');
+            // No provider ACL acknowledgement can close an unknown Bucket Policy or CDN.
+            // This route supports the fully controlled local ingress; other origins fail preflight.
+            foreach ([$object, $target] as $location) {
+                if ($location['driver'] !== 'local' || $location['bucket'] !== null || $location['access_domain'] !== null
+                    || !in_array($location['local_path'], ['public/storage', 'private/storage'], true)) {
+                    throw BusinessException::conflict('FILE_VISIBILITY_ORIGIN_UNQUALIFIED', '当前源站的直链、历史版本或缓存关闭能力尚未确认');
+                }
+            }
+            if ($object['local_path'] !== 'public/storage' || $target['local_path'] !== 'private/storage') {
+                throw BusinessException::conflict('FILE_VISIBILITY_LOCATION_INVALID', '公开和私有存储空间不匹配');
+            }
+            $source = array_intersect_key($object, array_flip(['file_key','tenant_id','purpose','access_type','storage_space_id',
+                'object_key','original_name','media_type','size_bytes','sha256','revision','driver','local_path','space_key']));
+            foreach (['tenant_id','storage_space_id','size_bytes','revision'] as $field) {
+                $source[$field] = (string) $source[$field];
+            }
+            $destination = ['storage_space_id' => (string) $target['space_id'], 'space_key' => $target['space_key'],
+                'object_key' => $this->ownerPrefix($context->tenantId) . 'visibility/' . $batchKey . '/' . $key,
+                'access_type' => 'private', 'driver' => 'local', 'local_path' => 'private/storage'];
+            $driver = $this->drivers->make($target, $target);
+            if ($driver->inspect($destination['object_key'])->exists) {
+                throw BusinessException::conflict('FILE_VISIBILITY_TARGET_EXISTS', '目标已存在，请重新预检查');
+            }
+            $files[$key] = ['source' => $source, 'target' => $destination];
+        }
+        $references = FileReference::where([])->whereIn('file_key', $keys)
+            ->order(['file_key' => 'asc', 'owner_module_key' => 'asc', 'owner_type' => 'asc', 'owner_id' => 'asc'])
+            ->field('file_key,owner_module_key,owner_type,owner_id,reference_digest')->select()->toArray();
+        return ['roots' => $roots, 'files' => $files, 'derivatives_sha256' => hash('sha256', self::visibilityJson($links)),
+            'registered_reference_count' => count($references), 'references_sha256' => hash('sha256', self::visibilityJson($references)),
+            'known_cdn' => [], 'external_usage_complete' => false,
+            'warning' => '包含关联的源文件和衍生文件；公开页面可能断图。无法穷举外部直链，也无法收回已下载或第三方缓存的副本。'];
+    }
+
+    /** One repeatable local physical step. Unknown outcomes are reconciled by inspecting the same fixed locations. */
+    public function visibilityStorageStep(TenantContext $context, string $batchKey, array $source, array $target, string $step): array
+    {
+        $this->authorization->requireManagementPermission($context, 'official.file.visibility.change');
+        $key = $source['file_key'] ?? '';
+        $object = $this->objectForTenant($context->tenantId, $key, false);
+        if ($object === null || ($object['visibility_batch_key'] ?? null) !== $batchKey
+            || !in_array($object['status'], ['restricting','verifying','restricted_attention'], true)
+            || (int) ($source['tenant_id'] ?? 0) !== $context->tenantId) {
+            throw BusinessException::conflict('FILE_VISIBILITY_OPERATION_CHANGED', '资源操作已改变');
+        }
+        $old = $this->visibilityLocation($source);
+        $new = $this->visibilityLocation($target);
+        $sourceDriver = $this->drivers->make($old, $old);
+        $targetDriver = $this->drivers->make($new, $new);
+        $validate = static function (string $path) use ($source): void {
+            if (!is_file($path) || is_link($path) || filesize($path) !== (int) $source['size_bytes']
+                || !hash_equals($source['sha256'], (string) hash_file('sha256', $path))
+                || (new \finfo(FILEINFO_MIME_TYPE))->file($path) !== $source['media_type']) {
+                throw BusinessException::conflict('FILE_VISIBILITY_BYTES_CHANGED', '资源内容与原登记不一致');
+            }
+        };
+        $newPath = $targetDriver->localPath($target['object_key']);
+        if (!is_string($newPath)) {
+            throw BusinessException::conflict('FILE_VISIBILITY_ORIGIN_UNQUALIFIED', '目标不支持安全核验');
+        }
+        if ($step === 'copy') {
+            if (!$targetDriver->inspect($target['object_key'])->exists) {
+                $oldPath = $sourceDriver->localPath($source['object_key']);
+                if (!is_string($oldPath)) {
+                    throw BusinessException::conflict('FILE_VISIBILITY_SOURCE_MISSING', '原文件不可用');
+                }
+                $validate($oldPath);
+                $targetDriver->put($target['object_key'], $oldPath);
+            }
+            $validate($newPath);
+            return ['private_copy_verified' => true, 'sha256' => $source['sha256'], 'bytes' => (int) $source['size_bytes']];
+        }
+        $validate($newPath);
+        if ($step === 'switch') {
+            if ((int) $object['storage_space_id'] === (int) $source['storage_space_id'] && $object['object_key'] === $source['object_key']) {
+                $changed = $this->ownedObjects($context->tenantId)->where('file_key', $key)
+                    ->where('visibility_batch_key', $batchKey)->where('revision', $object['revision'])
+                    ->update(['storage_space_id' => $target['storage_space_id'], 'object_key' => $target['object_key'],
+                        'access_type' => 'private', 'status' => 'verifying', 'updated_at' => new Raw('UTC_TIMESTAMP(3)'),
+                        'revision' => new Raw('revision+1')]);
+                if ($changed !== 1) {
+                    throw BusinessException::conflict('FILE_VISIBILITY_OPERATION_CHANGED', '资源位置已改变');
+                }
+            } elseif ((int) $object['storage_space_id'] !== (int) $target['storage_space_id'] || $object['object_key'] !== $target['object_key']
+                || $object['access_type'] !== 'private') {
+                throw BusinessException::conflict('FILE_VISIBILITY_OPERATION_CHANGED', '资源位置已改变');
+            }
+            return ['private_location_selected' => true];
+        }
+        if ($step === 'close_source') {
+            $observation = $sourceDriver->inspect($source['object_key']);
+            $receipt = null;
+            if ($observation->exists) {
+                $oldPath = $sourceDriver->localPath($source['object_key']);
+                if (!is_string($oldPath)) {
+                    throw BusinessException::conflict('FILE_VISIBILITY_SOURCE_UNKNOWN', '原文件状态未知');
+                }
+                $validate($oldPath);
+                $receipt = $sourceDriver->delete($source['object_key']);
+            }
+            if ($sourceDriver->inspect($source['object_key'])->exists) {
+                throw BusinessException::conflict('FILE_VISIBILITY_SOURCE_STILL_PUBLIC', '原公开位置尚未关闭');
+            }
+            return ['original_location_absent' => true, 'delete_outcome' => $receipt?->outcome ?? 'already-absent'];
+        }
+        if ($step !== 'verify' || $sourceDriver->inspect($source['object_key'])->exists
+            || (int) $object['storage_space_id'] !== (int) $target['storage_space_id']
+            || $object['object_key'] !== $target['object_key'] || $object['access_type'] !== 'private') {
+            throw BusinessException::conflict('FILE_VISIBILITY_VERIFICATION_FAILED', '原位置或目标位置尚未核实');
+        }
+        return ['original_location_absent' => true, 'private_bytes_verified' => true,
+            'old_delivery_grants' => 'revoked_by_current_status_visibility_and_revision', 'known_cdn_count' => 0,
+            'sha256' => $source['sha256'], 'bytes' => (int) $source['size_bytes']];
+    }
+
+    private function visibilityLocation(array $location): array
+    {
+        $row = $this->find(StorageSpace::alias('s')->join('storage_account a', 'a.id=s.account_id')
+            ->where('s.id', $location['storage_space_id'])->where('s.status', 'active')->where('a.status', 'active')
+            ->field('a.*,s.id AS space_id,s.space_key,s.access_type,s.bucket,s.region,s.endpoint,s.access_domain,s.local_path'));
+        if ($row === null || $row['driver'] !== 'local' || $row['bucket'] !== null || $row['access_domain'] !== null
+            || $row['space_key'] !== $location['space_key'] || $row['access_type'] !== $location['access_type']
+            || $row['local_path'] !== $location['local_path']) {
+            throw BusinessException::conflict('FILE_VISIBILITY_ROUTE_CHANGED', '存储配置已改变，保留现场等待处理');
+        }
+        return $row;
+    }
+
+    public static function visibilityJson(mixed $value): string
+    {
+        $sort = static function (mixed $item) use (&$sort): mixed {
+            if (!is_array($item)) {
+                return $item;
+            }
+            if (!array_is_list($item)) {
+                ksort($item, SORT_STRING);
+            }
+            foreach ($item as &$child) {
+                $child = $sort($child);
+            }
+            return $item;
+        };
+        return json_encode($sort($value), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
     private function route(string $purpose, string $access): array
     {
         $access = StorageAccess::assertType($access);

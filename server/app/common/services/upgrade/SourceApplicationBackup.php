@@ -45,6 +45,13 @@ final class SourceApplicationBackup
             ['pa_import_export_operation', 'pa_import_export_row_error']],
     ];
     private const MODULE_DDL_STAGES = [
+        'official.file:20261021060100_file_visibility_batches' => ['3827e993c38855ce94ceaa2b7c0ae8c7082a9d231476e6c42358cd29f977edb7',
+            ['pa_file_visibility_batch','pa_file_visibility_item'], 'PeanutAdmin\\Modules\\File\\Contract\\FileMigrationPreservation'],
+        'official.file:20261021060200_file_visibility_object_state' => ['93ab8b34a84124f7d6ed86e7f36a7ea76e6ac122cc64f58810387506bef65b6b',
+            ['pa_file','pa_file_cate','pa_file_object','pa_storage_account','pa_storage_space','pa_storage_route',
+                'pa_file_image_asset','pa_file_derivative','pa_file_delivery_nonce','pa_file_delivery_grant','pa_file_reference',
+                'pa_file_immutable_snapshot','pa_file_visibility_batch','pa_file_visibility_item'],
+            'PeanutAdmin\\Modules\\File\\Contract\\FileMigrationPreservation'],
         'peanut.artifact-revision:20260921-register-module-schema' => ['fe70a60a35892fc6352764a4ee8eb065ca8a19e067ab99ccb91c79c21ce95e39',
             ['pa_artifact', 'pa_artifact_revision'], 'PeanutAdmin\\Modules\\ArtifactRevision\\Database\\ArtifactRevisionMigrationPreservation'],
         'fixture.workflow-business:20261012050100_workflow_business' => ['34c60bca6ac1dd7bdb31a77be9a137ae99f7de8b863e9d309f4f7075d094a99c',
@@ -398,7 +405,8 @@ final class SourceApplicationBackup
         $output = $directory . '/metadata.txt'; $error = $directory . '/metadata.stderr';
         $started = time();
         self::remote($tool, $shell, $output, $error, 'effect-metadata', $seconds,
-            (int) $binding['authority']['expires_at'], $guard, 8388608);
+            (int) $binding['authority']['expires_at'], $guard, 8388608,
+        );
         $parsed = self::parseMetadata($output, $tables, $nonce, $binding, $contract, (string) $pdo->getAttribute(PDO::ATTR_SERVER_VERSION));
         $record = ['protocol' => 'peanut.app-partial-effect-metadata.v1', 'request' => [
                 'path' => $directory . '/request.json', 'sha256' => hash_file('sha256', $directory . '/request.json')],
@@ -530,7 +538,8 @@ final class SourceApplicationBackup
             $names = implode(',', array_map(static fn(string $table): string => "'" . $table . "'", $effects));
             $sql = str_replace('WHERE TABLE_SCHEMA=DATABASE())', 'WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN (' . $names . '))', $sql);
             $sql = str_replace('WHERE k.TABLE_SCHEMA=DATABASE() OR k.REFERENCED_TABLE_SCHEMA=DATABASE()',
-                'WHERE (k.TABLE_SCHEMA=DATABASE() AND k.TABLE_NAME IN (' . $names . ')) OR (k.REFERENCED_TABLE_SCHEMA=DATABASE() AND k.REFERENCED_TABLE_NAME IN (' . $names . '))', $sql);
+                'WHERE (k.TABLE_SCHEMA=DATABASE() AND k.TABLE_NAME IN (' . $names . ')) OR (k.REFERENCED_TABLE_SCHEMA=DATABASE() AND k.REFERENCED_TABLE_NAME IN (' . $names . '))', $sql,
+            );
             $sql = str_replace('WHERE TRIGGER_SCHEMA=DATABASE())', 'WHERE TRIGGER_SCHEMA=DATABASE() AND EVENT_OBJECT_TABLE IN (' . $names . '))', $sql);
         }
         return $sql . ' ROLLBACK;';
@@ -541,13 +550,15 @@ final class SourceApplicationBackup
     {
         $bytes = self::protectedPluginBytes($path, $serverRoot, 8388608);
         $parsed = self::parseMetadata($path, $request['present'], $request['nonce'], $request['binding'],
-            $tool['source_schema_backup'], $tool['source_schema_backup']['mysql_version'], $ordering, $bytes);
+            $tool['source_schema_backup'], $tool['source_schema_backup']['mysql_version'], $ordering, $bytes,
+        );
         return $parsed + ['ordering' => $ordering, 'qualification' => 'historical_failure_evidence_only',
             'stdout' => ['path' => $path, 'sha256' => hash('sha256', $bytes), 'bytes' => strlen($bytes)]];
     }
 
     private static function parseMetadata(string $path, array $tables, string $nonce, array $binding, array $contract, string $serverVersion,
-        string $ordering = 'ddl-before-statistics', ?string $protectedBytes = null): array
+        string $ordering = 'ddl-before-statistics', ?string $protectedBytes = null,
+    ): array
     {
         $lines = preg_split('/\r?\n/', rtrim($protectedBytes ?? (string) file_get_contents($path), "\r\n"));
         if (count($lines) < 6 || preg_match('/\A([a-f0-9]{64})\s+/', $lines[0], $digest) !== 1) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_OUTPUT_INVALID'); }
@@ -741,7 +752,8 @@ final class SourceApplicationBackup
                         || preg_match('/\A[a-f0-9]{64}\z/D', (string) ($relation['original_ledger_sha256'] ?? '')) !== 1
                         || count($target) !== 1 || ($target[0]['sha256'] ?? null) !== $relation['repair_sha256']
                         || !in_array([$migration['disposition'], $relation['state'] ?? null, $target[0]['disposition'] ?? null],
-                            [['awaiting_repair', 'pending', 'execute'], ['repaired', 'applied', 'already_applied']], true)) {
+                            [['awaiting_repair', 'pending', 'execute'], ['repaired', 'applied', 'already_applied']], true,
+                        )) {
                         throw new RuntimeException('PLUGIN_SOURCE_REPAIR_RELATION_INVALID');
                     }
                     $repairs[$id] = $relation;
@@ -828,7 +840,9 @@ final class SourceApplicationBackup
                 if ($ddl !== null && $sha === $ddl[0] && in_array($migration['disposition'] ?? null, ['execute', 'after_predecessor'], true)) {
                     array_push($tables, ...$ddl[1]);
                     $writeRequirements[] = ['module_key' => $key, 'migration_key' => $id, 'code' => 'PLUGIN_SOURCE_MODULE_PRESERVATION_REQUIRED',
-                        'contract' => $ddl[2], 'api' => 'before(PDO, exactMigration), after(PDO, wholeBefore); native same-stage ledger reader required'];
+                        'contract' => $ddl[2], 'api' => $key === 'official.file'
+                            ? 'stageBefore(PDO, exactMigration), stageAfter(PDO, wholeBefore); original File row reader and native same-stage ledger required; full File recovery graph retained'
+                            : 'before(PDO, exactMigration), after(PDO, wholeBefore); native same-stage ledger reader required'];
                     continue;
                 }
                 $file = self::FILE_STAGES[$id] ?? null;
@@ -1077,7 +1091,8 @@ final class SourceApplicationBackup
                 '--default-character-set=utf8mb4', '-uroot', '--databases', $database];
         }
         self::remote($tool, self::clientShell($tool, 'mysqldump_command', $seconds, $flags), $dump, $directory . '/dump.stderr',
-            'dump', $seconds, (int) $binding['authority']['expires_at'], $recheck);
+            'dump', $seconds, (int) $binding['authority']['expires_at'], $recheck,
+        );
         if (filesize($dump) === 0) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_EMPTY'); }
         $after = self::probe($tool, $binding, $directory . '/probe-after', 'probe-after', $seconds, $recheck);
         $recheck();
@@ -1091,7 +1106,8 @@ final class SourceApplicationBackup
             'database' => $binding['database'], 'tables' => $scope['tables'], 'native_client' => $before,
             'payload' => ['path' => $dump, 'sha256' => hash_file('sha256', $dump), 'bytes' => filesize($dump)],
             'argv' => self::argv($tool, self::clientShell($tool, 'mysql_command', $seconds,
-                ['--no-defaults', '--no-login-paths', '--binary-mode', '--default-character-set=utf8mb4', '-uroot', '--database=' . $database])),
+                ['--no-defaults', '--no-login-paths', '--binary-mode', '--default-character-set=utf8mb4', '-uroot', '--database=' . $database],
+            )),
             'stdin' => $dump, 'executed' => false,
             'requirements' => ['Explicit authorization and normal native DDL/exclusive lease for these exact objects; no automatic restore.',
                 'Preserve failure/unknown evidence before restoring original ledgers. Exclude affected writers and verify original DB/source identity.',
@@ -1198,7 +1214,8 @@ final class SourceApplicationBackup
 
     /** Fixed selected-table restoration from a verified native original, never caller SQL. */
     public static function restoreApplicationFailure(array $binding, array $tool, string $originalManifest, string $directory,
-        callable $before, callable $after, string $profile = 'sms-reservation', ?string $currentManifest = null): array
+        callable $before, callable $after, string $profile = 'sms-reservation', ?string $currentManifest = null,
+    ): array
     {
         $context = app()->make(\app\common\execution\CurrentExecutionContext::class)->current();
         if (PHP_SAPI !== 'cli' || !$context instanceof \app\common\execution\InstanceExecutionContext
@@ -1252,9 +1269,11 @@ final class SourceApplicationBackup
         $seconds = $contract['timeout_seconds'] ?? null;
         if (!is_int($seconds) || $seconds < 30 || $seconds > 600) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_LIFETIME_REQUIRED'); }
         self::remote($tool, self::clientShell($tool, 'mysql_command', $seconds,
-            ['--no-defaults', '--no-login-paths', '--skip-reconnect', '--binary-mode', '--default-character-set=utf8mb4', '-uroot', '--database=' . $binding['database']['database']]),
+            ['--no-defaults', '--no-login-paths', '--skip-reconnect', '--binary-mode', '--default-character-set=utf8mb4', '-uroot', '--database=' . $binding['database']['database']],
+            ),
             $directory . '/restore.stdout', $directory . '/restore.stderr', 'restore-selected-failure', $seconds,
-            (int) $binding['authority']['expires_at'], $before, null, $reference, $after);
+            (int) $binding['authority']['expires_at'], $before, null, $reference, $after,
+        );
         return ['tables' => $tables, 'payload' => $reference,
             'derivation' => ['path' => $directory . '/derivation.json', 'sha256' => hash_file('sha256', $directory . '/derivation.json')],
             'terminal' => ['path' => $directory . '/restore.stdout.process.json', 'sha256' => hash_file('sha256', $directory . '/restore.stdout.process.json')]];
@@ -1262,7 +1281,8 @@ final class SourceApplicationBackup
 
     /** Explicit fixed Identity inverse through the same native protected-stdin executor. */
     public static function restoreIdentityOperation(PDO $pdo, array $binding, array $tool, string $originalManifest, string $capsuleManifest,
-        string $directory, int $windowExpires, callable $guard): array
+        string $directory, int $windowExpires, callable $guard,
+    ): array
     {
         $host = app()->make(PluginSourceDevelopmentHost::class);
         $host->requireIdentityRecovery($pdo, 'official.identity', true, true);
@@ -1309,9 +1329,11 @@ final class SourceApplicationBackup
         if (!is_int($seconds) || $seconds < 30 || $seconds > 600) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_LIFETIME_REQUIRED'); }
         $recheck = static function () use ($host, $pdo, $guard): void { $host->requireIdentityRecovery($pdo, 'official.identity', true, true); $guard(); };
         self::remote($tool, self::clientShell($tool, 'mysql_command', $seconds,
-            ['--no-defaults', '--no-login-paths', '--skip-reconnect', '--binary-mode', '--default-character-set=utf8mb4', '-uroot', '--database=' . $binding['database']['database']]),
+            ['--no-defaults', '--no-login-paths', '--skip-reconnect', '--binary-mode', '--default-character-set=utf8mb4', '-uroot', '--database=' . $binding['database']['database']],
+            ),
             $directory . '/restore.stdout', $directory . '/restore.stderr', 'restore-identity-operation', $seconds,
-            min($windowExpires, (int) $binding['authority']['expires_at']), $recheck, null, $reference, $recheck);
+            min($windowExpires, (int) $binding['authority']['expires_at']), $recheck, null, $reference, $recheck,
+        );
         return ['payload' => $reference,
             'derivation' => ['path' => $directory . '/derivation.json', 'sha256' => hash_file('sha256', $directory . '/derivation.json')],
             'terminal' => ['path' => $directory . '/restore.stdout.process.json', 'sha256' => hash_file('sha256', $directory . '/restore.stdout.process.json')]];
@@ -1594,7 +1616,8 @@ final class SourceApplicationBackup
     }
 
     private static function remote(array $tool, string $shell, string $output, string $error, string $phase, int $seconds, int $expires, callable $recheck,
-        ?int $maximumBytes = null, ?array $stdin = null, ?callable $afterRecheck = null): void
+        ?int $maximumBytes = null, ?array $stdin = null, ?callable $afterRecheck = null,
+    ): void
     {
         $recheck();
         if (time() + $seconds + 60 >= $expires) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_LIFETIME_REQUIRED'); }

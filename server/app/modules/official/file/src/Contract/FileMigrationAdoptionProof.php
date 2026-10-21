@@ -30,7 +30,7 @@ JSON;
     public function __construct(private CurrentExecutionContext $contexts) {}
 
     /** The application owner supplies this source-bound reader; it runs inside this exact PDO snapshot. */
-    public function report(string $oldMigrationKey, \Closure $applicationHistory, ?PDO $expectedPdo = null): array
+    public function report(string $oldMigrationKey, \Closure $applicationHistory, ?PDO $expectedPdo = null, ?\Closure $visibilityHistory = null): array
     {
         $checks = [];
         $pdo = null;
@@ -93,6 +93,42 @@ JSON;
             // Exactly one later File migration adds this index. No other unregistered additions are admitted.
             $basePost = $schemas['post'];
             $object = $actual['file_object'];
+            if (isset($object['columns']['visibility_batch_key'])) {
+                if ($visibilityHistory === null || $visibilityHistory($pdo) !== true) {
+                    throw new \RuntimeException('VISIBILITY_NATIVE_HISTORY_REQUIRED');
+                }
+                $key = array_key_last(FileMigrationPreservation::VISIBILITY_STAGES);
+                $path = dirname(__DIR__, 2) . '/database/migrations/' . substr($key, strlen('official.file:')) . '.sql';
+                if (!is_file($path) || is_link($path) || hash_file('sha256', $path) !== FileMigrationPreservation::VISIBILITY_STAGES[$key]) {
+                    throw new \RuntimeException('VISIBILITY_SOURCE_CHANGED');
+                }
+                $sql = (string) file_get_contents($path);
+                $basePost['file_object']['columns']['status'][0] = 'varchar(32)';
+                $basePost['file_object']['columns']['visibility_batch_key'] = ['varchar(64)', true, null, 'ascii', 'ascii_bin', ''];
+                foreach (['chk_file_object_status','chk_file_object_archive_shape','chk_file_object_visibility_operation'] as $name) {
+                    if (preg_match('/ADD CONSTRAINT `' . $name . '` CHECK \(([^\r\n]+)\)(?:,|;)/', $sql, $match) !== 1) {
+                        throw new \RuntimeException('VISIBILITY_SOURCE_CHANGED');
+                    }
+                    $basePost['file_object']['checks'][$name] = $match[1];
+                }
+                foreach (['file_visibility_batch','file_visibility_item'] as $name) {
+                    $table = Db::name($name)->getTable();
+                    if ($table !== 'pa_' . $name) {
+                        throw new \RuntimeException('VISIBILITY_NAMESPACE_UNKNOWN');
+                    }
+                    $image = \app\common\services\upgrade\MySqlMetadataObservation::tableSchema($pdo, $table);
+                    if ($image === null) {
+                        throw new \RuntimeException('VISIBILITY_SCHEMA_UNKNOWN');
+                    }
+                    app()->make(FileMigrationPreservation::class)->visibilityTable($pdo, $name, $image);
+                }
+                $bad = $this->count($pdo, 'SELECT COUNT(*) FROM pa_file_visibility_item i LEFT JOIN pa_file_visibility_batch b ON b.batch_key=i.batch_key'
+                    . ' LEFT JOIN pa_file_object o ON o.file_key=i.file_key WHERE b.batch_key IS NULL OR o.file_key IS NULL OR i.tenant_id<>b.tenant_id OR i.tenant_id<>o.tenant_id');
+                if ($bad !== 0) {
+                    throw new \RuntimeException('FILE_RELATIONSHIP_MISMATCH');
+                }
+                $checks['visibility_native_profile'] = 'fixed_two_stages_applied_and_complete_schema';
+            }
             $hasImageIndex = isset($object['indexes']['uk_file_object_tenant_key']);
             if (!$hasImageIndex) { unset($basePost['file_object']['indexes']['uk_file_object_tenant_key']); }
             $baseNames = ['file', 'file_object', 'storage_account', 'storage_space', 'storage_route'];
@@ -146,9 +182,11 @@ JSON;
                 $checks['unify']['unverifiable_material_rows'] = $this->count($pdo, 'SELECT COUNT(*) FROM ' . self::q($names['file']));
                 $checks['unify']['legacy_storage_config_rows'] = $this->count($pdo, 'SELECT COUNT(*) FROM ' . self::q($names['config']) . " WHERE `type`='storage'");
                 $checks['unify']['default_route_mismatches'] = $this->count($pdo,
-                    "SELECT COUNT(*) FROM (SELECT 'public' AS access_type UNION ALL SELECT 'private') a WHERE NOT EXISTS (SELECT 1 FROM " . self::q($names['storage_route']) . ' r JOIN ' . self::q($names['storage_space']) . ' s ON s.id=r.space_id JOIN ' . self::q($names['storage_account']) . " c ON c.id=s.account_id WHERE r.route_key=CONCAT('default.',a.access_type) AND r.access_type=a.access_type AND s.space_key=CONCAT('local-',a.access_type) AND s.access_type=a.access_type AND s.local_path=CONCAT(a.access_type,'/storage') AND c.account_key='local' AND c.driver='local')");
+                    "SELECT COUNT(*) FROM (SELECT 'public' AS access_type UNION ALL SELECT 'private') a WHERE NOT EXISTS (SELECT 1 FROM " . self::q($names['storage_route']) . ' r JOIN ' . self::q($names['storage_space']) . ' s ON s.id=r.space_id JOIN ' . self::q($names['storage_account']) . " c ON c.id=s.account_id WHERE r.route_key=CONCAT('default.',a.access_type) AND r.access_type=a.access_type AND s.space_key=CONCAT('local-',a.access_type) AND s.access_type=a.access_type AND s.local_path=CONCAT(a.access_type,'/storage') AND c.account_key='local' AND c.driver='local')",
+                );
                 $checks['unify']['unverifiable_object_mapping_rows'] = $this->count($pdo,
-                    'SELECT COUNT(*) FROM ' . self::q($names['file_object']) . ' o JOIN ' . self::q($names['storage_space']) . " s ON s.id=o.storage_space_id WHERE o.purpose<>'export.csv' OR o.access_type<>'private' OR o.disposition<>'attachment' OR s.space_key<>'local-private'");
+                    'SELECT COUNT(*) FROM ' . self::q($names['file_object']) . ' o JOIN ' . self::q($names['storage_space']) . " s ON s.id=o.storage_space_id WHERE o.purpose<>'export.csv' OR o.access_type<>'private' OR o.disposition<>'attachment' OR s.space_key<>'local-private'",
+                );
                 $mapping = $recorded ? array_diff_key($checks['unify'], array_flip([
                     'unverifiable_material_rows', 'unverifiable_object_mapping_rows',
                 ])) : $checks['unify'];
@@ -294,7 +332,8 @@ JSON;
             'SELECT TABLE_SCHEMA,TABLE_NAME,CONSTRAINT_NAME,CONSTRAINT_TYPE FROM information_schema.TABLE_CONSTRAINTS'
             . ' WHERE CONSTRAINT_SCHEMA=DATABASE() AND CONSTRAINT_TYPE IN (\'FOREIGN KEY\',\'CHECK\')'
             . ' AND CONSTRAINT_NAME IN (' . implode(',', array_fill(0, count($expected), '?')) . ')'
-            . ' ORDER BY CONSTRAINT_NAME,TABLE_NAME,CONSTRAINT_TYPE', array_keys($expected));
+            . ' ORDER BY CONSTRAINT_NAME,TABLE_NAME,CONSTRAINT_TYPE', array_keys($expected),
+        );
         $checks['execute_constraint_names'] = ['whole_schema_visibility' => true, 'expected_owners' => $expected, 'observed_owners' => $owners];
         // Execute requires every target table to be absent, so even an expected owner here is inconsistent.
         if ($owners !== []) { throw new \RuntimeException('MIGRATION_CONSTRAINT_NAME_CONFLICT'); }

@@ -2470,7 +2470,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cade0467cfdf46bc2f17da830062c99fb1c75558b05971fd6e7be191f6395a8b"
+            "source_sha256": "218a799962c6171fbba096c9e0bf8738ec416750543985302d1e8ad5e0f92efe"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2593,7 +2593,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dfa6b631d39602471a59978674ae877ccfb260c2c73c73d038a7a92ad9811827"
+            "source_sha256": "5f97c7b45f4b6ef19009f2ff0173eda43f670ae680708636e5e7e1d1d962afce"
         },
         {
             "path": "plugins/official.identity/plugin.json",
@@ -9228,7 +9228,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9a9235d27cfd2507047e960dc5489f774a66d738b3320c31495e550c286f7ec1"
+            "source_sha256": "4e6e21cd4d65aea87bdf5d9a05820472a40ce749ff4765c23122dc90272e8e91"
         },
         {
             "path": "server/app/common/services/upgrade/SourceApplicationDump.php",
@@ -12269,7 +12269,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "de003b991d1fa04d11360c508293d63d7d5dc1eaff7a64eba18a3a059ec55205"
+            "source_sha256": "b42025a59fcd4ecd9c985b24c39a19bcde482b7d100a93fc6a262d89a48048ab"
         },
         {
             "path": "server/app/modules/official/file/api/metadata/openapi.php",
@@ -12283,7 +12283,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d17954a16046281d551da50362993aa38d72bdf5ade9bae362186be7645f4430"
+            "source_sha256": "ec0c72acedbffd5588a4d4d08bcc14f9c69dd83137f59321f8b49991d83fe17f"
         },
         {
             "path": "server/app/modules/official/file/composer.json",
@@ -12426,6 +12426,34 @@
             "source_sha256": "03f0310da23b0c19a8631edce0a07e96ea57a97d781a582ad87c99ab4136cd73"
         },
         {
+            "path": "server/app/modules/official/file/database/migrations/20261021060100_file_visibility_batches.sql",
+            "target": "server/app/modules/official/file/database/migrations/20261021060100_file_visibility_batches.sql",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "3827e993c38855ce94ceaa2b7c0ae8c7082a9d231476e6c42358cd29f977edb7"
+        },
+        {
+            "path": "server/app/modules/official/file/database/migrations/20261021060200_file_visibility_object_state.sql",
+            "target": "server/app/modules/official/file/database/migrations/20261021060200_file_visibility_object_state.sql",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "93ab8b34a84124f7d6ed86e7f36a7ea76e6ac122cc64f58810387506bef65b6b"
+        },
+        {
             "path": "server/app/modules/official/file/module.json",
             "target": "server/app/modules/official/file/module.json",
             "classification": "managed",
@@ -12437,7 +12465,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ddc2d3d818b921c6e434bab2185557aac3269f7433a312e8df1d20219933e9df"
+            "source_sha256": "5a23bc62b13e66bbfa6bf14cd4b4f311f2875bf7b827b0b72d17f3829a4d4460"
         },
         {
             "path": "server/app/modules/official/file/resources/menus.json",
@@ -12465,7 +12493,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "471f9c5d89cb725cadb7ebacc69a4d0b3af6d0cee8cc62f0073fef21924c05a5"
+            "source_sha256": "e0639ca36308220f2f9e7ca36972a9199fb6be1f44e25f61a41e00477faed5df"
         },
         {
             "path": "server/app/modules/official/file/resources/setting-definitions.json",
@@ -12493,7 +12521,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9a740bd97f8760ad5251031a2f7760c839c519748d5c814628db46a8d4678ec7"
+            "source_sha256": "8a8f2e00b0973ffdb41dddbf78a91fd120651bd8722a38a46fbb18e09a822971"
         },
         {
             "path": "server/app/modules/official/file/src/Composition/Storage/AliyunStorageClientFactory.php",
@@ -12675,7 +12703,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "97e8df6314efdcb8191d6700c9185055aa002807f60076e6d4aa865e33f3edec"
+            "source_sha256": "c1701cddf7572e3ba9f8f9aa49f7022e9631204ca2192299111d0ac4b9f79a19"
         },
         {
             "path": "server/app/modules/official/file/src/Contract/FileMigrationPreservation.php",
@@ -12689,7 +12717,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8c222ee0ad025e9b3362483cd7955dddd728397598b006fe8c09b381832cf149"
+            "source_sha256": "b2be40762af2382dde22afb8aad6707c111d25298175bcc90ccbfe690b63dde5"
         },
         {
             "path": "server/app/modules/official/file/src/Contract/FileReferenceCommands.php",
@@ -12748,6 +12776,20 @@
             "source_sha256": "2a2c0726894150c9462d74f67e97502f9d44f17eaa42f4e69badfe4be451f14a"
         },
         {
+            "path": "server/app/modules/official/file/src/Contract/FileVisibility.php",
+            "target": "server/app/modules/official/file/src/Contract/FileVisibility.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "bed1171e7ce1ca472cbdc161ebc77c7b03ce14dd36e8bc92518d2f3c12f92f5d"
+        },
+        {
             "path": "server/app/modules/official/file/src/Contract/ReservationReleaseInput.php",
             "target": "server/app/modules/official/file/src/Contract/ReservationReleaseInput.php",
             "classification": "managed",
@@ -12802,6 +12844,20 @@
                 "full"
             ],
             "source_sha256": "a49fe2e81d9ee888fcf6b0530a37e3523da7dd7039b44b574b902742f00bc1f6"
+        },
+        {
+            "path": "server/app/modules/official/file/src/Controller/FileVisibilityController.php",
+            "target": "server/app/modules/official/file/src/Controller/FileVisibilityController.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "fcbe883740cdea2af0b88daa8eaec015ada081847d3440e52d8784f3d7d97e6b"
         },
         {
             "path": "server/app/modules/official/file/src/Controller/UploadController.php",
@@ -13000,6 +13056,34 @@
             "source_sha256": "77372213c8093e270742a5b5bb678fb76716e8d1481e189b2762c1457bd9b02f"
         },
         {
+            "path": "server/app/modules/official/file/src/Model/Storage/FileVisibilityBatch.php",
+            "target": "server/app/modules/official/file/src/Model/Storage/FileVisibilityBatch.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "31b8dacef4daf9815e65e2d988a14621a56287baa409c9d80ee7e6349ad463b7"
+        },
+        {
+            "path": "server/app/modules/official/file/src/Model/Storage/FileVisibilityItem.php",
+            "target": "server/app/modules/official/file/src/Model/Storage/FileVisibilityItem.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "1ebc45e00a5322c90eebf27d0e29e5bdedc04fcbfbaafd107ad446b8aca8d60a"
+        },
+        {
             "path": "server/app/modules/official/file/src/Model/Storage/StorageAccount.php",
             "target": "server/app/modules/official/file/src/Model/Storage/StorageAccount.php",
             "classification": "managed",
@@ -13053,7 +13137,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "34c28adb0b3435ec14779f9892ca6e7508ccbed5d2ecacd3d4f56b8bd2e184b3"
+            "source_sha256": "491a57dcb32cc5bb09f03c26153a8ab7a25feaddf3f581d2ded10a65061a2b43"
         },
         {
             "path": "server/app/modules/official/file/src/Service/FileAccessService.php",
@@ -13081,7 +13165,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "68da1dcb89c4c3a6331b37ca94f9c99f0a03f6994363a87c9b1006a9ffbefb50"
+            "source_sha256": "4e8a195a84f9f9f9603c7dd28eaf18d7c818f184e7d88bd93bcc354ee33061a5"
         },
         {
             "path": "server/app/modules/official/file/src/Service/FileAuthorizationService.php",
@@ -13168,6 +13252,20 @@
             "source_sha256": "a4fd0e226db3d268f458497473badb3c4e717e80dac23bbf8144bf7a0b743c48"
         },
         {
+            "path": "server/app/modules/official/file/src/Service/FileVisibilityService.php",
+            "target": "server/app/modules/official/file/src/Service/FileVisibilityService.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "d8fc93c536b4afa93f8df992e9d969619d840a00c76dce4e0b507132d7a54a13"
+        },
+        {
             "path": "server/app/modules/official/file/src/Service/Storage/StorageConfigurationService.php",
             "target": "server/app/modules/official/file/src/Service/Storage/StorageConfigurationService.php",
             "classification": "managed",
@@ -13193,7 +13291,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a167cafe7a19d9d0c8619a8c82873e117ad5e15b65d75cd01fca1fe8e8f3c014"
+            "source_sha256": "21e5a3b961d7fa167f901f6c505d92466303392fb491c98b7b79d6083e969726"
         },
         {
             "path": "server/app/modules/official/file/src/Validation/FileCateValidate.php",
@@ -25956,7 +26054,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "feec54203ee4238a51a7b08893ec65cb34c6bc2c5c43bd9f2be1e2b15cc43c9f"
+            "source_sha256": "b834d9e86490091e40b4a9bc0d10d8ad578105bc8787608d907151c4b81d8048"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",
@@ -28278,7 +28376,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "410c7dde8b639f0979467e3e73fa0528bb3222ccb3ba1c10822e4930ec3fca89"
+            "source_sha256": "a9715ad2ff02fa106d32bdc293c7e097ccfd0d0e96810ca40f6ff8b0e93d9590"
         },
         {
             "path": "server/generated/openapi.json",
@@ -28292,7 +28390,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "61f9b94ab8916992f8a5a9feb84ec529edebfa91cc6b53aacb000a18cb115426"
+            "source_sha256": "e0a8bc4ff298f384fbfe42e52cbb6866c98b27513d0bb4c9e4bf27b408409d81"
         },
         {
             "path": "server/private/storage/.gitkeep",
@@ -35762,7 +35860,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "386fc42f5daea0791ac0f5a2201c433593ba1036b50bcd148f46e6735db81b3c"
+            "source_sha256": "f1fb52f51f278d6de860092ac808a5142ba63b65b0e8b8a5816d1e51dcf749ff"
         },
         {
             "path": "web/src/hooks/chart-option.ts",
@@ -36706,7 +36804,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8e52fff06773e2844592c741586e773eb8b580d85567b9222cbc2da294d89fc9"
+            "source_sha256": "742ed171ee5f1f96ba19db36dfb661169a62d637f02455ab7e886d7bda13ccec"
         },
         {
             "path": "web/src/modules/official-file/contribution.ts",
@@ -36734,7 +36832,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "870f9ad5e129294c6caf1c950c260bce3838bc9a7cba67f0da4635e4f3829752"
+            "source_sha256": "d04a41c8ffdb04a77d0079ff6e81b18a6a8d790abeed0fd8a9e3e955eae58395"
         },
         {
             "path": "web/src/modules/official-file/optional-runtime/LICENSE",
@@ -36933,6 +37031,20 @@
             "source_sha256": "c7dec714bbef4fbd3b07dfda7698f5ee64e3199cc74ffde567a98e1a428b02e2"
         },
         {
+            "path": "web/src/modules/official-file/views/FileVisibilityDialog.vue",
+            "target": "web/src/modules/official-file/views/FileVisibilityDialog.vue",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "36e00ad54923a4093c3f5d6d129cdf9ee00060a540e02c17cd8e497050f9b8a0"
+        },
+        {
             "path": "web/src/modules/official-file/views/index.vue",
             "target": "web/src/modules/official-file/views/index.vue",
             "classification": "managed",
@@ -36944,7 +37056,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "faf5f35d1eedd19183e2670bc217a7f664c863e2b3b04e4fe7edaf4197dbcbf3"
+            "source_sha256": "6b07b2670491b2f4e69aecd55931f296dc063a54215939e574a47fac8d26710d"
         },
         {
             "path": "web/src/modules/official-file/views/locale/en-US.ts",

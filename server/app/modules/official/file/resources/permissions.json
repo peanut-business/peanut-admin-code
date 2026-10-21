@@ -1,5 +1,11 @@
 [
   {
+    "key": "official.file.visibility.change",
+    "type": "action",
+    "name": "修改文件可见性",
+    "risk_level": "critical"
+  },
+  {
     "key": "official.file.list",
     "type": "api",
     "name": "查看文件素材",

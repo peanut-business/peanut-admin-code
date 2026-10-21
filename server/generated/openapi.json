@@ -611,7 +611,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/file/route/app.php",
-                        "line": 44
+                        "line": 54
                     }
                 },
                 "x-peanut-permissions": []
@@ -22702,6 +22702,562 @@
                 ]
             }
         },
+        "/adminapi/api/v1/files/visibility/preview": {
+            "post": {
+                "tags": [
+                    "File"
+                ],
+                "operationId": "previewFileVisibility",
+                "description": "Read-only whole-batch preflight. Requires manage and visibility.change on every source and derivative. Unqualified external origins reject before intent.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "file_keys"
+                                ],
+                                "properties": {
+                                    "file_keys": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "maxItems": 100,
+                                        "uniqueItems": true,
+                                        "items": {
+                                            "type": "string",
+                                            "pattern": "^file_[a-f0-9]{32}$"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Current durable visibility state; never a claim that downloaded third-party copies were recalled.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": [
+                                                "confirmation",
+                                                "signature",
+                                                "execution_started"
+                                            ],
+                                            "properties": {
+                                                "confirmation": {
+                                                    "$ref": "#/components/schemas/FileVisibilityConfirmation"
+                                                },
+                                                "signature": {
+                                                    "type": "string",
+                                                    "pattern": "^[a-f0-9]{64}$"
+                                                },
+                                                "execution_started": {
+                                                    "type": "boolean",
+                                                    "enum": [
+                                                        false
+                                                    ]
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "adminapi",
+                    "owner": {
+                        "type": "module",
+                        "key": "official.file"
+                    },
+                    "controller": "PeanutAdmin\\Modules\\File\\Controller\\FileVisibilityController",
+                    "action": "preview",
+                    "permission": "official.file.visibility.change",
+                    "source": {
+                        "file": "server/app/modules/official/file/route/app.php",
+                        "line": 26
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "module_capability",
+                        "key": "official.file"
+                    },
+                    {
+                        "kind": "tenant_action",
+                        "key": "official.file.visibility.change"
+                    }
+                ]
+            }
+        },
+        "/adminapi/api/v1/files/visibility/batches": {
+            "post": {
+                "tags": [
+                    "File"
+                ],
+                "operationId": "submitFileVisibility",
+                "description": "Accept all objects atomically, then persist each nontransactional storage step. Duplicate requests return the original batch. Unknown HTTP outcomes require querying that batch.",
+                "parameters": [
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[a-zA-Z0-9._:-]{16,96}$"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "required": [
+                                    "confirmation",
+                                    "signature",
+                                    "impact_confirmed"
+                                ],
+                                "properties": {
+                                    "confirmation": {
+                                        "$ref": "#/components/schemas/FileVisibilityConfirmation"
+                                    },
+                                    "signature": {
+                                        "type": "string",
+                                        "pattern": "^[a-f0-9]{64}$"
+                                    },
+                                    "impact_confirmed": {
+                                        "type": "boolean",
+                                        "enum": [
+                                            true
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Current durable visibility state; never a claim that downloaded third-party copies were recalled.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/FileVisibilityBatch"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "adminapi",
+                    "owner": {
+                        "type": "module",
+                        "key": "official.file"
+                    },
+                    "controller": "PeanutAdmin\\Modules\\File\\Controller\\FileVisibilityController",
+                    "action": "submit",
+                    "permission": "official.file.visibility.change",
+                    "source": {
+                        "file": "server/app/modules/official/file/route/app.php",
+                        "line": 28
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "module_capability",
+                        "key": "official.file"
+                    },
+                    {
+                        "kind": "tenant_action",
+                        "key": "official.file.visibility.change"
+                    }
+                ]
+            },
+            "get": {
+                "tags": [
+                    "File"
+                ],
+                "operationId": "recentFileVisibilityBatches",
+                "responses": {
+                    "200": {
+                        "description": "Current durable visibility state; never a claim that downloaded third-party copies were recalled.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "required": [
+                                                "items"
+                                            ],
+                                            "additionalProperties": false,
+                                            "properties": {
+                                                "items": {
+                                                    "type": "array",
+                                                    "maxItems": 50,
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/FileVisibilityBatchSummary"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "adminapi",
+                    "owner": {
+                        "type": "module",
+                        "key": "official.file"
+                    },
+                    "controller": "PeanutAdmin\\Modules\\File\\Controller\\FileVisibilityController",
+                    "action": "recent",
+                    "permission": "official.file.visibility.change",
+                    "source": {
+                        "file": "server/app/modules/official/file/route/app.php",
+                        "line": 30
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "module_capability",
+                        "key": "official.file"
+                    },
+                    {
+                        "kind": "tenant_action",
+                        "key": "official.file.visibility.change"
+                    }
+                ]
+            }
+        },
+        "/adminapi/api/v1/files/visibility/batches/{batchKey}": {
+            "get": {
+                "tags": [
+                    "File"
+                ],
+                "operationId": "getFileVisibilityBatch",
+                "parameters": [
+                    {
+                        "name": "batchKey",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^batch_[a-f0-9]{32}$"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Current durable visibility state; never a claim that downloaded third-party copies were recalled.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/FileVisibilityBatch"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "adminapi",
+                    "owner": {
+                        "type": "module",
+                        "key": "official.file"
+                    },
+                    "controller": "PeanutAdmin\\Modules\\File\\Controller\\FileVisibilityController",
+                    "action": "status",
+                    "permission": "official.file.visibility.change",
+                    "source": {
+                        "file": "server/app/modules/official/file/route/app.php",
+                        "line": 32
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "module_capability",
+                        "key": "official.file"
+                    },
+                    {
+                        "kind": "tenant_action",
+                        "key": "official.file.visibility.change"
+                    }
+                ]
+            }
+        },
+        "/adminapi/api/v1/files/visibility/batches/{batchKey}/resume": {
+            "post": {
+                "tags": [
+                    "File"
+                ],
+                "operationId": "resumeFileVisibilityBatch",
+                "parameters": [
+                    {
+                        "name": "batchKey",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^batch_[a-f0-9]{32}$"
+                        }
+                    }
+                ],
+                "description": "Explicit recovery of the same durable batch, under current permissions. Inspect original locations before retry; never reopen public access or replace the accepted plan.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": false
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Current durable visibility state; never a claim that downloaded third-party copies were recalled.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/FileVisibilityBatch"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "adminapi",
+                    "owner": {
+                        "type": "module",
+                        "key": "official.file"
+                    },
+                    "controller": "PeanutAdmin\\Modules\\File\\Controller\\FileVisibilityController",
+                    "action": "resume",
+                    "permission": "official.file.visibility.change",
+                    "source": {
+                        "file": "server/app/modules/official/file/route/app.php",
+                        "line": 34
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "module_capability",
+                        "key": "official.file"
+                    },
+                    {
+                        "kind": "tenant_action",
+                        "key": "official.file.visibility.change"
+                    }
+                ]
+            }
+        },
         "/adminapi/official.file.snapshot.pending": {
             "get": {
                 "tags": [
@@ -22788,7 +23344,7 @@
                     "permission": "official.file.manage",
                     "source": {
                         "file": "server/app/modules/official/file/route/app.php",
-                        "line": 31
+                        "line": 41
                     }
                 },
                 "x-peanut-permissions": [
@@ -22909,7 +23465,7 @@
                     "permission": "official.file.delete",
                     "source": {
                         "file": "server/app/modules/official/file/route/app.php",
-                        "line": 32
+                        "line": 42
                     }
                 },
                 "x-peanut-permissions": [
@@ -23120,7 +23676,7 @@
                     "permission": "official.file.list",
                     "source": {
                         "file": "server/app/modules/official/file/route/app.php",
-                        "line": 26
+                        "line": 36
                     }
                 },
                 "x-peanut-permissions": [
@@ -23372,7 +23928,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/file/route/app.php",
-                        "line": 45
+                        "line": 55
                     }
                 },
                 "x-peanut-permissions": [
@@ -23436,7 +23992,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/file/route/app.php",
-                        "line": 28
+                        "line": 38
                     }
                 },
                 "x-peanut-permissions": [
@@ -23508,7 +24064,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/file/route/app.php",
-                        "line": 29
+                        "line": 39
                     }
                 },
                 "x-peanut-permissions": [
@@ -23576,7 +24132,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/file/route/app.php",
-                        "line": 30
+                        "line": 40
                     }
                 },
                 "x-peanut-permissions": [
@@ -23650,7 +24206,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/file/route/app.php",
-                        "line": 33
+                        "line": 43
                     }
                 },
                 "x-peanut-permissions": [
@@ -23718,7 +24274,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/file/route/app.php",
-                        "line": 34
+                        "line": 44
                     }
                 },
                 "x-peanut-permissions": [
@@ -23786,7 +24342,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/file/route/app.php",
-                        "line": 35
+                        "line": 45
                     }
                 },
                 "x-peanut-permissions": [
@@ -23854,7 +24410,7 @@
                     "permission": null,
                     "source": {
                         "file": "server/app/modules/official/file/route/app.php",
-                        "line": 36
+                        "line": 46
                     }
                 },
                 "x-peanut-permissions": [
@@ -45999,6 +46555,372 @@
                     "state",
                     "unavailableReason",
                     "capabilityRevision"
+                ]
+            },
+            "FileVisibilityConfirmation": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "version",
+                    "batch_key",
+                    "actor",
+                    "expires_at",
+                    "target",
+                    "manifest"
+                ],
+                "properties": {
+                    "version": {
+                        "type": "integer",
+                        "enum": [
+                            1
+                        ]
+                    },
+                    "batch_key": {
+                        "type": "string",
+                        "pattern": "^batch_[a-f0-9]{32}$"
+                    },
+                    "actor": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "tenant_id",
+                            "account_id",
+                            "member_id",
+                            "client_key",
+                            "session_digest",
+                            "authorization_revision"
+                        ],
+                        "properties": {
+                            "tenant_id": {
+                                "type": "string"
+                            },
+                            "account_id": {
+                                "type": "string"
+                            },
+                            "member_id": {
+                                "type": "string"
+                            },
+                            "client_key": {
+                                "type": "string"
+                            },
+                            "session_digest": {
+                                "type": "string"
+                            },
+                            "authorization_revision": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "expires_at": {
+                        "type": "integer"
+                    },
+                    "target": {
+                        "type": "string",
+                        "enum": [
+                            "private"
+                        ]
+                    },
+                    "manifest": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "roots",
+                            "files",
+                            "derivatives_sha256",
+                            "registered_reference_count",
+                            "references_sha256",
+                            "known_cdn",
+                            "external_usage_complete",
+                            "warning"
+                        ],
+                        "properties": {
+                            "roots": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            "files": {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "source",
+                                        "target"
+                                    ],
+                                    "properties": {
+                                        "source": {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": [
+                                                "file_key",
+                                                "tenant_id",
+                                                "purpose",
+                                                "access_type",
+                                                "storage_space_id",
+                                                "object_key",
+                                                "original_name",
+                                                "media_type",
+                                                "size_bytes",
+                                                "sha256",
+                                                "revision",
+                                                "driver",
+                                                "local_path",
+                                                "space_key"
+                                            ],
+                                            "properties": {
+                                                "file_key": {
+                                                    "type": "string"
+                                                },
+                                                "tenant_id": {
+                                                    "type": "string"
+                                                },
+                                                "purpose": {
+                                                    "type": "string"
+                                                },
+                                                "access_type": {
+                                                    "type": "string"
+                                                },
+                                                "storage_space_id": {
+                                                    "type": "string"
+                                                },
+                                                "object_key": {
+                                                    "type": "string"
+                                                },
+                                                "original_name": {
+                                                    "type": "string"
+                                                },
+                                                "media_type": {
+                                                    "type": "string"
+                                                },
+                                                "size_bytes": {
+                                                    "type": "string"
+                                                },
+                                                "sha256": {
+                                                    "type": "string"
+                                                },
+                                                "revision": {
+                                                    "type": "string"
+                                                },
+                                                "driver": {
+                                                    "type": "string"
+                                                },
+                                                "local_path": {
+                                                    "type": "string"
+                                                },
+                                                "space_key": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        },
+                                        "target": {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": [
+                                                "storage_space_id",
+                                                "space_key",
+                                                "object_key",
+                                                "access_type",
+                                                "driver",
+                                                "local_path"
+                                            ],
+                                            "properties": {
+                                                "storage_space_id": {
+                                                    "type": "string"
+                                                },
+                                                "space_key": {
+                                                    "type": "string"
+                                                },
+                                                "object_key": {
+                                                    "type": "string"
+                                                },
+                                                "access_type": {
+                                                    "type": "string"
+                                                },
+                                                "driver": {
+                                                    "type": "string"
+                                                },
+                                                "local_path": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "derivatives_sha256": {
+                                "type": "string"
+                            },
+                            "references_sha256": {
+                                "type": "string"
+                            },
+                            "registered_reference_count": {
+                                "type": "integer"
+                            },
+                            "known_cdn": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            "external_usage_complete": {
+                                "type": "boolean",
+                                "enum": [
+                                    false
+                                ]
+                            },
+                            "warning": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "FileVisibilityBatchSummary": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "batch_key",
+                    "status",
+                    "revision",
+                    "created_at",
+                    "updated_at"
+                ],
+                "properties": {
+                    "batch_key": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "pending",
+                            "running",
+                            "completed",
+                            "attention"
+                        ]
+                    },
+                    "revision": {
+                        "type": "integer"
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "updated_at": {
+                        "type": "string"
+                    }
+                }
+            },
+            "FileVisibilityBatch": {
+                "allOf": [
+                    {
+                        "type": "object",
+                        "required": [
+                            "batch_key",
+                            "status",
+                            "revision",
+                            "created_at",
+                            "updated_at"
+                        ],
+                        "properties": {
+                            "batch_key": {
+                                "type": "string"
+                            },
+                            "status": {
+                                "type": "string",
+                                "enum": [
+                                    "pending",
+                                    "running",
+                                    "completed",
+                                    "attention"
+                                ]
+                            },
+                            "revision": {
+                                "type": "integer"
+                            },
+                            "created_at": {
+                                "type": "string"
+                            },
+                            "updated_at": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    {
+                        "type": "object",
+                        "required": [
+                            "items",
+                            "external_usage_complete",
+                            "downloaded_copies_recoverable"
+                        ],
+                        "properties": {
+                            "external_usage_complete": {
+                                "type": "boolean",
+                                "enum": [
+                                    false
+                                ]
+                            },
+                            "downloaded_copies_recoverable": {
+                                "type": "boolean",
+                                "enum": [
+                                    false
+                                ]
+                            },
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "file_key",
+                                        "status",
+                                        "step",
+                                        "attempts",
+                                        "error_code",
+                                        "receipts"
+                                    ],
+                                    "properties": {
+                                        "file_key": {
+                                            "type": "string"
+                                        },
+                                        "status": {
+                                            "type": "string",
+                                            "enum": [
+                                                "restricting",
+                                                "verifying",
+                                                "ready_private",
+                                                "restricted_attention"
+                                            ]
+                                        },
+                                        "step": {
+                                            "type": "string",
+                                            "enum": [
+                                                "copy",
+                                                "switch",
+                                                "close_source",
+                                                "verify",
+                                                "completed"
+                                            ]
+                                        },
+                                        "attempts": {
+                                            "type": "integer"
+                                        },
+                                        "error_code": {
+                                            "type": "string",
+                                            "nullable": true
+                                        },
+                                        "receipts": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "object",
+                                                "additionalProperties": true
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 ]
             },
             "FileImageVariant": {

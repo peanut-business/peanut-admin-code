@@ -70,12 +70,29 @@ final class FileAdministrationService implements FileAdministration
         $objects = [];
         $fileKeys = array_column($lists, 'file_key');
         if ($fileKeys !== []) {
-            foreach (FileObject::where([])->whereIn('file_key', $fileKeys)->field('file_key,media_type,sha256')->select()->toArray() as $object) {
+            foreach (FileObject::where([])->whereIn('file_key', $fileKeys)->field('file_key,media_type,sha256,status,access_type,revision')->select()->toArray() as $object) {
                 $objects[(string) $object['file_key']] = $object;
             }
         }
         foreach ($lists as &$item) {
-            $viewer = match ($type) { FileEnum::IMAGE => 'builtin.image', FileEnum::VIDEO => 'builtin.video', default => null };
+            $object = $objects[(string) $item['file_key']] ?? null;
+            $item['visibility_state'] = $object['status'] ?? null;
+            $item['access_type'] = $object['access_type'] ?? null;
+            $item['file_revision'] = isset($object['revision']) ? (int) $object['revision'] : null;
+            if (in_array($object['status'] ?? null, ['restricting','verifying','restricted_attention'], true)) {
+                $item['url'] = '';
+                $item['preview_state'] = 'preview_unavailable';
+                $item['can_download_original'] = false;
+                $item['verified_mime_type'] = $object['media_type'];
+                $item['source_sha256'] = $object['sha256'];
+                $item['capabilities'] = null;
+                $item['preview_unavailable_reason'] = 'FILE_VISIBILITY_RESTRICTED';
+                $item['authorization_revision'] = null;
+                continue;
+            }
+            $viewer = match ($type) {
+                FileEnum::IMAGE => 'builtin.image', FileEnum::VIDEO => 'builtin.video', default => null
+            };
             $preview = $this->storage->resolveAuthorized($this->executionContext->tenantAdmin(), (string) $item['file_key'], 'preview', null, null, $viewer);
             $item['url'] = $preview['url'] ?? '';
             $item['preview_state'] = $preview['state'];

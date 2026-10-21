@@ -22,9 +22,53 @@ $mutationResponse = [
     'description' => '操作成功',
     'content' => ['application/json' => ['schema' => ['$ref' => '#/components/schemas/FileMutationResponse']]],
 ];
+$visibilityEnvelope = static fn(array $data): array => ['type' => 'object', 'additionalProperties' => false,
+    'required' => ['code','msg','data'], 'properties' => ['code' => ['type' => 'integer', 'enum' => [20000]],
+        'msg' => ['type' => 'string'], 'data' => $data]];
+$visibilityResult = static fn(array $data): array => ['description' => 'Current durable visibility state; never a claim that downloaded third-party copies were recalled.',
+    'content' => ['application/json' => ['schema' => $visibilityEnvelope($data)]]];
+$visibilityErrors = ['400' => $error, '401' => $error, '403' => $error, '404' => $error, '409' => $error];
+$visibilityBatchRef = ['$ref' => '#/components/schemas/FileVisibilityBatch'];
+$visibilityKey = ['name' => 'batchKey', 'in' => 'path', 'required' => true,
+    'schema' => ['type' => 'string', 'pattern' => '^batch_[a-f0-9]{32}$']];
 
 return [
     'paths' => [
+        '/adminapi/api/v1/files/visibility/preview' => ['post' => [
+            'tags' => ['File'], 'operationId' => 'previewFileVisibility',
+            'description' => 'Read-only whole-batch preflight. Requires manage and visibility.change on every source and derivative. Unqualified external origins reject before intent.',
+            'requestBody' => ['required' => true, 'content' => ['application/json' => ['schema' => ['type' => 'object',
+                'additionalProperties' => false, 'required' => ['file_keys'], 'properties' => ['file_keys' => ['type' => 'array',
+                    'minItems' => 1, 'maxItems' => 100, 'uniqueItems' => true, 'items' => ['type' => 'string', 'pattern' => '^file_[a-f0-9]{32}$']]]]]]],
+            'responses' => ['200' => $visibilityResult(['type' => 'object', 'additionalProperties' => false,
+                'required' => ['confirmation','signature','execution_started'], 'properties' => [
+                    'confirmation' => ['$ref' => '#/components/schemas/FileVisibilityConfirmation'],
+                    'signature' => ['type' => 'string', 'pattern' => '^[a-f0-9]{64}$'], 'execution_started' => ['type' => 'boolean', 'enum' => [false]]]])] + $visibilityErrors,
+        ]],
+        '/adminapi/api/v1/files/visibility/batches' => [
+            'post' => ['tags' => ['File'], 'operationId' => 'submitFileVisibility',
+                'description' => 'Accept all objects atomically, then persist each nontransactional storage step. Duplicate requests return the original batch. Unknown HTTP outcomes require querying that batch.',
+                'parameters' => [['name' => 'Idempotency-Key', 'in' => 'header', 'required' => true,
+                    'schema' => ['type' => 'string', 'pattern' => '^[a-zA-Z0-9._:-]{16,96}$']]],
+                'requestBody' => ['required' => true, 'content' => ['application/json' => ['schema' => ['type' => 'object',
+                    'additionalProperties' => false, 'required' => ['confirmation','signature','impact_confirmed'], 'properties' => [
+                        'confirmation' => ['$ref' => '#/components/schemas/FileVisibilityConfirmation'],
+                        'signature' => ['type' => 'string', 'pattern' => '^[a-f0-9]{64}$'], 'impact_confirmed' => ['type' => 'boolean', 'enum' => [true]],
+                    ]]]]], 'responses' => ['200' => $visibilityResult($visibilityBatchRef)] + $visibilityErrors],
+            'get' => ['tags' => ['File'], 'operationId' => 'recentFileVisibilityBatches',
+                'responses' => ['200' => $visibilityResult(['type' => 'object', 'required' => ['items'], 'additionalProperties' => false,
+                    'properties' => ['items' => ['type' => 'array', 'maxItems' => 50, 'items' => ['$ref' => '#/components/schemas/FileVisibilityBatchSummary']]]])] + $visibilityErrors],
+        ],
+        '/adminapi/api/v1/files/visibility/batches/{batchKey}' => ['get' => [
+            'tags' => ['File'], 'operationId' => 'getFileVisibilityBatch', 'parameters' => [$visibilityKey],
+            'responses' => ['200' => $visibilityResult($visibilityBatchRef)] + $visibilityErrors,
+        ]],
+        '/adminapi/api/v1/files/visibility/batches/{batchKey}/resume' => ['post' => [
+            'tags' => ['File'], 'operationId' => 'resumeFileVisibilityBatch', 'parameters' => [$visibilityKey],
+            'description' => 'Explicit recovery of the same durable batch, under current permissions. Inspect original locations before retry; never reopen public access or replace the accepted plan.',
+            'requestBody' => ['required' => true, 'content' => ['application/json' => ['schema' => ['type' => 'object', 'additionalProperties' => false]]]],
+            'responses' => ['200' => $visibilityResult($visibilityBatchRef)] + $visibilityErrors,
+        ]],
         '/adminapi/official.file.snapshot.pending' => ['get' => [
             'tags' => ['File'],'operationId' => 'pendingDocumentFileSnapshots','responses' => [
                 '200' => ['description' => 'Old unclaimed captures only; no storage address or credentials.', 'content' => ['application/json' => ['schema' => [
@@ -161,6 +205,52 @@ return [
         ]],
     ],
     'components' => ['schemas' => [
+        'FileVisibilityConfirmation' => ['type' => 'object', 'additionalProperties' => false,
+            'required' => ['version','batch_key','actor','expires_at','target','manifest'], 'properties' => [
+                'version' => ['type' => 'integer', 'enum' => [1]], 'batch_key' => ['type' => 'string', 'pattern' => '^batch_[a-f0-9]{32}$'],
+                'actor' => ['type' => 'object', 'additionalProperties' => false,
+                    'required' => ['tenant_id','account_id','member_id','client_key','session_digest','authorization_revision'],
+                    'properties' => ['tenant_id' => ['type' => 'string'], 'account_id' => ['type' => 'string'], 'member_id' => ['type' => 'string'],
+                        'client_key' => ['type' => 'string'], 'session_digest' => ['type' => 'string'], 'authorization_revision' => ['type' => 'string']]],
+                'expires_at' => ['type' => 'integer'], 'target' => ['type' => 'string', 'enum' => ['private']],
+                'manifest' => ['type' => 'object', 'additionalProperties' => false,
+                    'required' => ['roots','files','derivatives_sha256','registered_reference_count','references_sha256','known_cdn','external_usage_complete','warning'],
+                    'properties' => ['roots' => ['type' => 'array', 'items' => ['type' => 'string']],
+                        'files' => ['type' => 'object', 'additionalProperties' => ['type' => 'object', 'additionalProperties' => false,
+                            'required' => ['source','target'], 'properties' => [
+                                'source' => ['type' => 'object', 'additionalProperties' => false,
+                                    'required' => ['file_key','tenant_id','purpose','access_type','storage_space_id','object_key','original_name','media_type','size_bytes','sha256','revision','driver','local_path','space_key'],
+                                    'properties' => array_fill_keys(['file_key','tenant_id','purpose','access_type','storage_space_id','object_key','original_name','media_type','size_bytes','sha256','revision','driver','local_path','space_key'], ['type' => 'string'])],
+                                'target' => ['type' => 'object', 'additionalProperties' => false,
+                                    'required' => ['storage_space_id','space_key','object_key','access_type','driver','local_path'],
+                                    'properties' => array_fill_keys(['storage_space_id','space_key','object_key','access_type','driver','local_path'], ['type' => 'string'])],
+                            ]]],
+                        'derivatives_sha256' => ['type' => 'string'], 'references_sha256' => ['type' => 'string'],
+                        'registered_reference_count' => ['type' => 'integer'], 'known_cdn' => ['type' => 'array', 'items' => ['type' => 'string']],
+                        'external_usage_complete' => ['type' => 'boolean', 'enum' => [false]], 'warning' => ['type' => 'string'],
+                    ]],
+            ]],
+        'FileVisibilityBatchSummary' => ['type' => 'object', 'additionalProperties' => false,
+            'required' => ['batch_key','status','revision','created_at','updated_at'], 'properties' => [
+                'batch_key' => ['type' => 'string'], 'status' => ['type' => 'string', 'enum' => ['pending','running','completed','attention']],
+                'revision' => ['type' => 'integer'], 'created_at' => ['type' => 'string'], 'updated_at' => ['type' => 'string'],
+            ]],
+        'FileVisibilityBatch' => ['allOf' => [
+            ['type' => 'object', 'required' => ['batch_key','status','revision','created_at','updated_at'], 'properties' => [
+                'batch_key' => ['type' => 'string'], 'status' => ['type' => 'string', 'enum' => ['pending','running','completed','attention']],
+                'revision' => ['type' => 'integer'], 'created_at' => ['type' => 'string'], 'updated_at' => ['type' => 'string'],
+            ]],
+            ['type' => 'object', 'required' => ['items','external_usage_complete','downloaded_copies_recoverable'], 'properties' => [
+                'external_usage_complete' => ['type' => 'boolean', 'enum' => [false]], 'downloaded_copies_recoverable' => ['type' => 'boolean', 'enum' => [false]],
+                'items' => ['type' => 'array', 'items' => ['type' => 'object', 'additionalProperties' => false,
+                    'required' => ['file_key','status','step','attempts','error_code','receipts'], 'properties' => [
+                        'file_key' => ['type' => 'string'], 'status' => ['type' => 'string', 'enum' => ['restricting','verifying','ready_private','restricted_attention']],
+                        'step' => ['type' => 'string', 'enum' => ['copy','switch','close_source','verify','completed']], 'attempts' => ['type' => 'integer'],
+                        'error_code' => ['type' => 'string', 'nullable' => true],
+                        'receipts' => ['type' => 'object', 'additionalProperties' => ['type' => 'object', 'additionalProperties' => true]],
+                    ]]],
+            ]],
+        ]],
         'FileImageVariant' => [
             'type' => 'object', 'additionalProperties' => false,
             'required' => ['variant_key', 'file_key', 'width', 'height', 'media_type', 'delivery_uri'],

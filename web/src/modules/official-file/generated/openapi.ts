@@ -7,6 +7,11 @@ export interface ModuleApiOperations {
   uploadFile: paths['/adminapi/official.file.upload.file']['post'];
   deliverTenantFile: paths['/api/storage/delivery']['get'];
   listFiles: paths['/adminapi/official.file.list']['get'];
+  previewFileVisibility: paths['/adminapi/api/v1/files/visibility/preview']['post'];
+  submitFileVisibility: paths['/adminapi/api/v1/files/visibility/batches']['post'];
+  recentFileVisibilityBatches: paths['/adminapi/api/v1/files/visibility/batches']['get'];
+  getFileVisibilityBatch: paths['/adminapi/api/v1/files/visibility/batches/{batchKey}']['get'];
+  resumeFileVisibilityBatch: paths['/adminapi/api/v1/files/visibility/batches/{batchKey}/resume']['post'];
   pendingDocumentFileSnapshots: paths['/adminapi/official.file.snapshot.pending']['get'];
   recoverDocumentFileSnapshot: paths['/adminapi/official.file.snapshot.recover']['post'];
   resolveFileAccess: paths['/adminapi/api/v1/files/resolve']['post'];
@@ -29,6 +34,11 @@ export function createModuleApi(client: Client<paths>) {
     uploadFile: pathClient['/adminapi/official.file.upload.file'].POST,
     deliverTenantFile: pathClient['/api/storage/delivery'].GET,
     listFiles: pathClient['/adminapi/official.file.list'].GET,
+    previewFileVisibility: pathClient['/adminapi/api/v1/files/visibility/preview'].POST,
+    submitFileVisibility: pathClient['/adminapi/api/v1/files/visibility/batches'].POST,
+    recentFileVisibilityBatches: pathClient['/adminapi/api/v1/files/visibility/batches'].GET,
+    getFileVisibilityBatch: pathClient['/adminapi/api/v1/files/visibility/batches/{batchKey}'].GET,
+    resumeFileVisibilityBatch: pathClient['/adminapi/api/v1/files/visibility/batches/{batchKey}/resume'].POST,
     pendingDocumentFileSnapshots: pathClient['/adminapi/official.file.snapshot.pending'].GET,
     recoverDocumentFileSnapshot: pathClient['/adminapi/official.file.snapshot.recover'].POST,
     resolveFileAccess: pathClient['/adminapi/api/v1/files/resolve'].POST,
