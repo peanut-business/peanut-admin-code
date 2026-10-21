@@ -2442,7 +2442,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f0085f55735b9eba2deef28ee01772549b2ec2f149e43f5a4bfb68d524d73762"
+            "source_sha256": "ebaf166811765741d173e80e020ad019650702813855fe1cb8807b567b2a02bf"
         },
         {
             "path": "platform/vitest.governance.config.mjs",

@@ -25,6 +25,10 @@ export default defineConfig(({ mode }) => {
     allowedHosts,
     proxy: {
       '/platformapi': { target: apiProxyTarget, changeOrigin: false },
+      '/adminapi/tenant/owner-invitations/': {
+        target: apiProxyTarget,
+        changeOrigin: false,
+      },
       '/api': { target: apiProxyTarget, changeOrigin: false },
       '/favicon.ico': { target: apiProxyTarget, changeOrigin: false },
     },
