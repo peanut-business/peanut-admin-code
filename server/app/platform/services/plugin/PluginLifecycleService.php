@@ -50,12 +50,14 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     ];
     private const PRESERVATION_STAGES = [
         'official.collaboration:20261012120000_create_collaboration_runtime' => ['0befec8d041ce121f624417fef9df343907b2686e57c8c0a8dde509d556813ac', \PeanutAdmin\Modules\Collaboration\Contract\CollaborationMigrationPreservation::class, []],
-        'official.collaboration:20261013120100_add_collaboration_business_barriers' => ['6cd0d6dab2b08f26371ba97d6887f0e3ae7f7e0b1fcdb3fa3f8a59c54e2f850b', \PeanutAdmin\Modules\Collaboration\Contract\CollaborationMigrationPreservation::class,
+        'official.collaboration:20261012120000_create_collaboration_runtime-repair-20261021' => ['38d46aa0ee5874a23d96e97cbdc954aac378a085ed41f27f93a5298fe4dea5a1', \PeanutAdmin\Modules\Collaboration\Contract\CollaborationMigrationPreservation::class,
             ['official.collaboration:20261012120000_create_collaboration_runtime']],
+        'official.collaboration:20261013120100_add_collaboration_business_barriers' => ['6cd0d6dab2b08f26371ba97d6887f0e3ae7f7e0b1fcdb3fa3f8a59c54e2f850b', \PeanutAdmin\Modules\Collaboration\Contract\CollaborationMigrationPreservation::class,
+            ['official.collaboration:20261012120000_create_collaboration_runtime', 'official.collaboration:20261012120000_create_collaboration_runtime-repair-20261021']],
         'official.collaboration:20261013130000_add_instance_lifecycle' => ['e876c39e990491ba422ecb9067c8050ed98573b3ee457108de7d8955a084d6bd', \PeanutAdmin\Modules\Collaboration\Contract\CollaborationMigrationPreservation::class,
-            ['official.collaboration:20261012120000_create_collaboration_runtime', 'official.collaboration:20261013120100_add_collaboration_business_barriers']],
+            ['official.collaboration:20261012120000_create_collaboration_runtime', 'official.collaboration:20261012120000_create_collaboration_runtime-repair-20261021', 'official.collaboration:20261013120100_add_collaboration_business_barriers']],
         'official.collaboration:20261014120000_add_native_collaboration_grants' => ['15a44a7aaa282b9addcc8c7b72cae027197e5f68058244e881ffc48695ac2f18', \PeanutAdmin\Modules\Collaboration\Contract\CollaborationMigrationPreservation::class,
-            ['official.collaboration:20261012120000_create_collaboration_runtime', 'official.collaboration:20261013120100_add_collaboration_business_barriers', 'official.collaboration:20261013130000_add_instance_lifecycle']],
+            ['official.collaboration:20261012120000_create_collaboration_runtime', 'official.collaboration:20261012120000_create_collaboration_runtime-repair-20261021', 'official.collaboration:20261013120100_add_collaboration_business_barriers', 'official.collaboration:20261013130000_add_instance_lifecycle']],
         'official.identity:20260716020101_create_pa_data_permission_policy' => ['9ccbb19f70c230b27f97d1eeac818dfd08197406664cdf85ddd63a25cb51750e', \PeanutAdmin\Modules\Identity\Database\IdentitySchemaMigrationProof::class, []],
         'official.identity:20260716020102_create_pa_data_permission_group' => ['bac2408f49ffcfa3470e854b7550b5197d9cc9cf4c96ac74dd732572b9f91cbd', \PeanutAdmin\Modules\Identity\Database\IdentitySchemaMigrationProof::class,
             ['official.identity:20260716020101_create_pa_data_permission_policy']],
@@ -2257,6 +2259,10 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                     $report = self::fileMigrationProof($key);
                     $disposition = $willMigrate && ($report['may_apply'] ?? null) === true ? ($report['disposition'] ?? 'reject') : 'reject';
                     if (!in_array($disposition, ['execute', 'adopt'], true)) { $disposition = 'reject'; }
+                } elseif ($willMigrate && $moduleKey === 'official.collaboration'
+                    && $key === 'official.collaboration:20261012120000_create_collaboration_runtime-repair-20261021'
+                    && ($migrations[0]['ledger_status'] ?? null) === 'failed') {
+                    $report = \PeanutAdmin\Modules\Collaboration\Contract\CollaborationMigrationPreservation::repairReadiness($pdo);
                 } elseif ($willMigrate && $moduleKey === 'peanut.workflow' && $key === \PeanutAdmin\Modules\Workflow\Application\WorkflowUpgradePreflight::MIGRATION_KEY) {
                     $report = (new \PeanutAdmin\Modules\Workflow\Application\WorkflowUpgradePreflight(new \PeanutAdmin\Modules\Identity\Contract\WorkflowLegacyOrganizationQuery()))->report();
                 } elseif ($notificationForward !== null && $key === \PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::ADOPTION_KEY) {
@@ -2536,6 +2542,37 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     /** A fixed verification-only repair is unnecessary for a genuinely successful original; no synthetic ledger row. */
     private static function workflowRepairOmission(string $moduleKey, string $key, array $files, \PDO $pdo): ?array
     {
+        if ($moduleKey === 'official.collaboration'
+            && $key === 'official.collaboration:20261012120000_create_collaboration_runtime-repair-20261021') {
+            $originals = [
+                'official.collaboration:20261012120000_create_collaboration_runtime' => '0befec8d041ce121f624417fef9df343907b2686e57c8c0a8dde509d556813ac',
+                'official.collaboration:20261013120100_add_collaboration_business_barriers' => '6cd0d6dab2b08f26371ba97d6887f0e3ae7f7e0b1fcdb3fa3f8a59c54e2f850b',
+                'official.collaboration:20261013130000_add_instance_lifecycle' => 'e876c39e990491ba422ecb9067c8050ed98573b3ee457108de7d8955a084d6bd',
+                'official.collaboration:20261014120000_add_native_collaboration_grants' => '15a44a7aaa282b9addcc8c7b72cae027197e5f68058244e881ffc48695ac2f18',
+            ];
+            foreach ([...$originals, $key => '38d46aa0ee5874a23d96e97cbdc954aac378a085ed41f27f93a5298fe4dea5a1'] as $fileKey => $sha) {
+                if (!isset($files[$fileKey]) || hash_file('sha256', $files[$fileKey]) !== $sha) {
+                    throw new PluginLifecycleException('MODULE_MIGRATION_REPAIR_INVALID', 'Fixed Collaboration source changed.');
+                }
+            }
+            $q = $pdo->prepare('SELECT * FROM pa_module_migration WHERE module_key=? ORDER BY migration_key');
+            try { $q->execute([$moduleKey]); $rows = $q->fetchAll(\PDO::FETCH_ASSOC); } finally { $q->closeCursor(); }
+            // Fresh installs and partial/failed chains execute the frozen repair decision.
+            // Only a complete historical four-stage success can omit this early key.
+            if (array_column($rows, 'migration_key') !== array_keys($originals)) { return null; }
+            $witness = [];
+            foreach ($rows as $row) {
+                if ($row['status'] !== 'applied' || $row['checksum'] !== $originals[$row['migration_key']]
+                    || $row['resolution_kind'] !== 'executed' || $row['provenance_json'] !== null
+                    || $row['error_code'] !== null || !is_string($row['finished_at'])) { return null; }
+                $witness[$row['migration_key']] = ['sha256' => $row['checksum'],
+                    'ledger_sha256' => hash('sha256', json_encode(self::canonicalJsonValue($row), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE))];
+            }
+            $base = array_key_first($originals);
+            return ['original_key' => $base, 'original_sha256' => $originals[$base], 'original_status' => 'applied',
+                'original_ledger_sha256' => $witness[$base]['ledger_sha256'], 'completed_originals' => $witness,
+                'repair_key' => $key, 'repair_sha256' => hash_file('sha256', $files[$key]), 'executes_original_sql' => false];
+        }
         $pairs = [
             'peanut.workflow:20261012-workflow-managed-template-repair-20261021' => ['peanut.workflow:20261012-workflow-managed-template', 'fd02893a4b7a0ea60aa6c5434ff8b46f11e35bec94f10a76fc0b0f64609282a5', 'f3416b6c726a4a97ef70df967f14227c328c0ced156ac98656200f44712e5993'],
             'peanut.workflow:20261012-workflow-v2-repair-20261021' => ['peanut.workflow:20261012-workflow-v2-execution', 'f46f8b9a7a567584988e3520669daa1a8f893b69d837a1dedf223deb4f2a1b09', '6607485b8db141a3ecb36578da3f3620917a3333b83308ee1d97846955bd7e60'],

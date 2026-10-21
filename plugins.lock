@@ -321,11 +321,11 @@
         },
         {
             "key": "official.collaboration",
-            "version": "1.0.1",
+            "version": "1.0.2",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "74546772ac964b80e9054695a03440452c4e06f6cb785c237d0b4682ee273f6b"
+                "sha256": "1de3a9dc6e1337fe876b90b530cf3d1b74f97d469e3f2859fdd6773d06114154"
             },
             "trust": {
                 "channel": "bundled",
@@ -359,12 +359,12 @@
                     "modules": [
                         {
                             "key": "official.collaboration",
-                            "version": "1.0.1",
+                            "version": "1.0.2",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
                                     "module_key": "official.document",
-                                    "version": "^1.0"
+                                    "version": "^1.0.2"
                                 },
                                 {
                                     "module_key": "official.file",
@@ -389,6 +389,10 @@
                                     {
                                         "key": "official.collaboration:20261012120000_create_collaboration_runtime",
                                         "sha256": "0befec8d041ce121f624417fef9df343907b2686e57c8c0a8dde509d556813ac"
+                                    },
+                                    {
+                                        "key": "official.collaboration:20261012120000_create_collaboration_runtime-repair-20261021",
+                                        "sha256": "38d46aa0ee5874a23d96e97cbdc954aac378a085ed41f27f93a5298fe4dea5a1"
                                     },
                                     {
                                         "key": "official.collaboration:20261013120100_add_collaboration_business_barriers",
@@ -424,7 +428,7 @@
                 }
             ],
             "manifest": "plugins/official.collaboration/plugin.json",
-            "manifest_sha256": "a467a276008c4a2b1f428039e043bdbf1bda8382ed978fb64e50835d5f95c3f4"
+            "manifest_sha256": "20e92044cad46b2700a298ef6fc9ad620f96d182bc086c54b0f4f490b4d2e166"
         },
         {
             "key": "official.content-tools",

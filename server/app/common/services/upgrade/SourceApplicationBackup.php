@@ -45,6 +45,9 @@ final class SourceApplicationBackup
             ['pa_import_export_operation', 'pa_import_export_row_error']],
     ];
     private const MODULE_DDL_STAGES = [
+        'official.collaboration:20261012120000_create_collaboration_runtime-repair-20261021' => ['38d46aa0ee5874a23d96e97cbdc954aac378a085ed41f27f93a5298fe4dea5a1',
+            ['pa_collaboration_service_nonce', 'pa_collaboration_ticket', 'pa_collaboration_room', 'pa_collaboration_connection', 'pa_collaboration_admission', 'pa_collaboration_barrier'],
+            'PeanutAdmin\\Modules\\Collaboration\\Contract\\CollaborationMigrationPreservation'],
         'official.collaboration:20261012120000_create_collaboration_runtime' => ['0befec8d041ce121f624417fef9df343907b2686e57c8c0a8dde509d556813ac',
             ['pa_collaboration_service_nonce', 'pa_collaboration_ticket', 'pa_collaboration_room', 'pa_collaboration_connection', 'pa_collaboration_admission', 'pa_collaboration_barrier'],
             'PeanutAdmin\\Modules\\Collaboration\\Contract\\CollaborationMigrationPreservation'],
@@ -714,6 +717,7 @@ final class SourceApplicationBackup
                 if (in_array($migration['disposition'] ?? null, ['awaiting_repair', 'repaired'], true)) {
                     $relation = $migration['repair_resolution'] ?? [];
                     $repairKey = match ($id) {
+                        'official.collaboration:20261012120000_create_collaboration_runtime' => 'official.collaboration:20261012120000_create_collaboration_runtime-repair-20261021',
                         'official.task:20261015020000_add_negative_fact_job_profile' => 'official.task:20261021010000_verify_negative_fact_job_profile',
                         'peanut.workflow:20261012-workflow-managed-template' => 'peanut.workflow:20261012-workflow-managed-template-repair-20261021',
                         'peanut.workflow:20261012-workflow-v2-execution' => 'peanut.workflow:20261012-workflow-v2-repair-20261021',
@@ -739,13 +743,14 @@ final class SourceApplicationBackup
                 if (($migration['disposition'] ?? null) === 'repair_not_required') {
                     $repair = $id;
                     $original = match ($repair) {
+                        'official.collaboration:20261012120000_create_collaboration_runtime-repair-20261021' => 'official.collaboration:20261012120000_create_collaboration_runtime',
                         'peanut.workflow:20261012-workflow-managed-template-repair-20261021' => 'peanut.workflow:20261012-workflow-managed-template',
                         'peanut.workflow:20261012-workflow-v2-repair-20261021' => 'peanut.workflow:20261012-workflow-v2-execution',
                         default => null,
                     };
                     $relation = $migration['repair_omission'] ?? [];
                     $target = array_values(array_filter($module['migrations'], static fn(array $row): bool => ($row['migration_key'] ?? null) === $original));
-                    if ($key !== 'peanut.workflow' || $original === null || $sha !== self::MODULE_DDL_STAGES[$repair][0]
+                    if (!in_array($key, ['peanut.workflow', 'official.collaboration'], true) || $original === null || $sha !== self::MODULE_DDL_STAGES[$repair][0]
                         || ($migration['ledger_status'] ?? null) !== 'missing' || ($migration['executes_original_sql'] ?? null) !== false
                         || count($target) !== 1 || ($target[0]['sha256'] ?? null) !== self::MODULE_DDL_STAGES[$original][0]
                         || ($target[0]['ledger_status'] ?? null) !== 'applied' || ($target[0]['disposition'] ?? null) !== 'already_applied'
@@ -755,6 +760,22 @@ final class SourceApplicationBackup
                         || ($relation['executes_original_sql'] ?? null) !== false
                         || preg_match('/\A[a-f0-9]{64}\z/D', (string) ($relation['original_ledger_sha256'] ?? '')) !== 1) {
                         throw new RuntimeException('PLUGIN_SOURCE_REPAIR_OMISSION_INVALID');
+                    }
+                    if ($key === 'official.collaboration') {
+                        $completed = $relation['completed_originals'] ?? [];
+                        $expectedKeys = ['official.collaboration:20261012120000_create_collaboration_runtime',
+                            'official.collaboration:20261013120100_add_collaboration_business_barriers',
+                            'official.collaboration:20261013130000_add_instance_lifecycle',
+                            'official.collaboration:20261014120000_add_native_collaboration_grants'];
+                        if (array_keys($completed) !== $expectedKeys) { throw new RuntimeException('PLUGIN_SOURCE_REPAIR_OMISSION_INVALID'); }
+                        foreach ($expectedKeys as $doneKey) {
+                            $done = array_values(array_filter($module['migrations'], static fn(array $row): bool => ($row['migration_key'] ?? null) === $doneKey));
+                            if (($completed[$doneKey]['sha256'] ?? null) !== self::MODULE_DDL_STAGES[$doneKey][0]
+                                || preg_match('/\A[a-f0-9]{64}\z/D', (string) ($completed[$doneKey]['ledger_sha256'] ?? '')) !== 1
+                                || count($done) !== 1 || ($done[0]['ledger_status'] ?? null) !== 'applied'
+                                || ($done[0]['disposition'] ?? null) !== 'already_applied' || ($done[0]['resolution_kind'] ?? null) !== 'executed'
+                                || ($done[0]['sha256'] ?? null) !== $completed[$doneKey]['sha256']) { throw new RuntimeException('PLUGIN_SOURCE_REPAIR_OMISSION_INVALID'); }
+                        }
                     }
                     $omissions[$id] = $relation; continue;
                 }

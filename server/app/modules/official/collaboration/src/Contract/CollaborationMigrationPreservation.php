@@ -14,11 +14,13 @@ use PeanutAdmin\Modules\Document\Contract\DocumentMigrationPreservation;
 final class CollaborationMigrationPreservation
 {
     private const BASE = 'official.collaboration:20261012120000_create_collaboration_runtime';
+    private const REPAIR = 'official.collaboration:20261012120000_create_collaboration_runtime-repair-20261021';
     private const BARRIERS = 'official.collaboration:20261013120100_add_collaboration_business_barriers';
     private const RUNTIME = 'official.collaboration:20261013130000_add_instance_lifecycle';
     private const GRANTS = 'official.collaboration:20261014120000_add_native_collaboration_grants';
     private const SOURCES = [
         self::BASE => '0befec8d041ce121f624417fef9df343907b2686e57c8c0a8dde509d556813ac',
+        self::REPAIR => '38d46aa0ee5874a23d96e97cbdc954aac378a085ed41f27f93a5298fe4dea5a1',
         self::BARRIERS => '6cd0d6dab2b08f26371ba97d6887f0e3ae7f7e0b1fcdb3fa3f8a59c54e2f850b',
         self::RUNTIME => 'e876c39e990491ba422ecb9067c8050ed98573b3ee457108de7d8955a084d6bd',
         self::GRANTS => '15a44a7aaa282b9addcc8c7b72cae027197e5f68058244e881ffc48695ac2f18',
@@ -27,6 +29,23 @@ final class CollaborationMigrationPreservation
         'pa_collaboration_connection', 'pa_collaboration_admission', 'pa_collaboration_barrier',
         'pa_collaboration_runtime', 'pa_collaboration_grant'];
 
+    /** A real failed-base plan can reject an invalid graph before catalog/ledger writes. */
+    public static function repairReadiness(PDO $pdo): array
+    {
+        return self::snapshot($pdo, static function () use ($pdo): array {
+            self::sources(); $tables = self::tables($pdo);
+            foreach (self::TABLES as $i => $table) {
+                if ($i < 6) {
+                    if ($tables[$table] === null) { self::fail('REPAIR_BASE_MISSING'); }
+                    self::created($pdo, $table, $tables[$table], self::BASE);
+                } elseif ($tables[$table] !== null) { self::fail('REPAIR_FUTURE_PRESENT'); }
+            }
+            return ['module_key' => 'official.collaboration', 'migration_key' => self::REPAIR,
+                'may_apply' => true, 'readonly' => true, 'metadata_sha256' => self::digest($tables),
+                'scope' => 'six complete fixed-source empty base schemas and two absent future tables; not accepted-after or lifecycle admission'];
+        });
+    }
+
     public static function before(PDO $pdo, array $stage): array
     {
         return self::snapshot($pdo, static function () use ($pdo, $stage): array {
@@ -34,9 +53,12 @@ final class CollaborationMigrationPreservation
             if (($stage['module_key'] ?? null) !== 'official.collaboration' || !isset(self::SOURCES[$key])
                 || ($stage['checksum'] ?? null) !== self::SOURCES[$key] || !($stage['stageLedger'] ?? null) instanceof Closure) { self::fail('IDENTITY_INVALID'); }
             self::sources(); $ledger = self::ledger($pdo, $stage); $tables = self::tables($pdo);
-            $present = match ($key) { self::BASE => 0, self::BARRIERS, self::RUNTIME => 6, self::GRANTS => 7 };
+            $present = match ($key) { self::BASE => 0, self::REPAIR, self::BARRIERS, self::RUNTIME => 6, self::GRANTS => 7 };
             foreach (self::TABLES as $i => $table) {
                 if (($tables[$table] !== null) !== ($i < $present)) { self::fail('PRESTATE_TABLES_INVALID'); }
+            }
+            if ($key === self::REPAIR) {
+                foreach (array_slice(self::TABLES, 0, 6) as $table) { self::created($pdo, $table, $tables[$table], self::BASE); }
             }
             if ($key === self::BARRIERS) {
                 self::originalColumn($tables['pa_collaboration_barrier'], 'connection_id', 'bigint unsigned');
@@ -172,19 +194,105 @@ final class CollaborationMigrationPreservation
 
     private static function created(PDO $pdo, string $table, array $image, string $key): void
     {
-        $sql = self::source($key);
-        if (preg_match('/CREATE TABLE `' . $table . '` \((.*?)\) ENGINE=InnoDB[^;]*;/s', $sql, $definition) !== 1) { self::fail('CREATE_SOURCE_UNKNOWN'); }
-        preg_match_all('/`([a-z0-9_]+)`\s+(?:BIGINT|INT|CHAR|VARCHAR|DATETIME|JSON|MEDIUMBLOB)\b/i', $definition[1], $columns);
-        preg_match_all('/CONSTRAINT `([a-z0-9_]+)` CHECK \((.*)\),?$/m', $definition[1], $checks, PREG_SET_ORDER);
-        $expectedChecks = [];
-        foreach ($checks as $check) { $expectedChecks[$check[1]] = self::checkTree($check[2]); }
-        $actualChecks = [];
-        foreach ($image['checks'] as $check) { $actualChecks[$check['CONSTRAINT_NAME']] = $check['CHECK_CLAUSE']; }
-        ksort($expectedChecks); ksort($actualChecks);
-        if (array_keys($image['columns']) !== $columns[1] || $actualChecks !== $expectedChecks || $image['triggers'] !== []
-            || $image['auto_increment'] !== '1'
-            || $image['metadata']['TABLE_COLLATION'] !== ($table === 'pa_collaboration_runtime' ? 'utf8mb4_0900_ai_ci' : 'utf8mb4_unicode_ci')
+        $expected = self::createSchema($key, $table, self::connection($pdo)['db']);
+        foreach ($expected as $field => $value) {
+            if (self::digest($image[$field] ?? null) !== self::digest($value)) { self::fail('CREATE_SCHEMA_INVALID'); }
+        }
+        if ($image['auto_increment'] !== '1' || $image['triggers'] !== []
             || self::rows($pdo, 'SELECT EXISTS(SELECT 1 FROM `' . $table . '`) AS present')[0]['present'] !== '0') { self::fail('CREATE_POSTSTATE_INVALID'); }
+    }
+
+    /** Closed declarations in the four pinned SQL files, not an arbitrary SQL parser. */
+    private static function createSchema(string $key, string $table, string $database): array
+    {
+        if (!in_array($table, self::TABLES, true)
+            || preg_match('/CREATE TABLE `' . $table . '` \((.*?)\) ENGINE=InnoDB DEFAULT (?:CHARSET|CHARACTER SET)=utf8mb4 COLLATE=(utf8mb4_(?:unicode_ci|0900_ai_ci));/s', self::source($key), $definition) !== 1) {
+            self::fail('CREATE_SOURCE_UNKNOWN');
+        }
+        $collation = $definition[2];
+        $schema = ['metadata' => ['TABLE_TYPE' => 'BASE TABLE', 'ENGINE' => 'InnoDB', 'TABLE_COLLATION' => $collation,
+            'ROW_FORMAT' => 'Dynamic', 'CREATE_OPTIONS' => '', 'TABLE_COMMENT' => ''], 'columns' => [], 'indexes' => [], 'foreign_keys' => [], 'checks' => []];
+        $indexes = []; $foreign = [];
+        foreach (self::declarations($definition[1]) as $line) {
+            if (preg_match('/\A`([a-z0-9_]+)` (BIGINT UNSIGNED|INT UNSIGNED|CHAR\([0-9]+\)|VARCHAR\([0-9]+\)|DATETIME\(3\)|JSON|MEDIUMBLOB)(?: CHARACTER SET (ascii))?(?: COLLATE (ascii_bin))? (NOT NULL|NULL)(?: DEFAULT ([0-9]+))?( AUTO_INCREMENT)?\z/D', $line, $m)) {
+                $text = str_starts_with($m[2], 'CHAR(') || str_starts_with($m[2], 'VARCHAR(');
+                $charset = $text ? (($m[3] ?? '') !== '' ? $m[3] : 'utf8mb4') : null;
+                $columnCollation = $text ? (($m[4] ?? '') !== '' ? $m[4] : ($charset === 'ascii' ? 'ascii_general_ci' : $collation)) : null;
+                $default = isset($m[6]) && $m[6] !== '' ? $m[6] : null;
+                self::append($schema, $m[1], strtolower($m[2]), $m[5] === 'NOT NULL' ? 'NO' : 'YES', $default, $charset, $columnCollation);
+                if (($m[7] ?? '') !== '') { $schema['columns'][$m[1]]['EXTRA'] = 'auto_increment'; }
+                continue;
+            }
+            if (preg_match('/\A(PRIMARY KEY|UNIQUE KEY `([a-z0-9_]+)`|KEY `([a-z0-9_]+)`) \(([^)]+)\)\z/D', $line, $m)) {
+                $name = $m[1] === 'PRIMARY KEY' ? 'PRIMARY' : (($m[2] ?? '') !== '' ? $m[2] : $m[3]);
+                if (isset($indexes[$name])) { self::fail('CREATE_SOURCE_UNKNOWN'); }
+                $indexes[$name] = ['unique' => !str_starts_with($m[1], 'KEY '), 'columns' => self::columnNames($m[4])]; continue;
+            }
+            if (preg_match('/\ACONSTRAINT `([a-z0-9_]+)` FOREIGN KEY \(([^)]+)\) REFERENCES `(pa_[a-z0-9_]+)` \(([^)]+)\)\z/D', $line, $m)) {
+                if (isset($foreign[$m[1]])) { self::fail('CREATE_SOURCE_UNKNOWN'); }
+                $foreign[$m[1]] = ['columns' => self::columnNames($m[2]), 'table' => $m[3], 'references' => self::columnNames($m[4])]; continue;
+            }
+            if (preg_match('/\ACONSTRAINT `([a-z0-9_]+)` CHECK \((.*)\)\z/Ds', $line, $m)) {
+                foreach ($schema['checks'] as $check) { if ($check['CONSTRAINT_NAME'] === $m[1]) { self::fail('CREATE_SOURCE_UNKNOWN'); } }
+                $schema['checks'][] = ['CONSTRAINT_NAME' => $m[1], 'CHECK_CLAUSE' => self::checkTree($m[2]), 'ENFORCED' => 'YES']; continue;
+            }
+            self::fail('CREATE_SOURCE_UNKNOWN');
+        }
+        foreach ($foreign as $name => $relation) {
+            $supported = false;
+            foreach ($indexes as $index) {
+                $supported = $supported || array_slice($index['columns'], 0, count($relation['columns'])) === $relation['columns'];
+            }
+            if (!$supported) { $indexes[$name] = ['unique' => false, 'columns' => $relation['columns']]; }
+            if (count($relation['columns']) !== count($relation['references'])) { self::fail('CREATE_SOURCE_UNKNOWN'); }
+            foreach ($relation['columns'] as $ordinal => $column) {
+                $schema['foreign_keys'][] = ['CONSTRAINT_NAME' => $name, 'ORDINAL_POSITION' => (string) ($ordinal + 1), 'COLUMN_NAME' => $column,
+                    'REFERENCED_TABLE_SCHEMA' => $database, 'REFERENCED_TABLE_NAME' => $relation['table'],
+                    'REFERENCED_COLUMN_NAME' => $relation['references'][$ordinal], 'UPDATE_RULE' => 'NO ACTION', 'DELETE_RULE' => 'NO ACTION'];
+            }
+        }
+        foreach ($indexes as $name => $index) {
+            foreach ($index['columns'] as $ordinal => $column) {
+                $schema['indexes'][] = ['INDEX_NAME' => $name, 'NON_UNIQUE' => $index['unique'] ? '0' : '1', 'SEQ_IN_INDEX' => (string) ($ordinal + 1),
+                    'COLUMN_NAME' => $column, 'COLLATION' => 'A', 'SUB_PART' => null, 'INDEX_TYPE' => 'BTREE', 'IS_VISIBLE' => 'YES', 'EXPRESSION' => null, 'INDEX_COMMENT' => ''];
+            }
+        }
+        usort($schema['indexes'], static fn(array $a, array $b): int => strcasecmp($a['INDEX_NAME'], $b['INDEX_NAME']) ?: (int) $a['SEQ_IN_INDEX'] <=> (int) $b['SEQ_IN_INDEX']);
+        usort($schema['foreign_keys'], static fn(array $a, array $b): int => strcmp($a['CONSTRAINT_NAME'], $b['CONSTRAINT_NAME']) ?: (int) $a['ORDINAL_POSITION'] <=> (int) $b['ORDINAL_POSITION']);
+        usort($schema['checks'], static fn(array $a, array $b): int => strcmp($a['CONSTRAINT_NAME'], $b['CONSTRAINT_NAME']));
+        return $schema;
+    }
+
+    private static function columnNames(string $list): array
+    {
+        $columns = [];
+        foreach (explode(',', $list) as $column) {
+            if (preg_match('/\A`([a-z0-9_]+)`\z/D', trim($column), $m) !== 1) { self::fail('CREATE_SOURCE_UNKNOWN'); }
+            $columns[] = $m[1];
+        }
+        if ($columns === [] || count($columns) !== count(array_unique($columns))) { self::fail('CREATE_SOURCE_UNKNOWN'); }
+        return $columns;
+    }
+
+    private static function declarations(string $body): array
+    {
+        $items = []; $start = 0; $depth = 0; $quote = null;
+        for ($i = 0, $size = strlen($body); $i < $size; ++$i) {
+            $char = $body[$i];
+            if ($quote !== null) {
+                if ($char === '\\') { ++$i; }
+                elseif ($char === $quote) {
+                    if (($body[$i + 1] ?? null) === $quote) { ++$i; } else { $quote = null; }
+                }
+            } elseif ($char === "'" || $char === '`') { $quote = $char; }
+            elseif ($char === '(') { ++$depth; }
+            elseif ($char === ')') { if (--$depth < 0) { self::fail('CREATE_SOURCE_UNKNOWN'); } }
+            elseif ($char === ',' && $depth === 0) { $items[] = trim(substr($body, $start, $i - $start)); $start = $i + 1; }
+        }
+        if ($quote !== null || $depth !== 0) { self::fail('CREATE_SOURCE_UNKNOWN'); }
+        $items[] = trim(substr($body, $start));
+        if (in_array('', $items, true)) { self::fail('CREATE_SOURCE_UNKNOWN'); }
+        return $items;
     }
 
     private static function removeColumnLine(string $ddl, string $name): string
@@ -220,7 +328,7 @@ final class CollaborationMigrationPreservation
             if (is_string($token) && str_starts_with($token, "'")) { return ['literal', $token]; }
             if (!is_string($token) || preg_match('/\A[a-z_][a-z0-9_]*\z/D', $token) !== 1) { self::fail('CHECK_UNKNOWN'); }
             if (($tokens[$at] ?? null) !== '(') { return ['column', $token]; }
-            if ($token !== 'octet_length') { self::fail('CHECK_UNKNOWN'); }
+            if (!in_array($token, ['octet_length', 'length'], true)) { self::fail('CHECK_UNKNOWN'); }
             ++$at; $argument = $value(); if (($tokens[$at++] ?? null) !== ')') { self::fail('CHECK_UNKNOWN'); }
             return ['octet_length', $argument];
         };
@@ -250,10 +358,15 @@ final class CollaborationMigrationPreservation
         if (!is_array($rows) || array_column($rows, 'migration_key') !== array_slice(array_keys(self::SOURCES), 0, $current + 1)) { self::fail('LEDGER_INVALID'); }
         foreach ($rows as $row) {
             $key = $row['migration_key']; $active = $key === $stage['migration_key'];
+            $failedBase = $key === self::BASE && !$active && ($row['status'] ?? null) === 'failed';
             if (($row['module_key'] ?? null) !== 'official.collaboration' || ($row['checksum'] ?? null) !== self::SOURCES[$key]
-                || ($row['status'] ?? null) !== ($active ? 'applying' : 'applied')
-                || ($row['resolution_kind'] ?? null) !== ($active ? null : 'executed') || ($row['provenance_json'] ?? null) !== null
-                || ($row['error_code'] ?? null) !== null || (!$active && !is_string($row['finished_at'] ?? null))) { self::fail('LEDGER_INVALID'); }
+                || ($row['status'] ?? null) !== ($active ? 'applying' : ($failedBase ? 'failed' : 'applied'))
+                || ($row['resolution_kind'] ?? null) !== ($active || $failedBase ? null : 'executed') || ($row['provenance_json'] ?? null) !== null
+                || ($row['error_code'] ?? null) !== ($failedBase ? 'MODULE_MIGRATION_FAILED' : null)
+                || (!$active && !is_string($row['finished_at'] ?? null))) { self::fail('LEDGER_INVALID'); }
+            // The native stageLedger reader separately authenticates the declared repair
+            // relation and its real applying/applied row. Never rewrite the old failed row.
+            if ($failedBase && !in_array(self::REPAIR, array_column($rows, 'migration_key'), true)) { self::fail('LEDGER_INVALID'); }
         }
         return $rows;
     }

@@ -3,13 +3,13 @@
   "key": "official.collaboration",
   "name": "Document Collaboration",
   "description": "Authenticated native collaboration rooms with batched Document persistence and immutable save targets.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "kernel_constraint": "^1.0",
   "license": "Apache-2.0",
   "php_package": "peanut-business/official-collaboration",
   "dependencies": [
     { "module_key": "official.identity", "version": "4.0.0-rc.24" },
-    { "module_key": "official.document", "version": "^1.0" },
+    { "module_key": "official.document", "version": "^1.0.2" },
     { "module_key": "official.file", "version": "^1.0" },
     { "module_key": "official.rich-text", "version": "^1.0" }
   ],

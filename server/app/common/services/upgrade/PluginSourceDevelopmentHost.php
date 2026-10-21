@@ -1535,12 +1535,29 @@ final class PluginSourceDevelopmentHost
         $rows = array_column($ledger, null, 'migration_key');
         foreach ($effects['repair_omissions'] ?? [] as $repairKey => $relation) {
             $original = $rows[$relation['original_key']] ?? [];
-            if (isset($rows[$repairKey]) || ($original['module_key'] ?? null) !== 'peanut.workflow'
+            $collaboration = $repairKey === 'official.collaboration:20261012120000_create_collaboration_runtime-repair-20261021';
+            if (isset($rows[$repairKey]) || ($original['module_key'] ?? null) !== ($collaboration ? 'official.collaboration' : 'peanut.workflow')
                 || ($original['status'] ?? null) !== 'applied' || ($original['checksum'] ?? null) !== $relation['original_sha256']
                 || ($original['resolution_kind'] ?? null) !== 'executed' || ($original['provenance_json'] ?? null) !== null
                 || ($original['error_code'] ?? null) !== null || !is_string($original['finished_at'] ?? null)
                 || self::digest($original) !== $relation['original_ledger_sha256']) {
                 throw new RuntimeException('PLUGIN_SOURCE_REPAIR_OMISSION_CHANGED');
+            }
+            if ($collaboration) {
+                $expectedKeys = ['official.collaboration:20261012120000_create_collaboration_runtime',
+                    'official.collaboration:20261013120100_add_collaboration_business_barriers',
+                    'official.collaboration:20261013130000_add_instance_lifecycle',
+                    'official.collaboration:20261014120000_add_native_collaboration_grants'];
+                if (array_keys($relation['completed_originals'] ?? []) !== $expectedKeys) { throw new RuntimeException('PLUGIN_SOURCE_REPAIR_OMISSION_CHANGED'); }
+                foreach ($relation['completed_originals'] as $key => $witness) {
+                    $row = $rows[$key] ?? [];
+                    if (($row['module_key'] ?? null) !== 'official.collaboration' || ($row['status'] ?? null) !== 'applied'
+                        || ($row['checksum'] ?? null) !== $witness['sha256'] || ($row['resolution_kind'] ?? null) !== 'executed'
+                        || ($row['provenance_json'] ?? null) !== null || ($row['error_code'] ?? null) !== null
+                        || !is_string($row['finished_at'] ?? null) || self::digest($row) !== $witness['ledger_sha256']) {
+                        throw new RuntimeException('PLUGIN_SOURCE_REPAIR_OMISSION_CHANGED');
+                    }
+                }
             }
         }
         foreach ($effects['append_only_repairs'] ?? [] as $key => $relation) {
