@@ -25804,7 +25804,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e0b1524adaa5aa9794b17d52ddd65d9191c53bbe8689549c270dbba10aae61ba"
+            "source_sha256": "cf553b0948e9612e0b948ca271658ca2b7d8f4d61effc286e6442453035258aa"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",

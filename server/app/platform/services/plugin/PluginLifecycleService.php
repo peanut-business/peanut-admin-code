@@ -2513,7 +2513,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     }
 
     /** Only the live source recovery host can enter this fixed package lock. */
-    public function withIdentityRecoveryLock(PDO $pdo, callable $operation): array
+    public function withIdentityRecoveryLock(\PDO $pdo, callable $operation): array
     {
         $host = app()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class);
         $host->requireIdentityRecovery($pdo, 'official.identity', false);
