@@ -8,6 +8,7 @@ use app\common\services\upgrade\MySqlMetadataObservation;
 use Closure;
 use PDO;
 use RuntimeException;
+use PeanutAdmin\Modules\Document\Contract\DocumentMigrationPreservation;
 
 /** Four immutable native stages. Never executes SQL, adopts history or restores shared parents. */
 final class CollaborationMigrationPreservation
@@ -124,9 +125,9 @@ final class CollaborationMigrationPreservation
     private static function tables(PDO $pdo): array
     {
         $result = [];
-        foreach ([...self::TABLES, 'pa_document'] as $table) {
+        foreach (self::TABLES as $table) {
             $metadata = self::rows($pdo, 'SELECT TABLE_TYPE,ENGINE,TABLE_COLLATION,ROW_FORMAT,CREATE_OPTIONS,TABLE_COMMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$table]);
-            if ($metadata === [] && $table !== 'pa_document') { $result[$table] = null; continue; }
+            if ($metadata === []) { $result[$table] = null; continue; }
             if (count($metadata) !== 1 || $metadata[0]['TABLE_TYPE'] !== 'BASE TABLE' || $metadata[0]['ENGINE'] !== 'InnoDB') { self::fail('TABLE_UNKNOWN'); }
             $ddl = self::rows($pdo, 'SHOW CREATE TABLE `' . $table . '`');
             if (count($ddl) !== 1 || !is_string($ddl[0]['Create Table'] ?? null)) { self::fail('DDL_UNKNOWN'); }
@@ -142,6 +143,7 @@ final class CollaborationMigrationPreservation
                 'foreign_keys' => self::rows($pdo, 'SELECT k.CONSTRAINT_NAME,k.ORDINAL_POSITION,k.COLUMN_NAME,k.REFERENCED_TABLE_SCHEMA,k.REFERENCED_TABLE_NAME,k.REFERENCED_COLUMN_NAME,r.UPDATE_RULE,r.DELETE_RULE FROM information_schema.KEY_COLUMN_USAGE k JOIN information_schema.REFERENTIAL_CONSTRAINTS r ON r.CONSTRAINT_SCHEMA=k.CONSTRAINT_SCHEMA AND r.CONSTRAINT_NAME=k.CONSTRAINT_NAME WHERE k.TABLE_SCHEMA=DATABASE() AND k.TABLE_NAME=? ORDER BY k.CONSTRAINT_NAME,k.ORDINAL_POSITION', [$table]),
                 'triggers' => self::rows($pdo, 'SELECT TRIGGER_NAME,ACTION_TIMING,EVENT_MANIPULATION,ACTION_STATEMENT,SQL_MODE,DEFINER,CHARACTER_SET_CLIENT,COLLATION_CONNECTION,DATABASE_COLLATION FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND EVENT_OBJECT_TABLE=? ORDER BY TRIGGER_NAME', [$table])];
         }
+        $result['document_parent'] = app()->make(DocumentMigrationPreservation::class)->collaborationParentMetadata($pdo);
         return $result;
     }
 

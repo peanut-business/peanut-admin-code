@@ -2470,7 +2470,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7a4d41660ff1eabc85c48be0d2fab159a826a2bf29620c85320a4ee45ce59f1b"
+            "source_sha256": "940223985cc6e027f283182128e821e1464c0073d6ab715e3f33d1f9c96f3188"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2551,7 +2551,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "290a27db7d110eeba3cfe2e0d239a9881a0b507b6b611c3c39e6ab200a36f55a"
+            "source_sha256": "a467a276008c4a2b1f428039e043bdbf1bda8382ed978fb64e50835d5f95c3f4"
         },
         {
             "path": "plugins/official.content-tools/plugin.json",
@@ -2579,7 +2579,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "82e046aaf5741247150822e4b173c83e3ea7171d5adda817cb8250f8cc67bfd2"
+            "source_sha256": "5778465e0572f8c88694ff45e92deafc58d5e9e436fab1e590149598ff739122"
         },
         {
             "path": "plugins/official.file/plugin.json",
@@ -11150,7 +11150,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "448bc44adc187707716b8fa8677c15e1f03ed2a00f4c2dd4db5d8982f55560de"
+            "source_sha256": "209907a5ab399769d26d503f56337c6a9cce6be054008cab796680bfa2a8f021"
         },
         {
             "path": "server/app/modules/official/collaboration/src/Contract/CollaborationTransports.php",
@@ -11696,7 +11696,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fae361e0a5a1468fb4e9b4a07194eeebad4c77f05b12d45db252a117920a7270"
+            "source_sha256": "8e4bb40aa4cee0bd49c54844c62e9d22a0b933d1f1156652b425b0e441f5884b"
         },
         {
             "path": "server/app/modules/official/document/resources/menus.json",
@@ -11878,7 +11878,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "00c9e9a3f893c7ef3bc4e863c26d355de9ddbff2da054a3df87d4176137bcaa8"
+            "source_sha256": "30120edf57b0cb250ce0dc5bb6c9d4048922282fa8c020c903a527a6dff2bbf3"
         },
         {
             "path": "server/app/modules/official/document/src/Contract/DocumentOwnerContributor.php",

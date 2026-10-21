@@ -34,6 +34,21 @@ final readonly class DocumentMigrationPreservation
 
     public function __construct(private CurrentExecutionContext $contexts) {}
 
+    /** Fixed shared-parent observation for Collaboration's held native read-only stage. No business rows. */
+    public function collaborationParentMetadata(PDO $pdo): array
+    {
+        return \app\common\services\upgrade\MySqlMetadataObservation::uncached($pdo, function () use ($pdo): array {
+            $context = $this->contexts->current();
+            if (!($context instanceof InstanceExecutionContext || $context instanceof InstallationExecutionContext)
+                || Db::connect()->getPdo() !== $pdo || $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'mysql'
+                || !$pdo->inTransaction()) { self::fail('NATIVE_PARENT_OBSERVATION_REQUIRED'); }
+            $image = $this->metadata($pdo, 'pa_document');
+            if ($image === null || $this->contexts->current() !== $context || Db::connect()->getPdo() !== $pdo
+                || !$pdo->inTransaction()) { self::fail('PARENT_OBSERVATION_CHANGED'); }
+            return $image;
+        });
+    }
+
     /** Only safe_summary may enter plans/logs. Retain private_state in the native completion callback. */
     public function before(PDO $pdo, string $canonicalMigrationKey): array
     {

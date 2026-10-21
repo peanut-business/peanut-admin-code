@@ -325,7 +325,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "3c6fb785a5a7f533813c40e6b1333f8027c0e9e1faf213385e79fff0d9c34676"
+                "sha256": "74546772ac964b80e9054695a03440452c4e06f6cb785c237d0b4682ee273f6b"
             },
             "trust": {
                 "channel": "bundled",
@@ -424,7 +424,7 @@
                 }
             ],
             "manifest": "plugins/official.collaboration/plugin.json",
-            "manifest_sha256": "290a27db7d110eeba3cfe2e0d239a9881a0b507b6b611c3c39e6ab200a36f55a"
+            "manifest_sha256": "a467a276008c4a2b1f428039e043bdbf1bda8382ed978fb64e50835d5f95c3f4"
         },
         {
             "key": "official.content-tools",
@@ -515,11 +515,11 @@
         },
         {
             "key": "official.document",
-            "version": "1.0.1",
+            "version": "1.0.2",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "ec7045bd35b34d6b1a9d60605c7551a55b57597328b944eeefffe59e4111d2fe"
+                "sha256": "48cd2122a098330e77d67b0cb35d0aa707da8b404f380b1d5886c313fa2eebfc"
             },
             "trust": {
                 "channel": "bundled",
@@ -553,7 +553,7 @@
                     "modules": [
                         {
                             "key": "official.document",
-                            "version": "1.0.1",
+                            "version": "1.0.2",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
@@ -624,7 +624,7 @@
                 }
             ],
             "manifest": "plugins/official.document/plugin.json",
-            "manifest_sha256": "82e046aaf5741247150822e4b173c83e3ea7171d5adda817cb8250f8cc67bfd2"
+            "manifest_sha256": "5778465e0572f8c88694ff45e92deafc58d5e9e436fab1e590149598ff739122"
         },
         {
             "key": "official.file",
