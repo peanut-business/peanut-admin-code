@@ -345,10 +345,24 @@ final class PluginSourceDevelopmentHost
         });
     }
 
-    /** Preserve only the two fixed native failure profiles; grants no lifecycle or restore admission. */
+    /** Preserve only fixed native failure profiles; grants no lifecycle or restore admission. */
     public function snapshotFailure(string $pluginKey, array $actor, string $input, string $toolId, string $output, string $metadataTool, callable $packageLock): array
     {
         $profiles = [
+            'official.file' => ['operation' => 'upgrade', 'module_root' => 'official/file',
+                'owner' => 'Contract/FileMigrationPreservation.php',
+                'selected' => [
+                    'official.file:20260823-unify-storage-service' => 'f79c35b2fe8414dc172a81a45183d2a52eadb05833a704149780b36e400ca2d4',
+                    'official.file:20260826-namespace-permission-keys' => 'fd7801e514efdde57945b9756e4303ea8685d02f07dfd86e7131b92ca28003f7',
+                    'official.file:20260921020000_add_file_image_assets' => '826fa9d8fd841b6834bc5f23cabced30b7ca111de4bb1f629ccbdb8501200cd4',
+                    'official.file:20261012030000_add_controlled_file_references' => '005edad54fc0cf06a4eeb6afa7c0e5f374a0bc352eaa088282b2f12932251591',
+                    'official.file:20261012051000_add_immutable_document_snapshots' => '7b73c0c24f14f4c7f4fc1f75321e009b1a645d7df3f7d653dbb3d018e3b5bdbe',
+                    'official.file:20261021060100_file_visibility_batches' => '3827e993c38855ce94ceaa2b7c0ae8c7082a9d231476e6c42358cd29f977edb7',
+                    'official.file:20261021060200_file_visibility_object_state' => '93ab8b34a84124f7d6ed86e7f36a7ea76e6ac122cc64f58810387506bef65b6b',
+                ], 'first' => 'official.file:20261021060100_file_visibility_batches',
+                'failed' => 'official.file:20261021060200_file_visibility_object_state',
+                'created' => ['pa_file_visibility_batch', 'pa_file_visibility_item'],
+                'purpose' => 'file-failure-forensic'],
             'official.collaboration' => ['operation' => 'install', 'module_root' => 'official/collaboration',
                 'owner' => 'Contract/CollaborationMigrationPreservation.php',
                 'selected' => [
@@ -431,6 +445,7 @@ final class PluginSourceDevelopmentHost
         $pending = array_keys($profile['selected']);
         $firstCreate = $pluginKey === 'official.collaboration';
         if (in_array($pluginKey, ['official.task', 'official.notification'], true)) { array_shift($pending); }
+        if ($pluginKey === 'official.file') { $pending = array_slice($pending, -2); }
         if ($workflowV2) { $pending = array_slice($pending, 2); }
         if (($original['protocol'] ?? null) !== 'peanut.source-plugin-failure.v1' || ($original['status'] ?? null) !== 'failed'
             || ($original['operation'] ?? null) !== $profile['operation'] || ($original['plugin_key'] ?? null) !== $pluginKey
@@ -475,7 +490,7 @@ final class PluginSourceDevelopmentHost
         }
         $source = $original['binding']['source'] ?? [];
         if (($source['root'] ?? null) !== dirname($root)) { throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_SOURCE_CHANGED'); }
-        if ($firstCreate) {
+        if ($firstCreate || $pluginKey === 'official.file') {
             $this->identityHistoricalProgram($source['head'] ?? '', 'server/app/common/services/upgrade/PluginSourceDevelopmentHost.php', $original['writer_sha256'] ?? '');
             $this->identityHistoricalProgram($source['head'] ?? '', 'server/app/platform/services/plugin/PluginLifecycleService.php', $original['executor_sha256'] ?? '');
         }
@@ -498,6 +513,14 @@ final class PluginSourceDevelopmentHost
             || ($backup['baseline_sha256'] ?? null) !== self::digest($original['baseline'])
             || self::digest($backup['scope'] ?? []) !== self::digest($original['backup_scope'] ?? [])
             || ($backup['backup_payload'] ?? null) !== ($original['evidence']['backup_payload'] ?? null)) { throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_BACKUP_CHANGED'); }
+        if ($pluginKey === 'official.file') {
+            // A retained failure may never turn a missing/corrupt prestate into an
+            // accepted forensic chain. Reuse the complete native attachment reader.
+            $this->identityRecoveryFiles = [];
+            if (self::digest($this->identityNativeBackup($reference['path'], 'peanut.source-plugin-backup.v1')) !== self::digest($backup)) {
+                throw new RuntimeException('PLUGIN_SOURCE_FILE_FORENSIC_BACKUP_CHANGED');
+            }
+        }
         $config = \guardedDatabaseConfig(); [$connection, $pdo] = $this->connect($config);
         $identity = InstallationExecutionHost::migrationDatabaseIdentity($pdo); $binding = $initial + ['database' => $identity];
         if (($original['binding']['database'] ?? null) !== $identity || ($original['binding']['resource_id'] ?? null) !== $binding['resource_id']
@@ -514,7 +537,8 @@ final class PluginSourceDevelopmentHost
                 function (PDO $actual, array $selection) use ($root, $pdo, $connection, $actor, $admission, $initial, $identity, $binding, $context, $config,
                     $original, $input, $originalSha, $backup, $toolId, $tools, $output, $metadataTool, $packageLock, $profile, $pluginKey, &$result): void {
                     if ($actual !== $pdo || $selection['pending'] !== []) { throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_APPLICATION_PENDING'); }
-                    $guard = function () use ($root, $pdo, $connection, $actor, $admission, $initial, $identity, $context, $config, $input, $originalSha, $original): void {
+                    $guard = function () use ($root, $pdo, $connection, $actor, $admission, $initial, $identity, $context, $config, $input, $originalSha, $original, $pluginKey): void {
+                        if ($pluginKey === 'official.file') { $this->identityRecoveryFilesGuard(); }
                         if ($this->app->make(CurrentExecutionContext::class)->current() !== $context || Db::connect() !== $connection || $connection->getPdo() !== $pdo
                             || $pdo->inTransaction() || $admission->capture($actor, true) !== $initial
                             || InstallationExecutionHost::migrationDatabaseIdentity($pdo) !== $identity
@@ -545,6 +569,36 @@ final class PluginSourceDevelopmentHost
                                     throw new RuntimeException('PLUGIN_SOURCE_COLLABORATION_FORENSIC_LEDGER_CHANGED');
                                 }
                                 $v2 = $pluginKey === 'peanut.workflow' && count($profile['selected']) === 5;
+                                if ($pluginKey === 'official.file') {
+                                    if (array_column($rows, 'migration_key') !== array_keys($profile['selected'])
+                                        || array_column($rows, 'checksum') !== array_values($profile['selected'])
+                                        || count($original['old_ledger'] ?? []) !== 5
+                                        || self::digest(array_slice($rows, 0, 5)) !== self::digest($original['old_ledger'])
+                                        || $rows[5]['status'] !== 'applied' || $rows[5]['resolution_kind'] !== 'executed'
+                                        || $rows[5]['provenance_json'] !== null || $rows[5]['error_code'] !== null
+                                        || $rows[6]['module_version'] !== '1.0.17' || $rows[6]['status'] !== 'failed'
+                                        || $rows[6]['error_code'] !== 'MODULE_MIGRATION_ADOPTION_DRIFT'
+                                        || !is_string($rows[5]['finished_at']) || !is_string($rows[6]['finished_at'])
+                                        || ($original['ordered_stages'][0]['safe_after']['preservation_verified'] ?? null) !== true
+                                        || ($original['ordered_stages'][0]['safe_after']['created_empty_tables'] ?? null) !== 2) {
+                                        throw new RuntimeException('PLUGIN_SOURCE_FILE_FORENSIC_LEDGER_CHANGED');
+                                    }
+                                    $q = $pdo->prepare('SELECT installed_version,status FROM pa_module_installation WHERE module_key=?');
+                                    try { $q->execute([$pluginKey]); $module = $q->fetchAll(PDO::FETCH_ASSOC); }
+                                    finally { $q->closeCursor(); }
+                                    if ($module !== [['installed_version' => '1.0.17', 'status' => 'failed']]) {
+                                        throw new RuntimeException('PLUGIN_SOURCE_FILE_FORENSIC_MODULE_CHANGED');
+                                    }
+                                    $schema = MySqlMetadataObservation::tableSchema($pdo, 'pa_file_object');
+                                    $column = $schema['columns']['visibility_batch_key'] ?? null;
+                                    if (!is_array($column) || $column['COLUMN_TYPE'] !== 'varchar(64)'
+                                        || $column['IS_NULLABLE'] !== 'YES' || $column['COLUMN_DEFAULT'] !== null
+                                        || $column['EXTRA'] !== '' || $column['COLLATION_NAME'] !== 'ascii_bin'
+                                        || ($schema['columns']['status']['COLUMN_TYPE'] ?? null) !== 'varchar(32)'
+                                        || (string) $pdo->query('SELECT COUNT(*) FROM pa_file_object WHERE visibility_batch_key IS NOT NULL')->fetchColumn() !== '0') {
+                                        throw new RuntimeException('PLUGIN_SOURCE_FILE_FORENSIC_SHAPE_CHANGED');
+                                    }
+                                }
                                 if ($pluginKey === 'official.notification') {
                                     if (array_column($rows, 'migration_key') !== array_keys($profile['selected'])
                                         || array_column($rows, 'checksum') !== array_values($profile['selected'])
@@ -606,7 +660,7 @@ final class PluginSourceDevelopmentHost
                             $baseline = $original['baseline'] + ['forensic_only' => true, 'original_failure' => ['path' => $input, 'sha256' => $originalSha], 'recovery_admission' => false];
                             $captured = SourceApplicationBackup::capture($binding, $baseline, self::digest($baseline), $scope, $tools[0], $output, $check, $profile['purpose']);
                             if (SourceApplicationBackup::pluginScope($pdo, $effects, $binding, $metadataTool, $check) !== $scope) { throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_SCOPE_CHANGED'); }
-                            $check(); return ['protocol' => 'peanut.source-' . match ($pluginKey) { 'official.task' => 'task', 'official.notification' => 'notification', 'official.collaboration' => 'collaboration', default => 'workflow' } . '-failure-forensic-result.v1', 'status' => 'captured', 'original_failure' => $baseline['original_failure'],
+                            $check(); return ['protocol' => 'peanut.source-' . match ($pluginKey) { 'official.task' => 'task', 'official.notification' => 'notification', 'official.collaboration' => 'collaboration', 'official.file' => 'file', default => 'workflow' } . '-failure-forensic-result.v1', 'status' => 'captured', 'original_failure' => $baseline['original_failure'],
                                 'backup' => $captured, 'source_schema_package_locks' => 'held', 'restore' => 'not_executed', 'recovery_admission' => false, 'qualification' => 'not_run'];
                         });
                     } finally { $this->failureForensic = null; }
@@ -773,7 +827,7 @@ final class PluginSourceDevelopmentHost
 
     public function requireFailureForensic(PDO $pdo, string $pluginKey, bool $packageLocked = true): void
     {
-        if (!in_array($pluginKey, ['official.task', 'peanut.workflow', 'official.notification', 'official.collaboration'], true) || $this->failureForensic === null
+        if (!in_array($pluginKey, ['official.task', 'peanut.workflow', 'official.notification', 'official.collaboration', 'official.file'], true) || $this->failureForensic === null
             || $this->failureForensic['pdo'] !== $pdo || $this->failureForensic['plugin_key'] !== $pluginKey || $this->mutation !== null || $this->planning !== null
             || $this->identityRecovery !== null || $pdo->inTransaction()) { throw new RuntimeException('PLUGIN_SOURCE_TASK_FORENSIC_WINDOW_REQUIRED'); }
         ($this->failureForensic['guard'])();

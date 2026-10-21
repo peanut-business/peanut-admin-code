@@ -53,7 +53,7 @@ trait PluginCommandSupport
             if ($input->getOption('notification-predecessor') !== '' && ($snapshot !== '' || $restore !== '' || $input->getOption('verify-receipt') !== '')) {
                 throw new PluginLifecycleException('PLUGIN_SOURCE_ARGUMENTS_INVALID', 'Notification predecessor belongs only to its normal source plan, backup and apply.');
             }
-            if ($snapshot !== '' && (($operation === 'upgrade' && in_array($key, ['official.task', 'official.notification'], true))
+            if ($snapshot !== '' && (($operation === 'upgrade' && in_array($key, ['official.task', 'official.notification', 'official.file'], true))
                 || ($operation === 'install' && in_array($key, ['peanut.workflow', 'official.collaboration'], true)))) {
                 if (!$dryRun || $restore !== '') { throw new PluginLifecycleException('PLUGIN_SOURCE_ARGUMENTS_INVALID', 'Failure forensic snapshot is read-only.'); }
                 foreach (['source-plan', 'maintenance', 'recovery', 'verify-receipt'] as $name) {
