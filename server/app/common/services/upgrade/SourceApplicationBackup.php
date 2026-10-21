@@ -45,6 +45,13 @@ final class SourceApplicationBackup
             ['pa_import_export_operation', 'pa_import_export_row_error']],
     ];
     private const MODULE_DDL_STAGES = [
+        'peanut.artifact-revision:20260921-register-module-schema' => ['fe70a60a35892fc6352764a4ee8eb065ca8a19e067ab99ccb91c79c21ce95e39',
+            ['pa_artifact', 'pa_artifact_revision'], 'PeanutAdmin\\Modules\\ArtifactRevision\\Database\\ArtifactRevisionMigrationPreservation'],
+        'fixture.workflow-business:20261012050100_workflow_business' => ['34c60bca6ac1dd7bdb31a77be9a137ae99f7de8b863e9d309f4f7075d094a99c',
+            ['pa_fixture_workflow_object', 'pa_fixture_workflow_payload', 'pa_fixture_workflow_effect', 'pa_fixture_workflow_stock_ledger', 'pa_fixture_workflow_stock_balance', 'pa_fixture_workflow_task_actor'],
+            'PeanutAdmin\\Fixtures\\WorkflowBusiness\\Database\\WorkflowBusinessMigrationPreservation'],
+        'fixture.workflow-business:20261012050200_workflow_collaboration' => ['fd9e10722653314d2fdfd28bd9bbafd969a4e00eaec64a6c970053a259d04399',
+            ['pa_fixture_workflow_collaboration'], 'PeanutAdmin\\Fixtures\\WorkflowBusiness\\Database\\WorkflowBusinessMigrationPreservation'],
         'official.collaboration:20261012120000_create_collaboration_runtime-repair-20261021' => ['38d46aa0ee5874a23d96e97cbdc954aac378a085ed41f27f93a5298fe4dea5a1',
             ['pa_collaboration_service_nonce', 'pa_collaboration_ticket', 'pa_collaboration_room', 'pa_collaboration_connection', 'pa_collaboration_admission', 'pa_collaboration_barrier'],
             'PeanutAdmin\\Modules\\Collaboration\\Contract\\CollaborationMigrationPreservation'],

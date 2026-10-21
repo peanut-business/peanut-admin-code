@@ -2470,7 +2470,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "834a590dd8e311497ae7eeb1b52b6884e6ac1d44e44f053ecbe4f5a56f30826e"
+            "source_sha256": "408d85a7e9580af3d3ca2d610d8917e4282a70df2d152ba5b376897b2ea9e45b"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2775,7 +2775,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f602bbf11df4952dcd44721caf1da234c47fd9b8765a3632d2563c7ff0bc788d"
+            "source_sha256": "b05938e0408e364f70c114ccf8f79e70cf99c4cde39bf24a34d44fe3994f6a76"
         },
         {
             "path": "plugins/peanut.entitlement-quota/plugin.json",
@@ -9200,7 +9200,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "28e1ffc0f3b80751908f12bebb9bd733496bc580e82e3ce9693ee8ba50ee3816"
+            "source_sha256": "4a1034a1b0da5b35306dfd031da920f603a028b693f74be14c88204871ca6648"
         },
         {
             "path": "server/app/common/services/upgrade/PluginSourceDevelopmentHost.php",
@@ -9214,7 +9214,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a80ec5f608dfc48755ae43700e2974cd6bfd18115fe9264e9c4ecf0aaa26465b"
+            "source_sha256": "6760e55717a3f9deb8dea02616b7c915651f9210576b6ab5306cbef0b24ef523"
         },
         {
             "path": "server/app/common/services/upgrade/SourceApplicationBackup.php",
@@ -9228,7 +9228,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cc445c3f28f976de51c9a38b5b4cf2087623858dc2cb68454094f7a5b4708547"
+            "source_sha256": "9a9235d27cfd2507047e960dc5489f774a66d738b3320c31495e550c286f7ec1"
         },
         {
             "path": "server/app/common/services/upgrade/SourceApplicationDump.php",
@@ -10132,6 +10132,19 @@
         {
             "path": "server/app/modules/fixture/workflow_business/src/Controller/WorkflowBusinessController.php",
             "target": "server/app/modules/fixture/workflow_business/src/Controller/WorkflowBusinessController.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/Database/WorkflowBusinessMigrationPreservation.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Database/WorkflowBusinessMigrationPreservation.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -23577,7 +23590,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "304666155d72ec766c31a69da6ffe2752d50d6d71b72c6118b2b38c9687fd0b5"
+            "source_sha256": "ee12081deaee768dbb22ddcf8e7eb09e27748ebaa44bc16c59ef978a2407745a"
         },
         {
             "path": "server/app/modules/peanut/artifact_revision/src/Application/ArtifactRevisionComparison.php",
@@ -23676,6 +23689,20 @@
                 "full"
             ],
             "source_sha256": "674bfb8b575aee5ff71632649aeb7ff71b8581d257191d528d1744f510964701"
+        },
+        {
+            "path": "server/app/modules/peanut/artifact_revision/src/Database/ArtifactRevisionMigrationPreservation.php",
+            "target": "server/app/modules/peanut/artifact_revision/src/Database/ArtifactRevisionMigrationPreservation.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "539dc24a1de47b277afa39958c07c937c34bd71176c2480575ebde286498ea5a"
         },
         {
             "path": "server/app/modules/peanut/artifact_revision/src/Database/Schema.php",
@@ -25929,7 +25956,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5a2e24e5728ff52e316da1abc4a2c4f8f312e21c460a3a3ac66f8ac239a6fc2e"
+            "source_sha256": "07b5dc87ce59620ae902b9b3ab87ab8555d02c93ace46a7eccb134a84eb3e8b1"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",

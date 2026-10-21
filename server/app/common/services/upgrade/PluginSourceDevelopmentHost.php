@@ -44,6 +44,8 @@ final class PluginSourceDevelopmentHost
         'official.notification' => \PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::class,
         'official.task' => \PeanutAdmin\Modules\Task\Job\Database\TaskSchemaMigrationProof::class,
         'peanut.workflow' => \PeanutAdmin\Modules\Workflow\Database\WorkflowSchemaMigrationProof::class,
+        'peanut.artifact-revision' => \PeanutAdmin\Modules\ArtifactRevision\Database\ArtifactRevisionMigrationPreservation::class,
+        'fixture.workflow-business' => \PeanutAdmin\Fixtures\WorkflowBusiness\Database\WorkflowBusinessMigrationPreservation::class,
     ];
 
     public function __construct(private readonly App $app) {}
@@ -1458,9 +1460,12 @@ final class PluginSourceDevelopmentHost
             || ($rows[0]['status'] === 'applied' && $rows[0]['resolution_kind'] !== 'adopted')) { throw new RuntimeException('PLUGIN_SOURCE_STAGE_RECEIPT_INVALID'); }
         $file = (new \ReflectionClass($contract))->getFileName();
         $modulesRoot = rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR) . '/app/modules/';
-        $allowedPath = is_string($file) && ($module === 'peanut.workflow'
-            ? $file === $modulesRoot . 'peanut/workflow/src/Database/WorkflowSchemaMigrationProof.php'
-            : str_starts_with($file, $modulesRoot . 'official/'));
+        $allowedPath = is_string($file) && match ($module) {
+            'peanut.workflow' => $file === $modulesRoot . 'peanut/workflow/src/Database/WorkflowSchemaMigrationProof.php',
+            'peanut.artifact-revision' => $file === $modulesRoot . 'peanut/artifact_revision/src/Database/ArtifactRevisionMigrationPreservation.php',
+            'fixture.workflow-business' => $file === $modulesRoot . 'fixture/workflow_business/src/Database/WorkflowBusinessMigrationPreservation.php',
+            default => str_starts_with($file, $modulesRoot . 'official/'),
+        };
         if (!$allowedPath || realpath($file) !== $file) {
             throw new RuntimeException('PLUGIN_SOURCE_STAGE_RECEIPT_INVALID');
         }
