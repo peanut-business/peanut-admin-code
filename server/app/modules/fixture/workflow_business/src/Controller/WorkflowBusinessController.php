@@ -78,7 +78,7 @@ final class WorkflowBusinessController extends BaseAdminController
     public function saveForm(string $scene, string $objectKey): Json
     {
         return $this->respond(function () use ($scene, $objectKey): array {
-            $body = $this->body(['revision', 'note', 'reference']);
+            $body = $this->body(['revision', 'note', 'reference', 'result']);
             $revision = $this->positive($body['revision'] ?? null);
             unset($body['revision']);
             return ['data' => $this->business->saveCompletionForm($this->basis($scene, 'complete'), $scene, $objectKey, $revision, $body), 'meta' => []];

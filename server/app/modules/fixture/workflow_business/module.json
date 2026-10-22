@@ -2,7 +2,7 @@
   "schema_version": 1,
   "key": "fixture.workflow-business",
   "name": "Workflow business samples (development only)",
-  "description": "Optional synthetic receipt objects for Workflow integration acceptance; excluded from runtime product.",
+  "description": "Optional synthetic application, purchase and receipt scenarios for Workflow integration acceptance; excluded from runtime product.",
   "version": "1.0.2",
   "kernel_constraint": "^1.0",
   "license": "Apache-2.0",

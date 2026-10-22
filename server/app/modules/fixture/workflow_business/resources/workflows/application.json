@@ -1,0 +1,231 @@
+{
+    "template_version": 1,
+    "module_key": "fixture.workflow-business",
+    "workflow_key": "application",
+    "scenario_contract_version": 1,
+    "graph_sha256": "26af53acb4a8f1b51695c29733d3e428d94a1ef9fceb6e61bcd37550a66053cb",
+    "graph": {
+        "contract_version": 2,
+        "scenario_contract_version": 1,
+        "subject_resource_key": "fixture.workflow-business.application",
+        "subject_read_operation": "read",
+        "subject_start_operation": "start",
+        "start_permission_keys": [
+            "fixture.workflow-business.start",
+            "peanut.workflow.instance.start"
+        ],
+        "required_capabilities": [
+            "workflow.approval",
+            "workflow.all_approve",
+            "workflow.human_task",
+            "workflow.direct",
+            "workflow.return",
+            "workflow.service_task",
+            "workflow.notification"
+        ],
+        "nodes": [
+            {
+                "key": "start",
+                "label": "开始",
+                "type": "start",
+                "config": []
+            },
+            {
+                "key": "review",
+                "label": "部门负责人会签",
+                "type": "approval",
+                "config": {
+                    "allocation_mode": "multi",
+                    "aggregation_policy": "all_approve",
+                    "assignments": [
+                        {
+                            "kind": "department_leaders",
+                            "key": "workflow-application",
+                            "required": true,
+                            "department_scope": null
+                        },
+                        {
+                            "kind": "department_leaders",
+                            "key": "workflow-application-control",
+                            "required": true,
+                            "department_scope": null
+                        }
+                    ],
+                    "participant_rules": [],
+                    "watcher_rules": [],
+                    "allow_self_approval": false,
+                    "opinion_required": true
+                }
+            },
+            {
+                "key": "correction",
+                "label": "申请人确认送审／补正新版本",
+                "type": "human_task",
+                "config": {
+                    "allocation_mode": "direct",
+                    "aggregation_policy": null,
+                    "assignments": [
+                        {
+                            "kind": "subject_owner",
+                            "key": null,
+                            "required": true,
+                            "department_scope": null
+                        }
+                    ],
+                    "participant_rules": [],
+                    "watcher_rules": [],
+                    "allow_self_approval": false,
+                    "opinion_required": true
+                }
+            },
+            {
+                "key": "effect-approved",
+                "label": "登记合成业务结果",
+                "type": "service_task",
+                "config": {
+                    "action_key": "fixture.workflow-business.application.record-decision",
+                    "contract_version": 1,
+                    "input": {
+                        "subject_key": {
+                            "source": "instance",
+                            "field": "subject_key"
+                        },
+                        "revision_key": {
+                            "source": "instance",
+                            "field": "subject_revision_key"
+                        },
+                        "result": {
+                            "source": "literal",
+                            "value": "approved"
+                        }
+                    }
+                }
+            },
+            {
+                "key": "effect-rejected",
+                "label": "登记不通过",
+                "type": "service_task",
+                "config": {
+                    "action_key": "fixture.workflow-business.application.record-decision",
+                    "contract_version": 1,
+                    "input": {
+                        "subject_key": {
+                            "source": "instance",
+                            "field": "subject_key"
+                        },
+                        "revision_key": {
+                            "source": "instance",
+                            "field": "subject_revision_key"
+                        },
+                        "result": {
+                            "source": "literal",
+                            "value": "rejected"
+                        }
+                    }
+                }
+            },
+            {
+                "key": "approved",
+                "label": "审批通过",
+                "type": "end",
+                "config": {
+                    "result_code": "approved"
+                }
+            },
+            {
+                "key": "rejected",
+                "label": "不通过",
+                "type": "end",
+                "config": {
+                    "result_code": "rejected"
+                }
+            }
+        ],
+        "transitions": [
+            {
+                "key": "start-review",
+                "from": "start",
+                "to": "correction",
+                "action": "advance",
+                "operation": "start",
+                "permission_keys": [
+                    "fixture.workflow-business.start"
+                ],
+                "return_edge": false,
+                "max_traversals": null
+            },
+            {
+                "key": "review-approved",
+                "from": "review",
+                "to": "effect-approved",
+                "action": "approve",
+                "operation": "approve",
+                "permission_keys": [
+                    "fixture.workflow-business.approve"
+                ],
+                "return_edge": false,
+                "max_traversals": null
+            },
+            {
+                "key": "review-rejected",
+                "from": "review",
+                "to": "effect-rejected",
+                "action": "reject",
+                "operation": "reject",
+                "permission_keys": [
+                    "fixture.workflow-business.reject"
+                ],
+                "return_edge": false,
+                "max_traversals": null
+            },
+            {
+                "key": "review-correction",
+                "from": "review",
+                "to": "correction",
+                "action": "return",
+                "operation": "return",
+                "permission_keys": [
+                    "fixture.workflow-business.return"
+                ],
+                "return_edge": true,
+                "max_traversals": 3
+            },
+            {
+                "key": "correction-review",
+                "from": "correction",
+                "to": "review",
+                "action": "resubmit",
+                "operation": "update",
+                "permission_keys": [
+                    "fixture.workflow-business.update"
+                ],
+                "return_edge": false,
+                "max_traversals": null
+            },
+            {
+                "key": "approved-end",
+                "from": "effect-approved",
+                "to": "approved",
+                "action": "succeeded",
+                "operation": "complete",
+                "permission_keys": [
+                    "fixture.workflow-business.complete"
+                ],
+                "return_edge": false,
+                "max_traversals": null
+            },
+            {
+                "key": "rejected-end",
+                "from": "effect-rejected",
+                "to": "rejected",
+                "action": "succeeded",
+                "operation": "complete",
+                "permission_keys": [
+                    "fixture.workflow-business.complete"
+                ],
+                "return_edge": false,
+                "max_traversals": null
+            }
+        ]
+    }
+}

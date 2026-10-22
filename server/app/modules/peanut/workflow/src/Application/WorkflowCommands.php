@@ -346,9 +346,11 @@ final readonly class WorkflowCommands
                             throw WorkflowException::transitionUnavailable();
                         }
                         if ($action === 'complete' || $action === 'resubmit') {
-                            $completionInstance = $instance->toArray();
+                            // Trusted command purpose; business providers must distinguish a new revision from a completed form.
+                            $completionInstance = $instance->toArray() + ['submission_action' => $action];
                             if ($action === 'resubmit') {
                                 $completionInstance = array_replace($completionInstance, [
+                                    'submission_previous_revision_key' => $instance['subject_revision_key'],
                                     'subject_revision_key' => $snapshot['revision_key'],
                                     'subject_revision_sha256' => $snapshot['sha256'],
                                     'snapshot_json' => $snapshot,

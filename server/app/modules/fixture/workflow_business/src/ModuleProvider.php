@@ -54,9 +54,13 @@ final readonly class ModuleProvider implements ModuleProviderContract, DataPermi
 
     public function taskWorkerDefinitions(): array
     {
-        $definitions = [\PeanutAdmin\Fixtures\WorkflowBusiness\Integration\ReceiptWorkerDefinition::class];
+        $definitions = [\PeanutAdmin\Fixtures\WorkflowBusiness\Integration\ApplicationWorkerDefinition::class,
+            \PeanutAdmin\Fixtures\WorkflowBusiness\Integration\PurchaseWorkerDefinition::class,
+            \PeanutAdmin\Fixtures\WorkflowBusiness\Integration\ReceiptWorkerDefinition::class];
         if ($this->app->bound(\PeanutAdmin\Modules\Notification\Contract\NotificationProducerRegistry::class)) {
-            array_push($definitions, \PeanutAdmin\Fixtures\WorkflowBusiness\Integration\ReceiptNotificationWorkerDefinition::class);
+            array_push($definitions, \PeanutAdmin\Fixtures\WorkflowBusiness\Integration\ApplicationNotificationWorkerDefinition::class,
+                \PeanutAdmin\Fixtures\WorkflowBusiness\Integration\PurchaseNotificationWorkerDefinition::class,
+                \PeanutAdmin\Fixtures\WorkflowBusiness\Integration\ReceiptNotificationWorkerDefinition::class);
         }
         return $definitions;
     }

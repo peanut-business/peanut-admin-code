@@ -144,8 +144,9 @@ final readonly class WorkflowBusinessService
     /** Saves the business form only. It neither votes nor completes any workflow task. */
     public function saveCompletionForm(AuthorizedOperationContext $basis, string $scene, string $key, int $expectedRevision, array $input): array
     {
-        if (array_diff(array_keys($input), ['note', 'reference']) !== [] || !is_string($input['note'] ?? null)
-            || !is_string($input['reference'] ?? null) || trim($input['reference']) === '' || mb_strlen($input['note']) > 1000 || strlen($input['reference']) > 128) {
+        if (array_diff(array_keys($input), $scene === 'receipt' ? ['note', 'reference', 'result'] : ['note', 'reference']) !== [] || !is_string($input['note'] ?? null)
+            || !is_string($input['reference'] ?? null) || trim($input['reference']) === '' || mb_strlen($input['note']) > 1000 || strlen($input['reference']) > 128
+            || ($scene === 'receipt' && !in_array($input['result'] ?? null, ['completed', 'rejected'], true))) {
             throw AdminAccessException::invalid('WORKFLOW_BUSINESS_FORM_INVALID', 'Save a reference and bounded note first.');
         }
         return Db::transaction(function () use ($basis, $scene, $key, $expectedRevision, $input): array {
@@ -206,8 +207,9 @@ final readonly class WorkflowBusinessService
     public function validateCompletion(AuthorizedOperationContext $basis, array $instance, array $input): array
     {
         $resource = (string) ($instance['subject_type'] ?? '');
-        $row = $this->object($basis, $resource, (string) ($instance['subject_key'] ?? ''), 'complete', false);
-        if ($row['state'] !== 'confirmed' || !(bool) $row['completion_ready']
+        $resubmission = ($instance['submission_action'] ?? null) === 'resubmit';
+        $row = $this->object($basis, $resource, (string) ($instance['subject_key'] ?? ''), $resubmission ? 'update' : 'complete', false);
+        if ($row['state'] !== 'confirmed' || (!$resubmission && !(bool) $row['completion_ready'])
             || $row['confirmed_revision_key'] !== ($instance['subject_revision_key'] ?? null)) {
             throw AdminAccessException::conflict('WORKFLOW_BUSINESS_COMPLETION_BLOCKED', 'Save the business form and use the current confirmed version before completing.');
         }
@@ -215,7 +217,24 @@ final readonly class WorkflowBusinessService
             || (array_key_exists('result', $input) && !in_array($input['result'], ['approved', 'rejected', 'completed'], true))) {
             throw AdminAccessException::invalid('WORKFLOW_BUSINESS_COMPLETION_INPUT_INVALID', 'Completion accepts registered fields only.');
         }
-        return ['form_saved' => true, 'quantity' => (int) $row['quantity']];
+        if ($resubmission) {
+            $previous = $instance['submission_previous_revision_key'] ?? null;
+            if ((int) ($instance['cycle_no'] ?? 0) > 1
+                && (!is_string($previous) || hash_equals($previous, (string) $row['confirmed_revision_key']))) {
+                throw AdminAccessException::conflict('WORKFLOW_BUSINESS_NEW_REVISION_REQUIRED', 'Returned material must be saved and confirmed as a new version.');
+            }
+            return []; // The confirmed new snapshot is the resubmission; it is not a handling decision.
+        }
+        $form = json_decode((string) $row['completion_form_json'], true, 32, JSON_THROW_ON_ERROR);
+        if (Package::scene($resource) === 'receipt' && !in_array($form['result'] ?? null, ['completed', 'rejected'], true)) {
+            throw AdminAccessException::conflict('WORKFLOW_BUSINESS_ACCEPTANCE_REQUIRED', 'Save an explicit acceptance result for this version.');
+        }
+        if (Package::scene($resource) === 'receipt' && ($instance['current_node_key'] ?? null) === 'exception'
+            && $form['result'] !== 'completed') {
+            throw AdminAccessException::conflict('WORKFLOW_BUSINESS_EXCEPTION_UNRESOLVED', 'Resolve the acceptance exception before completing supervisor handling.');
+        }
+        return ['form_saved' => true, 'quantity' => (int) $row['quantity']]
+            + (Package::scene($resource) === 'receipt' ? ['result' => $form['result']] : []);
     }
 
     /** Joined outer transaction owns commit; no external effect or independent transaction. */
@@ -236,13 +255,14 @@ final readonly class WorkflowBusinessService
         if (($receipt = $this->effect($context, $effectKey, $hash)) !== null) {
             return $receipt;
         }
-        if ($row['state'] !== 'confirmed' || ($input['result'] !== 'rejected' && !(bool) $row['completion_ready'])
+        if ($row['state'] !== 'confirmed' || ($scene !== 'application' && $input['result'] !== 'rejected' && !(bool) $row['completion_ready'])
             || $row['confirmed_revision_key'] !== $input['revision_key']) {
             throw AdminAccessException::conflict('WORKFLOW_BUSINESS_ACTION_BLOCKED', 'The current confirmed object and saved form are required.');
         }
         $this->snapshot($context, $context->resourceKey, $input['subject_key'], $input['revision_key'], true);
         if ($scene === 'receipt') {
-            if ($input['result'] !== 'completed') {
+            $form = json_decode((string) $row['completion_form_json'], true, 32, JSON_THROW_ON_ERROR);
+            if ($input['result'] !== 'completed' || ($form['result'] ?? null) !== 'completed') {
                 throw AdminAccessException::invalid('WORKFLOW_BUSINESS_RECEIPT_RESULT_INVALID', 'Stock receipt requires completed.');
             }
             StockLedger::insert(['tenant_id' => $context->tenantContext->tenantId, 'effect_key' => $effectKey,

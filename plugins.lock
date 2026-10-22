@@ -99,7 +99,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "c515462a70618ce75afdcbadcc21521b1b48a3d2fc496377bb9a693d9de6479c"
+                "sha256": "a719c1586c72397409199c6c1bdc5f16801e4a899a5b6d1b58fd6aab5ccb3de4"
             },
             "trust": {
                 "channel": "bundled",
@@ -204,7 +204,7 @@
                 }
             ],
             "manifest": "plugins/fixture.workflow-business/plugin.json",
-            "manifest_sha256": "59bd2e88dff269fa4fba42324908a31f9434344c32043449d11b14ac265176cf"
+            "manifest_sha256": "efd3426db6595c15a1bdf37883ab4d24731248e51b4f51e1f4e4e1bb26b40833"
         },
         {
             "key": "official.article",
@@ -2227,7 +2227,7 @@
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "aadb27a85ebaa1733620966f5f3961fe8af512600487f9e684ba33b18de06058"
+                "sha256": "6ad2fc950c11948e45ecb34b5d9378715a5a799952844eb8216521b7da86cedb"
             },
             "trust": {
                 "channel": "bundled",
@@ -2336,7 +2336,7 @@
                 }
             ],
             "manifest": "plugins/peanut.workflow/plugin.json",
-            "manifest_sha256": "07d9b5a7ae051f5948ab9fb5678b6d403f22ca56eea8306a2e3ebbb52ec446ff"
+            "manifest_sha256": "3fdf949390db80a6881a2eacff6cf921c0e1e03903ca8c5ff7860c756a1b805c"
         }
     ]
 }

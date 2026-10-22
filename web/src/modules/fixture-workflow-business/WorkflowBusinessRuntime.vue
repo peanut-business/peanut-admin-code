@@ -26,6 +26,7 @@
   const action = ref('');
   const subject = ref<BusinessObject | null>(null);
   const form = reactive({
+    result: 'completed' as 'completed' | 'rejected',
     note: '',
     reference: '',
     title: '',
@@ -45,6 +46,7 @@
     open.value = false;
     subject.value = null;
     Object.assign(form, {
+      result: 'completed',
       note: '',
       reference: '',
       title: '',
@@ -93,6 +95,7 @@
     action.value = requested;
     error.value = '';
     Object.assign(form, {
+      result: 'completed',
       ...row.completion_form,
       title: row.title,
       amount_minor: row.amount_minor ?? 0,
@@ -136,6 +139,7 @@
         const saved = await api.saveForm(row.scene, row, {
           note: form.note,
           reference: form.reference,
+          ...(row.scene === 'receipt' ? { result: form.result } : {}),
         });
         subject.value = saved;
         const confirmed = await api.detail(row.scene, row.object_key);
@@ -219,6 +223,12 @@
           /></el-form-item>
         </template>
         <template v-else>
+          <el-form-item v-if="subject?.scene === 'receipt'" label="验收结果">
+            <el-select v-model="form.result">
+              <el-option label="验收通过" value="completed" />
+              <el-option label="验收异常，转主管处理" value="rejected" />
+            </el-select>
+          </el-form-item>
           <el-form-item label="办理凭据编号"
             ><el-input v-model="form.reference" maxlength="128"
           /></el-form-item>

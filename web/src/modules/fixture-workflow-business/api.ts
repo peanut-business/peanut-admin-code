@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { getSessionSnapshot } from '@/utils/auth';
 
-export type BusinessScene = 'receipt';
+export type BusinessScene = 'application' | 'purchase' | 'receipt';
 export interface BusinessObject {
   object_key: string;
   scene: BusinessScene;
@@ -14,10 +14,15 @@ export interface BusinessObject {
   quantity?: number;
   sku?: string;
   completion_ready?: boolean;
-  completion_form?: { note: string; reference: string };
+  completion_form?: {
+    note: string;
+    reference: string;
+    result?: 'completed' | 'rejected';
+  };
   available_actions: string[];
 }
 export interface BusinessFields {
+  business_department_key?: string | null;
   title: string;
   amount_minor: number;
   sku: string;
@@ -84,7 +89,7 @@ export function parseBusinessObject(value: unknown): BusinessObject {
   if (
     typeof row.object_key !== 'string' ||
     !/^object_[0-9a-f]{32}$/.test(row.object_key) ||
-    row.scene !== 'receipt' ||
+    !['application', 'purchase', 'receipt'].includes(String(row.scene)) ||
     typeof row.title !== 'string' ||
     typeof row.state !== 'string' ||
     typeof row.revision !== 'string' ||
@@ -276,7 +281,11 @@ export function createWorkflowBusinessApi(signal: AbortSignal) {
     async saveForm(
       scene: BusinessScene,
       row: BusinessObject,
-      form: { note: string; reference: string }
+      form: {
+        note: string;
+        reference: string;
+        result?: 'completed' | 'rejected';
+      }
     ) {
       return parseBusinessObject(
         (

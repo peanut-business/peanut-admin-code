@@ -24,7 +24,13 @@
   const api = createWorkflowBusinessApi(controller.signal);
   const workflow = createHostWorkflowApi();
   const { generation: identity } = getSessionSnapshot();
-  const scene = ref<BusinessScene>('receipt');
+  const requestedScene = route.params.scene;
+  const scene = ref<BusinessScene>(
+    requestedScene === 'application' || requestedScene === 'purchase'
+      ? requestedScene
+      : 'receipt'
+  );
+  const businessDepartmentKey = ref('');
   const rows = ref<BusinessObject[]>([]);
   const selected = ref<BusinessObject | null>(null);
   const page = ref(1);
@@ -38,7 +44,11 @@
     sku: 'SAMPLE-1',
     quantity: 1,
   });
-  const completion = reactive({ note: '', reference: '' });
+  const completion = reactive({
+    note: '',
+    reference: '',
+    result: 'completed' as 'completed' | 'rejected',
+  });
   const collaboration = ref<CollaborationView | null>(null);
   const supplement = reactive({
     kind: 'comment' as 'comment' | 'supplement',
@@ -106,7 +116,8 @@
     });
     Object.assign(
       completion,
-      row.completion_form ?? { note: '', reference: '' }
+      { note: '', reference: '', result: 'completed' },
+      row.completion_form ?? {}
     );
     definitionRevision.value = null;
     collaboration.value = null;
@@ -137,7 +148,10 @@
     run(async () => {
       const row = selected.value
         ? await api.save(scene.value, selected.value, { ...fields })
-        : await api.create(scene.value, { ...fields });
+        : await api.create(scene.value, {
+            ...fields,
+            business_department_key: businessDepartmentKey.value || null,
+          });
       await select(row.object_key);
       await refresh();
     });
@@ -152,7 +166,9 @@
     run(async () => {
       if (!selected.value) return;
       const row = await api.saveForm(scene.value, selected.value, {
-        ...completion,
+        note: completion.note,
+        reference: completion.reference,
+        ...(scene.value === 'receipt' ? { result: completion.result } : {}),
       });
       if (valid()) selected.value = row;
     });
@@ -225,6 +241,8 @@
     />
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <el-select v-model="scene" :disabled="busy" @change="changeScene">
+      <el-option label="申请审批" value="application" />
+      <el-option label="采购办理" value="purchase" />
       <el-option label="入库办理" value="receipt" />
     </el-select>
     <el-button
@@ -255,6 +273,13 @@
         selected ? `业务对象 ${selected.object_key}` : '新建业务对象'
       }}</template>
       <el-form label-width="120px" :disabled="busy">
+        <el-form-item v-if="!selected" label="业务部门键">
+          <el-input
+            v-model="businessDepartmentKey"
+            maxlength="128"
+            placeholder="已登记的本租户部门键（可选）"
+          />
+        </el-form-item>
         <el-form-item label="标题"
           ><el-input v-model="fields.title" maxlength="120"
         /></el-form-item>
@@ -321,6 +346,12 @@
     >
       <template #header>业务办理表单</template>
       <el-form label-width="120px" :disabled="busy">
+        <el-form-item v-if="scene === 'receipt'" label="验收结果">
+          <el-select v-model="completion.result">
+            <el-option label="验收通过" value="completed" />
+            <el-option label="验收异常，转主管处理" value="rejected" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="办理凭据编号"
           ><el-input v-model="completion.reference" maxlength="128"
         /></el-form-item>

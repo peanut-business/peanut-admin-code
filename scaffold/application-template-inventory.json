@@ -2484,7 +2484,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "507889838f8d606acf570063f97ef3f9cc760db904c1917b3662819bfed042cb"
+            "source_sha256": "58e9c8ecbdfe96589c9698433071d87175c9c34357808d061a2a03a5f4514818"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2817,7 +2817,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "07d9b5a7ae051f5948ab9fb5678b6d403f22ca56eea8306a2e3ebbb52ec446ff"
+            "source_sha256": "3fdf949390db80a6881a2eacff6cf921c0e1e03903ca8c5ff7860c756a1b805c"
         },
         {
             "path": "release-versions.json",
@@ -10146,6 +10146,32 @@
             ]
         },
         {
+            "path": "server/app/modules/fixture/workflow_business/resources/workflows/application.json",
+            "target": "server/app/modules/fixture/workflow_business/resources/workflows/application.json",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/resources/workflows/purchase.json",
+            "target": "server/app/modules/fixture/workflow_business/resources/workflows/purchase.json",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/app/modules/fixture/workflow_business/resources/workflows/receipt.json",
             "target": "server/app/modules/fixture/workflow_business/resources/workflows/receipt.json",
             "classification": "excluded",
@@ -10198,8 +10224,60 @@
             ]
         },
         {
+            "path": "server/app/modules/fixture/workflow_business/src/Integration/ApplicationNotificationWorkerDefinition.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Integration/ApplicationNotificationWorkerDefinition.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/Integration/ApplicationWorkerDefinition.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Integration/ApplicationWorkerDefinition.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "server/app/modules/fixture/workflow_business/src/Integration/PreparedWorkflowBusinessSnapshot.php",
             "target": "server/app/modules/fixture/workflow_business/src/Integration/PreparedWorkflowBusinessSnapshot.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/Integration/PurchaseNotificationWorkerDefinition.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Integration/PurchaseNotificationWorkerDefinition.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/app/modules/fixture/workflow_business/src/Integration/PurchaseWorkerDefinition.php",
+            "target": "server/app/modules/fixture/workflow_business/src/Integration/PurchaseWorkerDefinition.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -24696,7 +24774,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e91d3366de0e500f9b4c1e4ac41865d5ea131a3d16e0569e6bcec2fa8360904b"
+            "source_sha256": "a7f63303e0ac43fd644394b917453378fe95fc716acbd6945f999594f13f4926"
         },
         {
             "path": "server/app/modules/peanut/workflow/src/Application/WorkflowDefinitionService.php",

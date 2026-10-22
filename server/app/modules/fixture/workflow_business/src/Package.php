@@ -7,7 +7,7 @@ namespace PeanutAdmin\Fixtures\WorkflowBusiness;
 final class Package
 {
     public const MODULE_KEY = 'fixture.workflow-business';
-    public const SCENES = ['receipt'];
+    public const SCENES = ['application', 'purchase', 'receipt'];
     public const OPERATIONS = ['read', 'collaborate', 'update', 'confirm', 'start', 'approve', 'reject', 'complete', 'receive', 'terminate', 'restart', 'retry', 'reassign', 'claim', 'release', 'return', 'cancel', 'withdraw'];
 
     public static function resource(string $scene): string

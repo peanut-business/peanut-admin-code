@@ -1,0 +1,300 @@
+{
+    "template_version": 1,
+    "module_key": "fixture.workflow-business",
+    "workflow_key": "purchase",
+    "scenario_contract_version": 1,
+    "graph_sha256": "fb7b8b000cc90bca9c643963c8d8f220ef587b49132554489c8c25493883a862",
+    "graph": {
+        "contract_version": 2,
+        "scenario_contract_version": 1,
+        "subject_resource_key": "fixture.workflow-business.purchase",
+        "subject_read_operation": "read",
+        "subject_start_operation": "start",
+        "start_permission_keys": [
+            "fixture.workflow-business.start",
+            "peanut.workflow.instance.start"
+        ],
+        "required_capabilities": [
+            "workflow.approval",
+            "workflow.all_approve",
+            "workflow.claim",
+            "workflow.exclusive_gateway",
+            "workflow.human_task",
+            "workflow.service_task",
+            "workflow.notification"
+        ],
+        "nodes": [
+            {
+                "key": "start",
+                "label": "开始",
+                "type": "start",
+                "config": []
+            },
+            {
+                "key": "amount",
+                "label": "按固定版本金额选择审批",
+                "type": "exclusive_gateway",
+                "config": {
+                    "branches": [
+                        {
+                            "transition_key": "amount-large",
+                            "condition": {
+                                "field": "amount_minor",
+                                "operator": "gte",
+                                "value": 100000
+                            }
+                        }
+                    ],
+                    "default_transition_key": "amount-small"
+                }
+            },
+            {
+                "key": "large-review",
+                "label": "大额采购部门会签",
+                "type": "approval",
+                "config": {
+                    "allocation_mode": "multi",
+                    "aggregation_policy": "all_approve",
+                    "assignments": [
+                        {
+                            "kind": "department_leaders",
+                            "key": "workflow-purchasing",
+                            "required": true,
+                            "department_scope": null
+                        }
+                    ],
+                    "participant_rules": [],
+                    "watcher_rules": [],
+                    "allow_self_approval": false,
+                    "opinion_required": true
+                }
+            },
+            {
+                "key": "review",
+                "label": "采购审批",
+                "type": "approval",
+                "config": {
+                    "allocation_mode": "claim",
+                    "aggregation_policy": null,
+                    "assignments": [
+                        {
+                            "kind": "role_members",
+                            "key": "workflow-purchase-approver",
+                            "required": true,
+                            "department_scope": "workflow-purchasing"
+                        }
+                    ],
+                    "participant_rules": [],
+                    "watcher_rules": [],
+                    "allow_self_approval": false,
+                    "opinion_required": true
+                }
+            },
+            {
+                "key": "handle",
+                "label": "采购负责人办理",
+                "type": "human_task",
+                "config": {
+                    "allocation_mode": "claim",
+                    "aggregation_policy": null,
+                    "assignments": [
+                        {
+                            "kind": "role_members",
+                            "key": "workflow-purchase-handler",
+                            "required": true,
+                            "department_scope": "workflow-purchasing"
+                        }
+                    ],
+                    "participant_rules": [],
+                    "watcher_rules": [],
+                    "allow_self_approval": false,
+                    "opinion_required": true
+                }
+            },
+            {
+                "key": "effect-approved",
+                "label": "登记合成业务结果",
+                "type": "service_task",
+                "config": {
+                    "action_key": "fixture.workflow-business.purchase.record-decision",
+                    "contract_version": 1,
+                    "input": {
+                        "subject_key": {
+                            "source": "instance",
+                            "field": "subject_key"
+                        },
+                        "revision_key": {
+                            "source": "instance",
+                            "field": "subject_revision_key"
+                        },
+                        "result": {
+                            "source": "literal",
+                            "value": "approved"
+                        }
+                    }
+                }
+            },
+            {
+                "key": "effect-rejected",
+                "label": "登记不通过",
+                "type": "service_task",
+                "config": {
+                    "action_key": "fixture.workflow-business.purchase.record-decision",
+                    "contract_version": 1,
+                    "input": {
+                        "subject_key": {
+                            "source": "instance",
+                            "field": "subject_key"
+                        },
+                        "revision_key": {
+                            "source": "instance",
+                            "field": "subject_revision_key"
+                        },
+                        "result": {
+                            "source": "literal",
+                            "value": "rejected"
+                        }
+                    }
+                }
+            },
+            {
+                "key": "approved",
+                "label": "审批通过",
+                "type": "end",
+                "config": {
+                    "result_code": "approved"
+                }
+            },
+            {
+                "key": "rejected",
+                "label": "不通过",
+                "type": "end",
+                "config": {
+                    "result_code": "rejected"
+                }
+            }
+        ],
+        "transitions": [
+            {
+                "key": "start-amount",
+                "from": "start",
+                "to": "amount",
+                "action": "advance",
+                "operation": "start",
+                "permission_keys": [
+                    "fixture.workflow-business.start"
+                ],
+                "return_edge": false,
+                "max_traversals": null
+            },
+            {
+                "key": "amount-large",
+                "from": "amount",
+                "to": "large-review",
+                "action": "branch",
+                "operation": "read",
+                "permission_keys": [
+                    "fixture.workflow-business.read"
+                ],
+                "return_edge": false,
+                "max_traversals": null
+            },
+            {
+                "key": "amount-small",
+                "from": "amount",
+                "to": "review",
+                "action": "branch",
+                "operation": "read",
+                "permission_keys": [
+                    "fixture.workflow-business.read"
+                ],
+                "return_edge": false,
+                "max_traversals": null
+            },
+            {
+                "key": "large-approved",
+                "from": "large-review",
+                "to": "review",
+                "action": "approve",
+                "operation": "approve",
+                "permission_keys": [
+                    "fixture.workflow-business.approve"
+                ],
+                "return_edge": false,
+                "max_traversals": null
+            },
+            {
+                "key": "large-rejected",
+                "from": "large-review",
+                "to": "effect-rejected",
+                "action": "reject",
+                "operation": "reject",
+                "permission_keys": [
+                    "fixture.workflow-business.reject"
+                ],
+                "return_edge": false,
+                "max_traversals": null
+            },
+            {
+                "key": "review-approved",
+                "from": "review",
+                "to": "handle",
+                "action": "approve",
+                "operation": "approve",
+                "permission_keys": [
+                    "fixture.workflow-business.approve"
+                ],
+                "return_edge": false,
+                "max_traversals": null
+            },
+            {
+                "key": "review-rejected",
+                "from": "review",
+                "to": "effect-rejected",
+                "action": "reject",
+                "operation": "reject",
+                "permission_keys": [
+                    "fixture.workflow-business.reject"
+                ],
+                "return_edge": false,
+                "max_traversals": null
+            },
+            {
+                "key": "handle-effect",
+                "from": "handle",
+                "to": "effect-approved",
+                "action": "complete",
+                "operation": "complete",
+                "permission_keys": [
+                    "fixture.workflow-business.complete"
+                ],
+                "return_edge": false,
+                "max_traversals": null
+            },
+            {
+                "key": "approved-end",
+                "from": "effect-approved",
+                "to": "approved",
+                "action": "succeeded",
+                "operation": "complete",
+                "permission_keys": [
+                    "fixture.workflow-business.complete"
+                ],
+                "return_edge": false,
+                "max_traversals": null
+            },
+            {
+                "key": "rejected-end",
+                "from": "effect-rejected",
+                "to": "rejected",
+                "action": "succeeded",
+                "operation": "complete",
+                "permission_keys": [
+                    "fixture.workflow-business.complete"
+                ],
+                "return_edge": false,
+                "max_traversals": null
+            }
+        ]
+    }
+}
