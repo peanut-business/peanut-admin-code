@@ -5,6 +5,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import textwrap
 import unittest
 from pathlib import Path
 
@@ -14,6 +15,38 @@ TMP = ROOT / '.local/tmp/release-channel-test'
 
 
 class PublishGithubReleaseChannelTest(unittest.TestCase):
+    def test_formal_workflow_forwards_exact_release_channel_to_publisher(self):
+        source = (ROOT / '.github/workflows/scaffold-release.yml').read_text()
+        step = source.split('      - name: Publish the existing qualified native roots through the sole publisher\n', 1)[1]
+        command = textwrap.dedent(step.split('        run: |\n', 1)[1])
+        # Run only this final argument adapter with stub git/publisher. No Actions,
+        # qualification, network, release creation or real product paths are invoked.
+        with tempfile.TemporaryDirectory(prefix='release-workflow-channel-') as directory:
+            case = Path(directory)
+            (case / 'scripts').mkdir()
+            (case / 'bin').mkdir()
+            stub_git = case / 'bin/git'
+            stub_git.write_text('#!/bin/sh\n[ "$*" = "rev-parse HEAD" ] || exit 99\nprintf "%s\\n" "$GITHUB_SHA"\n')
+            stub_git.chmod(0o755)
+            publisher = case / 'scripts/publish-github-release'
+            publisher.write_text('#!/usr/bin/env python3\nimport json,os,sys\nfrom pathlib import Path\nPath(os.environ["ARGS_RECEIPT"]).write_text(json.dumps(sys.argv[1:]))\n')
+            publisher.chmod(0o755)
+            env = dict(os.environ, PATH=str(case / 'bin') + os.pathsep + os.environ['PATH'],
+                       GITHUB_SHA='a' * 40, RUNNER_TEMP=str(case / 'runner'), ARGS_RECEIPT=str(case / 'args.json'))
+            for version, prerelease in [('1.2.3', False), ('1.2.3-rc.1', True), ('1.2.3+build-1', False)]:
+                with self.subTest(version=version):
+                    (case / 'release-versions.json').write_text(json.dumps({'scaffold_template': version}))
+                    result = subprocess.run(['bash', '-Eeuo', 'pipefail', '-c', command], cwd=case, env=env,
+                                            text=True, capture_output=True, timeout=10)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    args = json.loads((case / 'args.json').read_text())
+                    self.assertEqual(args, [version, *(['--prerelease'] if prerelease else []),
+                        '--qualification', str(case / 'runner/qualified-release/qualification/summary.json'),
+                        '--template-artifacts', str(case / 'runner/qualified-release/scaffold-templates'),
+                        '--main-integration=' + str(case / 'runner/qualified-release/qualification/main-integration.json'),
+                        '--output', str(case / 'runner/published-release')])
+                    self.assertNotIn('--latest', args)
+
     def test_main_integration_exact_or_proven_merge(self):
         with tempfile.TemporaryDirectory(prefix='release-integration-') as directory:
             case = Path(directory)
