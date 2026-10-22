@@ -93,6 +93,21 @@ COMMAND_COMPLETED=0
 CLAIM_TMP_DIR=""
 CREATED_RESOURCES_FILE=""
 SEEN_FILE=""
+RETAINED_GUARD_APP=""
+RETAINED_GUARD_LEASE=""
+RETAINED_GUARD_OWNER=""
+RETAINED_PARENT_HOLDER=""
+RETAINED_APP_ROOT=""
+RETAINED_RELEASE_APP=""
+
+physical_resource_holder() {
+  if [[ -n "$RETAINED_PARENT_HOLDER" && "$3" == "$RETAINED_APP_ROOT" \
+    && ( "$2" == worktree || "$2" == application-root ) ]]; then
+    printf '%s' "$RETAINED_PARENT_HOLDER"
+  else
+    printf '%s' "$1"
+  fi
+}
 
 remove_resource_dir() {
   local resource_dir="$1"
@@ -122,6 +137,13 @@ cleanup() {
   if [[ "$LOCK_HELD" == '1' ]]; then
     rm -f "$MUTEX_DIR/pid"
     rmdir "$MUTEX_DIR" 2>/dev/null || true
+    LOCK_HELD=0
+  fi
+  if [[ -n "$RETAINED_GUARD_APP" && ! -e "$LEASES_DIR/$RETAINED_GUARD_LEASE" ]]; then
+    # Roll back only this fully published reservation, through normal release.
+    # Partial/unknown records stay protected for explicit reconciliation.
+    (cd "$RETAINED_GUARD_APP" && /bin/bash "$REPO_ROOT/scripts/project-resource-lease" release \
+      --lease "$RETAINED_GUARD_LEASE" --owner "$RETAINED_GUARD_OWNER") >&2 || true
   fi
   exit "$status"
 }
@@ -816,9 +838,9 @@ schema_identity_resource() {
 # Runs under the existing registry mutex. No database access. Physical endpoint
 # and complete physical table/primary-key sets, never aliases, define conflicts.
 mysql_claim_policy() {
-  python3 - "$LEASES_DIR" "${PEANUT_RESOURCE_REGISTRY:-}" "$REPO_ROOT" "$COMMAND" "$1" "$2" "$3" "${OWNER:-}" "${THREAD_ID:-}" "${CANDIDATE:-}" "${CANDIDATE_REPOSITORY:-}" "${WORKTREE:-}" "${@:4}" <<'PY'
+  python3 - "$LEASES_DIR" "${PEANUT_RESOURCE_REGISTRY:-}" "$REPO_ROOT" "$COMMAND" "$1" "$2" "$3" "${OWNER:-}" "${THREAD_ID:-}" "${CANDIDATE:-}" "${CANDIDATE_REPOSITORY:-}" "${WORKTREE:-}" "${PARENT_LEASE:-}" "${@:4}" <<'PY'
 import hashlib, json, pathlib, re, runpy, subprocess, sys, time
-leases, registry_path, source, command, own, gate, operation, actor, actor_thread, candidate, candidate_repository, actual_worktree, *args = sys.argv[1:]
+leases, registry_path, source, command, own, gate, operation, actor, actor_thread, candidate, candidate_repository, actual_worktree, parent_lease, *args = sys.argv[1:]
 def fail(message):
     raise SystemExit('resource-lease: ' + message)
 def resources(items):
@@ -1005,7 +1027,7 @@ if requested.get('application-operation'):
     if operation == 'claim':
         proof = dict(lease=own, owner=actor, thread=actor_thread, candidate=candidate,
                      candidate_repository=candidate_repository, worktree=actual_worktree,
-                     parent_lease='', gate=gate)
+                     parent_lease=parent_lease, gate=gate)
     else:
         proof = dict(line.split('\t') for line in (pathlib.Path(leases)/own/'metadata.tsv').read_text().splitlines())
     try:
@@ -1196,7 +1218,8 @@ active_child_lease() {
     [[ "$child_id" != "$parent_lease" ]] || continue
     child_parent="$(metadata_value "$child_dir/metadata.tsv" parent_lease 2>/dev/null || true)"
     if [[ "$child_parent" == "$parent_lease" ]] && {
-      ! lease_expired "$child_dir" || lease_has_resource "$child_dir" lease-role collaboration-read-existing;
+      ! lease_expired "$child_dir" || lease_has_resource "$child_dir" lease-role collaboration-read-existing \
+        || awk -F '\t' '$2=="retained-operation" || $2=="retained-parent" {found=1} END {exit !found}' "$child_dir/resources.tsv";
     }; then
       printf '%s\n' "$child_id"
       shopt -u nullglob
@@ -1376,6 +1399,21 @@ PY
 validate_parent_lease_locked() {
   local parent_lease="$1" owner="$2" thread_id="$3" candidate="$4" candidate_repository="$5" worktree="$6"
   local role="${7:-}" contract="${8:-}"
+  local app_operation="${APPLICATION_OPERATION:-}"
+  if [[ -z "$app_operation" && -f "${LEASE_DIR:-/nonexistent}/resources.tsv" ]]; then
+    app_operation="$(awk -F '\t' '$2=="application-operation" {print $3}' "$LEASE_DIR/resources.tsv")"
+  fi
+  if [[ -n "$app_operation" ]]; then
+    local parent_domain
+    parent_domain="$(python3 "$REPO_ROOT/scripts/project-resource-application.py" parent-verify --operation "$app_operation" \
+      --owner "$owner" --thread "$thread_id" --parent-lease "$parent_lease" --candidate "$candidate" \
+      --candidate-repository "$candidate_repository" --application-root "$worktree")" \
+      || die 'registered retained application parent rejected'
+    if [[ "$parent_domain" == same-domain ]]; then
+      RETAINED_PARENT_HOLDER="$parent_lease"; RETAINED_APP_ROOT="$worktree"
+    fi
+    return
+  fi
   local parent_dir="$LEASES_DIR/$parent_lease"
   [[ -d "$parent_dir" && -f "$parent_dir/metadata.tsv" ]] || die "parent lease does not exist: $parent_lease"
   [[ ! -L "$parent_dir" && ! -L "$parent_dir/metadata.tsv" && -f "$parent_dir/resources.tsv" && ! -L "$parent_dir/resources.tsv" ]] || die "parent lease proof is invalid: $parent_lease"
@@ -1492,6 +1530,39 @@ release_lease_locked() {
   if [[ -n "$expected_owner" && "$owner" != "$expected_owner" ]]; then
     die "lease $lease_id belongs to $owner, not $expected_owner"
   fi
+  if awk -F '\t' '$2=="retained-operation" {found=1} END {exit !found}' "$lease_dir/resources.tsv"; then
+    # This is only a native child reservation, never an alternate execution
+    # authority. It cannot be removed while its central operation still exists.
+    [[ -n "$expected_owner" ]] || die 'retained operation child requires explicit owner release'
+    python3 - "$lease_dir/resources.tsv" "$lease_id" <<'PY' || die 'central operation still protects retained child'
+import hashlib, json, pathlib, re, stat, sys
+def need(value):
+    if not value: raise SystemExit('invalid retained operation release proof')
+source=pathlib.Path(sys.argv[1])
+def read(path):
+    need(path.resolve()==path and not path.is_symlink())
+    info=path.stat(); need(stat.S_ISREG(info.st_mode) and info.st_nlink==1)
+    return path.read_text()
+rows=[line.split('\t') for line in read(source).splitlines()]
+need(len(rows)==2 and {row[1] for row in rows if len(row)==3}=={'gate','retained-operation'})
+for digest,kind,item in rows:
+    need(digest==hashlib.sha256((kind+'\t'+item).encode()).hexdigest())
+    lock=source.parents[2]/'resources'/digest
+    for field,text in (('lease',sys.argv[2]),('type',kind),('value',item)):
+        need(read(lock/field).strip()==text)
+need(next(row[2] for row in rows if row[1]=='gate')=='retained-application-operation')
+values=[row[2] for row in rows if len(row)==3 and row[1]=='retained-operation']
+need(len(values)==1)
+value=json.loads(values[0]); need(set(value)=={'common_dir','lease','operation'} and value['lease']==sys.argv[2])
+common=pathlib.Path(value['common_dir'])
+need(common.is_absolute() and common.resolve()==common and common.is_dir() and common.name=='.git' and common.parent.name=='peanut-admin-code')
+need(re.fullmatch(r'[a-z0-9][a-z0-9._-]{0,63}',value['operation']))
+target=common/'peanut-admin-resource-leases/leases'/value['lease']
+need(not target.exists() and not target.is_symlink())
+mutex=common/'peanut-admin-resource-leases/mutex'
+need(not mutex.exists() and not mutex.is_symlink())
+PY
+  fi
   if [[ -e "$lease_dir/application-operation.json" || -L "$lease_dir/application-operation.json" ]]; then
     [[ -n "$expected_owner" ]] || die 'application execution requires explicit owner release after terminal reconciliation'
     python3 "$REPO_ROOT/scripts/project-resource-application.py" release-check --lease "$lease_id" --owner "$expected_owner" \
@@ -1502,6 +1573,13 @@ release_lease_locked() {
   fi
   child_lease="$(active_child_lease "$lease_id" || true)"
   [[ -z "$child_lease" ]] || die "lease $lease_id has active child lease $child_lease"
+  local retained_app=""
+  if awk -F '\t' '$2=="retained-parent" {found=1} END {exit !found}' "$lease_dir/resources.tsv"; then
+    retained_app="$(metadata_value "$lease_dir/metadata.tsv" candidate_repository)"
+    local app_common
+    app_common="$(git -C "$retained_app" rev-parse --path-format=absolute --git-common-dir)" || die 'retained APP Git unavailable'
+    [[ "$app_common" != "$COMMON_DIR" ]] || retained_app=""
+  fi
   while IFS=$'\t' read -r hash type value; do
     [[ -n "$hash" ]] || continue
     resource_dir="$RESOURCES_DIR/$hash"
@@ -1511,6 +1589,9 @@ release_lease_locked() {
   done < "$lease_dir/resources.tsv"
   rm -f "$lease_dir/metadata.tsv" "$lease_dir/resources.tsv"
   rmdir "$lease_dir"
+  if [[ -n "$retained_app" ]]; then
+    RETAINED_RELEASE_APP="$retained_app"
+  fi
 }
 
 case "$COMMAND" in
@@ -1609,7 +1690,8 @@ case "$COMMAND" in
     WORKTREE="$(cd "$REPO_ROOT" && pwd -P)"
     for resource in ${RESOURCES[@]+"${RESOURCES[@]}"}; do
       [[ "${resource%%=*}" != lease-role && "${resource%%=*}" != operation-contract \
-        && "${resource%%=*}" != application-operation && "${resource%%=*}" != application-operation-sha256 ]] || die 'reserved identity fields require their closed operation option'
+        && "${resource%%=*}" != application-operation && "${resource%%=*}" != application-operation-sha256 \
+        && "${resource%%=*}" != retained-parent && "${resource%%=*}" != retained-operation ]] || die 'reserved identity fields require their closed operation option'
     done
     if [[ -n "$LEASE_ROLE" || -n "$OPERATION_CONTRACT" ]]; then
       [[ "$LEASE_ROLE" == collaboration-read-existing && -n "$OPERATION_CONTRACT" \
@@ -1618,15 +1700,16 @@ case "$COMMAND" in
       RESOURCES+=("lease-role=$LEASE_ROLE" "operation-contract=$OPERATION_CONTRACT")
     fi
     if [[ -n "$APPLICATION_OPERATION" ]]; then
-      [[ "$COMMAND" == claim && -z "$PARENT_LEASE" && -z "$LEASE_ROLE" \
+      [[ "$COMMAND" == claim && -z "$LEASE_ROLE" \
         && "$GATE" == permanent-app-development && "${#RESOURCES[@]}" == 0 ]] \
-        || die 'application operation requires its closed gate and no caller resources/parent/role'
+        || die 'application operation requires its closed gate and no caller resources/role'
       APPLICATION_PROOF="$(python3 "$REPO_ROOT/scripts/project-resource-application.py" resolve \
         --operation "$APPLICATION_OPERATION" --owner "$OWNER")" || die 'application operation registration rejected'
       REGISTERED_APP="$(printf '%s' "$APPLICATION_PROOF" | python3 -c 'import json,sys; print(json.load(sys.stdin)["worktree"])')"
       REGISTERED_CANDIDATE="$(printf '%s' "$APPLICATION_PROOF" | python3 -c 'import json,sys; print(json.load(sys.stdin)["candidate"])')"
+      REGISTERED_PARENT="$(printf '%s' "$APPLICATION_PROOF" | python3 -c 'import json,sys; print(json.load(sys.stdin)["parent_lease"])')"
       [[ "$CANDIDATE_REPOSITORY" == "$REGISTERED_APP" && "$CANDIDATE" == "$REGISTERED_CANDIDATE" \
-        && "$OWNER" == "$THREAD_ID" ]] || die 'application operation does not match the actual APP/owner/thread'
+        && "$OWNER" == "$THREAD_ID" && "$PARENT_LEASE" == "$REGISTERED_PARENT" ]] || die 'application operation does not match the actual APP/owner/thread/retained parent'
       WORKTREE="$REGISTERED_APP"
       while IFS= read -r resource; do
         RESOURCES+=("$resource")
@@ -1640,12 +1723,12 @@ case "$COMMAND" in
       fi
     done
     RESOURCES+=("gate=$GATE")
-    if [[ -z "$PARENT_LEASE" || -n "$LEASE_ROLE" ]]; then
+    if [[ -z "$PARENT_LEASE" || -n "$LEASE_ROLE" || -n "$APPLICATION_OPERATION" ]]; then
       RESOURCES+=("worktree=$WORKTREE")
     fi
     for resource in "${RESOURCES[@]}"; do
       validate_resource "$resource"
-      [[ -z "$PARENT_LEASE" || -n "$LEASE_ROLE" || "${resource%%=*}" != worktree ]] || die 'ordinary child lease must not claim a direct worktree resource'
+      [[ -z "$PARENT_LEASE" || -n "$LEASE_ROLE" || -n "$APPLICATION_OPERATION" || "${resource%%=*}" != worktree ]] || die 'ordinary child lease must not claim a direct worktree resource'
     done
 
     if [[ "$COMMAND" == 039-tls-custody-transfer ]]; then
@@ -1665,8 +1748,19 @@ case "$COMMAND" in
     NOW="$(date +%s)"
     EXPIRES_AT=$((NOW + TTL))
     if [[ -n "$PARENT_LEASE" ]]; then
-      PARENT_EXPIRES="$(metadata_value "$LEASES_DIR/$PARENT_LEASE/metadata.tsv" expires_at)"
+      if [[ -n "$APPLICATION_OPERATION" ]]; then
+        PARENT_EXPIRES="$(printf '%s' "$APPLICATION_PROOF" | python3 -c 'import json,sys; print(json.load(sys.stdin)["parent_expires_at"])')"
+      else
+        PARENT_EXPIRES="$(metadata_value "$LEASES_DIR/$PARENT_LEASE/metadata.tsv" expires_at)"
+      fi
       [[ "$EXPIRES_AT" -le "$PARENT_EXPIRES" ]] || EXPIRES_AT="$PARENT_EXPIRES"
+    fi
+    if [[ -n "$APPLICATION_OPERATION" && -n "$PARENT_LEASE" ]]; then
+      python3 "$REPO_ROOT/scripts/project-resource-application.py" retained-reserve --operation "$APPLICATION_OPERATION" \
+        --lease "$LEASE_ID" --owner "$OWNER" --expires "$EXPIRES_AT" || die 'retained APP child reservation rejected'
+      if [[ -z "$RETAINED_PARENT_HOLDER" ]]; then
+        RETAINED_GUARD_APP="$WORKTREE"; RETAINED_GUARD_LEASE="$LEASE_ID"; RETAINED_GUARD_OWNER="$OWNER"
+      fi
     fi
     CLAIM_TMP_DIR="$LEASES_DIR/.claim-${LEASE_ID}-$$"
     CREATED_RESOURCES_FILE="$REGISTRY_ROOT/.created-${LEASE_ID}-$$"
@@ -1696,7 +1790,13 @@ case "$COMMAND" in
       fi
       if [[ -d "$RESOURCE_DIR" ]]; then
         HOLDER="$(cat "$RESOURCE_DIR/lease" 2>/dev/null || printf 'unknown')"
-        die "resource conflict: $TYPE=$VALUE is held by lease $HOLDER"
+        EXPECTED_HOLDER="$(physical_resource_holder "$LEASE_ID" "$TYPE" "$VALUE")"
+        [[ "$EXPECTED_HOLDER" != "$LEASE_ID" && "$HOLDER" == "$EXPECTED_HOLDER" \
+          && ! -L "$RESOURCE_DIR" && "$(cat "$RESOURCE_DIR/type")" == "$TYPE" \
+          && "$(cat "$RESOURCE_DIR/value")" == "$VALUE" ]] \
+          || die "resource conflict: $TYPE=$VALUE is held by lease $HOLDER"
+        printf '%s\t%s\t%s\n' "$HASH" "$TYPE" "$VALUE" >> "$CLAIM_TMP_DIR/resources.tsv"
+        continue
       fi
       mkdir "$RESOURCE_DIR"
       printf '%s\n' "$LEASE_ID" > "$RESOURCE_DIR/lease"
@@ -1733,12 +1833,13 @@ case "$COMMAND" in
       for LOCK_FILE in lease type value; do
         [[ -f "$RESOURCE_DIR/$LOCK_FILE" && ! -L "$RESOURCE_DIR/$LOCK_FILE" ]] || die 'published claim lock invalid'
       done
-      [[ "$(cat "$RESOURCE_DIR/lease")" == "$LEASE_ID" && "$(cat "$RESOURCE_DIR/type")" == "$TYPE" \
+      [[ "$(cat "$RESOURCE_DIR/lease")" == "$(physical_resource_holder "$LEASE_ID" "$TYPE" "$VALUE")" && "$(cat "$RESOURCE_DIR/type")" == "$TYPE" \
         && "$(cat "$RESOURCE_DIR/value")" == "$VALUE" ]] || die 'published claim lock ownership mismatch'
     done
     CLAIM_TMP_DIR=""
     rm -f "$CREATED_RESOURCES_FILE"
     CREATED_RESOURCES_FILE=""
+    RETAINED_GUARD_APP=""
     release_mutex
     printf 'lease=%s\nowner=%s\ncandidate=%s\ngate=%s\nexpires_at=%s\n' "$LEASE_ID" "$OWNER" "$CANDIDATE" "$GATE" "$EXPIRES_AT"
     ;;
@@ -1776,15 +1877,26 @@ case "$COMMAND" in
         "$(metadata_value "$LEASE_DIR/metadata.tsv" candidate)" \
         "$(metadata_value "$LEASE_DIR/metadata.tsv" candidate_repository)" \
         "$(metadata_value "$LEASE_DIR/metadata.tsv" worktree)" "$LEASE_ROLE" "$OPERATION_CONTRACT"
-      PARENT_EXPIRES="$(metadata_value "$LEASES_DIR/$PARENT_LEASE/metadata.tsv" expires_at)"
+      APP_OPERATION="$(awk -F '\t' '$2=="application-operation" {print $3}' "$LEASE_DIR/resources.tsv")"
+      if [[ -n "$APP_OPERATION" ]]; then
+        PARENT_EXPIRES="$(python3 "$REPO_ROOT/scripts/project-resource-application.py" resolve --operation "$APP_OPERATION" --owner "$OWNER" \
+          | python3 -c 'import json,sys; print(json.load(sys.stdin)["parent_expires_at"])')"
+      else
+        PARENT_EXPIRES="$(metadata_value "$LEASES_DIR/$PARENT_LEASE/metadata.tsv" expires_at)"
+      fi
       [[ "$EXPIRES_AT" -le "$PARENT_EXPIRES" ]] || EXPIRES_AT="$PARENT_EXPIRES"
+      if [[ -n "$APP_OPERATION" ]]; then
+        python3 "$REPO_ROOT/scripts/project-resource-application.py" retained-renew --operation "$APP_OPERATION" \
+          --lease "$LEASE_ID" --owner "$OWNER" --expires "$EXPIRES_AT" || die 'retained APP child renewal rejected'
+      fi
     fi
     # Renewing the runtime holder must not shorten a previously granted observer
     # window. Ordinary children retain their existing renewal semantics.
     for CHILD_DIR in "$LEASES_DIR"/*; do
       [[ -d "$CHILD_DIR" && -f "$CHILD_DIR/metadata.tsv" ]] || continue
       if [[ "$(metadata_value "$CHILD_DIR/metadata.tsv" parent_lease)" == "$LEASE_ID" ]] \
-        && lease_has_resource "$CHILD_DIR" lease-role collaboration-read-existing; then
+        && { lease_has_resource "$CHILD_DIR" lease-role collaboration-read-existing \
+          || awk -F '\t' '$2=="retained-operation" || $2=="retained-parent" {found=1} END {exit !found}' "$CHILD_DIR/resources.tsv"; }; then
         CHILD_EXPIRES="$(metadata_value "$CHILD_DIR/metadata.tsv" expires_at)"
         [[ "$CHILD_EXPIRES" =~ ^[0-9]+$ && "$EXPIRES_AT" -ge "$CHILD_EXPIRES" ]] \
           || die 'runtime renewal cannot shorten an existing observer window'
@@ -1809,6 +1921,10 @@ case "$COMMAND" in
     acquire_mutex
     release_lease_locked "$LEASE_ID" "$OWNER"
     release_mutex
+    if [[ -n "$RETAINED_RELEASE_APP" ]]; then
+      (cd "$RETAINED_RELEASE_APP" && /bin/bash "$REPO_ROOT/scripts/project-resource-lease" release \
+        --lease "$LEASE_ID" --owner "$OWNER") || die 'central operation released; retained native APP child requires reconciliation'
+    fi
     printf 'released=%s\n' "$LEASE_ID"
     ;;
 
@@ -1886,9 +2002,15 @@ case "$COMMAND" in
         for LOCK_FILE in lease type value; do
           [[ -f "$LOCK_DIR/$LOCK_FILE" && ! -L "$LOCK_DIR/$LOCK_FILE" ]] || die 'lease resource lock proof is invalid'
         done
-        [[ "$(cat "$LOCK_DIR/lease")" == "$LEASE_ID" && "$(cat "$LOCK_DIR/type")" == "$TYPE" \
+        [[ "$(cat "$LOCK_DIR/lease")" == "$(physical_resource_holder "$LEASE_ID" "$TYPE" "$VALUE")" && "$(cat "$LOCK_DIR/type")" == "$TYPE" \
           && "$(cat "$LOCK_DIR/value")" == "$VALUE" ]] || die 'lease resource lock holder mismatch'
       done < "$LEASE_DIR/resources.tsv"
+      APP_OPERATION="$(awk -F '\t' '$2=="application-operation" {print $3}' "$LEASE_DIR/resources.tsv")"
+      if [[ -n "$APP_OPERATION" && -n "$PARENT_LEASE" ]]; then
+        python3 "$REPO_ROOT/scripts/project-resource-application.py" retained-verify --operation "$APP_OPERATION" \
+          --lease "$LEASE_ID" --owner "$(metadata_value "$LEASE_DIR/metadata.tsv" owner)" \
+          --expires "$EXPIRES" || die 'retained APP child proof rejected'
+      fi
     fi
     cat "$LEASE_DIR/metadata.tsv"
     printf 'resources\n'
@@ -1909,6 +2031,7 @@ case "$COMMAND" in
       if lease_expired "$LEASE_DIR"; then
         # Expiry cannot prove the observer's SQL process has terminated.
         if [[ -e "$LEASE_DIR/application-operation.json" || -L "$LEASE_DIR/application-operation.json" ]]; then continue; fi
+        if awk -F '\t' '$2=="retained-operation" || $2=="retained-parent" {found=1} END {exit !found}' "$LEASE_DIR/resources.tsv"; then continue; fi
         if lease_has_resource "$LEASE_DIR" lease-role collaboration-read-existing; then continue; fi
         LEASE_ID="$(metadata_value "$LEASE_DIR/metadata.tsv" lease)"
         if retirement_requires_explicit_release "$LEASE_ID"; then continue; fi
