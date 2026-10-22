@@ -265,8 +265,9 @@ final class ScaffoldUpgradeRunner
                 || ($application['edition']['source_sha256'] ?? null) !== ($application['generation_source']['edition_profile_sha256'] ?? null)) {
                 throw new RuntimeException('SCAFFOLD_DEVELOPMENT_BASE_INVALID');
             }
+            $workflow = $this->developmentWorkflow($application['application'], $from, $to);
             $development = $this->developmentSource($application['generation_source'], $to, $sourceSelection,
-                $application['application']['profile'] ?? '', $application['application']['workflow'] ?? '', $from->version());
+                $application['application']['profile'] ?? '', $workflow['selection'], $from->version(), $workflow['paths']);
             $to = $to->withoutPaths($development['excluded_paths']);
         }
         $internal = null;
@@ -374,7 +375,8 @@ final class ScaffoldUpgradeRunner
         if ($development !== null) {
             $identity['source_relation'] = $development['relation'];
             $identity['development_source'] = ['profile' => $application['application']['profile'],
-                'workflow' => $application['application']['workflow'],
+                'workflow' => $workflow['selection'], 'workflow_present' => $workflow['present'],
+                'workflow_paths_sha256' => $workflow['paths'] === null ? null : hash('sha256', self::canonicalJson($workflow['paths'])),
                 'excluded_paths_sha256' => hash('sha256', self::canonicalJson($development['excluded_paths']))];
         }
         if ($this->isInstalledApplicationSource($root)) {
@@ -1480,8 +1482,48 @@ final class ScaffoldUpgradeRunner
         return $selection;
     }
 
+    /** Read-only presence rule matching EditionProjector::workflow's registered file projection. */
+    private function workflowPathSelected(string $path, string $workflow): ?bool
+    {
+        $belongs = str_starts_with($path, 'server/app/modules/peanut/workflow/')
+            || str_starts_with($path, 'web/src/modules/peanut-workflow/') || str_starts_with($path, 'plugins/peanut.workflow/')
+            || str_starts_with($path, 'server/app/modules/official/article/src/Integration/Workflow/')
+            || str_starts_with($path, 'server/app/modules/official/article/resources/workflows/')
+            || str_starts_with($path, 'web/src/modules/official-article/workflow/')
+            || str_starts_with($path, 'web/src/modules/official-article/views/review/')
+            || $path === 'server/app/command/WorkflowInstallManaged.php';
+        if (!$belongs) { return null; }
+        $design = str_starts_with($path, 'web/src/modules/peanut-workflow/designer/')
+            || in_array($path, ['server/app/modules/peanut/workflow/route/design.php',
+                'server/app/modules/peanut/workflow/src/Controller/WorkflowDefinitionController.php',
+                'server/app/modules/peanut/workflow/src/Application/WorkflowDefinitionService.php',
+                'server/app/modules/peanut/workflow/src/Http/WorkflowJsonProjection.php'], true);
+        return $workflow !== 'none' && ($workflow !== 'runtime' || !$design);
+    }
+
+    private function recordedWorkflowPaths(ScaffoldManifest $from): array
+    {
+        $paths = array_values(array_filter(array_keys($from->files()),
+            fn(string $path): bool => $this->workflowPathSelected($path, 'full') !== null));
+        sort($paths, SORT_STRING);
+        return $paths;
+    }
+
+    /** Absence stays absent in APP identity; the target selection still needs baseline/Git proof. */
+    private function developmentWorkflow(array $application, ScaffoldManifest $from, ScaffoldManifest $to): array
+    {
+        $present = array_key_exists('workflow', $application);
+        $workflow = $present ? $application['workflow'] : ($to->release()['workflow'] ?? null);
+        if (!is_string($workflow) || !in_array($workflow, ['none', 'runtime', 'full'], true)
+            || !$from->isRecordedBaseline()) {
+            throw new RuntimeException('SCAFFOLD_DEVELOPMENT_WORKFLOW_INVALID');
+        }
+        return ['present' => $present, 'selection' => $workflow,
+            'paths' => $present ? null : $this->recordedWorkflowPaths($from)];
+    }
+
     /** Prove immutable development ancestry locally; caller JSON is never source authority. */
-    private function developmentSource(array $base, ScaffoldManifest $to, array $selection, string $profile, string $workflow, string $fromVersion): array
+    private function developmentSource(array $base, ScaffoldManifest $to, array $selection, string $profile, string $workflow, string $fromVersion, ?array $workflowPaths = null): array
     {
         $repository = 'peanut-business/peanut-admin-code';
         $checkout = $selection['source_checkout'] ?? null;
@@ -1557,6 +1599,21 @@ final class ScaffoldUpgradeRunner
                 || ($inventory['template_version'] ?? null) !== ($side === 'base' ? $fromVersion : $to->version())) {
                 throw new RuntimeException('SCAFFOLD_DEVELOPMENT_INVENTORY_INVALID');
             }
+            if ($side === 'base' && $workflowPaths !== null) {
+                $expectedPaths = [];
+                $available = 0;
+                foreach ($inventory['files'] ?? [] as $row) {
+                    if (($row['classification'] ?? null) === 'excluded'
+                        || !in_array($profile, $row['profiles'] ?? [], true)) { continue; }
+                    $included = $this->workflowPathSelected((string) ($row['target'] ?? ''), $workflow);
+                    if ($included !== null) { $available++; }
+                    if ($included === true) { $expectedPaths[] = $row['target']; }
+                }
+                sort($expectedPaths, SORT_STRING);
+                if ($available === 0 || $workflowPaths !== $expectedPaths) {
+                    throw new RuntimeException('SCAFFOLD_DEVELOPMENT_WORKFLOW_BASELINE_MISMATCH');
+                }
+            }
             if ($side === 'target') {
                 if (($target['repository'] ?? null) !== $repository || ($target['channel'] ?? null) !== 'development'
                     || !array_key_exists('release_version', $target) || $target['release_version'] !== null
@@ -1597,7 +1654,9 @@ final class ScaffoldUpgradeRunner
         [$application] = $this->applicationManifest($root);
         $base = $plan['identity']['from']['generation_source'] ?? [];
         if (($application['application']['profile'] ?? null) !== ($context['profile'] ?? null)
-            || ($application['application']['workflow'] ?? null) !== ($context['workflow'] ?? null)
+            || !is_bool($context['workflow_present'] ?? null)
+            || array_key_exists('workflow', $application['application']) !== $context['workflow_present']
+            || ($context['workflow_present'] && $application['application']['workflow'] !== ($context['workflow'] ?? null))
             || $this->releaseIdentity($to) !== $plan['identity']['to']) {
             throw new RuntimeException('SCAFFOLD_DEVELOPMENT_PLAN_BINDING_CHANGED');
         }
@@ -1606,8 +1665,20 @@ final class ScaffoldUpgradeRunner
                 throw new RuntimeException('SCAFFOLD_DEVELOPMENT_PLAN_BINDING_CHANGED');
             }
         }
+        $workflowPaths = null;
+        if (!$context['workflow_present']) {
+            $from = ScaffoldManifest::load($plan['manifest_paths']['from'], true);
+            if (!$from->isRecordedBaseline() || $from->digest() !== $plan['identity']['from']['manifest_sha256']
+                || 'sha256:' . $from->data['recorded_from']['application_manifest_sha256'] !== $plan['identity']['application_manifest_sha256']) {
+                throw new RuntimeException('SCAFFOLD_DEVELOPMENT_PLAN_BINDING_CHANGED');
+            }
+            $workflowPaths = $this->recordedWorkflowPaths($from);
+        }
+        if (($context['workflow_paths_sha256'] ?? null) !== ($workflowPaths === null ? null : hash('sha256', self::canonicalJson($workflowPaths)))) {
+            throw new RuntimeException('SCAFFOLD_DEVELOPMENT_PLAN_BINDING_CHANGED');
+        }
         $proof = $this->developmentSource($plan['identity']['from']['generation_source'], $to, $selection,
-            $context['profile'], $context['workflow'], $plan['identity']['from']['version']);
+            $context['profile'], $context['workflow'], $plan['identity']['from']['version'], $workflowPaths);
         if (self::canonicalJson($proof['relation']) !== self::canonicalJson($plan['identity']['source_relation'] ?? null)
             || $context['excluded_paths_sha256'] !== hash('sha256', self::canonicalJson($proof['excluded_paths']))) {
             throw new RuntimeException('SCAFFOLD_DEVELOPMENT_PLAN_BINDING_CHANGED');
