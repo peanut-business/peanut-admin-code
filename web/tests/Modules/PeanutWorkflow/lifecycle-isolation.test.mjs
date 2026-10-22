@@ -10,10 +10,26 @@ const root = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../../../..'
 );
-const webRequire = createRequire(path.join(root, 'web/package.json'));
+// An isolated source worktree may reuse separately installed *identical locked*
+// dependencies without copying packages or changing the production runtime.
+const dependencyRoot = process.env.PEANUT_TEST_DEPENDENCIES_ROOT
+  ? path.resolve(process.env.PEANUT_TEST_DEPENDENCIES_ROOT)
+  : root;
+if (dependencyRoot !== root) {
+  for (const file of ['web/pnpm-lock.yaml', 'tools/quality/pnpm-lock.yaml']) {
+    assert.equal(
+      fs.readFileSync(path.join(root, file), 'utf8'),
+      fs.readFileSync(path.join(dependencyRoot, file), 'utf8'),
+      'Test dependency lock must match the source worktree: ' + file
+    );
+  }
+}
+const webRequire = createRequire(path.join(dependencyRoot, 'web/package.json'));
 const vue = webRequire('vue');
 const compiler = webRequire('vue/compiler-sfc');
-const ts = webRequire(path.join(root, 'tools/quality/node_modules/typescript'));
+const ts = webRequire(
+  path.join(dependencyRoot, 'tools/quality/node_modules/typescript')
+);
 const workflow = path.join(root, 'web/src/modules/peanut-workflow');
 
 // Execute the current production scripts with real Vue effects/component hooks.
@@ -91,6 +107,11 @@ function fixture() {
       source = parsed.descriptor.scriptSetup.content;
       // Bind only the Vite environment value; do not replace application logic.
       source = source.replaceAll('import.meta.env.VITE_API_BASE_URL', "'/'");
+      // Vite-only lazy module lookups are not evaluated by this VM unit fixture.
+      source = source.replaceAll(
+        /import\.meta\.glob\(\s*'\/src\/modules\/[^']*'\s*\)/g,
+        '({})'
+      );
     }
     const result = ts.transpileModule(source, {
       fileName: file.endsWith('.vue') ? `${file}.ts` : file,
@@ -123,7 +144,11 @@ function fixture() {
                 return () => disposers.delete(key);
               },
             };
-          if (name === 'vue-router') return { onBeforeRouteLeave() {} };
+          if (name === 'vue-router')
+            return {
+              onBeforeRouteLeave() {},
+              useRouter: () => ({ push: async () => {} }),
+            };
           if (name === 'element-plus')
             return { ElMessageBox: { confirm: () => confirm.promise } };
           if (name.endsWith('/host-api'))
@@ -445,6 +470,117 @@ test('runtime identity loss clears selection, dialogs, counters, timers and visi
     assert.equal(f.timers.size, 0);
     assert.equal(f.document.count('visibilitychange'), 0);
     assert.equal(f.window.count('storage'), 0);
+  } finally {
+    app.unmount();
+  }
+});
+
+test('runtime ignores late action success for a different selected workflow', async () => {
+  const f = fixture();
+  const pendingAction = deferred();
+  const old = {
+    instance_key: 'instance-old',
+    status: 'running',
+    reassign_work_items: [],
+    active_nodes: [],
+  };
+  const next = { ...old, instance_key: 'instance-new' };
+  f.api.instanceAction = async () => pendingAction.promise;
+  f.api.instance = async (key) => {
+    assert.equal(key, next.instance_key);
+    return next;
+  };
+  f.api.events = async () => [];
+  const app = mount(
+    () =>
+      f.load(path.join(workflow, 'runtime/WorkflowRuntimePage.vue'), [
+        'instance',
+        'action',
+        'comment',
+        'dialog',
+        'notice',
+        'error',
+        'selectedTask',
+        'submit',
+        'showInstance',
+        'submitting',
+      ]).__state
+  );
+  const s = app.state;
+  try {
+    s.instance.value = old;
+    s.action.value = 'retry';
+    s.comment.value = 'old private opinion';
+    s.dialog.value = true;
+    const submit = s.submit();
+    await s.showInstance(next.instance_key);
+    assert.equal(s.instance.value.instance_key, next.instance_key);
+    assert.equal(s.dialog.value, false);
+    assert.equal(s.comment.value, '');
+    assert.equal(s.selectedTask.value, null);
+    pendingAction.resolve({ ...old, status: 'completed' });
+    await submit;
+    assert.equal(s.instance.value.instance_key, next.instance_key);
+    assert.equal(s.notice.value, '');
+    assert.equal(s.error.value, '');
+    assert.equal(s.submitting.value, false);
+  } finally {
+    app.unmount();
+  }
+});
+
+test('runtime ignores late failed-action refresh after switching instances', async () => {
+  const f = fixture();
+  const pendingAction = deferred();
+  const pendingOldRefresh = deferred();
+  const refreshStarted = deferred();
+  const old = {
+    instance_key: 'instance-old',
+    status: 'running',
+    reassign_work_items: [],
+    active_nodes: [],
+  };
+  const next = { ...old, instance_key: 'instance-new' };
+  let refreshCalled = false;
+  f.api.instanceAction = async () => pendingAction.promise;
+  f.api.instance = async (key) => {
+    if (key === old.instance_key) {
+      refreshCalled = true;
+      refreshStarted.resolve();
+      return pendingOldRefresh.promise;
+    }
+    assert.equal(key, next.instance_key);
+    return next;
+  };
+  f.api.events = async () => [];
+  const app = mount(
+    () =>
+      f.load(path.join(workflow, 'runtime/WorkflowRuntimePage.vue'), [
+        'instance',
+        'action',
+        'comment',
+        'dialog',
+        'error',
+        'notice',
+        'submit',
+        'showInstance',
+      ]).__state
+  );
+  const s = app.state;
+  try {
+    s.instance.value = old;
+    s.action.value = 'retry';
+    s.comment.value = 'must preserve error on original instance';
+    const submit = s.submit();
+    pendingAction.reject(new Error('conflict on old instance'));
+    await refreshStarted.promise;
+    assert.equal(refreshCalled, true);
+    await s.showInstance(next.instance_key);
+    pendingOldRefresh.resolve({ ...old, status: 'blocked' });
+    await submit;
+    assert.equal(s.instance.value.instance_key, next.instance_key);
+    assert.equal(s.error.value, '');
+    assert.equal(s.notice.value, '');
   } finally {
     app.unmount();
   }

@@ -308,6 +308,16 @@
     const epoch = requestEpoch;
     loading.value = true;
     error.value = '';
+    // A new selection must never retain an older instance's pending opinion.
+    if (instance.value?.instance_key !== key) {
+      selectedTask.value = null;
+      action.value = '';
+      comment.value = '';
+      reassignTaskKey.value = '';
+      newAssignee.value = '';
+      dialog.value = false;
+      notice.value = '';
+    }
     instance.value = null;
     events.value = [];
     try {
@@ -353,6 +363,12 @@
     submitting.value = true;
     error.value = '';
     const prior = instance.value;
+    const selectionEpoch = requestEpoch;
+    // Identity survival alone does not guard switching instances within one account.
+    const stillSelected = () =>
+      lifecycle.valid() &&
+      selectionEpoch === requestEpoch &&
+      instance.value?.instance_key === prior.instance_key;
     const task = selectedTask.value;
     try {
       let details: TaskActionDetails | undefined;
@@ -366,7 +382,7 @@
           workItem: task,
           instance: prior,
         });
-        if (!lifecycle.valid() || form === null) return;
+        if (!stillSelected() || form === null) return;
         details = form;
         if (form.comment !== undefined) comment.value = form.comment;
       }
@@ -374,6 +390,8 @@
         throw new Error(
           '该业务模块尚未登记保存/确认表单接口，请从业务表单完成材料后操作。'
         );
+      // An async form may finish after the user opens another workflow.
+      if (!stillSelected()) return;
       let result: WorkflowInstance;
       if (task) {
         result = await api.taskAction(
@@ -399,6 +417,7 @@
           )
         ) {
           const diagnostic = await api.diagnostics(prior.instance_key);
+          if (!stillSelected()) return;
           const cancelledNode = diagnostic.items.find(
             (node) => node.job.status === 'cancelled'
           );
@@ -416,7 +435,7 @@
           instanceDetails
         );
       }
-      if (!lifecycle.valid()) return;
+      if (!stillSelected()) return;
       instance.value = result;
       emit('instance', result);
       dialog.value = false;
@@ -426,14 +445,14 @@
           : '操作已记录，以当前流程状态为准。';
       await load();
     } catch (cause) {
-      if (!lifecycle.valid()) return;
+      if (!stillSelected()) return;
       fail(cause);
       notice.value =
         '操作失败时不会自动重新提交。保留本地意见，请刷新当前状态后核对。';
       // Refresh state after a possible conflict; preserve the unsent opinion.
       try {
         const current = await api.instance(prior.instance_key);
-        if (lifecycle.valid()) {
+        if (stillSelected()) {
           instance.value = current;
           emit('instance', current);
         }
