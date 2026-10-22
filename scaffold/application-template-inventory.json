@@ -9185,7 +9185,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f1ade8b780947fc24d015d6550e6f4253e45d9fd62e659462ed5b8b374f6b6af"
+            "source_sha256": "a48ec70488e8499689e49b6a83ad7e2cc2b7473b64fac1031c64f05b4d555332"
         },
         {
             "path": "server/app/common/services/installation/InstallationExecutionHost.php",
@@ -28427,7 +28427,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "86cad0816282eb22a8d6522de8dd7bff0b2700f5c4a23bf5ab1085451067f5fc"
+            "source_sha256": "3bb61a275c76d5a3c0ab59f1baddea1a2fed3ff8522034da4da649d1ec503711"
         },
         {
             "path": "server/docker/scripts/update-preparation.py",

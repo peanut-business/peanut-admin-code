@@ -1743,6 +1743,11 @@ final class PeanutServerUpdatePlan
                     }
                 }
                 $configuration = $input['configuration'];
+                if (!in_array($configuration['deployment_target'] ?? null, ['local-development', 'local-multi-tenant-demo'], true)
+                    || ($configuration['database_source'] ?? null) !== 'registered'
+                    || ($configuration['database_consumer'] ?? null) !== 'host') {
+                    throw new RuntimeException('source first configuration requires a registered host development database');
+                }
                 self::regularBytes(dirname($serverRoot) . '/.peanut/application-manifest.json', 'generated APP manifest');
                 self::regularBytes(dirname($serverRoot) . '/release-versions.json', 'generated APP versions');
             }
@@ -1752,7 +1757,7 @@ final class PeanutServerUpdatePlan
                     throw new RuntimeException('source first configuration requires an explicit APP registry');
                 }
                 return (new \app\common\services\installation\InstallationConfigurationHost($serverRoot))
-                    ->configureSourceForOwner($input['setup_token'], $configuration, $input['resource_registry']);
+                    ->configureForOwner($input['setup_token'], $configuration, $input['resource_registry']);
             }
             $identity = self::runtimeIdentity($serverRoot);
             $application = new \think\App($serverRoot);
