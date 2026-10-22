@@ -23,27 +23,59 @@ def fail(message: str) -> None:
     raise SystemExit(f"project-resource-registry: {message}")
 
 
+def maintainer_git(root: Path, *arguments: str) -> bytes:
+    env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+    env["GIT_OPTIONAL_LOCKS"] = "0"
+    result = subprocess.run(["/usr/bin/git", "-C", str(root), *arguments], capture_output=True, check=False, env=env)
+    if result.returncode != 0 or result.stderr.strip():
+        fail("P0-E maintainer source Git identity is unavailable")
+    return result.stdout
+
+
+def maintainer_project() -> Path:
+    """Logical registered Project, independent of the selected physical registry."""
+    git = maintainer_git
+    common = Path(git(REPO, "rev-parse", "--path-format=absolute", "--git-common-dir").decode().strip()).resolve()
+    primary = common.parent
+    if (common.name != ".git" or primary.name != "peanut-admin-code"
+            or Path(git(primary, "rev-parse", "--show-toplevel").decode().strip()).resolve() != primary):
+        fail("P0-E primary checkout mapping is invalid")
+    project = primary.parent / "peanut-admin-project"
+    if (project.is_symlink() or Path(git(project, "rev-parse", "--show-toplevel").decode().strip()).resolve() != project
+            or Path(git(project, "rev-parse", "--path-format=absolute", "--git-common-dir").decode().strip()).resolve() != project / ".git"):
+        fail("P0-E Project checkout identity is invalid")
+    head = git(project, "rev-parse", "HEAD").strip()
+    if (git(project, "branch", "--show-current").strip() != b"dev"
+            or git(project, "rev-parse", "refs/heads/dev").strip() != head
+            or git(project, "rev-parse", "refs/remotes/origin/dev").strip() != head):
+        fail("P0-E Project authority must be the current delivered primary dev")
+    return project
+
+
 def maintainer_source(expected_sha256: str) -> Path:
-    """Resolve the exact lease-bound maintainer source from the registered workspace."""
-    def git(root: Path, *arguments: str) -> bytes:
-        result = subprocess.run(["git", "-C", str(root), *arguments], capture_output=True, check=False)
-        if result.returncode != 0 or result.stderr.strip():
-            fail("P0-E maintainer source Git identity is unavailable")
-        return result.stdout
+    """Resolve exact current Project bytes in its primary or registered worktree."""
+    git = maintainer_git
 
     if re.fullmatch(r"[0-9a-f]{64}", expected_sha256) is None:
         fail("P0-E registry SHA-256 is invalid")
-    common = Path(git(REPO, "rev-parse", "--path-format=absolute", "--git-common-dir").decode().strip()).resolve()
-    primary = common.parent
-    if common.name != ".git" or Path(git(primary, "rev-parse", "--show-toplevel").decode().strip()).resolve() != primary:
-        fail("P0-E primary checkout mapping is invalid")
-    project = primary.parent / "peanut-admin-project"
-    mapping = project / "repos.yaml"
-    target = project / "resources/project-resources.json"
-    if project.is_symlink() or mapping.is_symlink() or target.parent.is_symlink() or target.is_symlink() or not mapping.is_file() or not target.is_file():
-        fail("P0-E maintainer source must be the real registered Project checkout")
-    if Path(git(project, "rev-parse", "--show-toplevel").decode().strip()).resolve() != project.resolve():
-        fail("P0-E Project checkout identity is invalid")
+    project = maintainer_project()
+    primary = project.parent / "peanut-admin-code"
+    target = REGISTRY_PATH
+    selected = target.parent.parent
+    mapping = selected / "repos.yaml"
+    head = git(project, "rev-parse", "HEAD").strip()
+    if (not target.is_absolute() or target.resolve() != target or target.is_symlink()
+            or target != selected / "resources/project-resources.json"
+            or mapping.is_symlink() or not mapping.is_file() or not target.is_file()
+            or Path(git(selected, "rev-parse", "--show-toplevel").decode().strip()).resolve() != selected
+            or Path(git(selected, "rev-parse", "--path-format=absolute", "--git-common-dir").decode().strip()).resolve() != project / ".git"
+            or git(selected, "rev-parse", "HEAD").strip() != head):
+        fail("P0-E registry must belong to the current registered Project worktree")
+    registered = [row[9:] for row in git(project, "worktree", "list", "--porcelain", "-z").split(b"\0") if row.startswith(b"worktree ")]
+    if os.fsencode(selected) not in registered:
+        fail("P0-E Project worktree is not registered")
+    if selected != project and git(selected, "status", "--porcelain=v1", "--untracked-files=all"):
+        fail("P0-E selected Project worktree must be clean")
     mapping_bytes = mapping.read_bytes()
     if git(project, "show", "HEAD:repos.yaml") != mapping_bytes:
         fail("P0-E repository mapping is not the tracked HEAD content")
@@ -65,10 +97,13 @@ def maintainer_source(expected_sha256: str) -> Path:
         ):
             fail("P0-E repository origin disagrees with the tracked mapping")
     contents = target.read_bytes()
-    if REGISTRY_PATH.resolve() != target.resolve() or git(project, "show", "HEAD:resources/project-resources.json") != contents:
+    if (git(project, "show", "HEAD:resources/project-resources.json") != contents
+            or git(selected, "diff", "--cached", "--name-only", "HEAD", "--", "repos.yaml", "resources/project-resources.json")):
         fail("P0-E registry must be the exact tracked Project HEAD content")
     if hashlib.sha256(contents).hexdigest() != expected_sha256:
         fail("P0-E registry changed from its fixed SHA-256")
+    if maintainer_project() != project or git(project, "rev-parse", "HEAD").strip() != head:
+        fail("P0-E Project authority changed during source resolution")
     return target.resolve()
 
 

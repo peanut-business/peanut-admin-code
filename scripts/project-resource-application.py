@@ -85,14 +85,20 @@ def resource_map(rows):
     return result
 
 
-def authority(operation_id):
-    need(re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", operation_id), "invalid application operation ID")
-    common = canonical(git(ROOT, "rev-parse", "--path-format=absolute", "--git-common-dir").decode().strip())
+def project_authority():
+    """Physical current registry and logical primary Project for review custody."""
     registry = canonical(os.environ.get("PEANUT_RESOURCE_REGISTRY", ""))
     registry_sha = sha(regular(registry))
     resolver = runpy.run_path(str(ROOT / "scripts/project-resource-registry"))
     resolved = resolver["maintainer_source"](registry_sha)
     need(resolved == registry, "operation registry authority mismatch")
+    return registry, resolver["maintainer_project"]()
+
+
+def authority(operation_id):
+    need(re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", operation_id), "invalid application operation ID")
+    common = canonical(git(ROOT, "rev-parse", "--path-format=absolute", "--git-common-dir").decode().strip())
+    registry, project = project_authority()
     document = json_unique(regular(registry))
     operations = document["resources"].get("application_operations", [])
     matches = [row for row in operations if row.get("stable_resource_id") == operation_id]
@@ -111,7 +117,7 @@ def authority(operation_id):
     php = canonical(operation["php_executable"])
     need(php.name == "php" and php.is_file() and os.access(php, os.X_OK), "registered native PHP unavailable")
     need(set(operation["terminal_review"]) == {"path"}
-         and registry.parent.parent in canonical(operation["terminal_review"]["path"]).parents,
+         and project in canonical(operation["terminal_review"]["path"]).parents,
          "terminal review must be a fixed Project versioned result")
     if operation["phase"] == "protect":
         client = operation["backup_client"]
@@ -190,7 +196,7 @@ def authority(operation_id):
              and (maintenance["metadata_tool"] == "" or re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,127}", maintenance["metadata_tool"])),
              "closed native maintenance target/actor/tool contract differs")
         canonical(maintenance["review"])
-        need(registry.parent.parent in Path(maintenance["review"]).parents,
+        need(project in Path(maintenance["review"]).parents,
              "maintenance review must be a fixed versioned Project result")
         for name, digest in operation["installation"].items():
             need(name in ("installed.json", "baseline.json")
@@ -564,7 +570,7 @@ def admit_recovery(lease_id, owner):
         operation, directory, metadata = lease(lease_id, allow_expired=True)
         review_path = canonical(operation["terminal_review"]["path"])
         review_raw = regular(review_path, private=True)
-        project = canonical(os.environ["PEANUT_RESOURCE_REGISTRY"]).parent.parent
+        project = project_authority()[1]
         need(git(project, "show", "HEAD:" + str(review_path.relative_to(project))) == review_raw,
              "central recovery review must be its fixed versioned Project result")
     else:
@@ -952,7 +958,7 @@ def protect(operation, directory, value, lease_id):
 def maintenance_review(operation, directory, step, plan_path):
     """A real versioned independent review, never an untracked success assertion."""
     path = canonical(operation["maintenance"]["review"])
-    project = canonical(os.environ["PEANUT_RESOURCE_REGISTRY"]).parent.parent
+    project = project_authority()[1]
     raw = regular(path, private=True)
     relative = str(path.relative_to(project))
     need(git(project, "show", "HEAD:" + relative) == raw, "maintenance review must be the exact versioned Project result")
@@ -1419,7 +1425,7 @@ def main():
                 review = operation.get("terminal_review")
                 need(isinstance(review, dict), "UNKNOWN needs a registered independent terminal review")
                 raw = regular(canonical(review["path"]), private=True)
-                project = canonical(os.environ["PEANUT_RESOURCE_REGISTRY"]).parent.parent
+                project = project_authority()[1]
                 path = canonical(review["path"])
                 need(project in path.parents, "terminal review must belong to the registered Project")
                 ref = git(project, "rev-parse", "HEAD").decode().strip()
