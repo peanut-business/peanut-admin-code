@@ -312,8 +312,14 @@ final class PluginSourceDevelopmentHost
                                 } finally { $this->mutation = null; }
                             }
                             if ($toolId !== '') {
-                                $this->assertBackupReads($effects['tables'], $config);
                                 $scope = SourceApplicationBackup::pluginScope($pdo, $effects, $binding, $this->sourceMetadataTool, $recheck);
+                                // Only the complete native observer can prove an affected object absent.
+                                // It checks present-table row coverage before any backup reads occur.
+                                if (($scope['absent_original_tables'] ?? []) !== []
+                                    && $scope['metadata_visibility'] !== 'complete native source metadata; ordinary PDO unchanged') {
+                                    throw new RuntimeException('PLUGIN_SOURCE_BACKUP_ABSENT_METADATA_REQUIRED');
+                                }
+                                $this->assertBackupReads($scope['tables'], $config);
                                 $registry = \projectResourceRegistry($registrySha);
                                 $tools = array_values(array_filter($registry['resources']['tooling'] ?? [], static fn(array $row): bool => ($row['stable_resource_id'] ?? null) === $toolId));
                                 $resources = \activeLeaseResources(\requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF'));
