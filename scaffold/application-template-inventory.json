@@ -9465,7 +9465,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "66351c6fc9eb588b67fe7da457c0495456d9102a80a7d1e83183267f07c68ca4"
+            "source_sha256": "8af75fbefd386a543e2c33ee9b12f730dfb032d4bc7a01bf6576a0f91c10131b"
         },
         {
             "path": "server/app/common/services/upgrade/SourceApplicationDump.php",
@@ -22053,7 +22053,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f14db56ac8b8c3dbcc578745fd24f87ac1875d04132dddca0c7311fb8020cd6b"
+            "source_sha256": "5c7d80204c09eb5909598cafeb5d058dedbf2b057024931716e4207b679a6a16"
         },
         {
             "path": "server/app/modules/official/reference_codes/src/Service/ReferenceCodesHttpApplicationService.php",
@@ -25991,7 +25991,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ed62b57b98e1d8d37974a040929402bbf7fce9634dbf188538703c47cf1d844e"
+            "source_sha256": "47048028f56c588b334b20b083114d02f0bef8f91ac00ee4a8d2f56e479cb26f"
         },
         {
             "path": "server/app/platform/infrastructure/plugin/ModuleCatalogMutationRepository.php",
@@ -26411,7 +26411,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "17476c49bee90cb251b8f7101e199fd3a710298e513372a5d1eb504b6a813a1c"
+            "source_sha256": "5c91556f8d25cb334522ac93a011e962de1d25da8d29c8425677f2e0dda69e1a"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",

@@ -1270,6 +1270,13 @@ final class SourceApplicationBackup
             }
         }
         $tables = array_values(array_unique($tables)); sort($tables, SORT_STRING); ksort($selected, SORT_STRING);
+        $moduleKeys = array_column($plan['modules'], 'module_key'); sort($moduleKeys, SORT_STRING);
+        $referenceCodes = $plan['reference_code_catalog'] ?? null;
+        if (!is_array($referenceCodes) || count($referenceCodes) !== 2
+            || ($referenceCodes['modules'] ?? null) !== $moduleKeys
+            || !is_array($referenceCodes['definitions'] ?? null) || !array_is_list($referenceCodes['definitions'])) {
+            $referenceCodes = null;
+        }
         if ($filePending) {
             $writeRequirements[] = ['code' => 'PLUGIN_SOURCE_FILE_PRESERVATION_REQUIRED',
                 'contract' => 'PeanutAdmin\\Modules\\File\\Contract\\FileMigrationPreservation',
@@ -1277,6 +1284,7 @@ final class SourceApplicationBackup
         }
         $effects = ['protocol' => 'peanut.source-plugin-effects.v1', 'tables' => $tables,
             'pending' => $pending, 'selected' => $selected, 'closure_complete' => $requirements === [], 'requirements' => $requirements,
+            'reference_code_catalog' => $referenceCodes,
             'write_requirements' => $writeRequirements, 'notification_forward_receipt' => $receipt,
             'transaction_boundary' => 'begin lifecycle, each migration/adoption, catalog registration and failure marking commit separately; failed status is best effort',
             'shared_catalogs' => 'whole tables including core/global keys and operation relation replacement; no tenant or module row filter',
@@ -1299,11 +1307,12 @@ final class SourceApplicationBackup
             throw new RuntimeException('PLUGIN_SOURCE_WRITE_EFFECTS_UNPROVEN');
         }
         if ($effects['pending'] !== [] || $scope['absent_original_tables'] === []) { return $effects['tables']; }
-        // ReferenceCodeCatalogService checks native storage availability before any row
-        // access: empty contributions return; declared contributions reject without SQL.
-        // No other missing catalog or migration-created object has that contract.
+        // The native plan loads every selected manifest through the writer's own loader.
+        // Missing/partial plans or nonempty contributions must stop before the Host
+        // installs a mutation frame, not after beginLifecycle commits installation state.
         if (($scope['metadata_visibility'] ?? null) !== 'complete native source metadata; ordinary PDO unchanged'
-            || array_diff($scope['absent_original_tables'], ['pa_reference_code_set']) !== []) {
+            || array_diff($scope['absent_original_tables'], ['pa_reference_code_set']) !== []
+            || ($effects['reference_code_catalog']['definitions'] ?? null) !== []) {
             throw new RuntimeException('PLUGIN_SOURCE_ABSENT_WRITE_EFFECTS_UNPROVEN');
         }
         return $scope['tables'];

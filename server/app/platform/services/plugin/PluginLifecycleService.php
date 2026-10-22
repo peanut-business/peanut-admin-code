@@ -254,6 +254,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 'status' => $mayApply ? 'ready' : ($planningComplete ? 'planned' : 'blocked'), 'execution_admitted' => false,
                 'from_version' => is_array($current) ? (string) $current['installed_version'] : null,
                 'manifest_sha256' => $plugin->manifestDigest, 'modules' => $modules,
+                'reference_code_catalog' => $this->catalogs->referenceCodePlan($manifests),
                 'observation' => 'read-only interval; execution revalidates all native guards'];
             if ($recovery !== null) { $plan['install_recovery'] = $recovery; }
             // Native source backup consumes the actual plan before this same
@@ -904,6 +905,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             'identity_changed' => !$this->sameIdentity($plugin, $current),
             'pending_migrations' => $pending,
             'modules' => $modules, 'may_apply' => $mayApply, 'planning_complete' => $planningComplete,
+            'reference_code_catalog' => $this->catalogs->referenceCodePlan($manifests),
             'status' => $mayApply ? 'ready' : ($planningComplete ? 'planned' : 'blocked'), 'execution_admitted' => false,
             'workflow_preflight' => $workflowPreflight,
             'notification_preflight' => $notificationPreflight,

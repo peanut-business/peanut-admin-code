@@ -23,21 +23,7 @@ final class ReferenceCodeCatalogService
     /** @param array<string, ManifestDocument> $manifests */
     public function synchronize(array $manifests, DateTimeImmutable $now): void
     {
-        $registry = new ReferenceCodeSetRegistry();
-        $loader = new ReferenceCodeSetLoader();
-        foreach ($manifests as $key => $manifest) {
-            if (!$manifest instanceof ManifestDocument || !is_string($key)
-                || ($manifest->data['key'] ?? null) !== $key) {
-                throw new ModuleException('MODULE_REFERENCE_CODE_OWNER_MISMATCH', 'A selected Module identity is inconsistent.');
-            }
-            ModuleKey::fromString($key);
-            $backend = is_array($manifest->data['backend'] ?? null) ? $manifest->data['backend'] : [];
-            $resource = $backend['reference_code_sets'] ?? null;
-            $definitions = is_string($resource)
-                ? $loader->load($key, $this->resourcePath($manifest, $resource))
-                : [];
-            $registry->registerModule($key, $definitions);
-        }
+        $registry = $this->definitionRegistry($manifests);
         if (!$this->storageAvailable()) {
             if ($registry->all() !== []) {
                 throw new ModuleException(
@@ -48,6 +34,47 @@ final class ReferenceCodeCatalogService
             return;
         }
         (new ReferenceCodeStore())->synchronize($registry, $now);
+    }
+
+    /**
+     * The same complete selected definitions consumed by synchronize, without database access.
+     * @param array<string, ManifestDocument> $manifests
+     * @return array{modules:list<string>,definitions:list<array<string,string>>}
+     */
+    public function definitionPlan(array $manifests): array
+    {
+        $registry = $this->definitionRegistry($manifests);
+        return ['modules' => $registry->moduleKeys(), 'definitions' => array_map(static fn($definition): array => [
+            'module_key' => $definition->moduleKey, 'key' => $definition->key, 'name' => $definition->name,
+            'description' => $definition->description, 'digest' => $definition->digest,
+        ], $registry->all())];
+    }
+
+    /** @param array<string, ManifestDocument> $manifests */
+    private function definitionRegistry(array $manifests): ReferenceCodeSetRegistry
+    {
+        $registry = new ReferenceCodeSetRegistry();
+        $loader = new ReferenceCodeSetLoader();
+        foreach ($manifests as $key => $manifest) {
+            if (!$manifest instanceof ManifestDocument || !is_string($key)
+                || ($manifest->data['key'] ?? null) !== $key) {
+                throw new ModuleException('MODULE_REFERENCE_CODE_OWNER_MISMATCH', 'A selected Module identity is inconsistent.');
+            }
+            ModuleKey::fromString($key);
+            if (array_key_exists('backend', $manifest->data) && !is_array($manifest->data['backend'])) {
+                throw new ModuleException('MODULE_REFERENCE_CODE_RESOURCE_INVALID', 'A selected Module backend declaration is invalid.');
+            }
+            $backend = is_array($manifest->data['backend'] ?? null) ? $manifest->data['backend'] : [];
+            $resource = $backend['reference_code_sets'] ?? null;
+            if (array_key_exists('reference_code_sets', $backend) && !is_string($resource)) {
+                throw new ModuleException('MODULE_REFERENCE_CODE_RESOURCE_INVALID', 'A reference-code resource declaration must be a path.');
+            }
+            $definitions = is_string($resource)
+                ? $loader->load($key, $this->resourcePath($manifest, $resource))
+                : [];
+            $registry->registerModule($key, $definitions);
+        }
+        return $registry;
     }
 
     /** Fixed definition fields used by the host's existing catalog fingerprint, not business records.

@@ -109,6 +109,15 @@ final readonly class ModuleCatalogApplier
         return (new ModuleCatalogMutationRepository($this->settings, $this->identityLifecycle))->plan($moduleKeys, $purge);
     }
 
+    /**
+     * Complete native selected contributions, shared with the catalog writer.
+     * @param array<string, ManifestDocument> $manifests
+     */
+    public function referenceCodePlan(array $manifests): array
+    {
+        return $this->referenceCodes->definitionPlan($manifests);
+    }
+
     public function catalogRevision(): string
     {
         $rows = [];
