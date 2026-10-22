@@ -15,6 +15,7 @@ final class PeanutServerUpdatePlan
 
     private static ?array $databaseStage = null;
     private static ?array $applicationPlanning = null;
+    private static ?array $sourceConfiguration = null;
 
     /** The database host owns this lock, rather than inheriting a parent's claim. */
     public static function withDatabaseMigration(string $server, string $workspace, string $operation, string $scope, PDO $pdo, callable $callback): mixed
@@ -1724,7 +1725,7 @@ final class PeanutServerUpdatePlan
                 throw new RuntimeException('configuration input requires an owner-held regular mode-0600 file');
             }
             $input = self::jsonFile($inputPath, 'configuration input');
-            if (array_diff(array_keys($input), ['setup_token', 'configuration', 'resource_registry']) !== []
+            if (array_diff(array_keys($input), ['setup_token', 'configuration', 'resource_registry', ...($sourceApplication ? ['application_source'] : [])]) !== []
                 || !is_string($input['setup_token'] ?? null) || !is_array($input['configuration'] ?? null)
                 || (array_key_exists('resource_registry', $input) && !is_array($input['resource_registry']))) {
                 throw new RuntimeException('configuration input requires setup_token, configuration and an explicit APP registry for registered databases');
@@ -1756,8 +1757,13 @@ final class PeanutServerUpdatePlan
                 if (!is_array($input['resource_registry'] ?? null)) {
                     throw new RuntimeException('source first configuration requires an explicit APP registry');
                 }
-                return (new \app\common\services\installation\InstallationConfigurationHost($serverRoot))
-                    ->configureForOwner($input['setup_token'], $configuration, $input['resource_registry']);
+                $binding = self::sourceConfigurationInput($serverRoot, $input['application_source'] ?? null);
+                if (self::$sourceConfiguration !== null) { throw new RuntimeException('source first configuration is already active'); }
+                self::$sourceConfiguration = ['root' => $serverRoot, 'pid' => getmypid(), 'binding' => $binding];
+                try {
+                    return (new \app\common\services\installation\InstallationConfigurationHost($serverRoot))
+                        ->configureForOwner($input['setup_token'], $configuration, $input['resource_registry']);
+                } finally { self::$sourceConfiguration = null; }
             }
             $identity = self::runtimeIdentity($serverRoot);
             $application = new \think\App($serverRoot);
@@ -1768,6 +1774,99 @@ final class PeanutServerUpdatePlan
         return $sourceApplication
             ? \app\common\infrastructure\scaffold\ScaffoldUpgradeRunner::sourceProductLock(dirname($serverRoot), $publish)
             : $publish();
+    }
+
+    /** The existing publisher may consume source identity only inside this real owner transaction. */
+    public static function sourceConfigurationBinding(string $serverRoot): array
+    {
+        self::sourceOwner($serverRoot);
+        self::assertApplicationSourceLock($serverRoot);
+        $context = self::$sourceConfiguration;
+        if (($context['root'] ?? null) !== $serverRoot || ($context['pid'] ?? null) !== getmypid()
+            || ($context['binding']['manifest_sha256'] ?? null) !== hash('sha256', self::regularBytes(
+                dirname($serverRoot) . '/.peanut/application-manifest.json', 'generated APP manifest'))) {
+            throw new RuntimeException('INSTALL_CONFIGURATION_SOURCE_OWNER_REQUIRED');
+        }
+        return $context['binding'];
+    }
+
+    /** Fixed APP selection, native provenance, ownership digests and recorded upstream baseline.
+     * Actual customer program bytes may differ: this is not immutable release admission.
+     */
+    private static function sourceConfigurationInput(string $serverRoot, mixed $selection): array
+    {
+        $root = dirname($serverRoot);
+        if (!is_array($selection) || count($selection) !== 6
+            || array_diff(array_keys($selection), ['commit', 'tree', 'manifest_sha256', 'generation_source', 'edition', 'profile']) !== []
+            || preg_match('/^[a-f0-9]{40}$/D', (string) ($selection['commit'] ?? '')) !== 1
+            || preg_match('/^[a-f0-9]{40}$/D', (string) ($selection['tree'] ?? '')) !== 1
+            || preg_match('/^[a-f0-9]{64}$/D', (string) ($selection['manifest_sha256'] ?? '')) !== 1) {
+            throw new RuntimeException('INSTALL_CONFIGURATION_SOURCE_SELECTION_REQUIRED');
+        }
+        $git = static function (array $arguments) use ($root): string {
+            $process = proc_open(['git', '-C', $root, ...$arguments], [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+            if (!is_resource($process)) { throw new RuntimeException('INSTALL_CONFIGURATION_SOURCE_GIT_UNAVAILABLE'); }
+            $output = stream_get_contents($pipes[1]); $error = stream_get_contents($pipes[2]); fclose($pipes[1]); fclose($pipes[2]);
+            if (proc_close($process) !== 0 || $error !== '' || !is_string($output)) { throw new RuntimeException('INSTALL_CONFIGURATION_SOURCE_GIT_REJECTED'); }
+            return $output;
+        };
+        if (trim($git(['rev-parse', '--show-toplevel'])) !== $root
+            || trim($git(['rev-parse', 'HEAD^{commit}'])) !== $selection['commit']
+            || trim($git(['rev-parse', 'HEAD^{tree}'])) !== $selection['tree']) {
+            throw new RuntimeException('INSTALL_CONFIGURATION_SOURCE_GIT_CHANGED');
+        }
+        $bytes = self::regularBytes($root . '/.peanut/application-manifest.json', 'generated APP manifest');
+        if (hash('sha256', $bytes) !== $selection['manifest_sha256']
+            || hash('sha256', $git(['show', $selection['commit'] . ':.peanut/application-manifest.json'])) !== $selection['manifest_sha256']) {
+            throw new RuntimeException('INSTALL_CONFIGURATION_SOURCE_MANIFEST_CHANGED');
+        }
+        $manifest = json_decode($bytes, true, 512, JSON_THROW_ON_ERROR);
+        $origin = $manifest['generation_source'] ?? null; $template = $manifest['template'] ?? null;
+        if (!is_array($origin) || count($origin) !== 8
+            || array_diff(array_keys($origin), ['repository', 'requested_ref', 'channel', 'release_version', 'commit', 'tree', 'inventory_sha256', 'edition_profile_sha256']) !== []
+            || !is_array($selection['generation_source'])
+            || self::databaseCanonical($origin) !== self::databaseCanonical($selection['generation_source'])
+            || !is_string($origin['repository'] ?? null) || preg_match('#^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$#D', $origin['repository']) !== 1
+            || !is_string($origin['requested_ref'] ?? null) || $origin['requested_ref'] === '' || strlen($origin['requested_ref']) > 255
+            || preg_match('/[\x00-\x20\x7f]/', $origin['requested_ref'])
+            || !in_array($origin['channel'] ?? null, ['development', 'prerelease', 'stable'], true)
+            || preg_match('/^[a-f0-9]{40}$/D', (string) ($origin['commit'] ?? '')) !== 1
+            || preg_match('/^[a-f0-9]{40}$/D', (string) ($origin['tree'] ?? '')) !== 1
+            || preg_match('/^[a-f0-9]{64}$/D', (string) ($origin['inventory_sha256'] ?? '')) !== 1
+            || ($origin['channel'] === 'development' ? ($origin['release_version'] ?? null) !== null
+                : ($origin['repository'] !== 'peanut-business/peanut-admin-code' || ($origin['release_version'] ?? null) !== ($template['version'] ?? null)))
+            || ($origin['channel'] === 'stable' && str_contains((string) $origin['release_version'], '-'))
+            || ($origin['channel'] === 'prerelease' && !str_contains((string) $origin['release_version'], '-'))
+            || ($origin['inventory_sha256'] ?? null) !== ($template['inventory_sha256'] ?? null)
+            || ($origin['edition_profile_sha256'] ?? null) !== ($manifest['edition']['source_sha256'] ?? null)
+            || ($selection['edition'] ?? null) !== ($manifest['application']['edition'] ?? null)
+            || ($selection['profile'] ?? null) !== ($manifest['application']['profile'] ?? null)
+            || ($manifest['ownership']['baseline_root'] ?? null) !== '.peanut/scaffold-baseline/' . ($template['version'] ?? '') . '/files') {
+            throw new RuntimeException('INSTALL_CONFIGURATION_SOURCE_PROJECTION_CHANGED');
+        }
+        $rows = ['managed_tree_sha256' => [], 'app_owned_tree_sha256' => []]; $seen = [];
+        foreach ($manifest['files'] ?? [] as $file) {
+            $path = \app\common\value\scaffold\ScaffoldManifest::path((string) ($file['path'] ?? ''));
+            $kind = $file['classification'] ?? null;
+            if (isset($seen[strtolower($path)]) || !in_array($kind, ['managed', 'generated-managed', 'app-owned'], true)
+                || preg_match('/^[a-f0-9]{64}$/D', (string) ($file['sha256'] ?? '')) !== 1 || !in_array($file['mode'] ?? null, [0644, 0755], true)) {
+                throw new RuntimeException('INSTALL_CONFIGURATION_SOURCE_INVENTORY_INVALID');
+            }
+            $seen[strtolower($path)] = true;
+            $rows[$kind === 'app-owned' ? 'app_owned_tree_sha256' : 'managed_tree_sha256'][] = $path . "\0" . $file['sha256'];
+        }
+        foreach ($rows as $key => $values) {
+            sort($values, SORT_STRING);
+            if (($manifest['digests'][$key] ?? null) !== hash('sha256', implode("\n", $values))) {
+                throw new RuntimeException('INSTALL_CONFIGURATION_SOURCE_INVENTORY_CHANGED');
+            }
+        }
+        // Reuse the adopter's exact upstream baseline path/mode/digest reader,
+        // not a comparison of customer source files with immutable upstream bytes.
+        \app\common\value\installation\ApplicationSourceIdentity::loadGeneratedApp($serverRoot);
+        $recorded = \app\common\value\scaffold\ScaffoldManifest::writeRecordedBaseline($root);
+        \app\common\value\scaffold\ScaffoldManifest::load($recorded, true)->assertRecordedApplication($root, $manifest, 'sha256:' . $selection['manifest_sha256']);
+        return $selection;
     }
 
     public static function closeStartupTraffic(string $serverRoot): array
