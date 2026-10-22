@@ -104,7 +104,7 @@ def terminal_registry(operation, document, project, common, registry_sha, termin
          and state.get("status") in ("COMPLETED", "UNKNOWN") and state.get("actual_process_terminal") is True
          and state.get("child_pid") is None
          and state.get("child_exit_code") == 0
-         and (not failed or isinstance(state.get("error"), str) and bool(state["error"]))
+         and (not failed or isinstance(state.get("failure"), str) and bool(state["failure"]))
          and metadata["owner"] == metadata["thread"] == state.get("owner") == operation["owner"]
          and metadata["lease"] == state.get("lease"), "historical release requires the exact stopped protect")
     digest = sha(json.dumps(operation, sort_keys=True, separators=(",", ":")).encode())
