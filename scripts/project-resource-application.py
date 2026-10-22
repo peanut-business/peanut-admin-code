@@ -96,14 +96,17 @@ def project_authority():
 
 
 def terminal_registry(operation, document, project, common, registry_sha, terminal):
-    """A completed protect can retire its original proof, never acquire a new window."""
+    """A reviewed stopped protect retires its original proof, never gains a window."""
     metadata, resources, state, reviewed = terminal
+    failed = state.get("status") == "UNKNOWN"
     need(state.get("protocol") == "peanut.application-operation-state.v1"
          and state.get("phase") == operation["phase"] == "protect"
-         and state.get("status") == "COMPLETED" and state.get("actual_process_terminal") is True
+         and state.get("status") in ("COMPLETED", "UNKNOWN") and state.get("actual_process_terminal") is True
+         and state.get("child_pid") is None
          and state.get("child_exit_code") == 0
+         and (not failed or isinstance(state.get("error"), str) and bool(state["error"]))
          and metadata["owner"] == metadata["thread"] == state.get("owner") == operation["owner"]
-         and metadata["lease"] == state.get("lease"), "historical release requires the exact completed protect")
+         and metadata["lease"] == state.get("lease"), "historical release requires the exact stopped protect")
     digest = sha(json.dumps(operation, sort_keys=True, separators=(",", ":")).encode())
     need(resources.get(CONTRACT) == {digest} and state.get("operation_sha256") == digest,
          "terminal operation digest changed")
@@ -124,13 +127,38 @@ def terminal_registry(operation, document, project, common, registry_sha, termin
          and proof.get("actual_process_terminal") is True
          and proof.get("no_pending_or_unknown") is True
          and proof.get("source_authority_at_start") is True,
-         "independent terminal review does not bind the original completed proof")
+         "independent terminal review does not bind the original stopped proof")
     jobs = proof.get("native_jobs")
     need(isinstance(jobs, list) and jobs and all(isinstance(row, dict)
          and set(row) == {"job_id", "status", "exit_code"}
          and re.fullmatch(r"wc_job_[A-Za-z0-9_-]+", row["job_id"])
-         and row["status"] == "completed" and type(row["exit_code"]) is int and row["exit_code"] == 0
-         for row in jobs), "terminal review lacks completed native Job evidence")
+         and type(row["exit_code"]) is int
+         and (row["status"] == "completed" and row["exit_code"] == 0
+              or failed and row["status"] == "failed" and row["exit_code"] == 1)
+         for row in jobs)
+         and (not failed or any(row["status"] == "failed" for row in jobs)),
+         "terminal review lacks known terminal native Job evidence")
+    if failed:
+        failure = proof.get("failed_protect", {})
+        need(set(failure) == {"state_status", "protection_accepted", "partial_outputs"}
+             and failure["state_status"] == "UNKNOWN" and failure["protection_accepted"] is False,
+             "failed protect needs explicit non-success preservation review")
+        output = canonical(operation["output_root"])
+        info = output.stat()
+        need(stat.S_ISDIR(info.st_mode) and info.st_uid == os.getuid()
+             and stat.S_IMODE(info.st_mode) == 0o700,
+             "failed protect output custody changed")
+        partial = failure["partial_outputs"]
+        need(isinstance(partial, list) and partial and all(isinstance(row, dict)
+             and set(row) == {"path", "sha256", "bytes"} for row in partial),
+             "failed protect partial-output closure missing")
+        paths = [canonical(row["path"]) for row in partial]
+        need(len(set(paths)) == len(paths) and all(path.parent == output for path in paths)
+             and set(paths) == set(output.iterdir()), "failed protect partial-output closure changed")
+        for path, row in zip(paths, partial):
+            raw_partial = regular(path, private=True)
+            need(type(row["bytes"]) is int and len(raw_partial) == row["bytes"]
+                 and sha(raw_partial) == row["sha256"], "failed protect partial bytes changed")
     original_ref = proof.get("registry_commit", "")
     need(re.fullmatch(r"[0-9a-f]{40}", original_ref), "terminal registry commit is invalid")
     git(project, "merge-base", "--is-ancestor", original_ref, "refs/remotes/origin/dev")
@@ -168,6 +196,8 @@ def terminal_registry(operation, document, project, common, registry_sha, termin
     reviewed.update(sha256=sha(raw), reviewer_thread=proof["reviewer_thread"], project_commit=ref,
                     registry_commit=original_ref, registry_sha256=original_sha, release_source=executor,
                     native_jobs=jobs)
+    if failed:
+        reviewed["failed_protect"] = failure
     return original, original_sha
 
 
@@ -246,12 +276,20 @@ def authority(operation_id, *, terminal=None):
     need(app_root != ROOT and common.parent not in app_root.parents, "application must be a separate registered Git")
     need(canonical(git(app_root, "rev-parse", "--show-toplevel").decode().strip()) == app_root,
          "application Git root changed")
-    need(git(app_root, "rev-parse", "HEAD").decode().strip() == app["commit"]
-         and git(app_root, "rev-parse", "HEAD^{tree}").decode().strip() == app["tree"],
-         "application commit/tree changed")
-    need(not git(app_root, "diff", "--name-only", "HEAD")
-         and not git(app_root, "diff", "--cached", "--name-only"), "APP tracked source changed")
-    manifest = regular(app_root / ".peanut/application-manifest.json")
+    if historical_release:
+        # Resource retirement verifies the original immutable APP record. It does
+        # not consume the APP's new source/configuration as execution authority.
+        need(git(app_root, "rev-parse", app["commit"] + "^{tree}").decode().strip() == app["tree"],
+             "original application tree changed")
+        git(app_root, "merge-base", "--is-ancestor", app["commit"], "HEAD")
+        manifest = git(app_root, "show", app["commit"] + ":.peanut/application-manifest.json")
+    else:
+        need(git(app_root, "rev-parse", "HEAD").decode().strip() == app["commit"]
+             and git(app_root, "rev-parse", "HEAD^{tree}").decode().strip() == app["tree"],
+             "application commit/tree changed")
+        need(not git(app_root, "diff", "--name-only", "HEAD")
+             and not git(app_root, "diff", "--cached", "--name-only"), "APP tracked source changed")
+        manifest = regular(app_root / ".peanut/application-manifest.json")
     need(sha(manifest) == app["manifest_sha256"], "application manifest changed")
     identity = json_unique(manifest)
     need(identity.get("protocol") == "peanut.application-scaffold.v2"
@@ -262,7 +300,10 @@ def authority(operation_id, *, terminal=None):
     for name, digest in operation["configuration"].items():
         need(name in ("server/.env", "server/private/resources/project-resources.json"),
              "unsupported private configuration binding")
-        need(sha(regular(app_root / name, private=True)) == digest, "application private configuration changed")
+        if historical_release:
+            need(re.fullmatch(r"[0-9a-f]{64}", digest), "original application configuration binding invalid")
+        else:
+            need(sha(regular(app_root / name, private=True)) == digest, "application private configuration changed")
     need(set(operation["configuration"]) == {"server/.env", "server/private/resources/project-resources.json"},
          "complete private application configuration required")
     if operation["phase"] == "maintain":

@@ -3875,7 +3875,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9328a5a7baba84993f3e6030421e11a7767a1a40cc0222d8b3c689789f09b03b"
+            "source_sha256": "f9eae5ba638d7d42cf088b9d00e108ec12c1e7d6b5a44a714e336d5b24c18a28"
         },
         {
             "path": "scripts/project-resource-lease",
