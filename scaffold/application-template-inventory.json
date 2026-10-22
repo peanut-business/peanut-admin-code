@@ -669,7 +669,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0203a33d59ae2be7d5bc72c5419051e75d36a85a690520036c9196d1e80f29c1"
+            "source_sha256": "5337a386b824feb917c69240bec5e936a800abc70837a72fff1a89a40599225c"
         },
         {
             "path": "docs/architecture/cli-and-recipes.md",
@@ -1046,6 +1046,19 @@
         {
             "path": "docs/maintenance/retained-installation-recovery.md",
             "target": "docs/maintenance/retained-installation-recovery.md",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "docs/maintenance/workflow-authorized-fixture.md",
+            "target": "docs/maintenance/workflow-authorized-fixture.md",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -4168,6 +4181,48 @@
             "source_sha256": "e1d9f34b55a6887c04407529aea097cb727cd481cf0d49747676b2afc60925b2"
         },
         {
+            "path": "scripts/task-notification-consumer",
+            "target": "scripts/task-notification-consumer",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "31af1d0f71dc7aabfd7df4372a8cfd3949f6fe2bcad313e7dcc289faae92c4cd"
+        },
+        {
+            "path": "scripts/task-notification-consumer.md",
+            "target": "scripts/task-notification-consumer.md",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "54b7bb4b6197f77e8ea8ae76170e571217d748e7ae5c788d387ff69e0b33fda6"
+        },
+        {
+            "path": "scripts/task-notification-consumer.schema.json",
+            "target": "scripts/task-notification-consumer.schema.json",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "581cf87d83e20f6f69a63a6f72b600b73c5ad3be810b4633d8a8ed7a8a1af8af"
+        },
+        {
             "path": "scripts/test-core-upgrade-public-entry-gate",
             "target": "scripts/test-core-upgrade-public-entry-gate",
             "classification": "excluded",
@@ -4429,7 +4484,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ae5b3692876e45ee9456277db8e3a439908f878ec70adcbe23609be1ed34fdf1"
+            "source_sha256": "437ec3c0c1bdc15367433daa330e0285b65f4ca845b2ae2cd590e02bdd74bcf4"
         },
         {
             "path": "scripts/tests/internal-candidate-contract-test.py",
@@ -5023,6 +5078,48 @@
                 "full"
             ],
             "source_sha256": "7ad198c421dda969f578b9c02a6bdf6f6e296e01d02dbb86eb5bce2db274deee"
+        },
+        {
+            "path": "scripts/workflow-authorized-fixture.py",
+            "target": "scripts/workflow-authorized-fixture.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "802144207c3a0b5510ec1b834753712e4ab030de7c0d6c4f0cbf1a5f8d4f83b2"
+        },
+        {
+            "path": "scripts/workflow-transition-consumer",
+            "target": "scripts/workflow-transition-consumer",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "65241543f7714f901f710e22020868f9949b0b7d8f782e985093ba7283e0b185"
+        },
+        {
+            "path": "scripts/workflow-transition-consumer.md",
+            "target": "scripts/workflow-transition-consumer.md",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "126be2f9b6d04612ec937c09006bb84622c2075c060f10650a24bd854b633498"
         },
         {
             "path": "server/.env.example",
