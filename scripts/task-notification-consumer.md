@@ -119,6 +119,9 @@ owner can identify the exact request from the journal without reopening the fixt
 One allocated HTTP is conservatively spent even if the process dies before send;
 actual transmission may be unknown. Never reuse/delete its result to retry.
 
+The completed after-receipt is fsynced separately and atomically replaces UNKNOWN;
+an interrupted final write cannot truncate the original request identity. Failed
+final persistence reports UNKNOWN, never a misleading before-HTTP refusal.
 Timeout or failed assertion remains UNKNOWN for original-owner reconciliation.
 Only `ASSERTIONS_PASSED_THIS_HTTP_ONLY` plus mandatory verified response identity
 can succeed; this is not Workflow88, delivery or business PASS. Current dispatch

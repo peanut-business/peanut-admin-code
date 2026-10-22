@@ -240,6 +240,22 @@ def reserve_journal(result, receipt):
         os.close(directory)
 
 
+def persist_result(result, receipt):
+    # Keep the original durable UNKNOWN intact until the complete after-receipt is durable.
+    temporary = result.with_name(result.name + "." + str(os.getpid()) + ".partial")
+    fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w") as stream:
+        stream.write(json.dumps(receipt, ensure_ascii=False, indent=2) + "\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temporary, result)
+    directory = os.open(result.parent, os.O_RDONLY)
+    try:
+        os.fsync(directory)
+    finally:
+        os.close(directory)
+
+
 def response_identity(step, fixture, payload):
     """Mandatory native response fields; extra JSON pointers can only add assertions."""
     if fixture["expected_status"] >= 400:
@@ -437,7 +453,11 @@ def main():
     finally:
         if connection is not None:
             connection.close()
-        result.write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + "\n")
+        try:
+            persist_result(result, receipt)
+        except Exception:
+            print(json.dumps({"outcome": "UNKNOWN", "error": "RESULT_PERSISTENCE_FAILED", "result_path": str(result)}))
+            return 2
     print(json.dumps(receipt, ensure_ascii=False))
     return 0 if receipt["outcome"] == "ASSERTIONS_PASSED_THIS_HTTP_ONLY" else 2
 
