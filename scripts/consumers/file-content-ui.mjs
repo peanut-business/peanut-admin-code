@@ -12,6 +12,12 @@ export function validateInput(c) {
   const url = new URL(c.pageUrl);
   require(['http:', 'https:'].includes(url.protocol) && !url.username && !url.password, 'PAGE_URL');
   require(!url.search && !url.hash, 'PAGE_URL_NO_SECRET_QUERY');
+  require(Array.isArray(c.pageResources) && c.pageResources.every(resource => {
+    if (!['script', 'stylesheet', 'image', 'font'].includes(resource?.type)) return false;
+    const asset = new URL(resource.url, url.origin);
+    return asset.origin === url.origin && !asset.username && !asset.password && !asset.search && !asset.hash &&
+      !/^\/(?:adminapi|api)(?:\/|$)/.test(asset.pathname);
+  }), 'EXACT_PAGE_RESOURCES');
   require(c.browser === 'mac14-profile2' || c.browser === 'codex-iab', 'BROWSER');
   require(c.browser !== 'codex-iab' || typeof c.fallbackReason === 'string' && c.fallbackReason.length > 0, 'IAB_FALLBACK_REASON');
   for (const key of ['runtime', 'sourceAdoption', 'identity', 'tenantRows', 'dataProtection', 'requestBudget', 'browserExclusive']) {
@@ -47,6 +53,10 @@ export async function runFileContentUi(page, c) {
   let previewResponses = 0;
   let downloadResponses = 0;
   const pending = new Set();
+  const authorizedDeliveries = new Set();
+  const admittedFiles = new Map();
+  const pageResources = new Set(c.pageResources.map(resource =>
+    `${resource.type}\n${new URL(resource.url, origin).href}`));
   // These are current public read endpoints, even where the host uses POST.
   const reads = new Map([
     ['/adminapi/user/info', 'POST'],
@@ -59,7 +69,7 @@ export async function runFileContentUi(page, c) {
     const request = route.request();
     const url = new URL(request.url());
     const method = request.method();
-    let allowed = url.origin === origin;
+    let allowed = url.origin === origin && Date.now() < c.expiresAt;
     if (url.pathname.startsWith('/adminapi/')) {
       apiRequests += 1;
       allowed &&= apiRequests <= c.maxApiRequests && Date.now() < c.expiresAt;
@@ -74,7 +84,18 @@ export async function runFileContentUi(page, c) {
           c.allowedFileKeys.includes(body.file_key) &&
           (body.operation === 'preview' || c.action === 'download' && body.file_key === c.file.key && body.operation === 'download_original');
       } else allowed &&= reads.get(url.pathname) === method;
-    } else allowed &&= method === 'GET' || method === 'HEAD';
+    } else if (url.pathname === '/api/storage/delivery') {
+      await Promise.all([...pending]);
+      allowed &&= method === 'GET' && identityVerified && fileVerified &&
+        ['fetch', 'xhr', 'image', 'media'].includes(request.resourceType()) &&
+        authorizedDeliveries.has(url.href);
+    } else {
+      allowed &&= method === 'GET' && (
+        request.resourceType() === 'document' && url.href === c.pageUrl ||
+        pageResources.has(`${request.resourceType()}\n${url.href}`)
+      );
+    }
+    allowed &&= Date.now() < c.expiresAt;
     if (!allowed) {
       violations.push('UNADMITTED_REQUEST');
       await route.abort('blockedbyclient');
@@ -96,11 +117,23 @@ export async function runFileContentUi(page, c) {
       check(item && item.source_sha256 === c.file.sha256 && item.verified_mime_type === c.file.mime && item.name === c.file.name, 'ACTUAL_FILE_IDENTITY_MISMATCH');
       check(item.preview_state === c.expected.state && item.can_download_original === c.expected.canDownload, 'ACTUAL_FILE_CAPABILITY_MISMATCH');
       check(item.capabilities?.viewerAdapterId === c.expected.viewerAdapterId, 'ACTUAL_ADAPTER_MISMATCH');
+      for (const visible of data.lists) admittedFiles.set(visible.file_key, visible);
       fileVerified = true;
     }
     if (path === '/adminapi/api/v1/files/resolve') {
       const request = response.request().postDataJSON();
-      if (request.file_key !== c.file.key) return;
+      const visible = admittedFiles.get(request.file_key);
+      check(visible && response.ok() && body.code === 20000 && data?.file_key === request.file_key &&
+        data.source_sha256 === visible.source_sha256 && (request.operation === 'preview' ||
+        request.file_key === c.file.key && request.operation === 'download_original'), 'ACTUAL_VISIBLE_ACCESS_INVALID');
+      const delivery = new URL(data.url, origin);
+      check(delivery.origin === origin && delivery.pathname === '/api/storage/delivery' &&
+        !delivery.username && !delivery.password && !delivery.hash, 'DELIVERY_TARGET_INVALID');
+      if (request.file_key !== c.file.key) {
+        check(data.purpose === 'preview' && (visible.can_download_original || data.bytes === 'derivative'), 'VISIBLE_PREVIEW_ORIGINAL_LEAK');
+        authorizedDeliveries.add(delivery.href);
+        return;
+      }
       check(response.ok() && body.code === 20000 && data?.file_key === c.file.key && data.source_sha256 === c.file.sha256, 'ACTUAL_ACCESS_INVALID');
       if (request.operation === 'preview') {
         check(data.purpose === 'preview' && (c.expected.canDownload || data.bytes === 'derivative'), 'PREVIEW_ORIGINAL_LEAK');
@@ -109,6 +142,7 @@ export async function runFileContentUi(page, c) {
         check(data.purpose === 'download_original' && data.bytes === 'original' && data.can_download_original === true, 'DOWNLOAD_GRANT_INVALID');
         downloadResponses += 1;
       }
+      authorizedDeliveries.add(delivery.href);
     }
   };
   const onResponse = response => {
