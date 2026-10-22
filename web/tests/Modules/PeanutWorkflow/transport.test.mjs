@@ -1,12 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createRequire } from 'node:module';
 import { createWorkflowApi } from '../../../.local/w20-tests/modules/peanut-workflow/api.js';
-
-const require = createRequire(
-  new URL('../../../package.json', import.meta.url)
-);
-const axios = require('axios');
+import { createWorkflowTransport } from '../../../.local/w20-tests/modules/peanut-workflow/transport.js';
 const task = {
   work_item_key: '9007199254740993',
   instance_key: '9007199254740994',
@@ -33,6 +28,8 @@ const task = {
 };
 const instance = {
   instance_key: task.instance_key,
+  subject_type: 'fixture.workflow-business.receipt',
+  subject_key: '9007199254740997',
   status: 'running',
   result_code: null,
   revision: 5,
@@ -40,11 +37,15 @@ const instance = {
     {
       node_execution_key: task.node_execution_key,
       label: '审批',
+      task_termination_evidence_required: false,
       status: 'active',
       revision: 4,
     },
   ],
   own_work_items: [task],
+  reassign_work_items: [
+    { work_item_key: '9007199254740998', label: '待修复席位', revision: 6 },
+  ],
   available_actions: ['withdraw', 'terminate', 'retry', 'reassign', 'resubmit'],
   event_cursor: 2,
   blocker: null,
@@ -53,38 +54,44 @@ const instance = {
 
 test('transport uses exact frozen request shapes, revision checks, bigint IDs and idempotency headers', async () => {
   const calls = [];
-  const priorAdapter = axios.defaults.adapter;
-  const priorBase = axios.defaults.baseURL;
-  axios.defaults.baseURL = '/adminapi';
-  // Model the existing host interceptor returning the server envelope.
-  const interceptor = axios.interceptors.response.use(
-    (response) => response.data
-  );
-  axios.defaults.adapter = async (config) => {
-    calls.push({
-      url: config.url,
-      body: JSON.parse(config.data),
-      key: config.headers['Idempotency-Key'],
-    });
-    return {
-      data: { code: 20000, data: instance },
-      status: 200,
-      statusText: 'OK',
-      headers: {},
-      config,
-    };
-  };
+  // Exercise the current native V1 transport; only HTTP is a synthetic fixture.
+  const transport = createWorkflowTransport({
+    baseUrl: 'https://workflow.example.test/adminapi',
+    session: () => ({ generation: 1, token: 'synthetic-test-token' }),
+    fetch: async (request) => {
+      calls.push({
+        url: new URL(request.url).pathname,
+        body: await request.json(),
+        key: request.headers.get('Idempotency-Key'),
+      });
+      return Response.json({ data: instance, meta: {} });
+    },
+  });
   try {
-    const api = createWorkflowApi();
+    const api = createWorkflowApi(transport);
     const revisions = {
       node_execution_key: task.node_execution_key,
       expected_revision: 5,
       expected_node_revision: 4,
       expected_task_revision: 3,
     };
-    await api.taskAction(task, instance, 'claim', '', 'claim-key');
+    const received = await api.taskAction(
+      task,
+      instance,
+      'claim',
+      '',
+      'claim-key'
+    );
+    assert.deepEqual(
+      received.reassign_work_items,
+      instance.reassign_work_items
+    );
+    assert.equal(
+      received.active_nodes[0].task_termination_evidence_required,
+      false
+    );
     assert.deepEqual(calls.at(-1), {
-      url: `/api/v1/workflow/tasks/${task.work_item_key}/claim`,
+      url: `/adminapi/api/v1/workflow/tasks/${task.work_item_key}/claim`,
       body: revisions,
       key: 'claim-key',
     });
@@ -103,7 +110,8 @@ test('transport uses exact frozen request shapes, revision checks, bigint IDs an
       instance,
       'complete',
       '办理完成',
-      'complete-key'
+      'complete-key',
+      { input: {} }
     );
     assert.deepEqual(calls.at(-1).body, {
       ...revisions,
@@ -148,8 +156,6 @@ test('transport uses exact frozen request shapes, revision checks, bigint IDs an
     );
     assert.equal(calls.length, 7);
   } finally {
-    axios.interceptors.response.eject(interceptor);
-    axios.defaults.adapter = priorAdapter;
-    axios.defaults.baseURL = priorBase;
+    transport.dispose();
   }
 });

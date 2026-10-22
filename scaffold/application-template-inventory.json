@@ -2484,7 +2484,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c66331636e262e38a1962c31c555b65c31fc1453ce49b4503b6c240e94747801"
+            "source_sha256": "507889838f8d606acf570063f97ef3f9cc760db904c1917b3662819bfed042cb"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2817,7 +2817,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7a666d84dddb3c5d948431bb43d034feff703757922bf7835c27698d6a909889"
+            "source_sha256": "07d9b5a7ae051f5948ab9fb5678b6d403f22ca56eea8306a2e3ebbb52ec446ff"
         },
         {
             "path": "release-versions.json",
@@ -24794,7 +24794,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f3f611b3b2cb117e3e04ba75f969c2f955dc15960d1abce3fa983e4642114cc5"
+            "source_sha256": "1d33e550bed2b61c79a276bc77dfd2ccc89db2915a8d32c6daa60ec71cdbc4c5"
         },
         {
             "path": "server/app/modules/peanut/workflow/src/Application/WorkflowUpgradePreflight.php",
@@ -24962,7 +24962,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4cd4452b67402af179033aafc0f7e5d34677f62f34e0a34705086fa5775de71b"
+            "source_sha256": "6ccc1288c472cbe482cd2a00d405121aa7925766e8523862c76a1e08ec897f3d"
         },
         {
             "path": "server/app/modules/peanut/workflow/src/Integration/ArtifactWorkflowSubjectRevisionResolver.php",
@@ -39351,7 +39351,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "48b5029e0ea85a8236ad91b745fd5f102410fdde85ea77a42ccb633c2dd2d4c2"
+            "source_sha256": "ccf680820ecfaac945d2ba26f2e9c8e0ee7f3b3175a785551bff21f2f53148cf"
         },
         {
             "path": "web/src/modules/peanut-workflow/contribution.ts",
@@ -39505,7 +39505,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3dba2365b4ed64d7a0c2376a5a9de31cc5a56143790a13d904b82a00b99bfdf8"
+            "source_sha256": "9faa7ba34756bb3136811d98fe08d714614bfb70825b1cc47309b735798e8e66"
         },
         {
             "path": "web/src/modules/peanut-workflow/runtime/WorkflowStartButton.vue",
@@ -39603,7 +39603,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dc22294c40b96752ec988147754006242e5ab90f49155795e3943ef1bd988648"
+            "source_sha256": "b928f984ba836ac05095193de5957e1e94cf260f40d00bab0325b1556ceb78f5"
         },
         {
             "path": "web/src/peanut.overrides.ts",
@@ -41073,7 +41073,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a3213a4b72983ee23a12f17a9a8a64d7cd36bcbff768b1357d720abe602709ea"
+            "source_sha256": "60cd366ebbb479f1fe46955a8b95080875a131314d7793ea836503471534af40"
         },
         {
             "path": "web/tests/Productization/TenantTitleDemoContractTest.mjs",

@@ -144,10 +144,12 @@ export interface WorkflowInstance {
   active_nodes: {
     node_execution_key: string;
     label: string;
+    task_termination_evidence_required: boolean;
     status: string;
     revision: number;
   }[];
   own_work_items: WorkItem[];
+  reassign_work_items: Pick<WorkItem, 'work_item_key' | 'label' | 'revision'>[];
   available_actions: string[];
   event_cursor: number;
   blocker: {

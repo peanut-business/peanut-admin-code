@@ -65,10 +65,25 @@ final readonly class WorkflowQueries
     {
         [$row, $graph] = $this->visibleInstance($c, $instanceKey);
         $active = Node::scope('tenant', $this->scope($c))->where('instance_id', $row['id'])->whereIn('status', ['pending', 'active', 'blocked'])->order('sequence_no')->select();
-        $nodes = array_map(static fn($n): array => ['node_execution_key' => $n['node_execution_key'], 'node_key' => $n['node_key'], 'label' => $graph->node($n['node_key'])['label'], 'type' => $n['node_type'], 'status' => $n['status'], 'revision' => (int) $n['revision'], 'cycle_no' => (int) $n['cycle_no']], $active->all());
+        $nodes = array_map(static fn($n): array => ['node_execution_key' => $n['node_execution_key'], 'node_key' => $n['node_key'], 'label' => $graph->node($n['node_key'])['label'], 'type' => $n['node_type'], 'status' => $n['status'], 'revision' => (int) $n['revision'], 'cycle_no' => (int) $n['cycle_no'], 'task_termination_evidence_required' => $n['effect_key'] !== null && $n['effect_receipt_json'] === null && $n['task_job_key'] !== null], $active->all());
         $items = $this->itemQuery($c)->where('i.id', $row['id']);
         $this->own($c, $items, null);
         $own = array_map(fn(array $item): array => $this->itemSummary($c, $item), $items->order('w.id')->select()->toArray());
+        $reassignable = [];
+        if (in_array($row['status'], ['running', 'blocked'], true)
+            && $this->allowed($c, $graph, $row['subject_key'], 'reassign', ['peanut.workflow.diagnostics.reassign'])) {
+            // Maintenance is object-authorized, independent of the maintainer's own responsibilities.
+            $pending = Db::name('workflow_work_item')->alias('w')
+                ->join('workflow_node_execution n', 'n.id=w.node_execution_id AND n.tenant_id=w.tenant_id')
+                ->where('w.tenant_id', $c->tenantContext->tenantId)->where('w.instance_id', $row['id'])
+                ->where('w.status', 'pending')->whereIn('n.status', ['active', 'blocked'])
+                ->field('w.work_item_key,w.revision,n.node_key')->order('w.id')->limit(101)->select()->toArray();
+            if (count($pending) > 100) { throw WorkflowException::blocked('Pending assignment capacity exceeded.'); }
+            $reassignable = array_map(static fn(array $item): array => [
+                'work_item_key' => $item['work_item_key'], 'revision' => (int) $item['revision'],
+                'label' => $graph->node($item['node_key'])['label'],
+            ], $pending);
+        }
         $actions = [];
         if (in_array($row['status'], ['running', 'blocked'], true)) {
             foreach (['withdraw', 'terminate', 'retry', 'reassign'] as $action) {
@@ -97,7 +112,7 @@ final readonly class WorkflowQueries
                         if ($execution['task_job_key'] !== null || $execution['people_json'] !== []) { continue 2; }
                     }
                 }
-                if ($action === 'reassign' && count(array_filter($own, static fn(array $item): bool => $item['status'] === 'pending')) === 0) { continue; }
+                if ($action === 'reassign' && $reassignable === []) { continue; }
                 $part = in_array($action, ['retry', 'reassign'], true) ? 'diagnostics' : 'instance';
                 if ($this->allowed($c, $graph, $row['subject_key'], $action, ['peanut.workflow.' . $part . '.' . $action])) {
                     $actions[] = $action;
@@ -111,7 +126,7 @@ final readonly class WorkflowQueries
         if ($row['status'] === 'blocked') {
             $blocker = ['code' => 'ACTION_BLOCKED', 'message' => $row['blocked_reason'], 'node_execution_key' => $nodes[0]['node_execution_key'] ?? ''];
         }
-        return ['instance_key' => $row['instance_key'], 'status' => $row['status'], 'result_code' => $row['result_code'], 'revision' => (int) $row['revision'], 'subject_type' => $row['subject_type'], 'subject_key' => $row['subject_key'], 'subject_revision_key' => $row['subject_revision_key'], 'active_nodes' => $nodes, 'own_work_items' => $own, 'available_actions' => $actions, 'event_cursor' => (int) Event::scope('tenant', $this->scope($c))->where('instance_id', $row['id'])->max('sequence_no'), 'blocker' => $blocker];
+        return ['instance_key' => $row['instance_key'], 'status' => $row['status'], 'result_code' => $row['result_code'], 'revision' => (int) $row['revision'], 'subject_type' => $row['subject_type'], 'subject_key' => $row['subject_key'], 'subject_revision_key' => $row['subject_revision_key'], 'active_nodes' => $nodes, 'own_work_items' => $own, 'reassign_work_items' => $reassignable, 'available_actions' => $actions, 'event_cursor' => (int) Event::scope('tenant', $this->scope($c))->where('instance_id', $row['id'])->max('sequence_no'), 'blocker' => $blocker];
     }
 
     /** Current-authorized frozen materials; preparing owner-native versions never occurs inside command transactions. */
@@ -151,7 +166,7 @@ final readonly class WorkflowQueries
             $items = $query->field('i.instance_key,i.status,i.result_code,i.revision,i.subject_type,i.subject_key,i.subject_revision_key')->order('i.id', 'desc')->page($page, $pageSize)->select()->toArray();
             foreach ($items as &$item) {
                 $item['revision'] = (int) $item['revision'];
-                $item += ['active_nodes' => [], 'own_work_items' => [], 'available_actions' => [], 'event_cursor' => 0, 'blocker' => null];
+                $item += ['active_nodes' => [], 'own_work_items' => [], 'reassign_work_items' => [], 'available_actions' => [], 'event_cursor' => 0, 'blocker' => null];
             }
         } else {
             $query = $this->itemQuery($c);

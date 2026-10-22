@@ -398,12 +398,16 @@ export function parseInstance(value: unknown): WorkflowInstance {
       row.active_nodes,
       (item) => {
         const node = record(item, 'active node');
+        if (typeof node.task_termination_evidence_required !== 'boolean')
+          throw new Error('Invalid task_termination_evidence_required');
         return {
           node_execution_key: textField(
             node.node_execution_key,
             'node_execution_key'
           ),
           label: textField(node.label, 'label'),
+          task_termination_evidence_required:
+            node.task_termination_evidence_required,
           status: textField(node.status, 'status'),
           revision: numberField(node.revision, 'revision'),
         };
@@ -411,6 +415,18 @@ export function parseInstance(value: unknown): WorkflowInstance {
       'active_nodes'
     ),
     own_work_items: list(row.own_work_items, parseTask, 'own_work_items'),
+    reassign_work_items: list(
+      row.reassign_work_items,
+      (item) => {
+        const task = record(item, 'reassign work item');
+        return {
+          work_item_key: textField(task.work_item_key, 'work_item_key'),
+          label: textField(task.label, 'label'),
+          revision: numberField(task.revision, 'revision'),
+        };
+      },
+      'reassign_work_items'
+    ),
     available_actions: strings(row.available_actions, 'available_actions'),
     event_cursor: numberField(row.event_cursor, 'event_cursor'),
     blocker: row.blocker === null ? null : parseBlocker(row.blocker),

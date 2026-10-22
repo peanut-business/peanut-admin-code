@@ -340,7 +340,7 @@
       error.value = '该操作必须填写原因';
       return;
     }
-    const reassignTask = instance.value.own_work_items.find(
+    const reassignTask = instance.value.reassign_work_items.find(
       (entry) => entry.work_item_key === reassignTaskKey.value
     );
     if (
@@ -392,7 +392,12 @@
             assignee_member_id: newAssignee.value,
             expected_task_revision: reassignTask.revision,
           };
-        } else if (action.value === 'terminate') {
+        } else if (
+          action.value === 'terminate' &&
+          prior.active_nodes.some(
+            (node) => node.task_termination_evidence_required
+          )
+        ) {
           const diagnostic = await api.diagnostics(prior.instance_key);
           const cancelledNode = diagnostic.items.find(
             (node) => node.job.status === 'cancelled'
@@ -705,9 +710,7 @@
       <template v-if="action === 'reassign' && instance">
         <el-select v-model="reassignTaskKey" aria-label="重分配工作项"
           ><el-option
-            v-for="item in instance.own_work_items.filter(
-              (entry) => entry.status === 'pending'
-            )"
+            v-for="item in instance.reassign_work_items"
             :key="item.work_item_key"
             :label="`${item.label} (${item.work_item_key})`"
             :value="item.work_item_key"
