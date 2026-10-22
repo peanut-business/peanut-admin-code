@@ -63,7 +63,7 @@ server/docker/scripts/update.sh verify --workspace=/absolute/private/upgrade-wor
 
 ### 固定Git目录生产者
 
-`scripts/prepare-fixed-git-release`只准备一个可供后续接纳的目录，不操作已安装实例。它从显式审阅的**本地Git仓或mirror**读取固定对象，核对该仓唯一的`origin`与`--allowed-origin`完全相同，再在不存在的独立`--checkout`克隆并检出精确`--commit`/`--tree`。它不联网fetch、不拉取活动APP、不采用仓内未提交文件，也不以分支或tag替代完整SHA。仓、checkout和output必须是互不嵌套的canonical绝对路径；checkout/output的父目录须已存在，目标须不存在。
+`scripts/prepare-fixed-git-release`只准备一个可供后续接纳的目录，不操作已安装实例。它从显式审阅的**本地Git仓或mirror**读取固定对象，核对该仓唯一的`origin`与`--allowed-origin`完全相同，再在不存在的独立`--checkout`克隆，并从同一本地locator显式获取精确`--commit`后核对`--tree`、检出。仅由tag保留的提交同样按完整SHA取得；tag不是选择器。它不联网fetch、不拉取活动APP、不采用仓内未提交文件，也不以分支或tag替代完整SHA。仓、checkout和output必须是互不嵌套的canonical绝对路径；checkout/output的父目录须已存在，目标须不存在。
 
 ```sh
 python3 scripts/prepare-fixed-git-release \
@@ -77,7 +77,7 @@ python3 scripts/prepare-fixed-git-release \
 
 占位值必须换成已审阅的精确来源。批准文件是普通JSON对象：`schema_version=1`、`protocol=peanut.fixed-git-build-approval.v1`、显式工具搜索`path`、`tools`及`inputs`。`tools`恰好包含`git/bash/python3/node/npm/pnpm/php`，每项记录最终解析到的绝对普通可执行文件`path`及文件`sha256`；PATH的解析结果和字节必须匹配。`inputs`恰好记录以下16个已提交文件的SHA-256：原`.peanut/application-manifest.json`、`release-versions.json`、`scripts/package-release.sh`、`scripts/package-release-files.py`、`scripts/release-dependency-locks.mjs`、`scripts/project-composer`、`server/composer.json`/`composer.lock`，以及`web/platform/pc/uniapp`各自的`package.json`与现有锁（Web为`pnpm-lock.yaml`，其余为`package-lock.json`）。批准文件摘要、APP commit/tree和allowed origin共同构成执行前的明确选择，不自动导入信任或凭据。
 
-入口先逐项核对checkout的全部tracked路径、普通文件类型、Git blob字节和mode，以及批准输入。随后仅调用**该APP自己的**`package-release.sh OUTPUT --application-root=CHECKOUT --directory-only --server-only`，复用其固定依赖安装、四端静态构建及canonical程序清单。构建使用新建私有HOME/TMPDIR和批准PATH，不继承调用者的凭据、Git配置或构建环境覆盖；执行已批准源码仍是信任决定，本入口不是进程沙箱，也不证明宿主全部依赖可复现。`--check-only`仅取得并校验新checkout，不运行构建或发布output；它不能报告完整制品通过。
+入口先逐项核对checkout的全部tracked路径、普通文件类型、Git blob字节和mode，以及批准输入。随后仅调用**该APP自己的**`package-release.sh OUTPUT --application-root=CHECKOUT --directory-only --server-only`，复用其固定依赖安装、四端静态构建及canonical程序清单。构建日志转到stderr，stdout仅返回本入口的JSON结果。构建使用新建私有HOME/TMPDIR和批准PATH，不继承调用者的凭据、Git配置或构建环境覆盖；执行已批准源码仍是信任决定，本入口不是进程沙箱，也不证明宿主全部依赖可复现。`--check-only`仅取得并校验新checkout，不运行构建或发布output；它不能报告完整制品通过。
 
 构建后重新核对源码、批准文件和工具字节；逐项比对真实server目录与`server/.peanut/release-identity.json`的文件、mode、摘要和APP身份，并要求四个浏览器入口及plugin投影存在。仅全部通过后以exclusive mkdir取得output，发布server目录及最后的0444非秘密`fixed-git-source.json`。描述符协议为`peanut.fixed-git-source.v1`，`source.kind=fixed-git`，绑定allowed repository、APP commit/tree、原APP manifest与tracked清单摘要、Edition/profile/APP版本、批准输入与工具、native build entry及生产者摘要、canonical identity/files摘要和四端静态投影；stdout返回描述符SHA-256。程序文件维持原canonical mode，后续消费者仍须用可信外部摘要重验描述符与目录，不能把只读描述符当文件系统防篡改能力。
 

@@ -93,7 +93,10 @@ def git_environment():
 
 def git(tool, root, *arguments):
     result = subprocess.run([tool, '-c', 'core.hooksPath=' + os.devnull, '-C', str(root), *arguments],
-                            env=git_environment(), capture_output=True, check=True)
+                            env=git_environment(), capture_output=True)
+    if result.returncode:
+        print(result.stderr.decode('utf-8', errors='replace'), file=sys.stderr, end='')
+        result.check_returncode()
     return result.stdout
 
 
@@ -197,6 +200,9 @@ def prepare(args):
         fail('reviewed repository commit/tree differs')
     subprocess.run([git_tool, '-c', 'core.hooksPath=' + os.devnull, 'clone', '--no-local', '--no-checkout',
                     '--no-tags', '--', str(repository), str(checkout)], env=git_environment(), check=True)
+    # A reviewed commit may be reachable only from a tag, or not from default refs.
+    # Transfer exactly that object from the same approved local locator, never a network fallback.
+    git(git_tool, checkout, 'fetch', '--no-tags', '--no-write-fetch-head', '--', str(repository), args.commit)
     git(git_tool, checkout, 'checkout', '--detach', args.commit)
     if git(git_tool, checkout, 'remote', 'get-url', '--all', 'origin').decode().splitlines() != [str(repository)]:
         fail('isolated checkout origin differs from reviewed local locator')
@@ -233,7 +239,7 @@ def prepare(args):
     print('prepare-fixed-git-release: private build staging: ' + str(work), file=sys.stderr)
     subprocess.run([tools['bash']['path'], str(checkout / ENTRY), str(stage),
                     '--application-root=' + str(checkout), '--directory-only', '--server-only'],
-                   cwd=checkout, env=environment, check=True)
+                   cwd=checkout, env=environment, stdout=sys.stderr, check=True)
     if source_inventory(git_tool, checkout, args.commit, args.tree, native) != source_rows:
         fail('source changed during native build')
     if (git(git_tool, repository, 'remote', 'get-url', '--all', 'origin').decode().splitlines() != [args.allowed_origin]
