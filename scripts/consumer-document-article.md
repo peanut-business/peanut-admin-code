@@ -27,11 +27,11 @@ Supply a mode-0600 canonical input JSON with exactly these fields:
 
 | Field | Required actual input |
 | --- | --- |
-| `runtime_root`, `source_commit` | Canonical clean Git runtime checkout and exact full current commit containing the reviewed consumer; matches native lease candidate/repository. This is not the historical source commit. |
+| `runtime_root`, `source_commit` | Canonical clean Git product runtime checkout and exact full current runtime commit; matches native lease candidate/repository. This is not the historical source commit. The separately reviewed consumer may be invoked by its independently fixed absolute path and byte digest; its source commit need not replace the product runtime/template commit. The execution owner must bind that exact consumer version in its independent admission inputs. |
 | `endpoint`, `host` | Exact HTTP origin and tenant Host; HTTP allowed only on loopback, otherwise HTTPS with default TLS verification. No guessed ports or remote localhost. |
 | `owner`, `thread`, `lease` | Current actual owner/thread and existing native lease ID. Native `show --verify-locks` must match these and ACTIVE status. No historical identity reuse. |
 | `registry` | `{"path":"/absolute/current-registry.json","sha256":"actual hash"}`; also bound by native lease. |
-| `login_response` | Canonical mode-0600 original successful login JSON, with `code=20000`, `data.access_token`, and `data.context` carrying audience `tenant`, tenant/account/member IDs. The existing session must remain valid. It is read in memory, never copied or printed. |
+| `login_response` | `{"path":"/absolute/original-private-receipt.json","sha256":"actual receipt hash","received_at":actual_original_receive_unix_seconds}`. The canonical owner-controlled, single-link mode-0600 observation receipt must have integer `status=200` and string `body_utf8`; that body is current Identity JSON `{data,meta}`. Require `data.state=authenticated`, `token_type=Bearer`, nonempty safe `access_token`, positive integer `expires_in` no greater than current producer's 900 seconds, and actual `context` string IDs with audience `tenant`. `meta.request_id` must exist but is not required to echo a client trace. Original receive time plus lifetime must still be unexpired; future times are rejected. No old `code=20000` fallback. The reference/hash/time must be bound by independent protection admission. Tokens and body stay in memory, never copied or printed. |
 | `tenant_id`, `account_id`, `member_id` | Positive actual integer identity IDs matching that login context. |
 | `article_id`, `document_id`, `expected_state_seq` | Existing owned unpublished Article/body and admitted current sequence. No historical foreign rows or fabricated fixture. First editor read verifies exact owner/body, active solo state and unpublished metadata. |
 | `request_prefix` | Unique previously unused admitted operation prefix, at most 96 characters from letters, digits, colon, underscore or hyphen. Unknown previous results must be reconciled first. |
@@ -55,11 +55,16 @@ That existing result must explicitly contain:
 - `applicable` exactly equal to the supplied `runtime_root`, `source_commit`,
   `endpoint`, `host`, `owner`, `thread`, `lease`, `tenant_id`, `account_id`,
   `member_id`, `article_id`, `document_id`, `expected_state_seq`, `scope_resource`,
-  `request_prefix`, `budget`, `registry`, and `history` fields;
+  `request_prefix`, `budget`, `registry`, `history`, and `login_response` fields;
 - `backup_files` exactly equal to the pinned protection binding's backup list.
 
 The consumer rechecks these pins, explicit admission, expiry and exact objects
-before each request. Capture success, source-review PASS, `complete=true`, table
+before each request, including the private login receipt hash, authenticated
+context and token lifetime. `received_at` is the actual original receive time
+from the runtime owner's admitted operation evidence, never file mtime, copying
+time or the current invocation time. An expired session requires a new separately
+authorized runtime-owner operation; this consumer never logs in or refreshes.
+Capture success, source-review PASS, `complete=true`, table
 names or a generic unrelated approval cannot satisfy this Gate. If the normal
 independent protection result does not yet explicitly admit these objects, stop
 and have that actual independent writer decide under its existing normal

@@ -57,6 +57,35 @@ def git(root, *args):
     return subprocess.check_output(["git", "-C", root, *args], text=True, timeout=20).strip()
 
 
+def login_token(c):
+    reference = c["login_response"]
+    require(isinstance(reference, dict) and set(reference) == {"path", "sha256", "received_at"}, "LOGIN_REFERENCE")
+    raw = regular(reference["path"], private=True)
+    require(sha(raw) == reference["sha256"], "LOGIN_RECEIPT_CHANGED")
+    receipt = json.loads(raw)
+    require(isinstance(receipt, dict) and type(receipt.get("status")) is int
+            and receipt["status"] == 200 and isinstance(receipt.get("body_utf8"), str), "LOGIN_HTTP_RECEIPT")
+    body = json.loads(receipt["body_utf8"])
+    require(isinstance(body, dict) and set(body) == {"data", "meta"}
+            and isinstance(body["data"], dict) and isinstance(body["meta"], dict)
+            and isinstance(body["meta"].get("request_id"), str) and body["meta"]["request_id"], "LOGIN_BODY")
+    data = body["data"]
+    require(set(data) == {"state", "access_token", "token_type", "expires_in", "context"}
+            and data["state"] == "authenticated" and data["token_type"] == "Bearer", "LOGIN_AUTHENTICATED")
+    ctx = data["context"]
+    require(isinstance(ctx, dict) and ctx.get("audience") == "tenant"
+            and all(isinstance(ctx.get(a), str) and ctx[a] == str(c[b]) for a, b in
+                    (("tenant_id", "tenant_id"), ("account_id", "account_id"), ("tenant_member_id", "member_id"))), "LOGIN_CONTEXT")
+    require(isinstance(data["access_token"], str) and data["access_token"]
+            and not any(x in data["access_token"] for x in ("\r", "\n")), "TOKEN")
+    received = reference["received_at"]
+    now = time.time()
+    require(type(received) in (int, float) and 0 < received <= now
+            and type(data["expires_in"]) is int and 0 < data["expires_in"] <= 900
+            and received + data["expires_in"] > now, "LOGIN_EXPIRED_OR_TIME_INVALID")
+    return data["access_token"]
+
+
 def protection_admission(c):
     protection = json.loads(pinned(c["protection"]))
     require(protection.get("expires_at", 0) > time.time(), "PROTECTION_EXPIRED")
@@ -70,7 +99,7 @@ def protection_admission(c):
             and reviewer["thread"] and reviewer["thread"] != c["thread"], "INDEPENDENT_ADMISSION_REQUIRED")
     applicable = {key: c[key] for key in ("runtime_root", "source_commit", "endpoint", "host", "owner", "thread",
                   "lease", "tenant_id", "account_id", "member_id", "article_id", "document_id",
-                  "expected_state_seq", "scope_resource", "request_prefix", "budget", "registry", "history")}
+                  "expected_state_seq", "scope_resource", "request_prefix", "budget", "registry", "history", "login_response")}
     require(admission.get("applicable") == applicable, "ADMISSION_OBJECT_MISMATCH")
     require(admission.get("expires_at", 0) > time.time(), "ADMISSION_EXPIRED")
     require(admission.get("backup_files") == protection.get("backup_files")
@@ -106,14 +135,7 @@ def validate(c):
             and c["budget"]["max_started"] == 9 <= c["budget"]["remaining"], "BUDGET")
     registry = pinned(c["registry"])
     require(isinstance(json.loads(registry), dict), "REGISTRY")
-    login = json.loads(regular(c["login_response"], private=True))
-    require(login.get("code") == 20000 and isinstance(login.get("data"), dict), "LOGIN_RESPONSE")
-    data = login["data"]
-    ctx = data.get("context", {})
-    require(ctx.get("audience") == "tenant" and all(str(ctx.get(a)) == str(c[b]) for a, b in
-            (("tenant_id", "tenant_id"), ("account_id", "account_id"), ("tenant_member_id", "member_id"))), "LOGIN_CONTEXT")
-    require(isinstance(data.get("access_token"), str) and data["access_token"]
-            and not any(x in data["access_token"] for x in ("\r", "\n")), "TOKEN")
+    token = login_token(c)
     h = c["history"]
     require(isinstance(h, dict) and set(h) == {"revision_id", "expected"}
             and type(h["revision_id"]) is int and h["revision_id"] > 0, "HISTORY")
@@ -130,10 +152,11 @@ def validate(c):
     output = Path(c["output"])
     require(output.is_absolute() and output.parent.resolve() == output.parent and not output.exists()
             and not output.is_symlink(), "NEW_OUTPUT_REQUIRED")
-    return data["access_token"]
+    return token
 
 
 def verify_grant(c):
+    login_token(c)
     pinned(c["registry"])
     protection_admission(c)
     env = dict(os.environ, PEANUT_RESOURCE_REGISTRY=c["registry"]["path"])
