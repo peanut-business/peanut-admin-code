@@ -288,7 +288,10 @@ jobs:
           set -Eeuo pipefail
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           version="$(node -p "JSON.parse(require('node:fs').readFileSync('release-versions.json','utf8')).scaffold_template")"
-          scripts/publish-github-release "$version" \
+          publisher=(scripts/publish-github-release "$version")
+          # The publisher validates the exact semver and keeps prereleases off latest.
+          if [[ "${version%%+*}" == *-* ]]; then publisher+=(--prerelease); fi
+          "${publisher[@]}" \
             --qualification "$RUNNER_TEMP/qualified-release/qualification/summary.json" \
             --template-artifacts "$RUNNER_TEMP/qualified-release/scaffold-templates" \
             --main-integration="$RUNNER_TEMP/qualified-release/qualification/main-integration.json" \
