@@ -42,8 +42,10 @@ class Session:
         self.port, self.host, self.events = port, host, events
         self.token = ''
         self.cookie = ''
+        self.response_request_ids = ()
 
     def request(self, method: str, path: str, data=None, *, statuses=(200,), token=None, label=None, headers=None):
+        self.response_request_ids = ()
         require(path.startswith('/') and not path.startswith('//'), 'HTTP_PATH')
         hs = {'Host': self.host, 'Accept': 'application/json', 'User-Agent': 'PeanutOwnedBusinessProbe/1.0', 'Origin': 'http://' + self.host, 'Sec-Fetch-Site': 'same-origin'}
         active = self.token if token is None else token
@@ -60,6 +62,8 @@ class Session:
         try:
             connection.request(method, path, body, hs)
             response = connection.getresponse()
+            self.response_request_ids = tuple(value for name, value in response.getheaders()
+                                              if name.lower() == 'x-request-id')
             raw = response.read(2_000_001)
             require(len(raw) <= 2_000_000, 'HTTP_RESPONSE_TOO_LARGE')
             cookie = response.getheader('Set-Cookie')
