@@ -57,6 +57,29 @@ def git(root, *args):
     return subprocess.check_output(["git", "-C", root, *args], text=True, timeout=20).strip()
 
 
+def protection_admission(c):
+    protection = json.loads(pinned(c["protection"]))
+    require(protection.get("expires_at", 0) > time.time(), "PROTECTION_EXPIRED")
+    # Consume an actual independent operation-admission result, not an author's
+    # complete=true assertion, source review or a successful backup capture alone.
+    admission = json.loads(pinned(protection["independent_review"]))
+    require(admission.get("execution_admitted") is True
+            and admission.get("purpose") == "ordinary_document_article_consumer", "PROTECTION_NOT_ADMITTED")
+    reviewer = admission.get("reviewer", {})
+    require(reviewer.get("independent_of_change") is True and isinstance(reviewer.get("thread"), str)
+            and reviewer["thread"] and reviewer["thread"] != c["thread"], "INDEPENDENT_ADMISSION_REQUIRED")
+    applicable = {key: c[key] for key in ("runtime_root", "source_commit", "endpoint", "host", "owner", "thread",
+                  "lease", "tenant_id", "account_id", "member_id", "article_id", "document_id",
+                  "expected_state_seq", "scope_resource", "request_prefix", "budget", "registry", "history")}
+    require(admission.get("applicable") == applicable, "ADMISSION_OBJECT_MISMATCH")
+    require(admission.get("expires_at", 0) > time.time(), "ADMISSION_EXPIRED")
+    require(admission.get("backup_files") == protection.get("backup_files")
+            and isinstance(protection.get("backup_files"), list) and protection["backup_files"], "ADMITTED_BACKUPS")
+    for file in protection["backup_files"]:
+        pinned(file)
+    return protection
+
+
 def validate(c):
     required = {"runtime_root", "source_commit", "endpoint", "host", "owner", "thread", "lease",
                 "registry", "login_response", "tenant_id", "account_id", "member_id", "article_id",
@@ -96,16 +119,11 @@ def validate(c):
             and type(h["revision_id"]) is int and h["revision_id"] > 0, "HISTORY")
     require(set(h["expected"]) == {"structured_content", "source_state_seq", "digest", "references", "confirmed"}
             and h["expected"]["confirmed"] is True, "HISTORY_EXPECTED")
-    protection = json.loads(pinned(c["protection"]))
+    protection = protection_admission(c)
     # This fixed, separately reviewed input binds actual backup files and closure.
     # Native lease verification below remains authoritative; this cannot mint one.
     for key in ("source_commit", "endpoint", "tenant_id", "article_id", "document_id", "expected_state_seq", "scope_resource"):
         require(protection.get(key) == c[key], "PROTECTION_BINDING")
-    require(protection.get("expires_at", 0) > time.time(), "PROTECTION_EXPIRED")
-    require(isinstance(protection.get("backup_files"), list) and protection["backup_files"], "BACKUP_FILES")
-    for file in protection["backup_files"]:
-        pinned(file)
-    pinned(protection["independent_review"])
     require(isinstance(c["scope_resource"], str) and c["scope_resource"].startswith("mysql-access="), "SHARED_SCOPE")
     scope = json.loads(c["scope_resource"].split("=", 1)[1])
     require(scope.get("complete") is True and isinstance(scope.get("tables"), list) and scope["tables"], "COMPLETE_SCOPE")
@@ -117,7 +135,7 @@ def validate(c):
 
 def verify_grant(c):
     pinned(c["registry"])
-    require(json.loads(pinned(c["protection"]))["expires_at"] > time.time(), "PROTECTION_EXPIRED")
+    protection_admission(c)
     env = dict(os.environ, PEANUT_RESOURCE_REGISTRY=c["registry"]["path"])
     p = subprocess.run(["bash", "scripts/project-resource-lease", "show", "--lease", c["lease"], "--verify-locks"],
                        cwd=c["runtime_root"], env=env, capture_output=True, text=True, timeout=30)
@@ -149,8 +167,17 @@ def execute(c, token):
         require(git(c["runtime_root"], "rev-parse", "HEAD") == c["source_commit"], "SOURCE_CHANGED")
         require(git(c["runtime_root"], "status", "--porcelain") == "", "DIRTY_RUNTIME")
         verify_grant(c)
+        request = {"method": method, "path": path, "state": "started", "http_request_id": c["request_prefix"],
+                   "tenant_id": c["tenant_id"], "article_id": c["article_id"], "document_id": c["document_id"]}
+        if method == "POST":
+            require(isinstance(payload, dict) and isinstance(payload.get("request_id"), str)
+                    and re.fullmatch(r"[A-Za-z0-9:_-]{1,128}", payload["request_id"]) is not None, "POST_REQUEST_ID")
+            request["request_id"] = payload["request_id"]
+            request["input_sha256"] = sha(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode())
+            if "expected_state_seq" in payload:
+                request["expected_state_seq"] = payload["expected_state_seq"]
         count += 1
-        event({"request": count, "method": method, "path": path, "state": "started"})
+        event({"request": count, **request})  # flush+fsync completes BEFORE connection construction/send.
         u = urllib.parse.urlsplit(c["endpoint"])
         connection = (http.client.HTTPSConnection if u.scheme == "https" else http.client.HTTPConnection)(u.hostname, u.port, timeout=20)
         try:

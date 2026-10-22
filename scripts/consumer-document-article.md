@@ -15,8 +15,10 @@ python3 scripts/consumer-document-article --input /absolute/private-input.json -
 The first command reads local files and Git only. `--execute` verifies the existing
 native resource lease before creating its journal and before every request. A
 missing input or rejected initial grant produces no journal or network request.
-The journal records request-start before HTTP; it contains hashes and statuses,
-never tokens or response bodies. Existing output is refused. Any unknown result
+The journal flushes and fsyncs request-start before constructing the connection or
+sending HTTP. Each POST records its exact `request_id`, canonical full-input
+SHA-256, tenant/Article/Document IDs, expected sequence when applicable, and HTTP
+correlation ID. It contains no tokens or content bodies. Existing output is refused. Any unknown result
 stops; reconcile the original request IDs and actual rows instead of rerunning or
 changing the prefix. There is no automatic retry, redirect, cleanup mutation or
 restore. A successful run leaves its own current content at the new CAS seed A.
@@ -43,11 +45,28 @@ The separate protection binding must equal the input's `source_commit`,
 `endpoint`, `tenant_id`, `article_id`, `document_id`, `expected_state_seq`, and
 `scope_resource`. It also contains an unexpired Unix `expires_at`, nonempty
 `backup_files` list of pinned file references, and a pinned `independent_review`
-reference. These files are verified by hash; their bytes are not a new backup or
-an independent review performed by this script. The live owner must consume the
-actual approved backup/review and full table existence/FK/trigger/row closure
-through the normal protection contract before supplying this binding. A local
-validation success proves neither recoverability nor resource health or grant.
+reference to the **actual independent operation-protection admission result**.
+That existing result must explicitly contain:
+
+- `execution_admitted: true`, `purpose: "ordinary_document_article_consumer"`,
+  and an unexpired Unix `expires_at`;
+- `reviewer.independent_of_change: true` and its actual nonempty `reviewer.thread`,
+  different from the consumer thread;
+- `applicable` exactly equal to the supplied `runtime_root`, `source_commit`,
+  `endpoint`, `host`, `owner`, `thread`, `lease`, `tenant_id`, `account_id`,
+  `member_id`, `article_id`, `document_id`, `expected_state_seq`, `scope_resource`,
+  `request_prefix`, `budget`, `registry`, and `history` fields;
+- `backup_files` exactly equal to the pinned protection binding's backup list.
+
+The consumer rechecks these pins, explicit admission, expiry and exact objects
+before each request. Capture success, source-review PASS, `complete=true`, table
+names or a generic unrelated approval cannot satisfy this Gate. If the normal
+independent protection result does not yet explicitly admit these objects, stop
+and have that actual independent writer decide under its existing normal
+protection contract; do not manufacture an approval or rewrite a failed result.
+This is a narrow consumer of that result, not a backup/review/admission producer.
+Actual table existence, FK/trigger/row closure and recoverability remain the
+independent protection Gate's responsibility; local checks do not prove them.
 
 The nine requests are editor read, historical detail read, two different ordinary
 Article document-ensure requests, one normal CAS seed save, a stale-sequence save
