@@ -974,7 +974,7 @@ SELECT JSON_OBJECT(
   'server_port', @@port,
   'version', VERSION(),
   'principal', CURRENT_USER(),
-  'active_roles', CURRENT_ROLE(),
+  'active_roles', CAST(CURRENT_ROLE() AS CHAR CHARACTER SET utf8mb4),
   'partial_revokes', @@GLOBAL.partial_revokes,
   'schema_rows', (SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = '{schema}'),
   'tables_views', (SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = '{schema}'),
