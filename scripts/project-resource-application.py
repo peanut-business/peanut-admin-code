@@ -95,7 +95,83 @@ def project_authority():
     return registry, resolver["maintainer_project"](), resolver, registry_sha
 
 
-def authority(operation_id):
+def terminal_registry(operation, document, project, common, registry_sha, terminal):
+    """A completed protect can retire its original proof, never acquire a new window."""
+    metadata, resources, state, reviewed = terminal
+    need(state.get("protocol") == "peanut.application-operation-state.v1"
+         and state.get("phase") == operation["phase"] == "protect"
+         and state.get("status") == "COMPLETED" and state.get("actual_process_terminal") is True
+         and state.get("child_exit_code") == 0
+         and metadata["owner"] == metadata["thread"] == state.get("owner") == operation["owner"]
+         and metadata["lease"] == state.get("lease"), "historical release requires the exact completed protect")
+    digest = sha(json.dumps(operation, sort_keys=True, separators=(",", ":")).encode())
+    need(resources.get(CONTRACT) == {digest} and state.get("operation_sha256") == digest,
+         "terminal operation digest changed")
+    path = canonical(operation["terminal_review"]["path"])
+    need(project in path.parents, "terminal review must belong to the registered Project")
+    raw = regular(path, private=True)
+    ref = git(project, "rev-parse", "HEAD").decode().strip()
+    need(git(project, "show", ref + ":" + str(path.relative_to(project))) == raw,
+         "terminal review must be the exact versioned Project result")
+    proof = json_unique(raw)
+    directory = common / "peanut-admin-resource-leases/leases" / metadata["lease"]
+    need(proof.get("verdict") == "SAFE_TO_RELEASE" and proof.get("lease") == metadata["lease"]
+         and proof.get("state_sha256") == sha(regular(directory / STATE, private=True))
+         and proof.get("metadata_sha256") == sha(regular(directory / "metadata.tsv"))
+         and proof.get("resources_sha256") == sha(regular(directory / "resources.tsv"))
+         and proof.get("operation_sha256") == digest
+         and proof.get("reviewer_thread") not in (None, "", metadata["owner"])
+         and proof.get("actual_process_terminal") is True
+         and proof.get("no_pending_or_unknown") is True
+         and proof.get("source_authority_at_start") is True,
+         "independent terminal review does not bind the original completed proof")
+    jobs = proof.get("native_jobs")
+    need(isinstance(jobs, list) and jobs and all(isinstance(row, dict)
+         and set(row) == {"job_id", "status", "exit_code"}
+         and re.fullmatch(r"wc_job_[A-Za-z0-9_-]+", row["job_id"])
+         and row["status"] == "completed" and type(row["exit_code"]) is int and row["exit_code"] == 0
+         for row in jobs), "terminal review lacks completed native Job evidence")
+    original_ref = proof.get("registry_commit", "")
+    need(re.fullmatch(r"[0-9a-f]{40}", original_ref), "terminal registry commit is invalid")
+    git(project, "merge-base", "--is-ancestor", original_ref, "refs/remotes/origin/dev")
+    need(git(project, "show", original_ref + ":repos.yaml") == git(project, "show", "HEAD:repos.yaml"),
+         "original published repository mapping changed")
+    original_raw = git(project, "show", original_ref + ":resources/project-resources.json")
+    original_sha = sha(original_raw)
+    need(resources.get("registry-sha256") == {original_sha} and proof.get("registry_sha256") == original_sha,
+         "terminal registry blob differs from the original lease")
+    original = json_unique(original_raw)
+    need(original.get("schema_version") == 1 and original.get("project_id") == document.get("project_id")
+         and original.get("authority", {}).get("role") == "maintainer",
+         "terminal registry is not the original maintainer document")
+    matches = [row for row in original["resources"].get("application_operations", [])
+               if row.get("stable_resource_id") == operation["stable_resource_id"]]
+    need(matches == [operation], "original published operation differs")
+    head = git(ROOT, "rev-parse", "HEAD").decode().strip()
+    primary = common.parent
+    need(git(primary, "branch", "--show-current").strip() == b"dev"
+         and git(primary, "rev-parse", "HEAD").strip() == git(primary, "rev-parse", "refs/remotes/origin/dev").strip(),
+         "release executor needs normally delivered Code dev")
+    git(ROOT, "merge-base", "--is-ancestor", operation["tool_source"]["commit"], head)
+    git(ROOT, "merge-base", "--is-ancestor", head, "refs/remotes/origin/dev")
+    required = {"scripts/project-resource-lease", "scripts/project-resource-application.py", "scripts/project-resource-registry"}
+    executor = proof.get("release_source", {})
+    need(set(executor) == {"root", "common_dir", "commit", "files"}
+         and executor["root"] == str(ROOT) and executor["common_dir"] == str(common)
+         and executor["commit"] == head and set(executor["files"]) == required
+         and not git(ROOT, "status", "--porcelain=v1", "--untracked-files=all"),
+         "terminal review does not bind the clean published release executor")
+    for name, digest in executor["files"].items():
+        raw_file = regular(ROOT / name)
+        need(sha(raw_file) == digest and git(ROOT, "show", head + ":" + name) == raw_file,
+             "release executor fingerprint changed")
+    reviewed.update(sha256=sha(raw), reviewer_thread=proof["reviewer_thread"], project_commit=ref,
+                    registry_commit=original_ref, registry_sha256=original_sha, release_source=executor,
+                    native_jobs=jobs)
+    return original, original_sha
+
+
+def authority(operation_id, *, terminal=None):
     need(re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", operation_id), "invalid application operation ID")
     common = canonical(git(ROOT, "rev-parse", "--path-format=absolute", "--git-common-dir").decode().strip())
     registry, project, resolver, registry_sha = project_authority()
@@ -104,6 +180,11 @@ def authority(operation_id):
     matches = [row for row in operations if row.get("stable_resource_id") == operation_id]
     need(len(matches) == 1, "application operation is not uniquely registered")
     operation = matches[0]
+    registry_document = resolver["load_registry"]()
+    historical_release = terminal is not None and (
+        terminal[1].get("registry-sha256") != {registry_sha} or operation["tool_source"]["root"] != str(ROOT))
+    if historical_release:
+        registry_document, registry_sha = terminal_registry(operation, registry_document, project, common, registry_sha, terminal)
     need(operation.get("protocol") == PROTOCOL and operation.get("phase") in ("protect", "install", "maintain"),
          "unsupported application operation")
     required_keys = {"stable_resource_id", "protocol", "phase", "tool_source", "application",
@@ -142,18 +223,20 @@ def authority(operation_id):
         need(sha(regular(canonical(operation["credentials"]["path"]), private=True))
              == operation["credentials"]["sha256"], "fixed installation credential file changed")
     tool = operation["tool_source"]
-    need(canonical(tool["root"]) == ROOT and canonical(tool["common_dir"]) == common,
+    tool_root = canonical(tool["root"]) if historical_release else ROOT
+    need(canonical(tool["root"]) == tool_root and canonical(tool["common_dir"]) == common
+         and canonical(git(tool_root, "rev-parse", "--path-format=absolute", "--git-common-dir").decode().strip()) == common,
          "registered central source/common-dir mismatch")
     need(common == canonical(str(common.parent / ".git")) and common.parent.name == "peanut-admin-code",
          "application operation must use the central Code lock registry")
-    need(git(ROOT, "rev-parse", "HEAD").decode().strip() == tool["commit"], "operation tool commit changed")
-    need(not git(ROOT, "status", "--porcelain=v1", "--untracked-files=all"), "operation tool source must be clean")
+    need(git(tool_root, "rev-parse", "HEAD").decode().strip() == tool["commit"], "operation tool commit changed")
+    need(not git(tool_root, "status", "--porcelain=v1", "--untracked-files=all"), "operation tool source must be clean")
     required = {"scripts/project-resource-lease", "scripts/project-resource-application.py",
                 "scripts/project-resource-registry"}
     need(set(tool["files"]) == required, "operation tool closure differs")
     for name, digest in tool["files"].items():
-        raw = regular(ROOT / name)
-        need(sha(raw) == digest and git(ROOT, "show", tool["commit"] + ":" + name) == raw,
+        raw = regular(tool_root / name)
+        need(sha(raw) == digest and git(tool_root, "show", tool["commit"] + ":" + name) == raw,
              "operation tool file changed")
     need(operation["owner"] == operation["thread"], "operation requires its real native owner/thread")
     need(type(operation["max_seconds"]) is int and 60 <= operation["max_seconds"] <= 3600,
@@ -205,7 +288,7 @@ def authority(operation_id):
         need(set(operation["installation"]) == {"installed.json", "baseline.json"},
              "complete installed APP anchors required")
     db = operation["database"]
-    db_matches = [row for row in resolver["load_registry"]()["resources"]["databases"]
+    db_matches = [row for row in registry_document["resources"]["databases"]
                   if row.get("stable_resource_id") == db["resource_id"]]
     need(len(db_matches) == 1, "operation database is not uniquely registered")
     registered = db_matches[0]
@@ -221,7 +304,8 @@ def authority(operation_id):
     for name in ("output_root", "receipt_root"):
         path = canonical(operation[name])
         need(path.parent.is_dir() and path != app_root and app_root not in path.parents
-             and path != ROOT and ROOT not in path.parents, "operation output overlaps source")
+             and path != ROOT and ROOT not in path.parents
+             and path != tool_root and tool_root not in path.parents, "operation output overlaps source")
     retained_parent(operation, common, require_live=False)
     return operation, sha(json.dumps(operation, sort_keys=True, separators=(",", ":")).encode()), common, registry_sha
 
@@ -370,10 +454,10 @@ def expected_resources(operation, digest, registry_sha):
     return result
 
 
-def validate(metadata, resources, *, allow_expired_parent=False):
+def validate(metadata, resources, *, allow_expired_parent=False, terminal=None):
     ids = resources.get(BINDING, set())
     need(len(ids) == 1, "application operation binding is ambiguous")
-    operation, digest, common, registry_sha = authority(next(iter(ids)))
+    operation, digest, common, registry_sha = authority(next(iter(ids)), terminal=terminal)
     app = operation["application"]
     need(metadata["candidate"] == app["commit"] and metadata["candidate_repository"] == app["root"]
          and metadata["worktree"] == app["root"] and metadata["owner"] == operation["owner"]
@@ -387,7 +471,7 @@ def validate(metadata, resources, *, allow_expired_parent=False):
     return operation, common
 
 
-def lease(lease_id, allow_expired=False, *, recovery_step=None):
+def lease(lease_id, allow_expired=False, *, recovery_step=None, terminal_review=None):
     need(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", lease_id), "invalid operation lease ID")
     common = canonical(git(ROOT, "rev-parse", "--path-format=absolute", "--git-common-dir").decode().strip())
     directory = common / "peanut-admin-resource-leases/leases" / lease_id
@@ -395,7 +479,8 @@ def lease(lease_id, allow_expired=False, *, recovery_step=None):
     resources = resource_map(table(directory / "resources.tsv", 3))
     state = live_state(directory) if recovery_step in ("restore", "open") else None
     recovering = bool(state and state.get("recovery"))
-    operation, expected_common = validate(metadata, resources, allow_expired_parent=allow_expired or recovering)
+    terminal = (metadata, resources, live_state(directory), terminal_review) if terminal_review is not None else None
+    operation, expected_common = validate(metadata, resources, allow_expired_parent=allow_expired or recovering, terminal=terminal)
     need(expected_common == common and metadata["lease"] == lease_id and metadata["status"] == "ACTIVE",
          "operation lease storage mismatch")
     retained_guard(operation, common, lease_id, expires=int(metadata["expires_at"]),
@@ -1420,7 +1505,10 @@ def main():
                 save(receipt, dict(value, actual_process_terminal=True))
                 (directory / STATE).unlink()
                 return
-            operation, _, _ = lease(args.lease, allow_expired=True)
+            reviewed = {}
+            operation, _, _ = lease(args.lease, allow_expired=True, terminal_review=reviewed)
+            if reviewed:
+                value["terminal_release_review"] = reviewed
             if value["status"] != "COMPLETED" or value["actual_process_terminal"] is not True:
                 review = operation.get("terminal_review")
                 need(isinstance(review, dict), "UNKNOWN needs a registered independent terminal review")
