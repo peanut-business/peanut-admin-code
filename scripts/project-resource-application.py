@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 import re
 import runpy
+import shlex
 import stat
 import subprocess
 import sys
@@ -220,7 +221,7 @@ def authority(operation_id, *, terminal=None):
     required_keys = {"stable_resource_id", "protocol", "phase", "tool_source", "application",
                      "owner", "thread", "max_seconds", "database", "configuration", "output_root",
                      "receipt_root", "php_executable", "terminal_review"}
-    required_keys |= {"protect": {"backup_client"}, "install": {"protection", "credentials"},
+    required_keys |= {"protect": {"backup_client"}, "install": {"protection", "credentials", "metadata_readonly"},
                       "maintain": {"maintenance", "installation"}}[operation["phase"]]
     if "retained_authority" in operation:
         required_keys.add("retained_authority")
@@ -342,6 +343,8 @@ def authority(operation_id, *, terminal=None):
          and registered["allocation_evidence"]["server_uuid"] == db["server_uuid"], "database allocation identity changed")
     need(db["environment"] in registered["environments"] and db["consumer"] == "host"
          and registered.get("environment") != "production", "operation is not dedicated development")
+    if operation["phase"] == "install":
+        install_metadata_contract(operation, registry_document, registered)
     for name in ("output_root", "receipt_root"):
         path = canonical(operation[name])
         need(path.parent.is_dir() and path != app_root and app_root not in path.parents
@@ -484,6 +487,9 @@ def expected_resources(operation, digest, registry_sha):
             "application-env-sha256": {operation["configuration"]["server/.env"]}}
     if "retained_authority" in operation:
         result["retained-parent"] = {json.dumps(operation["retained_authority"], sort_keys=True, separators=(",", ":"))}
+    if operation["phase"] == "install":
+        result["tooling-resource-id"] = {operation["metadata_readonly"]["tool"]}
+        result["workflow-session"] = {operation["metadata_readonly"]["session"]}
     if operation["phase"] == "maintain":
         m = operation["maintenance"]
         result["workflow-session"] = {m["session"]}
@@ -957,6 +963,132 @@ def command(operation, directory, value, lease_id, argv, *, accepted=(0,), envir
 
 
 
+def install_metadata_sql(schema):
+    need(re.fullmatch(r"[a-z][a-z0-9_]{0,63}", schema), "metadata requires one literal schema")
+    return f"""USE `{schema}`;
+SELECT JSON_OBJECT(
+  'observed_at_utc', UTC_TIMESTAMP(6),
+  'connection_id', CONNECTION_ID(),
+  'database', DATABASE(),
+  'server_uuid', @@server_uuid,
+  'server_port', @@port,
+  'version', VERSION(),
+  'principal', CURRENT_USER(),
+  'active_roles', CURRENT_ROLE(),
+  'partial_revokes', @@GLOBAL.partial_revokes,
+  'schema_rows', (SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = '{schema}'),
+  'tables_views', (SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = '{schema}'),
+  'triggers', (SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA = '{schema}'),
+  'routines', (SELECT COUNT(*) FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA = '{schema}'),
+  'events', (SELECT COUNT(*) FROM information_schema.EVENTS WHERE EVENT_SCHEMA = '{schema}')
+) AS exact_metadata;
+SHOW GRANTS FOR CURRENT_USER();"""
+
+
+def install_metadata_contract(operation, document, registered):
+    contract, db = operation["metadata_readonly"], operation["database"]
+    need(set(contract) == {"tool", "sql_sha256", "session"}
+         and re.fullmatch(r"wc_sess_[A-Za-z0-9_-]+", contract["session"]),
+         "closed install metadata contract differs")
+    tools = [row for row in document["resources"].get("tooling", [])
+             if row.get("stable_resource_id") == contract["tool"]]
+    need(len(tools) == 1, "install metadata tool is not uniquely registered")
+    tool = tools[0]
+    need(tool.get("execution_scope") == "same-install-operation-schema"
+         and "required_management_locks" not in tool
+         and tool.get("owner") == operation["owner"] == operation["thread"]
+         and tool.get("database_resource_id") == db["resource_id"]
+         and tool.get("database") == db["name"]
+         and tool.get("namespace") == db["name"]
+         and tool.get("port") == db["upstream_endpoint"]["port"]
+         and tool.get("version") == "MySQL" + db["version"]
+         and tool.get("transport") == "ssh-docker-exec"
+         and tool.get("fallback") == "none"
+         and db["environment"] in tool.get("environments", []), "install metadata scope differs")
+    client = registered["management_entry"]
+    for key in ("ssh_command", "ssh_alias", "docker_command", "container_name", "mysql_command"):
+        need(tool.get(key) == client[key], "install metadata transport differs from registered database")
+    need(canonical(client["ssh_command"]).is_file()
+         and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", client["ssh_alias"])
+         and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", client["container_name"]),
+         "install metadata client identity invalid")
+    for key in ("docker_command", "mysql_command"):
+        path = Path(client[key])
+        need(path.is_absolute() and ".." not in path.parts
+             and not any(ord(char) < 32 for char in str(path)), "metadata remote client path invalid")
+    sql = tool["SQL_templates"]["metadata_readonly"]
+    need(set(tool["SQL_templates"]) == {"metadata_readonly"}
+         and sha(sql.encode()) == contract["sql_sha256"], "fixed metadata SQL hash differs")
+    # Only whole-line comments and the original result-column alias may differ.
+    executable = "\n".join(line for line in sql.splitlines() if not line.lstrip().startswith("--")).strip()
+    executable = re.sub(r"AS exact_(?:mt|st)_metadata;", "AS exact_metadata;", executable)
+    need(executable == install_metadata_sql(db["name"]), "metadata SQL is not the closed exact-schema SELECT")
+    return client, sql
+
+
+def install_metadata(operation, directory, value, lease_id):
+    # Run once inside the existing exclusive install schema window. No separate
+    # management lease, released witness file, or server/retained-parent lock.
+    _, _, _, registry_sha = authority(operation["stable_resource_id"])
+    registry, _, resolver, current_sha = project_authority()
+    need(current_sha == registry_sha, "metadata authority changed")
+    document = resolver["load_registry"]()
+    registered = next(row for row in document["resources"]["databases"]
+                      if row.get("stable_resource_id") == operation["database"]["resource_id"])
+    client, sql = install_metadata_contract(operation, document, registered)
+    need("metadata_readonly" not in value, "metadata observation already consumed")
+    value["metadata_readonly"] = {"status": "DISPATCHING", "sql_sha256": sha(sql.encode())}
+    save(directory / STATE, value)
+    mysql = [client["mysql_command"], "--no-defaults", "--no-login-paths", "--connect-timeout=5",
+             "--batch", "--raw", "--skip-column-names", "-uroot", "--database=" + operation["database"]["name"]]
+    inside = ('MYSQL_PWD=${MYSQL_ROOT_PASSWORD:?}; export MYSQL_PWD; exec '
+              + shlex.join(["/usr/bin/timeout", "-k", "5s", "60s", *mysql]))
+    remote = shlex.join([client["docker_command"], "exec", "-i", client["container_name"],
+                         "/usr/bin/timeout", "-k", "5s", "65s", "/bin/sh", "-c", inside])
+    raw = command(operation, directory, value, lease_id,
+                  [client["ssh_command"], "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes",
+                   "-o", "ConnectTimeout=5", "-o", "ServerAliveInterval=5", "-o", "ServerAliveCountMax=3",
+                   client["ssh_alias"], remote], input_bytes=sql.encode())
+    # Preserve raw identity/grants privately even when validation below refuses.
+    witness = canonical(operation["receipt_root"]) / (lease_id + ".metadata-private.json")
+    need(not witness.exists() and not witness.is_symlink(), "metadata witness already exists")
+    save(witness, {"protocol": "peanut.install-metadata-readonly.v1", "lease": lease_id,
+                   "owner": value["owner"], "operation_sha256": value["operation_sha256"],
+                   "registry_sha256": registry_sha, "sql_sha256": sha(sql.encode()), "stdout": raw.decode()})
+    lines = raw.decode().splitlines()
+    need(len(lines) >= 2, "metadata identity/grants output incomplete")
+    result = json_unique(lines[0])
+    db = operation["database"]
+    need(result["database"] == db["name"] and result["server_uuid"] == db["server_uuid"]
+         and result["version"] == db["version"] and result["server_port"] == 3306
+         and type(result["schema_rows"]) is int and result["schema_rows"] == 1
+         and result["principal"] == "root@localhost"
+         and result["active_roles"] == "NONE" and result["partial_revokes"] == 0,
+         "metadata identity/roles/revocations require reconciliation")
+    privileges = set()
+    for grant in lines[1:]:
+        match = re.fullmatch(r"GRANT (.+) ON (.+) TO (.+?)(?: WITH GRANT OPTION)?", grant)
+        need(match is not None and match[3] in ("`root`@`localhost`", "'root'@'localhost'"),
+             "metadata grants require direct current-principal privilege proof")
+        scope = match[2]
+        exact = "`" + db["name"].replace("_", "\\_") + "`.*"
+        if scope not in ("*.*", "`" + db["name"] + "`.*", exact):
+            continue
+        names = set(match[1].split(", "))
+        if "ALL PRIVILEGES" in names:
+            names |= {"SELECT", "TRIGGER", "EVENT", "EXECUTE"}
+        privileges |= names
+    need({"SELECT", "TRIGGER", "EVENT"} <= privileges
+         and bool({"CREATE ROUTINE", "ALTER ROUTINE", "EXECUTE", "SHOW_ROUTINE"} & privileges),
+         "complete metadata visibility not proved")
+    need(all(type(result[key]) is int and result[key] == 0
+             for key in ("tables_views", "triggers", "routines", "events")),
+         "first-install requires complete empty metadata; never clear objects")
+    value["metadata_readonly"].update(status="COMPLETED", witness=str(witness),
+                                     witness_sha256=sha(regular(witness, private=True)), result=result)
+    save(directory / STATE, value)
+
+
 def application_metadata(operation, directory, value, lease_id):
     app, db = operation["application"], operation["database"]
     # This is the original APP database guard and its ordinary credentials.
@@ -1211,6 +1343,7 @@ def execute(lease_id, owner, phase, step=None):
             else:
                 need(record["kind"] == "directory" and path.is_dir() and not path.is_symlink(),
                      "protected APP directory changed")
+        install_metadata(operation, directory, value, lease_id)
         application_metadata(operation, directory, value, lease_id)
         for name in ("archive", "database_dump"):
             item = manifest[name]

@@ -3266,7 +3266,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4db9c3a19ca485b71ad660374dc62e5f83b587b9e89330c450f1e2682cacf851"
+            "source_sha256": "23d5147c1f22d56479877d0559c9d6990abe858c9c2f22286551c211918cf93f"
         },
         {
             "path": "scripts/consumer-document-article.md",
@@ -3280,7 +3280,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "06b1ecb24fd92e3d37c3e3eac3f8dbc4e82e31b4d4ee5ad75284d1d3d7633c7e"
+            "source_sha256": "988c1173068710f93552577f21f17f6757200ff3886f26719c1a27560a6a9f1e"
         },
         {
             "path": "scripts/consumer-module-reference-chain",
@@ -3875,7 +3875,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "21a629338b13ba815c474fbae3bb0214e27393477c711b2c97511cb052abe8dc"
+            "source_sha256": "91791fdf26eb2eda13b86d97c41319ef108838c117c9d1b417672977f431597b"
         },
         {
             "path": "scripts/project-resource-lease",
