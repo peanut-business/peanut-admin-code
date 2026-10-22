@@ -176,6 +176,53 @@
             :placeholder="$t('systemDept.field.name.placeholder')"
           />
         </el-form-item>
+        <el-form-item label="部门标识">
+          <el-input
+            v-model="form.code"
+            :disabled="isEdit"
+            maxlength="128"
+            placeholder="留空时自动生成；工作流按此标识查找部门"
+          />
+        </el-form-item>
+        <el-form-item v-if="isEdit" label="绑定负责人（本租户有效成员）">
+          <el-select
+            :model-value="form.leader_member_id"
+            clearable
+            filterable
+            remote
+            :remote-method="searchLeaders"
+            :loading="leaderLoading"
+            @update:model-value="form.leader_member_id = $event || null"
+          >
+            <el-option
+              v-if="
+                form.leader_member_id &&
+                !leaderCandidates.some(
+                  (item) => item.id === form.leader_member_id
+                )
+              "
+              :value="form.leader_member_id"
+              :label="`已绑定成员 #${form.leader_member_id}`"
+            />
+            <el-option
+              v-for="candidate in leaderCandidates"
+              :key="candidate.id"
+              :value="candidate.id"
+              :label="candidate.name"
+            />
+          </el-select>
+          <el-button
+            v-if="leaderHasMore"
+            link
+            :loading="leaderLoading"
+            @click="loadLeaders(true)"
+            >加载更多成员</el-button
+          >
+          <div
+            >绑定用于工作流分配；清空后不再提供部门负责人。联系人文字不会自动绑定账号。</div
+          >
+        </el-form-item>
+        <div v-else>先保存部门并为其分配成员，再编辑绑定负责人。</div>
         <el-form-item prop="leader" :label="$t('systemDept.field.leader')">
           <el-input
             v-model="form.leader"
@@ -228,6 +275,8 @@
     addDept,
     editDept,
     deleteDept,
+    getDepartmentLeaderCandidates,
+    type DepartmentLeaderCandidate,
     type DeptForm,
     type DirectoryDepartment,
   } from '@/api/system/dept';
@@ -298,12 +347,51 @@
   const originalParentDepartmentId = ref<number | undefined>();
   const submitLoading = ref(false);
   const formRef = ref<FormInstance>();
+  const leaderCandidates = ref<DepartmentLeaderCandidate[]>([]);
+  const leaderLoading = ref(false);
+  const leaderSearch = ref('');
+  const leaderPage = ref(0);
+  const leaderHasMore = ref(false);
+  let leaderRequest = 0;
+
+  const loadLeaders = async (next = false) => {
+    if (!form.id) return;
+    const request = ++leaderRequest;
+    const departmentId = form.id;
+    const page = next ? leaderPage.value + 1 : 1;
+    leaderLoading.value = true;
+    try {
+      const { data } = await getDepartmentLeaderCandidates({
+        department_id: departmentId,
+        page_no: page,
+        page_size: 20,
+        search: leaderSearch.value,
+      });
+      if (request !== leaderRequest || form.id !== departmentId) return;
+      leaderCandidates.value = next
+        ? [...leaderCandidates.value, ...data.items]
+        : data.items;
+      leaderPage.value = page;
+      leaderHasMore.value = page * data.page_size < data.total;
+    } finally {
+      if (request === leaderRequest) leaderLoading.value = false;
+    }
+  };
+  const searchLeaders = (search: string) => {
+    leaderSearch.value = search;
+    leaderHasMore.value = false;
+    loadLeaders().catch(() => {
+      /* Shared interceptor displays the request error. */
+    });
+  };
 
   const defaultForm = (): DeptForm => ({
     id: undefined,
     pid: ROOT_DEPARTMENT_ID,
     name: '',
+    code: '',
     leader: '',
+    leader_member_id: null,
     mobile: '',
     sort: 0,
     status: 1,
@@ -329,6 +417,12 @@
   };
 
   const resetForm = (patch: Partial<DeptForm> = {}) => {
+    leaderRequest += 1;
+    leaderCandidates.value = [];
+    leaderSearch.value = '';
+    leaderPage.value = 0;
+    leaderHasMore.value = false;
+    leaderLoading.value = false;
     Object.assign(form, defaultForm(), patch);
   };
 
@@ -349,6 +443,7 @@
     resetForm({ ...data, children: undefined });
     originalParentDepartmentId.value = data.pid;
     modalVisible.value = true;
+    if (data.status === 1) await loadLeaders();
   };
 
   const handleSubmit = async () => {
@@ -362,7 +457,8 @@
         }
         await editDept(form);
       } else {
-        await addDept(form);
+        const { code, ...input } = form;
+        await addDept(code?.trim() ? { ...input, code: code.trim() } : input);
       }
       ElMessage.success(t('systemDept.tip.success'));
       modalVisible.value = false;

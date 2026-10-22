@@ -92,7 +92,10 @@ final class DeptApplicationService
             'status' => $row['status'] === 'active' ? 1 : ($row['status'] === 'disabled' ? 0 : -1),
             'status_desc' => match ($row['status']) { 'active' => '正常', 'disabled' => '停用', default => '已归档' },
             'structuralOnly' => $row['structuralOnly'], 'selectable' => $row['selectable'], 'hasChildren' => $row['hasChildren']]
-            + array_intersect_key($row, array_flip(['code', 'leader', 'mobile', 'revision']));
+            + array_intersect_key($row, array_flip(['code', 'leader', 'leader_member_id', 'mobile', 'revision']));
+            if (array_key_exists('leader_member_id', $item)) {
+                $item['leader_member_id'] = $item['leader_member_id'] === null ? null : (int) $item['leader_member_id'];
+            }
             foreach (['created_at' => 'create_time', 'updated_at' => 'update_time'] as $source => $target) {
                 if (isset($row[$source])) {
                     $item[$target] = (new DateTimeImmutable((string) $row[$source], new DateTimeZone('UTC')))->format('Y-m-d\TH:i:s.v\Z');
@@ -113,6 +116,10 @@ final class DeptApplicationService
 
     public function add(TenantContext $context, array $params): bool
     {
+        $this->assertDepartmentPermission($context, 'create');
+        if (array_key_exists('leader_member_id', $params) && $params['leader_member_id'] !== null) {
+            throw BusinessException::invalid('DEPARTMENT_LEADER_INVALID', '请先建立部门并分配成员，再绑定负责人');
+        }
         // 元数据与状态属于同一个用户动作；失败时连同所属模块的审计/修订一起回滚。
         return Db::transaction(function () use ($context, $params): bool {
             $department = $this->departments->create(
@@ -133,13 +140,23 @@ final class DeptApplicationService
 
     public function edit(TenantContext $context, array $params): bool
     {
+        $this->assertDepartmentPermission($context, 'update');
         return Db::transaction(function () use ($context, $params): bool {
             $service = $this->departments;
             $current = $service->get($context->tenantId, (int) $params['id']);
+            $leaderMemberId = $current['leader_member_id'] === null ? null : (int) $current['leader_member_id'];
+            $revision = (int) $current['revision'];
+            if (array_key_exists('leader_member_id', $params)) {
+                $leaderMemberId = $params['leader_member_id'] === null ? null : self::positiveId($params['leader_member_id']);
+                $revision = self::positiveId($params['revision'] ?? null);
+            }
+            if (array_key_exists('code', $params) && $params['code'] !== $current['code']) {
+                throw BusinessException::invalid('DEPARTMENT_CODE_IMMUTABLE', '部门标识创建后不可通过编辑改写');
+            }
             $parent = (int) $params['pid'] > 0 ? (int) $params['pid'] : null;
             $currentParent = $current['parent_id'] === null ? null : (int) $current['parent_id'];
             if ($parent !== $currentParent) {
-                $this->assertMovePermission($context);
+                $this->assertDepartmentPermission($context, 'move');
             }
             $updated = $service->update(
                 $context,
@@ -147,9 +164,10 @@ final class DeptApplicationService
                 (string) $current['code'],
                 (string) $params['name'],
                 (int) ($params['sort'] ?? 0),
-                (int) $current['revision'],
+                $revision,
                 array_key_exists('leader', $params) ? (string) $params['leader'] : (string) $current['leader'],
                 array_key_exists('mobile', $params) ? (string) $params['mobile'] : (string) $current['mobile'],
+                $leaderMemberId,
             );
             if ($parent !== $currentParent) {
                 $updated = $service->move($context, (int) $params['id'], $parent, (int) $updated['revision']);
@@ -174,21 +192,49 @@ final class DeptApplicationService
         return true;
     }
 
-    private function assertMovePermission(TenantContext $context): void
+    public function leaderCandidates(TenantContext $context, array $params): array
+    {
+        $this->assertDepartmentPermission($context, 'update');
+        if (array_diff(array_keys($params), ['department_id', 'page_no', 'page_size', 'search']) !== []) {
+            throw BusinessException::invalid('DEPARTMENT_LEADER_INPUT_INVALID', '负责人目录参数无效');
+        }
+        $size = self::positiveId($params['page_size'] ?? 20);
+        $search = $params['search'] ?? '';
+        if ($size > 50 || !is_string($search) || mb_strlen($search) > 120) {
+            throw BusinessException::invalid('DEPARTMENT_LEADER_INPUT_INVALID', '负责人目录需要有界分页和搜索条件');
+        }
+        $number = self::positiveId($params['page_no'] ?? 1);
+        if ($number - 1 > intdiv(PHP_INT_MAX, $size)) {
+            throw BusinessException::invalid('DEPARTMENT_LEADER_INPUT_INVALID', '负责人目录分页超出范围');
+        }
+        $page = new PageRequest($number, $size);
+        return $this->departments->leaderCandidates($context->tenantId, self::positiveId($params['department_id'] ?? null), $page, trim($search))
+            + ['page_no' => $page->page, 'page_size' => $page->pageSize];
+    }
+
+    private static function positiveId(mixed $value): int
+    {
+        if ((!is_int($value) && !is_string($value)) || preg_match('/^[1-9][0-9]{0,17}$/D', (string) $value) !== 1) {
+            throw BusinessException::invalid('DEPARTMENT_LEADER_INPUT_INVALID', '成员、部门和版本必须使用有效的正整数');
+        }
+        return (int) $value;
+    }
+
+    private function assertDepartmentPermission(TenantContext $context, string $operation): void
     {
         try {
             $current = $this->executionContext->tenantAdmin();
             $actor = AdminPrincipal::fromArray($this->executionContext->tenantAdminPrincipal());
         } catch (\Throwable) {
-            throw BusinessException::forbidden('DEPARTMENT_MOVE_PERMISSION_DENIED', '无权移动部门');
+            throw BusinessException::forbidden('DEPARTMENT_PERMISSION_DENIED', '无权管理部门');
         }
         if ($current->tenantId !== $context->tenantId
             || $current->accountId !== $context->accountId
             || $current->memberId !== $context->memberId
             || $current->authorizationRevision !== $context->authorizationRevision
-            || !$this->authorization->decide($context, $actor, 'core.department.move')->allowed
+            || !$this->authorization->decide($context, $actor, 'core.department.' . $operation)->allowed
         ) {
-            throw BusinessException::forbidden('DEPARTMENT_MOVE_PERMISSION_DENIED', '无权移动部门');
+            throw BusinessException::forbidden('DEPARTMENT_PERMISSION_DENIED', '无权管理部门');
         }
     }
 
@@ -201,6 +247,7 @@ final class DeptApplicationService
             ->setTimezone($utc)->format('Y-m-d\TH:i:s.v\Z');
         return ['id' => (int) $row['id'], 'pid' => $row['parent_id'] === null ? 0 : (int) $row['parent_id'],
             'code' => $row['code'], 'name' => $row['name'], 'leader' => $row['leader'], 'mobile' => $row['mobile'],
+            'leader_member_id' => $row['leader_member_id'] === null ? null : (int) $row['leader_member_id'],
             'sort' => (int) $row['sort_order'], 'status' => self::statusInt($row['status']),
             'is_disable' => self::statusInt($row['status']) === 1 ? 0 : 1,
             'status_desc' => self::statusInt($row['status']) === 1 ? '正常' : '停用', 'revision' => (int) $row['revision'],
@@ -213,6 +260,13 @@ final class DeptApplicationService
     }
     private static function code(array $params): string
     {
+        if (array_key_exists('code', $params)) {
+            if (!is_string($params['code']) || strlen($params['code']) > 128
+                || preg_match('/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/D', $params['code']) !== 1) {
+                throw BusinessException::invalid('DEPARTMENT_CODE_INVALID', '部门标识须为有界的小写规范标识');
+            }
+            return $params['code'];
+        }
         return 'application.department.' . bin2hex(random_bytes(8));
     }
     private function service(): DepartmentAdminService

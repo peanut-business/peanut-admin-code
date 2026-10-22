@@ -89,6 +89,7 @@ Route::group(function () {
     Route::get('dept/lists', [DeptController::class, 'lists'])->option(['peanut_permission' => 'core.department.read']);
     Route::get('dept/all', [DeptController::class, 'all'])->option(['peanut_permission' => 'core.department.read']);
     Route::get('dept/leaderDept', [DeptController::class, 'leaderDept'])->option(['peanut_permission' => 'core.department.read']);
+    Route::get('dept/leader-candidates', [DeptController::class, 'leaderCandidates'])->completeMatch()->option(['peanut_permission' => 'core.department.update']);
     Route::get('dept/detail', [DeptController::class, 'detail'])->option(['peanut_permission' => 'core.department.read']);
     Route::post('dept/add', [DeptController::class, 'add'])->option(['peanut_permission' => 'core.department.create']);
     Route::post('dept/edit', [DeptController::class, 'edit'])->option(['peanut_permission' => 'core.department.update']);

@@ -4,7 +4,10 @@ export interface DeptRecord {
   id: number;
   pid: number;
   name: string;
+  code?: string;
+  revision?: number;
   leader: string;
+  leader_member_id?: number | null;
   mobile: string;
   sort: number;
   status: number;
@@ -64,6 +67,25 @@ export function getLeaderDept(params: DeptListParams) {
 
 export function getDeptDetail(id: number) {
   return axios.get<DeptRecord>('/adminapi/dept/detail', { params: { id } });
+}
+
+export interface DepartmentLeaderCandidate {
+  id: number;
+  name: string;
+}
+
+export function getDepartmentLeaderCandidates(params: {
+  department_id: number;
+  page_no: number;
+  page_size: number;
+  search: string;
+}) {
+  return axios.get<{
+    items: DepartmentLeaderCandidate[];
+    total: number;
+    page_no: number;
+    page_size: number;
+  }>('/adminapi/dept/leader-candidates', { params });
 }
 
 export function addDept(data: DeptForm) {

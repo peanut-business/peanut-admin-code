@@ -11,6 +11,7 @@ use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Authorization\Application\AdminAccessException;
 use PeanutAdmin\Kernel\Authorization\Application\PageRequest;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Department;
+use PeanutAdmin\Modules\Identity\Persistence\Model\Account;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Tenant;
 use PeanutAdmin\Modules\Identity\Persistence\Model\TenantMember;
 use Throwable;
@@ -28,7 +29,7 @@ final readonly class DepartmentAdminService
     {
         $query = Department::where('tenant_id', $tenantId);
         $total = (int) (clone $query)->count();
-        $rows = $query->field('id,parent_id,code,name,leader,mobile,sort_order,status,revision,created_at,updated_at')
+        $rows = $query->field('id,parent_id,code,name,leader,leader_member_id,mobile,sort_order,status,revision,created_at,updated_at')
             ->order('sort_order')->order('id')->limit($page->offset(), $page->pageSize)->select()->toArray();
 
         return ['items' => array_values(array_map($this->normalize(...), $rows)), 'total' => $total];
@@ -38,7 +39,7 @@ final readonly class DepartmentAdminService
     public function get(int $tenantId, int $departmentId): array
     {
         $row = Department::where('tenant_id', $tenantId)->where('id', $departmentId)
-            ->field('id,parent_id,code,name,leader,mobile,sort_order,status,revision,created_at,updated_at')->find()?->toArray();
+            ->field('id,parent_id,code,name,leader,leader_member_id,mobile,sort_order,status,revision,created_at,updated_at')->find()?->toArray();
 
         return $row === null ? throw AdminAccessException::notFound() : $this->normalize($row);
     }
@@ -62,7 +63,7 @@ final readonly class DepartmentAdminService
         }
         if ($flat) { $query->where('status', 'active'); }
         $total = (int) (clone $query)->count();
-        $rows = $query->field('id,parent_id,code,name,leader,mobile,sort_order,status,revision,created_at,updated_at')
+        $rows = $query->field('id,parent_id,code,name,leader,leader_member_id,mobile,sort_order,status,revision,created_at,updated_at')
             ->order('sort_order')->order('id')->limit($page->offset(), $page->pageSize)->select()->toArray();
         $matches = array_column($rows, null, 'id');
         $known = $matches;
@@ -114,7 +115,7 @@ final readonly class DepartmentAdminService
                 'name' => $row['name'], 'status' => $row['status'], 'sort_order' => (int) $row['sort_order'],
                 'structuralOnly' => $structural, 'selectable' => !$structural && $row['status'] === 'active',
                 'hasChildren' => isset($children[(int) $row['id']])];
-            return $structural ? $item : $item + array_intersect_key($row, array_flip(['code', 'leader', 'mobile', 'revision', 'created_at', 'updated_at']));
+            return $structural ? $item : $item + array_intersect_key($row, array_flip(['code', 'leader', 'leader_member_id', 'mobile', 'revision', 'created_at', 'updated_at']));
         };
         return ['items' => array_values(array_map(fn(array $r): array => $project($r, $activeOnly && $r['status'] !== 'active'), $matches)),
             'ancestors' => array_values(array_map(fn(array $r): array => $project($r, true), array_diff_key($known, $matches))), 'total' => $total];
@@ -193,6 +194,7 @@ final readonly class DepartmentAdminService
         int $expectedRevision,
         string $leader,
         string $mobile,
+        ?int $leaderMemberId,
     ): array {
         [$leader, $mobile] = $this->contactFields($leader, $mobile);
         return $this->transaction(function () use (
@@ -204,15 +206,24 @@ final readonly class DepartmentAdminService
             $expectedRevision,
             $leader,
             $mobile,
+            $leaderMemberId,
         ): array {
+            $this->lockTenant($actor->tenantId);
             $department = $this->requireDepartment($actor->tenantId, $departmentId, true);
             $this->assertRevision($department, $expectedRevision);
+            if ($department['status'] === 'archived') {
+                throw AdminAccessException::conflict('DEPARTMENT_ARCHIVED', 'An archived department cannot be edited.');
+            }
+            if ($leaderMemberId !== null) {
+                $this->requireLeader($actor->tenantId, $leaderMemberId);
+            }
             $now = $this->now();
             if (Department::where('tenant_id', $actor->tenantId)->where('id', $departmentId)
                 ->where('revision', $expectedRevision)->update([
                     'code' => $code,
                     'name' => $name,
                     'leader' => $leader,
+                    'leader_member_id' => $leaderMemberId,
                     'mobile' => $mobile,
                     'sort_order' => $sortOrder,
                     'revision' => new Raw('revision + 1'),
@@ -322,6 +333,34 @@ final readonly class DepartmentAdminService
         }
     }
 
+    /** Leaders are explicit bindings, independent of a member's primary department. */
+    public function leaderCandidates(int $tenantId, int $departmentId, PageRequest $page, string $search): array
+    {
+        $this->requireActive($tenantId, $departmentId, false);
+        $query = TenantMember::alias('member')
+            ->join('account account', "account.id=member.account_id AND account.status='active'")
+            ->where('member.tenant_id', $tenantId)
+            ->where('member.status', 'active');
+        if ($search !== '') {
+            $query->whereRaw('LOCATE(?, member.display_name) > 0', [$search]);
+        }
+        $total = (int) (clone $query)->count();
+        $rows = $query->field('member.id,member.display_name')->order('member.id')
+            ->limit($page->offset(), $page->pageSize)->select()->toArray();
+        return ['items' => array_map(static fn(array $row): array => [
+            'id' => (int) $row['id'], 'name' => (string) $row['display_name'],
+        ], $rows), 'total' => $total];
+    }
+
+    private function requireLeader(int $tenantId, int $memberId): void
+    {
+        $member = TenantMember::where('tenant_id', $tenantId)->where('id', $memberId)->lock(true)->find()?->toArray();
+        if ($member === null || $member['status'] !== 'active'
+            || Account::where('id', $member['account_id'])->where('status', 'active')->lock(true)->value('id') === null) {
+            throw AdminAccessException::invalid('DEPARTMENT_LEADER_INVALID', 'Choose an active member of this tenant with an active account.');
+        }
+    }
+
     /** @param array<string, mixed> $department */
     private function assertRevision(array $department, int $expectedRevision): void
     {
@@ -388,6 +427,7 @@ final readonly class DepartmentAdminService
             'code' => $row['code'],
             'name' => $row['name'],
             'leader' => $row['leader'],
+            'leader_member_id' => $row['leader_member_id'] === null ? null : (string) $row['leader_member_id'],
             'mobile' => $row['mobile'],
             'sort_order' => (int) $row['sort_order'],
             'status' => $row['status'],
