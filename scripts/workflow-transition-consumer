@@ -20,6 +20,7 @@ import subprocess
 import sys
 import threading
 import time
+import tempfile
 from urllib.parse import urlsplit
 
 WF = "/adminapi/api/v1/workflow"
@@ -44,6 +45,103 @@ def need(condition, code):
 
 def digest(raw):
     return hashlib.sha256(raw).hexdigest()
+
+
+def output_directory(resources):
+    directories = [value.split("=", 1)[1] for value in resources if value.startswith("output-dir=")]
+    need(len(directories) == 1, "EXACTLY_ONE_NATIVE_OUTPUT_DIRECTORY")
+    directory = Path(directories[0])
+    need(directory.is_absolute() and directory.resolve() == directory and directory.is_dir(),
+         "CANONICAL_NATIVE_OUTPUT_DIRECTORY")
+    return directory
+
+
+def sync_directory(directory):
+    fd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def consume_run(directory, grant, grant_sha256):
+    # This is the one receipt location already bound by the exact native grant,
+    # not a selectable alternate marker store or a new authorization registry.
+    need(directory == output_directory(grant["resources"]), "RUN_NATIVE_OUTPUT_BINDING")
+    marker = directory / (".workflow-transition-" + grant["run_id"] + ".started")
+    binding = {name: grant[name] for name in ("run_id", "lease", "owner", "thread", "source_commit",
+               "fixture_sha256", "driver_sha256", "registry_sha256", "runtime_authorization")}
+    binding["grant_sha256"] = grant_sha256
+    fd = os.open(marker, os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0), 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as stream:
+        stream.write(json.dumps(binding, sort_keys=True) + "\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+    # Publication itself must survive a crash before any request can be sent.
+    sync_directory(directory)
+
+
+def request_record(fixture, grant, grant_sha256, number, actor, method, path, body, key):
+    raw = None if body is None else json.dumps(body, separators=(",", ":")).encode()
+    scope = fixture["scope"]
+    record = {"phase": "RESERVED_BEFORE_SEND", "request_sequence": number,
+              "run_id": grant["run_id"], "fixture_sha256": grant["fixture_sha256"],
+              "grant_sha256": grant_sha256, "lease": grant["lease"],
+              "runtime_authorization_sha256": grant["runtime_authorization"]["sha256"],
+              "actor": actor, "member_id": fixture["actors"][actor]["member_id"],
+              "scope": {name: scope[name] for name in ("tenant_id", "subject_key", "subject_revision_key", "instance_key")},
+              "origin": fixture["endpoint"]["url"], "method": method, "path": path,
+              "idempotency_key": None if key is None else grant["run_id"] + ":" + key,
+              "request_body_sha256": digest(b"" if raw is None else raw),
+              "selectors": {name: body[name] for name in ("node_execution_key", "expected_revision",
+                  "expected_node_revision", "expected_task_revision", "instance_key", "work_item_key",
+                  "instance_revision", "node_revision", "task_revision", "subject_revision_key")
+                  if isinstance(body, dict) and name in body}}
+    record["request_id"] = "rw09-" + digest(json.dumps(record, sort_keys=True).encode())[:50]
+    return record, raw
+
+
+def assertion_projection(data):
+    """Only native protocol selectors/enums; no labels, comments, materials or business input."""
+    if not isinstance(data, dict):
+        return {}
+    result = {}
+    for name in ("instance_key", "subject_revision_key", "work_item_key", "node_execution_key", "node_key"):
+        value = data.get(name)
+        if isinstance(value, str) and ID.fullmatch(value) and not value.startswith("pa_tat_"):
+            result[name] = value
+    for name in ("revision", "instance_revision", "node_revision", "event_cursor"):
+        if type(data.get(name)) is int:
+            result[name] = data[name]
+    for name, values in {"status": {"running", "blocked", "completed", "cancelled", "terminated", "pending"},
+                         "result_code": {None, "approved", "rejected", "completed"},
+                         "decision": {None, "approve", "reject", "complete", "return", "resubmit"}}.items():
+        if name in data and isinstance(data[name], (str, type(None))) and data[name] in values:
+            result[name] = data[name]
+    if isinstance(data.get("error_code"), str) and re.fullmatch(r"[A-Z][A-Z0-9_]{0,80}", data["error_code"]):
+        result["error_code"] = data["error_code"]
+    if "current_state" in data:
+        result["current_state"] = None if data["current_state"] is None else assertion_projection(data["current_state"])
+    if isinstance(data.get("available_actions"), list):
+        result["available_actions"] = [a for a in data["available_actions"] if isinstance(a, str)
+             and a in {"approve", "reject", "complete", "return", "resubmit", "claim", "release", "withdraw", "terminate", "retry", "reassign"}]
+    if isinstance(data.get("own_work_items"), list):
+        result["own_work_items"] = [assertion_projection(i) for i in data["own_work_items"][:100]]
+    if isinstance(data.get("blocker"), dict):
+        result["blocker"] = assertion_projection(data["blocker"])
+        if isinstance(data["blocker"].get("message"), str):
+            result["blocker"]["message_sha256"] = digest(data["blocker"]["message"].encode())
+        if isinstance(data["blocker"].get("code"), str) and re.fullmatch(r"[A-Z][A-Z0-9_]{0,80}", data["blocker"]["code"]):
+            result["blocker"]["code"] = data["blocker"]["code"]
+    return result
+
+
+def returned_correlation(request_id, header, envelope):
+    meta = envelope.get("meta")
+    values = {"header": header, "meta": meta.get("request_id") if isinstance(meta, dict) else None}
+    present = {name: value for name, value in values.items() if value is not None}
+    return bool(present) and all(value == request_id for value in present.values()), {
+        "returned_" + name + "_sha256": digest(str(value).encode()) for name, value in values.items() if value is not None}
 
 
 def private_json(name, expected):
@@ -179,6 +277,7 @@ def validate(f, g, fixture_sha, tool_sha):
     need(isinstance(resources, list) and resources and all(isinstance(x, str) for x in resources)
          and len(resources) == len(set(resources)) and access in resources
          and "port=" + str(port) in resources, "GRANT_RESOURCE_SCOPE")
+    output_directory(resources)
     actors = f["actors"]
     need(isinstance(actors, dict) and actors, "ACTORS_REQUIRED")
     for name, actor in actors.items():
@@ -229,8 +328,9 @@ def validate(f, g, fixture_sha, tool_sha):
 
 
 class Consumer:
-    def __init__(self, fixture, grant, source, origin, port, output):
+    def __init__(self, fixture, grant, grant_sha256, source, origin, port, output):
         self.f, self.g, self.root, self.url, self.port = fixture, grant, source, origin, port
+        self.grant_sha256 = grant_sha256
         self.output, self.lock = output, threading.Lock()
         self.http = self.writes = 0
         self.tokens = {}
@@ -284,12 +384,15 @@ class Consumer:
             self.http += 1
             self.writes += int(method != "GET")
             number = self.http
-            self.record({"request": number, "phase": "RESERVED_BEFORE_SEND", "method": method,
-                         "http_used": self.http, "writes_used": self.writes})
-        headers = {"Authorization": "Bearer " + self.tokens[actor], "Accept": "application/json"}
-        if key is not None:
-            headers["Idempotency-Key"] = self.g["run_id"] + ":" + key
-        raw = None if body is None else json.dumps(body, separators=(",", ":")).encode()
+            reservation, raw = request_record(self.f, self.g, self.grant_sha256, number,
+                                              actor, method, suffix, body, key)
+            reservation.update(http_used=self.http, writes_used=self.writes)
+            self.record(reservation)  # flush + fsync complete before any connection send
+        request_id = reservation["request_id"]
+        headers = {"Authorization": "Bearer " + self.tokens[actor], "Accept": "application/json",
+                   "X-Request-Id": request_id}
+        if reservation["idempotency_key"] is not None:
+            headers["Idempotency-Key"] = reservation["idempotency_key"]
         if raw is not None:
             headers["Content-Type"] = "application/json"
         connection_type = http.client.HTTPSConnection if self.url.scheme == "https" else http.client.HTTPConnection
@@ -305,11 +408,18 @@ class Consumer:
             need(len(payload) <= 2097152, "RESPONSE_TOO_LARGE")
             envelope = json.loads(payload)
             need(isinstance(envelope, dict) and "data" in envelope, "RESPONSE_ENVELOPE")
+            correlated, returned = returned_correlation(request_id, response.getheader("X-Request-Id"), envelope)
             with self.lock:
-                self.record({"request": number, "phase": "RESPONSE", "status": response.status,
+                receipt = {"request_sequence": number, "request_id": request_id,
+                             "phase": "RESPONSE" if correlated else "STOP_CORRELATION_UNKNOWN",
+                             "status": response.status,
                              "response_sha256": digest(payload), "started_ns": started,
-                             "finished_ns": time.monotonic_ns()})
-            # Bodies and credentials never enter the durable receipt.
+                             "finished_ns": time.monotonic_ns(), **returned}
+                if correlated:
+                    receipt["assertion_projection"] = assertion_projection(envelope["data"])
+                self.record(receipt)
+            need(correlated, "NATIVE_RESPONSE_CORRELATION_MISSING_OR_MISMATCH")
+            # Only selected protocol assertions enter the receipt, never unrestricted bodies.
             return response.status, envelope["data"]
         finally:
             connection.close()
@@ -454,6 +564,152 @@ def self_check():
         socket.socket = original
 
 
+def journal_self_check():
+    """Driver-only synthetic transport; no native admission or product assertions."""
+    from unittest.mock import patch
+    checks = []
+    fsync_events = []
+    real_fsync = os.fsync
+
+    def tracked_fsync(fd):
+        real_fsync(fd)
+        fsync_events.append("directory" if stat.S_ISDIR(os.fstat(fd).st_mode) else "file")
+
+    def no_socket(*args, **kwargs):
+        raise AssertionError("journal self-check must never use a socket")
+
+    with tempfile.TemporaryDirectory(prefix="rw09-journal-check-") as temporary:
+        directory = Path(temporary).resolve()
+        alternate = directory / "alternate"
+        alternate.mkdir()
+        grant = {"run_id": "driver-check", "lease": "driver-check-lease", "owner": "driver-check-owner",
+                 "thread": "driver-check-owner", "source_commit": "1" * 40, "fixture_sha256": "2" * 64,
+                 "driver_sha256": "3" * 64, "registry_sha256": "4" * 64,
+                 "runtime_authorization": {"path": "/not-a-runtime-input", "sha256": "5" * 64},
+                 "resources": ["output-dir=" + str(directory)], "expires_at": int(time.time()) + 120}
+        with patch.object(socket, "socket", no_socket), patch.object(os, "fsync", tracked_fsync):
+            consume_run(directory, grant, "6" * 64)
+            need(fsync_events == ["file", "directory"], "SELF_MARKER_PUBLICATION_DURABLE")
+            marker = json.loads((directory / ".workflow-transition-driver-check.started").read_text())
+            need(marker["lease"] == grant["lease"] and marker["fixture_sha256"] == grant["fixture_sha256"]
+                 and marker["runtime_authorization"] == grant["runtime_authorization"]
+                 and marker["grant_sha256"] == "6" * 64, "SELF_NATIVE_ASSIGNMENT_BINDING")
+            checks.append("marker_file_and_directory_fsync_and_native_assignment_binding")
+            try:
+                consume_run(directory, grant, "6" * 64)
+                raise AssertionError("same run replay admitted")
+            except FileExistsError:
+                checks.append("same_run_different_filename_rejected")
+            try:
+                consume_run(alternate, grant, "6" * 64)
+                raise AssertionError("alternate output location admitted")
+            except Stop:
+                checks.append("unchanged_grant_alternate_directory_rejected")
+            try:
+                output_directory(grant["resources"] + ["output-dir=" + str(alternate)])
+                raise AssertionError("two leased output directories admitted")
+            except Stop:
+                checks.append("multiple_native_output_directories_rejected")
+
+            fixture = {"scope": {"tenant_id": "tenant-driver-check", "subject_key": "object-driver-check",
+                       "subject_revision_key": "version-A", "instance_key": "instance-driver-check"},
+                       "actors": {"correction": {"member_id": "member-driver-check"}},
+                       "endpoint": {"url": "http://driver-check.invalid:1"}, "case": {"kind": "return_resubmit"}}
+            output = directory / "driver-only.jsonl"
+            output.touch(mode=0o600)
+            dynamic = Consumer.current({"revision": 7, "own_work_items": [{"work_item_key": "item-new",
+                "node_execution_key": "node-new", "node_revision": 3, "revision": 2}]}, "item-new")
+            test_body = {**dynamic, "subject_revision_key": "version-B", "comment": "private-driver-content",
+                         "attachment_file_keys": []}
+            state = {}
+
+            class LocalConsumer(Consumer):
+                def guard(self):
+                    # The self-check exercises journal/transport wiring only, not runtime authority.
+                    pass
+
+            class LocalResponse:
+                status = 200
+
+                def getheader(self, name):
+                    return state["request_id"] if name == "X-Request-Id" and not state.get("missing") else None
+
+                def read(self, limit):
+                    return json.dumps({"meta": {} if state.get("missing") else {"request_id": state["request_id"]}, "data": {
+                        "instance_key": "instance-driver-check", "revision": 8, "status": "running",
+                        "comment": "private-driver-content", "materials": {"body": "private-driver-content"}}}).encode()
+
+            class LocalConnection:
+                def __init__(self, *args, **kwargs):
+                    pass
+
+                def request(self, method, path, body, headers):
+                    rows = [json.loads(line) for line in output.read_text().splitlines()]
+                    row = rows[-1]
+                    need(fsync_events[-1] == "file" and row["phase"] == "RESERVED_BEFORE_SEND",
+                         "SELF_JOURNAL_FSYNC_BEFORE_SYNTHETIC_SEND")
+                    need(row["request_id"] == headers["X-Request-Id"]
+                         and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,63}", row["request_id"])
+                         and row["idempotency_key"] == headers["Idempotency-Key"] == "driver-check:resubmit"
+                         and row["request_body_sha256"] == digest(body)
+                         and row["path"].endswith("/tasks/item-new/resubmit")
+                         and row["selectors"] == {**dynamic, "subject_revision_key": "version-B"}
+                         and row["member_id"] == "member-driver-check", "SELF_COMPLETE_REQUEST_BINDING")
+                    state["request_id"] = row["request_id"]
+                    state["reservation"] = row
+
+                def getresponse(self):
+                    return LocalResponse()
+
+                def close(self):
+                    pass
+
+            consumer = LocalConsumer(fixture, grant, "6" * 64, directory,
+                                     urlsplit(fixture["endpoint"]["url"]), 1, output)
+            consumer.tokens = {"correction": "pa_tat_driver_only_not_real"}
+            with patch.object(http.client, "HTTPConnection", LocalConnection):
+                status, _ = consumer.call("correction", "POST", WF + "/tasks/item-new/resubmit", test_body, "resubmit")
+            need(status == 200, "SELF_SYNTHETIC_CORRELATED_RESPONSE")
+            checks.append("actual_call_durable_complete_dynamic_request_before_synthetic_transport")
+            rows = [json.loads(line) for line in output.read_text().splitlines()]
+            need(rows[-1]["request_id"] == state["request_id"]
+                 and rows[-1]["assertion_projection"]["revision"] == 8
+                 and "private-driver-content" not in output.read_text()
+                 and "pa_tat_driver_only_not_real" not in output.read_text(), "SELF_SAFE_ASSERTION_PROJECTION")
+            checks.append("correlated_response_projection_without_secret_bodies")
+            other, _ = request_record(fixture, grant, "6" * 64, 2, "correction", "POST",
+                                      WF + "/tasks/item-new/resubmit", test_body, "resubmit")
+            need(other["request_id"] != state["request_id"], "SELF_UNIQUE_RUN_SEQUENCE")
+            checks.append("same_idempotency_key_distinct_request_sequence_ids")
+            for header, envelope in [(None, {"meta": {}}), ("wrong", {"meta": {"request_id": state["request_id"]}}),
+                                      (state["request_id"], {"meta": {"request_id": "wrong"}})]:
+                need(not returned_correlation(state["request_id"], header, envelope)[0], "SELF_CORRELATION_REJECTION")
+            checks.append("missing_or_mismatched_native_correlation_rejected")
+            need(assertion_projection({"error_code": "WORKFLOW_INSTANCE_CONFLICT", "current_state": None}) == {
+                "error_code": "WORKFLOW_INSTANCE_CONFLICT", "current_state": None}, "SELF_ERROR_NULL_PROJECTION")
+            checks.append("safe_native_error_and_null_projection")
+            output = directory / "driver-only-unknown.jsonl"
+            output.touch(mode=0o600)
+            state["missing"] = True
+            consumer = LocalConsumer(fixture, grant, "6" * 64, directory,
+                                     urlsplit(fixture["endpoint"]["url"]), 1, output)
+            consumer.tokens = {"correction": "pa_tat_driver_only_not_real"}
+            with patch.object(http.client, "HTTPConnection", LocalConnection):
+                try:
+                    consumer.call("correction", "POST", WF + "/tasks/item-new/resubmit", test_body, "resubmit")
+                    raise AssertionError("uncorrelated response admitted")
+                except Stop as error:
+                    need(str(error) == "NATIVE_RESPONSE_CORRELATION_MISSING_OR_MISMATCH", "SELF_CORRELATION_STOP")
+            rows = [json.loads(line) for line in output.read_text().splitlines()]
+            need(rows[0]["phase"] == "RESERVED_BEFORE_SEND"
+                 and rows[-1]["phase"] == "STOP_CORRELATION_UNKNOWN"
+                 and "assertion_projection" not in rows[-1]
+                 and consumer.http == consumer.writes == 1, "SELF_UNKNOWN_PRESERVES_RESERVATION")
+            checks.append("actual_call_missing_correlation_stops_with_reserved_identity_no_replay")
+    print(json.dumps({"journal_self_check": "PASS", "checks": checks, "check_count": len(checks),
+                      "network_calls": 0, "native_lease_operations": 0, "product_assertions": 0}))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fixture"); parser.add_argument("--fixture-sha256")
@@ -461,7 +717,12 @@ def main():
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--output", help="new absolute JSONL receipt; parent must exist and be leased")
     parser.add_argument("--self-check", action="store_true")
+    parser.add_argument("--journal-self-check", action="store_true")
     args = parser.parse_args()
+    if args.journal_self_check:
+        need(not any((args.fixture, args.grant, args.execute, args.output, args.self_check)), "SELF_CHECK_ISOLATED")
+        journal_self_check()
+        return
     if args.self_check:
         need(not any((args.fixture, args.grant, args.execute, args.output)), "SELF_CHECK_ISOLATED")
         self_check()
@@ -477,18 +738,14 @@ def main():
         return
     need(args.output, "NEW_DURABLE_OUTPUT_REQUIRED")
     output = Path(args.output)
-    need(output.is_absolute() and output.parent.resolve() == output.parent and output.parent.is_dir()
-         and "output-dir=" + str(output.parent) in g["resources"], "LEASED_OUTPUT_DIRECTORY")
-    consumer = Consumer(f, g, source, origin, port, output)
+    directory = output_directory(g["resources"])
+    need(output.is_absolute() and output.parent == directory, "LEASED_OUTPUT_DIRECTORY")
+    consumer = Consumer(f, g, args.grant_sha256, source, origin, port, output)
     consumer.guard()
-    # A different output filename cannot replay an already consumed grant/run.
-    marker = output.parent / (".workflow-transition-" + g["run_id"] + ".started")
-    fd = os.open(marker, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-    os.write(fd, (args.grant_sha256 + "\n").encode())
-    os.fsync(fd)
-    os.close(fd)
+    consume_run(directory, g, args.grant_sha256)
     fd = os.open(output, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
     os.close(fd)
+    sync_directory(directory)
     consumer.record({"phase": "STARTED", "run_id": g["run_id"], "fixture_sha256": args.fixture_sha256,
                      "grant_sha256": args.grant_sha256, "case": f["case"]["kind"]})
     try:

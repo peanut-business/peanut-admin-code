@@ -28,12 +28,18 @@ python3 scripts/workflow-transition-consumer \
   --execute --output /absolute/leased-output/unique-receipt.jsonl
 ```
 
-The output directory must already exist and be in the native lease. The output
-must not exist. A durable `.workflow-transition-RUN_ID.started` marker also
-prevents replay with a different output filename. Keep it after failure, timeout,
-unknown HTTP effects, or partial completion. Reconcile the actual state and the
-original budget before any later owner-authorized continuation; changing filenames
-or run IDs is not permission to repeat the operation.
+The grant and its exact native lease must contain **exactly one** canonical
+`output-dir`. The selected output parent must equal it; multiple output directories
+are rejected before execution. The output must not exist. The durable
+`.workflow-transition-RUN_ID.started` marker is fixed to that native directory,
+independent of the selected filename. It binds run, fixture/grant/driver/registry,
+owner/thread, lease, source and the existing runtime task authorization receipt.
+The marker file and its directory entry are fsynced before any request. This reuses
+the existing native grant and authorization facts, without another task table or
+authority service. Keep the marker after failure, timeout, unknown effects or
+partial completion. Reconcile actual state and original budget before any later
+owner-authorized continuation; changing filenames or run IDs is not permission
+to repeat an operation.
 
 ## Fixture schema, version 1
 
@@ -95,7 +101,7 @@ The grant has exactly these fields:
 | `expires_at` | Future Unix seconds, integer; does not renew native permissions |
 | `fixture_sha256`, `driver_sha256`, `registry_sha256` | Actual bytes of the fixture, this executable, and registry |
 | `source_commit` | Same full fixed commit as the fixture |
-| `resources` | Exact set of `type=value` native resources, including the complete `mysql-access`, endpoint `port`, and `output-dir` |
+| `resources` | Exact set of `type=value` native resources, including the complete `mysql-access`, endpoint `port`, and exactly one canonical existing `output-dir`; its directory holds both run marker and receipt |
 | `protection`, `review`, `runtime_authorization` | References to the actual current normal protection, uninvolved review and runtime authorization receipts; supplying a file does not create those decisions |
 | `budget` | Exactly `history_ref` (original budget reference), `remaining_http` and `remaining_writes` (nonnegative integers, enough for the selected case) |
 
@@ -144,11 +150,35 @@ its actual registered provider input; the executable adds no test provider.
 ```sh
 python3 -c 'import ast,pathlib; ast.parse(pathlib.Path("scripts/workflow-transition-consumer").read_text())'
 python3 scripts/workflow-transition-consumer --self-check
+python3 scripts/workflow-transition-consumer --journal-self-check
 ```
 
 The isolated self-check denies sockets and checks only the driver's input
-rejections. It is not a product, HTTP, database or concurrency assertion. Durable
-runtime records contain reservation counters, response hashes/status/timing and
-the case outcome; response bodies, token values and request bodies are not saved.
-Send or response failure consumes its reservation and produces STOP/UNKNOWN;
-there is no automatic network replay or fixture cleanup.
+rejections. The separate journal self-check covers only the request journal and
+native-directory replay guard with temporary local files and a synthetic driver
+transport; it denies sockets and never validates/acquires a real lease. Neither
+is a product, HTTP, database or concurrency assertion. Do not rerun the unrelated
+input checks when qualifying only a journal change.
+
+Each request gets a unique protocol-valid `X-Request-Id` derived from its fixed
+run/input/grant/actor/target and monotonic run sequence. Before any send, the
+journal fsyncs that ID together with sequence, native lease and task authorization
+receipt hash, actor/member, tenant/subject/version/instance, actual origin/method/
+path, exact idempotency key, exact encoded-body SHA-256 and selected target/revision
+fields. This includes a correction work item and revisions discovered dynamically
+from authorized detail. The same request ID and idempotency key go on the wire;
+the receipt does not retain tokens, comments, input content or material bodies.
+
+Responses verify every returned `X-Request-Id` and `meta.request_id` against the
+reserved ID, with at least one native carrier required. Matching responses retain
+status, response hash/timing, returned-ID hashes, exact error code and bounded
+native assertion projections (IDs/revisions/status/result/current_state/actions,
+own task selectors, blocker code and message hash). Unrestricted response bodies
+are never stored. Missing or mismatching correlation records
+`STOP_CORRELATION_UNKNOWN` and prevents assertion success or replay. For example,
+the current fixture collaboration success response exposes an empty meta object;
+without an actual native response header it cannot be accepted as a correlated
+comment-window result. A later runtime owner must establish that native return
+carrier before selecting that operation; this consumer does not modify the API.
+Send or response failure consumes the durable reservation and produces
+STOP/UNKNOWN. There is no automatic network replay or fixture cleanup.
