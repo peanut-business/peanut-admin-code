@@ -19,8 +19,10 @@
         "resource_permission_sha256",
         "schema_version",
         "steps",
-        "remaining_http_budget",
-        "protected_job_ids"
+        "protected_job_ids",
+        "dispatch_control",
+        "dispatch_sha256",
+        "package_id"
       ],
       "properties": {
         "owner": {
@@ -83,20 +85,69 @@
               "mark-read",
               "recover"
             ]
-          }
-        },
-        "remaining_http_budget": {
-          "type": "integer",
-          "minimum": 1
+          },
+          "maxItems": 1
         },
         "protected_job_ids": {
           "type": "array",
-          "minItems": 1,
+          "minItems": 8,
           "uniqueItems": true,
           "items": {
             "type": "integer",
             "minimum": 1
-          }
+          },
+          "allOf": [
+            {
+              "contains": {
+                "const": 4
+              }
+            },
+            {
+              "contains": {
+                "const": 5
+              }
+            },
+            {
+              "contains": {
+                "const": 6
+              }
+            },
+            {
+              "contains": {
+                "const": 7
+              }
+            },
+            {
+              "contains": {
+                "const": 8
+              }
+            },
+            {
+              "contains": {
+                "const": 9
+              }
+            },
+            {
+              "contains": {
+                "const": 10
+              }
+            },
+            {
+              "contains": {
+                "const": 11
+              }
+            }
+          ]
+        },
+        "dispatch_control": {
+          "type": "string"
+        },
+        "dispatch_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "package_id": {
+          "type": "string"
         }
       }
     },
@@ -123,7 +174,12 @@
         "expected_status",
         "assertions",
         "row_scope_receipt",
-        "row_scope_sha256"
+        "row_scope_sha256",
+        "expected_problem_code",
+        "authentication_receipt",
+        "authentication_sha256",
+        "diagnostics_receipt",
+        "diagnostics_sha256"
       ],
       "properties": {
         "schema_version": {
@@ -138,8 +194,8 @@
         },
         "source_sha256": {
           "type": "object",
-          "minProperties": 9,
-          "maxProperties": 9,
+          "minProperties": 10,
+          "maxProperties": 10,
           "additionalProperties": {
             "type": "string",
             "pattern": "^[0-9a-f]{64}$"
@@ -279,7 +335,8 @@
               "additionalProperties": false,
               "required": [
                 "message_key",
-                "revision"
+                "revision",
+                "status"
               ],
               "properties": {
                 "message_key": {
@@ -289,6 +346,12 @@
                 "revision": {
                   "type": "integer",
                   "minimum": 1
+                },
+                "status": {
+                  "enum": [
+                    "unread",
+                    "read"
+                  ]
                 }
               }
             },
@@ -341,6 +404,36 @@
         "row_scope_sha256": {
           "type": "string",
           "pattern": "^[0-9a-f]{64}$"
+        },
+        "expected_problem_code": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Z][A-Z0-9_]{2,100}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "authentication_receipt": {
+          "type": "string"
+        },
+        "authentication_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "diagnostics_receipt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "diagnostics_sha256": {
+          "type": [
+            "string",
+            "null"
+          ]
         }
       }
     },
