@@ -39625,7 +39625,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9faa7ba34756bb3136811d98fe08d714614bfb70825b1cc47309b735798e8e66"
+            "source_sha256": "6f093b4ff2fb37f2331e5b51584ae3aaa72ad03ee1ad78ab8ee48a6a6e142b3c"
         },
         {
             "path": "web/src/modules/peanut-workflow/runtime/WorkflowStartButton.vue",
@@ -41179,7 +41179,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "753405538bdf782a9c3bb5255c4f09524fe56b464c97968c2a96bfaf02b4fb59"
+            "source_sha256": "e1866d0a9a8e700136647d456b7ef1d28bacef0a49344f1853174757ecc06135"
         },
         {
             "path": "web/tests/Modules/PeanutWorkflow/transport.test.mjs",
