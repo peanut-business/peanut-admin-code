@@ -3875,7 +3875,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "832c5f0862dea3e294e67131cd2c9c3125568a62e36c307898f7f50d3122ee9f"
+            "source_sha256": "b3c1dcb22ec00aebf6b5965a4f37db384ab086e412d4e50b921942dc3c4d3ff6"
         },
         {
             "path": "scripts/project-resource-lease",
@@ -3917,7 +3917,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "25878a5f70c6719ef55ff09e6f5e9e7a4c682c6cc3819bc95bf1321b73d6e7e9"
+            "source_sha256": "5ea83b0f289c8043552ed92a7e5e3b3f3e11bda2623067cb73669a09c3a526ce"
         },
         {
             "path": "scripts/publish-github-release",

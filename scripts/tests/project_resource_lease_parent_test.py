@@ -26,6 +26,97 @@ def run(args: list[str], cwd: Path, *, ok: bool = True) -> subprocess.CompletedP
 
 
 
+def canonical_project_source_contracts():
+    """Git-only authority boundaries; no APP, DB, lease or service operations."""
+    import runpy
+    with tempfile.TemporaryDirectory(prefix="peanut-canonical-project-source-") as temporary:
+        base = Path(temporary).resolve()
+        code, project = (base / name for name in ("peanut-admin-code", "peanut-admin-project"))
+        for root in (code, project):
+            root.mkdir()
+            run(["git", "init", "-q", "-b", "dev"], root)
+            run(["git", "config", "user.email", "fixture@example.invalid"], root)
+            run(["git", "config", "user.name", "Fixture"], root)
+            run(["git", "remote", "add", "origin", "https://github.com/peanut-business/" + root.name + ".git"], root)
+        (code / "scripts").mkdir()
+        for name in ("project-resource-registry", "project-resource-application.py"):
+            shutil.copy2(SOURCE.parent / name, code / "scripts" / name)
+        run(["git", "add", "."], code); run(["git", "commit", "-qm", "tool source"], code)
+        mapping = ("schema_version: 3\nproject_id: peanut-admin\nrepositories:\n"
+                   "  project:\n    repository_id: peanut-admin-project\n"
+                   "    remote: https://github.com/peanut-business/peanut-admin-project.git\n"
+                   "  application:\n    repository_id: peanut-admin-code\n"
+                   "    remote: https://github.com/peanut-business/peanut-admin-code.git\n")
+        (project / "repos.yaml").write_text(mapping)
+        (project / "resources").mkdir()
+        registry = project / "resources/project-resources.json"
+        registry.write_text('{"fixture":true}\n')
+        run(["git", "add", "."], project); run(["git", "commit", "-qm", "current authority"], project)
+        head = run(["git", "rev-parse", "HEAD"], project).stdout.strip()
+        run(["git", "update-ref", "refs/remotes/origin/dev", head], project)
+        selected = base / "canonical"
+        run(["git", "worktree", "add", "-q", "--detach", str(selected), head], project)
+        digest = hashlib.sha256(registry.read_bytes()).hexdigest()
+        old = os.environ.get("PEANUT_RESOURCE_REGISTRY")
+        count = 0
+        def observe(root, *, allowed):
+            nonlocal count
+            os.environ["PEANUT_RESOURCE_REGISTRY"] = str(root / "resources/project-resources.json")
+            native = runpy.run_path(str(code / "scripts/project-resource-application.py"))
+            try:
+                physical, logical = native["project_authority"]()
+            except (SystemExit, RuntimeError):
+                assert not allowed
+            else:
+                assert allowed and physical == root / "resources/project-resources.json" and logical == project
+                assert native["sha"](physical.read_bytes()) == digest
+            count += 1
+        try:
+            observe(project, allowed=True)
+            registry.write_text('{"foreignWIP":true}\n')
+            observe(selected, allowed=True)  # Primary foreign WIP is preserved.
+            observe(project, allowed=False)
+            clone = base / "clone"
+            run(["git", "clone", "-q", str(project), str(clone)], base)
+            run(["git", "remote", "set-url", "origin", "https://github.com/peanut-business/peanut-admin-project.git"], clone)
+            observe(clone, allowed=False)
+            selected_registry = selected / "resources/project-resources.json"
+            original = selected_registry.read_bytes()
+            selected_registry.write_text('{"dirty":true}\n'); observe(selected, allowed=False)
+            selected_registry.write_bytes(original)
+            (selected / "repos.yaml").write_text(mapping.replace("peanut-admin-code.git", "foreign.git"))
+            run(["git", "add", "repos.yaml"], selected)
+            observe(selected, allowed=False)
+            run(["git", "restore", "--staged", "--worktree", "repos.yaml"], selected)
+            # Even a clean self-authored feature commit in the same common-dir is not authority.
+            (selected / "note").write_text("feature")
+            run(["git", "add", "note"], selected); run(["git", "commit", "-qm", "unadopted"], selected)
+            observe(selected, allowed=False)
+            run(["git", "switch", "-q", "--detach", head], selected)
+            # Advancing delivered primary dev makes the previous clean worktree stale.
+            registry.write_bytes(original)
+            (project / "note").write_text("new delivered source")
+            run(["git", "add", "note"], project); run(["git", "commit", "-qm", "next delivered"], project)
+            new_head = run(["git", "rev-parse", "HEAD"], project).stdout.strip()
+            run(["git", "update-ref", "refs/remotes/origin/dev", new_head], project)
+            observe(selected, allowed=False)
+            run(["git", "switch", "-q", "--detach", new_head], selected)
+            observe(selected, allowed=True)
+            run(["git", "remote", "set-url", "origin", "https://github.com/foreign/project.git"], project)
+            observe(selected, allowed=False)
+            assert registry.read_bytes() == original
+        finally:
+            if old is None: os.environ.pop("PEANUT_RESOURCE_REGISTRY", None)
+            else: os.environ["PEANUT_RESOURCE_REGISTRY"] = old
+        print(json.dumps({"group": "canonical-project-source-only", "assertions": count,
+                          "APP_DB_leases_services": False}))
+
+
+if __name__ == "__main__" and __import__("sys").argv[1:] == ["--canonical-project-source-only"]:
+    canonical_project_source_contracts()
+    raise SystemExit(0)
+
+
 def source_recovery_guard_contracts(*, workspace_only=False):
     """Isolated source contracts; synthetic authority/installation, no APP/DB/SSH."""
     import sys, hmac, contextlib
