@@ -1038,6 +1038,7 @@ final class ScaffoldUpgradeRunner
         return $this->locked($projectRoot, function (string $root) use ($planPath): array {
             $plan = $this->loadPlan($root, $planPath);
             $this->runtimeSourceGuard($root, $plan, 'recover');
+            $this->retainedUpstreamDeletions($root, $plan);
             $ledger = $this->ledger($root);
             $manifestPath = ScaffoldPathGuard::projectPath($root, '.peanut/upgrades/backups/' . $plan['candidate'] . '/recovery.json');
             if (!is_file($manifestPath)) {
@@ -1085,6 +1086,7 @@ final class ScaffoldUpgradeRunner
     {
         return $this->locked($projectRoot, function (string $root) use ($planPath): array {
             $plan = $this->loadPlan($root, $planPath);
+            $this->retainedUpstreamDeletions($root, $plan);
             $manifestPath = ScaffoldPathGuard::projectPath(
                 $root,
                 '.peanut/upgrades/backups/' . $plan['candidate'] . '/recovery.json',
@@ -3069,10 +3071,19 @@ final class ScaffoldUpgradeRunner
                 }
                 $ownershipTransition = ($action['reason'] ?? null) === 'recipe_ownership_transition_required'
                     && ($action['target_sha256'] ?? null) === null;
-                $action['action'] = $ownershipTransition ? 'omit' : 'preserve';
+                $upstreamRemoved = ($action['reason'] ?? null) === 'project_modified_upstream_removed'
+                    && ($action['target_sha256'] ?? null) === null;
+                $action['action'] = $ownershipTransition || $upstreamRemoved ? 'omit' : 'preserve';
                 $action['reason'] = $ownershipTransition
                     ? 'recipe_ownership_transition_confirmed'
-                    : 'conflict_preserve_confirmed';
+                    : ($upstreamRemoved ? 'upstream_removed_preserve_confirmed' : 'conflict_preserve_confirmed');
+                $action['conflict'] = false;
+                continue;
+            }
+            if (isset($replace[$path]) && ($action['reason'] ?? null) === 'project_modified_upstream_removed'
+                && ($action['target_sha256'] ?? null) === null) {
+                $action['action'] = 'delete';
+                $action['reason'] = 'conflict_upstream_delete_confirmed';
                 $action['conflict'] = false;
                 continue;
             }
@@ -3543,6 +3554,7 @@ final class ScaffoldUpgradeRunner
     /** File/ownership afterimages are also used to prove old-program preimages before graph admission. */
     private function assertAppliedFiles(string $root, array $plan): array
     {
+        $retained = $this->retainedUpstreamDeletions($root, $plan);
         [$application] = $this->applicationManifest($root);
         $to = ScaffoldManifest::load($plan['manifest_paths']['to']);
         $this->assertManifestDigest($to, $plan['identity']['to']['manifest_sha256']);
@@ -3562,7 +3574,19 @@ final class ScaffoldUpgradeRunner
             ))],
             'app-owned',
         );
-        if (!hash_equals($plan['identity']['app_owned_pre_sha256'], $actualAppOwned['digest'])) {
+        $originalAppOwned = $actualAppOwned['files'];
+        foreach ($retained as $path => $_) {
+            $entry = array_values(array_filter($application['files'], static fn(array $file): bool => $file['path'] === $path));
+            if (count($entry) !== 1 || ($entry[0]['classification'] ?? null) !== 'app-owned'
+                || ($entry[0]['owner'] ?? null) !== 'application' || ($entry[0]['source'] ?? null) !== $path
+                || ($entry[0]['sha256'] ?? null) !== ($actualAppOwned['files'][$path]['sha256'] ?? null)
+                || ($entry[0]['mode'] ?? null) !== ($actualAppOwned['files'][$path]['mode'] ?? null)
+                || array_intersect(['baseline_path', 'baseline_sha256', 'baseline_mode'], array_keys($entry[0])) !== []) {
+                throw new RuntimeException('SCAFFOLD_VERIFY_RETAINED_OWNERSHIP_MISMATCH: ' . $path);
+            }
+            unset($originalAppOwned[$path]);
+        }
+        if (!hash_equals($plan['identity']['app_owned_pre_sha256'], 'sha256:' . hash('sha256', self::canonicalJson($originalAppOwned)))) {
             throw new RuntimeException('SCAFFOLD_VERIFY_APP_OWNED_CHANGED');
         }
         foreach ($application['files'] as $file) {
@@ -5495,6 +5519,7 @@ final class ScaffoldUpgradeRunner
     private function recoverCandidate(string $root, array $plan, string $operation): array
     {
         $this->runtimeSourceGuard($root, $plan, $operation);
+        $this->retainedUpstreamDeletions($root, $plan);
         $ledger = $this->ledger($root);
         $manifestPath = ScaffoldPathGuard::projectPath($root, '.peanut/upgrades/backups/' . $plan['candidate'] . '/recovery.json');
         if (!is_file($manifestPath)) {
@@ -5539,6 +5564,7 @@ final class ScaffoldUpgradeRunner
     private function nextApplicationManifest(string $root, array $plan, ScaffoldManifest $to): array
     {
         [$application] = $this->applicationManifest($root);
+        $retained = $this->retainedUpstreamDeletions($root, $plan);
         $oldByPath = [];
         foreach ($application['files'] as $file) {
             $oldByPath[$file['path']] = $file;
@@ -5554,6 +5580,12 @@ final class ScaffoldUpgradeRunner
             }
         }
         foreach ($plan['actions'] as $action) {
+            if (isset($retained[$action['path']])) {
+                $files[] = ['path' => $action['path'], 'sha256' => $action['current']['sha256'],
+                    'mode' => $action['current']['mode'], 'classification' => 'app-owned',
+                    'owner' => 'application', 'source' => $action['path']];
+                continue;
+            }
             if (in_array($action['action'], ['delete', 'omit'], true)) {
                 continue;
             }
@@ -5596,6 +5628,20 @@ final class ScaffoldUpgradeRunner
             $application['last_scaffold_upgrade']['tenant_bootstrap'] = $edition['tenant_bootstrap'];
         }
         return $application;
+    }
+
+    /** A confirmed local retention has no incoming bytes or new upstream baseline. */
+    private function retainedUpstreamDeletions(string $root, array $plan): array
+    {
+        $paths = [];
+        foreach ($plan['actions'] as $action) {
+            if (($action['action'] ?? null) === 'omit'
+                && ($action['reason'] ?? null) === 'upstream_removed_preserve_confirmed') {
+                $this->assertActionFresh($root, $action);
+                $paths[$action['path']] = true;
+            }
+        }
+        return $paths;
     }
 
     private function managedDigestFromManifest(string $root, array $manifest): string
