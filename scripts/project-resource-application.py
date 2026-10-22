@@ -222,10 +222,10 @@ def authority(operation_id):
 
 def retained_parent(operation, common):
     """Read the original authority; renewal may change time, never its identity/scope."""
-    binding = operation.get("retained_authority")
-    if binding is None:
+    if "retained_authority" not in operation:
         return None
-    need(set(binding) == {"common_dir", "lease", "gate", "resources_sha256"}
+    binding = operation["retained_authority"]
+    need(isinstance(binding, dict) and set(binding) == {"common_dir", "lease", "gate", "resources_sha256"}
          and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", binding["lease"])
          and re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", binding["gate"]),
          "retained parent binding differs from closed contract")
