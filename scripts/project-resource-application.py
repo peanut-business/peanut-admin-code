@@ -1030,12 +1030,14 @@ def protect(operation, directory, value, lease_id):
     records = {}
     def identity_of(path):
         info = path.lstat()
+        # Tar preserves special permission bits too; the preimage and later
+        # first-install check must retain sticky/setgid/setuid without masking.
         if stat.S_ISREG(info.st_mode):
-            return {"kind": "file", "mode": info.st_mode & 0o777, "sha256": sha(path.read_bytes())}
+            return {"kind": "file", "mode": stat.S_IMODE(info.st_mode), "sha256": sha(path.read_bytes())}
         if stat.S_ISLNK(info.st_mode):
-            return {"kind": "link", "mode": info.st_mode & 0o777, "target": os.readlink(path)}
+            return {"kind": "link", "mode": stat.S_IMODE(info.st_mode), "target": os.readlink(path)}
         need(stat.S_ISDIR(info.st_mode), "unsupported protected file type")
-        return {"kind": "directory", "mode": info.st_mode & 0o777}
+        return {"kind": "directory", "mode": stat.S_IMODE(info.st_mode)}
     archive_path = output / "application-and-git.tar.gz"
     last_renewed = time.monotonic()
     with os.fdopen(os.open(archive_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "wb") as stream:
@@ -1201,7 +1203,7 @@ def execute(lease_id, owner, phase, step=None):
                  "protected APP member path is unsafe")
             path = app / relative
             info = path.lstat()
-            need(info.st_mode & 0o777 == record["mode"], "protected APP member mode changed")
+            need(stat.S_IMODE(info.st_mode) == record["mode"], "protected APP member mode changed")
             if record["kind"] == "file":
                 need(sha(regular(path)) == record["sha256"], "protected APP file changed before first-install")
             elif record["kind"] == "link":
