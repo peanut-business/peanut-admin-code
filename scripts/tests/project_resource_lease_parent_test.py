@@ -361,6 +361,181 @@ def source_recovery_guard_contracts(*, workspace_only=False):
         "native_APP_DB_SSH_restore_open": "NOT_RUN", "legacy_parent_group": "NOT_RUN; original FAIL retained"}))
 
 
+def dedicated_schema_policy_contracts():
+    """Only missing changed-branch policy evidence; copied tools, no endpoint IO."""
+    from copy import deepcopy
+
+    checks = []
+    with tempfile.TemporaryDirectory(prefix="peanut-dedicated-policy-") as temporary:
+        root = Path(temporary) / "repo"
+        root.mkdir()
+        run(["git", "init", "-q"], root)
+        run(["git", "config", "user.email", "fixture@example.invalid"], root)
+        run(["git", "config", "user.name", "Dedicated Policy Fixture"], root)
+        (root / "scripts").mkdir()
+        copied = root / "scripts/project-resource-lease"
+        shutil.copy2(SOURCE, copied)
+        assert copied.read_bytes() == SOURCE.read_bytes()
+        run(["git", "add", "."], root)
+        run(["git", "commit", "-qm", "Fixed copied policy tool"], root)
+        candidate = run(["git", "rev-parse", "HEAD"], root).stdout.strip()
+        tool = ["bash", str(copied)]
+        owner = "fixture-policy-owner"
+        physical = "127.0.0.1:23306"
+        schema = physical + "/fixture_schema"
+        policy = {
+            "mode": "schema", "physical_endpoint": physical,
+            "physical_resource_id": "fixture-physical", "max_executors": 8,
+            "server_resources": ["mysql-resource=fixture-physical",
+                                 "docker-container=fixture-container",
+                                 "docker-volume=fixture-volume"],
+        }
+        dedicated = {
+            "stable_resource_id": "fixture-dedicated", "lease_gate": "schema-policy",
+            "database": "fixture_schema",
+            "upstream_endpoint": {"endpoint_id": "fixture-dedicated-host",
+                                  "host": "127.0.0.1", "port": 23306},
+            "lease_policy": deepcopy(policy),
+        }
+        shared = deepcopy(dedicated)
+        shared["stable_resource_id"] = "fixture-shared"
+        shared["upstream_endpoint"]["endpoint_id"] = "fixture-shared-host"
+        shared["lease_policy"]["shared_access"] = {
+            "schema_version": 1,
+            "tables": {"fixture_rows": {"primary_key": ["id"],
+                                       "key_encoding": "unsigned-decimal"}},
+        }
+        registry = root / "registry.json"
+        def write_registry():
+            registry.write_text(json.dumps({"resources": {"databases": [dedicated, shared]}}))
+
+        write_registry()
+        previous = os.environ.get("PEANUT_RESOURCE_REGISTRY")
+        os.environ["PEANUT_RESOURCE_REGISTRY"] = str(registry)
+        common = root / ".git/peanut-admin-resource-leases"
+        def locks():
+            return {str(p.relative_to(common)): p.read_bytes()
+                    for p in (common / "resources").rglob("*") if p.is_file()}
+
+        def claim(lease, access, resource="fixture-dedicated", extra=()):
+            endpoint = resource + "-host"
+            values = {
+                "resource-id": resource, "endpoint": endpoint,
+                "mysql-db": "fixture_schema", "database": "fixture_schema",
+                "registry-sha256": hashlib.sha256(registry.read_bytes()).hexdigest(),
+                "mysql-schema": schema, "mysql-access": json.dumps(access),
+            }
+            return tool + ["claim", "--lease", lease, "--owner", owner,
+                           "--candidate", candidate, "--parent-lease", "policy-controller",
+                           "--gate", "schema-policy"] + [
+                item for key, value in values.items() for item in ("--resource", key + "=" + value)
+            ] + [item for value in extra for item in ("--resource", value)]
+
+        def refused(label, argv, fragment):
+            before = locks()
+            result = run(argv, root, ok=False)
+            assert fragment in result.stderr, (label, fragment, result.stderr)
+            assert locks() == before, label + ": physical holders changed"
+            lease = argv[argv.index("--lease") + 1]
+            assert not (common / "leases" / lease).exists()
+            checks.append({"assertion": label, "result": "PASS",
+                           "rejection": result.stderr.strip()})
+
+        complete = {"schema": schema, "operation": "exclusive", "complete": True, "tables": []}
+        reading = {"schema": schema, "operation": "read", "complete": True,
+                   "tables": [{"table": "fixture_rows", "access": "read", "rows": "*"}]}
+        management = ["mysql-server=" + physical, "port=23306", *policy["server_resources"]]
+        def manager(lease, extra=management):
+            return tool + ["claim", "--lease", lease, "--owner", owner,
+                           "--candidate", candidate, "--parent-lease", "policy-controller",
+                           "--gate", "server-operation", "--resource",
+                           "registry-sha256=" + hashlib.sha256(registry.read_bytes()).hexdigest()] + [
+                item for value in extra for item in ("--resource", value)]
+        def release(lease):
+            run(tool + ["release", "--lease", lease, "--owner", owner], root)
+
+        try:
+            run(tool + ["claim", "--lease", "policy-controller", "--owner", owner,
+                        "--candidate", candidate, "--gate", "controller",
+                        "--resource", "controller-task=dedicated-policy"], root)
+            for operation in ("read", "transaction"):
+                scope = deepcopy(reading)
+                scope["operation"] = operation
+                if operation == "transaction":
+                    scope["tables"][0]["access"] = "write"
+                refused(operation + "-without-sharing-contract",
+                        claim("missing-" + operation, scope),
+                        "schema sharing needs a registered physical table/primary-key contract")
+            for label, mutation in (("false-complete", False), ("missing-complete", None)):
+                scope = deepcopy(complete)
+                if mutation is None:
+                    del scope["complete"]
+                else:
+                    scope["complete"] = mutation
+                refused(label, claim(label, scope), "incomplete/unknown MySQL access scope")
+            for index, malformed in enumerate((None, {}, {"schema_version": 1, "tables": {}},
+                                               {"schema_version": "1", "tables": shared["lease_policy"]["shared_access"]["tables"]})):
+                dedicated["lease_policy"]["shared_access"] = malformed
+                write_registry()
+                refused("present-malformed-contract-" + str(index),
+                        claim("malformed-" + str(index), complete),
+                        "schema sharing needs a registered physical table/primary-key contract")
+            del dedicated["lease_policy"]["shared_access"]
+            write_registry()
+
+            # This positive is setup for new conflict/holder assertions, not a
+            # replay of the central workspace or its completed 15 assertions.
+            run(claim("whole-schema-holder", complete), root)
+            run(tool + ["show", "--lease", "whole-schema-holder", "--verify-locks"], root)
+            schema_lock = common / "resources" / hashlib.sha256(("mysql-schema\t" + schema).encode()).hexdigest()
+            assert (schema_lock / "lease").read_text().strip() == "whole-schema-holder"
+            checks.append({"assertion": "whole-schema-physical-holder-retained", "result": "PASS"})
+            refused("exclusive-blocks-shared-read",
+                    claim("read-behind-exclusive", reading, "fixture-shared"),
+                    "overlapping/exclusive physical schema access")
+            refused("exclusive-blocks-server-management", manager("manager-behind-exclusive"),
+                    "unreturned runtime/management lease")
+            for index, value in enumerate(management):
+                refused("incomplete-management-alias-" + str(index),
+                        manager("partial-manager-" + str(index), [value]),
+                        "complete registered service/container/volume/port lock set")
+            assert (schema_lock / "lease").read_text().strip() == "whole-schema-holder"
+            release("whole-schema-holder")
+            assert not schema_lock.exists()
+
+            run(claim("shared-read-holder", reading, "fixture-shared"), root)
+            refused("shared-read-blocks-exclusive", claim("exclusive-behind-shared", complete),
+                    "overlapping/exclusive physical schema access")
+            refused("shared-read-blocks-server-management", manager("manager-behind-shared"),
+                    "unreturned runtime/management lease")
+            release("shared-read-holder")
+            refused("schema-cannot-hold-management-bundle",
+                    claim("mixed-schema-management", complete, extra=management),
+                    "schema lease cannot also hold server management/port lock")
+            run(manager("server-holder"), root)
+            refused("server-management-blocks-whole-schema", claim("schema-behind-manager", complete),
+                    "server-exclusive lease conflicts with schema")
+            release("server-holder")
+            release("policy-controller")
+            assert not list((common / "leases").glob("*/metadata.tsv"))
+            assert not list((common / "resources").glob("*/lease"))
+            checks.append({"assertion": "normal-fixture-release-removes-own-physical-holders", "result": "PASS"})
+        finally:
+            if previous is None:
+                os.environ.pop("PEANUT_RESOURCE_REGISTRY", None)
+            else:
+                os.environ["PEANUT_RESOURCE_REGISTRY"] = previous
+    print(json.dumps({"group": "dedicated-schema-policy-only", "assertions": len(checks),
+                      "checks": checks, "copied_tool_sha256": hashlib.sha256(SOURCE.read_bytes()).hexdigest(),
+                      "real_APP_DB_SSH": "NOT_RUN", "workspace15_legacy_preimage_final8": "NOT_RUN",
+                      "disposable_cleanup": "TemporaryDirectory exited"}))
+
+
+if __name__ == "__main__" and __import__("sys").argv[1:] == ["--dedicated-schema-policy-only"]:
+    dedicated_schema_policy_contracts()
+    raise SystemExit(0)
+
+
 if __name__ == "__main__" and __import__("sys").argv[1:] in (["--source-recovery-guards-only"], ["--source-recovery-workspace-only"]):
     source_recovery_guard_contracts(workspace_only=__import__("sys").argv[1] == "--source-recovery-workspace-only")
     raise SystemExit(0)
