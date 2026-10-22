@@ -16,6 +16,8 @@ use RuntimeException;
  */
 final class InstallationConfigurationHost
 {
+    private bool $sourceApplication = false;
+
     /** Native deploymentTargetContract() owns each target's environment. */
     private const TARGETS = [
         'local-development', 'local-production-preview', 'local-multi-tenant-demo',
@@ -122,6 +124,29 @@ final class InstallationConfigurationHost
         }
         $registry = $registered ? $this->ownerDatabaseRegistry($resourceRegistry, $input) : null;
         return $this->configureInput($setupToken, $input, $registry);
+    }
+
+    /** Native mutable-source first configuration, before any installation or HTTP admission. */
+    public function configureSourceForOwner(string $setupToken, array $input, array $resourceRegistry): array
+    {
+        $this->assertOwnerPublication();
+        if ($this->identityLoader !== null || $this->sourceApplication
+            || !in_array($input['deployment_target'] ?? null, ['local-development', 'local-multi-tenant-demo'], true)
+            || ($input['database_source'] ?? null) !== 'registered' || ($input['database_consumer'] ?? null) !== 'host') {
+            throw new RuntimeException('INSTALL_CONFIGURATION_SOURCE_DEVELOPMENT_REQUIRED');
+        }
+        foreach (['.peanut/release-identity.json', '.peanut/development-runtime.json', '.peanut/internal-candidate.json',
+            'private/installation/installed.json', 'private/installation/baseline.json', 'private/installation/deployment.json',
+            'private/installation/executing.json', 'private/partial-installation', 'runtime/installation/installed.json',
+            'runtime/installation/executing.json', 'runtime/upgrade/source-transition.json', 'runtime/upgrade/maintenance.json',
+            'runtime/upgrade/verified-deployment'] as $relative) {
+            if (file_exists($this->serverRoot . '/' . $relative) || is_link($this->serverRoot . '/' . $relative)) {
+                throw new RuntimeException('INSTALL_CONFIGURATION_SOURCE_DEVELOPMENT_REQUIRED');
+            }
+        }
+        $this->sourceApplication = true;
+        try { return $this->configureForOwner($setupToken, $input, $resourceRegistry); }
+        finally { $this->sourceApplication = false; }
     }
 
     /** Both authenticated callers use the same configuration and publication contract. */
@@ -722,6 +747,11 @@ final class InstallationConfigurationHost
     /** @return array<string,mixed> */
     private function identity(): array
     {
+        if ($this->sourceApplication) {
+            $this->assertOwnerPublication();
+            $source = ApplicationSourceIdentity::loadGeneratedApp($this->serverRoot);
+            return ['application' => $source->applicationIdentity(), 'versions' => $source->versions()];
+        }
         if ($this->identityLoader !== null) {
             $identity = ($this->identityLoader)($this->serverRoot);
             if (!is_array($identity)) {

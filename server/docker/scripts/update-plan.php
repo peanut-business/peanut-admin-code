@@ -1742,28 +1742,17 @@ final class PeanutServerUpdatePlan
                         throw new RuntimeException('source first configuration requires an uninstalled ordinary APP');
                     }
                 }
-                require_once $serverRoot . '/database/resource-registry.php';
                 $configuration = $input['configuration'];
-                $target = $configuration['deployment_target'] ?? '';
-                if (!is_string($target) || !in_array($target, ['local-development', 'local-multi-tenant-demo'], true)
-                    || \deploymentTargetContract($target)['app_environment'] !== 'development'
-                    || ($configuration['database_source'] ?? null) !== 'registered'
-                    || ($configuration['database_consumer'] ?? null) !== 'host') {
-                    throw new RuntimeException('source first configuration requires a registered host development database');
-                }
                 self::regularBytes(dirname($serverRoot) . '/.peanut/application-manifest.json', 'generated APP manifest');
                 self::regularBytes(dirname($serverRoot) . '/release-versions.json', 'generated APP versions');
             }
             require_once $serverRoot . '/vendor/autoload.php';
             if ($sourceApplication) {
-                // Use the same canonical publisher with the native source reader already
-                // used by install.php. No runtime/release identity is manufactured.
-                $loadIdentity = static function (string $root): array {
-                    $identity = \app\common\value\installation\ApplicationSourceIdentity::loadGeneratedApp($root);
-                    return ['application' => $identity->applicationIdentity(), 'versions' => $identity->versions()];
-                };
-                return (new \app\common\services\installation\InstallationConfigurationHost($serverRoot, $loadIdentity))
-                    ->configureForOwner($input['setup_token'], $configuration, $input['resource_registry'] ?? null);
+                if (!is_array($input['resource_registry'] ?? null)) {
+                    throw new RuntimeException('source first configuration requires an explicit APP registry');
+                }
+                return (new \app\common\services\installation\InstallationConfigurationHost($serverRoot))
+                    ->configureSourceForOwner($input['setup_token'], $configuration, $input['resource_registry']);
             }
             $identity = self::runtimeIdentity($serverRoot);
             $application = new \think\App($serverRoot);
