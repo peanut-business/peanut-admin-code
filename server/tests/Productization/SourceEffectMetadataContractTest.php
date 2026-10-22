@@ -164,4 +164,54 @@ try {
     if (is_file($path)) { unlink($path); }
     rmdir($directory);
 }
+
+$partition = new ReflectionMethod(SourceApplicationBackup::class, 'pluginEvidenceTables');
+$catalog = (new ReflectionClass(SourceApplicationBackup::class))->getConstant('CATALOG_TABLES');
+$present = array_values(array_diff($catalog, ['pa_reference_code_set']));
+$objects = array_fill_keys($present, ['engine' => 'InnoDB', 'create_sql_sha256' => str_repeat('a', 64), 'auto_increment' => null]);
+$objects['pa_reference_code_set'] = ['exists' => false];
+$partitionScope = ['affected_tables' => $catalog, 'tables' => $present,
+    'absent_original_tables' => ['pa_reference_code_set'], 'objects' => $objects];
+effectMetadataExpect(count($catalog) === 14 && count($present) === 13
+    && $partition->invoke(null, $partitionScope, 'maintenance') === $catalog
+    && $partition->invoke(null, $partitionScope, 'recovery') === $present,
+    'The fourteen-object writer exclusion and thirteen-table payload were conflated.');
+$allPresent = $partitionScope; $allPresent['tables'] = $catalog; $allPresent['absent_original_tables'] = [];
+$allPresent['objects']['pa_reference_code_set'] = $objects[$present[0]];
+effectMetadataExpect($partition->invoke(null, $allPresent, 'maintenance') === $catalog
+    && $partition->invoke(null, $allPresent, 'recovery') === $catalog, 'All-present scope changed.');
+$allAbsent = ['affected_tables' => $catalog, 'tables' => [], 'absent_original_tables' => $catalog,
+    'objects' => array_fill_keys($catalog, ['exists' => false])];
+effectMetadataExpect($partition->invoke(null, $allAbsent, 'maintenance') === $catalog
+    && $partition->invoke(null, $allAbsent, 'recovery') === [], 'Absent originals acquired payload tables.');
+$invalidPartitions = [];
+foreach (['affected_tables', 'tables', 'absent_original_tables'] as $key) {
+    $changed = $partitionScope; $changed[$key][] = $changed[$key][0]; $invalidPartitions[] = $changed;
+    $changed = $partitionScope; $changed[$key][0] = 123; $invalidPartitions[] = $changed;
+    $changed = $partitionScope; unset($changed[$key]); $invalidPartitions[] = $changed;
+}
+$changed = $partitionScope; $changed['tables'][] = 'pa_reference_code_set'; $invalidPartitions[] = $changed;
+$changed = $partitionScope; array_pop($changed['tables']); $invalidPartitions[] = $changed;
+$changed = $partitionScope; $changed['tables'][] = 'pa_foreign'; $invalidPartitions[] = $changed;
+$changed = $partitionScope; $changed['absent_original_tables'][] = 'pa_foreign'; $invalidPartitions[] = $changed;
+$changed = $partitionScope; unset($changed['objects'][$present[0]]); $invalidPartitions[] = $changed;
+$changed = $partitionScope; $changed['objects']['pa_foreign'] = ['exists' => false]; $invalidPartitions[] = $changed;
+$changed = $partitionScope; $changed['objects'][$present[0]] = ['exists' => false]; $invalidPartitions[] = $changed;
+$changed = $partitionScope; $changed['objects']['pa_reference_code_set'] = $objects[$present[0]]; $invalidPartitions[] = $changed;
+$changed = $partitionScope; $changed['objects'][$present[0]]['exists'] = true; $invalidPartitions[] = $changed;
+$changed = $partitionScope; $changed['objects'][$present[0]]['create_sql_sha256'] = 'unknown'; $invalidPartitions[] = $changed;
+$partitionRefusals = 0;
+foreach ($invalidPartitions as $changed) {
+    foreach (['maintenance', 'recovery'] as $kind) {
+        try { $partition->invoke(null, $changed, $kind); throw new LogicException('Invalid scope partition accepted.'); }
+        catch (RuntimeException $error) {
+            effectMetadataExpect($error->getMessage() === 'PLUGIN_SOURCE_BACKUP_SCOPE_INVALID', 'Unexpected partition refusal.');
+            ++$partitionRefusals;
+        }
+    }
+}
+try { $partition->invoke(null, $partitionScope, 'unknown'); throw new LogicException('Unknown evidence kind accepted.'); }
+catch (RuntimeException $error) { effectMetadataExpect($error->getMessage() === 'PLUGIN_SOURCE_BACKUP_SCOPE_INVALID', 'Unexpected evidence kind refusal.'); }
+echo 'SOURCE-SCOPE-PARTITION passed: affected14/present13/absent1, all-present/all-absent, '
+    . $partitionRefusals . " malformed scope role refusals; no native capture, recovery admission or DB execution\n";
 echo "SOURCE-EFFECT-METADATA-CONTRACT passed: parser/scope; full14, DDL and receipt reads accepted, 18 read-scope omissions refused; 4 session-restoration cases; native DDL-before-statistics, real counter1/NULL, old-order/cached/unknown stats refusal; native SSH/MySQL execution NOT_RUN\n";

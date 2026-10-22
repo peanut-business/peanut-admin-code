@@ -190,7 +190,7 @@ final class SourceApplicationBackup
                                         'baseline' => $baseline, 'baseline_sha256' => self::pluginDigest($baseline), 'scope' => $scope,
                                         'qualification_writes_started' => false];
                                     if (!($options['execute'] ?? false)) { $result['status'] = 'planned'; return; }
-                                    $window = $admission->qualificationWindow($input['maintenance'] ?? '', $binding, $baseline, $scope['tables']);
+                                    $window = $admission->qualificationWindow($input['maintenance'] ?? '', $binding, $baseline, self::pluginEvidenceTables($scope, 'maintenance'));
                                     $resources = \activeLeaseResources(\requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF'));
                                     $output = $input['backup_output'] ?? ''; $fileOutput = $output . '-files';
                                     foreach ([$output, $fileOutput] as $directory) {
@@ -204,7 +204,7 @@ final class SourceApplicationBackup
                                     if (count($tools) !== 1 || $registrySha !== $binding['registry_sha256'] || !in_array($input['backup_tool'], $resources['tooling-resource-id'] ?? [], true)) { throw new RuntimeException('QUALIFICATION_BACKUP_TOOL_REQUIRED'); }
                                     $check = static function () use ($guard, $paths, $originals, $admission, $input, $binding, $baseline, $scope, $window): void {
                                         $guard();
-                                        if (self::qualificationFiles($paths) !== $originals || $admission->qualificationWindow($input['maintenance'], $binding, $baseline, $scope['tables']) !== $window) { throw new RuntimeException('QUALIFICATION_PREIMAGE_CHANGED'); }
+                                        if (self::qualificationFiles($paths) !== $originals || $admission->qualificationWindow($input['maintenance'], $binding, $baseline, self::pluginEvidenceTables($scope, 'maintenance')) !== $window) { throw new RuntimeException('QUALIFICATION_PREIMAGE_CHANGED'); }
                                     };
                                     $check();
                                     self::qualificationCopyFiles($originals, $fileOutput);
@@ -219,7 +219,7 @@ final class SourceApplicationBackup
                                         $live = $producer === 'plugin-module-lifecycle' ? $admission->qualificationCapture($actor) : $admission->capture($actor, true);
                                         if ($live !== $initial || \think\facade\Db::connect() !== $connection || $connection->getPdo() !== $pdo || ($pdo->inTransaction() && !$allowTransaction)
                                             || \app\common\services\installation\InstallationExecutionHost::migrationDatabaseIdentity($pdo) !== $identity
-                                            || $admission->qualificationWindow($input['maintenance'], $binding, $baseline, $scope['tables']) !== $window) { throw new RuntimeException('QUALIFICATION_WRITE_ADMISSION_CHANGED'); }
+                                            || $admission->qualificationWindow($input['maintenance'], $binding, $baseline, self::pluginEvidenceTables($scope, 'maintenance')) !== $window) { throw new RuntimeException('QUALIFICATION_WRITE_ADMISSION_CHANGED'); }
                                         $lock = $pdo->prepare('SELECT IS_USED_LOCK(?) = CONNECTION_ID()');
                                         $lock->execute(['peanut_migrate_' . substr(hash('sha256', $identity['database']), 0, 48)]);
                                         if ((int) $lock->fetchColumn() !== 1) { throw new RuntimeException('QUALIFICATION_SCHEMA_LOCK_REQUIRED'); }
@@ -298,7 +298,7 @@ final class SourceApplicationBackup
         self::pluginRecovery($binding, $baseline, $scope, $input['maintenance'], $directory . '/recovery.json', $serverRoot);
         self::qualificationVerifyFiles($scope['qualification_file_preimages'], $scope['qualification_file_backup'], $serverRoot);
         $guard();
-        $window = $admission->qualificationWindow($input['maintenance'], $binding, $baseline, $scope['tables']);
+        $window = $admission->qualificationWindow($input['maintenance'], $binding, $baseline, self::pluginEvidenceTables($scope, 'maintenance'));
         return ['protocol' => 'peanut.installed-lifecycle-consumption.v1', 'status' => 'verified', 'producer' => $producer,
             'input_sha256' => $inputSha, 'binding' => $binding, 'window' => $window,
             'result' => ['path' => $resultPath, 'sha256' => hash_file('sha256', $resultPath)]];
@@ -1411,6 +1411,7 @@ final class SourceApplicationBackup
         $partial = $purpose === 'installation-partial';
         $effectMetadata = $partial && ($binding['authority']['kind'] ?? null) === 'app-native-owner'
             ? self::appMetadataOrigin($binding, $baseline, $scope) : null;
+        if ($purpose === 'plugin-lifecycle') { self::pluginEvidenceTables($scope, 'recovery'); }
         $database = $binding['database']['database'];
         $contract = $tool['source_schema_backup'] ?? null;
         if (($tool['transport'] ?? null) !== 'ssh-docker-exec' || !is_array($contract)
@@ -1899,7 +1900,7 @@ final class SourceApplicationBackup
                 || !$same($record['authority'] ?? null, $binding['authority']) || ($record['registry_sha256'] ?? null) !== $binding['registry_sha256']
                 || ($record['baseline_sha256'] ?? null) !== self::pluginDigest($baseline)
                 || ($record['pending'] ?? null) !== $pending || !$same($record['selected'] ?? null, $selected)
-                || ($record['scope'] ?? null) !== $scope['tables'] || !is_int($record['observed_at'] ?? null)
+                || ($record['scope'] ?? null) !== self::pluginEvidenceTables($scope, $kind) || !is_int($record['observed_at'] ?? null)
                 || !is_int($record['expires_at'] ?? null) || $record['observed_at'] < $binding['authority']['created_at']
                 || $record['observed_at'] > $at || $record['expires_at'] <= $at || $record['expires_at'] > $binding['authority']['expires_at']
                 || !is_array($record['receipts'] ?? null) || $record['receipts'] === []) { throw new RuntimeException('PLUGIN_SOURCE_EVIDENCE_REQUIRED'); }
@@ -1971,6 +1972,40 @@ final class SourceApplicationBackup
             'recovery' => ['path' => $recoveryPath, 'sha256' => hash_file('sha256', $recoveryPath)],
             'backup_manifest' => $recovery['backup_manifest'], 'backup_payload' => $payload,
             'restore_contract_sha256' => $recovery['restore_contract_sha256']];
+    }
+
+
+    /** Writer exclusion covers every affected object; the payload covers only present originals. */
+    private static function pluginEvidenceTables(array $scope, string $kind): array
+    {
+        if (!in_array($kind, ['maintenance', 'recovery'], true)) { throw new RuntimeException('PLUGIN_SOURCE_BACKUP_SCOPE_INVALID'); }
+        foreach (['affected_tables', 'tables', 'absent_original_tables'] as $key) {
+            $tables = $scope[$key] ?? null;
+            if (!is_array($tables) || !array_is_list($tables)
+                || count(array_filter($tables, static fn(mixed $table): bool => is_string($table)
+                    && preg_match('/\\Apa_[a-z0-9_]+\\z/D', $table) === 1)) !== count($tables)
+                || count(array_unique($tables, SORT_STRING)) !== count($tables)) {
+                throw new RuntimeException('PLUGIN_SOURCE_BACKUP_SCOPE_INVALID');
+            }
+        }
+        $affected = $scope['affected_tables']; $present = $scope['tables']; $absent = $scope['absent_original_tables'];
+        if (array_intersect($present, $absent) !== [] || array_diff($present, $affected) !== []
+            || array_diff($absent, $affected) !== [] || array_diff($affected, [...$present, ...$absent]) !== []
+            || !is_array($scope['objects'] ?? null) || count($scope['objects']) !== count($affected)) {
+            throw new RuntimeException('PLUGIN_SOURCE_BACKUP_SCOPE_INVALID');
+        }
+        foreach ($affected as $table) {
+            $object = $scope['objects'][$table] ?? null;
+            if (!is_array($object)) { throw new RuntimeException('PLUGIN_SOURCE_BACKUP_SCOPE_INVALID'); }
+            if (in_array($table, $absent, true)) {
+                if ($object !== ['exists' => false]) { throw new RuntimeException('PLUGIN_SOURCE_BACKUP_SCOPE_INVALID'); }
+            } elseif (array_key_exists('exists', $object) || ($object['engine'] ?? null) !== 'InnoDB'
+                || !is_string($object['create_sql_sha256'] ?? null)
+                || preg_match('/\\A[a-f0-9]{64}\\z/D', $object['create_sql_sha256']) !== 1) {
+                throw new RuntimeException('PLUGIN_SOURCE_BACKUP_SCOPE_INVALID');
+            }
+        }
+        return $kind === 'maintenance' ? $affected : $present;
     }
 
     private static function pluginDigest(mixed $value): string
