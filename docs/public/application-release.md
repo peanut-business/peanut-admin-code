@@ -87,7 +87,7 @@ python3 scripts/prepare-fixed-git-release \
 
 两种目标共用同一操作清单、配置/数据保护、依赖准备、迁移、停写、配对备份、健康和流量Gate。安装receipt/baseline原字节与原source kind保持不变。原server-release沿用真实deployment链；原generated-application仅在原manifest摘要和完整旧server文件证明相符、且没有未知head时接纳，已有development-runtime必须通过原生runtime/dependency校验及authenticated application deployment链，并核全旧程序。缺少完整证明、有未知/漂移head或product-source缺少独立APP映射时精确拒绝，不猜实际实例的安装种类、不把development-only维护接口扩成生产权限。
 
-首个server部署successor在唯一`private/installation/deployment.json`记录原source kind、前任协议/摘要/原source与runtime计数、旧程序清单摘要及typed目标provenance；原application计数作为前任事实保留，server部署从自己的首个generation开始。后续server更新继续原安装anchors。激活前按同一journal及配对恢复还原旧程序/身份/head；激活后仍须前向修复，不自动回灌数据库。源码直接检查不证明真实权限、APP构建、安装、升级、恢复或生产资格；普通`git pull`、忽略文件规则、`git reset --hard`和tag均不是完整恢复机制。
+首个server部署successor在唯一`private/installation/deployment.json`记录原source kind、前任协议/摘要/原source与runtime计数、旧程序清单摘要及typed目标provenance；原application计数作为前任事实保留，server部署从自己的首个generation开始。后续server更新继续原安装anchors。安装事实始终读取canonical私有baseline并核对精确摘要，保留原生支持的历史收据引用及原字节。激活前按同一journal及配对恢复还原旧程序/身份/head；runtime身份删除与release身份写入之间的合法中断，仅允许从同一product plan绑定的文件intent及精确旧身份preimage读取APP身份，数据库权限及其他恢复守卫仍须通过。激活后仍须前向修复，不自动回灌数据库。源码直接检查不证明真实权限、APP构建、安装、升级、恢复或生产资格；普通`git pull`、忽略文件规则、`git reset --hard`和tag均不是完整恢复机制。
 
 ## 6. 验证口径
 

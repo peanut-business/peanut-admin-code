@@ -2628,30 +2628,11 @@ final class PeanutServerUpdatePlan
     /** @param array<string,mixed> $identity */
     private static function installedBaseline(string $serverRoot, array $identity): array
     {
-        self::assertOrdinaryParents($serverRoot, 'private/installation/installed.json');
-        $receipt = self::jsonFile($serverRoot . '/private/installation/installed.json', 'installed instance receipt');
-        if (($receipt['schema_version'] ?? null) !== 1
-            || ($receipt['protocol'] ?? null) !== 'peanut.installation-receipt.v1'
-            || ($receipt['state'] ?? null) !== 'installed'
-            || ($receipt['deployment_mode'] ?? null) !== ($identity['application']['edition'] ?? null)
-            || !is_array($receipt['baseline_manifest'] ?? null)
-            || ($receipt['baseline_manifest']['path'] ?? null) !== 'server/private/installation/baseline.json') {
+        $facts = self::installationFacts($serverRoot);
+        if ($facts['receipt']['deployment_mode'] !== ($identity['application']['edition'] ?? null)) {
             throw new RuntimeException('installed instance identity is invalid');
         }
-        $baselineBytes = self::regularBytes(
-            $serverRoot . '/private/installation/baseline.json',
-            'installed instance baseline',
-        );
-        if (!hash_equals((string) ($receipt['baseline_manifest']['sha256'] ?? ''), hash('sha256', $baselineBytes))) {
-            throw new RuntimeException('installed instance baseline differs from receipt');
-        }
-        $baseline = json_decode($baselineBytes, true, 512, JSON_THROW_ON_ERROR);
-        if (!is_array($baseline) || ($baseline['schema_version'] ?? null) !== 1
-            || ($baseline['protocol'] ?? null) !== 'peanut.installation-baseline.v1'
-            || ($baseline['deployment_mode'] ?? null) !== $receipt['deployment_mode']) {
-            throw new RuntimeException('installed instance baseline identity is invalid');
-        }
-        return $baseline;
+        return $facts['baseline'];
     }
 
     /** Server-release callers retain their own source kind and identity field. */
