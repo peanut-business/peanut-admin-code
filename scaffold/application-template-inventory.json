@@ -2484,7 +2484,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "58e9c8ecbdfe96589c9698433071d87175c9c34357808d061a2a03a5f4514818"
+            "source_sha256": "bc2a630af85f083e8cf66942c415c2c10057f492428cbc30c249ad090ad2843c"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2747,7 +2747,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6a477df031f55a630d1a79c066d233c9044ef7a2c29de2e1ac71525c587279b7"
+            "source_sha256": "7b5e52cf1a7b8bcaf30978bc7fa567a166b2343c8cd4d851783f0e444d7f801d"
         },
         {
             "path": "plugins/official.settings/plugin.json",
@@ -2817,7 +2817,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3fdf949390db80a6881a2eacff6cf921c0e1e03903ca8c5ff7860c756a1b805c"
+            "source_sha256": "ad41dd8c36e43ab0e4cee76efcc61aa7c2ccc515c69de12a6e3fa0bdb9f7d53c"
         },
         {
             "path": "release-versions.json",
