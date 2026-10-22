@@ -692,7 +692,238 @@ def source_runtime():
     print(json.dumps(result, separators=(',', ':')))
 
 
+
+def observe_source():
+    """Reject active or unknown source users; never manufacture a stopped receipt."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument('phase', choices=('source-observe',))
+    parser.add_argument('--instance-root', type=Path, required=True)
+    args = parser.parse_args()
+    root = args.instance_root
+    if not root.is_absolute() or root.resolve() != root or root.is_symlink() or not (root / 'server').is_dir():
+        raise ValueError('source observation root is not canonical')
+    # Already admitted/projection runtimes retain their full existing maintenance contract.
+    # An absent profile is not by itself evidence that no host process uses this APP.
+    for relative in ('server/runtime/upgrade/.traffic-ready', 'server/.peanut/development-runtime.json',
+                     'server/.peanut/internal-candidate.json', 'server/.peanut/release-identity.json'):
+        path = root / relative
+        if path.exists() or path.is_symlink():
+            raise ValueError('SOURCE_ONLY_RUNTIME_MAINTENANCE_REQUIRED')
+    # Observe every container mount rather than trusting a caller's compose project name.
+    # No pull, create, stop, start, exec or compose operation occurs here.
+    ids = subprocess.run(['docker', 'ps', '--all', '--quiet'], stdin=subprocess.DEVNULL,
+                         capture_output=True, text=True, timeout=20, check=True)
+    if ids.stderr.strip():
+        raise ValueError('source container inventory is incomplete')
+    for identifier in ids.stdout.splitlines():
+        if not re.fullmatch(r'[a-f0-9]{12,64}', identifier):
+            raise ValueError('source container identity is invalid')
+        detail = subprocess.run(['docker', 'inspect', '--format',
+                                 '{"State":{{json .State}},"Mounts":{{json .Mounts}}}', identifier],
+                                stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                                timeout=20, check=True)
+        if detail.stderr.strip():
+            raise ValueError('source container observation is incomplete')
+        container = json.loads(detail.stdout)
+        for mount in container['Mounts']:
+            if mount.get('Type') != 'bind':
+                continue
+            source = Path(mount['Source'])
+            if (source == root or source.is_relative_to(root) or root.is_relative_to(source)) \
+                    and container['State'].get('Status') not in ('exited', 'created', 'dead'):
+                raise ValueError('source APP has an active or unknown container')
+    listing = subprocess.run(['ps', '-axo', 'pid=,ppid=,command='], stdin=subprocess.DEVNULL,
+                             capture_output=True, text=True, timeout=15, check=True)
+    if listing.stderr:
+        raise ValueError('source process inventory is incomplete')
+    processes = {}
+    for line in listing.stdout.splitlines():
+        row = line.strip().split(None, 2)
+        if len(row) != 3 or not row[0].isdigit() or not row[1].isdigit():
+            raise ValueError('source process inventory is invalid')
+        processes[int(row[0])] = (int(row[1]), row[2])
+    ancestors = {os.getpid()}
+    cursor = os.getppid()
+    while cursor > 0 and cursor not in ancestors:
+        ancestors.add(cursor)
+        if cursor not in processes:
+            raise ValueError('source owner ancestry is unknown')
+        cursor = processes[cursor][0]
+    if any(pid not in ancestors and str(root) in command for pid, (_, command) in processes.items()):
+        raise ValueError('source APP has another active process')
+    # cwd, open directories and files catch relative invocations as well as absolute argv.
+    handles = subprocess.run(['lsof', '-nP', '-F', 'p', '+D', str(root)], stdin=subprocess.DEVNULL,
+                             capture_output=True, text=True, timeout=45)
+    if handles.returncode not in (0, 1) or handles.stderr.strip():
+        raise ValueError('source open-file observation is unavailable or incomplete')
+    owners = set()
+    for line in handles.stdout.splitlines():
+        if re.fullmatch(r'p[0-9]+', line):
+            owners.add(int(line[1:]))
+        elif not owners or not re.fullmatch(r'f[A-Za-z0-9]+', line):
+            raise ValueError('source open-file observation is invalid')
+    if owners - ancestors:
+        raise ValueError('source APP has active open files or working directories')
+    print(json.dumps({'status': 'stopped', 'instance_root': str(root),
+                      'scope': 'source only; no runtime or database admission'}))
+
+
+def check_source_template():
+    """Reauthenticate the CLI's fixed cache without extracting or executing target files."""
+    import tarfile
+    parser = argparse.ArgumentParser()
+    parser.add_argument('phase', choices=('source-template-check',))
+    parser.add_argument('--cache', type=Path, required=True)
+    args = parser.parse_args()
+    cache = args.cache
+    if not cache.is_absolute() or cache.resolve() != cache or cache.is_symlink():
+        raise ValueError('template cache is not canonical')
+
+    def checked(relative):
+        if not isinstance(relative, str) or len(relative) > 1024 or '\\' in relative \
+                or any(ord(c) < 32 or ord(c) == 127 for c in relative) \
+                or any(part in ('', '.', '..') for part in relative.split('/')) or any(part.endswith(('.', ' ')) or ':' in part for part in relative.split('/')):
+            raise ValueError('template member path is unsafe')
+        path = cache / relative
+        if path.resolve(strict=True) != path or not path.is_relative_to(cache):
+            raise ValueError('template member path is linked')
+        if path.stat().st_size > 128 * 1024 * 1024:
+            raise ValueError('template input exceeds bounds')
+        relative.encode('utf-8', errors='strict')
+        sha(path)
+        return path
+
+    metadata = read(checked('template-package.json'))
+    archive_spec = metadata.get('archive', {})
+    if metadata.get('schema_version') != 1 or metadata.get('protocol') != 'peanut.template-package.v1' \
+            or metadata.get('kind') != 'scaffold-template' \
+            or metadata.get('edition') not in ('standalone', 'multi-tenant') \
+            or not re.fullmatch(r'[a-f0-9]{64}', str(archive_spec.get('sha256', ''))) \
+            or cache.name != archive_spec['sha256'] \
+            or archive_spec.get('name') != 'peanut-scaffold-' + metadata['edition'] + '.tgz':
+        raise ValueError('template package identity is invalid')
+    archive = checked(archive_spec['name'])
+    if archive.stat().st_size != archive_spec.get('bytes') or sha(archive) != archive_spec['sha256']:
+        raise ValueError('template archive changed')
+    documents = {}
+    expected = {}
+    for name, field in (('template-create.json', 'create_manifest_sha256'),
+                        ('scaffold-manifest.json', 'scaffold_manifest_sha256'),
+                        ('upgrade-tooling.json', 'upgrade_tooling_sha256')):
+        path = checked(name)
+        if sha(path) != metadata.get(field):
+            raise ValueError('template manifest changed')
+        documents[name] = read(path)
+        expected[name] = (sha(path), 0o644)
+    create, release, tooling = (documents[name] for name in
+                                ('template-create.json', 'scaffold-manifest.json', 'upgrade-tooling.json'))
+    if create.get('protocol') != 'peanut.template-create.v1' \
+            or release.get('protocol') != 'peanut.scaffold-release.v3' \
+            or tooling.get('protocol') != 'peanut.scaffold-upgrade-tooling.v1' \
+            or create.get('scaffold_manifest_sha256') != metadata['scaffold_manifest_sha256'] \
+            or release.get('release', {}).get('version') != metadata.get('version') \
+            or release.get('edition', {}).get('name') != metadata['edition']:
+        raise ValueError('template manifest protocol or target differs')
+    source = metadata.get('source', {})
+    if source.get('repository') != 'peanut-business/peanut-admin-code' \
+            or any(source.get(key) != release['release'].get(target) for key, target in
+                   (('commit', 'source_commit'), ('tree', 'source_tree'), ('inventory_sha256', 'inventory_sha256'))):
+        raise ValueError('template source differs')
+    declarations = {row['path']: row for row in release['files']}
+    seen_paths = set()
+    for row in create['files']:
+        relative = row['source']
+        classification = row.get('classification')
+        if classification not in ('managed', 'generated-managed', 'app-owned') \
+                or relative != ('defaults/' if classification == 'app-owned' else 'files/') + row['path'] \
+                or row['path'].casefold() in seen_paths or relative in expected:
+            raise ValueError('template create declaration is invalid')
+        seen_paths.add(row['path'].casefold())
+        checked(relative)
+        if classification != 'app-owned':
+            declared = declarations.get(row['path'], {})
+            if any(declared.get(key) != value for key, value in
+                   (('source', relative), ('template_sha256', row['sha256']),
+                    ('classification', classification), ('mode', row['mode']))):
+                raise ValueError('template create and upgrade declarations differ')
+        expected[relative] = (row['sha256'], row['mode'])
+    if len(declarations) != sum(row['classification'] != 'app-owned' for row in create['files']):
+        raise ValueError('template upgrade declaration set differs')
+    for row in tooling['files']:
+        relative = row['path']
+        if relative in expected or not (relative.startswith('tooling/vendor/')
+                or relative in ('tooling/composer.json', 'tooling/composer.lock')):
+            raise ValueError('template tooling declaration is invalid')
+        checked(relative)
+        expected[relative] = (row['sha256'], row['mode'])
+    required_tooling = {'tooling/composer.json', 'tooling/composer.lock',
+                        'tooling/vendor/autoload.php', 'tooling/vendor/composer/installed.json'}
+    if tooling.get('autoload') != 'tooling/vendor/autoload.php' or not required_tooling.issubset(expected):
+        raise ValueError('template tooling is incomplete')
+    lock = read(checked('tooling/composer.lock'))
+    installed = read(checked('tooling/vendor/composer/installed.json'))
+    def packages(items):
+        if not isinstance(items, list):
+            raise ValueError('template tooling packages are invalid')
+        return sorted(({key: item.get(key) for key in ('name', 'version', 'source', 'dist')}
+                       for item in items), key=lambda item: item['name'])
+    if installed.get('dev') is not False \
+            or sha(checked('tooling/composer.lock')) != tooling.get('composer_lock_sha256') \
+            or packages(lock.get('packages')) != packages(installed.get('packages')) \
+            or packages(lock.get('packages')) != packages(tooling.get('packages')):
+        raise ValueError('template tooling lock differs')
+    actual, folded, size = set(), set(), 0
+    with tarfile.open(archive, 'r:gz') as tar:
+        for member in tar:
+            name = member.name
+            cursor = tar.fileobj.tell()
+            tar.fileobj.seek(member.offset)
+            header = tar.fileobj.read(512)
+            tar.fileobj.seek(cursor)
+            if len(header) != 512 or header[257:263] != b'ustar\x00':
+                raise ValueError('template archive is not canonical USTAR')
+            # No extract call: USTAR regular-file bytes are compared to the canonical cache.
+            if not member.isfile() or member.type != tarfile.REGTYPE or member.pax_headers \
+                    or name in actual or name.casefold() in folded or name not in expected:
+                raise ValueError('template archive member is unsafe or undeclared')
+            actual.add(name); folded.add(name.casefold()); size += member.size
+            if len(actual) > 30000 or size > 512 * 1024 * 1024 or member.size > 32 * 1024 * 1024:
+                raise ValueError('template archive exceeds bounds')
+            path = checked(name)
+            expected_sha, expected_mode = expected[name]
+            if member.mode != expected_mode or path.stat().st_mode & 0o777 != expected_mode \
+                    or path.stat().st_size != member.size or sha(path) != expected_sha:
+                raise ValueError('template cache member changed')
+            content = tar.extractfile(member).read()
+            if hashlib.sha256(content).hexdigest() != expected_sha:
+                raise ValueError('template archive and cache differ')
+        tar.fileobj.seek(tar.offset)
+        trailer = tar.fileobj.read(1024)
+        if len(trailer) != 1024 or any(trailer):
+            raise ValueError('template archive trailer is invalid')
+        expanded = tar.offset + 1024
+        while chunk := tar.fileobj.read(1024 * 1024):
+            expanded += len(chunk)
+            if expanded > 512 * 1024 * 1024 or any(chunk):
+                raise ValueError('template archive trailer exceeds bounds or contains data')
+    if actual != set(expected):
+        raise ValueError('template archive is incomplete')
+    cache_files = set()
+    for path in cache.rglob('*'):
+        if path.is_symlink() or (not path.is_dir() and not path.is_file()):
+            raise ValueError('template cache has linked or special input')
+        if path.is_file():
+            cache_files.add(path.relative_to(cache).as_posix())
+    if cache_files != actual | {'template-package.json', archive_spec['name']}:
+        raise ValueError('template cache has undeclared input')
+    print(json.dumps({'status': 'verified', 'metadata_sha256': sha(cache / 'template-package.json'),
+                      'manifest_sha256': metadata['scaffold_manifest_sha256']}))
+
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == 'source-template-check':
+        return check_source_template()
+    if len(sys.argv) > 1 and sys.argv[1] == 'source-observe':
+        return observe_source()
     if len(sys.argv) > 1 and sys.argv[1].startswith('source-'):
         return source_runtime()
     parser = argparse.ArgumentParser()

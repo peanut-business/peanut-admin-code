@@ -906,7 +906,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cecc581d7b4cb541784f382f2d03996bc45a5e588adf1c5b571db2c4f8915d29"
+            "source_sha256": "7f76638ba29753319253644889e34ea1e658a561ec42c3c35fbefe8b8daaf14f"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -3723,7 +3723,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ad705ef1cca916fbc027f632dc0ca2101b697e9718199fc16ca3a87c7de8ab95"
+            "source_sha256": "fee26108807985929d8ccfc77d9446f345ece65af91d9c33ac37f370e6ab1584"
         },
         {
             "path": "scripts/project-codegraph",
@@ -3942,7 +3942,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "327dab28c8bc24ef6e5df155b9fbb67d2422b815c0e069dc73f0674d6bba1645"
+            "source_sha256": "0f5c256c9f2fc6eb8c16c7f408661ccb7ca1e103a4d3ff3009d9ba28243a3d6d"
         },
         {
             "path": "scripts/scaffold-runtime/ReleaseDependencyIdentity.php",
@@ -4012,7 +4012,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "72fa11ca88a097423e667f70ff900ff59ef0ea913e2bea2d4703c8f7f767f6e3"
+            "source_sha256": "52b13159de95a97dbedce3a8eca3d914c746cb9ad6a391ec6911456380f89d7e"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",
@@ -4924,7 +4924,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e5f3de3a445b14501e35a7c602136ff444d63dde7296f21f3e496174c64e65cc"
+            "source_sha256": "62e129cc7febc0f0b912d43508ff50eb3a633ee6a9fce0da0b27a68ab7b77ec0"
         },
         {
             "path": "server/.env.example",
@@ -28385,7 +28385,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f698d76508648bcfe8f9ee7b023e0ebc5e3b3ad69a41ecfd1119f593a98bf932"
+            "source_sha256": "ca93376b16854b204dd866b49084c8e42927e8809c5409251e4b15aff4edb358"
         },
         {
             "path": "server/docker/scripts/update-preparation.py",

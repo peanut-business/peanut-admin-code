@@ -120,6 +120,51 @@ final class EditionUpgradePackage
         return $prepared;
     }
 
+    /** Same native source coordinator, with the public template archive/cache protocol. */
+    public function authenticateTemplate(string $projectRoot, string $packageRoot): array
+    {
+        $root = ScaffoldPathGuard::projectRoot($projectRoot);
+        $package = ScaffoldPathGuard::projectRoot($packageRoot);
+        $metadataPath = ScaffoldPathGuard::existingFileWithin($root, $package . '/template-package.json', 'TEMPLATE_UPGRADE_METADATA_UNSAFE');
+        $metadata = json_decode((string) file_get_contents($metadataPath), true, 512, JSON_THROW_ON_ERROR);
+        if ($package !== $root . '/.peanut/upgrades/template-packages/' . ($metadata['archive']['sha256'] ?? '')) {
+            throw new RuntimeException('TEMPLATE_UPGRADE_CACHE_IDENTITY_INVALID');
+        }
+        $pipes = [];
+        $process = proc_open(['python3', '-B', dirname(__DIR__) . '/product-upgrade-host', 'source-template-check', '--cache=' . $package],
+            [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        if (!is_resource($process)) { throw new RuntimeException('TEMPLATE_UPGRADE_VALIDATOR_UNAVAILABLE'); }
+        $output = stream_get_contents($pipes[1]); $diagnostic = stream_get_contents($pipes[2]);
+        fclose($pipes[1]); fclose($pipes[2]);
+        $code = proc_close($process);
+        $checked = json_decode($output, true);
+        if ($code !== 0 || $diagnostic !== '' || ($checked['status'] ?? null) !== 'verified'
+            || ($checked['metadata_sha256'] ?? null) !== hash_file('sha256', $metadataPath)) {
+            throw new RuntimeException('TEMPLATE_UPGRADE_ARCHIVE_REJECTED:' . hash('sha256', $diagnostic));
+        }
+        $application = $this->applicationManifest($root);
+        $target = ScaffoldManifest::load($package . '/scaffold-manifest.json');
+        $currentVersion = $application['template']['version'] ?? '';
+        if (preg_match(self::VERSION, $currentVersion) !== 1 || preg_match(self::VERSION, $target->version()) !== 1
+            || Semver::compare($currentVersion, $target->version()) > 0) {
+            throw new RuntimeException('TEMPLATE_UPGRADE_SOURCE_RANGE_UNSUPPORTED');
+        }
+        if (($metadata['edition'] ?? null) !== ($application['application']['edition'] ?? null)
+            || ($target->data['edition']['name'] ?? null) !== ($application['edition']['name'] ?? null)
+            || ($checked['manifest_sha256'] ?? null) !== substr($target->digest(), 7)) {
+            throw new RuntimeException('TEMPLATE_UPGRADE_EDITION_MISMATCH');
+        }
+        $selection = ['repository' => 'peanut-business/peanut-admin-code',
+            'requested_ref' => 'local:' . $metadata['archive']['sha256'], 'channel' => 'development',
+            'commit' => $metadata['source']['commit'], 'tree' => $metadata['source']['tree'],
+            'template_package_path' => $metadataPath, 'template_package_sha256' => 'sha256:' . hash_file('sha256', $metadataPath)];
+        return ['project_root' => $root, 'application' => $application,
+            'to_manifest' => $target->path, 'source_selection' => $selection,
+            'package' => ['protocol' => $metadata['protocol'], 'target' => ['version' => $target->version()],
+                'edition' => $target->data['edition'], 'inventory_sha256' => 'sha256:' . $metadata['archive']['sha256'],
+                'manifest_sha256' => $selection['template_package_sha256']]];
+    }
+
     /** @return array<string,mixed> */
     private function authenticate(
         string $projectRoot,
@@ -130,6 +175,9 @@ final class EditionUpgradePackage
         $package = realpath($packageRoot);
         if (!is_string($package) || !is_dir($package) || is_link($package)) {
             throw new RuntimeException('EDITION_UPGRADE_PACKAGE_NOT_FOUND');
+        }
+        if (file_exists($package . '/template-package.json') || is_link($package . '/template-package.json')) {
+            return $this->authenticateTemplate($project, $package);
         }
         $inventoryPath = $package . '/META-INF/files.sha256';
         if (!is_file($inventoryPath) || is_link($inventoryPath)) {

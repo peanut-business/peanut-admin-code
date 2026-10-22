@@ -839,6 +839,100 @@ final class PeanutServerUpdatePlan
         self::assertNoLegacyMaintenanceKey($root);
     }
 
+    /** Source-only adoption uses the real installed pair, never a fabricated runtime projection. */
+    public static function applicationSourceContext(string $root): array
+    {
+        self::sourceOwner($root);
+        foreach (['.peanut/development-runtime.json', '.peanut/internal-candidate.json', '.peanut/release-identity.json',
+            'private/installation/executing.json', 'private/partial-installation', 'runtime/upgrade/source-transition.json',
+            'runtime/upgrade/.traffic-ready', 'runtime/upgrade/verified-deployment/current.json'] as $relative) {
+            $path = $root . '/' . $relative;
+            if (file_exists($path) || is_link($path)) {
+                throw new RuntimeException('SOURCE_ONLY_RUNTIME_MAINTENANCE_REQUIRED');
+            }
+        }
+        $source = \app\common\value\installation\ApplicationSourceIdentity::loadGeneratedApp($root);
+        $application = $source->applicationIdentity();
+        $baseline = self::installedBaseline($root, ['application' => $application]);
+        $initial = $baseline['source']['application_manifest_sha256'] ?? null;
+        if (($baseline['source']['kind'] ?? null) !== 'generated-application'
+            || preg_match('/^[a-f0-9]{64}$/D', (string) $initial) !== 1) {
+            throw new RuntimeException('SOURCE_ONLY_GENERATED_INSTALLATION_REQUIRED');
+        }
+        $context = [
+            'installed_receipt_sha256' => hash('sha256', self::regularBytes($root . '/private/installation/installed.json', 'installed receipt')),
+            'baseline_sha256' => hash('sha256', self::regularBytes($root . '/private/installation/baseline.json', 'installation baseline')),
+            'initial_application_manifest_sha256' => $initial,
+            'application' => array_intersect_key($application, array_flip(['slug', 'edition', 'package_identity'])),
+        ];
+        $manifest = self::jsonFile(dirname($root) . '/.peanut/application-manifest.json', 'application manifest');
+        if (hash('sha256', self::regularBytes(dirname($root) . '/.peanut/application-manifest.json', 'application manifest')) !== $initial
+            && array_intersect_key($manifest['last_scaffold_upgrade']['source_installation'] ?? [], $context) !== $context) {
+            throw new RuntimeException('SOURCE_ONLY_INSTALLATION_SOURCE_CHAIN_CHANGED');
+        }
+        foreach (['.env', 'private/resources/project-resources.json'] as $relative) {
+            $path = $root . '/' . $relative;
+            self::assertOrdinaryParents($root, $relative);
+            $context['configuration'][$relative] = file_exists($path) || is_link($path)
+                ? hash('sha256', self::regularBytes($path, 'source configuration')) : null;
+        }
+        return $context;
+    }
+
+    /** Observe only. This cannot stop/start a service, drain saves, or issue DB admission. */
+    public static function assertApplicationSourceStopped(string $root): void
+    {
+        self::sourceOwner($root);
+        $adapter = dirname(__DIR__, 3) . '/scripts/product-upgrade-host';
+        $pipes = [];
+        $process = proc_open(['python3', '-B', $adapter, 'source-observe', '--instance-root=' . dirname($root)],
+            [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        if (!is_resource($process)) { throw new RuntimeException('SOURCE_ONLY_SERVICE_OBSERVATION_UNAVAILABLE'); }
+        $output = stream_get_contents($pipes[1]); $diagnostic = stream_get_contents($pipes[2]);
+        fclose($pipes[1]); fclose($pipes[2]);
+        $code = proc_close($process);
+        $observed = json_decode($output, true);
+        if ($code !== 0 || $diagnostic !== '' || ($observed['status'] ?? null) !== 'stopped'
+            || ($observed['instance_root'] ?? null) !== dirname($root)) {
+            throw new RuntimeException('SOURCE_ONLY_SERVICE_OBSERVATION_REJECTED:' . hash('sha256', $diagnostic));
+        }
+    }
+
+    private static function assertApplicationSourceLock(string $root): void
+    {
+        $path = $root . '/runtime/upgrade/update.lock';
+        $held = self::$instanceLocks[dirname($path)] ?? null;
+        $stat = @lstat($path);
+        if ($held === null || $held['pid'] !== getmypid() || ($held['transferred'] ?? false)
+            || !is_array($stat) || is_link($path) || $stat['nlink'] !== 1) {
+            throw new RuntimeException('SOURCE_ONLY_INSTANCE_LOCK_REQUIRED');
+        }
+        $open = fstat($held['handle']);
+        if ($open['ino'] !== $stat['ino'] || $open['dev'] !== $stat['dev']) {
+            throw new RuntimeException('SOURCE_ONLY_INSTANCE_LOCK_CHANGED');
+        }
+    }
+
+    public static function beginApplicationSource(string $root, array $plan, string $operation): void
+    {
+        self::assertApplicationSourceLock($root);
+        if (!in_array($operation, ['apply', 'verify', 'recover'], true)
+            || self::applicationSourceContext($root) !== ($plan['identity']['source_installation'] ?? null)) {
+            throw new RuntimeException('SOURCE_ONLY_INSTALLATION_CHANGED');
+        }
+        self::assertApplicationSourceStopped($root);
+        self::writeMaintenance($root, ['update_id' => $plan['candidate']], 'source-' . $operation);
+    }
+
+    public static function finishApplicationSource(string $root, string $candidate, string $operation): void
+    {
+        self::assertApplicationSourceLock($root);
+        if (in_array($operation, ['verify', 'recover'], true)) {
+            self::clearMaintenance($root, $candidate, $operation === 'recover' ? 'recovered' : 'completed');
+        }
+        // Traffic remains revoked. Dependency/build/DB adoption and opening are separate operations.
+    }
+
     /** The installed receipt and initial baseline are immutable anchors, never successor manifests. */
     public static function applicationDeployment(string $root, array $identity, string $runtimeSha): array
     {

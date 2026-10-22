@@ -36,6 +36,8 @@ final class ScaffoldUpgradeRunner
     /** Only runtimeCheckpoint can issue this process-local context after the authenticated pointer handoff. */
     private ?array $sourceSuccessorOrigin = null;
     private int $diagnosticSequence = 0;
+    /** Issued after native installed/source/host checks under this process's instance lock. */
+    private ?array $sourceOnlyOperation = null;
 
     /** Read-only graph admission for the existing Resolver; an arbitrary plan array is not an issuer. */
     public function assertInternalPreinstallSourceGraph(string $projectRoot): void
@@ -356,6 +358,11 @@ final class ScaffoldUpgradeRunner
             'plugin_projection' => $pluginProjection,
             'plugin_target' => $pluginTarget,
         ];
+        if ($this->isInstalledApplicationSource($root)) {
+            $this->loadSourceCoordinator();
+            $identity['source_installation'] = \PeanutServerUpdatePlan::applicationSourceContext($root . '/server');
+            \PeanutServerUpdatePlan::assertApplicationSourceStopped($root . '/server');
+        }
         if ($internal !== null) {
             $identity['kind'] = 'internal-candidate-preinstall-correction';
             $identity['internal_preinstall'] = $internal;
@@ -561,20 +568,49 @@ final class ScaffoldUpgradeRunner
     public function templatePreflight(string $projectRoot, string $toManifestPath, ?string $modeManifestPath = null, ?array $sourceSelection = null): array
     {
         $root = ScaffoldPathGuard::projectRoot($projectRoot);
-        return self::sourceProductLock($root, function () use ($root, $toManifestPath, $modeManifestPath, $sourceSelection): array {
-            if ($this->hasRuntimeState($root)) {
+        return $this->locked($root, function (string $root) use ($toManifestPath, $modeManifestPath, $sourceSelection): array {
+            if ($this->hasRuntimeState($root) && !$this->isInstalledApplicationSource($root)) {
                 throw new RuntimeException('SOURCE_RUNTIME_SOURCE_ADOPTION_REQUIRES_SEPARATE_MAINTENANCE');
+            }
+            if (isset($sourceSelection['template_package_path'])) {
+                (new EditionUpgradePackage())->authenticateTemplate($root, dirname($sourceSelection['template_package_path']));
+            } elseif ($this->isInstalledApplicationSource($root)) {
+                throw new RuntimeException('SOURCE_ONLY_FIXED_TEMPLATE_REQUIRED');
+            }
+            if ($this->isInstalledApplicationSource($root)) {
+                $this->loadSourceCoordinator();
+                \PeanutServerUpdatePlan::applicationSourceContext($root . '/server');
+                \PeanutServerUpdatePlan::assertApplicationSourceStopped($root . '/server');
             }
             $from = ScaffoldManifest::writeRecordedBaseline($root, $modeManifestPath);
             return $this->preflight($root, $from, $toManifestPath, $sourceSelection);
         });
     }
 
+    private function loadSourceCoordinator(): void
+    {
+        if (!class_exists(\PeanutServerUpdatePlan::class, false)) {
+            require_once dirname(__DIR__, 2) . '/server/docker/scripts/update-plan.php';
+        }
+    }
+
+    private function isInstalledApplicationSource(string $root): bool
+    {
+        if (!file_exists($root . '/server/private/installation/installed.json')
+            && !is_link($root . '/server/private/installation/installed.json')) { return false; }
+        foreach (['server/.peanut/development-runtime.json', 'server/.peanut/internal-candidate.json',
+            'server/.peanut/release-identity.json', 'server/runtime/upgrade/source-transition.json'] as $relative) {
+            if (file_exists($root . '/' . $relative) || is_link($root . '/' . $relative)) { return false; }
+        }
+        return true;
+    }
+
     private function hasRuntimeState(string $root): bool
     {
         foreach (['server/.peanut/development-runtime.json', 'server/.peanut/internal-candidate.json',
             'server/runtime/upgrade/source-transition.json', 'server/private/installation/installed.json',
-            'server/private/installation/executing.json', 'server/private/installation/deployment.json'] as $relative) {
+            'server/private/installation/executing.json', 'server/private/installation/deployment.json',
+            'server/private/installation/baseline.json', 'server/private/partial-installation'] as $relative) {
             if (file_exists($root . '/' . $relative) || is_link($root . '/' . $relative)) { return true; }
         }
         return false;
@@ -585,12 +621,13 @@ final class ScaffoldUpgradeRunner
         $root = ScaffoldPathGuard::projectRoot($projectRoot);
         $plan = $this->preview($root, $fromManifestPath, $toManifestPath, $sourceSelection);
         if ($this->changesNotificationExecution($plan)) {
-            $plan['notification_preflight'] = $this->hasRuntimeState($root)
+            $plan['notification_preflight'] = $this->hasRuntimeState($root) && !isset($plan['identity']['source_installation'])
                 ? $this->notificationExecutionPreflight($root)
                 : ['status' => 'deferred_to_runtime_adoption',
                 'may_apply_source' => true, 'runtime_accepted' => false,
                 'required_before_runtime' => 'module:check official.notification --runtime-data under the actual stopped/maintenance window'];
-            if ($this->hasRuntimeState($root) && ($plan['notification_preflight']['may_apply'] ?? false) !== true) {
+            if ($this->hasRuntimeState($root) && !isset($plan['identity']['source_installation'])
+                && ($plan['notification_preflight']['may_apply'] ?? false) !== true) {
                 $plan['status'] = 'blocked';
             }
         }
@@ -875,7 +912,8 @@ final class ScaffoldUpgradeRunner
             $this->assertManifestDigest($to, $plan['identity']['to']['manifest_sha256']);
             // Protected runtime projections still require their native check.
             // Ordinary source-only absorption never connects to an instance DB.
-            if ($this->changesNotificationExecution($plan) && $this->hasRuntimeState($root)) {
+            if ($this->changesNotificationExecution($plan) && $this->hasRuntimeState($root)
+                && !isset($plan['identity']['source_installation'])) {
                 $notification = $this->notificationExecutionPreflight($root);
                 if (($notification['may_apply'] ?? false) !== true) {
                     throw new RuntimeException($notification['code']);
@@ -2125,9 +2163,37 @@ final class ScaffoldUpgradeRunner
             }
             $installed = $current['plugins'][$key];
             $baseline = $from[$key];
-            $sameOwner = true;
-            foreach (['manifest', 'module_keys', 'module_roots', 'frontend_roots'] as $field) {
+            $sameOwner = $installed['frontend_roots'] === $baseline['frontend_roots']
+                && array_diff($baseline['frontend_roots'], $plugin['frontend_roots']) === [];
+            foreach (['manifest', 'module_keys', 'module_roots'] as $field) {
                 $sameOwner = $sameOwner && $installed[$field] === $plugin[$field] && $baseline[$field] === $plugin[$field];
+            }
+            // Only an unoccupied target frontend addition may extend proven upstream membership.
+            // Namespaces and bundled labels never transfer existing application ownership.
+            $additions = [];
+            foreach (array_diff($plugin['frontend_roots'], $baseline['frontend_roots']) as $addition) {
+                $path = ScaffoldPathGuard::projectPath($root, $addition);
+                if (file_exists($path) || is_link($path)) { $sameOwner = false; }
+                foreach (array_keys($applicationFiles) as $ownedPath) {
+                    if ($ownedPath === $addition || $this->withinAnyRoot($ownedPath, [$addition])
+                        || $this->withinAnyRoot($addition, [$ownedPath])) { $sameOwner = false; }
+                }
+                foreach ($current['plugins'] as $existing) {
+                    foreach ([...$existing['module_roots'], ...$existing['frontend_roots']] as $ownedRoot) {
+                        if ($ownedRoot === $addition || $this->withinAnyRoot($addition, [$ownedRoot])
+                            || $this->withinAnyRoot($ownedRoot, [$addition])) { $sameOwner = false; }
+                    }
+                }
+                $members = [];
+                foreach ($targetFiles as $targetPath => $targetFile) {
+                    if (!$this->withinAnyRoot($targetPath, [$addition])) { continue; }
+                    if (!in_array($targetFile['classification'] ?? null, ['managed', 'generated-managed'], true)
+                        || isset($fromFiles[$targetPath])) { $sameOwner = false; }
+                    $members[$targetPath] = ['template_sha256' => $targetFile['template_sha256'], 'mode' => $targetFile['mode']];
+                }
+                if ($members === []) { $sameOwner = false; }
+                ksort($members, SORT_STRING);
+                $additions[$addition] = $members;
             }
             foreach ([$installed, $baseline, $plugin] as $identity) {
                 $sameOwner = $sameOwner && ($identity['source_contract'] ?? null) === $contract;
@@ -2165,8 +2231,12 @@ final class ScaffoldUpgradeRunner
                 $evidence[$path] = ['sha256' => $digest, 'mode' => $actual['mode'], 'baseline_path' => $file['baseline_path']];
             }
             if ($sameOwner) {
+                ksort($additions, SORT_STRING);
                 $proofs[$key] = ['baseline_root' => $baselineRoot, 'files' => count($evidence),
-                    'ownership_sha256' => 'sha256:' . hash('sha256', self::canonicalJson($evidence))];
+                    'frontend_roots' => $plugin['frontend_roots'],
+                    'ownership_sha256' => 'sha256:' . hash('sha256', self::canonicalJson([
+                        'existing' => $evidence, 'frontend_additions' => $additions,
+                    ]))];
             }
         }
         return $proofs;
@@ -2197,7 +2267,9 @@ final class ScaffoldUpgradeRunner
             $installed = $current['plugins'][$key] ?? null;
             if (is_array($installed)) {
                 foreach (['manifest', 'module_keys', 'module_roots', 'frontend_roots'] as $field) {
-                    if ($installed[$field] !== $plugin[$field]) {
+                    if ($installed[$field] !== $plugin[$field]
+                        && !(!$official && $field === 'frontend_roots'
+                            && ($managedUpstreamProofs[$key]['frontend_roots'] ?? null) === $plugin[$field])) {
                         throw new RuntimeException('SCAFFOLD_OFFICIAL_MEMBERSHIP_CHANGED: ' . $key);
                     }
                 }
@@ -2240,7 +2312,8 @@ final class ScaffoldUpgradeRunner
                 $plugin = $target[$key];
                 $roots = [...$plugin['module_roots'], ...$plugin['frontend_roots']];
                 if (isset($current['plugins'][$key])) {
-                    foreach (array_keys($this->pluginSourceFiles($root, $roots)) as $path) {
+                    $existing = $current['plugins'][$key];
+                    foreach (array_keys($this->pluginSourceFiles($root, [...$existing['module_roots'], ...$existing['frontend_roots']])) as $path) {
                         if (!isset($files[$path]) && !isset($fromFiles[$path])) {
                             throw new RuntimeException('SCAFFOLD_OFFICIAL_UNTRACKED_SOURCE: ' . $path);
                         }
@@ -2303,8 +2376,10 @@ final class ScaffoldUpgradeRunner
                         $oldManifest = json_decode((string) file_get_contents($root . '/' . $inspection['backend_relative'] . '/module.json'), true, 64, JSON_THROW_ON_ERROR);
                         $oldVersion = (string) ($oldManifest['version'] ?? '');
                         $oldDigest = hash_file('sha256', $root . '/' . $inspection['backend_relative'] . '/module.json');
-                        $moduleRoots = [$inspection['backend_relative'], ...array_column($inspection['frontend_contributions'], 'root')];
-                        $changed = $this->pluginSourceFiles($root, $moduleRoots) !== $this->pluginSourceFiles($stage, $moduleRoots);
+                        $oldFrontend = \app\platform\value\plugin\ModuleFrontendLayout::contributions($oldManifest['frontend'] ?? [], $moduleKey);
+                        $oldRoots = [$inspection['backend_relative'], ...array_column($oldFrontend, 'root')];
+                        $targetRoots = [$inspection['backend_relative'], ...array_column($inspection['frontend_contributions'], 'root')];
+                        $changed = $this->pluginSourceFiles($root, $oldRoots) !== $this->pluginSourceFiles($stage, $targetRoots);
                         $pendingInternalCorrection = $this->isPendingInternalSourceCorrection($key, $moduleKey, $oldVersion, $inspection['version']);
                         if (version_compare($inspection['version'], $oldVersion) < 0
                             || ($changed && version_compare($inspection['version'], $oldVersion) <= 0 && !$pendingInternalCorrection)
@@ -3574,14 +3649,26 @@ final class ScaffoldUpgradeRunner
     private function locked(string $projectRoot, callable $operation): array
     {
         $root = ScaffoldPathGuard::projectRoot($projectRoot);
-        return self::sourceProductLock($root, static fn() => self::sourceLock(
-            $root . '/.peanut/upgrades/project.lock', static function () use ($root, $operation) {
+        return self::sourceProductLock($root, fn() => self::sourceLock(
+            $root . '/.peanut/upgrades/project.lock', function () use ($root, $operation) {
                 if (file_exists($root . '/server/.peanut/development-runtime.json')
                     || is_link($root . '/server/.peanut/development-runtime.json')
                     || file_exists($root . '/server/.peanut/internal-candidate.json')
-                    || file_exists($root . '/server/runtime/upgrade/source-transition.json')) {
+                    || file_exists($root . '/server/runtime/upgrade/source-transition.json')
+                    || $this->isInstalledApplicationSource($root)) {
                     if (!class_exists(\PeanutServerUpdatePlan::class, false)) { require_once dirname(__DIR__, 2) . '/server/docker/scripts/update-plan.php'; }
-                    return \PeanutServerUpdatePlan::withSourceInstanceLock($root . '/server', static fn() => $operation($root));
+                    return \PeanutServerUpdatePlan::withSourceInstanceLock($root . '/server', function () use ($operation, $root): array {
+                        $previous = $this->sourceOnlyOperation;
+                        $this->sourceOnlyOperation = null;
+                        try {
+                            $result = $operation($root);
+                            if ($this->sourceOnlyOperation !== null) {
+                                $context = $this->sourceOnlyOperation;
+                                \PeanutServerUpdatePlan::finishApplicationSource($root . '/server', $context['candidate'], $context['operation']);
+                            }
+                            return $result;
+                        } finally { $this->sourceOnlyOperation = $previous; }
+                    });
                 }
                 return $operation($root);
             }));
@@ -4145,6 +4232,21 @@ final class ScaffoldUpgradeRunner
     private function runtimeSourceGuard(string $root, array $plan, string $operation): void
     {
         self::$runtimeEventBinding = [];
+        if (isset($plan['identity']['source_installation'])) {
+            if (!$this->isInstalledApplicationSource($root) || !in_array($operation, ['apply', 'verify', 'recover'], true)
+                || !isset($plan['identity']['source_selection']['template_package_path'])) {
+                throw new RuntimeException('SOURCE_ONLY_PLAN_CONTEXT_INVALID');
+            }
+            $this->loadSourceCoordinator();
+            $to = ScaffoldManifest::load($plan['manifest_paths']['to']);
+            $selection = $this->validateUpgradeSourceSelection($root, $plan['identity']['source_selection'], $to);
+            (new EditionUpgradePackage())->authenticateTemplate($root, dirname($selection['template_package_path']));
+            \PeanutServerUpdatePlan::beginApplicationSource($root . '/server', $plan, $operation);
+            $this->sourceOnlyOperation = ['root' => $root, 'candidate' => $plan['candidate'], 'operation' => $operation];
+            self::$runtimeEventBinding = ['source_installation_sha256' => hash('sha256',
+                self::canonicalJson($plan['identity']['source_installation']))];
+            return;
+        }
         if ($this->hasRuntimeState($root) && isset($plan['manifest_paths']['from'])
             && ScaffoldManifest::load($plan['manifest_paths']['from'], true)->isRecordedBaseline()
             && !file_exists($root . '/server/.peanut/development-runtime.json') && !is_link($root . '/server/.peanut/development-runtime.json')
@@ -5486,6 +5588,9 @@ final class ScaffoldUpgradeRunner
             'from' => $plan['identity']['from']['version'],
             'to' => $to->version(),
         ];
+        if (isset($plan['identity']['source_installation'])) {
+            $application['last_scaffold_upgrade']['source_installation'] = $plan['identity']['source_installation'];
+        }
         if (is_array($edition)) {
             $application['last_scaffold_upgrade']['edition_profile_sha256'] = $edition['source_sha256'];
             $application['last_scaffold_upgrade']['tenant_bootstrap'] = $edition['tenant_bootstrap'];

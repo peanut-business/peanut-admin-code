@@ -1133,7 +1133,9 @@ try {
             $prepared = isset($options['partial-source-successor'])
                 ? $packageService->preparePartialSourceSuccessor($instanceRoot, $packageRoot, $options['partial-source-successor'])
                 : $packageService->prepare($instanceRoot, $packageRoot, $options['baseline-mode-manifest'] ?? null);
-            $result = $runner->preflight($instanceRoot, $prepared['from_manifest'], $prepared['to_manifest']);
+            $result = isset($prepared['source_selection'])
+                ? $runner->templatePreflight($instanceRoot, $prepared['to_manifest'], $options['baseline-mode-manifest'] ?? null, $prepared['source_selection'])
+                : $runner->preflight($instanceRoot, $prepared['from_manifest'], $prepared['to_manifest']);
             $result['plan_path'] = $instanceRoot . '/' . $result['plan_path'];
         } else {
             $successorInput = ($frozenSource['binding']['source_input_kind'] ?? null) === 'raw-partial-source-successor-scaffold';
