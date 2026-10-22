@@ -14,7 +14,7 @@ Usage: scripts/deploy-release vAPP_VERSION --target production|production-candid
 Consume the independent APP's own server Release. Installation accepts a
 missing root or an empty ordinary base directory owned by this deployment;
 updates call the installed native plan/apply/verify entry.
-Fixed PHP/Nginx/MySQL runtime images are reused without application builds.
+Explicit bundled or registered database selection reuses fixed runtime images.
 No fresh, source-checkout overlay, host/port guessing or deployment removal.
 USAGE
 }
@@ -64,8 +64,13 @@ def resource(key):
     if len(found)!=1: fail("missing/ambiguous resource: "+str(key))
     return found[0]
 d=resource(rid); a=resource(d.get("application_resource_id")); h=resource(d.get("http_resource_id"))
-b=resource(d.get("database_resource_id")); m=resource(b.get("runtime_resource_id"))
-for row in (d,a,h,b,m):
+b=resource(d.get("database_resource_id"))
+env=d.get("required_non_secret_environment",{})
+source=env.get("PEANUT_DATABASE_SOURCE","bundled")
+if source not in ("bundled","registered"): fail("invalid database source")
+if d.get("database_source",source)!=source: fail("database source declarations conflict")
+m=resource(b.get("runtime_resource_id")) if source=="bundled" else None
+for row in (d,a,h,b)+((m,) if m else ()):
     if row.get("fallback")!="none" or target not in row.get("environments",[row.get("environment")]):
         fail("resource environment/fallback differs from target")
 root=d.get("deployment_root",""); host=d.get("ssh_alias",""); project=d.get("compose_project","")
@@ -76,13 +81,26 @@ if d.get("compose_file")!="server/docker/compose.yaml" or d.get("pc_render_mode"
 port=h.get("port"); bind=h.get("bind")
 if bind!="127.0.0.1" or type(port)!=int or not 1024<=port<=65535: fail("invalid HTTP endpoint")
 endpoint=b.get("container_endpoint",{})
-if b.get("service_type")!="mysql" or b.get("application_runtime") is not True or endpoint.get("host")!="mysql" or endpoint.get("port")!=3306:
+if b.get("service_type")!="mysql" or b.get("application_runtime") is not True \
+        or not isinstance(endpoint,dict) or endpoint.get("consumers")!=["container"] \
+        or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}",str(endpoint.get("endpoint_id",""))) \
+        or not re.fullmatch(r"[A-Za-z0-9._:-]{1,253}",str(endpoint.get("host",""))) \
+        or type(endpoint.get("port"))!=int or not 1<=endpoint["port"]<=65535:
     fail("invalid registered MySQL endpoint")
 if not re.fullmatch(r"[A-Za-z0-9_]{1,64}",str(b.get("database",""))): fail("invalid database name")
-for row in (a,b,m):
+for row in ((a,b,m) if source=="bundled" else (a,)):
     if row.get("host")!=host or row.get("compose_project")!=project or row.get("compose_file")!=d["compose_file"]: fail("runtime tuple differs")
 if a.get("database_resource_id")!=b["stable_resource_id"] or a.get("http_resource_id")!=h["stable_resource_id"] \
-        or h.get("ssh_alias")!=host or m.get("database_resource_id")!=b["stable_resource_id"]: fail("resource relationship differs")
+        or h.get("ssh_alias")!=host: fail("resource relationship differs")
+if source=="bundled":
+    if endpoint["host"]!="mysql" or endpoint["port"]!=3306 or m.get("database_resource_id")!=b["stable_resource_id"]:
+        fail("bundled database relationship differs")
+else:
+    if endpoint["host"]=="mysql" or env.get("COMPOSE_PROFILES") or b.get("namespace")!=b["database"]:
+        fail("registered external database relationship differs")
+    expected={"PEANUT_DATABASE_CONSUMER":"container","PEANUT_DATABASE_ENDPOINT_ID":endpoint["endpoint_id"],
+              "DB_HOST":endpoint["host"],"DB_PORT":endpoint["port"]}
+    if any(env.get(key)!=value for key,value in expected.items()): fail("registered container endpoint configuration differs")
 if a.get("published_endpoint",{}).get("bind")!=bind or a.get("published_endpoint",{}).get("port")!=port: fail("HTTP projection differs")
 deployment_kind=d.get("deployment_kind","application")
 if deployment_kind not in ("application","temporary-multi-tenant-source"): fail("unknown deployment kind")
@@ -92,13 +110,14 @@ if mode=="update" and (not re.fullmatch(r"/(?:[A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+"
     fail("registered absolute PHP maintenance entry required")
 images=d.get("runtime_images",{})
 pattern=r"(?:sha256:[a-f0-9]{64}|[A-Za-z0-9][A-Za-z0-9._:/-]{0,160}@sha256:[a-f0-9]{64})"
-if set(images)!={"php","nginx","mysql"} or any(not re.fullmatch(pattern,str(v)) for v in images.values()): fail("immutable runtime image set required")
-if b.get("image")!=images["mysql"] or m.get("image")!=images["mysql"]: fail("MySQL image differs")
-if b.get("namespace")!=root+"/server/docker/mysql" or m.get("namespace")!=b["namespace"]: fail("MySQL directory differs")
-env=d.get("required_non_secret_environment",{})
+if set(images)!=({"php","nginx","mysql"} if source=="bundled" else {"php","nginx"}) \
+        or any(not re.fullmatch(pattern,str(v)) for v in images.values()): fail("immutable runtime image set required")
+if source=="bundled":
+    if b.get("image")!=images["mysql"] or m.get("image")!=images["mysql"]: fail("MySQL image differs")
+    if b.get("namespace")!=root+"/server/docker/mysql" or m.get("namespace")!=b["namespace"]: fail("MySQL directory differs")
 if env.get("HTTP_PORT")!=port or env.get("PEANUT_DATABASE_RESOURCE_ID")!=b["stable_resource_id"] or env.get("DB_NAME")!=b["database"]:
     fail("registered application configuration differs")
-owned={r["stable_resource_id"] for r in (d,a,h,b,m)}
+owned={r["stable_resource_id"] for r in (d,a,h,b)+((m,) if m else ())}
 for other in rows:
     if other.get("stable_resource_id") in owned or (other.get("host")!=host and other.get("ssh_alias")!=host): continue
     path=other.get("deployment_root")
@@ -131,11 +150,19 @@ with tarfile.open(archive,"r:gz") as package:
                           and projection.get("schema_version")==1
                           and projection.get("resources",{}).get("databases")==[] and not projected)
     if not unallocated_template and (len(projected)!=1 or projected[0].get("database")!=b["database"]
-                                    or projected[0].get("container_endpoint")!=endpoint):
+                                    or projected[0].get("container_endpoint")!=endpoint
+                                    or projected[0].get("application_runtime") is not True
+                                    or projected[0].get("service_type")!="mysql"
+                                    or projected[0].get("fallback")!="none"):
         fail("archive database projection differs")
+    if source=="registered" and (unallocated_template or env.get("DEPLOYMENT_MODE") not in b.get("deployment_modes",[])
+            or projected[0].get("namespace")!=b["database"]
+            or env.get("DEPLOYMENT_MODE") not in projected[0].get("deployment_modes",[])):
+        fail("registered database APP projection/Edition permission required")
 plan={"protocol":"peanut.mounted-deployment-plan.v1","resource_id":rid,"target":target,"mode":mode,
       "root":root,"host":host,"project":project,"bind":bind,"port":port,"images":images,"application":app,
       "database_resource_id":b["stable_resource_id"],"database_name":b["database"],"archive_sha256":digest,
+      "database_source":source,"database_endpoint":endpoint,
       "registry_sha256":hashlib.sha256(pathlib.Path(registry).read_bytes()).hexdigest(),
       "deployment_kind":deployment_kind,"source_commit":commit,"source_tree":tree,"upgrade_php":upgrade_php}
 pathlib.Path(output).write_text(json.dumps(plan,sort_keys=True)+"\n")
@@ -245,7 +272,8 @@ with contextlib.ExitStack() as opened:
 PY
   python3 "$root/server/docker/scripts/configure-runtime.py" --docker-root="$root/server/docker" \
     --project="$(jq -r .project "$plan")" --http-bind="$(jq -r .bind "$plan")" \
-    --http-port="$(jq -r .port "$plan")" --php-image="$(jq -r .images.php "$plan")" >/dev/null
+    --http-port="$(jq -r .port "$plan")" --php-image="$(jq -r .images.php "$plan")" \
+    --database-source="$(jq -r .database_source "$plan")" >/dev/null
   # Public templates must name the exact registered Nginx/MySQL images.
 else
   [[ -d "$root" && ! -L "$root" && "$(realpath -e "$root")" == "$root" ]] || fail 'installed root is not canonical'
@@ -262,9 +290,44 @@ for line in path.read_text().splitlines():
     key,sep,value=line.partition("=")
     if not sep or key in values: raise SystemExit("invalid/duplicate Docker setting")
     values[key]=value
-for key,value in {"COMPOSE_PROJECT_NAME":plan["project"],"HTTP_BIND":plan["bind"],"HTTP_PORT":str(plan["port"]),
-                  "PHP_IMAGE":plan["images"]["php"],"NGINX_IMAGE":plan["images"]["nginx"],"MYSQL_IMAGE":plan["images"]["mysql"]}.items():
+expected={"COMPOSE_PROJECT_NAME":plan["project"],"HTTP_BIND":plan["bind"],"HTTP_PORT":str(plan["port"]),
+          "PHP_IMAGE":plan["images"]["php"],"NGINX_IMAGE":plan["images"]["nginx"]}
+if plan["database_source"]=="bundled": expected["MYSQL_IMAGE"]=plan["images"]["mysql"]
+elif any(key in values for key in ("MYSQL_IMAGE","MYSQL_HOST_PORT","MYSQL_ROOT_PASSWORD")):
+    raise SystemExit("registered database conflicts with bundled Docker settings")
+for key,value in expected.items():
     if values.get(key)!=value: raise SystemExit("Docker setting differs from registered target: "+key)
+backend=root/"server/.env"
+if backend.exists() or backend.is_symlink():
+    if backend.is_symlink() or not backend.is_file() or backend.stat().st_nlink!=1 or backend.stat().st_mode&0o777!=0o600:
+        raise SystemExit("private application settings are unsafe")
+    settings={}
+    for line in backend.read_text().splitlines():
+        if not line or line.startswith("#"): continue
+        key,sep,value=line.partition("=")
+        if not sep or key in settings: raise SystemExit("invalid/duplicate application setting")
+        if value.startswith('"'): value=json.loads(value)
+        elif value.startswith("'") and value.endswith("'"): value=value[1:-1].replace("\\'","'")
+        settings[key]=value
+    if settings.get("PEANUT_DATABASE_SOURCE","bundled")!=plan["database_source"]:
+        raise SystemExit("installed database source differs")
+    if plan["database_source"]=="registered":
+        expected={"PEANUT_DATABASE_RESOURCE_ID":plan["database_resource_id"],"DB_NAME":plan["database_name"],
+                  "PEANUT_DATABASE_CONSUMER":"container","PEANUT_DATABASE_ENDPOINT_ID":plan["database_endpoint"]["endpoint_id"],
+                  "DB_HOST":plan["database_endpoint"]["host"],"DB_PORT":str(plan["database_endpoint"]["port"])}
+        if any(settings.get(key)!=value for key,value in expected.items()): raise SystemExit("installed registered database endpoint differs")
+        registry=root/"server/private/resources/project-resources.json"
+        if registry.is_symlink() or not registry.is_file() or registry.stat().st_nlink!=1 or registry.stat().st_mode&0o777!=0o600:
+            raise SystemExit("private application registry is unsafe")
+        projection=json.loads(registry.read_text())
+        selected=[row for row in projection.get("resources",{}).get("databases",[]) if row.get("stable_resource_id")==plan["database_resource_id"]]
+        if projection.get("project_id")!=plan["application"]["slug"] or projection.get("authority",{}).get("role")!="application" \
+                or len(selected)!=1 or selected[0].get("database")!=plan["database_name"] \
+                or selected[0].get("namespace")!=plan["database_name"] or selected[0].get("container_endpoint")!=plan["database_endpoint"] \
+                or selected[0].get("application_runtime") is not True or selected[0].get("fallback")!="none" \
+                or selected[0].get("service_type")!="mysql" or plan["application"]["edition"] not in selected[0].get("deployment_modes",[]):
+            raise SystemExit("installed registered application resource differs")
+elif plan["mode"]=="update": raise SystemExit("update requires private application settings")
 identity=root/"server/.peanut/release-identity.json"
 if plan["mode"]=="update":
     installed=root/"server/private/installation/installed.json"
@@ -275,7 +338,11 @@ if plan["mode"]=="update":
 PY
 cd "$root"
 if [[ "$mode" == install ]]; then
-  sh server/docker/scripts/start.sh
+  if [[ "$(jq -r .database_source "$plan")" == registered ]]; then
+    sh server/docker/scripts/start.sh -f compose.registered-database.yaml
+  else
+    sh server/docker/scripts/start.sh
+  fi
   printf 'deployment_started=guided-installation; installation completion requires the native installer\n'
 else
   native="$root/server/docker/scripts/update.sh"

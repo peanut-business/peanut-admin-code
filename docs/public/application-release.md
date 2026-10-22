@@ -63,4 +63,10 @@ server/docker/scripts/update.sh verify --workspace=/absolute/private/upgrade-wor
 
 ## 6. 验证口径
 
+`scripts/deploy-release`从所选部署登记的`required_non_secret_environment.PEANUT_DATABASE_SOURCE`选择`bundled`或`registered`；省略时沿用现有`bundled`语义，未知值或与显式`database_source`冲突的值拒绝执行。部署与APP的`database_resource_id`必须指向同一精确数据库；归档中的APP身份和应用所有的资源投影须一致，不能从宿主endpoint推测容器权限。
+
+`bundled`保留同宿主、同Compose、`mysql:3306`、本地MySQL目录以及PHP/Nginx/MySQL三枚不可变镜像的限制。`registered`要求数据库明确允许`container`消费者、固定`endpoint_id`/host/整数port、数据库namespace等于database，并允许当前Edition；登记的`PEANUT_DATABASE_CONSUMER=container`、`PEANUT_DATABASE_ENDPOINT_ID`、`DB_HOST`、`DB_PORT`和`DB_NAME`须精确相符。它仅接受PHP/Nginx两枚不可变镜像，不接受启用bundled数据库的Compose profile，也不要求外部数据库属于应用Compose。
+
+计划固定模式及endpoint；新实例按同一模式调用原生runtime配置，registered首次启动显式传递官方`compose.registered-database.yaml`，仅启动PHP/Nginx。更新还核对实例现有私有环境的模式及数据库绑定；模式变更须单独处理，不能在部署中隐式切换。外部数据库的凭据、实例资源发布和连通性仍由原生配置/安装流程处理，包装器不生成外部凭据、不启动外部数据库。Docker模板中的镜像必须与登记一致，包装器不会重写镜像来掩盖不一致。
+
 脚本默认值及离线文件边界测试，不代表四端实际构建、公开附件、安装、数据库迁移、生产更新或回退已通过。记录精确源码、包摘要、已执行断言、NOT_RUN和失败；不为验证打包参数生成新的真实测试APP。
