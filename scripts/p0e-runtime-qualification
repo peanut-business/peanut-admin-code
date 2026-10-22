@@ -475,6 +475,55 @@ def runtime_registration(app: dict[str, Any]) -> dict[str, Any]:
     return registered
 
 
+def candidate_inputs(value: dict[str, Any], candidate: str, tree: str) -> dict[str, Any]:
+    """Common immutable Code/CLI/template inputs, with no APP or DB access."""
+    if value.get("source") != {"commit": candidate, "tree": tree}:
+        fail("candidate inputs must bind this exact Code source")
+    cli = value.get("cli", {})
+    cli_root = canonical(cli.get("root", ""), directory=True)
+    checkout_identity(cli_root, cli.get("commit", ""), cli.get("tree", ""))
+    if command(["git", "-C", str(cli_root), "remote", "get-url", "origin"], capture=True).stdout.strip() not in (
+        "git@github.com:peanut-business/peanut-cli.git", "https://github.com/peanut-business/peanut-cli.git"):
+        fail("independent CLI source repository differs")
+    if read_json(cli_root / "package.json").get("name") != "@peanut/cli":
+        fail("independent CLI package identity differs")
+    entry = canonical(str(cli_root / "bin/peanut.js"))
+    cli = {**cli, "entry_sha256": sha256(entry)}
+    templates_root = canonical(value.get("template_build_root", ""), directory=True)
+    templates = template_inputs(templates_root, candidate, tree)
+    return {"cli": cli, "template_artifacts": templates, "template_build_root": str(templates_root)}
+
+
+def cli_created_applications(inputs: dict[str, Any], candidate: str, tree: str, cache: Path) -> dict[str, Any]:
+    """Run the independent CLI and original creation assertions in both stages."""
+    cli = inputs["cli"]
+    result = {}
+    for edition in EDITIONS:
+        target = cache / ("cli-create-" + edition)
+        archive = Path(inputs["template_build_root"]) / edition / f"peanut-scaffold-{edition}.tgz"
+        manifest = archive.with_suffix(".json")
+        if target.exists():
+            fail("CLI creation target must be absent; never recreate a permanent APP")
+        process = command(["node", str(Path(cli["root"]) / "bin/peanut.js"), "create", str(target),
+            "--name", "P0E CLI creation", "--slug", "p0e-" + edition,
+            "--package", "p0e/" + edition, "--edition", edition, "--archive", str(archive), "--manifest", str(manifest)],
+            capture=True)
+        created = json.loads(process.stdout)
+        identity = read_json(target / ".peanut/application-manifest.json")
+        if (created.get("status") != "created" or created.get("target") != str(target)
+                or identity.get("template", {}).get("source_commit") != candidate
+                or identity.get("template", {}).get("source_tree") != tree
+                or identity.get("template_package", {}).get("archive_sha256") != sha256(archive)
+                or identity.get("application", {}).get("edition") != edition
+                or identity.get("edition", {}).get("name") != edition
+                or any((target / path).exists() for path in (".git", "node_modules", "server/vendor",
+                    "web/node_modules", "platform/node_modules", "pc/node_modules", "uniapp/node_modules"))):
+            fail("independent CLI create identity or no-implicit-install contract failed")
+        result[edition] = {"manifest_sha256": sha256(target / ".peanut/application-manifest.json"),
+                           "cli_result": created, "documentation": documentation_contract(target, generated=True)}
+    return result
+
+
 def lifecycle_inputs(args: argparse.Namespace, tree: str) -> dict[str, Any]:
     input_path = file_reference({"path": args.lifecycle_input, "sha256": args.lifecycle_input_sha256})
     value = read_json(input_path)
@@ -487,18 +536,8 @@ def lifecycle_inputs(args: argparse.Namespace, tree: str) -> dict[str, Any]:
         fail("maintainer registry authority required")
     command([str(REGISTRY_TOOL), "p0e-maintainer-source", "--sha256", sha256(REGISTRY_PATH)], capture=True)
     resources = registry.get("resources", {}).get("databases", [])
-    cli = value.get("cli", {})
-    cli_root = canonical(cli.get("root", ""), directory=True)
-    checkout_identity(cli_root, cli.get("commit", ""), cli.get("tree", ""))
-    if command(["git", "-C", str(cli_root), "remote", "get-url", "origin"], capture=True).stdout.strip() not in (
-        "git@github.com:peanut-business/peanut-cli.git", "https://github.com/peanut-business/peanut-cli.git"):
-        fail("independent CLI source repository differs")
-    if read_json(cli_root / "package.json").get("name") != "@peanut/cli":
-        fail("independent CLI package identity differs")
-    entry = canonical(str(cli_root / "bin/peanut.js"))
-    cli = {**cli, "entry_sha256": sha256(entry)}
-    templates_root = canonical(value.get("template_build_root", ""), directory=True)
-    templates = template_inputs(templates_root, args.candidate, tree)
+    prepared = candidate_inputs(value, args.candidate, tree)
+    cli, templates = prepared["cli"], prepared["template_artifacts"]
     apps = value.get("applications", {})
     if set(apps) != set(EDITIONS):
         fail("exactly the two registered permanent APPs are required")
@@ -572,7 +611,7 @@ def plan(args: argparse.Namespace, require_clean: bool) -> dict[str, Any]:
     selected = groups
     scope = "full"
     if args.minimum_release:
-        fail("minimum-release is not full qualification; use the templates partial stage or an explicit group selection")
+        fail("minimum-release is not full qualification; use the candidate preflight stage or an explicit group selection")
     if args.groups and args.through_group:
         fail("groups and through-group are mutually exclusive")
     if args.groups:
@@ -949,28 +988,8 @@ class Runner:
         if templates != self.plan["template_artifacts"]:
             fail("native template member/mode/tooling check changed its inputs")
         cli = self.inputs["cli"]
-        result = {}
+        result = cli_created_applications(self.inputs, self.args.candidate, self.plan["candidate_tree"], self.cache)
         for edition in EDITIONS:
-            target = self.cache / ("cli-create-" + edition)
-            archive = Path(self.inputs["template_build_root"]) / edition / f"peanut-scaffold-{edition}.tgz"
-            manifest = archive.with_suffix(".json")
-            if target.exists():
-                fail("CLI creation target must be absent; never recreate a permanent APP")
-            process = command(["node", str(Path(cli["root"]) / "bin/peanut.js"), "create", str(target),
-                "--name", "P0E CLI creation", "--slug", "p0e-" + edition,
-                "--package", "p0e/" + edition, "--edition", edition, "--archive", str(archive), "--manifest", str(manifest)],
-                capture=True)
-            created = json.loads(process.stdout)
-            identity = read_json(target / ".peanut/application-manifest.json")
-            if (created.get("status") != "created" or created.get("target") != str(target)
-                    or identity.get("template", {}).get("source_commit") != self.args.candidate
-                    or identity.get("template", {}).get("source_tree") != self.plan["candidate_tree"]
-                    or identity.get("template_package", {}).get("archive_sha256") != sha256(archive)
-                    or identity.get("application", {}).get("edition") != edition
-                    or (target / ".git").exists() or (target / "server/vendor").exists() or (target / "web/node_modules").exists()):
-                fail("independent CLI create identity or no-implicit-install contract failed")
-            result[edition] = {"manifest_sha256": sha256(target / ".peanut/application-manifest.json"),
-                               "cli_result": created, "documentation": documentation_contract(target, generated=True)}
             # The CLI contract deliberately stops before dependency installation.
             # Source compilation belongs to the already fixed permanent APP, whose
             # adoption/locks are bound by lifecycle_inputs, not to another runtime.
@@ -1304,32 +1323,41 @@ class Runner:
             "not_run": [g for g in self.plan["groups"] if self.checkpoint["groups"].get(g, {}).get("status") in (None, "not_run")],
             "cleanup": {"lease_released": False, "fixed_apps_preserved": True, "databases_preserved": True}})
 
-def qualify_templates(args: argparse.Namespace) -> dict[str, Any]:
-    """Qualify immutable template inputs only; never create/install a runtime APP."""
+def qualify_candidate(args: argparse.Namespace) -> dict[str, Any]:
+    """Check fixed templates and CLI creation only; never read permanent APPs or DBs."""
     _, tree = validate_candidate(args.candidate, require_clean=True)
-    roots = Path(args.template_artifacts)
+    input_path = file_reference({"path": args.candidate_input, "sha256": args.candidate_input_sha256})
+    value = read_json(input_path)
+    if (value.get("protocol") != "peanut.p0e-candidate-inputs.v1"
+            or set(value) != {"protocol", "source", "cli", "template_build_root"}):
+        fail("candidate input accepts only fixed Code, CLI and template identities")
     output = Path(args.output_dir)
-    if not roots.is_absolute() or roots.is_symlink() or not roots.is_dir() or roots.resolve() != roots:
-        fail("template-artifacts must be a canonical complete native build root")
+    if (not output.is_absolute() or output.exists() or output.is_symlink()
+            or not output.parent.is_dir() or output.parent.resolve() != output.parent):
+        fail("candidate output must be an absent canonical directory")
+    inputs = candidate_inputs(value, args.candidate, tree)
+    roots = Path(inputs["template_build_root"])
+    protected = (ROOT, roots, Path(inputs["cli"]["root"]))
     if (not output.is_absolute() or output.exists() or output.is_symlink()
             or not output.parent.is_dir() or output.parent.resolve() != output.parent
-            or output == ROOT or ROOT in output.parents or output == roots or roots in output.parents
-            or output in roots.parents):
-        fail("template-stage output must be a new canonical directory outside source and template inputs")
+            or any(output == root or root in output.parents or output in root.parents for root in protected)):
+        fail("candidate output must be a new canonical leaf outside source, CLI and template inputs")
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", args.run_id):
-        fail("template-stage run id is invalid")
+        fail("candidate run id is invalid")
     version = read_json(ROOT / "release-versions.json")["scaffold_template"]
     groups = read_json(FIXTURE_PATH).get("groups")
     if (not isinstance(groups, list) or len(groups) != 8 or len(set(groups)) != 8
             or "generated-application" not in groups or any(not isinstance(g, str) or not GROUP_RESULT.fullmatch(g) for g in groups)):
-        fail("template stage requires the unchanged eight-group qualification contract")
+        fail("candidate stage requires the unchanged eight-group qualification contract")
     inventory = sha256(ROOT / "scaffold/application-template-inventory.json")
     verifier = ROOT / "scripts/release-template-artifacts.mjs"
     arguments = ["node", str(verifier), "check", str(roots), version, args.candidate, tree, inventory, str(ROOT)]
     output.mkdir(mode=0o700)
-    receipt = {"schema_version": 1, "protocol": "peanut.p0e-template-stage.v1", "status": "running",
-               "scope": "templates", "candidate": args.candidate, "candidate_tree": tree, "run_id": args.run_id,
+    receipt = {"schema_version": 1, "protocol": "peanut.p0e-candidate-stage.v1", "status": "running",
+               "scope": "candidate", "candidate": args.candidate, "candidate_tree": tree, "run_id": args.run_id,
                "full_gate_groups": groups, "source_inventory_sha256": inventory,
+               "candidate_input": {"path": str(input_path), "sha256": args.candidate_input_sha256},
+               "cli": inputs["cli"],
                "producer": {"path": "scripts/p0e-runtime-qualification", "sha256": sha256(Path(__file__)),
                             "verifier_sha256": sha256(verifier)},
                "template_build_root": str(roots), "started_at": int(time.time()),
@@ -1337,7 +1365,7 @@ def qualify_templates(args: argparse.Namespace) -> dict[str, Any]:
                            "service_started": False, "browser_used": False},
                "groups": {group: {"status": "not_run"} for group in groups},
                "publication_qualified": False}
-    path = output / "template-stage.json"
+    path = output / "candidate-stage.json"
     path.write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     try:
         result = command(arguments, capture=True, check=False)
@@ -1347,27 +1375,34 @@ def qualify_templates(args: argparse.Namespace) -> dict[str, Any]:
         if result.returncode != 0:
             fail("native template check failed; preserve this stage output, do not replay it")
         try:
-            inputs = json.loads(result.stdout)
+            checked = json.loads(result.stdout)
         except json.JSONDecodeError:
             fail("native template check did not return its artifact identity")
-        if (not isinstance(inputs, dict) or inputs.get("protocol") != "peanut.template-release-inputs.v1"
-                or inputs.get("version") != version or inputs.get("source") != {
-                    "commit": args.candidate, "tree": tree, "inventory_sha256": inventory}):
-            fail("native template check returned a different source")
-        # The verifier checks members, modes and sealed tooling for both Editions,
-        # re-reading all identities after the checks. Its temporary source
-        # projection is not a registered or installed runtime APP.
+        if (not isinstance(checked, dict) or checked.get("protocol") != "peanut.template-release-inputs.v1"
+                or checked.get("version") != version or checked.get("source") != {
+                    "commit": args.candidate, "tree": tree, "inventory_sha256": inventory}
+                or checked != inputs["template_artifacts"]):
+            fail("native template check returned different candidate inputs")
+        cache = output / "cli-created"
+        cache.mkdir(mode=0o700)
+        created = cli_created_applications(inputs, args.candidate, tree, cache)
+        file_reference({"path": str(input_path), "sha256": args.candidate_input_sha256})
         validate_candidate(args.candidate, require_clean=True)
-        receipt.update(status="partial-passed", template_artifacts=inputs)
-        receipt["groups"]["generated-application"] = {"status": "partial", "components": {
-            "native_template_contract": "passed", "source_build": "not_run", "cli_create_and_app_identity": "not_run"}}
+        cli = inputs["cli"]
+        checkout_identity(Path(cli["root"]), cli["commit"], cli["tree"])
+        if (sha256(Path(cli["root"]) / "bin/peanut.js") != cli["entry_sha256"]
+                or template_inputs(roots, args.candidate, tree) != inputs["template_artifacts"]):
+            fail("candidate source, CLI or template identity changed during creation")
+        receipt.update(status="candidate-passed", template_artifacts=checked, cli_created_applications=created)
+        receipt["groups"]["generated-application"]["components"] = {
+            "native_template_contract": "passed", "cli_create_and_app_identity": "passed", "source_build": "not_run"}
     except Exception:
         receipt["status"] = "failed-preserved"
         raise
     finally:
         receipt["finished_at"] = int(time.time())
         path.write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    return {"status": receipt["status"], "scope": "templates", "receipt": str(path),
+    return {"status": receipt["status"], "scope": "candidate", "receipt": str(path),
             "receipt_sha256": sha256(path), "publication_qualified": False}
 
 
@@ -1394,8 +1429,8 @@ def add_fixed_arguments(parser: argparse.ArgumentParser) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subs = parser.add_subparsers(dest="command", required=True)
-    template = subs.add_parser("templates", help="native two-Edition partial stage only; no APP/runtime actions")
-    for name in ("candidate", "run-id", "template-artifacts", "output-dir"):
+    template = subs.add_parser("candidate", help="fixed two-Edition templates and independent CLI creation; no permanent APP/DB")
+    for name in ("candidate", "run-id", "candidate-input", "candidate-input-sha256", "output-dir"):
         template.add_argument("--" + name, required=True)
     transfer = subs.add_parser("transport", help="seal original full qualification bytes; no upload or publication")
     for name in ("summary", "main-integration", "output"):
@@ -1403,8 +1438,8 @@ def main() -> int:
     for name in ("plan", "claim", "run", "resume"):
         add_fixed_arguments(subs.add_parser(name))
     args = parser.parse_args()
-    if args.command == "templates":
-        print(json.dumps(qualify_templates(args), ensure_ascii=False))
+    if args.command == "candidate":
+        print(json.dumps(qualify_candidate(args), ensure_ascii=False))
         return 0
     if args.command == "transport":
         print(json.dumps(transport(args), ensure_ascii=False))

@@ -14,13 +14,15 @@
 
 源码升级从APP实际记录导出`peanut.scaffold-recorded-baseline.v1`，只作为from输入，不伪造官方模板，也不能作为发行目标。基线物理文件仍为0644；原逻辑权限记录在`baseline_mode`，旧APP缺失时必须显式提供精确原版本清单作为权限证据。普通`template-plan`拒绝已安装或受保护运行现场；原运行协调器的维护/恢复合同继续保留。新模板来源及配套清单摘要进入原生计划并在rebind重核，apply/recover沿原计划执行。
 
-## 模板资格阶段与CI保留输入
+## 候选资格阶段与CI保留输入
 
-`python3 scripts/p0e-runtime-qualification templates --candidate=<完整当前提交> --run-id=<本次唯一ID> --template-artifacts=<完整双Edition构建根> --output-dir=<不存在的外部绝对目录>`复用同一原生`build-scaffold-release --check`，检查两个Edition的来源、成员、模式及固定tooling，记录`template_artifacts`的实际四附件身份。原生check会生成临时源码投影，不创建或安装常驻运行APP、不安装依赖、不使用数据库或启动服务／浏览器。目录已存在即拒绝；失败保留本次日志和`template-stage.json`，不能覆写或自动重放。
+`python3 scripts/p0e-runtime-qualification candidate --candidate=<完整当前提交> --run-id=<本次唯一ID> --candidate-input=<固定输入JSON绝对路径> --candidate-input-sha256=<该文件SHA-256> --output-dir=<不存在的外部绝对目录>`复用原生`build-scaffold-release --check`核双Edition来源、成员、模式和固定tooling，再调用独立CLI从同一四附件在两个临时空目标创建，核manifest、源码commit/tree、归档摘要、Edition、文档及无Git或隐式依赖安装。最终完整八组的`generated-application`复用同一创建断言helper；常驻APP源码构建和其余断言继续保留，不在候选阶段运行。
 
-结果协议为`peanut.p0e-template-stage.v1`，只标记模板合同这一组件通过；`generated-application`整组仍为partial，源码构建、CLI创建与固定APP身份尚未验证，其余七组为not_run。没有正式资格所需cleanup／minimum gate字段，`publication_qualified=false`；不能把该阶段结果当作完整summary或给旧summary手工追加摘要。原八组接受条件继续有效，固定APP及业务／部署消费者须在各自真实阶段闭合。
+输入协议为`peanut.p0e-candidate-inputs.v1`，只接受`protocol`、`source={commit,tree}`、`cli={root,commit,tree}`和`template_build_root`四项。CLI必须是干净且来源正确的独立源码仓；模板构建根必须是该固定Code来源的完整两Edition原生输出。此入口不读取常驻APP、数据库登记或连接信息，不创建/安装常驻运行APP、不安装依赖、不使用数据库或启动服务／浏览器。输出目录已存在即拒绝；失败保留日志、实际部分创建目标和`candidate-stage.json`，不能覆写或自动重放。
 
-`scaffold-release.yml`在候选构建后调用该入口，除了原四附件，还将完整`standalone/`、`multi-tenant/`根和阶段结果保存在独立Actions artifact；用tar保留隐藏默认文件和可执行模式，附实际传输包SHA-256。该tar仅供同一固定来源资格链传输，不是公开模板包或APP。后续job须核具体source/run及实际字节再使用，不重新构建并假定附件相同。当前workflow保持contents:read；正式job和完整native summary仍未闭合，不因模板阶段通过自动发布。
+结果协议为`peanut.p0e-candidate-stage.v1`，只标记模板合同及CLI创建组件通过；全部八组状态仍为`not_run`，常驻APP源码构建、真实业务和完整资格未验证，`publication_qualified=false`。该阶段不是完整summary，不能给旧summary手工追加摘要。原八组接受条件及失败预算继续有效，固定APP及业务／部署消费者须在各自真实阶段闭合。
+
+`scaffold-release.yml`显式选定完整CLI提交，核其真实树并生成同协议输入，构建后调用上述同一候选入口。除了原四附件，CI将完整`standalone/`、`multi-tenant/`根和阶段结果保存在独立Actions artifact；用tar保留隐藏默认文件和可执行模式，附实际传输包SHA-256。该tar仅供同一固定来源资格链传输，不是公开模板包或已采用的APP；后续job须核具体source/run及实际字节，不能重新构建后假定附件相同。候选job保持contents:read，正式发布仍须独立的完整八组及原main/平台Gate，不因候选通过自动运行。
 
 ## 冻结内部候选
 
