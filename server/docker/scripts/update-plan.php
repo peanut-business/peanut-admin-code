@@ -1857,7 +1857,9 @@ final class PeanutServerUpdatePlan
             $path = \app\common\value\scaffold\ScaffoldManifest::path((string) ($file['path'] ?? ''));
             $kind = $file['classification'] ?? null;
             if (isset($seen[strtolower($path)]) || !in_array($kind, ['managed', 'generated-managed', 'app-owned'], true)
-                || preg_match('/^[a-f0-9]{64}$/D', (string) ($file['sha256'] ?? '')) !== 1 || !in_array($file['mode'] ?? null, [0644, 0755], true)) {
+                // Native source adoption preserves an owner's restrictive source
+                // modes. First configuration must not require widening them.
+                || preg_match('/^[a-f0-9]{64}$/D', (string) ($file['sha256'] ?? '')) !== 1 || !in_array($file['mode'] ?? null, [0600, 0644, 0700, 0755], true)) {
                 throw new RuntimeException('INSTALL_CONFIGURATION_SOURCE_INVENTORY_INVALID');
             }
             $seen[strtolower($path)] = true;
