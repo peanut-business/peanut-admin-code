@@ -1692,13 +1692,13 @@ final class PeanutServerUpdatePlan
     {
         $serverRoot = self::ordinaryDirectory($serverRoot, 'server root');
         $owner = fileowner($serverRoot);
-        if (!is_int($owner) || !in_array(posix_geteuid(), [0, $owner], true)) {
+        $sourceApplication = $scope === 'source-application';
+        if (!is_int($owner) || !self::configurationOwnerAllowed(posix_geteuid(), $owner, $sourceApplication)) {
             throw new RuntimeException('configuration requires its deployment owner');
         }
         if (!in_array($scope, ['server', 'source-application'], true)) {
             throw new RuntimeException('configuration scope is invalid');
         }
-        $sourceApplication = $scope === 'source-application';
         if ($sourceApplication) {
             self::sourceOwner($serverRoot);
             $sourceRoot = dirname($serverRoot);
@@ -1774,6 +1774,14 @@ final class PeanutServerUpdatePlan
         return $sourceApplication
             ? \app\common\infrastructure\scaffold\ScaffoldUpgradeRunner::sourceProductLock(dirname($serverRoot), $publish)
             : $publish();
+    }
+
+    private static function configurationOwnerAllowed(int $effectiveUid, int $owner, bool $sourceApplication): bool
+    {
+        // Mutable source publication runs as its real owner so mode-0600 outputs
+        // remain readable by that owner. Do not create a foreign root-owned
+        // first configuration that the source status consumer must reject.
+        return $effectiveUid === $owner || (!$sourceApplication && $effectiveUid === 0);
     }
 
     /** The existing publisher may consume source identity only inside this real owner transaction. */

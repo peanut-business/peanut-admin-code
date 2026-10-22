@@ -28427,7 +28427,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "889b2294140c6231e0ef46bbd4b92e8c9f9f8b3a5c35cf70b51e1721f9329b8d"
+            "source_sha256": "974c3e095ada6d51af61b5e226a15f2157c4e6c3df6bdfe266c13cdf54f1c578"
         },
         {
             "path": "server/docker/scripts/update-preparation.py",
