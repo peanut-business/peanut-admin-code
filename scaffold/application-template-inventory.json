@@ -1110,7 +1110,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cf855b65d7dfeb05d09f5431404fbc52817ec92a11f8b0c2826493e3323e01c2"
+            "source_sha256": "89a02b4ed4ec6ef8cdd222b185cc25696385ff37b0de2f7cf737ec55e79af47b"
         },
         {
             "path": "docs/public/installation.md",
@@ -3737,7 +3737,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fee26108807985929d8ccfc77d9446f345ece65af91d9c33ac37f370e6ab1584"
+            "source_sha256": "5e73eb138a44961f63aa36665b765e714ef9451117d9c81150efb2f5ea10581d"
         },
         {
             "path": "scripts/project-codegraph",
@@ -4966,7 +4966,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "62e129cc7febc0f0b912d43508ff50eb3a633ee6a9fce0da0b27a68ab7b77ec0"
+            "source_sha256": "7ad198c421dda969f578b9c02a6bdf6f6e296e01d02dbb86eb5bce2db274deee"
         },
         {
             "path": "server/.env.example",
@@ -28427,7 +28427,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5b76fc0b2b3c7173aaf18934634ead010fe48c4e9958942b96a04d32f75ebb03"
+            "source_sha256": "57754e7bd78bc8e86114ed8737e97610e9eceecaa6719b747f16ad98060949fe"
         },
         {
             "path": "server/docker/scripts/update-preparation.py",
@@ -28455,7 +28455,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e665dc521426188294e33cc4306435cf4e098a6f92164e10b68a9c56f14a4059"
+            "source_sha256": "a59b1e5299fe8b9af4f94de40641b3838c12533d7922b479864d92504078b960"
         },
         {
             "path": "server/docker/scripts/update.sh",
@@ -28469,7 +28469,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0bbcdcb0d3f1ae51315af17924501b76d2a9c716c4700b28eb768009496d6ba7"
+            "source_sha256": "18c4b9e39d7209467f5b1d2f9729f3523ae7314461c709a915c50901906f7302"
         },
         {
             "path": "server/docker/scripts/vendor-state.py",

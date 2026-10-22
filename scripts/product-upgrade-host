@@ -980,7 +980,7 @@ def main():
     def native(operation):
         return php(tools / 'update-plan.php', operation, '--instance-server=' + str(server), '--workspace=' + str(workspace))
 
-    def stopped(): return recovery.assert_stopped(server, allow_registered=True, ordinary=True)
+    def stopped(): return recovery.assert_stopped(server, allow_registered=True, ordinary=True, workspace=workspace)
 
     def hold():
         native('hold'); compose('stop', '--timeout', '60', 'nginx', 'php'); return stopped()

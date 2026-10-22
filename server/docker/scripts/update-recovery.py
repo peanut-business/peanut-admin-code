@@ -275,7 +275,7 @@ def source_stopped(server, workspace):
 
 
 def recovery_stopped(server, workspace):
-    return source_stopped(server, workspace) if SOURCE_REQUEST is not None else assert_stopped(server, allow_registered=True, ordinary=True)
+    return source_stopped(server, workspace) if SOURCE_REQUEST is not None else assert_stopped(server, allow_registered=True, ordinary=True, workspace=workspace)
 
 
 def recovery_storage_names():
@@ -338,10 +338,7 @@ def instance(args):
     regular(baseline)
     if sha(installed) != plan.get("source", {}).get("installed_receipt_sha256") or sha(baseline) != plan.get("source", {}).get("baseline_sha256"):
         raise ValueError("installed instance identity differs from update source")
-    release = server / ".peanut/release-identity.json"
-    regular(release)
-    if sha(release) not in {plan.get("source", {}).get("identity_sha256"), plan.get("target", {}).get("identity_sha256")}:
-        raise ValueError("current release identity differs from update")
+    ordinary_program_identity(server, workspace)
     return server, workspace, plan, journal, plan_sha, identity
 
 
@@ -394,7 +391,78 @@ def storage_archive(path):
     return path
 
 
-def source_database_binding(server, ordinary=False, source_app=False):
+def ordinary_program_identity(server, workspace):
+    """Read a live identity or its existing, product-bound durable file intent."""
+    if server.resolve() != server or workspace.resolve() != workspace:
+        raise ValueError('ordinary identity roots must be canonical')
+    product, state = product_binding(workspace)
+    plan = read_json(workspace / 'plan.json')
+    digest = sha(workspace / 'plan.json')
+    if product.get('instance_root') != str(server.parent) or product.get('inputs_sha256') != digest \
+            or plan.get('protocol') != 'peanut.server-release-inputs.v1' \
+            or plan.get('update_id') != product.get('candidate'):
+        raise ValueError('ordinary identity differs from the bound product inputs')
+    old = plan.get('source', {}).get('identity_path', 'server/.peanut/release-identity.json')
+    allowed = {'server/.peanut/release-identity.json', 'server/.peanut/development-runtime.json', '.peanut/application-manifest.json'}
+    if old not in allowed:
+        raise ValueError('unrecognized original program identity path')
+
+    def parents(root, relative, allow_missing=False):
+        cursor = root
+        for part in Path(relative).parts[:-1]:
+            cursor /= part
+            if cursor.is_symlink() or (not cursor.is_dir() and (cursor.exists() or not allow_missing)):
+                raise ValueError('ordinary identity parent is unsafe')
+
+    def checked(root, relative, expected, mode=0o644):
+        parents(root, relative)
+        path = root / relative
+        regular(path, mode)
+        digests = expected if isinstance(expected, tuple) else (expected,)
+        if any(not isinstance(value, str) or not HEX64.fullmatch(value) for value in digests) or sha(path) not in digests:
+            raise ValueError('ordinary identity digest differs from bound inputs')
+        return json.loads(path.read_text())
+
+    release = server / '.peanut/release-identity.json'
+    parents(server.parent, 'server/.peanut/release-identity.json', allow_missing=True)
+    parents(server.parent, old)
+    if release.exists() or release.is_symlink():
+        return checked(server.parent, 'server/.peanut/release-identity.json',
+                       (plan['source']['identity_sha256'], plan['target']['identity_sha256']))
+    original = server.parent / old
+    if original.exists() or original.is_symlink():
+        return checked(server.parent, old, plan['source']['identity_sha256'])
+    # Only a managed identity deletion can justify a missing live original.
+    if old != 'server/.peanut/development-runtime.json' or state.get('activation_started') is not False:
+        raise ValueError('ordinary source transition lacks its bound original program identity')
+    journal = read_json(workspace / 'journal.json')
+    if journal.get('schema_version') != 1 or journal.get('protocol') != 'peanut.server-file-intents.v1' \
+            or journal.get('plan_sha256') != digest or journal.get('product_plan_sha256') != product['plan_sha256'] \
+            or journal.get('update_id') != plan['update_id'] or journal.get('source') != plan.get('source') \
+            or journal.get('target') != plan.get('target'):
+        raise ValueError('ordinary identity file intents differ from bound product inputs')
+    operations, records = plan.get('operations'), journal.get('operations')
+    if not isinstance(operations, list) or not isinstance(records, list) or len(operations) != len(records):
+        raise ValueError('ordinary identity file intents differ from operations')
+    selected = []
+    for operation, record in zip(operations, records):
+        if not isinstance(operation, dict) or not isinstance(record, dict) or any(
+                record.get(field) != operation.get(field) for field in
+                ('path', 'operation', 'current_sha256', 'current_mode', 'target_sha256', 'target_mode')):
+            raise ValueError('ordinary identity file intents differ from operations')
+        if operation.get('path') == old:
+            selected.append(record)
+    backup = workspace / 'backups' / old
+    if len(selected) != 1 or selected[0].get('operation') != 'delete' \
+            or selected[0].get('status') not in ('intent_recorded', 'done') \
+            or selected[0].get('current_sha256') != plan['source']['identity_sha256'] \
+            or selected[0].get('current_mode') != 0o644 or selected[0].get('target_sha256') is not None \
+            or selected[0].get('backup_path') != str(backup):
+        raise ValueError('ordinary identity lacks its exact durable deletion preimage')
+    return checked(workspace, 'backups/' + old, plan['source']['identity_sha256'])
+
+
+def source_database_binding(server, ordinary=False, source_app=False, workspace=None):
     """Source maintenance uses only this APP's declared container endpoint."""
     values = env(server / '.env')
     def value(key):
@@ -413,9 +481,7 @@ def source_database_binding(server, ordinary=False, source_app=False):
     regular(registry_path, 0o600)
     registry = read_json(registry_path)
     if ordinary and not source_app:
-        identity_path = server / '.peanut/release-identity.json'
-        regular(identity_path, 0o644)
-        manifest = json.loads(identity_path.read_text())
+        manifest = ordinary_program_identity(server, workspace)
     else:
         manifest_path = server.parent / '.peanut/application-manifest.json'
         regular(manifest_path, 0o644)
@@ -469,13 +535,13 @@ def source_network(server, project, container_ids):
     return {'id': network_id, 'name': rows[0]['Name'], 'logical': logical, 'driver': 'bridge'}
 
 
-def assert_stopped(server, allow_registered=False, ordinary=False):
+def assert_stopped(server, allow_registered=False, ordinary=False, workspace=None):
     # Check the APP writer boundary; independent Node custody is not transferred.
     docker_dir = server / "docker"
     project = env(docker_dir / ".env").get("COMPOSE_PROJECT_NAME", "")
     if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,62}", project):
         raise ValueError("Compose project identity is invalid")
-    binding = source_database_binding(server, ordinary=ordinary) if allow_registered else {'source': 'bundled'}
+    binding = source_database_binding(server, ordinary=ordinary, workspace=workspace) if allow_registered else {'source': 'bundled'}
     registered = binding['source'] == 'registered'
     services = compose(docker_dir, "ps", "--status", "running", "--services").splitlines()
     if services != ([] if registered else ["mysql"]):
@@ -534,7 +600,8 @@ def snapshot_paths(server):
 def ordinary_database_provider(server, workspace):
     """Ordinary plan authority only; never accept a partial-installation proof."""
     product, _ = product_binding(workspace)
-    binding = source_database_binding(server, ordinary=True, source_app=SOURCE_REQUEST is not None)
+    binding = source_database_binding(server, ordinary=True, source_app=SOURCE_REQUEST is not None,
+                                     workspace=workspace)
     reference = product.get('backup_tool')
     if binding['source'] == 'bundled':
         if reference is not None: raise ValueError('bundled recovery forbids an external backup tool')
