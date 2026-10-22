@@ -26,6 +26,6 @@
 
 ## 不随APP分发的维护资料
 
-维护者的源级制包、资格工具和受限修复合同在源码仓`docs/maintenance/`，包括[本地身份凭据维护](maintenance/identity-credentials.md)；内部需求决定、资源实值、任务和运行回执在私有Project。它们不是产品使用者的必读前置。历史发行快照和APP旧baseline保留其原版本，不改成当前事实，也不从历史任务书恢复执行。
+维护者的源级制包、资格工具和受限修复合同在源码仓`docs/maintenance/`，包括[本地身份凭据维护](maintenance/identity-credentials.md)、[授权 Workflow 身份消费者](maintenance/workflow-authorized-fixture.md)；内部需求决定、资源实值、任务和运行回执在私有Project。它们不是产品使用者的必读前置。历史发行快照和APP旧baseline保留其原版本，不改成当前事实，也不从历史任务书恢复执行。
 
 API与模块清单由原生结构化源生成；没有第二份手工API真值。公开文档站只展示固定来源，不拥有另一套技术正文。
