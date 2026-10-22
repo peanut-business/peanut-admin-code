@@ -168,8 +168,8 @@ def source_recovery_guard_contracts(*, workspace_only=False):
             assert "real native restore" in refused.stderr
             count += 1
             # Its already-admitted lease is a stub, NOT native central permission.
-            native["lease"] = lambda lease_id, allow_expired=False: ({"phase": "maintain", "max_seconds": 600}, directory, meta)
-            native["verify_native"] = lambda lease_id: None
+            native["lease"] = lambda lease_id, allow_expired=False, **kwargs: ({"phase": "maintain", "max_seconds": 600}, directory, meta)
+            native["verify_native"] = lambda lease_id, recovery_step=None: None
             current["phase"] = "maintain"; private(directory / native["STATE"], current)
             rejected(lambda: native["window"]("fixture-source", "fixture-owner", "apply"), "forbids fresh migration")
             native["window"]("fixture-source", "fixture-owner", "restore"); count += 1
@@ -535,6 +535,543 @@ if __name__ == "__main__" and __import__("sys").argv[1:] == ["--dedicated-schema
     dedicated_schema_policy_contracts()
     raise SystemExit(0)
 
+def retained_application_contracts(code, project, app, operation, descriptor, registry):
+    """NEW retained admission only; real temp Git/locks, no APP/DB/SSH operation."""
+    from copy import deepcopy
+    import sys
+    count = 0
+    tool = ["bash", str(code / "scripts/project-resource-lease")]
+    owner = operation["owner"]
+    parent_id = "retained-app-owner"
+    app_commit = operation["application"]["commit"]
+    run(tool + ["claim", "--lease", parent_id, "--owner", owner, "--candidate", app_commit,
+                "--gate", "app-lifecycle-preflight", "--ttl", "3600",
+                "--resource", "application-root=" + str(app)], app)
+    parent = app / ".git/peanut-admin-resource-leases/leases" / parent_id
+    parent_resource = (parent / "resources.tsv").read_bytes()
+    parent_metadata = (parent / "metadata.tsv").read_bytes()
+    operation["retained_authority"] = {"common_dir": str(app / ".git"), "lease": parent_id,
+        "gate": "app-lifecycle-preflight", "resources_sha256": hashlib.sha256(parent_resource).hexdigest()}
+    def register(value):
+        raw = json.loads(registry.read_text())
+        raw["resources"]["application_operations"] = [value]
+        registry.write_text(json.dumps(raw) + "\n")
+        run(["git", "add", "resources/project-resources.json"], project)
+        run(["git", "commit", "-qm", "Exact isolated retained operation", "--allow-empty"], project)
+    def claim(lease="retained-protect", value=None):
+        value = value or operation
+        return tool + ["claim", "--lease", lease, "--owner", owner, "--thread", owner,
+            "--candidate", app_commit, "--candidate-repository", str(app), "--ttl", "300",
+            "--gate", "permanent-app-development", "--parent-lease", parent_id,
+            "--application-operation", value["stable_resource_id"]]
+    def reject(args, cwd, fragment):
+        nonlocal count
+        result = run(args, cwd, ok=False)
+        assert fragment in result.stderr, (fragment, result.stderr)
+        count += 1
+    register(operation)
+    # Wrong actor, parent scope/candidate/APP and domain each fail before a claim.
+    for field, value, fragment in (("owner", "other-owner", "owner"),
+                                  ("thread", "other-thread", "owner/thread")):
+        wrong = deepcopy(operation); wrong[field] = value; register(wrong)
+        reject(claim(), code, fragment)
+    for field, value in (("resources_sha256", "f" * 64), ("gate", "other-gate"),
+                         ("common_dir", str(project / ".git"))):
+        wrong = deepcopy(operation); wrong["retained_authority"][field] = value; register(wrong)
+        reject(claim(), code, "retained parent")
+    register(operation)
+    for field, value in (("candidate", "f" * 40), ("candidate_repository", str(code)),
+                         ("owner", "other-owner"), ("expires_at", "1")):
+        metadata = dict(line.split("\t") for line in parent_metadata.decode().splitlines())
+        metadata[field] = value
+        (parent / "metadata.tsv").write_text("".join(key + "\t" + item + "\n" for key, item in metadata.items()))
+        reject(claim(), code, "retained parent")
+        (parent / "metadata.tsv").write_bytes(parent_metadata)
+    # Matching labels never bypass the actual holder, even under the same owner.
+    app_lock = app / ".git/peanut-admin-resource-leases/resources" / hashlib.sha256(("worktree\t" + str(app)).encode()).hexdigest()
+    original_holder = (app_lock / "lease").read_bytes()
+    (app_lock / "lease").write_text("someone-else\n")
+    reject(claim(), code, "physical holder changed")
+    (app_lock / "lease").write_bytes(original_holder)
+    # A genuinely different central worktree holds an exact output lock.
+    independent = code.parent / "independent-code"
+    tool_commit = operation["tool_source"]["commit"]
+    run(["git", "worktree", "add", "--detach", str(independent), tool_commit], code)
+    run(tool + ["claim", "--lease", "output-owner", "--owner", "other-owner", "--candidate", tool_commit,
+                "--gate", "independent-output", "--resource", "output-dir=" + operation["output_root"]], independent)
+    reject(claim(), code, "resource conflict: output-dir")
+    assert not (app / ".git/peanut-admin-resource-leases/leases/retained-protect").exists()
+    count += 1
+    run(tool + ["release", "--lease", "output-owner", "--owner", "other-owner"], independent)
+    for phase in ("protect", "install", "maintain"):
+        current = deepcopy(operation); current["phase"] = phase
+        if phase != "protect":
+            current.pop("backup_client")
+        if phase == "install":
+            current["protection"] = {}
+            for name in ("manifest", "review"):
+                path = project / (name + ".json"); path.write_text('{"fixture_only":true}\n'); path.chmod(0o600)
+                current["protection"][name] = str(path)
+                current["protection"][name + "_sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+            path = project / "credentials.json"; path.write_text('{"fixture_only":true}\n'); path.chmod(0o600)
+            current["credentials"] = {"path": str(path), "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+        if phase == "maintain":
+            current["maintenance"] = {"kind": "plugin", "operation": "upgrade", "plugin_key": "peanut.workflow",
+                "session": "wc_sess_fixture", "backup_tool": "fixture-backup", "metadata_tool": "",
+                "review": str(project / "maintenance-review.json")}
+            installation = app / "server/private/installation"; installation.mkdir()
+            current["installation"] = {}
+            for name in ("installed.json", "baseline.json"):
+                path = installation / name; path.write_text('{"fixture_only":true}\n'); path.chmod(0o600)
+                current["installation"][name] = hashlib.sha256(path.read_bytes()).hexdigest()
+            app_db = deepcopy(descriptor); app_db["lease_policy"]["native_authority"] = current["tool_source"]
+            path = app / "server/private/resources/project-resources.json"
+            path.write_text(json.dumps({"authority": {"role": "application"}, "resources": {"databases": [app_db]}}) + "\n")
+            path.chmod(0o600)
+            current["configuration"]["server/private/resources/project-resources.json"] = hashlib.sha256(path.read_bytes()).hexdigest()
+        register(current)
+        lease_id = "retained-" + phase
+        run(claim(lease_id, current), code)
+        proof = run(tool + ["show", "--lease", lease_id, "--verify-locks"], code).stdout
+        assert "parent_lease\t" + parent_id in proof
+        assert (parent / "resources.tsv").read_bytes() == parent_resource
+        assert (app_lock / "lease").read_bytes() == original_holder
+        count += 1
+        reject(tool + ["release", "--lease", parent_id, "--owner", owner], app, "active child")
+        reject(tool + ["release", "--lease", lease_id, "--owner", owner], app, "central operation still protects")
+        run(tool + ["renew", "--lease", lease_id, "--owner", owner, "--ttl", "300"], code)
+        count += 1
+        guard = app / ".git/peanut-admin-resource-leases/leases" / lease_id
+        raw = (guard / "metadata.tsv").read_bytes()
+        rows = dict(line.split("\t") for line in raw.decode().splitlines()); rows["expires_at"] = "1"
+        (guard / "metadata.tsv").write_text("".join(k + "\t" + v + "\n" for k, v in rows.items()))
+        reject(tool + ["release", "--lease", parent_id, "--owner", owner], app, "active child")
+        assert run(tool + ["prune-expired"], app).stdout.strip() == "pruned=0"; count += 1
+        reject(tool + ["show", "--lease", lease_id, "--verify-locks"], code, "window is shorter")
+        (guard / "metadata.tsv").write_bytes(raw)
+        if phase == "maintain":
+            harness = r'''
+import json,os,pathlib,runpy,subprocess,sys
+code,app=map(pathlib.Path,sys.argv[1:3]); php,python=sys.argv[3:]
+native=runpy.run_path(str(code/'scripts/project-resource-application.py'))
+operation,directory,state=native['window']('retained-maintain','fixture-native-owner','plan')
+gate=code.parent/'retained-consumer-gate'
+program='$gate=$argv[1];for($i=0;!is_file($gate)&&$i<200;$i++){usleep(10000);}$p=proc_open(array_slice($argv,2),[0=>["file","/dev/null","r"],1=>STDOUT,2=>STDERR],$pipes);exit(proc_close($p));'
+child=subprocess.Popen([php,'-r',program,'--',str(gate),python,str(code/'scripts/project-resource-application.py'),'consume',
+ '--proof',str(directory),'--application-root',str(app),'--registry',str(app/'server/private/resources/project-resources.json'),
+ '--resource-id','fixture-app-db','--endpoint-id','fixture-app-host'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+state.update(child_pid=child.pid,child_birth=native['process_birth'](child.pid)); native['save'](directory/native['STATE'],state)
+gate.write_text('go'); out,err=child.communicate(timeout=20); assert child.returncode==0,err
+assert json.loads(out)['operation_sha256']==state['operation_sha256']
+state.update(status='COMPLETED',child_pid=None,actual_process_terminal=True); native['save'](directory/native['STATE'],state)
+'''
+            run([sys.executable, "-c", harness, str(code), str(app), current["php_executable"], sys.executable], code)
+            count += 1
+        run(tool + ["release", "--lease", lease_id, "--owner", owner], code)
+        assert not guard.exists() and parent.exists() and (app_lock / "lease").read_bytes() == original_holder
+        count += 1
+    run(tool + ["release", "--lease", parent_id, "--owner", owner], app)
+    assert not parent.exists() and not app_lock.exists(); count += 1
+    print(json.dumps({"group": "retained-application-only", "assertions": count,
+        "scope": "real temporary Git/physical locks/native parent-child claim/show/renew/release; three phase closures; actual PHP proof child",
+        "APP_DB_SSH_backup_install_apply_restore_open": "NOT_RUN"}))
+
+
+def retained_expiry_contracts(code, project, app, operation, registry, case):
+    """Only the reviewed expiry delta; real temp locks and synthetic terminal evidence."""
+    import hmac, runpy, sys
+    count = 0
+    native = runpy.run_path(str(code / "scripts/project-resource-application.py"))
+    tool = ["bash", str(code / "scripts/project-resource-lease")]
+    owner = operation["owner"]; lease_id = "expiry-" + case; parent_id = "original-app-parent"
+    def private(path, value):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        raw = value if isinstance(value, bytes) else json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+        path.write_bytes(raw); path.chmod(0o600)
+        return hashlib.sha256(raw).hexdigest()
+    def sha(path): return hashlib.sha256(path.read_bytes()).hexdigest()
+    def rejected(arguments, cwd, fragment):
+        nonlocal count
+        result = run(arguments, cwd, ok=False)
+        assert fragment in result.stderr, (fragment, result.stderr)
+        count += 1
+    def version_review(value):
+        private(Path(operation["terminal_review"]["path"]), value)
+        run(["git", "add", "terminal-review.json"], project)
+        run(["git", "commit", "-qm", "Exact isolated expiry terminal review"], project)
+    head = operation["application"]["commit"]
+    run(tool + ["claim", "--lease", parent_id, "--owner", owner, "--candidate", head,
+                "--gate", "app-lifecycle-preflight", "--ttl", "3600",
+                "--resource", "application-root=" + str(app)], app)
+    parent = app / ".git/peanut-admin-resource-leases/leases" / parent_id
+    parent_resources = (parent / "resources.tsv").read_bytes()
+    operation["retained_authority"] = {"common_dir": str(app / ".git"), "lease": parent_id,
+        "gate": "app-lifecycle-preflight", "resources_sha256": sha(parent / "resources.tsv")}
+    if case == "recovery":
+        operation.pop("backup_client"); operation["phase"] = "maintain"
+        operation["maintenance"] = {"kind": "application-schema", "session": "wc_sess_fixture",
+            "backup_tool": "fixture-backup", "metadata_tool": "", "review": str(project / "maintenance-review.json")}
+        operation["installation"] = {name: private(app / "server/private/installation" / name, {"fixture_only": True})
+                                     for name in ("installed.json", "baseline.json")}
+    document = json.loads(registry.read_text()); document["resources"]["application_operations"] = [operation]
+    private(registry, document); run(["git", "add", "resources/project-resources.json"], project)
+    run(["git", "commit", "-qm", "Fixed retained expiry contract"], project)
+    claim = tool + ["claim", "--lease", lease_id, "--owner", owner, "--thread", owner,
+        "--candidate", head, "--candidate-repository", str(app), "--ttl", "300",
+        "--gate", "permanent-app-development", "--parent-lease", parent_id,
+        "--application-operation", operation["stable_resource_id"]]
+    run(claim, code)
+    directory = code / ".git/peanut-admin-resource-leases/leases" / lease_id
+    guard = app / ".git/peanut-admin-resource-leases/leases" / lease_id
+    # Only fixture timestamps move: simulate elapsed lifetime consistently in
+    # both domains, retaining every identity, resource byte and physical holder.
+    expired = int(time.time()) - 5
+    for record in (parent, directory, guard):
+        metadata = dict(line.split("\t") for line in (record / "metadata.tsv").read_text().splitlines())
+        metadata.update(created_at=str(expired - 600), expires_at=str(expired))
+        (record / "metadata.tsv").write_text("".join(k + "\t" + v + "\n" for k, v in metadata.items()))
+    parent_metadata = (parent / "metadata.tsv").read_bytes()
+    guard_metadata = (guard / "metadata.tsv").read_bytes()
+    child = subprocess.Popen([sys.executable, "-c", "raise SystemExit(7)"])
+    birth = native["process_birth"](child.pid); assert child.wait() == 7
+    state = {"protocol": "peanut.application-operation-state.v1", "phase": operation["phase"],
+        "lease": lease_id, "owner": owner, "pid": child.pid, "process_birth": birth, "child_pid": None,
+        "status": "COMPLETED" if case == "completed" else "UNKNOWN", "actual_process_terminal": True,
+        "binding_expires_at": expired, "started_at": expired - 60, "completed_step": "rebind",
+        "operation_sha256": next(iter(native["resource_map"](native["table"](directory / "resources.tsv", 3))[native["CONTRACT"]]))}
+    private(directory / native["STATE"], state)
+    rejected(["new-expired-claim" if value == lease_id else value for value in claim], code, "retained parent")
+    rejected(tool + ["renew", "--lease", lease_id, "--owner", owner], code, "expired")
+    rejected(tool + ["release", "--lease", parent_id, "--owner", owner], app, "active child")
+    rejected(tool + ["release", "--lease", lease_id, "--owner", "wrong-owner"], code, "belongs to")
+    (parent / "resources.tsv").write_bytes(parent_resources + b"changed-scope\n")
+    rejected(tool + ["release", "--lease", lease_id, "--owner", owner], code, "resource scope changed")
+    (parent / "resources.tsv").write_bytes(parent_resources)
+    wrong = dict(line.split("\t") for line in parent_metadata.decode().splitlines()); wrong["owner"] = "wrong-owner"
+    (parent / "metadata.tsv").write_text("".join(k + "\t" + v + "\n" for k, v in wrong.items()))
+    rejected(tool + ["release", "--lease", lease_id, "--owner", owner], code, "retained parent owner")
+    (parent / "metadata.tsv").write_bytes(parent_metadata)
+    if case == "recovery":
+        key = b"a" * 64; private(app / "server/private/maintenance/update-verification.key", key)
+        def signed(path, value):
+            raw = json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode()
+            return private(path, dict(value, hmac_sha256=hmac.new(key, raw, hashlib.sha256).hexdigest()))
+        output = Path(operation["output_root"]); output.mkdir(mode=0o700)
+        backup = output / "backup"; backup.mkdir(mode=0o700)
+        workspace = backup / "application-recovery"; workspace.mkdir(mode=0o700)
+        plan_path = output / "plan.json"; native_plan = workspace / "native-plan.json"
+        binding = {"source": {"root": str(app), "head": head, "tree": operation["application"]["tree"]},
+            "registry_sha256": operation["configuration"]["server/private/resources/project-resources.json"],
+            "environment_sha256": operation["configuration"]["server/.env"],
+            "authority": {"lease": lease_id, "owner": owner, "thread": owner, "session": "wc_sess_fixture",
+                "gate": "permanent-app-development", "expires_at": expired, "resources_sha256": sha(directory / "resources.tsv")}}
+        plan = {"protocol": "peanut.source-development-schema-plan.v1", "maintenance_scope": "source-application",
+                "execution_admitted": False, "binding": binding}
+        private(plan_path, plan); plan_sha = private(native_plan, plan)
+        backup_tool = workspace / "backup-tool.json"; private(backup_tool, {"fixture_only": True})
+        journal = app / "server/runtime/upgrade/expiry-fixture.json"
+        context = workspace / "source-application-context.json"
+        signed(context, {"workspace": str(workspace), "binding": binding,
+            "native_plan": {"path": str(native_plan), "sha256": plan_sha}, "backup_tool": {"path": str(backup_tool)},
+            "journal_path": str(journal)})
+        signed(journal, {"phase": "failed", "activation_started": False, "unknown": True})
+        private(workspace / "backup.json", {"fixture_only": True}); private(workspace / "backup.json.hmac", b"fixture")
+        terminal = workspace / "terminal.json"; private(terminal, {"actual_process_terminal": True, "exit_code": 7})
+        attachments = [context, native_plan, plan_path, backup_tool, workspace / "backup.json",
+                       workspace / "backup.json.hmac", journal, terminal]
+        review = {"protocol": "peanut.source-application-terminal-reconciliation.v1", "verdict": "ORIGINAL_PLAN_RECOVERY_ONLY",
+            "reviewer_thread": "fixture-independent-reviewer", "owner": owner, "lease": lease_id,
+            "state_sha256": sha(directory / native["STATE"]), "metadata_sha256": sha(directory / "metadata.tsv"),
+            "actual_process_terminal": True, "remote_effects_known": True, "effective_expires_at": int(time.time()) + 600,
+            "workspace": str(workspace), "plan_path": str(plan_path), "terminal_evidence": [{"path": str(terminal)}],
+            "approved_sha256": {str(path): sha(path) for path in attachments}}
+        rejected(tool + ["application-maintenance", "--lease", lease_id, "--owner", owner, "--step", "apply"], code, "retained parent")
+        bad = dict(review, reviewer_thread=owner); version_review(bad)
+        rejected(tool + ["application-recovery-admit", "--lease", lease_id, "--owner", owner], code, "independent terminal")
+        bad = dict(review, remote_effects_known=False); version_review(bad)
+        rejected(tool + ["application-recovery-admit", "--lease", lease_id, "--owner", owner], code, "independent terminal")
+        version_review(review)
+        run(tool + ["application-recovery-admit", "--lease", lease_id, "--owner", owner], code); count += 1
+        admitted = native["live_state"](directory)
+        assert admitted["status"] == "RECOVERY_ADMITTED" and admitted["binding_expires_at"] == expired
+        proof = native["recovery_check"](directory, dict(native["table"](directory / "metadata.tsv", 2)), admitted)
+        assert proof["effective_expires_at"] > time.time() and (parent / "metadata.tsv").read_bytes() == parent_metadata
+        assert (guard / "metadata.tsv").read_bytes() == guard_metadata and sha(native_plan) == plan_sha; count += 1
+        rejected(tool + ["application-maintenance", "--lease", lease_id, "--owner", owner, "--step", "apply"], code, "retained parent")
+        rejected(tool + ["renew", "--lease", lease_id, "--owner", owner], code, "retained parent")
+        # Admit the original restore window only. No provider/restore command is
+        # dispatched; the real isolated subprocess ends, then independent-shape
+        # terminal evidence permits normal custody cleanup, never fake COMPLETED.
+        harness = "import runpy,sys; n=runpy.run_path(sys.argv[1]); n['window'](sys.argv[2],sys.argv[3],'restore'); print('original restore window admitted')"
+        run([sys.executable, "-c", harness, str(code / "scripts/project-resource-application.py"), lease_id, owner], code); count += 1
+        assert native["live_state"](directory)["status"] == "RUNNING"; count += 1
+        version_review({"verdict": "SAFE_TO_RELEASE", "lease": lease_id,
+            "state_sha256": sha(directory / native["STATE"]), "reviewer_thread": "fixture-independent-reviewer",
+            "actual_process_terminal": True})
+    run(tool + ["release", "--lease", lease_id, "--owner", owner], code)
+    assert not directory.exists() and not guard.exists() and parent.exists(); count += 1
+    assert (parent / "metadata.tsv").read_bytes() == parent_metadata and (parent / "resources.tsv").read_bytes() == parent_resources; count += 1
+    run(tool + ["release", "--lease", parent_id, "--owner", owner], app)
+    assert not parent.exists(); count += 1
+    return count
+
+
+def application_operation_contracts(*, retained_only=False, expiry_case=None):
+    # Cross-Git admission uses the same central lock registry. These are isolated
+    # protocol fixtures only: no native install, remote client, DB or service runs.
+    with tempfile.TemporaryDirectory(prefix="peanut-application-lease-") as temporary:
+        import runpy
+        import sys
+
+        workspace = Path(temporary).resolve()
+        code = workspace / "peanut-admin-code"
+        project = workspace / "peanut-admin-project"
+        app = workspace / "peanut-app-multi"
+        for repository in (code, project, app):
+            repository.mkdir()
+            run(["git", "init", "-q"], repository)
+            run(["git", "config", "user.email", "fixture@example.invalid"], repository)
+            run(["git", "config", "user.name", "Lease fixture"], repository)
+            run(["git", "remote", "add", "origin",
+                 "https://github.com/peanut-business/" + repository.name + ".git"], repository)
+        (code / "scripts").mkdir()
+        for name in ("project-resource-lease", "project-resource-application.py", "project-resource-registry"):
+            shutil.copy2(SOURCE.parent / name, code / "scripts" / name)
+        run(["git", "add", "scripts"], code)
+        run(["git", "commit", "-qm", "Fixed central operation tools"], code)
+        tool_commit = run(["git", "rev-parse", "HEAD"], code).stdout.strip()
+        (app / ".peanut").mkdir()
+        manifest_path = app / ".peanut/application-manifest.json"
+        manifest_path.write_text(json.dumps({
+            "schema_version": 2, "protocol": "peanut.application-scaffold.v2",
+            "application": {"slug": "peanut-app-multi", "package_identity": "fixture/app",
+                            "edition": "multi-tenant"},
+        }) + "\n")
+        run(["git", "add", ".peanut/application-manifest.json"], app)
+        run(["git", "commit", "-qm", "Fixed actual APP identity"], app)
+        app_commit = run(["git", "rev-parse", "HEAD"], app).stdout.strip()
+        app_tree = run(["git", "rev-parse", "HEAD^{tree}"], app).stdout.strip()
+        (app / "server/private/resources").mkdir(parents=True)
+        configuration = {}
+        for name in ("server/.env", "server/private/resources/project-resources.json"):
+            path = app / name
+            path.write_text("fixture-no-secret\n")
+            path.chmod(0o600)
+            configuration[name] = hashlib.sha256(path.read_bytes()).hexdigest()
+        (project / "resources").mkdir()
+        (project / "repos.yaml").write_text(
+            "schema_version: 3\nproject_id: peanut-admin\nrepositories:\n"
+            "  project:\n    repository_id: peanut-admin-project\n"
+            "    remote: https://github.com/peanut-business/peanut-admin-project.git\n"
+            "  application:\n    repository_id: peanut-admin-code\n"
+            "    remote: https://github.com/peanut-business/peanut-admin-code.git\n")
+        receipt_root = workspace / "receipts"
+        receipt_root.mkdir(mode=0o700)
+        terminal_review = project / "terminal-review.json"
+        operation_id = "fixture-first-install-protection"
+        physical = "127.0.0.1:23306"
+        endpoint = {"endpoint_id": "fixture-app-host", "host": "127.0.0.1", "port": 23306, "consumers": ["host"]}
+        descriptor = {
+            "stable_resource_id": "fixture-app-db", "database": "fixture_app", "version": "8.4.10",
+            "environment": "development", "environments": ["local-multi-tenant-demo"],
+            "deployment_modes": ["multi-tenant"], "upstream_endpoint": endpoint,
+            "application_identity": {"root": str(app)},
+            "allocation_evidence": {"server_uuid": "00000000-0000-0000-0000-000000000001"},
+            "lease_gate": "permanent-app-development",
+            "lease_policy": {"mode": "schema", "physical_endpoint": physical,
+                             "physical_resource_id": "fixture-mysql", "max_executors": 8,
+                             "server_resources": ["mysql-resource=fixture-mysql",
+                                                  "docker-container=fixture-mysql", "docker-volume=fixture-volume"]},
+        }
+        php = shutil.which("php")
+        assert php is not None, "Use the registered project-env with PHP available"
+        operation = {
+            "stable_resource_id": operation_id, "protocol": "peanut.application-first-install-operation.v1",
+            "phase": "protect", "owner": "fixture-native-owner", "thread": "fixture-native-owner",
+            "max_seconds": 300, "php_executable": str(Path(php).resolve()),
+            "terminal_review": {"path": str(terminal_review)},
+            "tool_source": {"root": str(code), "common_dir": str(code / ".git"), "commit": tool_commit,
+                            "files": {name: hashlib.sha256((code / name).read_bytes()).hexdigest()
+                                      for name in ("scripts/project-resource-lease", "scripts/project-resource-application.py",
+                                                   "scripts/project-resource-registry")}},
+            "application": {"root": str(app), "commit": app_commit, "tree": app_tree,
+                            "manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+                            "edition": "multi-tenant", "slug": "peanut-app-multi", "package_identity": "fixture/app"},
+            "configuration": configuration,
+            "database": {"resource_id": "fixture-app-db", "name": "fixture_app", "upstream_endpoint": endpoint,
+                         "environment": "local-multi-tenant-demo", "consumer": "host", "version": "8.4.10",
+                         "server_uuid": descriptor["allocation_evidence"]["server_uuid"],
+                         "principal": "fixture_user@%"},
+            "output_root": str(workspace / "protected"),
+            "receipt_root": str(receipt_root),
+            "backup_client": {"ssh": "/usr/bin/ssh", "ssh_alias": "fixture",
+                              "docker": "/fixture/bin/docker", "mysql": "/fixture/bin/mysql",
+                              "mysqldump": "/fixture/bin/mysqldump", "container": "fixture-mysql",
+                              "credential_path": "/fixture/private.env", "user": "fixture_user"},
+        }
+        registry = project / "resources/project-resources.json"
+        registry.write_text(json.dumps({"schema_version": 1, "project_id": "peanut-admin",
+                                       "authority": {"role": "maintainer"},
+                                       "resources": {"databases": [descriptor], "application_operations": [operation]}}) + "\n")
+        run(["git", "add", "."], project)
+        run(["git", "commit", "-qm", "Fixed application operation registration"], project)
+        old_registry = os.environ.get("PEANUT_RESOURCE_REGISTRY")
+        os.environ["PEANUT_RESOURCE_REGISTRY"] = str(registry)
+        try:
+            tool = ["bash", str(code / "scripts/project-resource-lease")]
+            if expiry_case:
+                return retained_expiry_contracts(code, project, app, operation, registry, expiry_case)
+            if retained_only:
+                retained_application_contracts(code, project, app, operation, descriptor, registry)
+                return
+            claim = tool + ["claim", "--lease", "application-protect", "--owner", operation["owner"],
+                            "--thread", operation["thread"], "--candidate", app_commit,
+                            "--candidate-repository", str(app), "--gate", "permanent-app-development"]
+            bad = run(claim + ["--resource", "mysql-schema=" + physical + "/fixture_app"], code, ok=False)
+            assert "real candidate worktree" in bad.stderr
+            assert not (code / ".git/peanut-admin-resource-leases/leases/application-protect").exists()
+            bad = run(claim + ["--application-operation", "unregistered"], code, ok=False)
+            assert "not uniquely registered" in bad.stderr
+            run(claim + ["--application-operation", operation_id], code)
+            proof = run(tool + ["show", "--lease", "application-protect", "--verify-locks"], code).stdout
+            assert "candidate\t" + app_commit + "\n" in proof and "worktree\t" + str(app) + "\n" in proof
+            assert not (app / ".git/peanut-admin-resource-leases").exists(), "Never split the physical lock registry"
+            run(tool + ["renew", "--lease", "application-protect", "--owner", operation["owner"]], code)
+            config_path = app / "server/.env"
+            previous = config_path.read_bytes()
+            config_path.write_bytes(b"fixture-drift\n")
+            assert "configuration changed" in run(tool + ["show", "--lease", "application-protect"], code, ok=False).stderr
+            config_path.write_bytes(previous)
+            helper = runpy.run_path(str(code / "scripts/project-resource-application.py"))
+            _, directory, state = helper["window"]("application-protect", operation["owner"])
+            assert "still active" in run(tool + ["release", "--lease", "application-protect",
+                                                "--owner", operation["owner"]], code, ok=False).stderr
+            assert run(tool + ["prune-expired"], code).stdout.strip() == "pruned=0"
+            # A live operation does not retain the central mutex: unrelated source
+            # claims and its own ordinary renewal remain possible.
+            # The fixed tool source itself is protected. A genuinely independent
+            # worktree shares the same mutex but may still execute unrelated work.
+            assert "resource conflict" in run(tool + ["claim", "--lease", "tool-source-conflict",
+                "--owner", "independent-fixture", "--candidate", tool_commit, "--gate", "source-only"], code, ok=False).stderr
+            independent = workspace / "independent-code"
+            run(["git", "worktree", "add", "--detach", str(independent), tool_commit], code)
+            run(tool + ["claim", "--lease", "independent-source", "--owner", "independent-fixture",
+                        "--candidate", tool_commit, "--gate", "source-only"], independent)
+            run(tool + ["release", "--lease", "independent-source", "--owner", "independent-fixture"], independent)
+            run(tool + ["renew", "--lease", "application-protect", "--owner", operation["owner"]], code)
+            # Only this isolated fixture synthesizes terminal state. It is not
+            # Simulate expiry only in this owned fixture. In-use resources survive
+            # expiry, renewal is refused, and no new operation may treat it as free.
+            metadata_path = directory / "metadata.tsv"
+            metadata_before = metadata_path.read_text()
+            metadata_path.write_text("\n".join(
+                "expires_at\t" + str(int(time.time())) if row.startswith("expires_at\t") else row
+                for row in metadata_before.splitlines()) + "\n")
+            assert run(tool + ["prune-expired"], code).stdout.strip() == "pruned=0"
+            assert "expired" in run(tool + ["renew", "--lease", "application-protect",
+                                            "--owner", operation["owner"]], code, ok=False).stderr
+            metadata_path.write_text(metadata_before)
+            # evidence that a PHP installer or any database operation completed.
+            finished = subprocess.Popen([sys.executable, "-c", "pass"])
+            assert finished.wait() == 0
+            state.update(status="UNKNOWN", pid=finished.pid, process_birth=None,
+                         child_pid=None, actual_process_terminal=True)
+            helper["save"](directory / helper["STATE"], state)
+            assert "terminal-review.json" in run(
+                tool + ["release", "--lease", "application-protect", "--owner", operation["owner"]],
+                code, ok=False).stderr
+            terminal_review.write_text(json.dumps({
+                "verdict": "SAFE_TO_RELEASE", "lease": "application-protect",
+                "state_sha256": hashlib.sha256((directory / helper["STATE"]).read_bytes()).hexdigest(),
+                "reviewer_thread": "independent-fixture-reviewer", "actual_process_terminal": True,
+            }) + "\n")
+            terminal_review.chmod(0o600)
+            assert "versioned Project result" in run(
+                tool + ["release", "--lease", "application-protect", "--owner", operation["owner"]],
+                code, ok=False).stderr
+            run(["git", "add", "terminal-review.json"], project)
+            run(["git", "commit", "-qm", "Independent fixture terminal review"], project)
+            run(tool + ["release", "--lease", "application-protect", "--owner", operation["owner"]], code)
+            assert not directory.exists() and (receipt_root / "application-protect.json").is_file()
+            # Real Git + real PHP parent/child identities, but synthetic installation
+            # bytes and no installer/framework/DB/SSH. This checks proof consumption only.
+            operation.pop("backup_client")
+            operation["phase"] = "maintain"
+            operation["maintenance"] = {"kind": "plugin", "operation": "upgrade", "plugin_key": "peanut.workflow",
+                "session": "wc_sess_fixture", "backup_tool": "fixture-backup", "metadata_tool": "",
+                "review": str(project / "maintenance-review.json")}
+            installation = app / "server/private/installation"
+            installation.mkdir()
+            operation["installation"] = {}
+            for name in ("installed.json", "baseline.json"):
+                path = installation / name
+                path.write_text('{"fixture_only":true}\n'); path.chmod(0o600)
+                operation["installation"][name] = hashlib.sha256(path.read_bytes()).hexdigest()
+            app_db = json.loads(json.dumps(descriptor))
+            app_db["lease_policy"]["native_authority"] = operation["tool_source"]
+            app_registry = app / "server/private/resources/project-resources.json"
+            app_registry.write_text(json.dumps({"schema_version": 1, "project_id": "peanut-app-multi",
+                "authority": {"role": "application"}, "resources": {"databases": [app_db]}}) + "\n")
+            app_registry.chmod(0o600)
+            operation["configuration"]["server/private/resources/project-resources.json"] = hashlib.sha256(app_registry.read_bytes()).hexdigest()
+            registry.write_text(json.dumps({"schema_version": 1, "project_id": "peanut-admin", "authority": {"role": "maintainer"},
+                "resources": {"databases": [descriptor], "application_operations": [operation]}}) + "\n")
+            run(["git", "add", "resources/project-resources.json"], project)
+            run(["git", "commit", "-qm", "Fixed synthetic maintenance proof contract"], project)
+            claim = [value if value != "application-protect" else "application-maintain" for value in claim]
+            run(claim + ["--application-operation", operation_id], code)
+            harness = r"""
+    import json,os,pathlib,runpy,subprocess,sys
+    code, app, php, python = map(pathlib.Path, sys.argv[1:])
+    native=runpy.run_path(str(code/'scripts/project-resource-application.py'))
+    operation,directory,state=native['window']('application-maintain','fixture-native-owner','plan')
+    php_program='$gate=$argv[1];for($i=0;!is_file($gate)&&$i<200;$i++){usleep(10000);}if(!is_file($gate)){exit(90);}$p=proc_open(array_slice($argv,2),[0=>["file","/dev/null","r"],1=>STDOUT,2=>STDERR],$pipes);exit(is_resource($p)?proc_close($p):91);'
+    def consume(label,publish=True):
+     gate=code.parent/('gate-'+label)
+     args=[str(php),'-r',php_program,'--',str(gate),str(python),str(code/'scripts/project-resource-application.py'),
+           'consume','--proof',str(directory),'--application-root',str(app),'--registry',str(app/'server/private/resources/project-resources.json'),
+           '--resource-id','fixture-app-db','--endpoint-id','fixture-app-host']
+     child=subprocess.Popen(args,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+     if publish:
+      state.update(child_pid=child.pid,child_birth=native['process_birth'](child.pid))
+      native['save'](directory/native['STATE'],state)
+     gate.write_text('ready')
+     output,error=child.communicate(timeout=15)
+     return child.returncode,output,error
+    rc,output,error=consume('valid')
+    assert rc==0,(rc,error)
+    assert json.loads(output)['binding_expires_at']==state['binding_expires_at']
+    # Another PHP child cannot borrow the first child's proof.
+    rc,_,error=consume('borrow',False)
+    assert rc!=0 and 'actual native child process' in error,error
+    state['status']='UNKNOWN'
+    rc,_,error=consume('unknown')
+    assert rc!=0 and 'held native APP maintenance window' in error,error
+    state.update(status='COMPLETED',child_pid=None,actual_process_terminal=True)
+    native['save'](directory/native['STATE'],state)
+    print('isolated PHP proof positive + borrower/UNKNOWN refusal; DB NOT_RUN')
+    """
+            run([sys.executable, "-c", harness, str(code), str(app), str(Path(php).resolve()), sys.executable], code)
+            # The actual harness and its PHP children have ended; normal owner release.
+            run(tool + ["release", "--lease", "application-maintain", "--owner", operation["owner"]], code)
+
+        finally:
+            if old_registry is None:
+                os.environ.pop("PEANUT_RESOURCE_REGISTRY", None)
+            else:
+                os.environ["PEANUT_RESOURCE_REGISTRY"] = old_registry
+
+
+if __name__ == "__main__" and __import__("sys").argv[1:] == ["--retained-expiry-only"]:
+    cases = {case: application_operation_contracts(expiry_case=case) for case in ("completed", "recovery")}
+    print(json.dumps({"group": "retained-expiry-only", "assertions": sum(cases.values()), "cases": cases,
+        "scope": "real temporary native parent/APP child/central locks; consistent elapsed fixture timestamps; completed terminal release and independent-shape original-plan recovery/window/terminal custody release",
+        "APP_DB_SSH_backup_install_provider_restore_open": "NOT_RUN"}))
+    raise SystemExit(0)
+
+if __name__ == "__main__" and __import__("sys").argv[1:] == ["--retained-application-only"]:
+    application_operation_contracts(retained_only=True)
+    raise SystemExit(0)
 
 if __name__ == "__main__" and __import__("sys").argv[1:] in (["--source-recovery-guards-only"], ["--source-recovery-workspace-only"]):
     source_recovery_guard_contracts(workspace_only=__import__("sys").argv[1] == "--source-recovery-workspace-only")
@@ -788,243 +1325,6 @@ with tempfile.TemporaryDirectory(prefix="peanut-resource-lease-parent-") as temp
     del os.environ["PEANUT_RESOURCE_REGISTRY"]
 
 
-# Cross-Git admission uses the same central lock registry. These are isolated
-# protocol fixtures only: no native install, remote client, DB or service runs.
-with tempfile.TemporaryDirectory(prefix="peanut-application-lease-") as temporary:
-    import runpy
-    import sys
-
-    workspace = Path(temporary).resolve()
-    code = workspace / "peanut-admin-code"
-    project = workspace / "peanut-admin-project"
-    app = workspace / "peanut-app-multi"
-    for repository in (code, project, app):
-        repository.mkdir()
-        run(["git", "init", "-q"], repository)
-        run(["git", "config", "user.email", "fixture@example.invalid"], repository)
-        run(["git", "config", "user.name", "Lease fixture"], repository)
-        run(["git", "remote", "add", "origin",
-             "https://github.com/peanut-business/" + repository.name + ".git"], repository)
-    (code / "scripts").mkdir()
-    for name in ("project-resource-lease", "project-resource-application.py", "project-resource-registry"):
-        shutil.copy2(SOURCE.parent / name, code / "scripts" / name)
-    run(["git", "add", "scripts"], code)
-    run(["git", "commit", "-qm", "Fixed central operation tools"], code)
-    tool_commit = run(["git", "rev-parse", "HEAD"], code).stdout.strip()
-    (app / ".peanut").mkdir()
-    manifest_path = app / ".peanut/application-manifest.json"
-    manifest_path.write_text(json.dumps({
-        "schema_version": 2, "protocol": "peanut.application-scaffold.v2",
-        "application": {"slug": "peanut-app-multi", "package_identity": "fixture/app",
-                        "edition": "multi-tenant"},
-    }) + "\n")
-    run(["git", "add", ".peanut/application-manifest.json"], app)
-    run(["git", "commit", "-qm", "Fixed actual APP identity"], app)
-    app_commit = run(["git", "rev-parse", "HEAD"], app).stdout.strip()
-    app_tree = run(["git", "rev-parse", "HEAD^{tree}"], app).stdout.strip()
-    (app / "server/private/resources").mkdir(parents=True)
-    configuration = {}
-    for name in ("server/.env", "server/private/resources/project-resources.json"):
-        path = app / name
-        path.write_text("fixture-no-secret\n")
-        path.chmod(0o600)
-        configuration[name] = hashlib.sha256(path.read_bytes()).hexdigest()
-    (project / "resources").mkdir()
-    (project / "repos.yaml").write_text(
-        "schema_version: 3\nproject_id: peanut-admin\nrepositories:\n"
-        "  project:\n    repository_id: peanut-admin-project\n"
-        "    remote: https://github.com/peanut-business/peanut-admin-project.git\n"
-        "  application:\n    repository_id: peanut-admin-code\n"
-        "    remote: https://github.com/peanut-business/peanut-admin-code.git\n")
-    receipt_root = workspace / "receipts"
-    receipt_root.mkdir(mode=0o700)
-    terminal_review = project / "terminal-review.json"
-    operation_id = "fixture-first-install-protection"
-    physical = "127.0.0.1:23306"
-    endpoint = {"endpoint_id": "fixture-app-host", "host": "127.0.0.1", "port": 23306, "consumers": ["host"]}
-    descriptor = {
-        "stable_resource_id": "fixture-app-db", "database": "fixture_app", "version": "8.4.10",
-        "environment": "development", "environments": ["local-multi-tenant-demo"],
-        "deployment_modes": ["multi-tenant"], "upstream_endpoint": endpoint,
-        "application_identity": {"root": str(app)},
-        "allocation_evidence": {"server_uuid": "00000000-0000-0000-0000-000000000001"},
-        "lease_gate": "permanent-app-development",
-        "lease_policy": {"mode": "schema", "physical_endpoint": physical,
-                         "physical_resource_id": "fixture-mysql", "max_executors": 8,
-                         "server_resources": ["mysql-resource=fixture-mysql",
-                                              "docker-container=fixture-mysql", "docker-volume=fixture-volume"]},
-    }
-    php = shutil.which("php")
-    assert php is not None, "Use the registered project-env with PHP available"
-    operation = {
-        "stable_resource_id": operation_id, "protocol": "peanut.application-first-install-operation.v1",
-        "phase": "protect", "owner": "fixture-native-owner", "thread": "fixture-native-owner",
-        "max_seconds": 300, "php_executable": str(Path(php).resolve()),
-        "terminal_review": {"path": str(terminal_review)},
-        "tool_source": {"root": str(code), "common_dir": str(code / ".git"), "commit": tool_commit,
-                        "files": {name: hashlib.sha256((code / name).read_bytes()).hexdigest()
-                                  for name in ("scripts/project-resource-lease", "scripts/project-resource-application.py",
-                                               "scripts/project-resource-registry")}},
-        "application": {"root": str(app), "commit": app_commit, "tree": app_tree,
-                        "manifest_sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
-                        "edition": "multi-tenant", "slug": "peanut-app-multi", "package_identity": "fixture/app"},
-        "configuration": configuration,
-        "database": {"resource_id": "fixture-app-db", "name": "fixture_app", "upstream_endpoint": endpoint,
-                     "environment": "local-multi-tenant-demo", "consumer": "host", "version": "8.4.10",
-                     "server_uuid": descriptor["allocation_evidence"]["server_uuid"],
-                     "principal": "fixture_user@%"},
-        "output_root": str(workspace / "protected"),
-        "receipt_root": str(receipt_root),
-        "backup_client": {"ssh": "/usr/bin/ssh", "ssh_alias": "fixture",
-                          "docker": "/fixture/bin/docker", "mysql": "/fixture/bin/mysql",
-                          "mysqldump": "/fixture/bin/mysqldump", "container": "fixture-mysql",
-                          "credential_path": "/fixture/private.env", "user": "fixture_user"},
-    }
-    registry = project / "resources/project-resources.json"
-    registry.write_text(json.dumps({"schema_version": 1, "project_id": "peanut-admin",
-                                   "authority": {"role": "maintainer"},
-                                   "resources": {"databases": [descriptor], "application_operations": [operation]}}) + "\n")
-    run(["git", "add", "."], project)
-    run(["git", "commit", "-qm", "Fixed application operation registration"], project)
-    old_registry = os.environ.get("PEANUT_RESOURCE_REGISTRY")
-    os.environ["PEANUT_RESOURCE_REGISTRY"] = str(registry)
-    try:
-        tool = ["bash", str(code / "scripts/project-resource-lease")]
-        claim = tool + ["claim", "--lease", "application-protect", "--owner", operation["owner"],
-                        "--thread", operation["thread"], "--candidate", app_commit,
-                        "--candidate-repository", str(app), "--gate", "permanent-app-development"]
-        bad = run(claim + ["--resource", "mysql-schema=" + physical + "/fixture_app"], code, ok=False)
-        assert "real candidate worktree" in bad.stderr
-        assert not (code / ".git/peanut-admin-resource-leases/leases/application-protect").exists()
-        bad = run(claim + ["--application-operation", "unregistered"], code, ok=False)
-        assert "not uniquely registered" in bad.stderr
-        run(claim + ["--application-operation", operation_id], code)
-        proof = run(tool + ["show", "--lease", "application-protect", "--verify-locks"], code).stdout
-        assert "candidate\t" + app_commit + "\n" in proof and "worktree\t" + str(app) + "\n" in proof
-        assert not (app / ".git/peanut-admin-resource-leases").exists(), "Never split the physical lock registry"
-        run(tool + ["renew", "--lease", "application-protect", "--owner", operation["owner"]], code)
-        config_path = app / "server/.env"
-        previous = config_path.read_bytes()
-        config_path.write_bytes(b"fixture-drift\n")
-        assert "configuration changed" in run(tool + ["show", "--lease", "application-protect"], code, ok=False).stderr
-        config_path.write_bytes(previous)
-        helper = runpy.run_path(str(code / "scripts/project-resource-application.py"))
-        _, directory, state = helper["window"]("application-protect", operation["owner"])
-        assert "still active" in run(tool + ["release", "--lease", "application-protect",
-                                            "--owner", operation["owner"]], code, ok=False).stderr
-        assert run(tool + ["prune-expired"], code).stdout.strip() == "pruned=0"
-        # A live operation does not retain the central mutex: unrelated source
-        # claims and its own ordinary renewal remain possible.
-        # The fixed tool source itself is protected. A genuinely independent
-        # worktree shares the same mutex but may still execute unrelated work.
-        assert "resource conflict" in run(tool + ["claim", "--lease", "tool-source-conflict",
-            "--owner", "independent-fixture", "--candidate", tool_commit, "--gate", "source-only"], code, ok=False).stderr
-        independent = workspace / "independent-code"
-        run(["git", "worktree", "add", "--detach", str(independent), tool_commit], code)
-        run(tool + ["claim", "--lease", "independent-source", "--owner", "independent-fixture",
-                    "--candidate", tool_commit, "--gate", "source-only"], independent)
-        run(tool + ["release", "--lease", "independent-source", "--owner", "independent-fixture"], independent)
-        run(tool + ["renew", "--lease", "application-protect", "--owner", operation["owner"]], code)
-        # Only this isolated fixture synthesizes terminal state. It is not
-        # Simulate expiry only in this owned fixture. In-use resources survive
-        # expiry, renewal is refused, and no new operation may treat it as free.
-        metadata_path = directory / "metadata.tsv"
-        metadata_before = metadata_path.read_text()
-        metadata_path.write_text("\n".join(
-            "expires_at\t" + str(int(time.time())) if row.startswith("expires_at\t") else row
-            for row in metadata_before.splitlines()) + "\n")
-        assert run(tool + ["prune-expired"], code).stdout.strip() == "pruned=0"
-        assert "expired" in run(tool + ["renew", "--lease", "application-protect",
-                                        "--owner", operation["owner"]], code, ok=False).stderr
-        metadata_path.write_text(metadata_before)
-        # evidence that a PHP installer or any database operation completed.
-        finished = subprocess.Popen([sys.executable, "-c", "pass"])
-        assert finished.wait() == 0
-        state.update(status="UNKNOWN", pid=finished.pid, process_birth=None,
-                     child_pid=None, actual_process_terminal=True)
-        helper["save"](directory / helper["STATE"], state)
-        assert "terminal-review.json" in run(
-            tool + ["release", "--lease", "application-protect", "--owner", operation["owner"]],
-            code, ok=False).stderr
-        terminal_review.write_text(json.dumps({
-            "verdict": "SAFE_TO_RELEASE", "lease": "application-protect",
-            "state_sha256": hashlib.sha256((directory / helper["STATE"]).read_bytes()).hexdigest(),
-            "reviewer_thread": "independent-fixture-reviewer", "actual_process_terminal": True,
-        }) + "\n")
-        terminal_review.chmod(0o600)
-        assert "versioned Project result" in run(
-            tool + ["release", "--lease", "application-protect", "--owner", operation["owner"]],
-            code, ok=False).stderr
-        run(["git", "add", "terminal-review.json"], project)
-        run(["git", "commit", "-qm", "Independent fixture terminal review"], project)
-        run(tool + ["release", "--lease", "application-protect", "--owner", operation["owner"]], code)
-        assert not directory.exists() and (receipt_root / "application-protect.json").is_file()
-        # Real Git + real PHP parent/child identities, but synthetic installation
-        # bytes and no installer/framework/DB/SSH. This checks proof consumption only.
-        operation.pop("backup_client")
-        operation["phase"] = "maintain"
-        operation["maintenance"] = {"kind": "plugin", "operation": "upgrade", "plugin_key": "peanut.workflow",
-            "session": "wc_sess_fixture", "backup_tool": "fixture-backup", "metadata_tool": "",
-            "review": str(project / "maintenance-review.json")}
-        installation = app / "server/private/installation"
-        installation.mkdir()
-        operation["installation"] = {}
-        for name in ("installed.json", "baseline.json"):
-            path = installation / name
-            path.write_text('{"fixture_only":true}\n'); path.chmod(0o600)
-            operation["installation"][name] = hashlib.sha256(path.read_bytes()).hexdigest()
-        app_db = json.loads(json.dumps(descriptor))
-        app_db["lease_policy"]["native_authority"] = operation["tool_source"]
-        app_registry = app / "server/private/resources/project-resources.json"
-        app_registry.write_text(json.dumps({"schema_version": 1, "project_id": "peanut-app-multi",
-            "authority": {"role": "application"}, "resources": {"databases": [app_db]}}) + "\n")
-        app_registry.chmod(0o600)
-        operation["configuration"]["server/private/resources/project-resources.json"] = hashlib.sha256(app_registry.read_bytes()).hexdigest()
-        registry.write_text(json.dumps({"schema_version": 1, "project_id": "peanut-admin", "authority": {"role": "maintainer"},
-            "resources": {"databases": [descriptor], "application_operations": [operation]}}) + "\n")
-        run(["git", "add", "resources/project-resources.json"], project)
-        run(["git", "commit", "-qm", "Fixed synthetic maintenance proof contract"], project)
-        claim = [value if value != "application-protect" else "application-maintain" for value in claim]
-        run(claim + ["--application-operation", operation_id], code)
-        harness = r"""
-import json,os,pathlib,runpy,subprocess,sys
-code, app, php, python = map(pathlib.Path, sys.argv[1:])
-native=runpy.run_path(str(code/'scripts/project-resource-application.py'))
-operation,directory,state=native['window']('application-maintain','fixture-native-owner','plan')
-php_program='$gate=$argv[1];for($i=0;!is_file($gate)&&$i<200;$i++){usleep(10000);}if(!is_file($gate)){exit(90);}$p=proc_open(array_slice($argv,2),[0=>["file","/dev/null","r"],1=>STDOUT,2=>STDERR],$pipes);exit(is_resource($p)?proc_close($p):91);'
-def consume(label,publish=True):
- gate=code.parent/('gate-'+label)
- args=[str(php),'-r',php_program,'--',str(gate),str(python),str(code/'scripts/project-resource-application.py'),
-       'consume','--proof',str(directory),'--application-root',str(app),'--registry',str(app/'server/private/resources/project-resources.json'),
-       '--resource-id','fixture-app-db','--endpoint-id','fixture-app-host']
- child=subprocess.Popen(args,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
- if publish:
-  state.update(child_pid=child.pid,child_birth=native['process_birth'](child.pid))
-  native['save'](directory/native['STATE'],state)
- gate.write_text('ready')
- output,error=child.communicate(timeout=15)
- return child.returncode,output,error
-rc,output,error=consume('valid')
-assert rc==0,(rc,error)
-assert json.loads(output)['binding_expires_at']==state['binding_expires_at']
-# Another PHP child cannot borrow the first child's proof.
-rc,_,error=consume('borrow',False)
-assert rc!=0 and 'actual native child process' in error,error
-state['status']='UNKNOWN'
-rc,_,error=consume('unknown')
-assert rc!=0 and 'held native APP maintenance window' in error,error
-state.update(status='COMPLETED',child_pid=None,actual_process_terminal=True)
-native['save'](directory/native['STATE'],state)
-print('isolated PHP proof positive + borrower/UNKNOWN refusal; DB NOT_RUN')
-"""
-        run([sys.executable, "-c", harness, str(code), str(app), str(Path(php).resolve()), sys.executable], code)
-        # The actual harness and its PHP children have ended; normal owner release.
-        run(tool + ["release", "--lease", "application-maintain", "--owner", operation["owner"]], code)
-
-    finally:
-        if old_registry is None:
-            os.environ.pop("PEANUT_RESOURCE_REGISTRY", None)
-        else:
-            os.environ["PEANUT_RESOURCE_REGISTRY"] = old_registry
+application_operation_contracts()
 
 print("PROJECT-RESOURCE-LEASE-PARENT-001 passed")
