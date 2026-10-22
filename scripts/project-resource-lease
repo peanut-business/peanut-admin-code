@@ -1570,6 +1570,8 @@ mutex=common/'peanut-admin-resource-leases/mutex'
 need(not mutex.exists() and not mutex.is_symlink())
 PY
   fi
+  child_lease="$(active_child_lease "$lease_id" || true)"
+  [[ -z "$child_lease" ]] || die "lease $lease_id has active child lease $child_lease"
   if [[ -e "$lease_dir/application-operation.json" || -L "$lease_dir/application-operation.json" ]]; then
     [[ -n "$expected_owner" ]] || die 'application execution requires explicit owner release after terminal reconciliation'
     python3 "$REPO_ROOT/scripts/project-resource-application.py" release-check --lease "$lease_id" --owner "$expected_owner" \
@@ -1578,8 +1580,6 @@ PY
   if lease_has_resource "$lease_dir" lease-role collaboration-read-existing; then
     [[ -n "$expected_owner" ]] || die 'observer requires explicit owner release after safe completion'
   fi
-  child_lease="$(active_child_lease "$lease_id" || true)"
-  [[ -z "$child_lease" ]] || die "lease $lease_id has active child lease $child_lease"
   local retained_app=""
   if awk -F '\t' '$2=="retained-parent" {found=1} END {exit !found}' "$lease_dir/resources.tsv"; then
     retained_app="$(metadata_value "$lease_dir/metadata.tsv" candidate_repository)"
