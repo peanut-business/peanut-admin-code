@@ -83,6 +83,7 @@ final class PluginSourceDevelopmentHost
         // Observe the real locked plan before choosing DDL or catalog-only authority.
         $initial = $admission->capture($actor, false);
         $mutationEffects = null;
+        $mutationWriteTables = [];
         $config = \guardedDatabaseConfig();
         [$connection, $pdo] = $this->connect($config);
         $identity = InstallationExecutionHost::migrationDatabaseIdentity($pdo);
@@ -91,16 +92,16 @@ final class PluginSourceDevelopmentHost
         $target = \applicationMigrationTargetVersion($serverRoot, $versions);
         $runner = new ApplicationMigrationRunner($config, $pdo);
         return ScaffoldUpgradeRunner::sourceProductLock(dirname($serverRoot), function () use ($runner, $files, $target, $versions,
-            $pdo, $connection, $admission, $actor, $initial, $identity, $context, $operation, $pluginKey, $config, $readPlan, $toolId, $output, $execution, $applying, &$mutationEffects): array {
+            $pdo, $connection, $admission, $actor, $initial, $identity, $context, $operation, $pluginKey, $config, $readPlan, $toolId, $output, $execution, $applying, &$mutationEffects, &$mutationWriteTables): array {
             $result = null;
             $runner->run($files, $target, $versions['release_sequence_version'], true, null,
                 function (PDO $actual, array $selection) use ($pdo, $connection, $admission, $actor, $initial, $identity,
-                    $context, $operation, $pluginKey, $config, $files, $readPlan, $toolId, $output, $execution, $applying, &$mutationEffects, &$result): void {
-                    $recheck = function () use ($pdo, $connection, $admission, $actor, $initial, $identity, $context, $config, &$mutationEffects): void {
+                    $context, $operation, $pluginKey, $config, $files, $readPlan, $toolId, $output, $execution, $applying, &$mutationEffects, &$mutationWriteTables, &$result): void {
+                    $recheck = function () use ($pdo, $connection, $admission, $actor, $initial, $identity, $context, $config, &$mutationEffects, &$mutationWriteTables): void {
                         $current = $this->app->make(CurrentExecutionContext::class)->current();
                         if ($current !== $context || Db::connect() !== $connection || $connection->getPdo() !== $pdo
                             || $admission->capture($actor, $mutationEffects !== null && $mutationEffects['pending'] !== [],
-                                $mutationEffects['tables'] ?? []) !== $initial || InstallationExecutionHost::migrationDatabaseIdentity($pdo) !== $identity) {
+                                $mutationWriteTables) !== $initial || InstallationExecutionHost::migrationDatabaseIdentity($pdo) !== $identity) {
                             throw new RuntimeException('PLUGIN_SOURCE_PLAN_CHANGED');
                         }
                         ScaffoldUpgradeRunner::sourceProductLock(dirname(rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR)), static fn() => null);
@@ -123,7 +124,7 @@ final class PluginSourceDevelopmentHost
                     $this->planning = ['pdo' => $pdo, 'recheck' => $recheck, 'prerequisite' => $prerequisite];
                     try {
                         $result = $readPlan(function (array $native) use ($operation, $pluginKey, $initial, $identity, $selection,
-                            $pdo, $config, $recheck, $readPlan, $toolId, $output, $execution, $applying, $context, &$mutationEffects): array {
+                            $pdo, $config, $recheck, $readPlan, $toolId, $output, $execution, $applying, $context, &$mutationEffects, &$mutationWriteTables): array {
                             if ($pdo->inTransaction()) { throw new RuntimeException('PLUGIN_SOURCE_PLAN_TRANSACTION_INCOMPLETE'); }
                             $recheck();
                             if ($operation === 'install' && ($native['action'] ?? null) !== 'planned_install') {
@@ -170,12 +171,13 @@ final class PluginSourceDevelopmentHost
                                     }
                                 }
                                 if (($effects['closure_complete'] ?? null) !== true || $this->planning['prerequisite'] !== null) { throw new RuntimeException('PLUGIN_SOURCE_PLAN_BLOCKED'); }
-                                // This is the native plan's complete write set, including shared catalogs.
-                                // SQL/adoption stages keep the original DDL guard; no-SQL identity adoption
-                                // needs whole-table catalog writes, never a read lease or row-limited claim.
+                                // SQL/adoption stages need DDL before metadata observation. A no-SQL
+                                // catalog write set is projected only from the native observed scope.
                                 $mutationEffects = $effects;
                                 $recheck();
                                 $scope = SourceApplicationBackup::pluginScope($pdo, $effects, $binding, $this->sourceMetadataTool, $recheck);
+                                $mutationWriteTables = SourceApplicationBackup::pluginWriteTables($effects, $scope);
+                                $recheck();
                                 $this->assertEffectBoundary($scope, $effects, $identity['database']);
                                 $baseline = ['pending' => $effects['pending'], 'selected' => $effects['selected'],
                                     'operation' => $operation, 'plugin_key' => $pluginKey, 'native_plan_sha256' => self::digest($native), 'lifecycle_effects' => $effects];

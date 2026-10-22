@@ -1289,6 +1289,26 @@ final class SourceApplicationBackup
         return $effects;
     }
 
+    /** Physical writes differ from logical recovery effects only for a proven optional no-op. */
+    public static function pluginWriteTables(array $effects, array $scope): array
+    {
+        if (($effects['protocol'] ?? null) !== 'peanut.source-plugin-effects.v1'
+            || ($effects['closure_complete'] ?? null) !== true || !is_array($effects['pending'] ?? null)
+            || !array_is_list($effects['pending'])
+            || self::pluginEvidenceTables($scope, 'maintenance') !== ($effects['tables'] ?? null)) {
+            throw new RuntimeException('PLUGIN_SOURCE_WRITE_EFFECTS_UNPROVEN');
+        }
+        if ($effects['pending'] !== [] || $scope['absent_original_tables'] === []) { return $effects['tables']; }
+        // ReferenceCodeCatalogService checks native storage availability before any row
+        // access: empty contributions return; declared contributions reject without SQL.
+        // No other missing catalog or migration-created object has that contract.
+        if (($scope['metadata_visibility'] ?? null) !== 'complete native source metadata; ordinary PDO unchanged'
+            || array_diff($scope['absent_original_tables'], ['pa_reference_code_set']) !== []) {
+            throw new RuntimeException('PLUGIN_SOURCE_ABSENT_WRITE_EFFECTS_UNPROVEN');
+        }
+        return $scope['tables'];
+    }
+
     /** Missing tables are explicit pre-state, never silently replaced by an empty dump table. */
     public static function pluginScope(PDO $pdo, array $effects, ?array $binding = null, string $metadataTool = '', ?callable $guard = null): array
     {
