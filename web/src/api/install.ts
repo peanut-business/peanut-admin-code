@@ -62,6 +62,13 @@ export interface InstallationConfiguration {
   configured: boolean;
   application: { edition: string; name: string };
   deployment_targets?: string[];
+  deployment_binding?: {
+    deployment_target: string;
+    database_source: 'bundled' | 'registered';
+    database_resource_id: string;
+    database_consumer: 'container';
+    database_name: string;
+  } | null;
   database_resources?: Array<{
     resource_id: string;
     database_name: string;
@@ -193,6 +200,13 @@ function assertInstallationConfiguration(value: unknown): asserts value is Insta
     || !['unconfigured', 'configured', 'blocked', 'pending', 'installed'].includes(value.state) || typeof value.code !== 'string'
     || typeof value.configured !== 'boolean' || !isRecord(value.application)
     || typeof value.application.edition !== 'string' || typeof value.application.name !== 'string'
+    || (value.deployment_binding !== undefined && value.deployment_binding !== null
+      && (!isRecord(value.deployment_binding)
+        || typeof value.deployment_binding.deployment_target !== 'string'
+        || (value.deployment_binding.database_source !== 'bundled' && value.deployment_binding.database_source !== 'registered')
+        || typeof value.deployment_binding.database_resource_id !== 'string'
+        || value.deployment_binding.database_consumer !== 'container'
+        || typeof value.deployment_binding.database_name !== 'string'))
     || (value.deployment_targets !== undefined && (!Array.isArray(value.deployment_targets)
       || !value.deployment_targets.every((target) => typeof target === 'string')))
     || (value.database_resources !== undefined && (!Array.isArray(value.database_resources)

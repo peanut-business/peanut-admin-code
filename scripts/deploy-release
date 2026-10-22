@@ -103,7 +103,7 @@ else:
     if any(env.get(key)!=value for key,value in expected.items()): fail("registered container endpoint configuration differs")
 if a.get("published_endpoint",{}).get("bind")!=bind or a.get("published_endpoint",{}).get("port")!=port: fail("HTTP projection differs")
 deployment_kind=d.get("deployment_kind","application")
-if deployment_kind not in ("application","temporary-multi-tenant-source"): fail("unknown deployment kind")
+if deployment_kind!="application": fail("independent APP deployment kind required")
 upgrade_php=d.get("upgrade_php","")
 if mode=="update" and (not re.fullmatch(r"/(?:[A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+",upgrade_php)
                        or any(part in (".", "..") for part in upgrade_php.split("/")[1:])):
@@ -127,35 +127,21 @@ with tarfile.open(archive,"r:gz") as package:
     found=[row for row in package.getmembers() if row.name.endswith("/server/.peanut/release-identity.json")]
     if len(found)!=1: fail("ambiguous archive identity")
     identity=json.load(package.extractfile(found[0])); app=identity.get("application",{})
-    if deployment_kind=="temporary-multi-tenant-source":
-        import datetime
-        try: expiry=datetime.datetime.strptime(d.get("expires_at",""),"%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)
-        except ValueError: fail("temporary source expiry must be UTC")
-        if mode!="install" or app.get("kind")!="generated-template" or app.get("commit") is not None or app.get("tree") is not None \
-                or app.get("edition")!="multi-tenant" or env.get("DEPLOYMENT_MODE")!="multi-tenant" \
-                or identity.get("upstream",{}).get("commit")!=commit or identity.get("upstream",{}).get("tree")!=tree \
-                or d.get("source_commit")!=commit or d.get("source_tree")!=tree \
-                or expiry<=datetime.datetime.now(datetime.timezone.utc) or not isinstance(d.get("replace_owner"),str) or not d["replace_owner"].strip():
-            fail("temporary source installation identity/ownership differs")
-    elif app.get("kind")!="application" or app.get("version")!=tag[1:] or app.get("commit")!=commit or app.get("tree")!=tree:
+    if app.get("kind")!="application" or app.get("version")!=tag[1:] or app.get("commit")!=commit or app.get("tree")!=tree:
         fail("archive is not the selected independent APP Release")
     if app.get("package_identity")!=d.get("application_package_identity") or app.get("slug")!=d.get("application_slug") \
             or app.get("edition")!=env.get("DEPLOYMENT_MODE"): fail("APP identity/Edition differs from target")
     prefix=found[0].name[:-len("server/.peanut/release-identity.json")]
     projection=json.load(package.extractfile(package.getmember(prefix+"server/resources/project-resources.json")))
-    if projection.get("project_id")!=app.get("slug") or projection.get("authority",{}).get("role")!="application": fail("resource projection owner differs")
+    if projection.get("schema_version")!=1 or projection.get("project_id")!=app.get("slug") or projection.get("authority",{}).get("role")!="application": fail("resource projection owner differs")
     projected=[row for row in objects(projection) if row.get("stable_resource_id")==b["stable_resource_id"]]
-    unallocated_template=(deployment_kind=="temporary-multi-tenant-source" and mode=="install"
-                          and app.get("kind")=="generated-template" and app.get("edition")=="multi-tenant"
-                          and projection.get("schema_version")==1
-                          and projection.get("resources",{}).get("databases")==[] and not projected)
-    if not unallocated_template and (len(projected)!=1 or projected[0].get("database")!=b["database"]
+    if (len(projected)!=1 or projected[0].get("database")!=b["database"]
                                     or projected[0].get("container_endpoint")!=endpoint
                                     or projected[0].get("application_runtime") is not True
                                     or projected[0].get("service_type")!="mysql"
                                     or projected[0].get("fallback")!="none"):
         fail("archive database projection differs")
-    if source=="registered" and (unallocated_template or env.get("DEPLOYMENT_MODE") not in b.get("deployment_modes",[])
+    if source=="registered" and (env.get("DEPLOYMENT_MODE") not in b.get("deployment_modes",[])
             or projected[0].get("namespace")!=b["database"]
             or env.get("DEPLOYMENT_MODE") not in projected[0].get("deployment_modes",[])):
         fail("registered database APP projection/Edition permission required")
@@ -321,7 +307,7 @@ if backend.exists() or backend.is_symlink():
             raise SystemExit("private application registry is unsafe")
         projection=json.loads(registry.read_text())
         selected=[row for row in projection.get("resources",{}).get("databases",[]) if row.get("stable_resource_id")==plan["database_resource_id"]]
-        if projection.get("project_id")!=plan["application"]["slug"] or projection.get("authority",{}).get("role")!="application" \
+        if projection.get("schema_version")!=1 or projection.get("project_id")!=plan["application"]["slug"] or projection.get("authority",{}).get("role")!="application" \
                 or len(selected)!=1 or selected[0].get("database")!=plan["database_name"] \
                 or selected[0].get("namespace")!=plan["database_name"] or selected[0].get("container_endpoint")!=plan["database_endpoint"] \
                 or selected[0].get("application_runtime") is not True or selected[0].get("fallback")!="none" \
@@ -338,6 +324,21 @@ if plan["mode"]=="update":
 PY
 cd "$root"
 if [[ "$mode" == install ]]; then
+  # Publish the nonsecret owner selection before HTTP can stage first configuration.
+  python3 - "$root" "$plan" <<'PY'
+import os,pathlib,sys
+root=pathlib.Path(sys.argv[1]); private=root/"server/private"
+if private.is_symlink() or (private.exists() and not private.is_dir()): raise SystemExit("unsafe private directory")
+private.mkdir(mode=0o750,exist_ok=True)
+path=private/"mounted-deployment-receipt.json"
+descriptor=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o444)
+with os.fdopen(descriptor,"wb") as output:
+    output.write(pathlib.Path(sys.argv[2]).read_bytes()); output.flush(); os.fsync(output.fileno())
+    os.fchmod(output.fileno(),0o444)
+directory=os.open(private,os.O_RDONLY)
+try: os.fsync(directory)
+finally: os.close(directory)
+PY
   if [[ "$(jq -r .database_source "$plan")" == registered ]]; then
     sh server/docker/scripts/start.sh -f compose.registered-database.yaml
   else
@@ -372,7 +373,9 @@ else
   sh "$native" verify --workspace="$update"
 fi
 # Persist APP/source identity independently from the fixed runtime image set.
-install -m 0600 "$plan" "$root/server/private/mounted-deployment-receipt.json"
+if [[ "$mode" == update ]]; then
+  install -m 0444 "$plan" "$root/server/private/mounted-deployment-receipt.json"
+fi
 printf 'deployment_resource=%s application_commit=%s images_reused=true\n' \
   "$(jq -r .resource_id "$plan")" "$(jq -r .source_commit "$plan")"
 REMOTE

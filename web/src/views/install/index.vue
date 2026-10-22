@@ -37,16 +37,16 @@
         <p>已有配置只读保留；连接与凭据来自本实例登记资源。</p>
         <el-input v-model="form.setupToken" type="password" show-password placeholder="Setup Token" autocomplete="off" />
         <template v-if="!configuration?.configured">
-          <el-select v-model="configurationInput.deployment_target"><el-option v-for="target in configuration?.deployment_targets || []" :key="target" :label="target" :value="target" /></el-select>
-          <el-select v-model="configurationInput.database_source">
+          <el-select v-model="configurationInput.deployment_target" :disabled="!!configuration?.deployment_binding"><el-option v-for="target in configuration?.deployment_targets || []" :key="target" :label="target" :value="target" /></el-select>
+          <el-select v-model="configurationInput.database_source" :disabled="!!configuration?.deployment_binding">
             <el-option label="内置数据库" value="bundled" /><el-option label="已登记的数据库" value="registered" />
           </el-select>
-          <el-input v-if="configurationInput.database_source === 'bundled'" v-model="configurationInput.database_name" placeholder="本实例数据库名（可自动生成）" />
+          <el-input v-if="configurationInput.database_source === 'bundled'" v-model="configurationInput.database_name" :disabled="!!configuration?.deployment_binding" placeholder="本实例数据库名（可自动生成）" />
           <template v-else>
-            <el-select v-model="configurationInput.database_resource_id" placeholder="选择本实例已登记的数据库">
+            <el-select v-model="configurationInput.database_resource_id" :disabled="!!configuration?.deployment_binding" placeholder="选择本实例已登记的数据库">
               <el-option v-for="resource in configuration?.database_resources || []" :key="resource.resource_id" :label="resource.database_name" :value="resource.resource_id" />
             </el-select>
-            <el-select v-model="configurationInput.database_consumer" placeholder="应用连接方式">
+            <el-select v-model="configurationInput.database_consumer" :disabled="!!configuration?.deployment_binding" placeholder="应用连接方式">
               <el-option v-for="endpoint in selectedDatabase?.endpoints || []" :key="endpoint.consumer" :label="`${endpoint.consumer === 'host' ? '主机' : '容器'}：${endpoint.host}:${endpoint.port}`" :value="endpoint.consumer" />
             </el-select>
             <el-input v-model="configurationInput.database_user" placeholder="已有普通数据库账号" autocomplete="off" />
@@ -353,6 +353,8 @@
     configuration.value = null; canSaveConfiguration.value = false;
     await installationStep('configuration', async () => {
       configuration.value = await getInstallConfiguration();
+      const binding = configuration.value.deployment_binding;
+      if (binding) Object.assign(configurationInput, binding);
       canSaveConfiguration.value = configuration.value.state === 'unconfigured'; stage.value = 2;
     });
   }

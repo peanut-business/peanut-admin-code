@@ -43,15 +43,6 @@ final class InstallationConfigurationHost
             && is_file($registry) && !is_link($registry)
             && is_file($record) && !is_link($record);
 
-        if (!$configured && (file_exists($this->pendingPath()) || is_link($this->pendingPath()))) {
-            if (is_link($this->pendingPath()) || !is_file($this->pendingPath())) {
-                return ['state' => 'blocked', 'code' => 'INSTALL_CONFIGURATION_PARTIAL', 'configured' => false,
-                    'application' => $this->publicIdentity($identity)];
-            }
-            return ['state' => 'pending', 'code' => 'INSTALL_CONFIGURATION_PENDING', 'configured' => false,
-                'application' => $this->publicIdentity($identity)];
-        }
-
         if (file_exists($installed) || is_link($installed)) {
             return [
                 'state' => 'installed',
@@ -59,6 +50,17 @@ final class InstallationConfigurationHost
                 'configured' => $configured,
                 'application' => $this->publicIdentity($identity),
             ];
+        }
+        // This receipt constrains unfinished first configuration. A supported
+        // native update retains installed identity without rewriting its history.
+        $binding = $this->deploymentBinding($identity);
+        if (!$configured && (file_exists($this->pendingPath()) || is_link($this->pendingPath()))) {
+            if (is_link($this->pendingPath()) || !is_file($this->pendingPath())) {
+                return ['state' => 'blocked', 'code' => 'INSTALL_CONFIGURATION_PARTIAL', 'configured' => false,
+                    'application' => $this->publicIdentity($identity)];
+            }
+            return ['state' => 'pending', 'code' => 'INSTALL_CONFIGURATION_PENDING', 'configured' => false,
+                'application' => $this->publicIdentity($identity)];
         }
         if (!$configured && (file_exists($env) || is_link($env)
             || file_exists($registry) || is_link($registry)
@@ -80,6 +82,11 @@ final class InstallationConfigurationHost
                 || ($identity['application']['kind'] ?? null) === 'internal-candidate')
                 ? ['local-development', 'local-multi-tenant-demo'] : self::TARGETS,
             'database_resources' => $configured ? [] : $this->databaseOptions(),
+            'deployment_binding' => $binding === null ? null : [
+                'deployment_target' => $binding['target'], 'database_source' => $binding['database_source'],
+                'database_resource_id' => $binding['database_resource_id'], 'database_consumer' => 'container',
+                'database_name' => $binding['database_name'],
+            ],
         ];
     }
 
@@ -118,7 +125,7 @@ final class InstallationConfigurationHost
     }
 
     /** Both authenticated callers use the same configuration and publication contract. */
-    private function configureInput(string $token, array $input, ?array $ownerRegistry = null): array
+    private function configureInput(string $token, array $input, ?array $ownerRegistry = null, bool $publishingPending = false): array
     {
         require_once $this->serverRoot . '/database/resource-registry.php';
 
@@ -131,9 +138,13 @@ final class InstallationConfigurationHost
                 422,
             );
         }
+        // A finished/private configuration is never a new admission attempt.
+        // Keep the later locked recheck for concurrent first writers.
+        $this->assertFreshConfigurationState();
 
         $identity = $this->identity();
         $application = $identity['application'];
+        $binding = $this->deploymentBinding($identity, $deploymentSha256);
         $target = is_string($input['deployment_target'] ?? null)
             ? trim($input['deployment_target'])
             : '';
@@ -182,6 +193,33 @@ final class InstallationConfigurationHost
             );
         }
 
+        $permissionRegistrySha256 = $registered['registry_sha256'] ?? null;
+        if ($binding !== null) {
+            if ($target !== $binding['target'] || $source !== $binding['database_source'] || $database !== $binding['database_name']) {
+                throw new InstallationExecutionException('INSTALL_CONFIGURATION_DEPLOYMENT_BINDING_MISMATCH', '配置必须保留部署已固定的数据库选择。', 422);
+            }
+            $endpoint = $registered['endpoint'] ?? null;
+            if ($source === 'bundled') {
+                $permissionRegistry = $this->applicationRegistry($permissionRegistrySha256);
+                $permission = \registeredDatabase($permissionRegistry, $binding['database_resource_id']);
+                $endpoint = \registeredDatabaseEndpoint($permission, 'container');
+                if (($permission['service_type'] ?? null) !== 'mysql' || ($permission['fallback'] ?? null) !== 'none'
+                    || ($permission['application_runtime'] ?? null) !== true || ($permission['database'] ?? null) !== $database
+                    || ($permission['namespace'] ?? null) !== $binding['root'] . '/server/docker/mysql'
+                    || !in_array($targetContract['resource_environment'], $permission['environments'] ?? [], true)
+                    || !in_array($application['edition'], $permission['deployment_modes'] ?? [], true)) {
+                    throw new InstallationExecutionException('INSTALL_CONFIGURATION_DEPLOYMENT_PERMISSION_INVALID', '内置数据库选择必须具有本APP的登记权限。', 422);
+                }
+            }
+            $expectedEndpoint = $binding['database_endpoint'];
+            if (is_array($endpoint)) { ksort($endpoint); }
+            ksort($expectedEndpoint);
+            if (($registered !== null && ($registered['resource_id'] !== $binding['database_resource_id']
+                || $registered['consumer'] !== 'container')) || $endpoint !== $expectedEndpoint) {
+                throw new InstallationExecutionException('INSTALL_CONFIGURATION_DEPLOYMENT_BINDING_MISMATCH', '配置必须保留部署已固定的容器端点。', 422);
+            }
+        }
+
         $edition = (string) $application['edition'];
         $platformHosts = $this->hostList($input['platform_hosts'] ?? '');
         $tenantAdminHosts = $this->hostList($input['tenant_admin_hosts'] ?? '');
@@ -222,10 +260,11 @@ final class InstallationConfigurationHost
                     throw new InstallationExecutionException('INSTALL_CONFIGURATION_IN_PROGRESS', '已有首次配置等待发布。', 409);
                 }
                 $this->writeJsonAtomic($this->pendingPath(), [
-                    'protocol' => 'peanut.installation-configuration-input.v2',
+                    'protocol' => 'peanut.installation-configuration-input.v3',
                     'identity_sha256' => hash('sha256', json_encode($identity, JSON_THROW_ON_ERROR)),
                     'setup_token_sha256' => hash('sha256', $token),
-                    'registry_sha256' => $registered['registry_sha256'] ?? null,
+                    'registry_sha256' => $permissionRegistrySha256,
+                    'deployment_sha256' => $deploymentSha256,
                     'input' => ['deployment_target' => $target, 'database_name' => $database,
                         'platform_hosts' => implode(',', $platformHosts), 'tenant_admin_hosts' => implode(',', $tenantAdminHosts),
                         'database_source' => $source,
@@ -238,7 +277,7 @@ final class InstallationConfigurationHost
             }
             return ['state' => 'pending', 'code' => 'INSTALL_CONFIGURATION_PENDING', 'restart_required' => true,
                 'application' => $this->publicIdentity($identity), 'deployment_target' => $target,
-                'database_resource_id' => $registered['resource_id'] ?? $application['slug'] . '-bundled-mysql84', 'database_name' => $database];
+                'database_resource_id' => $registered['resource_id'] ?? $binding['database_resource_id'] ?? $application['slug'] . '-bundled-mysql84', 'database_name' => $database];
         }
 
         $stateDirectory = dirname($this->registryPath());
@@ -259,7 +298,7 @@ final class InstallationConfigurationHost
                 503,
             );
         }
-        if (file_exists($lockPath) && !(is_file($this->serverRoot . '/.env')
+        if (!$publishingPending && file_exists($lockPath) && !(is_file($this->serverRoot . '/.env')
             && is_file($this->registryPath())
             && is_file($stateDirectory . '/configuration.json'))) {
             throw new InstallationExecutionException(
@@ -285,8 +324,8 @@ final class InstallationConfigurationHost
             $this->assertFreshConfigurationState();
 
             $slug = (string) $application['slug'];
-            $resourceId = $registered['resource_id'] ?? $slug . '-bundled-mysql84';
-            $endpointId = $registered['endpoint']['endpoint_id'] ?? $slug . '-mysql84-container';
+            $resourceId = $registered['resource_id'] ?? $binding['database_resource_id'] ?? $slug . '-bundled-mysql84';
+            $endpointId = $registered['endpoint']['endpoint_id'] ?? $binding['database_endpoint']['endpoint_id'] ?? $slug . '-mysql84-container';
             $databaseUser = $registered['user'] ?? $this->databaseUser($slug);
             $databasePassword = $registered['password'] ?? $this->secret();
             $secrets = [
@@ -421,6 +460,9 @@ final class InstallationConfigurationHost
     public function publishPending(string $expectedToken): array
     {
         $this->assertOwnerPublication();
+        if (preg_match('/^[A-Za-z0-9_-]{32,128}$/D', $expectedToken) !== 1) {
+            throw new RuntimeException('INSTALL_CONFIGURATION_SETUP_TOKEN_INVALID');
+        }
         foreach (['private', 'private/resources', 'private/resources/pending'] as $relative) {
             if (is_link($this->serverRoot . '/' . $relative) || !is_dir($this->serverRoot . '/' . $relative)) {
                 throw new RuntimeException('INSTALL_CONFIGURATION_PENDING_PATH_INVALID');
@@ -433,12 +475,16 @@ final class InstallationConfigurationHost
             throw new RuntimeException('INSTALL_CONFIGURATION_PENDING_PATH_INVALID');
         }
         $pending = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
-        if (!is_array($pending) || array_keys($pending) !== ['protocol', 'identity_sha256', 'setup_token_sha256', 'registry_sha256', 'input']
-            || $pending['protocol'] !== 'peanut.installation-configuration-input.v2'
+        if (!is_array($pending) || array_keys($pending) !== ['protocol', 'identity_sha256', 'setup_token_sha256', 'registry_sha256', 'deployment_sha256', 'input']
+            || $pending['protocol'] !== 'peanut.installation-configuration-input.v3'
             || $pending['identity_sha256'] !== hash('sha256', json_encode($this->identity(), JSON_THROW_ON_ERROR))
             || $pending['setup_token_sha256'] !== hash('sha256', $expectedToken)
             || !is_array($pending['input'])) {
             throw new RuntimeException('INSTALL_CONFIGURATION_PENDING_BINDING_INVALID');
+        }
+        $this->deploymentBinding($this->identity(), $deploymentSha256);
+        if ($pending['deployment_sha256'] !== $deploymentSha256) {
+            throw new RuntimeException('INSTALL_CONFIGURATION_PENDING_DEPLOYMENT_CHANGED');
         }
         if ($pending['registry_sha256'] !== null) {
             $this->applicationRegistry($registrySha256);
@@ -447,7 +493,7 @@ final class InstallationConfigurationHost
             }
         }
         // Reuse the canonical validator and generate credentials only in the owner boundary.
-        $result = $this->configure($expectedToken, $expectedToken, $pending['input']);
+        $result = $this->configureInput($expectedToken, $pending['input'], publishingPending: true);
         if (!unlink($path)) {
             throw new RuntimeException('INSTALL_CONFIGURATION_PENDING_REMOVE_FAILED');
         }
@@ -463,6 +509,42 @@ final class InstallationConfigurationHost
             || is_link($this->serverRoot . '/runtime/upgrade/.traffic-ready')) {
             throw new RuntimeException('INSTALL_CONFIGURATION_OWNER_REQUIRED');
         }
+    }
+
+    /** Deployment-owned nonsecret selection on the existing readonly HTTP program mount. */
+    private function deploymentBinding(array $identity, ?string &$sha256 = null): ?array
+    {
+        $sha256 = null;
+        $path = $this->serverRoot . '/private/mounted-deployment-receipt.json';
+        if (!file_exists($path) && !is_link($path)) { return null; }
+        $stat = @lstat($path);
+        if (!is_array($stat) || !is_file($path) || is_link($path) || realpath($path) !== $path
+            || $stat['nlink'] !== 1 || ($stat['mode'] & 0777) !== 0444 || $stat['uid'] !== fileowner($this->serverRoot)) {
+            throw new RuntimeException('INSTALL_CONFIGURATION_DEPLOYMENT_BINDING_UNSAFE');
+        }
+        $bytes = file_get_contents($path);
+        $plan = json_decode((string) $bytes, true, 512, JSON_THROW_ON_ERROR);
+        $application = $plan['application'] ?? null;
+        $expected = $identity['application'];
+        if (!is_array($application)) { throw new RuntimeException('INSTALL_CONFIGURATION_DEPLOYMENT_BINDING_INVALID'); }
+        ksort($application); ksort($expected);
+        $endpoint = $plan['database_endpoint'] ?? null;
+        if (($plan['protocol'] ?? null) !== 'peanut.mounted-deployment-plan.v1' || $application !== $expected
+            || !is_string($plan['root'] ?? null) || preg_match('~^/(?:[A-Za-z0-9_-][A-Za-z0-9._-]*/)*[A-Za-z0-9_-][A-Za-z0-9._-]*$~D', $plan['root']) !== 1
+            || !in_array($plan['target'] ?? null, self::TARGETS, true)
+            || !in_array($plan['database_source'] ?? null, ['bundled', 'registered'], true)
+            || !is_string($plan['database_resource_id'] ?? null)
+            || preg_match('/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/D', $plan['database_resource_id']) !== 1
+            || !is_string($plan['database_name'] ?? null) || preg_match('/^[A-Za-z0-9_]{1,64}$/D', $plan['database_name']) !== 1
+            || !is_array($endpoint) || ($endpoint['consumers'] ?? null) !== ['container']
+            || !is_string($endpoint['endpoint_id'] ?? null) || preg_match('/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/D', $endpoint['endpoint_id']) !== 1
+            || !is_string($endpoint['host'] ?? null) || preg_match('/^[A-Za-z0-9._:-]{1,253}$/D', $endpoint['host']) !== 1
+            || !is_int($endpoint['port'] ?? null) || $endpoint['port'] < 1 || $endpoint['port'] > 65535
+            || ($plan['database_source'] === 'bundled' && ($endpoint['host'] !== 'mysql' || $endpoint['port'] !== 3306))) {
+            throw new RuntimeException('INSTALL_CONFIGURATION_DEPLOYMENT_BINDING_INVALID');
+        }
+        $sha256 = hash('sha256', (string) $bytes);
+        return $plan;
     }
 
     /** Read only the APP's own registry through the same native runtime selector. */

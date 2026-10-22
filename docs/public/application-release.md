@@ -4,6 +4,8 @@
 
 APP开发源码归APP自己的Git仓库。`scripts/package-release.sh`的普通入口默认且仅生成server-only部署内容；`--server-only`只是同一默认行为的显式写法。上游维护者的`--generated-template`和已冻结内部候选属于不同输入合同，不是APP日常全源码发行选项。
 
+`scripts/deploy-release`只接收独立APP自己的server Release及已有APP数据库权限投影。临时模板来源部署和空数据库权限投影在计划阶段即拒绝，不发布目录或启动服务；其他模板工具和历史制品保持其各自合同。
+
 脚手架模板版本、APP独立版本、Core依赖及CLI版本分别记录。APP吸收上游后须正常提交和提升自己的发行版本，再生成部署包；不能用上游号覆盖APP号。已有输出拒绝覆盖，同名版本内容变化须形成新版本，而不是覆盖已发布附件。
 
 ## 2. 制包入口与输出
@@ -68,5 +70,9 @@ server/docker/scripts/update.sh verify --workspace=/absolute/private/upgrade-wor
 `bundled`保留同宿主、同Compose、`mysql:3306`、本地MySQL目录以及PHP/Nginx/MySQL三枚不可变镜像的限制。`registered`要求数据库明确允许`container`消费者、固定`endpoint_id`/host/整数port、数据库namespace等于database，并允许当前Edition；登记的`PEANUT_DATABASE_CONSUMER=container`、`PEANUT_DATABASE_ENDPOINT_ID`、`DB_HOST`、`DB_PORT`和`DB_NAME`须精确相符。它仅接受PHP/Nginx两枚不可变镜像，不接受启用bundled数据库的Compose profile，也不要求外部数据库属于应用Compose。
 
 计划固定模式及endpoint；新实例按同一模式调用原生runtime配置，registered首次启动显式传递官方`compose.registered-database.yaml`，仅启动PHP/Nginx。更新还核对实例现有私有环境的模式及数据库绑定；模式变更须单独处理，不能在部署中隐式切换。外部数据库的凭据、实例资源发布和连通性仍由原生配置/安装流程处理，包装器不生成外部凭据、不启动外部数据库。Docker模板中的镜像必须与登记一致，包装器不会重写镜像来掩盖不一致。
+
+首次启动前，包装器以owner所有、0444的非秘密`server/private/mounted-deployment-receipt.json`发布同一固定计划。原生首次配置同时核对回执的APP身份、部署目标、模式、数据库和容器端点，以及APP本身的登记权限；界面固定该实例的选择，直接伪造配置请求同样被拒绝。HTTP暂存配置的v3 journal固定回执字节摘要，owner最终发布前重新核对摘要并执行相同校验。旧v2 pending保留并拒绝自动发布，需要原owner处理；缺少回执的普通安装维持自身选择，存在但不安全或漂移的回执不得视为缺失。
+
+bundled同样须先从APP自己的登记解析唯一的资源、数据库和容器端点权限，再采用部署回执中的固定ID；回执不能生成新的权限。完成身份存在时，配置状态按当前可信APP身份返回已安装/锁定，不再将原首次安装回执作为新版本身份约束，因此正常的原生`update.sh`更新无需改写原安装历史；未完成的首次配置仍严格校验回执。
 
 脚本默认值及离线文件边界测试，不代表四端实际构建、公开附件、安装、数据库迁移、生产更新或回退已通过。记录精确源码、包摘要、已执行断言、NOT_RUN和失败；不为验证打包参数生成新的真实测试APP。
