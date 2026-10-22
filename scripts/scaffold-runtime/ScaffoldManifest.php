@@ -303,6 +303,22 @@ final class ScaffoldManifest
         return array_values($this->data['renames'] ?? []);
     }
 
+    /** Native profile projection retains the authenticated archive identity and artifact paths. */
+    public function withoutPaths(array $excluded): self
+    {
+        $excluded = array_fill_keys($excluded, true);
+        $data = $this->data;
+        $data['files'] = array_values(array_filter($data['files'],
+            static fn(array $file): bool => !isset($excluded[$file['path']])));
+        $data['renames'] = array_values(array_filter($data['renames'] ?? [], static function (array $rename) use ($excluded): bool {
+            if (isset($excluded[$rename['from']]) !== isset($excluded[$rename['to']])) {
+                throw new RuntimeException('SCAFFOLD_PROFILE_RENAME_CROSSES_SELECTION');
+            }
+            return !isset($excluded[$rename['to']]);
+        }));
+        return new self($this->path, $this->directory, $data);
+    }
+
     public function digest(): string
     {
         return 'sha256:' . hash_file('sha256', $this->path);

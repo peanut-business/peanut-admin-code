@@ -4067,7 +4067,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "589f215a54bc93f565baa8312a42115ee60aecbc9494b05e8baedededa12c335"
+            "source_sha256": "c632b7f57503e787688e6ca0048448f66f859999a1c848d9a427f6e6f8d71bc4"
         },
         {
             "path": "scripts/scaffold-runtime/ScaffoldPathGuard.php",
@@ -4109,7 +4109,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2dadeab57401cae4269796f6c863c7e305b738045c7e5a5226c43a20fb1fb5dd"
+            "source_sha256": "582448e680d8218934ba185e7cb2af9ab955bb32ab05096809ad0d2cfab61b52"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",
@@ -4137,7 +4137,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2e84cb90abef05e59133d0e350ba9902d2c16a25240c39bc681a93ea39ddebda"
+            "source_sha256": "9ac737f4db68fc2f70183d44ef44f889c8a11c5b498b084396e060bdaf4ca29a"
         },
         {
             "path": "scripts/seed-demo-data",
