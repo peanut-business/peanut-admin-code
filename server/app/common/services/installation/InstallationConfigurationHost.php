@@ -42,6 +42,17 @@ final class InstallationConfigurationHost
         $configured = is_file($env) && !is_link($env)
             && is_file($registry) && !is_link($registry)
             && is_file($record) && !is_link($record);
+        if ($configured && !file_exists($installed) && !is_link($installed)
+            && ($identity['application']['kind'] ?? null) === 'generated-application') {
+            $stat = lstat($record);
+            $configuration = json_decode((string) file_get_contents($record), true, 512, JSON_THROW_ON_ERROR);
+            $source = $configuration['application_source'] ?? null;
+            if ($stat['nlink'] !== 1 || ($stat['mode'] & 0777) !== 0600 || $stat['uid'] !== fileowner($this->serverRoot)
+                || !is_array($source) || !is_string($source['manifest_sha256'] ?? null)
+                || !hash_equals($source['manifest_sha256'], (string) hash_file('sha256', dirname($this->serverRoot) . '/.peanut/application-manifest.json'))) {
+                throw new RuntimeException('INSTALL_CONFIGURATION_SOURCE_BINDING_CHANGED');
+            }
+        }
 
         if (file_exists($installed) || is_link($installed)) {
             return [
@@ -79,7 +90,7 @@ final class InstallationConfigurationHost
             'configured' => $configured,
             'application' => $this->publicIdentity($identity),
             'deployment_targets' => (ApplicationSourceIdentity::hasRuntime($this->serverRoot)
-                || ($identity['application']['kind'] ?? null) === 'internal-candidate')
+                || in_array($identity['application']['kind'] ?? null, ['internal-candidate', 'generated-application'], true))
                 ? ['local-development', 'local-multi-tenant-demo'] : self::TARGETS,
             'database_resources' => $configured ? [] : $this->databaseOptions(),
             'deployment_binding' => $binding === null ? null : [
@@ -101,6 +112,12 @@ final class InstallationConfigurationHost
                 'Setup token 无效。',
                 403,
             );
+        }
+
+        // A guided HTTP token is not the mutable source owner's publication
+        // authority. Status may read that identity; this writer may not use it.
+        if (($this->identity()['application']['kind'] ?? null) === 'generated-application') {
+            throw new RuntimeException('INSTALL_CONFIGURATION_SOURCE_OWNER_REQUIRED');
         }
 
         return $this->configureInput($token, $input);
@@ -143,6 +160,13 @@ final class InstallationConfigurationHost
         $this->assertFreshConfigurationState();
 
         $identity = $this->identity();
+        $sourceBinding = null;
+        if (($identity['application']['kind'] ?? null) === 'generated-application') {
+            if (!class_exists(\PeanutServerUpdatePlan::class, false)) {
+                throw new RuntimeException('INSTALL_CONFIGURATION_SOURCE_OWNER_REQUIRED');
+            }
+            $sourceBinding = \PeanutServerUpdatePlan::sourceConfigurationBinding($this->serverRoot);
+        }
         $application = $identity['application'];
         $binding = $this->deploymentBinding($identity, $deploymentSha256);
         $target = is_string($input['deployment_target'] ?? null)
@@ -156,7 +180,8 @@ final class InstallationConfigurationHost
             );
         }
         $targetContract = \deploymentTargetContract($target);
-        if ((ApplicationSourceIdentity::hasRuntime($this->serverRoot) || ($application['kind'] ?? null) === 'internal-candidate')
+        if ((ApplicationSourceIdentity::hasRuntime($this->serverRoot)
+                || in_array($application['kind'] ?? null, ['internal-candidate', 'generated-application'], true))
             && $targetContract['app_environment'] !== 'development') {
             throw new InstallationExecutionException(
                 'INSTALL_CONFIGURATION_TARGET_INVALID',
@@ -439,6 +464,7 @@ final class InstallationConfigurationHost
                 'database_name' => $database,
                 'configured_at' => gmdate(DATE_ATOM),
             ];
+            if ($sourceBinding !== null) { $record['application_source'] = $sourceBinding; }
             $this->writeJsonAtomic($stateDirectory . '/configuration.json', $record);
 
             return [
@@ -730,6 +756,17 @@ final class InstallationConfigurationHost
             return $identity;
         }
 
+        $releasePath = $this->serverRoot . '/.peanut/release-identity.json';
+        $sourcePath = dirname($this->serverRoot) . '/.peanut/application-manifest.json';
+        if (!ApplicationSourceIdentity::hasRuntime($this->serverRoot)
+            && !file_exists($releasePath) && !is_link($releasePath)
+            && (file_exists($sourcePath) || is_link($sourcePath))) {
+            // The installer already consumes this native generated APP identity.
+            // Configuration/status must not require a fabricated runtime first.
+            $source = ApplicationSourceIdentity::loadGeneratedApp($this->serverRoot);
+            return ['application' => $source->applicationIdentity() + ['kind' => 'generated-application'],
+                'versions' => $source->versions()];
+        }
         $release = ApplicationSourceIdentity::hasRuntime($this->serverRoot)
             ? ApplicationSourceIdentity::load($this->serverRoot)
             : ServerReleaseIdentity::resolve($this->serverRoot);
