@@ -1453,7 +1453,7 @@ final class PeanutServerUpdatePlan
         }
         $options = [];
         foreach (array_slice($argv, 2) as $argument) {
-            if (preg_match('/^--(instance-server|archive|expected-sha256|git-input|expected-source-sha256|workspace|configuration-input)=(.+)$/D', $argument, $matches) !== 1
+            if (preg_match('/^--(instance-server|archive|expected-sha256|git-input|expected-source-sha256|workspace|configuration-input|scope)=(.+)$/D', $argument, $matches) !== 1
                 || isset($options[$matches[1]])) {
                 self::usage();
             }
@@ -1476,7 +1476,8 @@ final class PeanutServerUpdatePlan
         } elseif (isset($options['archive']) || isset($options['expected-sha256']) || isset($options['git-input']) || isset($options['expected-source-sha256'])) {
             self::usage();
         }
-        if (($command !== 'configure-startup' && isset($options['configuration-input']))
+        if ((isset($options['scope']) && ($command !== 'configure-startup' || $options['scope'] !== 'source-application'))
+            || ($command !== 'configure-startup' && isset($options['configuration-input']))
             || (in_array($command, ['initialize-traffic', 'initialize-owner-traffic', 'close-startup-traffic', 'publish-startup-configuration', 'configure-startup'], true) && isset($options['workspace']))) {
             self::usage();
         }
@@ -1495,7 +1496,7 @@ final class PeanutServerUpdatePlan
                 'initialize-owner-traffic' => self::initializeTraffic($options['instance-server'], true),
                 'close-startup-traffic' => self::closeStartupTraffic($options['instance-server']),
                 'publish-startup-configuration' => self::publishStartupConfiguration($options['instance-server']),
-                'configure-startup' => self::configureStartup($options['instance-server'], $options['configuration-input']),
+                'configure-startup' => self::configureStartup($options['instance-server'], $options['configuration-input'], $options['scope'] ?? 'server'),
                 'source-admit' => self::sourceChildAdmission($options['instance-server'], $options['workspace']),
             };
             echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), PHP_EOL;
@@ -1686,15 +1687,31 @@ final class PeanutServerUpdatePlan
     }
 
     /** Host first configuration uses the same owner boundary and canonical publisher. */
-    public static function configureStartup(string $serverRoot, string $inputPath): array
+    public static function configureStartup(string $serverRoot, string $inputPath, string $scope = 'server'): array
     {
         $serverRoot = self::ordinaryDirectory($serverRoot, 'server root');
         $owner = fileowner($serverRoot);
         if (!is_int($owner) || !in_array(posix_geteuid(), [0, $owner], true)) {
             throw new RuntimeException('configuration requires its deployment owner');
         }
-        self::assertAdmissionBoundary($serverRoot);
-        return self::withInstanceLock($serverRoot, static function () use ($serverRoot, $inputPath): array {
+        if (!in_array($scope, ['server', 'source-application'], true)) {
+            throw new RuntimeException('configuration scope is invalid');
+        }
+        $sourceApplication = $scope === 'source-application';
+        if ($sourceApplication) {
+            self::sourceOwner($serverRoot);
+            $sourceRoot = dirname($serverRoot);
+            foreach (['.peanut/application-manifest.json', '.peanut/upgrades/product.lock',
+                'scripts/scaffold-runtime/ScaffoldPathGuard.php', 'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php'] as $relative) {
+                self::assertOrdinaryParents($sourceRoot, $relative);
+            }
+            self::regularBytes($sourceRoot . '/.peanut/application-manifest.json', 'generated APP manifest');
+            require_once $sourceRoot . '/scripts/scaffold-runtime/ScaffoldPathGuard.php';
+            require_once $sourceRoot . '/scripts/scaffold-runtime/ScaffoldUpgradeRunner.php';
+        } else {
+            self::assertAdmissionBoundary($serverRoot);
+        }
+        $publish = static fn(): array => self::withInstanceLock($serverRoot, static function () use ($serverRoot, $inputPath, $sourceApplication): array {
             if (file_exists(self::trafficReadyPath($serverRoot)) || is_link(self::trafficReadyPath($serverRoot))
                 || file_exists(self::maintenancePath($serverRoot)) || file_exists(self::currentPointerPath($serverRoot))) {
                 throw new RuntimeException('configuration owner requires closed initial traffic');
@@ -1712,13 +1729,51 @@ final class PeanutServerUpdatePlan
                 || (array_key_exists('resource_registry', $input) && !is_array($input['resource_registry']))) {
                 throw new RuntimeException('configuration input requires setup_token, configuration and an explicit APP registry for registered databases');
             }
+            if ($sourceApplication) {
+                // This is first configuration of a mutable development APP, not runtime
+                // admission or an installed-instance maintenance shortcut. Preserve every
+                // existing configuration/installation identity and unfinished operation.
+                foreach (['.peanut/release-identity.json', '.peanut/development-runtime.json', '.peanut/internal-candidate.json',
+                    'private/installation/installed.json', 'private/installation/baseline.json', 'private/installation/deployment.json',
+                    'private/installation/executing.json', 'private/partial-installation', 'runtime/installation/installed.json',
+                    'runtime/installation/executing.json', 'runtime/upgrade/source-transition.json', 'runtime/upgrade/verified-deployment'] as $relative) {
+                    self::assertOrdinaryParents($serverRoot, $relative);
+                    if (file_exists($serverRoot . '/' . $relative) || is_link($serverRoot . '/' . $relative)) {
+                        throw new RuntimeException('source first configuration requires an uninstalled ordinary APP');
+                    }
+                }
+                require_once $serverRoot . '/database/resource-registry.php';
+                $configuration = $input['configuration'];
+                $target = $configuration['deployment_target'] ?? '';
+                if (!is_string($target) || !in_array($target, ['local-development', 'local-multi-tenant-demo'], true)
+                    || \deploymentTargetContract($target)['app_environment'] !== 'development'
+                    || ($configuration['database_source'] ?? null) !== 'registered'
+                    || ($configuration['database_consumer'] ?? null) !== 'host') {
+                    throw new RuntimeException('source first configuration requires a registered host development database');
+                }
+                self::regularBytes(dirname($serverRoot) . '/.peanut/application-manifest.json', 'generated APP manifest');
+                self::regularBytes(dirname($serverRoot) . '/release-versions.json', 'generated APP versions');
+            }
             require_once $serverRoot . '/vendor/autoload.php';
+            if ($sourceApplication) {
+                // Use the same canonical publisher with the native source reader already
+                // used by install.php. No runtime/release identity is manufactured.
+                $loadIdentity = static function (string $root): array {
+                    $identity = \app\common\value\installation\ApplicationSourceIdentity::loadGeneratedApp($root);
+                    return ['application' => $identity->applicationIdentity(), 'versions' => $identity->versions()];
+                };
+                return (new \app\common\services\installation\InstallationConfigurationHost($serverRoot, $loadIdentity))
+                    ->configureForOwner($input['setup_token'], $configuration, $input['resource_registry'] ?? null);
+            }
             $identity = self::runtimeIdentity($serverRoot);
             $application = new \think\App($serverRoot);
             $application->instance($identity::class, $identity);
             return (new \app\common\services\installation\InstallationConfigurationHost($serverRoot))
                 ->configureForOwner($input['setup_token'], $input['configuration'], $input['resource_registry'] ?? null);
         });
+        return $sourceApplication
+            ? \app\common\infrastructure\scaffold\ScaffoldUpgradeRunner::sourceProductLock(dirname($serverRoot), $publish)
+            : $publish();
     }
 
     public static function closeStartupTraffic(string $serverRoot): array
@@ -3726,6 +3781,7 @@ final class PeanutServerUpdatePlan
         fwrite(STDERR, "       php update-plan.php plan --instance-server=/absolute/server --git-input=/absolute/fixed-git-source.json --expected-source-sha256=<trusted-64-hex> --workspace=/absolute/update-workspace\n");
         fwrite(STDERR, "       php update-plan.php files-apply|files-verify|files-recover|files-verify-recovery|hold|health|publish|open --instance-server=/absolute/server --workspace=/absolute/update-workspace\n");
         fwrite(STDERR, "       php update-plan.php configure-startup --instance-server=/absolute/server --configuration-input=/absolute/private/input.json\n");
+        fwrite(STDERR, "       php update-plan.php configure-startup --scope=source-application --instance-server=/absolute/app/server --configuration-input=/absolute/private/input.json\n");
         exit(64);
     }
 }
