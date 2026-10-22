@@ -16,9 +16,9 @@ final readonly class SourceDevelopmentMaintenanceAdmission
         require_once $serverRoot . '/database/environment-guard.php';
     }
 
-    public function capture(array $actor, bool $ddl): array
+    public function capture(array $actor, bool $ddl, array $writeTables = []): array
     {
-        return $this->facts($actor, $ddl, false);
+        return $this->facts($actor, $ddl, false, $writeTables);
     }
 
     /** Only the two fixed, append-only qualification inputs may temporarily dirty source. */
@@ -27,7 +27,7 @@ final readonly class SourceDevelopmentMaintenanceAdmission
         return $this->facts($actor, true, true);
     }
 
-    private function facts(array $actor, bool $ddl, bool $fixtureInputs): array
+    private function facts(array $actor, bool $ddl, bool $fixtureInputs, array $writeTables = []): array
     {
         foreach (['owner', 'thread', 'session', 'gate'] as $key) {
             if (!is_string($actor[$key] ?? null) || trim($actor[$key]) === '' || preg_match('/[\x00-\x1f]/', $actor[$key])) {
@@ -104,6 +104,7 @@ final readonly class SourceDevelopmentMaintenanceAdmission
                 && in_array($value['operation'] ?? null, ['ddl', 'exclusive'], true) && ($value['tables'] ?? null) === []);
         }
         if ($ddl && !$access) { throw new RuntimeException('APPLICATION_SCHEMA_DDL_LEASE_REQUIRED'); }
+        if ($writeTables !== []) { self::assertWriteTables($resources, $schema, $writeTables, $legacyExclusive); }
         $sourceFiles = [];
         foreach (\applicationMigrationFiles($this->serverRoot . '/database') as $file) { $sourceFiles[basename($file)] = $this->fileDigest($file); }
         foreach (['release-versions.json', 'plugins.lock', 'server/composer.lock', 'server/vendor/composer/installed.json'] as $file) { $sourceFiles[$file] = $this->fileDigest($root . '/' . $file); }
@@ -141,6 +142,32 @@ final readonly class SourceDevelopmentMaintenanceAdmission
     {
         if (!is_file($path) || is_link($path)) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_FILE_INVALID'); }
         return (string) hash_file('sha256', $path);
+    }
+
+    /** Called only after the native verifier has admitted this exact live declaration. */
+    private static function assertWriteTables(array $resources, string $schema, array $tables, bool $legacyExclusive): void
+    {
+        if (!array_is_list($tables) || $tables === [] || count(array_unique($tables)) !== count($tables)) {
+            throw new RuntimeException('PLUGIN_SOURCE_WRITE_SCOPE_INVALID');
+        }
+        foreach ($tables as $table) {
+            if (!is_string($table) || preg_match('/\A[a-z][a-z0-9_]{0,63}\z/D', $table) !== 1) {
+                throw new RuntimeException('PLUGIN_SOURCE_WRITE_SCOPE_INVALID');
+            }
+        }
+        if ($legacyExclusive) { return; }
+        foreach ($resources['mysql-access'] ?? [] as $raw) {
+            $scope = json_decode($raw, true, 64, JSON_THROW_ON_ERROR);
+            if (($scope['schema'] ?? null) !== $schema || ($scope['complete'] ?? null) !== true) { continue; }
+            if (in_array($scope['operation'] ?? null, ['ddl', 'exclusive'], true) && ($scope['tables'] ?? null) === []) { return; }
+            if (($scope['operation'] ?? null) !== 'transaction') { continue; }
+            $writes = [];
+            foreach ($scope['tables'] ?? [] as $entry) {
+                if (($entry['access'] ?? null) === 'write' && ($entry['rows'] ?? null) === '*') { $writes[] = $entry['table']; }
+            }
+            if (array_diff($tables, $writes) === []) { return; }
+        }
+        throw new RuntimeException('PLUGIN_SOURCE_CATALOG_WRITE_SCOPE_REQUIRED');
     }
 
     /** Existing operator stop-writer evidence, never synthesized by qualification. */
