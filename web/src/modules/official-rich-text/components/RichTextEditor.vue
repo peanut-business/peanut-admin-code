@@ -239,7 +239,13 @@
   watch(
     () => props.modelValue,
     () => {
-      if (!editor.value || props.collaborationBinding) return;
+      if (!mounted || props.collaborationBinding) return;
+      // A rejected projection disposes the instance; corrected input must
+      // pass the same validation and read-only/collaboration gates again.
+      if (!editor.value || error.value) {
+        start();
+        return;
+      }
       try {
         const value = parseRichTextDocument(props.modelValue);
         if (

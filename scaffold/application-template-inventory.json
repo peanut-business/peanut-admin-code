@@ -38785,7 +38785,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9c09f2efb01238bb043abec3503785e8b283b35b955ba778898e5a022413676d"
+            "source_sha256": "67f454cd9c6bdd9ced9df87949656b651f69075248663d6eb24cb7c60c6e67e0"
         },
         {
             "path": "web/src/modules/official-rich-text/components/RichTextFilePicker.vue",
@@ -38813,7 +38813,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "58dc01de3f4bdb1fafe9bf674e3f40347d08d9b5022ffca479301788c6213556"
+            "source_sha256": "c97436dd0769e7d6869397a4eece55d4e7e94870fdccbda6c2ba249d4ef21681"
         },
         {
             "path": "web/src/modules/official-rich-text/components/RichTextViewer.vue",
@@ -38981,7 +38981,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "225eb31d072d0d4464a8186fe5fc5ad2f466606639b5cc05a1f992eea1b424a7"
+            "source_sha256": "86737e8d06a19f6347b955ceae8d5447f7889eb3d1343e0a88d15181376f3813"
         },
         {
             "path": "web/src/modules/official-rich-text/tsconfig.json",
