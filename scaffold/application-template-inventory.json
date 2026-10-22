@@ -1110,7 +1110,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "378ff0cf272a40b6df442a990d7ff34be9e5bc6decc87b1a833307f6d2cbda2c"
+            "source_sha256": "cf855b65d7dfeb05d09f5431404fbc52817ec92a11f8b0c2826493e3323e01c2"
         },
         {
             "path": "docs/public/installation.md",
@@ -3685,6 +3685,20 @@
             ]
         },
         {
+            "path": "scripts/prepare-fixed-git-release",
+            "target": "scripts/prepare-fixed-git-release",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "05f2af893e92bf9f1bec297a8a77ca777bfb9c7a766dc60116e2a99bab54e211"
+        },
+        {
             "path": "scripts/prepare-product-release-candidate",
             "target": "scripts/prepare-product-release-candidate",
             "classification": "excluded",
@@ -4234,6 +4248,20 @@
                 "full"
             ],
             "source_sha256": "5e40981fee3a4287e05730ef2dccb633aa774951720b42ec5fa80e47f4a7e899"
+        },
+        {
+            "path": "scripts/tests/deploy-release-database-source-test.py",
+            "target": "scripts/tests/deploy-release-database-source-test.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "0d489277dbdcabc57874e785245d43108f8b37e47bf9055d6f075a2bb1cf8465"
         },
         {
             "path": "scripts/tests/format-configuration-test.mjs",
@@ -9143,7 +9171,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "58a5266f42da31c672f315f039488abcb39fa4213b7182c0e432c1c266aeee0f"
+            "source_sha256": "47ec60dda07be7b0d932882cbb686cb8ef07fbb16471e73ea57cdb9732e1ecf8"
         },
         {
             "path": "server/app/common/services/installation/InstallationExecutionHost.php",
@@ -35432,7 +35460,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "37c23b795c9bed4a15b4979f384a94c30ea23a79757395a8a8d6b89a7ef95de9"
+            "source_sha256": "72cb2e92591f6490fbd3c3d6ebc3b897c1b69c9952f41f0432655efb67a9059e"
         },
         {
             "path": "web/src/api/interceptor.ts",
@@ -40535,7 +40563,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a0ee483aade7b2ec92c57fc3f8f77c5b646680c19c57b78ee70cc7985283bcb6"
+            "source_sha256": "1a62d5d747deafd633586aa6d959528facbcdb4a1642b714f7cfd221c9bc7fb0"
         },
         {
             "path": "web/src/views/install/locale/en-US.ts",
