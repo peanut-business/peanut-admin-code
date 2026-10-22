@@ -529,6 +529,52 @@ test('runtime ignores late action success for a different selected workflow', as
   }
 });
 
+test('runtime keeps a current action when the inbox refreshes in the same identity', async () => {
+  const f = fixture();
+  const pendingAction = deferred();
+  const current = {
+    instance_key: 'instance-current',
+    status: 'running',
+    reassign_work_items: [],
+    active_nodes: [],
+  };
+  f.api.instanceAction = async () => pendingAction.promise;
+  const app = mount(
+    () =>
+      f.load(path.join(workflow, 'runtime/WorkflowRuntimePage.vue'), [
+        'instance',
+        'action',
+        'comment',
+        'notice',
+        'error',
+        'load',
+        'submit',
+        'submitting',
+      ]).__state
+  );
+  const s = app.state;
+  try {
+    s.instance.value = current;
+    s.action.value = 'retry';
+    s.comment.value = 'still a current opinion';
+    const submit = s.submit();
+    await s.load(); // Same identity and instance: only the inbox changed.
+    f.document.hidden = true;
+    f.document.emit('visibilitychange');
+    f.document.hidden = false;
+    f.document.emit('visibilitychange');
+    pendingAction.resolve({ ...current, status: 'completed' });
+    await submit;
+    assert.equal(s.instance.value.instance_key, current.instance_key);
+    assert.equal(s.instance.value.status, 'completed');
+    assert.match(s.notice.value, /操作已记录/);
+    assert.equal(s.error.value, '');
+    assert.equal(s.submitting.value, false);
+  } finally {
+    app.unmount();
+  }
+});
+
 test('runtime ignores late failed-action refresh after switching instances', async () => {
   const f = fixture();
   const pendingAction = deferred();

@@ -96,6 +96,9 @@
   const reassignTaskKey = ref('');
   const newAssignee = ref('');
   let requestEpoch = 0;
+  // Detail selection is independent from inbox/list refresh generations.
+  let selectionGeneration = 0;
+  let selectedInstanceKey: string | null = null;
   let controller: AbortController | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let removeVisibilityListener: (() => void) | undefined;
@@ -103,6 +106,8 @@
     closeAttachment();
     pageActive.value = false;
     requestEpoch += 1;
+    selectionGeneration += 1;
+    selectedInstanceKey = null;
     if (timer) clearTimeout(timer);
     timer = null;
     removeVisibilityListener?.();
@@ -301,15 +306,9 @@
   }
   async function showInstance(key: string) {
     if (!lifecycle.valid()) return;
-    closeAttachment();
-    controller?.abort();
-    controller = new AbortController();
-    requestEpoch += 1;
-    const epoch = requestEpoch;
-    loading.value = true;
-    error.value = '';
-    // A new selection must never retain an older instance's pending opinion.
-    if (instance.value?.instance_key !== key) {
+    if (selectedInstanceKey !== key) {
+      selectedInstanceKey = key;
+      selectionGeneration += 1;
       selectedTask.value = null;
       action.value = '';
       comment.value = '';
@@ -318,6 +317,13 @@
       dialog.value = false;
       notice.value = '';
     }
+    closeAttachment();
+    controller?.abort();
+    controller = new AbortController();
+    requestEpoch += 1;
+    const epoch = requestEpoch;
+    loading.value = true;
+    error.value = '';
     instance.value = null;
     events.value = [];
     try {
@@ -363,12 +369,13 @@
     submitting.value = true;
     error.value = '';
     const prior = instance.value;
-    const selectionEpoch = requestEpoch;
-    // Identity survival alone does not guard switching instances within one account.
+    const selectionAtSubmit = selectionGeneration;
+    // Ordinary list refresh must not invalidate the selected workflow action.
     const stillSelected = () =>
       lifecycle.valid() &&
-      selectionEpoch === requestEpoch &&
-      instance.value?.instance_key === prior.instance_key;
+      selectionAtSubmit === selectionGeneration &&
+      (selectedInstanceKey === null ||
+        selectedInstanceKey === prior.instance_key);
     const task = selectedTask.value;
     try {
       let details: TaskActionDetails | undefined;
@@ -478,7 +485,7 @@
       clearTimeout(timer);
       timer = null;
     } else if (!document.hidden && !timer && lifecycle.valid()) {
-      load();
+      if (!dialog.value && !submitting.value) load();
       schedule();
     }
   }
