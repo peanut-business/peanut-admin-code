@@ -56,7 +56,10 @@
     emit('ready');
   };
   const invalid = (code: string) => {
-    valid.value = false;
+    // Rejected link/media input leaves the last validated document unchanged.
+    // Never turn an already invalid document valid on an operation error.
+    if (!['RICH_TEXT_LINK_INVALID', 'RICH_TEXT_MEDIA_INVALID'].includes(code))
+      valid.value = false;
     emit('error', code);
   };
   watch(

@@ -253,6 +253,59 @@ describe('real RichText lifecycle and callbacks', () => {
     expect(wrapper.emitted('save-request')).toBeUndefined();
     wrapper.unmount();
   });
+  it.each([true, false])(
+    'recovers the same read-only viewer from rejected content (initially invalid: %s)',
+    async (initiallyInvalid) => {
+      const rejected = {
+        ...emptyDocument(),
+        content: {
+          type: 'doc',
+          content: [
+            { type: 'mediaPlaceholder', attrs: { ref: 'unsafe-legacy' } },
+          ],
+        },
+      };
+      const corrected = parseRichTextDocument(
+        documentWith([
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'Recovered safely' }],
+          },
+        ])
+      );
+      const wrapper = mount(RichTextViewer, {
+        props: {
+          modelValue: initiallyInvalid ? rejected : emptyDocument(),
+          contextKey: 'same-identity',
+        },
+      });
+      try {
+        await flushPromises();
+        if (!initiallyInvalid) {
+          await wrapper.setProps({ modelValue: rejected });
+          await flushPromises();
+        }
+        expect(wrapper.text()).toContain('未修改原内容');
+        expect(wrapper.find('.ProseMirror').exists()).toBe(false);
+        expect(wrapper.html()).not.toContain('unsafe-legacy');
+        await wrapper.setProps({ modelValue: corrected });
+        await flushPromises();
+        expect(wrapper.text()).toContain('Recovered safely');
+        expect(wrapper.text()).not.toContain('未修改原内容');
+        expect(wrapper.find('[role="document"]').exists()).toBe(true);
+        expect(wrapper.find('[role="toolbar"]').exists()).toBe(false);
+        const editorWrapper = wrapper.findComponent(RichTextEditor);
+        expect(editorWrapper.emitted('ready')?.length).toBe(
+          initiallyInvalid ? 1 : 2
+        );
+        expect(editorWrapper.emitted('update:modelValue')).toBeUndefined();
+        expect(editorWrapper.emitted('dirty-change')).toBeUndefined();
+        expect(wrapper.emitted('save-request')).toBeUndefined();
+      } finally {
+        wrapper.unmount();
+      }
+    }
+  );
   it('uses the owner File picker and preserves stable reference without saving addresses', async () => {
     const wrapper = mount(RichTextEditor, {
       props: {
@@ -337,6 +390,9 @@ describe('real RichText lifecycle and callbacks', () => {
     });
     await flushPromises();
     expect(wrapper.text()).toContain('协同模式不可用');
+    await wrapper.setProps({ modelValue: emptyDocument() });
+    await flushPromises();
+    expect(wrapper.text()).toContain('协同模式不可用');
     expect(wrapper.find('.ProseMirror').exists()).toBe(false);
     expect(wrapper.emitted('update:collaborationState')).toBeUndefined();
     expect(wrapper.emitted('update:modelValue')).toBeUndefined();
@@ -407,6 +463,95 @@ describe('actual contributed adapter and File picker', () => {
     expect(save).not.toHaveBeenCalled();
     wrapper.unmount();
   });
+  it.each(['link', 'media'])(
+    'keeps valid dirty content saveable after a rejected %s operation',
+    async (operation) => {
+      const save = vi.fn();
+      let rejectMedia = false;
+      const wrapper = mount(ContentEditor, {
+        props: {
+          content: {
+            kind: 'rich_text',
+            identity: 'same-doc',
+            value: emptyDocument(),
+          },
+          contextKey: 'same-identity',
+          capabilities: {
+            contentKind: 'rich_text',
+            verifiedMimeType: null,
+            viewerAdapterId: 'rich-text.tiptap',
+            editorAdapterId: 'rich-text.tiptap',
+            canView: true,
+            canEdit: true,
+            canDownloadOriginal: false,
+            state: 'available',
+            unavailableReason: null,
+            capabilityRevision: '1',
+          },
+          allowedOperations: ['view', 'edit'],
+          callbacks: {
+            save,
+            pickMedia: async () => ({
+              fileKey: rejectMedia ? 'invalid-file-key' : reference.fileKey,
+              kind: 'image' as const,
+              variantKey: 'thumbnail',
+            }),
+          },
+          registry: new ContentToolRegistry([contribution]),
+        },
+      });
+      try {
+        await flushPromises();
+        await vi.waitFor(() =>
+          expect(wrapper.find('.rich-text-editor').exists()).toBe(true)
+        );
+        const button = (label: string) =>
+          required(
+            wrapper.findAll('button').find((entry) => entry.text() === label)
+          );
+        await button('选择文件素材').trigger('click');
+        await flushPromises();
+        expect(button('请求保存').attributes('disabled')).toBeUndefined();
+        if (operation === 'link') {
+          // Deliberate operation-level rejection must not poison valid content.
+          await wrapper
+            .find('[aria-label="链接地址"]')
+            .setValue('javascript:alert(1)');
+          await button('设置链接').trigger('click');
+        } else {
+          rejectMedia = true;
+          await button('选择文件素材').trigger('click');
+          await flushPromises();
+        }
+        expect(wrapper.emitted('error')).toContainEqual([
+          operation === 'link'
+            ? 'RICH_TEXT_LINK_INVALID'
+            : 'RICH_TEXT_MEDIA_INVALID',
+        ]);
+        expect(button('请求保存').attributes('disabled')).toBeUndefined();
+        await button('请求保存').trigger('click');
+        const saved = wrapper.emitted('save-request');
+        expect(saved).toHaveLength(1);
+        const projection = parseRichTextDocument(saved?.[0][0]);
+        expect(JSON.stringify(projection)).toContain(reference.fileKey);
+        expect(JSON.stringify(projection)).not.toContain('javascript:');
+        expect(JSON.stringify(projection)).not.toContain('invalid-file-key');
+        expect(save).not.toHaveBeenCalled();
+        await wrapper.setProps({
+          content: {
+            kind: 'rich_text',
+            identity: 'same-doc',
+            value: { ...emptyDocument(), content: { type: 'unrecognized' } },
+          },
+        });
+        await flushPromises();
+        expect(wrapper.find('.ProseMirror').exists()).toBe(false);
+        expect(button('请求保存').attributes('disabled')).toBeDefined();
+      } finally {
+        wrapper.unmount();
+      }
+    }
+  );
   it('renders the existing File selector, rejects denied selection, and emits only stable references', async () => {
     let canRead = false;
     const wrapper = mount(RichTextFilePicker, {
