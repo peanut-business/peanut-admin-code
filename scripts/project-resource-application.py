@@ -216,11 +216,11 @@ def authority(operation_id):
         path = canonical(operation[name])
         need(path.parent.is_dir() and path != app_root and app_root not in path.parents
              and path != ROOT and ROOT not in path.parents, "operation output overlaps source")
-    retained_parent(operation, common)
+    retained_parent(operation, common, require_live=False)
     return operation, sha(json.dumps(operation, sort_keys=True, separators=(",", ":")).encode()), common, registry_sha
 
 
-def retained_parent(operation, common):
+def retained_parent(operation, common, *, require_live=True):
     """Read the original authority; renewal may change time, never its identity/scope."""
     if "retained_authority" not in operation:
         return None
@@ -244,7 +244,9 @@ def retained_parent(operation, common):
          and metadata["parent_lease"] == "" and metadata["gate"] == binding["gate"]
          and metadata["candidate"] == app["commit"]
          and metadata["candidate_repository"] == metadata["worktree"] == app["root"]
-         and int(metadata["created_at"]) <= now < int(metadata["expires_at"]),
+         and int(metadata["created_at"]) <= now
+         and int(metadata["expires_at"]) > int(metadata["created_at"])
+         and (not require_live or now < int(metadata["expires_at"])),
          "retained parent owner/APP/candidate/gate/expiry differs")
     need(sha(regular(directory / "resources.tsv")) == binding["resources_sha256"],
          "retained parent resource scope changed")
@@ -268,13 +270,13 @@ def retained_guard_value(operation, common, lease_id):
                        "operation": operation["stable_resource_id"]}, sort_keys=True, separators=(",", ":"))
 
 
-def retained_guard(operation, common, lease_id, action="verify", expires=None):
+def retained_guard(operation, common, lease_id, action="verify", expires=None, *, allow_expired_parent=False):
     """A native APP child protects the other lock domain; it grants no DB rights.
 
     Central mutex is always acquired first. A partial/crashed reservation remains
     an explicit native child for normal reconciliation, including after expiry.
     """
-    parent = retained_parent(operation, common)
+    parent = retained_parent(operation, common, require_live=not allow_expired_parent)
     if parent is None or parent[0] == common:
         return
     parent_common, metadata, _ = parent
@@ -285,7 +287,7 @@ def retained_guard(operation, common, lease_id, action="verify", expires=None):
     resources = {"retained-operation": value, "gate": "retained-application-operation"}
     expected = dict(metadata, lease=lease_id, parent_lease=binding["lease"], gate="retained-application-operation")
     with mutex(parent_common):
-        retained_parent(operation, common)
+        retained_parent(operation, common, require_live=not allow_expired_parent)
         if action == "reserve":
             need(not directory.exists() and not directory.is_symlink(), "retained operation child already exists; reconcile")
             # Each reservation is an ordinary exact native resource, with its
@@ -308,7 +310,7 @@ def retained_guard(operation, common, lease_id, action="verify", expires=None):
         need(all(actual.get(key) == item for key, item in expected.items() if key not in ("created_at", "expires_at"))
              and int(actual["created_at"]) <= time.time()
              and int(actual["expires_at"]) <= int(metadata["expires_at"]), "retained operation child identity differs")
-        if action == "verify" and expires is not None:
+        if action == "verify" and expires is not None and not allow_expired_parent:
             need(int(actual["expires_at"]) >= expires, "retained operation child window is shorter than operation")
         rows = table(directory / "resources.tsv", 3)
         need(resource_map(rows) == {key: {item} for key, item in resources.items()}, "retained operation child scope differs")
@@ -325,7 +327,8 @@ def retained_guard(operation, common, lease_id, action="verify", expires=None):
 
 
 def physical_holder(operation, common, lease_id, kind, value):
-    parent = retained_parent(operation, common)
+    # Custody mapping grants no execution rights; its caller admits execution.
+    parent = retained_parent(operation, common, require_live=False)
     if parent and parent[0] == common and (kind, value) in parent[2]:
         return operation["retained_authority"]["lease"]
     return lease_id
@@ -361,7 +364,7 @@ def expected_resources(operation, digest, registry_sha):
     return result
 
 
-def validate(metadata, resources):
+def validate(metadata, resources, *, allow_expired_parent=False):
     ids = resources.get(BINDING, set())
     need(len(ids) == 1, "application operation binding is ambiguous")
     operation, digest, common, registry_sha = authority(next(iter(ids)))
@@ -372,22 +375,25 @@ def validate(metadata, resources):
          and metadata["parent_lease"] == operation.get("retained_authority", {}).get("lease", "")
          and metadata["gate"] == "permanent-app-development", "operation lease identities changed")
     need(resources == expected_resources(operation, digest, registry_sha), "operation exclusive resource closure differs")
-    parent = retained_parent(operation, common)
-    if parent and "expires_at" in metadata:
+    parent = retained_parent(operation, common, require_live=not allow_expired_parent)
+    if parent and "expires_at" in metadata and not allow_expired_parent:
         need(int(metadata["expires_at"]) <= int(parent[1]["expires_at"]), "operation TTL exceeds retained parent")
     return operation, common
 
 
-def lease(lease_id, allow_expired=False):
+def lease(lease_id, allow_expired=False, *, recovery_step=None):
     need(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", lease_id), "invalid operation lease ID")
     common = canonical(git(ROOT, "rev-parse", "--path-format=absolute", "--git-common-dir").decode().strip())
     directory = common / "peanut-admin-resource-leases/leases" / lease_id
     metadata = dict(table(directory / "metadata.tsv", 2))
     resources = resource_map(table(directory / "resources.tsv", 3))
-    operation, expected_common = validate(metadata, resources)
+    state = live_state(directory) if recovery_step in ("restore", "open") else None
+    recovering = bool(state and state.get("recovery"))
+    operation, expected_common = validate(metadata, resources, allow_expired_parent=allow_expired or recovering)
     need(expected_common == common and metadata["lease"] == lease_id and metadata["status"] == "ACTIVE",
          "operation lease storage mismatch")
-    retained_guard(operation, common, lease_id, expires=int(metadata["expires_at"]))
+    retained_guard(operation, common, lease_id, expires=int(metadata["expires_at"]),
+                   allow_expired_parent=allow_expired or recovering)
     need(allow_expired or int(metadata["expires_at"]) > time.time(), "operation lease expired")
     identity_fields = {"resource-id", "database-resource", "endpoint", "resource-scope", "scope", "gate",
                        "mysql-db", "database", "mysql-access", "registry-sha256", "registry-tool-sha256", "application-registry-sha256", "application-manifest-sha256", "application-env-sha256",
@@ -399,6 +405,13 @@ def lease(lease_id, allow_expired=False):
         need(canonical(str(lock)).is_dir(), "operation resource lock unavailable")
         for field, expected in (("lease", physical_holder(operation, common, lease_id, kind, item)), ("type", kind), ("value", item)):
             need(regular(lock / field).decode().strip() == expected, "operation resource lock holder mismatch")
+    if recovering:
+        need(operation["phase"] == state.get("phase") == "maintain"
+             and state.get("lease") == lease_id and state.get("owner") == metadata["owner"],
+             "recovery operation identity differs")
+        recovery = recovery_check(directory, metadata, state)
+        need(recovery_step == ("open" if recovery["restored"] else "restore"),
+             "recovery authority forbids fresh migration or rehearsal")
     return operation, directory, metadata
 
 
@@ -442,9 +455,14 @@ def save(path, value):
     os.replace(temporary, path)
 
 
-def verify_native(lease_id):
-    result = subprocess.run(["bash", str(ROOT / "scripts/project-resource-lease"), "show",
-                             "--lease", lease_id, "--verify-locks"], cwd=ROOT, capture_output=True)
+def verify_native(lease_id, recovery_step=None):
+    arguments = ["bash", str(ROOT / "scripts/project-resource-lease"), "show",
+                 "--lease", lease_id, "--verify-locks"]
+    if recovery_step in ("restore", "open"):
+        _, directory, _ = lease(lease_id, recovery_step=recovery_step)
+        if (live_state(directory) or {}).get("recovery"):
+            arguments += ["--application-recovery", recovery_step]
+    result = subprocess.run(arguments, cwd=ROOT, capture_output=True)
     need(result.returncode == 0, "native application lease verification rejected")
 
 
@@ -704,12 +722,12 @@ def admit_recovery(lease_id, owner):
 
 def window(lease_id, owner, step=None):
     """In-use state survives failures; the global mutex is held only for transitions."""
-    operation, directory, metadata = lease(lease_id)
+    operation, directory, metadata = lease(lease_id, recovery_step=step)
     need(owner == metadata["owner"], "operation owner mismatch")
-    verify_native(lease_id)
+    verify_native(lease_id, step)
     common = directory.parent.parent.parent
     with mutex(common):
-        operation, directory, metadata = lease(lease_id)
+        operation, directory, metadata = lease(lease_id, recovery_step=step)
         previous = live_state(directory)
         recovery = recovery_check(directory, metadata, previous) if previous and previous.get("recovery") else None
         if recovery:
@@ -740,8 +758,13 @@ def window(lease_id, owner, step=None):
     return operation, directory, value
 
 
-def renew_native(lease_id, owner):
-    _, _, metadata = lease(lease_id)
+def renew_native(lease_id, owner, recovery_step=None):
+    _, directory, metadata = lease(lease_id, recovery_step=recovery_step)
+    need(metadata["owner"] == owner, "operation renewal owner mismatch")
+    if recovery_step in ("restore", "open") and (live_state(directory) or {}).get("recovery"):
+        # The existing independent recovery record is bounded. Never extend it
+        # by renewing the expired original parent or its no-permission APP guard.
+        return
     ttl = max(300, int(metadata["expires_at"]) - int(time.time()))
     result = subprocess.run(["bash", str(ROOT / "scripts/project-resource-lease"), "renew",
                              "--lease", lease_id, "--owner", owner, "--ttl", str(ttl)],
@@ -752,8 +775,9 @@ def renew_native(lease_id, owner):
 
 def command(operation, directory, value, lease_id, argv, *, accepted=(0,), environment=None, input_bytes=None):
     """Only fixed phase callers below construct argv; no caller-provided executable."""
-    verify_native(lease_id)
-    current, _, metadata = lease(lease_id)
+    recovery_step = value.get("step") if value.get("recovery") else None
+    verify_native(lease_id, recovery_step)
+    current, _, metadata = lease(lease_id, recovery_step=recovery_step)
     need(current == operation, "operation changed before dispatch")
     need(int(metadata["expires_at"]) - time.time() >= 60, "operation needs renewal before dispatch")
     need(time.time() < value["started_at"] + operation["max_seconds"], "operation dispatch deadline expired")
@@ -778,7 +802,7 @@ def command(operation, directory, value, lease_id, argv, *, accepted=(0,), envir
             try:
                 # Existing resource semantics renew this exact lease, under the
                 # short native mutex. No global mutex spans the child process.
-                renew_native(lease_id, value["owner"])
+                renew_native(lease_id, value["owner"], recovery_step)
             except Exception:
                 unknown = True
                 value["status"] = "UNKNOWN"
@@ -794,7 +818,7 @@ def command(operation, directory, value, lease_id, argv, *, accepted=(0,), envir
     value["child_exit_code"] = child.returncode
     save(directory / STATE, value)
     need(not unknown, "operation window became UNKNOWN; retain lease and native journals")
-    verify_native(lease_id)
+    verify_native(lease_id, recovery_step)
     need(child.returncode in accepted and len(stdout) <= 4 * 1024 * 1024
          and len(stderr) <= 4 * 1024 * 1024, "native first-install phase failed")
     return stdout
@@ -1008,7 +1032,7 @@ def maintain(operation, directory, value, lease_id, step):
     return value["result"]
 
 def execute(lease_id, owner, phase, step=None):
-    selected, _, _ = lease(lease_id)
+    selected, _, _ = lease(lease_id, recovery_step=step)
     need(selected["phase"] == phase, "closed application phase differs from registration")
     operation, directory, value = window(lease_id, owner, step)
     try:
@@ -1285,10 +1309,11 @@ def consume_application(proof, application_root, registry_path, resource_id, end
             operation["retained_authority"] = json_unique(next(iter(retained)))
         need(meta["parent_lease"] == operation.get("retained_authority", {}).get("lease", ""),
              "application retained parent declaration changed")
-        parent = retained_parent(operation, common)
+        parent = retained_parent(operation, common, require_live=rebound is None)
         if parent:
-            need(int(meta["expires_at"]) <= int(parent[1]["expires_at"]), "application TTL exceeds retained parent")
-            retained_guard(operation, common, proof.name, expires=int(meta["expires_at"]))
+            need(rebound is not None or int(meta["expires_at"]) <= int(parent[1]["expires_at"]), "application TTL exceeds retained parent")
+            retained_guard(operation, common, proof.name, expires=int(meta["expires_at"]),
+                           allow_expired_parent=rebound is not None)
         # The central producer admits this exclusive schema using its complete
         # policy. The APP consumes the actual physical locks under that same mutex.
         identity = {"resource-id", "database-resource", "endpoint", "resource-scope", "scope", "gate",
@@ -1321,9 +1346,17 @@ def main():
         parser.add_argument("--" + key)
     args = parser.parse_args()
     if args.action in ("retained-reserve", "retained-verify", "retained-renew", "parent-verify"):
-        operation, _, common, _ = authority(args.operation)
+        need(args.step is None or (args.action in ("retained-verify", "parent-verify")
+                                  and args.step in ("restore", "open")), "retained inspection step invalid")
+        if args.step:
+            operation, directory, _ = lease(args.lease, recovery_step=args.step)
+            common = directory.parent.parent.parent
+            need(operation["stable_resource_id"] == args.operation and live_state(directory).get("recovery"),
+                 "retained inspection requires exact admitted original recovery")
+        else:
+            operation, _, common, _ = authority(args.operation)
         need(args.owner == operation["owner"], "retained operation owner mismatch")
-        parent = retained_parent(operation, common)
+        parent = retained_parent(operation, common, require_live=args.step is None)
         need(parent is not None, "operation has no registered retained parent")
         if args.action == "parent-verify":
             need(args.parent_lease == operation["retained_authority"]["lease"]
@@ -1338,7 +1371,8 @@ def main():
                 need(regular(common / "peanut-admin-resource-leases/mutex/pid").decode().strip() == str(os.getppid()),
                      "retained child mutation requires actual native central mutex")
                 need(time.time() < args.expires <= int(parent[1]["expires_at"]), "retained child TTL exceeds parent")
-            retained_guard(operation, common, args.lease, args.action.removeprefix("retained-"), args.expires)
+            retained_guard(operation, common, args.lease, args.action.removeprefix("retained-"), args.expires,
+                           allow_expired_parent=args.step is not None)
     elif args.action == "recovery-admit":
         admit_recovery(args.lease, args.owner)
     elif args.action == "recovery-info":

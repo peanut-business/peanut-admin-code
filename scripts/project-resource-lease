@@ -99,6 +99,8 @@ RETAINED_GUARD_OWNER=""
 RETAINED_PARENT_HOLDER=""
 RETAINED_APP_ROOT=""
 RETAINED_RELEASE_APP=""
+APPLICATION_RECOVERY_STEP=""
+APPLICATION_RECOVERY_ARGS=()
 
 physical_resource_holder() {
   if [[ -n "$RETAINED_PARENT_HOLDER" && "$3" == "$RETAINED_APP_ROOT" \
@@ -838,9 +840,9 @@ schema_identity_resource() {
 # Runs under the existing registry mutex. No database access. Physical endpoint
 # and complete physical table/primary-key sets, never aliases, define conflicts.
 mysql_claim_policy() {
-  python3 - "$LEASES_DIR" "${PEANUT_RESOURCE_REGISTRY:-}" "$REPO_ROOT" "$COMMAND" "$1" "$2" "$3" "${OWNER:-}" "${THREAD_ID:-}" "${CANDIDATE:-}" "${CANDIDATE_REPOSITORY:-}" "${WORKTREE:-}" "${PARENT_LEASE:-}" "${@:4}" <<'PY'
+  python3 - "$LEASES_DIR" "${PEANUT_RESOURCE_REGISTRY:-}" "$REPO_ROOT" "$COMMAND" "$1" "$2" "$3" "${OWNER:-}" "${THREAD_ID:-}" "${CANDIDATE:-}" "${CANDIDATE_REPOSITORY:-}" "${WORKTREE:-}" "${PARENT_LEASE:-}" "$APPLICATION_RECOVERY_STEP" "${@:4}" <<'PY'
 import hashlib, json, pathlib, re, runpy, subprocess, sys, time
-leases, registry_path, source, command, own, gate, operation, actor, actor_thread, candidate, candidate_repository, actual_worktree, parent_lease, *args = sys.argv[1:]
+leases, registry_path, source, command, own, gate, operation, actor, actor_thread, candidate, candidate_repository, actual_worktree, parent_lease, recovery_step, *args = sys.argv[1:]
 def fail(message):
     raise SystemExit('resource-lease: ' + message)
 def resources(items):
@@ -1032,7 +1034,11 @@ if requested.get('application-operation'):
         proof = dict(line.split('\t') for line in (pathlib.Path(leases)/own/'metadata.tsv').read_text().splitlines())
     try:
         helper = runpy.run_path(str(pathlib.Path(source)/'scripts/project-resource-application.py'))
-        helper['validate'](proof, requested)
+        if recovery_step:
+            if command != 'show' or operation != 'verify' or recovery_step not in ('restore','open'):
+                fail('recovery inspection cannot grant fresh claim or renewal')
+            helper['lease'](own, recovery_step=recovery_step)
+        helper['validate'](proof, requested, allow_expired_parent=bool(recovery_step))
     except (RuntimeError, OSError, ValueError, KeyError, TypeError) as error:
         fail('registered application operation rejected: '+str(error))
 
@@ -1407,7 +1413,8 @@ validate_parent_lease_locked() {
     local parent_domain
     parent_domain="$(python3 "$REPO_ROOT/scripts/project-resource-application.py" parent-verify --operation "$app_operation" \
       --owner "$owner" --thread "$thread_id" --parent-lease "$parent_lease" --candidate "$candidate" \
-      --candidate-repository "$candidate_repository" --application-root "$worktree")" \
+      --candidate-repository "$candidate_repository" --application-root "$worktree" --lease "$LEASE_ID" \
+      ${APPLICATION_RECOVERY_ARGS[@]+"${APPLICATION_RECOVERY_ARGS[@]}"})" \
       || die 'registered retained application parent rejected'
     if [[ "$parent_domain" == same-domain ]]; then
       RETAINED_PARENT_HOLDER="$parent_lease"; RETAINED_APP_ROOT="$worktree"
@@ -1946,7 +1953,10 @@ case "$COMMAND" in
   show)
     LEASE_ID=""
     VERIFY_LOCKS=0
-    if [[ $# -eq 4 && "${3:-}" == --verify-locks && "${4:-}" == --observer-window ]]; then
+    if [[ $# -eq 5 && "${3:-}" == --verify-locks && "${4:-}" == --application-recovery \
+      && ( "${5:-}" == restore || "${5:-}" == open ) ]]; then
+      VERIFY_LOCKS=1; APPLICATION_RECOVERY_STEP="$5"; APPLICATION_RECOVERY_ARGS=(--step "$5"); set -- "$1" "$2"
+    elif [[ $# -eq 4 && "${3:-}" == --verify-locks && "${4:-}" == --observer-window ]]; then
       VERIFY_LOCKS=1; OBSERVATION_WINDOW_CHILD=1; set -- "$1" "$2"
     elif [[ $# -eq 3 && "${3:-}" == --verify-locks ]]; then VERIFY_LOCKS=1; set -- "$1" "$2"; fi
     [[ "${1:-}" == '--lease' && -n "${2:-}" && $# -eq 2 ]] || die 'show requires --lease <run-id> [--verify-locks]'
@@ -2009,7 +2019,7 @@ case "$COMMAND" in
       if [[ -n "$APP_OPERATION" && -n "$PARENT_LEASE" ]]; then
         python3 "$REPO_ROOT/scripts/project-resource-application.py" retained-verify --operation "$APP_OPERATION" \
           --lease "$LEASE_ID" --owner "$(metadata_value "$LEASE_DIR/metadata.tsv" owner)" \
-          --expires "$EXPIRES" || die 'retained APP child proof rejected'
+          --expires "$EXPIRES" ${APPLICATION_RECOVERY_ARGS[@]+"${APPLICATION_RECOVERY_ARGS[@]}"} || die 'retained APP child proof rejected'
       fi
     fi
     cat "$LEASE_DIR/metadata.tsv"
