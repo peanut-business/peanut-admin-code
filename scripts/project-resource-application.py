@@ -92,13 +92,13 @@ def project_authority():
     resolver = runpy.run_path(str(ROOT / "scripts/project-resource-registry"))
     resolved = resolver["maintainer_source"](registry_sha)
     need(resolved == registry, "operation registry authority mismatch")
-    return registry, resolver["maintainer_project"]()
+    return registry, resolver["maintainer_project"](), resolver, registry_sha
 
 
 def authority(operation_id):
     need(re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", operation_id), "invalid application operation ID")
     common = canonical(git(ROOT, "rev-parse", "--path-format=absolute", "--git-common-dir").decode().strip())
-    registry, project = project_authority()
+    registry, project, resolver, registry_sha = project_authority()
     document = json_unique(regular(registry))
     operations = document["resources"].get("application_operations", [])
     matches = [row for row in operations if row.get("stable_resource_id") == operation_id]

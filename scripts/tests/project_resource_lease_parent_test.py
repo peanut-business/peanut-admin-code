@@ -28,7 +28,7 @@ def run(args: list[str], cwd: Path, *, ok: bool = True) -> subprocess.CompletedP
 
 def canonical_project_source_contracts():
     """Git-only authority boundaries; no APP, DB, lease or service operations."""
-    import runpy
+    import runpy, sys
     with tempfile.TemporaryDirectory(prefix="peanut-canonical-project-source-") as temporary:
         base = Path(temporary).resolve()
         code, project = (base / name for name in ("peanut-admin-code", "peanut-admin-project"))
@@ -39,7 +39,7 @@ def canonical_project_source_contracts():
             run(["git", "config", "user.name", "Fixture"], root)
             run(["git", "remote", "add", "origin", "https://github.com/peanut-business/" + root.name + ".git"], root)
         (code / "scripts").mkdir()
-        for name in ("project-resource-registry", "project-resource-application.py"):
+        for name in ("project-resource-registry", "project-resource-application.py", "project-resource-lease"):
             shutil.copy2(SOURCE.parent / name, code / "scripts" / name)
         run(["git", "add", "."], code); run(["git", "commit", "-qm", "tool source"], code)
         mapping = ("schema_version: 3\nproject_id: peanut-admin\nrepositories:\n"
@@ -50,7 +50,51 @@ def canonical_project_source_contracts():
         (project / "repos.yaml").write_text(mapping)
         (project / "resources").mkdir()
         registry = project / "resources/project-resources.json"
-        registry.write_text('{"fixture":true}\n')
+        app = base / "fixture-app"; app.mkdir()
+        run(["git", "init", "-q"], app)
+        run(["git", "config", "user.email", "fixture@example.invalid"], app)
+        run(["git", "config", "user.name", "Fixture"], app)
+        manifest = app / ".peanut/application-manifest.json"; manifest.parent.mkdir()
+        manifest.write_text(json.dumps({"protocol": "peanut.application-scaffold.v2", "application": {
+            "edition": "multi-tenant", "slug": "fixture-app", "package_identity": "fixture/app"}}))
+        (app / ".gitignore").write_text("server/.env\nserver/private/\n")
+        run(["git", "add", "."], app); run(["git", "commit", "-qm", "fixed APP payload"], app)
+        config = app / "server/private/resources/project-resources.json"; config.parent.mkdir(parents=True)
+        config.write_text('{"fixture":true}'); config.chmod(0o600)
+        environment = app / "server/.env"; environment.write_text("SYNTHETIC_ONLY=1\n"); environment.chmod(0o600)
+        php = base / "php"; php.write_text("#!/bin/sh\nexit 99\n"); php.chmod(0o700)  # Never executed.
+        sha = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
+        endpoint = {"endpoint_id": "fixture-host", "host": "127.0.0.1", "port": 23306}
+        descriptor = {"stable_resource_id": "fixture-db", "application_identity": {"root": str(app)},
+            "database": "fixture_db", "upstream_endpoint": endpoint, "lease_gate": "permanent-app-development",
+            "version": "8.4.10", "allocation_evidence": {"server_uuid": "fixture-uuid"},
+            "environments": ["fixture-development"], "environment": "development"}
+        operation = {"stable_resource_id": "fixture-protect", "protocol": "peanut.application-first-install-operation.v1",
+            "phase": "protect", "owner": "fixture-owner", "thread": "fixture-owner", "max_seconds": 600,
+            "tool_source": {"root": str(code), "common_dir": str(code / ".git"),
+                "commit": run(["git", "rev-parse", "HEAD"], code).stdout.strip(),
+                "files": {"scripts/" + name: sha(code / "scripts" / name) for name in
+                          ("project-resource-registry", "project-resource-application.py", "project-resource-lease")}},
+            "application": {"root": str(app), "commit": run(["git", "rev-parse", "HEAD"], app).stdout.strip(),
+                "tree": run(["git", "rev-parse", "HEAD^{tree}"], app).stdout.strip(), "edition": "multi-tenant",
+                "slug": "fixture-app", "package_identity": "fixture/app", "manifest_sha256": sha(manifest)},
+            "configuration": {"server/.env": sha(environment), "server/private/resources/project-resources.json": sha(config)},
+            "database": {"resource_id": "fixture-db", "name": "fixture_db", "upstream_endpoint": endpoint,
+                "version": "8.4.10", "server_uuid": "fixture-uuid", "environment": "fixture-development", "consumer": "host"},
+            "output_root": str(base / "protected"), "receipt_root": str(base / "receipts"), "php_executable": str(php),
+            "terminal_review": {"path": str(project / "terminal-review.json")},
+            "backup_client": {"ssh": "/usr/bin/ssh", "ssh_alias": "fixture", "docker": "/fixture/docker",
+                "container": "fixture", "mysql": "/fixture/mysql", "mysqldump": "/fixture/mysqldump",
+                "credential_path": "/fixture/not-a-credential", "user": "fixture_user"}}
+        def register(value):
+            registry.write_text(json.dumps(value, sort_keys=True))
+            run(["git", "add", "resources/project-resources.json"], project)
+            run(["git", "commit", "-qm", "fixed operation contract"], project)
+            current = run(["git", "rev-parse", "HEAD"], project).stdout.strip()
+            run(["git", "update-ref", "refs/remotes/origin/dev", current], project)
+        document = {"schema_version": 1, "project_id": "peanut-admin", "authority": {"role": "maintainer"},
+                    "resources": {"databases": [descriptor], "application_operations": [operation]}}
+        registry.write_text(json.dumps(document, sort_keys=True))
         run(["git", "add", "."], project); run(["git", "commit", "-qm", "current authority"], project)
         head = run(["git", "rev-parse", "HEAD"], project).stdout.strip()
         run(["git", "update-ref", "refs/remotes/origin/dev", head], project)
@@ -64,12 +108,26 @@ def canonical_project_source_contracts():
             os.environ["PEANUT_RESOURCE_REGISTRY"] = str(root / "resources/project-resources.json")
             native = runpy.run_path(str(code / "scripts/project-resource-application.py"))
             try:
-                physical, logical = native["project_authority"]()
+                physical, logical, resolver, fixed_sha = native["project_authority"]()
+                actual, contract, common, registry_sha = native["authority"](operation["stable_resource_id"])
             except (SystemExit, RuntimeError):
                 assert not allowed
             else:
                 assert allowed and physical == root / "resources/project-resources.json" and logical == project
-                assert native["sha"](physical.read_bytes()) == digest
+                assert native["sha"](physical.read_bytes()) == digest == fixed_sha == registry_sha
+                assert actual == operation and resolver["load_registry"]() == document
+                result = json.loads(run([sys.executable, str(code / "scripts/project-resource-application.py"),
+                    "resolve", "--operation", operation["stable_resource_id"], "--owner", operation["owner"]], code).stdout)
+                resources = native["expected_resources"](actual, contract, registry_sha)
+                assert result["resources"] == {key: sorted(values) for key, values in resources.items()}
+                metadata = {"candidate": operation["application"]["commit"], "candidate_repository": str(app),
+                    "worktree": str(app), "owner": operation["owner"], "thread": operation["thread"],
+                    "parent_lease": "", "gate": "permanent-app-development"}
+                assert native["validate"](metadata, resources) == (operation, common)
+                wrong = dict(resources, database={"different_db"})
+                try: native["validate"](metadata, wrong)
+                except RuntimeError as failure: assert "exclusive resource closure" in str(failure)
+                else: raise AssertionError("mismatched resources accepted")
             count += 1
         try:
             observe(project, allowed=True)
@@ -102,6 +160,46 @@ def canonical_project_source_contracts():
             observe(selected, allowed=False)
             run(["git", "switch", "-q", "--detach", new_head], selected)
             observe(selected, allowed=True)
+            # Fixed-but-invalid operation fields and frozen review custody fail the actual CLI.
+            import copy
+            for name in ("extra-field", "wrong-database", "frozen-terminal-review"):
+                bad = copy.deepcopy(document)
+                op = bad["resources"]["application_operations"][0]
+                if name == "extra-field": op["unexpected"] = True
+                elif name == "wrong-database": op["database"]["name"] = "different_db"
+                else: op["terminal_review"]["path"] = str(selected / "terminal-review.json")
+                register(bad)
+                os.environ["PEANUT_RESOURCE_REGISTRY"] = str(registry)
+                failure = run([sys.executable, str(code / "scripts/project-resource-application.py"), "resolve",
+                    "--operation", operation["stable_resource_id"], "--owner", operation["owner"]], code, ok=False)
+                assert "NameError" not in failure.stderr
+                assert any(message in failure.stderr for message in
+                    ("fields differ", "registration mismatch", "terminal review must")), failure.stderr
+                count += 1
+            register(document)
+            protect = operation
+            operation = copy.deepcopy(protect)
+            operation["phase"] = "maintain"; operation.pop("backup_client")
+            operation["installation"] = {}
+            for name in ("installed.json", "baseline.json"):
+                anchor = app / "server/private/installation" / name; anchor.parent.mkdir(exist_ok=True)
+                anchor.write_text('{"fixture":true}'); anchor.chmod(0o600)
+                operation["installation"][name] = sha(anchor)
+            operation["maintenance"] = {"kind": "application-schema", "session": "wc_sess_fixture",
+                "backup_tool": "fixture-backup", "metadata_tool": "", "review": str(project / "maintenance-review.json")}
+            document["resources"]["application_operations"] = [operation]
+            register(document); digest = sha(registry)
+            observe(project, allowed=True)
+            bad = copy.deepcopy(document)
+            bad["resources"]["application_operations"][0]["maintenance"]["review"] = str(selected / "maintenance-review.json")
+            register(bad)
+            failure = run([sys.executable, str(code / "scripts/project-resource-application.py"), "resolve",
+                "--operation", operation["stable_resource_id"], "--owner", operation["owner"]], code, ok=False)
+            assert "maintenance review must" in failure.stderr and "NameError" not in failure.stderr
+            count += 1
+            operation = protect; document["resources"]["application_operations"] = [operation]
+            register(document); digest = sha(registry)
+            run(["git", "switch", "-q", "--detach", run(["git", "rev-parse", "HEAD"], project).stdout.strip()], selected)
             run(["git", "remote", "set-url", "origin", "https://github.com/foreign/project.git"], project)
             observe(selected, allowed=False)
             assert registry.read_bytes() == original
