@@ -32,9 +32,13 @@ final readonly class FileVisibilityService implements FileVisibility
     {
         $context = $this->context();
         $batch = 'batch_' . bin2hex(random_bytes(16));
+        $manifest = $this->storage->visibilityManifest($context, $fileKeys, $batch);
+        foreach ($this->storage->visibilityOriginQualifications($context, $manifest) as $key => $facts) {
+            $manifest['files'][$key]['source']['origin_qualification'] = $facts;
+        }
         $payload = ['version' => 1, 'batch_key' => $batch, 'actor' => self::actor($context),
             'expires_at' => time() + 300, 'target' => 'private',
-            'manifest' => $this->storage->visibilityManifest($context, $fileKeys, $batch)];
+            'manifest' => $manifest];
         return ['confirmation' => $payload, 'signature' => $this->storage->visibilityConfirmation($payload),
             'execution_started' => false];
     }
@@ -55,7 +59,21 @@ final readonly class FileVisibilityService implements FileVisibility
         $batch = $confirmation['batch_key'];
         self::batchKey($batch);
         $requestHash = hash('sha256', StorageService::visibilityJson([$confirmation, $signature, true]));
-        $created = Db::transaction(function () use ($context, $confirmation, $signature, $requestKey, $requestHash, $batch): bool {
+        // Replays observe their durable batch without requiring a now-retired source credential.
+        // A new admission reads provider facts before acquiring the short database transaction.
+        $qualifications = [];
+        if (FileVisibilityBatch::where('request_key', $requestKey)->find() === null) {
+            if ($confirmation['expires_at'] <= time()) {
+                throw BusinessException::conflict('FILE_VISIBILITY_CONFIRMATION_EXPIRED', '预检查已过期，请重新检查');
+            }
+            $qualifications = $this->storage->visibilityOriginQualifications($context, $confirmation['manifest']);
+            foreach ($qualifications as $key => $facts) {
+                if (($confirmation['manifest']['files'][$key]['source']['origin_qualification'] ?? null) !== $facts) {
+                    throw BusinessException::conflict('FILE_VISIBILITY_PLAN_CHANGED', '源站或缓存配置已改变，请重新预检查');
+                }
+            }
+        }
+        $created = Db::transaction(function () use ($context, $confirmation, $signature, $requestKey, $requestHash, $batch, $qualifications): bool {
             $this->context();
             $existing = FileVisibilityBatch::where('request_key', $requestKey)->lock(true)->find();
             if ($existing !== null) {
@@ -68,7 +86,7 @@ final readonly class FileVisibilityService implements FileVisibility
             if ($confirmation['expires_at'] <= time()) {
                 throw BusinessException::conflict('FILE_VISIBILITY_CONFIRMATION_EXPIRED', '预检查已过期，请重新检查');
             }
-            $manifest = $this->storage->visibilityManifest($context, $confirmation['manifest']['roots'], $batch, true);
+            $manifest = $this->storage->visibilityManifest($context, $confirmation['manifest']['roots'], $batch, true, $qualifications);
             if (StorageService::visibilityJson($manifest) !== StorageService::visibilityJson($confirmation['manifest'])) {
                 throw BusinessException::conflict('FILE_VISIBILITY_PLAN_CHANGED', '资源版本、引用或存储配置已改变');
             }

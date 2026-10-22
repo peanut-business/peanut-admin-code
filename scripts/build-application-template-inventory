@@ -141,6 +141,7 @@ function excluded(string $path): bool
             'docs/architecture/core-capabilities-and-application-overrides.md',
             'docs/architecture/framework-extension-and-lifecycle.md',
             'docs/architecture/document-collaboration-standard.md',
+            'docs/architecture/file-visibility-sources.md',
             'docs/architecture/content-surface-and-format-adapters.md',
             'docs/development/menu-navigation.md',
             'docs/architecture/identity-organization-access.md',

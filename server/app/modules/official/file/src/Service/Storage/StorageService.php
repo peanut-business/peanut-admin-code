@@ -30,6 +30,7 @@ use think\db\Raw;
 use think\facade\Db;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use app\common\execution\CurrentExecutionContext;
+use app\common\infrastructure\runtime\OperationalLog;
 use PeanutAdmin\Modules\File\Service\FileAuthorizationService;
 use PeanutAdmin\Modules\File\Model\Storage\FileReference;
 use app\common\services\audit\AuditContractHost;
@@ -76,6 +77,9 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
         if ($tenantId < 1 || !is_file($sourcePath) || !is_readable($sourcePath)) {
             throw new \InvalidArgumentException('待存储文件无效');
         }
+        if (($pdo = Db::connect()->getPdo()) instanceof \PDO && $pdo->inTransaction()) {
+            throw BusinessException::conflict('FILE_UPLOAD_OUTER_TRANSACTION_DENIED', '文件写入意图必须在外部写入之前持久完成');
+        }
         $access = StoragePurpose::accessType($purpose);
         $current = $this->execution->current();
         $uploadActor = $current instanceof \app\common\execution\AdminExecutionContext ? $current->tenant
@@ -118,27 +122,51 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
             'created_by_member_id' => $memberId && $memberId > 0 ? $memberId : null,
         ];
         $this->reserveObject($tenantId, $attributes);
+        $recordWrite = function (string $event, array $metadata) use ($uploadActor, $tenantId, $memberId, $fileKey): void {
+            self::installedWrite(function () use ($uploadActor, $tenantId, $memberId, $fileKey, $event, $metadata): void {
+                if ($uploadActor instanceof TenantContext) {
+                    $this->audit->appendTenantMember($uploadActor, $event, 'file.upload.write', 'file', $fileKey, null, null, 0, null, $metadata);
+                } else {
+                    $this->audit->appendTenantSystem($tenantId, $event, 'file.upload.write', $this->execution->requestId(),
+                        $metadata + ['file_key' => $fileKey, 'initiating_member_id' => $memberId]);
+                }
+            });
+        };
+        // Durable intent precedes the external write; the reservation keeps its exact key and byte identity.
+        $recordWrite('file.upload.write_intent', [
+            'object_key' => $objectKey, 'storage_space_id' => $attributes['storage_space_id'],
+            'size_bytes' => $size, 'sha256' => $sha256, 'provider_write_outcome' => 'not_started',
+        ]);
+        $putAcknowledged = false;
         try {
             self::installedWriteFence();
             $driver->put($objectKey, $sourcePath);
+            $putAcknowledged = true;
+            $recordWrite('file.upload.write_acknowledged', ['provider_write_outcome' => 'acknowledged']);
             self::installedWriteFence();
             if (!$this->markObjectReady($tenantId, $fileKey)) {
                 throw new \RuntimeException('文件对象账本未能切换到 ready');
             }
         } catch (\Throwable $error) {
-            $deleteFailure = null;
+            // A thrown put may already have stored bytes. Neither this unknown result nor a
+            // subsequent ledger failure authorizes deleting or uploading the reserved key again.
+            $failureRecorded = false;
             try {
-                self::installedWriteFence();
-                $driver->delete($objectKey);
-            } catch (\Throwable $exception) {
-                $deleteFailure = $exception;
+                $failureRecorded = $this->markObjectWriteFailed($tenantId, $fileKey);
+            } catch (\Throwable) {
+                // Preserve the original provider/ledger error and pending reservation for observation.
             }
-            if (!$this->markObjectWriteFailed($tenantId, $fileKey)) {
-                throw new \RuntimeException('文件对象账本未能记录 write_failed', 0, $error);
+            $metadata = [
+                'provider_write_outcome' => $putAcknowledged ? 'acknowledged' : 'unknown',
+                'write_failed_recorded' => $failureRecorded, 'original_key_observation_required' => true,
+            ];
+            try {
+                $recordWrite('file.upload.write_unconfirmed', $metadata);
+            } catch (\Throwable) {
+                // The durable pre-write intent remains even if the current database is unavailable.
             }
-            if ($deleteFailure !== null) {
-                throw new \RuntimeException('文件对象写入失败且补偿删除失败，需按 file_key 清理', 0, $deleteFailure);
-            }
+            OperationalLog::warning($this->execution, 'file_upload_write_unconfirmed',
+                $metadata + ['file_key' => $fileKey, 'exception' => $error::class]);
             throw $error;
         }
 
@@ -794,7 +822,7 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
     }
 
     /** Complete managed source/derivative closure. Call again under object locks before accepting the batch. */
-    public function visibilityManifest(TenantContext $context, array $roots, string $batchKey, bool $lock = false): array
+    public function visibilityManifest(TenantContext $context, array $roots, string $batchKey, bool $lock = false, array $qualifications = []): array
     {
         $this->authorization->requireManagementPermission($context, 'official.file.visibility.change');
         if ($roots === [] || count($roots) > 100 || count(array_unique($roots)) !== count($roots)
@@ -840,21 +868,32 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
             }
             $this->authorization->authorize($context, $object, 'manage');
             $target = $this->route((string) $object['purpose'], 'private');
-            // No provider ACL acknowledgement can close an unknown Bucket Policy or CDN.
-            // This route supports the fully controlled local ingress; other origins fail preflight.
-            foreach ([$object, $target] as $location) {
-                if ($location['driver'] !== 'local' || $location['bucket'] !== null || $location['access_domain'] !== null
-                    || !in_array($location['local_path'], ['public/storage', 'private/storage'], true)) {
-                    throw BusinessException::conflict('FILE_VISIBILITY_ORIGIN_UNQUALIFIED', '当前源站的直链、历史版本或缓存关闭能力尚未确认');
-                }
+            if ($target['driver'] !== 'local' || $target['bucket'] !== null || $target['access_domain'] !== null
+                || $target['local_path'] !== 'private/storage') {
+                throw BusinessException::conflict('FILE_VISIBILITY_ORIGIN_UNQUALIFIED', '目标不支持可核验的私有存储');
             }
-            if ($object['local_path'] !== 'public/storage' || $target['local_path'] !== 'private/storage') {
-                throw BusinessException::conflict('FILE_VISIBILITY_LOCATION_INVALID', '公开和私有存储空间不匹配');
+            if ($object['driver'] === 'local') {
+                if ($object['bucket'] !== null || $object['access_domain'] !== null || $object['local_path'] !== 'public/storage') {
+                    throw BusinessException::conflict('FILE_VISIBILITY_LOCATION_INVALID', '公开和私有存储空间不匹配');
+                }
+            } elseif ($object['driver'] !== 'qiniu'
+                || !\PeanutAdmin\Modules\File\Infrastructure\Storage\QiniuS3DownloadTransport::usesS3Domain((string) $object['access_domain'])) {
+                throw BusinessException::conflict('FILE_VISIBILITY_ORIGIN_UNQUALIFIED', '当前源站的直链、历史版本或缓存关闭能力尚未确认');
             }
             $source = array_intersect_key($object, array_flip(['file_key','tenant_id','purpose','access_type','storage_space_id',
                 'object_key','original_name','media_type','size_bytes','sha256','revision','driver','local_path','space_key']));
             foreach (['tenant_id','storage_space_id','size_bytes','revision'] as $field) {
                 $source[$field] = (string) $source[$field];
+            }
+            if ($object['driver'] === 'qiniu') {
+                foreach (['account_key','bucket','region','endpoint','access_domain','credential_key_version'] as $field) {
+                    $source[$field] = $object[$field];
+                }
+                $source['account_id'] = (string) $object['account_id'];
+                $source['credential_sha256'] = hash('sha256', (string) $object['credential_ciphertext']);
+                if (isset($qualifications[$key])) {
+                    $source['origin_qualification'] = $qualifications[$key];
+                }
             }
             $destination = ['storage_space_id' => (string) $target['space_id'], 'space_key' => $target['space_key'],
                 'object_key' => $this->ownerPrefix($context->tenantId) . 'visibility/' . $batchKey . '/' . $key,
@@ -874,7 +913,36 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
             'warning' => '包含关联的源文件和衍生文件；公开页面可能断图。无法穷举外部直链，也无法收回已下载或第三方缓存的副本。'];
     }
 
-    /** One repeatable local physical step. Unknown outcomes are reconciled by inspecting the same fixed locations. */
+    /** Provider metadata is read before the short admission transaction, never while its row locks are held. */
+    public function visibilityOriginQualifications(TenantContext $context, array $manifest): array
+    {
+        $this->authorization->requireManagementPermission($context, 'official.file.visibility.change');
+        $qualifications = [];
+        $observedOrigins = [];
+        foreach ($manifest['files'] as $key => $file) {
+            if ($file['source']['driver'] === 'qiniu') {
+                $source = $file['source'];
+                $location = $this->visibilityLocation($source);
+                $identity = hash('sha256', self::visibilityJson(array_intersect_key($source, array_flip([
+                    'account_id','account_key','credential_sha256','credential_key_version','bucket','region','endpoint','access_domain',
+                ]))));
+                $observedOrigins[$identity] ??= $this->drivers->qiniuVisibilityOrigin($location)->observe();
+                $object = $this->drivers->make($location, $location)->inspect($source['object_key']);
+                if (!$object->exists || $object->sizeBytes !== (int) $source['size_bytes']
+                    || $object->mediaType !== $source['media_type'] || !is_string($object->etag) || $object->etag === ''
+                    || $object->versionId !== null) {
+                    throw BusinessException::conflict('FILE_VISIBILITY_SOURCE_CHANGED', '源文件的物理状态与登记不一致，整批尚未开始');
+                }
+                // The provider ETag fences a revision; downloaded bytes are independently checked against the real SHA-256.
+                $qualifications[$key] = ['origin' => $observedOrigins[$identity],
+                    'object' => ['etag' => $object->etag, 'size_bytes' => $object->sizeBytes,
+                        'media_type' => $object->mediaType, 'version_id' => null]];
+            }
+        }
+        return $qualifications;
+    }
+
+    /** One repeatable physical step. Unknown outcomes inspect the same frozen source and protected target. */
     public function visibilityStorageStep(TenantContext $context, string $batchKey, array $source, array $target, string $step): array
     {
         $this->authorization->requireManagementPermission($context, 'official.file.visibility.change');
@@ -889,11 +957,26 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
         $new = $this->visibilityLocation($target);
         $sourceDriver = $this->drivers->make($old, $old);
         $targetDriver = $this->drivers->make($new, $new);
+        $origin = null;
+        if ($old['driver'] === 'qiniu') {
+            $origin = $this->drivers->qiniuVisibilityOrigin($old);
+            if (($source['origin_qualification']['origin'] ?? null) !== $origin->observe()) {
+                throw BusinessException::conflict('FILE_VISIBILITY_ORIGIN_CHANGED', '源站或缓存配置已改变，保留私有副本等待处理');
+            }
+        }
         $validate = static function (string $path) use ($source): void {
             if (!is_file($path) || is_link($path) || filesize($path) !== (int) $source['size_bytes']
                 || !hash_equals($source['sha256'], (string) hash_file('sha256', $path))
                 || (new \finfo(FILEINFO_MIME_TYPE))->file($path) !== $source['media_type']) {
                 throw BusinessException::conflict('FILE_VISIBILITY_BYTES_CHANGED', '资源内容与原登记不一致');
+            }
+        };
+        $validateObservation = static function (\PeanutAdmin\FileMedia\Storage\StorageObjectObservation $observation) use ($source): void {
+            if ($source['driver'] === 'qiniu'
+                && (!$observation->exists || $observation->etag !== ($source['origin_qualification']['object']['etag'] ?? null)
+                    || $observation->sizeBytes !== (int) $source['size_bytes']
+                    || $observation->mediaType !== $source['media_type'] || $observation->versionId !== null)) {
+                throw BusinessException::conflict('FILE_VISIBILITY_SOURCE_CHANGED', '原对象版本已改变，保留受保护副本等待处理');
             }
         };
         $newPath = $targetDriver->localPath($target['object_key']);
@@ -902,12 +985,18 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
         }
         if ($step === 'copy') {
             if (!$targetDriver->inspect($target['object_key'])->exists) {
-                $oldPath = $sourceDriver->localPath($source['object_key']);
-                if (!is_string($oldPath)) {
-                    throw BusinessException::conflict('FILE_VISIBILITY_SOURCE_MISSING', '原文件不可用');
+                if ($old['driver'] === 'qiniu') {
+                    $validateObservation($sourceDriver->inspect($source['object_key']));
                 }
-                $validate($oldPath);
-                $targetDriver->put($target['object_key'], $oldPath);
+                $materialized = $this->materialize($source + $old);
+                try {
+                    $validate($materialized['path']);
+                    $targetDriver->put($target['object_key'], $materialized['path']);
+                } finally {
+                    if ($materialized['temporary'] && is_file($materialized['path'])) {
+                        unlink($materialized['path']);
+                    }
+                }
             }
             $validate($newPath);
             return ['private_copy_verified' => true, 'sha256' => $source['sha256'], 'bytes' => (int) $source['size_bytes']];
@@ -933,12 +1022,16 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
             $observation = $sourceDriver->inspect($source['object_key']);
             $receipt = null;
             if ($observation->exists) {
-                $oldPath = $sourceDriver->localPath($source['object_key']);
-                if (!is_string($oldPath)) {
-                    throw BusinessException::conflict('FILE_VISIBILITY_SOURCE_UNKNOWN', '原文件状态未知');
+                $validateObservation($observation);
+                $materialized = $this->materialize($source + $old);
+                try {
+                    $validate($materialized['path']);
+                    $receipt = $sourceDriver->delete($source['object_key']);
+                } finally {
+                    if ($materialized['temporary'] && is_file($materialized['path'])) {
+                        unlink($materialized['path']);
+                    }
                 }
-                $validate($oldPath);
-                $receipt = $sourceDriver->delete($source['object_key']);
             }
             if ($sourceDriver->inspect($source['object_key'])->exists) {
                 throw BusinessException::conflict('FILE_VISIBILITY_SOURCE_STILL_PUBLIC', '原公开位置尚未关闭');
@@ -950,9 +1043,11 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
             || $object['object_key'] !== $target['object_key'] || $object['access_type'] !== 'private') {
             throw BusinessException::conflict('FILE_VISIBILITY_VERIFICATION_FAILED', '原位置或目标位置尚未核实');
         }
+        $anonymousStatus = $origin?->verifyAnonymousAbsent($source['object_key']);
         return ['original_location_absent' => true, 'private_bytes_verified' => true,
             'old_delivery_grants' => 'revoked_by_current_status_visibility_and_revision', 'known_cdn_count' => 0,
-            'sha256' => $source['sha256'], 'bytes' => (int) $source['size_bytes']];
+            'sha256' => $source['sha256'], 'bytes' => (int) $source['size_bytes']]
+            + ($anonymousStatus === null ? [] : ['source_anonymous_status' => $anonymousStatus]);
     }
 
     private function visibilityLocation(array $location): array
@@ -960,10 +1055,26 @@ final readonly class StorageService implements FileStorage, \PeanutAdmin\Modules
         $row = $this->find(StorageSpace::alias('s')->join('storage_account a', 'a.id=s.account_id')
             ->where('s.id', $location['storage_space_id'])->where('s.status', 'active')->where('a.status', 'active')
             ->field('a.*,s.id AS space_id,s.space_key,s.access_type,s.bucket,s.region,s.endpoint,s.access_domain,s.local_path'));
-        if ($row === null || $row['driver'] !== 'local' || $row['bucket'] !== null || $row['access_domain'] !== null
-            || $row['space_key'] !== $location['space_key'] || $row['access_type'] !== $location['access_type']
-            || $row['local_path'] !== $location['local_path']) {
+        if ($row === null || $row['driver'] !== $location['driver']
+            || $row['space_key'] !== $location['space_key'] || $row['access_type'] !== $location['access_type']) {
             throw BusinessException::conflict('FILE_VISIBILITY_ROUTE_CHANGED', '存储配置已改变，保留现场等待处理');
+        }
+        if ($row['driver'] === 'local') {
+            if ($row['bucket'] !== null || $row['access_domain'] !== null || $row['local_path'] !== $location['local_path']) {
+                throw BusinessException::conflict('FILE_VISIBILITY_ROUTE_CHANGED', '本地存储配置已改变');
+            }
+        } elseif ($row['driver'] === 'qiniu') {
+            foreach (['account_key','bucket','region','endpoint','access_domain','credential_key_version'] as $field) {
+                if (!array_key_exists($field, $location) || $row[$field] !== $location[$field]) {
+                    throw BusinessException::conflict('FILE_VISIBILITY_ROUTE_CHANGED', '云存储配置已改变');
+                }
+            }
+            if ((string) $row['id'] !== ($location['account_id'] ?? null)
+                || !hash_equals($location['credential_sha256'] ?? '', hash('sha256', (string) $row['credential_ciphertext']))) {
+                throw BusinessException::conflict('FILE_VISIBILITY_ROUTE_CHANGED', '云存储账号已改变');
+            }
+        } else {
+            throw BusinessException::conflict('FILE_VISIBILITY_ORIGIN_UNQUALIFIED', '源站关闭能力尚未确认');
         }
         return $row;
     }

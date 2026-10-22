@@ -30,6 +30,7 @@
     "firebase/php-jwt": "^7.1",
     "dragonmantank/cron-expression": "^3.3",
     "qiniu/php-sdk": "^7.4",
+    "aws/aws-sdk-php": "^3.0",
     "aliyuncs/oss-sdk-php": "^2.4",
     "qcloud/cos-sdk-v5": "^2.5",
     "peanut-admin/core": "5.0.2",

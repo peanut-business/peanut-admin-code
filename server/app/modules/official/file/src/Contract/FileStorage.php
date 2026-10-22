@@ -6,7 +6,9 @@ namespace PeanutAdmin\Modules\File\Contract;
 
 interface FileStorage
 {
-    /** Private writes return a stable key; export.xlsx additionally requires and grants original download.
+    /** Writes require no outer database transaction so intent is durable before provider I/O.
+     * Unknown writes retain the reserved key for observation; never repeat them with a new key.
+     * Private writes return a stable key; export.xlsx additionally requires and grants original download.
      * @return array{file_key:string,object_key:string,access_type:string,url:string,original_name:string} */
     public function storePath(int $tenantId, ?int $memberId, string $purpose, string $sourcePath, string $originalName, string $mediaType): array;
 

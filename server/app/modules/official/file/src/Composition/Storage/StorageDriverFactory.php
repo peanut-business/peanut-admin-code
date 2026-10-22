@@ -9,6 +9,8 @@ use app\common\exception\storage\StorageProviderException;
 use app\common\execution\CurrentExecutionContext;
 use PeanutAdmin\Modules\File\Infrastructure\Storage\ObservedStorageDriver;
 use PeanutAdmin\Modules\File\Infrastructure\Storage\QiniuStorageHttpTransport;
+use PeanutAdmin\Modules\File\Infrastructure\Storage\QiniuS3DownloadTransport;
+use PeanutAdmin\Modules\File\Infrastructure\Storage\QiniuVisibilityOrigin;
 use PeanutAdmin\Modules\File\Infrastructure\Storage\StorageAccess;
 use app\common\infrastructure\runtime\OperationalLog;
 use PeanutAdmin\FileMedia\Storage\Driver\AliyunStorageDriver;
@@ -48,7 +50,10 @@ final class StorageDriverFactory
                     (string) ($space['bucket'] ?? ''),
                     (string) ($space['endpoint'] ?? ''),
                     (string) ($space['access_domain'] ?? ''),
-                    $this->qiniuHttp,
+                    QiniuS3DownloadTransport::usesS3Domain((string) ($space['access_domain'] ?? ''))
+                        ? new QiniuS3DownloadTransport($this->qiniuHttp, (string) $space['access_domain'],
+                            (string) ($space['bucket'] ?? ''), (string) ($space['region'] ?? ''), $account['resolved_credentials'])
+                        : $this->qiniuHttp,
                 ),
                 'aliyun' => new AliyunStorageDriver(
                     $this->aliyun->make($account, $space),
@@ -70,6 +75,17 @@ final class StorageDriverFactory
             throw StorageProviderException::unconfigured($exception);
         }
         return new ObservedStorageDriver($provider, $driver, $this->executionContext);
+    }
+
+    public function qiniuVisibilityOrigin(array $location): QiniuVisibilityOrigin
+    {
+        if (($location['driver'] ?? null) !== 'qiniu') {
+            throw new \InvalidArgumentException('QINIU_ORIGIN_DRIVER_INVALID');
+        }
+        $location['resolved_credentials'] = $this->credentials->resolve($location);
+        return new QiniuVisibilityOrigin($this->qiniuAuth($location), $this->qiniuHttp,
+            (string) ($location['bucket'] ?? ''), (string) ($location['region'] ?? ''),
+            (string) ($location['access_domain'] ?? ''));
     }
 
     /** 应用保留产品目录白名单，并只把解析后的绝对根目录与可见性传给 Core。 */

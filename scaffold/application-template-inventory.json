@@ -669,7 +669,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c6bbdd2e12c7786c01cd06dfa7750fa3a8a6db50473513679dd8fc6867492bb9"
+            "source_sha256": "0203a33d59ae2be7d5bc72c5419051e75d36a85a690520036c9196d1e80f29c1"
         },
         {
             "path": "docs/architecture/cli-and-recipes.md",
@@ -754,6 +754,20 @@
                 "full"
             ],
             "source_sha256": "ebce85b33b7b906a59dc902e5744241b19d7b58d5d8a5da6c02b9b7ba742ad36"
+        },
+        {
+            "path": "docs/architecture/file-visibility-sources.md",
+            "target": "docs/architecture/file-visibility-sources.md",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "eb13ccbe4011179a504bbca8607f5f6b2751b6a71201b7f7301894e334695183"
         },
         {
             "path": "docs/architecture/framework-extension-and-lifecycle.md",
@@ -2470,7 +2484,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c2907983af7d3fa4a9dd2dbb81514623d93c0c6e1ca02f58136fb7f97ec94bb1"
+            "source_sha256": "c66331636e262e38a1962c31c555b65c31fc1453ce49b4503b6c240e94747801"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2593,7 +2607,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a634ebd4f2659ffd9d517fec0af42258b9c8a2d503d7a49edde424dc589a5355"
+            "source_sha256": "971e360d52de112057430302961bc5944375958289b18a00b9324edcbaa93d8e"
         },
         {
             "path": "plugins/official.identity/plugin.json",
@@ -12325,7 +12339,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "10bc43232925e25a90e810c39689d05e4f122a27e1e937ae8e6f4cac8149532a"
+            "source_sha256": "c22dfa6c807bf574578ff0c40ce186709cd0c14cd3738b942e9b0849b10ec151"
         },
         {
             "path": "server/app/modules/official/file/database/migrations/20260823-unify-storage-service.sql",
@@ -12605,7 +12619,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5d01a56a761995c399f155890712bf6236e36851035006343c57e57f113398ee"
+            "source_sha256": "158f4ce65c13c593bb827ef97eb40330bea3e02c0b569f37114590f46673410d"
         },
         {
             "path": "server/app/modules/official/file/src/Contract/AcceptedReferenceTransfer.php",
@@ -12801,7 +12815,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e9b295c6caa3061d56e5b7ef2408198cc0d8f3b50f831baab8d88113e3def0f9"
+            "source_sha256": "14ef5c115e1b72ef75340338268d9e22e8d25e95fc6c48c65a15ae9e401457d8"
         },
         {
             "path": "server/app/modules/official/file/src/Contract/FileUploads.php",
@@ -12958,6 +12972,20 @@
             "source_sha256": "575516998e496c8851367d41f27c7d6275584b23914030357a2309a6c861e08d"
         },
         {
+            "path": "server/app/modules/official/file/src/Infrastructure/Storage/QiniuS3DownloadTransport.php",
+            "target": "server/app/modules/official/file/src/Infrastructure/Storage/QiniuS3DownloadTransport.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "27d99ec9ac034c078f2f82489479e3c5c573ed6fe07e2b12bd31429031c6d696"
+        },
+        {
             "path": "server/app/modules/official/file/src/Infrastructure/Storage/QiniuStorageHttpTransport.php",
             "target": "server/app/modules/official/file/src/Infrastructure/Storage/QiniuStorageHttpTransport.php",
             "classification": "managed",
@@ -12970,6 +12998,20 @@
                 "full"
             ],
             "source_sha256": "ea276cdd53cebd4107f7683f1420576ebc207ff5f353dfaff82f68a5ae2e3dd9"
+        },
+        {
+            "path": "server/app/modules/official/file/src/Infrastructure/Storage/QiniuVisibilityOrigin.php",
+            "target": "server/app/modules/official/file/src/Infrastructure/Storage/QiniuVisibilityOrigin.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "468612422bf1128198fb44a60f99dc1e1c9a41ca6263db87a7fc9f20d7e7fd08"
         },
         {
             "path": "server/app/modules/official/file/src/Infrastructure/Storage/StorageAccess.php",
@@ -13305,7 +13347,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "881bc173ae5e7186fe396ed49c8b68f9c2c1cadb8ea2ea7d897d06728aeb67a1"
+            "source_sha256": "e3008a9055d2c74f33d224f85a320b3813d503968a7a1062672738b60d2498ce"
         },
         {
             "path": "server/app/modules/official/file/src/Service/Storage/StorageConfigurationService.php",
@@ -13333,7 +13375,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "851d0a80ee82c0bd776c838129de9e11352ea52aefb9d29e7ca7bba0b415e374"
+            "source_sha256": "11363d3cc576b20c1b5273fc1a41befb6cd83ded6e3123c9392cca6d87f82f9f"
         },
         {
             "path": "server/app/modules/official/file/src/Validation/FileCateValidate.php",
@@ -26474,7 +26516,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "106d357eca9bd44ec1fdebab1e97f0ec4706816305358fd104ab49b4b6b78f19"
+            "source_sha256": "27b4f7df00a48b46cc7e18a8f5274bb308f5b2e8ec8c2fa9232fbb042aca7537"
         },
         {
             "path": "server/composer.lock",
@@ -26488,7 +26530,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "23196df1c06ef1984225373d24ddc5b10704c6b5189eb700647360075178c6d3"
+            "source_sha256": "bfa7a729e032e19c30baa9f5086bc4ce714fcf3fcd394e158c419c6d6ad93308"
         },
         {
             "path": "server/config/admin_api_access.php",
@@ -32858,6 +32900,19 @@
         {
             "path": "server/tests/Unit/PublicSettingsAuthorizationTest.php",
             "target": "server/tests/Unit/PublicSettingsAuthorizationTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Unit/QiniuS3DownloadTransportTest.php",
+            "target": "server/tests/Unit/QiniuS3DownloadTransportTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
