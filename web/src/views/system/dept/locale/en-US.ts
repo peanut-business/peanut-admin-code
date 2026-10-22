@@ -25,8 +25,9 @@ export default {
   'systemDept.field.name': 'Name',
   'systemDept.field.name.placeholder': 'Enter department name',
   'systemDept.field.name.required': 'Department name is required',
-  'systemDept.field.leader': 'Leader',
-  'systemDept.field.leader.placeholder': 'Enter leader name',
+  'systemDept.field.leader': 'Contact name (text)',
+  'systemDept.field.leader.placeholder':
+    'Contact information only; not a workflow assignment',
   'systemDept.field.mobile': 'Phone',
   'systemDept.field.mobile.placeholder': 'Enter contact phone',
   'systemDept.field.mobile.invalid': 'Enter a valid mobile number',
