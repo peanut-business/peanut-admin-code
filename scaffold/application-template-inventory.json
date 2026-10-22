@@ -3242,6 +3242,34 @@
             ]
         },
         {
+            "path": "scripts/consumer-document-article",
+            "target": "scripts/consumer-document-article",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "4db9c3a19ca485b71ad660374dc62e5f83b587b9e89330c450f1e2682cacf851"
+        },
+        {
+            "path": "scripts/consumer-document-article.md",
+            "target": "scripts/consumer-document-article.md",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "06b1ecb24fd92e3d37c3e3eac3f8dbc4e82e31b4d4ee5ad75284d1d3d7633c7e"
+        },
+        {
             "path": "scripts/consumer-module-reference-chain",
             "target": "scripts/consumer-module-reference-chain",
             "classification": "excluded",
@@ -3279,6 +3307,34 @@
                 "standard",
                 "full"
             ]
+        },
+        {
+            "path": "scripts/consumers/file-content-ui.md",
+            "target": "scripts/consumers/file-content-ui.md",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "ebed8b01ec2702e34b4fe30af24204d017d300a8aba6cf9d9a6d01e353ff2728"
+        },
+        {
+            "path": "scripts/consumers/file-content-ui.mjs",
+            "target": "scripts/consumers/file-content-ui.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "1ef508010921e8b92197c073bbbebea2175ed0c6bf3f0e1ba85d37415ff33de7"
         },
         {
             "path": "scripts/continue-product-release",
