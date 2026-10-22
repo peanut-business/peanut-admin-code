@@ -214,4 +214,38 @@ try { $partition->invoke(null, $partitionScope, 'unknown'); throw new LogicExcep
 catch (RuntimeException $error) { effectMetadataExpect($error->getMessage() === 'PLUGIN_SOURCE_BACKUP_SCOPE_INVALID', 'Unexpected evidence kind refusal.'); }
 echo 'SOURCE-SCOPE-PARTITION passed: affected14/present13/absent1, all-present/all-absent, '
     . $partitionRefusals . " malformed scope role refusals; no native capture, recovery admission or DB execution\n";
+
+$pluginHost = new ReflectionClass(\app\common\services\upgrade\PluginSourceDevelopmentHost::class);
+$pluginSource = file_get_contents($pluginHost->getFileName());
+$captureStart = strpos($pluginSource, "if (\$toolId !== '') {");
+$captureEnd = strpos($pluginSource, '$registry = \\projectResourceRegistry($registrySha);', $captureStart);
+$captureConsumer = substr($pluginSource, $captureStart, $captureEnd - $captureStart);
+effectMetadataExpect(strpos($captureConsumer, 'SourceApplicationBackup::pluginScope(')
+    < strpos($captureConsumer, '$this->assertBackupReads($scope[\'tables\'], $config);')
+    && !str_contains($captureConsumer, '$this->assertBackupReads($effects[\'tables\']'),
+    'Backup row admission must use the observed present scope, not missing affected objects.');
+$guardStart = strpos($captureConsumer, "if ((\$scope['absent_original_tables']");
+$guardEnd = strpos($captureConsumer, '$this->assertBackupReads(', $guardStart);
+$absenceGuard = eval('return static function (array $scope): void {' . substr($captureConsumer, $guardStart, $guardEnd - $guardStart) . '};');
+$absenceGuard($allPresent + ['metadata_visibility' => 'current-account-visible; backup client visibility checked separately']);
+$absenceGuard($partitionScope + ['metadata_visibility' => 'complete native source metadata; ordinary PDO unchanged']);
+try {
+    $absenceGuard($partitionScope + ['metadata_visibility' => 'current-account-visible; backup client visibility checked separately']);
+    throw new LogicException('Unproven visibility acquired an absent-object backup scope.');
+} catch (RuntimeException $error) {
+    effectMetadataExpect($error->getMessage() === 'PLUGIN_SOURCE_BACKUP_ABSENT_METADATA_REQUIRED', 'Unexpected absent visibility refusal.');
+}
+$effectBoundary = $pluginHost->getMethod('assertEffectBoundary');
+$pluginInstance = $pluginHost->newInstanceWithoutConstructor();
+$effectBoundary->invoke($pluginInstance, ['triggers' => [], 'foreign_keys' => []], ['tables' => ['pa_existing']], 'selected_db');
+foreach ([
+    [['triggers' => [['table' => 'pa_existing']], 'foreign_keys' => []], 'PLUGIN_SOURCE_TRIGGER_EFFECT_REVIEW_REQUIRED'],
+    [['triggers' => [], 'foreign_keys' => [$fk]], 'PLUGIN_SOURCE_CASCADE_EFFECT_REVIEW_REQUIRED'],
+] as [$boundaryScope, $reason]) {
+    try {
+        $effectBoundary->invoke($pluginInstance, $boundaryScope, ['tables' => ['pa_existing']], 'selected_db');
+        throw new LogicException('Unreviewed external effect acquired admission.');
+    } catch (RuntimeException $error) { effectMetadataExpect($error->getMessage() === $reason, 'Unexpected external effect refusal.'); }
+}
+echo "SOURCE-PLUGIN-CAPTURE-READS passed: actual capture order, all-present/native-absent accepted, unknown absence refused, trigger/incoming-cascade refusal; DB NOT_RUN\n";
 echo "SOURCE-EFFECT-METADATA-CONTRACT passed: parser/scope; full14, DDL and receipt reads accepted, 18 read-scope omissions refused; 4 session-restoration cases; native DDL-before-statistics, real counter1/NULL, old-order/cached/unknown stats refusal; native SSH/MySQL execution NOT_RUN\n";
