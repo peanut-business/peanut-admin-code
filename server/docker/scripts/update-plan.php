@@ -1453,7 +1453,7 @@ final class PeanutServerUpdatePlan
         }
         $options = [];
         foreach (array_slice($argv, 2) as $argument) {
-            if (preg_match('/^--(instance-server|archive|expected-sha256|workspace|configuration-input)=(.+)$/D', $argument, $matches) !== 1
+            if (preg_match('/^--(instance-server|archive|expected-sha256|git-input|expected-source-sha256|workspace|configuration-input)=(.+)$/D', $argument, $matches) !== 1
                 || isset($options[$matches[1]])) {
                 self::usage();
             }
@@ -1461,14 +1461,19 @@ final class PeanutServerUpdatePlan
         }
         $command = $argv[1];
         $requiredOptions = $command === 'configure-startup' ? ['instance-server', 'configuration-input'] : ($command === 'plan'
-            ? ['instance-server', 'archive', 'expected-sha256', 'workspace']
+            ? ['instance-server', 'workspace']
             : (in_array($command, ['initialize-traffic', 'initialize-owner-traffic', 'close-startup-traffic', 'publish-startup-configuration'], true) ? ['instance-server'] : ['instance-server', 'workspace']));
         foreach ($requiredOptions as $required) {
             if (!isset($options[$required])) {
                 self::usage();
             }
         }
-        if ($command !== 'plan' && (isset($options['archive']) || isset($options['expected-sha256']))) {
+        if ($command === 'plan') {
+            $archiveSelected = isset($options['archive']) || isset($options['expected-sha256']);
+            $gitSelected = isset($options['git-input']) || isset($options['expected-source-sha256']);
+            if ($archiveSelected === $gitSelected || ($archiveSelected && (!isset($options['archive']) || !isset($options['expected-sha256'])))
+                || ($gitSelected && (!isset($options['git-input']) || !isset($options['expected-source-sha256'])))) { self::usage(); }
+        } elseif (isset($options['archive']) || isset($options['expected-sha256']) || isset($options['git-input']) || isset($options['expected-source-sha256'])) {
             self::usage();
         }
         if (($command !== 'configure-startup' && isset($options['configuration-input']))
@@ -1478,7 +1483,7 @@ final class PeanutServerUpdatePlan
 
         try {
             $result = match ($command) {
-                'plan' => self::build(
+                'plan' => isset($options['git-input']) ? self::buildFixedGit($options['instance-server'], $options['git-input'], $options['expected-source-sha256'], $options['workspace']) : self::build(
                     $options['instance-server'],
                     $options['archive'],
                     $options['expected-sha256'],
@@ -1860,8 +1865,6 @@ final class PeanutServerUpdatePlan
     /** @return array<string,mixed> */
     public static function build(string $serverRoot, string $archive, string $expectedSha256, string $workspace): array
     {
-        $serverRoot = self::ordinaryDirectory($serverRoot, 'instance server');
-        $workspace = self::ordinaryDirectory($workspace, 'update workspace');
         if (!is_file($archive) || is_link($archive) || preg_match('/^[a-f0-9]{64}$/D', $expectedSha256) !== 1) {
             throw new RuntimeException('target archive or trusted SHA-256 is invalid');
         }
@@ -1870,12 +1873,32 @@ final class PeanutServerUpdatePlan
             throw new RuntimeException('target archive differs from trusted SHA-256');
         }
 
-        self::assertOrdinaryParents($serverRoot, '.peanut/release-identity.json');
-        $currentBytes = self::regularBytes($serverRoot . '/.peanut/release-identity.json', 'current server release identity');
-        $current = self::identity(json_decode($currentBytes, true, 512, JSON_THROW_ON_ERROR), false);
-        self::assertInstalledInstance($serverRoot, $current);
-        $deployment = self::deploymentState($serverRoot, $current, hash('sha256', $currentBytes));
         [$targetBytes, $target, $targetFiles] = self::archive($archive);
+        return self::buildTarget($serverRoot, $workspace, $targetBytes, $target, $targetFiles,
+            ['kind' => 'archive', 'sha256' => $archiveDigest], $archive);
+    }
+
+    public static function buildFixedGit(string $serverRoot, string $descriptor, string $expectedSha256, string $workspace): array
+    {
+        $serverRoot = self::ordinaryDirectory($serverRoot, 'instance server');
+        $workspace = self::ordinaryDirectory($workspace, 'update workspace');
+        $directory = dirname($descriptor);
+        foreach ([$serverRoot, $workspace] as $mutable) {
+            if ($directory === $mutable || str_starts_with($directory . '/', $mutable . '/') || str_starts_with($mutable . '/', $directory . '/')) {
+                throw new RuntimeException('fixed Git input must be separate from instance program and mutable workspace');
+            }
+        }
+        [$bytes, $identity, $files, $provenance] = self::fixedGit($descriptor, $expectedSha256);
+        return self::buildTarget($serverRoot, $workspace, $bytes, $identity, $files, $provenance);
+    }
+
+    /** Both transports enter exactly the same protected inventory/operation planner. */
+    private static function buildTarget(string $serverRoot, string $workspace, string $targetBytes, array $target,
+        array $targetFiles, array $provenance, ?string $archive = null): array
+    {
+        $serverRoot = self::ordinaryDirectory($serverRoot, 'instance server');
+        $workspace = self::ordinaryDirectory($workspace, 'update workspace');
+        [$currentBytes, $current, $deployment, $currentIdentityPath] = self::currentProgram($serverRoot);
 
         foreach (['slug', 'edition', 'package_identity'] as $field) {
             if (!hash_equals((string) $current['application'][$field], (string) $target['application'][$field])) {
@@ -1888,11 +1911,11 @@ final class PeanutServerUpdatePlan
         }
 
         $currentMap = self::fileMap($current['files']);
-        $currentMap[self::IDENTITY] = [
-            'path' => self::IDENTITY,
+        if (str_starts_with($currentIdentityPath, 'server/')) { $currentMap[$currentIdentityPath] = [
+            'path' => $currentIdentityPath,
             'sha256' => hash('sha256', $currentBytes),
             'mode' => 0644,
-        ];
+        ]; }
         $targetMap = self::fileMap($target['files']);
         $targetMap[self::IDENTITY] = [
             'path' => self::IDENTITY,
@@ -1996,6 +2019,10 @@ final class PeanutServerUpdatePlan
             'source' => [
                 'application' => $current['application'],
                 'identity_sha256' => hash('sha256', $currentBytes),
+                'identity_path' => $currentIdentityPath,
+                'installed_source_kind' => $deployment['installed_source_kind'],
+                'predecessor' => $deployment['predecessor'],
+                'program_files_sha256' => hash('sha256', json_encode(array_values($currentMap), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)),
                 'installed_receipt_sha256' => $deployment['installed_receipt_sha256'],
                 'baseline_sha256' => $deployment['baseline_sha256'],
                 'deployment_generation' => $deployment['generation'],
@@ -2003,7 +2030,8 @@ final class PeanutServerUpdatePlan
             ],
             'target' => [
                 'application' => $target['application'],
-                'archive_sha256' => $archiveDigest,
+                ...($archive === null ? [] : ['archive_sha256' => $provenance['sha256']]),
+                'provenance' => $provenance,
                 'identity_sha256' => hash('sha256', $targetBytes),
             ],
             'tool_sha256' => hash_file('sha256', __FILE__),
@@ -2019,9 +2047,250 @@ final class PeanutServerUpdatePlan
         if (file_exists($planPath) || is_link($planPath)) {
             throw new RuntimeException('update workspace already contains a plan');
         }
-        self::extractPreparedServer($archive, $workspace, $targetMap);
+        if ($archive !== null) {
+            self::extractPreparedServer($archive, $workspace, $targetMap);
+        } else {
+            foreach ($targetMap as $path => $row) {
+                $bytes = self::regularBytes(dirname($provenance['descriptor']) . '/' . $path, 'fixed Git program');
+                if (hash('sha256', $bytes) !== $row['sha256']) { throw new RuntimeException('fixed Git program changed during preparation'); }
+                self::durableFile($workspace . '/prepared/' . $path, $bytes, $row['mode']);
+            }
+            self::fixedGit($provenance['descriptor'], $provenance['sha256']);
+        }
         self::writeJson($planPath, $plan);
         return $plan;
+    }
+
+    /** Descriptor admission reads bytes only; no target executable, fetch, build or tar conversion. */
+    private static function fixedGit(string $descriptor, string $expected): array
+    {
+        if (realpath($descriptor) !== $descriptor || basename($descriptor) !== 'fixed-git-source.json'
+            || preg_match('/^[a-f0-9]{64}$/D', $expected) !== 1 || (fileperms($descriptor) & 0777) !== 0444) {
+            throw new RuntimeException('fixed Git descriptor path, mode or expected digest is invalid');
+        }
+        $bytes = self::regularBytes($descriptor, 'fixed Git descriptor');
+        if (!hash_equals($expected, hash('sha256', $bytes))) { throw new RuntimeException('fixed Git descriptor digest differs'); }
+        $d = json_decode($bytes, true, 512, JSON_THROW_ON_ERROR);
+        $keys = static function (mixed $value, array $expected): bool {
+            if (!is_array($value)) { return false; }
+            $actual = array_keys($value); sort($actual); sort($expected); return $actual === $expected;
+        };
+        if (!$keys($d, ['schema_version', 'protocol', 'source', 'application', 'producer', 'build', 'program_root', 'program'])
+            || !$keys($d['source'], ['kind', 'repository', 'commit', 'tree', 'application_manifest_sha256', 'tracked_files_sha256'])
+            || !$keys($d['producer'], ['entry', 'sha256', 'inventory_validator_sha256'])
+            || !$keys($d['build'], ['approval_sha256', 'entry', 'entry_sha256', 'inputs', 'tools'])
+            || !$keys($d['program'], ['identity_path', 'identity_sha256', 'files_sha256', 'files', 'static'])
+            || !$keys($d['program']['static'], ['admin', 'platform', 'pc', 'mobile'])) {
+            throw new RuntimeException('fixed Git descriptor shape is invalid');
+        }
+        if (($d['schema_version'] ?? null) !== 1 || ($d['protocol'] ?? null) !== 'peanut.fixed-git-source.v1'
+            || ($d['program_root'] ?? null) !== '.' || ($d['source']['kind'] ?? null) !== 'fixed-git'
+            || !is_string($d['source']['repository'] ?? null) || $d['source']['repository'] === ''
+            || preg_match('/[\x00-\x1f]/', $d['source']['repository']) === 1
+            || ($d['build']['entry'] ?? null) !== 'scripts/package-release.sh'
+            || ($d['producer']['entry'] ?? null) !== 'scripts/prepare-fixed-git-release'
+            || ($d['program']['identity_path'] ?? null) !== self::IDENTITY) {
+            throw new RuntimeException('fixed Git descriptor protocol is invalid');
+        }
+        foreach ([$d['source']['commit'] ?? null, $d['source']['tree'] ?? null] as $sha) {
+            if (!is_string($sha) || preg_match('/^[a-f0-9]{40}$/D', $sha) !== 1) { throw new RuntimeException('fixed Git source identity is invalid'); }
+        }
+        foreach ([$d['source']['application_manifest_sha256'] ?? null, $d['source']['tracked_files_sha256'] ?? null,
+            $d['producer']['sha256'] ?? null, $d['producer']['inventory_validator_sha256'] ?? null,
+            $d['build']['approval_sha256'] ?? null, $d['build']['entry_sha256'] ?? null,
+            $d['program']['identity_sha256'] ?? null, $d['program']['files_sha256'] ?? null] as $sha) {
+            if (!is_string($sha) || preg_match('/^[a-f0-9]{64}$/D', $sha) !== 1) { throw new RuntimeException('fixed Git digest binding is incomplete'); }
+        }
+        $inputs = ['.peanut/application-manifest.json', 'release-versions.json', 'scripts/package-release.sh',
+            'scripts/package-release-files.py', 'scripts/release-dependency-locks.mjs', 'scripts/project-composer',
+            'server/composer.json', 'server/composer.lock', 'web/package.json', 'web/pnpm-lock.yaml',
+            'platform/package.json', 'platform/package-lock.json', 'pc/package.json', 'pc/package-lock.json',
+            'uniapp/package.json', 'uniapp/package-lock.json'];
+        $actualInputs = array_keys($d['build']['inputs'] ?? []); sort($inputs); sort($actualInputs);
+        if ($inputs !== $actualInputs
+            || $d['build']['inputs']['.peanut/application-manifest.json'] !== $d['source']['application_manifest_sha256']
+            || $d['build']['inputs']['scripts/package-release.sh'] !== $d['build']['entry_sha256']) {
+            throw new RuntimeException('fixed Git native build input binding differs');
+        }
+        foreach ($d['build']['inputs'] as $sha) {
+            if (!is_string($sha) || preg_match('/^[a-f0-9]{64}$/D', $sha) !== 1) { throw new RuntimeException('fixed Git build digest is invalid'); }
+        }
+        $tools = array_keys($d['build']['tools'] ?? []); sort($tools);
+        if ($tools !== ['bash', 'git', 'node', 'npm', 'php', 'pnpm', 'python3']) { throw new RuntimeException('fixed Git native tool binding is incomplete'); }
+        foreach ($d['build']['tools'] as $tool) {
+            if (!$keys($tool, ['path', 'sha256']) || !is_string($tool['path'] ?? null) || !str_starts_with($tool['path'], '/')
+                || preg_match('/^[a-f0-9]{64}$/D', (string) ($tool['sha256'] ?? '')) !== 1) {
+                throw new RuntimeException('fixed Git native tool identity is invalid');
+            }
+        }
+        $root = self::ordinaryDirectory(dirname($descriptor), 'fixed Git directory');
+        $identityBytes = self::regularBytes($root . '/' . self::IDENTITY, 'fixed Git program identity');
+        if ((fileperms($root . '/' . self::IDENTITY) & 0777) !== 0644) { throw new RuntimeException('fixed Git program identity mode differs'); }
+        $identity = self::identity(json_decode($identityBytes, true, 512, JSON_THROW_ON_ERROR), true);
+        $app = $identity['application'];
+        if (($app['kind'] ?? null) !== 'application' || ($app['commit'] ?? null) !== $d['source']['commit']
+            || ($app['tree'] ?? null) !== $d['source']['tree'] || ($app['manifest_sha256'] ?? null) !== $d['source']['application_manifest_sha256']
+            || hash('sha256', $identityBytes) !== $d['program']['identity_sha256']) { throw new RuntimeException('fixed Git program/source binding differs'); }
+        foreach (['slug', 'package_identity', 'name', 'version', 'edition', 'profile'] as $key) {
+            if (($app[$key] ?? null) !== ($d['application'][$key] ?? null) || !is_string($app[$key] ?? null)) {
+                throw new RuntimeException('fixed Git APP identity differs');
+            }
+        }
+        $declared = self::fileMap($identity['files']);
+        $files = self::directoryFiles($root, ['fixed-git-source.json']);
+        $actual = $files; unset($actual[self::IDENTITY]);
+        if ($actual !== $declared || $d['program']['files_sha256'] !== $identity['files_sha256']
+            || ($d['program']['files'] ?? null) !== count($actual)) { throw new RuntimeException('fixed Git complete program inventory differs'); }
+        foreach (['admin', 'platform', 'pc', 'mobile'] as $client) {
+            $rows = array_values(array_filter($actual, static fn(array $row): bool => str_starts_with($row['path'], 'server/public/' . $client . '/')));
+            $sha = hash('sha256', json_encode($rows, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+            if (!$keys($d['program']['static'][$client], ['files', 'inventory_sha256'])
+                || !isset($actual['server/public/' . $client . '/index.html']) || ($d['program']['static'][$client]['files'] ?? null) !== count($rows)
+                || ($d['program']['static'][$client]['inventory_sha256'] ?? null) !== $sha) { throw new RuntimeException('fixed Git static projection differs'); }
+        }
+        if (($identity['plugin_projection']['projected_lock_sha256'] ?? null) !== ($actual['server/plugins.lock']['sha256'] ?? null)
+            || !isset($actual['server/plugins.lock'])) { throw new RuntimeException('fixed Git plugin projection differs'); }
+        return [$identityBytes, $identity, $files, ['kind' => 'fixed-git', 'descriptor' => $descriptor, 'sha256' => $expected,
+            'source' => $d['source'], 'producer' => $d['producer'], 'build' => $d['build'], 'program' => $d['program']]];
+    }
+
+    /** Complete regular program set. Source instances exclude only the existing protected runtime boundary. */
+    private static function directoryFiles(string $root, array $skip = [], bool $instance = false): array
+    {
+        $files = []; $seen = [];
+        $filter = new RecursiveCallbackFilterIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS),
+            static function (SplFileInfo $file) use ($root, $skip, $instance): bool {
+                $path = ($instance ? 'server/' : '') . substr($file->getPathname(), strlen($root) + 1);
+                return !in_array($path, $skip, true) && !($instance && (in_array($path, self::PROTECTED_FILES, true)
+                    || array_filter(self::PROTECTED_PREFIXES, static fn(string $prefix): bool => str_starts_with($path . '/', $prefix))));
+            });
+        $iterator = new RecursiveIteratorIterator($filter, RecursiveIteratorIterator::SELF_FIRST);
+        foreach ($iterator as $file) {
+            $path = ($instance ? 'server/' : '') . substr($file->getPathname(), strlen($root) + 1);
+            if (in_array($path, $skip, true)) { continue; }
+            if (!$instance && $path !== 'server' && !str_starts_with($path, 'server/')) { throw new RuntimeException('fixed Git directory contains a non-server entry'); }
+            if ($instance && (in_array($path, self::PROTECTED_FILES, true)
+                || array_filter(self::PROTECTED_PREFIXES, static fn(string $prefix): bool => str_starts_with($path . '/', $prefix)))) { continue; }
+            if ($file->isLink() || (!$file->isFile() && !$file->isDir())) { throw new RuntimeException('program directory contains a nonregular path'); }
+            if ($file->isDir()) { continue; }
+            self::assertProgramPath($path);
+            if (isset($seen[strtolower($path)])) { throw new RuntimeException('program directory has a case-colliding path'); }
+            $seen[strtolower($path)] = true;
+            $bytes = self::regularBytes($file->getPathname(), 'program file');
+            $files[$path] = ['path' => $path, 'sha256' => hash('sha256', $bytes), 'mode' => $file->getPerms() & 0777];
+        }
+        ksort($files, SORT_STRING);
+        return $files;
+    }
+
+    public static function rebindTarget(string $workspace, ?string $serverRoot = null): void
+    {
+        $plan = self::plan($workspace);
+        if (($plan['target']['provenance']['kind'] ?? null) === 'fixed-git') {
+            $p = $plan['target']['provenance'];
+            [$bytes, , , $actual] = self::fixedGit($p['descriptor'], $p['sha256']);
+            if ($actual !== $p || hash('sha256', $bytes) !== $plan['target']['identity_sha256']) { throw new RuntimeException('fixed Git provenance changed after planning'); }
+        }
+        self::assertPreparedServer($workspace, $plan);
+        if ($serverRoot !== null) {
+            foreach (['installed.json' => 'installed_receipt_sha256', 'baseline.json' => 'baseline_sha256'] as $file => $key) {
+                if (hash('sha256', self::regularBytes($serverRoot . '/private/installation/' . $file, 'original installed anchor')) !== $plan['source'][$key]) {
+                    throw new RuntimeException('original installation anchor changed on resume');
+                }
+            }
+            $path = self::deploymentPath($serverRoot);
+            $headBytes = file_exists($path) || is_link($path) ? self::regularBytes($path, 'current deployment predecessor') : null;
+            $head = $headBytes === null ? null : json_decode($headBytes, true, 512, JSON_THROW_ON_ERROR);
+            $published = ($head['update_id'] ?? null) === $plan['update_id']
+                && ($head['protocol'] ?? null) === 'peanut.server-deployment.v1'
+                && ($head['current_identity_sha256'] ?? null) === $plan['target']['identity_sha256']
+                && ($head['generation'] ?? null) === $plan['source']['deployment_generation'] + 1;
+            if (!$published && ($headBytes === null ? null : hash('sha256', $headBytes)) !== $plan['source']['deployment_state_sha256']) {
+                throw new RuntimeException('deployment predecessor changed on resume');
+            }
+            if (!$published && !file_exists(self::journalPath($workspace)) && !is_link(self::journalPath($workspace))) {
+                self::assertPlanOperations($serverRoot, $workspace, $plan);
+            }
+        }
+    }
+
+    /** Original installation facts are never rewritten to make a new transport fit. */
+    private static function installationFacts(string $serverRoot): array
+    {
+        if (!class_exists(\app\common\services\installation\InstallationExecutionHost::class, false)) {
+            require_once dirname(__DIR__, 2) . '/app/common/services/installation/InstallationExecutionHost.php';
+        }
+        return \app\common\services\installation\InstallationExecutionHost::verifiedInstallationFacts($serverRoot);
+    }
+
+    private static function currentProgram(string $serverRoot): array
+    {
+        $facts = self::installationFacts($serverRoot);
+        $kind = $facts['baseline']['source']['kind'];
+        $release = $serverRoot . '/.peanut/release-identity.json';
+        if (file_exists($release) || is_link($release)) {
+            $bytes = self::regularBytes($release, 'current program identity');
+            $identity = self::identity(json_decode($bytes, true, 512, JSON_THROW_ON_ERROR), false);
+            $deployment = self::deploymentState($serverRoot, $identity, hash('sha256', $bytes));
+            $head = file_exists(self::deploymentPath($serverRoot)) ? self::jsonFile(self::deploymentPath($serverRoot), 'current deployment') : null;
+            return [$bytes, $identity, $deployment + ['installed_source_kind' => $kind,
+                'predecessor' => ['protocol' => $head['protocol'] ?? null, 'sha256' => $deployment['state_sha256']]], self::IDENTITY];
+        }
+        if (!in_array($kind, ['generated-application', 'development-runtime'], true)) {
+            throw new RuntimeException('original source kind has no proved independent APP/program mapping: ' . $kind);
+        }
+        $runtime = $serverRoot . '/.peanut/development-runtime.json';
+        if (file_exists($runtime) || is_link($runtime)) {
+            // This is the existing installed runtime/lock verifier, never code from the target.
+            require_once $serverRoot . '/vendor/autoload.php';
+            $native = \app\common\value\installation\ApplicationSourceIdentity::loadRuntime($serverRoot);
+            $document = $native->document();
+            $bytes = self::regularBytes($runtime, 'current development program identity');
+            $chain = self::applicationDeployment($serverRoot, $document, hash('sha256', $bytes));
+            $rows = self::fileMap($document['files']);
+            $path = 'server/.peanut/development-runtime.json';
+            $all = self::directoryFiles($serverRoot, [$path], true);
+            if ($all !== $rows) { throw new RuntimeException('current development program has unproved files'); }
+            $predecessor = ['protocol' => $chain['head_sha256'] === null ? null : self::APPLICATION_DEPLOYMENT,
+                'sha256' => $chain['head_sha256'], 'source_generation' => $chain['source_generation'],
+                'runtime_revision' => $chain['runtime_revision'], 'current_source' => $chain['current_source'],
+                'current_runtime' => $chain['current_runtime']];
+            $identity = ['application' => $native->applicationIdentity(), 'files' => array_values($rows)];
+        } else {
+            if ($kind !== 'generated-application' || file_exists(self::deploymentPath($serverRoot)) || is_link(self::deploymentPath($serverRoot))) {
+                throw new RuntimeException('original generated source lacks its authenticated current runtime/program head');
+            }
+            $path = '.peanut/application-manifest.json';
+            $bytes = self::regularBytes(dirname($serverRoot) . '/' . $path, 'original APP manifest');
+            if (hash('sha256', $bytes) !== $facts['baseline']['source']['application_manifest_sha256']) {
+                throw new RuntimeException('original APP manifest differs from installed source anchor');
+            }
+            $manifest = json_decode($bytes, true, 512, JSON_THROW_ON_ERROR);
+            if (($manifest['schema_version'] ?? null) !== 2 || ($manifest['protocol'] ?? null) !== 'peanut.application-scaffold.v2') {
+                throw new RuntimeException('original APP manifest protocol is unproved');
+            }
+            $rows = [];
+            foreach ($manifest['files'] ?? [] as $row) {
+                if (!is_string($row['path'] ?? null) || !str_starts_with($row['path'], 'server/')) { continue; }
+                self::safePath($row['path']);
+                if (in_array($row['path'], self::PROTECTED_FILES, true)
+                    || array_filter(self::PROTECTED_PREFIXES, static fn(string $prefix): bool => str_starts_with($row['path'], $prefix))) { continue; }
+                $rows[] = ['path' => $row['path'], 'sha256' => $row['sha256'], 'mode' => $row['mode']];
+            }
+            usort($rows, static fn(array $a, array $b): int => strcmp($a['path'], $b['path']));
+            $rows = self::fileMap($rows);
+            if (self::directoryFiles($serverRoot, [], true) !== $rows) {
+                throw new RuntimeException('original generated APP lacks a complete matching old program inventory');
+            }
+            $identity = ['application' => $manifest['application'], 'files' => array_values($rows)];
+            $predecessor = ['protocol' => null, 'sha256' => null];
+        }
+        if (($identity['application']['edition'] ?? null) !== $facts['receipt']['deployment_mode']) {
+            throw new RuntimeException('original installed Edition differs from current APP');
+        }
+        return [$bytes, $identity, ['installed_receipt_sha256' => $facts['receipt_sha256'], 'baseline_sha256' => $facts['baseline_sha256'],
+            'generation' => 0, 'state_sha256' => $predecessor['sha256'], 'installed_source_kind' => $kind,
+            'predecessor' => $predecessor], $path];
     }
 
     private static function nativeRuntimeHealth(string $serverRoot): void
@@ -2389,9 +2658,20 @@ final class PeanutServerUpdatePlan
     private static function assertInstalledInstance(string $serverRoot, array $identity): void
     {
         $baseline = self::installedBaseline($serverRoot, $identity);
-        if (($baseline['source']['kind'] ?? null) !== 'server-release'
-            || preg_match('/^[a-f0-9]{64}$/D', (string) ($baseline['source']['server_release_identity_sha256'] ?? '')) !== 1) {
-            throw new RuntimeException('installed instance baseline identity is invalid');
+        if (($baseline['source']['kind'] ?? null) === 'server-release') {
+            if (preg_match('/^[a-f0-9]{64}$/D', (string) ($baseline['source']['server_release_identity_sha256'] ?? '')) !== 1) {
+                throw new RuntimeException('installed instance baseline identity is invalid');
+            }
+            return;
+        }
+        $facts = self::installationFacts($serverRoot);
+        $head = self::jsonFile(self::deploymentPath($serverRoot), 'normalized server deployment');
+        if (!in_array($facts['baseline']['source']['kind'], ['generated-application', 'development-runtime'], true)
+            || ($head['protocol'] ?? null) !== 'peanut.server-deployment.v1'
+            || ($head['original_source_kind'] ?? null) !== $facts['baseline']['source']['kind']
+            || !is_array($head['predecessor'] ?? null)
+            || preg_match('/^[a-f0-9]{64}$/D', (string) ($head['previous_program_files_sha256'] ?? '')) !== 1) {
+            throw new RuntimeException('current server program has no authenticated original-source successor');
         }
     }
 
@@ -2465,8 +2745,11 @@ final class PeanutServerUpdatePlan
                 && ($existing['generation'] ?? null) === $generation + 1) {
                 return;
             }
+            $oldProtocol = $plan['source']['predecessor']['protocol'] ?? 'peanut.server-deployment.v1';
             if (hash('sha256', $existingBytes) !== ($plan['source']['deployment_state_sha256'] ?? null)
-                || ($existing['current_identity_sha256'] ?? null) !== $sourceDigest) {
+                || ($existing['protocol'] ?? null) !== $oldProtocol
+                || ($oldProtocol === 'peanut.server-deployment.v1' && ($existing['current_identity_sha256'] ?? null) !== $sourceDigest)
+                || ($oldProtocol === self::APPLICATION_DEPLOYMENT && ($existing['current_runtime']['sha256'] ?? null) !== $sourceDigest)) {
                 throw new RuntimeException('deployment identity changed after planning');
             }
         } elseif (($plan['source']['deployment_state_sha256'] ?? null) !== null || $generation !== 0) {
@@ -2482,6 +2765,10 @@ final class PeanutServerUpdatePlan
             ],
             'installed_receipt_sha256' => $plan['source']['installed_receipt_sha256'],
             'baseline_sha256' => $plan['source']['baseline_sha256'],
+            'original_source_kind' => $plan['source']['installed_source_kind'] ?? 'server-release',
+            'predecessor' => $plan['source']['predecessor'] ?? ['protocol' => null, 'sha256' => null],
+            'previous_program_files_sha256' => $plan['source']['program_files_sha256'] ?? null,
+            'target_provenance' => $plan['target']['provenance'] ?? null,
             'generation' => $generation + 1,
             'previous_identity_sha256' => $sourceDigest,
             'current_identity_sha256' => $targetDigest,
@@ -2521,9 +2808,17 @@ final class PeanutServerUpdatePlan
     /** @param array<string,mixed> $plan */
     private static function assertPlanOperations(string $serverRoot, string $workspace, array $plan): void
     {
-        $sourceBytes = self::regularBytes($serverRoot . '/.peanut/release-identity.json', 'current server release identity');
+        [$sourceBytes, $source, $deployment, $sourceIdentityPath] = self::currentProgram($serverRoot);
+        if (hash('sha256', $sourceBytes) !== $plan['source']['identity_sha256']
+            || $deployment['installed_receipt_sha256'] !== $plan['source']['installed_receipt_sha256']
+            || $deployment['baseline_sha256'] !== $plan['source']['baseline_sha256']
+            || $deployment['state_sha256'] !== $plan['source']['deployment_state_sha256']
+            || $sourceIdentityPath !== ($plan['source']['identity_path'] ?? self::IDENTITY)
+            || (isset($plan['source']['predecessor']) && $deployment['predecessor'] !== $plan['source']['predecessor'])
+            || (isset($plan['source']['installed_source_kind']) && $deployment['installed_source_kind'] !== $plan['source']['installed_source_kind'])) {
+            throw new RuntimeException('original program/installation/predecessor changed after planning');
+        }
         $targetBytes = self::regularBytes(self::preparedPath($workspace, self::IDENTITY), 'prepared server release identity');
-        $source = self::identity(json_decode($sourceBytes, true, 512, JSON_THROW_ON_ERROR), false);
         $target = self::identity(json_decode($targetBytes, true, 512, JSON_THROW_ON_ERROR), true);
         foreach (['slug', 'edition', 'package_identity'] as $field) {
             if (($source['application'][$field] ?? null) !== ($target['application'][$field] ?? null)) {
@@ -2531,7 +2826,7 @@ final class PeanutServerUpdatePlan
             }
         }
         $sourceMap = self::fileMap($source['files']);
-        $sourceMap[self::IDENTITY] = ['sha256' => hash('sha256', $sourceBytes), 'mode' => 0644];
+        if (str_starts_with($sourceIdentityPath, 'server/')) { $sourceMap[$sourceIdentityPath] = ['sha256' => hash('sha256', $sourceBytes), 'mode' => 0644]; }
         $targetMap = self::fileMap($target['files']);
         $targetMap[self::IDENTITY] = [
             'sha256' => hash('sha256', $targetBytes),
@@ -3447,6 +3742,7 @@ final class PeanutServerUpdatePlan
     private static function usage(): never
     {
         fwrite(STDERR, "Usage: php update-plan.php plan --instance-server=/absolute/server --archive=/absolute/server.tar.gz --expected-sha256=<trusted-64-hex> --workspace=/absolute/update-workspace\n");
+        fwrite(STDERR, "       php update-plan.php plan --instance-server=/absolute/server --git-input=/absolute/fixed-git-source.json --expected-source-sha256=<trusted-64-hex> --workspace=/absolute/update-workspace\n");
         fwrite(STDERR, "       php update-plan.php files-apply|files-verify|files-recover|files-verify-recovery|hold|health|publish|open --instance-server=/absolute/server --workspace=/absolute/update-workspace\n");
         fwrite(STDERR, "       php update-plan.php configure-startup --instance-server=/absolute/server --configuration-input=/absolute/private/input.json\n");
         exit(64);

@@ -339,8 +339,12 @@ def instance(args):
     if sha(installed) != plan.get("source", {}).get("installed_receipt_sha256") or sha(baseline) != plan.get("source", {}).get("baseline_sha256"):
         raise ValueError("installed instance identity differs from update source")
     release = server / ".peanut/release-identity.json"
-    regular(release)
-    if sha(release) not in {plan.get("source", {}).get("identity_sha256"), plan.get("target", {}).get("identity_sha256")}:
+    old_path = plan.get('source', {}).get('identity_path', 'server/.peanut/release-identity.json')
+    if old_path not in {'server/.peanut/release-identity.json', 'server/.peanut/development-runtime.json', '.peanut/application-manifest.json'}:
+        raise ValueError('unrecognized original program identity path')
+    identity_file = release if release.exists() or release.is_symlink() else server.parent / old_path
+    regular(identity_file)
+    if sha(identity_file) not in {plan.get("source", {}).get("identity_sha256"), plan.get("target", {}).get("identity_sha256")}:
         raise ValueError("current release identity differs from update")
     return server, workspace, plan, journal, plan_sha, identity
 
@@ -394,7 +398,7 @@ def storage_archive(path):
     return path
 
 
-def source_database_binding(server, ordinary=False, source_app=False):
+def source_database_binding(server, ordinary=False, source_app=False, original_identity=None):
     """Source maintenance uses only this APP's declared container endpoint."""
     values = env(server / '.env')
     def value(key):
@@ -414,6 +418,10 @@ def source_database_binding(server, ordinary=False, source_app=False):
     registry = read_json(registry_path)
     if ordinary and not source_app:
         identity_path = server / '.peanut/release-identity.json'
+        if not identity_path.exists() and not identity_path.is_symlink():
+            if original_identity not in {'server/.peanut/development-runtime.json', '.peanut/application-manifest.json'}:
+                raise ValueError('ordinary source transition lacks its bound original program identity')
+            identity_path = server.parent / original_identity
         regular(identity_path, 0o644)
         manifest = json.loads(identity_path.read_text())
     else:
@@ -534,7 +542,9 @@ def snapshot_paths(server):
 def ordinary_database_provider(server, workspace):
     """Ordinary plan authority only; never accept a partial-installation proof."""
     product, _ = product_binding(workspace)
-    binding = source_database_binding(server, ordinary=True, source_app=SOURCE_REQUEST is not None)
+    original_identity = None if SOURCE_REQUEST is not None else read_json(workspace / 'plan.json').get('source', {}).get('identity_path')
+    binding = source_database_binding(server, ordinary=True, source_app=SOURCE_REQUEST is not None,
+                                     original_identity=original_identity)
     reference = product.get('backup_tool')
     if binding['source'] == 'bundled':
         if reference is not None: raise ValueError('bundled recovery forbids an external backup tool')

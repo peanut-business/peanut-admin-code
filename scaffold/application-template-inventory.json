@@ -1110,7 +1110,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cf855b65d7dfeb05d09f5431404fbc52817ec92a11f8b0c2826493e3323e01c2"
+            "source_sha256": "8672e800565f519b69cc9a07390fc298318a3ec714e3f3c7953aa110d959ed18"
         },
         {
             "path": "docs/public/installation.md",
@@ -4966,7 +4966,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "62e129cc7febc0f0b912d43508ff50eb3a633ee6a9fce0da0b27a68ab7b77ec0"
+            "source_sha256": "7ad198c421dda969f578b9c02a6bdf6f6e296e01d02dbb86eb5bce2db274deee"
         },
         {
             "path": "server/.env.example",
@@ -28427,7 +28427,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5b76fc0b2b3c7173aaf18934634ead010fe48c4e9958942b96a04d32f75ebb03"
+            "source_sha256": "17313d10457145ced141eb7379a03e01e0464f725c416688afd6e23a99805cc4"
         },
         {
             "path": "server/docker/scripts/update-preparation.py",
@@ -28455,7 +28455,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e665dc521426188294e33cc4306435cf4e098a6f92164e10b68a9c56f14a4059"
+            "source_sha256": "9a7a970cb3f27a729cdf7e9c18c5e785f9aae3bc5e895ae3e1027bfa7f8b1bea"
         },
         {
             "path": "server/docker/scripts/update.sh",
@@ -28469,7 +28469,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0bbcdcb0d3f1ae51315af17924501b76d2a9c716c4700b28eb768009496d6ba7"
+            "source_sha256": "18c4b9e39d7209467f5b1d2f9729f3523ae7314461c709a915c50901906f7302"
         },
         {
             "path": "server/docker/scripts/vendor-state.py",

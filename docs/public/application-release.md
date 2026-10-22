@@ -83,7 +83,11 @@ python3 scripts/prepare-fixed-git-release \
 
 缺失/改变的身份或不完整输出拒绝；旧checkout/output不覆盖。失败的新checkout和私有staging保留给实际owner诊断；若最终发布遇到文件系统错误，没有完整描述符的目录不算已接受，不能作为更新输入或自动清空后重试。成功仅清理自己的构建暂存，精确checkout保留。此入口不生成tgz，不把Git来源伪装成归档，不改写任何安装baseline或完成身份。
 
-**固定Git来源的原生更新接纳仍未接通。** 现有`update.sh`仅消费包；后续须在同一原生coordinator接纳typed描述符、核对真实原安装身份和当前deployment head，并沿用同一保护/恢复链。生产继续使用已获准的包更新；生产者完成不等于安装、升级、恢复、生产或EX8接受。不得把普通`git pull`、忽略文件规则、`git reset --hard`或版本标签当作完整恢复机制。
+原生`update.sh plan`还接受互斥的`--git-input=/absolute/fixed-git-source.json --expected-source-sha256=TRUSTED_DESCRIPTOR_SHA256`；其余workspace、已安装解释器及apply/verify/recover入口与包更新相同。描述符目录须与实例程序及可变workspace互不嵌套。不能混用归档参数，也不将目录转成临时tgz。已安装可信工具在任何计划发布前核对描述符、完整普通程序文件/mode、原APP/Git/build绑定、四端静态及plugin投影；后续阶段重新核对原描述符/目录及prepared内容，因此这些固定输入须保留至操作收口。采用目标时不执行目标中的取源或构建脚本。
+
+两种目标共用同一操作清单、配置/数据保护、依赖准备、迁移、停写、配对备份、健康和流量Gate。安装receipt/baseline原字节与原source kind保持不变。原server-release沿用真实deployment链；原generated-application仅在原manifest摘要和完整旧server文件证明相符、且没有未知head时接纳，已有development-runtime必须通过原生runtime/dependency校验及authenticated application deployment链，并核全旧程序。缺少完整证明、有未知/漂移head或product-source缺少独立APP映射时精确拒绝，不猜实际实例的安装种类、不把development-only维护接口扩成生产权限。
+
+首个server部署successor在唯一`private/installation/deployment.json`记录原source kind、前任协议/摘要/原source与runtime计数、旧程序清单摘要及typed目标provenance；原application计数作为前任事实保留，server部署从自己的首个generation开始。后续server更新继续原安装anchors。激活前按同一journal及配对恢复还原旧程序/身份/head；激活后仍须前向修复，不自动回灌数据库。源码直接检查不证明真实权限、APP构建、安装、升级、恢复或生产资格；普通`git pull`、忽略文件规则、`git reset --hard`和tag均不是完整恢复机制。
 
 ## 6. 验证口径
 
