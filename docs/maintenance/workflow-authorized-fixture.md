@@ -30,9 +30,20 @@ and the exact admitted `runtime_commit`. The runtime checkout must have normally
 adopted the reviewed source and its affected canonical manifests. Do not execute
 from a source-only candidate with stale inventory.
 
+The executing process must already have its real native `CODEX_THREAD_ID`.
+`owner` and `thread` in the admitted input, protection handoff, native lease and
+unique task allocation must equal that actual UUID. An absent/mismatched native
+caller stops before allocation consumption and is checked again before every
+request. Do not set/replace this environment value from JSON, copy another
+thread's handoff, borrow Root/B identity or manufacture a Session. Invocation
+still requires the same worker's normally admitted native Session/process and
+permissions; the environment check does not issue a grant or verify a declared
+Session label as if it were the actual caller.
+
 Every HTTP request first verifies the native `project-resource-lease show --lease
 ... --verify-locks`, owner/thread/source/worktree/gate/expiration, registry and
-exact declared resources. Inserts require complete whole-table scope for native
+reviewed declared resources as a subset of the actual native grant (extra lease
+resources grant no extra driver actions). Inserts require complete whole-table scope for native
 unique checks and side effects; a namespace is not row isolation. The script
 checks a minimum Identity mutation closure, including session/audit/revocation
 tables. The runtime owner and independent reviewer must additionally cover all
@@ -82,6 +93,12 @@ The input has these fields:
   Aliases/roles/departments refer only to this plan. Actor aliases are globally
   unique across tenants. IDs are read back from real HTTP responses, followed by
   each new actor's login/context/nonRoot check; members 1–4 are never reused.
+  The existing `admin/lists` readback must return exactly the intended real
+  department ID in `dept_id`. Each actor's `primary_department_id` and its API
+  source are persisted in `READBACK_BOUND` and the terminal result;
+  `assignment_inputs.primary_department_by_member` contains the verified relation.
+  This does not constrain the independently bound department leader to have that
+  department as primary.
 
 `authority` is a normalized immutable handoff from the actual protection/runtime
 owner plus the genuine independent reviewer, not a new grant issuer. Its fields
@@ -97,7 +114,8 @@ a backup PASS or create the approval files. Expired/missing protection is a STOP
 `scope_sha256` hashes UTF-8, sorted-key, compact JSON of exactly the input fields
 `runtime_root,runtime_commit,driver_sha256,http_driver_sha256,namespace,owner,thread,
 lease,gate,registry,resources,tenants,credentials`. `allocation` is the original
-task's unique allocation record with `parent_task`, `allocation_id`, `ledger`,
+task's unique allocation record with `parent_task`, `allocation_id`, actual
+`owner`, `thread`, `ledger`,
 `scope_sha256`, `http_limit`, `write_limit`. It must equal `allocation_path`, in
 the ledger's existing mode-0700 private parent. A hash alone is not independent
 review or authority: the normal runtime owner must obtain the actual approvals.
@@ -115,8 +133,16 @@ The allocation is consumed once with an exclusive, fsynced
 exclusively; changing the output path or namespace cannot replay the same pinned
 allocation. Do not remove the marker to resume. For each request an append-only,
 fsynced `INTENT` records allocation/input binding, client `request_id`, exact
-host/method/path, deterministic idempotency key and request SHA before opening a
-socket. A response records its hash/server request ID. Returned role/member/dept
+host/method/path, deterministic idempotency key, request SHA and only whitelisted
+actual numeric target IDs/CAS revision selectors before opening a socket. It
+never stores passwords, tokens or arbitrary body content. The existing transport
+retains every actual `X-Request-Id` response header, resetting that observation
+before each request. At least one actual header or `meta.request_id` carrier must
+exist, and **every present carrier must exactly equal the original intent ID**.
+Only then is a correlated `RESPONSE` accepted and its native carriers recorded.
+Missing/mismatched carriers are UNKNOWN and stop further actions. A success
+envelope without a native correlation carrier is an explicit producer gap, not
+permission to synthesize an ID from the outgoing request. Returned role/member/dept
 identities are separately persisted as `READBACK_BOUND` records. Errors stop with
 `UNKNOWN_STOP`/`STOP_NO_REPLAY`; nothing automatically compensates or retries.
 
@@ -135,7 +161,10 @@ python3 /absolute/fixed/runtime/scripts/workflow-authorized-fixture.py reconcile
   --input /absolute/private/runtime-input.json --input-sha256 <same-sha256>
 ```
 
-It lists unresolved original intents and the last durable state. The original
+It lists unresolved original intents and the last durable state. Only responses
+with an explicitly verified correlation whose stored carriers still match the
+original intent resolve it. Legacy responses with null/missing/unverified IDs
+remain unresolved; a response hash or success status does not resolve them. The original
 runtime owner must reconcile actual side effects through separately admitted
 normal read APIs/native evidence before any new action. Failed requests may have
 created sessions/rows; the script neither logs out all sessions nor rewrites

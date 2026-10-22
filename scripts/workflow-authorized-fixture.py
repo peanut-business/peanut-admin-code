@@ -69,6 +69,67 @@ def positive(value):
     return value
 
 
+def native_caller(c):
+    # CODEX_THREAD_ID is the existing native execution convention, not a
+    # caller-provided JSON actor. Never set/replace it from the handoff.
+    actual = os.environ.get('CODEX_THREAD_ID', '')
+    need(re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}', actual) is not None, 'ACTUAL_NATIVE_THREAD_REQUIRED')
+    need(c.get('thread') == actual and c.get('owner') == actual, 'ACTUAL_NATIVE_OWNER_THREAD_MISMATCH')
+    return actual
+
+
+def verified_correlation(expected, carriers):
+    need(isinstance(expected, str) and re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._:-]{0,63}', expected), 'REQUEST_IDENTITY_INVALID')
+    need(isinstance(carriers, dict) and set(carriers) <= {'headers', 'meta'}, 'RESPONSE_CORRELATION_INVALID')
+    headers = carriers.get('headers', [])
+    need(isinstance(headers, (list, tuple)), 'RESPONSE_CORRELATION_INVALID')
+    values = list(headers)
+    if 'meta' in carriers:
+        values.append(carriers['meta'])
+    need(values and all(isinstance(value, str) and value == expected for value in values), 'RESPONSE_REQUEST_ID_MISSING_OR_MISMATCH')
+    return carriers
+
+
+def safe_selectors(body):
+    if body is None:
+        return {}
+    selected = {}
+    for key in ['id', 'role_id', 'dept_id', 'leader_member_id', 'pid', 'revision', 'expected_revision']:
+        if key not in body:
+            continue
+        value = body[key]
+        values = value if isinstance(value, list) else [value]
+        need(len(values) <= 100 and all(item is None or
+             ((type(item) is int or isinstance(item, str)) and re.fullmatch(r'(0|[1-9][0-9]{0,17})', str(item)))
+             for item in values), 'SAFE_TARGET_SELECTOR_INVALID')
+        selected[key] = value
+    return selected
+
+
+def unresolved_intents(rows):
+    intents = {row['sequence']: row for row in rows if row['state'] == 'INTENT'}
+    resolved = set()
+    for row in rows:
+        if row['state'] != 'RESPONSE' or row.get('correlation_verified') is not True:
+            continue
+        intent = intents.get(row['sequence'])
+        if intent is None or row.get('request_id') != intent['request_id']:
+            continue
+        try:
+            verified_correlation(intent['request_id'], row.get('correlation'))
+        except Stop:
+            continue
+        resolved.add(row['sequence'])
+    return [row for sequence, row in intents.items() if sequence not in resolved]
+
+
+def verified_primary_department(row, expected):
+    actual = row.get('dept_id')
+    need(isinstance(actual, list) and len(actual) == 1 and type(actual[0]) is int
+         and actual[0] == positive(expected), 'PRIMARY_DEPARTMENT_READBACK_MISMATCH')
+    return actual[0]
+
+
 def load_input(path, expected_hash):
     p = private(path)
     raw = p.read_bytes()
@@ -76,6 +137,7 @@ def load_input(path, expected_hash):
     c = json.loads(raw)
     need(c.get('execute') is True, 'EXECUTION_NOT_ADMITTED')
     need(c.get('schema') == 'workflow-authorized-fixture/v1', 'INPUT_SCHEMA_INVALID')
+    native_caller(c)
     need(re.fullmatch(r'[a-z][a-z0-9-]{7,47}', c['namespace']) is not None, 'NAMESPACE_INVALID')
     need(c['runtime_root'] == str(ROOT), 'FIXED_RUNTIME_ROOT_REQUIRED')
     need(digest(Path(__file__).read_bytes()) == c['driver_sha256'], 'DRIVER_CHANGED')
@@ -149,6 +211,7 @@ def load_input(path, expected_hash):
          and allocation['allocation_id'] == authority['allocation_id']
          and allocation['parent_task'] == 'EX00003' and allocation['ledger'] == str(ledger)
          and allocation['scope_sha256'] == authority['scope_sha256']
+         and allocation.get('owner') == c['owner'] and allocation.get('thread') == c['thread']
          and allocation['http_limit'] == authority['http_limit']
          and allocation['write_limit'] == authority['write_limit'], 'UNIQUE_TASK_BUDGET_REQUIRED')
     c['_input_sha256'] = expected_hash
@@ -177,9 +240,10 @@ class Fixture:
         # task budget, not in a caller-selected output directory. Never remove it.
         claim = Path(authority['allocation_path'] + '.consumed')
         self.write_new(claim, {'allocation_id': authority['allocation_id'], 'scope_sha256': authority['scope_sha256'],
-                               'ledger': authority['ledger'], 'state': 'STARTED_NO_REPLAY'})
+                               'ledger': authority['ledger'], 'native_thread': native_caller(c), 'state': 'STARTED_NO_REPLAY'})
         self.fd = os.open(authority['ledger'], os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
         self.record({'state': 'STARTED', 'allocation_id': authority['allocation_id'], 'scope_sha256': authority['scope_sha256'],
+                     'native_thread': native_caller(c),
                      'input_sha256': c['_input_sha256'], 'authority_sha256': c['authority']['sha256']})
         spec = importlib.util.spec_from_file_location('workflow_fixture_http', ROOT / 'scripts/tests/installed-business-http.py')
         http = importlib.util.module_from_spec(spec)
@@ -208,6 +272,7 @@ class Fixture:
 
     def guard(self):
         c = self.c
+        native_caller(c)
         need(time.time() + 30 < self.authority['expires_at'], 'PROTECTION_OR_BUDGET_EXPIRED')
         need(subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip() == c['runtime_commit']
              and not subprocess.check_output(['git', 'status', '--porcelain=v1'], cwd=ROOT), 'RUNTIME_SOURCE_CHANGED')
@@ -258,18 +323,24 @@ class Fixture:
                   'input_sha256': self.c['_input_sha256'], 'scope_sha256': self.authority['scope_sha256'],
                   'target': {'method': method, 'host': session.host, 'port': 20180, 'path': path},
                   'idempotency_key': key, 'request_sha256': digest(canonical([method, path, body])),
+                  'target_selectors': safe_selectors(body),
                   'http_reserved': self.http, 'writes_reserved': self.writes, 'at': time.time()}
         self.record(intent)  # fsync BEFORE Session can open a socket.
         try:
             result = session.request(method, path, body, label=label,
                                      statuses=(200, 204) if path.endswith('/session/logout') else (200,),
                                      headers={'Idempotency-Key': key, 'X-Request-Id': rid})
-        except Exception:
+            carriers = {'headers': list(session.response_request_ids)}
+            if isinstance(result.get('meta'), dict) and 'request_id' in result['meta']:
+                carriers['meta'] = result['meta']['request_id']
+            verified_correlation(rid, carriers)
+        except Exception as error:
             self.record({'state': 'UNKNOWN_STOP', 'sequence': self.sequence, 'request_id': rid,
+                         'reason': str(error) if isinstance(error, Stop) else type(error).__name__,
                          'instruction': 'Reconcile the original request; never replay this allocation.'})
             raise Stop('REQUEST_UNKNOWN_STOP_NO_REPLAY') from None
         self.record({'state': 'RESPONSE', 'sequence': self.sequence, 'request_id': rid,
-                     'response_request_id': result.get('meta', {}).get('request_id'),
+                     'correlation_verified': True, 'correlation': carriers,
                      'response_sha256': digest(canonical(result)), 'at': time.time()})
         return result.get('data')
 
@@ -370,7 +441,11 @@ class Fixture:
             found = [row for row in after if row['account'] == secret['email']]
             need(len(found) == 1 and found[0]['id'] not in [1, 2, 3, 4] and found[0]['root'] == 0
                  and set(found[0]['role_id']) == set(selected_roles), 'NEW_NONROOT_MEMBER_READBACK_REQUIRED')
+            expected_department = int(departments[person['department']]['id'])
+            primary_department_id = verified_primary_department(found[0], expected_department)
             _, identity = self.login(tenant, person['credentials'], int(found[0]['id']))
+            identity['primary_department_id'] = primary_department_id
+            identity['primary_department_source'] = '/adminapi/admin/lists.dept_id'
             people[person['alias']] = identity
             self.record({'state': 'READBACK_BOUND', 'kind': 'member', 'alias': person['alias'], **identity})
         for department in tenant['departments']:
@@ -392,6 +467,7 @@ class Fixture:
                                  'role_members': {alias: row['key'] for alias, row in roles.items()},
                                  'department_members': {alias: row['code'] for alias, row in departments.items()},
                                  'department_leaders': {alias: row['code'] for alias, row in departments.items() if row.get('leader_member_id') is not None},
+                                 'primary_department_by_member': {str(row['member_id']): row['primary_department_id'] for row in people.values()},
                              }})
 
     def run(self):
@@ -429,8 +505,7 @@ def main():
         authority = pinned(c['authority'])
         ledger = private(authority['ledger'])
         rows = [json.loads(line) for line in ledger.read_text().splitlines()]
-        responses = {row['sequence'] for row in rows if row['state'] == 'RESPONSE'}
-        pending = [row for row in rows if row['state'] == 'INTENT' and row['sequence'] not in responses]
+        pending = unresolved_intents(rows)
         print(json.dumps({'action': 'READ_ONLY_LOCAL_RECONCILIATION', 'unresolved': pending,
                           'last_state': rows[-1]['state'], 'automatic_replay_allowed': False}))
         return
