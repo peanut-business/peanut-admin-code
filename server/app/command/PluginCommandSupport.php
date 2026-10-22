@@ -33,8 +33,8 @@ trait PluginCommandSupport
 
     private function configureSourceDevelopmentOptions(): void
     {
-        foreach (['scope', 'owner', 'thread', 'session', 'gate', 'backup-tool', 'backup-output', 'metadata-tool', 'source-plan', 'maintenance', 'recovery', 'verify-receipt', 'snapshot-operation', 'restore-operation', 'notification-predecessor'] as $name) {
-            $this->addOption($name, null, \think\console\input\Option::VALUE_REQUIRED, 'Native source-development plan ' . $name, '');
+        foreach (['scope', 'owner', 'thread', 'session', 'gate', 'backup-tool', 'backup-output', 'metadata-tool', 'source-plan', 'maintenance', 'recovery', 'verify-receipt', 'snapshot-operation', 'restore-operation', 'notification-predecessor', 'application-recovery'] as $name) {
+            $this->addOption($name, null, \think\console\input\Option::VALUE_REQUIRED, 'Native source maintenance ' . $name, '');
         }
     }
 
@@ -42,12 +42,26 @@ trait PluginCommandSupport
     {
         return $this->writePluginResult($output, function () use ($input, $operation, $key): array {
             $this->assertDevelopmentInstanceMaintenanceAccess();
-            if ($input->getOption('scope') !== 'source-development') {
-                throw new PluginLifecycleException('PLUGIN_SOURCE_SCOPE_REQUIRED', 'Explicit source-development scope is required.');
+            if (!in_array($input->getOption('scope'), ['source-development', 'source-application'], true)) {
+                throw new PluginLifecycleException('PLUGIN_SOURCE_SCOPE_REQUIRED', 'Explicit source-development or source-application scope is required.');
             }
             $dryRun = (bool) $input->getOption('dry-run');
-            $actor = [];
+            $actor = ['scope' => $input->getOption('scope')];
             foreach (['owner', 'thread', 'session', 'gate'] as $name) { $actor[$name] = $input->getOption($name); }
+            if ($input->getOption('application-recovery') !== '') {
+                $mode = (string) $input->getOption('application-recovery');
+                if ($actor['scope'] !== 'source-application' || !in_array($mode, ['verify', 'rehearse', 'restore'], true)
+                    || $dryRun !== ($mode === 'verify')) { throw new PluginLifecycleException('PLUGIN_SOURCE_ARGUMENTS_INVALID', 'Whole APP recovery requires its explicit native operation.'); }
+                foreach (['backup-tool', 'backup-output', 'metadata-tool', 'maintenance', 'verify-receipt', 'snapshot-operation', 'restore-operation', 'notification-predecessor'] as $name) {
+                    if ($input->getOption($name) !== '') { throw new PluginLifecycleException('PLUGIN_SOURCE_ARGUMENTS_INVALID', 'Recovery uses its original fixed native provider.'); }
+                }
+                return \app\common\services\upgrade\SourceApplicationBackup::sourceApplicationRecovery(
+                    rtrim($this->getApp()->getRootPath(), DIRECTORY_SEPARATOR), $actor, $mode,
+                    (string) $input->getOption('source-plan'), (string) $input->getOption('recovery'));
+            }
+            if ($actor['scope'] === 'source-application' && ($input->getOption('snapshot-operation') !== '' || $input->getOption('restore-operation') !== '')) {
+                throw new PluginLifecycleException('PLUGIN_SOURCE_ARGUMENTS_INVALID', 'Generated source APP recovery uses its whole native provider.');
+            }
             $snapshot = (string) $input->getOption('snapshot-operation');
             $restore = (string) $input->getOption('restore-operation');
             if ($input->getOption('notification-predecessor') !== '' && ($snapshot !== '' || $restore !== '' || $input->getOption('verify-receipt') !== '')) {
@@ -122,7 +136,7 @@ trait PluginCommandSupport
 
     private function hasSourceDevelopmentOptions(\think\console\Input $input): bool
     {
-        foreach (['scope', 'owner', 'thread', 'session', 'gate', 'backup-tool', 'backup-output', 'metadata-tool', 'source-plan', 'maintenance', 'recovery', 'verify-receipt', 'snapshot-operation', 'restore-operation', 'notification-predecessor'] as $name) {
+        foreach (['scope', 'owner', 'thread', 'session', 'gate', 'backup-tool', 'backup-output', 'metadata-tool', 'source-plan', 'maintenance', 'recovery', 'verify-receipt', 'snapshot-operation', 'restore-operation', 'notification-predecessor', 'application-recovery'] as $name) {
             if ($input->getOption($name) !== '') { return true; }
         }
         return false;

@@ -906,7 +906,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7f76638ba29753319253644889e34ea1e658a561ec42c3c35fbefe8b8daaf14f"
+            "source_sha256": "12696d8246fb4e2fdc42f0f4a3c366ed96c5d9e4438bb8b88f7433ee99c82162"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -3795,6 +3795,20 @@
             "source_sha256": "07416a3475e612ef9639cd3f8b7f4974a3dcfc60d6f59f82b7572f2ec5324972"
         },
         {
+            "path": "scripts/project-resource-application.py",
+            "target": "scripts/project-resource-application.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "00c5da222932e2564add1212da43707b79703071e4398fa276e34b814afc6b48"
+        },
+        {
             "path": "scripts/project-resource-lease",
             "target": "scripts/project-resource-lease",
             "classification": "managed",
@@ -3806,7 +3820,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6ff29d3383112cc5c865c24870efabedc826cb513057018c96081fb23d116003"
+            "source_sha256": "6e966db369ef08a574c211ed8936617accb793e98352a6c6282cfd396057c646"
         },
         {
             "path": "scripts/project-resource-mysql-metadata",
@@ -6520,7 +6534,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "67a9e99f16d00017cb687749de27750b7a9d5b3c306aac95256d79f944fbbed4"
+            "source_sha256": "5173ffebf3f9200dee599a62cd4212a3abd56e4d2fb1292c7f2e14a2ece04401"
         },
         {
             "path": "server/app/command/BundlePack.php",
@@ -6856,7 +6870,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9218465c913bfc6b1d096d427e75e5b30bcf0a851eb3a2da52a43f943a0a66a3"
+            "source_sha256": "594fc1566ebf4aa276bdc65d461dd747b43b674a30cb623cbc787ddc9a2a102f"
         },
         {
             "path": "server/app/command/PluginInstall.php",
@@ -9256,7 +9270,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9c96774a139d790b653caf7a86ba271868013d899d7cecd7d32b4c92d8a19232"
+            "source_sha256": "c219fb9d3cbe3e48842814c150d6b1a72013899f6f7b220ebca1c5daa7bedc1e"
         },
         {
             "path": "server/app/common/services/upgrade/MySqlMetadataObservation.php",
@@ -9284,7 +9298,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "894e0010e0bd66bee98a4c872beac0275b55c62b029bb62e125eb71fdea6086a"
+            "source_sha256": "fd0f7cd25d2d3209c4892b092f1d5fa29c3eea5f708f1b52a5cf90664f79dab6"
         },
         {
             "path": "server/app/common/services/upgrade/SourceApplicationBackup.php",
@@ -9298,7 +9312,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2ae22c049fd1f3b111d4201300ca8c09bbaefc7e26623df6141673036e949017"
+            "source_sha256": "8d17e93e72b0466f7d3278d3e22f80ffe853277931ee1787686b211ec60f34f0"
         },
         {
             "path": "server/app/common/services/upgrade/SourceApplicationDump.php",
@@ -9326,7 +9340,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "963ccf704745f574adce4bb3b3e661f1d0d4d2beef6671d7c24fea234afbda72"
+            "source_sha256": "d8cebf0e678ac8e507d85c06268f28b681917e45a72f9fc0f0f3b0d29336fd6f"
         },
         {
             "path": "server/app/common/services/upgrade/SourceSharedCredentialRecovery.php",
@@ -26244,7 +26258,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "aa0dc71354a31462143e0ff34cf48ddc1fab4a46097da084ba5986155bfa924f"
+            "source_sha256": "17476c49bee90cb251b8f7101e199fd3a710298e513372a5d1eb504b6a813a1c"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",
@@ -27154,7 +27168,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "373172e3c7102d4fd6e78d20f15e8bd1b16cc748e87ea6753a69d955292f1e7d"
+            "source_sha256": "81114be43339bc30cc2c2ee29314ba2b0de79ee713e6760baac2fcf34e7986f9"
         },
         {
             "path": "server/database/init.sql",
@@ -28413,7 +28427,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ca93376b16854b204dd866b49084c8e42927e8809c5409251e4b15aff4edb358"
+            "source_sha256": "5b76fc0b2b3c7173aaf18934634ead010fe48c4e9958942b96a04d32f75ebb03"
         },
         {
             "path": "server/docker/scripts/update-preparation.py",
@@ -28441,7 +28455,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7eaaf9c1726ce42bea2bcfa0104be1966b34fde8b635e7d42db76d9f9b2eea38"
+            "source_sha256": "e665dc521426188294e33cc4306435cf4e098a6f92164e10b68a9c56f14a4059"
         },
         {
             "path": "server/docker/scripts/update.sh",

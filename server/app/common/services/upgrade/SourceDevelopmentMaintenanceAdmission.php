@@ -35,12 +35,27 @@ final readonly class SourceDevelopmentMaintenanceAdmission
             }
         }
         $root = dirname($this->serverRoot);
-        foreach ([$root . '/.peanut/application-manifest.json', $root . '/.peanut/release-identity.json',
-            $root . '/.peanut/development-runtime.json', $this->serverRoot . '/.peanut/release-identity.json',
-            $this->serverRoot . '/.peanut/development-runtime.json'] as $marker) {
-            if (file_exists($marker) || is_link($marker)) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_CONTEXT_REQUIRED'); }
+        $application = null;
+        $scope = $actor['scope'] ?? 'source-development';
+        if (!in_array($scope, ['source-development', 'source-application'], true)
+            || ($fixtureInputs && $scope !== 'source-development')) {
+            throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_CONTEXT_REQUIRED');
         }
-        if (!\installationSourceDevelopmentMode($this->serverRoot)) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_CONTEXT_REQUIRED'); }
+        if ($scope === 'source-application') {
+            // Reuse the normal installed-source identity and native writer observation.
+            // An uninstalled APP or a server/DevelopmentRuntime never enters this branch.
+            require_once $this->serverRoot . '/docker/scripts/update-plan.php';
+            $application = \PeanutServerUpdatePlan::applicationSourceContext($this->serverRoot);
+            \PeanutServerUpdatePlan::assertApplicationSourceStopped($this->serverRoot);            \PeanutServerUpdatePlan::assertSourceApplicationMaintenanceIfHeld($this->serverRoot);
+
+        } else {
+            foreach ([$root . '/.peanut/application-manifest.json', $root . '/.peanut/release-identity.json',
+                $root . '/.peanut/development-runtime.json', $this->serverRoot . '/.peanut/release-identity.json',
+                $this->serverRoot . '/.peanut/development-runtime.json'] as $marker) {
+                if (file_exists($marker) || is_link($marker)) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_CONTEXT_REQUIRED'); }
+            }
+            if (!\installationSourceDevelopmentMode($this->serverRoot)) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_CONTEXT_REQUIRED'); }
+        }
         $owner = fileowner($root);
         if (!is_int($owner) || !function_exists('posix_geteuid') || !in_array(posix_geteuid(), [0, $owner], true)) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_OWNER_REQUIRED'); }
         $head = \leaseGit(['-C', $root, 'rev-parse', 'HEAD^{commit}']);
@@ -60,6 +75,9 @@ final readonly class SourceDevelopmentMaintenanceAdmission
             }
         }
         $registry = \projectResourceRegistry($registrySha);
+        if ($application !== null && ($registry['authority']['role'] ?? null) !== 'application') {
+            throw new RuntimeException('APPLICATION_SCHEMA_APP_REGISTRY_REQUIRED');
+        }
         $config = \guardedDatabaseConfig();
         $deployment = \deploymentTargetContract($config['deployment_target']);
         if ($config['environment'] !== 'development' || str_contains($config['deployment_target'], 'production')
@@ -75,7 +93,7 @@ final readonly class SourceDevelopmentMaintenanceAdmission
         if ($meta['owner'] !== $actor['owner'] || $meta['thread'] !== $actor['thread'] || $meta['candidate'] !== $head
             || $meta['gate'] !== ($database['lease_gate'] ?? null)
             || !in_array($actor['session'], $resources['workflow-session'] ?? [], true)) { throw new RuntimeException('APPLICATION_SCHEMA_NATIVE_ACTOR_MISMATCH'); }
-        \assertNativeMysqlSchemaLease($root, $path, $meta, $resources, $config['resource_id'], $schema, $config['endpoint_id'], $registrySha);
+        $nativeProof = \assertNativeMysqlSchemaLease($root, $path, $meta, $resources, $config['resource_id'], $schema, $config['endpoint_id'], $registrySha);
         // Preserve the registered legacy-exclusive contract; shared DB1 uses its native access declaration.
         $legacyExclusive = !isset($database['lease_policy']['shared_access']) && !isset($resources['mysql-access']);
         $access = $legacyExclusive; $nativeOperation = $legacyExclusive ? 'exclusive' : null;
@@ -107,13 +125,15 @@ final readonly class SourceDevelopmentMaintenanceAdmission
             $originals[$name] = file_exists($file) || is_link($file) ? $this->fileDigest($file) : null;
         }
         return ['source' => ['root' => $root, 'head' => $head, 'tree' => \leaseGit(['-C', $root, 'rev-parse', 'HEAD^{tree}']),
-                'files_sha256' => $sourceDigest, 'php_binary_sha256' => $this->fileDigest(PHP_BINARY)],
+                'files_sha256' => $sourceDigest, 'php_binary_sha256' => $this->fileDigest(PHP_BINARY)]
+                + ($application === null ? [] : ['kind' => 'generated-application', 'application_source' => $application]),
             'environment_sha256' => $this->fileDigest(\peanutBackendEnvironmentPath()),
             'installation_originals' => $originals, 'registry_sha256' => $registrySha,
             'resource_id' => $config['resource_id'], 'endpoint_id' => $config['endpoint_id'],
             'validation_only' => $database['lease_gate'] === 'migration-validation',
             'authority' => ['lease' => $meta['lease'], 'owner' => $meta['owner'], 'thread' => $meta['thread'], 'gate' => $meta['gate'],
-                'session' => $actor['session'], 'created_at' => $meta['created_at'], 'expires_at' => $meta['expires_at'],
+                'session' => $actor['session'], 'created_at' => $meta['created_at'],
+                'expires_at' => $nativeProof['binding_expires_at'] ?? $meta['expires_at'],
                 'operation' => $nativeOperation, 'resources_sha256' => hash_file('sha256', $path . '/resources.tsv')]];
     }
 

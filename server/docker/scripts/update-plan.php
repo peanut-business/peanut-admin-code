@@ -11,7 +11,8 @@ final class PeanutServerUpdatePlan
     private const MAINTENANCE_PROTOCOL = 'peanut.server-update-maintenance.v1';
     private const RUNTIME_DIR = 'runtime/upgrade';
     public const APPLICATION_DEPLOYMENT = 'peanut.application-deployment.v1';
-    private static array $instanceLocks = [];
+    private static array $instanceLocks = [];    private static array $sourceApplicationWindows = [];
+
     private static ?array $databaseStage = null;
     private static ?array $applicationPlanning = null;
 
@@ -880,7 +881,7 @@ final class PeanutServerUpdatePlan
     }
 
     /** Observe only. This cannot stop/start a service, drain saves, or issue DB admission. */
-    public static function assertApplicationSourceStopped(string $root): void
+    public static function assertApplicationSourceStopped(string $root): array
     {
         self::sourceOwner($root);
         $adapter = dirname(__DIR__, 3) . '/scripts/product-upgrade-host';
@@ -896,6 +897,7 @@ final class PeanutServerUpdatePlan
             || ($observed['instance_root'] ?? null) !== dirname($root)) {
             throw new RuntimeException('SOURCE_ONLY_SERVICE_OBSERVATION_REJECTED:' . hash('sha256', $diagnostic));
         }
+        return $observed;
     }
 
     private static function assertApplicationSourceLock(string $root): void
@@ -982,6 +984,139 @@ final class PeanutServerUpdatePlan
         }
         $state['head_sha256'] = hash('sha256', $bytes);
         return $state;
+    }
+
+
+    /** Host-only generated APP maintenance reuses this instance lock/write gate/key. */
+    public static function withSourceApplicationMaintenance(string $root, array $source, callable $operation): mixed
+    {
+        self::sourceOwner($root);
+        if (self::applicationSourceContext($root) !== ($source['application_source'] ?? null)) {
+            throw new RuntimeException('SOURCE_APPLICATION_MAINTENANCE_SOURCE_CHANGED');
+        }
+        if (isset(self::$sourceApplicationWindows[$root])) {
+            self::assertHeldDatabaseLock($root);
+            self::assertApplicationSourceStopped($root);
+            return $operation();
+        }
+        return self::withInstanceLock($root, static function () use ($root, $source, $operation): mixed {
+            $nativeWindow = null;
+            $proof = getenv('PEANUT_RESOURCE_LEASE_PROOF');
+            if (is_string($proof) && is_file($proof . '/metadata.tsv')) {
+                $registry = \projectResourceRegistry($unused);
+                $config = \guardedDatabaseConfig(); $database = \registeredDatabase($registry, $config['resource_id']);
+                if (!isset($database['lease_policy']['native_authority'])) {
+                    $meta = \activeLeaseMetadata($proof, time(), $database['lease_gate']);
+                    $nativeWindow = [$meta['lease'], $meta['owner']];
+                    self::sourceApplicationOwnLeaseWindow($root, $nativeWindow, false);
+                }
+            }
+            $observation = self::assertApplicationSourceStopped($root);
+            self::verificationKey($root, true);
+            $candidate = hash('sha256', self::databaseCanonical($source));
+            self::writeMaintenance($root, ['update_id' => $candidate], 'source-application-maintenance');
+            $path = $root . '/runtime/upgrade/source-observation-' . bin2hex(random_bytes(16)) . '.json';
+            $record = ['protocol' => 'peanut.source-application-writer-observation.v1', 'source' => $source,
+                'candidate' => $candidate, 'observed_at' => time(), 'observation' => $observation];
+            self::sourceApplicationRecoveryRecord($root, $path, $record);
+            $previous = self::$sourceApplicationWindows[$root] ?? null;
+            self::$sourceApplicationWindows[$root] = $record + ['reference' => ['path' => $path, 'sha256' => hash_file('sha256', $path)]];
+            // Never clear on success/failure: opening writers is a separate, verified action.
+            try {
+                $result = $operation();
+                if ($nativeWindow !== null) { self::sourceApplicationOwnLeaseWindow($root, $nativeWindow, true); }
+                return $result;
+            }
+            finally {
+                if ($previous === null) { unset(self::$sourceApplicationWindows[$root]); }
+                else { self::$sourceApplicationWindows[$root] = $previous; }
+            }
+        });
+    }
+
+    private static function sourceApplicationOwnLeaseWindow(string $root, array $identity, bool $close): void
+    {
+        $process = proc_open(['python3', '-B', dirname($root) . '/scripts/project-resource-application.py',
+            $close ? 'source-window-close' : 'source-window-enter', '--lease', $identity[0], '--owner', $identity[1]],
+            [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, dirname($root));
+        if (!is_resource($process)) { throw new RuntimeException('SOURCE_APPLICATION_NATIVE_WINDOW_UNAVAILABLE'); }
+        stream_get_contents($pipes[1]); $error = stream_get_contents($pipes[2]);
+        fclose($pipes[1]); fclose($pipes[2]);
+        if (proc_close($process) !== 0 || $error !== '') { throw new RuntimeException('SOURCE_APPLICATION_NATIVE_WINDOW_REJECTED'); }
+    }
+
+    public static function assertSourceApplicationMaintenanceIfHeld(string $root): void
+    {
+        if (!isset(self::$sourceApplicationWindows[$root])) { return; }
+        self::assertHeldDatabaseLock($root);
+        $marker = self::jsonFile(self::maintenancePath($root), 'source APP maintenance');
+        if (($marker['status'] ?? null) !== 'active' || ($marker['update_id'] ?? null) !== self::$sourceApplicationWindows[$root]['candidate']) {
+            throw new RuntimeException('SOURCE_APPLICATION_MAINTENANCE_CHANGED');
+        }
+    }
+
+    public static function sourceApplicationMaintenanceWindow(string $root): array
+    {
+        self::assertHeldDatabaseLock($root);
+        return self::$sourceApplicationWindows[$root] ?? throw new RuntimeException('SOURCE_APPLICATION_MAINTENANCE_WINDOW_REQUIRED');
+    }
+
+
+    public static function sourceApplicationCompletionRecords(string $root, array $source): array
+    {
+        self::assertHeldDatabaseLock($root);
+        $candidate = hash('sha256', self::databaseCanonical($source)); $records = [];
+        foreach (glob($root . '/runtime/upgrade/source-application-*.json') ?: [] as $path) {
+            $record = self::sourceApplicationRecoveryRecord($root, $path);
+            if (($record['candidate'] ?? null) !== $candidate || ($record['activation_started'] ?? null) === true) { continue; }
+            if (($record['unknown'] ?? null) !== false || !in_array($record['phase'] ?? null, ['planned', 'rehearsed', 'migrated', 'restored'], true)) {
+                throw new RuntimeException('SOURCE_APPLICATION_OPEN_UNFINISHED_OPERATION');
+            }
+            if ($record['phase'] === 'migrated') {
+                $reference = $record['result_reference'] ?? [];
+                $bytes = \app\common\services\upgrade\SourceApplicationBackup::protectedPluginBytes($reference['path'] ?? '', $root);
+                if (hash('sha256', $bytes) !== ($reference['sha256'] ?? null)) { throw new RuntimeException('SOURCE_APPLICATION_COMPLETION_RECEIPT_CHANGED'); }
+                $records[] = $reference;
+            }
+        }
+        return $records;
+    }
+
+    public static function finishSourceApplicationMaintenance(string $root, array $source): void
+    {
+        self::assertHeldDatabaseLock($root);
+        self::sourceApplicationCompletionRecords($root, $source);
+        self::assertApplicationSourceStopped($root);
+        $candidate = hash('sha256', self::databaseCanonical($source));
+        foreach (glob($root . '/runtime/upgrade/source-application-*.json') ?: [] as $path) {
+            $record = self::sourceApplicationRecoveryRecord($root, $path);
+            if (($record['candidate'] ?? null) === $candidate && ($record['activation_started'] ?? null) === false) {
+                $record['activation_started'] = true;
+                self::sourceApplicationRecoveryRecord($root, $path, $record);
+            }
+        }
+        // Records are closed before the marker, so an interrupted opening cannot
+        // make an old database snapshot admissible after writers resume.
+        self::clearMaintenance($root, $candidate, 'completed');
+    }
+
+    /** Only the live instance owner may produce the recovery provider's native records. */
+    public static function sourceApplicationRecoveryRecord(string $root, string $path, ?array $record = null): array
+    {
+        self::sourceOwner($root);
+        if ($record !== null) {
+            self::assertHeldDatabaseLock($root);
+            $record['owner_root'] = $root;
+            $record['hmac_sha256'] = hash_hmac('sha256', self::databaseCanonical($record), self::verificationKey($root, false));
+            self::writeJson($path, $record);
+        }
+        $value = \app\common\services\upgrade\SourceApplicationBackup::protectedPluginJson($path, $root);
+        $mac = $value['hmac_sha256'] ?? null; unset($value['hmac_sha256']);
+        if (($value['owner_root'] ?? null) !== $root || !is_string($mac)
+            || !hash_equals(hash_hmac('sha256', self::databaseCanonical($value), self::verificationKey($root, false)), $mac)) {
+            throw new RuntimeException('SOURCE_APPLICATION_RECOVERY_RECORD_CHANGED');
+        }
+        return $value;
     }
 
     /** Read-only owner observation; it cannot issue a database migration admission. */

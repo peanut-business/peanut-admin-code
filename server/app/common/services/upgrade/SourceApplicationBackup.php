@@ -544,6 +544,7 @@ final class SourceApplicationBackup
             throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_METADATA_CONTEXT_REQUIRED');
         }
         $actor = array_intersect_key($binding['authority'] ?? [], array_flip(['owner', 'thread', 'session', 'gate']));
+        if (($binding['source']['kind'] ?? null) === 'generated-application') { $actor['scope'] = 'source-application'; }
         $admission = new SourceDevelopmentMaintenanceAdmission($serverRoot);
         $ddl = in_array($binding['authority']['operation'] ?? null, ['ddl', 'exclusive'], true);
         if ($wholeSchema && !$ddl) { throw new RuntimeException('QUALIFICATION_EXCLUSIVE_LEASE_REQUIRED'); }
@@ -1632,6 +1633,307 @@ final class SourceApplicationBackup
         };
     }
 
+
+    /** Whole-application protection through the existing registered recovery provider. */
+    public static function sourceApplicationProtection(array $binding, array $plan, array $tool, string $directory, callable $guard): array
+    {
+        if (($binding['source']['kind'] ?? null) !== 'generated-application') {
+            throw new RuntimeException('SOURCE_APPLICATION_RECOVERY_CONTEXT_REQUIRED');
+        }
+        $server = $binding['source']['root'] . '/server';
+        $workspace = $directory . '/application-recovery';
+        if (file_exists($workspace) || is_link($workspace) || !mkdir($workspace, 0700)) {
+            throw new RuntimeException('SOURCE_APPLICATION_RECOVERY_OUTPUT_EXISTS');
+        }
+        // The native plan is fixed before capture, never reconstructed from a later result.
+        $planPath = $workspace . '/native-plan.json'; self::write($planPath, $plan);
+        $toolPath = $workspace . '/backup-tool.json'; self::write($toolPath, $tool);
+        $candidate = self::pluginDigest($binding['source']);
+        $context = ['protocol' => 'peanut.source-application-recovery-context.v1',
+            'workspace' => $workspace, 'candidate' => $candidate, 'plan_sha256' => hash_file('sha256', $planPath),
+            'binding' => $binding,
+            'native_plan' => ['path' => $planPath, 'sha256' => hash_file('sha256', $planPath)],
+            'backup_tool' => ['path' => $toolPath, 'sha256' => hash_file('sha256', $toolPath),
+                'owner_uid' => fileowner($toolPath), 'mode' => 0600],
+            'journal_path' => $server . '/runtime/upgrade/source-application-' . hash_file('sha256', $planPath) . '.json'];
+        \PeanutServerUpdatePlan::sourceApplicationRecoveryRecord($server, $workspace . '/source-application-context.json', $context);
+        $journal = ['protocol' => 'peanut.source-application-maintenance-state.v1',
+            'context_sha256' => hash_file('sha256', $workspace . '/source-application-context.json'),
+            'native_plan_sha256' => $context['native_plan']['sha256'], 'phase' => 'planned',
+            'candidate' => $candidate, 'workspace' => $workspace,
+            'phase_in_progress' => 'backup', 'activation_started' => false, 'unknown' => false,
+            'database_recovery_required' => false];
+        \PeanutServerUpdatePlan::sourceApplicationRecoveryRecord($server, $context['journal_path'], $journal);
+        $result = self::sourceApplicationProvider('backup', $binding, $workspace, $guard);
+        $journal['phase_in_progress'] = null;
+        \PeanutServerUpdatePlan::sourceApplicationRecoveryRecord($server, $context['journal_path'], $journal);
+        $window = \PeanutServerUpdatePlan::sourceApplicationMaintenanceWindow($server);
+        $plugin = ($plan['protocol'] ?? null) === 'peanut.source-development-plugin-plan.v1';
+        $baseline = $plugin ? ['pending' => $plan['lifecycle_effects']['pending'], 'selected' => $plan['lifecycle_effects']['selected'],
+            'operation' => $plan['operation'], 'plugin_key' => $plan['plugin_key'], 'native_plan_sha256' => self::pluginDigest($plan['plugin']),
+            'lifecycle_effects' => $plan['lifecycle_effects']] : $plan['baseline'];
+        $scope = $plan['backup_scope'];
+        self::write($directory . '/maintenance.json', ['schema_version' => 1,
+            'protocol' => $plugin ? 'peanut.source-plugin-maintenance.v1' : 'peanut.source-development-maintenance.v1',
+            'source' => $binding['source'], 'database' => $binding['database'], 'authority' => $binding['authority'],
+            'registry_sha256' => $binding['registry_sha256'], 'state' => 'active',
+            'excluded_writers' => ['http', 'workers', 'other-writers'],
+            'baseline_sha256' => self::pluginDigest($baseline), 'pending' => $baseline['pending'],
+            'selected' => array_intersect_key($baseline['selected'], array_flip($baseline['pending'])),
+            'scope' => $plugin ? self::pluginEvidenceTables($scope, 'maintenance') : self::applicationTables($baseline['pending']),
+            'observed_at' => $window['observed_at'], 'expires_at' => (int) $binding['authority']['expires_at'],
+            'receipts' => [$window['reference'], $result], 'application_recovery' => [
+                'workspace' => $workspace, 'context_sha256' => hash_file('sha256', $workspace . '/source-application-context.json'),
+                'backup_sha256' => hash_file('sha256', $workspace . '/backup.json')],
+            'writer_exclusion' => 'native instance/write gate and observed processes; resource protocol, not SQL confinement']);
+        return ['workspace' => $workspace, 'context_sha256' => hash_file('sha256', $workspace . '/source-application-context.json'),
+            'backup_sha256' => hash_file('sha256', $workspace . '/backup.json'),
+            'capture' => $result, 'restore_qualification' => 'NOT_RUN'];
+    }
+
+    /** Current proof may admit only recovery while retaining the immutable original binding. */
+    private static function sourceApplicationCurrentAuthority(array $binding): array
+    {
+        $config = \guardedDatabaseConfig(); $registry = \projectResourceRegistry($registrySha);
+        $database = \registeredDatabase($registry, $config['resource_id']);
+        $endpoint = \registeredDatabaseEndpoint($database, $config['consumer']);
+        $schema = \mysqlSchemaLeaseResource($database, $endpoint, $config);
+        $proof = \requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
+        $metadata = \activeLeaseMetadata($proof, time(), $binding['authority']['gate']);
+        $resources = \activeLeaseResources($proof);
+        return \assertNativeMysqlSchemaLease($binding['source']['root'], $proof, $metadata, $resources,
+            $binding['resource_id'], $schema, $binding['endpoint_id'], $registrySha) ?? [];
+    }
+
+    /** A provider operation holds no plugin PDO across a whole-schema restore. */
+    public static function sourceApplicationProvider(string $operation, array $binding, string $workspace, callable $guard): array
+    {
+        if (!in_array($operation, ['backup', 'verify', 'rehearse', 'restore'], true)
+            || ($binding['source']['kind'] ?? null) !== 'generated-application') {
+            throw new RuntimeException('SOURCE_APPLICATION_RECOVERY_OPERATION_REQUIRED');
+        }
+        $server = $binding['source']['root'] . '/server';
+        $context = \PeanutServerUpdatePlan::sourceApplicationRecoveryRecord($server, $workspace . '/source-application-context.json');
+        if (self::pluginDigest($context['binding'] ?? null) !== self::pluginDigest($binding)) {
+            throw new RuntimeException('SOURCE_APPLICATION_RECOVERY_BINDING_CHANGED');
+        }
+        $tool = self::protectedPluginJson($context['backup_tool']['path'], $server);
+        $python = $tool['python_command'] ?? '';
+        if (!is_string($python) || realpath($python) !== $python || !is_executable($python)
+            || preg_match('~\A/[A-Za-z0-9_./@+-]+\z~D', $python) !== 1) {
+            throw new RuntimeException('SOURCE_APPLICATION_RECOVERY_PYTHON_REQUIRED');
+        }
+        $guard();
+        $process = proc_open(['/bin/ps', '-p', (string) getmypid(), '-o', 'lstart='],
+            [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        if (!is_resource($process)) { throw new RuntimeException('SOURCE_APPLICATION_PROCESS_IDENTITY_REQUIRED'); }
+        $birth = trim(stream_get_contents($pipes[1])); $error = stream_get_contents($pipes[2]);
+        fclose($pipes[1]); fclose($pipes[2]);
+        if (proc_close($process) !== 0 || $error !== '' || $birth === '') { throw new RuntimeException('SOURCE_APPLICATION_PROCESS_IDENTITY_REQUIRED'); }
+        $requestPath = $workspace . '/request-' . bin2hex(random_bytes(16)) . '.json';
+        $currentAuthority = self::sourceApplicationCurrentAuthority($binding);
+        $request = ['protocol' => 'peanut.source-application-recovery-request.v1', 'operation' => $operation,
+            'server_root' => $server, 'workspace' => $workspace, 'binding' => $binding,
+            'context_sha256' => hash_file('sha256', $workspace . '/source-application-context.json'),
+            'parent_pid' => getmypid(), 'parent_birth' => $birth, 'created_at' => time(),
+            'expires_at' => (int) ($currentAuthority['effective_expires_at'] ?? $binding['authority']['expires_at']),
+            'recovery_continuation' => $currentAuthority['recovery_continuation'] ?? null,
+            'lease_proof' => \requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF')];
+        \PeanutServerUpdatePlan::sourceApplicationRecoveryRecord($server, $requestPath, $request);
+        $stdout = $requestPath . '.stdout'; $stderr = $requestPath . '.stderr';
+        $out = fopen($stdout, 'x+b'); $err = fopen($stderr, 'x+b');
+        if ($out === false || $err === false || !chmod($stdout, 0600) || !chmod($stderr, 0600)) {
+            throw new RuntimeException('SOURCE_APPLICATION_RECOVERY_OUTPUT_UNSAFE');
+        }
+        $program = $server . '/docker/scripts/update-recovery.py';
+        $environment = ['PATH' => dirname($python) . ':' . dirname(PHP_BINARY) . ':/usr/bin:/bin:/usr/sbin:/sbin', 'LANG' => 'C', 'LC_ALL' => 'C'];
+        foreach (['HOME', 'SSH_AUTH_SOCK'] as $name) { if (is_string(getenv($name))) { $environment[$name] = getenv($name); } }
+        try {
+            $process = proc_open([$python, '-B', $program, $operation, '--server', $server, '--workspace', $workspace,
+                '--source-request', $requestPath], [0 => ['file', '/dev/null', 'r'], 1 => $out, 2 => $err], $pipes, $server, $environment);
+            if (!is_resource($process)) { throw new RuntimeException('SOURCE_APPLICATION_RECOVERY_PROCESS_UNAVAILABLE'); }
+            $unknown = false; $next = 0;
+            do {
+                $state = proc_get_status($process);
+                if (!$state['running']) { break; }
+                if (time() >= $next) {
+                    // The known provider child is observable under this APP cwd.
+                    // Recheck native resource/config admission here; full source and
+                    // writer observation runs before dispatch and after its terminal.
+                    try {
+                        $config = \guardedDatabaseConfig();
+                        $registry = \projectResourceRegistry($registrySha);
+                        $database = \registeredDatabase($registry, $config['resource_id']);
+                        $endpoint = \registeredDatabaseEndpoint($database, $config['consumer']);
+                        $schema = \mysqlSchemaLeaseResource($database, $endpoint, $config);
+                        $proof = \requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
+                        $meta = \activeLeaseMetadata($proof, time(), $binding['authority']['gate']);
+                        $resources = \activeLeaseResources($proof);
+                        if ($config['resource_id'] !== $binding['resource_id'] || $config['endpoint_id'] !== $binding['endpoint_id']
+                            || $registrySha !== $binding['registry_sha256'] || $schema === null
+                            || $meta['lease'] !== $binding['authority']['lease'] || $meta['owner'] !== $binding['authority']['owner']
+                            || $meta['thread'] !== $binding['authority']['thread']
+                            || hash_file('sha256', $proof . '/resources.tsv') !== $binding['authority']['resources_sha256']
+                            || hash_file('sha256', \peanutBackendEnvironmentPath()) !== $binding['environment_sha256']) {
+                            throw new RuntimeException('SOURCE_APPLICATION_RECOVERY_RESOURCE_CHANGED');
+                        }
+                        \assertNativeMysqlSchemaLease($binding['source']['root'], $proof, $meta, $resources,
+                            $binding['resource_id'], $schema, $binding['endpoint_id'], $registrySha);
+                    } catch (\Throwable) { $unknown = true; }
+                    $next = time() + 2;
+                }
+                if (time() >= $request['expires_at']) { $unknown = true; }
+                // A restore can be non-interruptible. Preserve the boundary and observe
+                // its actual terminal; never turn a local timeout into permission to replay.
+                usleep(100000);
+            } while (true);
+            $closed = proc_close($process); $rc = $state['exitcode'] >= 0 ? $state['exitcode'] : $closed;
+            fflush($out); fsync($out); fflush($err); fsync($err);
+            $receipt = ['protocol' => 'peanut.source-application-provider-process.v1', 'operation' => $operation,
+                'request' => ['path' => $requestPath, 'sha256' => hash_file('sha256', $requestPath)],
+                'actual_process_terminal' => true, 'exit_code' => $rc, 'unknown' => $unknown,
+                'stdout_sha256' => hash_file('sha256', $stdout), 'stderr_sha256' => hash_file('sha256', $stderr)];
+            self::write($requestPath . '.process.json', $receipt);
+            if ($unknown || $rc !== 0) {
+                $journal = \PeanutServerUpdatePlan::sourceApplicationRecoveryRecord($server, $context['journal_path']);
+                $journal['unknown'] = true;
+                \PeanutServerUpdatePlan::sourceApplicationRecoveryRecord($server, $context['journal_path'], $journal);
+                throw new RuntimeException('SOURCE_APPLICATION_RECOVERY_FAILED_OR_UNKNOWN');
+            }
+            $guard();
+            return ['path' => $requestPath . '.process.json', 'sha256' => hash_file('sha256', $requestPath . '.process.json')];
+        } finally { fclose($out); fclose($err); }
+    }
+
+
+    /** Validate the actual same-candidate whole-schema restoration, not capture alone. */
+    public static function sourceApplicationQualification(array $binding, array $baseline, array $scope, string $maintenancePath): array
+    {
+        $server = $binding['source']['root'] . '/server';
+        $maintenance = self::protectedPluginJson($maintenancePath, $server);
+        $reference = $maintenance['application_recovery'] ?? [];
+        $workspace = $reference['workspace'] ?? '';
+        $contextPath = $workspace . '/source-application-context.json';
+        $context = \PeanutServerUpdatePlan::sourceApplicationRecoveryRecord($server, $contextPath);
+        $plan = self::protectedPluginJson($context['native_plan']['path'], $server);
+        $actualBaseline = ($plan['protocol'] ?? null) === 'peanut.source-development-schema-plan.v1'
+            ? $plan['baseline'] : ['pending' => $plan['lifecycle_effects']['pending'], 'selected' => $plan['lifecycle_effects']['selected'],
+                'operation' => $plan['operation'], 'plugin_key' => $plan['plugin_key'],
+                'native_plan_sha256' => self::pluginDigest($plan['plugin']), 'lifecycle_effects' => $plan['lifecycle_effects']];
+        if (self::pluginDigest($context['binding'] ?? null) !== self::pluginDigest($binding)
+            || ($reference['context_sha256'] ?? null) !== hash_file('sha256', $contextPath)
+            || self::pluginDigest($actualBaseline) !== self::pluginDigest($baseline)
+            || self::pluginDigest($plan['backup_scope'] ?? null) !== self::pluginDigest($scope)
+            || hash_file('sha256', $context['native_plan']['path']) !== $context['native_plan']['sha256']
+            || hash_file('sha256', $workspace . '/backup.json') !== ($reference['backup_sha256'] ?? null)) {
+            throw new RuntimeException('SOURCE_APPLICATION_RECOVERY_PLAN_CHANGED');
+        }
+        $key = \PeanutServerUpdatePlan::databaseVerificationKey($server);
+        foreach (['backup.json', 'database-rehearsal.json'] as $name) {
+            $bytes = self::protectedPluginBytes($workspace . '/' . $name, $server);
+            $mac = trim(self::protectedPluginBytes($workspace . '/' . $name . '.hmac', $server));
+            if (!hash_equals(hash_hmac('sha256', $bytes, $key), $mac)) { throw new RuntimeException('SOURCE_APPLICATION_RECOVERY_QUALIFICATION_REQUIRED'); }
+        }
+        $backup = self::protectedPluginJson($workspace . '/backup.json', $server);
+        $restored = self::protectedPluginJson($workspace . '/database-rehearsal.json', $server);
+        $process = $restored['registered_restore_process'] ?? [];
+        $terminal = self::protectedPluginJson($process['path'] ?? '', $server);
+        if (($restored['status'] ?? null) !== 'completed' || ($restored['update_id'] ?? null) !== $context['candidate']
+            || ($restored['backup_sha256'] ?? null) !== $reference['backup_sha256']
+            || ($restored['source_state_sha256'] ?? null) !== ($backup['registered_evidence']['raw_dump_sha256'] ?? null)
+            || ($process['sha256'] ?? null) !== hash_file('sha256', $process['path'])
+            || ($terminal['status'] ?? null) !== 'terminal' || ($terminal['rc'] ?? null) !== 0
+            || ($terminal['operation'] ?? null) !== 'restore' || ($terminal['remote_success_terminal_confirmed'] ?? null) !== true
+            || ($terminal['provider'] ?? null) !== ($backup['database_provider'] ?? null)) {
+            throw new RuntimeException('SOURCE_APPLICATION_RESTORE_QUALIFICATION_REQUIRED');
+        }
+        return $reference + ['rehearsal_sha256' => hash_file('sha256', $workspace . '/database-rehearsal.json')];
+    }
+
+    /** Called once before native mutation under the held source/instance/resource admission. */
+    public static function sourceApplicationBeforeApply(array $binding, string $maintenancePath, callable $guard): void
+    {
+        if (($binding['source']['kind'] ?? null) !== 'generated-application') { return; }
+        $server = $binding['source']['root'] . '/server';
+        $maintenance = self::protectedPluginJson($maintenancePath, $server);
+        $workspace = $maintenance['application_recovery']['workspace'] ?? '';
+        self::sourceApplicationProvider('verify', $binding, $workspace, $guard);
+        self::sourceApplicationStage($binding, $maintenancePath, 'applying');
+    }
+
+    public static function sourceApplicationStage(array $binding, string $maintenancePath, string $phase, ?string $resultPath = null): void
+    {
+        if (($binding['source']['kind'] ?? null) !== 'generated-application') { return; }
+        if (!in_array($phase, ['applying', 'completed', 'failed'], true)) { throw new RuntimeException('SOURCE_APPLICATION_STAGE_INVALID'); }
+        $server = $binding['source']['root'] . '/server';
+        $maintenance = self::protectedPluginJson($maintenancePath, $server);
+        $workspace = $maintenance['application_recovery']['workspace'];
+        $context = \PeanutServerUpdatePlan::sourceApplicationRecoveryRecord($server, $workspace . '/source-application-context.json');
+        $journal = \PeanutServerUpdatePlan::sourceApplicationRecoveryRecord($server, $context['journal_path']);
+        if ($phase === 'applying' && ($journal['phase'] ?? null) !== 'rehearsed') { throw new RuntimeException('SOURCE_APPLICATION_REHEARSAL_REQUIRED'); }        if ($phase !== 'applying' && ($journal['phase'] ?? null) !== 'applying') { throw new RuntimeException('SOURCE_APPLICATION_MUTATION_STAGE_REQUIRED'); }
+
+        $journal['phase'] = $phase === 'completed' ? 'migrated' : $phase;
+        if ($phase === 'completed') {
+            self::protectedPluginBytes($resultPath ?? '', $server);
+            $journal['result_reference'] = ['path' => $resultPath, 'sha256' => hash_file('sha256', $resultPath)];
+        }
+        $journal['phase_in_progress'] = $phase === 'applying' ? 'migrate' : null;
+        $journal['database_recovery_required'] = true;
+        \PeanutServerUpdatePlan::sourceApplicationRecoveryRecord($server, $context['journal_path'], $journal);
+    }
+
+    /** Independent native recovery phase: no old PDO remains selected across DROP/CREATE. */
+    public static function sourceApplicationRecovery(string $server, array $actor, string $operation, string $planPath, string $workspace): array
+    {
+        if (($actor['scope'] ?? null) !== 'source-application' || !in_array($operation, ['verify', 'rehearse', 'restore'], true)) {
+            throw new RuntimeException('SOURCE_APPLICATION_RECOVERY_CONTEXT_REQUIRED');
+        }
+        $admission = new SourceDevelopmentMaintenanceAdmission($server);
+        $initial = $admission->capture($actor, true);
+        $plan = self::protectedPluginJson($planPath, $server);
+        if (($plan['maintenance_scope'] ?? null) !== 'source-application'
+            || self::pluginDigest(array_diff_key($plan['binding'] ?? [], ['database' => true])) !== self::pluginDigest($initial)) {
+            throw new RuntimeException('SOURCE_APPLICATION_RECOVERY_PLAN_CHANGED');
+        }
+        $binding = $plan['binding'];
+        return \app\common\infrastructure\scaffold\ScaffoldUpgradeRunner::sourceProductLock(dirname($server),
+            static fn(): array => \PeanutServerUpdatePlan::withSourceApplicationMaintenance($server, $binding['source'],
+                static function () use ($server, $admission, $actor, $initial, $binding, $plan, $operation, $workspace): array {
+                    $context = \PeanutServerUpdatePlan::sourceApplicationRecoveryRecord($server, $workspace . '/source-application-context.json');
+                    $original = self::protectedPluginJson($context['native_plan']['path'], $server);
+                    foreach ($original as $key => $value) {
+                        if (self::pluginDigest($plan[$key] ?? null) !== self::pluginDigest($value)) { throw new RuntimeException('SOURCE_APPLICATION_RECOVERY_PLAN_CHANGED'); }
+                    }
+                    $journal = \PeanutServerUpdatePlan::sourceApplicationRecoveryRecord($server, $context['journal_path']);
+                    if (($operation === 'rehearse' && ($journal['phase'] ?? null) !== 'planned')
+                        || ($operation === 'restore' && !in_array($journal['phase'] ?? null, ['failed', 'migrated', 'applying'], true))) {
+                        throw new RuntimeException('SOURCE_APPLICATION_RECOVERY_PHASE_REQUIRED');
+                    }
+                    $guard = static function () use ($server, $admission, $actor, $initial): void {
+                        if ($admission->capture($actor, true) !== $initial) { throw new RuntimeException('SOURCE_APPLICATION_RECOVERY_BINDING_CHANGED'); }
+                        \app\common\infrastructure\scaffold\ScaffoldUpgradeRunner::sourceProductLock(dirname($server), static fn() => null);
+                    };
+                    $result = self::sourceApplicationProvider($operation, $binding, $workspace, $guard);
+                    if ($operation !== 'verify') {
+                        $journal['phase'] = $operation === 'rehearse' ? 'rehearsed' : 'restored';
+                        if ($operation === 'restore') {
+                            $authority = self::sourceApplicationCurrentAuthority($binding);
+                            if (isset($authority['recovery_continuation'])) {
+                                $journal['recovery_continuation'] = $authority['recovery_continuation'];
+                                $journal['unknown'] = false; // Original signed journal remains archived by the reviewed rebind.
+                            }
+                        }
+                        $journal['phase_in_progress'] = null;
+                        $journal['database_recovery_required'] = false;
+                        \PeanutServerUpdatePlan::sourceApplicationRecoveryRecord($server, $context['journal_path'], $journal);
+                    }
+                    return ['protocol' => 'peanut.source-application-recovery-result.v1', 'operation' => $operation,
+                        'status' => 'completed', 'binding' => $binding, 'provider_process' => $result,
+                        'workspace' => $workspace, 'writers' => 'remain_closed'];
+                }));
+    }
+
+
     /** Fixed selected-table restoration from a verified native original, never caller SQL. */
     public static function restoreApplicationFailure(array $binding, array $tool, string $originalManifest, string $directory,
         callable $before, callable $after, string $profile = 'sms-reservation', ?string $currentManifest = null,
@@ -1891,6 +2193,8 @@ final class SourceApplicationBackup
         $at = $recordedAt ?? time();
         if ($at <= 0 || $at > time()) { throw new RuntimeException('PLUGIN_SOURCE_EVIDENCE_REQUIRED'); }
         $same = static fn(mixed $a, mixed $b): bool => self::pluginDigest($a) === self::pluginDigest($b);
+        $applicationRecovery = ($binding['source']['kind'] ?? null) === 'generated-application'
+            ? self::sourceApplicationQualification($binding, $baseline, $scope, $maintenancePath) : null;
         $pending = $baseline['pending']; $selected = array_intersect_key($baseline['selected'], array_flip($pending));
         $maintenance = self::protectedPluginJson($maintenancePath, $serverRoot);
         $recovery = self::protectedPluginJson($recoveryPath, $serverRoot);
@@ -1971,7 +2275,8 @@ final class SourceApplicationBackup
         return ['maintenance' => ['path' => $maintenancePath, 'sha256' => hash_file('sha256', $maintenancePath)],
             'recovery' => ['path' => $recoveryPath, 'sha256' => hash_file('sha256', $recoveryPath)],
             'backup_manifest' => $recovery['backup_manifest'], 'backup_payload' => $payload,
-            'restore_contract_sha256' => $recovery['restore_contract_sha256']];
+            'restore_contract_sha256' => $recovery['restore_contract_sha256']]
+            + ($applicationRecovery === null ? [] : ['application_recovery' => $applicationRecovery]);
     }
 
 

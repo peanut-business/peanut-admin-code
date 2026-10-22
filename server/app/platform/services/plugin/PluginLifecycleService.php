@@ -2510,9 +2510,17 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             return $host;
         }
         $context = app()->make(CurrentExecutionContext::class)->current();
+        $server = rtrim(root_path(), DIRECTORY_SEPARATOR);
+        $generated = is_file(dirname($server) . '/.peanut/application-manifest.json')
+            && !\app\common\value\installation\ApplicationSourceIdentity::hasRuntime($server)
+            && !file_exists($server . '/.peanut/release-identity.json');
+        if ($generated && !$context instanceof InstallationExecutionContext
+            && (!$context instanceof InstanceExecutionContext || !str_starts_with($context->operation(), 'console.plugin:'))) {
+            throw new PluginLifecycleException('PLUGIN_SOURCE_SCOPE_REQUIRED', 'Generated source APP mutation requires its native maintenance host.');
+        }
         if (!$context instanceof InstanceExecutionContext || !str_starts_with($context->operation(), 'console.plugin:')) { return null; }
         require_once root_path() . 'database/install.php';
-        if (\installationSourceDevelopmentMode(rtrim(root_path(), DIRECTORY_SEPARATOR))) {
+        if ($generated || \installationSourceDevelopmentMode($server)) {
             $pdo = Db::connect()->getPdo();
             if (!$pdo instanceof \PDO) { throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Native master is required.'); }
             $host = app()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class);

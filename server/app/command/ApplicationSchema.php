@@ -19,7 +19,9 @@ final class ApplicationSchema extends ContextualCommand
     {
         $this->setName('schema:application')->setDescription('Inspect or execute the bound application SQL stage')
             ->addArgument('operation', Argument::REQUIRED, 'preflight, backup, apply, verify, or source-only verify-receipt / snapshot-failure / restore-failure')
-            ->addOption('scope', null, Option::VALUE_REQUIRED, 'Explicit source-development maintenance scope', '')
+            ->addOption('scope', null, Option::VALUE_REQUIRED, 'Explicit source-development or source-application maintenance scope', '')
+            ->addOption('application-recovery', null, Option::VALUE_REQUIRED, 'Explicit whole source APP verify, rehearse or restore', '')
+            ->addOption('source-plan', null, Option::VALUE_REQUIRED, 'Original whole source APP native plan', '')
             ->addOption('owner', null, Option::VALUE_REQUIRED, 'Owner of the current native resource grant')
             ->addOption('thread', null, Option::VALUE_REQUIRED, 'Thread of the current native resource grant')
             ->addOption('session', null, Option::VALUE_REQUIRED, 'Workflow Session of the current native resource grant')
@@ -51,20 +53,38 @@ final class ApplicationSchema extends ContextualCommand
             $scope = (string) $input->getOption('scope');
             if ($scope !== '') {
                 $guard = \app\common\validation\instance\InstanceToolAccessGuard::fromConfiguredValue($this->getApp()->config->get('deployment.mode'));
-                if ($scope !== 'source-development' || $workspace !== ''
+                if (!in_array($scope, ['source-development', 'source-application'], true) || $workspace !== ''
                     || !$guard->allowsCliDevelopmentMaintenance($this->getApp()->config->get('peanut.environment'),
                         $this->getApp()->isDebug(), $this->executionContext(), $this->getName(), $this->establishedInstanceContext())) {
                     throw new \RuntimeException('APPLICATION_SCHEMA_SOURCE_CONTEXT_REQUIRED');
                 }
-                $authority = [];
+                $authority = ['scope' => $scope];
                 foreach (['owner', 'thread', 'session', 'gate'] as $key) { $authority[$key] = (string) $input->getOption($key); }
+                if ($input->getOption('application-recovery') !== '') {
+                    if ($scope !== 'source-application' || $operation !== 'source-recovery' || $plan !== '' || $result !== '') { throw new \RuntimeException('APPLICATION_SCHEMA_ARGUMENTS_INVALID'); }
+                    foreach (['maintenance', 'backup-tool', 'backup-output', 'metadata-tool'] as $name) {
+                        if ((string) $input->getOption($name) !== '') { throw new \RuntimeException('APPLICATION_SCHEMA_ARGUMENTS_INVALID'); }
+                    }
+                    if ($input->getOption('application-recovery') === 'open') {
+                        if ($input->getOption('source-plan') !== '' || $input->getOption('recovery') !== '') { throw new \RuntimeException('APPLICATION_SCHEMA_ARGUMENTS_INVALID'); }
+                        $report = $this->getApp()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->finishSourceApplication($authority);
+                        $output->writeln(json_encode($report, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+                        return 0;
+                    }
+                    $report = \app\common\services\upgrade\SourceApplicationBackup::sourceApplicationRecovery(
+                        dirname(__DIR__, 2), $authority, (string) $input->getOption('application-recovery'),
+                        (string) $input->getOption('source-plan'), (string) $input->getOption('recovery'));
+                    $output->writeln(json_encode($report, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
+                    return 0;
+                }
+                if ($input->getOption('source-plan') !== '') { throw new \RuntimeException('APPLICATION_SCHEMA_ARGUMENTS_INVALID'); }
                 $report = $host->sourceDevelopment($operation, $authority, $plan, $result,
                     (string) $input->getOption('maintenance'), (string) $input->getOption('recovery'),
                     (string) $input->getOption('backup-tool'), (string) $input->getOption('backup-output'), (string) $input->getOption('metadata-tool'));
                 $output->writeln(json_encode($report, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
                 return ($report['status'] ?? null) === 'blocked' ? 2 : 0;
             }
-            foreach (['owner', 'thread', 'session', 'gate', 'maintenance', 'recovery', 'backup-tool', 'backup-output', 'metadata-tool'] as $key) {
+            foreach (['owner', 'thread', 'session', 'gate', 'maintenance', 'recovery', 'backup-tool', 'backup-output', 'metadata-tool', 'application-recovery', 'source-plan'] as $key) {
                 if ((string) $input->getOption($key) !== '') { throw new \RuntimeException('APPLICATION_SCHEMA_ARGUMENTS_INVALID'); }
             }
             $report = match (true) {

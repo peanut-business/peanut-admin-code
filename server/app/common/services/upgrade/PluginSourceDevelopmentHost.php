@@ -52,6 +52,15 @@ final class PluginSourceDevelopmentHost
 
     public function plan(string $operation, string $pluginKey, array $actor, callable $readPlan, string $toolId = '', string $output = '', ?array $execution = null, string $metadataTool = '', string $notificationPredecessor = ''): array
     {
+        $run = fn(): array => $this->planHeld($operation, $pluginKey, $actor, $readPlan, $toolId, $output, $execution, $metadataTool, $notificationPredecessor);
+        if (($actor['scope'] ?? 'source-development') !== 'source-application') { return $run(); }
+        $server = rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR);
+        $facts = (new SourceDevelopmentMaintenanceAdmission($server))->capture($actor, $execution !== null);
+        return \PeanutServerUpdatePlan::withSourceApplicationMaintenance($server, $facts['source'], $run);
+    }
+
+    private function planHeld(string $operation, string $pluginKey, array $actor, callable $readPlan, string $toolId = '', string $output = '', ?array $execution = null, string $metadataTool = '', string $notificationPredecessor = ''): array
+    {
         $this->sourceMetadataTool = $metadataTool;
         if ($notificationPredecessor !== '' && ($operation !== 'upgrade' || $pluginKey !== 'official.notification')) {
             throw new RuntimeException('PLUGIN_SOURCE_NOTIFICATION_PREDECESSOR_INVALID');
@@ -119,7 +128,7 @@ final class PluginSourceDevelopmentHost
                             }
                             $binding = $initial + ['database' => $identity];
                             $effects = SourceApplicationBackup::pluginEffects($native);
-                            $report = ['protocol' => 'peanut.source-development-plugin-plan.v1', 'maintenance_scope' => 'source-development',
+                            $report = ['protocol' => 'peanut.source-development-plugin-plan.v1', 'maintenance_scope' => isset($initial['source']['application_source']) ? 'source-application' : 'source-development',
                                 'operation' => $operation, 'plugin_key' => $pluginKey, 'binding' => $binding,
                                 'application' => $selection, 'plugin' => $native, 'lifecycle_effects' => $effects, 'execution_admitted' => false,
                                 'recovery' => 'not_attested', 'product_database' => 'not_verified'];
@@ -212,6 +221,7 @@ final class PluginSourceDevelopmentHost
                                     $this->requireMutation($pdo, $pluginKey);
                                     // The outer read-plan callback still holds the native package lock.
                                     // Only this call enters the original lifecycle, never a copied SQL runner.
+                                    SourceApplicationBackup::sourceApplicationBeforeApply($binding, $execution['maintenance'], $recheck);
                                     $enteredLifecycle = true;
                                     $result = ($execution['mutate'])();
                                     $lifecycleCompleted = true;
@@ -261,9 +271,11 @@ final class PluginSourceDevelopmentHost
                                     $record['document_sha256'] = self::digest($record);
                                     $record['result_path'] = $this->saveReceipt($record);
                                     $this->requireMutation($pdo, $pluginKey);
+                                    SourceApplicationBackup::sourceApplicationStage($binding, $execution['maintenance'], 'completed', $record['result_path']);
                                     return $record;
                                 } catch (\Throwable $failure) {
-                                    if ($enteredLifecycle) {
+                                    if ($enteredLifecycle) {                                        SourceApplicationBackup::sourceApplicationStage($binding, $execution['maintenance'], 'failed');
+
                                         // Preserve what this real invocation actually observed. A catalog
                                         // failure need not have a failed migration; never manufacture one.
                                         $ledger = null;
@@ -329,6 +341,9 @@ final class PluginSourceDevelopmentHost
                                 $report['backup'] = SourceApplicationBackup::capture($binding, $baseline, self::digest($baseline), $scope,
                                     $tools[0], $output, $checkBackup, 'plugin-lifecycle');
                                 $report['backup_scope'] = $scope;
+                                if (($binding['source']['kind'] ?? null) === 'generated-application') {
+                                    $report['application_recovery'] = SourceApplicationBackup::sourceApplicationProtection($binding, $report, $tools[0], $output, $checkBackup);
+                                }
                                 if (isset($report['identity_recovery_preflight'])) {
                                     $captured = SourceApplicationBackup::protectedPluginJson($report['backup']['path'], $this->app->getRootPath());
                                     $this->identityRecoveryBaseline($captured['backup_payload'], $scope);
@@ -343,6 +358,62 @@ final class PluginSourceDevelopmentHost
             if (!is_array($result)) { throw new RuntimeException('PLUGIN_SOURCE_PLAN_INCOMPLETE'); }
             return $result;
         });
+    }
+
+
+    /** Explicit opening; no service start and no old recovery point survives it. */
+    public function finishSourceApplication(array $actor): array
+    {
+        $server = rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR);
+        $context = $this->app->make(CurrentExecutionContext::class)->current();
+        if (($actor['scope'] ?? null) !== 'source-application' || !$context instanceof InstanceExecutionContext
+            || $context->operation() !== 'console.schema:application' || $context->instance->actorKey !== 'console'
+            || PHP_SAPI !== 'cli' || $this->app->config->get('peanut.environment') !== 'development' || !$this->app->isDebug()) {
+            throw new RuntimeException('SOURCE_APPLICATION_OPEN_CONTEXT_REQUIRED');
+        }
+        $admission = new SourceDevelopmentMaintenanceAdmission($server);
+        $initial = $admission->capture($actor, true);
+        return ScaffoldUpgradeRunner::sourceProductLock(dirname($server),
+            fn(): array => \PeanutServerUpdatePlan::withSourceApplicationMaintenance($server, $initial['source'],
+                function () use ($server, $actor, $admission, $initial, $context): array {
+                    $records = \PeanutServerUpdatePlan::sourceApplicationCompletionRecords($server, $initial['source']);
+                    $contexts = $this->app->make(\app\common\execution\ExecutionContextStore::class);
+                    foreach ($records as $reference) {
+                        $record = SourceApplicationBackup::protectedPluginJson($reference['path'], $server);
+                        if (($record['protocol'] ?? null) === 'peanut.source-development-schema-result.v1') {
+                            $contexts->run(new InstanceExecutionContext('console.schema:application', $context->requestId()),
+                                fn(): array => (new ApplicationSchemaHost($server))->sourceDevelopment('verify-receipt', $actor,
+                                    '', $reference['path'], '', '', '', ''));
+                        } elseif (($record['protocol'] ?? null) === 'peanut.source-plugin-result.v1'
+                            && in_array($record['operation'] ?? null, ['install', 'upgrade'], true)) {
+                            $contexts->run(new InstanceExecutionContext('console.plugin:' . $record['operation'], $context->requestId()),
+                                fn(): array => $this->verifyReceipt($record['operation'], $record['plugin_key'], $actor, $reference['path']));
+                        } else { throw new RuntimeException('SOURCE_APPLICATION_COMPLETION_RECEIPT_REQUIRED'); }
+                    }
+                    $config = \guardedDatabaseConfig(); [$connection, $pdo] = $this->connect($config);
+                    $files = \applicationMigrationFiles($server . '/database'); $versions = \applicationReleaseVersions($server);
+                    $runner = new ApplicationMigrationRunner($config, $pdo);
+                    $result = null;
+                    $runner->run($files, \applicationMigrationTargetVersion($server, $versions), $versions['release_sequence_version'], true, null,
+                        function (PDO $actual, array $selection) use ($admission, $actor, $initial, $connection, $pdo, $server, &$result): void {
+                            if ($actual !== $pdo || $connection->getPdo() !== $pdo || $selection['pending'] !== [] || $pdo->inTransaction()
+                                || $admission->capture($actor, true) !== $initial) { throw new RuntimeException('SOURCE_APPLICATION_OPEN_SCHEMA_NOT_READY'); }
+                            $lifecycle = $this->app->make(\app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider::class)->pluginLifecycle();
+                            $installed = Db::name('plugin_installation')->where('status', '<>', 'uninstalled')->field('plugin_key,status')->order('plugin_key')->select()->toArray();
+                            foreach ($installed as $row) {
+                                if ($row['status'] !== 'active') { throw new RuntimeException('SOURCE_APPLICATION_OPEN_PLUGIN_NOT_READY'); }
+                                $plan = $lifecycle->upgrade($row['plugin_key'], true);
+                                if (($plan['may_apply'] ?? null) !== true || ($plan['identity_changed'] ?? null) !== false
+                                    || ($plan['pending_migrations'] ?? null) !== []) { throw new RuntimeException('SOURCE_APPLICATION_OPEN_PLUGIN_NOT_READY'); }
+                            }
+                            if ($admission->capture($actor, true) !== $initial) { throw new RuntimeException('SOURCE_APPLICATION_OPEN_BINDING_CHANGED'); }
+                            \PeanutServerUpdatePlan::finishSourceApplicationMaintenance($server, $initial['source']);
+                            $result = ['protocol' => 'peanut.source-application-open.v1', 'status' => 'write-gate-cleared',
+                                'source' => $initial['source'], 'installed_plugins' => count($installed),
+                                'services' => 'not_started', 'business_qualification' => 'not_attested'];
+                        });
+                    return $result ?? throw new RuntimeException('SOURCE_APPLICATION_OPEN_INCOMPLETE');
+                }));
     }
 
     /** Preserve only fixed native failure profiles; grants no lifecycle or restore admission. */

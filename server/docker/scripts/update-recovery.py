@@ -12,6 +12,7 @@ from pathlib import Path
 import re
 import shlex
 import shutil
+import stat
 import subprocess
 import sys
 import tarfile
@@ -144,7 +145,162 @@ def collaboration_owner():
     return owner
 
 
+
+# Explicit host-only source APP admission. The server/bridge branch below keeps
+# its original protocol. Requests come only from the held native PHP host and
+# use the instance's existing protected-record key; no Project or caller SQL.
+SOURCE_REQUEST = None
+SOURCE_OPERATION = None
+
+
+def source_record(server, path):
+    value = read_json(path)
+    mac = value.pop('hmac_sha256', None)
+    raw = json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()
+    if not isinstance(mac, str) or not hmac.compare_digest(mac, hmac.new(verification_key(server), raw, hashlib.sha256).hexdigest()):
+        raise ValueError('source recovery native record changed')
+    return value
+
+
+def source_context(server, workspace):
+    if SOURCE_REQUEST is None:
+        raise ValueError('source recovery requires its actual native request')
+    if not SOURCE_REQUEST.is_absolute() or SOURCE_REQUEST.resolve() != SOURCE_REQUEST or SOURCE_REQUEST.parent != workspace:
+        raise ValueError('source recovery request must belong to its protected workspace')
+    request = source_record(server, SOURCE_REQUEST)
+    context = source_record(server, workspace / 'source-application-context.json')
+    now = time.time()
+    if request.get('protocol') != 'peanut.source-application-recovery-request.v1' \
+            or context.get('protocol') != 'peanut.source-application-recovery-context.v1' \
+            or request.get('workspace') != str(workspace) or context.get('workspace') != str(workspace) \
+            or request.get('context_sha256') != sha(workspace / 'source-application-context.json') \
+            or request.get('operation') != SOURCE_OPERATION or request.get('parent_pid') != os.getppid() \
+            or not request.get('created_at', 0) <= now < request.get('expires_at', 0):
+        raise ValueError('source recovery is outside its held native PHP request')
+    parent = subprocess.run(['/bin/ps', '-p', str(os.getppid()), '-o', 'lstart='],
+                            capture_output=True, text=True)
+    if parent.returncode != 0 or parent.stderr or parent.stdout.strip() != request.get('parent_birth'):
+        raise ValueError('source recovery parent process changed')
+    binding = context['binding']
+    root = server.parent
+    if binding['source'].get('kind') != 'generated-application' or binding['source']['root'] != str(root) \
+            or (request.get('binding') != binding) or sha(server / '.env') != binding['environment_sha256'] \
+            or sha(server / 'private/resources/project-resources.json') != binding['registry_sha256']:
+        raise ValueError('source recovery APP configuration/source binding changed')
+    for name, digest in binding['installation_originals'].items():
+        path = server / 'private/installation' / name
+        if digest is None or sha(path) != digest:
+            raise ValueError('source recovery installed identity changed')
+    def git(*args):
+        result = subprocess.run(['/usr/bin/git', '-C', str(root), *args], capture_output=True, text=True)
+        if result.returncode or result.stderr: raise ValueError('source recovery Git identity unavailable')
+        return result.stdout.strip()
+    if git('rev-parse', '--show-toplevel') != str(root) or git('rev-parse', 'HEAD') != binding['source']['head'] \
+            or git('rev-parse', 'HEAD^{tree}') != binding['source']['tree'] \
+            or git('diff', '--name-only', 'HEAD') or git('diff', '--cached', '--name-only'):
+        raise ValueError('source recovery actual APP Git changed')
+    original = context['native_plan']
+    path = Path(original['path'])
+    regular(path, 0o600)
+    if path.resolve() != path or sha(path) != original['sha256']:
+        raise ValueError('source recovery original native plan changed')
+    plan = read_json(path)
+    if plan.get('protocol') not in ('peanut.source-development-plugin-plan.v1', 'peanut.source-development-schema-plan.v1') \
+            or plan.get('maintenance_scope') != 'source-application' or plan.get('binding') != binding \
+            or plan.get('execution_admitted') is not False:
+        raise ValueError('source recovery original plan is not a native APP plan')
+    journal_path = Path(context['journal_path'])
+    journal = source_record(server, journal_path)
+    if journal.get('protocol') != 'peanut.source-application-maintenance-state.v1' \
+            or journal.get('context_sha256') != sha(workspace / 'source-application-context.json') \
+            or journal.get('native_plan_sha256') != original['sha256'] \
+            or journal.get('activation_started') is not False:
+        raise ValueError('source recovery is not a closed, known native maintenance state')
+    # The lease consumer is the same one the APP PDO guard uses. Calling the
+    # pinned reader in this process preserves the real PHP parent identity.
+    registry = read_json(server / 'private/resources/project-resources.json')
+    matches = [row for row in registry['resources']['databases']
+               if row.get('stable_resource_id') == binding['resource_id']]
+    if len(matches) != 1: raise ValueError('source recovery database ambiguous')
+    authority = matches[0].get('lease_policy', {}).get('native_authority')
+    import runpy
+    if authority is None:
+        helper = root / 'scripts/project-resource-application.py'
+        regular(helper)
+        raw = subprocess.run(['/usr/bin/git', '-C', str(root), 'show',
+                              binding['source']['head'] + ':scripts/project-resource-application.py'], capture_output=True)
+        if raw.returncode or raw.stdout != helper.read_bytes():
+            raise ValueError('ordinary APP native lease tool is not its fixed source')
+        proof = runpy.run_path(str(helper))['consume_same_source'](binding['authority']['lease'])
+    else:
+        closure = {'scripts/project-resource-lease', 'scripts/project-resource-application.py', 'scripts/project-resource-registry'}
+        if set(authority.get('files', {})) != closure:
+            raise ValueError('native source recovery tool closure incomplete')
+        for name, digest in authority['files'].items():
+            path = Path(authority['root']) / name
+            regular(path)
+            if path.resolve() != path or sha(path) != digest: raise ValueError('native recovery authority changed')
+        reader = runpy.run_path(str(Path(authority['root']) / 'scripts/project-resource-application.py'))
+        proof = reader['consume_application'](request['lease_proof'], str(root),
+                                      str(server / 'private/resources/project-resources.json'),
+                                      binding['resource_id'], binding['endpoint_id'])
+    continuation = proof.get('recovery_continuation')
+    if request.get('recovery_continuation') != continuation:
+        raise ValueError('source recovery request lost its independent rebind')
+    if continuation is not None:
+        if SOURCE_OPERATION != 'restore' or proof.get('restored') is not False \
+                or proof.get('journal_sha256') != sha(journal_path) \
+                or request['expires_at'] != proof['effective_expires_at']:
+            raise ValueError('rebound authority is limited to its exact original-journal restore')
+    elif journal.get('unknown') is not False or journal.get('phase') == 'applying':
+        raise ValueError('unknown/applying journal requires independent terminal reconciliation')
+    marker = read_json(server / 'runtime/upgrade/maintenance.json')
+    if marker.get('protocol') != 'peanut.server-update-maintenance.v1' \
+            or marker.get('status') != 'active' or marker.get('update_id') != context['candidate']:
+        raise ValueError('source recovery maintenance was opened or replaced')
+    return context, journal
+
+
+def source_stopped(server, workspace):
+    context, _ = source_context(server, workspace)
+    program = server.parent / 'scripts/product-upgrade-host'
+    result = subprocess.run(['python3', '-B', str(program), 'source-observe',
+                             '--instance-root=' + str(server.parent)], capture_output=True, text=True)
+    observed = json.loads(result.stdout) if result.returncode == 0 and not result.stderr else {}
+    if observed.get('status') != 'stopped' or observed.get('instance_root') != str(server.parent):
+        raise ValueError('source recovery native writer observation is not stopped')
+    # No fabricated image/container identity for a host-only APP.
+    return {'project': None, 'images': {}, 'containers': {},
+            'source_application': context['binding']['source']}
+
+
+def recovery_stopped(server, workspace):
+    return source_stopped(server, workspace) if SOURCE_REQUEST is not None else assert_stopped(server, allow_registered=True, ordinary=True)
+
+
+def recovery_storage_names():
+    # Installation receipts and journals are checked individually; a source APP
+    # must retain every failed/current maintenance receipt at its original path.
+    return tuple(name for name in STORAGE_NAMES if name != 'private/installation') if SOURCE_REQUEST is not None else STORAGE_NAMES
+
+
+def source_instance(args):
+    server, workspace = args.server, args.workspace
+    if not server.is_absolute() or not workspace.is_absolute() or server.resolve() != server or workspace.resolve() != workspace:
+        raise ValueError('source recovery paths must be canonical')
+    context, journal = source_context(server, workspace)
+    binding = context['binding']
+    plan = {'protocol': context['protocol'], 'update_id': context['candidate'],
+            'source': {'installed_receipt_sha256': binding['installation_originals']['installed.json'],
+                       'baseline_sha256': binding['installation_originals']['baseline.json'],
+                       'deployment_state_sha256': None}}
+    identity = {'resource_id': binding['resource_id'], 'endpoint_id': binding['endpoint_id'],
+                'database': binding['database']['database']}
+    return server, workspace, plan, journal, context['native_plan']['sha256'], identity
+
 def instance(args):
+    if SOURCE_REQUEST is not None:
+        return source_instance(args)
     server, workspace = args.server, args.workspace
     if not server.is_absolute() or not workspace.is_absolute() or server.resolve() != server or workspace.resolve() != workspace:
         raise ValueError("server and workspace must be canonical ordinary directories")
@@ -190,6 +346,10 @@ def instance(args):
 
 
 def product_binding(workspace):
+    if SOURCE_REQUEST is not None:
+        request = read_json(SOURCE_REQUEST)
+        context, journal = source_context(Path(request['server_root']), workspace)
+        return context, journal
     binding = read_json(workspace / 'product-binding.json')
     product = read_json(Path(binding['plan_path']))
     digest = product.pop('plan_sha256', None)
@@ -234,7 +394,7 @@ def storage_archive(path):
     return path
 
 
-def source_database_binding(server, ordinary=False):
+def source_database_binding(server, ordinary=False, source_app=False):
     """Source maintenance uses only this APP's declared container endpoint."""
     values = env(server / '.env')
     def value(key):
@@ -252,7 +412,7 @@ def source_database_binding(server, ordinary=False):
     registry_path = server / 'private/resources/project-resources.json'
     regular(registry_path, 0o600)
     registry = read_json(registry_path)
-    if ordinary:
+    if ordinary and not source_app:
         identity_path = server / '.peanut/release-identity.json'
         regular(identity_path, 0o644)
         manifest = json.loads(identity_path.read_text())
@@ -270,7 +430,7 @@ def source_database_binding(server, ordinary=False):
     resource = rows[0]
     endpoints = [resource.get(key) for key in ('upstream_endpoint', 'container_endpoint')]
     endpoints = [row for row in endpoints if isinstance(row, dict) and value('PEANUT_DATABASE_CONSUMER') in row.get('consumers', [])]
-    if len(endpoints) != 1 or value('PEANUT_DATABASE_CONSUMER') != 'container':
+    if len(endpoints) != 1 or value('PEANUT_DATABASE_CONSUMER') != ('host' if source_app else 'container'):
         raise ValueError('source admission requires its declared container endpoint')
     endpoint = endpoints[0]
     if resource.get('service_type') != 'mysql' or resource.get('fallback') != 'none' or resource.get('application_runtime') is not True \
@@ -374,7 +534,7 @@ def snapshot_paths(server):
 def ordinary_database_provider(server, workspace):
     """Ordinary plan authority only; never accept a partial-installation proof."""
     product, _ = product_binding(workspace)
-    binding = source_database_binding(server, ordinary=True)
+    binding = source_database_binding(server, ordinary=True, source_app=SOURCE_REQUEST is not None)
     reference = product.get('backup_tool')
     if binding['source'] == 'bundled':
         if reference is not None: raise ValueError('bundled recovery forbids an external backup tool')
@@ -395,6 +555,14 @@ def ordinary_database_provider(server, workspace):
             or not re.fullmatch(r'[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}', str(contract.get('server_uuid', ''))) \
             or type(contract.get('timeout_seconds')) is not int or not 30 <= contract['timeout_seconds'] <= 600:
         raise ValueError('registered whole-schema provider identity or lifetime is invalid')
+    if SOURCE_REQUEST is not None:
+        context, _ = source_context(server, workspace)
+        registry = read_json(server / 'private/resources/project-resources.json')
+        selected = [row for row in registry['resources']['databases'] if row.get('stable_resource_id') == binding['resource_id']]
+        if len(selected) != 1 or contract['server_uuid'] != context['binding']['database']['server_uuid'] \
+                or contract['mysql_version'] != selected[0].get('version') \
+                or read_json(SOURCE_REQUEST)['expires_at'] <= time.time() + contract['timeout_seconds'] + 60:
+            raise ValueError('source recovery provider differs from actual PDO/registered version or remaining native lifetime')
     for key in ('ssh_command', 'docker_command', 'mysql_command', 'mysqldump_command', 'timeout_command', 'digest_command'):
         if not re.fullmatch(r'/[A-Za-z0-9_./-]+', str(tool.get(key, ''))) or '..' in tool[key]:
             raise ValueError('registered provider command is not a fixed absolute executable')
@@ -422,7 +590,8 @@ def root_client(server, workspace, provider, operation, *, sql=None, input_file=
     client = 'mysqldump_command' if operation == 'capture' else 'mysql_command'
     common = ['--no-defaults', '--no-login-paths', '--default-character-set=utf8mb4', '-uroot']
     if operation == 'capture':
-        arguments = [*common, '--single-transaction', '--routines', '--triggers', '--events', '--hex-blob',
+        source_options = ['--skip-dump-date', '--order-by-primary'] if SOURCE_REQUEST is not None else []
+        arguments = [*common, *source_options, '--single-transaction', '--routines', '--triggers', '--events', '--hex-blob',
                      '--set-gtid-purged=OFF', '--no-tablespaces',
                      '--databases', '--add-drop-database', '--', database]
     elif operation == 'restore': arguments = common
@@ -559,6 +728,56 @@ def db_probe(server, database, workspace=None):
             "collation": parts[3], "table_count": int(parts[4])}
 
 
+def capture_storage(server, recovery):
+    # Shared with the existing paired backup and pre-rollback evidence capture.
+    storage = {}
+    for name in recovery_storage_names():
+        source = server / name
+        safe_parents(server, name)
+        if not source.exists() and not source.is_symlink():
+            storage[name] = None
+            continue
+        rows = storage_inventory(source)
+        root_mode = stat.S_IMODE(source.stat().st_mode)
+        path = recovery / (name.replace('/', '-') + '.tar.gz')
+        with path.open('xb') as output:
+            os.fchmod(output.fileno(), 0o600)
+            with tarfile.open(fileobj=output, mode='w:gz', dereference=False) as archive:
+                for relative in sorted(rows):
+                    archive.add(source / relative, arcname=relative, recursive=False)
+            output.flush(); os.fsync(output.fileno())
+        storage_archive(path)
+        if storage_inventory(source) != rows or stat.S_IMODE(source.stat().st_mode) != root_mode:
+            raise ValueError('protected storage changed while writers were drained')
+        storage[name] = {'filename': path.name, 'sha256': sha(path), 'inventory': rows,
+                         'root_mode': root_mode}
+    return storage
+
+
+def preserve_source_rollback_afterimage(server, workspace, provider, record):
+    """Rollback is distinct from rehearsal: preserve the actual failed/migrated image."""
+    target = workspace / 'rollback-afterimage'
+    if target.exists() or target.is_symlink():
+        raise ValueError('rollback afterimage exists; reconcile rather than replay')
+    target.mkdir(mode=0o700)
+    sql = target / 'database.sql'
+    process = root_client(server, workspace, provider, 'capture', output=sql)
+    storage = capture_storage(server, target)
+    current = {'protocol': 'peanut.source-application-rollback-afterimage.v1',
+               'original_backup_sha256': sha(workspace / 'backup.json'),
+               'database_sha256': sha(sql), 'database_process': process, 'storage': storage,
+               'request_sha256': sha(SOURCE_REQUEST), 'recovery_continuation': read_json(SOURCE_REQUEST).get('recovery_continuation')}
+    durable(target / 'manifest.json', json.dumps(current, sort_keys=True).encode())
+    durable(target / 'manifest.json.hmac', (signature_for(server, target / 'manifest.json') + chr(10)).encode())
+    # Refuse drift during evidence capture too; this remains before destructive SQL.
+    assert_source_storage_preimage(server, {'storage': storage})
+    comparison = target / 'database-confirm.sql'
+    root_client(server, workspace, provider, 'capture', output=comparison)
+    if sha(comparison) != current['database_sha256']:
+        raise ValueError('rollback afterimage changed during preservation')
+    return {'path': str(target / 'manifest.json'), 'sha256': sha(target / 'manifest.json')}
+
+
 def backup(args):
     server, workspace, plan, journal, plan_sha, identity = instance(args)
     if journal.get('phase_in_progress') != 'backup' or journal.get('database_recovery_required') is not False \
@@ -567,7 +786,7 @@ def backup(args):
     verification_key(server)
     provider = ordinary_database_provider(server, workspace)
     registered = provider['source'] == 'registered'
-    runtime = assert_stopped(server, allow_registered=True, ordinary=True)
+    runtime = recovery_stopped(server, workspace)
     recovery = workspace / "recovery"
     if recovery.exists() or recovery.is_symlink() or (workspace / "backup.json").exists():
         raise ValueError("recovery point already exists")
@@ -577,26 +796,7 @@ def backup(args):
              if registered else db_probe(server, identity["database"]))
     if registered:
         durable(recovery / 'database-metadata.json', json.dumps(observation, sort_keys=True).encode())
-    storage = {}
-    for name in STORAGE_NAMES:
-        source = server / name
-        safe_parents(server, name)
-        if not source.exists() and not source.is_symlink():
-            storage[name] = None
-            continue
-        rows = storage_inventory(source)
-        path = recovery / (name.replace('/', '-') + '.tar.gz')
-        with path.open('xb') as output:
-            os.fchmod(output.fileno(), 0o600)
-            with tarfile.open(fileobj=output, mode='w:gz', dereference=False) as archive:
-                for relative in sorted(rows):
-                    archive.add(source / relative, arcname=relative, recursive=False)
-            output.flush(); os.fsync(output.fileno())
-        storage_archive(path)
-        if storage_inventory(source) != rows:
-            raise ValueError('protected storage changed while writers were drained')
-        storage[name] = {'filename': path.name, 'sha256': sha(path), 'inventory': rows,
-                         'root_mode': source.stat().st_mode & 0o777}
+    storage = capture_storage(server, recovery)
     snapshots = {}
     for name, source in snapshot_paths(server):
         safe_parents(server, name)
@@ -651,7 +851,7 @@ def backup(args):
         if any(after[key] != observation[key] for key in ('identity', 'metadata', 'mysql_sha256', 'mysqldump_sha256')):
             raise ValueError('whole-schema metadata or client changed during capture; retain backup, NOT_READY')
         assert_whole_schema_effects(observation)
-        assert_stopped(server, allow_registered=True, ordinary=True)
+        recovery_stopped(server, workspace)
     record = {"protocol": "peanut.server-update-backup.v1", "update_id": plan["update_id"],
               "plan_sha256": plan_sha, "database_identity": identity, "database_dump_sha256": sha(compressed),
               "source_images": runtime["images"], "compose_project": runtime["project"], 'quiesced_containers': runtime['containers'],
@@ -673,7 +873,7 @@ def verify_backup_attachments(server, workspace, plan, plan_sha, identity):
     record = read_json(workspace / "backup.json")
     if record.get("protocol") != "peanut.server-update-backup.v1" or record.get("update_id") != plan["update_id"] or record.get("plan_sha256") != plan_sha or record.get("database_identity") != identity:
         raise ValueError("recovery point is bound to another plan or database")
-    if record.get('product_plan_sha256') != product_binding(workspace)[0]['plan_sha256'] or set(record.get('storage', {})) != set(STORAGE_NAMES):
+    if record.get('product_plan_sha256') != product_binding(workspace)[0]['plan_sha256'] or set(record.get('storage', {})) != set(recovery_storage_names()):
         raise ValueError('paired storage belongs to another product plan')
     for name, entry in record['storage'].items():
         if entry is None: continue
@@ -760,7 +960,7 @@ def verify(args):
         current = root_observation(server, workspace, provider)
         if any(current[key] != observation[key] for key in ('mysql_sha256', 'mysqldump_sha256')):
             raise ValueError('registered privileged client binaries changed since backup')
-    runtime = assert_stopped(server, allow_registered=True, ordinary=True)
+    runtime = recovery_stopped(server, workspace)
     if record.get("source_images") != runtime["images"] or record.get("compose_project") != runtime["project"]:
         raise ValueError("source image or Compose project changed after backup")
     if journal.get('phase_in_progress') in ('backup', 'quiesce', 'migrate') and record.get('quiesced_containers') != runtime['containers']:
@@ -769,6 +969,15 @@ def verify(args):
     if current_probe["server_uuid"] != record.get("mysql_identity", {}).get("server_uuid") \
         or current_probe["database"] != record.get("mysql_identity", {}).get("database"):
         raise ValueError("MySQL server or schema changed after backup")
+    if SOURCE_REQUEST is not None and SOURCE_OPERATION == 'verify':
+        state_path = workspace / 'database-rehearsal.json'
+        check_signature(server, state_path)
+        rehearsal = read_json(state_path)
+        if rehearsal.get('status') != 'completed' or rehearsal.get('backup_sha256') != sha(workspace / 'backup.json') \
+                or rehearsal.get('source_state_sha256') != record['registered_evidence']['raw_dump_sha256'] \
+                or journal.get('phase') != 'rehearsed':
+            raise ValueError('current source APP restore rehearsal is required before apply')
+        source_database_state(server, workspace, record['database_provider'], 'before-apply')
     return server, workspace, plan, journal, record
 
 
@@ -790,11 +999,45 @@ def validate_dump(path, database, compressed=False):
         raise ValueError("database dump lacks a complete same-schema restore contract")
 
 
+
+def source_database_state(server, workspace, provider, label):
+    """Same pinned native dump, compared byte-for-byte after deterministic ordering."""
+    path = workspace / 'recovery' / (label + '-' + os.urandom(16).hex() + '.sql')
+    reference = root_client(server, workspace, provider, 'capture', output=path)
+    expected = read_json(workspace / 'backup.json')['registered_evidence']['raw_dump_sha256']
+    digest = sha(path)
+    if digest != expected:
+        raise ValueError('source APP current/restored schema or data differs from its paired image')
+    return digest, reference
+
+def assert_source_storage_preimage(server, record):
+    """Read only: absence, root mode and all protected members must still match."""
+    for name, entry in record['storage'].items():
+        safe_parents(server, name)
+        path = server / name
+        if entry is None:
+            if path.exists() or path.is_symlink():
+                raise ValueError('source rehearsal protected storage appeared after capture')
+        elif storage_inventory(path) != entry['inventory'] or stat.S_IMODE(path.stat().st_mode) != entry['root_mode']:
+            raise ValueError('source rehearsal protected storage differs from its paired image')
+
+
+def assert_source_rehearsal_preimage(server, workspace, provider, record):
+    # This comparison is BEFORE the first DROP/CREATE or storage replacement,
+    # unlike the separate post-restore comparison which proves restoration.
+    assert_source_storage_preimage(server, record)
+    source_database_state(server, workspace, provider, 'before-rehearsal')
+    assert_source_storage_preimage(server, record)
+
+
 def restore(args):
     server, workspace, plan, journal, record = verify(args)
     if journal.get("activation_started") is True or journal.get("phase") == "completed":
         raise ValueError("activation started; automatic old database recovery is forbidden")
-    state_path = workspace / "database-recovery.json"
+    if SOURCE_REQUEST is not None and ((SOURCE_OPERATION == 'rehearse' and journal.get('phase') != 'planned')
+                                       or (SOURCE_OPERATION == 'restore' and journal.get('phase') not in ('failed', 'migrated', 'applying'))):
+        raise ValueError('source restore/rehearsal differs from the actual native journal')
+    state_path = workspace / ("database-rehearsal.json" if SOURCE_OPERATION == "rehearse" else "database-recovery.json")
     if state_path.exists() or state_path.is_symlink():
         state = read_json(state_path)
         if state.get("status") == "completed" and state.get("backup_sha256") == sha(workspace / "backup.json"):
@@ -804,6 +1047,9 @@ def restore(args):
             for name, entry in record['storage'].items():
                 if entry is not None and storage_inventory(server / name) != entry['inventory']:
                     raise ValueError('already restored protected storage changed')
+            if SOURCE_REQUEST is not None:
+                assert_source_storage_preimage(server, record)
+                source_database_state(server, workspace, record['database_provider'], 'already-restored')
             print(json.dumps({"status": "already_restored", "update_id": plan["update_id"]}))
             return
         raise ValueError("database restore has an unknown or interrupted result; inspect before retry")
@@ -825,6 +1071,10 @@ def restore(args):
             shutil.copyfileobj(source, target)
             target.flush()
             os.fsync(target.fileno())
+        if SOURCE_REQUEST is not None and SOURCE_OPERATION == 'rehearse':
+            assert_source_rehearsal_preimage(server, workspace, provider, record)
+        rollback_afterimage = preserve_source_rollback_afterimage(server, workspace, provider, record) \
+            if SOURCE_REQUEST is not None and SOURCE_OPERATION == 'restore' else None
         with raw.open("rb") as statement:
             if provider['source'] == 'registered':
                 restored_process = root_client(server, workspace, provider, 'restore', input_file=statement)
@@ -837,6 +1087,9 @@ def restore(args):
     restored = db_probe(server, database, workspace)
     if restored != record["mysql_identity"]:
         raise ValueError("restored schema identity or table count differs from recovery point")
+    source_state = source_database_state(server, workspace, provider, 'restored-state') if SOURCE_REQUEST is not None else None
+    if SOURCE_REQUEST is not None and SOURCE_OPERATION == 'rehearse':
+        assert_source_storage_preimage(server, record)
     restore_storage(server, workspace, record)
     for name, expected in record["snapshots"].items():
         path = server / name
@@ -850,8 +1103,11 @@ def restore(args):
     temporary = workspace / "database-recovery.complete"
     durable(temporary, json.dumps({"status": "completed", "update_id": plan["update_id"],
                                    "backup_sha256": sha(workspace / "backup.json"),
+                                   "rollback_afterimage": rollback_afterimage,
                                    "mysql_identity": restored,
-                                   "registered_restore_process": restored_process if provider['source'] == 'registered' else None}).encode())
+                                   "registered_restore_process": restored_process if provider['source'] == 'registered' else None,
+                                   **({'source_state_sha256': source_state[0], 'source_state_process': source_state[1]}
+                                      if source_state is not None else {})}).encode())
     os.replace(temporary, state_path)
     durable(state_path.with_name(state_path.name + ".hmac"), (signature_for(server, state_path) + "\n").encode())
     print(json.dumps({"status": "completed", "update_id": plan["update_id"]}))
@@ -859,7 +1115,7 @@ def restore(args):
 
 def restore_storage(server, workspace, record):
     # Only these plan-bound protected directories are replaced, while all writers are stopped.
-    for name in STORAGE_NAMES:
+    for name in recovery_storage_names():
         safe_parents(server, name)
         current = server / name
         entry = record['storage'][name]
@@ -867,7 +1123,8 @@ def restore_storage(server, workspace, record):
             if current.exists() or current.is_symlink():
                 raise ValueError('previously absent protected directory appeared')
             continue
-        if current.exists() and storage_inventory(current) == entry['inventory']:
+        if current.exists() and storage_inventory(current) == entry['inventory'] \
+                and stat.S_IMODE(current.stat().st_mode) == entry['root_mode']:
             continue
         stage = workspace / 'recovery' / (name.replace('/', '-') + '.restore')
         old = workspace / 'recovery' / (name.replace('/', '-') + '.previous')
@@ -878,7 +1135,7 @@ def restore_storage(server, workspace, record):
                 # Members have already been checked: ordinary directories/files, no links or traversal.
                 archive.extractall(stage, filter=lambda member, destination: member)
             os.chmod(stage, entry['root_mode'])
-        if storage_inventory(stage) != entry['inventory']:
+        if storage_inventory(stage) != entry['inventory'] or stat.S_IMODE(stage.stat().st_mode) != entry['root_mode']:
             raise ValueError('staged protected directory differs from paired backup')
         if current.exists():
             storage_inventory(current)
@@ -890,17 +1147,22 @@ def restore_storage(server, workspace, record):
             descriptor = os.open(directory, os.O_RDONLY)
             try: os.fsync(descriptor)
             finally: os.close(descriptor)
-        if storage_inventory(current) != entry['inventory']:
+        if storage_inventory(current) != entry['inventory'] or stat.S_IMODE(current.stat().st_mode) != entry['root_mode']:
             raise ValueError('restored protected directory differs from paired backup')
 
 
 def main():
+    global SOURCE_REQUEST, SOURCE_OPERATION
     parser = argparse.ArgumentParser()
-    parser.add_argument("operation", choices=("backup", "verify", "restore"))
+    parser.add_argument("operation", choices=("backup", "verify", "restore", "rehearse"))
+    parser.add_argument("--source-request", type=Path)
     parser.add_argument("--server", type=Path, required=True)
     parser.add_argument("--workspace", type=Path, required=True)
     args = parser.parse_args()
-    {"backup": backup, "verify": lambda a: (verify(a), print('{"status":"verified"}')),
+    SOURCE_REQUEST, SOURCE_OPERATION = args.source_request, args.operation
+    if args.operation == "rehearse" and SOURCE_REQUEST is None:
+        raise ValueError("rehearsal requires a held source APP native request")
+    {"rehearse": restore, "backup": backup, "verify": lambda a: (verify(a), print('{"status":"verified"}')),
      "restore": restore}[args.operation](args)
 
 

@@ -56,7 +56,51 @@ function assertNativeMysqlSchemaLease(
     string $schemaResource,
     string $endpointId,
     string $registrySha256,
-): void {
+): ?array {
+    // A generated source APP may explicitly trust a fixed central native tool.
+    // Its own registry remains the only runtime registry; Project never enters PHP.
+    $registry = projectResourceRegistry($actualRegistrySha);
+    $database = registeredDatabase($registry, $resourceId);
+    $authority = $database['lease_policy']['native_authority'] ?? null;
+    if ($authority !== null) {
+        $privateRegistry = $root . '/server/private/resources/project-resources.json';
+        if (($registry['authority']['role'] ?? null) !== 'application'
+            || !is_file($root . '/.peanut/application-manifest.json')
+            || ($external = getenv('PEANUT_RESOURCE_REGISTRY')) !== false && trim($external) !== ''
+            || realpath($privateRegistry) !== $privateRegistry
+            || $actualRegistrySha !== $registrySha256 || hash_file('sha256', $privateRegistry) !== $registrySha256
+            || !is_array($authority) || count($authority) !== 4 || array_diff(array_keys($authority), ['root', 'common_dir', 'commit', 'files']) !== []
+            || !is_string($authority['root']) || realpath($authority['root']) !== $authority['root']
+            || !is_array($authority['files'])
+            || leaseGit(['-C', $authority['root'], 'rev-parse', 'HEAD^{commit}']) !== $authority['commit']
+            || leaseGit(['-C', $authority['root'], 'rev-parse', '--path-format=absolute', '--git-common-dir']) !== $authority['common_dir']) {
+            throw new RuntimeException('APP_NATIVE_LEASE_AUTHORITY_INVALID');
+        }
+        $files = ['scripts/project-resource-lease', 'scripts/project-resource-application.py', 'scripts/project-resource-registry'];
+        $actualFiles = array_keys($authority['files']); sort($files); sort($actualFiles);
+        if ($actualFiles !== $files) { throw new RuntimeException('APP_NATIVE_LEASE_AUTHORITY_INVALID'); }
+        foreach ($authority['files'] as $file => $digest) {
+            $path = $authority['root'] . '/' . $file;
+            if (realpath($path) !== $path || !is_file($path) || !is_string($digest)
+                || hash_file('sha256', $path) !== $digest
+                || leaseGit(['-C', $authority['root'], 'hash-object', '--no-filters', '--', $path])
+                    !== leaseGit(['-C', $authority['root'], 'rev-parse', $authority['commit'] . ':' . $file])) {
+                throw new RuntimeException('APP_NATIVE_LEASE_AUTHORITY_CHANGED');
+            }
+        }
+        $process = proc_open(['python3', '-B', $authority['root'] . '/scripts/project-resource-application.py',
+            'consume', '--proof', $proofPath, '--application-root', $root, '--registry', $privateRegistry,
+            '--resource-id', $resourceId, '--endpoint-id', $endpointId],
+            [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $root);
+        if (!is_resource($process)) { throw new RuntimeException('APP_NATIVE_LEASE_VERIFIER_UNAVAILABLE'); }
+        $result = stream_get_contents($pipes[1]); $error = stream_get_contents($pipes[2]);
+        fclose($pipes[1]); fclose($pipes[2]); $code = proc_close($process);
+        $result = json_decode($result, true);
+        if ($code !== 0 || $error !== '' || !is_int($result['binding_expires_at'] ?? null)) {
+            throw new RuntimeException('APP_NATIVE_LEASE_VERIFIER_REJECTED');
+        }
+        return $result;
+    }
     $common = leaseGit(['-C', $root, 'rev-parse', '--path-format=absolute', '--git-common-dir']);
     $candidateRoot = leaseGit(['-C', $root, 'rev-parse', '--show-toplevel']);
     $candidateHead = leaseGit(['-C', $root, 'rev-parse', 'HEAD^{commit}']);
@@ -73,11 +117,21 @@ function assertNativeMysqlSchemaLease(
     }
     assertLeaseResourceValues($resources, 'registry-sha256', [$registrySha256]);
     assertLeaseResourceValues($resources, 'endpoint', [$endpointId]);
+    $nativeEnvironment = null;
+    if (($registry['authority']['role'] ?? null) === 'application') {
+        $privateRegistry = $root . '/server/private/resources/project-resources.json';
+        if (realpath($privateRegistry) !== $privateRegistry || hash_file('sha256', $privateRegistry) !== $registrySha256) {
+            throw new RuntimeException('APP_NATIVE_LEASE_REGISTRY_CHANGED');
+        }
+        $nativeEnvironment = (array) getenv();
+        $nativeEnvironment['PEANUT_RESOURCE_REGISTRY'] = $privateRegistry;
+    }
     $process = proc_open(
         ['/bin/bash', $root . '/scripts/project-resource-lease', 'show', '--lease', $metadata['lease'], '--verify-locks'],
         [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
         $pipes,
         $root,
+        $nativeEnvironment,
     );
     if (!is_resource($process)) {
         throw new RuntimeException('MySQL native lease verifier 不可用');
@@ -89,6 +143,28 @@ function assertNativeMysqlSchemaLease(
     if (proc_close($process) !== 0) {
         throw new RuntimeException('MySQL native lease proof 被拒绝: ' . trim((string) $error));
     }
+    $statePath = $proofPath . '/application-operation.json';
+    if (($registry['authority']['role'] ?? null) === 'application' && is_file($statePath) && !is_link($statePath)) {
+        $state = json_decode((string) file_get_contents($statePath), true, 64, JSON_THROW_ON_ERROR);
+        if (isset($state['recovery'])) {
+            $process = proc_open(['python3', '-B', $root . '/scripts/project-resource-application.py',
+                'recovery-info', '--lease', $metadata['lease']], [0 => ['file', '/dev/null', 'r'],
+                1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $root);
+            if (!is_resource($process)) { throw new RuntimeException('SOURCE_RECOVERY_AUTHORITY_UNAVAILABLE'); }
+            $bytes = stream_get_contents($pipes[1]); $error = stream_get_contents($pipes[2]);
+            fclose($pipes[1]); fclose($pipes[2]);
+            if (proc_close($process) !== 0 || $error !== '') { throw new RuntimeException('SOURCE_RECOVERY_AUTHORITY_REJECTED'); }
+            return json_decode($bytes, true, 64, JSON_THROW_ON_ERROR);
+        }
+        if (($state['phase'] ?? null) === 'source-application' && ($state['owner'] ?? null) === $metadata['owner']
+            && ($state['lease'] ?? null) === $metadata['lease']
+            && is_string($state['binding_expires_at'] ?? null)
+            && (int) $state['binding_expires_at'] <= (int) $metadata['expires_at']
+            && (int) $state['binding_expires_at'] > time()) {
+            return ['binding_expires_at' => $state['binding_expires_at']];
+        }
+    }
+    return null;
 }
 
 require_once __DIR__ . '/resource-registry.php';

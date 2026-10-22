@@ -538,6 +538,30 @@ final class ApplicationSchemaHost
     /** Native source maintenance; facts never substitute for the current resource grant. */
     public function sourceDevelopment(string $operation, array $actor, string $planPath, string $resultPath, string $maintenancePath, string $recoveryPath, string $backupTool, string $backupOutput, string $metadataTool = ''): array
     {
+        $run = fn(): array => $this->sourceDevelopmentHeld($operation, $actor, $planPath, $resultPath, $maintenancePath, $recoveryPath, $backupTool, $backupOutput, $metadataTool);
+        if (($actor['scope'] ?? 'source-development') !== 'source-application') { return $run(); }
+        if (in_array($operation, ['snapshot-failure', 'restore-failure'], true)) {
+            throw new RuntimeException('SOURCE_APPLICATION_USE_WHOLE_RECOVERY_REQUIRED');
+        }
+        $facts = $this->sourceDevelopmentAdmission($actor, in_array($operation, ['apply', 'restore-failure', 'snapshot-failure'], true));
+        return \PeanutServerUpdatePlan::withSourceApplicationMaintenance($this->serverRoot, $facts['source'],
+            function () use ($run, $operation, $facts, $maintenancePath): array {
+                try {
+                    $result = $run();
+                    if ($operation === 'apply') { SourceApplicationBackup::sourceApplicationStage($facts, $maintenancePath, 'completed', $result['result_path']); }
+                    return $result;
+                } catch (\Throwable $failure) {
+                    if ($operation === 'apply') {
+                        try { SourceApplicationBackup::sourceApplicationStage($facts, $maintenancePath, 'failed'); }
+                        catch (\Throwable) { /* Existing journal/in-use UNKNOWN boundary remains protective. */ }
+                    }
+                    throw $failure;
+                }
+            });
+    }
+
+    private function sourceDevelopmentHeld(string $operation, array $actor, string $planPath, string $resultPath, string $maintenancePath, string $recoveryPath, string $backupTool, string $backupOutput, string $metadataTool = ''): array
+    {
         $this->sourceMetadataTool = $metadataTool;
         $backupOperation = in_array($operation, ['backup', 'snapshot-failure'], true);
         $restoreOperation = $operation === 'restore-failure';
@@ -556,7 +580,7 @@ final class ApplicationSchemaHost
         if (!$context instanceof \app\common\execution\InstanceExecutionContext
             || $context->operation() !== 'console.schema:application' || $context->instance->actorKey !== 'console' || PHP_SAPI !== 'cli'
             || config('peanut.environment') !== 'development' || !app()->isDebug()
-            || !\installationSourceDevelopmentMode($this->serverRoot)
+            || (($actor['scope'] ?? 'source-development') !== 'source-application' && !\installationSourceDevelopmentMode($this->serverRoot))
             || !in_array(config('deployment.mode'), ['standalone', 'multi-tenant'], true)) {
             throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_CONTEXT_REQUIRED');
         }
@@ -651,7 +675,8 @@ final class ApplicationSchemaHost
                 $proofs = [];
                 if ($operation === 'apply') {
                     $proofs = $this->sourceDevelopmentEvidence($current, $maintenancePath, $recoveryPath, $baseline, $expected['backup_scope']);
-                    if (!$this->sourceSame($expected['evidence'] ?? null, $proofs)) { throw new RuntimeException('APPLICATION_SCHEMA_PLAN_STALE'); }
+                    if (!$this->sourceSame($expected['evidence'] ?? null, $proofs)) { throw new RuntimeException('APPLICATION_SCHEMA_PLAN_STALE'); }                    SourceApplicationBackup::sourceApplicationBeforeApply($current, $maintenancePath, $recheck);
+
                 }
                 $completed = []; $businessBefore = []; $businessPoststates = []; $stageBounds = [];
                 $before = function (PDO $actual, array $migration) use ($pdo, $baseline, $recheck, $current, $maintenancePath, $recoveryPath, $proofs, $expected, &$completed, &$businessBefore): bool {
@@ -750,7 +775,7 @@ final class ApplicationSchemaHost
                         }
                         self::assertAuthPoststates($pdo, $baseline['pending'], $businessPoststates, $operation === 'verify');
                         $record = ['schema_version' => 1, 'protocol' => 'peanut.source-development-schema-result.v1',
-                            'scope' => 'application-schema', 'maintenance_scope' => 'source-development', 'status' => 'completed',
+                            'scope' => 'application-schema', 'maintenance_scope' => ($current['source']['kind'] ?? null) === 'generated-application' ? 'source-application' : 'source-development', 'status' => 'completed',
                             'operation' => $operation, 'binding' => $current, 'baseline' => $baseline, 'application' => $selection, 'business_poststates' => $businessPoststates,
                             'validation_only' => $current['validation_only'],
                             'recovery_references' => $operation === 'apply' ? ($proofs['recovery']['references'] ?? null) : ($expected['recovery_references'] ?? null),
@@ -859,7 +884,7 @@ final class ApplicationSchemaHost
             $requirements[] = ['code' => 'APPLICATION_SCHEMA_SOURCE_WINDOW_RECOVERY_REQUIRED'];
         }
         $plan = ['schema_version' => 1, 'protocol' => 'peanut.source-development-schema-plan.v1',
-            'scope' => 'application-schema', 'maintenance_scope' => 'source-development', 'status' => $blocked ? 'blocked' : 'planned',
+            'scope' => 'application-schema', 'maintenance_scope' => ($binding['source']['kind'] ?? null) === 'generated-application' ? 'source-application' : 'source-development', 'status' => $blocked ? 'blocked' : 'planned',
             'binding' => $binding, 'baseline' => $baseline, 'chain' => $chain, 'backup_scope' => $backupScope, 'execution_requirements' => $requirements, 'evidence' => $evidence,
             'protected_permission_bindings' => PermissionSchemaMigrationProof::readonlyBindingDigests($pdo),
             'validation_only' => $binding['validation_only'],
@@ -1385,9 +1410,12 @@ final class ApplicationSchemaHost
                         if ($selection['pending'] !== $plan['baseline']['pending']) { throw new RuntimeException('APPLICATION_SCHEMA_PLAN_STALE'); }
                         $recheck();
                         $result = SourceApplicationBackup::capture($binding, $plan['baseline'], $this->digest($plan['baseline']), $plan['backup_scope'], $tools[0], $output, $recheck);
+                        if (($binding['source']['kind'] ?? null) === 'generated-application') {
+                            $result['application_recovery'] = SourceApplicationBackup::sourceApplicationProtection($binding, $plan, $tools[0], $output, $recheck);
+                        }
                     });
                 if (!is_array($result)) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_INCOMPLETE'); }
-                return $result + ['scope' => 'application-schema', 'maintenance_scope' => 'source-development', 'plugins' => 'not_run', 'product_database' => 'not_verified'];
+                return $result + ['scope' => 'application-schema', 'maintenance_scope' => ($binding['source']['kind'] ?? null) === 'generated-application' ? 'source-application' : 'source-development', 'plugins' => 'not_run', 'product_database' => 'not_verified'];
             });
     }
 
@@ -1597,6 +1625,8 @@ final class ApplicationSchemaHost
      */
     private function sourceDevelopmentEvidence(array $binding, string $maintenancePath, string $recoveryPath, array $baseline, array $backupScope, ?int $recordedAt = null): array
     {
+        $applicationRecovery = ($binding['source']['kind'] ?? null) === 'generated-application'
+            ? SourceApplicationBackup::sourceApplicationQualification($binding, $baseline, $backupScope, $maintenancePath) : null;
         $at = $recordedAt ?? time();
         if ($at <= 0 || $at > time()) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_EVIDENCE_REQUIRED'); }
         $pending = $baseline['pending'] ?? null;
@@ -1696,7 +1726,7 @@ final class ApplicationSchemaHost
                     array_flip(['source_database', 'baseline_sha256', 'backup_manifest', 'backup_payload', 'restore_tool', 'restore_contract_sha256']));
             }
         }
-        return $out;
+        return $out + ($applicationRecovery === null ? [] : ['application_recovery' => $applicationRecovery]);
     }
 
     private function sourceDatabaseIdentity(array $identity): bool
@@ -1878,7 +1908,8 @@ final class ApplicationSchemaHost
     {
         $sha = $document['document_sha256'] ?? null; unset($document['document_sha256']);
         if (($document['protocol'] ?? null) !== $protocol || ($document['schema_version'] ?? null) !== 1
-            || ($document['scope'] ?? null) !== 'application-schema' || ($document['maintenance_scope'] ?? null) !== 'source-development'
+            || ($document['scope'] ?? null) !== 'application-schema'
+            || ($document['maintenance_scope'] ?? null) !== ((($document['binding']['source']['kind'] ?? null) === 'generated-application') ? 'source-application' : 'source-development')
             || ($document['external_gates'] ?? null) !== 'not_evaluated'
             || ($document['plugins'] ?? null) !== 'not_run' || ($document['product_database'] ?? null) !== 'not_verified'
             || !is_string($sha) || !hash_equals($sha, $this->digest($document))) { throw new RuntimeException('APPLICATION_SCHEMA_DOCUMENT_INVALID'); }
