@@ -61,7 +61,29 @@ server/docker/scripts/update.sh verify --workspace=/absolute/private/upgrade-wor
 
 失败保持原计划、journal、原错误和已发生效果。激活前按原workspace使用`recover`完成配对恢复并核旧运行；激活后不自动回灌旧数据库。代码与静态文件回退只有在数据库/模块状态兼容时才能作为业务回退；数据库DDL不因Git回退而撤销。首次安装、重复安装拒绝和partial恢复是不同入口。
 
-**固定Git来源更新是已确定的产品目标，当前不能据此宣称普通生产`git pull`已安全接通。** 在其取源、干净固定提交、已构建静态、部署清单、配置保护和同一恢复链完成验收前，生产继续使用包更新。不得把忽略文件规则、`git reset --hard`或版本标签当作完整恢复机制。
+### 固定Git目录生产者
+
+`scripts/prepare-fixed-git-release`只准备一个可供后续接纳的目录，不操作已安装实例。它从显式审阅的**本地Git仓或mirror**读取固定对象，核对该仓唯一的`origin`与`--allowed-origin`完全相同，再在不存在的独立`--checkout`克隆并检出精确`--commit`/`--tree`。它不联网fetch、不拉取活动APP、不采用仓内未提交文件，也不以分支或tag替代完整SHA。仓、checkout和output必须是互不嵌套的canonical绝对路径；checkout/output的父目录须已存在，目标须不存在。
+
+```sh
+python3 scripts/prepare-fixed-git-release \
+  --repository=/absolute/reviewed-app-repository \
+  --allowed-origin=https://github.com/example/my-app.git \
+  --commit=REVIEWED_40_HEX_COMMIT --tree=REVIEWED_40_HEX_TREE \
+  --checkout=/absolute/private/new-checkout --output=/absolute/private/new-program \
+  --build-inputs=/absolute/private/reviewed-build-inputs.json \
+  --expected-build-inputs-sha256=REVIEWED_64_HEX_SHA256
+```
+
+占位值必须换成已审阅的精确来源。批准文件是普通JSON对象：`schema_version=1`、`protocol=peanut.fixed-git-build-approval.v1`、显式工具搜索`path`、`tools`及`inputs`。`tools`恰好包含`git/bash/python3/node/npm/pnpm/php`，每项记录最终解析到的绝对普通可执行文件`path`及文件`sha256`；PATH的解析结果和字节必须匹配。`inputs`恰好记录以下16个已提交文件的SHA-256：原`.peanut/application-manifest.json`、`release-versions.json`、`scripts/package-release.sh`、`scripts/package-release-files.py`、`scripts/release-dependency-locks.mjs`、`scripts/project-composer`、`server/composer.json`/`composer.lock`，以及`web/platform/pc/uniapp`各自的`package.json`与现有锁（Web为`pnpm-lock.yaml`，其余为`package-lock.json`）。批准文件摘要、APP commit/tree和allowed origin共同构成执行前的明确选择，不自动导入信任或凭据。
+
+入口先逐项核对checkout的全部tracked路径、普通文件类型、Git blob字节和mode，以及批准输入。随后仅调用**该APP自己的**`package-release.sh OUTPUT --application-root=CHECKOUT --directory-only --server-only`，复用其固定依赖安装、四端静态构建及canonical程序清单。构建使用新建私有HOME/TMPDIR和批准PATH，不继承调用者的凭据、Git配置或构建环境覆盖；执行已批准源码仍是信任决定，本入口不是进程沙箱，也不证明宿主全部依赖可复现。`--check-only`仅取得并校验新checkout，不运行构建或发布output；它不能报告完整制品通过。
+
+构建后重新核对源码、批准文件和工具字节；逐项比对真实server目录与`server/.peanut/release-identity.json`的文件、mode、摘要和APP身份，并要求四个浏览器入口及plugin投影存在。仅全部通过后以exclusive mkdir取得output，发布server目录及最后的0444非秘密`fixed-git-source.json`。描述符协议为`peanut.fixed-git-source.v1`，`source.kind=fixed-git`，绑定allowed repository、APP commit/tree、原APP manifest与tracked清单摘要、Edition/profile/APP版本、批准输入与工具、native build entry及生产者摘要、canonical identity/files摘要和四端静态投影；stdout返回描述符SHA-256。程序文件维持原canonical mode，后续消费者仍须用可信外部摘要重验描述符与目录，不能把只读描述符当文件系统防篡改能力。
+
+缺失/改变的身份或不完整输出拒绝；旧checkout/output不覆盖。失败的新checkout和私有staging保留给实际owner诊断；若最终发布遇到文件系统错误，没有完整描述符的目录不算已接受，不能作为更新输入或自动清空后重试。成功仅清理自己的构建暂存，精确checkout保留。此入口不生成tgz，不把Git来源伪装成归档，不改写任何安装baseline或完成身份。
+
+**固定Git来源的原生更新接纳仍未接通。** 现有`update.sh`仅消费包；后续须在同一原生coordinator接纳typed描述符、核对真实原安装身份和当前deployment head，并沿用同一保护/恢复链。生产继续使用已获准的包更新；生产者完成不等于安装、升级、恢复、生产或EX8接受。不得把普通`git pull`、忽略文件规则、`git reset --hard`或版本标签当作完整恢复机制。
 
 ## 6. 验证口径
 
