@@ -1993,7 +1993,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1231ab266f6f53ff83f6cec03b16a05dfe3255dcd3336ff388bec165912e9748"
+            "source_sha256": "342a16ae985a3f07138f7d833119338575b404c9243a53bf84e4979a9e3790a8"
         },
         {
             "path": "platform/src/api/platform.ts",
@@ -2497,7 +2497,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f5728317aa0cae5f4d38966614c03623810a78287412e1912f3cb9566c760a48"
+            "source_sha256": "7fef228dc65a7072c9784ada260341d8250a1b81f0aac3150c2ab6a1b17c914c"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2676,7 +2676,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "172f58c6346ee56d25545f8e326778cfd29210aa616ccd0f5e0f8688ef01df41"
+            "source_sha256": "aa8df079eeed4c084232ca2c23cc0c168177b176385f34da6387e8ea770fb177"
         },
         {
             "path": "plugins/official.notification/plugin.json",
@@ -5777,7 +5777,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3635f8c0c4d174fe6139465da2a01ccc33de776c1643729b10b5e03381d3cc98"
+            "source_sha256": "a534f24ef3882942177fb0dd6665632020d166a30eddaa684efb540474b66f81"
         },
         {
             "path": "server/app/adminapi/services/auth/LoginApplicationService.php",
@@ -17863,7 +17863,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a8e844573adbcd1ac1d005667a803b428bb97085b10500c904fab093881cd86b"
+            "source_sha256": "f22cfd5c7b60ae369a3dddf502c24d0cb96e664fba3733836b3775b91654c658"
         },
         {
             "path": "server/app/modules/official/member/database/migrations/20260826-namespace-permission-keys.sql",
@@ -17905,7 +17905,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0a19e9b06435921a9242f3d3ead96e30ef0b7ca368666d74ca85c088bbb038f6"
+            "source_sha256": "29e5255c1749b69e36de267dc8ae8b1802570e5f6448b6250183fe1d661b6e87"
         },
         {
             "path": "server/app/modules/official/member/resources/menus.json",
@@ -18409,7 +18409,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "489bea321c61ac0f2e9185a86aa73af24929659e459cf7888c1af8287b168b00"
+            "source_sha256": "0ccdd5eebf9c4942f641d3ededb12632f7f00221c4273db4a474b6bb806dfedd"
         },
         {
             "path": "server/app/modules/official/member/src/Service/MemberQueryService.php",
@@ -41051,7 +41051,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "acbfbdcd4f54cbb99417e3ae6fb7cef680eacb88fea38c77015124ca0020c7a7"
+            "source_sha256": "e0ddc84502bf9fe60386ba73de8a26af1042067a92ee6ad193ab14e6b4734eae"
         },
         {
             "path": "web/src/views/system/dept/locale/en-US.ts",
