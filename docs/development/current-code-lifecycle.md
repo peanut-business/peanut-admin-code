@@ -37,7 +37,11 @@ PEANUT_UPGRADE_PHP="$PHP" /new/tooling-adoption/tools/server/docker/scripts/upda
 
 此入口只处理已审固定 `11a327d5`、维护 manifest `beb909dd9563118a810ef454d8438aa9293511903558e00bd96f5fc394ff4ce6` 的确定性重复类声明：selected helper 先加载，写 prepare intent 后加载其同字节 trusted 副本，在 host dispatch 之前 PHP fatal。它不处理任意 fatal、超时或 UNKNOWN，不清理或改写旧 plan/state/trusted/journal，也不将失败冒充恢复。
 
-执行 owner 须提供经审阅的 canonical mode-0600 admission JSON，协议 `peanut.pre-host-prepare-failure-admission.v1`，字段为 `instance_root`、`candidate`、`tooling_receipt`、原 `plan_file_sha256`、原失败 `state_sha256`、`runtime_sha256`、`stdout` 绝对路径及 `stdout_sha256`、`exit_code:255`、原安装/保护配置 `source` 摘要字典，以及实际 apply 前的 `runtime_before`。后者按 php/nginx/mysql（registered 则 php/nginx）记录 Docker 完整 `id`、`image`、`started_at`、`running:true`；不能把失败后的观察冒充先前记录。stdout 原件本身也须 owner 持有、0600。原安装 prestate 来自当次 active tooling receipt，并与本次批准材料、当前实例一致。
+执行 owner 须提供经审阅的 canonical mode-0600 admission JSON，协议 `peanut.pre-host-prepare-failure-admission.v1`，字段为 `instance_root`、`candidate`、`tooling_receipt`、原 `plan_file_sha256`、原失败 `state_sha256`、`runtime_sha256`、`stdout` 绝对路径及 `stdout_sha256`、`exit_code:255`、原安装/保护配置 `source` 摘要字典，以及显式 `runtime_evidence`。原安装 prestate 来自当次 active tooling receipt，并与批准材料、当前实例一致。stdout 原件和证据原件同样须 owner 持有、0600。
+
+本故障采用 `runtime_evidence.variant=post-start-inference`，仅收 `pre`、`post`、`arguments` 三个原件的 `{path, sha256}`；直接解析原件 header 和内容，不能重写观察时间或补 `runtime_before`。前原件必须保留三服务完整 ID/image/state=running 及保护锚点，StartedAt 明确 NOT_CAPTURED；后原件保留同一完整 ID/running/实际 StartedAt，image 明确 NOT_CAPTURED。原 argv 必须指向该 active receipt 的 wrapper、apply、同实例和同 workspace，并绑定该 candidate/plan。当前原生检查要求 ID/image 与前原件一致、StartedAt 与后原件一致且仍 running；只有同一不可变 ID 能连接前 image 与后/当前 StartedAt，不能声称后原件测过 image。
+
+时间链必须为后/当前 StartedAt < 原前观察时间 < 原 native plan 的已认证 `created_at` <= 原失败 state 的已认证 `updated_at`（prepare intent）<= 原后观察时间。命令 start 本身标 NOT_CAPTURED；因为该 apply 的确切输入 plan 必须先存在，才可推导前观察早于本 apply，不能把 prepare intent 或文件名日期冒充 command-start。仅推导容器在该窗口未重启，并结合固定源码证明本 host 未派发；不证明容器内部进程未重启、没有正常业务数据库写入或完整恢复。任一原件/时间/身份缺失或漂移均拒绝，不降级放行。
 
 ```sh
 "$PHP" /verified/new-maintenance-tools/scripts/upgrade tooling-dispose-failed-prepare \
