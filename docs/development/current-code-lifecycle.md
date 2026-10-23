@@ -52,7 +52,15 @@ PEANUT_UPGRADE_PHP="$PHP" /new/tooling-adoption/tools/server/docker/scripts/upda
 
 成功仅新建 `.peanut/upgrades/pre-host-failures/<candidate>.json` 受保护 immutable disposition，绑定批准材料、原 plan/state/runtime 摘要；旧文件逐字节不变。工具准入仅接受此精确已裁定旧失败状态，新协调器拒绝继续该旧计划。随后正常 observe → pins adopt 新工具 → 新 workspace/new plan，原失败保留。新工具与可复用 B 的来源须分别登记；若差异只有这次工具加载/裁定修复，可采用已固定且业务 PHP 未变的 B，不能改 B 摘要或声称它含新工具源码。
 
-固定镜像环境准备仅支持 Dockerfile、PHP/MySQL/cron 镜像配置和辅助 recipe 不变、无 active collaboration 的既有 Compose 演进。旧/新 Compose 都在原实例 project-directory、同一只读保护 env 下解析；服务集合、固定本地镜像、挂载、网络、端口、数据库模式和其余配置必须完全一致，只允许 PHP stop signal 从缺省/SIGQUIT 改为 SIGTERM。目标 nginx 配置用原固定 nginx 镜像执行原生 `nginx -t`。不 build/pull 镜像、不改保护 env、不新建或清空数据库/卷。prepare 记录旧/新 recipe、保护 env、镜像、Compose 摘要和计划/输入绑定；后续步骤拒绝第三种 recipe，原 `runtime_environment_changed` 要求保留。未知变化拒绝，不能删 flag 或用旧环境重新打包冒充通过。
+### 已知 b4e 只读 prepare 拒绝的明确裁定
+
+同一 `tooling-dispose-failed-prepare` 入口另接受协议 `peanut.readonly-prepare-rejection-admission.v1`，仅处理固定 b4e 源码、manifest `c40be6d88bfaeaf8f3b510370d14e422d7880f0718d103246212ec548037a187` 的这次 auxiliary recipe 拒绝。host 已派发；固定闭包证明它在 vendor 准备、preparation、配置复制、nginx 检查和交易步骤之前拒绝，不能套用前述 pre-host 结论。
+
+admission 沿用上述身份、receipt、plan/state/runtime、source、stdout 字段，`exit_code` 为 1；`runtime_evidence` 必须恰含 `pre`、`post`、`arguments`、`render`、`stdout`、`stderr`、`terminal` 七个原件的 `{path, sha256}`。实现固定本次七原件摘要，直接解析原始内容；核三容器完整 ID/image/StartedAt/running 的前后与当前一致、真实 transport dispatch 时间链、精确 host log、原生状态和完整旧闭包，以及所有 11 个 recipe 的当前/目标字节和模式、目标 B 身份、保护 env 和实际只选 base Compose 的证据。缺失、漂移、其他 exit-1 或 UNKNOWN 均拒绝。
+
+成功只新增 `.peanut/upgrades/readonly-prepare-rejections/<candidate>.json`，状态为 `failed-after-readonly-prepare`，旧 state/plan/trusted/log 保持原样；旧计划不可再执行。仅放行正常 observe → pins adopt → 新 plan，不能宣称已恢复、无业务 DB 写入或容器内部进程未重启。业务 B 仍固定 11a，维护工具差异单独登记，不重制或改写 B。
+
+固定镜像环境准备仅支持 Dockerfile、PHP/MySQL/cron 镜像配置不变、无 active collaboration 的既有 Compose 演进。辅助 recipe 仅允许 `compose.registered-database.yaml`、`compose.collaboration.yaml` 及两个 `nginx.*collaboration.conf.template` 从不存在新增为目标 B manifest 固定的普通 0644 文件，且未被当前 Composition 选择、未作为运行配置挂载；已有辅助文件修改/删除和未知配置拒绝。PHP 既有整个应用目录 bind 只被动暴露数据文件，不等于选择 overlay 或 nginx template。旧/新 Compose 都在原实例 project-directory、同一只读保护 env 下解析；服务集合、固定本地镜像、挂载、网络、端口、数据库模式和其余配置必须完全一致，只允许 PHP stop signal 从缺省/SIGQUIT 改为 SIGTERM。目标 nginx 配置用原固定 nginx 镜像执行原生 `nginx -t`。不 build/pull 镜像、不改保护 env、不新建或清空数据库/卷。prepare 记录旧/新 recipe、未激活新增清单、所选 Compose、保护 env、镜像、Compose 摘要和计划/输入绑定；后续步骤拒绝第三种 recipe，原 `runtime_environment_changed` 要求保留。未知变化拒绝，不能删 flag 或用旧环境重新打包冒充通过。
 
 ## 1. 产品与代码
 

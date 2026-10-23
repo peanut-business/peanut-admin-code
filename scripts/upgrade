@@ -582,6 +582,10 @@ function productUpgradeReadPlan(string $instanceRoot, string $path): array
     if (file_exists($failure) || is_link($failure)) {
         throw new RuntimeException('PRODUCT_UPGRADE_PLAN_DISPOSED_BEFORE_HOST');
     }
+    $failure = $root . '/.peanut/upgrades/readonly-prepare-rejections/' . ($plan['candidate'] ?? '') . '.json';
+    if (file_exists($failure) || is_link($failure)) {
+        throw new RuntimeException('PRODUCT_UPGRADE_PLAN_DISPOSED_AFTER_READONLY_PREPARE');
+    }
     $tool = productUpgradeBackupTool($root, $plan['backup_tool']['path'] ?? null);
     if (($plan['backup_tool'] ?? null) !== $tool) { throw new RuntimeException('PRODUCT_UPGRADE_BACKUP_TOOL_CHANGED'); }
     return $plan + ['plan_sha256' => $digest, 'absolute_path' => $resolved];
