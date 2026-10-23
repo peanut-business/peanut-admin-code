@@ -1938,7 +1938,12 @@ final class ApplicationSchemaHost
             }
         }
         $moduleRows = $pdo->query('SELECT * FROM pa_module_migration ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
-        foreach ($moduleRows as $row) { if ($row['status'] !== 'applied') { throw new RuntimeException('APPLICATION_SCHEMA_MODULE_LEDGER_INCOMPLETE'); } }
+        $moduleResolutions = null;
+        if ($this->fileRelocationInput !== null) {
+            $moduleResolutions = PluginLifecycleService::fileRelocationModuleHistory($pdo, $moduleRows, $this->fileRelocationInput);
+        } else {
+            foreach ($moduleRows as $row) { if ($row['status'] !== 'applied') { throw new RuntimeException('APPLICATION_SCHEMA_MODULE_LEDGER_INCOMPLETE'); } }
+        }
         $columns = $pdo->query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='pa_module_migration' ORDER BY ORDINAL_POSITION")->fetchAll(PDO::FETCH_COLUMN);
         $shape = $this->sourceModuleShape($pdo);
         return ['pending' => $pending, 'selected' => $selected, 'release_versions' => $releaseVersions, 'target' => $target, 'default_release' => $default,
@@ -1948,7 +1953,8 @@ final class ApplicationSchemaHost
             'application_rows_sha256' => $this->digest($ledger), 'application_rows_count' => count($ledger),
             'application_shape_sha256' => $this->digest($ledgerShape),
             'module_rows_sha256' => $this->digest($moduleRows), 'module_rows_count' => count($moduleRows), 'module_columns' => $columns,
-            'module_shape_sha256' => $this->digest($shape)];
+            'module_shape_sha256' => $this->digest($shape)]
+            + ($moduleResolutions === null ? [] : ['module_native_resolutions' => $moduleResolutions]);
     }
 
     /** Preserve original history and only the exact, ordered execution prefix. */

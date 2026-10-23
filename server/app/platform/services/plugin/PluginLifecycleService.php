@@ -1854,6 +1854,49 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         }
     }
 
+    /** Fixed relocation preparation validates recorded history, not unexecuted candidate migrations. */
+    public static function fileRelocationModuleHistory(\PDO $pdo, array $recordedRows, array $input): array
+    {
+        if (Db::connect()->getPdo() !== $pdo || $pdo->inTransaction()) {
+            throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Relocation history requires its original master.');
+        }
+        $packages = (new PluginLockResolver(rtrim(root_path(), DIRECTORY_SEPARATOR), '../plugins.lock'))->all();
+        $pdo->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+        $pdo->exec('SET TRANSACTION READ ONLY'); $pdo->beginTransaction();
+        try {
+            $rows = $pdo->query('SELECT * FROM pa_module_migration ORDER BY id')->fetchAll(\PDO::FETCH_ASSOC);
+            if (self::json($rows) !== self::json($recordedRows)) { throw new PluginLifecycleException('MODULE_MIGRATION_STAGE_CHANGED', 'Recorded history changed.'); }
+            $sources = []; $resolutions = [];
+            foreach ($rows as $row) {
+                $module = $row['module_key']; $key = $row['migration_key'];
+                if (!isset($sources[$module])) {
+                    $owner = Db::name('plugin_module')->where('module_key', $module)->value('plugin_key');
+                    $root = $packages[$owner]->moduleRoots[$module] ?? null;
+                    if (!is_string($owner) || !is_string($root)) { throw new PluginLifecycleException('MODULE_OWNERSHIP_MISSING', 'Recorded migration owner is unavailable.'); }
+                    $manifest = (new \PeanutAdmin\Kernel\Module\ManifestLoader())->load($root);
+                    $files = self::migrationFiles($root, $manifest, true); $repairs = self::migrationRepairMap($module, $files);
+                    $sources[$module] = [$owner, $files, $repairs, self::migrationAdoptions($module, $files, $repairs)];
+                }
+                [$owner, $files, $repairs, $adoptions] = $sources[$module];
+                if (!isset($files[$key]) || $row['checksum'] !== hash_file('sha256', $files[$key]) || isset($adoptions['declarations'][$key])) {
+                    throw new PluginLifecycleException('MODULE_MIGRATION_CHECKSUM_MISMATCH', 'Recorded migration source is incomplete.');
+                }
+                if ($row['status'] === 'failed') {
+                    $repair = self::migrationRepairResolution($pdo, $module, $row, $files, $repairs);
+                    if (($repair['state'] ?? null) !== 'applied') { throw new PluginLifecycleException('MODULE_MIGRATION_REPAIR_REQUIRED', 'Recorded failure has no completed native repair.'); }
+                    $resolutions[] = ['module_key' => $module, 'resolution' => $repair];
+                } elseif ($row['status'] !== 'applied') {
+                    throw new PluginLifecycleException('MODULE_MIGRATION_REPAIR_REQUIRED', 'Unfinished recorded history cannot be relocated.');
+                } elseif ($module === 'official.file' && $key === \app\common\services\upgrade\FileAdoptionRelocation::KEY) {
+                    // The producer validates original evidence with the explicit old location. No future receipt is assumed.
+                    self::fileAdoptionRelocationSource($pdo, $row, $input);
+                } else { self::assertResolution($row, $adoptions['targets'][$key] ?? null, $pdo, $owner); }
+            }
+            if (Db::connect()->getPdo() !== $pdo || !$pdo->inTransaction()) { throw new PluginLifecycleException('MODULE_MIGRATION_PDO_MISMATCH', 'Recorded history snapshot changed.'); }
+            $pdo->commit(); return $resolutions;
+        } catch (\Throwable $failure) { if ($pdo->inTransaction()) { $pdo->rollBack(); } throw $failure; }
+    }
+
     private static function assertResolution(array $row, ?array $declaration, \PDO $pdo, string $pluginKey, ?\Closure $heldVisibility = null): ?array
     {
         $kind = $row['resolution_kind'] ?? null;
