@@ -731,13 +731,19 @@ class AppService extends Service
         }
         $developmentReadonly = \app\common\value\installation\ApplicationSourceIdentity::hasRuntime($serverRoot)
             && \app\common\infrastructure\installation\ReadonlyHttpMount::active($serverRoot);
-        $registry = !$this->app->runningInConsole() && (file_exists($releasePath) || is_link($releasePath) || $developmentReadonly)
-            ? $this->app->make(\app\common\infrastructure\installation\VerifiedServerDeployment::class)->registry()
-            : (new ModuleDefinitionRegistryFactory($serverRoot))->fromPluginLock(
-                new PluginLockResolver($serverRoot, $lockPath),
-                $config,
-                false,
-            );
+        $factory = new ModuleDefinitionRegistryFactory($serverRoot);
+        if (!$this->app->runningInConsole()) {
+            $registry = file_exists($releasePath) || is_link($releasePath) || $developmentReadonly
+                ? $this->app->make(\app\common\infrastructure\installation\VerifiedServerDeployment::class)->registry()
+                : $factory->fromCompiled($config);
+        } else {
+            $resolver = new PluginLockResolver($serverRoot, $lockPath);
+            $registry = $factory->fromPluginLock($resolver, $config, false);
+            if (PHP_SAPI === 'cli' && in_array((new \think\console\Input())->getFirstArgument(), ['run', 'module:compile'], true)
+                && !file_exists($releasePath) && !is_link($releasePath) && !$developmentReadonly) {
+                $factory->publishCompiled($registry, $config, $resolver->all());
+            }
+        }
         $this->app->instance(CompiledModuleRegistry::class, $registry);
         $this->app->make(ModuleComposition::class)->register($registry);
     }

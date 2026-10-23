@@ -13,8 +13,11 @@
 ```sh
 php think module:create <vendor.module> --vendor=<vendor>
 php think module:check <vendor.module>
+php think module:compile
 php think module:pack <vendor.module> --output=<absolute-release-path>/<name>.tar
 ```
+
+源码 HTTP 请求只读取已编译模块注册表，不逐请求校验插件目录、编译声明或扫描 PHP 源码边界。`module:compile` 在本地 CLI 中完成全量校验并写入 ThinkPHP 原生 File 缓存，不运行迁移或访问业务数据库；缓存只含模块声明，不含租户、用户或权限快照。`think run` 和 `scripts/local-php-runtime start` 启动前自动生成，直接使用 `php -S` 的调用方须先执行该命令。`plugin:lock --write` 同步刷新编译结果；锁文件、依赖身份或编译配置改变后，其他采用入口须重新执行 `module:compile`。缺失或输入不匹配时 HTTP 返回 503，不在请求中自动重编译。编译结果位于 `runtime/module-registry`，普通业务缓存清理不删除它；清空整个 runtime 后须重新编译。正式部署继续使用既有 VerifiedServerDeployment 发布/读取流程。
 
 包作者通过可信渠道交付archive和SHA-256，不能把未知包旁自行计算的摘要当作可信来源。`module:install-package <archive> --sha256=<trusted-64-hex>`是已知Standalone / multi-tenant实例的本地开发或调试Runtime安装入口；它不创建租户、开通TenantModule或授予RBAC。确需签名时，打包同时提供`--signing-key-id`和`--signing-secret-key-file`，安装可显式要求`--signature-key-id`；既有签名不被无条件忽略。生产模块交付仍走该版本支持的受控入口，不允许普通租户自行上传和运行PHP。
 

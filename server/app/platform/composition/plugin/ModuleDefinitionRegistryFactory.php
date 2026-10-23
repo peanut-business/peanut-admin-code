@@ -18,11 +18,86 @@ use PeanutAdmin\Kernel\Module\ModuleException;
 use PeanutAdmin\Kernel\Module\ModuleProvider;
 use PeanutAdmin\Kernel\Module\ModuleRegistryCompiler;
 use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
+use think\cache\driver\File;
 
 /** Compiles immutable deployment metadata without opening a database connection. */
 final readonly class ModuleDefinitionRegistryFactory
 {
     public function __construct(private string $serverRoot) {}
+
+    /** HTTP restores pure declarations; it never scans or compiles application source. */
+    public function fromCompiled(array $deploymentConfig): CompiledModuleRegistry
+    {
+        $registry = $this->compiledRecord($deploymentConfig)['registry'];
+        $roots = [];
+        foreach ($registry->modules as $manifest) {
+            $roots[$manifest->data['key']] = $manifest->root;
+        }
+        ModuleHostLayoutFactory::registerRuntimeAutoload($roots, $this->serverRoot);
+        return $registry;
+    }
+
+    /** @return array<string,\app\platform\value\plugin\PluginDescriptor> */
+    public function pluginsFromCompiled(array $deploymentConfig): array
+    {
+        return $this->compiledRecord($deploymentConfig)['plugins'];
+    }
+
+    public function publishCompiled(CompiledModuleRegistry $registry, array $deploymentConfig, array $plugins): void
+    {
+        if (PHP_SAPI !== 'cli') {
+            throw new ModuleException('MODULE_REGISTRY_COMPILE_CLI_REQUIRED', 'Module compilation requires CLI.');
+        }
+        $key = $this->runtimeKey($deploymentConfig);
+        $lock = (string) $deploymentConfig['plugin_lock'];
+        $digest = hash_file('sha256', str_starts_with($lock, '/') ? $lock : $this->serverRoot . '/' . $lock);
+        foreach ($plugins as $plugin) {
+            if (!$plugin instanceof \app\platform\value\plugin\PluginDescriptor || $plugin->lockDigest !== $digest) {
+                throw new ModuleException('MODULE_REGISTRY_COMPILE_FAILED', 'Plugin lock changed during compilation.');
+            }
+        }
+        if (!$this->runtimeStore()->set($key, ['registry' => $registry, 'plugins' => $plugins], 0)
+            || $key !== $this->runtimeKey($deploymentConfig)) {
+            throw new ModuleException('MODULE_REGISTRY_COMPILE_FAILED', 'Unable to write the compiled Module registry.');
+        }
+    }
+
+    private function compiledRecord(array $deploymentConfig): array
+    {
+        $journal = dirname($this->serverRoot) . '/.local/module-source-adoption/journal.json';
+        if (file_exists($journal) || is_link($journal)) {
+            throw new ModuleException('MODULE_PACKAGE_RECOVERY_REQUIRED', 'Complete source adoption before serving application source.');
+        }
+        $record = $this->runtimeStore()->get($this->runtimeKey($deploymentConfig));
+        if (!is_array($record) || !($record['registry'] ?? null) instanceof CompiledModuleRegistry
+            || !is_array($record['plugins'] ?? null)) {
+            throw new ModuleException('MODULE_REGISTRY_NOT_COMPILED', 'Run php think module:compile before serving application source.');
+        }
+        return $record;
+    }
+
+    private function runtimeStore(): File
+    {
+        return new File(\think\Container::getInstance(), ['path' => $this->serverRoot . '/runtime/module-registry',
+            'prefix' => '', 'cache_subdir' => false, 'expire' => 0]);
+    }
+
+    /** Small version inputs only; no recursive source checks on the request path. */
+    private function runtimeKey(array $deploymentConfig): string
+    {
+        $lock = (string) ($deploymentConfig['plugin_lock'] ?? '');
+        $lockPath = str_starts_with($lock, '/') ? $lock : $this->serverRoot . '/' . $lock;
+        $inputs = [];
+        foreach ([$lockPath, $this->serverRoot . '/composer.lock',
+            $this->serverRoot . '/vendor/composer/installed.json', __FILE__] as $path) {
+            $digest = is_file($path) ? hash_file('sha256', $path) : false;
+            if (!is_string($digest)) {
+                throw new ModuleException('MODULE_REGISTRY_NOT_COMPILED', 'Module compilation inputs are unavailable.');
+            }
+            $inputs[] = $digest;
+        }
+        return hash('sha256', json_encode([$this->serverRoot, $deploymentConfig, $inputs], JSON_THROW_ON_ERROR));
+    }
 
     /** @param array<string,mixed> $deploymentConfig */
     public function fromDeploymentConfig(array $deploymentConfig): CompiledModuleRegistry
@@ -78,6 +153,9 @@ final readonly class ModuleDefinitionRegistryFactory
     /** @param list<string> $roots @param array<string,mixed> $deploymentConfig */
     private function compile(array $roots, array $deploymentConfig): CompiledModuleRegistry
     {
+        if (PHP_SAPI !== 'cli') {
+            throw new ModuleException('MODULE_REGISTRY_COMPILE_CLI_REQUIRED', 'HTTP cannot compile Module declarations.');
+        }
         if ($roots === []) {
             throw new ModuleException('MODULE_REGISTRY_UNAVAILABLE', 'No locked Module roots are available.');
         }

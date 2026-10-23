@@ -99,6 +99,24 @@ final class PluginLockResolver
         if ($this->resolved !== null) {
             return $this->resolved;
         }
+        if (PHP_SAPI !== 'cli') {
+            $app = \think\Container::getInstance();
+            if (!$app instanceof \think\App || rtrim($app->getRootPath(), '/') !== rtrim($this->serverRoot, '/')) {
+                throw new PluginLifecycleException('PLUGIN_SOURCE_UPGRADE_CLI_REQUIRED', 'HTTP may only read its admitted Plugin declarations.');
+            }
+            $config = $app->config->get('modules', []);
+            if (!is_array($config) || $this->absolutePath($this->lockPath, $this->serverRoot)
+                !== $this->absolutePath((string) ($config['plugin_lock'] ?? ''), $this->serverRoot)) {
+                throw new PluginLifecycleException('PLUGIN_LOCK_INVALID', 'HTTP Plugin lock differs from its admitted application.');
+            }
+            $release = $this->serverRoot . '/.peanut/release-identity.json';
+            $verified = file_exists($release) || is_link($release)
+                || (ApplicationSourceIdentity::hasRuntime($this->serverRoot)
+                    && \app\common\infrastructure\installation\ReadonlyHttpMount::active($this->serverRoot));
+            return $this->resolved = $verified
+                ? $app->make(\app\common\infrastructure\installation\VerifiedServerDeployment::class)->plugins()
+                : (new \app\platform\composition\plugin\ModuleDefinitionRegistryFactory($this->serverRoot))->pluginsFromCompiled($config);
+        }
         $lockPath = $this->absolutePath($this->lockPath, $this->serverRoot);
         $lock = $this->readJson($lockPath, 'PLUGIN_LOCK_INVALID');
         $serverProjection = ($lock['protocol'] ?? null) === 'peanut.server-plugin-lock.v1';

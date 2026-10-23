@@ -106,7 +106,15 @@ final readonly class VerifiedServerDeployment
         if (!hash_equals($identity->identitySha256(), $binding['identity'])) {
             throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_MISMATCH');
         }
+        $plugins = [];
+        foreach ((new \app\platform\infrastructure\plugin\PluginLockResolver(
+            $root, (string) $app->config->get('modules.plugin_lock'),
+        ))->all() as $key => $plugin) {
+            $plugins[$key] = (array) $plugin;
+            $plugins[$key]['moduleRoots'] = array_map(static fn(string $path): string => self::relative($root, $path), $plugin->moduleRoots);
+        }
         $record = ['format' => self::FORMAT, 'binding' => $binding, 'identity' => $identity->document(),
+            'plugins' => $plugins,
             'registry' => ['modules' => $modules, 'targetTypeOwners' => $registry->targetTypeOwners,
                 'ownedTableOwners' => $registry->ownedTableOwners, 'menus' => $registry->menus,
                 'revision' => $registry->revision]];
@@ -158,6 +166,18 @@ final readonly class VerifiedServerDeployment
     public function identityDigest(): string
     {
         return $this->record['binding']['identity'];
+    }
+
+    public function plugins(): array
+    {
+        $plugins = $this->record['plugins'] ?? null;
+        if (!is_array($plugins)) {
+            throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_INVALID');
+        }
+        return array_map(function (array $plugin): \app\platform\value\plugin\PluginDescriptor {
+            $plugin['moduleRoots'] = array_map(fn(string $relative): string => $this->serverRoot . '/' . $relative, $plugin['moduleRoots']);
+            return new \app\platform\value\plugin\PluginDescriptor(...$plugin);
+        }, $plugins);
     }
 
     public function registry(): CompiledModuleRegistry

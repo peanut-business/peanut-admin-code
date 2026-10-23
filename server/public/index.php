@@ -22,6 +22,16 @@ try {
     $http = (new App())->http;
     $response = $http->run();
 } catch (Throwable $exception) {
+    if ($exception instanceof \PeanutAdmin\Kernel\Module\ModuleException
+        && $exception->errorCode === 'MODULE_REGISTRY_NOT_COMPILED') {
+        error_log('HTTP Module registry unavailable: run php think module:compile');
+        http_response_code(503);
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store');
+        echo json_encode(['code' => 50300, 'msg' => '服务暂时不可用',
+            'data' => ['error_code' => 'MODULE_REGISTRY_NOT_COMPILED']], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
     if ($exception instanceof RuntimeException
         && preg_match('/^(?:SERVER_DEPLOYMENT_|HTTP_(?:MOUNT_|IMAGE_|WORKER_|PROGRAM_|MUTABLE_|OWNER_))/', $exception->getMessage()) === 1) {
         error_log('HTTP admission blocked: ' . $exception->getMessage());

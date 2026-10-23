@@ -34,6 +34,16 @@ final class PluginLock extends ContextualCommand
             }
             $writer = new PluginArtifactWriter(dirname(__DIR__, 2));
             $result = $write ? $writer->writeLock() : $writer->checkLock();
+            if ($write) {
+                $app = $this->getApp();
+                $config = $app->config->get('modules', []);
+                $factory = new \app\platform\composition\plugin\ModuleDefinitionRegistryFactory(dirname(__DIR__, 2));
+                $resolver = new \app\platform\infrastructure\plugin\PluginLockResolver(
+                    dirname(__DIR__, 2), (string) $config['plugin_lock'],
+                );
+                $registry = $factory->fromPluginLock($resolver, $config, false);
+                $factory->publishCompiled($registry, $config, $resolver->all());
+            }
             $output->writeln((string) json_encode(['status' => $write ? 'written' : 'valid'] + $result, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
             return 0;
         } catch (PluginArtifactToolException $exception) {

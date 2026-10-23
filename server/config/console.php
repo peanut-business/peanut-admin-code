@@ -27,6 +27,7 @@ return [
         'module:install'   => \app\command\ModuleInstall::class,
         'module:create'    => \app\command\ModuleCreate::class,
         'module:check'     => \app\command\ModuleCheck::class,
+        'module:compile'   => \app\command\ModuleCompile::class,
         'module:pack'      => \app\command\ModulePack::class,
         'developer:center' => \app\command\DeveloperCenterCatalog::class,
         'bundle:pack'      => \app\command\BundlePack::class,

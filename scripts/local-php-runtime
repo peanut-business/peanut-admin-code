@@ -127,6 +127,7 @@ start_runtime() {
         printf 'Removed stale PHP pid file (pid=%s). Previous log: %s\n' "$stale_pid" "$log_file" >&2
     fi
 
+    PEANUT_SERVER_ENV_FILE="$backend_env" "$php_bin" "$repo_dir/server/think" module:compile
     : > "$log_file"
     (
         cd "$repo_dir/server"
