@@ -294,6 +294,27 @@ $schemas = [
             'upgrade' => ['type' => 'object', 'additionalProperties' => false, 'required' => ['state', 'code', 'source_commit', 'target_commit', 'repository_clean', 'backup_verified', 'source_evidence_matches'], 'properties' => ['state' => ['type' => 'string'], 'code' => ['type' => 'string'], 'source_commit' => ['type' => 'string'], 'target_commit' => ['type' => 'string'], 'repository_clean' => ['type' => 'boolean'], 'backup_verified' => ['type' => 'boolean'], 'source_evidence_matches' => ['type' => 'boolean']]],
         ],
     ],
+    'PlatformOpsLogPage' => [
+        'type' => 'object', 'additionalProperties' => false,
+        'description' => '最近 24 小时的平台审计脱敏摘要；最多读取 100 个聚合组后按最低级别过滤，不提供完整搜索或游标分页。',
+        'required' => ['items', 'next_cursor'],
+        'properties' => [
+            'items' => ['type' => 'array', 'maxItems' => 100, 'items' => [
+                'type' => 'object', 'additionalProperties' => false,
+                'required' => ['event_key', 'severity', 'component_key', 'message', 'occurred_at', 'request_id', 'occurrences'],
+                'properties' => [
+                    'event_key' => ['type' => 'string'],
+                    'severity' => ['type' => 'string', 'enum' => ['info', 'warning', 'error', 'critical']],
+                    'component_key' => ['type' => 'string', 'enum' => ['platform.audit']],
+                    'message' => ['type' => 'string', 'description' => '受控消息目录中的通用说明，不含原始日志消息、身份或载荷。'],
+                    'occurred_at' => $dateTime,
+                    'request_id' => $nullableString,
+                    'occurrences' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 1000000],
+                ],
+            ]],
+            'next_cursor' => ['type' => 'string', 'nullable' => true, 'enum' => [null], 'description' => '固定为 null；不支持后续页。'],
+        ],
+    ],
     'PlatformOpsSnapshot' => [
         'type' => 'object', 'additionalProperties' => $ref('ApplicationDynamicValue'),
         'minProperties' => 1,
@@ -579,6 +600,18 @@ $setOverride = static function (array &$overrides, string $method, string $pathN
     $overrides[$pathName][strtolower($method)] = $contract;
 };
 $add($paths, 'GET', '/platformapi/v1/ops/status', $operation('getPlatformOpsStatus', 'PlatformOps', $opsOk('PlatformOpsStatus')));
+$add($paths, 'GET', '/platformapi/v1/ops/logs', $operation(
+    'listPlatformOpsLogs',
+    'PlatformOps',
+    ['200' => $success($ref('PlatformOpsLogPage')), '400' => $error, '401' => $error, '403' => $error, '503' => $error],
+    [
+        $query('source', ['type' => 'string', 'enum' => ['platform.audit'], 'default' => 'platform.audit']),
+        $query('severity', ['type' => 'string', 'enum' => ['info', 'warning', 'error', 'critical'], 'default' => 'info']),
+        $query('page_size', ['type' => 'integer', 'minimum' => 1, 'maximum' => 100, 'default' => 50]),
+        $query('cursor', ['type' => 'string', 'enum' => [''], 'description' => '仅接受省略或空字符串；非空游标返回 OPS_REQUEST_INVALID。']),
+    ],
+    errors: ['OPS_REQUEST_INVALID', 'OPS_LOGS_UNAVAILABLE'],
+));
 $add($paths, 'GET', '/platformapi/v1/ops/diagnostics', $operation(
     'downloadPlatformDiagnostics',
     'PlatformOps',
