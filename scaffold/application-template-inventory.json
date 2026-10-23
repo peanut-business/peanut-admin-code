@@ -9507,7 +9507,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b00e7885683901d310aab08e0c8da05a920e660e42b859aa681a6cf851019a35"
+            "source_sha256": "19fc11755db53de632f24e8e6b5692534c4d75c831dd7f5f121d383ce5453d0a"
         },
         {
             "path": "server/app/common/services/upgrade/FileAdoptionRelocation.php",
@@ -26551,7 +26551,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4be8b264cb951650763a128530b92d0f2e423c25ba5427ed0560d1b076f6c71f"
+            "source_sha256": "e16c08b2191cc696b6a18e5a2a964c1b58c8c516c0bb8d7e67c84c0972eec338"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",
