@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+core_dev_main() {
+set -Eeuo pipefail
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P)"
 ACTION="${1:-status}"
@@ -103,3 +105,24 @@ NODE
   *) usage >&2; die "unsupported action: $ACTION" ;;
 esac
 printf 'core-dev: %s completed for explicit PHP and Web Core checkouts\n' "$ACTION"
+
+}
+if [[ "${1:-status}" == select ]]; then
+    source_root="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P)"
+    target_root="$source_root"
+    arguments=("$@")
+    for ((index=1; index<${#arguments[@]}; index++)); do
+        if [[ "${arguments[index]}" == --path ]]; then
+            ((index+=1))
+            [[ $index -lt ${#arguments[@]} && "${arguments[index]}" == /* ]] || exit 2
+            target_root="${arguments[index]}"
+        fi
+    done
+    target_root="$(CDPATH= cd -- "$target_root" && pwd -P)"
+    [[ -f "$target_root/server/composer.json" && -x "$target_root/scripts/local-core-composer" ]] || exit 1
+    owned_command=$'set -Eeuo pipefail\n'
+    owned_command+="$(declare -f core_dev_main)"
+    owned_command+=$'\ncore_dev_main "$@"'
+    exec node "$source_root/scripts/local-core-links.mjs" "$target_root" php,web,platform,pc,uniapp select -- bash -c "$owned_command" "$0" "$@"
+fi
+core_dev_main "$@"

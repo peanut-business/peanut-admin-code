@@ -10,6 +10,7 @@ component=${1:-}
 shift
 dry_run=0
 core_web_dir=""
+saved_core_selection=0
 while [ $# -gt 0 ] && [ "$1" != -- ]; do
     case "$1" in
         --env-file) [ $# -ge 2 ] || { printf '%s\n' '--env-file requires a value' >&2; exit 2; }; env_file=$2; env_file_explicit=1; shift 2 ;;
@@ -38,7 +39,7 @@ php_port=$(read_env PHP_PORT)
 fi
 if [ -z "$core_web_dir" ] && { [ -e "$repo_dir/.local/core-dev.json" ] || [ -L "$repo_dir/.local/core-dev.json" ]; }; then
     case "$component" in
-        web|platform|pc|mobile|uniapp-native) core_web_dir=$("$repo_dir/scripts/core-dev" web-path) ;;
+        web|platform|pc|mobile|uniapp-native) core_web_dir=$("$repo_dir/scripts/core-dev" web-path); saved_core_selection=1 ;;
     esac
 fi
 if [ -n "$core_web_dir" ]; then
@@ -59,10 +60,22 @@ clean_exec() {
         client_environment node --input-type=module -e '
 import { existsSync, readFileSync, readdirSync, realpathSync } from "node:fs";
 import { join } from "node:path";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
-const [repository, core, client, command, ...args] = process.argv.slice(1);
+const [repository, core, client, savedSelection, command, ...args] = process.argv.slice(1);
+const { acquireClientLinks } = await import(pathToFileURL(join(repository, "scripts", "local-core-links.mjs")));
+const linkLease = acquireClientLinks(repository, [client], `watch:${client}`);
+const groups = new Set();
+const leases = [linkLease];
+// No native child starts before all link/output writers and source rechecks.
+process.on("exit", () => { if (groups.size === 0) for (const lease of [...leases].reverse()) lease.release(); });
+if (savedSelection === "1") {
+    const selectedCore = spawnSync(join(repository, "scripts", "core-dev"), ["web-path"], { encoding: "utf8" });
+    if (selectedCore.status !== 0 || realpathSync(selectedCore.stdout.trim()) !== realpathSync(core)) {
+        throw new Error("Saved Core selection changed before client link admission");
+    }
+}
 const readJson = (path) => JSON.parse(readFileSync(path, "utf8"));
 const workspace = readJson(join(core, "package.json"));
 if (workspace.name !== "@peanut-admin/web-workspace") {
@@ -108,11 +121,15 @@ direct.forEach(select);
 // A package output has one foreground compiler owner, even across clients.
 const { acquireCoreWriters } = await import(pathToFileURL(join(core, "scripts", "local-core-writer.mjs")));
 const lease = acquireCoreWriters(core, selected.map(({ name }) => name.split("/")[1]), { repository, operation: `watch:${client}` });
+leases.push(lease);
+// Recheck after both writer sets are acquired; keep the link record until exit.
+for (const name of direct) {
+    if (realpathSync(join(repository, client, "node_modules", name)) !== realpathSync(packages.get(name).root)) {
+        throw new Error(`Client Core source changed during admission: ${name}`);
+    }
+}
 
 // These process groups belong to this foreground dev command only.
-const groups = new Set();
-// Keep unknown ownership records after an abnormal exit while children exist.
-process.on("exit", () => { if (groups.size === 0) lease.release(); });
 let stopping = false;
 let forceTimer;
 let cleanupTimer;
@@ -164,7 +181,7 @@ for (const { name, root } of selected) {
     start(name, "corepack", ["pnpm", "--filter", name, "run", "watch"], core, true);
 }
 start(client, command, args, process.cwd(), false);
-' "$repo_dir" "$core_web_dir" "$core_client" "$@"
+' "$repo_dir" "$core_web_dir" "$core_client" "$saved_core_selection" "$@"
         return
     fi
     client_environment "$@"

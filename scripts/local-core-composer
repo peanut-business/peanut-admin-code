@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+set -eu
+composer_main() {
 
 set -Eeuo pipefail
 
@@ -239,3 +241,12 @@ fi
 refresh_application_services
 
 printf 'local core active: %s -> %s\n' "$installed_core" "$resolved_core"
+
+}
+link_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P)
+owned_command=$'set -Eeuo pipefail\n'
+owned_command+="$(declare -f composer_main)"
+owned_command+=$'\ncomposer_main "$@"'
+link_operation=php-composer
+[[ "${1:-install}" != services-check ]] || link_operation=php-read
+exec node "$link_root/scripts/local-core-links.mjs" "$link_root" php "$link_operation" -- bash -c "$owned_command" "$0" "$@"

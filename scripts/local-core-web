@@ -173,8 +173,8 @@ link_sources() {
     # previous source checkout whose links this operation would replace.
     local owned_command
     owned_command=$'set -Eeuo pipefail\n'
-    owned_command+="$(declare -f link_sources_owned die metadata_digest selected_clients packages_for_client)"
-    owned_command+=$'\nROOT_DIR=$1; CORE_DIR=$2; CLIENT=$3; link_sources_owned'
+    owned_command+="$(declare -f link_sources_owned verify_source_installed die metadata_digest selected_clients packages_for_client)"
+    owned_command+=$'\nROOT_DIR=$1; CORE_DIR=$2; CLIENT=$3; link_sources_owned; verify_source_installed'
     node --input-type=module - "$CORE_DIR" "$ROOT_DIR" "$CLIENT" "$owned_command" <<'NODE'
 import { lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { dirname, join, sep } from 'node:path';
@@ -182,6 +182,11 @@ import { pathToFileURL } from 'node:url';
 const [core, repository, client, command] = process.argv.slice(2);
 const all = ['client', 'vue', 'ui-vue', 'nuxt', 'uniapp', 'testing'];
 const consumers = { web: ['vue', 'ui-vue'], platform: ['vue', 'ui-vue'], pc: ['client', 'nuxt'], uniapp: ['client', 'uniapp'] };
+const { acquireClientLinks } = await import(pathToFileURL(join(repository, 'scripts', 'local-core-links.mjs')));
+const linkLease = acquireClientLinks(repository, client === 'all' ? Object.keys(consumers) : [client], 'install-build-link');
+// Register cleanup before reading old sources; malformed links fail closed.
+let commandStarted = false;
+process.on('exit', () => { if (!commandStarted) linkLease.release(); });
 const writers = new Map([[realpathSync(core), new Set(all)]]);
 for (const name of client === 'all' ? Object.keys(consumers) : [client]) {
     for (const suffix of consumers[name]) {
@@ -211,7 +216,9 @@ try {
     }
 } catch (error) { for (const lease of leases.reverse()) lease.release(); throw error; }
 const { runWriterCommand } = await import(pathToFileURL(join(core, 'scripts', 'local-core-writer.mjs')));
+commandStarted = true;
 process.exitCode = await runWriterCommand(leases, ['bash', '-c', command, '--', repository, core, client]);
+linkLease.release();
 NODE
 }
 
@@ -235,27 +242,37 @@ candidate_set_sha256() {
     for package in "${PACKAGES[@]}"; do shasum -a 256 "$(candidate_path "$package")" | awk '{print $1}'; done | shasum -a 256 | awk '{print $1}'
 }
 
+install_candidates_owned() {
+    while IFS= read -r client; do
+        case "$client" in
+            web) (cd "$ROOT_DIR/web" && pnpm install --frozen-lockfile --ignore-scripts) ;;
+            platform|pc|uniapp) (cd "$ROOT_DIR/$client" && npm ci --ignore-scripts) ;;
+        esac
+    done < <(selected_clients)
+    verify_candidate_installed
+}
+
 case "$ACTION" in
     install|status)
         [[ -z "$CORE_DIR" ]] || die '--core-dir is only valid for link and link-status; candidate install/status use packages/core-web'
         verify_candidates
         verify_candidate_declarations
         if [[ "$ACTION" == install ]]; then
-            while IFS= read -r client; do
-                case "$client" in
-                    web) (cd "$ROOT_DIR/web" && pnpm install --frozen-lockfile --ignore-scripts) ;;
-                    platform|pc|uniapp) (cd "$ROOT_DIR/$client" && npm ci --ignore-scripts) ;;
-                esac
-            done < <(selected_clients)
+            clients="$(selected_clients | paste -sd, -)"
+            owned_command=$'set -Eeuo pipefail\n'
+            owned_command+="$(declare -f)"
+            owned_command+=$'\nROOT_DIR=$1; CLIENT=$2; CANDIDATE_DIR=$ROOT_DIR/packages/core-web; PACKAGES=(client vue ui-vue nuxt uniapp testing); install_candidates_owned'
+            node "$ROOT_DIR/scripts/local-core-links.mjs" "$ROOT_DIR" "$clients" candidate-install -- \
+                bash -c "$owned_command" -- "$ROOT_DIR" "$CLIENT"
+        else
+            verify_candidate_installed
         fi
-        verify_candidate_installed
         printf 'local Core Web ready: mode=candidate client=%s node=%s candidate_set_sha256=%s\n' "$CLIENT" "$(node --version)" "$(candidate_set_sha256)"
         ;;
     link|link-status)
         # Source development is independent of old archive versions and locks.
         verify_source_packages
-        [[ "$ACTION" == link-status ]] || link_sources
-        verify_source_installed
+        if [[ "$ACTION" == link ]]; then link_sources; else verify_source_installed; fi
         printf 'local Core Web ready: mode=local-source core=%s client=%s node=%s tracked_metadata=unchanged\n' "$CORE_DIR" "$CLIENT" "$(node --version)"
         ;;
 esac

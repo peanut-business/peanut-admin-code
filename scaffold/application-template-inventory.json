@@ -906,7 +906,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7799b2be85ac618dc97b8e19fa196532eac8b6c78983c9fda970ff40e9cbe8f5"
+            "source_sha256": "30d178094927c8d49d7541080275965f59d5c5f2ee95f81088378ecd21c6cd77"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -3374,7 +3374,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "beb830461e0128b207da89adddc7d2f36d6a913b608a4deccc7475127680ad45"
+            "source_sha256": "9b28a188ae91c3ca3d21b9f3e29e63191d3e19ba96decbbc4fd778e2d939c481"
         },
         {
             "path": "scripts/core-qualification-runner",
@@ -3522,7 +3522,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6c1c083a753595f69767771cae37b3612a0fb53dfbb65778463d36c33d8c078d"
+            "source_sha256": "5a540f10d3c89530cd3d4217f75df76bceef22c72a024f99819e44fc347008b6"
         },
         {
             "path": "scripts/local-core-composer",
@@ -3536,7 +3536,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f54d5b05bb29b9a205fda91d7f86c78f92e6ae47840aa97fe9a06ae9044fb3d4"
+            "source_sha256": "cd715c3448a3067ea96a0edb2f499900edadf52fba37f60b14d537c69f32d623"
+        },
+        {
+            "path": "scripts/local-core-links.mjs",
+            "target": "scripts/local-core-links.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "d33c6ed3b04d3e239a7051a8b506a887c6126aa6316fdbf4d330df57f9f03998"
         },
         {
             "path": "scripts/local-core-web",
@@ -3550,7 +3564,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f0ce55b67e71db5d50a99e727f9e55805f40ac2bf6d3b0d0461109713581e199"
+            "source_sha256": "03398b757312027a6b6953e4a00c7212db0b7cae9503ee471ed7399c07285d1d"
         },
         {
             "path": "scripts/local-environment-probe",
