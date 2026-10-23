@@ -31,6 +31,23 @@ PEANUT_UPGRADE_PHP="$PHP" /new/tooling-adoption/tools/server/docker/scripts/upda
 
 后续 `apply|verify|recover` 使用同一 wrapper、instance、收据和产品 workspace。业务 apply 的备份、写者暂停、迁移、恢复和人工 Gate 沿用原状态机。若尚未改变业务或原计划状态，可以运行 `tooling-recover --instance-root=... --receipt=...` 撤销工具指针；已经改变业务时必须先走产品恢复，工具恢复不能代替数据库/文件恢复。原安装工具始终保留。
 
+协调器 plan 阶段只使用固定选定来源的 `update-plan.php`；apply/verify/recover 在完整 frozen closure 校验后只加载同一个 trusted 物理路径。统一加载器同时核 canonical 路径、摘要和 Reflection 实际声明来源；已经加载别的路径时明确拒绝，不以 `class_exists` 跳过来源证明。
+
+### 已知 11a prepare 声明故障的明确裁定
+
+此入口只处理已审固定 `11a327d5`、维护 manifest `beb909dd9563118a810ef454d8438aa9293511903558e00bd96f5fc394ff4ce6` 的确定性重复类声明：selected helper 先加载，写 prepare intent 后加载其同字节 trusted 副本，在 host dispatch 之前 PHP fatal。它不处理任意 fatal、超时或 UNKNOWN，不清理或改写旧 plan/state/trusted/journal，也不将失败冒充恢复。
+
+执行 owner 须提供经审阅的 canonical mode-0600 admission JSON，协议 `peanut.pre-host-prepare-failure-admission.v1`，字段为 `instance_root`、`candidate`、`tooling_receipt`、原 `plan_file_sha256`、原失败 `state_sha256`、`runtime_sha256`、`stdout` 绝对路径及 `stdout_sha256`、`exit_code:255`、原安装/保护配置 `source` 摘要字典，以及实际 apply 前的 `runtime_before`。后者按 php/nginx/mysql（registered 则 php/nginx）记录 Docker 完整 `id`、`image`、`started_at`、`running:true`；不能把失败后的观察冒充先前记录。stdout 原件本身也须 owner 持有、0600。原安装 prestate 来自当次 active tooling receipt，并与本次批准材料、当前实例一致。
+
+```sh
+"$PHP" /verified/new-maintenance-tools/scripts/upgrade tooling-dispose-failed-prepare \
+  --instance-root=/installed/app --admission=/approved/fixed-failure.json
+```
+
+新工具先经外部完整闭包核验。裁定同时取得原 product/update 锁，核当次 active receipt、固定已认证旧工具来源及完整 trusted 摘要/模式/集合、原 plan/native inputs/state/身份，确认恰好 planned+prepare、所有迁移/激活 flag 为 false、evidence 为空；stdout 必须精确为该 trusted 路径第 6 行重复 `PeanutServerUpdatePlan` 声明的 255 终态。该已知固定源码控制流保证 fatal 必在 host 调度前；无 host log、prepared/preparation/backup/journal/migration/dependency-switch 回执及当前容器未变只作额外交叉验证，不能单独据此裁定。其他活动状态或任何漂移均拒绝。
+
+成功仅新建 `.peanut/upgrades/pre-host-failures/<candidate>.json` 受保护 immutable disposition，绑定批准材料、原 plan/state/runtime 摘要；旧文件逐字节不变。工具准入仅接受此精确已裁定旧失败状态，新协调器拒绝继续该旧计划。随后正常 observe → pins adopt 新工具 → 新 workspace/new plan，原失败保留。新工具与可复用 B 的来源须分别登记；若差异只有这次工具加载/裁定修复，可采用已固定且业务 PHP 未变的 B，不能改 B 摘要或声称它含新工具源码。
+
 固定镜像环境准备仅支持 Dockerfile、PHP/MySQL/cron 镜像配置和辅助 recipe 不变、无 active collaboration 的既有 Compose 演进。旧/新 Compose 都在原实例 project-directory、同一只读保护 env 下解析；服务集合、固定本地镜像、挂载、网络、端口、数据库模式和其余配置必须完全一致，只允许 PHP stop signal 从缺省/SIGQUIT 改为 SIGTERM。目标 nginx 配置用原固定 nginx 镜像执行原生 `nginx -t`。不 build/pull 镜像、不改保护 env、不新建或清空数据库/卷。prepare 记录旧/新 recipe、保护 env、镜像、Compose 摘要和计划/输入绑定；后续步骤拒绝第三种 recipe，原 `runtime_environment_changed` 要求保留。未知变化拒绝，不能删 flag 或用旧环境重新打包冒充通过。
 
 ## 1. 产品与代码

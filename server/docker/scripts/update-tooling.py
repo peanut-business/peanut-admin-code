@@ -5,6 +5,7 @@ import base64
 import contextlib
 import fcntl
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -18,6 +19,12 @@ import tempfile
 sys.dont_write_bytecode = True
 PROTOCOL = 'peanut.maintenance-tooling.v1'
 RECEIPT = 'peanut.maintenance-tooling-adoption.v1'
+# Audited deterministic defect: selected update-plan is declared before prepare
+# intent; VerifyRuntime then redeclares its same-byte trusted copy before dispatch.
+# This is deliberately NOT a generic fatal/UNKNOWN recovery capability.
+FAILED_SOURCE = '11a327d5a9206c8a8cb1fd21d42c801fec4d55ba'
+FAILED_TOOLING = 'beb909dd9563118a810ef454d8438aa9293511903558e00bd96f5fc394ff4ce6'
+DISPOSITION = 'peanut.pre-host-prepare-failure.v1'
 
 
 def regular(path):
@@ -45,11 +52,15 @@ def absolute(path, exists=True):
     return path
 
 
-def protected(path):
-    regular(path)
+def protected_bytes(path):
+    data = regular(path)
     if stat.S_IMODE(path.stat().st_mode) != 0o600 or path.stat().st_uid != os.geteuid():
         raise ValueError('tooling receipt must be owned by this operator with mode 0600')
-    return document(path)
+    return data
+
+
+def protected(path):
+    return json.loads(protected_bytes(path))
 
 
 def durable(path, value, replace=False):
@@ -152,16 +163,121 @@ def source_state(root):
     return files
 
 
-def states(root):
+def failed_prepare_state(root, path, state):
+    candidate = state.get('candidate', '')
+    if not re.fullmatch(r'server_update_[0-9]{14}_[a-f0-9]{12}', candidate):
+        raise ValueError('invalid failed prepare candidate')
+    record = protected(root / '.peanut/upgrades/pre-host-failures' / (candidate + '.json'))
+    protected(Path(record['admission']))
+    if record.get('protocol') != DISPOSITION or record.get('instance_root') != str(root) \
+        or record.get('status') != 'failed-before-host' or record.get('source_commit') != FAILED_SOURCE \
+        or record.get('tooling_manifest_sha256') != FAILED_TOOLING or record.get('state_path') != str(path) \
+        or record.get('plan_path') != str(root / '.peanut/upgrades/product-plans' / (candidate + '.json')) \
+        or record.get('state_sha256') != sha(path) or record.get('plan_sha256') != state.get('plan_sha256') \
+        or record.get('admission_sha256') != sha(Path(record['admission'])) \
+        or record.get('plan_file_sha256') != sha(Path(record['plan_path'])):
+        raise ValueError('failed prepare disposition changed')
+
+
+def states(root, admitted=None):
     result = {}
     for path in sorted((root / '.peanut/upgrades/product-state').glob('*.json')):
         state = document(path)
-        if state.get('phase') not in ('planned', 'blocked', 'completed', 'recovered') or state.get('phase_in_progress') is not None:
+        if state.get('phase_in_progress') == 'prepare' and state.get('phase') == 'planned' \
+            and state.get('database_recovery_required') is False and state.get('migration_completed') is False \
+            and state.get('activation_started') is False and state.get('evidence') == []:
+            if (admitted or {}).get(str(path)) != sha(path): failed_prepare_state(root, path, state)
+        elif state.get('phase') not in ('planned', 'blocked', 'completed', 'recovered') or state.get('phase_in_progress') is not None:
             raise ValueError('an installed product operation is active or unknown')
         if state.get('phase') in ('planned', 'blocked') and (state.get('activation_started') or state.get('database_recovery_required')):
             raise ValueError('an installed product operation needs recovery')
         result[str(path)] = sha(path)
     return result
+
+
+def dispose_failed_prepare(root, admission):
+    approved = protected(admission)
+    if approved.get('protocol') != 'peanut.pre-host-prepare-failure-admission.v1' or approved.get('instance_root') != str(root):
+        raise ValueError('explicit owner-approved failed prepare admission is required')
+    receipt_path = Path(approved['tooling_receipt']); receipt = protected(receipt_path)
+    old_tools = Path(receipt['tools_root']); binding = check(root, receipt_path, old_tools, True)
+    if binding['manifest_sha256'] != FAILED_TOOLING or bundle(old_tools, FAILED_TOOLING)['source_commit'] != FAILED_SOURCE:
+        raise ValueError('failure is not the audited deterministic pre-host source')
+    metadata = document(old_tools / 'maintenance-tooling.json')
+    candidate = approved['candidate']
+    if not re.fullmatch(r'server_update_[0-9]{14}_[a-f0-9]{12}', candidate): raise ValueError('invalid failed candidate')
+    plan_path = root / '.peanut/upgrades/product-plans' / (candidate + '.json')
+    state_path = root / '.peanut/upgrades/product-state' / (candidate + '.json')
+    plan = protected(plan_path); state = protected(state_path)
+    if sha(plan_path) != approved['plan_file_sha256'] or sha(state_path) != approved['state_sha256'] \
+        or approved.get('runtime_sha256') != plan.get('runtime_sha256') \
+        or plan.get('protocol') != 'peanut.product-upgrade-plan.v2' or plan.get('scope') != 'server' \
+        or plan.get('instance_root') != str(root) or plan.get('state_path') != str(state_path) \
+        or plan.get('candidate') != candidate or state.get('candidate') != candidate \
+        or plan.get('maintenance_tooling') != binding or state.get('plan_sha256') != plan.get('plan_sha256') \
+        or state.get('package') != plan.get('package') or state.get('protocol') != 'peanut.product-upgrade-state.v1' \
+        or state.get('phase') != 'planned' or state.get('phase_in_progress') != 'prepare' \
+        or state.get('database_recovery_required') is not False or state.get('migration_completed') is not False \
+        or state.get('activation_started') is not False or state.get('evidence') != []:
+        raise ValueError('failure does not match the precise planned prepare intent')
+    for data, key in ((plan, 'plan_sha256'), (state, 'state_sha256')):
+        unsigned = dict(data); digest = unsigned.pop(key, None)
+        expected_digest = 'sha256:' + hashlib.sha256(json.dumps(unsigned, sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()).hexdigest()
+        if digest != expected_digest: raise ValueError('native plan or state canonical digest changed')
+    workspace = absolute(Path(plan['workspace'])); trusted = workspace / 'trusted'
+    rows = protected(trusted / 'manifest.json')
+    excluded = {'scripts/upgrade', 'scripts/scaffold-runtime/ScaffoldPathGuard.php',
+                'server/docker/scripts/update.sh', 'server/composer.json', 'server/composer.lock'}
+    expected = {name: metadata['files'][name]['sha256'] for name in metadata['runtime_files'] if name not in excluded}
+    if sha(trusted / 'manifest.json') != plan.get('runtime_sha256') or rows != expected:
+        raise ValueError('failed runtime differs from the audited closure')
+    actual = set()
+    for base, dirs, names in os.walk(trusted, followlinks=False):
+        for name in dirs:
+            if (Path(base) / name).is_symlink(): raise ValueError('linked failed runtime directory')
+        for name in names:
+            file = Path(base) / name; relative = file.relative_to(trusted).as_posix(); actual.add(relative)
+            if relative != 'manifest.json' and (sha(file) != rows.get(relative) or stat.S_IMODE(file.stat().st_mode)
+                != (0o700 if metadata['files'][relative]['mode'] == 0o755 else 0o600)):
+                raise ValueError('failed runtime bytes or mode changed')
+    if actual != set(rows) | {'manifest.json'} or sha(workspace / 'plan.json') != plan.get('inputs_sha256'):
+        raise ValueError('failed runtime inventory or native inputs changed')
+    stdout = Path(approved['stdout']); stdout_bytes = protected_bytes(stdout)
+    if sha(stdout) != approved['stdout_sha256'] or approved.get('exit_code') != 255 \
+        or stdout_bytes.decode().strip() != ('Fatal error: Cannot declare class PeanutServerUpdatePlan, because the name is already in use in '
+            + str(trusted / 'server/docker/scripts/update-plan.php') + ' on line 6'):
+        raise ValueError('terminal failure differs from the exact known declaration fault')
+    if any((workspace / name).exists() or (workspace / name).is_symlink() for name in
+        ('prepared.json', 'preparation.json', 'backup.json', 'journal.json', 'migration.json', 'dependency-switch.json')) \
+        or list((root / '.peanut/upgrades/host-logs').glob(candidate + '-*.log')):
+        raise ValueError('host or transaction activity makes the failure UNKNOWN')
+    if approved.get('source') != source_state(root) or approved['source'] != receipt['source']:
+        raise ValueError('installed identity or protected prestate changed')
+    spec = importlib.util.spec_from_file_location('failure_owner', old_tools / 'server/docker/scripts/configure-collaboration.py')
+    owner = importlib.util.module_from_spec(spec); spec.loader.exec_module(owner)
+    environment = owner.backend_environment(root / 'server')
+    if environment.get('COLLABORATION_ENABLED') == 'enabled': raise ValueError('unknown collaboration failure boundary')
+    services = ('php', 'nginx') if environment.get('PEANUT_DATABASE_SOURCE', 'bundled') == 'registered' else ('php', 'nginx', 'mysql')
+    current = {}
+    for service in services:
+        ids = subprocess.check_output([*owner.compose_arguments(root / 'server'), 'ps', '-a', '-q', service],
+                                      cwd=root / 'server/docker', text=True).splitlines()
+        if len(ids) != 1: raise ValueError('original runtime service is not unique')
+        current[service] = json.loads(subprocess.check_output(['docker', 'inspect', '--format',
+            '{"id":{{json .Id}},"image":{{json .Image}},"started_at":{{json .State.StartedAt}},"running":{{json .State.Running}}}', ids[0]], text=True))
+    if current != approved.get('runtime_before') or any(row['running'] is not True for row in current.values()):
+        raise ValueError('runtime differs from the owner-approved pre-apply containers')
+    states(root, {str(state_path): sha(state_path)})
+    disposition = {'protocol': DISPOSITION, 'status': 'failed-before-host', 'instance_root': str(root),
+        'source_commit': FAILED_SOURCE, 'tooling_manifest_sha256': FAILED_TOOLING,
+        'candidate': candidate, 'state_path': str(state_path), 'state_sha256': sha(state_path),
+        'plan_path': str(plan_path), 'plan_file_sha256': sha(plan_path), 'plan_sha256': plan['plan_sha256'],
+        'runtime_sha256': plan['runtime_sha256'], 'admission': str(admission), 'admission_sha256': sha(admission)}
+    output = root / '.peanut/upgrades/pre-host-failures' / (candidate + '.json')
+    if output.exists():
+        if protected(output) != disposition: raise ValueError('failed prepare disposition already differs')
+    else: durable(output, disposition)
+    return {'status': 'failed-before-host', 'disposition': str(output), 'sha256': sha(output), 'old_state_unchanged': True}
 
 
 @contextlib.contextmanager
@@ -192,9 +308,10 @@ def check(root, receipt, tools, planning=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('operation', choices=('pack', 'observe', 'adopt', 'check', 'recover'))
+    parser.add_argument('operation', choices=('pack', 'observe', 'adopt', 'check', 'recover', 'dispose-failed-prepare'))
     parser.add_argument('--source-root', type=Path); parser.add_argument('--output', type=Path)
     parser.add_argument('--php', type=Path)
+    parser.add_argument('--admission', type=Path)
     parser.add_argument('--instance-root', type=Path); parser.add_argument('--tooling-root', type=Path)
     parser.add_argument('--expected-tooling-sha256'); parser.add_argument('--expected-before-sha256')
     parser.add_argument('--workspace', type=Path); parser.add_argument('--receipt', type=Path); parser.add_argument('--planning', action='store_true')
@@ -205,6 +322,8 @@ def main():
         if args.operation == 'check': result = check(root, args.receipt, args.tooling_root, args.planning)
         else:
             with locks(root):
+                if args.operation == 'dispose-failed-prepare':
+                    print(json.dumps(dispose_failed_prepare(root, args.admission), sort_keys=True)); return
                 before = {'source': source_state(root), 'states': states(root), 'active': sha(pointer(root)) if pointer(root).exists() else None}
                 fingerprint = hashlib.sha256(canonical(before)).hexdigest()
                 if args.operation == 'observe': result = {'before_sha256': fingerprint, 'state_count': len(before['states']), 'source': before['source']}

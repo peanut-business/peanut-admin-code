@@ -22,7 +22,7 @@ if (str_starts_with($argv[1] ?? '', 'tooling-')) {
         exit(0);
     }
     $operation = substr($argv[1], strlen('tooling-'));
-    if (!in_array($operation, ['pack', 'observe', 'adopt', 'recover'], true)) { throw new RuntimeException('PRODUCT_TOOLING_OPERATION_INVALID'); }
+    if (!in_array($operation, ['pack', 'observe', 'adopt', 'recover', 'dispose-failed-prepare'], true)) { throw new RuntimeException('PRODUCT_TOOLING_OPERATION_INVALID'); }
     $process = proc_open(['python3', $toolRoot . '/server/docker/scripts/update-tooling.py', $operation, '--php=' . PHP_BINARY, ...array_slice($argv, 2)],
         [0 => STDIN, 1 => STDOUT, 2 => STDERR], $pipes);
     if (!is_resource($process)) { throw new RuntimeException('PRODUCT_TOOLING_PROCESS_FAILED'); }
@@ -441,6 +441,21 @@ function productUpgradeToolPath(string $relative): string
     return (str_starts_with($relative, 'server/') ? $toolRoot : $runtimeRoot) . '/' . $relative;
 }
 
+/** One physical, authenticated server-plan implementation per PHP process. */
+function productUpgradeLoadServerPlan(string $path, string $digest): void
+{
+    $info = @lstat($path);
+    if (realpath($path) !== $path || !is_file($path) || is_link($path) || !is_array($info)
+        || $info['nlink'] !== 1 || !hash_equals($digest, (string) hash_file('sha256', $path))) {
+        throw new RuntimeException('PRODUCT_UPGRADE_SERVER_PLAN_TOOL_CHANGED');
+    }
+    if (!class_exists('PeanutServerUpdatePlan', false)) { require_once $path; }
+    $loaded = (new ReflectionClass('PeanutServerUpdatePlan'))->getFileName();
+    if ($loaded !== $path || !hash_equals($digest, (string) hash_file('sha256', $loaded))) {
+        throw new RuntimeException('PRODUCT_UPGRADE_SERVER_PLAN_TOOL_ORIGIN_CHANGED');
+    }
+}
+
 function productUpgradeUsage(): never
 {
     fwrite(STDERR, "Set PEANUT_SERVER_ENV_FILE to the absolute mode-0600 instance backend environment.\nUsage:\n"
@@ -562,6 +577,10 @@ function productUpgradeReadPlan(string $instanceRoot, string $path): array
     unset($plan['plan_sha256']);
     if (!hash_equals($digest, 'sha256:' . hash('sha256', productUpgradeCanonicalJson($plan)))) {
         throw new RuntimeException('PRODUCT_UPGRADE_PLAN_INVALID');
+    }
+    $failure = $root . '/.peanut/upgrades/pre-host-failures/' . ($plan['candidate'] ?? '') . '.json';
+    if (file_exists($failure) || is_link($failure)) {
+        throw new RuntimeException('PRODUCT_UPGRADE_PLAN_DISPOSED_BEFORE_HOST');
     }
     $tool = productUpgradeBackupTool($root, $plan['backup_tool']['path'] ?? null);
     if (($plan['backup_tool'] ?? null) !== $tool) { throw new RuntimeException('PRODUCT_UPGRADE_BACKUP_TOOL_CHANGED'); }
@@ -960,7 +979,7 @@ function productUpgradeVerifyRuntime(array $plan): void
         }
     }
     if (($plan['scope'] ?? null) === 'server') {
-        require_once $root . '/server/docker/scripts/update-plan.php';
+        productUpgradeLoadServerPlan($root . '/server/docker/scripts/update-plan.php', $rows['server/docker/scripts/update-plan.php']);
         PeanutServerUpdatePlan::rebindTarget($plan['workspace'], $plan['instance_root'] . '/server');
     }
 }
@@ -993,10 +1012,13 @@ function productUpgradeFreezeRuntime(string $workspace): string
 }
 
 function productUpgradeServerPackage(string $instanceRoot, string $workspace, ?string $archive, ?string $expected,
-    ?string $gitInput = null, ?string $expectedSource = null): array
+    ?string $gitInput = null, ?string $expectedSource = null, ?array $plan = null): array
 {
+    if ($plan !== null) { productUpgradeVerifyRuntime($plan); }
+    $serverPlanTool = $plan !== null ? $workspace . '/trusted/server/docker/scripts/update-plan.php'
+        : productUpgradeToolPath('server/docker/scripts/update-plan.php');
+    productUpgradeLoadServerPlan($serverPlanTool, (string) hash_file('sha256', $serverPlanTool));
     if (!is_file($workspace . '/plan.json')) {
-        require_once productUpgradeToolPath('server/docker/scripts/update-plan.php');
         if ($gitInput !== null && $expectedSource !== null && $archive === null && $expected === null) {
             $input = PeanutServerUpdatePlan::buildFixedGit($instanceRoot . '/server', $gitInput, $expectedSource, $workspace);
         } elseif ($archive !== null && $expected !== null && $gitInput === null && $expectedSource === null) {
@@ -1010,7 +1032,6 @@ function productUpgradeServerPackage(string $instanceRoot, string $workspace, ?s
         if ($archive !== null && (hash_file('sha256', $archive) !== $expected || $input['target']['archive_sha256'] !== $expected)) {
             throw new RuntimeException('PRODUCT_UPGRADE_SERVER_ARCHIVE_REBIND_FAILED');
         }
-        require_once productUpgradeToolPath('server/docker/scripts/update-plan.php');
         if ($gitInput !== null && (($input['target']['provenance']['descriptor'] ?? null) !== $gitInput
             || ($input['target']['provenance']['sha256'] ?? null) !== $expectedSource)) {
             throw new RuntimeException('PRODUCT_UPGRADE_FIXED_GIT_REBIND_FAILED');
@@ -1035,9 +1056,6 @@ function productUpgradeServerPackage(string $instanceRoot, string $workspace, ?s
 function productUpgradeCode(string $operation, array $plan): mixed
 {
     productUpgradeVerifyRuntime($plan);
-    if (!class_exists('PeanutServerUpdatePlan', false)) {
-        require_once $plan['workspace'] . '/trusted/server/docker/scripts/update-plan.php';
-    }
     return PeanutServerUpdatePlan::productPhase($plan['instance_root'] . '/server', $plan['workspace'], match ($operation) {
         'apply' => 'files-apply', 'verify' => 'files-verify', 'recover' => 'files-recover', 'verifyRecovery' => 'files-verify-recovery',
     });
@@ -1418,7 +1436,7 @@ try {
                     || isset($state['evidence']['health']) || $state['phase'] === 'healthy')))) {
                 throw new RuntimeException('PRODUCT_UPGRADE_STOP_BOUNDARY_PASSED:' . $stopBefore);
             }
-            productUpgradeServerPackage($instanceRoot, $packageRoot, null, null);
+            productUpgradeServerPackage($instanceRoot, $packageRoot, null, null, null, null, $plan);
             if ($state['phase'] === 'completed') {
                 // 重复apply也必须验证原完成结果，不能仅凭Host健康回执忽略源码/定制漂移。
                 productUpgradeCode('verify', $plan);
@@ -1513,7 +1531,7 @@ try {
                 }
             }
         } elseif ($command === 'verify') {
-            productUpgradeServerPackage($instanceRoot, $packageRoot, null, null);
+            productUpgradeServerPackage($instanceRoot, $packageRoot, null, null, null, null, $plan);
             if ($state['phase'] !== 'completed') {
                 throw new RuntimeException('PRODUCT_UPGRADE_NOT_COMPLETED:' . $state['phase']);
             }
@@ -1529,7 +1547,7 @@ try {
                 'state_sha256' => $state['state_sha256'],
             ];
         } else {
-            productUpgradeServerPackage($instanceRoot, $packageRoot, null, null);
+            productUpgradeServerPackage($instanceRoot, $packageRoot, null, null, null, null, $plan);
             if ($state['phase'] === 'completed') {
                 throw new RuntimeException('PRODUCT_UPGRADE_COMPLETED_RECOVERY_REQUIRES_NEW_CHANGE_PLAN');
             }
