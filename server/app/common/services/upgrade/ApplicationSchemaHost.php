@@ -662,7 +662,7 @@ final class ApplicationSchemaHost
             'preflight', 'apply', 'verify', 'snapshot-failure', 'restore-failure' => self::SOURCE_READ_TABLES,
             default => SourceApplicationBackup::applicationTables(array_keys(self::PRESTATE_SQL)),
         };
-        if ($this->fileRelocationInput !== null) { $reads = array_values(array_unique(array_merge($reads, FileAdoptionRelocation::READ_TABLES, ['pa_tenant_member', 'pa_config']))); }
+        if ($this->fileRelocationInput !== null) { $reads = array_values(array_unique(array_merge($reads, FileAdoptionRelocation::READ_TABLES, ['pa_tenant_member', 'pa_config', 'pa_plugin_module']))); }
         $this->assertSourceReadScope($config, $reads);
         $connection = \think\facade\Db::connect();
         foreach (['hostname' => 'host', 'hostport' => 'port', 'database' => 'database', 'username' => 'user', 'password' => 'password'] as $native => $guarded) {
