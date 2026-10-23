@@ -443,7 +443,6 @@
   } from '@/api/password-policy';
   import { uploadFile, type FileRecord } from '@/modules/official-file/api';
   import { getRoleAll } from '@/api/system/role';
-  import { DepartmentPicker } from '../dept/parent-options';
   import { getJobsAll } from '@/api/system/jobs';
   import {
     addAdmin,
@@ -459,6 +458,7 @@
     type AdminListParams,
     type AdminRecord,
   } from '@/api/system/admin';
+  import { DepartmentPicker } from '../dept/parent-options';
 
   const { t } = useI18n();
   const userStore = useUserStore();

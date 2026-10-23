@@ -468,14 +468,14 @@
       (item) => !menuPermissionKeys.value.has(item.key)
     );
     const available = new Set(options.map((item) => item.key));
-    for (const key of extraPermissionKeys.value) {
+    extraPermissionKeys.value.forEach((key) => {
       if (!available.has(key))
         options.push({
           key,
           name: t('systemRole.auth.unavailable'),
           module_key: key,
         });
-    }
+    });
     const search = permissionSearch.value.trim().toLowerCase();
     return options.filter((item) =>
       `${item.name} ${item.key}`.toLowerCase().includes(search)
@@ -498,24 +498,24 @@
 
   const loadPermissionCatalog = async () => {
     const items: RolePermissionOption[] = [];
-    let page = 1;
-    let total = 0;
-    do {
+    const readPage = async (page: number): Promise<void> => {
       const { data } = await getRolePermissionCatalog({
         page_no: page,
         page_size: 100,
       });
-      total = data.total;
-      if (data.items.length === 0 && items.length < total)
+      if (data.items.length === 0 && items.length < data.total)
         throw new Error(t('systemRole.auth.catalogIncomplete'));
       items.push(...data.items);
-      page += 1;
-    } while (items.length < total);
+      if (items.length < data.total) return readPage(page + 1);
+      return undefined;
+    };
+    await readPage(1);
     return items;
   };
 
   const handleAuth = async (record: RoleRecord) => {
-    const generation = ++authGeneration;
+    authGeneration += 1;
+    const generation = authGeneration;
     authVisible.value = true;
     authLoading.value = true;
     authSubmitLoading.value = false;
