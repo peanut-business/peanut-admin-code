@@ -18,7 +18,8 @@ final class FileAdoptionRelocation
     private const MOVE_SHA = '135317ccf27e48fbcd41424c06d333b1c5f273d31e23da04cb38e2f2c0d4061a';
     private const DUMP_SHA = 'b233a34b4675da06bf4550d8319c2b5a71e6d2a7830740429450f30ce453207c';
     public const READ_TABLES = ['pa_file', 'pa_file_object', 'pa_storage_account', 'pa_storage_space', 'pa_storage_route',
-        'pa_file_image_asset', 'pa_file_derivative', 'pa_file_delivery_nonce', 'pa_file_delivery_grant', 'pa_file_reference', 'pa_file_immutable_snapshot'];
+        'pa_file_image_asset', 'pa_file_derivative', 'pa_file_delivery_nonce', 'pa_file_delivery_grant', 'pa_file_reference', 'pa_file_immutable_snapshot',
+        'pa_file_cate', 'pa_file_visibility_batch', 'pa_file_visibility_item'];
 
     public static function input(string $path, string $root, bool $historical = false): array
     {
@@ -192,18 +193,36 @@ final class FileAdoptionRelocation
         foreach (['installed.json', 'baseline.json'] as $file) {
             $state['anchors'][$file] = hash('sha256', SourceApplicationBackup::protectedPluginBytes($root . '/private/installation/' . $file, $root));
         }
-        foreach (self::READ_TABLES as $table) {
-            $schema = MySqlMetadataObservation::tableSchema($pdo, $table);
-            $primary = $schema === null ? [] : array_values(array_filter($schema['indexes'], static fn(array $index): bool => $index['INDEX_NAME'] === 'PRIMARY'));
+        foreach (array_merge(self::READ_TABLES, ['pa_module_migration']) as $table) {
+            // Opaque before/after preservation, not a second SQL grammar or schema admission.
+            // Current postconditions remain the existing File owner's complete proof above.
+            $schema = MySqlMetadataObservation::uncached($pdo, static function () use ($pdo, $table): array {
+                $query = $pdo->prepare('SELECT TABLE_TYPE,ENGINE,TABLE_COLLATION,AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');
+                $query->execute([$table]); $metadata = $query->fetchAll(PDO::FETCH_ASSOC); $query->closeCursor();
+                if (count($metadata) !== 1 || $metadata[0]['TABLE_TYPE'] !== 'BASE TABLE' || $metadata[0]['ENGINE'] !== 'InnoDB') {
+                    throw new RuntimeException('APPLICATION_SCHEMA_FILE_RELOCATION_TABLE_UNKNOWN');
+                }
+                $ddl = $pdo->query('SHOW CREATE TABLE `' . $table . '`')->fetchAll(PDO::FETCH_ASSOC);
+                $query = $pdo->prepare('SELECT INDEX_NAME,NON_UNIQUE,SEQ_IN_INDEX,COLUMN_NAME,COLLATION,SUB_PART,INDEX_TYPE,IS_VISIBLE,EXPRESSION,INDEX_COMMENT FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY INDEX_NAME,SEQ_IN_INDEX');
+                $query->execute([$table]); $indexes = $query->fetchAll(PDO::FETCH_ASSOC); $query->closeCursor();
+                $query = $pdo->prepare('SELECT TRIGGER_NAME,ACTION_TIMING,EVENT_MANIPULATION,ACTION_STATEMENT,SQL_MODE,DEFINER,CHARACTER_SET_CLIENT,COLLATION_CONNECTION,DATABASE_COLLATION FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND EVENT_OBJECT_TABLE=? ORDER BY TRIGGER_NAME');
+                $query->execute([$table]); $triggers = $query->fetchAll(PDO::FETCH_ASSOC); $query->closeCursor();
+                if (count($ddl) !== 1 || !is_string($ddl[0]['Create Table'] ?? null)) { throw new RuntimeException('APPLICATION_SCHEMA_FILE_RELOCATION_TABLE_UNKNOWN'); }
+                return ['metadata' => $metadata[0], 'ddl' => $ddl[0]['Create Table'], 'indexes' => $indexes, 'triggers' => $triggers];
+            });
+            $primary = array_values(array_filter($schema['indexes'], static fn(array $index): bool => $index['INDEX_NAME'] === 'PRIMARY'));
             if ($primary === []) { throw new RuntimeException('APPLICATION_SCHEMA_FILE_RELOCATION_TABLE_UNKNOWN'); }
+            foreach ($primary as $index) {
+                if (!is_string($index['COLUMN_NAME']) || preg_match('/\A[a-z][a-z0-9_]*\z/D', $index['COLUMN_NAME']) !== 1) {
+                    throw new RuntimeException('APPLICATION_SCHEMA_FILE_RELOCATION_TABLE_UNKNOWN');
+                }
+            }
             $order = implode(',', array_map(static fn(array $index): string => '`' . $index['COLUMN_NAME'] . '`', $primary));
             $hash = hash_init('sha256'); $count = 0;
             $query = $pdo->query('SELECT * FROM `' . $table . '` ORDER BY ' . $order);
             while (($row = $query->fetch(PDO::FETCH_ASSOC)) !== false) { hash_update($hash, self::canonical($row) . "\n"); ++$count; }
             $query->closeCursor();
-            $allocator = $pdo->prepare('SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');
-            $allocator->execute([$table]); $next = $allocator->fetchColumn(); $allocator->closeCursor();
-            $state['tables'][$table] = ['schema_sha256' => self::digest($schema), 'count' => $count, 'rows_sha256' => hash_final($hash), 'allocator' => $next];
+            $state['tables'][$table] = ['schema_sha256' => self::digest($schema), 'count' => $count, 'rows_sha256' => hash_final($hash), 'allocator' => $schema['metadata']['AUTO_INCREMENT']];
         }
         return $state;
     }
@@ -264,7 +283,7 @@ final class FileAdoptionRelocation
         if ($marker !== null) {
             // Isolate first. A crash before DB commit leaves the same failed marker, never valid authority.
             if ($active && (!rename($path, $quarantine))) { throw new RuntimeException('APPLICATION_SCHEMA_FILE_RELOCATION_QUARANTINE_FAILED'); }
-            if ($active) { self::syncDirectory(dirname($path)); }
+            if ($receipt !== null) { self::syncDirectory(dirname($path)); }
             $pdo->beginTransaction();
             try {
                 $query = $pdo->prepare('SELECT * FROM pa_schema_migration WHERE migration_id=? FOR UPDATE');
