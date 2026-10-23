@@ -1585,7 +1585,7 @@ PY
   fi
   child_lease="$(active_child_lease "$lease_id" || true)"
   [[ -z "$child_lease" ]] || die "lease $lease_id has active child lease $child_lease"
-  if lease_has_resource "$lease_dir" schema-allocation; then
+  if awk -F '\t' '$2=="schema-allocation" {found=1} END {exit !found}' "$lease_dir/resources.tsv"; then
     [[ -n "$expected_owner" ]] || die 'schema allocation requires explicit owner release'
     python3 "$REPO_ROOT/scripts/project-resource-application.py" allocation-release --lease "$lease_id" --owner "$expected_owner" \
       || die 'schema allocation RUNNING/UNKNOWN retains its exact resource boundary'
@@ -2075,7 +2075,7 @@ case "$COMMAND" in
     for LEASE_DIR in "$LEASES_DIR"/*; do
       [[ -d "$LEASE_DIR" && -f "$LEASE_DIR/metadata.tsv" ]] || continue
       if lease_expired "$LEASE_DIR"; then
-        if lease_has_resource "$LEASE_DIR" schema-allocation; then continue; fi
+        if awk -F '\t' '$2=="schema-allocation" {found=1} END {exit !found}' "$LEASE_DIR/resources.tsv"; then continue; fi
         # Expiry cannot prove the observer's SQL process has terminated.
         if [[ -e "$LEASE_DIR/application-operation.json" || -L "$LEASE_DIR/application-operation.json" ]]; then continue; fi
         if awk -F '\t' '$2=="retained-operation" || $2=="retained-parent" {found=1} END {exit !found}' "$LEASE_DIR/resources.tsv"; then continue; fi
