@@ -1486,7 +1486,8 @@ final class ApplicationSchemaHost
     private function sourceFailureLedger(array $ledger, array $baseline, array $shape): array
     {
         $pending = $baseline['pending'];
-        $failed = array_values(array_filter($ledger, static fn(array $row): bool => $row['status'] === 'failed'));
+        $failed = array_values(array_filter($ledger, static fn(array $row): bool => $row['status'] === 'failed'
+            && ($pending !== [FileAdoptionRelocation::ID] || $row['migration_id'] === FileAdoptionRelocation::ID)));
         $executed = array_values(array_filter($ledger, static fn(array $row): bool => in_array($row['migration_id'], $pending, true)));
         $old = array_values(array_filter($ledger, static fn(array $row): bool => !in_array($row['migration_id'], $pending, true)));
         $failedIndex = count($failed) === 1 ? array_search($failed[0]['migration_id'], $pending, true) : false;
