@@ -1632,7 +1632,7 @@ final class PluginSourceDevelopmentHost
         };
         array_push($allowed, ...$fixedDigests);
         foreach ($fixedDigests as $field) {
-            if (preg_match('/\A[a-f0-9]{64}\z/D', (string) ($after[$field] ?? '')) !== 1) { throw new RuntimeException('PLUGIN_SOURCE_SAFE_AFTER_REQUIRED'); }
+            if (!is_string($after[$field] ?? null) || preg_match('/\A[a-f0-9]{64}\z/D', $after[$field]) !== 1) { throw new RuntimeException('PLUGIN_SOURCE_SAFE_AFTER_REQUIRED'); }
         }
         if ($key === 'official.integration:20260921010000_adopt_official_integration_schema') {
             $allowed[] = 'bindings_count';
