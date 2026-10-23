@@ -3266,7 +3266,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "23d5147c1f22d56479877d0559c9d6990abe858c9c2f22286551c211918cf93f"
+            "source_sha256": "06ba3a2c8dc6331010c0c178bfc1f5a0246e12f3d6f68f11d1acd6caa238b5e3"
         },
         {
             "path": "scripts/consumer-document-article.md",
@@ -3280,7 +3280,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "988c1173068710f93552577f21f17f6757200ff3886f26719c1a27560a6a9f1e"
+            "source_sha256": "8a43719acf7b12041a93742c09c1d0e7c5a2ae3479f48a7fa51c5953308a2e96"
         },
         {
             "path": "scripts/consumer-module-reference-chain",
@@ -3875,7 +3875,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e00f7f979bbc16b688340f7580156fcd5366d4964a002469d7a89de1d83b3251"
+            "source_sha256": "282e5b05addc87fbcbbf642fbb7a83d8875f40ce5c7b806a73c59911d54d0681"
         },
         {
             "path": "scripts/project-resource-lease",
@@ -4320,6 +4320,20 @@
             "source_sha256": "8f6f42ef01cba39f790af6c14f68f43756873bccff85056c2aa2263111ab6aeb"
         },
         {
+            "path": "scripts/tests/consumer_document_listener_test.py",
+            "target": "scripts/tests/consumer_document_listener_test.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "de4b82d3d6ac10d005dacf081f2a200a88e750d1048c5eb0813a13343b295d4e"
+        },
+        {
             "path": "scripts/tests/continue_product_release_test.py",
             "target": "scripts/tests/continue_product_release_test.py",
             "classification": "excluded",
@@ -4664,6 +4678,34 @@
                 "standard",
                 "full"
             ]
+        },
+        {
+            "path": "scripts/tests/project_resource_application_output_test.py",
+            "target": "scripts/tests/project_resource_application_output_test.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "4a2d140a6d690633635fad7916c41fe045eda18af32312e5f9d461a5fdadd455"
+        },
+        {
+            "path": "scripts/tests/project_resource_failed_install_retirement_test.py",
+            "target": "scripts/tests/project_resource_failed_install_retirement_test.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "2c54316832fa171e6f7ba97830012107f6f5e7dd88842a81c16aa72afb473448"
         },
         {
             "path": "scripts/tests/project_resource_lease_parent_test.py",
@@ -9352,7 +9394,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dd35b777409b8a9f7c4e8177d88dc3d02a79f62f07d3cd52b8477a1db8d294b0"
+            "source_sha256": "12ef08072c5d2d2562d33114cd8d70f3307c8e2d09ecc5f21c71a18c2696a6c8"
         },
         {
             "path": "server/app/common/services/installation/InstallationPreflightHost.php",
@@ -9366,7 +9408,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "81fe5326737917002baeb2f871baa374375f018cb7a2c251c3f009c8a6ca7c75"
+            "source_sha256": "d83f313cb517d3f01ecad7422c8f82bddc11e908d3545a5b825e4f9036c7efeb"
         },
         {
             "path": "server/app/common/services/notice/NoticeChannelService.php",
@@ -27349,7 +27391,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c098db52771e76a549ac5b58547b9a1e3d1fc6195878594a1e3f53869cd9792a"
+            "source_sha256": "2a94a80e718554e7b78b9cb8003e3fc2e7feb0a9b58179089340864a549024d3"
         },
         {
             "path": "server/database/kernel-migrations/20260716010101_create_pa_account.php",
@@ -28650,7 +28692,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b4bfa7804404f52a0f6eb5d2aea629f8ba4850afeadd8ecae3619e64bfa1fd96"
+            "source_sha256": "92697ea66610b73dce5d74cfb7a53930d92391f729da4af1b22dc451e3b17f14"
         },
         {
             "path": "server/docker/tests/test_runtime_configuration.py",
@@ -31496,6 +31538,19 @@
         {
             "path": "server/tests/Productization/InstallationConfigurationHostTest.php",
             "target": "server/tests/Productization/InstallationConfigurationHostTest.php",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "server/tests/Productization/InstallationMarkerWriteTest.php",
+            "target": "server/tests/Productization/InstallationMarkerWriteTest.php",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
