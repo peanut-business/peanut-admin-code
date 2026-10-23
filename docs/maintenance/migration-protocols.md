@@ -1,5 +1,13 @@
 # 源码维护：安装基线与迁移协议
 
+## 固定开发库的 File adopted 来源承接
+
+`schema:application --scope=source-development --file-adoption-relocation=<受保护输入>` 仅显式选择 `database/maintenance/20261024-relocate-file-adoption.sql`；它不进入 seed、默认应用 Migration 或 HTTP 路径。该固定项只承接已知 File adopted key 及原 provenance 摘要，从原开发库／原运行根到已核目标。原 proof、admission、SQL、账本及业务数据不改写；同一 MySQL UUID 本身不是承接授权。
+
+输入采用 `peanut.file-adoption-relocation-input.v1`，显式声明维护 key／SQL 摘要、原 proof 摘要、source_root、target_root、完整 target_instance、原搬迁 receipt／dump 的路径及摘要、有效期限和实际审查引用；输入、计划、备份与原安装锚点按现有私有文件权限及原生 lease 校验。现有 Host → ThinkPHP Migrator → Adapter 执行单一固定断言，completion 先独占创建并 fsync 私有承接凭据和目录，官方 `migrated()` 才能写新维护 marker 的 applied。消费者要求两者完整匹配，继续验证旧 evidence／admission 及当前 File postconditions；维护时业务行摘要只证明执行前后保全，不冻结以后正常业务写入。
+
+失败后沿原 `snapshot-failure`／`restore-failure` 显式选择同一固定项。专用 profile 仅在原快照、完整其余账本、锚点及当前 File 数据仍匹配时，事务撤销本次原先不存在且完整失败行匹配的新 marker；新凭据原字节只移入固定隔离路径，不删除、不重编码。两媒体中断保持 fail closed，仅允许同一不可变 capsule 的精确 afterimage 显式对账，不自动重试或手标成功；有效 applied＋凭据、later-use 或未知状态均拒绝失败恢复。完整 SQL 快照属于灾难恢复材料，不是这一窄恢复的替代入口；恢复承接还必须配套私有凭据、原计划／输入与安装锚点，代码本身不能恢复历史数据。
+
 维护者在现有 MySQL 服务分配尚不存在的应用空库，可登记 `resources.schema_allocations` 中唯一 `peanut.schema-allocation.v1` operation，再以 `scripts/project-resource-lease claim` 的正常 owner/thread/candidate/gate 参数及 `--schema-allocation <ID>` 取得封闭资源，运行 `schema-allocate --lease <ID> --owner <实际线程>`。不接受调用者资源或 SQL；普通 APP 不依赖维护者 Project。只创建登记的同名专用库、账号及十项既定库级权限；应用结构、初始化和数据迁移仍走已有 Migration／安装入口。
 
 operation 完整字段为 `stable_resource_id/protocol/owner/thread/tool_source/lease_gate/database_resource_id/endpoint_id/server_uuid/version/account_host/credentials/transport/receipt_root/php_executable/max_seconds`。`tool_source` 固定干净源码的 `root/common_dir/commit/files`（两执行脚本与 registry resolver 的 SHA-256）；`credentials` 仅引用 0600 dotenv 的 `path/sha256`，内容严格为 `DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASS`，密码为 32–128 位 URL-safe 字符。`transport` 字段是 `ssh_command/ssh_alias/docker_command/container_name/mysql_command`，root 密码仅在远端容器展开。`account_host` 是已核安装客户端 IP 字面值，不允许通配 Host；`receipt_root` 为登记备份根内按 operation ID 固定的私有叶子；`max_seconds` 为 60–300 秒。database 的 endpoint、schema policy、lease gate、username、account_host、凭据引用及精确十项权限须一致，无 GRANT OPTION。

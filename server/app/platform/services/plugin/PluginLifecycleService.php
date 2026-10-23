@@ -1643,16 +1643,47 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         return $transfers;
     }
 
-    private static function assertAdopted(array $row, array $declaration, \PDO $pdo, string $pluginKey, ?\Closure $heldVisibility = null): array
+    /** Read-only proof for the one explicitly selected development relocation producer. */
+    public static function fileAdoptionRelocationSource(\PDO $pdo, array $row, array $input): array
+    {
+        $resolver = new PluginLockResolver(rtrim(root_path(), DIRECTORY_SEPARATOR), '../plugins.lock');
+        $plugin = $resolver->all()['official.file'];
+        $root = $plugin->moduleRoots['official.file'];
+        $manifest = (new \PeanutAdmin\Kernel\Module\ManifestLoader())->load($root);
+        $files = self::migrationFiles($root, $manifest, true);
+        $adoptions = self::migrationAdoptions('official.file', $files, self::migrationRepairMap('official.file', $files));
+        $contract = \app\common\services\upgrade\FileAdoptionRelocation::class;
+        $location = $contract::sourceIdentity($row, $input, self::migrationInstance($pdo));
+        return self::assertAdopted($row, $adoptions['targets'][$contract::KEY], $pdo, 'official.file', null, $location);
+    }
+
+    public static function fileAdoptionRelocationHistory(\PDO $pdo): array
+    {
+        $contract = \app\common\services\upgrade\FileAdoptionRelocation::class;
+        $row = $contract::row($pdo);
+        $proof = json_decode($row['provenance_json'], true, 64, JSON_THROW_ON_ERROR);
+        $contract::resolve($pdo, $row, self::migrationInstance($pdo, $proof['instance']));
+        $record = \app\common\services\upgrade\SourceApplicationBackup::protectedPluginJson($contract::path(realpath(root_path())), realpath(root_path()));
+        self::fileAdoptionRelocationSource($pdo, $row, $record['input']);
+        return ['migration_id' => $contract::ID, 'sha256' => $contract::SQL_SHA, 'contract' => $contract];
+    }
+
+    private static function assertAdopted(array $row, array $declaration, \PDO $pdo, string $pluginKey, ?\Closure $heldVisibility = null, ?array $relocationSource = null): array
     {
         try { $proof = json_decode((string) ($row['provenance_json'] ?? ''), true, 64, JSON_THROW_ON_ERROR); }
         catch (\JsonException) { throw new PluginLifecycleException('MODULE_MIGRATION_ADOPTION_PROVENANCE_INVALID', 'Adopted migration has no valid provenance.'); }
+        $actualInstance = self::migrationInstance($pdo, $proof['instance'] ?? null);
+        $location = $relocationSource;
+        if ($location === null && self::json($proof['instance'] ?? null) !== self::json($actualInstance)
+            && ($declaration['migration_key'] ?? null) === \app\common\services\upgrade\FileAdoptionRelocation::KEY) {
+            $location = \app\common\services\upgrade\FileAdoptionRelocation::resolve($pdo, $row, $actualInstance);
+        }
         if (($row['resolution_kind'] ?? null) !== 'adopted' || ($proof['protocol'] ?? null) !== 'peanut.module-migration-adoption.v1'
             || self::json($proof['declaration'] ?? null) !== self::json($declaration) || ($proof['package']['key'] ?? null) !== $pluginKey
             || !is_array($proof['instance'] ?? null)
-            || self::json($proof['instance']) !== self::json(self::migrationInstance($pdo, $proof['instance']))
+            || self::json($proof['instance']) !== self::json($location['instance'] ?? $actualInstance)
             || !is_array($proof['apply_admission'] ?? null)
-            || !self::recordedAdoptionAdmission($proof)
+            || !self::recordedAdoptionAdmission($proof, $location['root'] ?? null)
             || !is_array($proof['evidence'] ?? null) || ($proof['evidence']['disposition'] ?? null) !== 'adopt'
             || ($proof['evidence']['may_apply'] ?? null) !== true
             || ($proof['evidence']['migration_key'] ?? null) !== $declaration['migration_key']
@@ -1685,7 +1716,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         return $current;
     }
 
-    private static function recordedAdoptionAdmission(array $proof): bool
+    private static function recordedAdoptionAdmission(array $proof, ?string $relocationRoot = null): bool
     {
         $admission = $proof['apply_admission'];
         if (self::json($admission['database_identity'] ?? null) !== self::json($proof['instance']['database_identity'] ?? null)) { return false; }
@@ -1693,7 +1724,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             // Historical native provenance validation, never live write authorization or private-fact recomputation.
             $digest = $admission['admission_digest'] ?? null; unset($admission['admission_digest']);
             if (($admission['schema_version'] ?? null) !== 1 || ($admission['protocol'] ?? null) !== 'peanut.source-plugin-admission.v1'
-                || ($admission['instance_root'] ?? null) !== realpath(root_path())
+                || ($admission['instance_root'] ?? null) !== ($relocationRoot ?? realpath(root_path()))
                 || ($admission['plugin_key'] ?? null) !== ($proof['package']['key'] ?? null)
                 || ($admission['operation'] ?? null) !== ($proof['operation'] ?? null)
                 || ($admission['request_id'] ?? null) !== ($proof['operation_id'] ?? null)

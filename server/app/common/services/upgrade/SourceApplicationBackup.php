@@ -502,6 +502,7 @@ final class SourceApplicationBackup
         '20261012-align-platform-ops-permission-ownership' => ['pa_permission'],
         '20261012-repair-seeded-permission-parents' => ['pa_system_menu'],
         '20261019-module-migration-provenance-metadata' => ['pa_module_migration'],
+        \app\common\services\upgrade\FileAdoptionRelocation::ID => [],
     ];
 
     /** Exact original table union; never expands from caller metadata or SQL text. */
@@ -1661,6 +1662,7 @@ final class SourceApplicationBackup
             return self::applicationTables(array_slice($ids, 0, $index + 1));
         }
         return match ($profile) {
+            'file-adoption-relocation' => ['pa_schema_migration'],
             'sms-reservation' => ['pa_notice_log', 'pa_schema_migration'],
             'menu-stable-identities' => ['pa_menu_definition', 'pa_notice_log', 'pa_schema_migration', 'pa_system_menu'],
             default => throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_RESTORE_UNSUPPORTED'),
@@ -1970,7 +1972,7 @@ final class SourceApplicationBackup
 
     /** Fixed selected-table restoration from a verified native original, never caller SQL. */
     public static function restoreApplicationFailure(array $binding, array $tool, string $originalManifest, string $directory,
-        callable $before, callable $after, string $profile = 'sms-reservation', ?string $currentManifest = null,
+        callable $before, callable $after, string $profile = 'sms-reservation', ?string $currentManifest = null, ?PDO $heldPdo = null,
     ): array
     {
         $context = app()->make(\app\common\execution\CurrentExecutionContext::class)->current();
@@ -1981,6 +1983,28 @@ final class SourceApplicationBackup
         }
         $before(); $serverRoot = $binding['source']['root'] . '/server';
         $original = self::protectedPluginJson($originalManifest, $serverRoot);
+        if ($profile === 'file-adoption-relocation') {
+            if (!$heldPdo instanceof PDO || \think\facade\Db::connect()->getPdo() !== $heldPdo || $heldPdo->inTransaction()
+                || $currentManifest === null || ($original['protocol'] ?? null) !== 'peanut.source-application-backup.v1'
+                || ($original['binding']['database'] ?? null) !== $binding['database'] || ($original['scope']['tables'] ?? null) !== ['pa_schema_migration']) {
+                throw new RuntimeException('APPLICATION_SCHEMA_FILE_RELOCATION_RESTORE_REFUSED');
+            }
+            $capsule = self::protectedPluginJson($currentManifest, $serverRoot); $failure = $capsule['failure'] ?? [];
+            $reference = $failure['original_plan'] ?? [];
+            $planBytes = self::protectedPluginBytes($reference['path'] ?? '', $serverRoot);
+            if (hash('sha256', $planBytes) !== ($reference['sha256'] ?? null)
+                || ($failure['original_backup']['backup_manifest']['path'] ?? null) !== $originalManifest
+                || ($failure['original_backup']['backup_manifest']['sha256'] ?? null) !== hash_file('sha256', $originalManifest)
+                || ($capsule['protocol'] ?? null) !== 'peanut.source-application-failure-snapshot.v1') {
+                throw new RuntimeException('APPLICATION_SCHEMA_FILE_RELOCATION_RESTORE_REFUSED');
+            }
+            $plan = json_decode($planBytes, true, 64, JSON_THROW_ON_ERROR);
+            $result = \app\common\services\upgrade\FileAdoptionRelocation::restoreFailure($heldPdo, $plan, $failure, $before);
+            $after();
+            if (file_exists($directory) || is_link($directory) || !mkdir($directory, 0700)) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_OUTPUT_UNSAFE'); }
+            self::write($directory . '/restoration.json', $result + ['failure_capsule' => ['path' => $currentManifest, 'sha256' => hash_file('sha256', $currentManifest)]]);
+            return $result;
+        }
         $payload = $original['backup_payload'] ?? []; $tables = self::failureRestoreTables($profile);
         $contract = $tool['source_schema_backup'] ?? [];
         if (($original['protocol'] ?? null) !== 'peanut.source-application-backup.v1'

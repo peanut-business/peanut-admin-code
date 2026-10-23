@@ -27,6 +27,7 @@ final class ApplicationSchema extends ContextualCommand
             ->addOption('session', null, Option::VALUE_REQUIRED, 'Workflow Session of the current native resource grant')
             ->addOption('gate', null, Option::VALUE_REQUIRED, 'Gate of the current native resource grant')
             ->addOption('maintenance', null, Option::VALUE_REQUIRED, 'Protected current stop-writer evidence')
+            ->addOption('file-adoption-relocation', null, Option::VALUE_REQUIRED, 'Explicit protected input for the fixed development File relocation', '')
             ->addOption('recovery', null, Option::VALUE_REQUIRED, 'Protected scoped backup references for external recovery acceptance')
             ->addOption('workspace', null, Option::VALUE_REQUIRED, 'Existing native server-update workspace')
             ->addOption('plan', null, Option::VALUE_REQUIRED, 'Protected preflight plan path')
@@ -62,7 +63,7 @@ final class ApplicationSchema extends ContextualCommand
                 foreach (['owner', 'thread', 'session', 'gate'] as $key) { $authority[$key] = (string) $input->getOption($key); }
                 if ($input->getOption('application-recovery') !== '') {
                     if ($scope !== 'source-application' || $operation !== 'source-recovery' || $plan !== '' || $result !== '') { throw new \RuntimeException('APPLICATION_SCHEMA_ARGUMENTS_INVALID'); }
-                    foreach (['maintenance', 'backup-tool', 'backup-output', 'metadata-tool'] as $name) {
+                    foreach (['maintenance', 'backup-tool', 'backup-output', 'metadata-tool', 'file-adoption-relocation'] as $name) {
                         if ((string) $input->getOption($name) !== '') { throw new \RuntimeException('APPLICATION_SCHEMA_ARGUMENTS_INVALID'); }
                     }
                     if ($input->getOption('application-recovery') === 'open') {
@@ -80,11 +81,12 @@ final class ApplicationSchema extends ContextualCommand
                 if ($input->getOption('source-plan') !== '') { throw new \RuntimeException('APPLICATION_SCHEMA_ARGUMENTS_INVALID'); }
                 $report = $host->sourceDevelopment($operation, $authority, $plan, $result,
                     (string) $input->getOption('maintenance'), (string) $input->getOption('recovery'),
-                    (string) $input->getOption('backup-tool'), (string) $input->getOption('backup-output'), (string) $input->getOption('metadata-tool'));
+                    (string) $input->getOption('backup-tool'), (string) $input->getOption('backup-output'), (string) $input->getOption('metadata-tool'),
+                    (string) $input->getOption('file-adoption-relocation'));
                 $output->writeln(json_encode($report, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
                 return ($report['status'] ?? null) === 'blocked' ? 2 : 0;
             }
-            foreach (['owner', 'thread', 'session', 'gate', 'maintenance', 'recovery', 'backup-tool', 'backup-output', 'metadata-tool', 'application-recovery', 'source-plan'] as $key) {
+            foreach (['owner', 'thread', 'session', 'gate', 'maintenance', 'recovery', 'backup-tool', 'backup-output', 'metadata-tool', 'application-recovery', 'source-plan', 'file-adoption-relocation'] as $key) {
                 if ((string) $input->getOption($key) !== '') { throw new \RuntimeException('APPLICATION_SCHEMA_ARGUMENTS_INVALID'); }
             }
             $report = match (true) {

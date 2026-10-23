@@ -23,6 +23,7 @@ final class ApplicationSchemaHost
     private const RESULT_PROTOCOL = 'peanut.application-schema-result.v1';
     private ?string $sourceConnectionId = null;
     private string $sourceMetadataTool = '';
+    private ?array $fileRelocationInput = null;
     private const MENU_MIGRATIONS = ['20261004-group-default-navigation', '20261004-menu-stable-identities', '20261012-repair-seeded-permission-parents'];
     private const PERMISSION_MIGRATIONS = ['20261007-readiness-permission', '20261012-align-department-canonical-permissions', '20261012-align-platform-ops-permission-ownership'];
     // Business reads made by the complete fixed chain, including protected FK bindings.
@@ -42,6 +43,7 @@ final class ApplicationSchemaHost
         '20261012-align-platform-ops-permission-ownership' => '038766e7e9ab5356cacf11cc6bb2dd675af02cd9bd3180efd356a8234d6aa1d9',
         '20261012-repair-seeded-permission-parents' => '06c5e8cad88139ba64cbd498765082a52df43e947370ddf2add1de956788ba5f',
         '20261019-module-migration-provenance-metadata' => '5e8abee207d363cdbb48f01c3980a611b01f4457150666a67e67f690dd547ad9',
+        FileAdoptionRelocation::ID => FileAdoptionRelocation::SQL_SHA,
     ];
 
     /**
@@ -597,8 +599,14 @@ final class ApplicationSchemaHost
     }
 
     /** Native source maintenance; facts never substitute for the current resource grant. */
-    public function sourceDevelopment(string $operation, array $actor, string $planPath, string $resultPath, string $maintenancePath, string $recoveryPath, string $backupTool, string $backupOutput, string $metadataTool = ''): array
+    public function sourceDevelopment(string $operation, array $actor, string $planPath, string $resultPath, string $maintenancePath, string $recoveryPath, string $backupTool, string $backupOutput, string $metadataTool = '', string $fileRelocationPath = ''): array
     {
+        if ($fileRelocationPath !== '') {
+            if (($actor['scope'] ?? '') !== 'source-development' || !in_array($operation, ['preflight', 'backup', 'apply', 'verify', 'snapshot-failure', 'restore-failure'], true)) {
+                throw new RuntimeException('APPLICATION_SCHEMA_FILE_RELOCATION_SCOPE_INVALID');
+            }
+            $this->fileRelocationInput = FileAdoptionRelocation::input($fileRelocationPath, $this->serverRoot, in_array($operation, ['verify', 'snapshot-failure', 'restore-failure'], true));
+        }
         $run = fn(): array => $this->sourceDevelopmentHeld($operation, $actor, $planPath, $resultPath, $maintenancePath, $recoveryPath, $backupTool, $backupOutput, $metadataTool);
         if (($actor['scope'] ?? 'source-development') !== 'source-application') { return $run(); }
         if (in_array($operation, ['snapshot-failure', 'restore-failure'], true)) {
@@ -654,6 +662,7 @@ final class ApplicationSchemaHost
             'preflight', 'apply', 'verify', 'snapshot-failure', 'restore-failure' => self::SOURCE_READ_TABLES,
             default => SourceApplicationBackup::applicationTables(array_keys(self::PRESTATE_SQL)),
         };
+        if ($this->fileRelocationInput !== null) { $reads = array_values(array_unique(array_merge($reads, FileAdoptionRelocation::READ_TABLES, ['pa_tenant_member', 'pa_config']))); }
         $this->assertSourceReadScope($config, $reads);
         $connection = \think\facade\Db::connect();
         foreach (['hostname' => 'host', 'hostport' => 'port', 'database' => 'database', 'username' => 'user', 'password' => 'password'] as $native => $guarded) {
@@ -664,6 +673,9 @@ final class ApplicationSchemaHost
         $connection->query('SELECT CONNECTION_ID()', [], true);
         $pdo = $connection->getPdo();
         if (!$pdo instanceof PDO || $pdo->inTransaction()) { throw new RuntimeException('APPLICATION_SCHEMA_MASTER_MISMATCH'); }
+        if ($this->fileRelocationInput !== null && in_array($operation, ['preflight', 'backup', 'apply'], true) && FileAdoptionRelocation::marker($pdo) !== null) {
+            throw new RuntimeException('APPLICATION_SCHEMA_FILE_RELOCATION_ALREADY_STARTED');
+        }
         $facts = fn(): array => $this->sourceDevelopmentFacts($pdo, $connection, $actor, $context->requestId(), $ddl);
         $initial = $facts();
         if (!$this->sourceSame(array_diff_key($initial, ['database' => true]), $admission)) { throw new RuntimeException('APPLICATION_SCHEMA_SOURCE_DRIFT'); }
@@ -672,6 +684,13 @@ final class ApplicationSchemaHost
                 fn(): array => $this->verifySourceReceipt($pdo, $initial, $facts, $resultPath));
         }
         $files = \applicationMigrationFiles($this->serverRoot . '/database');
+        if ($this->fileRelocationInput !== null) {
+            $path = $this->serverRoot . '/database/maintenance/' . FileAdoptionRelocation::ID . '.sql';
+            if (realpath($path) !== $path || !is_file($path) || hash_file('sha256', $path) !== FileAdoptionRelocation::SQL_SHA) {
+                throw new RuntimeException('APPLICATION_SCHEMA_FILE_RELOCATION_SQL_CHANGED');
+            }
+            $files[] = $path;
+        }
         $versions = \applicationReleaseVersions($this->serverRoot);
         $target = \applicationMigrationTargetVersion($this->serverRoot, $versions);
         if ($operation === 'snapshot-failure') {
@@ -701,6 +720,9 @@ final class ApplicationSchemaHost
             || preg_match('/\Aresult-[a-f0-9]{32}\.json\z/D', basename($resultPath)) !== 1)) { throw new RuntimeException('APPLICATION_SCHEMA_RESULT_ORIGIN_INVALID'); }
         $expected = $this->sourceProtectedJson($operation === 'apply' ? $planPath : $resultPath);
         $this->assertSourceDocument($expected, $operation === 'apply' ? 'peanut.source-development-schema-plan.v1' : 'peanut.source-development-schema-result.v1');
+        if (!$this->sourceSame($expected['file_relocation_input'] ?? null, $this->fileRelocationInput)) {
+            throw new RuntimeException('APPLICATION_SCHEMA_FILE_RELOCATION_INPUT_CHANGED');
+        }
         if (($expected['metadata_tool'] ?? '') !== $this->sourceMetadataTool) { throw new RuntimeException('APPLICATION_SCHEMA_PLAN_STALE'); }
         return \app\common\infrastructure\scaffold\ScaffoldUpgradeRunner::sourceProductLock(dirname($this->serverRoot),
             function () use ($operation, $pdo, $runner, $files, $target, $versions, $expected, $facts, $initial, $maintenancePath, $recoveryPath, $planPath): array {
@@ -755,6 +777,12 @@ final class ApplicationSchemaHost
                     if ($stageScope['execution_requirements'] !== []) {
                         throw new RuntimeException('APPLICATION_SCHEMA_STAGE_EFFECT_REVIEW_REQUIRED');
                     }
+                    if ($migration['id'] === FileAdoptionRelocation::ID) {
+                        if ($this->fileRelocationInput === null || $baseline['pending'] !== [FileAdoptionRelocation::ID]) { throw new RuntimeException('APPLICATION_SCHEMA_FILE_RELOCATION_SELECTION_INVALID'); }
+                        $businessBefore[$migration['id']] = FileAdoptionRelocation::before($pdo, $migration, $this->fileRelocationInput);
+                        if (!$this->sourceSame($businessBefore[$migration['id']], $expected['chain'][0]['prestate'] ?? null)) { throw new RuntimeException('APPLICATION_SCHEMA_FILE_RELOCATION_STATE_CHANGED'); }
+                        $recheck(); return false;
+                    }
                     if ($migration['id'] === '20260909-notification-sms-reservation') {
                         self::prestateIdentity($migration);
                         $businessBefore[$migration['id']] = self::smsMigrationBefore($pdo, $migration);
@@ -786,13 +814,16 @@ final class ApplicationSchemaHost
                     $recheck();
                     return false;
                 };
-                $after = function (PDO $actual, array $migration, ?array $executionBounds) use ($pdo, $baseline, $recheck, $current, $maintenancePath, $recoveryPath, $proofs, $expected, &$completed, &$businessBefore, &$businessPoststates, &$stageBounds): void {
+                $after = function (PDO $actual, array $migration, ?array $executionBounds) use ($pdo, $baseline, $recheck, $current, $maintenancePath, $recoveryPath, $proofs, $expected, $planPath, &$completed, &$businessBefore, &$businessPoststates, &$stageBounds): void {
                     $recheck();
                     if ($actual !== $pdo || $this->sourceDevelopmentEvidence($current, $maintenancePath, $recoveryPath, $baseline, $expected['backup_scope']) !== $proofs) {
                         throw new RuntimeException('APPLICATION_SCHEMA_WINDOW_CHANGED');
                     }
                     $this->assertSourceBaseline($pdo, $baseline, $completed, $migration, 'after');
-                    if ($migration['id'] === '20260909-notification-sms-reservation') {
+                    if ($migration['id'] === FileAdoptionRelocation::ID) {
+                        $businessPoststates[$migration['id']] = FileAdoptionRelocation::after($pdo, $migration, $businessBefore[$migration['id']] ?? [], $expected, $planPath);
+                        unset($businessBefore[$migration['id']]);
+                    } elseif ($migration['id'] === '20260909-notification-sms-reservation') {
                         $before = $businessBefore[$migration['id']] ?? null;
                         if (!is_array($before)) { throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_PROOF_REQUIRED'); }
                         $businessPoststates[$migration['id']] = self::smsMigrationAfter($pdo, $migration, $before, $executionBounds);
@@ -835,6 +866,10 @@ final class ApplicationSchemaHost
                         self::assertPermissionPoststates($baseline['pending'], $businessPoststates, $operation === 'verify', $pdo, $expected['business_terminal_state'] ?? null);
                         self::assertSmsPoststates($baseline['pending'], $businessPoststates, $operation === 'verify', $pdo, $expected['business_terminal_state'] ?? null);
                         self::assertAuthPoststates($pdo, $baseline['pending'], $businessPoststates, $operation === 'verify');
+                        if (in_array(FileAdoptionRelocation::ID, $baseline['pending'], true)) {
+                            PluginLifecycleService::fileAdoptionRelocationHistory($pdo);
+                            if ($operation === 'verify') { $businessPoststates[FileAdoptionRelocation::ID] = $expected['business_poststates'][FileAdoptionRelocation::ID] ?? []; }
+                        }
                         $terminal = $operation === 'apply' ? self::businessTerminalState($pdo, $baseline['pending'], $businessPoststates)
                             : ($expected['business_terminal_state'] ?? null);
                         $record = ['schema_version' => 1, 'protocol' => 'peanut.source-development-schema-result.v1',
@@ -842,6 +877,7 @@ final class ApplicationSchemaHost
                             'operation' => $operation, 'binding' => $current, 'baseline' => $baseline, 'application' => $selection, 'business_poststates' => $businessPoststates,
                             'business_terminal_state' => $terminal,
                             'validation_only' => $current['validation_only'],
+                            'file_relocation_input' => $this->fileRelocationInput,
                             'recovery_references' => $operation === 'apply' ? ($proofs['recovery']['references'] ?? null) : ($expected['recovery_references'] ?? null),
                             'external_gates' => 'not_evaluated',
                             'plugins' => 'not_run', 'product_database' => 'not_verified'];
@@ -898,7 +934,9 @@ final class ApplicationSchemaHost
             $migration = ['id' => $id, 'sql' => (string) file_get_contents($file), 'checksum' => $this->fileDigest($file)];
             $identity = ApplicationMigrationRunner::releaseIdentity($migration['sql'], $versions['release_sequence_version']);
             try {
-                $proof = self::migrationPrestate($pdo, $migration, $preceding, true);
+                $proof = $id === FileAdoptionRelocation::ID && $this->fileRelocationInput !== null
+                    ? FileAdoptionRelocation::before($pdo, $migration, $this->fileRelocationInput)
+                    : self::migrationPrestate($pdo, $migration, $preceding, true);
             } catch (\Throwable $exception) {
                 $code = explode(':', $exception->getMessage(), 2)[0];
                 if (!$exception instanceof RuntimeException || preg_match('/\AAPPLICATION_SCHEMA_[A-Z0-9_]+\z/D', $code) !== 1) {
@@ -912,6 +950,7 @@ final class ApplicationSchemaHost
                 $blocked = true;
             }
             $poststate = match ($id) {
+                FileAdoptionRelocation::ID => FileAdoptionRelocation::class,
                 '20261019-module-migration-provenance-metadata' => 'exact_provenance_shape',
                 '20261007-auth-client-schema' => AuthClientSchemaMigrationProof::class,
                 '20260909-notification-sms-reservation' => SmsReservationMigrationProof::class,
@@ -948,6 +987,7 @@ final class ApplicationSchemaHost
             $requirements[] = ['code' => 'APPLICATION_SCHEMA_SOURCE_WINDOW_RECOVERY_REQUIRED'];
         }
         $plan = ['schema_version' => 1, 'protocol' => 'peanut.source-development-schema-plan.v1',
+            'file_relocation_input' => $this->fileRelocationInput,
             'scope' => 'application-schema', 'maintenance_scope' => ($binding['source']['kind'] ?? null) === 'generated-application' ? 'source-application' : 'source-development', 'status' => $blocked ? 'blocked' : 'planned',
             'binding' => $binding, 'baseline' => $baseline, 'chain' => $chain, 'backup_scope' => $backupScope, 'execution_requirements' => $requirements, 'evidence' => $evidence,
             'protected_permission_bindings' => PermissionSchemaMigrationProof::readonlyBindingDigests($pdo),
@@ -1129,7 +1169,7 @@ final class ApplicationSchemaHost
             throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_NATIVE_TOOL_OUTPUT_REQUIRED');
         }
         return \app\common\infrastructure\scaffold\ScaffoldUpgradeRunner::sourceProductLock(dirname($this->serverRoot),
-            function () use ($pdo, $binding, $facts, $planPath, $planSha, $baseline, $pending, $tools, $output, $origin, $originFiles): array {
+            function () use ($pdo, $binding, $facts, $planPath, $planSha, $baseline, $pending, $tools, $output, $origin, $originFiles, $plan): array {
                 $lockName = 'peanut_migrate_' . substr(hash('sha256', $binding['database']['database']), 0, 48);
                 $lock = $pdo->prepare('SELECT GET_LOCK(?, 10)');
                 try { $lock->execute([$lockName]); $held = (int) $lock->fetchColumn() === 1; }
@@ -1166,8 +1206,12 @@ final class ApplicationSchemaHost
                         'original_plan' => ['path' => $planPath, 'sha256' => $planSha], 'original_backup' => $origin,
                         'executed_prefix' => array_slice($pending, 0, array_search($failed['migration_id'], $pending, true)),
                         'failed_migration' => $failed, 'ledger' => $ledger];
-                    $recheck = function () use ($pdo, $pending, $binding, $guard, $scope, $protectedBindings): void {
+                    if ($pending === [FileAdoptionRelocation::ID]) { $image['file_relocation'] = FileAdoptionRelocation::failureFacts($pdo, $plan); }
+                    $recheck = function () use ($pdo, $pending, $binding, $guard, $scope, $protectedBindings, $image, $plan): void {
                         $guard();
+                        if (isset($image['file_relocation']) && FileAdoptionRelocation::failureFacts($pdo, $plan) !== $image['file_relocation']) {
+                            throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_SNAPSHOT_CHANGED');
+                        }
                         if (!$this->sourceSame(PermissionSchemaMigrationProof::readonlyBindingDigests($pdo), $protectedBindings)) {
                             throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_SNAPSHOT_CHANGED');
                         }
@@ -1194,6 +1238,8 @@ final class ApplicationSchemaHost
         }
         $prefix = $failure['executed_prefix'] ?? null;
         $error = $failure['failed_migration']['error_code'] ?? null;
+        if ($id === FileAdoptionRelocation::ID && $prefix === [] && is_array($failure['file_relocation'] ?? null)) { return 'file-adoption-relocation'; }
+        if ($id === FileAdoptionRelocation::ID) { throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_RESTORE_UNSUPPORTED'); }
         if ($id === '20260909-notification-sms-reservation' && $prefix === []
             && $error === 'NOTIFICATION_SMS_MIGRATION_SCHEMA_POSTIMAGE_INVALID') { return 'sms-reservation'; }
         $expected = ['20260909-notification-sms-reservation', '20261004-group-default-navigation'];
@@ -1270,8 +1316,8 @@ final class ApplicationSchemaHost
             if ($row['sha256'] !== $afterimage['tables'][$table]['sha256']) { $changed[] = $table; }
         }
         if ((str_starts_with($profile, 'prefix:') ? array_diff($changed, $tables) !== [] : $changed !== $tables)
-            || $original['tables']['pa_notice_log']['insert_rows'] !== 0
-            || $afterimage['tables']['pa_notice_log']['insert_rows'] !== 0) { throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_RESTORE_SCOPE_CHANGED'); }
+            || ($profile !== 'file-adoption-relocation' && ($original['tables']['pa_notice_log']['insert_rows'] !== 0
+                || $afterimage['tables']['pa_notice_log']['insert_rows'] !== 0))) { throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_RESTORE_SCOPE_CHANGED'); }
         $window = $this->sourceFailureWindow($maintenancePath, $binding, ['path' => $capsulePath, 'sha256' => $capsuleSha], $tables, self::SOURCE_READ_TABLES);
         $originFiles += $window['files'];
         $registry = \projectResourceRegistry($registrySha);
@@ -1299,6 +1345,32 @@ final class ApplicationSchemaHost
                         try { $query->execute([$lockName]); $held = (int) $query->fetchColumn() === 1; } finally { $query->closeCursor(); }
                         if (!$held) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SCHEMA_LOCK_REQUIRED'); }
                     };
+                    if ($profile === 'file-adoption-relocation') {
+                        $guard();
+                        $scope = SourceApplicationBackup::scope($pdo, $pending, $binding, $this->sourceMetadataTool, $guard);
+                        if (!$this->sourceSame($scope, $capsule['scope'])) { throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_SNAPSHOT_CHANGED'); }
+                        $this->sourceFailureForeignKeys($plan['backup_scope'], $scope, $binding['database']['database'], ['pa_schema_migration']);
+                        $parent = @lstat(dirname($output));
+                        if (!is_array($parent) || realpath(dirname($output)) !== dirname($output) || ($parent['mode'] & 0022) !== 0
+                            || !in_array($parent['uid'], [0, posix_geteuid()], true) || file_exists($output) || is_link($output) || !mkdir($output, 0700)) {
+                            throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_OUTPUT_UNSAFE');
+                        }
+                        $after = function () use ($pdo, $guard, $baseline): void {
+                            $guard(); $rows = $pdo->query('SELECT * FROM pa_schema_migration ORDER BY migration_id')->fetchAll(PDO::FETCH_ASSOC);
+                            if ($this->digest($rows) !== $baseline['application_rows_sha256'] || count($rows) !== $baseline['application_rows_count']
+                                || $this->digest($this->sourceLedgerShape($pdo)) !== $baseline['application_shape_sha256']) {
+                                throw new RuntimeException('APPLICATION_SCHEMA_FAILURE_RESTORE_POSTIMAGE_INVALID');
+                            }
+                        };
+                        $restoration = SourceApplicationBackup::restoreApplicationFailure($binding, $tools[0], $origin['backup_manifest']['path'],
+                            $output . '/restore', $guard, $after, $profile, $capsulePath, $pdo);
+                        $record = ['schema_version' => 1, 'protocol' => 'peanut.source-development-failure-restoration.v1', 'status' => 'restored',
+                            'binding' => $binding, 'failure_snapshot' => ['path' => $capsulePath, 'sha256' => $capsuleSha], 'original_backup' => $origin,
+                            'restoration' => $restoration, 'restoration_profile' => $profile, 'write_tables' => ['pa_schema_migration'],
+                            'migration' => 'not_run', 'writers' => 'not_opened', 'qualification' => 'not_run'];
+                        $path = $this->saveSourceResult($record);
+                        return $record + ['result' => ['path' => $path, 'sha256' => hash_file('sha256', $path)]];
+                    }
                     $bindingGuard = function () use ($pdo, $failure, $plan, $profile): void {
                         if (!str_starts_with($profile, 'prefix:')) { return; }
                         $bindings = PermissionSchemaMigrationProof::readonlyBindingDigests($pdo);
@@ -1538,11 +1610,14 @@ final class ApplicationSchemaHost
                 in_array($id, self::PERMISSION_MIGRATIONS, true) => PermissionSchemaMigrationProof::class,
                 $id === '20260909-notification-sms-reservation' => SmsReservationMigrationProof::class,
                 $id === '20261007-auth-client-schema' => AuthClientSchemaMigrationProof::class,
+                $id === FileAdoptionRelocation::ID => FileAdoptionRelocation::class,
                 default => throw new RuntimeException('APPLICATION_SCHEMA_RECEIPT_CONTRACT_UNKNOWN'),
             };
             if (($row['contract'] ?? null) !== $contract) { throw new RuntimeException('APPLICATION_SCHEMA_RECEIPT_CONTRACT_UNKNOWN'); }
             $file = (new \ReflectionClass($contract))->getFileName();
-            if (!is_string($file) || realpath($file) !== $file || !str_starts_with($file, $this->serverRoot . '/app/modules/official/')) {
+            if (!is_string($file) || realpath($file) !== $file
+                || ($contract === FileAdoptionRelocation::class ? $file !== __DIR__ . '/FileAdoptionRelocation.php'
+                    : !str_starts_with($file, $this->serverRoot . '/app/modules/official/'))) {
                 throw new RuntimeException('APPLICATION_SCHEMA_RECEIPT_CONTRACT_UNKNOWN');
             }
             $contracts[$id] = ['contract' => $contract, 'source_sha256' => $this->fileDigest($file)];
@@ -1654,6 +1729,7 @@ final class ApplicationSchemaHost
         self::assertPermissionPoststates($pending, $poststates, false);
         self::assertSmsPoststates($pending, $poststates, false);
         self::assertAuthPoststates($pdo, $pending, $poststates, false);
+        if (in_array(FileAdoptionRelocation::ID, $pending, true)) { PluginLifecycleService::fileAdoptionRelocationHistory($pdo); }
         foreach ($evidence['contracts'] as $contract) {
             $this->assertReceiptSourceFile($original['source']['head'], (string) (new \ReflectionClass($contract['contract']))->getFileName(), $contract['source_sha256']);
         }
@@ -1832,6 +1908,10 @@ final class ApplicationSchemaHost
             $transfers = PluginLifecycleService::applicationMigrationTransfers(new PluginLockResolver($this->serverRoot, '../plugins.lock'));
             foreach ($extra as $id) {
                 $row = $byId[$id]; $source = $transfers[$id] ?? null;
+                if ($id === FileAdoptionRelocation::ID && $row['status'] === 'applied' && $row['checksum'] === FileAdoptionRelocation::SQL_SHA) {
+                    $historical[] = ['history' => $row, 'source_ownership' => PluginLifecycleService::fileAdoptionRelocationHistory($pdo)];
+                    continue;
+                }
                 if ($id === ApplicationMigrationRunner::PROVENANCE_ORIGINAL && $supersession !== null
                     && $supersession['original_ledger'] === $row) {
                     $historical[] = ['history' => $row, 'source_ownership' => $supersession];
