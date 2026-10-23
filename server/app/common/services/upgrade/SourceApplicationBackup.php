@@ -461,6 +461,8 @@ final class SourceApplicationBackup
             ['pa_tenant_audit_event'], 'PeanutAdmin\\Modules\\Identity\\Database\\IdentitySchemaMigrationProof'],
         'official.identity:20261024020000_create_pa_member_job' => ['505da08d46270f0cddf38aef27f54869b8152ef38cca2923c61034bb024c37a0',
             ['pa_member_job', 'pa_jobs', 'pa_tenant_member'], 'PeanutAdmin\\Modules\\Identity\\Database\\IdentitySchemaMigrationProof'],
+        'official.identity:20261024020000_create_pa_member_job-repair-20261024' => ['18689e857aac3196895455b85b2b662a5563fb2b63062295a5b8ad854c1300ae',
+            ['pa_member_job', 'pa_jobs', 'pa_tenant_member'], 'PeanutAdmin\\Modules\\Identity\\Database\\IdentitySchemaMigrationProof'],
         'peanut.workflow:20260921-register-module-schema' => ['f0a21d63c83afcd2438fc327bf6ad97a59d82daa571bc4de51d74c32eb487ff7',
             ['pa_workflow_definition', 'pa_workflow_definition_version', 'pa_workflow_instance', 'pa_workflow_work_item', 'pa_workflow_event'],
             'PeanutAdmin\\Modules\\Workflow\\Database\\WorkflowSchemaMigrationProof'],
@@ -1151,6 +1153,7 @@ final class SourceApplicationBackup
                 if (in_array($migration['disposition'] ?? null, ['awaiting_repair', 'repaired'], true)) {
                     $relation = $migration['repair_resolution'] ?? [];
                     $repairKey = match ($id) {
+                        'official.identity:20261024020000_create_pa_member_job' => 'official.identity:20261024020000_create_pa_member_job-repair-20261024',
                         'official.file:20261021060200_file_visibility_object_state' => 'official.file:20261021060200_file_visibility_object_state-repair-20261021',
                         'official.collaboration:20261012120000_create_collaboration_runtime' => 'official.collaboration:20261012120000_create_collaboration_runtime-repair-20261021',
                         'official.task:20261015020000_add_negative_fact_job_profile' => 'official.task:20261021010000_verify_negative_fact_job_profile',

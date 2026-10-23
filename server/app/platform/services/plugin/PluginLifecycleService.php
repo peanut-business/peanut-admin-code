@@ -82,6 +82,8 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             ['official.identity:20261007010000_department_contact_fields']],
         'official.identity:20261015010000_index_revocation_audit_facts' => ['eacd6eddd89a9f064688ff45ba67210d896a65bbeaea1448394e7b6df3c271aa', \PeanutAdmin\Modules\Identity\Database\IdentitySchemaMigrationProof::class, []],
         'official.identity:20261024020000_create_pa_member_job' => ['505da08d46270f0cddf38aef27f54869b8152ef38cca2923c61034bb024c37a0', \PeanutAdmin\Modules\Identity\Database\IdentitySchemaMigrationProof::class, []],
+        'official.identity:20261024020000_create_pa_member_job-repair-20261024' => ['18689e857aac3196895455b85b2b662a5563fb2b63062295a5b8ad854c1300ae', \PeanutAdmin\Modules\Identity\Database\IdentitySchemaMigrationProof::class,
+            ['official.identity:20261024020000_create_pa_member_job']],
         'peanut.workflow:20260921-register-module-schema' => ['f0a21d63c83afcd2438fc327bf6ad97a59d82daa571bc4de51d74c32eb487ff7', \PeanutAdmin\Modules\Workflow\Database\WorkflowSchemaMigrationProof::class, []],
         'peanut.workflow:20261012-workflow-managed-template' => ['fd02893a4b7a0ea60aa6c5434ff8b46f11e35bec94f10a76fc0b0f64609282a5', \PeanutAdmin\Modules\Workflow\Database\WorkflowSchemaMigrationProof::class,
             ['peanut.workflow:20260921-register-module-schema']],

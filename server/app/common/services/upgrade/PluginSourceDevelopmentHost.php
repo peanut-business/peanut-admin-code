@@ -35,6 +35,7 @@ final class PluginSourceDevelopmentHost
     ];
     private const CONTRACTS = [
         'official.identity' => \PeanutAdmin\Modules\Identity\Database\IdentitySchemaMigrationProof::class,
+        'official.integration' => \PeanutAdmin\Modules\Integration\Contract\IntegrationMigrationPreservation::class,
         'official.file' => \PeanutAdmin\Modules\File\Contract\FileMigrationPreservation::class,
         'official.document' => \PeanutAdmin\Modules\Document\Contract\DocumentMigrationPreservation::class,
         'official.collaboration' => \PeanutAdmin\Modules\Collaboration\Contract\CollaborationMigrationPreservation::class,
@@ -1623,6 +1624,20 @@ final class PluginSourceDevelopmentHost
         $allowed = ['module_key', 'migration_key', 'sql_sha256', 'checksum', 'readonly', 'preservation_verified', 'before_sha256',
             'after_sha256', 'table_counts', 'delta_kind', 'delta_sha256', 'proof_kind', 'table_count', 'created_empty_tables',
             'metadata_sha256', 'ledger_sha256', 'data_proof'];
+        $fixedDigests = match ($key) {
+            'official.identity:20261024020000_create_pa_member_job',
+            'official.identity:20261024020000_create_pa_member_job-repair-20261024' => ['external_parent_sha256'],
+            'official.integration:20260921010000_adopt_official_integration_schema' => ['bindings_sha256'],
+            default => [],
+        };
+        array_push($allowed, ...$fixedDigests);
+        foreach ($fixedDigests as $field) {
+            if (preg_match('/\A[a-f0-9]{64}\z/D', (string) ($after[$field] ?? '')) !== 1) { throw new RuntimeException('PLUGIN_SOURCE_SAFE_AFTER_REQUIRED'); }
+        }
+        if ($key === 'official.integration:20260921010000_adopt_official_integration_schema') {
+            $allowed[] = 'bindings_count';
+            if (!is_int($after['bindings_count'] ?? null) || $after['bindings_count'] < 0) { throw new RuntimeException('PLUGIN_SOURCE_SAFE_AFTER_REQUIRED'); }
+        }
         if ((self::CONTRACTS[$module] ?? null) !== $contract || ($after['module_key'] ?? null) !== $module
             || ($after['migration_key'] ?? null) !== $key || ($after['sql_sha256'] ?? $after['checksum'] ?? null) !== $sha
             || ($after['preservation_verified'] ?? null) !== true || array_diff(array_keys($after), $allowed) !== []
