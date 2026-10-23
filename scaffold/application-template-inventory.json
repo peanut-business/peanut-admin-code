@@ -6788,6 +6788,20 @@
             "source_sha256": "53f0b5df3de2a4c389d5472b96438d837649a8be7820fe8fc39b8f3b468f64b6"
         },
         {
+            "path": "server/app/command/DevelopmentTenantSites.php",
+            "target": "server/app/command/DevelopmentTenantSites.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "4354e60fdc4ec61ddd81fdb32da6319034ba9ff131a9860950e3d1a9f7edab96"
+        },
+        {
             "path": "server/app/command/GeneratorCleanup.php",
             "target": "server/app/command/GeneratorCleanup.php",
             "classification": "managed",
@@ -26943,7 +26957,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bbfb0e66eb59faf6dba28ddb8172956e2986662fe7318d630a5a23fab417d1bd"
+            "source_sha256": "8d15243b1274301b4b5458006a816886ba2a1216b1ef71bf8ec185f79088eb77"
         },
         {
             "path": "server/config/cookie.php",
@@ -27882,6 +27896,20 @@
                 "full"
             ],
             "source_sha256": "b2cc1be6c2ed4a631720ef735cf0b458335df8015f6d804a1d079d6d5f07b81f"
+        },
+        {
+            "path": "server/database/maintenance/20261024-development-admin-credentials.sql",
+            "target": "server/database/maintenance/20261024-development-admin-credentials.sql",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "eeb264889bdfaaa2a86d0dc8f314845ded2b5f70ab90650c8997350e7090aa87"
         },
         {
             "path": "server/database/migrations/20260822-classify-official-article-permissions.sql",
