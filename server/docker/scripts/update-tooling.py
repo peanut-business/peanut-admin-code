@@ -26,6 +26,21 @@ RECEIPT = 'peanut.maintenance-tooling-adoption.v1'
 FAILED_SOURCE = '11a327d5a9206c8a8cb1fd21d42c801fec4d55ba'
 FAILED_TOOLING = 'beb909dd9563118a810ef454d8438aa9293511903558e00bd96f5fc394ff4ce6'
 DISPOSITION = 'peanut.pre-host-prepare-failure.v1'
+RECIPE_SOURCE = 'b4e06ae581c19cee60a6c792806d940c8d27f01f'
+RECIPE_TOOLING = 'c40be6d88bfaeaf8f3b510370d14e422d7880f0718d103246212ec548037a187'
+RECIPE_DISPOSITION = 'peanut.readonly-prepare-rejection.v1'
+# These are the original observations of this one dispatched, read-only guard
+# rejection. They do not authorize disposition of another exit-1 or host phase.
+RECIPE_ORIGINALS = {
+    'pre': '5a6f7cb4fc3cffef981c254a4a69abbf389503a7330437c56afbb4d870030d4c',
+    'post': '95b27e5c5f948e318a8e201d06c4fa2716a983df169d35728780eb1bf2e42e03',
+    'arguments': '4890f38fd012c9ef7cca38e98601da22a181c320978421883733a753d15a5a43',
+    'render': '2bef2ec97a03b784efc9e2166f36f3e49d72bd38f51c1977461c3a31ab9d7616',
+    'stdout': 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    'stderr': 'd23003adaabea8cf8d86abd5ff944891ce6358b386c1ea45e385639375b5d0a5',
+    'terminal': '4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865',
+}
+RECIPE_LOG = 'bb0a03177644808d588dbd5c22c9fdbf0231683c97c3c38dbcbef6c5927625a2'
 
 
 def regular(path):
@@ -168,11 +183,15 @@ def failed_prepare_state(root, path, state):
     candidate = state.get('candidate', '')
     if not re.fullmatch(r'server_update_[0-9]{14}_[a-f0-9]{12}', candidate):
         raise ValueError('invalid failed prepare candidate')
-    record = protected(root / '.peanut/upgrades/pre-host-failures' / (candidate + '.json'))
+    record_path = root / '.peanut/upgrades/readonly-prepare-rejections' / (candidate + '.json')
+    recipe = record_path.exists()
+    if not recipe: record_path = root / '.peanut/upgrades/pre-host-failures' / (candidate + '.json')
+    record = protected(record_path)
     protected(Path(record['admission']))
-    if record.get('protocol') != DISPOSITION or record.get('instance_root') != str(root) \
-        or record.get('status') != 'failed-before-host' or record.get('source_commit') != FAILED_SOURCE \
-        or record.get('tooling_manifest_sha256') != FAILED_TOOLING or record.get('state_path') != str(path) \
+    if record.get('protocol') != (RECIPE_DISPOSITION if recipe else DISPOSITION) or record.get('instance_root') != str(root) \
+        or record.get('status') != ('failed-after-readonly-prepare' if recipe else 'failed-before-host') \
+        or record.get('source_commit') != (RECIPE_SOURCE if recipe else FAILED_SOURCE) \
+        or record.get('tooling_manifest_sha256') != (RECIPE_TOOLING if recipe else FAILED_TOOLING) or record.get('state_path') != str(path) \
         or record.get('plan_path') != str(root / '.peanut/upgrades/product-plans' / (candidate + '.json')) \
         or record.get('state_sha256') != sha(path) or record.get('plan_sha256') != state.get('plan_sha256') \
         or record.get('admission_sha256') != sha(Path(record['admission'])) \
@@ -194,6 +213,15 @@ def states(root, admitted=None):
             raise ValueError('an installed product operation needs recovery')
         result[str(path)] = sha(path)
     return result
+
+
+def instant(value):
+    if not isinstance(value, str): raise ValueError('missing authenticated observation time')
+    match = re.fullmatch(r'([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2})(?:\.([0-9]{1,9}))?(?:Z|\+00:00)', value)
+    if match is None: raise ValueError('observation time must carry UTC')
+    # Preserve Docker nanoseconds on supported Python versions without floats.
+    parsed = datetime.strptime(match[1], '%Y-%m-%dT%H:%M:%S').replace(tzinfo=timezone.utc)
+    return parsed, int((match[2] or '').ljust(9, '0'))
 
 
 def failure_runtime_evidence(approved, root, plan, state, receipt_path, old_tools, current):
@@ -243,15 +271,6 @@ def failure_runtime_evidence(approved, root, plan, state, receipt_path, old_tool
             or oct(stat.S_IMODE(file.stat().st_mode)) != row.get('mode'):
             raise ValueError('protected original observation changed')
 
-    def instant(value):
-        if not isinstance(value, str): raise ValueError('missing authenticated observation time')
-        match = re.fullmatch(r'([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2})(?:\.([0-9]{1,9}))?(?:Z|\+00:00)', value)
-        if match is None: raise ValueError('observation time must carry UTC')
-        # Docker records nanoseconds; older supported Python ISO parsers accept
-        # only microseconds. Preserve the exact fractional order without floats.
-        parsed = datetime.strptime(match[1], '%Y-%m-%dT%H:%M:%S').replace(tzinfo=timezone.utc)
-        return parsed, int((match[2] or '').ljust(9, '0'))
-
     # created_at is authenticated by the original native plan; updated_at is the
     # prepare-intent event, not a claimed command-start measurement.
     if not instant(pre['observed_at']) < instant(plan['created_at']) <= instant(state['updated_at']) <= instant(post['observed_at']):
@@ -277,14 +296,100 @@ def failure_runtime_evidence(approved, root, plan, state, receipt_path, old_tool
         'not_proven': ['internal process restart absence', 'absence of business database writes', 'full recovery']}
 
 
+def recipe_failure_evidence(approved, root, plan, state, receipt_path, old_tools, current):
+    evidence = approved.get('runtime_evidence', {})
+    if set(evidence) != set(RECIPE_ORIGINALS) or approved.get('exit_code') != 1:
+        raise ValueError('the exact dispatched read-only rejection originals are required')
+    originals = {}
+    for name, digest in RECIPE_ORIGINALS.items():
+        spec = evidence[name]
+        if set(spec) != {'path', 'sha256'} or spec['sha256'] != digest:
+            raise ValueError('unknown read-only rejection evidence')
+        content = protected_bytes(Path(spec['path']))
+        if hashlib.sha256(content).hexdigest() != digest: raise ValueError('read-only rejection original changed')
+        originals[name] = json.loads(content) if name in ('pre', 'post', 'arguments', 'render') else content
+    pre, post, arguments, render = (originals[name] for name in ('pre', 'post', 'arguments', 'render'))
+    tail = ['apply', '--instance-server=' + str(root / 'server'),
+            '--tooling-receipt=' + str(receipt_path), '--workspace=' + plan['workspace']]
+    entry = str(old_tools / 'server/docker/scripts/update.sh'); argv = arguments.get('argv', [])
+    if argv.count(entry) != 1 or argv[argv.index(entry) + 1:] != tail \
+        or arguments.get('candidate') != plan['candidate'] \
+        or arguments.get('plan_sha256') != plan['plan_sha256'].removeprefix('sha256:') \
+        or pre.get('instance_root') != str(root) or originals['stdout'] != b'' \
+        or originals['terminal'] != b'1\n' \
+        or originals['stderr'] != b'{"status":"error","error":"PRODUCT_UPGRADE_HOST_PHASE_FAILED:prepare:exit-1"}\n' \
+        or sha(Path(approved['stdout'])) != RECIPE_ORIGINALS['stdout']:
+        raise ValueError('terminal or argv is not the exact known host rejection')
+    for key, value in post['state'].items():
+        if state.get(key) != value: raise ValueError('read-only rejection native state changed')
+    if post['phase_evidence'] != [] or any(post['workspace_phase_artifacts'].values()):
+        raise ValueError('read-only failure contains transaction evidence')
+    anchors = source_state(root)
+    if post['installed_identity_sha256'] != anchors['.peanut/release-identity.json'] \
+        or post['installation_sha256'] != anchors['private/installation/installed.json']:
+        raise ValueError('read-only failure installation identity changed')
+    logs = list((root / '.peanut/upgrades/host-logs').glob(plan['candidate'] + '-*.log'))
+    expected_log = root / '.peanut/upgrades/host-logs' / (plan['candidate'] + '-prepare.log')
+    if logs != [expected_log] or sha(expected_log) != RECIPE_LOG \
+        or protected_bytes(expected_log) != b'product-upgrade-host: inactive or auxiliary runtime recipe changed\n':
+        raise ValueError('host dispatch differs from the known read-only guard rejection')
+    # All originals carry full captured StartedAt. This is not the earlier
+    # pre-host inference variant and never claims that the host was not run.
+    if set(pre['containers']) != set(current) or pre['containers'] != post['containers']:
+        raise ValueError('read-only rejection original container inventory differs')
+    if not instant(pre['observed_at']) < instant(arguments['local_transport_dispatch_at_utc']) \
+        <= instant(state['updated_at']) <= instant(post['observed_at']):
+        raise ValueError('read-only rejection observation chronology differs')
+    for service, actual in current.items():
+        first = pre['containers'][service]
+        if first != actual or not re.fullmatch(r'[a-f0-9]{64}', actual['id']) or actual['running'] is not True:
+            raise ValueError('read-only rejection container identity or StartedAt changed')
+    server = root / 'server'; target = Path(plan['workspace']) / 'prepared/server'
+    inputs = document(Path(plan['workspace']) / 'plan.json')
+    if sha(target / '.peanut/release-identity.json') != inputs['target']['identity_sha256']:
+        raise ValueError('read-only rejection target identity changed')
+    identity = {row['path']: row for row in document(target / '.peanut/release-identity.json')['files']}
+    recipes = render['recipes']
+    additions = {'docker/compose.registered-database.yaml', 'docker/compose.collaboration.yaml',
+        'docker/conf/nginx.collaboration.conf.template', 'docker/conf/nginx.source-collaboration.conf.template'}
+    if len(recipes) != 11 or set(post['guard_failing_auxiliary_paths']) != additions \
+        or render['selected_compose_files'] != ['compose.yaml'] or render['database_source'] != 'bundled' \
+        or render['collaboration_selected'] is not False \
+        or render['config_differing_paths'] != ['/services/php/stop_signal'] \
+        or render['after_signal_normalization_differing_paths'] != []:
+        raise ValueError('read-only rejection recipe selection differs')
+    for name, pair in recipes.items():
+        for side, base in (('current', server), ('target', target)):
+            file = base / name; expected = pair[side]
+            if expected is None:
+                if file.exists() or file.is_symlink(): raise ValueError('absent recipe appeared')
+            elif sha(file) != expected['sha256'] or stat.S_IMODE(file.stat().st_mode) != expected['mode']:
+                raise ValueError('read-only rejection recipe bytes or mode changed')
+        row = identity.get('server/' + name)
+        if pair['target'] is not None and (row is None or any(row[key] != pair['target'][key] for key in ('sha256', 'mode'))):
+            raise ValueError('read-only rejection recipes differ from fixed B identity')
+        if name in additions and (pair['current'] is not None or pair['target']['mode'] != 0o644):
+            raise ValueError('known inactive addition is no longer absent-to-add')
+    for name, digest in render['protected_environment_hashes_unchanged'].items():
+        if sha(Path(name)) != digest: raise ValueError('protected environment differs from rendered observation')
+    return {'variant': 'known-b4e-readonly-recipe-rejection', 'originals': evidence,
+        'host_dispatched': True, 'host_log_sha256': RECIPE_LOG,
+        'control_flow': 'fixed b4e closure rejects auxiliary changes before vendor/preparation/copy/nginx or transaction work',
+        'not_proven': ['internal process restart absence', 'absence of business database writes', 'full recovery']}
+
+
 def dispose_failed_prepare(root, admission):
     approved = protected(admission)
-    if approved.get('protocol') != 'peanut.pre-host-prepare-failure-admission.v1' or approved.get('instance_root') != str(root):
+    recipe = approved.get('protocol') == 'peanut.readonly-prepare-rejection-admission.v1'
+    source = RECIPE_SOURCE if recipe else FAILED_SOURCE
+    tooling = RECIPE_TOOLING if recipe else FAILED_TOOLING
+    if approved.get('protocol') not in ('peanut.pre-host-prepare-failure-admission.v1',
+        'peanut.readonly-prepare-rejection-admission.v1') or approved.get('instance_root') != str(root):
         raise ValueError('explicit owner-approved failed prepare admission is required')
     receipt_path = Path(approved['tooling_receipt']); receipt = protected(receipt_path)
     old_tools = Path(receipt['tools_root']); binding = check(root, receipt_path, old_tools, True)
-    if binding['manifest_sha256'] != FAILED_TOOLING or bundle(old_tools, FAILED_TOOLING)['source_commit'] != FAILED_SOURCE:
-        raise ValueError('failure is not the audited deterministic pre-host source')
+    if binding['manifest_sha256'] != tooling or bundle(old_tools, tooling)['source_commit'] != source:
+        raise ValueError('failure is not the audited deterministic source for this category')
     metadata = document(old_tools / 'maintenance-tooling.json')
     candidate = approved['candidate']
     if not re.fullmatch(r'server_update_[0-9]{14}_[a-f0-9]{12}', candidate): raise ValueError('invalid failed candidate')
@@ -325,13 +430,13 @@ def dispose_failed_prepare(root, admission):
     if actual != set(rows) | {'manifest.json'} or sha(workspace / 'plan.json') != plan.get('inputs_sha256'):
         raise ValueError('failed runtime inventory or native inputs changed')
     stdout = Path(approved['stdout']); stdout_bytes = protected_bytes(stdout)
-    if sha(stdout) != approved['stdout_sha256'] or approved.get('exit_code') != 255 \
+    if not recipe and (sha(stdout) != approved['stdout_sha256'] or approved.get('exit_code') != 255 \
         or stdout_bytes.decode().strip() != ('Fatal error: Cannot declare class PeanutServerUpdatePlan, because the name is already in use in '
-            + str(trusted / 'server/docker/scripts/update-plan.php') + ' on line 6'):
+            + str(trusted / 'server/docker/scripts/update-plan.php') + ' on line 6')):
         raise ValueError('terminal failure differs from the exact known declaration fault')
     if any((workspace / name).exists() or (workspace / name).is_symlink() for name in
         ('prepared.json', 'preparation.json', 'backup.json', 'journal.json', 'migration.json', 'dependency-switch.json')) \
-        or list((root / '.peanut/upgrades/host-logs').glob(candidate + '-*.log')):
+        or (not recipe and list((root / '.peanut/upgrades/host-logs').glob(candidate + '-*.log'))):
         raise ValueError('host or transaction activity makes the failure UNKNOWN')
     if approved.get('source') != source_state(root) or approved['source'] != receipt['source']:
         raise ValueError('installed identity or protected prestate changed')
@@ -347,19 +452,21 @@ def dispose_failed_prepare(root, admission):
         if len(ids) != 1: raise ValueError('original runtime service is not unique')
         current[service] = json.loads(subprocess.check_output(['docker', 'inspect', '--format',
             '{"id":{{json .Id}},"image":{{json .Image}},"started_at":{{json .State.StartedAt}},"running":{{json .State.Running}}}', ids[0]], text=True))
-    runtime_evidence = failure_runtime_evidence(approved, root, plan, state, receipt_path, old_tools, current)
+    runtime_evidence = (recipe_failure_evidence(approved, root, plan, state, receipt_path, old_tools, current)
+        if recipe else failure_runtime_evidence(approved, root, plan, state, receipt_path, old_tools, current))
     states(root, {str(state_path): sha(state_path)})
-    disposition = {'protocol': DISPOSITION, 'status': 'failed-before-host', 'instance_root': str(root),
-        'source_commit': FAILED_SOURCE, 'tooling_manifest_sha256': FAILED_TOOLING,
+    status = 'failed-after-readonly-prepare' if recipe else 'failed-before-host'
+    disposition = {'protocol': RECIPE_DISPOSITION if recipe else DISPOSITION, 'status': status, 'instance_root': str(root),
+        'source_commit': source, 'tooling_manifest_sha256': tooling,
         'candidate': candidate, 'state_path': str(state_path), 'state_sha256': sha(state_path),
         'plan_path': str(plan_path), 'plan_file_sha256': sha(plan_path), 'plan_sha256': plan['plan_sha256'],
         'runtime_sha256': plan['runtime_sha256'], 'admission': str(admission), 'admission_sha256': sha(admission),
         'runtime_evidence': runtime_evidence}
-    output = root / '.peanut/upgrades/pre-host-failures' / (candidate + '.json')
+    output = root / '.peanut/upgrades' / ('readonly-prepare-rejections' if recipe else 'pre-host-failures') / (candidate + '.json')
     if output.exists():
         if protected(output) != disposition: raise ValueError('failed prepare disposition already differs')
     else: durable(output, disposition)
-    return {'status': 'failed-before-host', 'disposition': str(output), 'sha256': sha(output), 'old_state_unchanged': True}
+    return {'status': status, 'disposition': str(output), 'sha256': sha(output), 'old_state_unchanged': True}
 
 
 @contextlib.contextmanager
