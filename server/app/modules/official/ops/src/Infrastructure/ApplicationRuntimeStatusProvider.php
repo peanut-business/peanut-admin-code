@@ -428,7 +428,7 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
         $selection = CleanInstallBaseline::selection($pdo, $files, $targetVersion, $this->projectRoot . '/server/database');
         $files = $selection['files'];
         // The native relation verifies source hashes, history and the correction's actual schema.
-        ApplicationMigrationRunner::provenanceSupersession($pdo, $files, $targetVersion);
+        $supersession = ApplicationMigrationRunner::provenanceSupersession($pdo, $files, $targetVersion);
         $expected = [];
         if ($selection['baseline'] !== null) {
             $expected[$selection['baseline']['key']] = $selection['baseline']['sha256'];
@@ -454,6 +454,19 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
         $applied = 0;
         // Native execution checks the selected target; applied historical rows remain in the ledger.
         $drift = false;
+        foreach (array_diff_key($actual, $expected) as $id => $row) {
+            if ($row['status'] === 'applied') {
+                continue;
+            }
+            if ($supersession !== null
+                && $supersession['state'] === 'resolved_by_correction'
+                && $id === $supersession['original_key']
+                && $row['checksum'] === $supersession['original_sha256']
+                && $row['status'] === $supersession['original_status']) {
+                continue;
+            }
+            $drift = true;
+        }
         foreach ($expected as $id => $checksum) {
             $row = $actual[$id] ?? null;
             if (is_array($row)
