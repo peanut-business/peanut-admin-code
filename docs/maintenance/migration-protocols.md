@@ -1,5 +1,11 @@
 # 源码维护：安装基线与迁移协议
 
+维护者在现有 MySQL 服务分配尚不存在的应用空库，可登记 `resources.schema_allocations` 中唯一 `peanut.schema-allocation.v1` operation，再以 `scripts/project-resource-lease claim` 的正常 owner/thread/candidate/gate 参数及 `--schema-allocation <ID>` 取得封闭资源，运行 `schema-allocate --lease <ID> --owner <实际线程>`。不接受调用者资源或 SQL；普通 APP 不依赖维护者 Project。只创建登记的同名专用库、账号及十项既定库级权限；应用结构、初始化和数据迁移仍走已有 Migration／安装入口。
+
+operation 完整字段为 `stable_resource_id/protocol/owner/thread/tool_source/lease_gate/database_resource_id/endpoint_id/server_uuid/version/account_host/credentials/transport/receipt_root/php_executable/max_seconds`。`tool_source` 固定干净源码的 `root/common_dir/commit/files`（两执行脚本与 registry resolver 的 SHA-256）；`credentials` 仅引用 0600 dotenv 的 `path/sha256`，内容严格为 `DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASS`，密码为 32–128 位 URL-safe 字符。`transport` 字段是 `ssh_command/ssh_alias/docker_command/container_name/mysql_command`，root 密码仅在远端容器展开。`account_host` 是已核安装客户端 IP 字面值，不允许通配 Host；`receipt_root` 为登记备份根内按 operation ID 固定的私有叶子；`max_seconds` 为 60–300 秒。database 的 endpoint、schema policy、lease gate、username、account_host、凭据引用及精确十项权限须一致，无 GRANT OPTION。
+
+分配正常持有目标 `mysql-schema` 完整 DDL 声明与精确 `mysql-account=<endpoint>/<user>@<host>` 锁，不取得服务启停锁。现存同名库或任意 Host 的同名账号仅返回 `EXISTING_RECONCILIATION_REQUIRED`，不修改它们。入口核 UUID／版本、完整管理可见性及无 mandatory roles；成功需完整空对象清单、精确直接权限及普通 PHP PDO 登录身份。派发前排他创建 operation 级私有 journal，副作用前先记 UNKNOWN；部分执行、断连或异常不得重发、自动释放或过期清理。原 owner 仅在执行进程结束且 COMPLETED／未写入的 EXISTING 状态正常释放；保留 operation journal，阻止换 lease 重放。本入口不更改服务管理、旧 UNKNOWN 或 registry rebind 规则，登记摘要变化仍在受影响原 owner 的正常边界采用。
+
 Collaboration 1.0.2 增加 `20261012120000_create_collaboration_runtime-repair-20261021`，声明修复原 base，SQL 仅 `SELECT 1`，排序在 base 与 barriers 之间。MySQL 的 `LENGTH`／`OCTET_LENGTH` 仅在该 owner 的单参数函数 AST 中视为同义，参数、布尔结构及比较仍严格核对；`CHAR_LENGTH` 等未知函数拒绝。真实 failed-base 计划先只读认证六表完整列／索引／FK／CHECK／选项、空表与 allocator=1、未来两表缺失；期望只从四份固定原 SQL 的封闭声明生成，当前固定 profile 要求默认 Dynamic 行格式，不能从未经接受的后像挑一个摘要当期望。原生 repair before／after 在真实 stageLedger 下再次核同一图，after 证明全图及旧失败行不变，不补造 base 的 accepted-after。四份原 SQL 和原失败行不变；后续三阶段认可真实 failed-base→repair applied/executed 关系。
 
 旧实例只有原四阶段均真实 applied/executed、固定 checksum／空 provenance／无错误且全部原行摘要匹配，才可省略新早期 repair；不写伪造的 repair 行。fresh／部分／failed 链仍执行计划冻结的 SELECT1 选择，不能因本轮 base 刚成功而临时改成省略。PLS、备份 effects、完成和原窗口回执复验共同保留这一封闭 witness。新增父表观察能力要求先正常采用 Document 1.0.2；零 SQL 版本采用仍须保护实际 catalog 写入。

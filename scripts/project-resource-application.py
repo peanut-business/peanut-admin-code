@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import hashlib
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -1711,9 +1712,269 @@ def consume_application(proof, application_root, registry_path, resource_id, end
                 need(regular(lock / field).decode().strip() == expected, "application physical lock changed")
         return (rebound or {"binding_expires_at": state["binding_expires_at"]}) | {"operation_sha256": state["operation_sha256"]}
 
+ALLOCATION_PROTOCOL = "peanut.schema-allocation.v1"
+ALLOCATION_STATE = "schema-allocation.json"
+ALLOCATION_PRIVILEGES = {"SELECT", "INSERT", "UPDATE", "DELETE", "CREATE", "ALTER", "DROP",
+                         "INDEX", "REFERENCES", "CREATE TEMPORARY TABLES"}
+
+
+def allocation_authority(operation_id):
+    """A reviewed registry entry, not caller SQL, defines this one namespace."""
+    need(isinstance(operation_id, str) and re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", operation_id),
+         "invalid allocation operation ID")
+    registry, project, _, registry_sha = project_authority()
+    document = json_unique(regular(registry))
+    matches = [r for r in document["resources"].get("schema_allocations", [])
+               if r.get("stable_resource_id") == operation_id]
+    need(len(matches) == 1, "allocation must be uniquely registered")
+    op = matches[0]
+    need(set(op) == {"stable_resource_id", "protocol", "owner", "thread", "tool_source", "lease_gate",
+                     "database_resource_id", "endpoint_id", "server_uuid", "version", "account_host",
+                     "credentials", "transport", "receipt_root", "php_executable", "max_seconds"}
+         and op["protocol"] == ALLOCATION_PROTOCOL, "allocation closed contract differs")
+    need(op["owner"] == op["thread"] == os.environ.get("CODEX_THREAD_ID")
+         and re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", op["lease_gate"]), "allocation real actor/gate differs")
+    need(type(op["max_seconds"]) is int and 60 <= op["max_seconds"] <= 300, "allocation deadline invalid")
+    source = op["tool_source"]
+    common = canonical(git(ROOT, "rev-parse", "--path-format=absolute", "--git-common-dir").decode().strip())
+    need(set(source) == {"root", "common_dir", "commit", "files"}
+         and source["root"] == str(ROOT) and source["common_dir"] == str(common)
+         and common.parent.name == "peanut-admin-code" and common.name == ".git"
+         and git(ROOT, "rev-parse", "HEAD").decode().strip() == source["commit"]
+         and not git(ROOT, "status", "--porcelain=v1", "--untracked-files=all"), "allocation fixed clean source differs")
+    files = {"scripts/project-resource-lease", "scripts/project-resource-application.py", "scripts/project-resource-registry"}
+    need(set(source["files"]) == files, "allocation source closure differs")
+    for name, digest in source["files"].items():
+        raw = regular(ROOT / name)
+        need(sha(raw) == digest and git(ROOT, "show", source["commit"] + ":" + name) == raw,
+             "allocation source bytes differ")
+    rows = [r for r in document["resources"]["databases"] if r.get("stable_resource_id") == op["database_resource_id"]]
+    need(len(rows) == 1, "allocation database must be uniquely registered")
+    db = rows[0]
+    name, user = db["database"], db["username"]
+    need(re.fullmatch(r"[a-z][a-z0-9_]{0,31}", name) and user == name,
+         "allocation requires exact same-name dedicated schema/account")
+    endpoint = db["upstream_endpoint"]
+    policy = db["lease_policy"]
+    physical = str(endpoint["host"]) + ":" + str(endpoint["port"])
+    need(endpoint["endpoint_id"] == op["endpoint_id"] and db["lease_gate"] == op["lease_gate"]
+         and db["host"] == endpoint["host"] and db["port"] == endpoint["port"]
+         and policy["mode"] == "schema" and policy["physical_endpoint"] == physical
+         and policy["physical_resource_id"] == db["physical_resource_id"]
+         and db["fallback"] == "none" and db["grant_option"] is False
+         and db["environments"] == ["development"] and db["version"] == op["version"],
+         "allocation physical schema/endpoint identity differs")
+    privileges = db["requested_schema_privileges"]
+    need(isinstance(privileges, list) and len(privileges) == len(set(privileges))
+         and set(privileges) == ALLOCATION_PRIVILEGES, "allocation exact privilege list differs")
+    need(str(ipaddress.ip_address(op["account_host"])) == op["account_host"]
+         and db["account_host"] == op["account_host"], "allocation requires registered literal client IP")
+    need(re.fullmatch(r"[0-9a-f-]{36}", op["server_uuid"]) and re.fullmatch(r"8\.4\.[0-9]+", op["version"]),
+         "allocation server version/UUID invalid")
+    transport = op["transport"]
+    need(set(transport) == {"ssh_command", "ssh_alias", "docker_command", "container_name", "mysql_command"}
+         and transport["ssh_command"] == "/usr/bin/ssh"
+         and transport["docker_command"] == "/usr/local/bin/docker"
+         and transport["mysql_command"] == "/usr/bin/mysql"
+         and transport["container_name"] == db["physical_resource_id"]
+         and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", transport["ssh_alias"]),
+         "allocation fixed native transport differs")
+    cred = op["credentials"]
+    need(set(cred) == {"path", "sha256"} and project in canonical(cred["path"]).parents
+         and db["credential_ref"].split(";", 1)[0] == cred["path"]
+         and sha(regular(cred["path"], private=True)) == cred["sha256"], "allocation private input differs")
+    root = canonical(op["receipt_root"])
+    backup = canonical(str(project.parent / "backups/project/peanut-admin-code"))
+    need(root.parent == backup and root.name == operation_id, "allocation receipt root differs")
+    php = canonical(op["php_executable"])
+    need(php.name == "php" and php.is_file() and os.access(php, os.X_OK), "allocation native PHP unavailable")
+    return op, db, common, registry_sha
+
+
+def allocation_resources(op, db, registry_sha):
+    schema = db["lease_policy"]["physical_endpoint"] + "/" + db["database"]
+    scope = json.dumps(dict(schema=schema, operation="ddl", complete=True, tables=[]), separators=(",", ":"))
+    return {"schema-allocation": {op["stable_resource_id"]}, "schema-allocation-sha256": {sha(json.dumps(op, sort_keys=True).encode())},
+            "resource-id": {db["stable_resource_id"]}, "endpoint": {op["endpoint_id"]},
+            "mysql-schema": {schema}, "mysql-access": {scope}, "database": {db["database"]}, "mysql-db": {db["database"]},
+            "mysql-account": {db["lease_policy"]["physical_endpoint"] + "/" + db["username"] + "@" + op["account_host"]},
+            "registry-sha256": {registry_sha}, "output-dir": {op["receipt_root"]},
+            "gate": {op["lease_gate"]}, "worktree": {str(ROOT)}}
+
+
+def allocation_validate(metadata, resources):
+    need(len(resources.get("schema-allocation", [])) == 1, "allocation binding missing")
+    op, db, common, digest = allocation_authority(next(iter(resources["schema-allocation"])))
+    need(resources == allocation_resources(op, db, digest)
+         and metadata["owner"] == metadata["thread"] == op["owner"] and metadata["parent_lease"] == ""
+         and metadata["candidate"] == op["tool_source"]["commit"]
+         and metadata["candidate_repository"] == metadata["worktree"] == str(ROOT)
+         and metadata["gate"] == op["lease_gate"], "allocation lease scope/source/actor differs")
+    return op, db, common
+
+
+def allocation_lease(lease_id, owner, live=True):
+    need(isinstance(lease_id, str) and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", lease_id), "invalid allocation lease")
+    common = canonical(git(ROOT, "rev-parse", "--path-format=absolute", "--git-common-dir").decode().strip())
+    directory = common / "peanut-admin-resource-leases/leases" / lease_id
+    metadata = dict(table(directory / "metadata.tsv", 2))
+    resources = resource_map(table(directory / "resources.tsv", 3))
+    op, db, expected = allocation_validate(metadata, resources)
+    need(expected == common and metadata["lease"] == lease_id and metadata["status"] == "ACTIVE"
+         and metadata["owner"] == owner and int(metadata["created_at"]) <= time.time()
+         and (not live or time.time() + op["max_seconds"] + 30 < int(metadata["expires_at"])),
+         "allocation lease owner/time/storage differs")
+    # Allocation holds an ordinary exclusive schema lock, plus every exact account/output lock.
+    shared = {"resource-id", "endpoint", "gate", "mysql-db", "database", "mysql-access", "registry-sha256"}
+    for key, values in resources.items():
+        if key in shared:
+            continue
+        for value in values:
+            lock = common / "peanut-admin-resource-leases/resources" / sha((key + "\t" + value).encode())
+            for field, wanted in (("lease", lease_id), ("type", key), ("value", value)):
+                need(regular(lock / field).decode().strip() == wanted, "allocation physical lock differs")
+    return op, db, directory
+
+
+def allocation_write(path, value, create=False):
+    if create:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(fd, "w") as stream:
+            stream.write(json.dumps(value, sort_keys=True) + "\n"); stream.flush(); os.fsync(stream.fileno())
+    else:
+        regular(path, private=True)
+        save(path, value)
+    fd = os.open(path.parent, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def allocation_execute(lease_id, owner):
+    op, db, directory = allocation_lease(lease_id, owner)
+    verify_native(lease_id)
+    root = canonical(op["receipt_root"])
+    root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    need(root.stat().st_uid == os.getuid() and stat.S_IMODE(root.stat().st_mode) == 0o700, "allocation receipt custody differs")
+    journal = root / ALLOCATION_STATE
+    marker = directory / ALLOCATION_STATE
+    # The operation-wide O_EXCL journal survives lease release; a new lease cannot replay it.
+    value = dict(protocol=ALLOCATION_PROTOCOL, operation=op["stable_resource_id"], lease=lease_id,
+                 owner=owner, status="PREFLIGHT", started_at=time.time(), mutation_dispatched=False,
+                 pid=os.getpid(), process_birth=process_birth(os.getpid()))
+    allocation_write(journal, value, create=True)
+    allocation_write(marker, {"journal": str(journal), "owner": owner}, create=True)
+    deadline = time.monotonic() + op["max_seconds"]
+    def run(argv, data):
+        allocation_lease(lease_id, owner)
+        verify_native(lease_id)
+        seconds = int(deadline - time.monotonic())
+        need(seconds > 0, "allocation deadline expired")
+        env = {k: v for k, v in os.environ.items() if k in ("HOME", "USER", "LOGNAME", "LANG", "LC_ALL", "SSH_AUTH_SOCK")}
+        env["PATH"] = "/usr/bin:/bin:/usr/sbin:/sbin"
+        p = subprocess.run(argv, input=data, capture_output=True, timeout=seconds, env=env, cwd=ROOT)
+        value["last_native"] = dict(exit_code=p.returncode, stdout_sha256=sha(p.stdout), stderr_sha256=sha(p.stderr),
+                                    mysql_error_codes=[int(code) for code in re.findall(rb"ERROR ([0-9]{1,5}) ", p.stderr)])
+        allocation_write(journal, value)
+        need(p.returncode == 0 and len(p.stdout) <= 65536, "allocation native process failed; inspect private journal")
+        return p.stdout
+    def mysql(sql):
+        t = op["transport"]
+        inside = 'MYSQL_PWD=${MYSQL_ROOT_PASSWORD:?}; export MYSQL_PWD; exec ' + shlex.join([
+            t["mysql_command"], "--no-defaults", "--no-login-paths", "--default-character-set=utf8mb4",
+            "--connect-timeout=5", "--batch", "--raw", "--skip-column-names", "-uroot"])
+        remote = shlex.join([t["docker_command"], "exec", "-i", t["container_name"], "/bin/sh", "-c", inside])
+        return run([t["ssh_command"], "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes", "-o", "ConnectTimeout=5",
+                    "-o", "ServerAliveInterval=5", "-o", "ServerAliveCountMax=3", t["ssh_alias"], remote], sql.encode())
+    name, user, host = db["database"], db["username"], op["account_host"]
+    identity = ("'uuid',@@server_uuid,'version',VERSION(),'principal',CURRENT_USER(),"
+                "'partial_revokes',@@GLOBAL.partial_revokes,'mandatory_roles',@@GLOBAL.mandatory_roles")
+    inventory = ("'schema_rows',(SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME='" + name + "'),"
+                 "'accounts',(SELECT COUNT(*) FROM mysql.user WHERE User='" + user + "')")
+    try:
+        before = json_unique(mysql("SELECT JSON_OBJECT(" + identity + "," + inventory + ");\n"))
+        need(before["uuid"] == op["server_uuid"] and before["version"] == op["version"]
+             and before["principal"] == "root@localhost" and before["partial_revokes"] in (0, 1)
+             and before["mandatory_roles"] in ("", "NONE"),
+             "allocation live server/principal differs")
+        admin_grants = mysql("SHOW GRANTS FOR CURRENT_USER();\n").decode().splitlines()
+        need("GRANT ALL PRIVILEGES ON *.* TO `root`@`localhost` WITH GRANT OPTION" in admin_grants
+             and all(line.startswith("GRANT ") for line in admin_grants),
+             "allocation complete privileged visibility/authority not proved")
+        value["before"] = before
+        if before["schema_rows"] != 0 or before["accounts"] != 0:
+            value["status"] = "EXISTING_RECONCILIATION_REQUIRED"
+            allocation_write(journal, value)
+            print(json.dumps({"status": value["status"], "receipt": str(journal), "mutation_dispatched": False}))
+            return
+        credentials = {}
+        for line in regular(op["credentials"]["path"], private=True).decode().splitlines():
+            key, separator, text = line.partition("=")
+            need(separator and key not in credentials, "allocation credential format differs")
+            credentials[key] = text
+        need(set(credentials) == {"DB_HOST", "DB_PORT", "DB_NAME", "DB_USER", "DB_PASS"}
+             and credentials["DB_HOST"] == db["host"] and credentials["DB_PORT"] == str(db["port"])
+             and credentials["DB_NAME"] == name and credentials["DB_USER"] == user
+             and re.fullmatch(r"[A-Za-z0-9_-]{32,128}", credentials["DB_PASS"]), "allocation exact private connection input differs")
+        scope = name if before["partial_revokes"] else name.replace("_", "\\_")
+        sql = ("CREATE DATABASE `" + name + "` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\n"
+               "CREATE USER '" + user + "'@'" + host + "' IDENTIFIED BY '" + credentials["DB_PASS"] + "';\n"
+               "GRANT " + ", ".join(db["requested_schema_privileges"]) + " ON `" + scope + "`.* TO '" + user + "'@'" + host + "';\n")
+        # No IF NOT EXISTS, ALTER USER, DROP, FLUSH, global grant or caller SQL.
+        value.update(status="UNKNOWN", mutation_dispatched=True, mutation_started_at=time.time())
+        allocation_write(journal, value)
+        mysql(sql)
+        counts = ",".join("'" + label + "',(SELECT COUNT(*) FROM information_schema." + table_name + " WHERE " + column + "='" + name + "')"
+                          for label, table_name, column in (("objects", "TABLES", "TABLE_SCHEMA"), ("triggers", "TRIGGERS", "TRIGGER_SCHEMA"),
+                                                           ("routines", "ROUTINES", "ROUTINE_SCHEMA"), ("events", "EVENTS", "EVENT_SCHEMA")))
+        after = json_unique(mysql("SELECT JSON_OBJECT(" + identity + "," + inventory + "," + counts + ");\n"))
+        need(after["uuid"] == before["uuid"] and after["version"] == before["version"]
+             and after["schema_rows"] == after["accounts"] == 1
+             and all(after[k] == 0 for k in ("objects", "triggers", "routines", "events")), "allocation empty afterimage differs")
+        grants = mysql("SHOW GRANTS FOR '" + user + "'@'" + host + "';\n").decode().splitlines()
+        actual = set()
+        for grant in grants:
+            m = re.fullmatch(r"GRANT (.+) ON (.+) TO (.+)", grant)
+            need(m is not None and "WITH GRANT OPTION" not in grant
+                 and m[3] == "`" + user + "`@`" + host + "`", "allocation grant afterimage differs")
+            if m[1] == "USAGE" and m[2] == "*.*":
+                continue
+            need(m[2] in ("`" + scope + "`.*", "`" + name + "`.*"), "allocation grants exceed exact schema")
+            actual.update(m[1].split(", "))
+        need(actual == ALLOCATION_PRIVILEGES, "allocation effective direct privileges differ")
+        php = r'''$c=json_decode(stream_get_contents(STDIN),true,512,JSON_THROW_ON_ERROR);try{$p=new PDO('mysql:host='.$c['DB_HOST'].';port='.$c['DB_PORT'].';dbname='.$c['DB_NAME'].';charset=utf8mb4',$c['DB_USER'],$c['DB_PASS'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_TIMEOUT=>5]);echo $p->query("SELECT JSON_OBJECT('database',DATABASE(),'principal',CURRENT_USER(),'uuid',@@server_uuid,'version',VERSION())")->fetchColumn();}catch(Throwable $e){exit(1);}'''
+        login = json_unique(run([op["php_executable"], "-r", php], json.dumps(credentials).encode()))
+        need(login == dict(database=name, principal=user + "@" + host, uuid=op["server_uuid"], version=op["version"]),
+             "allocation ordinary account live identity differs")
+        value.update(status="COMPLETED", after=after, login=login, exact_privileges=sorted(actual), completed_at=time.time())
+        allocation_write(journal, value)
+        print(json.dumps({"status": "COMPLETED", "receipt": str(journal), "database": name, "ordinary_login_verified": True}))
+    except BaseException:
+        value.update(status="UNKNOWN", failed_at=time.time())
+        allocation_write(journal, value)
+        raise RuntimeError("allocation UNKNOWN; retain original journal/lease; no automatic retry") from None
+
+
+def allocation_release(lease_id, owner):
+    # Terminal-only cleanup; no SQL, registry rebind, retry or UNKNOWN override.
+    op, _, directory = allocation_lease(lease_id, owner, live=False)
+    marker = directory / ALLOCATION_STATE
+    if not marker.exists():
+        return
+    reference = json_unique(regular(marker, private=True))
+    need(reference["journal"] == str(canonical(op["receipt_root"]) / ALLOCATION_STATE), "allocation journal path differs")
+    journal = json_unique(regular(canonical(reference["journal"]), private=True))
+    need(reference["owner"] == journal["owner"] == owner and journal["lease"] == lease_id
+         and journal["operation"] == op["stable_resource_id"]
+         and not original_process_alive(journal["pid"], journal.get("process_birth"))
+         and journal["status"] in ("COMPLETED", "EXISTING_RECONCILIATION_REQUIRED"), "allocation is not safely terminal")
+    marker.unlink()  # The durable operation-wide journal remains; only the lease pointer is retired.
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("resolve", "verify", "release-check", "execute", "consume", "recovery-admit", "recovery-info", "source-window-enter", "source-window-close", "retained-reserve", "retained-verify", "retained-renew", "parent-verify"))
+    parser.add_argument("action", choices=("allocation-resolve", "allocation-execute", "allocation-release", "resolve", "verify", "release-check", "execute", "consume", "recovery-admit", "recovery-info", "source-window-enter", "source-window-close", "retained-reserve", "retained-verify", "retained-renew", "parent-verify"))
     parser.add_argument("--operation")
     parser.add_argument("--lease")
     parser.add_argument("--owner")
@@ -1729,6 +1990,18 @@ def main():
     for key in ("proof", "application-root", "registry", "resource-id", "endpoint-id"):
         parser.add_argument("--" + key)
     args = parser.parse_args()
+    if args.action.startswith("allocation-"):
+        allowed = {"action", "owner", "operation"} if args.action == "allocation-resolve" else {"action", "owner", "lease"}
+        need(all(key in allowed or value is None for key, value in vars(args).items()), "unsupported allocation arguments")
+        if args.action == "allocation-resolve":
+            op, db, _, digest = allocation_authority(args.operation)
+            need(args.owner == op["owner"], "allocation resolution owner differs")
+            print(json.dumps({k: sorted(v) for k, v in allocation_resources(op, db, digest).items()}))
+        elif args.action == "allocation-execute":
+            allocation_execute(args.lease, args.owner)
+        else:
+            allocation_release(args.lease, args.owner)
+        return
     if args.action in ("retained-reserve", "retained-verify", "retained-renew", "parent-verify"):
         need(args.step is None or (args.action in ("retained-verify", "parent-verify")
                                   and args.step in ("restore", "open")), "retained inspection step invalid")

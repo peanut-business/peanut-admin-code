@@ -26,6 +26,8 @@ Usage:
   scripts/project-resource-lease application-preinstall-protect --lease <run-id> --owner <owner>
   scripts/project-resource-lease application-maintenance --lease <run-id> --owner <owner> --step <plan|capture|rehearse|rebind|apply|verify|restore|open>
   scripts/project-resource-lease application-recovery-admit --lease <run-id> --owner <owner>
+  scripts/project-resource-lease claim <normal identity options> --schema-allocation <registered-id>
+  scripts/project-resource-lease schema-allocate --lease <run-id> --owner <owner>
   # Cross-Git APP claims additionally use --application-operation <registered-id> and no --resource arguments.
   scripts/project-resource-lease show --lease <run-id> [--verify-locks]
   scripts/project-resource-lease prune-expired
@@ -1042,6 +1044,17 @@ if requested.get('application-operation'):
     except (RuntimeError, OSError, ValueError, KeyError, TypeError) as error:
         fail('registered application operation rejected: '+str(error))
 
+if requested.get('schema-allocation'):
+    proof = (dict(lease=own, owner=actor, thread=actor_thread, candidate=candidate,
+                  candidate_repository=candidate_repository, worktree=actual_worktree,
+                  parent_lease=parent_lease, gate=gate) if operation == 'claim' else
+             dict(line.split('\t') for line in (pathlib.Path(leases)/own/'metadata.tsv').read_text().splitlines()))
+    try:
+        helper = runpy.run_path(str(pathlib.Path(source)/'scripts/project-resource-application.py'))
+        helper['allocation_validate'](proof, requested)
+    except (RuntimeError, OSError, ValueError, KeyError, TypeError) as error:
+        fail('registered schema allocation rejected: '+str(error))
+
 def access_scopes(r, registered=None):
     """No access declaration on a historical schema lease means exclusive."""
     result = {}
@@ -1572,6 +1585,11 @@ PY
   fi
   child_lease="$(active_child_lease "$lease_id" || true)"
   [[ -z "$child_lease" ]] || die "lease $lease_id has active child lease $child_lease"
+  if awk -F '\t' '$2=="schema-allocation" {found=1} END {exit !found}' "$lease_dir/resources.tsv"; then
+    [[ -n "$expected_owner" ]] || die 'schema allocation requires explicit owner release'
+    python3 "$REPO_ROOT/scripts/project-resource-application.py" allocation-release --lease "$lease_id" --owner "$expected_owner" \
+      || die 'schema allocation RUNNING/UNKNOWN retains its exact resource boundary'
+  fi
   if [[ -e "$lease_dir/application-operation.json" || -L "$lease_dir/application-operation.json" ]]; then
     [[ -n "$expected_owner" ]] || die 'application execution requires explicit owner release after terminal reconciliation'
     python3 "$REPO_ROOT/scripts/project-resource-application.py" release-check --lease "$lease_id" --owner "$expected_owner" \
@@ -1602,6 +1620,12 @@ PY
 }
 
 case "$COMMAND" in
+  schema-allocate)
+    [[ "${1:-}" == --lease && -n "${2:-}" && "${3:-}" == --owner && -n "${4:-}" && $# -eq 4 ]] \
+      || die 'schema-allocate requires only --lease and --owner'
+    python3 "$REPO_ROOT/scripts/project-resource-application.py" allocation-execute --lease "$2" --owner "$4" \
+      || die 'schema allocation failed; preserve exact state and resources'
+    ;;
   039-retirement-registry-bind)
     [[ $# == 2 ]] || die 'registry binding requires --review-receipt <private-json>'
     case "$1" in
@@ -1645,6 +1669,7 @@ case "$COMMAND" in
     LEASE_ROLE=""
     OPERATION_CONTRACT=""
     APPLICATION_OPERATION=""
+    SCHEMA_ALLOCATION=""
     GATE=""
     TTL=14400
     RESOURCES=()
@@ -1657,6 +1682,7 @@ case "$COMMAND" in
         --candidate) [[ $# -ge 2 ]] || die '--candidate requires a value'; CANDIDATE="$2"; shift 2 ;;
         --candidate-repository) [[ $# -ge 2 ]] || die '--candidate-repository requires a value'; CANDIDATE_REPOSITORY="$2"; shift 2 ;;
         --application-operation) [[ $# -ge 2 ]] || die '--application-operation requires a registered ID'; APPLICATION_OPERATION="$2"; shift 2 ;;
+        --schema-allocation) [[ $# -ge 2 ]] || die '--schema-allocation requires a registered ID'; SCHEMA_ALLOCATION="$2"; shift 2 ;;
         --parent-lease) [[ $# -ge 2 ]] || die '--parent-lease requires a value'; PARENT_LEASE="$2"; shift 2 ;;
         --role) [[ $# -ge 2 ]] || die '--role requires a value'; LEASE_ROLE="$2"; shift 2 ;;
         --operation-contract) [[ $# -ge 2 ]] || die '--operation-contract requires a value'; OPERATION_CONTRACT="$2"; shift 2 ;;
@@ -1698,7 +1724,8 @@ case "$COMMAND" in
     for resource in ${RESOURCES[@]+"${RESOURCES[@]}"}; do
       [[ "${resource%%=*}" != lease-role && "${resource%%=*}" != operation-contract \
         && "${resource%%=*}" != application-operation && "${resource%%=*}" != application-operation-sha256 \
-        && "${resource%%=*}" != retained-parent && "${resource%%=*}" != retained-operation ]] || die 'reserved identity fields require their closed operation option'
+        && "${resource%%=*}" != retained-parent && "${resource%%=*}" != retained-operation \
+        && "${resource%%=*}" != schema-allocation && "${resource%%=*}" != schema-allocation-sha256 ]] || die 'reserved identity fields require their closed operation option'
     done
     if [[ -n "$LEASE_ROLE" || -n "$OPERATION_CONTRACT" ]]; then
       [[ "$LEASE_ROLE" == collaboration-read-existing && -n "$OPERATION_CONTRACT" \
@@ -1707,6 +1734,7 @@ case "$COMMAND" in
       RESOURCES+=("lease-role=$LEASE_ROLE" "operation-contract=$OPERATION_CONTRACT")
     fi
     if [[ -n "$APPLICATION_OPERATION" ]]; then
+      [[ -z "$SCHEMA_ALLOCATION" ]] || die 'allocation cannot combine application operation'
       [[ "$COMMAND" == claim && -z "$LEASE_ROLE" \
         && "$GATE" == permanent-app-development && "${#RESOURCES[@]}" == 0 ]] \
         || die 'application operation requires its closed gate and no caller resources/role'
@@ -1721,6 +1749,14 @@ case "$COMMAND" in
       while IFS= read -r resource; do
         RESOURCES+=("$resource")
       done <<< "$(printf '%s' "$APPLICATION_PROOF" | python3 -c 'import json,sys; d=json.load(sys.stdin); r=d["resources"]; print("\n".join(k+"="+v for k in sorted(r) for v in sorted(r[k]) if k != "gate" and not (k == "worktree" and v == d["worktree"])))')"
+    fi
+    if [[ -n "$SCHEMA_ALLOCATION" ]]; then
+      [[ "$COMMAND" == claim && -z "$APPLICATION_OPERATION$LEASE_ROLE$PARENT_LEASE" \
+        && "${#RESOURCES[@]}" == 0 && "$OWNER" == "$THREAD_ID" ]] || die 'allocation requires independent real identity and no caller resources'
+      ALLOCATION_PROOF="$(python3 "$REPO_ROOT/scripts/project-resource-application.py" allocation-resolve \
+        --operation "$SCHEMA_ALLOCATION" --owner "$OWNER")" || die 'allocation registration rejected'
+      [[ "$CANDIDATE_REPOSITORY" == "$WORKTREE" && "$CANDIDATE" == "$(git rev-parse HEAD)" ]] || die 'allocation requires actual tool candidate'
+      while IFS= read -r resource; do RESOURCES+=("$resource"); done <<< "$(printf '%s' "$ALLOCATION_PROOF" | python3 -c 'import json,sys; d=json.load(sys.stdin); print("\n".join(k+"="+v for k in sorted(d) for v in sorted(d[k]) if k not in ("gate","worktree")))')"
     fi
     for resource in ${RESOURCES[@]+"${RESOURCES[@]}"}; do
       if [[ "${resource%%=*}" == mysql-schema ]]; then
@@ -2039,6 +2075,7 @@ case "$COMMAND" in
     for LEASE_DIR in "$LEASES_DIR"/*; do
       [[ -d "$LEASE_DIR" && -f "$LEASE_DIR/metadata.tsv" ]] || continue
       if lease_expired "$LEASE_DIR"; then
+        if awk -F '\t' '$2=="schema-allocation" {found=1} END {exit !found}' "$LEASE_DIR/resources.tsv"; then continue; fi
         # Expiry cannot prove the observer's SQL process has terminated.
         if [[ -e "$LEASE_DIR/application-operation.json" || -L "$LEASE_DIR/application-operation.json" ]]; then continue; fi
         if awk -F '\t' '$2=="retained-operation" || $2=="retained-parent" {found=1} END {exit !found}' "$LEASE_DIR/resources.tsv"; then continue; fi
