@@ -40995,7 +40995,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fbefc691bc1baf375e5f57a72048bc5694c6566ed9b1c07c086351c49176c2ce"
+            "source_sha256": "733a91d7a822a5426a02b51fdc812eedd7df641daa5156fbd5bb591eeb65f1c6"
         },
         {
             "path": "web/src/views/system/admin/locale/en-US.ts",
@@ -41009,7 +41009,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e2a7552cd1c084f2cfd46347107dcdb596477625133922f47f325d2136fcae2f"
+            "source_sha256": "3cc72a9141d1984eff468e5bed5407ff284fdae7a45c5a97254f9b3186cbc32f"
         },
         {
             "path": "web/src/views/system/admin/locale/zh-CN.ts",
@@ -41023,7 +41023,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b3d9363904af6edf4efb799cd23bfbc94d285706d9150a9b940db7a8deb29524"
+            "source_sha256": "e8fcea98f61aaa0bb41180461037f015ee6dfa38e2c1b9c6a56711184ab5bb05"
         },
         {
             "path": "web/src/views/system/config/index.vue",
