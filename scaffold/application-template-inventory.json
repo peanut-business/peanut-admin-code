@@ -2497,7 +2497,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "869542f324590e44bcf9b1241d09a636c95218f1120603fc729c2fb3c2121df5"
+            "source_sha256": "bf99bc902509d9250aba00188306b532a0545800dcd69e70763277f4c2aa8b86"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2718,7 +2718,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2ccc15e2698d2abb05666ea83ee87363cedb2525c983d19c229abd074171f782"
+            "source_sha256": "c99298798909a55fede6d3e66380e7c50e032d9d81d7f01e6bdeee0f0df97136"
         },
         {
             "path": "plugins/official.payment/plugin.json",
@@ -20357,7 +20357,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ef6c7b1b30f3c97c21e377f1c43e6a8621c69a301b86c329018d0380c4886cce"
+            "source_sha256": "0bc79e75acd5493a5ae90d8acd04c4dbd43c7c06e3fa1319d06e32157968dab3"
         },
         {
             "path": "server/app/modules/official/ops/domain/README.md",
@@ -20385,7 +20385,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ab2adc3a58e9d12657ea9dfd60408d6e5ba28d87db6465db7113ad849637e488"
+            "source_sha256": "55db6e648c25b41d13feec578f5801545db936ce6178e69f70a72afc4cd449ab"
         },
         {
             "path": "server/app/modules/official/ops/src/Contract/BackupTaskExecution.php",
@@ -20917,7 +20917,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "78049510db9912eba4db43b3815c78ab3ba080bd417113f577137b2ca1b7121d"
+            "source_sha256": "6847345f2ae3e75782bc8b632c2706fcad69968ffe6d757f4606631a665d4cd4"
         },
         {
             "path": "server/app/modules/official/ops/src/Infrastructure/Authorization/PlatformOpsPermissionChecker.php",
@@ -40995,7 +40995,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e626fcc06283ca5d782d2f7da37c31fc8265b5f8550ee5ac73773367d7579cc1"
+            "source_sha256": "fbefc691bc1baf375e5f57a72048bc5694c6566ed9b1c07c086351c49176c2ce"
         },
         {
             "path": "web/src/views/system/admin/locale/en-US.ts",
@@ -41359,7 +41359,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "19712cebae4a8b3cb0f364b9c9c688377abb2842179749773acb1b95f23404e2"
+            "source_sha256": "b7f1dd2812459c6b533a06d556efcd8ff6803b6003599131afd811ad6ffb5b2d"
         },
         {
             "path": "web/src/views/system/role/locale/en-US.ts",
