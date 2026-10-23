@@ -906,7 +906,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8f49863928653ec22e4e5e5b4f1b64291413e7e1cfada63f867b596d8f3f66b0"
+            "source_sha256": "4256d341534f6b7302deca1c21a8fb58633f280b0f904d66ebee7a7cb55b5825"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -5119,7 +5119,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c8f85ccf5de0f4908b357b3a474945d371a799196e100d42e7a2d09296e8d6f6"
+            "source_sha256": "fae0578d5196f2af7f2148d3f7236a00b447220f3e4ce9561872f33663dbcc0e"
         },
         {
             "path": "scripts/workflow-authorized-fixture.py",
@@ -28692,7 +28692,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6beaddc79978342c730188257f8bc2f0700ce606cfe9ebaeaf6f1236aba62cc5"
+            "source_sha256": "3e25569d01aa307c009f1995f8aa6f0ffec2100766b7e279ccac2b935180e481"
         },
         {
             "path": "server/docker/scripts/update.sh",
