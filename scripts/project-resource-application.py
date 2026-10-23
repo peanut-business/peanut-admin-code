@@ -25,6 +25,9 @@ PROTOCOL = "peanut.application-first-install-operation.v1"
 BINDING = "application-operation"
 CONTRACT = "application-operation-sha256"
 STATE = "application-operation.json"
+FAILED_INSTALL_OPERATION = "ex00005-mt-firstinstall-roletext-20261023"
+FAILED_INSTALL_EVIDENCE_SHA256 = "6485c0b05a30d905644888fac232f54406cf29e40bd8542e71a15d38bee280f7"
+FAILED_INSTALL_SOURCE_SHA256 = "e00f7f979bbc16b688340f7580156fcd5366d4964a002469d7a89de1d83b3251"
 
 
 def need(value, message):
@@ -106,18 +109,115 @@ def project_authority():
     return registry, resolver["maintainer_project"](), resolver, registry_sha
 
 
+def failed_install_review(operation, project, directory, metadata, resources, state, proof, digest):
+    """Retire one evidenced failed status parse, without admitting an install or recovery."""
+    need(operation["stable_resource_id"] == FAILED_INSTALL_OPERATION
+         and state.get("phase") == operation["phase"] == "install"
+         and state.get("status") == "UNKNOWN" and state.get("failure") == "JSONDecodeError"
+         and state.get("actual_process_terminal") is True and state.get("child_pid") is None
+         and type(state.get("child_exit_code")) is int and state["child_exit_code"] == 1,
+         "historical failed install is not the exact stopped status parse")
+    need(proof.get("verdict") == "FAILED_INSTALL_RELEASE_ONLY"
+         and proof.get("failure_point") == "status_response_parse_before_installer"
+         and proof.get("unknown_preserved") is True and proof.get("release_only") is True
+         and proof.get("no_pending_process") is True
+         and proof.get("status_stdout") == "NOT_AVAILABLE",
+         "failed install review must preserve UNKNOWN without execution authority")
+    evidence_ref = proof.get("original_execution_evidence", {})
+    need(isinstance(evidence_ref, dict) and set(evidence_ref) == {"path", "sha256"}
+         and evidence_ref["sha256"] == FAILED_INSTALL_EVIDENCE_SHA256,
+         "failed install original evidence digest differs")
+    evidence_path = canonical(evidence_ref["path"])
+    need(project in evidence_path.parents, "failed install evidence must belong to Project")
+    evidence_raw = regular(evidence_path, private=True)
+    need(sha(evidence_raw) == FAILED_INSTALL_EVIDENCE_SHA256,
+         "failed install original evidence changed")
+    evidence = json_unique(evidence_raw)
+    snapshots = evidence["native_state_snapshot"]
+    need(set(snapshots) == {"application-operation.json", "metadata.tsv", "resources.tsv"},
+         "failed install original lease snapshot incomplete")
+    for name in (STATE, "metadata.tsv", "resources.tsv"):
+        snapshot = snapshots[name]
+        raw = regular(directory / name, private=name == STATE)
+        need(snapshot["reference"]["sha256"] == sha(raw)
+             and snapshot["exact_bytes_utf8"].encode() == raw,
+             "failed install lease differs from original execution evidence")
+    need(json_unique(snapshots[STATE]["exact_bytes_utf8"].encode()) == state
+         and evidence["inputs"]["operation_id"] == FAILED_INSTALL_OPERATION
+         and evidence["inputs"]["operation_digest"] == digest
+         and evidence["inputs"]["owner"] == metadata["owner"]
+         and evidence["inputs"]["Code_source"]["commit"] == operation["tool_source"]["commit"],
+         "failed install execution input identity changed")
+    source = git(ROOT, "show", operation["tool_source"]["commit"] + ":scripts/project-resource-application.py")
+    need(sha(source) == FAILED_INSTALL_SOURCE_SHA256
+         and operation["tool_source"]["files"]["scripts/project-resource-application.py"] == FAILED_INSTALL_SOURCE_SHA256,
+         "failed install status-before-installer source differs")
+    # The fixed historical source was reviewed: status accepted exit 1, parsed
+    # JSON before dispatching the ordinary installer. Its exact hash is the gate.
+    jobs = evidence["native_evidence"]
+    expected = (("claim_terminal", evidence["claim_Job"], "completed", 0),
+                ("entry_terminal", evidence["install_Job"], "failed", 1))
+    need(evidence.get("claim_exit") == 0 and evidence["failure"].get("exit_code") == 1
+         and evidence["failure"].get("native_failure") == "JSONDecodeError"
+         and evidence["failure"].get("last_child_exit") == 1
+         and evidence["failure"].get("actual_process_terminal") is True
+         and evidence["failure"].get("child_pid") is None
+         and evidence.get("actual_installer_count") == 0
+         and evidence["budgets"].get("ordinary_installer_calls_all_history") == 0,
+         "failed install execution receipt does not prove pre-installer failure")
+    for kind, job_id, status, exit_code in expected:
+        result = jobs[kind]["structuredContent"]
+        items = result["output"]["items"]
+        need(result.get("success") is True and len(items) == 1
+             and items[0].get("job_id") == job_id and items[0].get("status") == status
+             and items[0].get("terminal") is True
+             and type(items[0].get("exit_code")) is int and items[0]["exit_code"] == exit_code,
+             "failed install native Job pair is not terminal and exact")
+    observation = state.get("metadata_readonly", {})
+    result = observation.get("result", {})
+    witness = canonical(observation.get("witness", ""))
+    need(observation.get("status") == "COMPLETED"
+         and observation == evidence.get("actual_metadata")
+         and result.get("database") == operation["database"]["name"]
+         and result.get("server_uuid") == operation["database"]["server_uuid"]
+         and result.get("version") == operation["database"]["version"]
+         and result.get("principal") == "root@localhost"
+         and type(result.get("schema_rows")) is int and result["schema_rows"] == 1
+         and result.get("active_roles") == "NONE"
+         and type(result.get("partial_revokes")) is int and result["partial_revokes"] == 0
+         and all(type(result.get(key)) is int and result[key] == 0
+                 for key in ("tables_views", "triggers", "routines", "events"))
+         and evidence["private_witness"]["path"] == str(witness)
+         and evidence["private_witness"]["sha256"] == observation.get("witness_sha256")
+         and sha(regular(witness, private=True)) == observation["witness_sha256"],
+         "failed install metadata witness/zero-object observation changed")
+    marker_root = canonical(Path(operation["application"]["root"]) / "server/private/installation")
+    need(marker_root.is_dir(), "failed install marker parent unavailable")
+    for name in ("installed.json", "executing.json", "baseline.json", "migration.json"):
+        marker = marker_root / name
+        need(not os.path.lexists(marker) and evidence["APP_after"]["markers"].get(name) is False,
+             "failed install marker exists or original marker observation changed")
+    need(proof.get("native_jobs") == [{"job_id": job_id, "status": status, "exit_code": exit_code}
+                                       for _, job_id, status, exit_code in expected],
+         "failed install review Job pair differs from original evidence")
+    return {"original_execution_evidence_sha256": sha(evidence_raw),
+            "failure_point": proof["failure_point"], "unknown_preserved": True, "release_only": True}
+
+
 def terminal_registry(operation, document, project, common, registry_sha, terminal):
-    """A reviewed stopped protect retires its original proof, never gains a window."""
+    """A reviewed stopped operation retires its original proof, never gains a window."""
     metadata, resources, state, reviewed = terminal
+    failed_install = operation.get("stable_resource_id") == FAILED_INSTALL_OPERATION
     failed = state.get("status") == "UNKNOWN"
     need(state.get("protocol") == "peanut.application-operation-state.v1"
-         and state.get("phase") == operation["phase"] == "protect"
+         and state.get("phase") == operation["phase"]
+         and (operation["phase"] == "protect" or failed_install and operation["phase"] == "install")
          and state.get("status") in ("COMPLETED", "UNKNOWN") and state.get("actual_process_terminal") is True
          and state.get("child_pid") is None
-         and state.get("child_exit_code") == 0
+         and (state.get("child_exit_code") == 0 if not failed_install else state.get("child_exit_code") == 1)
          and (not failed or isinstance(state.get("failure"), str) and bool(state["failure"]))
          and metadata["owner"] == metadata["thread"] == state.get("owner") == operation["owner"]
-         and metadata["lease"] == state.get("lease"), "historical release requires the exact stopped protect")
+         and metadata["lease"] == state.get("lease"), "historical release requires the exact stopped operation")
     digest = sha(json.dumps(operation, sort_keys=True, separators=(",", ":")).encode())
     need(resources.get(CONTRACT) == {digest} and state.get("operation_sha256") == digest,
          "terminal operation digest changed")
@@ -129,27 +229,31 @@ def terminal_registry(operation, document, project, common, registry_sha, termin
          "terminal review must be the exact versioned Project result")
     proof = json_unique(raw)
     directory = common / "peanut-admin-resource-leases/leases" / metadata["lease"]
-    need(proof.get("verdict") == "SAFE_TO_RELEASE" and proof.get("lease") == metadata["lease"]
+    need(proof.get("lease") == metadata["lease"]
          and proof.get("state_sha256") == sha(regular(directory / STATE, private=True))
          and proof.get("metadata_sha256") == sha(regular(directory / "metadata.tsv"))
          and proof.get("resources_sha256") == sha(regular(directory / "resources.tsv"))
          and proof.get("operation_sha256") == digest
          and proof.get("reviewer_thread") not in (None, "", metadata["owner"])
          and proof.get("actual_process_terminal") is True
-         and proof.get("no_pending_or_unknown") is True
          and proof.get("source_authority_at_start") is True,
          "independent terminal review does not bind the original stopped proof")
     jobs = proof.get("native_jobs")
-    need(isinstance(jobs, list) and jobs and all(isinstance(row, dict)
-         and set(row) == {"job_id", "status", "exit_code"}
-         and re.fullmatch(r"wc_job_[A-Za-z0-9_-]+", row["job_id"])
-         and type(row["exit_code"]) is int
-         and (row["status"] == "completed" and row["exit_code"] == 0
-              or failed and row["status"] == "failed" and row["exit_code"] == 1)
-         for row in jobs)
-         and (not failed or any(row["status"] == "failed" for row in jobs)),
-         "terminal review lacks known terminal native Job evidence")
-    if failed:
+    if failed_install:
+        review_details = failed_install_review(operation, project, directory, metadata, resources, state, proof, digest)
+    else:
+        need(proof.get("verdict") == "SAFE_TO_RELEASE" and proof.get("no_pending_or_unknown") is True,
+             "stopped protect needs its original safe terminal review")
+        need(isinstance(jobs, list) and jobs and all(isinstance(row, dict)
+             and set(row) == {"job_id", "status", "exit_code"}
+             and re.fullmatch(r"wc_job_[A-Za-z0-9_-]+", row["job_id"])
+             and type(row["exit_code"]) is int
+             and (row["status"] == "completed" and row["exit_code"] == 0
+                  or failed and row["status"] == "failed" and row["exit_code"] == 1)
+             for row in jobs)
+             and (not failed or any(row["status"] == "failed" for row in jobs)),
+             "terminal review lacks known terminal native Job evidence")
+    if failed and not failed_install:
         failure = proof.get("failed_protect", {})
         need(set(failure) == {"state_status", "protection_accepted", "partial_outputs"}
              and failure["state_status"] == "UNKNOWN" and failure["protection_accepted"] is False,
@@ -207,8 +311,10 @@ def terminal_registry(operation, document, project, common, registry_sha, termin
     reviewed.update(sha256=sha(raw), reviewer_thread=proof["reviewer_thread"], project_commit=ref,
                     registry_commit=original_ref, registry_sha256=original_sha, release_source=executor,
                     native_jobs=jobs)
-    if failed:
+    if failed and not failed_install:
         reviewed["failed_protect"] = failure
+    if failed_install:
+        reviewed["failed_install"] = review_details
     return original, original_sha
 
 
@@ -223,7 +329,8 @@ def authority(operation_id, *, terminal=None):
     operation = matches[0]
     registry_document = resolver["load_registry"]()
     historical_release = terminal is not None and (
-        terminal[1].get("registry-sha256") != {registry_sha} or operation["tool_source"]["root"] != str(ROOT))
+        terminal[1].get("registry-sha256") != {registry_sha} or operation["tool_source"]["root"] != str(ROOT)
+        or operation_id == FAILED_INSTALL_OPERATION and terminal[2].get("status") == "UNKNOWN")
     if historical_release:
         registry_document, registry_sha = terminal_registry(operation, registry_document, project, common, registry_sha, terminal)
     need(operation.get("protocol") == PROTOCOL and operation.get("phase") in ("protect", "install", "maintain"),
@@ -1709,11 +1816,17 @@ def main():
                 need(git(project, "show", ref + ":" + str(path.relative_to(project))) == raw,
                      "terminal review must be the exact versioned Project result")
                 proof = json_unique(raw)
-                need(proof.get("verdict") == "SAFE_TO_RELEASE"
-                     and proof.get("lease") == args.lease
+                failed_install = "failed_install" in reviewed
+                need(proof.get("lease") == args.lease
+                     and (proof.get("verdict") == "FAILED_INSTALL_RELEASE_ONLY" if failed_install
+                          else proof.get("verdict") == "SAFE_TO_RELEASE")
                      and proof.get("state_sha256") == sha(regular(directory / STATE, private=True))
+                     and sha(raw) == reviewed.get("sha256", sha(raw))
                      and proof.get("reviewer_thread") not in (None, "", value["owner"])
-                     and proof.get("actual_process_terminal") is True,
+                     and proof.get("actual_process_terminal") is True
+                     and (proof.get("unknown_preserved") is True and proof.get("release_only") is True
+                          and proof.get("failure_point") == "status_response_parse_before_installer"
+                          if failed_install else True),
                      "independent terminal review does not bind this exact stopped operation")
                 value["terminal_review"] = {"sha256": sha(raw), "reviewer_thread": proof["reviewer_thread"],
                                             "project_commit": ref}
