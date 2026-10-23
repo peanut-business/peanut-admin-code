@@ -906,7 +906,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "81eb6e1b482e10389f4bb2b9012ef8b10e4836fb0d754b5a877f4d5c79f6f31c"
+            "source_sha256": "ebeab4d287eaa5a5426c0c65f041638ae8afbf7e41d746ef56292fb035b119d6"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -28706,7 +28706,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "536d7abb88df5324e1eb37accb5bd92c210e53d01893571cbc815e19e0a035b8"
+            "source_sha256": "765bb9675a65bcba4a8eee9c300430e064b351693d926b256980785d3448ff34"
         },
         {
             "path": "server/docker/scripts/update.sh",

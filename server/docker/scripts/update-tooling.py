@@ -3,6 +3,7 @@
 import argparse
 import base64
 import contextlib
+from datetime import datetime, timezone
 import fcntl
 import hashlib
 import importlib.util
@@ -195,6 +196,87 @@ def states(root, admitted=None):
     return result
 
 
+def failure_runtime_evidence(approved, root, plan, state, receipt_path, old_tools, current):
+    evidence = approved.get('runtime_evidence', {})
+    if 'runtime_before' in approved or set(evidence) != {'variant', 'pre', 'post', 'arguments'} \
+        or evidence['variant'] != 'post-start-inference':
+        raise ValueError('explicit original pre/post evidence variant is required; do not backfill StartedAt')
+    originals = {}
+    for name in ('pre', 'post', 'arguments'):
+        spec = evidence[name]
+        if set(spec) != {'path', 'sha256'}: raise ValueError('original evidence accepts path/hash only, no rewritten header')
+        path = Path(spec['path']); content = protected_bytes(path)
+        if hashlib.sha256(content).hexdigest() != spec['sha256']: raise ValueError('original failure evidence changed')
+        originals[name] = json.loads(content)
+    pre = originals['pre']; post = originals['post']; arguments = originals['arguments']
+    expected_tail = ['apply', '--instance-server=' + str(root / 'server'),
+                     '--tooling-receipt=' + str(receipt_path), '--workspace=' + plan['workspace']]
+    entry = str(old_tools / 'server/docker/scripts/update.sh'); argv = arguments.get('argv', [])
+    if argv.count(entry) != 1 or argv[argv.index(entry) + 1:] != expected_tail \
+        or arguments.get('candidate') != plan['candidate'] \
+        or arguments.get('plan_sha256') != plan['plan_sha256'].removeprefix('sha256:') \
+        or pre.get('instance_root') != str(root) or pre.get('service_action_executed') is not False \
+        or pre.get('backup_executed') is not False:
+        raise ValueError('original observations or argv differ from the exact failed apply')
+    for key in ('candidate', 'plan_sha256', 'state_sha256', 'phase', 'phase_in_progress',
+                'database_recovery_required', 'migration_completed', 'activation_started'):
+        if post['state'].get(key) != state.get(key): raise ValueError('post observation belongs to another state')
+    if post.get('evidence_phases') != [] or any(post.get(key) is not False for key in
+        ('backup_exists', 'recovery_exists', 'prepare_host_log_exists')):
+        raise ValueError('post observation contains transaction or host activity')
+    anchors = source_state(root)
+    if post.get('old_program_identity_sha256') != anchors['.peanut/release-identity.json'] \
+        or post.get('old_installed_sha256') != anchors['private/installation/installed.json']:
+        raise ValueError('post observation installation identity changed')
+    required_anchors = {'.env', 'docker/.env', 'private/installation/installed.json',
+                        'private/installation/baseline.json', 'private/installation/deployment.json',
+                        'private/resources/project-resources.json'}
+    if set(pre.get('protected_files', {})) != required_anchors:
+        raise ValueError('original protected pre-observation is incomplete')
+    for name, row in pre['protected_files'].items():
+        if name not in set(anchors) | {'private/resources/project-resources.json'}:
+            raise ValueError('unknown protected pre-observation path')
+        file = root / 'server' / name
+        if row['exists'] is False:
+            if file.exists() or file.is_symlink(): raise ValueError('protected predecessor appeared')
+        elif row.get('is_symlink') is not False or sha(file) != row.get('sha256') \
+            or oct(stat.S_IMODE(file.stat().st_mode)) != row.get('mode'):
+            raise ValueError('protected original observation changed')
+
+    def instant(value):
+        if not isinstance(value, str): raise ValueError('missing authenticated observation time')
+        match = re.fullmatch(r'([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2})(?:\.([0-9]{1,9}))?(?:Z|\+00:00)', value)
+        if match is None: raise ValueError('observation time must carry UTC')
+        # Docker records nanoseconds; older supported Python ISO parsers accept
+        # only microseconds. Preserve the exact fractional order without floats.
+        parsed = datetime.strptime(match[1], '%Y-%m-%dT%H:%M:%S').replace(tzinfo=timezone.utc)
+        return parsed, int((match[2] or '').ljust(9, '0'))
+
+    # created_at is authenticated by the original native plan; updated_at is the
+    # prepare-intent event, not a claimed command-start measurement.
+    if not instant(pre['observed_at']) < instant(plan['created_at']) <= instant(state['updated_at']) <= instant(post['observed_at']):
+        raise ValueError('original pre/plan/prepare-intent/post chronology is unknown')
+    before = {row['service']: row for row in pre['containers']}
+    after = {row['id']: row for row in post['containers']}
+    if len(before) != len(pre['containers']) or len(after) != len(post['containers']) \
+        or set(before) != set(current) or set(after) != {row['id'] for row in current.values()}:
+        raise ValueError('original container inventory differs')
+    for service, actual in current.items():
+        first = before[service]; last = after[actual['id']]
+        if not re.fullmatch(r'[a-f0-9]{64}', first['id']) or first['id'] != actual['id'] \
+            or first.get('state') != 'running' or last.get('running') is not True or actual['running'] is not True \
+            or first.get('image') != actual['image'] or first.get('name') != last.get('name') \
+            or 'started_at' in first or 'image' in last or last.get('started_at') != actual['started_at'] \
+            or not instant(last['started_at']) < instant(pre['observed_at']):
+            raise ValueError('container inference does not match original observations and current engine facts')
+    return {'variant': 'post-start-inference', 'originals': evidence,
+        'pre_observed_at': pre['observed_at'], 'plan_created_at': plan['created_at'],
+        'prepare_intent_at': state['updated_at'], 'post_observed_at': post['observed_at'],
+        'pre_started_at': 'NOT_CAPTURED', 'post_image': 'NOT_CAPTURED', 'command_start': 'NOT_CAPTURED',
+        'inference': 'same container IDs; post/current StartedAt predates pre observation; no container restart in that window',
+        'not_proven': ['internal process restart absence', 'absence of business database writes', 'full recovery']}
+
+
 def dispose_failed_prepare(root, admission):
     approved = protected(admission)
     if approved.get('protocol') != 'peanut.pre-host-prepare-failure-admission.v1' or approved.get('instance_root') != str(root):
@@ -265,14 +347,14 @@ def dispose_failed_prepare(root, admission):
         if len(ids) != 1: raise ValueError('original runtime service is not unique')
         current[service] = json.loads(subprocess.check_output(['docker', 'inspect', '--format',
             '{"id":{{json .Id}},"image":{{json .Image}},"started_at":{{json .State.StartedAt}},"running":{{json .State.Running}}}', ids[0]], text=True))
-    if current != approved.get('runtime_before') or any(row['running'] is not True for row in current.values()):
-        raise ValueError('runtime differs from the owner-approved pre-apply containers')
+    runtime_evidence = failure_runtime_evidence(approved, root, plan, state, receipt_path, old_tools, current)
     states(root, {str(state_path): sha(state_path)})
     disposition = {'protocol': DISPOSITION, 'status': 'failed-before-host', 'instance_root': str(root),
         'source_commit': FAILED_SOURCE, 'tooling_manifest_sha256': FAILED_TOOLING,
         'candidate': candidate, 'state_path': str(state_path), 'state_sha256': sha(state_path),
         'plan_path': str(plan_path), 'plan_file_sha256': sha(plan_path), 'plan_sha256': plan['plan_sha256'],
-        'runtime_sha256': plan['runtime_sha256'], 'admission': str(admission), 'admission_sha256': sha(admission)}
+        'runtime_sha256': plan['runtime_sha256'], 'admission': str(admission), 'admission_sha256': sha(admission),
+        'runtime_evidence': runtime_evidence}
     output = root / '.peanut/upgrades/pre-host-failures' / (candidate + '.json')
     if output.exists():
         if protected(output) != disposition: raise ValueError('failed prepare disposition already differs')
