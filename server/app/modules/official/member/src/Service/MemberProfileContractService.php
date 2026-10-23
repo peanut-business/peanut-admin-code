@@ -75,9 +75,7 @@ final class MemberProfileContractService implements MemberProfileCommands
             $this->disableMember($context, $memberId);
             return;
         }
-        if (Member::where([])->where('id', $memberId)->update([$field => $value]) !== 1) {
-            throw BusinessException::notFound('MEMBER_NOT_FOUND', '用户不存在');
-        }
+        $this->member($context, $memberId)->save([$field => $value]);
     }
 
     public function updateStatus(TenantContext $context, int $memberId, int $status): void
@@ -86,9 +84,7 @@ final class MemberProfileContractService implements MemberProfileCommands
             $this->disableMember($context, $memberId);
             return;
         }
-        if (Member::where([])->where('id', $memberId)->update(['status' => $status]) !== 1) {
-            throw BusinessException::notFound('MEMBER_NOT_FOUND', '用户不存在');
-        }
+        $this->member($context, $memberId)->save(['status' => $status]);
     }
 
     public function updateSelfField(AuthenticatedMemberContext|TenantContext $context, int $memberId, string $field, mixed $value): void
