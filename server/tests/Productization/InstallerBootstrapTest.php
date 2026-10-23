@@ -63,8 +63,8 @@ $fixturePackage = static fn(string $name, string $version, string $ref): array =
     'source' => ['reference' => $ref], 'dist' => ['reference' => $ref],
 ];
 $runtimePackages = [
-    $fixturePackage('peanut-admin/core', '5.0.2', str_repeat('a', 40)),
-    $fixturePackage('topthink/think-migration', '3.1.1', str_repeat('b', 40)),
+    $fixturePackage('peanut-admin/core', 'v5.0.2', str_repeat('a', 40)),
+    $fixturePackage('topthink/think-migration', 'v3.1.1', str_repeat('b', 40)),
 ];
 $developmentPackage = $fixturePackage('fixture/development', '1.0.0', str_repeat('c', 40));
 $composerManifest = ['require' => ['peanut-admin/core' => '5.0.2', 'topthink/think-migration' => '3.1.1']];
@@ -172,6 +172,10 @@ try {
         $wrongVersion = $runtimePackages;
         $wrongVersion[0]['version'] = '5.0.1';
         $writeComposerFixture($runtimePackages, [$developmentPackage], $wrongVersion);
+        $blockedDependency();
+        $wrongPinnedVersion = $runtimePackages;
+        $wrongPinnedVersion[0]['version'] = 'v5.0.3';
+        $writeComposerFixture($wrongPinnedVersion, [$developmentPackage], $wrongPinnedVersion);
         $blockedDependency();
         $wrongReference = $runtimePackages;
         $wrongReference[0]['source']['reference'] = str_repeat('d', 40);

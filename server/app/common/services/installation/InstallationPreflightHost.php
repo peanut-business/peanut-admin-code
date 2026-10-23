@@ -283,9 +283,14 @@ final class InstallationPreflightHost
             $runtime = $map($lock['packages']);
             $development = $map($lock['packages-dev']);
             $actual = $map($installed['packages']);
+            $pinned = static function (string $name) use ($manifest, $runtime): bool {
+                $constraint = $manifest['require'][$name] ?? null;
+                return is_string($constraint)
+                    && preg_match('/^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$/D', $constraint) === 1
+                    && in_array($runtime[$name][0] ?? null, [$constraint, 'v' . $constraint], true);
+            };
             if (!$runtime || array_intersect_key($runtime, $development)
-                || ($manifest['require']['peanut-admin/core'] ?? null) !== ($runtime['peanut-admin/core'][0] ?? null)
-                || ($manifest['require']['topthink/think-migration'] ?? null) !== ($runtime['topthink/think-migration'][0] ?? null)) {
+                || !$pinned('peanut-admin/core') || !$pinned('topthink/think-migration')) {
                 return $blocked();
             }
             foreach ($runtime as $name => $expected) {
