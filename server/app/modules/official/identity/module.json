@@ -25,6 +25,7 @@
       "pa_data_permission_target",
       "pa_data_permission_target_set",
       "pa_department",
+      "pa_jobs",
       "pa_login_challenge",
       "pa_member_role",
       "pa_member_job",
