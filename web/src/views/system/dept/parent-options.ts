@@ -118,9 +118,10 @@ export function useDepartmentDirectory(
       if (!ticket.isCurrent() || getSessionSnapshot().generation !== identity)
         return;
       const known = new Map(rows.value.map((row) => [row.id, row]));
-      for (const row of data.ancestors)
+      data.ancestors.forEach((row) => {
         if (!known.has(row.id)) known.set(row.id, row);
-      for (const row of data.lists) known.set(row.id, row);
+      });
+      data.lists.forEach((row) => known.set(row.id, row));
       rows.value = [...known.values()];
       pages.value[parent] = {
         page: pageNo,
@@ -150,10 +151,10 @@ export function useDepartmentDirectory(
       rows.value.map((row) => [row.id, { ...row, children: [] }])
     );
     const roots: Node[] = [];
-    for (const node of nodes.values()) {
+    nodes.forEach((node) => {
       if (node.pid === 0) roots.push(node);
       else nodes.get(node.pid)?.children.push(node);
-    }
+    });
     const sort = (items: Node[]) => {
       items.sort((a, b) => a.sort - b.sort || a.id - b.id);
       items.forEach((n) => sort(n.children));
@@ -182,13 +183,10 @@ export const DepartmentPicker = defineComponent({
     const text = ref('');
     const selectedRows = ref<DirectoryDepartment[]>([]);
     const selectionLife = createTenantLifecycle();
-    const values = computed(() =>
-      Array.isArray(props.modelValue)
-        ? props.modelValue
-        : props.modelValue === undefined
-        ? []
-        : [props.modelValue]
-    );
+    const values = computed(() => {
+      if (Array.isArray(props.modelValue)) return props.modelValue;
+      return props.modelValue === undefined ? [] : [props.modelValue];
+    });
     const unregister = registerTenantDisposer(
       `department-selection-${crypto.randomUUID()}`,
       () => {
@@ -206,15 +204,16 @@ export const DepartmentPicker = defineComponent({
       async () => {
         selectionLife.invalidate();
         const ticket = selectionLife.capture();
-        const generation = getSessionSnapshot().generation;
+        const { generation } = getSessionSnapshot();
         const ids = values.value.filter((id) => id > 0);
         selectedRows.value = [];
         try {
-          for (let i = 0; i < ids.length; i += 100) {
+          const readSelectionPage = async (offset: number): Promise<void> => {
+            if (offset >= ids.length) return;
             const { data } = await getDeptAll(
               {
                 mode: 'resolve',
-                ids: ids.slice(i, i + 100).join(','),
+                ids: ids.slice(offset, offset + 100).join(','),
                 pageNo: 1,
                 pageSize: 100,
               },
@@ -226,7 +225,9 @@ export const DepartmentPicker = defineComponent({
             )
               return;
             selectedRows.value.push(...data.lists, ...data.ancestors);
-          }
+            await readSelectionPage(offset + 100);
+          };
+          await readSelectionPage(0);
         } catch {
           /* Preserve the saved ids; failed lookup never clears an association. */
         }
