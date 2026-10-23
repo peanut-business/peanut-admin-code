@@ -906,7 +906,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "29aea223f746475d4eb6f6dbdb9eed0336bc5a2653aeab788c0b6cb4e5731a21"
+            "source_sha256": "ff5c0420fe5401115b1b41a88ff3b2b5c2a9bca18fcd1e28485a7d495b1c737e"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -989,7 +989,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0851c5024b5cd36f209bb487d5beb5c78b4ee84e7e830b20f05317d43af7b4cb"
+            "source_sha256": "5992c342810ee55b3d7721a9346a8951b1340616aa0d2bc4390cf00c1114c948"
         },
         {
             "path": "docs/maintenance/README.md",
@@ -3374,7 +3374,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1046e02496addbc59e41b1c59a680d0308bffd4deb455e40a6061143a5c94ad1"
+            "source_sha256": "9b28a188ae91c3ca3d21b9f3e29e63191d3e19ba96decbbc4fd778e2d939c481"
         },
         {
             "path": "scripts/core-qualification-runner",
@@ -3522,7 +3522,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d5d89f63f72b73c41f9e798bdbbac8fcfd9649dea3e9594f053e8c96baf33d16"
+            "source_sha256": "5a540f10d3c89530cd3d4217f75df76bceef22c72a024f99819e44fc347008b6"
         },
         {
             "path": "scripts/local-core-composer",
@@ -3536,7 +3536,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f54d5b05bb29b9a205fda91d7f86c78f92e6ae47840aa97fe9a06ae9044fb3d4"
+            "source_sha256": "cd715c3448a3067ea96a0edb2f499900edadf52fba37f60b14d537c69f32d623"
+        },
+        {
+            "path": "scripts/local-core-links.mjs",
+            "target": "scripts/local-core-links.mjs",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "d33c6ed3b04d3e239a7051a8b506a887c6126aa6316fdbf4d330df57f9f03998"
         },
         {
             "path": "scripts/local-core-web",
@@ -3550,7 +3564,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "09970a0a0d4e061747011d655d8dbaaadb12b9e4ff9cc28647847dd3759d20bf"
+            "source_sha256": "03398b757312027a6b6953e4a00c7212db0b7cae9503ee471ed7399c07285d1d"
         },
         {
             "path": "scripts/local-environment-probe",
@@ -34266,7 +34280,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "977eac98436a781427d571fa694ed4b2429196f1ec131968c49a4bbb4684d9e9"
+            "source_sha256": "33601dd37e05749bdfa397620f70496bd2a3374b1bd4ef603bf00aa60a0497bb"
         },
         {
             "path": "uniapp/packages/pages/404/404.vue",

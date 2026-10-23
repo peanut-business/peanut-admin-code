@@ -1,4 +1,7 @@
 #!/bin/sh
+set -eu
+# BEGIN_GUARDED_PHP_RUNTIME
+runtime_main() {
 
 set -eu
 
@@ -66,6 +69,9 @@ show_failure() {
 }
 
 start_runtime() {
+    if [ -e "$repo_dir/.local/core-dev.json" ] || [ -L "$repo_dir/.local/core-dev.json" ]; then
+        "$repo_dir/scripts/core-dev" php-status || die 'selected daily PHP Core is not linked; run core-dev install in an idle dependency window'
+    fi
     [ -x "$php_bin" ] || die "registered PHP is unavailable: $php_bin"
     [ -x "$composer_bin" ] || die "registered Composer is unavailable: $composer_bin"
     [ -f "$env_file" ] || die "local environment is missing: $env_file"
@@ -232,3 +238,11 @@ case "$command" in
     logs) [ -f "$log_file" ] || die "log does not exist: $log_file"; tail -n "$log_lines" "$log_file" ;;
     *) printf 'Usage: %s {start|stop|restart|status|logs} [--env-file path] [--backend-env path] [--pid-file path] [--log-file path] [--log-lines n]\n' "$0" >&2; exit 2 ;;
 esac
+
+}
+# END_GUARDED_PHP_RUNTIME
+link_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P)
+owned_command=$(sed -n '/^# BEGIN_GUARDED_PHP_RUNTIME$/,/^# END_GUARDED_PHP_RUNTIME$/p' "$0")
+owned_command="$owned_command
+runtime_main \"\$@\""
+exec node "$link_root/scripts/local-core-links.mjs" "$link_root" php php-runtime -- sh -c "$owned_command" "$0" "$@"
