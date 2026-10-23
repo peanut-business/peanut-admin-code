@@ -210,6 +210,7 @@ def dispose_failed_prepare(root, admission):
     state_path = root / '.peanut/upgrades/product-state' / (candidate + '.json')
     plan = protected(plan_path); state = protected(state_path)
     if sha(plan_path) != approved['plan_file_sha256'] or sha(state_path) != approved['state_sha256'] \
+        or approved.get('runtime_sha256') != plan.get('runtime_sha256') \
         or plan.get('protocol') != 'peanut.product-upgrade-plan.v2' or plan.get('scope') != 'server' \
         or plan.get('instance_root') != str(root) or plan.get('state_path') != str(state_path) \
         or plan.get('candidate') != candidate or state.get('candidate') != candidate \
@@ -219,8 +220,12 @@ def dispose_failed_prepare(root, admission):
         or state.get('database_recovery_required') is not False or state.get('migration_completed') is not False \
         or state.get('activation_started') is not False or state.get('evidence') != []:
         raise ValueError('failure does not match the precise planned prepare intent')
+    for data, key in ((plan, 'plan_sha256'), (state, 'state_sha256')):
+        unsigned = dict(data); digest = unsigned.pop(key, None)
+        expected_digest = 'sha256:' + hashlib.sha256(json.dumps(unsigned, sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()).hexdigest()
+        if digest != expected_digest: raise ValueError('native plan or state canonical digest changed')
     workspace = absolute(Path(plan['workspace'])); trusted = workspace / 'trusted'
-    rows = document(trusted / 'manifest.json')
+    rows = protected(trusted / 'manifest.json')
     excluded = {'scripts/upgrade', 'scripts/scaffold-runtime/ScaffoldPathGuard.php',
                 'server/docker/scripts/update.sh', 'server/composer.json', 'server/composer.lock'}
     expected = {name: metadata['files'][name]['sha256'] for name in metadata['runtime_files'] if name not in excluded}

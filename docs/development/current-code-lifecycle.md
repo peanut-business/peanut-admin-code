@@ -37,7 +37,7 @@ PEANUT_UPGRADE_PHP="$PHP" /new/tooling-adoption/tools/server/docker/scripts/upda
 
 此入口只处理已审固定 `11a327d5`、维护 manifest `beb909dd9563118a810ef454d8438aa9293511903558e00bd96f5fc394ff4ce6` 的确定性重复类声明：selected helper 先加载，写 prepare intent 后加载其同字节 trusted 副本，在 host dispatch 之前 PHP fatal。它不处理任意 fatal、超时或 UNKNOWN，不清理或改写旧 plan/state/trusted/journal，也不将失败冒充恢复。
 
-执行 owner 须提供经审阅的 canonical mode-0600 admission JSON，协议 `peanut.pre-host-prepare-failure-admission.v1`，字段为 `instance_root`、`candidate`、`tooling_receipt`、原 `plan_file_sha256`、原失败 `state_sha256`、`stdout` 绝对路径及 `stdout_sha256`、`exit_code:255`、原安装/保护配置 `source` 摘要字典，以及实际 apply 前的 `runtime_before`。后者按 php/nginx/mysql（registered 则 php/nginx）记录 Docker 完整 `id`、`image`、`started_at`、`running:true`；不能把失败后的观察冒充先前记录。stdout 原件本身也须 owner 持有、0600。原安装 prestate 来自当次 active tooling receipt，并与本次批准材料、当前实例一致。
+执行 owner 须提供经审阅的 canonical mode-0600 admission JSON，协议 `peanut.pre-host-prepare-failure-admission.v1`，字段为 `instance_root`、`candidate`、`tooling_receipt`、原 `plan_file_sha256`、原失败 `state_sha256`、`runtime_sha256`、`stdout` 绝对路径及 `stdout_sha256`、`exit_code:255`、原安装/保护配置 `source` 摘要字典，以及实际 apply 前的 `runtime_before`。后者按 php/nginx/mysql（registered 则 php/nginx）记录 Docker 完整 `id`、`image`、`started_at`、`running:true`；不能把失败后的观察冒充先前记录。stdout 原件本身也须 owner 持有、0600。原安装 prestate 来自当次 active tooling receipt，并与本次批准材料、当前实例一致。
 
 ```sh
 "$PHP" /verified/new-maintenance-tools/scripts/upgrade tooling-dispose-failed-prepare \
