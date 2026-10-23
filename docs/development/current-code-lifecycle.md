@@ -161,6 +161,12 @@ app/event.php保留AppInit、HttpRun、HttpEnd、LogLevel和LogWrite项，但默
 
 开发联调明确选择本地 PHP/Web Core：PHP 使用真实 Composer path link，普通 PHP 源码修改直接由开发消费者读取，不以逐次提交、固定包、发布或重新封装 development-runtime 为前提；依赖声明、路径或配置合同变化才刷新相应原生依赖/服务登记。Web Core 保留 dist 导出，由显式本地 Core 模式的标准开发入口托管原生 TypeScript watch。开发链接与候选、正式 APP 的固定依赖分别使用，不把维护者目录或活链接放进交付 APP。
 
+维护者首次在无消费者、所选 Core 无编译写者的窗口执行 `scripts/core-dev select --php-core-dir /absolute/php-core --web-core-dir /absolute/web-core --backend-env /absolute/server/.env`，再执行 `scripts/core-dev install`。选择保存在当前工程忽略的 `.local/core-dev.json`，不含凭据；绝对路径由维护者明确指定，不推断相邻仓或私有 Project。`select` 只保存选择，`install` 才通过原生 Composer path 和现有 Web 链接入口激活依赖，初次生成 Web dist；两步均不连接或迁移数据库。`scripts/core-dev status` 核实际链接。切换 Core 或刷新依赖前重新核运行消费者和 Core 写者，不能替换在途候选现场。
+
+选择生效后，现有 PHP 开发启动入口校验真实 path link；PHP 普通源码无需重新安装。OPcache、常驻 worker 或已加载类仍须由其 owner 按原运行合同刷新/重启，脚本不替别人重启服务。在 `pc/` 运行 `npm run dev`、在 `uniapp/` 运行 `npm run dev:h5` 以及 UniApp 其他 `dev:*` 脚本读取同一选择，托管客户端实际依赖闭包的原生 Core watch，随该前台命令退出；标准命令不逐次 pack 或全仓 build。多个客户端依赖同一 Core 包时只允许一个编译写者，入口以所选 Core 的 `.local/client-watch/<package>/owner.json` 标明前台 owner，冲突明确停止。异常强杀留下记录时先核 PID、实际进程和 Core 路径，由原 owner 确认空闲后清理该记录，不把别人的编译器停掉。
+
+未保存选择的普通下游与生成 APP 继续使用自己的固定依赖；无效选择或缺链接明确报错。开发入口不修改 tracked 依赖声明和锁。日常可变源码联调不构成候选资格：阶段候选通过冻结合同生成 PHP ZIP、Web 六个 TGZ，并由同格式模板 TGZ 创建 APP，按候选原生 Composer/npm 锁安装到 APP 自身 `vendor`/`node_modules`，必须拒绝维护者源码链接；正式交付再核适用公开包的最终内容、来源及原生正式锁。
+
 客户 APP 制包绑定干净的已提交 Git commit/tree，并按 Git blob 校验当前发行源码；合法客户修改和新增文件不要求重写 `.peanut/application-manifest.json` 的上游采用摘要。该清单的归属及原受管 baseline 路径、摘要仍需严格校验并保持不变，供后续冲突检测使用。初始 generated-template 没有独立 APP Git 身份，仍须逐文件符合生成清单，不接受生成后修改。
 
 维护应用源码可直接在当前工程开发。内部 `create-app` 按干净源码的实际 commit、tree、inventory 和形态生成独立应用，记录 `.peanut/application-manifest.json` 及受管基线。`generation_source` 记录仓库、请求的 ref、`development`／`prerelease`／`stable` 渠道和正式发行版本（开发来源为 `null`）；`template.version` 是升级兼容与 baseline 版本，不能替代实际源码身份。开发默认使用当前模板；显式候选采用上述固定产物消费者，不能借同号历史发行清单把自己的来源标成已发行。公开来源仍须核既有固定发行锁、仓内封存路径与清单，公开候选 commit/tree 和清单封存的 scaffold commit/tree 分别保留。生成应用的根 AGENTS.md 来自专用公开模板，不复制维护者入口。生成器不复制 Git 历史、私有维护资料、秘密或已安装依赖，也不改变 Core 包和许可证身份。创建工程、首次安装数据库、创建租户是三件事。取得完整产品发行包的使用者按包内说明装依赖和安装，不必先运行维护者生成器。

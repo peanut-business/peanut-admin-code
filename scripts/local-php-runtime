@@ -66,6 +66,9 @@ show_failure() {
 }
 
 start_runtime() {
+    if [ -e "$repo_dir/.local/core-dev.json" ] || [ -L "$repo_dir/.local/core-dev.json" ]; then
+        "$repo_dir/scripts/core-dev" php-status || die 'selected daily PHP Core is not linked; run core-dev install in an idle dependency window'
+    fi
     [ -x "$php_bin" ] || die "registered PHP is unavailable: $php_bin"
     [ -x "$composer_bin" ] || die "registered Composer is unavailable: $composer_bin"
     [ -f "$env_file" ] || die "local environment is missing: $env_file"

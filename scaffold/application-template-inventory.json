@@ -906,7 +906,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "81eb6e1b482e10389f4bb2b9012ef8b10e4836fb0d754b5a877f4d5c79f6f31c"
+            "source_sha256": "05277b7b9e5aec23d7f4dd6640afee8139175ee98649b0c29ca8e2540761f3be"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -989,7 +989,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0851c5024b5cd36f209bb487d5beb5c78b4ee84e7e830b20f05317d43af7b4cb"
+            "source_sha256": "5992c342810ee55b3d7721a9346a8951b1340616aa0d2bc4390cf00c1114c948"
         },
         {
             "path": "docs/maintenance/README.md",
@@ -3374,7 +3374,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1046e02496addbc59e41b1c59a680d0308bffd4deb455e40a6061143a5c94ad1"
+            "source_sha256": "beb830461e0128b207da89adddc7d2f36d6a913b608a4deccc7475127680ad45"
         },
         {
             "path": "scripts/core-qualification-runner",
@@ -3522,7 +3522,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d5d89f63f72b73c41f9e798bdbbac8fcfd9649dea3e9594f053e8c96baf33d16"
+            "source_sha256": "ff0930b125ece97159092354dae38c8c27773a2574edd1afc777e26606852b7c"
         },
         {
             "path": "scripts/local-core-composer",
@@ -3550,7 +3550,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "09970a0a0d4e061747011d655d8dbaaadb12b9e4ff9cc28647847dd3759d20bf"
+            "source_sha256": "11460dbd212d3a3d39af3b7d15d5e9609fbaae57d11e73caf145ee5ea2708603"
         },
         {
             "path": "scripts/local-environment-probe",
@@ -34266,7 +34266,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "977eac98436a781427d571fa694ed4b2429196f1ec131968c49a4bbb4684d9e9"
+            "source_sha256": "9dd12c2aab1178ec76e4f3258abb117ffa00e25e106fa178499367d4ead0c26b"
         },
         {
             "path": "uniapp/packages/pages/404/404.vue",

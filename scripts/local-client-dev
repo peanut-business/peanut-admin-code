@@ -25,6 +25,11 @@ done
 read_env() { awk -F= -v name="$1" '$1 == name { sub(/^[^=]*=/, ""); print; exit }' "$env_file"; }
 php_port=$(read_env PHP_PORT)
 [ -n "$php_port" ] || { printf '%s\n' 'PHP_PORT is missing from the client environment' >&2; exit 1; }
+if [ -z "$core_web_dir" ] && { [ -e "$repo_dir/.local/core-dev.json" ] || [ -L "$repo_dir/.local/core-dev.json" ]; }; then
+    case "$component" in
+        web|platform|pc|mobile) core_web_dir=$("$repo_dir/scripts/core-dev" web-path) ;;
+    esac
+fi
 if [ -n "$core_web_dir" ]; then
     case "$component" in
         web|platform|pc) core_client=$component ;;
@@ -38,7 +43,7 @@ clean_exec() {
     if [ -n "$core_web_dir" ]; then
         env -i PATH="$PATH" HOME="$HOME" PEANUT_CLIENT_ENV_FILE="$env_file" \
             node --input-type=module -e '
-import { existsSync, readFileSync, readdirSync, realpathSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
 
@@ -47,6 +52,9 @@ const readJson = (path) => JSON.parse(readFileSync(path, "utf8"));
 const workspace = readJson(join(core, "package.json"));
 if (workspace.name !== "@peanut-admin/web-workspace") {
     throw new Error("Selected Core workspace identity is invalid");
+}
+if (!existsSync(join(core, "node_modules", "typescript", "bin", "tsc"))) {
+    throw new Error("Selected Core compiler is missing; install its frozen workspace dependencies in an idle window before starting dev");
 }
 const packages = new Map();
 for (const entry of readdirSync(join(core, "packages"), { withFileTypes: true })) {
@@ -81,6 +89,24 @@ function select(name) {
     selected.push({ name, root });
 }
 direct.forEach(select);
+
+// A package output has one foreground compiler owner, even across clients.
+const locks = [];
+function releaseLocks() {
+    for (const lock of locks.splice(0)) rmSync(lock, { recursive: true });
+}
+process.on("exit", releaseLocks);
+mkdirSync(join(core, ".local", "client-watch"), { recursive: true });
+for (const { name } of selected) {
+    const lock = join(core, ".local", "client-watch", name.split("/")[1]);
+    try { mkdirSync(lock); }
+    catch (error) {
+        if (error.code !== "EEXIST") throw error;
+        throw new Error(`Core watch already owned: ${name}; inspect ${lock}/owner.json and wait for that dev command to finish. Do not start a second compiler.`);
+    }
+    locks.push(lock);
+    writeFileSync(join(lock, "owner.json"), JSON.stringify({ pid: process.pid, repository, client }) + "\n");
+}
 
 // These process groups belong to this foreground dev command only.
 const groups = new Set();
