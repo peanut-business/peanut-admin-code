@@ -3738,7 +3738,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8f1665f0e4e03dfe2e2adac46b1cb3b9b45403e6304634a5ca096411f6bdb69a"
+            "source_sha256": "4b8f6deec261d04b4ab7b50297b0772dd02752512cfee0229b99a1d7455b2789"
         },
         {
             "path": "scripts/package-scaffold-template.py",
@@ -3875,7 +3875,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "282e5b05addc87fbcbbf642fbb7a83d8875f40ce5c7b806a73c59911d54d0681"
+            "source_sha256": "3b685e2d42985686c3c2c3b6a2cb97e4085d49db946f7ad5b359f6446705ef5a"
         },
         {
             "path": "scripts/project-resource-lease",
@@ -3889,7 +3889,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "041bef95a320e10e92dd68a7dff3aa498a8b2fad1eb74131601a1749535f2e33"
+            "source_sha256": "f2bf04da83295a0197b1c3f68e174bea155ed9f9847a106295641426da291f04"
         },
         {
             "path": "scripts/project-resource-mysql-metadata",

@@ -118,8 +118,10 @@ work=""
 package_completed=0
 cleanup() {
   local status=$?
+  trap - EXIT
   # A signal/early exit is never success merely because the previous command
   # returned zero. Only the end-of-pipeline marker permits cleanup.
+  if [[ "$status" == 0 && "$package_completed" != 1 ]]; then status=1; fi
   rmdir -- "$lock_dir" || { if [[ "$status" == 0 ]]; then status=1; fi; }
   if [[ "$INTERNAL_CANDIDATE" == 1 && -n "$work" && ( "$status" != 0 || "$package_completed" != 1 ) ]]; then
     # mktemp created this directory as 0700. Retain the real snapshot/build,
@@ -132,7 +134,7 @@ cleanup() {
   else
     [[ -z "$work" ]] || rm -rf -- "$work"
   fi
-  return "$status"
+  exit "$status"
 }
 trap cleanup EXIT
 trap 'exit 130' INT
@@ -156,7 +158,7 @@ if [[ "$INTERNAL_CANDIDATE" == 1 ]]; then
   dependency_option+=(--internal-candidate)
 fi
 if [[ "$SERVER_ONLY" == 1 ]]; then template_option+=(--server-only); fi
-python3 "$SCRIPT_DIR/package-release-files.py" snapshot --application-root "$APPLICATION_ROOT" --target "$build" "${template_option[@]}"
+python3 "$SCRIPT_DIR/package-release-files.py" snapshot --application-root "$APPLICATION_ROOT" --target "$build" ${template_option[@]+"${template_option[@]}"}
 # Frozen native installs prove availability and lock consistency. No installation
 # scripts touch the original checkout, runtime secrets or application database.
 "$build/scripts/project-composer" prepare
@@ -168,10 +170,10 @@ python3 "$SCRIPT_DIR/package-release-files.py" snapshot --application-root "$APP
 "$build/scripts/project-composer" install --working-dir="$build/server" --no-scripts --no-interaction --no-progress --prefer-dist
 install_option=()
 if [[ "$INTERNAL_CANDIDATE" == 1 ]]; then install_option+=(--ignore-scripts); fi
-HUSKY=0 pnpm --dir "$build/web" install --frozen-lockfile "${install_option[@]}"
-for client in platform pc uniapp; do HUSKY=0 npm --prefix "$build/$client" ci "${install_option[@]}"; done
+HUSKY=0 pnpm --dir "$build/web" install --frozen-lockfile ${install_option[@]+"${install_option[@]}"}
+for client in platform pc uniapp; do HUSKY=0 npm --prefix "$build/$client" ci ${install_option[@]+"${install_option[@]}"}; done
 # 原生安装完成后，核对实际锁与已安装包，不只检查包名里的版本字符串。
-node "$SCRIPT_DIR/release-dependency-locks.mjs" "$build" --installed "${dependency_option[@]}" > "$work/dependency-proof.json"
+node "$SCRIPT_DIR/release-dependency-locks.mjs" "$build" --installed ${dependency_option[@]+"${dependency_option[@]}"} > "$work/dependency-proof.json"
 edition="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["application"]["edition"])' "$build/.peanut/application-manifest.json")"
 case "$edition" in standalone|multi-tenant) ;; *) die 'unknown generated application edition' ;; esac
 (cd "$build/web" && PEANUT_CLIENT_ENV_FILE="$build/web/.env.$edition" pnpm run build)
@@ -183,13 +185,13 @@ PEANUT_CLIENT_ENV_FILE="$work/pc-spa.env" npm --prefix "$build/pc" run generate
 npm --prefix "$build/uniapp" run build:h5
 # Recheck all source bytes after native install/build; reject unrecorded source
 # mutations rather than silently altering the existing upgrade baseline.
-python3 "$SCRIPT_DIR/package-release-files.py" assemble --application-root "$APPLICATION_ROOT" --build-root "$build" --target "$stage" "${template_option[@]}"
+python3 "$SCRIPT_DIR/package-release-files.py" assemble --application-root "$APPLICATION_ROOT" --build-root "$build" --target "$stage" ${template_option[@]+"${template_option[@]}"}
 if [[ "$INTERNAL_CANDIDATE" == 1 ]]; then
   # Proof belongs to this isolated native install; no dependency directory is shipped.
   cp "$work/dependency-proof.json" "$work/dependency-proof-output.json"
 fi
 if [[ -n "$SERVER_OUTPUT" ]]; then
-  python3 "$SCRIPT_DIR/package-release-files.py" assemble --application-root "$APPLICATION_ROOT" --build-root "$build" --target "$server_stage" "${template_option[@]}" --server-only
+  python3 "$SCRIPT_DIR/package-release-files.py" assemble --application-root "$APPLICATION_ROOT" --build-root "$build" --target "$server_stage" ${template_option[@]+"${template_option[@]}"} --server-only
 fi
 if [[ "$DIRECTORY_ONLY" != 1 ]]; then
   # Reuse the project's deterministic archive writer, not a new archive format.
