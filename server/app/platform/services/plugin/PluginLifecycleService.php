@@ -55,6 +55,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         FileMigrationPreservation::VISIBILITY_REPAIR => [FileMigrationPreservation::VISIBILITY_REPAIR_SHA, FileMigrationPreservation::class,
             ['official.file:20261021060100_file_visibility_batches', 'official.file:20261021060200_file_visibility_object_state']],
         'peanut.artifact-revision:20260921-register-module-schema' => ['fe70a60a35892fc6352764a4ee8eb065ca8a19e067ab99ccb91c79c21ce95e39', \PeanutAdmin\Modules\ArtifactRevision\Database\ArtifactRevisionMigrationPreservation::class, []],
+        'official.integration:20260921010000_adopt_official_integration_schema' => ['bc94d9e65a0c8ac1686b00496ea98c4d96eeee1f5677d21f52540605ab641f95', \PeanutAdmin\Modules\Integration\Contract\IntegrationMigrationPreservation::class, []],
         'fixture.workflow-business:20261012050100_workflow_business' => ['34c60bca6ac1dd7bdb31a77be9a137ae99f7de8b863e9d309f4f7075d094a99c', \PeanutAdmin\Fixtures\WorkflowBusiness\Database\WorkflowBusinessMigrationPreservation::class, []],
         'fixture.workflow-business:20261012050200_workflow_collaboration' => ['fd9e10722653314d2fdfd28bd9bbafd969a4e00eaec64a6c970053a259d04399', \PeanutAdmin\Fixtures\WorkflowBusiness\Database\WorkflowBusinessMigrationPreservation::class,
             ['fixture.workflow-business:20261012050100_workflow_business']],
@@ -639,7 +640,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                             'checksum' => $checksum, 'stageLedger' => $stageLedger];
                         $stageBefore = $stageContract[1] === FileMigrationPreservation::class
                             ? app()->make(FileMigrationPreservation::class)->stageBefore($pdo, $stage)
-                            : ($migrationKey === 'peanut.artifact-revision:20260921-register-module-schema'
+                            : (in_array($migrationKey, ['peanut.artifact-revision:20260921-register-module-schema', 'official.integration:20260921010000_adopt_official_integration_schema'], true)
                             ? self::withMigrationParentFacts($pdo, $migrationKey, $checksum, 'before',
                                 static fn(array $facts): array => $stageContract[1]::before($pdo, $stage, $facts),
                             )
@@ -717,7 +718,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                                 }
                                 $observed = $stageContract[1] === FileMigrationPreservation::class
                                     ? app()->make(FileMigrationPreservation::class)->stageAfter($pdo, $stageBefore)
-                                    : ($migrationKey === 'peanut.artifact-revision:20260921-register-module-schema'
+                                    : (in_array($migrationKey, ['peanut.artifact-revision:20260921-register-module-schema', 'official.integration:20260921010000_adopt_official_integration_schema'], true)
                                     ? self::withMigrationParentFacts($pdo, $migrationKey, $checksum, 'after',
                                         static fn(array $facts): array => $stageContract[1]::after($pdo, $stageBefore, $facts),
                                     )
@@ -1339,13 +1340,14 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         $frame =& self::migrationParentFrame();
         if ($frame !== null || !in_array($phase, ['before', 'after'], true)
             || (self::MEMBER_STAGES[$key] ?? self::IMPORT_EXPORT_STAGES[$key]
-                ?? ($key === 'peanut.artifact-revision:20260921-register-module-schema' ? self::PRESERVATION_STAGES[$key][0] : null)) !== $sha) {
+                ?? (in_array($key, ['peanut.artifact-revision:20260921-register-module-schema', 'official.integration:20260921010000_adopt_official_integration_schema'], true) ? self::PRESERVATION_STAGES[$key][0] : null)) !== $sha) {
             throw new PluginLifecycleException('MODULE_MIGRATION_PARENT_FACTS_INVALID', 'Only the fixed native parent profiles are admitted.');
         }
         $relative = match ($key) {
             'official.member:20260921-create-member-session' => 'app/modules/official/member/database/migrations/20260921-create-member-session.sql',
             'official.import-export:20260921-adopt-import-export-schema' => 'app/modules/official/import_export/database/migrations/20260921-adopt-import-export-schema.sql',
             'peanut.artifact-revision:20260921-register-module-schema' => 'app/modules/peanut/artifact_revision/database/migrations/20260921-register-module-schema.sql',
+            'official.integration:20260921010000_adopt_official_integration_schema' => 'app/modules/official/integration/database/migrations/20260921010000_adopt_official_integration_schema.sql',
         };
         $root = realpath(root_path());
         $binding = ['pdo' => $pdo, 'connection' => Db::connect(),
@@ -1357,7 +1359,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         // Each phase performs its own observation on the held native PDO, including after the whole SQL.
         $facts = match (true) {
             isset(self::MEMBER_STAGES[$key]) => ['tenant_name' => 'pa_tenant', 'tenant' => self::memberTenantParent($pdo)],
-            $key === 'peanut.artifact-revision:20260921-register-module-schema' => ['parents' => [
+            in_array($key, ['peanut.artifact-revision:20260921-register-module-schema', 'official.integration:20260921010000_adopt_official_integration_schema'], true) => ['parents' => [
                 'tenant' => \app\common\services\upgrade\MySqlMetadataObservation::tableSchema($pdo, 'pa_tenant'),
                 'tenant_member' => \app\common\services\upgrade\MySqlMetadataObservation::tableSchema($pdo, 'pa_tenant_member'),
             ]],
