@@ -44,7 +44,7 @@ final class ApplicationMigrationRunner
      * @param null|callable(PDO,array,?array):void $afterMigration Receives those bounds before the sole applied write.
      * @return array{status:string,target_version:string,applied:list<string>,pending:list<string>}
      */
-    public function run(array $files, string $targetVersion, string $defaultReleaseVersion, bool $dryRun = false, ?callable $beforeMigration = null, ?callable $beforeUnlock = null, ?callable $afterMigration = null): array
+    public function run(array $files, string $targetVersion, string $defaultReleaseVersion, bool $dryRun = false, ?callable $beforeMigration = null, ?callable $beforeUnlock = null, ?callable $afterMigration = null, ?callable $admitRolledBackFailure = null): array
     {
         $files = self::effectiveFiles($files);
         $pdo = $this->connection();
@@ -71,7 +71,7 @@ final class ApplicationMigrationRunner
             if ($baselineSelection['baseline'] !== null) { $identities[] = $baselineSelection['baseline']['key']; }
             if ($supersession !== null) { $identities[] = self::PROVENANCE_ORIGINAL; }
             (new PeanutMigrationAdapter($pdo, null))->assertSourceIdentities($identities);
-            $pending = $this->pending($pdo, $files, $targetVersion, $defaultReleaseVersion);
+            $pending = $this->pending($pdo, $files, $targetVersion, $defaultReleaseVersion, $admitRolledBackFailure);
             $selected = $baselineSelection['baseline'] === null ? [] : [$baselineSelection['baseline']['key']];
             foreach ($files as $file) {
                 $identity = self::releaseIdentity((string) file_get_contents($file), $defaultReleaseVersion);
@@ -297,7 +297,7 @@ final class ApplicationMigrationRunner
      * @param list<string> $files
      * @return list<array{id:string,file:string,sql:string,checksum:string,release_version:string,status:?string}>
      */
-    private function pending(PDO $pdo, array $files, string $targetVersion, string $defaultReleaseVersion): array
+    private function pending(PDO $pdo, array $files, string $targetVersion, string $defaultReleaseVersion, ?callable $admitRolledBackFailure = null): array
     {
         $version = '/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/D';
         if (preg_match($version, $targetVersion) !== 1
@@ -325,7 +325,7 @@ final class ApplicationMigrationRunner
             if ($identity['peanut_release'] && version_compare($identity['release_version'], $targetVersion, '>')) {
                 continue;
             }
-            $statement = $pdo->prepare('SELECT checksum,status FROM pa_schema_migration WHERE migration_id = ?');
+            $statement = $pdo->prepare('SELECT * FROM pa_schema_migration WHERE migration_id = ?');
             $statement->execute([$id]);
             $row = $statement->fetch(PDO::FETCH_ASSOC);
             if (is_array($row)) {
@@ -335,13 +335,13 @@ final class ApplicationMigrationRunner
                 if ($row['status'] === 'applied') {
                     continue;
                 }
-                if ($row['status'] === 'failed') {
+                if ($row['status'] === 'failed' && ($admitRolledBackFailure === null || $admitRolledBackFailure($pdo, $id, $row) !== true)) {
                     throw new RuntimeException('MIGRATION_PREVIOUSLY_FAILED: ' . $id);
                 }
                 if ($row['status'] === 'applying') {
                     throw new RuntimeException('MIGRATION_INCOMPLETE: ' . $id);
                 }
-                throw new RuntimeException('MIGRATION_STATUS_UNKNOWN: ' . $id);
+                if ($row['status'] !== 'failed') { throw new RuntimeException('MIGRATION_STATUS_UNKNOWN: ' . $id); }
             }
             $pending[] = [
                 'id' => $id,

@@ -68,6 +68,7 @@ final class DevelopmentTenantSites extends ModuleContextualCommand
             }
             $sql = $server . '/database/maintenance/20261024-development-admin-credentials.sql';
             $sources = ['server/app/command/DevelopmentTenantSites.php' => hash_file('sha256', __FILE__),
+                'server/app/common/services/upgrade/ApplicationMigrationRunner.php' => hash_file('sha256', $server . '/app/common/services/upgrade/ApplicationMigrationRunner.php'),
                 'server/config/console.php' => hash_file('sha256', $server . '/config/console.php'),
                 'server/database/maintenance/20261024-development-admin-credentials.sql' => hash_file('sha256', $sql)];
             $review = json_decode(self::privateFile((string) ($plan['review_receipt'] ?? '')), true, 64, JSON_THROW_ON_ERROR);
@@ -153,7 +154,10 @@ final class DevelopmentTenantSites extends ModuleContextualCommand
                 static function (PDO $connection) use ($snapshot, $vars, $guard): void {
                     $guard();
                     if (self::snapshot($connection) !== $snapshot) { throw new RuntimeException('DEVELOPMENT_SITES_PRESTATE_CHANGED'); }
-                    foreach ($vars as $key => $value) { $connection->prepare('SET @maintenance_' . $key . '=?')->execute([$value]); }
+                    foreach ($vars as $key => $value) {
+                        $expression = is_string($value) ? 'CONVERT(? USING utf8mb4) COLLATE utf8mb4_0900_ai_ci' : '?';
+                        $connection->prepare('SET @maintenance_' . $key . '=' . $expression)->execute([$value]);
+                    }
                 }, null,
                 static function (PDO $connection) use ($password, $hasher, $snapshot, $guard): void {
                     $guard();
@@ -163,6 +167,21 @@ final class DevelopmentTenantSites extends ModuleContextualCommand
                         || (int) $row['revision'] !== $snapshot['credential']['revision'] + 1 || $revision !== $snapshot['account']['security_revision'] + 1) {
                         throw new RuntimeException('DEVELOPMENT_SITES_CREDENTIAL_POSTSTATE_INVALID');
                     }
+                },
+                static function (PDO $connection, string $id, array $row) use ($plan, $snapshot, $guard, $writeStage): bool {
+                    $guard();
+                    $recovery = json_decode(self::privateFile((string) ($plan['rolled_back_failure_receipt'] ?? '')), true, 64, JSON_THROW_ON_ERROR);
+                    if (($plan['rolled_back_failure_sha256'] ?? null) !== hash_file('sha256', $plan['rolled_back_failure_receipt'])
+                        || $id !== '20261024-development-admin-credentials' || ($recovery['failed_row'] ?? null) !== $row
+                        || ($recovery['snapshot'] ?? null) !== $snapshot || self::snapshot($connection) !== $snapshot
+                        || !str_starts_with((string) $row['error_code'], 'SQLSTATE[HY000]: General error: 1267 Illegal mix of collations')
+                        || $row['checksum'] !== hash_file('sha256', dirname(__DIR__, 2) . '/database/maintenance/' . $id . '.sql')
+                        || ($recovery['attempt_sha256'] ?? null) !== hash_file('sha256', (string) ($recovery['attempt_file'] ?? ''))
+                        || (int) $connection->query("SELECT COUNT(*) FROM pa_auth_security_event WHERE request_id='development-sites-20261024'")->fetchColumn() !== 0) {
+                        throw new RuntimeException('DEVELOPMENT_SITES_FAILED_RECOVERY_NOT_PROVEN');
+                    }
+                    $writeStage('failed_history_preserved', ['receipt_sha256' => $plan['rolled_back_failure_sha256'], 'failed_row' => $row]);
+                    return true;
                 });
             $stage = 'credentials_applied'; $writeStage($stage, $migration);
             $guard();

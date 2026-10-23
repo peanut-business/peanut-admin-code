@@ -6799,7 +6799,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "22706ed2d25bbaac87a0a77caebe25b4e433ff713ad90de73e4e4b364fa07a35"
+            "source_sha256": "57313be090a3ad93b7ff34184706e4e9f520aa6caa1d2eaf05dc7fbd387f7dfe"
         },
         {
             "path": "server/app/command/GeneratorCleanup.php",
@@ -9465,7 +9465,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a0a10d34e48b2d54311e60a82999bd4e8963049a19b583f4ea906903d5ea1848"
+            "source_sha256": "4e4ea616b8f7944a565c50b05ce17ea44108663ff8e804cfa4e2ff9846e6c31c"
         },
         {
             "path": "server/app/common/services/upgrade/ApplicationSchemaHost.php",
