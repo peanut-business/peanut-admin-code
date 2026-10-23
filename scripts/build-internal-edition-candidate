@@ -5,6 +5,7 @@ declare(strict_types=1);
 
 use app\common\infrastructure\scaffold\ApplicationCreator;
 use app\common\infrastructure\scaffold\DeterministicEditionArchive;
+use app\common\infrastructure\scaffold\ReleaseDependencyIdentity;
 use app\common\value\scaffold\VersionContract;
 
 function internalCandidateUsage(): never
@@ -313,10 +314,14 @@ function internalCandidateProjectWeb(string $application, array $core, string $r
     $lockTool = $toolRoot . '/scripts/release-dependency-locks.mjs';
     $before = json_decode(internalCandidateRun(['node', $lockTool, $application, '--third-party-only', '--tool-root=' . $toolRoot]), true, 512, JSON_THROW_ON_ERROR);
     $packages = [];
+    $webVersion = $web['packages']['@peanut-admin/client']['version'] ?? null;
+    if (!ReleaseDependencyIdentity::fixed($webVersion)) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_WEB_INPUTS_INVALID');
+    }
     foreach ($web['packages'] as $name => $identity) {
         $suffix = substr($name, strlen('@peanut-admin/'));
         $path = $identity['archive'] ?? '';
-        if (($identity['version'] ?? null) !== $core['inputs']['core_php']['resolved_version']
+        if (($identity['version'] ?? null) !== $webVersion
             || $path !== 'packages/core-web/peanut-admin-' . $suffix . '-' . $identity['version'] . '.tgz') {
             throw new RuntimeException('INTERNAL_CANDIDATE_WEB_ARCHIVE_IDENTITY_INVALID');
         }
@@ -409,9 +414,6 @@ function internalCandidateProjectScaffold(string $application, array $core, stri
         throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_VERSION_INVALID');
     }
     $coreIdentity = $core['inputs']['core_php'];
-    if (($coreIdentity['source_reference'] ?? null) === ($originalPhp['source_reference'] ?? null)) {
-        throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_PROJECTION_REDUNDANT');
-    }
     $versions['core_php']['constraint'] = $coreIdentity['resolved_version'];
     $versions['core_php']['resolved_version'] = $coreIdentity['resolved_version'];
     $versions['core_php']['source_reference'] = $coreIdentity['source_reference'];

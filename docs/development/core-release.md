@@ -1,6 +1,6 @@
 # Core 独立发行：`main` tag 自动触发
 
-本文是 PHP Core 与 Web Core 的维护者发行入口。它只处理核心库；后续产品发行在确认目标 Core 固定版本确实可从公共渠道取得后，另行更新产品锁、制包和验收。源码进入 `main` 是发行前的独立集成工作；实际触发发行时只推送 tag。版本、`main`、tag 与发行均须有该次任务的明确授权，本文不代替授权或产品资格。
+本文是 PHP Core 与 Web Core 的维护者发行入口。脚手架与两个Core独立版本；开发先按[冻结合同](../maintenance/release-producers.md#冻结内部候选)验证固定来源和摘要的本地Core组合。正式产品交付前确认各Core固定版本从公共渠道可取，核最终包内容/来源并生成正式原生锁，再完成受影响资格。源码进入 `main` 是发行前的独立集成工作；实际触发发行时只推送 tag。版本、`main`、tag 与发行均须有该次任务的明确授权，本文不代替授权或产品资格。
 
 ## 本次验证结果与适用范围
 
@@ -67,7 +67,7 @@ Web 六包发行不是原子事务。若任务失败，先读该 Action 的失�
 
 ### Core 到产品候选的交接
 
-先核实两个 Core 的注释 tag、精确来源、成功发行 Action、公共包及 GitHub Release。在独立 Code worktree 使用 `scripts/prepare-product-release-candidate`，显式指定 `--version`、`--core-php-version`、`--core-php-reference`、`--core-web-version` 和 `--core-web-reference`；三处版本必须一致。该原生入口更新十二个 manifest、lock 和发行元数据，正式稳定版渠道由目标版本派生；正常生成 Composer/npm/pnpm 锁，不替换 vendor 或伪造同版来源。
+先核实两个 Core 的注释 tag、精确来源、成功发行 Action、公共包及 GitHub Release。在独立 Code worktree 使用 `scripts/prepare-product-release-candidate`，显式指定 `--version`、`--core-php-version`、`--core-php-reference`、`--core-web-version` 和 `--core-web-reference`；三个版本分别固定，无相等要求，Web六包仍同号。该入口只准备正式公开依赖组合，开发候选使用冻结合同，不以本入口的公共渠道门禁阻塞本地组合。该原生入口更新十二个 manifest、lock 和发行元数据，正式稳定版渠道由目标版本派生；正常生成 Composer/npm/pnpm 锁，不替换 vendor 或伪造来源。
 
 候选已声明同一目标版本、但仍为 `pending` 且没有封存提交、树、运行、摘要、已通过组或清理结果时，可正常补齐其公开 Core 锁。已有资格或固定模板产物仍拒绝覆盖；准备失败恢复本次十二个输入的原字节。成功准备也只产生 pending，不授予产品发行资格。
 

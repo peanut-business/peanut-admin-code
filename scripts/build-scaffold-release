@@ -355,7 +355,15 @@ try {
         releaseWrite($manifestPath, $json, 0644);
         echo "wrote {$manifestPath} with " . count($files) . " managed files\n";
     }
-    if ($edition !== null && $internalProjection === null) {
+    if ($edition !== null) {
+        if ($internalProjection !== null) {
+            $manifest['scaffold_candidate'] = [
+                'manifest_sha256' => hash('sha256', $json),
+                'core_inputs_sha256' => $internalProjection['core_inputs_sha256'],
+                'formal_release_eligible' => false,
+            ];
+            internalCandidateWriteJson($application . '/.peanut/application-manifest.json', $manifest);
+        }
         // The same native projection produces creation defaults and upgrade bytes.
         $packageCommand = ['python3', $root . '/scripts/package-scaffold-template.py',
             '--application', $application, '--output', rtrim($options['output'], '/'), '--tooling-source', $source . '/server'];
