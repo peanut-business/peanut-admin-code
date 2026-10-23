@@ -22,7 +22,7 @@ if (str_starts_with($argv[1] ?? '', 'tooling-')) {
         exit(0);
     }
     $operation = substr($argv[1], strlen('tooling-'));
-    if (!in_array($operation, ['pack', 'observe', 'adopt', 'recover', 'dispose-failed-prepare'], true)) { throw new RuntimeException('PRODUCT_TOOLING_OPERATION_INVALID'); }
+    if (!in_array($operation, ['pack', 'observe', 'adopt', 'recover', 'dispose-failed-prepare', 'retire-unpublished'], true)) { throw new RuntimeException('PRODUCT_TOOLING_OPERATION_INVALID'); }
     $process = proc_open(['python3', $toolRoot . '/server/docker/scripts/update-tooling.py', $operation, '--php=' . PHP_BINARY, ...array_slice($argv, 2)],
         [0 => STDIN, 1 => STDOUT, 2 => STDERR], $pipes);
     if (!is_resource($process)) { throw new RuntimeException('PRODUCT_TOOLING_PROCESS_FAILED'); }
@@ -585,6 +585,10 @@ function productUpgradeReadPlan(string $instanceRoot, string $path): array
     $failure = $root . '/.peanut/upgrades/readonly-prepare-rejections/' . ($plan['candidate'] ?? '') . '.json';
     if (file_exists($failure) || is_link($failure)) {
         throw new RuntimeException('PRODUCT_UPGRADE_PLAN_DISPOSED_AFTER_READONLY_PREPARE');
+    }
+    $failure = $root . '/.peanut/upgrades/unpublished-retirements/' . ($plan['candidate'] ?? '') . '.json';
+    if (file_exists($failure) || is_link($failure)) {
+        throw new RuntimeException('PRODUCT_UPGRADE_PLAN_RETIRED_UNPUBLISHED');
     }
     $tool = productUpgradeBackupTool($root, $plan['backup_tool']['path'] ?? null);
     if (($plan['backup_tool'] ?? null) !== $tool) { throw new RuntimeException('PRODUCT_UPGRADE_BACKUP_TOOL_CHANGED'); }

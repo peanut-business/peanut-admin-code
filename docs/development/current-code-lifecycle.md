@@ -62,6 +62,14 @@ admission 沿用上述身份、receipt、plan/state/runtime、source、stdout �
 
 固定镜像环境准备仅支持 Dockerfile、PHP/MySQL/cron 镜像配置不变、无 active collaboration 的既有 Compose 演进。辅助 recipe 仅允许 `compose.registered-database.yaml`、`compose.collaboration.yaml` 及两个 `nginx.*collaboration.conf.template` 从不存在新增为目标 B manifest 固定的普通 0644 文件，且未被当前 Composition 选择、未作为运行配置挂载；已有辅助文件修改/删除和未知配置拒绝。PHP 既有整个应用目录 bind 只被动暴露数据文件，不等于选择 overlay 或 nginx template。旧/新 Compose 都在原实例 project-directory、同一只读保护 env 下解析；服务集合、固定本地镜像、挂载、网络、端口、数据库模式和其余配置必须完全一致，只允许 PHP stop signal 从缺省/SIGQUIT 改为 SIGTERM。目标 nginx 配置用原固定 nginx 镜像执行原生 `nginx -t`。不 build/pull 镜像、不改保护 env、不新建或清空数据库/卷。prepare 记录旧/新 recipe、未激活新增清单、所选 Compose、保护 env、镜像、Compose 摘要和计划/输入绑定；后续步骤拒绝第三种 recipe，原 `runtime_environment_changed` 要求保留。未知变化拒绝，不能删 flag 或用旧环境重新打包冒充通过。
 
+### 未发布 prepared 计划的正式退役
+
+`tooling-retire-unpublished --instance-root=... --admission=...` 复用同一工具准入机制和两把原生锁，仅处理完成 prepare、正在只读 migration-preflight、尚无 backup/quiesce/managed/migrate 的计划。当前已审效果来源限固定 2211 工具与 11a 业务 B；不是按 fatal 文本认定安全。admission 协议为 `peanut.unpublished-product-plan-retirement-admission.v1`，沿用 instance/candidate/receipt、原 plan/state/runtime/source 摘要，另固定 `prepared_sha256`、`preparation_sha256`、`host_log_sha256`、`prepare_log_sha256`。`retirement_evidence` 恰含原 `arguments`、`stdout`、`stderr`、`terminal`、`before` 的 `{path, sha256}`；原件须 canonical、owner-0600，不补写前态。admission 位于实例和原 workspace 之外。
+
+退役核 prepare evidence 完整 canonical 摘要及 plan/B/record/inputs 绑定，所有 managed 路径仍为原 current hash/mode/absence、源 vendor 全树仍为原 preparation.source_tree、目标 vendor/程序仍完整且未 switch，安装身份/配置和原三容器 ID/image/StartedAt/running 不变。核原 apply 终态与真实 argv，并在锁内用原生进程和运行容器观察拒绝遗留执行器；不能只凭 state 或无 artifact。旧 native recover 会先 hold/stop 再要求尚不存在的 backup，不能用它试探本阶段。
+
+本次 maintenance 前快照未捕获，必须显式 `maintenance_before:NOT_CAPTURED`。只依据固定已审 prepare/preflight 完整控制流不调用 hold/open/marker 写删，加上述原生事实及当前 marker 不存在，有限推导本升级未改变 maintenance 边界；不声称此前绝对不存在 marker、全现场无外部业务写入或完整恢复。当前 marker 存在、source 不符或其他未知条件均拒绝。成功仅新增 immutable `.peanut/upgrades/unpublished-retirements/<candidate>.json`，旧 state/plan/trusted/prepared/log 不改、不 stop/restore/清 workspace。旧计划拒用，随后正常 observe/pins adopt 与包含业务修复的新产品版本 B/new plan；不能用新工具替代业务 B 更新。
+
 ## 1. 产品与代码
 
 这是模块化管理应用基础，不是预先完成的全部行业系统。官方模块及workflow、artifact-revision、entitlement-quota等可选模块以实际module.json和插件锁为准；fixture.delivery-record是测试模块，不算产品。已有身份组织、会话、审计、设置字典文件、文章分类、富文本、会员/OAuth、任务通知CSV、机器/Webhook、充值回调退款及运营诊断等源码；存在源码不代表外部渠道和业务已经全部验收。
