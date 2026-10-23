@@ -13,6 +13,7 @@ use Throwable;
 final class IdentitySchemaMigrationProof
 {
     private const MEMBER_JOB_MIGRATION = 'official.identity:20261024020000_create_pa_member_job';
+    private const MEMBER_JOB_REPAIR = self::MEMBER_JOB_MIGRATION . '-repair-20261024';
 
     private const STAGES = [
         'official.identity:20260716020101_create_pa_data_permission_policy' => ['9ccbb19f70c230b27f97d1eeac818dfd08197406664cdf85ddd63a25cb51750e', 'pa_data_permission_policy', 'create'],
@@ -25,6 +26,7 @@ final class IdentitySchemaMigrationProof
         'official.identity:20261012010000_department_leader_member' => ['909c7bd6885a93cf2975ecbbb108cbbe993bc1e0b47f2590292968a886051532', 'pa_department', 'leader_member'],
         'official.identity:20261015010000_index_revocation_audit_facts' => ['eacd6eddd89a9f064688ff45ba67210d896a65bbeaea1448394e7b6df3c271aa', 'pa_tenant_audit_event', 'audit'],
         self::MEMBER_JOB_MIGRATION => ['505da08d46270f0cddf38aef27f54869b8152ef38cca2923c61034bb024c37a0', 'pa_member_job', 'create'],
+        self::MEMBER_JOB_REPAIR => ['18689e857aac3196895455b85b2b662a5563fb2b63062295a5b8ad854c1300ae', 'pa_member_job', 'verify_member_job'],
     ];
 
     public static function before(PDO $pdo, array $exactMigration): array
@@ -41,12 +43,14 @@ final class IdentitySchemaMigrationProof
             if ($kind === 'create') {
                 // Fixed CREATE statements require absence, never IF NOT EXISTS or adoption.
                 if ($before !== null) { self::fail('CREATE_TARGET_EXISTS'); }
+            } elseif ($kind === 'verify_member_job') {
+                self::assertMemberJobRepairTable($pdo, $before);
             } else {
                 if ($before === null) { self::fail('ALTER_TARGET_MISSING'); }
                 self::expectedAlter($before, $kind);
             }
             $rows = $before === null ? null : self::rowImage($pdo, $table, $before);
-            $parentImages = $key === self::MEMBER_JOB_MIGRATION ? self::memberJobParents($pdo) : null;
+            $parentImages = in_array($key, [self::MEMBER_JOB_MIGRATION, self::MEMBER_JOB_REPAIR], true) ? self::memberJobParents($pdo) : null;
             if ($ledger !== self::ledger($pdo, $exactMigration)) { self::fail('LEDGER_CHANGED'); }
             return ['module_key' => 'official.identity', 'migration_key' => $key, 'checksum' => self::STAGES[$key][0],
                 'pdo_object_id' => spl_object_id($pdo), 'connection' => self::connection($pdo),
@@ -80,6 +84,11 @@ final class IdentitySchemaMigrationProof
                 }
                 // Fixed source, before-absence and actual native execution establish the new shape.
                 // Do not simulate CREATE or infer that pre-existing tables executed this history.
+            } elseif ($kind === 'verify_member_job') {
+                self::assertMemberJobRepairTable($pdo, $after);
+                if ($before['table'] !== $after || $before['original_rows'] !== self::rowImage($pdo, $table, $after)) {
+                    self::fail('MEMBER_JOB_REPAIR_POSTSTATE_CHANGED');
+                }
             } else {
                 self::assertAlter($before['table'], $after, $kind);
                 if (($before['original_rows'] ?? null) !== self::rowImage($pdo, $table, $before['table'])) { self::fail('ORIGINAL_ROWS_CHANGED'); }
@@ -92,7 +101,7 @@ final class IdentitySchemaMigrationProof
                     }
                 }
             }
-            if ($key === self::MEMBER_JOB_MIGRATION
+            if (in_array($key, [self::MEMBER_JOB_MIGRATION, self::MEMBER_JOB_REPAIR], true)
                 && (!is_array($before['parent_images'] ?? null) || $before['parent_images'] !== self::memberJobParents($pdo))) {
                 self::fail('MEMBER_JOB_PARENTS_CHANGED');
             }
@@ -101,7 +110,7 @@ final class IdentitySchemaMigrationProof
                 'preservation_verified' => true, 'before_sha256' => hash('sha256', serialize([$before['table'], $before['original_rows']])),
                 'after_sha256' => hash('sha256', serialize([$after, $before['original_rows']])), 'metadata_sha256' => hash('sha256', serialize($after)),
                 'ledger_sha256' => hash('sha256', serialize($before['ledger'])), 'created_empty_tables' => $kind === 'create' ? 1 : 0,
-                ...($key === self::MEMBER_JOB_MIGRATION ? ['external_parent_sha256' => hash('sha256', serialize($before['parent_images']))] : []),
+                ...($before['parent_images'] === null ? [] : ['external_parent_sha256' => hash('sha256', serialize($before['parent_images']))]),
                 'data_proof' => 'fixed native DDL; original-column streaming digest/count retained, new fields checked NULL/default, allocator retained', 'readonly' => true];
         });
     }
@@ -232,6 +241,40 @@ final class IdentitySchemaMigrationProof
         return $images;
     }
 
+    /** Only the exact empty CREATE aftershape may be verified; this never adopts populated/custom tables. */
+    private static function assertMemberJobRepairTable(PDO $pdo, ?array $metadata): void
+    {
+        $columns = [];
+        foreach (['id' => 'bigint unsigned', 'tenant_id' => 'bigint unsigned', 'tenant_member_id' => 'bigint unsigned',
+            'job_id' => 'int unsigned', 'assigned_at' => 'datetime(3)'] as $name => $type) {
+            $column = self::column($name, $type, false, null, null, null);
+            $column['ORDINAL_POSITION'] = (string) (count($columns) + 1);
+            if ($name === 'id') { $column['EXTRA'] = 'auto_increment'; }
+            $columns[$name] = $column;
+        }
+        $indexes = ['PRIMARY' => self::index('PRIMARY', ['id'], true),
+            'idx_member_job_job' => self::index('idx_member_job_job', ['tenant_id', 'job_id'], false),
+            'uk_member_job' => self::index('uk_member_job', ['tenant_id', 'tenant_member_id', 'job_id'], true)];
+        $foreign = []; $database = self::connection($pdo)['db'];
+        foreach (['fk_member_job_job' => ['pa_jobs', 'job_id'], 'fk_member_job_member' => ['pa_tenant_member', 'tenant_member_id']] as $name => [$parent, $field]) {
+            foreach (['tenant_id' => 'tenant_id', $field => 'id'] as $child => $reference) {
+                $foreign[] = ['CONSTRAINT_NAME' => $name, 'ORDINAL_POSITION' => $child === 'tenant_id' ? '1' : '2',
+                    'COLUMN_NAME' => $child, 'REFERENCED_TABLE_SCHEMA' => $database, 'REFERENCED_TABLE_NAME' => $parent,
+                    'REFERENCED_COLUMN_NAME' => $reference, 'UPDATE_RULE' => 'NO ACTION', 'DELETE_RULE' => 'RESTRICT'];
+            }
+        }
+        $actualIndexes = $metadata['indexes'] ?? [];
+        ksort($actualIndexes, SORT_STRING); ksort($indexes, SORT_STRING);
+        if ($metadata === null || $metadata['table'] !== ['TABLE_TYPE' => 'BASE TABLE', 'ENGINE' => 'InnoDB',
+            'TABLE_COLLATION' => 'utf8mb4_0900_ai_ci', 'AUTO_INCREMENT' => '1', 'CREATE_OPTIONS' => '', 'TABLE_COMMENT' => '', 'ROW_FORMAT' => 'Dynamic']
+            || $metadata['charset'] !== 'utf8mb4' || $metadata['columns'] !== $columns || $actualIndexes !== $indexes
+            || $metadata['foreign_keys'] !== $foreign || $metadata['checks'] !== []
+            || self::query($pdo, 'SELECT TRIGGER_NAME FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND EVENT_OBJECT_TABLE=?', ['pa_member_job']) !== []
+            || (int) self::query($pdo, 'SELECT EXISTS(SELECT 1 FROM `pa_member_job`) AS present')[0]['present'] !== 0) {
+            self::fail('MEMBER_JOB_REPAIR_PRESTATE_INVALID');
+        }
+    }
+
     private static function table(PDO $pdo, string $table): ?array
     {
         $meta = self::query($pdo, 'SELECT TABLE_TYPE,ENGINE,TABLE_COLLATION,AUTO_INCREMENT,CREATE_OPTIONS,TABLE_COMMENT,ROW_FORMAT'
@@ -259,16 +302,31 @@ final class IdentitySchemaMigrationProof
     private static function ledger(PDO $pdo, array $stage): array
     {
         if (!($stage['stageLedger'] ?? null) instanceof Closure) { self::fail('LEDGER_READER_REQUIRED'); }
-        $rows = ($stage['stageLedger'])($pdo); $current = 0;
+        $rows = ($stage['stageLedger'])($pdo); $current = 0; $failed = 0;
         if (!is_array($rows)) { self::fail('LEDGER_INVALID'); }
         foreach ($rows as $row) {
             if (!is_array($row) || ($row['module_key'] ?? null) !== 'official.identity') { self::fail('LEDGER_INVALID'); }
             if (($row['migration_key'] ?? null) === $stage['migration_key']) {
                 if (($row['status'] ?? null) !== 'applying' || ($row['checksum'] ?? null) !== $stage['checksum']) { self::fail('LEDGER_INVALID'); }
                 ++$current;
+            } elseif ($stage['migration_key'] === self::MEMBER_JOB_REPAIR && ($row['migration_key'] ?? null) === self::MEMBER_JOB_MIGRATION) {
+                foreach (['id', 'module_version', 'batch_no', 'started_at', 'finished_at', 'resolution_kind', 'provenance_json', 'error_code'] as $field) {
+                    if (!array_key_exists($field, $row)) { self::fail('REPAIR_FAILED_HISTORY_INVALID'); }
+                }
+                if ($row['status'] !== 'failed' || $row['checksum'] !== self::STAGES[self::MEMBER_JOB_MIGRATION][0]
+                    || $row['module_version'] !== '4.0.0-rc.25' || $row['error_code'] !== 'MODULE_MIGRATION_FAILED'
+                    || $row['resolution_kind'] !== null || $row['provenance_json'] !== null
+                    || !ctype_digit((string) $row['id']) || (int) $row['id'] < 1
+                    || !ctype_digit((string) $row['batch_no']) || (int) $row['batch_no'] < 1
+                    || !is_string($row['started_at']) || !is_string($row['finished_at'])
+                    || preg_match('/\A[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}\z/D', $row['started_at']) !== 1
+                    || preg_match('/\A[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}\z/D', $row['finished_at']) !== 1
+                    || strcmp($row['started_at'], $row['finished_at']) > 0) { self::fail('REPAIR_FAILED_HISTORY_INVALID'); }
+                ++$failed;
             } elseif (($row['status'] ?? null) !== 'applied') { self::fail('LEDGER_INVALID'); }
         }
         if ($current !== 1) { self::fail('LEDGER_INVALID'); }
+        if ($stage['migration_key'] === self::MEMBER_JOB_REPAIR && $failed !== 1) { self::fail('REPAIR_FAILED_HISTORY_REQUIRED'); }
         usort($rows, static fn(array $a, array $b): int => strcmp($a['migration_key'], $b['migration_key']));
         return $rows;
     }
@@ -293,6 +351,7 @@ final class IdentitySchemaMigrationProof
 
     private static function source(string $key): void
     {
+        if ($key === self::MEMBER_JOB_REPAIR) { self::source(self::MEMBER_JOB_MIGRATION); }
         $path = dirname(__DIR__, 2) . '/database/migrations/' . substr($key, strlen('official.identity:')) . '.sql';
         if (!is_file($path) || is_link($path) || hash_file('sha256', $path) !== self::STAGES[$key][0]) { self::fail('SOURCE_CHANGED'); }
     }
