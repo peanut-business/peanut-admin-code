@@ -188,8 +188,11 @@ def artifact_proofs(root: Path, scaffold_path: Path | None = None, core_path: Pa
     archive = receipt.get('core_php_archive', {})
     php = projection.get('core', {})
     require(all(isinstance(value, dict) for value in (core, archive, php, receipt.get('sources', {}))), 'ARTIFACT_PHP_INPUT_MISMATCH')
-    require(core.get('package') == 'peanut-admin/core' and core.get('resolved_version') == release.get('version')
-            and core.get('constraint') == release.get('version')
+    php_version = core.get('resolved_version')
+    require(core.get('package') == 'peanut-admin/core'
+            and isinstance(php_version, str) and _policy.VERSION.fullmatch(php_version) is not None
+            and core.get('constraint') == php_version
+            and archive.get('path') == f'packages/core-php/peanut-admin-core-{php_version}.zip'
             and re.fullmatch(r'[0-9a-f]{40}', str(core.get('source_reference', ''))) is not None
             and re.fullmatch(r'[0-9a-f]{64}', str(archive.get('sha256', ''))) is not None
             and re.fullmatch(r'[0-9a-f]{40}', str(archive.get('sha1', ''))) is not None
@@ -207,8 +210,11 @@ def artifact_proofs(root: Path, scaffold_path: Path | None = None, core_path: Pa
             'ARTIFACT_VERSION_INPUT_MISMATCH')
     web = projection.get('core_web')
     require(isinstance(web, dict) and len(web) == 6, 'ARTIFACT_WEB_INPUTS_REQUIRED')
+    web_version = receipt.get('core_web', {}).get('packages', {}).get('@peanut-admin/client', {}).get('version')
+    require(isinstance(web_version, str) and _policy.VERSION.fullmatch(web_version) is not None,
+            'ARTIFACT_WEB_INPUT_MISMATCH')
     for package, record in web.items():
-        require(isinstance(record, dict) and record.get('version') == release.get('version')
+        require(isinstance(record, dict) and record.get('version') == web_version
                 and receipt.get('core_web', {}).get('packages', {}).get(package) ==
                 {key: record.get(key) for key in ('version', 'archive', 'sha256')}, 'ARTIFACT_WEB_INPUT_MISMATCH')
     app_rows = manifest.get('files')

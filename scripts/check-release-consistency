@@ -337,6 +337,10 @@ if (currentContract && (!metadataCurrent
 if (currentV3) {
   try {
     if (dependencyMode(versionContract) !== 'registry') throw new Error('formal V3 candidate requires fixed native registry identities')
+    if (!options.prerelease && (!stableReleaseVersion.test(versionContract.core_php.constraint)
+      || Object.values(versionContract.core_web.packages).some(identity => !stableReleaseVersion.test(identity.version)))) {
+      throw new Error('stable product releases require stable Core PHP and Core Web versions')
+    }
     verifyDependencyLocks(versionContract, path => Buffer.from(show(path)), lockedYamlParser(toolRoot))
     if (versionContract.scaffold_template !== contractProductVersion
       || Object.values(declaredClientVersions).some(value => value !== contractProductVersion)

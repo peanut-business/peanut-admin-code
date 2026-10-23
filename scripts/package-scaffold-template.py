@@ -34,8 +34,16 @@ def main():
     release_bytes = (output / 'scaffold-manifest.json').read_bytes()
     release = json.loads(release_bytes)
     manifest = json.loads((app / '.peanut/application-manifest.json').read_bytes())
-    if release['protocol'] != 'peanut.scaffold-release.v3' or 'internal_core_projection' in release:
-        raise ValueError('TEMPLATE_PUBLIC_RELEASE_REQUIRED')
+    if release['protocol'] != 'peanut.scaffold-release.v3':
+        raise ValueError('TEMPLATE_RELEASE_PROTOCOL_INVALID')
+    projection = release.get('internal_core_projection')
+    if projection is not None and (projection.get('protocol') != 'peanut.internal-core-scaffold-projection.v1'
+            or projection.get('scope') != 'internal-upgrade-target-not-formal-release'
+            or manifest.get('scaffold_candidate') != {
+                'manifest_sha256': digest(release_bytes),
+                'core_inputs_sha256': projection.get('core_inputs_sha256'),
+                'formal_release_eligible': False}):
+        raise ValueError('TEMPLATE_CANDIDATE_IDENTITY_INVALID')
     if 'workflow' in release['release'] and release['release']['workflow'] != manifest['application']['workflow']:
         raise ValueError('TEMPLATE_WORKFLOW_IDENTITY_MISMATCH')
     tokens = release['release']['tokens']

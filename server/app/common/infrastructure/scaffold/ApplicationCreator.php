@@ -403,10 +403,11 @@ final class ApplicationCreator
             }
         }
         $core = $projection['core'] ?? null;
-        $version = $adoption->version();
+        $version = $core['resolved_version'] ?? null;
         $phpPath = 'packages/core-php/peanut-admin-core-' . $version . '.zip';
         if (!is_array($core) || ($core['package'] ?? null) !== 'peanut-admin/core'
-            || ($core['resolved_version'] ?? null) !== $version || ($core['archive_path'] ?? null) !== $phpPath
+            || !ReleaseDependencyIdentity::fixed($version)
+            || ($core['archive_path'] ?? null) !== $phpPath
             || preg_match('/^[a-f0-9]{40}$/D', (string) ($core['source_reference'] ?? '')) !== 1
             || preg_match('/^[a-f0-9]{64}$/D', (string) ($core['archive_sha256'] ?? '')) !== 1
             || preg_match('/^[a-f0-9]{40}$/D', (string) ($projection['web_source_reference'] ?? '')) !== 1) {
@@ -418,10 +419,14 @@ final class ApplicationCreator
         if (!is_array($web) || array_keys($web) !== array_map(static fn(string $suffix): string => '@peanut-admin/' . $suffix, $suffixes)) {
             throw new RuntimeException('CREATE_APP_CANDIDATE_WEB_INVALID');
         }
+        $webVersion = $web['@peanut-admin/client']['version'] ?? null;
+        if (!ReleaseDependencyIdentity::fixed($webVersion)) {
+            throw new RuntimeException('CREATE_APP_CANDIDATE_WEB_INVALID');
+        }
         foreach ($suffixes as $suffix) {
             $package = $web['@peanut-admin/' . $suffix];
-            $path = 'packages/core-web/peanut-admin-' . $suffix . '-' . $version . '.tgz';
-            if (($package['version'] ?? null) !== $version || ($package['archive'] ?? null) !== $path
+            $path = 'packages/core-web/peanut-admin-' . $suffix . '-' . $webVersion . '.tgz';
+            if (($package['version'] ?? null) !== $webVersion || ($package['archive'] ?? null) !== $path
                 || preg_match('/^[a-f0-9]{64}$/D', (string) ($package['sha256'] ?? '')) !== 1) {
                 throw new RuntimeException('CREATE_APP_CANDIDATE_WEB_INVALID');
             }
