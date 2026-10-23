@@ -93,9 +93,9 @@ RX;
             'ROW_FORMAT' => 'Dynamic', 'CREATE_OPTIONS' => '', 'TABLE_COMMENT' => ''], 'columns' => [], 'indexes' => [], 'foreign_keys' => [], 'checks' => []];
         $indexes = []; $foreign = []; $anonymous = 0;
         foreach (self::declarations($definition[1]) as $line) {
-            if (preg_match('/\A`([a-z0-9_]+)` (BIGINT UNSIGNED|INT UNSIGNED|TINYINT UNSIGNED|CHAR\([0-9]+\)|VARCHAR\([0-9]+\)|DATETIME\(3\)|JSON|LONGTEXT)(?: CHARACTER SET (ascii))?(?: COLLATE (ascii_bin))? (NOT NULL|NULL)(?: DEFAULT ([0-9]+|\x27[a-z_]+\x27))?( AUTO_INCREMENT)?\z/D', $line, $m)) {
+            if (preg_match('/\A`([a-z0-9_]+)` (BIGINT UNSIGNED|INT UNSIGNED|SMALLINT UNSIGNED|TINYINT UNSIGNED|CHAR\([0-9]+\)|VARCHAR\([0-9]+\)|DATETIME\(3\)|JSON|LONGTEXT|TEXT)(?: CHARACTER SET (ascii))?(?: COLLATE (ascii_bin))? (NOT NULL|NULL)(?: DEFAULT ([0-9]+|\x27[a-z_]+\x27))?( AUTO_INCREMENT)?\z/D', $line, $m)) {
                 if (isset($schema['columns'][$m[1]])) { throw new RuntimeException('MYSQL_METADATA_CREATE_SOURCE_UNKNOWN'); }
-                $text = str_starts_with($m[2], 'CHAR(') || str_starts_with($m[2], 'VARCHAR(') || $m[2] === 'LONGTEXT';
+                $text = str_starts_with($m[2], 'CHAR(') || str_starts_with($m[2], 'VARCHAR(') || in_array($m[2], ['LONGTEXT', 'TEXT'], true);
                 $charset = $text ? (($m[3] ?? '') !== '' ? $m[3] : 'utf8mb4') : null;
                 $default = isset($m[6]) && $m[6] !== '' ? trim($m[6], "'") : null;
                 $schema['columns'][$m[1]] = ['COLUMN_NAME' => $m[1], 'ORDINAL_POSITION' => (string) (count($schema['columns']) + 1),
