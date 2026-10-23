@@ -906,7 +906,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "05277b7b9e5aec23d7f4dd6640afee8139175ee98649b0c29ca8e2540761f3be"
+            "source_sha256": "7799b2be85ac618dc97b8e19fa196532eac8b6c78983c9fda970ff40e9cbe8f5"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -3522,7 +3522,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ff0930b125ece97159092354dae38c8c27773a2574edd1afc777e26606852b7c"
+            "source_sha256": "6c1c083a753595f69767771cae37b3612a0fb53dfbb65778463d36c33d8c078d"
         },
         {
             "path": "scripts/local-core-composer",
@@ -3550,7 +3550,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "11460dbd212d3a3d39af3b7d15d5e9609fbaae57d11e73caf145ee5ea2708603"
+            "source_sha256": "f0ce55b67e71db5d50a99e727f9e55805f40ac2bf6d3b0d0461109713581e199"
         },
         {
             "path": "scripts/local-environment-probe",
@@ -34266,7 +34266,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9dd12c2aab1178ec76e4f3258abb117ffa00e25e106fa178499367d4ead0c26b"
+            "source_sha256": "33601dd37e05749bdfa397620f70496bd2a3374b1bd4ef603bf00aa60a0497bb"
         },
         {
             "path": "uniapp/packages/pages/404/404.vue",

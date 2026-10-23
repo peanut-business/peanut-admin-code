@@ -163,9 +163,9 @@ app/event.php保留AppInit、HttpRun、HttpEnd、LogLevel和LogWrite项，但默
 
 维护者首次在无消费者、所选 Core 无编译写者的窗口执行 `scripts/core-dev select --php-core-dir /absolute/php-core --web-core-dir /absolute/web-core --backend-env /absolute/server/.env`，再执行 `scripts/core-dev install`。选择保存在当前工程忽略的 `.local/core-dev.json`，不含凭据；绝对路径由维护者明确指定，不推断相邻仓或私有 Project。`select` 只保存选择，`install` 才通过原生 Composer path 和现有 Web 链接入口激活依赖，初次生成 Web dist；两步均不连接或迁移数据库。`scripts/core-dev status` 核实际链接。切换 Core 或刷新依赖前重新核运行消费者和 Core 写者，不能替换在途候选现场。
 
-选择生效后，现有 PHP 开发启动入口校验真实 path link；PHP 普通源码无需重新安装。OPcache、常驻 worker 或已加载类仍须由其 owner 按原运行合同刷新/重启，脚本不替别人重启服务。在 `pc/` 运行 `npm run dev`、在 `uniapp/` 运行 `npm run dev:h5` 以及 UniApp 其他 `dev:*` 脚本读取同一选择，托管客户端实际依赖闭包的原生 Core watch，随该前台命令退出；标准命令不逐次 pack 或全仓 build。多个客户端依赖同一 Core 包时只允许一个编译写者，入口以所选 Core 的 `.local/client-watch/<package>/owner.json` 标明前台 owner，冲突明确停止。异常强杀留下记录时先核 PID、实际进程和 Core 路径，由原 owner 确认空闲后清理该记录，不把别人的编译器停掉。
+选择生效后，现有 PHP 开发启动入口校验真实 path link；PHP 普通源码无需重新安装。OPcache、常驻 worker 或已加载类仍须由其 owner 按原运行合同刷新/重启，脚本不替别人重启服务。在 `pc/` 运行 `npm run dev`、在 `uniapp/` 运行 `npm run dev:h5` 以及 UniApp 其他 `dev:*` 脚本读取同一选择，托管客户端实际依赖闭包的原生 Core watch，随该前台命令退出；标准命令不逐次 pack 或全仓 build。多个客户端依赖同一 Core 包时只允许一个编译写者。所选 Core 的 `scripts/local-core-writer.mjs` 用原子目录和唯一凭据在 `.local/client-watch/<package>/owner.json` 登记；安装/全构建/链接一次取得并持有六包记录，watch 持有实际依赖闭包记录，切换源码链接还取得旧 Core 受影响包记录。Core 根与各包原生 build/watch 也使用同一入口，嵌套命令只复用活祖先进程持有的凭据；获取或读取错误即拒绝，不删除未知记录。异常强杀留下记录时先核 PID、实际进程和 Core 路径，由原 owner 确认空闲后清理该记录，不把别人的编译器停掉。
 
-未保存选择的普通下游与生成 APP 继续使用自己的固定依赖；无效选择或缺链接明确报错。开发入口不修改 tracked 依赖声明和锁。日常可变源码联调不构成候选资格：阶段候选通过冻结合同生成 PHP ZIP、Web 六个 TGZ，并由同格式模板 TGZ 创建 APP，按候选原生 Composer/npm 锁安装到 APP 自身 `vendor`/`node_modules`，必须拒绝维护者源码链接；正式交付再核适用公开包的最终内容、来源及原生正式锁。
+UniApp 小程序、custom、SSR 等原生 dev:* 入口保留原始参数和调用环境；只在显式或已保存 daily 选择时增加 Core 校验/watch，不要求维护者 host-client.env/PHP_PORT，不覆盖已有 PEANUT_CLIENT_ENV_FILE；显式 --env-file 才选择该文件。H5 仍沿用原有维护者 host 环境入口。未保存选择的普通下游与生成 APP 继续使用自己的固定依赖；无效选择或缺链接明确报错。开发入口不修改 tracked 依赖声明和锁。日常可变源码联调不构成候选资格：阶段候选通过冻结合同生成 PHP ZIP、Web 六个 TGZ，并由同格式模板 TGZ 创建 APP，按候选原生 Composer/npm 锁安装到 APP 自身 `vendor`/`node_modules`，必须拒绝维护者源码链接；正式交付再核适用公开包的最终内容、来源及原生正式锁。
 
 客户 APP 制包绑定干净的已提交 Git commit/tree，并按 Git blob 校验当前发行源码；合法客户修改和新增文件不要求重写 `.peanut/application-manifest.json` 的上游采用摘要。该清单的归属及原受管 baseline 路径、摘要仍需严格校验并保持不变，供后续冲突检测使用。初始 generated-template 没有独立 APP Git 身份，仍须逐文件符合生成清单，不接受生成后修改。
 

@@ -4,48 +4,63 @@ set -eu
 
 repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 env_file="$repo_dir/.local/host-client.env"
+env_file_explicit=0
 component=${1:-}
-[ -n "$component" ] || { printf 'Usage: %s {web|platform|pc|mobile|docs} [--env-file path] [--core-web-dir /absolute/path] [--dry-run] [-- extra args]\n' "$0" >&2; exit 2; }
+[ -n "$component" ] || { printf 'Usage: %s {web|platform|pc|mobile|uniapp-native|docs} [--env-file path] [--core-web-dir /absolute/path] [--dry-run] [-- extra args]\n' "$0" >&2; exit 2; }
 shift
 dry_run=0
 core_web_dir=""
 while [ $# -gt 0 ] && [ "$1" != -- ]; do
     case "$1" in
-        --env-file) [ $# -ge 2 ] || { printf '%s\n' '--env-file requires a value' >&2; exit 2; }; env_file=$2; shift 2 ;;
+        --env-file) [ $# -ge 2 ] || { printf '%s\n' '--env-file requires a value' >&2; exit 2; }; env_file=$2; env_file_explicit=1; shift 2 ;;
         --core-web-dir) [ $# -ge 2 ] && [ -n "${2:-}" ] || { printf '%s\n' '--core-web-dir requires a non-empty value' >&2; exit 2; }; core_web_dir=$2; shift 2 ;;
         --dry-run) dry_run=1; shift ;;
         *) printf 'unsupported argument: %s\n' "$1" >&2; exit 2 ;;
     esac
 done
 [ "${1:-}" != "--" ] || shift
-[ "${env_file#/}" != "$env_file" ] && [ -f "$env_file" ] && [ ! -L "$env_file" ] || {
+valid_env_file() { [ "${env_file#/}" != "$env_file" ] && [ -f "$env_file" ] && [ ! -L "$env_file" ]; }
+if [ "$component" = uniapp-native ]; then
+    # Native custom/SSR/device commands keep their existing environment and argv.
+    # A maintainer host-client file is only adopted by an explicit --env-file.
+    if [ "$env_file_explicit" = 1 ]; then
+        valid_env_file || { printf 'client environment must be an absolute regular file: %s\n' "$env_file" >&2; exit 1; }
+        export PEANUT_CLIENT_ENV_FILE="$env_file"
+    fi
+else
+valid_env_file || {
     printf 'client environment must be an absolute regular file: %s\n' "$env_file" >&2
     exit 1
 }
 read_env() { awk -F= -v name="$1" '$1 == name { sub(/^[^=]*=/, ""); print; exit }' "$env_file"; }
 php_port=$(read_env PHP_PORT)
 [ -n "$php_port" ] || { printf '%s\n' 'PHP_PORT is missing from the client environment' >&2; exit 1; }
+fi
 if [ -z "$core_web_dir" ] && { [ -e "$repo_dir/.local/core-dev.json" ] || [ -L "$repo_dir/.local/core-dev.json" ]; }; then
     case "$component" in
-        web|platform|pc|mobile) core_web_dir=$("$repo_dir/scripts/core-dev" web-path) ;;
+        web|platform|pc|mobile|uniapp-native) core_web_dir=$("$repo_dir/scripts/core-dev" web-path) ;;
     esac
 fi
 if [ -n "$core_web_dir" ]; then
     case "$component" in
         web|platform|pc) core_client=$component ;;
-        mobile) core_client=uniapp ;;
+        mobile|uniapp-native) core_client=uniapp ;;
         *) printf '%s\n' 'this client does not consume local Web Core' >&2; exit 2 ;;
     esac
     "$repo_dir/scripts/local-core-web" link-status --core-dir "$core_web_dir" --client "$core_client"
     core_web_dir=$(CDPATH= cd -- "$core_web_dir" && pwd -P)
 fi
+client_environment() {
+    if [ "$component" = uniapp-native ]; then "$@";
+    else env -i PATH="$PATH" HOME="$HOME" PEANUT_CLIENT_ENV_FILE="$env_file" "$@"; fi
+}
 clean_exec() {
     if [ -n "$core_web_dir" ]; then
-        env -i PATH="$PATH" HOME="$HOME" PEANUT_CLIENT_ENV_FILE="$env_file" \
-            node --input-type=module -e '
-import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+        client_environment node --input-type=module -e '
+import { existsSync, readFileSync, readdirSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
+import { pathToFileURL } from "node:url";
 
 const [repository, core, client, command, ...args] = process.argv.slice(1);
 const readJson = (path) => JSON.parse(readFileSync(path, "utf8"));
@@ -91,25 +106,13 @@ function select(name) {
 direct.forEach(select);
 
 // A package output has one foreground compiler owner, even across clients.
-const locks = [];
-function releaseLocks() {
-    for (const lock of locks.splice(0)) rmSync(lock, { recursive: true });
-}
-process.on("exit", releaseLocks);
-mkdirSync(join(core, ".local", "client-watch"), { recursive: true });
-for (const { name } of selected) {
-    const lock = join(core, ".local", "client-watch", name.split("/")[1]);
-    try { mkdirSync(lock); }
-    catch (error) {
-        if (error.code !== "EEXIST") throw error;
-        throw new Error(`Core watch already owned: ${name}; inspect ${lock}/owner.json and wait for that dev command to finish. Do not start a second compiler.`);
-    }
-    locks.push(lock);
-    writeFileSync(join(lock, "owner.json"), JSON.stringify({ pid: process.pid, repository, client }) + "\n");
-}
+const { acquireCoreWriters } = await import(pathToFileURL(join(core, "scripts", "local-core-writer.mjs")));
+const lease = acquireCoreWriters(core, selected.map(({ name }) => name.split("/")[1]), { repository, operation: `watch:${client}` });
 
 // These process groups belong to this foreground dev command only.
 const groups = new Set();
+// Keep unknown ownership records after an abnormal exit while children exist.
+process.on("exit", () => { if (groups.size === 0) lease.release(); });
 let stopping = false;
 let forceTimer;
 let cleanupTimer;
@@ -145,7 +148,7 @@ function stop(code) {
     finishCleanup();
 }
 function start(label, executable, arguments_, cwd, watcher) {
-    const child = spawn(executable, arguments_, { cwd, env: process.env, stdio: "inherit", detached: true });
+    const child = spawn(executable, arguments_, { cwd, env: lease.env, stdio: "inherit", detached: true });
     if (child.pid) groups.add(child.pid);
     child.on("error", (error) => { console.error(`${label}: ${error.message}`); stop(1); });
     child.on("close", (code, signal) => {
@@ -164,10 +167,14 @@ start(client, command, args, process.cwd(), false);
 ' "$repo_dir" "$core_web_dir" "$core_client" "$@"
         return
     fi
-    env -i PATH="$PATH" HOME="$HOME" PEANUT_CLIENT_ENV_FILE="$env_file" "$@"
+    client_environment "$@"
 }
 
 case "$component" in
+    uniapp-native)
+        [ "$dry_run" != 1 ] || { printf 'component=uniapp-native command=uni'; printf ' <%s>' "$@"; printf '\n'; exit 0; }
+        clean_exec uni "$@"
+        ;;
     web)
         listen_port=$(read_env VITE_PORT)
         [ "$dry_run" != 1 ] || {
