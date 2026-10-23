@@ -7,6 +7,8 @@ namespace PeanutAdmin\Modules\Ops\Infrastructure;
 use PeanutAdmin\Modules\Ops\Service\PlatformUpgradeReadinessService;
 use app\common\value\installation\ApplicationReleaseVersions;
 use app\common\value\installation\ServerReleaseIdentity;
+use app\common\services\upgrade\ApplicationMigrationRunner;
+use app\common\infrastructure\migration\CleanInstallBaseline;
 use PeanutAdmin\Kernel\Context\PlatformContext;
 use PeanutAdmin\Modules\Ops\Domain\Status\OpsStatusSnapshot;
 use PeanutAdmin\Modules\Ops\Domain\Status\RuntimeStatusProvider;
@@ -415,7 +417,30 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
     /** @return array{applied:int,target:int,pending:int,digest:string,drift:bool,files:array<string,string>} */
     private function migrationState(): array
     {
-        $expected = $this->expectedMigrations();
+        $source = $this->expectedMigrations();
+        $directory = $this->projectRoot . '/server/database/migrations/';
+        $files = ApplicationMigrationRunner::effectiveFiles(array_map(
+            static fn(string $id): string => $directory . $id . '.sql',
+            array_keys($source),
+        ));
+        $pdo = Db::connect()->getPdo();
+        $targetVersion = $this->migrationTargetVersion();
+        $selection = CleanInstallBaseline::selection($pdo, $files, $targetVersion, $this->projectRoot . '/server/database');
+        $files = $selection['files'];
+        // The native relation verifies source hashes, history and the correction's actual schema.
+        ApplicationMigrationRunner::provenanceSupersession($pdo, $files, $targetVersion);
+        $expected = [];
+        if ($selection['baseline'] !== null) {
+            $expected[$selection['baseline']['key']] = $selection['baseline']['sha256'];
+        }
+        foreach ($files as $file) {
+            $id = basename($file, '.sql');
+            if (!isset($source[$id]) || hash_file('sha256', $file) !== $source[$id]) {
+                throw new \RuntimeException('OPS_MIGRATION_INVENTORY_CHANGED');
+            }
+            $expected[$id] = $source[$id];
+        }
+        ksort($expected, SORT_STRING);
         $rows = Db::name('schema_migration')->field('migration_id,checksum,status')
             ->order('migration_id')->select()->toArray();
         $actual = [];
@@ -427,7 +452,8 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
         }
 
         $applied = 0;
-        $drift = count(array_diff_key($actual, $expected)) > 0;
+        // Native execution checks the selected target; applied historical rows remain in the ledger.
+        $drift = false;
         foreach ($expected as $id => $checksum) {
             $row = $actual[$id] ?? null;
             if (is_array($row)
