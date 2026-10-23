@@ -989,7 +989,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e8b03446ef084e3768b5c5e35771aef8c84001f2790c0ba0759274b1edacc40a"
+            "source_sha256": "0851c5024b5cd36f209bb487d5beb5c78b4ee84e7e830b20f05317d43af7b4cb"
         },
         {
             "path": "docs/maintenance/README.md",
@@ -3019,7 +3019,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "518c9fab7f2b5fd602e29461aea2048994ad2e86f182c2080f2bcb3c08c49d16"
+            "source_sha256": "77a83bf0c1fa378ebd2e7097a8d4e861fbc1281d1f0ce2994fd89412e30f79b7"
         },
         {
             "path": "scripts/build-scaffold-release",
