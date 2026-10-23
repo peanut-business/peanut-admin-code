@@ -1622,7 +1622,8 @@ final class InstallationExecutionHost
         }
         $temporary = $path . '.tmp-' . bin2hex(random_bytes(6));
         $json = json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
-        if (file_put_contents($temporary, $json . "\n", LOCK_EX) === false
+        $contents = $json . "\n";
+        if (file_put_contents($temporary, $contents, LOCK_EX) !== strlen($contents)
             || !chmod($temporary, 0600)
             || !rename($temporary, $path)) {
             @unlink($temporary);
