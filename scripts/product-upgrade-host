@@ -931,16 +931,27 @@ def recipe_files(server):
             if (server / name).exists() else None for name in RECIPE_FILES}
 
 
-def compatible_runtime_recipe(server, target, owner, provider, images):
+def compatible_runtime_recipe(server, target, owner, provider, images, inputs):
     """Only PHP SIGTERM and nginx configuration may evolve on identical images."""
     source = recipe_files(server); destination = recipe_files(target)
+    for operation in inputs['operations']:
+        name = operation['path']
+        changed = operation['operation'] != 'replace' or operation.get('current_sha256') != operation.get('target_sha256') \
+            or operation.get('current_mode') != operation.get('target_mode')
+        if changed and name.startswith('server/docker/conf/') and name.removeprefix('server/') not in RECIPE_FILES:
+            raise ValueError('unknown runtime configuration change')
+    proof = {'protocol': 'peanut.fixed-image-recipe.v1', 'source': source, 'target': destination,
+             'protected_environment': {name: sha(server / name) for name in ('.env', 'docker/.env')},
+             'runtime_images': images, 'database_provider': provider,
+             'runtime_environment_changed': inputs['requirements']['runtime_environment_changed']}
+    if source == destination:
+        return proof | {'kind': 'unchanged-recipe'}
     if any(source[name] != destination[name] for name in RECIPE_FILES[:5]):
         raise ValueError('image build inputs changed; fixed-image evolution is unsupported')
     if any(source[name] != destination[name] for name in RECIPE_FILES[6:] if name != 'docker/conf/nginx.conf'):
         raise ValueError('inactive or auxiliary runtime recipe changed')
     if owner.backend_environment(server).get('COLLABORATION_ENABLED') == 'enabled':
         raise ValueError('active collaboration environment evolution requires its independent owner')
-    protected_env = {name: sha(server / name) for name in ('.env', 'docker/.env')}
 
     def rendered(recipe):
         original = owner.compose_arguments(server)
@@ -974,8 +985,7 @@ def compatible_runtime_recipe(server, target, owner, provider, images):
         old['services']['php']['stop_signal'] = 'SIGTERM'
     if old != new:
         raise ValueError('Compose service, environment, mounts, database mode, network or ports changed')
-    return {'protocol': 'peanut.fixed-image-recipe.v1', 'source': source, 'target': destination,
-            'protected_environment': protected_env, 'runtime_images': images, 'database_provider': provider,
+    return proof | {'kind': 'compatible-compose',
             'compose_sha256': hashlib.sha256(json.dumps(new, sort_keys=True, separators=(',', ':')).encode()).hexdigest(),
             'php_stop_signal': {'source': old_signal, 'target': new_signal}}
 
@@ -1174,7 +1184,7 @@ def main():
         if record_path.exists(): payload = prepared_record(); preparation('check')
         else:
             inputs = read(workspace / 'plan.json')
-            environment_proof = compatible_runtime_recipe(server, target, collaboration, provider, images)
+            environment_proof = compatible_runtime_recipe(server, target, collaboration, provider, images, inputs)
             if sha(server / 'composer.lock') != sha(target / 'composer.lock') or sha(server / 'composer.json') != sha(target / 'composer.json'):
                 run(tools / 'prepare-vendor.sh', 'prepared', target, images['php'])
             preparation('record')
