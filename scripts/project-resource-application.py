@@ -71,6 +71,16 @@ def json_unique(raw):
     return json.loads(raw, object_pairs_hook=pairs)
 
 
+def pristine_installation_status(raw):
+    try:
+        status = json_unique(raw)
+    except (ValueError, UnicodeError) as error:
+        raise RuntimeError("native first-install status response is not JSON; retain lease and child output digests") from error
+    need(isinstance(status, dict) and status.get("state") == "uninstalled"
+         and status.get("code") == "INSTALL_READY", "APP is not a pristine native first-install target")
+    return status
+
+
 def table(path, count):
     rows = [line.split("\t") for line in regular(path).decode().splitlines()]
     need(rows and all(len(row) == count for row in rows), "invalid operation lease table")
@@ -930,11 +940,11 @@ def command(operation, directory, value, lease_id, argv, *, accepted=(0,), envir
     value["child_pid"] = child.pid
     value["child_birth"] = process_birth(child.pid)
     save(directory / STATE, value)
-    started = time.monotonic()
     unknown = False
-    while child.poll() is None:
+    while True:
         try:
-            child.communicate(input=input_bytes, timeout=10)
+            stdout, stderr = child.communicate(input=input_bytes, timeout=10)
+            break
         except subprocess.TimeoutExpired:
             input_bytes = None
             try:
@@ -951,9 +961,10 @@ def command(operation, directory, value, lease_id, argv, *, accepted=(0,), envir
                 save(directory / STATE, value)
             # Never force-stop a non-interruptible native install. Keep its real
             # process observed and its in-use resource boundary unreleasable.
-    stdout, stderr = child.communicate()
     value["child_pid"] = None
     value["child_exit_code"] = child.returncode
+    value["child_output"] = {"stdout_bytes": len(stdout), "stdout_sha256": sha(stdout),
+                             "stderr_bytes": len(stderr), "stderr_sha256": sha(stderr)}
     save(directory / STATE, value)
     need(not unknown, "operation window became UNKNOWN; retain lease and native journals")
     verify_native(lease_id, recovery_step)
@@ -1361,10 +1372,9 @@ def execute(lease_id, owner, phase, step=None):
         preflight = json_unique(command(operation, directory, value, lease_id,
                                         [str(php), "server/database/install.php", "--preflight"]))
         need(preflight.get("status") == "ready", "native first-install preflight not ready")
-        status = json_unique(command(operation, directory, value, lease_id,
-                                    [str(php), "server/database/install.php", "--status"], accepted=(1,)))
-        need(status.get("state") == "uninstalled" and status.get("code") == "INSTALL_READY",
-             "APP is not a pristine native first-install target")
+        status_output = command(operation, directory, value, lease_id,
+                                [str(php), "server/database/install.php", "--status"], accepted=(1,))
+        pristine_installation_status(status_output)
         output = command(operation, directory, value, lease_id, [str(php), "server/database/install.php"],
                          environment={"PEANUT_INSTALLATION_ENV_FILE": credentials["path"]})
         result = json_unique(output)

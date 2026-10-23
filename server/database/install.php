@@ -15,6 +15,10 @@ use think\Container;
 
 $installerArguments = $_SERVER['argv'] ?? [];
 $installerIsDirect = realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__;
+function emitUnavailableInstallStatus(): void
+{
+    echo json_encode(['state' => 'blocked', 'code' => 'INSTALL_STATUS_UNAVAILABLE'], JSON_THROW_ON_ERROR), PHP_EOL;
+}
 if ($installerIsDirect && in_array('--preflight', $installerArguments, true)) {
     require_once dirname(__DIR__) . '/app/common/services/installation/InstallationPreflightHost.php';
     $preflight = (new \app\common\services\installation\InstallationPreflightHost(dirname(__DIR__)))->inspect();
@@ -38,10 +42,23 @@ if ($installerIsDirect && !is_file(dirname(__DIR__) . '/vendor/autoload.php')) {
         . "  scripts/project-composer prepare\n"
         . "  scripts/project-composer install --working-dir=server --no-scripts\n"
         . "然后按公开安装文档配置环境，再运行此安装入口。\n");
+    if (in_array('--status', $installerArguments, true)) {
+        emitUnavailableInstallStatus();
+        exit(1);
+    }
     exit(2);
 }
 
-require_once __DIR__ . '/environment-guard.php';
+try {
+    require_once __DIR__ . '/environment-guard.php';
+} catch (Throwable $exception) {
+    if (!$installerIsDirect || !in_array('--status', $installerArguments, true)) {
+        throw $exception;
+    }
+    fwrite(STDERR, '安装失败：INSTALL_EXECUTION_FAILED' . PHP_EOL);
+    emitUnavailableInstallStatus();
+    exit(1);
+}
 
 function loadConfig(string $serverDir): array
 {
@@ -928,11 +945,17 @@ if ($installerIsDirect) {
         exit(0);
     } catch (\app\common\exception\installation\InstallationExecutionException $exception) {
         fwrite(STDERR, '安装失败：' . $exception->errorCode . PHP_EOL);
+        if (in_array('--status', $_SERVER['argv'] ?? [], true)) {
+            emitUnavailableInstallStatus();
+        }
         exit(1);
     } catch (Throwable $exception) {
         $code = isset($partial) && $partial !== [] && preg_match('/\A(?:INSTALL_(?:PARTIAL|SETUP_TOKEN)|MIGRATION_(?:CORRECTION|ORIGINAL)|APPLICATION_(?:DEVELOPMENT_RUNTIME|SOURCE))_[A-Z_]+\z/D', $exception->getMessage()) === 1
             ? $exception->getMessage() : 'INSTALL_EXECUTION_FAILED';
         fwrite(STDERR, '安装失败：' . $code . PHP_EOL);
+        if (in_array('--status', $_SERVER['argv'] ?? [], true)) {
+            emitUnavailableInstallStatus();
+        }
         exit(1);
     }
 }
