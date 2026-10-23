@@ -28692,7 +28692,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f9c167114b5b43eadd25ad45efd569b709908b927f003a4396c267ce578e3f72"
+            "source_sha256": "765bb9675a65bcba4a8eee9c300430e064b351693d926b256980785d3448ff34"
         },
         {
             "path": "server/docker/scripts/update.sh",

@@ -245,10 +245,12 @@ def failure_runtime_evidence(approved, root, plan, state, receipt_path, old_tool
 
     def instant(value):
         if not isinstance(value, str): raise ValueError('missing authenticated observation time')
-        parsed = datetime.fromisoformat(value.replace('Z', '+00:00'))
-        if parsed.tzinfo is None or parsed.utcoffset() != timezone.utc.utcoffset(parsed):
-            raise ValueError('observation time must carry UTC')
-        return parsed
+        match = re.fullmatch(r'([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2})(?:\.([0-9]{1,9}))?(?:Z|\+00:00)', value)
+        if match is None: raise ValueError('observation time must carry UTC')
+        # Docker records nanoseconds; older supported Python ISO parsers accept
+        # only microseconds. Preserve the exact fractional order without floats.
+        parsed = datetime.strptime(match[1], '%Y-%m-%dT%H:%M:%S').replace(tzinfo=timezone.utc)
+        return parsed, int((match[2] or '').ljust(9, '0'))
 
     # created_at is authenticated by the original native plan; updated_at is the
     # prepare-intent event, not a claimed command-start measurement.
