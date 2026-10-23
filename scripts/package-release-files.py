@@ -155,7 +155,10 @@ def allowed_source(relative: str) -> bool:
 
 def released_dependencies(root: Path) -> dict:
     versions = document(root, 'release-versions.json')
-    product = versions.get('source_product_version', '')
+    # APP releases follow their own sequence; only root scaffolds have no instance version.
+    product = versions.get('instance_version')
+    if product is None:
+        product = versions.get('source_product_version', '')
     if not isinstance(product, str) or not VERSION.fullmatch(product) or re.search(r'(?:^|[.-])dev(?:[.+-]|$)', product, re.I):
         raise ValueError('prepare an explicit fixed product version before packaging')
     manifest = document(root, 'server/composer.json')

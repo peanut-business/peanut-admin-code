@@ -3724,7 +3724,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2eb708e5c10c5a4e53be0e205590e765fd57315d4250440dfa0ab8a9aae99615"
+            "source_sha256": "12391a273d5823486cf1288ab6ebaa1412bfe8d818ca9d4c10353e50cccea805"
         },
         {
             "path": "scripts/package-release.sh",
