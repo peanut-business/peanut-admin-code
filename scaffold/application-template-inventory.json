@@ -3508,7 +3508,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7261e3a2fc1c24a7096b6a57b776901044efe96f882314eb28f4a1f05133e85e"
+            "source_sha256": "d0b077441e38cffe6f616874f36df16fa088c32c103d3669d9661b7e409591cd"
         },
         {
             "path": "scripts/local-client-dev",
@@ -3724,7 +3724,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "318c0edf8915a2607279c28c37bc562fb87422f0a0b83addb08c17827f36b94d"
+            "source_sha256": "2eb708e5c10c5a4e53be0e205590e765fd57315d4250440dfa0ab8a9aae99615"
         },
         {
             "path": "scripts/package-release.sh",

@@ -165,6 +165,10 @@ def released_dependencies(root: Path) -> dict:
     identity = versions.get('core_php', {})
     if identity.get('constraint') != core or identity.get('resolved_version', '').lstrip('v') != core:
         raise ValueError('PHP Core declaration and product identity disagree')
+    if '-' not in product.split('+', 1)[0] and ('-' in core.split('+', 1)[0]
+            or any('-' in package.get('version', '').split('+', 1)[0]
+                   for package in versions.get('core_web', {}).get('packages', {}).values())):
+        raise ValueError('stable product releases require stable Core PHP and Core Web versions')
     lock = document(root, 'server/composer.lock')
     matches = [p for p in lock.get('packages', []) if p.get('name') == 'peanut-admin/core']
     if len(matches) != 1 or matches[0].get('version', '').lstrip('v') != core:
