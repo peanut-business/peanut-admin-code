@@ -10,6 +10,10 @@ use app\common\validate\PasswordRule;
 final class PlatformAccessValidate extends Validate
 {
     use PasswordRule;
+
+    // Explicit empty lists revoke assignments; missing lists must still fail validation.
+    protected $must = ['role_ids', 'permission_keys'];
+
     protected $rule = [
         'operator_id' => 'require|integer|gt:0',
         'role_id' => 'require|integer|gt:0',
@@ -17,8 +21,8 @@ final class PlatformAccessValidate extends Validate
         'email' => 'require|email|max:255',
         'display_name' => 'require|max:120',
         'initial_password' => 'passwordPolicy',
-        'role_ids' => 'require|array|max:100',
-        'permission_keys' => 'require|array|max:100',
+        'role_ids' => 'array|max:100',
+        'permission_keys' => 'array|max:100',
         'key' => 'require|regex:/^platform\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?:\.[a-z][a-z0-9]*(?:-[a-z0-9]+)*)*$/|max:96',
         'name' => 'require|max:120',
         'description' => 'max:500',
