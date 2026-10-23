@@ -33,14 +33,19 @@ final class MySqlMetadataObservation
     public static function checkTokens(string $sql): ?array
     {
         $pattern = <<<'RX'
-~\G(?:\s+|(?<identifier>`[a-z_][a-z0-9_]*`|"[a-z_][a-z0-9_]*")|(?:_(?:utf8mb4|ascii))?(?:\\'(?<metadata_literal>[^'\\]*)\\'|(?<literal>'(?:''|[^'])*'))|(?<word>[a-z_][a-z0-9_]*|[0-9]+|<>|!=|>=|<=|[(),=<>+*%-]))~Ai
+~\G(?:\s+|(?<identifier>`[a-z_][a-z0-9_]*`|"[a-z_][a-z0-9_]*")|(?:_(?:utf8mb4|ascii))?(?:\\'(?<metadata_literal>(?:[^'\\]|\\\\\\\\\.)*)\\'|(?<literal>'(?:''|[^'])*'))|(?<word>[a-z_][a-z0-9_]*|[0-9]+|<>|!=|>=|<=|[(),=<>+*%-]))~Ai
 RX;
         $tokens = []; $offset = 0;
         while ($offset < strlen($sql)) {
             if (preg_match($pattern, $sql, $match, PREG_UNMATCHED_AS_NULL, $offset) !== 1) { return null; }
             $offset += strlen($match[0]);
             if (trim($match[0]) === '') { continue; }
-            $tokens[] = $match['metadata_literal'] !== null ? "'" . $match['metadata_literal'] . "'"
+            $literal = $match['metadata_literal'];
+            if ($literal !== null) {
+                // Native CHECK metadata doubles the fixed SQL escaped-dot bytes.
+                $literal = str_replace('\\\\\\\\.', '\\\\.', $literal);
+            }
+            $tokens[] = $literal !== null ? "'" . $literal . "'"
                 : ($match['literal'] ?? strtolower($match['identifier'] !== null
                     ? substr($match['identifier'], 1, -1) : $match['word']));
         }
