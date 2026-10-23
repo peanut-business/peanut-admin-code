@@ -1142,12 +1142,12 @@
       'database-maintenance',
       'security-maintenance',
     ],
-    logSources: [],
+    logSources: ['platform.audit'],
     canRead: () => can('platform.ops.read'),
     canBackup: () => can('platform.ops.backup.manage'),
     canRestore: () => can('platform.ops.restore.manage'),
     canMaintain: () => can('platform.ops.maintenance.manage'),
-    canReadLogs: () => false,
+    canReadLogs: () => can('platform.ops.logs.read'),
   });
   provide(opsConsoleRuntimeKey, opsRuntime);
   const credentials = reactive({ email: '', password: '' });
