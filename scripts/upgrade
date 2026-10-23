@@ -11,6 +11,47 @@ $nativeEntry = str_ends_with(__FILE__, '/server/docker/scripts/upgrade');
 $toolRoot = $nativeEntry ? dirname(__DIR__, 3) : dirname(__DIR__);
 $runtimeRoot = $nativeEntry ? dirname(__DIR__) : $toolRoot;
 $serverScope = in_array('--scope=server', $argv, true);
+$toolingAdmission = null;
+// An independently pinned maintenance closure is an explicit operator input,
+// never executable content selected implicitly from an incoming APP archive.
+if (str_starts_with($argv[1] ?? '', 'tooling-')) {
+    if (($argv[1] ?? '') === 'tooling-inventory') {
+        echo json_encode(array_values(array_unique([...productUpgradeRuntimeFiles(), 'scripts/upgrade',
+            'scripts/scaffold-runtime/ScaffoldPathGuard.php', 'server/docker/scripts/update.sh',
+            'server/composer.json', 'server/composer.lock'])), JSON_THROW_ON_ERROR) . "\n";
+        exit(0);
+    }
+    $operation = substr($argv[1], strlen('tooling-'));
+    if (!in_array($operation, ['pack', 'observe', 'adopt', 'recover'], true)) { throw new RuntimeException('PRODUCT_TOOLING_OPERATION_INVALID'); }
+    $process = proc_open(['python3', $toolRoot . '/server/docker/scripts/update-tooling.py', $operation, '--php=' . PHP_BINARY, ...array_slice($argv, 2)],
+        [0 => STDIN, 1 => STDOUT, 2 => STDERR], $pipes);
+    if (!is_resource($process)) { throw new RuntimeException('PRODUCT_TOOLING_PROCESS_FAILED'); }
+    $code = proc_close($process); exit($code < 0 ? 1 : $code);
+}
+function productUpgradeToolingCheck(array $arguments, string $root): ?array
+{
+    $values = [];
+    foreach ($arguments as $argument) {
+        if (preg_match('/^--(tooling-receipt|instance-root)=(.+)$/D', $argument, $match)) {
+            if (isset($values[$match[1]])) { throw new RuntimeException('PRODUCT_TOOLING_ARGUMENT_DUPLICATE'); }
+            $values[$match[1]] = $match[2];
+        }
+    }
+    if (!isset($values['tooling-receipt'])) {
+        if (is_file($root . '/maintenance-tooling.json')) { throw new RuntimeException('PRODUCT_TOOLING_ADOPTION_REQUIRED'); }
+        return null;
+    }
+    if (!in_array('--scope=server', $arguments, true) || !isset($values['instance-root'])) { throw new RuntimeException('PRODUCT_TOOLING_SCOPE_INVALID'); }
+    $command = ['python3', $root . '/server/docker/scripts/update-tooling.py', 'check',
+        '--instance-root=' . $values['instance-root'], '--tooling-root=' . $root, '--receipt=' . $values['tooling-receipt']];
+    if (($arguments[1] ?? null) === 'plan') { $command[] = '--planning'; }
+    $process = proc_open($command, [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => STDERR], $pipes);
+    if (!is_resource($process)) { throw new RuntimeException('PRODUCT_TOOLING_PROCESS_FAILED'); }
+    $raw = stream_get_contents($pipes[1]); fclose($pipes[1]);
+    if (proc_close($process) !== 0) { throw new RuntimeException('PRODUCT_TOOLING_ADOPTION_INVALID'); }
+    return json_decode($raw, true, 32, JSON_THROW_ON_ERROR);
+}
+$toolingAdmission = productUpgradeToolingCheck($argv, $toolRoot);
 $frozenSource = null;
 $cancelAdmission = null;
 $cancelRunner = null;
@@ -865,9 +906,12 @@ function productUpgradeRuntimeFiles(): array
 {
     $files = ['scripts/product-upgrade-host', 'server/app/common/services/installation/InstallationExecutionHost.php'];
     foreach (['update-plan.php', 'update-database.php', 'update-preparation.py', 'update-recovery.py',
-        'prepare-vendor.sh', 'prepare-vendor.php', 'vendor-state.py', 'configure-collaboration.py'] as $name) {
+        'prepare-vendor.sh', 'prepare-vendor.php', 'vendor-state.py', 'configure-collaboration.py', 'update-tooling.py'] as $name) {
         $files[] = 'server/docker/scripts/' . $name;
     }
+    $files[] = 'server/app/common/services/upgrade/ApplicationSchemaHost.php';
+    $files[] = 'server/database/init.sql';
+    $files[] = 'server/database/schema/KernelSchema.php';
     return $files;
 }
 
@@ -1050,7 +1094,7 @@ if (!in_array($command, ['plan', 'apply', 'verify', 'recover', 'runtime-prepare'
 }
 $options = [];
 foreach (array_slice($argv, 2) as $argument) {
-    if (preg_match('/^--(instance-root|package|plan|stop-before|scope|archive|expected-sha256|git-input|expected-source-sha256|workspace|transition|expect-head|expect-generation|backup-tool|cancel-unmodified-preparing|resume-applied-source|partial-source-successor|baseline-mode-manifest)=(.+)$/D', $argument, $matches) !== 1
+    if (preg_match('/^--(instance-root|package|plan|stop-before|scope|archive|expected-sha256|git-input|expected-source-sha256|workspace|transition|expect-head|expect-generation|backup-tool|cancel-unmodified-preparing|resume-applied-source|partial-source-successor|baseline-mode-manifest|tooling-receipt)=(.+)$/D', $argument, $matches) !== 1
         || isset($options[$matches[1]])) {
         productUpgradeUsage();
     }
@@ -1093,6 +1137,7 @@ if ($runtimeCommand) {
     }
 }
 $required = ['instance-root', 'package'];
+if ($toolingAdmission !== null) { $required[] = 'tooling-receipt'; }
 if ($appliedAdmission !== null) { $required[] = 'resume-applied-source'; }
 if (!isset($options['scope'])) { productUpgradeUsage(); }
 if (isset($options['scope'])) {
@@ -1138,6 +1183,9 @@ $lock = null;
 try {
     $instanceRoot = ScaffoldPathGuard::projectRoot($options['instance-root']);
     $lock = $options['scope'] === 'server' ? productUpgradeAcquireLock($instanceRoot) : null;
+    if ($toolingAdmission !== null && productUpgradeToolingCheck($argv, $toolRoot) !== $toolingAdmission) {
+        throw new RuntimeException('PRODUCT_TOOLING_ADOPTION_CHANGED');
+    }
     $packageRoot = realpath($options['package']);
     if (!is_string($packageRoot)) {
         throw new RuntimeException('PRODUCT_UPGRADE_PACKAGE_NOT_FOUND');
@@ -1243,6 +1291,7 @@ try {
                 throw new RuntimeException('PRODUCT_UPGRADE_MODULE_PREFLIGHT_CAPABILITY_REQUIRED');
             }
             if (($existing['backup_tool'] ?? null) !== $backupTool
+                || ($existing['maintenance_tooling'] ?? null) !== $toolingAdmission
                 || ($existing['package'] ?? null) !== $packageIdentity
                 || ($existing['scope'] ?? null) !== 'server'
                 || ($existing['inputs_sha256'] ?? null) !== hash_file('sha256', $workspace . '/plan.json')
@@ -1288,6 +1337,7 @@ try {
                 'backup_tool' => $backupTool,
                 'workspace' => $workspace,
                 'runtime_sha256' => $runtimeDigest,
+                'maintenance_tooling' => $toolingAdmission,
                 'inputs_sha256' => hash_file('sha256', $workspace . '/plan.json'),
                 'package' => $packageIdentity,
                 'edition' => $edition,
@@ -1330,6 +1380,9 @@ try {
         }
     } else {
         $plan = productUpgradeReadPlan($instanceRoot, $options['plan']);
+        if (($plan['maintenance_tooling'] ?? null) !== $toolingAdmission) {
+            throw new RuntimeException('PRODUCT_TOOLING_PLAN_BINDING_CHANGED');
+        }
         if (($plan['package']['root'] ?? null) !== $packageRoot
             || !is_array($plan['migration']['files'] ?? null)) {
             throw new RuntimeException('PRODUCT_UPGRADE_PLAN_REBIND_FAILED');

@@ -2,6 +2,37 @@
 
 路径相对本应用源码根；本文解释实际接线，不是第二套规范或完整产品验收。先读[开发规范](standard.md)和[应用约定](application-conventions.md)。调用顺序以本次原生锁及实际加载源码为准；执行者分别记录源码、依赖、命令与验证范围，不能从本文推断某项运行验证已通过。
 
+### 既有实例显式采用维护工具
+
+旧实例的既有计划和 `trusted` 工具保持冻结。需要修复升级协调器时，从已审阅、固定提交的工具源码根生成独立维护工具目录；它不是产品包 B，不修改 B 的身份或摘要。源码须 clean，`server/vendor` 须由该源码 Composer lock 安装为 production 依赖；目录只包含协调器的唯一工具闭包、入口、lock 和锁定 vendor，不包含运行配置或凭据。
+
+```sh
+"$PHP" /fixed/source/scripts/upgrade tooling-pack --source-root=/fixed/source --output=/new/maintenance-tools
+```
+
+制包返回 manifest SHA-256、source commit/tree。传输前后由操作者在执行任何包内入口前独立核对该固定 manifest 摘要及其中每个文件的摘要/模式、无额外文件或链接；不能仅执行一个尚未核实的包内校验器建立信任。维护包来源与本次产品 B 的 source commit 分别登记；迁移语义修复仍须通过正常脚手架升级进入实际 B。
+
+```sh
+"$PHP" /verified/maintenance-tools/scripts/upgrade tooling-observe --instance-root=/installed/app
+"$PHP" /verified/maintenance-tools/scripts/upgrade tooling-adopt --instance-root=/installed/app \
+  --tooling-root=/verified/maintenance-tools --expected-tooling-sha256=MANIFEST_SHA256 \
+  --expected-before-sha256=OBSERVED_BEFORE_SHA256 --workspace=/new/tooling-adoption
+```
+
+`observe` 只读安装身份、release identity、保护配置、旧协调器和原计划状态的摘要。`adopt` 使用与正常升级相同的产品锁和原生 update 锁，再核对精确前态；活动或需恢复的操作拒绝采用。它将固定闭包复制到独立 workspace、备份原工具并持久化 `adoption.json`，最后原子切换实例的 `.peanut/upgrades/tooling-active.json` 指针；不覆盖 APP 或原工具、不修改旧计划、trusted、journal、数据库或卷。收据与 active 指针由当前执行 owner 持有、模式为 0600。中断在收据持久化之后且 active 指针切换之前，可用相同 pins 重入；更早的非空半成品 workspace 拒绝使用，由 owner 查明后处理。
+
+新计划通过采用后的同一公开 `update.sh` 入口创建，显式指定收据与原实例；使用新的空产品升级 workspace。每次入口在 Composer 加载前核实完整闭包和 active 收据，并在取得产品锁后重核；新计划绑定收据摘要。原计划不允许换工具重绑。
+
+```sh
+PEANUT_UPGRADE_PHP="$PHP" /new/tooling-adoption/tools/server/docker/scripts/update.sh plan \
+  --instance-server=/installed/app/server --tooling-receipt=/new/tooling-adoption/adoption.json \
+  --archive=/fixed/server.tar.gz --expected-sha256=ARCHIVE_SHA256 --workspace=/new/product-update
+```
+
+后续 `apply|verify|recover` 使用同一 wrapper、instance、收据和产品 workspace。业务 apply 的备份、写者暂停、迁移、恢复和人工 Gate 沿用原状态机。若尚未改变业务或原计划状态，可以运行 `tooling-recover --instance-root=... --receipt=...` 撤销工具指针；已经改变业务时必须先走产品恢复，工具恢复不能代替数据库/文件恢复。原安装工具始终保留。
+
+固定镜像环境准备仅支持 Dockerfile、PHP/MySQL/cron 镜像配置和辅助 recipe 不变、无 active collaboration 的既有 Compose 演进。旧/新 Compose 都在原实例 project-directory、同一只读保护 env 下解析；服务集合、固定本地镜像、挂载、网络、端口、数据库模式和其余配置必须完全一致，只允许 PHP stop signal 从缺省/SIGQUIT 改为 SIGTERM。目标 nginx 配置用原固定 nginx 镜像执行原生 `nginx -t`。不 build/pull 镜像、不改保护 env、不新建或清空数据库/卷。prepare 记录旧/新 recipe、保护 env、镜像、Compose 摘要和计划/输入绑定；后续步骤拒绝第三种 recipe，原 `runtime_environment_changed` 要求保留。未知变化拒绝，不能删 flag 或用旧环境重新打包冒充通过。
+
 ## 1. 产品与代码
 
 这是模块化管理应用基础，不是预先完成的全部行业系统。官方模块及workflow、artifact-revision、entitlement-quota等可选模块以实际module.json和插件锁为准；fixture.delivery-record是测试模块，不算产品。已有身份组织、会话、审计、设置字典文件、文章分类、富文本、会员/OAuth、任务通知CSV、机器/Webhook、充值回调退款及运营诊断等源码；存在源码不代表外部渠道和业务已经全部验收。
