@@ -11,6 +11,8 @@ use PeanutAdmin\Kernel\Context\PlatformContext;
 use PeanutAdmin\Modules\Ops\Domain\Maintenance\MaintenanceService;
 use PeanutAdmin\Modules\Ops\Domain\Status\OpsStatusService;
 use PeanutAdmin\Modules\Ops\Domain\Task\OpsTaskService;
+use PeanutAdmin\Modules\Ops\Domain\Logs\RuntimeLogQuery;
+use PeanutAdmin\Modules\Ops\Domain\Application\OpsConsoleException;
 use app\platform\services\provider\PlatformProviderQualificationService;
 
 /** Container-owned application boundary for all Platform Ops use cases. */
@@ -51,6 +53,20 @@ final readonly class PlatformOpsApplicationService
     public function maintenance(PlatformContext $context): ?array
     {
         return $this->maintenance->current($context)?->toPublicArray();
+    }
+
+    /** @return array<string,mixed> */
+    public function logs(PlatformContext $context, string $source, string $severity, int $pageSize): array
+    {
+        if ($source !== 'platform.audit') {
+            throw OpsConsoleException::invalid();
+        }
+        try {
+            $query = new RuntimeLogQuery($source, $severity, null, $pageSize);
+        } catch (\InvalidArgumentException) {
+            throw OpsConsoleException::invalid();
+        }
+        return $this->diagnostics->logs($context, $query);
     }
 
     /** @return array<string,mixed> */

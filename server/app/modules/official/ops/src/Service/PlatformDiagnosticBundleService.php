@@ -37,6 +37,13 @@ final readonly class PlatformDiagnosticBundleService
         private bool $debugEnabled,
     ) {}
 
+    /** The console shares the diagnostic provider's bounded, redacted projection. */
+    public function logs(PlatformContext $context, RuntimeLogQuery $query): array
+    {
+        $since = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->modify('-1440 minutes');
+        return ($this->runtimeLogs)($since)->read($context, $query)->toPublicArray();
+    }
+
     /** @return array{json:string,sha256:string,filename:string,bytes:int} */
     public function create(PlatformContext $context, int $windowMinutes): array
     {

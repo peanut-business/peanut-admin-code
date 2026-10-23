@@ -117,6 +117,10 @@ Route::get('v1/ops/providers', [PlatformOpsController::class, 'providers'])
 Route::get('v1/ops/maintenance', [PlatformOpsController::class, 'maintenance'])
     ->middleware(PlatformLoginMiddleware::class)
     ->middleware(PlatformPermissionMiddleware::class, 'platform.ops.read');
+Route::get('v1/ops/logs', [PlatformOpsController::class, 'logs'])
+    ->middleware(PlatformLoginMiddleware::class)
+    ->middleware(PlatformPermissionMiddleware::class, 'platform.ops.read')
+    ->middleware(PlatformPermissionMiddleware::class, 'platform.ops.logs.read');
 Route::put('v1/ops/maintenance', [PlatformOpsController::class, 'scheduleMaintenance'])
     ->middleware(PlatformLoginMiddleware::class)
     ->middleware(PlatformPermissionMiddleware::class, 'platform.ops.maintenance.manage');

@@ -1239,14 +1239,6 @@ function opsMutationResult(result: {
   };
 }
 
-function unavailable(code: string): Promise<OpsTransportResult> {
-  return Promise.resolve({
-    status: 503,
-    headers: new Headers(),
-    body: { code },
-  });
-}
-
 /** Platform Ops transport: maintenance state and its control writes share one Host. */
 export function createPlatformOpsTransport(): OpsConsoleTransport {
   return {
@@ -1275,6 +1267,14 @@ export function createPlatformOpsTransport(): OpsConsoleTransport {
       ),
     scheduleMaintenance: opsScheduleMaintenance,
     closeMaintenance: opsCloseMaintenance,
-    logs: () => unavailable('OPS_LOGS_UNAVAILABLE'),
+    logs: (sourceKey, severity, cursor, pageSize, signal) => {
+      const query = new URLSearchParams({
+        source: sourceKey,
+        severity,
+        page_size: String(pageSize),
+      });
+      if (cursor !== null) query.set('cursor', cursor);
+      return opsRead(`/platformapi/v1/ops/logs?${query}`, signal);
+    },
   };
 }

@@ -38,6 +38,31 @@ final class PlatformOpsController extends BasePlatformController
         return $this->run(fn(): ?array => $this->operations->maintenance($this->context()));
     }
 
+    public function logs(): Json
+    {
+        $params = $this->request->get();
+        $source = $params['source'] ?? 'platform.audit';
+        $severity = $params['severity'] ?? 'info';
+        $pageSize = $params['page_size'] ?? '50';
+        if (array_diff(array_keys($params), ['source', 'severity', 'page_size', 'cursor']) !== []
+            || $source !== 'platform.audit'
+            || !is_string($severity)
+            || !in_array($severity, ['info', 'warning', 'error', 'critical'], true)
+            || (!is_int($pageSize) && !is_string($pageSize))
+            || preg_match('/^[1-9][0-9]{0,2}$/D', (string) $pageSize) !== 1
+            || (int) $pageSize > 100
+            || (array_key_exists('cursor', $params) && $params['cursor'] !== '')
+        ) {
+            throw OpsConsoleException::invalid();
+        }
+        return $this->run(fn(): array => $this->operations->logs(
+            $this->context(),
+            $source,
+            $severity,
+            (int) $pageSize,
+        ));
+    }
+
     public function scheduleMaintenance(): Json
     {
         return $this->run(function (): array {
