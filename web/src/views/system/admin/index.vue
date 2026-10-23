@@ -202,8 +202,8 @@
         <el-form-item prop="account" :label="$t('systemAdmin.field.account')">
           <el-input
             v-model="form.account"
-            :disabled="form.root === 1"
-            maxlength="32"
+            :disabled="isEdit || form.root === 1"
+            maxlength="255"
             :placeholder="$t('systemAdmin.field.account.placeholder')"
           />
         </el-form-item>
@@ -239,7 +239,7 @@
         <el-form-item prop="name" :label="$t('systemAdmin.field.name')">
           <el-input
             v-model="form.name"
-            maxlength="16"
+            maxlength="120"
             :placeholder="$t('systemAdmin.field.name.placeholder')"
           />
         </el-form-item>
@@ -586,9 +586,10 @@
   const rules = computed(() => ({
     account: [
       { required: true, message: t('systemAdmin.field.account.required') },
+      { type: 'email', message: t('systemAdmin.field.account.email') },
       {
         min: 1,
-        max: 32,
+        max: 255,
         message: t('systemAdmin.field.account.length'),
       },
     ],
@@ -596,7 +597,7 @@
       { required: true, message: t('systemAdmin.field.name.required') },
       {
         min: 1,
-        max: 16,
+        max: 120,
         message: t('systemAdmin.field.name.length'),
       },
     ],

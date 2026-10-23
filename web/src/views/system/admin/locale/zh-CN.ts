@@ -37,7 +37,8 @@ export default {
   'systemAdmin.field.account': '账号',
   'systemAdmin.field.account.placeholder': '请输入账号',
   'systemAdmin.field.account.required': '账号不能为空',
-  'systemAdmin.field.account.length': '账号长度须在1-32位字符',
+  'systemAdmin.field.account.email': '请输入有效的邮箱地址',
+  'systemAdmin.field.account.length': '账号长度须在1-255位字符',
   'systemAdmin.field.avatar': '头像',
   'systemAdmin.field.avatar.upload': '上传头像',
   'systemAdmin.field.avatar.tip':
@@ -47,7 +48,7 @@ export default {
   'systemAdmin.field.name': '名称',
   'systemAdmin.field.name.placeholder': '请输入名称',
   'systemAdmin.field.name.required': '名称不能为空',
-  'systemAdmin.field.name.length': '名称须在1-16位字符',
+  'systemAdmin.field.name.length': '名称须在1-120位字符',
   'systemAdmin.field.dept': '归属部门',
   'systemAdmin.field.dept.placeholder': '请选择归属部门',
   'systemAdmin.field.jobs': '岗位',
