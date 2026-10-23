@@ -18,6 +18,7 @@ import json
 import os
 from pathlib import Path
 import re
+import socket
 import subprocess
 import time
 import urllib.parse
@@ -174,8 +175,26 @@ def verify_grant(c):
             "NATIVE_SCOPE_BINDING")
 
 
+def wait_for_listener(endpoint, seconds=60):
+    """Transport readiness for the admitted origin; identity remains the native grant's job."""
+    u = urllib.parse.urlsplit(endpoint)
+    port = u.port or (443 if u.scheme == "https" else 80)
+    deadline = time.monotonic() + seconds
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise Rejected("ENDPOINT_LISTENER_NOT_READY")
+        try:
+            with socket.create_connection((u.hostname, port), timeout=min(1, remaining)):
+                return
+        except OSError:
+            time.sleep(min(0.25, max(0, deadline - time.monotonic())))
+
+
 def execute(c, token):
     verify_grant(c)  # Missing/rejected authority produces neither HTTP nor an output file.
+    wait_for_listener(c["endpoint"])
+    verify_grant(c)  # Readiness wait may outlive the original lease or login token.
     out = Path(c["output"])
     fd = os.open(out, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
     journal = os.fdopen(fd, "w", encoding="utf-8")
@@ -189,6 +208,8 @@ def execute(c, token):
         require(count < c["budget"]["max_started"], "REQUEST_CAP")
         require(git(c["runtime_root"], "rev-parse", "HEAD") == c["source_commit"], "SOURCE_CHANGED")
         require(git(c["runtime_root"], "status", "--porcelain") == "", "DIRTY_RUNTIME")
+        verify_grant(c)
+        wait_for_listener(c["endpoint"])
         verify_grant(c)
         request = {"method": method, "path": path, "state": "started", "http_request_id": c["request_prefix"],
                    "tenant_id": c["tenant_id"], "article_id": c["article_id"], "document_id": c["document_id"]}

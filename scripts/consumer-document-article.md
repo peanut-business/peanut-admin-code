@@ -13,8 +13,12 @@ python3 scripts/consumer-document-article --input /absolute/private-input.json -
 ```
 
 The first command reads local files and Git only. `--execute` verifies the existing
-native resource lease before creating its journal and before every request. A
-missing input or rejected initial grant produces no journal or network request.
+native resource lease, waits up to 60 seconds for a TCP listener at the exact
+independently admitted `endpoint`, and rechecks the grant before creating its
+journal. It repeats those checks before each request. A missing input, rejected
+grant, or listener timeout before the first request produces no journal or
+business request. TCP readiness only confirms a listener at the admitted origin;
+it does not prove PHP identity, HTTP health, or business success.
 The journal flushes and fsyncs request-start before constructing the connection or
 sending HTTP. Each POST records its exact `request_id`, canonical full-input
 SHA-256, tenant/Article/Document IDs, expected sequence when applicable, and HTTP
