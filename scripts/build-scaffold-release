@@ -318,8 +318,12 @@ try {
         'version' => $options['version'],'source_commit' => $commit,'source_tree' => $tree,'inventory_sha256' => hash('sha256', (string) $inventoryRaw),
         'inventory_template_version' => $manifest['template']['version'],'managed_tree_sha256' => $manifest['digests']['managed_tree_sha256'],
     ];
-    if (isset($options['workflow'])) {
-        $releaseIdentity['workflow'] = $options['workflow'];
+    if (array_key_exists('workflow', $manifest['application'])) {
+        $workflow = $manifest['application']['workflow'];
+        if (!is_string($workflow) || !in_array($workflow, ['none', 'runtime', 'full'], true)) {
+            throw new RuntimeException('SCAFFOLD_RELEASE_WORKFLOW_INVALID');
+        }
+        $releaseIdentity['workflow'] = $workflow;
     }
     if (($inventory['schema_version'] ?? null) === 1 && ($inventory['protocol'] ?? null) === 'peanut.create-app-inventory.v1') {
         $releaseIdentity['tokens'] = ['product_name' => RELEASE_PRODUCT_TOKEN,'slug' => RELEASE_SLUG_TOKEN,'package_identity' => RELEASE_PACKAGE_TOKEN];

@@ -36,6 +36,8 @@ def main():
     manifest = json.loads((app / '.peanut/application-manifest.json').read_bytes())
     if release['protocol'] != 'peanut.scaffold-release.v3' or 'internal_core_projection' in release:
         raise ValueError('TEMPLATE_PUBLIC_RELEASE_REQUIRED')
+    if 'workflow' in release['release'] and release['release']['workflow'] != manifest['application']['workflow']:
+        raise ValueError('TEMPLATE_WORKFLOW_IDENTITY_MISMATCH')
     tokens = release['release']['tokens']
     members = {'scaffold-manifest.json': (release_bytes, 0o644)}
     tooling_source = pathlib.Path(args.tooling_source).resolve(strict=True)
