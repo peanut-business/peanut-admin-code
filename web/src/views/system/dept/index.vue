@@ -293,7 +293,7 @@
   const directory = useDepartmentDirectory(getDeptList);
   const tableRevision = ref(0);
   const pickerRevision = ref(0);
-  const isSearch = directory.isSearch;
+  const { isSearch } = directory;
   const queryParams = reactive<{
     name: string;
     status: number | '' | null | undefined;
@@ -356,7 +356,8 @@
 
   const loadLeaders = async (next = false) => {
     if (!form.id) return;
-    const request = ++leaderRequest;
+    leaderRequest += 1;
+    const request = leaderRequest;
     const departmentId = form.id;
     const page = next ? leaderPage.value + 1 : 1;
     leaderLoading.value = true;
