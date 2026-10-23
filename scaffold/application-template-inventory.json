@@ -6743,7 +6743,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5173ffebf3f9200dee599a62cd4212a3abd56e4d2fb1292c7f2e14a2ece04401"
+            "source_sha256": "2bb99b8e88efd7d64875d29e34e031ee70144a889c5317f35b3997d454c9668e"
         },
         {
             "path": "server/app/command/BundlePack.php",
@@ -9507,7 +9507,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "59ce81c061fb7de2b647ad51fc7c328db5f08fa726904cbc2aa54238f280a83f"
+            "source_sha256": "9630f6e4ec8354103bdc07cb06699697a9641667f4bf34dbcb36f2388ceb9905"
+        },
+        {
+            "path": "server/app/common/services/upgrade/FileAdoptionRelocation.php",
+            "target": "server/app/common/services/upgrade/FileAdoptionRelocation.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "2fd176acaa3788c7cac0bb52ac554e4d12ac218ae13ce908f10480e2672a0e1b"
         },
         {
             "path": "server/app/common/services/upgrade/MySqlMetadataObservation.php",
@@ -9549,7 +9563,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "91a910ef779d211254fc838363505c45109b837a9bb111b14d9b8070d7808243"
+            "source_sha256": "edcddd17a6e9c8bb44916e6588c16f58ae9d2984d3f983f11f31f177fced3be1"
         },
         {
             "path": "server/app/common/services/upgrade/SourceApplicationDump.php",
@@ -26537,7 +26551,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0d480c8b1a8a3283b1bc5fe44022bfaf88528c0b1e78bb094a2416e3301bd3d5"
+            "source_sha256": "4be8b264cb951650763a128530b92d0f2e423c25ba5427ed0560d1b076f6c71f"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",
@@ -27980,6 +27994,20 @@
                 "full"
             ],
             "source_sha256": "eeb264889bdfaaa2a86d0dc8f314845ded2b5f70ab90650c8997350e7090aa87"
+        },
+        {
+            "path": "server/database/maintenance/20261024-relocate-file-adoption.sql",
+            "target": "server/database/maintenance/20261024-relocate-file-adoption.sql",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "ad3871cdd6ce7bf2fb35a09c55eebc7dc8216dbe9775157664283674ffe74f61"
         },
         {
             "path": "server/database/migrations/20260822-classify-official-article-permissions.sql",
