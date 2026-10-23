@@ -136,10 +136,7 @@ export interface MemberExportResult {
   file_name: string;
 }
 
-export function getMemberList(
-  params: MemberListParams = {},
-  signal?: AbortSignal
-) {
+export function getMemberList(params?: MemberListParams, signal?: AbortSignal) {
   return axios.get<MemberListResult>('/adminapi/official.member.list', {
     params,
     signal,

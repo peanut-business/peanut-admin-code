@@ -699,7 +699,7 @@
     detailRequest?.abort();
     const controller = new AbortController();
     detailRequest = controller;
-    const id = detail.id;
+    const { id } = detail;
     const key = contextKey.value;
     const session = getSessionSnapshot().generation;
     detailLoading.value = true;
@@ -974,9 +974,9 @@
       queryParams.createTime = [];
       pagination.current = 1;
       pagination.total = 0;
-      if (hasPermission('official.member.list')) void fetchData(1);
+      if (hasPermission('official.member.list')) fetchData(1);
       else setLoading(false);
-      void fetchTags();
+      fetchTags();
     },
     { immediate: true, flush: 'sync' }
   );
