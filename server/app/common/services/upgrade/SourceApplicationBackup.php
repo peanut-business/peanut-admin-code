@@ -456,6 +456,8 @@ final class SourceApplicationBackup
             ['pa_department'], 'PeanutAdmin\\Modules\\Identity\\Database\\IdentitySchemaMigrationProof'],
         'official.identity:20261015010000_index_revocation_audit_facts' => ['eacd6eddd89a9f064688ff45ba67210d896a65bbeaea1448394e7b6df3c271aa',
             ['pa_tenant_audit_event'], 'PeanutAdmin\\Modules\\Identity\\Database\\IdentitySchemaMigrationProof'],
+        'official.identity:20261024020000_create_pa_member_job' => ['505da08d46270f0cddf38aef27f54869b8152ef38cca2923c61034bb024c37a0',
+            ['pa_member_job', 'pa_jobs', 'pa_tenant_member'], 'PeanutAdmin\\Modules\\Identity\\Database\\IdentitySchemaMigrationProof'],
         'peanut.workflow:20260921-register-module-schema' => ['f0a21d63c83afcd2438fc327bf6ad97a59d82daa571bc4de51d74c32eb487ff7',
             ['pa_workflow_definition', 'pa_workflow_definition_version', 'pa_workflow_instance', 'pa_workflow_work_item', 'pa_workflow_event'],
             'PeanutAdmin\\Modules\\Workflow\\Database\\WorkflowSchemaMigrationProof'],
