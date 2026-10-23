@@ -1,11 +1,11 @@
 {
     "schema_version": 1,
     "key": "official.document",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "48cd2122a098330e77d67b0cb35d0aa707da8b404f380b1d5886c313fa2eebfc"
+        "sha256": "5b4c7bd71b5e829ed1998edc3c2e13798037dd8c672c3072659f62a2aee60cd9"
     },
     "trust": {
         "channel": "bundled",
@@ -39,7 +39,7 @@
             "modules": [
                 {
                     "key": "official.document",
-                    "version": "1.0.2",
+                    "version": "1.0.3",
                     "kernel_constraint": "^1.0",
                     "dependencies": [
                         {
@@ -52,7 +52,7 @@
                         },
                         {
                             "module_key": "official.identity",
-                            "version": "4.0.0-rc.24"
+                            "version": "4.0.0-rc.25"
                         },
                         {
                             "module_key": "official.rich-text",
