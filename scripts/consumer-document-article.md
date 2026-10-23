@@ -16,8 +16,11 @@ The first command reads local files and Git only. `--execute` verifies the exist
 native resource lease, waits up to 60 seconds for a TCP listener at the exact
 independently admitted `endpoint`, and rechecks the grant before creating its
 journal. It repeats those checks before each request. A missing input, rejected
-grant, or listener timeout before the first request produces no journal or
-business request. TCP readiness only confirms a listener at the admitted origin;
+initial grant, or initial listener timeout produces no journal or business request.
+If the later check before the first request fails, the journal records
+`stopped_reconcile_original_requests` with `requests: 0` and no `started` event.
+After a completed request, a later failure preserves the recorded request count;
+the consumer does not replay earlier calls. TCP readiness only confirms a listener at the admitted origin;
 it does not prove PHP identity, HTTP health, or business success.
 The journal flushes and fsyncs request-start before constructing the connection or
 sending HTTP. Each POST records its exact `request_id`, canonical full-input
