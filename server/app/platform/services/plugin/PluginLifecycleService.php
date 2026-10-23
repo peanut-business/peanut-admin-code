@@ -249,13 +249,13 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 $modules[] = ['module_key' => $moduleKey, 'manifest_sha256' => $manifestSha, ...$migrationPlan];
             }
             usort($modules, static fn(array $left, array $right): int => strcmp($left['module_key'], $right['module_key']));
-            $plan = $plugin->publicIdentity() + ['action' => $action, 'may_apply' => $mayApply,
+            $plan = array_replace($plugin->publicIdentity(), ['action' => $action, 'may_apply' => $mayApply,
                 'planning_complete' => $planningComplete, 'application_prerequisites' => array_values($prerequisites),
                 'status' => $mayApply ? 'ready' : ($planningComplete ? 'planned' : 'blocked'), 'execution_admitted' => false,
                 'from_version' => is_array($current) ? (string) $current['installed_version'] : null,
                 'manifest_sha256' => $plugin->manifestDigest, 'modules' => $modules,
                 'reference_code_catalog' => $this->catalogs->referenceCodePlan($manifests),
-                'observation' => 'read-only interval; execution revalidates all native guards'];
+                'observation' => 'read-only interval; execution revalidates all native guards']);
             if ($recovery !== null) { $plan['install_recovery'] = $recovery; }
             // Native source backup consumes the actual plan before this same
             // package lock is released. It cannot enter the mutation branch.
@@ -2444,14 +2444,21 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
         if ($notificationForward !== null) {
             $receipt = self::notificationReceiptSnapshot($this->notificationReceiptPath($plugin));
             unset($receipt['contents']);
-            $current = $this->notificationInstalledState($plugin, false);
-            if ($receipt['exists'] && isset(self::readNotificationReceipt($receipt['path'])['lineage'])) {
-                $predecessor = app()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->notificationRepairEvidence($pdo)['lineage'];
-                if (self::json($predecessor) !== self::json(self::readNotificationReceipt($receipt['path'])['lineage'])) {
-                    throw new PluginLifecycleException('NOTIFICATION_FORWARD_REPAIR_PREDECESSOR_INVALID', 'The bound repair lineage changed.');
+            // Only the verified wholly absent provenance schema may defer this
+            // new-column snapshot. Keep the actual protected receipt above;
+            // the plan stays non-executable with its application prerequisite.
+            // After that migration, native reconcile replans the full snapshot,
+            // lineage and held forward admission before any lifecycle writes.
+            if ($prerequisite === null) {
+                $current = $this->notificationInstalledState($plugin, false);
+                if ($receipt['exists'] && isset(self::readNotificationReceipt($receipt['path'])['lineage'])) {
+                    $predecessor = app()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->notificationRepairEvidence($pdo)['lineage'];
+                    if (self::json($predecessor) !== self::json(self::readNotificationReceipt($receipt['path'])['lineage'])) {
+                        throw new PluginLifecycleException('NOTIFICATION_FORWARD_REPAIR_PREDECESSOR_INVALID', 'The bound repair lineage changed.');
+                    }
+                } elseif (($current['plugin']['status'] ?? null) === 'failed' && !$this->sameIdentity($plugin, $current['plugin']) && !$receipt['exists']) {
+                    $predecessor = $this->notificationRepairLineage($plugin, $pdo, $current, self::migrationInstance($pdo));
                 }
-            } elseif (($current['plugin']['status'] ?? null) === 'failed' && !$this->sameIdentity($plugin, $current['plugin']) && !$receipt['exists']) {
-                $predecessor = $this->notificationRepairLineage($plugin, $pdo, $current, self::migrationInstance($pdo));
             }
         }
         return ['may_apply' => $mayApply && $prerequisite === null && !$sourceDeferred, 'planning_complete' => $mayApply,
