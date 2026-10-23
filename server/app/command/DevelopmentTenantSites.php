@@ -46,7 +46,10 @@ final class DevelopmentTenantSites extends ModuleContextualCommand
             $server = rtrim($this->getApp()->getRootPath(), DIRECTORY_SEPARATOR);
             require_once $server . '/database/environment-guard.php';
             $config = \guardedDatabaseConfig();
-            $pdo = Db::connect()->getPdo();
+            $connection = Db::connect();
+            $identity = $connection->query('SELECT DATABASE() AS database_name');
+            if (($identity[0]['database_name'] ?? null) !== $config['database']) { throw new RuntimeException('DEVELOPMENT_SITES_DATABASE_CHANGED'); }
+            $pdo = $connection->getPdo();
             $snapshot = self::snapshot($pdo);
             if (!$input->getOption('apply')) {
                 $output->writeln(json_encode(['status' => 'observed', 'database' => $config['database'], 'snapshot' => $snapshot], JSON_THROW_ON_ERROR));
