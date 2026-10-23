@@ -2076,14 +2076,14 @@
   async function assignOperatorRoles(item: Operator) {
     try {
       const result = await ElMessageBox.prompt(
-        `输入角色 ID，多个用逗号分隔。可选：${roles.value
+        `输入角色 ID，多个用逗号分隔；留空撤销全部角色。可选：${roles.value
           .map((role) => `${role.id}:${role.name}`)
           .join('，')}`,
         '分配角色',
         {
           inputValue: '',
-          inputPattern: /^\d+(\s*,\s*\d+)*$/,
-          inputErrorMessage: '请输入一个或多个角色 ID',
+          inputPattern: /^\s*(?:[1-9]\d*(?:\s*,\s*[1-9]\d*)*)?\s*$/,
+          inputErrorMessage: '请输入正整数角色 ID，或留空撤销全部角色',
         }
       );
       const reason = await ElMessageBox.prompt('变更原因', '变更原因', {
@@ -2094,7 +2094,9 @@
         () =>
           api.replaceOperatorRoles(
             item,
-            result.value.split(',').map((id) => Number(id.trim())),
+            result.value.trim() === ''
+              ? []
+              : result.value.split(',').map((id) => Number(id.trim())),
             reason.value
           ),
         '角色分配已更新'

@@ -49,7 +49,10 @@ final class AdminApplicationService
             'account' => 'require|email|max:255',
             'name' => 'require|length:1,120',
             'avatar' => 'max:512',
-            'password' => [function ($value): bool|string {
+            'password' => [function ($value, array $data) use ($scene): bool|string {
+                if ($scene === 'edit' && (!array_key_exists('password', $data) || $value === '')) {
+                    return true;
+                }
                 if (!is_string($value)) {
                     return '密码必须是字符串';
                 }
