@@ -162,10 +162,10 @@ final class ApplicationSchemaHost
     }
 
     /** Safe summaries/counts are stage evidence, not a new live comparison with the original facts. */
-    public static function assertMenuPoststates(array $applied, array $poststates, bool $liveVerify): void
+    public static function assertMenuPoststates(array $applied, array $poststates, bool $liveVerify, ?PDO $pdo = null, ?array $terminal = null): void
     {
+        if ($liveVerify && array_intersect(self::MENU_MIGRATIONS, $applied) !== []) { self::assertBusinessTerminalState($pdo, $applied, $poststates, $terminal); }
         foreach (array_intersect(self::MENU_MIGRATIONS, $applied) as $id) {
-            if ($liveVerify) { throw new RuntimeException('APPLICATION_SCHEMA_MENU_LIVE_REVERIFY_REQUIRED'); }
             $record = $poststates[$id] ?? null;
             if (!is_array($record) || ($record['contract'] ?? null) !== MenuSchemaMigrationProof::class
                 || ($record['sha256'] ?? null) !== self::PRESTATE_SQL[$id]
@@ -214,10 +214,10 @@ final class ApplicationSchemaHost
     }
 
     /** A prior safe result cannot recreate the original private facts for a live comparison. */
-    public static function assertPermissionPoststates(array $applied, array $poststates, bool $liveVerify): void
+    public static function assertPermissionPoststates(array $applied, array $poststates, bool $liveVerify, ?PDO $pdo = null, ?array $terminal = null): void
     {
+        if ($liveVerify && array_intersect(self::PERMISSION_MIGRATIONS, $applied) !== []) { self::assertBusinessTerminalState($pdo, $applied, $poststates, $terminal); }
         foreach (array_intersect(self::PERMISSION_MIGRATIONS, $applied) as $id) {
-            if ($liveVerify) { throw new RuntimeException('APPLICATION_SCHEMA_PERMISSION_LIVE_REVERIFY_REQUIRED'); }
             $record = $poststates[$id] ?? null;
             if (!is_array($record) || ($record['contract'] ?? null) !== PermissionSchemaMigrationProof::class
                 || ($record['sha256'] ?? null) !== self::PRESTATE_SQL[$id]
@@ -270,11 +270,11 @@ final class ApplicationSchemaHost
     }
 
     /** Existing SMS summaries cannot recreate their private historical facts for a fresh comparison. */
-    public static function assertSmsPoststates(array $applied, array $poststates, bool $liveVerify): void
+    public static function assertSmsPoststates(array $applied, array $poststates, bool $liveVerify, ?PDO $pdo = null, ?array $terminal = null): void
     {
         $id = '20260909-notification-sms-reservation';
         if (!in_array($id, $applied, true)) { return; }
-        if ($liveVerify) { throw new RuntimeException('APPLICATION_SCHEMA_SMS_LIVE_REVERIFY_REQUIRED'); }
+        if ($liveVerify) { self::assertBusinessTerminalState($pdo, $applied, $poststates, $terminal); }
         $record = $poststates[$id] ?? null;
         if (!is_array($record) || ($record['contract'] ?? null) !== SmsReservationMigrationProof::class
             || ($record['sha256'] ?? null) !== self::PRESTATE_SQL[$id]
@@ -282,6 +282,67 @@ final class ApplicationSchemaHost
             || ($record['proof']['readonly'] ?? null) !== true || ($record['proof']['sms_reservation_verified'] ?? null) !== true
             || ($record['proof_sha256'] ?? null) !== self::digest($record['proof'])) {
             throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_PROOF_REQUIRED');
+        }
+    }
+
+    /**
+     * Seal only after every per-SQL business proof and all legal successors have completed.
+     * The caller keeps this digest in its protected result, bound to its original recovery point.
+     * No private before DTO or row payload survives the executing callback.
+     */
+    public static function businessTerminalState(PDO $pdo, array $applied, array $poststates): array
+    {
+        self::assertMenuPoststates($applied, $poststates, false);
+        self::assertPermissionPoststates($applied, $poststates, false);
+        self::assertSmsPoststates($applied, $poststates, false);
+        if ($pdo->inTransaction()) { throw new RuntimeException('APPLICATION_SCHEMA_TERMINAL_TRANSACTION_INVALID'); }
+        $sources = [];
+        foreach ($applied as $id) {
+            if (!isset(self::PRESTATE_SQL[$id])) { throw new RuntimeException('APPLICATION_SCHEMA_TERMINAL_SOURCE_UNKNOWN'); }
+            $sources[$id] = self::PRESTATE_SQL[$id];
+        }
+        ksort($sources, SORT_STRING);
+        $tables = [];
+        if (array_intersect(self::MENU_MIGRATIONS, $applied) !== []) { $tables = ['pa_system_menu', 'pa_menu_definition']; }
+        if (array_intersect(self::PERMISSION_MIGRATIONS, $applied) !== []) {
+            $tables = [...$tables, 'pa_permission', 'pa_role_permission', 'pa_role', 'pa_tenant', 'pa_menu_definition', 'pa_system_menu',
+                'pa_platform_role_permission', 'pa_resource_operation_permission', 'pa_resource_operation_target_type',
+                'pa_auth_security_event', 'pa_tenant_session'];
+        }
+        if (in_array('20260909-notification-sms-reservation', $applied, true)) { $tables[] = 'pa_notice_log'; }
+        $tables = array_values(array_unique($tables)); sort($tables, SORT_STRING);
+        $pdo->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+        $pdo->exec('SET TRANSACTION READ ONLY');
+        $pdo->beginTransaction();
+        try {
+            $database = $pdo->query('SELECT DATABASE() AS database_name,@@server_uuid AS server_uuid')->fetch(PDO::FETCH_ASSOC);
+            $result = [];
+            foreach ($tables as $table) {
+                $shape = self::prestateTable($pdo, $table);
+                $parts = [];
+                foreach (array_keys($shape['columns']) as $column) {
+                    $field = '`' . str_replace('`', '``', $column) . '`';
+                    // Fixed-width hashes plus a NULL tag preserve binary values and multiplicity.
+                    $parts[] = "IF($field IS NULL,CONCAT('N',REPEAT('0',64)),CONCAT('S',SHA2(CAST($field AS BINARY),256)))";
+                }
+                if ($parts === []) { throw new RuntimeException('APPLICATION_SCHEMA_TERMINAL_COLUMNS_MISSING'); }
+                $create = $pdo->query('SHOW CREATE TABLE `' . $table . '`')->fetch(PDO::FETCH_NUM);
+                $statement = $pdo->query('SELECT SHA2(CONCAT(' . implode(',', $parts) . '),256) AS row_digest FROM `' . $table . '` ORDER BY row_digest');
+                $hash = hash_init('sha256'); $count = 0;
+                while (($row = $statement->fetchColumn()) !== false) { hash_update($hash, $row . "\n"); ++$count; }
+                $statement->closeCursor();
+                $result[$table] = ['schema_sha256' => hash('sha256', (string) $create[1]), 'rows' => $count, 'rows_sha256' => hash_final($hash)];
+            }
+            return ['protocol' => 'peanut.application-business-terminal.v1', 'sources' => $sources,
+                'proofs_sha256' => self::digest($poststates), 'database' => $database, 'tables' => $result];
+        } finally { $pdo->rollBack(); }
+    }
+
+    private static function assertBusinessTerminalState(?PDO $pdo, array $applied, array $poststates, ?array $terminal): void
+    {
+        if ($pdo === null || $terminal === null || ($terminal['protocol'] ?? null) !== 'peanut.application-business-terminal.v1'
+            || self::digest($terminal) !== self::digest(self::businessTerminalState($pdo, $applied, $poststates))) {
+            throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_LIVE_POSTSTATE_CHANGED');
         }
     }
 
@@ -767,16 +828,19 @@ final class ApplicationSchemaHost
                             throw new RuntimeException('APPLICATION_SCHEMA_WINDOW_CHANGED');
                         }
                         $this->assertSourceBaseline($pdo, $baseline, $baseline['pending'], null, 'completed');
-                        self::assertMenuPoststates($baseline['pending'], $businessPoststates, $operation === 'verify');
-                        self::assertPermissionPoststates($baseline['pending'], $businessPoststates, $operation === 'verify');
-                        self::assertSmsPoststates($baseline['pending'], $businessPoststates, $operation === 'verify');
-                        if ($operation === 'verify' && in_array('20261007-auth-client-schema', $baseline['pending'], true)) {
+                        if ($operation === 'verify') {
                             $businessPoststates = $expected['business_poststates'] ?? [];
                         }
+                        self::assertMenuPoststates($baseline['pending'], $businessPoststates, $operation === 'verify', $pdo, $expected['business_terminal_state'] ?? null);
+                        self::assertPermissionPoststates($baseline['pending'], $businessPoststates, $operation === 'verify', $pdo, $expected['business_terminal_state'] ?? null);
+                        self::assertSmsPoststates($baseline['pending'], $businessPoststates, $operation === 'verify', $pdo, $expected['business_terminal_state'] ?? null);
                         self::assertAuthPoststates($pdo, $baseline['pending'], $businessPoststates, $operation === 'verify');
+                        $terminal = $operation === 'apply' ? self::businessTerminalState($pdo, $baseline['pending'], $businessPoststates)
+                            : ($expected['business_terminal_state'] ?? null);
                         $record = ['schema_version' => 1, 'protocol' => 'peanut.source-development-schema-result.v1',
                             'scope' => 'application-schema', 'maintenance_scope' => ($current['source']['kind'] ?? null) === 'generated-application' ? 'source-application' : 'source-development', 'status' => 'completed',
                             'operation' => $operation, 'binding' => $current, 'baseline' => $baseline, 'application' => $selection, 'business_poststates' => $businessPoststates,
+                            'business_terminal_state' => $terminal,
                             'validation_only' => $current['validation_only'],
                             'recovery_references' => $operation === 'apply' ? ($proofs['recovery']['references'] ?? null) : ($expected['recovery_references'] ?? null),
                             'external_gates' => 'not_evaluated',

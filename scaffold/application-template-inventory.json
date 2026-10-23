@@ -906,7 +906,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "12696d8246fb4e2fdc42f0f4a3c366ed96c5d9e4438bb8b88f7433ee99c82162"
+            "source_sha256": "8f49863928653ec22e4e5e5b4f1b64291413e7e1cfada63f867b596d8f3f66b0"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -3806,7 +3806,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5e73eb138a44961f63aa36665b765e714ef9451117d9c81150efb2f5ea10581d"
+            "source_sha256": "9b6caffa993c3e6bc3c73de8aa3bdc8a5d6328973e507e3b0b2cd3d1df589056"
         },
         {
             "path": "scripts/project-codegraph",
@@ -5119,7 +5119,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7ad198c421dda969f578b9c02a6bdf6f6e296e01d02dbb86eb5bce2db274deee"
+            "source_sha256": "c8f85ccf5de0f4908b357b3a474945d371a799196e100d42e7a2d09296e8d6f6"
         },
         {
             "path": "scripts/workflow-authorized-fixture.py",
@@ -9479,7 +9479,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c219fb9d3cbe3e48842814c150d6b1a72013899f6f7b220ebca1c5daa7bedc1e"
+            "source_sha256": "59ce81c061fb7de2b647ad51fc7c328db5f08fa726904cbc2aa54238f280a83f"
         },
         {
             "path": "server/app/common/services/upgrade/MySqlMetadataObservation.php",
@@ -26537,7 +26537,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "69bc392ca543afc09ae01c6b26f799d0fca304f566b3b0303821803dca6092ae"
+            "source_sha256": "2cf4ac80df0172970ddea90200c2e684de6ef8b596e03d861b543e1569352ad6"
         },
         {
             "path": "server/app/platform/validate/PlatformLoginValidate.php",
@@ -28636,7 +28636,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4c6860e818f46368c8369a00597c22156215ba1382b9bc2a35bbd2b1d2195520"
+            "source_sha256": "43aee351966cae38e71fb7c6f6895a4bd5611d78ac445e8a8e67411552e60acf"
         },
         {
             "path": "server/docker/scripts/update-plan.php",
@@ -28681,6 +28681,20 @@
             "source_sha256": "a59b1e5299fe8b9af4f94de40641b3838c12533d7922b479864d92504078b960"
         },
         {
+            "path": "server/docker/scripts/update-tooling.py",
+            "target": "server/docker/scripts/update-tooling.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "6beaddc79978342c730188257f8bc2f0700ce606cfe9ebaeaf6f1236aba62cc5"
+        },
+        {
             "path": "server/docker/scripts/update.sh",
             "target": "server/docker/scripts/update.sh",
             "classification": "managed",
@@ -28692,7 +28706,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "18c4b9e39d7209467f5b1d2f9729f3523ae7314461c709a915c50901906f7302"
+            "source_sha256": "b5dd9f3938af700a11cf1dad17a0451debe5c92b6e07f10d4eecb2601733ebbc"
         },
         {
             "path": "server/docker/scripts/vendor-state.py",

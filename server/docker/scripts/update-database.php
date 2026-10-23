@@ -4,6 +4,8 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/update-plan.php';
+// Load the same trusted tool closure before application bootstrap can autoload an older APP copy.
+require_once dirname(__DIR__, 2) . '/app/common/services/upgrade/ApplicationSchemaHost.php';
 
 /** Requiring the host never runs a phase; application-only callers share its admission. */
 function peanutServerDatabaseStage(string $operation, string $server, string $workspace, string $scope = 'server-release'): array
@@ -229,14 +231,15 @@ function peanutServerDatabaseStage(string $operation, string $server, string $wo
     }
     $modules = null;
     $readOnly = $operation === 'verify' || $replayed;
-    $businessBefore = []; $businessPoststates = [];
+    $businessBefore = []; $businessPoststates = []; $businessTerminalState = null;
     if ($readOnly) {
-        \app\common\services\upgrade\ApplicationSchemaHost::assertMenuPoststates(
-            $previous['application']['applied'] ?? [], [], true);
-        \app\common\services\upgrade\ApplicationSchemaHost::assertPermissionPoststates(
-            $previous['application']['applied'] ?? [], [], true);
-        \app\common\services\upgrade\ApplicationSchemaHost::assertSmsPoststates(
-            $previous['application']['applied'] ?? [], [], true);
+        $businessPoststates = $previous['business_poststates'] ?? [];
+        if (($previous['database_identity'] ?? null) !== $databaseIdentity
+            || ($previous['source'] ?? null) !== $facts['source']
+            || ($previous['mysql_identity'] ?? null) !== $facts['database_identity']
+            || ($previous['target_identity_sha256'] ?? null) !== $facts['target_identity_sha256']) {
+            throw new RuntimeException('migration business evidence belongs to another execution source or database');
+        }
     }
     $migration = $runner->run($files, $migrationTargetVersion, $version, $readOnly,
         $readOnly ? null : static function (PDO $actual, array $migration) use ($pdo, $scope, &$businessBefore): bool {
@@ -266,23 +269,28 @@ function peanutServerDatabaseStage(string $operation, string $server, string $wo
             \app\common\services\upgrade\ApplicationSchemaHost::migrationPrestate($pdo, $migration, [], false);
             return false;
         },
-        static function (PDO $actual, array $migration) use ($pdo, $app, $scope, $readOnly, $previous, &$modules, &$businessPoststates): void {
+        static function (PDO $actual, array $migration) use ($pdo, $app, $scope, $readOnly, $previous, &$modules, &$businessPoststates, &$businessTerminalState): void {
             if ($actual !== $pdo || $migration['pending'] !== []) { throw new RuntimeException('application migration ledger is incomplete'); }
             PeanutServerUpdatePlan::assertDatabaseMigrationStage($pdo);
-            \app\common\services\upgrade\ApplicationSchemaHost::assertMenuPoststates($migration['applied'], $businessPoststates, false);
-            \app\common\services\upgrade\ApplicationSchemaHost::assertPermissionPoststates($migration['applied'], $businessPoststates, false);
-            \app\common\services\upgrade\ApplicationSchemaHost::assertSmsPoststates($migration['applied'], $businessPoststates, false);
+            $applied = $readOnly ? ($previous['application']['applied'] ?? []) : $migration['applied'];
+            \app\common\services\upgrade\ApplicationSchemaHost::assertMenuPoststates($applied, $businessPoststates, $readOnly, $pdo, $previous['business_terminal_state'] ?? null);
+            \app\common\services\upgrade\ApplicationSchemaHost::assertPermissionPoststates($applied, $businessPoststates, $readOnly, $pdo, $previous['business_terminal_state'] ?? null);
+            \app\common\services\upgrade\ApplicationSchemaHost::assertSmsPoststates($applied, $businessPoststates, $readOnly, $pdo, $previous['business_terminal_state'] ?? null);
             \app\common\services\upgrade\ApplicationSchemaHost::assertAuthPoststates($pdo,
                 $readOnly ? ($previous['application']['applied'] ?? []) : $migration['applied'],
                 $readOnly ? ($previous['business_poststates'] ?? []) : $businessPoststates, $readOnly);
-            if ($scope !== 'server-release') { return; }
-            if (!$readOnly) { $modules = \app\command\PluginReconcile::reconcileInProcess($app, $pdo); }
-            if ((int) $pdo->query("SELECT COUNT(*) FROM pa_module_migration WHERE status <> 'applied'")->fetchColumn() !== 0) {
-                throw new RuntimeException('module migration ledger is incomplete');
+            if ($scope === 'server-release') {
+                if (!$readOnly) { $modules = \app\command\PluginReconcile::reconcileInProcess($app, $pdo); }
+                if ((int) $pdo->query("SELECT COUNT(*) FROM pa_module_migration WHERE status <> 'applied'")->fetchColumn() !== 0) {
+                    throw new RuntimeException('module migration ledger is incomplete');
+                }
+                if ($readOnly && ($previous['module_state_sha256'] ?? null) !== peanutServerDatabaseModuleState($pdo)) {
+                    throw new RuntimeException('module migration or installation state changed');
+                }
             }
-            if ($readOnly && ($previous['module_state_sha256'] ?? null) !== peanutServerDatabaseModuleState($pdo)) {
-                throw new RuntimeException('module migration or installation state changed');
-            }
+            $businessTerminalState = $readOnly ? ($previous['business_terminal_state'] ?? null)
+                : \app\common\services\upgrade\ApplicationSchemaHost::businessTerminalState($pdo, $applied, $businessPoststates);
+            PeanutServerUpdatePlan::assertDatabaseMigrationStage($pdo);
         }, $readOnly ? null : static function (PDO $actual, array $migration, ?array $executionBounds) use ($pdo, $scope, &$businessBefore, &$businessPoststates): void {
             if ($actual !== $pdo) { throw new RuntimeException('native migration master changed'); }
             PeanutServerUpdatePlan::assertDatabaseMigrationStage($pdo);
@@ -314,7 +322,11 @@ function peanutServerDatabaseStage(string $operation, string $server, string $wo
         || count(array_filter($statuses, static fn(string $status): bool => $status !== 'applied')) > 0)) { throw new RuntimeException('migration verification requires every selected native applied row'); }
     $evidence = ['status' => 'completed', 'operation' => $operation, 'update_id' => $plan['update_id'],
         'plan_sha256' => $planSha, 'database_identity' => $databaseIdentity,
+        'source' => $facts['source'], 'mysql_identity' => $facts['database_identity'],
+        'target_identity_sha256' => $facts['target_identity_sha256'],
         'application' => $migration, 'application_statuses' => $statuses, 'business_poststates' => $businessPoststates];
+    $evidence['business_terminal_state'] = $businessTerminalState;
+    PeanutServerUpdatePlan::assertDatabaseMigrationStage($pdo);
     $evidence['scope'] = $scope;
     $evidence['plugins'] = $scope === 'server-release' ? 'reconciled' : 'not_run';
     $evidence['product_database'] = $scope === 'server-release' ? ($operation === 'verify' ? 'verified' : 'migrated') : 'not_verified';
@@ -403,8 +415,11 @@ function peanutServerDatabaseDeferredPlan(array $plan, array $files, bool $defer
         $result = [];
         foreach ($rows as $row) {
             $id = is_array($row) ? ($row['migration_id'] ?? null) : null;
-            if (!is_string($id) || $id !== '20261016-module-migration-provenance' || count($row) !== 3 || isset($result[$id])
-                || ($row['reason'] ?? null) !== 'module_migration_provenance_schema' || ($row['sha256'] ?? null) !== ($allowed[$id] ?? null)) {
+            if (!is_string($id) || $id !== \app\common\services\upgrade\ApplicationMigrationRunner::PROVENANCE_CORRECTION
+                || count($row) !== 3 || isset($result[$id])
+                || ($row['reason'] ?? null) !== 'module_migration_provenance_schema'
+                || ($row['sha256'] ?? null) !== \app\common\services\upgrade\ApplicationMigrationRunner::PROVENANCE_CORRECTION_SHA
+                || ($row['sha256'] ?? null) !== ($allowed[$id] ?? null)) {
                 throw new RuntimeException('unknown module application prerequisite');
             }
             $result[$id] = $row;
