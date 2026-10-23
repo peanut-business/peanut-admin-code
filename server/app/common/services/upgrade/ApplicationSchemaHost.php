@@ -1909,6 +1909,18 @@ final class ApplicationSchemaHost
             $transfers = PluginLifecycleService::applicationMigrationTransfers(new PluginLockResolver($this->serverRoot, '../plugins.lock'));
             foreach ($extra as $id) {
                 $row = $byId[$id]; $source = $transfers[$id] ?? null;
+                if ($id === '20261024-development-admin-credentials') {
+                    $sha = 'eeb264889bdfaaa2a86d0dc8f314845ded2b5f70ab90650c8997350e7090aa87';
+                    $path = $this->serverRoot . '/database/maintenance/' . $id . '.sql';
+                    if ($row['status'] !== 'applied' || $row['checksum'] !== $sha || realpath($path) !== $path
+                        || !is_file($path) || is_link($path) || hash_file('sha256', $path) !== $sha
+                        || !is_string($row['release_version']) || preg_match('/^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.+-]+)?$/D', $row['release_version']) !== 1) {
+                        throw new RuntimeException('APPLICATION_SCHEMA_HISTORY_SOURCE_REQUIRED');
+                    }
+                    $historical[] = ['history' => $row, 'source_ownership' => ['migration_id' => $id, 'sha256' => $sha,
+                        'source_path' => 'server/database/maintenance/' . $id . '.sql', 'selection' => 'historical_only_never_default_execution']];
+                    continue;
+                }
                 if ($id === FileAdoptionRelocation::ID && $row['status'] === 'applied' && $row['checksum'] === FileAdoptionRelocation::SQL_SHA) {
                     $historical[] = ['history' => $row, 'source_ownership' => PluginLifecycleService::fileAdoptionRelocationHistory($pdo)];
                     continue;
