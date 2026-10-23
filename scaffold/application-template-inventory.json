@@ -906,7 +906,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "12696d8246fb4e2fdc42f0f4a3c366ed96c5d9e4438bb8b88f7433ee99c82162"
+            "source_sha256": "8dfe09dcc84574d2f450ff23b39119b190b017285cb0df2d6b6ea0c86ec5e84d"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -9479,7 +9479,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c219fb9d3cbe3e48842814c150d6b1a72013899f6f7b220ebca1c5daa7bedc1e"
+            "source_sha256": "59ce81c061fb7de2b647ad51fc7c328db5f08fa726904cbc2aa54238f280a83f"
         },
         {
             "path": "server/app/common/services/upgrade/MySqlMetadataObservation.php",
@@ -28636,7 +28636,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4c6860e818f46368c8369a00597c22156215ba1382b9bc2a35bbd2b1d2195520"
+            "source_sha256": "43aee351966cae38e71fb7c6f6895a4bd5611d78ac445e8a8e67411552e60acf"
         },
         {
             "path": "server/docker/scripts/update-plan.php",
