@@ -18,6 +18,7 @@ use PeanutAdmin\Modules\Identity\Persistence\Model\Account;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Credential;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Department;
 use PeanutAdmin\Modules\Identity\Persistence\Model\MemberRole;
+use PeanutAdmin\Modules\Identity\Persistence\Model\MemberJob;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Role;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Tenant;
 use PeanutAdmin\Modules\Identity\Persistence\Model\TenantMember;
@@ -29,6 +30,7 @@ use think\facade\Db;
 final readonly class MemberAdminService
 {
     public const MAX_ROLE_IDS = 100;
+    public const MAX_JOB_IDS = 100;
 
     public function __construct(
         private AuditService $audit,
@@ -47,8 +49,10 @@ final readonly class MemberAdminService
         ?int $primaryDepartmentId,
         array $roleIds,
         bool $enabled,
+        array $jobIds = [],
     ): array {
         $this->assertRoleIdsLimit($roleIds);
+        $jobIds = $this->normalizeJobIds($jobIds);
 
         return $this->transaction(function () use (
             $actor,
@@ -58,6 +62,7 @@ final readonly class MemberAdminService
             $primaryDepartmentId,
             $roleIds,
             $enabled,
+            $jobIds,
         ): array {
             $member = $this->createPendingInTransaction($actor, $email, $displayName, $initialPassword);
             if ($primaryDepartmentId !== null) {
@@ -70,6 +75,7 @@ final readonly class MemberAdminService
                 );
             }
 
+            $this->replaceJobsInTransaction($actor, (int) $member['id'], $jobIds);
             return $this->configureAdministratorInTransaction($actor, $member, $roleIds, $enabled);
         });
     }
@@ -85,8 +91,10 @@ final readonly class MemberAdminService
         array $roleIds,
         bool $enabled,
         int $expectedRevision,
+        ?array $jobIds = null,
     ): array {
         $this->assertRoleIdsLimit($roleIds);
+        $jobIds = $jobIds === null ? null : $this->normalizeJobIds($jobIds);
 
         return $this->transaction(function () use (
             $actor,
@@ -96,6 +104,7 @@ final readonly class MemberAdminService
             $roleIds,
             $enabled,
             $expectedRevision,
+            $jobIds,
         ): array {
             $this->requireTenantStatus($actor->tenantId, 'active', true);
             $member = $this->requireMember($actor->tenantId, $memberId, true);
@@ -110,8 +119,64 @@ final readonly class MemberAdminService
                 $expectedRevision,
             );
 
+            if ($jobIds !== null) {
+                $this->replaceJobsInTransaction($actor, $memberId, $jobIds);
+            }
             return $this->configureAdministratorInTransaction($actor, $member, $roleIds, $enabled);
         });
+    }
+
+    /** @return list<int> */
+    private function normalizeJobIds(array $jobIds): array
+    {
+        if (!array_is_list($jobIds) || count($jobIds) > self::MAX_JOB_IDS) {
+            throw AdminAccessException::invalid('MEMBER_JOB_IDS_INVALID', 'A bounded list of positive job identifiers is required.');
+        }
+        $ids = [];
+        foreach ($jobIds as $id) {
+            if ((!is_int($id) && (!is_string($id) || preg_match('/^[1-9][0-9]*$/D', $id) !== 1))
+                || filter_var($id, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) === false) {
+                throw AdminAccessException::invalid('MEMBER_JOB_IDS_INVALID', 'Positive job identifiers are required.');
+            }
+            $ids[] = (int) $id;
+        }
+        $ids = array_values(array_unique($ids));
+        sort($ids, SORT_NUMERIC);
+        return $ids;
+    }
+
+    /** Descriptive job membership never grants a role or action permission. @param list<int> $jobIds */
+    private function replaceJobsInTransaction(TenantContext $actor, int $memberId, array $jobIds): void
+    {
+        $current = array_map('intval', MemberJob::where('tenant_id', $actor->tenantId)
+            ->where('tenant_member_id', $memberId)->order('job_id')->column('job_id'));
+        if ($jobIds !== []) {
+            // The job lock also serializes assignment against job deletion/status changes.
+            $jobs = Db::name('jobs')->where('tenant_id', $actor->tenantId)->whereIn('id', $jobIds)
+                ->whereNull('delete_time')->order('id')->lock(true)->field('id,status')->select()->toArray();
+            if (count($jobs) !== count($jobIds)) {
+                throw AdminAccessException::notFound();
+            }
+            foreach ($jobs as $job) {
+                if ((int) $job['status'] !== 1 && !in_array((int) $job['id'], $current, true)) {
+                    throw AdminAccessException::conflict('MEMBER_JOB_INACTIVE', 'A disabled job cannot receive a new member assignment.');
+                }
+            }
+        }
+        if ($current === $jobIds) {
+            return;
+        }
+        MemberJob::where('tenant_id', $actor->tenantId)->where('tenant_member_id', $memberId)->delete();
+        if ($jobIds !== []) {
+            $now = $this->now();
+            MemberJob::insertAll(array_map(static fn(int $jobId): array => [
+                'tenant_id' => $actor->tenantId,
+                'tenant_member_id' => $memberId,
+                'job_id' => $jobId,
+                'assigned_at' => $now,
+            ], $jobIds));
+        }
+        $this->recordAudit($actor, 'tenant.member.jobs-replaced', 'core.member.update', $memberId);
     }
 
     /** @param array<string, mixed> $member

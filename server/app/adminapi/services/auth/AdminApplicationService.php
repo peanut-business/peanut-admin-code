@@ -135,6 +135,7 @@ final class AdminApplicationService
                 $department,
                 $roles,
                 (int) $params['disable'] === 0,
+                self::jobIdsInput($params) ?? [],
             );
             return true;
         } catch (\Throwable $e) {
@@ -164,6 +165,7 @@ final class AdminApplicationService
                 $roles,
                 (int) $params['disable'] === 0,
                 (int) $member['revision'],
+                self::jobIdsInput($params),
             );
             return true;
         } catch (\Throwable $e) {
@@ -270,10 +272,10 @@ final class AdminApplicationService
                 'role_id' => $roleIds,
                 'role_ids' => $roleIds,
                 'dept_id' => $row['primary_department_id'] === null ? [] : [(int) $row['primary_department_id']],
-                'jobs_id' => [],
+                'jobs_id' => $row['job_ids'],
                 'role_name' => (string) ($row['role_name'] ?? ''),
                 'dept_name' => (string) ($row['department_name'] ?? ''),
-                'jobs_name' => '',
+                'jobs_name' => $row['job_name'],
                 'roles' => [],
             ];
         }
@@ -313,6 +315,18 @@ final class AdminApplicationService
             array_map(static fn(array $row): array => [$row['account'], $row['name'], $row['role_name'], $row['dept_name'], $row['create_time'], $row['login_time'], $row['login_ip'], $row['disable_desc']], $rows),
         );
         return ['url' => $file['url'], 'file_name' => $file['original_name']];
+    }
+
+    /** Missing preserves assignments during edits; an explicit empty list clears them. */
+    private static function jobIdsInput(array $params): ?array
+    {
+        if (!array_key_exists('jobs_id', $params)) {
+            return null;
+        }
+        if (!is_array($params['jobs_id'])) {
+            throw BusinessException::invalid('MEMBER_JOB_IDS_INVALID', '岗位必须是编号数组');
+        }
+        return $params['jobs_id'];
     }
 
     private static function firstId(array $ids): ?int

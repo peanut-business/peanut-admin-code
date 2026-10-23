@@ -12,6 +12,8 @@ use Throwable;
 /** Identity's fixed DDL contract on the lifecycle's held master; never executes migration SQL or repairs history. */
 final class IdentitySchemaMigrationProof
 {
+    private const MEMBER_JOB_MIGRATION = 'official.identity:20261024020000_create_pa_member_job';
+
     private const STAGES = [
         'official.identity:20260716020101_create_pa_data_permission_policy' => ['9ccbb19f70c230b27f97d1eeac818dfd08197406664cdf85ddd63a25cb51750e', 'pa_data_permission_policy', 'create'],
         'official.identity:20260716020102_create_pa_data_permission_group' => ['bac2408f49ffcfa3470e854b7550b5197d9cc9cf4c96ac74dd732572b9f91cbd', 'pa_data_permission_group', 'create'],
@@ -22,6 +24,7 @@ final class IdentitySchemaMigrationProof
         'official.identity:20261007010000_department_contact_fields' => ['47626b595811ced52d25b9eb7438fc4ba9cb921a76272e47c073c2faae11b9ee', 'pa_department', 'contacts'],
         'official.identity:20261012010000_department_leader_member' => ['909c7bd6885a93cf2975ecbbb108cbbe993bc1e0b47f2590292968a886051532', 'pa_department', 'leader_member'],
         'official.identity:20261015010000_index_revocation_audit_facts' => ['eacd6eddd89a9f064688ff45ba67210d896a65bbeaea1448394e7b6df3c271aa', 'pa_tenant_audit_event', 'audit'],
+        self::MEMBER_JOB_MIGRATION => ['505da08d46270f0cddf38aef27f54869b8152ef38cca2923c61034bb024c37a0', 'pa_member_job', 'create'],
     ];
 
     public static function before(PDO $pdo, array $exactMigration): array
@@ -36,19 +39,22 @@ final class IdentitySchemaMigrationProof
             [, $table, $kind] = self::STAGES[$key];
             $before = self::table($pdo, $table);
             if ($kind === 'create') {
-                // These six immutable statements are bare CREATE, not IF NOT EXISTS or adoption.
+                // Fixed CREATE statements require absence, never IF NOT EXISTS or adoption.
                 if ($before !== null) { self::fail('CREATE_TARGET_EXISTS'); }
             } else {
                 if ($before === null) { self::fail('ALTER_TARGET_MISSING'); }
                 self::expectedAlter($before, $kind);
             }
             $rows = $before === null ? null : self::rowImage($pdo, $table, $before);
+            $parentImages = $key === self::MEMBER_JOB_MIGRATION ? self::memberJobParents($pdo) : null;
             if ($ledger !== self::ledger($pdo, $exactMigration)) { self::fail('LEDGER_CHANGED'); }
             return ['module_key' => 'official.identity', 'migration_key' => $key, 'checksum' => self::STAGES[$key][0],
                 'pdo_object_id' => spl_object_id($pdo), 'connection' => self::connection($pdo),
                 'stageLedger' => $exactMigration['stageLedger'], 'ledger' => $ledger, 'table' => $before, 'original_rows' => $rows,
+                'parent_images' => $parentImages,
                 'safe_summary' => ['migration_key' => $key, 'checksum' => self::STAGES[$key][0],
                     'metadata_sha256' => hash('sha256', serialize($before)), 'ledger_sha256' => hash('sha256', serialize($ledger)),
+                    ...($parentImages === null ? [] : ['external_parent_sha256' => hash('sha256', serialize($parentImages))]),
                     'data_proof' => 'fixed native CREATE or additive columns/indexes; original-column streaming digest for existing parents'], 'readonly' => true];
         });
     }
@@ -86,11 +92,16 @@ final class IdentitySchemaMigrationProof
                     }
                 }
             }
+            if ($key === self::MEMBER_JOB_MIGRATION
+                && (!is_array($before['parent_images'] ?? null) || $before['parent_images'] !== self::memberJobParents($pdo))) {
+                self::fail('MEMBER_JOB_PARENTS_CHANGED');
+            }
             if ($before['ledger'] !== self::ledger($pdo, $before)) { self::fail('LEDGER_CHANGED'); }
             return ['module_key' => 'official.identity', 'migration_key' => $key, 'checksum' => self::STAGES[$key][0],
                 'preservation_verified' => true, 'before_sha256' => hash('sha256', serialize([$before['table'], $before['original_rows']])),
                 'after_sha256' => hash('sha256', serialize([$after, $before['original_rows']])), 'metadata_sha256' => hash('sha256', serialize($after)),
                 'ledger_sha256' => hash('sha256', serialize($before['ledger'])), 'created_empty_tables' => $kind === 'create' ? 1 : 0,
+                ...($key === self::MEMBER_JOB_MIGRATION ? ['external_parent_sha256' => hash('sha256', serialize($before['parent_images']))] : []),
                 'data_proof' => 'fixed native DDL; original-column streaming digest/count retained, new fields checked NULL/default, allocator retained', 'readonly' => true];
         });
     }
@@ -199,6 +210,26 @@ final class IdentitySchemaMigrationProof
                 'COMMENT' => '', 'INDEX_COMMENT' => '', 'IS_VISIBLE' => 'YES', 'EXPRESSION' => null];
         }
         return $parts;
+    }
+
+    /** Observe both external parents without changing their data, identity or metadata. */
+    private static function memberJobParents(PDO $pdo): array
+    {
+        $images = [];
+        foreach ([['pa_jobs', 'int unsigned', 'uk_jobs_tenant_id'], ['pa_tenant_member', 'bigint unsigned', 'uk_tenant_member_tenant_id']] as [$table, $idType, $index]) {
+            $metadata = self::table($pdo, $table);
+            if ($metadata === null || ($metadata['columns']['id']['COLUMN_TYPE'] ?? null) !== $idType
+                || ($metadata['columns']['tenant_id']['COLUMN_TYPE'] ?? null) !== 'bigint unsigned') {
+                self::fail('MEMBER_JOB_PARENT_INVALID');
+            }
+            $parts = $metadata['indexes'][$index] ?? [];
+            if (count($parts) !== 2 || array_column($parts, 'COLUMN_NAME') !== ['tenant_id', 'id']
+                || array_column($parts, 'NON_UNIQUE') !== ['0', '0']) {
+                self::fail('MEMBER_JOB_PARENT_KEY_INVALID');
+            }
+            $images[$table] = ['metadata' => $metadata, 'rows' => self::rowImage($pdo, $table, $metadata)];
+        }
+        return $images;
     }
 
     private static function table(PDO $pdo, string $table): ?array

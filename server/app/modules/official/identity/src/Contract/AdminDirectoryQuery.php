@@ -7,6 +7,7 @@ namespace PeanutAdmin\Modules\Identity\Contract;
 use app\common\execution\CurrentExecutionContext;
 use PeanutAdmin\Modules\Identity\Persistence\Model\Tenant;
 use PeanutAdmin\Modules\Identity\Persistence\Model\TenantMember;
+use PeanutAdmin\Modules\Identity\Persistence\Model\MemberJob;
 
 /** Non-ORM read boundary for the native Account/TenantMember directory. */
 final readonly class AdminDirectoryQuery
@@ -162,8 +163,27 @@ final readonly class AdminDirectoryQuery
             $query->join('member_role filter_membership', 'filter_membership.tenant_id = member.tenant_id AND filter_membership.tenant_member_id = member.id')
                 ->where('filter_membership.role_id', (int) $filters['role_id']);
         }
-        return $query->group('member.id,member.account_id,member.display_name,member.primary_department_id,member.status,member.created_at,member.updated_at,account.avatar_uri,account.last_login_at,credential.identifier_normalized,department.name')
+        $rows = $query->group('member.id,member.account_id,member.display_name,member.primary_department_id,member.status,member.created_at,member.updated_at,account.avatar_uri,account.last_login_at,credential.identifier_normalized,department.name')
             ->order('member.id', 'desc')->select()->toArray();
+        $jobs = [];
+        foreach (array_chunk(array_column($rows, 'id'), 500) as $memberIds) {
+            $assignments = MemberJob::alias('assignment')
+                ->join('jobs job', 'job.tenant_id=assignment.tenant_id AND job.id=assignment.job_id')
+                ->where('assignment.tenant_id', $context->tenantId)
+                ->whereIn('assignment.tenant_member_id', $memberIds)
+                ->whereNull('job.delete_time')->order('job.id')
+                ->field('assignment.tenant_member_id,job.id,job.name')->select()->toArray();
+            foreach ($assignments as $job) {
+                $jobs[(int) $job['tenant_member_id']][(int) $job['id']] = (string) $job['name'];
+            }
+        }
+        foreach ($rows as &$row) {
+            $assigned = $jobs[(int) $row['id']] ?? [];
+            $row['job_ids'] = array_keys($assigned);
+            $row['job_name'] = implode('/', $assigned);
+        }
+        unset($row);
+        return $rows;
     }
 
     /**

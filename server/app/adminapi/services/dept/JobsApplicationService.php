@@ -13,6 +13,7 @@ use PeanutAdmin\Kernel\Context\TenantContextRequirement;
 use app\common\support\ExportPageInfo;
 use app\common\support\PaginationInput;
 use PeanutAdmin\Kernel\Auth\TenantContext;
+use PeanutAdmin\Modules\Identity\Persistence\Model\MemberJob;
 
 class JobsApplicationService
 {
@@ -146,6 +147,9 @@ class JobsApplicationService
             $jobs = self::jobs($context)->where('id', $id)->lock(true)->findOrEmpty();
             if ($jobs->isEmpty()) {
                 throw BusinessException::notFound('ADMIN_JOB_NOT_FOUND', '岗位不存在');
+            }
+            if (MemberJob::where('tenant_id', $context->tenantId)->where('job_id', $id)->count() > 0) {
+                throw BusinessException::conflict('ADMIN_JOB_IN_USE', '岗位已分配给成员，请先解除关联');
             }
             $jobs->delete();
             return true;
