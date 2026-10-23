@@ -65,6 +65,7 @@ final class InstallationPreflightHost
             $this->phpVersionCheck(),
             $this->extensionCheck(),
             $this->installationFilesCheck(),
+            $this->composerDependenciesCheck(),
         ];
         foreach (self::WRITABLE_DIRECTORIES as $id => $relativePath) {
             $checks[] = $this->directoryCheck($id, $relativePath);
@@ -221,6 +222,98 @@ final class InstallationPreflightHost
             'INSTALL_FILES_MISSING',
             '缺少或无法读取：' . implode(', ', $missing),
             '恢复完整发布制品并安装锁定的 Composer 依赖后重新运行预检',
+        );
+    }
+
+    /** @return array{id:string,status:string,code:string,reason:string,remediation:string} */
+    private function composerDependenciesCheck(): array
+    {
+        $blocked = fn(): array => $this->failed(
+            'composer-dependencies',
+            'INSTALL_COMPOSER_DEPENDENCIES_INVALID',
+            'Composer 已装运行依赖与本应用锁文件不一致或缺少迁移服务',
+            '按 server/composer.lock 安装依赖，禁用 Composer scripts 和 plugins 后重新运行预检',
+        );
+        try {
+            $read = static function (string $path): array {
+                if (!is_file($path) || is_link($path) || !is_readable($path)) {
+                    throw new RuntimeException('Composer dependency metadata unavailable');
+                }
+                $value = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+                if (!is_array($value)) {
+                    throw new RuntimeException('Composer dependency metadata invalid');
+                }
+                return $value;
+            };
+            $manifest = $read($this->serverRoot . '/composer.json');
+            $lock = $read($this->serverRoot . '/composer.lock');
+            $installed = $read($this->serverRoot . '/vendor/composer/installed.json');
+            if (!is_array($manifest['require'] ?? null)
+                || !is_array($lock['packages'] ?? null) || !array_is_list($lock['packages'])
+                || !is_array($lock['packages-dev'] ?? null) || !array_is_list($lock['packages-dev'])
+                || !is_array($installed['packages'] ?? null) || !array_is_list($installed['packages'])) {
+                return $blocked();
+            }
+            $identity = static function (array $package): array {
+                $name = $package['name'] ?? null;
+                $version = $package['version'] ?? null;
+                $source = $package['source']['reference'] ?? null;
+                $dist = $package['dist']['reference'] ?? null;
+                if (!is_string($name) || $name === '' || !is_string($version) || $version === ''
+                    || !is_string($source) || preg_match('/^[0-9a-f]{40}$/D', $source) !== 1
+                    || !is_string($dist) || $dist !== $source) {
+                    throw new RuntimeException('Composer package identity invalid');
+                }
+                return [$name, $version, $source];
+            };
+            $map = static function (array $packages) use ($identity): array {
+                $result = [];
+                foreach ($packages as $package) {
+                    if (!is_array($package)) {
+                        throw new RuntimeException('Composer package entry invalid');
+                    }
+                    [$name, $version, $reference] = $identity($package);
+                    if (isset($result[$name])) {
+                        throw new RuntimeException('Duplicate Composer package');
+                    }
+                    $result[$name] = [$version, $reference];
+                }
+                return $result;
+            };
+            $runtime = $map($lock['packages']);
+            $development = $map($lock['packages-dev']);
+            $actual = $map($installed['packages']);
+            if (!$runtime || array_intersect_key($runtime, $development)
+                || ($manifest['require']['peanut-admin/core'] ?? null) !== ($runtime['peanut-admin/core'][0] ?? null)
+                || ($manifest['require']['topthink/think-migration'] ?? null) !== ($runtime['topthink/think-migration'][0] ?? null)) {
+                return $blocked();
+            }
+            foreach ($runtime as $name => $expected) {
+                if (($actual[$name] ?? null) !== $expected) {
+                    return $blocked();
+                }
+            }
+            foreach (array_diff_key($actual, $runtime) as $name => $identity) {
+                if (($development[$name] ?? null) !== $identity) {
+                    return $blocked();
+                }
+            }
+            $vendorRoot = realpath($this->serverRoot . '/vendor');
+            $service = $this->serverRoot . '/vendor/topthink/think-migration/src/Service.php';
+            $serviceRoot = realpath($this->serverRoot . '/vendor/topthink/think-migration');
+            if (!is_string($vendorRoot) || !is_string($serviceRoot)
+                || !str_starts_with($serviceRoot, $vendorRoot . '/')
+                || !is_file($service) || is_link($service)
+                || realpath($service) !== $serviceRoot . '/src/Service.php') {
+                return $blocked();
+            }
+        } catch (Throwable) {
+            return $blocked();
+        }
+        return $this->passed(
+            'composer-dependencies',
+            'INSTALL_COMPOSER_DEPENDENCIES_READY',
+            '已装运行依赖与锁文件版本及来源一致，迁移服务文件存在',
         );
     }
 
