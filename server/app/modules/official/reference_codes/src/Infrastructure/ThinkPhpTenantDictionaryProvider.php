@@ -12,7 +12,7 @@ use PeanutAdmin\Modules\ReferenceCodes\Contract\TenantDictionaryQueryProvider;
 use PeanutAdmin\Modules\ReferenceCodes\DictionaryEntry;
 use PeanutAdmin\Modules\ReferenceCodes\DictionaryPage;
 use PeanutAdmin\Modules\ReferenceCodes\DictionaryType;
-use RuntimeException;
+use app\common\exception\BusinessException;
 use think\facade\Db;
 use app\common\support\PaginationInput;
 
@@ -89,7 +89,7 @@ final class ThinkPhpTenantDictionaryProvider implements TenantDictionaryQueryPro
     {
         unset($values['tenant_id']);
         if ($this->typeExists((string) ($values['type'] ?? ''))) {
-            throw new RuntimeException('字典类型标识已存在');
+            throw BusinessException::conflict('DICTIONARY_TYPE_EXISTS', '字典类型标识已存在');
         }
         $model = DictType::create($values);
         return DictionaryType::fromArray($model->toArray());
@@ -100,12 +100,12 @@ final class ThinkPhpTenantDictionaryProvider implements TenantDictionaryQueryPro
     {
         unset($values['tenant_id']);
         if ($this->typeExists((string) ($values['type'] ?? ''), $id)) {
-            throw new RuntimeException('字典类型标识已存在');
+            throw BusinessException::conflict('DICTIONARY_TYPE_EXISTS', '字典类型标识已存在');
         }
         return Db::transaction(function () use ($id, $values): DictionaryType {
             $model = $this->typesQuery()->where('id', $id)->lock(true)->findOrEmpty();
             if ($model->isEmpty()) {
-                throw new RuntimeException('字典类型不存在');
+                throw BusinessException::notFound('DICTIONARY_TYPE_NOT_FOUND', '字典类型不存在');
             }
             $model->name = (string) ($values['name'] ?? '');
             $model->type = (string) ($values['type'] ?? '');
@@ -122,10 +122,10 @@ final class ThinkPhpTenantDictionaryProvider implements TenantDictionaryQueryPro
         Db::transaction(function () use ($id): void {
             $model = $this->typesQuery()->where('id', $id)->lock(true)->findOrEmpty();
             if ($model->isEmpty()) {
-                throw new RuntimeException('字典类型不存在');
+                throw BusinessException::notFound('DICTIONARY_TYPE_NOT_FOUND', '字典类型不存在');
             }
             if (!$this->entriesQuery()->where('type_id', $id)->lock(true)->findOrEmpty()->isEmpty()) {
-                throw new RuntimeException('字典类型已被数据项使用，请先删除数据项');
+                throw BusinessException::conflict('DICTIONARY_TYPE_IN_USE', '字典类型已被数据项使用，请先删除数据项');
             }
             $model->delete();
         });
@@ -135,7 +135,7 @@ final class ThinkPhpTenantDictionaryProvider implements TenantDictionaryQueryPro
     {
         $model = $this->typesQuery()->where('id', $id)->findOrEmpty();
         if ($model->isEmpty()) {
-            throw new RuntimeException('字典类型不存在');
+            throw BusinessException::notFound('DICTIONARY_TYPE_NOT_FOUND', '字典类型不存在');
         }
         $model->is_disable = $disabled ? 1 : 0;
         $model->save();
@@ -147,7 +147,7 @@ final class ThinkPhpTenantDictionaryProvider implements TenantDictionaryQueryPro
         unset($values['tenant_id']);
         $type = $this->typesQuery()->where('id', (int) ($values['type_id'] ?? 0))->findOrEmpty();
         if ($type->isEmpty()) {
-            throw new RuntimeException('字典类型不存在');
+            throw BusinessException::notFound('DICTIONARY_TYPE_NOT_FOUND', '字典类型不存在');
         }
         $values['type_value'] = (string) $type->type;
         $model = DictData::create($values);
@@ -160,7 +160,7 @@ final class ThinkPhpTenantDictionaryProvider implements TenantDictionaryQueryPro
         unset($values['tenant_id'], $values['type_id'], $values['type_value']);
         $model = $this->entriesQuery()->where('id', $id)->findOrEmpty();
         if ($model->isEmpty()) {
-            throw new RuntimeException('字典数据不存在');
+            throw BusinessException::notFound('DICTIONARY_ENTRY_NOT_FOUND', '字典数据不存在');
         }
         $model->name = (string) ($values['name'] ?? '');
         $model->value = (string) ($values['value'] ?? '');
@@ -175,7 +175,7 @@ final class ThinkPhpTenantDictionaryProvider implements TenantDictionaryQueryPro
     {
         $model = $this->entriesQuery()->where('id', $id)->findOrEmpty();
         if ($model->isEmpty()) {
-            throw new RuntimeException('字典数据不存在');
+            throw BusinessException::notFound('DICTIONARY_ENTRY_NOT_FOUND', '字典数据不存在');
         }
         $model->delete();
     }
@@ -184,7 +184,7 @@ final class ThinkPhpTenantDictionaryProvider implements TenantDictionaryQueryPro
     {
         $model = $this->entriesQuery()->where('id', $id)->findOrEmpty();
         if ($model->isEmpty()) {
-            throw new RuntimeException('字典数据不存在');
+            throw BusinessException::notFound('DICTIONARY_ENTRY_NOT_FOUND', '字典数据不存在');
         }
         $model->is_disable = $disabled ? 1 : 0;
         $model->save();
