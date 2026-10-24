@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.0.2",
+    "template_version": "5.0.4",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -3006,34 +3006,6 @@
                 "standard",
                 "full"
             ]
-        },
-        {
-            "path": "scripts/build-internal-edition-candidate",
-            "target": "scripts/build-internal-edition-candidate",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 493,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "fc46a6f801c5ff1192dd31a210fc6efceb69782393faac9c78cf8ddb9837cd20"
-        },
-        {
-            "path": "scripts/build-internal-edition-candidate",
-            "target": "scripts/build-internal-edition-candidate",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 493,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "fc46a6f801c5ff1192dd31a210fc6efceb69782393faac9c78cf8ddb9837cd20"
         },
         {
             "path": "scripts/build-internal-edition-candidate",
@@ -29081,7 +29053,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "37798125bb89759a4d4ec636e048f1a39d62be9d1bb0631416f41d7251ed0dc1"
+            "source_sha256": "06d115b9ba13a4e3db171099e59a24debcec53736dba772aa0199fb436c4ab1d"
         },
         {
             "path": "server/generated/openapi.json",
@@ -29095,7 +29067,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5327cdb53279e758f89e0fa76c29971465e66c80020e6fc1bf2944078ffee842"
+            "source_sha256": "68ef2df116bd7223ce67ee9f4d9d661babda9cddcda2a6049e274c921bdba2e4"
         },
         {
             "path": "server/private/storage/.gitkeep",
