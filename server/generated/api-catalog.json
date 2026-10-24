@@ -16,7 +16,7 @@
         },
         {
             "path": "server/app/api/metadata/application/installation.php",
-            "sha256": "a0756238867ae025830745e103ab90c6d3f63f2e5595c562d748e3e1d075f4c6"
+            "sha256": "9fb1e9e17f6d98a7717430c25c2654266f7de9d463a003c0e8da0d416f191163"
         },
         {
             "path": "server/app/api/metadata/application/platform.php",
@@ -195,8 +195,8 @@
         "route_count": 439,
         "generated_api_operations": 392,
         "route_only_operations": 47,
-        "complete_operations": 381,
-        "partial_operations": 11,
+        "complete_operations": 392,
+        "partial_operations": 0,
         "runtime_routes": 439,
         "documented_operations": 392,
         "undocumented_routes": 47,
@@ -12540,7 +12540,7 @@
             },
             "documented": true,
             "openapi_operation_id": "getInstallPage",
-            "contract_quality": "partial",
+            "contract_quality": "complete",
             "sdk_consumers": [
                 "web/src/generated/openapi.d.ts"
             ],
@@ -12555,9 +12555,7 @@
                     "permissions",
                     "source"
                 ],
-                "requires_owner_contract": [
-                    "response_schema:404"
-                ]
+                "requires_owner_contract": []
             }
         },
         {
@@ -19344,7 +19342,7 @@
             "controller": "PeanutAdmin\\Modules\\Collaboration\\Controller\\InternalController",
             "action": "authorize",
             "auth": {
-                "mode": "public",
+                "mode": "collaboration_service_hmac",
                 "exception_registration": null
             },
             "permissions": [],
@@ -19370,7 +19368,7 @@
             },
             "documented": true,
             "openapi_operation_id": "authorizeCollaborationConnection",
-            "contract_quality": "partial",
+            "contract_quality": "complete",
             "sdk_consumers": [
                 "web/src/generated/openapi.d.ts"
             ],
@@ -19385,9 +19383,7 @@
                     "permissions",
                     "source"
                 ],
-                "requires_owner_contract": [
-                    "security_domain"
-                ]
+                "requires_owner_contract": []
             }
         },
         {
@@ -19402,7 +19398,7 @@
             "controller": "PeanutAdmin\\Modules\\Collaboration\\Controller\\InternalController",
             "action": "check",
             "auth": {
-                "mode": "public",
+                "mode": "collaboration_service_hmac",
                 "exception_registration": null
             },
             "permissions": [],
@@ -19428,7 +19424,7 @@
             },
             "documented": true,
             "openapi_operation_id": "checkCollaborationConnection",
-            "contract_quality": "partial",
+            "contract_quality": "complete",
             "sdk_consumers": [
                 "web/src/generated/openapi.d.ts"
             ],
@@ -19443,9 +19439,7 @@
                     "permissions",
                     "source"
                 ],
-                "requires_owner_contract": [
-                    "security_domain"
-                ]
+                "requires_owner_contract": []
             }
         },
         {
@@ -19460,7 +19454,7 @@
             "controller": "PeanutAdmin\\Modules\\Collaboration\\Controller\\InternalController",
             "action": "load",
             "auth": {
-                "mode": "public",
+                "mode": "collaboration_service_hmac",
                 "exception_registration": null
             },
             "permissions": [],
@@ -19486,7 +19480,7 @@
             },
             "documented": true,
             "openapi_operation_id": "loadCollaborationDocument",
-            "contract_quality": "partial",
+            "contract_quality": "complete",
             "sdk_consumers": [
                 "web/src/generated/openapi.d.ts"
             ],
@@ -19501,9 +19495,7 @@
                     "permissions",
                     "source"
                 ],
-                "requires_owner_contract": [
-                    "security_domain"
-                ]
+                "requires_owner_contract": []
             }
         },
         {
@@ -19518,7 +19510,7 @@
             "controller": "PeanutAdmin\\Modules\\Collaboration\\Controller\\InternalController",
             "action": "receipt",
             "auth": {
-                "mode": "public",
+                "mode": "collaboration_service_hmac",
                 "exception_registration": null
             },
             "permissions": [],
@@ -19544,7 +19536,7 @@
             },
             "documented": true,
             "openapi_operation_id": "queryCollaborationReceipt",
-            "contract_quality": "partial",
+            "contract_quality": "complete",
             "sdk_consumers": [
                 "web/src/generated/openapi.d.ts"
             ],
@@ -19559,9 +19551,7 @@
                     "permissions",
                     "source"
                 ],
-                "requires_owner_contract": [
-                    "security_domain"
-                ]
+                "requires_owner_contract": []
             }
         },
         {
@@ -19576,7 +19566,7 @@
             "controller": "PeanutAdmin\\Modules\\Collaboration\\Controller\\InternalController",
             "action": "recovery",
             "auth": {
-                "mode": "public",
+                "mode": "collaboration_service_hmac",
                 "exception_registration": null
             },
             "permissions": [],
@@ -19602,7 +19592,7 @@
             },
             "documented": true,
             "openapi_operation_id": "recoverCollaborationRoom",
-            "contract_quality": "partial",
+            "contract_quality": "complete",
             "sdk_consumers": [
                 "web/src/generated/openapi.d.ts"
             ],
@@ -19617,9 +19607,7 @@
                     "permissions",
                     "source"
                 ],
-                "requires_owner_contract": [
-                    "security_domain"
-                ]
+                "requires_owner_contract": []
             }
         },
         {
@@ -19634,7 +19622,7 @@
             "controller": "PeanutAdmin\\Modules\\Collaboration\\Controller\\InternalController",
             "action": "references",
             "auth": {
-                "mode": "public",
+                "mode": "collaboration_service_hmac",
                 "exception_registration": null
             },
             "permissions": [],
@@ -19660,7 +19648,7 @@
             },
             "documented": true,
             "openapi_operation_id": "reserveCollaborationReferences",
-            "contract_quality": "partial",
+            "contract_quality": "complete",
             "sdk_consumers": [
                 "web/src/generated/openapi.d.ts"
             ],
@@ -19675,9 +19663,7 @@
                     "permissions",
                     "source"
                 ],
-                "requires_owner_contract": [
-                    "security_domain"
-                ]
+                "requires_owner_contract": []
             }
         },
         {
@@ -19692,7 +19678,7 @@
             "controller": "PeanutAdmin\\Modules\\Collaboration\\Controller\\InternalController",
             "action": "revoke",
             "auth": {
-                "mode": "public",
+                "mode": "collaboration_service_hmac",
                 "exception_registration": null
             },
             "permissions": [],
@@ -19718,7 +19704,7 @@
             },
             "documented": true,
             "openapi_operation_id": "revokeCollaborationConnection",
-            "contract_quality": "partial",
+            "contract_quality": "complete",
             "sdk_consumers": [
                 "web/src/generated/openapi.d.ts"
             ],
@@ -19733,9 +19719,7 @@
                     "permissions",
                     "source"
                 ],
-                "requires_owner_contract": [
-                    "security_domain"
-                ]
+                "requires_owner_contract": []
             }
         },
         {
@@ -19750,7 +19734,7 @@
             "controller": "PeanutAdmin\\Modules\\Collaboration\\Controller\\InternalController",
             "action": "store",
             "auth": {
-                "mode": "public",
+                "mode": "collaboration_service_hmac",
                 "exception_registration": null
             },
             "permissions": [],
@@ -19776,7 +19760,7 @@
             },
             "documented": true,
             "openapi_operation_id": "storeCollaborationCapture",
-            "contract_quality": "partial",
+            "contract_quality": "complete",
             "sdk_consumers": [
                 "web/src/generated/openapi.d.ts"
             ],
@@ -19791,9 +19775,7 @@
                     "permissions",
                     "source"
                 ],
-                "requires_owner_contract": [
-                    "security_domain"
-                ]
+                "requires_owner_contract": []
             }
         },
         {
@@ -19808,7 +19790,7 @@
             "controller": "PeanutAdmin\\Modules\\Collaboration\\Controller\\InternalController",
             "action": "target",
             "auth": {
-                "mode": "public",
+                "mode": "collaboration_service_hmac",
                 "exception_registration": null
             },
             "permissions": [],
@@ -19834,7 +19816,7 @@
             },
             "documented": true,
             "openapi_operation_id": "confirmCollaborationTarget",
-            "contract_quality": "partial",
+            "contract_quality": "complete",
             "sdk_consumers": [
                 "web/src/generated/openapi.d.ts"
             ],
@@ -19849,9 +19831,7 @@
                     "permissions",
                     "source"
                 ],
-                "requires_owner_contract": [
-                    "security_domain"
-                ]
+                "requires_owner_contract": []
             }
         },
         {
@@ -19866,7 +19846,7 @@
             "controller": "PeanutAdmin\\Modules\\Collaboration\\Controller\\InternalController",
             "action": "prepareTarget",
             "auth": {
-                "mode": "public",
+                "mode": "collaboration_service_hmac",
                 "exception_registration": null
             },
             "permissions": [],
@@ -19892,7 +19872,7 @@
             },
             "documented": true,
             "openapi_operation_id": "prepareCollaborationTarget",
-            "contract_quality": "partial",
+            "contract_quality": "complete",
             "sdk_consumers": [
                 "web/src/generated/openapi.d.ts"
             ],
@@ -19907,9 +19887,7 @@
                     "permissions",
                     "source"
                 ],
-                "requires_owner_contract": [
-                    "security_domain"
-                ]
+                "requires_owner_contract": []
             }
         },
         {

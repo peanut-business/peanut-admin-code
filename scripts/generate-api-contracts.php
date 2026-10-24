@@ -618,6 +618,7 @@ function securityRequirements(array $auth): array
         'platform_host' => [['platformHost' => []]],
         'platform_refresh' => [['platformHost' => [], 'platformRefreshCookie' => []]],
         'installation_setup' => [['installationSetupToken' => []]],
+        'collaboration_service_hmac' => [['CollaborationServiceHmac' => []]],
         default => [['bearerAuth' => []]],
     };
 }
@@ -782,7 +783,10 @@ function accessMetadata(array $endpoint, ?string $exception): array
         'authenticated', 'platform_authenticated' => 'authenticated',
         default => 'public',
     };
-    if (hasMiddlewareSuffix($classes, '\\PlatformPermissionMiddleware')) {
+    if (array_key_exists(\PeanutAdmin\Modules\Collaboration\Middleware\ServiceAuthenticationMiddleware::class, $classes)) {
+        // This native service envelope rejects human bearer/cookie credentials.
+        $mode = 'collaboration_service_hmac';
+    } elseif (hasMiddlewareSuffix($classes, '\\PlatformPermissionMiddleware')) {
         $mode = 'platform_permission';
     } elseif (hasMiddlewareSuffix($classes, '\\PlatformLoginMiddleware')) {
         $mode = 'platform_session';
@@ -850,13 +854,13 @@ function inferredErrors(array $auth, array $permissions): array
     if (in_array($auth['mode'], [
         'authenticated', 'tenant_session', 'tenant_permission', 'member_session',
         'tenant_bearer', 'tenant_refresh', 'platform_session', 'platform_permission',
-        'platform_refresh', 'installation_setup',
+        'platform_refresh', 'installation_setup', 'collaboration_service_hmac',
     ], true)) {
         $errors[] = 401;
     }
     if ($permissions !== [] || in_array($auth['mode'], [
         'tenant_permission', 'platform_permission', 'public_tenant_module',
-        'tenant_selection', 'platform_host', 'platform_refresh', 'installation_setup',
+        'tenant_selection', 'platform_host', 'platform_refresh', 'installation_setup', 'collaboration_service_hmac',
     ], true)) {
         $errors[] = 403;
     }

@@ -162,7 +162,8 @@ $paths = [
     '/installapi/page' => ['get' => $operation(
         'getInstallPage', 'Installation', [
             '200' => ['description' => 'Uninstalled instance installer document.', 'content' => ['text/html' => ['schema' => ['type' => 'string']]]],
-            '404' => ['description' => 'Physical completion lock exists.'],
+            '404' => ['description' => 'Physical completion lock exists; the HTML response body is empty.',
+                'content' => ['text/html' => ['schema' => ['type' => 'string', 'maxLength' => 0]]]],
         ], description: 'PHP owner checks the original completion lock before serving HTML; no private state is mounted into Nginx.',
     )],
     '/installapi/environment' => ['get' => $operation(

@@ -17221,12 +17221,14 @@ export interface operations {
                     "text/html": string;
                 };
             };
-            /** @description Physical completion lock exists. */
+            /** @description Physical completion lock exists; the HTML response body is empty. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "text/html": string;
+                };
             };
         };
     };
