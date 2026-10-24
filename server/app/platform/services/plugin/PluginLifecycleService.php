@@ -1722,12 +1722,26 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
             )));
         }
-        return ($admission['instance_root'] ?? null) === realpath(root_path())
+        // This is historical installation evidence, not live write admission.
+        // assertAdopted first rebinds its recorded execution to the actual PDO
+        // and installed receipt/baseline pair through migrationInstance(). The
+        // original mount path need not equal a prepared or owner runtime path.
+        $historicalRoot = $admission['instance_root'] ?? null;
+        $execution = $proof['instance']['installation_execution'] ?? null;
+        return is_string($historicalRoot)
+            && preg_match('#\A/(?:[^/\x00-\x1f\x7f]+/)*[^/\x00-\x1f\x7f]+\z#D', $historicalRoot) === 1
+            && array_intersect(explode('/', $historicalRoot), ['.', '..']) === []
+            && is_array($execution)
+            && preg_match('/\A[a-f0-9]{64}\z/D', (string) ($execution['marker_sha256'] ?? '')) === 1
+            && preg_match('/\A[a-f0-9]{64}\z/D', (string) ($proof['instance']['fresh_schema_sha256'] ?? '')) === 1
+            && is_string($admission['request_id'] ?? null) && trim($admission['request_id']) !== ''
+            && is_string($admission['operation'] ?? null) && trim($admission['operation']) !== ''
             && ($admission['protocol'] ?? null) === 'peanut.installation-module-admission.v1'
             && ($admission['request_id'] ?? null) === ($proof['operation_id'] ?? null)
             && ($admission['operation'] ?? null) === ($proof['operation'] ?? null)
             && ($admission['progress_sha256'] ?? null) === ($proof['instance']['installation_execution']['marker_sha256'] ?? null)
             && ($admission['fresh_schema_sha256'] ?? null) === ($proof['instance']['fresh_schema_sha256'] ?? null)
+            && ($admission['product_writer_boundary'] ?? null) === 'native_installation_execution_lock_before_completion'
             && ($admission['external_writer_exclusion'] ?? null) === 'ops_protocol_gate_required_not_attested';
     }
 
