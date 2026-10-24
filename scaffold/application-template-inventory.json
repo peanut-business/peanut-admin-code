@@ -15061,7 +15061,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "00f03237d67c7a8087b9f3785af2a99ccdf34c9c9972f33c905e2817d6380b0b"
+            "source_sha256": "315b1e3118734bece23142dacda1eaffe65eb16889de78f9ed14d0ab611b07fc"
+        },
+        {
+            "path": "server/app/modules/official/identity/src/Database/IdentitySchemaMigrationProofFailure.php",
+            "target": "server/app/modules/official/identity/src/Database/IdentitySchemaMigrationProofFailure.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "f3b50de3cfae931c113d26a26fbc2ff9225240836d4f2abcab282c709d863956"
         },
         {
             "path": "server/app/modules/official/identity/src/Http/TenantAuthEndpoint.php",
@@ -27530,7 +27544,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "afc69029d4bbd63a32b8a725dfb0bcf6cd3c6340534211805a9e94402eee9765"
+            "source_sha256": "123942b3c307b686c876567d5115bd7a6cf95a54516daaff5c68e3c640e14eb6"
         },
         {
             "path": "server/database/kernel-migrations/20260716010101_create_pa_account.php",
