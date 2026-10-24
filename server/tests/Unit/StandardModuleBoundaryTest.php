@@ -31,6 +31,13 @@ use PeanutAdmin\Modules\Member\Service\MemberQueryService;
 use PeanutAdmin\Modules\File\Contract\FileReferences;
 use PeanutAdmin\Modules\File\Composition\Storage\StorageDriverFactory;
 use PeanutAdmin\Modules\File\Service\Storage\StorageService;
+use PeanutAdmin\Modules\File\Service\FileAuthorizationService;
+use PeanutAdmin\Modules\File\Service\FileDocumentReferenceRegistry;
+use PeanutAdmin\Modules\ContentTools\Service\ContentCapabilitiesService;
+use PeanutAdmin\Modules\ContentTools\Service\ContentToolRegistry;
+use PeanutAdmin\Modules\Identity\Contract\TenantSessionAccess;
+use PeanutAdmin\Kernel\Module\ModuleRuntimeRepository;
+use app\common\contract\authorization\AdminAuthorizationQuery;
 use PeanutAdmin\Modules\Task\Service\CrontabSchedulerService;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
@@ -58,6 +65,8 @@ final class StandardModuleBoundaryTest extends TestCase
     {
         $root = dirname(__DIR__, 3);
         require_once $root . '/server/vendor/topthink/framework/src/helper.php';
+        require_once $root . '/server/app/modules/official/content_tools/src/Service/ContentToolRegistry.php';
+        require_once $root . '/server/app/modules/official/content_tools/src/Service/ContentCapabilitiesService.php';
         $this->app = new App($root . '/.local/tmp/standard-module-boundary/case-' . bin2hex(random_bytes(6)));
         $this->database = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
         \ThinkPhpTestConnection::fromPdo($this->database);
@@ -92,8 +101,8 @@ final class StandardModuleBoundaryTest extends TestCase
             INSERT INTO pa_storage_account VALUES (1,'local','local','Local',NULL,1,'active');
             CREATE TABLE pa_storage_space (id INTEGER PRIMARY KEY, account_id INTEGER, space_key TEXT, name TEXT, access_type TEXT, bucket TEXT, region TEXT, endpoint TEXT, access_domain TEXT, local_path TEXT, status TEXT);
             INSERT INTO pa_storage_space VALUES (1,1,'public','Public','public',NULL,NULL,NULL,NULL,'public/storage','active');
-            CREATE TABLE pa_file_object (id INTEGER PRIMARY KEY, file_key TEXT, tenant_id INTEGER, access_type TEXT, storage_space_id INTEGER, object_key TEXT, status TEXT);
-            INSERT INTO pa_file_object VALUES (1,'file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',1,'public',1,'tenants/v1/1/material/image/file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png','ready');
+            CREATE TABLE pa_file_object (id INTEGER PRIMARY KEY, file_key TEXT, tenant_id INTEGER, access_type TEXT, storage_space_id INTEGER, object_key TEXT, status TEXT, purpose TEXT);
+            INSERT INTO pa_file_object VALUES (1,'file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',1,'public',1,'tenants/v1/1/material/image/file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.png','ready','material.image');
             SQL);
         $this->database->sqliteCreateFunction('GET_LOCK', function (string $name, int $timeout): int {
             $this->locks[] = ['acquire', $name];
@@ -198,7 +207,21 @@ final class StandardModuleBoundaryTest extends TestCase
 
     public function testStorageReadsLifecycleWithoutAJoinAndStillRejectsRevokedOrWrongOwner(): void
     {
-        $storage = new StorageService((new ReflectionClass(StorageDriverFactory::class))->newInstanceWithoutConstructor(), $this->policy, new DefaultTenantContextResolver(), str_repeat('s', 32), 'https://synthetic.example.test', $this->directory);
+        $documents = new FileDocumentReferenceRegistry($this->app, null);
+        $authorization = new FileAuthorizationService(
+            $this->createStub(AdminAuthorizationQuery::class),
+            $this->createStub(TenantSessionAccess::class),
+            $this->createStub(ModuleRuntimeRepository::class),
+            $this->contexts,
+            $documents,
+        );
+        $storage = new StorageService(
+            (new ReflectionClass(StorageDriverFactory::class))->newInstanceWithoutConstructor(),
+            $this->policy, new DefaultTenantContextResolver(), str_repeat('s', 32),
+            'https://synthetic.example.test', $this->directory, $authorization,
+            $this->current, new AuditContractHost($this->current),
+            new ContentCapabilitiesService(new ContentToolRegistry()), $documents,
+        );
         $key = 'file_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
         self::assertSame($key, $storage->normalizePublicReference(1, $key));
         try {

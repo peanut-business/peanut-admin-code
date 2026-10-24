@@ -18,8 +18,13 @@ use app\common\tenancy\MultiTenantDataScopePolicy;
 use PeanutAdmin\Kernel\Auth\TenantContext;
 use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Modules\Article\Service\ArticleAdministrationService;
+use PeanutAdmin\Modules\Article\Service\ArticleBodyService;
 use PeanutAdmin\Modules\Article\Service\ArticleCategoryAdministrationService;
+use PeanutAdmin\Modules\Article\Service\ArticleDocumentOwnerPolicy;
 use PeanutAdmin\Modules\Article\Validation\ArticleValidate;
+use PeanutAdmin\Modules\Document\Contract\DocumentCommands;
+use PeanutAdmin\Modules\Document\Contract\DocumentOwnerReference;
+use PeanutAdmin\Modules\Document\Contract\DocumentQueries;
 use PeanutAdmin\Modules\File\Contract\FileReferences;
 use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
@@ -42,6 +47,12 @@ final class ArticleExportServiceTest extends TestCase
     protected function setUp(): void
     {
         require_once dirname(__DIR__, 2) . '/vendor/topthink/framework/src/helper.php';
+        require_once dirname(__DIR__, 2) . '/app/modules/official/document/src/Contract/DocumentOwnerPolicy.php';
+        require_once dirname(__DIR__, 2) . '/app/modules/official/document/src/Contract/DocumentPublicationOwnerPolicy.php';
+        require_once dirname(__DIR__, 2) . '/app/modules/official/document/src/Contract/DocumentCommands.php';
+        require_once dirname(__DIR__, 2) . '/app/modules/official/document/src/Contract/DocumentQueries.php';
+        require_once dirname(__DIR__, 2) . '/app/modules/official/document/src/Contract/DocumentOwnerReference.php';
+        require_once dirname(__DIR__, 2) . '/app/modules/official/document/src/Contract/DocumentOwnerState.php';
         $app = new App(sys_get_temp_dir() . '/article-export-unit-' . bin2hex(random_bytes(6)));
         $this->pdo = new \PDO('sqlite::memory:', options: [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]);
         \ThinkPhpTestConnection::fromPdo($this->pdo);
@@ -60,6 +71,10 @@ final class ArticleExportServiceTest extends TestCase
                 ? PermissionDecision::deny($permission, 'UNIT_DENIED')
                 : PermissionDecision::allow($permission);
         });
+        $authorization->method('principal')->willReturnCallback(static fn(TenantContext $context) => \app\common\dto\authorization\AdminPrincipal::fromArray([
+            'id' => $context->memberId, 'tenant_id' => $context->tenantId,
+            'account_id' => $context->accountId, 'authorization_revision' => $context->authorizationRevision,
+        ]));
         $files = $this->createStub(FileReferences::class);
         $files->method('getFileUrl')->willReturnCallback(static fn(string $value): string => $value);
         $files->method('setTenantFileUrl')->willReturnCallback(static fn($context, string $value): string => $value);
@@ -68,17 +83,29 @@ final class ArticleExportServiceTest extends TestCase
             $this->exports[] = ['headings' => $headings, 'rows' => $rows];
             return ['url' => '/unit-only-not-a-download', 'original_name' => $name . '.xlsx'];
         });
+        $assets = new ProductAssetReferenceService($files, 'https://unit.invalid');
+        $owner = new ArticleDocumentOwnerPolicy($authorization, $current);
+        $documents = $this->createStub(DocumentCommands::class);
+        $documents->method('runOwnerLifecycle')->willReturnCallback(static function (TenantContext $context, DocumentOwnerReference $reference, string $action, callable $commit) use ($owner): mixed {
+            $state = $owner->resolveOwner($context, $reference, true);
+            $owner->authorize($context, $state->archived === ($action === 'archive') ? $action : $action . '.prepare', $state);
+            return \think\facade\Db::transaction($commit);
+        });
+        $queries = $this->createStub(DocumentQueries::class);
         $this->articles = new ArticleAdministrationService(
             $current,
             $authorization,
-            new ProductAssetReferenceService($files, 'https://unit.invalid'),
+            $assets,
             new RichTextResourceService($files),
             $xlsx,
+            $documents,
+            new ArticleBodyService($documents, $queries, $assets, $app),
+            $queries,
         );
         $this->categories = new ArticleCategoryAdministrationService($current, $authorization, $xlsx);
         $this->pdo->exec(<<<'SQL'
 CREATE TABLE pa_article_cate (id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, name TEXT, sort INTEGER DEFAULT 0, is_show INTEGER DEFAULT 1, create_time INTEGER DEFAULT 10, update_time INTEGER DEFAULT 10, delete_time INTEGER DEFAULT NULL);
-CREATE TABLE pa_article (id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, cid INTEGER NOT NULL, title TEXT, "desc" TEXT DEFAULT '', abstract TEXT DEFAULT '', image TEXT DEFAULT '', author TEXT DEFAULT '', content TEXT DEFAULT '', click_virtual INTEGER DEFAULT 0, click_actual INTEGER DEFAULT 0, is_show INTEGER DEFAULT 1, sort INTEGER DEFAULT 0, create_time INTEGER DEFAULT 10, update_time INTEGER DEFAULT 10, delete_time INTEGER DEFAULT NULL);
+CREATE TABLE pa_article (id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL, cid INTEGER NOT NULL, title TEXT, "desc" TEXT DEFAULT '', abstract TEXT DEFAULT '', image TEXT DEFAULT '', author TEXT DEFAULT '', content TEXT DEFAULT '', body_document_id INTEGER, body_revision_id INTEGER, body_source_state_seq INTEGER, body_snapshot_sha256 TEXT, click_virtual INTEGER DEFAULT 0, click_actual INTEGER DEFAULT 0, is_show INTEGER DEFAULT 1, sort INTEGER DEFAULT 0, create_time INTEGER DEFAULT 10, update_time INTEGER DEFAULT 10, delete_time INTEGER DEFAULT NULL);
 INSERT INTO pa_article_cate (id,tenant_id,name,delete_time) VALUES (1,101,'Alpha',NULL),(2,101,'Alpha trash',20),(3,202,'Beta',NULL);
 INSERT INTO pa_article (id,tenant_id,cid,title,image,delete_time) VALUES (1,101,1,'keep-alpha','unit-file-reference',NULL),(2,101,1,'trashed-alpha','unit-file-reference',20),(3,101,2,'trashed-category-alpha','unit-file-reference',20),(4,202,3,'keep-beta','beta-reference',NULL);
 SQL);

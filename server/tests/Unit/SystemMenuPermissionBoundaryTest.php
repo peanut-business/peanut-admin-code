@@ -61,11 +61,11 @@ final class SystemMenuPermissionBoundaryTest extends TestCase
             CREATE TABLE pa_menu_definition (id INTEGER PRIMARY KEY, "key" TEXT, scope TEXT, sort_order INTEGER, required_permission_id INTEGER);
             CREATE TABLE pa_tenant_module (tenant_id INTEGER, module_key TEXT, status TEXT, effective_at TEXT, expires_at TEXT);
             CREATE TABLE pa_tenant (id INTEGER PRIMARY KEY, status TEXT, authorization_revision INTEGER, updated_at TEXT);
-            CREATE TABLE pa_role (id INTEGER PRIMARY KEY, tenant_id INTEGER, "key" TEXT, name TEXT, description TEXT, is_builtin INTEGER, status TEXT, authorization_revision INTEGER, updated_at TEXT);
+            CREATE TABLE pa_role (id INTEGER PRIMARY KEY, tenant_id INTEGER, "key" TEXT, name TEXT, description TEXT, is_builtin INTEGER, status TEXT, authorization_revision INTEGER, created_at TEXT, updated_at TEXT);
             CREATE TABLE pa_role_permission (id INTEGER PRIMARY KEY, tenant_id INTEGER, role_id INTEGER, permission_id INTEGER, granted_by_member_id INTEGER, granted_at TEXT);
             CREATE TABLE pa_tenant_audit_event (id INTEGER PRIMARY KEY, tenant_id INTEGER, event_type TEXT, action TEXT, outcome TEXT, actor_tenant_id INTEGER, actor_tenant_member_id INTEGER, actor_account_id INTEGER, actor_type TEXT, target_resource_type TEXT, target_resource_id TEXT, boundary_target_type TEXT, boundary_target_id TEXT, target_count INTEGER, target_set_digest TEXT, authorization_basis_json TEXT, request_id TEXT, metadata_json TEXT, occurred_at TEXT);
             INSERT INTO pa_tenant VALUES (101,'active',1,NULL);
-            INSERT INTO pa_role VALUES (1,101,'application.reader','Before','Before description',0,'active',1,NULL);
+            INSERT INTO pa_role VALUES (1,101,'application.reader','Before','Before description',0,'active',1,NULL,NULL);
             INSERT INTO pa_permission VALUES (1,'app.active','peanut.admin','active'),(2,'app.retired','peanut.admin','retired'),(3,'module.unavailable','official.unavailable','active'),(4,'unowned.active',NULL,'active'),(5,'hidden.active','peanut.admin','active');
             INSERT INTO pa_system_menu (id,perms,is_disable) VALUES (1,'app.active',0),(2,'app.retired',0),(3,'module.unavailable',0),(4,'legacy.unregistered',0),(5,'unowned.active',0),(6,'hidden.active',1),(7,'',0),(8,'app.active',0);
             UPDATE pa_system_menu SET menu_key='menu.' || id;
