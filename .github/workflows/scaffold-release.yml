@@ -3,6 +3,14 @@ name: Scaffold templates and qualified release
 on:
   workflow_dispatch:
     inputs:
+      pack_only:
+        description: Build and compare templates only; no candidate creation or qualification
+        type: boolean
+        default: false
+      expected_source_commit:
+        description: Exact dispatch HEAD required for pack-only identity
+        type: string
+        default: ''
       publish:
         description: Publish only the already fully qualified exact main source and build bytes
         type: boolean
@@ -45,6 +53,13 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Require the selected pack-only source
+        if: inputs.pack_only
+        env:
+          EXPECTED_SOURCE: ${{ inputs.expected_source_commit }}
+        run: |
+          [[ "$EXPECTED_SOURCE" =~ ^[a-f0-9]{40}$ && "$EXPECTED_SOURCE" == "$GITHUB_SHA" ]]
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE"
       - name: Read the committed producer tool requirements
         id: requirements
         shell: bash
@@ -59,6 +74,7 @@ jobs:
                   out.write(name + '=' + tools[name]['version'] + '\n')
           PY
       - name: Require a fixed independent CLI source
+        if: ${{ !inputs.pack_only }}
         env:
           CLI_COMMIT: ${{ inputs.candidate_cli_commit }}
         shell: bash
@@ -66,6 +82,7 @@ jobs:
           set -Eeuo pipefail
           [[ "$CLI_COMMIT" =~ ^[a-f0-9]{40}$ ]]
       - uses: actions/checkout@v4
+        if: ${{ !inputs.pack_only }}
         with:
           repository: peanut-business/peanut-cli
           ref: ${{ inputs.candidate_cli_commit }}
@@ -110,6 +127,7 @@ jobs:
             "$(sha256sum scaffold/application-template-inventory.json | cut -d ' ' -f1)" \
             "$RUNNER_TEMP/scaffold-rebuild" > "$RUNNER_TEMP/rebuild-comparison.json"
       - name: Qualify the native candidate through the local entry
+        if: ${{ !inputs.pack_only }}
         shell: bash
         env:
           CLI_COMMIT: ${{ inputs.candidate_cli_commit }}
@@ -182,11 +200,11 @@ jobs:
       - name: Report the remaining full qualification admission
         shell: bash
         run: |
-          echo 'Full eight-group qualification: NOT_RUN. This job checks fixed templates and independent CLI creation only.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Full eight-group qualification: NOT_RUN. Pack-only mode checks two standard template productions and exact inputs/bytes only; candidate creation is skipped in that mode.' >> "$GITHUB_STEP_SUMMARY"
           echo 'The admitted lifecycle owner must seal its completed eight-group native result with scripts/p0e-runtime-qualification transport. Once an authorized existing same-repository Release asset holds those original bytes, select qualification_ingress_asset_id and the independent source/hashes to verify and preserve them through this workflow ingress. This template-only run cannot supply qualification_run_id for publication.' >> "$GITHUB_STEP_SUMMARY"
 
   ingress:
-    if: ${{ !inputs.publish && inputs.qualification_ingress_asset_id != '' && github.repository == 'peanut-business/peanut-admin-code' }}
+    if: ${{ !inputs.pack_only && !inputs.publish && inputs.qualification_ingress_asset_id != '' && github.repository == 'peanut-business/peanut-admin-code' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
@@ -290,7 +308,7 @@ jobs:
           echo 'Original native full qualification transport verified and preserved. This run did not execute full8, create or upload a Release asset, publish, or deploy.' >> "$GITHUB_STEP_SUMMARY"
 
   publish:
-    if: ${{ inputs.publish && inputs.qualification_ingress_asset_id == '' && github.ref == 'refs/heads/main' }}
+    if: ${{ !inputs.pack_only && inputs.publish && inputs.qualification_ingress_asset_id == '' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:

@@ -28,6 +28,8 @@
 
 `scaffold-release.yml`显式选定完整CLI提交，核其真实树并生成同协议输入，构建后调用上述同一候选入口。除了原四附件，CI将完整`standalone/`、`multi-tenant/`根和阶段结果保存在独立Actions artifact；用tar保留隐藏默认文件和可执行模式，附实际传输包SHA-256。该tar仅供同一固定来源资格链传输，不是公开模板包或已采用的APP；后续job须核具体source/run及实际字节，不能重新构建后假定附件相同。候选job保持contents:read，正式发布仍须独立的完整八组及原main/平台Gate，不因候选通过自动运行。
 
+CI 的 `scaffold-release.yml` 可显式选 `publish=false, pack_only=true`，并填写精确 `expected_source_commit`；它只按同一标准生产器独立构建双 Edition 两轮、严格比较来源/锁/工具输入和实际附件字节，跳过独立 CLI checkout 与 candidate 创建。原比较回执及两轮完整输出保存在 Actions artifact；这不是 full8 或发行资格。默认候选入口和正式发布 Gate 保留，`pack_only=true` 无法进入 ingress 或 publish job。CLI scaffold-ci Recipe 原本仅含标准双轮模板生产，继续使用同一生产器和比较器，无候选或发布步骤。
+
 ## 冻结内部候选
 
 候选首装与独立 APP 派生先用 `freeze-core-release --php-core-dir=<固定干净PHP仓> --web-core-dir=<固定干净Web仓> --version=<Core默认精确版本> --php-version=<PHP候选精确版本> --web-version=<Web候选精确版本> --output=<不存在的绝对目录>` 生成一个 PHP ZIP、六个 Web TGZ 及实际 `release-core-inputs.json`，记录来源 commit/tree、各自版本与摘要；两Core与脚手架版本可不同，Web六包内部仍同号，无需先公开发布Core。随后固定同一Code源码，依次为MT、ST调用 `build-scaffold-release --version=<脚手架版本> --source-commit=<固定Code提交> --edition=multi-tenant|standalone --workflow=full --internal-core-inputs=<冻结回执绝对路径> --output=<各自不存在的绝对目录>`，或由 `peanut release --internal-core-inputs=<同一冻结回执> --path=<固定Code源码> --source-commit=<固定Code提交> --output=<不存在的绝对目录>` 串行生成两形态。该候选通过原生Composer/pnpm/npm投影双Core声明及锁，携带七包，将真实投影文件与归档纳入受管清单及baseline；非Core锁定版本与来源保持不变。候选同样输出 `peanut.template-package.v1` 的TGZ/JSON，可由CLI显式本地 `create --archive ... --manifest ...` 消费；保持development/null来源与 `scaffold_candidate.formal_release_eligible=false`。正式发行生产者拒绝 `internal_core_projection`，不从本地候选直接发布。
