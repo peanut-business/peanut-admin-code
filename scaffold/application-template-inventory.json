@@ -9408,7 +9408,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "12ef08072c5d2d2562d33114cd8d70f3307c8e2d09ecc5f21c71a18c2696a6c8"
+            "source_sha256": "8f451fada70871677a3a8e1dc7e9ca25a84e0a7d4ee86ab93fdeef25eede382c"
         },
         {
             "path": "server/app/common/services/installation/InstallationPreflightHost.php",
@@ -26495,7 +26495,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5310f70b1aa7ebc97f99d24681e9554c7f53463fb9a6460997b9c1972ef5ce45"
+            "source_sha256": "d48dede8a0b5f1d4492aee79d89627e7ddf9bf755eb63d62ddb072f19619662e"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",

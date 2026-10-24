@@ -1168,25 +1168,49 @@ final class InstallationExecutionHost
     /** Read-only capability of this actual executor, available only inside its held installModules call. */
     public function migrationAdoptionAdmission(PDO $pdo): array
     {
+        $stage = 'partial_guard'; $logged = false;
+        $facts = array_fill_keys(['capability_absent', 'context_invalid', 'request_changed', 'operation_changed',
+            'handle_invalid', 'physical_lock_invalid', 'physical_lock_linked', 'handle_device_changed', 'handle_inode_changed',
+            'physical_device_changed', 'physical_inode_changed', 'completion_present', 'root_changed', 'progress_changed',
+            'source_changed', 'database_changed'], 'skipped');
+        $observe = static function (string $reason) use (&$facts, &$stage, &$logged): void {
+            $logged = true;
+            try {
+                \think\facade\Log::write(json_encode(['event' => 'installation_adoption_admission_rejected',
+                    'source' => 'InstallationExecutionHost::migrationAdoptionAdmission', 'stage' => $stage,
+                    'reason' => $reason, 'condition' => $stage === 'guard'
+                        ? ($reason === 'THROWN' ? array_search('skipped', $facts, true) : $reason) : 'not_reached',
+                    'predicates' => $facts], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), 'error');
+            } catch (\Throwable) { /* Observability never replaces the original admission failure. */ }
+        };
+        try {
         if ($this->partialGuard !== null) { ($this->partialGuard)(); }
+        $stage = 'context';
         $admission = $this->moduleMigrationAdmission;
         $context = app()->make(\app\common\execution\CurrentExecutionContext::class)->current();
+        $stage = 'lock_observation';
         $path = dirname($this->progressMarker()) . '/execution.lock';
         $stat = is_resource($this->executionLock) ? fstat($this->executionLock) : false;
         $physical = is_file($path) && !is_link($path) ? lstat($path) : false;
-        if ($admission === null || !$context instanceof \app\common\execution\InstallationExecutionContext
-            || $context->requestId() !== $admission['request_id'] || $context->operation() !== $admission['operation']
-            || !is_array($stat) || !is_array($physical) || $physical['nlink'] !== 1
-            || $stat['dev'] !== $admission['lock_device'] || $stat['ino'] !== $admission['lock_inode']
-            || $stat['dev'] !== $physical['dev'] || $stat['ino'] !== $physical['ino']
-            || $this->completionLockPresent() || realpath($this->serverRoot) !== $admission['instance_root']
-            || $this->fileDigest($this->progressMarker()) !== $admission['progress_sha256']
-            || $this->fileDigest($this->serverRoot . '/database/init.sql') !== $admission['fresh_schema_sha256']
-            || self::migrationDatabaseIdentity($pdo) !== $admission['database_identity']) {
+        $stage = 'guard';
+        if (($facts['capability_absent'] = $admission === null) || ($facts['context_invalid'] = !$context instanceof \app\common\execution\InstallationExecutionContext)
+            || ($facts['request_changed'] = $context->requestId() !== $admission['request_id']) || ($facts['operation_changed'] = $context->operation() !== $admission['operation'])
+            || ($facts['handle_invalid'] = !is_array($stat)) || ($facts['physical_lock_invalid'] = !is_array($physical)) || ($facts['physical_lock_linked'] = $physical['nlink'] !== 1)
+            || ($facts['handle_device_changed'] = $stat['dev'] !== $admission['lock_device']) || ($facts['handle_inode_changed'] = $stat['ino'] !== $admission['lock_inode'])
+            || ($facts['physical_device_changed'] = $stat['dev'] !== $physical['dev']) || ($facts['physical_inode_changed'] = $stat['ino'] !== $physical['ino'])
+            || ($facts['completion_present'] = $this->completionLockPresent()) || ($facts['root_changed'] = realpath($this->serverRoot) !== $admission['instance_root'])
+            || ($facts['progress_changed'] = $this->fileDigest($this->progressMarker()) !== $admission['progress_sha256'])
+            || ($facts['source_changed'] = $this->fileDigest($this->serverRoot . '/database/init.sql') !== $admission['fresh_schema_sha256'])
+            || ($facts['database_changed'] = self::migrationDatabaseIdentity($pdo) !== $admission['database_identity'])) {
+            $observe((string) array_search(true, $facts, true));
             throw new RuntimeException('INSTALL_MODULE_ADOPTION_ADMISSION_REQUIRED');
         }
         // execute() retains the private handle until installModules returns, including each DB commit.
         return $admission;
+        } catch (\Throwable $error) {
+            if (!$logged) { $observe('THROWN'); }
+            throw $error;
+        }
     }
 
     /** Identity comes from the actual native master PDO, never from a supplied window/endpoint declaration. */
