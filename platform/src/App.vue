@@ -1113,6 +1113,8 @@
   import {
     ElMessage,
     ElMessageBox,
+    ElButton,
+    ElInput,
     ElOption,
     ElSelect,
     type FormInstance,
@@ -1992,16 +1994,69 @@
   }
   async function showManualInvitation(result: Invitation) {
     if (!result.accept_token) return;
-    const url = `${
+    let url = `${
       window.location.origin
     }/platform/?invitation=${encodeURIComponent(result.accept_token)}`;
-    await ElMessageBox.alert(
-      `<p>当前实例使用人工交付模式。该链接只显示一次，请交给租户所有者：</p><pre>${escapeHtml(
-        url
-      )}</pre>`,
-      '一次性邀请链接',
-      { dangerouslyUseHTMLString: true, confirmButtonText: '已记录' }
-    );
+    result.accept_token = undefined;
+    const selectLink = (event: FocusEvent) => {
+      if (event.target instanceof HTMLInputElement) event.target.select();
+    };
+    const copyLink = async () => {
+      try {
+        if (!navigator.clipboard?.writeText)
+          throw new Error('Clipboard unavailable');
+        await navigator.clipboard.writeText(url);
+        ElMessage.success('邀请链接已复制');
+      } catch {
+        ElMessage.error('复制失败，请选中链接手动复制');
+      }
+    };
+    try {
+      await ElMessageBox.alert(
+        h('div', [
+          h(
+            'p',
+            '当前实例使用人工交付模式。该链接只显示一次，请交给租户所有者：'
+          ),
+          h(ElInput, {
+            'modelValue': url,
+            'readonly': true,
+            'aria-label': '一次性邀请链接',
+            'onFocus': selectLink,
+            'onClick': selectLink,
+          }),
+          h(
+            'div',
+            {
+              style: {
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                marginTop: '12px',
+              },
+            },
+            [
+              h(ElButton, { onClick: copyLink }, () => '复制链接'),
+              h(
+                'a',
+                {
+                  href: url,
+                  target: '_blank',
+                  rel: 'noopener noreferrer',
+                },
+                '打开接受页面'
+              ),
+            ]
+          ),
+        ]),
+        '一次性邀请链接',
+        { confirmButtonText: '已记录', closeOnPressEscape: true }
+      );
+    } catch (cause) {
+      if (cause !== 'cancel' && cause !== 'close') throw cause;
+    } finally {
+      url = '';
+    }
   }
   async function sendInvitation() {
     if (!targetTenantId.value) return;
@@ -2428,7 +2483,10 @@
     }
   }
   onMounted(async () => {
-    navigationViewport.addEventListener('change', handleNavigationViewportChange);
+    navigationViewport.addEventListener(
+      'change',
+      handleNavigationViewportChange
+    );
     try {
       if (invitationToken.value) await inspectInvitation();
       else if (authenticated.value) {
@@ -2440,7 +2498,10 @@
     }
   });
   onUnmounted(() => {
-    navigationViewport.removeEventListener('change', handleNavigationViewportChange);
+    navigationViewport.removeEventListener(
+      'change',
+      handleNavigationViewportChange
+    );
     stopPlatformSessionSync();
     opsRuntime.dispose();
   });
