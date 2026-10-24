@@ -2062,6 +2062,10 @@ def main():
         directory = common / "peanut-admin-resource-leases/leases" / args.lease
         value = live_state(directory)
         if value is not None:
+            if value.get("phase") == "mt012":
+                helper = runpy.run_path(str(ROOT / "scripts/project-resource-mt012.py"))
+                helper["release_check"](args.lease, args.owner)
+                return
             metadata = dict(table(directory / "metadata.tsv", 2))
             need(args.owner == metadata["owner"] == value["owner"], "operation release owner mismatch")
             need(not original_process_alive(value["pid"], value.get("process_birth")),

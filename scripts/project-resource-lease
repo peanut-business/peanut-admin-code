@@ -1726,6 +1726,12 @@ PY
 }
 
 case "$COMMAND" in
+  application-mt012)
+    [[ "${1:-}" == --lease && -n "${2:-}" && "${3:-}" == --owner && -n "${4:-}" && $# -eq 4 ]] \
+      || die 'application-mt012 requires only lease/owner; source and scope come from registration'
+    python3 "$REPO_ROOT/scripts/project-resource-mt012.py" run --lease "$2" --owner "$4" \
+      || die 'MT012 failed or UNKNOWN; retain native lease and exact operation state'
+    ;;
   schema-allocate)
     [[ "${1:-}" == --lease && -n "${2:-}" && "${3:-}" == --owner && -n "${4:-}" && $# -eq 4 ]] \
       || die 'schema-allocate requires only --lease and --owner'
