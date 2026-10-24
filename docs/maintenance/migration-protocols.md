@@ -1,10 +1,14 @@
 # 源码维护：安装基线与迁移协议
 
-## 5.0.5 专用升级验证表
+## 5.0.5 专用升级验证表与后续清理
 
 `server/database/migrations/20261025-create-upgrade-verification-b505.sql` 以 `peanut-release: 5.0.5` 进入现有应用迁移链。安装发现入口和 APP 升级包的 `migration_chain.files` 共用 `ApplicationMigrationRunner`，由 `PeanutMigrationRun` 驱动官方 ThinkPHP `Migrator`；5.0.4 目标不选择该文件。现有应用数据库合同固定使用 `pa_` 前缀。
 
-该迁移只创建 `pa_upgrade_verification_b505`，包含自增主键和默认值为 `5.0.5` 的版本标记列，不插入记录，不修改旧表或业务数据。同名对象已存在时普通 `CREATE TABLE` 失败，不隐式采用。升级完成后保留该表，核对实际结构和原生迁移账本；删除须在 B 版本冻结后另行提交后续版本的前向 Migration，不与本次创建一起执行。源码开发库的固定维护准入不因本文件自动扩大；此处不新增维护入口或执行授权。
+该迁移只创建 `pa_upgrade_verification_b505`，包含自增主键和默认值为 `5.0.5` 的版本标记列，不插入记录，不修改旧表或业务数据。同名对象已存在时普通 `CREATE TABLE` 失败，不隐式采用。5.0.5 升级完成后保留该表，核对实际结构和原生迁移账本。
+
+B 冻结后的独立前向迁移 `server/database/migrations/20261026-drop-upgrade-verification-b505.sql` 标记 `peanut-release: 5.0.6`，只执行 `DROP TABLE pa_upgrade_verification_b505`，无 `IF EXISTS` 或 `CASCADE`。5.0.5 目标不选择清理；未来目标达到 5.0.6 时，原生排序先选择原 CREATE，再选择 DROP。B 升级到未来版本时原 CREATE 的 applied 账本使其跳过；A 直接升级到未来版本时按序创建后删除。原 CREATE SQL 和两项迁移账本均保留，所有业务表及其记录不属于此清理范围；提交后续源码不等于执行 DROP，也不更改 B 的冻结身份或归档。
+
+未来实际执行前，实际 owner 须按既有资源和数据保护规则确认该表仍是这项专用验证对象；若已改变用途或含需保留数据，停止对应清理并处理必要备份。现有 Runner 校验来源摘要及账本状态，不自动拒绝人为改列或新增数据；普通 DROP 对缺失表或阻止删除的外键会报错，不能将其称为完整对象漂移保护。失败或未知状态先沿原账本对账，不重发。源码开发库的固定维护准入不因这两份文件自动扩大；此处不新增维护入口或执行授权。
 
 ## 固定开发库的 File adopted 来源承接
 

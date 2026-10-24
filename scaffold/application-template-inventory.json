@@ -28428,6 +28428,20 @@
             "source_sha256": "7c6fbdf700a1dedca412614f3515bf6d4526521303289afce7edb80c5d47cd3f"
         },
         {
+            "path": "server/database/migrations/20261026-drop-upgrade-verification-b505.sql",
+            "target": "server/database/migrations/20261026-drop-upgrade-verification-b505.sql",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "17e55cb9315fe8194dc7bc16fac7567b664a4780a8fd37af58d23cdba478e3e5"
+        },
+        {
             "path": "server/database/resource-registry.php",
             "target": "server/database/resource-registry.php",
             "classification": "managed",
