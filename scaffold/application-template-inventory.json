@@ -2497,7 +2497,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e68cbe5445c31fba4ac350b50bd8d0f444fac0bc5d0ad5f890c08ece6bc2b8c6"
+            "source_sha256": "ede078c1f2b253b349b022ffec461cb55dbc65bb892d26ad4d306ae025012eeb"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2830,7 +2830,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c54cf070fa102998e2aca44e59cb413f3954ace2a0127591d6e41e1afc045962"
+            "source_sha256": "6fcb0600b4a7614bc6858158e88eed204e0afbef1c607d99c741e5bc909c5929"
         },
         {
             "path": "release-versions.json",
@@ -24967,7 +24967,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9a935652bed8529db8fc4942ba7984d2976a41e802de8ceceaa604db9159a52d"
+            "source_sha256": "b041359aea24f28127d2a3735ca58adfac31e18996d17e42e7fabbe12e8e9b47"
         },
         {
             "path": "server/app/modules/peanut/workflow/resources/config-schema.json",
