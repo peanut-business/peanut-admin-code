@@ -312,7 +312,7 @@ $schemas = [
                     'occurrences' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 1000000],
                 ],
             ]],
-            'next_cursor' => ['type' => 'string', 'nullable' => true, 'enum' => [null], 'description' => '固定为 null；不支持后续页。'],
+            'next_cursor' => ['type' => 'string', 'nullable' => true, 'description' => '下一页游标；null 表示有界摘要已读完。'],
         ],
     ],
     'PlatformOpsSnapshot' => [
@@ -324,6 +324,8 @@ $schemas = [
             'backup_contract_status' => ['type' => 'string', 'enum' => ['missing', 'current', 'unsupported_schema']],
             'restore_contract_status' => ['type' => 'string', 'enum' => ['missing', 'current', 'unsupported_schema']],
             'new_paired_backup_required' => ['type' => 'boolean'],
+            'source_identity_known' => ['type' => 'boolean'],
+            'page' => ['type' => 'integer', 'minimum' => 1], 'page_size' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 100], 'total' => ['type' => 'integer', 'minimum' => 0],
             'tasks' => ['type' => 'array', 'items' => $ref('PlatformOpsTask')],
             'items' => ['type' => 'array', 'items' => $ref('ApplicationDynamicValue')],
             'status' => ['type' => 'string'], 'ready' => ['type' => 'boolean'],
@@ -607,8 +609,8 @@ $add($paths, 'GET', '/platformapi/v1/ops/logs', $operation(
     [
         $query('source', ['type' => 'string', 'enum' => ['platform.audit'], 'default' => 'platform.audit']),
         $query('severity', ['type' => 'string', 'enum' => ['info', 'warning', 'error', 'critical'], 'default' => 'info']),
-        $query('page_size', ['type' => 'integer', 'minimum' => 1, 'maximum' => 100, 'default' => 50]),
-        $query('cursor', ['type' => 'string', 'enum' => [''], 'description' => '仅接受省略或空字符串；非空游标返回 OPS_REQUEST_INVALID。']),
+        $query('page_size', ['type' => 'integer', 'minimum' => 1, 'maximum' => 100, 'default' => 20]),
+        $query('cursor', ['type' => 'string', 'maxLength' => 128, 'description' => '使用响应的 next_cursor；摘要变化后游标失效，需重新从第一页读取。']),
     ],
     errors: ['OPS_REQUEST_INVALID', 'OPS_LOGS_UNAVAILABLE'],
 ));
@@ -639,7 +641,12 @@ foreach ([
     '/platformapi/v1/ops/upgrades' => ['listPlatformUpgrades', 'PlatformOpsSnapshot'],
     '/platformapi/v1/ops/backups' => ['listPlatformBackups', 'PlatformOpsSnapshot'],
 ] as $pathName => [$operationId, $schema]) {
-    $setOverride($overrides, 'GET', $pathName, $operation($operationId, 'PlatformOps', $opsOk($schema)));
+    $pagination = in_array($pathName, ['/platformapi/v1/ops/providers', '/platformapi/v1/ops/backups'], true)
+        ? [$query('page', ['type' => 'integer', 'minimum' => 1, 'maximum' => 999999, 'default' => 1]),
+            $query('page_size', ['type' => 'integer', 'minimum' => 1, 'maximum' => 100, 'default' => 20])] : [];
+    $responses = $opsOk($schema);
+    if ($pagination !== []) { $responses['400'] = $error; }
+    $setOverride($overrides, 'GET', $pathName, $operation($operationId, 'PlatformOps', $responses, $pagination));
 }
 $setOverride($overrides, 'GET', '/platformapi/v1/ops/tasks/{task_key}', $operation(
     'getPlatformOpsTask',

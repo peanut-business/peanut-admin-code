@@ -51,7 +51,7 @@ const contribution: PluginFrontendContribution = {
           name: 'OfficialNotificationInbox',
           component: () => import('./NotificationInboxPage.vue'),
           meta: {
-            locale: 'Notification inbox',
+            locale: 'notificationInbox.title',
             requiresAuth: true,
             tenantModuleKey: 'official.notification',
             requiredPermissions: 'official.notification.inbox.read',

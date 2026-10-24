@@ -1,4 +1,45 @@
 export default {
+  'notificationInbox.title': 'Notifications',
+  'notificationInbox.description':
+    'View messages for your account and manage their read and archive status.',
+  'notificationInbox.refresh': 'Refresh',
+  'notificationInbox.status.all': 'All',
+  'notificationInbox.status.unread': 'Unread',
+  'notificationInbox.status.read': 'Read',
+  'notificationInbox.status.archived': 'Archived',
+  'notificationInbox.selectPage': 'Select this page',
+  'notificationInbox.selected': '{count} selected',
+  'notificationInbox.bulkRead': 'Mark read ({count})',
+  'notificationInbox.bulkArchive': 'Archive ({count})',
+  'notificationInbox.readOnly':
+    'Your account can view notifications but cannot change their status.',
+  'notificationInbox.requestId': 'Request ID',
+  'notificationInbox.retry': 'Retry',
+  'notificationInbox.loading': 'Loading notifications…',
+  'notificationInbox.empty': 'No matching notifications',
+  'notificationInbox.emptyHint':
+    'New inbox messages will appear here. Choose another status to view other notifications.',
+  'notificationInbox.selectMessage': 'Select notification: {subject}',
+  'notificationInbox.open': 'View details',
+  'notificationInbox.markRead': 'Mark read',
+  'notificationInbox.archive': 'Archive',
+  'notificationInbox.detail': 'Notification details',
+  'notificationInbox.attachments': 'Attachment information',
+  'notificationInbox.close': 'Close',
+  'notificationInbox.readSuccess': 'Marked as read',
+  'notificationInbox.archiveSuccess': 'Archived',
+  'notificationInbox.sessionExpired':
+    'Your session has expired. Please sign in again.',
+  'notificationInbox.forbidden':
+    'You do not have permission to access notifications.',
+  'notificationInbox.unavailable': 'The notification module is unavailable.',
+  'notificationInbox.loadError': 'Unable to load notifications',
+  'notificationInbox.requestFailed':
+    'The notification request failed. Please try again later.',
+  'notificationInbox.loadFailed':
+    'Unable to load notifications. Check your connection and try again.',
+  'notificationInbox.actionFailed':
+    'The action could not be completed. Refresh and try again.',
   'noticeLog.columns.id': 'ID',
   'noticeLog.columns.template_name': 'Template',
   'noticeLog.columns.scene': 'Scene',

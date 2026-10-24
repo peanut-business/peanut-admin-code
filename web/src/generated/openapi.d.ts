@@ -7835,11 +7835,8 @@ export interface components {
                 request_id: string | null;
                 occurrences: number;
             }[];
-            /**
-             * @description 固定为 null；不支持后续页。
-             * @enum {string|null}
-             */
-            next_cursor: null;
+            /** @description 下一页游标；null 表示有界摘要已读完。 */
+            next_cursor: string | null;
         };
         PlatformOpsSnapshot: {
             provider?: {
@@ -7856,6 +7853,10 @@ export interface components {
             /** @enum {string} */
             restore_contract_status?: "missing" | "current" | "unsupported_schema";
             new_paired_backup_required?: boolean;
+            source_identity_known?: boolean;
+            page?: number;
+            page_size?: number;
+            total?: number;
             tasks?: components["schemas"]["PlatformOpsTask"][];
             items?: components["schemas"]["ApplicationDynamicValue"][];
             status?: string;
@@ -11597,7 +11598,10 @@ export interface operations {
     };
     listPlatformBackups: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -11618,6 +11622,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
@@ -11713,7 +11718,10 @@ export interface operations {
     };
     getPlatformOpsProviders: {
         parameters: {
-            query?: never;
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -11734,6 +11742,7 @@ export interface operations {
                     };
                 };
             };
+            400: components["responses"]["ErrorResponse"];
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
@@ -17136,7 +17145,7 @@ export interface operations {
                 source?: "platform.audit";
                 severity?: "info" | "warning" | "error" | "critical";
                 page_size?: number;
-                cursor?: "";
+                cursor?: string;
             };
             header?: never;
             path?: never;

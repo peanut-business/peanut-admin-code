@@ -1082,7 +1082,30 @@
                     "PlatformOps"
                 ],
                 "operationId": "listPlatformBackups",
-                "parameters": [],
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "page",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 999999,
+                            "default": 1
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "page_size",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100,
+                            "default": 20
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "成功",
@@ -1124,6 +1147,9 @@
                         "$ref": "#/components/responses/ErrorResponse"
                     },
                     "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "400": {
                         "$ref": "#/components/responses/ErrorResponse"
                     }
                 },
@@ -1394,7 +1420,30 @@
                     "PlatformOps"
                 ],
                 "operationId": "getPlatformOpsProviders",
-                "parameters": [],
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "page",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 999999,
+                            "default": 1
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "page_size",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100,
+                            "default": 20
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "成功",
@@ -1436,6 +1485,9 @@
                         "$ref": "#/components/responses/ErrorResponse"
                     },
                     "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "400": {
                         "$ref": "#/components/responses/ErrorResponse"
                     }
                 },
@@ -17275,7 +17327,7 @@
                             "type": "integer",
                             "minimum": 1,
                             "maximum": 100,
-                            "default": 50
+                            "default": 20
                         }
                     },
                     {
@@ -17284,10 +17336,8 @@
                         "required": false,
                         "schema": {
                             "type": "string",
-                            "enum": [
-                                ""
-                            ],
-                            "description": "仅接受省略或空字符串；非空游标返回 OPS_REQUEST_INVALID。"
+                            "maxLength": 128,
+                            "description": "使用响应的 next_cursor；摘要变化后游标失效，需重新从第一页读取。"
                         }
                     }
                 ],
@@ -43733,10 +43783,7 @@
                     "next_cursor": {
                         "type": "string",
                         "nullable": true,
-                        "enum": [
-                            null
-                        ],
-                        "description": "固定为 null；不支持后续页。"
+                        "description": "下一页游标；null 表示有界摘要已读完。"
                     }
                 }
             },
@@ -43785,6 +43832,22 @@
                     },
                     "new_paired_backup_required": {
                         "type": "boolean"
+                    },
+                    "source_identity_known": {
+                        "type": "boolean"
+                    },
+                    "page": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "page_size": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 100
+                    },
+                    "total": {
+                        "type": "integer",
+                        "minimum": 0
                     },
                     "tasks": {
                         "type": "array",

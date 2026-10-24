@@ -207,7 +207,7 @@ export interface OpsLatestVerifiedBackup {
   consistency_completed_at: string;
   verified_at: string;
   age_seconds: number;
-  source_matches_runtime: boolean;
+  source_matches_runtime: boolean | null;
 }
 
 export interface OpsLatestRestoreVerified {
@@ -231,6 +231,10 @@ export interface OpsBackupCenterSnapshot {
   restore_contract_status?: 'missing' | 'current' | 'unsupported_schema';
   new_paired_backup_required?: boolean;
   tasks: OpsBackupTask[];
+  source_identity_known: boolean;
+  page: number;
+  page_size: number;
+  total: number;
 }
 
 export interface ProviderQualificationItem {
@@ -253,6 +257,9 @@ export interface ProviderQualificationSnapshot {
   schema_version: 1;
   generated_at: string;
   providers: ProviderQualificationItem[];
+  page: number;
+  page_size: number;
+  total: number;
 }
 
 export interface DeveloperCatalogEvidence {
@@ -692,9 +699,14 @@ async function unwrap<T>(
       TENANT_CODE_CONFLICT: '租户编码已被使用。',
       TENANT_OWNER_INVITATION_PENDING: '该租户已有待接受的所有者邀请。',
       TENANT_ENTRY_BINDING_CONFLICT: '该域名和客户端已绑定其他租户。',
+      SOURCE_IDENTITY_UNKNOWN: '当前源码身份未知，此操作需要可验证发行身份。',
+      OPS_STATUS_UNAVAILABLE: '该运维区域暂时无法读取，请稍后重试。',
+      OPS_PROVIDER_UNAVAILABLE: '所选运维服务当前不可用。',
     };
     const fallback = result.data.msg || '平台接口拒绝请求';
     const localizedMessages: Record<string, string> = {
+      'Operations request was rejected.':
+        '该操作当前无法执行，请检查本区域的配置与资格说明。',
       'Platform authentication credential is invalid.':
         '平台登录凭据无效，请重新登录。',
       'Owner invitation delivery is not configured.':
@@ -980,8 +992,12 @@ export const api = {
         params: { page: 1, page_size: 100 },
       })
     ),
-  backupCenter: () =>
-    unwrap<OpsBackupCenterSnapshot>(client.get('/platformapi/v1/ops/backups')),
+  backupCenter: (page = 1) =>
+    unwrap<OpsBackupCenterSnapshot>(
+      client.get('/platformapi/v1/ops/backups', {
+        params: { page, page_size: 20 },
+      })
+    ),
   upgradeReadiness: () =>
     unwrap<OpsUpgradeReadinessSnapshot>(
       client.get('/platformapi/v1/ops/upgrade-readiness')
@@ -1005,9 +1021,11 @@ export const api = {
         }
       )
     ),
-  providerQualifications: () =>
+  providerQualifications: (page = 1) =>
     unwrap<ProviderQualificationSnapshot>(
-      client.get('/platformapi/v1/ops/providers')
+      client.get('/platformapi/v1/ops/providers', {
+        params: { page, page_size: 20 },
+      })
     ),
   developerCatalog: (moduleKey = '') =>
     unwrap<DeveloperCenterCatalogSnapshot>(
@@ -1039,7 +1057,9 @@ export const api = {
       throw new Error(message);
     }
     if (!window.isSecureContext || !window.crypto?.subtle) {
-      throw new Error('当前页面不支持安全下载，请通过 HTTPS 平台入口下载诊断包。');
+      throw new Error(
+        '当前页面不支持安全下载，请通过 HTTPS 平台入口下载诊断包。'
+      );
     }
     const actual = Array.from(
       new Uint8Array(await window.crypto.subtle.digest('SHA-256', result.data)),

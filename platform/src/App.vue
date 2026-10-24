@@ -159,261 +159,337 @@
             ></el-card
           ></template
         >
-        <template v-else-if="view === 'ops'"
-          ><el-alert
-            title="维护窗口可由具备维护权限的平台操作员计划或关闭；窗口生效期间，后端统一拒绝除维护控制接口外的 HTTP 写入并留存审计。"
-            type="info"
-            :closable="false" /><el-card
-            v-loading="upgradeReadinessLoading"
-            class="backup-center-card"
-            ><template #header>升级就绪</template
-            ><template v-if="upgradeReadiness"
+        <template v-else-if="view === 'ops'">
+          <ops-console-page>
+            <template #refresh
+              ><el-button :loading="loading" @click="loadView"
+                >刷新各区域</el-button
+              ></template
+            >
+            <template #upgrade
               ><el-alert
-                :title="`${readinessLabel(upgradeReadiness.state)} · ${
-                  upgradeReadiness.code
-                }`"
-                :type="readinessType(upgradeReadiness.state)"
-                :closable="false" /><el-descriptions :column="2" border
-                ><el-descriptions-item label="静态预检"
-                  >{{ readinessLabel(upgradeReadiness.preflight.state) }} ·
-                  {{ upgradeReadiness.preflight.code }}</el-descriptions-item
-                ><el-descriptions-item label="当前 Runtime">{{
-                  upgradeReadiness.source.runtime.release_key ||
-                  upgradeReadiness.source.runtime.commit?.slice(0, 12) ||
-                  '未知（源码运行）'
-                }}</el-descriptions-item
-                ><el-descriptions-item label="目标 Release">{{
-                  upgradeReadiness.target?.release_key ||
-                  '尚未由 Deployment 固定'
-                }}</el-descriptions-item
-                ><el-descriptions-item label="目标迁移">{{
-                  upgradeReadiness.migrations.release
-                    ? `${
-                        upgradeReadiness.migrations.release.pending_count ??
-                        '待分析'
-                      } 项待应用`
-                    : '待分析'
-                }}</el-descriptions-item
-                ><el-descriptions-item label="Module 兼容"
-                  >{{ upgradeReadiness.modules.compatible_count }} /
-                  {{
-                    upgradeReadiness.modules.installed_count
-                  }}</el-descriptions-item
-                >
-                <el-descriptions-item label="Scaffold 来源">{{
-                  upgradeReadiness.source.application && upgradeReadiness.target
-                    ? `${upgradeReadiness.source.application.template_version} → ${upgradeReadiness.target.scaffold.to_version} · ${upgradeReadiness.scaffold.code}`
-                    : '待核验'
-                }}</el-descriptions-item>
-                <el-descriptions-item label="部署语义"
-                  >完整应用发布，业务代码随本应用发布包部署；不在运行环境合并脚手架文件</el-descriptions-item
-                >
-                <el-descriptions-item label="恢复指针">{{
-                  upgradeReadiness.recovery_pointer
-                    ? `${
-                        upgradeReadiness.recovery_pointer.backup_reference_key
-                      } / ${upgradeReadiness.recovery_pointer.restore_verification_sha256.slice(
-                        0,
-                        12
-                      )}…`
-                    : '尚未形成'
-                }}</el-descriptions-item></el-descriptions
-              ><el-table
-                :data="upgradeReadiness.checks"
-                empty-text="暂无升级检查"
-                ><el-table-column prop="key" label="检查" /><el-table-column
-                  label="状态"
-                  ><template #default="{ row }"
-                    ><el-tag :type="readinessType(row.status)">{{
-                      readinessLabel(row.status)
-                    }}</el-tag></template
-                  ></el-table-column
-                ><el-table-column
-                  prop="code"
-                  label="稳定原因码" /></el-table></template
-            ><el-empty v-else description="升级就绪投影尚未加载" /></el-card
-          ><el-card v-loading="upgradeCenterLoading" class="backup-center-card"
-            ><template #header
-              ><div class="card-header"
-                ><span>应用升级执行</span
+                v-if="opsErrors.readiness"
+                :title="opsErrors.readiness"
+                type="warning"
+                :closable="false" /><el-alert
+                v-if="opsErrors.upgrades"
+                :title="opsErrors.upgrades"
+                type="warning"
+                :closable="false" /><el-card
+                v-loading="upgradeReadinessLoading"
+                class="backup-center-card"
+                ><template #header>升级就绪</template
+                ><template v-if="upgradeReadiness"
+                  ><el-alert
+                    :title="`${readinessLabel(
+                      upgradeReadiness.state
+                    )} · ${opsReason(upgradeReadiness.code)}`"
+                    :type="
+                      upgradeReadiness.code === 'SOURCE_IDENTITY_UNKNOWN'
+                        ? 'info'
+                        : readinessType(upgradeReadiness.state)
+                    "
+                    :closable="false"
+                  /><el-descriptions :column="2" border
+                    ><el-descriptions-item label="静态预检"
+                      >{{ readinessLabel(upgradeReadiness.preflight.state) }} ·
+                      {{
+                        opsReason(upgradeReadiness.preflight.code)
+                      }}</el-descriptions-item
+                    ><el-descriptions-item label="当前 Runtime">{{
+                      upgradeReadiness.source.runtime.release_key ||
+                      upgradeReadiness.source.runtime.commit?.slice(0, 12) ||
+                      '未知（源码运行）'
+                    }}</el-descriptions-item
+                    ><el-descriptions-item label="目标 Release">{{
+                      upgradeReadiness.target?.release_key ||
+                      '尚未由 Deployment 固定'
+                    }}</el-descriptions-item
+                    ><el-descriptions-item label="目标迁移">{{
+                      upgradeReadiness.migrations.release
+                        ? `${
+                            upgradeReadiness.migrations.release.pending_count ??
+                            '待分析'
+                          } 项待应用`
+                        : '待分析'
+                    }}</el-descriptions-item
+                    ><el-descriptions-item label="Module 兼容"
+                      >{{ upgradeReadiness.modules.compatible_count }} /
+                      {{
+                        upgradeReadiness.modules.installed_count
+                      }}</el-descriptions-item
+                    >
+                    <el-descriptions-item label="Scaffold 来源">{{
+                      upgradeReadiness.source.application &&
+                      upgradeReadiness.target
+                        ? `${upgradeReadiness.source.application.template_version} → ${upgradeReadiness.target.scaffold.to_version} · ${upgradeReadiness.scaffold.code}`
+                        : '待核验'
+                    }}</el-descriptions-item>
+                    <el-descriptions-item label="部署语义"
+                      >完整应用发布，业务代码随本应用发布包部署；不在运行环境合并脚手架文件</el-descriptions-item
+                    >
+                    <el-descriptions-item label="恢复指针">{{
+                      upgradeReadiness.recovery_pointer
+                        ? `${
+                            upgradeReadiness.recovery_pointer
+                              .backup_reference_key
+                          } / ${upgradeReadiness.recovery_pointer.restore_verification_sha256.slice(
+                            0,
+                            12
+                          )}…`
+                        : '尚未形成'
+                    }}</el-descriptions-item></el-descriptions
+                  ><el-table
+                    :data="upgradeReadiness.checks"
+                    empty-text="暂无升级检查"
+                    ><el-table-column prop="key" label="检查" /><el-table-column
+                      label="状态"
+                      ><template #default="{ row }"
+                        ><el-tag :type="readinessType(row.status)">{{
+                          readinessLabel(row.status)
+                        }}</el-tag></template
+                      ></el-table-column
+                    ><el-table-column prop="code" label="原因"
+                      ><template #default="{ row }">{{
+                        opsReason(row.code)
+                      }}</template></el-table-column
+                    ></el-table
+                  ></template
+                ><el-empty v-else description="升级就绪投影尚未加载" /></el-card
+              ><el-card
+                v-loading="upgradeCenterLoading"
+                class="backup-center-card"
+                ><template #header
+                  ><div class="card-header"
+                    ><span>应用升级执行</span
+                    ><el-button
+                      v-if="can('platform.ops.upgrade.manage')"
+                      type="primary"
+                      :loading="upgradeSubmitting"
+                      :disabled="
+                        !upgradeReadiness ||
+                        upgradeReadiness.preflight.state !== 'ready' ||
+                        !!activeUpgrade
+                      "
+                      @click="executeUpgrade"
+                      >执行固定升级</el-button
+                    ></div
+                  ></template
+                ><el-alert
+                  title="执行目标只来自 Deployment 已固定的 descriptor。页面不能提交路径、URL、命令、Release、镜像、凭据或部署目标。"
+                  type="info"
+                  :closable="false" /><template v-if="latestUpgrade"
+                  ><el-descriptions :column="2" border
+                    ><el-descriptions-item label="任务">{{
+                      latestUpgrade.task_key
+                    }}</el-descriptions-item
+                    ><el-descriptions-item label="状态">{{
+                      statusLabel(latestUpgrade.status)
+                    }}</el-descriptions-item
+                    ><el-descriptions-item label="当前步骤">{{
+                      upgradeStepLabel(latestUpgrade.current_step)
+                    }}</el-descriptions-item
+                    ><el-descriptions-item label="目标 Release">{{
+                      latestUpgrade.target.release_key
+                    }}</el-descriptions-item
+                    ><el-descriptions-item label="新备份">{{
+                      latestUpgrade.backup_reference_key || '待执行'
+                    }}</el-descriptions-item
+                    ><el-descriptions-item label="恢复指针">{{
+                      latestUpgrade.recovery_pointer_sha256
+                        ? `${latestUpgrade.recovery_pointer_sha256.slice(
+                            0,
+                            12
+                          )}…`
+                        : '待形成'
+                    }}</el-descriptions-item></el-descriptions
+                  ><el-table
+                    :data="latestUpgrade.steps"
+                    empty-text="任务尚未被控制 worker 领取"
+                    ><el-table-column label="步骤"
+                      ><template #default="{ row }">{{
+                        upgradeStepLabel(row.step_key)
+                      }}</template></el-table-column
+                    ><el-table-column label="状态"
+                      ><template #default="{ row }">{{
+                        statusLabel(row.status)
+                      }}</template></el-table-column
+                    ><el-table-column prop="last_error_code" label="停止原因"
+                      ><template #default="{ row }">{{
+                        row.last_error_code || '—'
+                      }}</template></el-table-column
+                    ><el-table-column prop="completed_at" label="完成时间"
+                      ><template #default="{ row }">{{
+                        row.completed_at || '—'
+                      }}</template></el-table-column
+                    ></el-table
+                  ></template
+                ><el-empty v-else description="暂无应用升级任务" /></el-card
+            ></template>
+            <template #backup
+              ><el-alert
+                v-if="opsErrors.backups"
+                :title="opsErrors.backups"
+                type="warning"
+                :closable="false" /><el-card
+                v-loading="backupCenterLoading"
+                class="backup-center-card"
+                ><template #header>备份中心</template
+                ><el-alert
+                  v-if="backupCenter && !backupCenter.source_identity_known"
+                  title="源码运行未提供可验证发行身份。可查看备份历史；创建备份、恢复及升级仍需完整来源资格。"
+                  type="info"
+                  :closable="false" /><template v-if="backupCenter"
+                  ><p class="muted">最新已验证备份</p
+                  ><el-alert
+                    v-if="backupCenter.latest_verified === null"
+                    :title="
+                      backupCenter.backup_contract_status ===
+                      'unsupported_schema'
+                        ? '需要重新备份，旧记录不适用于当前部署'
+                        : '尚无已验证备份'
+                    "
+                    type="info"
+                    :closable="false" /><el-descriptions
+                    v-else
+                    :column="2"
+                    border
+                    ><el-descriptions-item label="Provider">{{
+                      backupCenter.provider.key
+                    }}</el-descriptions-item
+                    ><el-descriptions-item label="完成时间">{{
+                      backupCenter.latest_verified.consistency_completed_at
+                    }}</el-descriptions-item
+                    ><el-descriptions-item label="年龄">{{
+                      formatBackupAge(backupCenter.latest_verified.age_seconds)
+                    }}</el-descriptions-item
+                    ><el-descriptions-item label="Runtime source">{{
+                      backupCenter.latest_verified.source_matches_runtime ===
+                      null
+                        ? '当前源码身份未知，未判定匹配'
+                        : backupCenter.latest_verified.source_matches_runtime
+                        ? '匹配当前 Runtime'
+                        : '不匹配当前 Runtime'
+                    }}</el-descriptions-item
+                    ><el-descriptions-item label="Manifest SHA-256"
+                      >{{
+                        backupCenter.latest_verified.manifest_sha256.slice(
+                          0,
+                          12
+                        )
+                      }}…</el-descriptions-item
+                    ></el-descriptions
+                  ><p class="muted">最近恢复验证</p
+                  ><el-alert
+                    v-if="backupCenter.latest_restore_verified === null"
+                    :title="
+                      backupCenter.restore_contract_status ===
+                      'unsupported_schema'
+                        ? '需要重新备份并验证恢复，旧记录不适用于当前部署'
+                        : '尚无已验证恢复'
+                    "
+                    type="info"
+                    :closable="false" /><el-descriptions
+                    v-else
+                    :column="2"
+                    border
+                    ><el-descriptions-item label="Backup reference">{{
+                      backupCenter.latest_restore_verified.backup_reference_key
+                    }}</el-descriptions-item
+                    ><el-descriptions-item label="Target">{{
+                      backupCenter.latest_restore_verified.target_key
+                    }}</el-descriptions-item
+                    ><el-descriptions-item label="Verified at">{{
+                      backupCenter.latest_restore_verified.verified_at
+                    }}</el-descriptions-item
+                    ><el-descriptions-item label="Verification SHA-256"
+                      >{{
+                        backupCenter.latest_restore_verified.verification_sha256.slice(
+                          0,
+                          12
+                        )
+                      }}…</el-descriptions-item
+                    ><el-descriptions-item label="表数量">{{
+                      backupCenter.latest_restore_verified.table_count
+                    }}</el-descriptions-item
+                    ><el-descriptions-item label="迁移数量">{{
+                      backupCenter.latest_restore_verified.migration_count
+                    }}</el-descriptions-item
+                    ><el-descriptions-item label="Tenant 数量">{{
+                      backupCenter.latest_restore_verified.tenant_count
+                    }}</el-descriptions-item
+                    ><el-descriptions-item label="Account 数量">{{
+                      backupCenter.latest_restore_verified.account_count
+                    }}</el-descriptions-item
+                    ><el-descriptions-item label="TenantMember 数量">{{
+                      backupCenter.latest_restore_verified.tenant_member_count
+                    }}</el-descriptions-item
+                    ><el-descriptions-item label="文件数量">{{
+                      backupCenter.latest_restore_verified.file_count
+                    }}</el-descriptions-item></el-descriptions
+                  ><p class="muted">备份与恢复任务</p
+                  ><el-table
+                    :data="backupCenter.tasks"
+                    empty-text="暂无备份或恢复任务"
+                    ><el-table-column
+                      prop="task_key"
+                      label="任务标识" /><el-table-column
+                      prop="task_type"
+                      label="任务类型" /><el-table-column
+                      prop="status"
+                      label="状态"
+                      ><template #default="{ row }">{{
+                        statusLabel(row.status)
+                      }}</template></el-table-column
+                    ><el-table-column label="尝试次数"
+                      ><template #default="{ row }"
+                        >{{ row.attempt_count }} /
+                        {{ row.max_attempts }}</template
+                      ></el-table-column
+                    ><el-table-column prop="last_error_code" label="失败原因"
+                      ><template #default="{ row }">{{
+                        row.last_error_code || '—'
+                      }}</template></el-table-column
+                    ><el-table-column
+                      prop="created_at"
+                      label="提交时间" /><el-table-column
+                      prop="completed_at"
+                      label="完成时间"
+                      ><template #default="{ row }">{{
+                        row.completed_at || '未完成'
+                      }}</template></el-table-column
+                    ><el-table-column
+                      prop="updated_at"
+                      label="更新时间" /></el-table
+                  ><el-pagination
+                    :current-page="backupCenter.page"
+                    :page-size="backupCenter.page_size"
+                    :total="backupCenter.total"
+                    layout="prev, pager, next, total"
+                    @current-change="loadBackupCenter" /></template
+                ><el-empty v-else description="备份中心快照尚未加载" /></el-card
+            ></template>
+            <template #providers
+              ><el-alert
+                v-if="opsErrors.providers"
+                :title="opsErrors.providers"
+                type="warning"
+                :closable="false" /><provider-qualification-card
+                :loading="providerQualificationsLoading"
+                :snapshot="providerQualifications"
+                @page-change="loadProviderQualifications"
+            /></template>
+            <template #diagnostics
+              ><div v-if="can('platform.ops.logs.read')" class="toolbar"
                 ><el-button
-                  v-if="can('platform.ops.upgrade.manage')"
-                  type="primary"
-                  :loading="upgradeSubmitting"
-                  :disabled="
-                    !upgradeReadiness ||
-                    upgradeReadiness.preflight.state !== 'ready' ||
-                    !!activeUpgrade
-                  "
-                  @click="executeUpgrade"
-                  >执行固定升级</el-button
+                  :loading="diagnosticLoading"
+                  @click="downloadDiagnosticBundle"
+                  >下载脱敏诊断包（最近 1 小时）</el-button
                 ></div
               ></template
-            ><el-alert
-              title="执行目标只来自 Deployment 已固定的 descriptor。页面不能提交路径、URL、命令、Release、镜像、凭据或部署目标。"
-              type="info"
-              :closable="false" /><template v-if="latestUpgrade"
-              ><el-descriptions :column="2" border
-                ><el-descriptions-item label="任务">{{
-                  latestUpgrade.task_key
-                }}</el-descriptions-item
-                ><el-descriptions-item label="状态">{{
-                  statusLabel(latestUpgrade.status)
-                }}</el-descriptions-item
-                ><el-descriptions-item label="当前步骤">{{
-                  upgradeStepLabel(latestUpgrade.current_step)
-                }}</el-descriptions-item
-                ><el-descriptions-item label="目标 Release">{{
-                  latestUpgrade.target.release_key
-                }}</el-descriptions-item
-                ><el-descriptions-item label="新备份">{{
-                  latestUpgrade.backup_reference_key || '待执行'
-                }}</el-descriptions-item
-                ><el-descriptions-item label="恢复指针">{{
-                  latestUpgrade.recovery_pointer_sha256
-                    ? `${latestUpgrade.recovery_pointer_sha256.slice(0, 12)}…`
-                    : '待形成'
-                }}</el-descriptions-item></el-descriptions
-              ><el-table
-                :data="latestUpgrade.steps"
-                empty-text="任务尚未被控制 worker 领取"
-                ><el-table-column label="步骤"
-                  ><template #default="{ row }">{{
-                    upgradeStepLabel(row.step_key)
-                  }}</template></el-table-column
-                ><el-table-column label="状态"
-                  ><template #default="{ row }">{{
-                    statusLabel(row.status)
-                  }}</template></el-table-column
-                ><el-table-column prop="last_error_code" label="停止原因"
-                  ><template #default="{ row }">{{
-                    row.last_error_code || '—'
-                  }}</template></el-table-column
-                ><el-table-column prop="completed_at" label="完成时间"
-                  ><template #default="{ row }">{{
-                    row.completed_at || '—'
-                  }}</template></el-table-column
-                ></el-table
-              ></template
-            ><el-empty v-else description="暂无应用升级任务" /></el-card
-          ><div v-if="can('platform.ops.logs.read')" class="toolbar"
-            ><el-button
-              :loading="diagnosticLoading"
-              @click="downloadDiagnosticBundle"
-              >下载脱敏诊断包（最近 1 小时）</el-button
-            ></div
-          ><el-card v-loading="backupCenterLoading" class="backup-center-card"
-            ><template #header>备份中心</template
-            ><template v-if="backupCenter"
-              ><p class="muted">最新已验证备份</p
-              ><el-alert
-                v-if="backupCenter.latest_verified === null"
-                :title="
-                  backupCenter.backup_contract_status === 'unsupported_schema'
-                    ? '需要重新备份，旧记录不适用于当前部署'
-                    : '尚无已验证备份'
-                "
-                type="info"
-                :closable="false" /><el-descriptions v-else :column="2" border
-                ><el-descriptions-item label="Provider">{{
-                  backupCenter.provider.key
-                }}</el-descriptions-item
-                ><el-descriptions-item label="完成时间">{{
-                  backupCenter.latest_verified.consistency_completed_at
-                }}</el-descriptions-item
-                ><el-descriptions-item label="年龄">{{
-                  formatBackupAge(backupCenter.latest_verified.age_seconds)
-                }}</el-descriptions-item
-                ><el-descriptions-item label="Runtime source">{{
-                  backupCenter.latest_verified.source_matches_runtime
-                    ? '匹配当前 Runtime'
-                    : '不匹配当前 Runtime'
-                }}</el-descriptions-item
-                ><el-descriptions-item label="Manifest SHA-256"
-                  >{{
-                    backupCenter.latest_verified.manifest_sha256.slice(0, 12)
-                  }}…</el-descriptions-item
-                ></el-descriptions
-              ><p class="muted">最近恢复验证</p
-              ><el-alert
-                v-if="backupCenter.latest_restore_verified === null"
-                :title="
-                  backupCenter.restore_contract_status === 'unsupported_schema'
-                    ? '需要重新备份并验证恢复，旧记录不适用于当前部署'
-                    : '尚无已验证恢复'
-                "
-                type="info"
-                :closable="false" /><el-descriptions v-else :column="2" border
-                ><el-descriptions-item label="Backup reference">{{
-                  backupCenter.latest_restore_verified.backup_reference_key
-                }}</el-descriptions-item
-                ><el-descriptions-item label="Target">{{
-                  backupCenter.latest_restore_verified.target_key
-                }}</el-descriptions-item
-                ><el-descriptions-item label="Verified at">{{
-                  backupCenter.latest_restore_verified.verified_at
-                }}</el-descriptions-item
-                ><el-descriptions-item label="Verification SHA-256"
-                  >{{
-                    backupCenter.latest_restore_verified.verification_sha256.slice(
-                      0,
-                      12
-                    )
-                  }}…</el-descriptions-item
-                ><el-descriptions-item label="表数量">{{
-                  backupCenter.latest_restore_verified.table_count
-                }}</el-descriptions-item
-                ><el-descriptions-item label="迁移数量">{{
-                  backupCenter.latest_restore_verified.migration_count
-                }}</el-descriptions-item
-                ><el-descriptions-item label="Tenant 数量">{{
-                  backupCenter.latest_restore_verified.tenant_count
-                }}</el-descriptions-item
-                ><el-descriptions-item label="Account 数量">{{
-                  backupCenter.latest_restore_verified.account_count
-                }}</el-descriptions-item
-                ><el-descriptions-item label="TenantMember 数量">{{
-                  backupCenter.latest_restore_verified.tenant_member_count
-                }}</el-descriptions-item
-                ><el-descriptions-item label="文件数量">{{
-                  backupCenter.latest_restore_verified.file_count
-                }}</el-descriptions-item></el-descriptions
-              ><p class="muted">最近 20 个备份与恢复任务</p
-              ><el-table
-                :data="backupCenter.tasks"
-                empty-text="暂无备份或恢复任务"
-                ><el-table-column
-                  prop="task_key"
-                  label="任务标识" /><el-table-column
-                  prop="task_type"
-                  label="任务类型" /><el-table-column prop="status" label="状态"
-                  ><template #default="{ row }">{{
-                    statusLabel(row.status)
-                  }}</template></el-table-column
-                ><el-table-column label="尝试次数"
-                  ><template #default="{ row }"
-                    >{{ row.attempt_count }} / {{ row.max_attempts }}</template
-                  ></el-table-column
-                ><el-table-column prop="last_error_code" label="失败原因"
-                  ><template #default="{ row }">{{
-                    row.last_error_code || '—'
-                  }}</template></el-table-column
-                ><el-table-column
-                  prop="created_at"
-                  label="提交时间" /><el-table-column
-                  prop="completed_at"
-                  label="完成时间"
-                  ><template #default="{ row }">{{
-                    row.completed_at || '未完成'
-                  }}</template></el-table-column
-                ><el-table-column
-                  prop="updated_at"
-                  label="更新时间" /></el-table></template
-            ><el-empty v-else description="备份中心快照尚未加载" /></el-card
-          ><provider-qualification-card
-            :loading="providerQualificationsLoading"
-            :snapshot="providerQualifications" /><ops-console-page
-        /></template>
+            >
+          </ops-console-page>
+        </template>
         <template v-else-if="view === 'tenants'"
           ><div class="toolbar"
             ><el-button type="primary" @click="openProvisionDialog"
@@ -540,7 +616,12 @@
           ></template
         >
         <template v-else-if="view === 'endpoints'"
-          ><tenant-picker /><div class="two-col"
+          ><tenant-picker /><el-alert
+            v-if="!targetTenant"
+            title="当前显示全部租户入口；选择租户后可启用绑定。"
+            type="info"
+            :closable="false"
+          /><div class="two-col"
             ><el-card
               ><template #header>启用入口绑定</template
               ><el-form label-position="top" @submit.prevent="enableBinding"
@@ -1054,7 +1135,10 @@
   const platformPermissions = ref<string[]>([]);
   const diagnosticLoading = ref(false);
   const backupCenter = ref<OpsBackupCenterSnapshot | null>(null);
+  let backupCenterRequest = 0;
+  let providerQualificationsRequest = 0;
   const backupCenterLoading = ref(false);
+  const opsErrors = ref<Record<string, string>>({});
   const upgradeReadiness = ref<OpsUpgradeReadinessSnapshot | null>(null);
   const upgradeReadinessLoading = ref(false);
   const upgradeCenter = ref<OpsUpgradeCenterSnapshot | null>(null);
@@ -1336,6 +1420,20 @@
     const days = Math.floor(hours / 24);
     return days < 1 ? `${hours} 小时` : `${days} 天`;
   }
+  function opsReason(code: string) {
+    return (
+      (
+        {
+          SOURCE_IDENTITY_UNKNOWN:
+            '当前为源码运行，未提供可验证发行身份。健康、维护与日志可独立使用；升级需先固定来源与目标。',
+          UPGRADE_TARGET_NOT_STAGED: '尚未配置固定升级目标。',
+          UPGRADE_SOURCE_APPLICATION_MANIFEST_REQUIRED:
+            '当前应用尚未提供升级来源清单。',
+          UPGRADE_REPOSITORY_DIRTY: '源码存在未提交变更，暂不具备升级条件。',
+        } as Record<string, string>
+      )[code] || code
+    );
+  }
   function readinessLabel(state: OpsUpgradeReadinessState) {
     return (
       {
@@ -1397,25 +1495,28 @@
     if (!can('platform.tenant.read') && can('platform.ops.read'))
       view.value = 'ops';
   }
-  async function loadBackupCenter() {
+  async function loadBackupCenter(page = 1) {
+    const current = ++backupCenterRequest;
     backupCenterLoading.value = true;
-    error.value = '';
+    opsErrors.value.backups = '';
     try {
-      backupCenter.value = await api.backupCenter();
+      const snapshot = await api.backupCenter(page);
+      if (current === backupCenterRequest) backupCenter.value = snapshot;
     } catch (cause) {
-      error.value = message(cause);
+      if (current !== backupCenterRequest) return;
+      opsErrors.value.backups = message(cause);
       if (!hasPlatformSession()) authenticated.value = false;
     } finally {
-      backupCenterLoading.value = false;
+      if (current === backupCenterRequest) backupCenterLoading.value = false;
     }
   }
   async function loadUpgradeReadiness() {
     upgradeReadinessLoading.value = true;
-    error.value = '';
+    opsErrors.value.readiness = '';
     try {
       upgradeReadiness.value = await api.upgradeReadiness();
     } catch (cause) {
-      error.value = message(cause);
+      opsErrors.value.readiness = message(cause);
       if (!hasPlatformSession()) authenticated.value = false;
     } finally {
       upgradeReadinessLoading.value = false;
@@ -1423,26 +1524,31 @@
   }
   async function loadUpgradeCenter() {
     upgradeCenterLoading.value = true;
-    error.value = '';
+    opsErrors.value.upgrades = '';
     try {
       upgradeCenter.value = await api.upgradeCenter();
     } catch (cause) {
-      error.value = message(cause);
+      opsErrors.value.upgrades = message(cause);
       if (!hasPlatformSession()) authenticated.value = false;
     } finally {
       upgradeCenterLoading.value = false;
     }
   }
-  async function loadProviderQualifications() {
+  async function loadProviderQualifications(page = 1) {
+    const current = ++providerQualificationsRequest;
     providerQualificationsLoading.value = true;
-    error.value = '';
+    opsErrors.value.providers = '';
     try {
-      providerQualifications.value = await api.providerQualifications();
+      const snapshot = await api.providerQualifications(page);
+      if (current === providerQualificationsRequest)
+        providerQualifications.value = snapshot;
     } catch (cause) {
-      error.value = message(cause);
+      if (current !== providerQualificationsRequest) return;
+      opsErrors.value.providers = message(cause);
       if (!hasPlatformSession()) authenticated.value = false;
     } finally {
-      providerQualificationsLoading.value = false;
+      if (current === providerQualificationsRequest)
+        providerQualificationsLoading.value = false;
     }
   }
   async function loadOpsView() {
@@ -1465,8 +1571,9 @@
       targetTenantId.value === tenantId;
     if (requestedView === 'ops') {
       loading.value = true;
+      error.value = '';
       try {
-        await loadOpsView();
+        await Promise.all([opsRuntime.load(), loadOpsView()]);
       } finally {
         if (request === viewRequest) loading.value = false;
       }
@@ -1501,7 +1608,7 @@
         await loadTenants(isCurrentRequest);
         if (!isCurrentRequest()) return;
         const tenantId = targetTenantId.value;
-        const bindingData = tenantId ? await api.entryBindings(tenantId) : [];
+        const bindingData = await api.entryBindings(tenantId ?? undefined);
         if (!isCurrentTenantRequest(tenantId)) return;
         bindings.value = bindingData;
       } else if (requestedView === 'modules') {

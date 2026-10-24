@@ -11,6 +11,7 @@ use PeanutAdmin\Modules\Ops\Domain\Logs\RuntimeLogProvider;
 use PeanutAdmin\Modules\Ops\Domain\Logs\RuntimeLogQuery;
 use PeanutAdmin\Modules\Ops\Domain\Logs\StructuredLogBatch;
 use PeanutAdmin\Modules\Ops\Domain\Logs\StructuredLogRecord;
+use PeanutAdmin\Modules\Ops\Domain\Application\OpsConsoleException;
 
 /** Bounded, metadata-only projection of platform audit events. */
 final readonly class PlatformAuditRuntimeLogProvider implements RuntimeLogProvider
@@ -47,12 +48,21 @@ final readonly class PlatformAuditRuntimeLogProvider implements RuntimeLogProvid
                 null,
                 min(1000000, max(1, (int) ($row['occurrences'] ?? 1))),
             );
-            if (count($records) >= $query->pageSize) {
-                break;
-            }
         }
-
-        return new StructuredLogBatch($records, null);
+        // Pagination covers only this bounded, redacted summary. A changed
+        // summary invalidates the cursor rather than silently skipping rows.
+        $digest = hash('sha256', serialize([$query->minimumSeverity, $records]));
+        $offset = 0;
+        if ($query->cursor !== null) {
+            if (preg_match('/^cursor_([a-f0-9]{64})_([0-9]{8})$/D', $query->cursor, $parts) !== 1
+                || !hash_equals($digest, $parts[1]) || (int) $parts[2] >= count($records)) {
+                throw OpsConsoleException::invalid();
+            }
+            $offset = (int) $parts[2];
+        }
+        $next = $offset + $query->pageSize;
+        return new StructuredLogBatch(array_slice($records, $offset, $query->pageSize),
+            $next < count($records) ? 'cursor_' . $digest . '_' . sprintf('%08d', $next) : null);
     }
 
     private function rank(string $severity): int

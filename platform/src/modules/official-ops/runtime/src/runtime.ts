@@ -51,6 +51,7 @@ export interface OpsConsoleState {
   mutating: boolean;
   error: OpsConsoleError | null;
   logsError: OpsConsoleError | null;
+  maintenanceError: OpsConsoleError | null;
 }
 export interface OpsConsoleRuntimeOptions {
   readonly transport: OpsConsoleTransport;
@@ -89,6 +90,8 @@ export interface OpsConsoleRuntime {
 }
 
 const problemMessages: Readonly<Record<string, string>> = {
+  SOURCE_IDENTITY_UNKNOWN:
+    '当前源码没有可验证发行身份；此操作需要完整来源资格。',
   OPS_REQUEST_INVALID: '运维请求无效。',
   OPS_PERMISSION_DENIED: '无权执行此操作。',
   OPS_PROVIDER_NOT_FOUND: '所选服务提供者不可用。',
@@ -104,6 +107,7 @@ const problemMessages: Readonly<Record<string, string>> = {
   OPS_PROVIDER_UNAVAILABLE: '运维服务提供者不可用。',
   OPS_TASK_UNAVAILABLE: '运维任务服务不可用。',
   OPS_LOGS_UNAVAILABLE: '运行事件不可用。',
+  OPS_LOG_CURSOR_CHANGED: '摘要已变化或分页已失效，请重新应用筛选。',
   OPS_INTERNAL_ERROR: '操作未能完成。',
 };
 const localError = (
@@ -179,6 +183,7 @@ export const createOpsConsoleRuntime = (
     mutating: false,
     error: null,
     logsError: null,
+    maintenanceError: null,
   });
   const controllers = new Set<AbortController>();
   let generation = 0;
@@ -223,12 +228,12 @@ export const createOpsConsoleRuntime = (
       if (current !== generation) return;
       const statusFailure = responseStatus(statusResult, [200]);
       const maintenanceFailure = responseStatus(maintenanceResult, [200]);
-      if (statusFailure !== null || maintenanceFailure !== null) {
-        state.error = statusFailure ?? maintenanceFailure;
-        return;
-      }
-      state.overview = parseOpsStatus(statusResult.body);
-      state.maintenance = parseMaintenance(maintenanceResult.body);
+      state.error = statusFailure;
+      state.maintenanceError = maintenanceFailure;
+      if (statusFailure === null)
+        state.overview = parseOpsStatus(statusResult.body);
+      if (maintenanceFailure === null)
+        state.maintenance = parseMaintenance(maintenanceResult.body);
     } catch {
       if (current === generation)
         state.error = localError('OPS_STATUS_UNAVAILABLE');
@@ -261,7 +266,7 @@ export const createOpsConsoleRuntime = (
         source,
         severity,
         cursor,
-        50,
+        20,
         controller.signal
       );
       if (
@@ -274,7 +279,10 @@ export const createOpsConsoleRuntime = (
         return;
       const error = responseStatus(result, [200]);
       if (error !== null) {
-        state.logsError = error;
+        state.logsError =
+          cursor !== null && result.status === 400
+            ? localError('OPS_LOG_CURSOR_CHANGED', 400)
+            : error;
         return;
       }
       const page = parseRuntimeLogs(result.body);
@@ -282,7 +290,7 @@ export const createOpsConsoleRuntime = (
         state.logsError = localError('OPS_LOGS_UNAVAILABLE');
         return;
       }
-      state.logs = reset ? [...page.items] : [...state.logs, ...page.items];
+      state.logs = [...page.items];
       state.logCursor = cursor;
       state.logNextCursor = page.nextCursor;
     } catch {
@@ -331,24 +339,24 @@ export const createOpsConsoleRuntime = (
   ): Promise<void> => {
     if (state.mutating || !options.canMaintain()) {
       if (!options.canMaintain())
-        state.error = localError('OPS_PERMISSION_DENIED', 403);
+        state.maintenanceError = localError('OPS_PERMISSION_DENIED', 403);
       return;
     }
     const current = generation;
     state.mutating = true;
-    state.error = null;
+    state.maintenanceError = null;
     try {
       const result = await run(operation);
       if (current !== generation) return;
       const error = responseStatus(result, [200, 201]);
       if (error !== null) {
-        state.error = error;
+        state.maintenanceError = error;
         return;
       }
       state.maintenance = parseMaintenance(result.body);
     } catch {
       if (current === generation)
-        state.error = localError('OPS_INTERNAL_ERROR');
+        state.maintenanceError = localError('OPS_INTERNAL_ERROR');
     } finally {
       if (current === generation) state.mutating = false;
     }
@@ -432,7 +440,7 @@ export const createOpsConsoleRuntime = (
     },
     scheduleMaintenance(input) {
       if (!maintenanceReasons.includes(input.reasonKey)) {
-        state.error = localError('OPS_MAINTENANCE_INVALID', 422);
+        state.maintenanceError = localError('OPS_MAINTENANCE_INVALID', 422);
         return Promise.resolve();
       }
       const expected = state.maintenance?.revision ?? 0;
@@ -443,7 +451,7 @@ export const createOpsConsoleRuntime = (
     closeMaintenance() {
       const window = state.maintenance;
       if (window === null || window.state === 'closed') {
-        state.error = localError('OPS_MAINTENANCE_INVALID', 422);
+        state.maintenanceError = localError('OPS_MAINTENANCE_INVALID', 422);
         return Promise.resolve();
       }
       return mutateMaintenance((signal) =>
@@ -471,6 +479,7 @@ export const createOpsConsoleRuntime = (
       state.mutating = false;
       state.error = null;
       state.logsError = null;
+      state.maintenanceError = null;
     },
   };
 };

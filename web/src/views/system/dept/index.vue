@@ -55,8 +55,8 @@
       </el-row>
       <el-table
         :key="tableRevision"
+        v-loading="loading"
         row-key="id"
-        :loading="loading"
         :data="directory.tree.value"
         border
         :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
@@ -137,9 +137,10 @@
           </template>
         </el-table-column>
       </el-table>
-      <div
-        >匹配 {{ directory.pages.value[0]?.count ?? 0 }} 项；祖先路径不计数</div
-      >
+      <div v-if="loading">部门目录正在加载…</div>
+      <div v-else>
+        匹配 {{ directory.pages.value[0]?.count ?? 0 }} 项；祖先路径不计数
+      </div>
       <el-button
         v-if="directory.pages.value[0]?.hasMore"
         :loading="directory.busy.value[0]"

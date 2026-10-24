@@ -21,16 +21,14 @@ use think\facade\Db;
 /** Read-only projection for recent operations tasks and the latest verified backup pair. */
 final readonly class PlatformBackupCenterService
 {
-    private const TASK_LIMIT = 20;
-
     public function __construct(
         private BackupRestoreProviderRegistry $backupProviders,
         private OpsTaskService $tasks,
         private PlatformPermissionChecker $permissions,
     ) {}
 
-    /** @return array{provider:array<string,mixed>,latest_verified:?array<string,mixed>,latest_restore_verified:?array<string,mixed>,backup_contract_status:string,restore_contract_status:string,new_paired_backup_required:bool,tasks:list<array<string,mixed>>} */
-    public function snapshot(PlatformContext $context, string $runtimeCommit): array
+    /** Read-only history; unknown runtime identity never proves a source match. @return array<string,mixed> */
+    public function snapshot(PlatformContext $context, ?string $runtimeCommit, int $page = 1, int $pageSize = 20): array
     {
         if (!$this->permissions->allows($context, Package::READ_PERMISSION)) {
             throw OpsConsoleException::denied();
@@ -41,7 +39,8 @@ final readonly class PlatformBackupCenterService
         $provider = [
             'key' => $descriptor->key,
         ];
-        if (preg_match('/^[a-f0-9]{40}$/D', $runtimeCommit) !== 1) {
+        if (($runtimeCommit !== null && preg_match('/^[a-f0-9]{40}$/D', $runtimeCommit) !== 1)
+            || $page < 1 || $pageSize < 1 || $pageSize > 100) {
             throw OpsConsoleException::statusUnavailable();
         }
 
@@ -57,16 +56,19 @@ final readonly class PlatformBackupCenterService
             'restore_contract_status' => $restoreContractStatus,
             'new_paired_backup_required' => $backupContractStatus === 'unsupported_schema'
                 || $restoreContractStatus === 'unsupported_schema',
-            'tasks' => $this->recentTasks($context),
+            'source_identity_known' => $runtimeCommit !== null,
+            'tasks' => $this->recentTasks($context, $page, $pageSize),
+            'page' => $page, 'page_size' => $pageSize,
+            'total' => Db::name('ops_task')->whereIn('task_type', [Package::BACKUP_TASK_TYPE, Package::RESTORE_TASK_TYPE])->count(),
         ];
     }
 
     /** @return list<array<string,mixed>> */
-    private function recentTasks(PlatformContext $context): array
+    private function recentTasks(PlatformContext $context, int $page, int $pageSize): array
     {
         $tasks = [];
         $taskKeys = Db::name('ops_task')->whereIn('task_type', [Package::BACKUP_TASK_TYPE, Package::RESTORE_TASK_TYPE])
-            ->order('id', 'desc')->limit(self::TASK_LIMIT)->column('task_key');
+            ->order('id', 'desc')->page($page, $pageSize)->column('task_key');
         foreach ($taskKeys as $taskKey) {
             $tasks[] = $this->tasks
                 ->task($context, (string) $taskKey)
@@ -76,7 +78,7 @@ final readonly class PlatformBackupCenterService
     }
 
     /** @return array<string,mixed>|null */
-    private function latestVerified(string $runtimeCommit, string &$contractStatus): ?array
+    private function latestVerified(?string $runtimeCommit, string &$contractStatus): ?array
     {
         $row = Db::name('ops_backup_evidence')
             ->field('backup_reference_key,task_key,provider_key,manifest_sha256,source_commit,source_tree,source_release_key,consistency_started_at,consistency_completed_at,verified_at,manifest_json')
@@ -116,7 +118,7 @@ final readonly class PlatformBackupCenterService
                 'consistency_completed_at' => $this->instant((string) $row['consistency_completed_at']),
                 'verified_at' => $verifiedAt,
                 'age_seconds' => $ageSeconds,
-                'source_matches_runtime' => hash_equals((string) $row['source_commit'], $runtimeCommit),
+                'source_matches_runtime' => $runtimeCommit === null ? null : hash_equals((string) $row['source_commit'], $runtimeCommit),
             ];
         } catch (Throwable) {
             throw OpsConsoleException::taskUnavailable();

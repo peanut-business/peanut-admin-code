@@ -13,6 +13,8 @@ use PeanutAdmin\Modules\Ops\Domain\Status\OpsStatusService;
 use PeanutAdmin\Modules\Ops\Domain\Task\OpsTaskService;
 use PeanutAdmin\Modules\Ops\Domain\Logs\RuntimeLogQuery;
 use PeanutAdmin\Modules\Ops\Domain\Application\OpsConsoleException;
+use PeanutAdmin\Modules\Ops\Domain\Application\PlatformPermissionChecker;
+use PeanutAdmin\Modules\Ops\Domain\Package;
 use app\platform\services\provider\PlatformProviderQualificationService;
 
 /** Container-owned application boundary for all Platform Ops use cases. */
@@ -29,6 +31,7 @@ final readonly class PlatformOpsApplicationService
         private PlatformUpgradeExecutionService $upgrades,
         private PlatformModuleOperationExecutionService $moduleOperations,
         private PlatformBackupCenterService $backups,
+        private PlatformPermissionChecker $permissions,
     ) {}
 
     /** @return array<string,mixed> */
@@ -44,9 +47,9 @@ final readonly class PlatformOpsApplicationService
     }
 
     /** @return array<string,mixed> */
-    public function providers(PlatformContext $context): array
+    public function providers(PlatformContext $context, int $page = 1, int $pageSize = 20): array
     {
-        return $this->providerQualifications->snapshot($context);
+        return $this->providerQualifications->snapshot($context, $page, $pageSize);
     }
 
     /** @return array<string,mixed>|null */
@@ -56,13 +59,13 @@ final readonly class PlatformOpsApplicationService
     }
 
     /** @return array<string,mixed> */
-    public function logs(PlatformContext $context, string $source, string $severity, int $pageSize): array
+    public function logs(PlatformContext $context, string $source, string $severity, int $pageSize, ?string $cursor = null): array
     {
         if ($source !== 'platform.audit') {
             throw OpsConsoleException::invalid();
         }
         try {
-            $query = new RuntimeLogQuery($source, $severity, null, $pageSize);
+            $query = new RuntimeLogQuery($source, $severity, $cursor, $pageSize);
         } catch (\InvalidArgumentException) {
             throw OpsConsoleException::invalid();
         }
@@ -122,6 +125,10 @@ final readonly class PlatformOpsApplicationService
         string $providerKey,
         string $idempotencyKey,
     ): array {
+        if (!$this->permissions->allows($context, Package::BACKUP_PERMISSION)) {
+            throw OpsConsoleException::denied();
+        }
+        $this->runtimeStatus->runtimeCommit();
         return $this->tasks
             ->submitBackup($context, $providerKey, $idempotencyKey)
             ->toPublicArray();
@@ -135,6 +142,10 @@ final readonly class PlatformOpsApplicationService
         string $targetKey,
         string $idempotencyKey,
     ): array {
+        if (!$this->permissions->allows($context, Package::RESTORE_PERMISSION)) {
+            throw OpsConsoleException::denied();
+        }
+        $this->runtimeStatus->runtimeCommit();
         return $this->tasks
             ->submitRestore($context, $providerKey, $backupReferenceKey, $targetKey, $idempotencyKey)
             ->toPublicArray();
@@ -169,9 +180,9 @@ final readonly class PlatformOpsApplicationService
     }
 
     /** @return array<string,mixed> */
-    public function backups(PlatformContext $context): array
+    public function backups(PlatformContext $context, int $page = 1, int $pageSize = 20): array
     {
-        return $this->backups->snapshot($context, $this->runtimeStatus->runtimeCommit());
+        return $this->backups->snapshot($context, $this->runtimeStatus->snapshot($context)->commit, $page, $pageSize);
     }
 
     /** @return array<string,mixed> */

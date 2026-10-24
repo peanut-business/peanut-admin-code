@@ -88,7 +88,6 @@
 
   onMounted(async () => {
     chooseProvider();
-    await runtime.load();
     if (runtime.canReadLogs() && runtime.logSources.length > 0)
       await runtime.loadLogs();
   });
@@ -99,13 +98,15 @@
     <PageHeader>
       运维控制台
       <template #actions>
-        <ElButton
-          :loading="state.loading"
-          :disabled="state.mutating"
-          @click="runtime.load"
-        >
-          重新加载
-        </ElButton>
+        <slot name="refresh">
+          <ElButton
+            :loading="state.loading"
+            :disabled="state.mutating"
+            @click="runtime.load"
+          >
+            重新加载
+          </ElButton>
+        </slot>
       </template>
     </PageHeader>
 
@@ -140,9 +141,13 @@
       正在加载运维信息…
     </div>
 
-    <ElTabs v-else-if="state.overview !== null" class="ops-tabs">
-      <ElTabPane label="概览">
-        <section class="ops-section" aria-labelledby="ops-health-heading">
+    <ElTabs class="ops-tabs">
+      <ElTabPane label="健康状态">
+        <section
+          v-if="state.overview"
+          class="ops-section"
+          aria-labelledby="ops-health-heading"
+        >
           <h2 id="ops-health-heading"> 运行状态 </h2>
           <dl class="ops-facts">
             <div
@@ -174,11 +179,13 @@
             >
             <div
               ><dt>升级</dt
-              ><dd
-                >{{ upgradeLabels[state.overview.upgrade.state] }} ({{
-                  state.overview.upgrade.code
-                }})</dd
-              ></div
+              ><dd>{{
+                state.overview.upgrade.code === 'SOURCE_IDENTITY_UNKNOWN'
+                  ? '源码运行：升级需先固定来源与目标'
+                  : `${upgradeLabels[state.overview.upgrade.state]} (${
+                      state.overview.upgrade.code
+                    })`
+              }}</dd></div
             >
           </dl>
           <div class="table-wrap">
@@ -207,6 +214,10 @@
       <ElTabPane label="备份与恢复">
         <section class="ops-section" aria-labelledby="ops-backup-heading">
           <h2 id="ops-backup-heading"> 备份与恢复验证 </h2>
+          <slot name="backup" />
+          <p v-if="!state.overview?.version.commit" class="ops-notice"
+            >当前源码发行身份未知。历史记录可查看，创建备份及恢复验证需先满足来源资格。</p
+          >
           <div class="ops-controls">
             <label
               >服务提供者<select
@@ -224,6 +235,7 @@
             <ElButton
               type="primary"
               :disabled="
+                !state.overview?.version.commit ||
                 !runtime.canBackup() ||
                 state.mutating ||
                 !runtime.providers.find(
@@ -255,6 +267,7 @@
             >
             <ElButton
               :disabled="
+                !state.overview?.version.commit ||
                 !runtime.canRestore() ||
                 state.mutating ||
                 restoreTargetKey === ''
@@ -311,9 +324,16 @@
         </section>
       </ElTabPane>
 
+      <ElTabPane label="应用升级"><slot name="upgrade" /></ElTabPane>
       <ElTabPane label="维护窗口">
         <section class="ops-section" aria-labelledby="ops-maintenance-heading">
           <h2 id="ops-maintenance-heading"> 维护窗口 </h2>
+          <p class="ops-notice"
+            >窗口生效期间，后端拒绝维护控制接口以外的 HTTP 写入并留存审计。</p
+          >
+          <p v-if="state.maintenanceError" class="inline-error">{{
+            state.maintenanceError.message
+          }}</p>
           <dl v-if="state.maintenance" class="ops-facts">
             <div
               ><dt>状态</dt
@@ -379,6 +399,11 @@
       <ElTabPane label="运行事件">
         <section class="ops-section" aria-labelledby="ops-logs-heading">
           <h2 id="ops-logs-heading"> 结构化运行事件 </h2>
+          <p class="ops-notice"
+            >最近 24 小时的脱敏摘要，最多 100
+            个聚合组；按级别筛选后分页，不是完整审计记录。数据变化时请重新应用筛选。</p
+          >
+          <slot name="diagnostics" />
           <ForbiddenState
             v-if="!runtime.canReadLogs()"
             message="无权读取运行事件。"
@@ -440,20 +465,41 @@
               </table>
             </div>
             <ElButton
+              v-if="state.logCursor"
+              :loading="state.logsLoading"
+              @click="runtime.loadLogs(true)"
+              >返回第一页</ElButton
+            >
+            <ElButton
               v-if="state.logNextCursor"
               :loading="state.logsLoading"
               @click="runtime.loadLogs(false)"
             >
-              加载更多
+              下一页
             </ElButton>
           </template>
         </section>
       </ElTabPane>
+      <ElTabPane label="服务提供者"><slot name="providers" /></ElTabPane>
     </ElTabs>
   </PageContent>
 </template>
 
 <style scoped>
+  .ops-tabs {
+    margin-top: 12px;
+  }
+  .ops-tabs :deep(.el-tabs__header) {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--el-bg-color);
+  }
+  .ops-notice {
+    color: var(--el-text-color-secondary);
+    line-height: 1.7;
+    margin: 12px 0 20px;
+  }
   .ops-state,
   .ops-section {
     padding: 20px 0;

@@ -20,7 +20,7 @@
         },
         {
             "path": "server/app/api/metadata/application/platform.php",
-            "sha256": "d98e6168eeea0ab31ae65c982a937af018a0b9bb80f8f97e08660a5831c80916"
+            "sha256": "be333eb41dc7b2bb5687d0096ac5f566ff745f7361d2f907cd2fde3abc3d2356"
         },
         {
             "path": "server/app/api/metadata/application/shared.php",
@@ -13593,6 +13593,7 @@
                 }
             ],
             "errors": [
+                400,
                 401,
                 403,
                 409,
@@ -13927,6 +13928,7 @@
                 }
             ],
             "errors": [
+                400,
                 401,
                 403,
                 409,

@@ -1,6 +1,7 @@
 <?php
 
 use app\common\value\runtime\RuntimeNamespace;
+use app\common\infrastructure\runtime\FileCache;
 
 $runtimeNamespace = RuntimeNamespace::fromEnvironment();
 
@@ -16,7 +17,7 @@ return [
     'stores'  => [
         'file' => [
             // 驱动方式
-            'type'       => 'File',
+            'type'       => FileCache::class,
             // 缓存保存目录
             'path'       => '',
             // 缓存前缀

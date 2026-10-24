@@ -57,6 +57,10 @@ scope, or exclusive schema access. Locking reads are writes for this contract.
 This is an execution declaration, not a SQL sandbox. DDL/exclusive uses tables=[].
 Only read/read or disjoint complete table/row sets share; labels never isolate data.
 
+An ordinary same-identity child keeps its workflow-session declaration. Only the
+exact session equal to its verified parent owner and thread may use that parent's
+physical lock; parent_lease records the holder. No other resource is shared.
+
 collaboration-read-existing is a closed, same-owner/thread observation role, not
 schema sharing. It requires a real runtime parent, independently owns its source
 worktree, and accepts only its fixed operation contract (no --resource arguments).
@@ -101,6 +105,8 @@ RETAINED_GUARD_OWNER=""
 RETAINED_PARENT_HOLDER=""
 RETAINED_APP_ROOT=""
 RETAINED_RELEASE_APP=""
+WORKFLOW_PARENT_HOLDER=""
+WORKFLOW_PARENT_SESSION=""
 APPLICATION_RECOVERY_STEP=""
 APPLICATION_RECOVERY_ARGS=()
 
@@ -108,6 +114,8 @@ physical_resource_holder() {
   if [[ -n "$RETAINED_PARENT_HOLDER" && "$3" == "$RETAINED_APP_ROOT" \
     && ( "$2" == worktree || "$2" == application-root ) ]]; then
     printf '%s' "$RETAINED_PARENT_HOLDER"
+  elif [[ -n "$WORKFLOW_PARENT_HOLDER" && "$2" == workflow-session && "$3" == "$WORKFLOW_PARENT_SESSION" ]]; then
+    printf '%s' "$WORKFLOW_PARENT_HOLDER"
   else
     printf '%s' "$1"
   fi
@@ -1473,6 +1481,7 @@ PY
 validate_parent_lease_locked() {
   local parent_lease="$1" owner="$2" thread_id="$3" candidate="$4" candidate_repository="$5" worktree="$6"
   local role="${7:-}" contract="${8:-}"
+  WORKFLOW_PARENT_HOLDER=""; WORKFLOW_PARENT_SESSION=""
   local app_operation="${APPLICATION_OPERATION:-}"
   if [[ -z "$app_operation" && -f "${LEASE_DIR:-/nonexistent}/resources.tsv" ]]; then
     app_operation="$(awk -F '\t' '$2=="application-operation" {print $3}' "$LEASE_DIR/resources.tsv")"
@@ -1528,6 +1537,15 @@ validate_parent_lease_locked() {
         [[ -f "$lock_dir/$lock_file" && ! -L "$lock_dir/$lock_file" ]] || die "parent worktree lock is invalid: $parent_lease"
       done
       [[ "$(cat "$lock_dir/lease")" == "$parent_lease" && "$(cat "$lock_dir/type")" == worktree && "$(cat "$lock_dir/value")" == "$worktree" ]] || die "parent worktree lock holder mismatch: $parent_lease"
+    elif [[ "$type" == workflow-session && "$value" == "$owner" && "$owner" == "$thread_id" ]]; then
+      lock_dir="$RESOURCES_DIR/$hash"
+      [[ -d "$lock_dir" && ! -L "$lock_dir" ]] || die "parent workflow-session lock is missing: $parent_lease"
+      for lock_file in lease type value; do
+        [[ -f "$lock_dir/$lock_file" && ! -L "$lock_dir/$lock_file" ]] || die "parent workflow-session lock is invalid: $parent_lease"
+      done
+      [[ "$(cat "$lock_dir/lease")" == "$parent_lease" && "$(cat "$lock_dir/type")" == workflow-session \
+        && "$(cat "$lock_dir/value")" == "$value" ]] || die "parent workflow-session lock holder mismatch: $parent_lease"
+      WORKFLOW_PARENT_HOLDER="$parent_lease"; WORKFLOW_PARENT_SESSION="$value"
     fi
   done < "$parent_dir/resources.tsv"
 }
@@ -1663,6 +1681,8 @@ PY
   while IFS=$'\t' read -r hash type value; do
     [[ -n "$hash" ]] || continue
     resource_dir="$RESOURCES_DIR/$hash"
+    # Inherited workflow-session rows remain declarations; only the child's own
+    # physical locks are removed, even after its parent expires or disappears.
     if [[ -d "$resource_dir" && "$(cat "$resource_dir/lease" 2>/dev/null || true)" == "$lease_id" ]]; then
       remove_resource_dir "$resource_dir"
     fi
