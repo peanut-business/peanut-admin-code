@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Identity\Auth;
 
+use app\common\policy\audit\RedactionPolicy;
 use DateTimeImmutable;
 use PeanutAdmin\Kernel\Context\PlatformContext;
 use PeanutAdmin\Modules\Identity\Identity\AccountStatus;
@@ -11,6 +12,7 @@ use PeanutAdmin\Modules\Identity\Identity\CredentialStatus;
 use PeanutAdmin\Kernel\Identity\EmailAddress;
 use PeanutAdmin\Kernel\Identity\PasswordHasher;
 use think\facade\Db;
+use think\facade\Log;
 use PeanutAdmin\Modules\Identity\Platform\PlatformOperatorStatus;
 use SensitiveParameter;
 
@@ -158,7 +160,7 @@ final class PlatformAuthService
         string $requestId,
     ): PlatformContext {
         return PlatformContext::fromValidatedSession(
-            $this->validatedAccessSession($accessToken),
+            $this->validatedAccessSession($accessToken, $requestId),
             $requestId,
         );
     }
@@ -238,31 +240,64 @@ final class PlatformAuthService
         });
     }
 
-    private function validatedAccessSession(string $accessToken): \PeanutAdmin\Kernel\Auth\ValidatedPlatformSession
+    private function validatedAccessSession(string $accessToken, ?string $requestId = null): \PeanutAdmin\Kernel\Auth\ValidatedPlatformSession
     {
         $this->assertPlatformPrefix($accessToken, \PeanutAdmin\Kernel\Auth\TokenIssuer::PLATFORM_ACCESS_PREFIX);
         $now = $this->clock->now();
-        $result = Db::transaction(function () use ($accessToken, $now): \PeanutAdmin\Kernel\Auth\ValidatedPlatformSession|\PeanutAdmin\Kernel\Auth\AuthException {
-            $record = $this->repository->sessionByTokenHash(
-                hash('sha256', $accessToken),
-                'access',
-                true,
-            );
-            if ($record === null) {
-                return new \PeanutAdmin\Kernel\Auth\AuthException('AUTH_TOKEN_INVALID', 401);
-            }
-            $tokenFailure = $this->tokenFailure($record, 'access', $now);
-            if ($tokenFailure !== null) {
-                return $tokenFailure;
-            }
-            $failure = $this->sessionFailure($record, $now);
-            if ($failure !== null) {
-                $this->repository->revokeSession($record->sessionId, 'session_invalid', $now);
+        $result = Db::transaction(function () use ($accessToken, $now, $requestId): \PeanutAdmin\Kernel\Auth\ValidatedPlatformSession|\PeanutAdmin\Kernel\Auth\AuthException {
+            $phase = 'session_lookup';
+            try {
+                $record = $this->repository->sessionByTokenHash(
+                    hash('sha256', $accessToken),
+                    'access',
+                    true,
+                );
+                if ($record === null) {
+                    return new \PeanutAdmin\Kernel\Auth\AuthException('AUTH_TOKEN_INVALID', 401);
+                }
+                $phase = 'token_validation';
+                $tokenFailure = $this->tokenFailure($record, 'access', $now);
+                if ($tokenFailure !== null) {
+                    return $tokenFailure;
+                }
+                $phase = 'session_validation';
+                $failure = $this->sessionFailure($record, $now);
+                if ($failure !== null) {
+                    $phase = 'session_revocation';
+                    $this->repository->revokeSession($record->sessionId, 'session_invalid', $now);
 
-                return $failure;
-            }
+                    return $failure;
+                }
 
-            return $record->validated();
+                $phase = 'validated_session';
+                return $record->validated();
+            } catch (\Throwable $first) {
+                // Preserve the callback failure before a native rollback can replace it.
+                try {
+                    $trace = [];
+                    foreach (array_slice($first->getTrace(), 0, 5) as $frame) {
+                        $trace[] = [
+                            'class' => is_string($frame['class'] ?? null) ? $frame['class'] : null,
+                            'function' => is_string($frame['function'] ?? null) ? $frame['function'] : null,
+                            'line' => is_int($frame['line'] ?? null) ? $frame['line'] : null,
+                        ];
+                    }
+                    Log::warning(RedactionPolicy::encode([
+                        'event' => 'platform_access_session_callback_failed',
+                        'attributes' => [
+                            'phase' => $phase,
+                            'request_id' => $requestId !== null && preg_match('/^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/D', $requestId) === 1 ? $requestId : null,
+                            'exception_class' => $first::class,
+                            'exception_file' => $first->getFile(),
+                            'exception_line' => $first->getLine(),
+                            'exception_trace' => $trace,
+                        ],
+                    ]));
+                } catch (\Throwable) {
+                    // Diagnostics must never replace the original authentication failure.
+                }
+                throw $first;
+            }
         });
 
         if ($result instanceof \PeanutAdmin\Kernel\Auth\AuthException) {

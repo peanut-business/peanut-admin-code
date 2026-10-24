@@ -7,6 +7,8 @@ import {
   SessionExpiredState as SessionExpiredStateComponent,
 } from '@peanut-admin/ui-vue';
 import { describe, expect, it, vi } from 'vitest';
+import { createI18n } from 'vue-i18n';
+import enUS from '../../locale/en-US';
 import { nextTick, defineComponent, inject, type Component } from 'vue';
 // Keep the actual component identity without recursively instantiating Vue's
 // entire public-instance type in every test-utils selector overload.
@@ -173,7 +175,16 @@ describe('settings page runtime', () => {
         transport: createTransport(vi.fn(async () => invalidResult)),
       });
       const wrapper = mount(SettingsPage, {
-        global: { provide: { [settingsRuntimeKey as symbol]: runtime } },
+        global: {
+          plugins: [
+            createI18n({
+              legacy: false,
+              locale: 'en-US',
+              messages: { 'en-US': enUS },
+            }),
+          ],
+          provide: { [settingsRuntimeKey as symbol]: runtime },
+        },
       });
 
       await flushPromises();
@@ -913,7 +924,16 @@ describe('settings module page', () => {
         transport,
       });
       const wrapper = mount(SettingsPage, {
-        global: { provide: { [settingsRuntimeKey as symbol]: runtime } },
+        global: {
+          plugins: [
+            createI18n({
+              legacy: false,
+              locale: 'en-US',
+              messages: { 'en-US': enUS },
+            }),
+          ],
+          provide: { [settingsRuntimeKey as symbol]: runtime },
+        },
       });
 
       await flushPromises();
@@ -960,7 +980,16 @@ describe('settings module page', () => {
         transport,
       });
       const wrapper = mount(SettingsPage, {
-        global: { provide: { [settingsRuntimeKey as symbol]: runtime } },
+        global: {
+          plugins: [
+            createI18n({
+              legacy: false,
+              locale: 'en-US',
+              messages: { 'en-US': enUS },
+            }),
+          ],
+          provide: { [settingsRuntimeKey as symbol]: runtime },
+        },
       });
 
       await flushPromises();
@@ -1035,7 +1064,16 @@ describe('settings module page', () => {
       ),
     });
     const wrapper = mount(SettingsPage, {
-      global: { provide: { [settingsRuntimeKey as symbol]: runtime } },
+      global: {
+        plugins: [
+          createI18n({
+            legacy: false,
+            locale: 'en-US',
+            messages: { 'en-US': enUS },
+          }),
+        ],
+        provide: { [settingsRuntimeKey as symbol]: runtime },
+      },
     });
     await flushPromises();
 
@@ -1093,7 +1131,16 @@ describe('settings module page', () => {
       ),
     });
     const wrapper = mount(SettingsPage, {
-      global: { provide: { [settingsRuntimeKey as symbol]: runtime } },
+      global: {
+        plugins: [
+          createI18n({
+            legacy: false,
+            locale: 'en-US',
+            messages: { 'en-US': enUS },
+          }),
+        ],
+        provide: { [settingsRuntimeKey as symbol]: runtime },
+      },
     });
 
     await flushPromises();
@@ -1139,7 +1186,16 @@ describe('settings module page', () => {
       transport,
     });
     const wrapper = mount(SettingsPage, {
-      global: { provide: { [settingsRuntimeKey as symbol]: runtime } },
+      global: {
+        plugins: [
+          createI18n({
+            legacy: false,
+            locale: 'en-US',
+            messages: { 'en-US': enUS },
+          }),
+        ],
+        provide: { [settingsRuntimeKey as symbol]: runtime },
+      },
     });
     await flushPromises();
 
@@ -1251,7 +1307,16 @@ describe('settings module page', () => {
       transport,
     });
     const wrapper = mount(SettingsPage, {
-      global: { provide: { [settingsRuntimeKey as symbol]: runtime } },
+      global: {
+        plugins: [
+          createI18n({
+            legacy: false,
+            locale: 'en-US',
+            messages: { 'en-US': enUS },
+          }),
+        ],
+        provide: { [settingsRuntimeKey as symbol]: runtime },
+      },
     });
     await flushPromises();
 
@@ -1341,7 +1406,16 @@ describe('settings module page', () => {
       transport,
     });
     const wrapper = mount(SettingsPage, {
-      global: { provide: { [settingsRuntimeKey as symbol]: runtime } },
+      global: {
+        plugins: [
+          createI18n({
+            legacy: false,
+            locale: 'en-US',
+            messages: { 'en-US': enUS },
+          }),
+        ],
+        provide: { [settingsRuntimeKey as symbol]: runtime },
+      },
     });
     await flushPromises();
 
@@ -1457,7 +1531,16 @@ describe('settings module page', () => {
       transport,
     });
     const wrapper = mount(SettingsPage, {
-      global: { provide: { [settingsRuntimeKey as symbol]: runtime } },
+      global: {
+        plugins: [
+          createI18n({
+            legacy: false,
+            locale: 'en-US',
+            messages: { 'en-US': enUS },
+          }),
+        ],
+        provide: { [settingsRuntimeKey as symbol]: runtime },
+      },
     });
     await flushPromises();
 
@@ -1479,7 +1562,7 @@ describe('settings module page', () => {
       wrapper
         .get('[data-boolean-unconfigured="example.target/feature-enabled"]')
         .text()
-    ).toContain('Not configured');
+    ).toContain(enUS['officialSettings.value.notConfigured']);
     expect(
       (
         wrapper.get('[data-setting-key="example.target/retry-count"] input')

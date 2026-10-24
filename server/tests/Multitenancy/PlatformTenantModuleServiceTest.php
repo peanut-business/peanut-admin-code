@@ -14,6 +14,7 @@ use app\platform\service\TenantGovernanceService;
 use app\platform\service\TenantOwnerAdminProvisioner;
 use Opis\JsonSchema\Validator;
 use PeanutAdmin\Modules\Identity\Audit\AuditService;
+use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
 use PeanutAdmin\Modules\Identity\Auth\Persistence\ThinkPhpPlatformAuthRepository;
 use PeanutAdmin\Modules\Identity\Auth\PlatformAuthService;
 use PeanutAdmin\Kernel\Auth\SystemClock;
@@ -204,6 +205,8 @@ try {
         new PlatformTenantAdminService(
             new TenantModuleManager($registry->compiled(), $repository, $validator),
             new AuditService(),
+            $registry->compiled(),
+            new TenantModuleStateQueries(),
         ),
         new TenantOwnerAdminService(new AuditService()),
         new class implements TenantOwnerAdminProvisioner {

@@ -24,6 +24,10 @@ export default {
   'article.columns.isShow': 'Status',
   'article.columns.createTime': 'Created',
   'article.columns.operations': 'Operations',
+  'article.table.accessibleName':
+    'Article list; scroll horizontally to view all columns',
+  'article.table.scrollHint':
+    'Scroll the table horizontally; keyboard users can focus it and use the arrow keys to view all columns.',
   'article.modal.add': 'Add Article',
   'article.modal.edit': 'Edit Article',
   'article.field.cate': 'Category',

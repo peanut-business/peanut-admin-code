@@ -17,6 +17,7 @@ use PeanutAdmin\Modules\Settings\Service\TenantSettingService;
 use PeanutAdmin\Modules\Settings\Infrastructure\ThinkPhpTenantSettingsProvider;
 use PeanutAdmin\Modules\Identity\Contract\AdminDirectoryQuery;
 use PeanutAdmin\Modules\Identity\Contract\TenantAuthorizationCommands;
+use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
 use PeanutAdmin\Modules\Integration\Contract\ExternalIntegrationBootstrapCommands;
 use PeanutAdmin\Modules\Integration\Infrastructure\ThinkPhpExternalTenantBindingRepository;
 use app\common\tenancy\MultiTenantDataScopePolicy;
@@ -166,7 +167,7 @@ SQL);
             }
         },
     );
-    $administration = new PlatformTenantAdminService($modules, new AuditService());
+    $administration = new PlatformTenantAdminService($modules, new AuditService(), $registry, new TenantModuleStateQueries());
     $owners = new TenantOwnerAdminService(new AuditService(), new PasswordHasher(), new PasswordPolicy());
     $service = new TenantGovernanceService(
         new LifecycleIdentity(new PlatformOperatorIdentity($platform->operatorId, $platform->accountId)),

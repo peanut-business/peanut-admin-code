@@ -74,7 +74,17 @@
       >
         {{ $t('article.button.add') }}
       </el-button>
-      <el-table v-loading="loading" row-key="id" :data="renderData" border>
+      <p class="table-scroll-hint" role="note">
+        {{ $t('article.table.scrollHint') }}
+      </p>
+      <el-table
+        v-loading="loading"
+        row-key="id"
+        :data="renderData"
+        border
+        scrollbar-tabindex="0"
+        :aria-label="$t('article.table.accessibleName')"
+      >
         <el-table-column
           prop="id"
           :label="$t('article.columns.id')"
@@ -180,8 +190,9 @@
 
       <el-dialog
         v-model="modalVisible"
+        class="article-dialog article-form-dialog"
         :title="form.id ? $t('article.modal.edit') : $t('article.modal.add')"
-        width="900px"
+        width="min(900px, calc(100vw - 32px))"
         :close-on-click-modal="!articleAction.loading.value && !bodyLocked"
         :close-on-press-escape="!articleAction.loading.value && !bodyLocked"
         :show-close="!articleAction.loading.value && !bodyLocked"
@@ -335,8 +346,9 @@
       </el-dialog>
       <el-dialog
         v-model="historyVisible"
+        class="article-dialog"
         title="资讯正文历史"
-        width="900px"
+        width="min(900px, calc(100vw - 32px))"
         @closed="closeHistory"
       >
         <p v-if="historyError" role="alert">{{ historyError }}</p>
@@ -906,5 +918,39 @@
     display: flex;
     justify-content: flex-end;
     margin-top: 16px;
+  }
+  .table-scroll-hint {
+    color: var(--el-text-color-secondary);
+    font-size: 13px;
+  }
+  :deep(.el-table .el-scrollbar__wrap:focus-visible) {
+    outline: 2px solid var(--el-color-primary);
+    outline-offset: -2px;
+  }
+  :global(.article-dialog) {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - 32px);
+    margin: 16px auto;
+  }
+  :global(.article-dialog .el-dialog__body) {
+    min-height: 0;
+    overflow-y: auto;
+  }
+  :global(.article-dialog .el-dialog__footer) {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  :global(.article-dialog .el-dialog__footer .el-button) {
+    margin-left: 0;
+  }
+  @media (max-width: 600px) {
+    :global(.article-form-dialog .el-form-item__label) {
+      width: 100%;
+      justify-content: flex-start;
+      margin-bottom: 6px;
+    }
   }
 </style>

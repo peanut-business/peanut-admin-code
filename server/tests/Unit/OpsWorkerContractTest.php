@@ -166,7 +166,10 @@ final class OpsWorkerContractTest extends TestCase
         self::assertStringNotContainsString('$catalogs = new ModuleCatalogApplier(', $source);
         self::assertStringContainsString('$catalogs = app(ModuleCatalogApplier::class);', $source);
         self::assertLessThan(strpos($source, '$catalogs = app('), strpos($source, '(new App($serverRoot))->initialize();'));
-        self::assertStringContainsString('refusing global catalog synchronization in a shared database', $source);
+        self::assertStringContainsString('Native lifecycle passes explicit module keys to its scoped catalog applier.', $source);
+        self::assertStringContainsString('$catalogSnapshot = pluginLifecycleCatalogSnapshot($pdo);', $source);
+        self::assertStringContainsString('pluginLifecycleCatalogSnapshot($pdo) === $catalogSnapshot', $source);
+        self::assertStringContainsString('installed non-fixture catalogs changed', $source);
     }
 
     private function runCommand(string $type, string $port, ?object $worker, array $arguments, ExecutionContextStore $contexts, string $name): array

@@ -24,6 +24,9 @@ export default {
   'article.columns.isShow': '状态',
   'article.columns.createTime': '创建时间',
   'article.columns.operations': '操作',
+  'article.table.accessibleName': '文章列表，可左右滚动查看全部列',
+  'article.table.scrollHint':
+    '表格可左右滚动；键盘可聚焦表格后使用方向键查看全部列。',
   'article.modal.add': '新增文章',
   'article.modal.edit': '编辑文章',
   'article.field.cate': '分类',

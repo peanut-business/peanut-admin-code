@@ -71,12 +71,21 @@ describe('notification runtime', () => {
   });
 
   it('fails closed on permission and invalid response without retaining stale selection', async () => {
+    const deniedTransport = { list: vi.fn(), markRead: vi.fn(), bulk: vi.fn() };
     const denied = createNotificationRuntime({
-      transport: { list: vi.fn(), markRead: vi.fn(), bulk: vi.fn() },
+      transport: deniedTransport,
       canRead: () => false,
     });
+    denied.state.selected.add(item.message_key);
     await denied.load();
-    expect(denied.state.error?.message).toContain('could not be reached');
+    expect(denied.state.error).toMatchObject({
+      status: 403,
+      messageKey: 'notificationInbox.forbidden',
+    });
+    expect(deniedTransport.list).not.toHaveBeenCalled();
+    expect(deniedTransport.markRead).not.toHaveBeenCalled();
+    expect(deniedTransport.bulk).not.toHaveBeenCalled();
+    expect(denied.state.selected.size).toBe(0);
 
     const invalid = createNotificationRuntime({
       transport: {
@@ -128,17 +137,18 @@ describe('notification runtime', () => {
         meta: { request_id: 'req_delayed' },
       })
     );
-    await mutation;
+    expect(await mutation).toBe(false);
 
     expect(transport.list).toHaveBeenCalledTimes(1);
     expect(runtime.state.items).toEqual([]);
     expect(runtime.state).toMatchObject({
       page: 1,
-      pageSize: 20,
+      pageSize: 10,
       total: 0,
       loading: false,
       mutating: false,
       error: null,
     });
+    expect(runtime.state.selected.size).toBe(0);
   });
 });

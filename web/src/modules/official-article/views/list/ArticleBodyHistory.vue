@@ -14,7 +14,7 @@
         <li v-for="item in items" :key="item.revision_id">
           版本 {{ item.revision_no }}（ID {{ item.revision_id }}） ·
           {{ item.created_at }} · 正文水位 {{ item.source_state_seq }}
-          <el-button @click="selectedRevisionId = item.revision_id"
+          <el-button @click="selectRevision(item.revision_id)"
             >只读查看</el-button
           >
         </li>
@@ -28,6 +28,11 @@
       <p role="status"
         >列表仅含版本摘要；查看正文会重新核验权限，恢复和业务保存仍使用原入口。</p
       >
+      <p v-if="selectedRevision" role="status">
+        {{ viewerLoaded ? '已核验' : '正在加载并核验' }}版本
+        {{ selectedRevision.revision_no }}（ID
+        {{ selectedRevision.revision_id }}）的只读正文。
+      </p>
       <DocumentViewer
         v-if="selectedRevisionId"
         :key="selectedRevisionId"
@@ -36,6 +41,7 @@
         :revision-id="selectedRevisionId"
         :context-key="contextKey"
         :allow-downloads="false"
+        @load="onViewerLoad"
         @error="deny"
       />
     </template>
@@ -47,7 +53,10 @@
   import { getSessionSnapshot } from '@/utils/auth';
   import DocumentViewer from '@/modules/official-document/components/DocumentViewer.vue';
   import { getDocumentVersions } from '@/modules/official-document/api';
-  import type { DocumentVersionsPage } from '@/modules/official-document/src/contracts';
+  import type {
+    DocumentDetail,
+    DocumentVersionsPage,
+  } from '@/modules/official-document/src/contracts';
 
   const props = defineProps<{
     articleId: number;
@@ -66,6 +75,19 @@
   const items = shallowRef<DocumentVersionsPage['items']>([]);
   const nextRevisionNo = ref<number | null>(null);
   const selectedRevisionId = ref<number>();
+  const selectedRevision = computed(() =>
+    items.value.find((item) => item.revision_id === selectedRevisionId.value)
+  );
+  const viewerLoaded = ref(false);
+  const selectRevision = (revisionId: number) => {
+    if (selectedRevisionId.value === revisionId) return;
+    viewerLoaded.value = false;
+    selectedRevisionId.value = revisionId;
+  };
+  const onViewerLoad = (detail: DocumentDetail) => {
+    if (detail.revision_id === selectedRevisionId.value)
+      viewerLoaded.value = true;
+  };
   let request: AbortController | undefined;
   let epoch = 0;
   let disposed = false;
@@ -77,6 +99,7 @@
     items.value = [];
     nextRevisionNo.value = null;
     selectedRevisionId.value = undefined;
+    viewerLoaded.value = false;
     loading.value = false;
     error.value = '';
   };

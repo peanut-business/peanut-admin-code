@@ -1,5 +1,6 @@
 <template>
   <section :aria-busy="loading">
+    <p v-if="loading" role="status">正在加载并核验文档内容。</p>
     <p v-if="message" role="status">{{ message }}</p>
     <p v-if="frozen" role="status">
       本地未确认内容已保留，不能当作已保存。

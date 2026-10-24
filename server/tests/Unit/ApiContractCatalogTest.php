@@ -41,11 +41,11 @@ final class ApiContractCatalogTest extends TestCase
                 $summary['route_count'],
                 $summary['complete_operations'] + $summary['partial_operations'] + $summary['route_only_operations'],
             );
-            // All current owners have completed their contracts; do not freeze the
-            // obsolete partial-delivery snapshot or accept missing routes as success.
-            self::assertSame(339, $summary['route_count']);
-            self::assertSame(339, $summary['generated_api_operations']);
-            self::assertSame(339, $summary['complete_operations']);
+            // Keep the current route inventory exact and require every route to have
+            // a complete owner contract; the catalog's current gaps remain failures.
+            self::assertSame(439, $summary['route_count']);
+            self::assertSame($summary['route_count'], $summary['generated_api_operations']);
+            self::assertSame($summary['route_count'], $summary['complete_operations']);
             self::assertSame(0, $summary['partial_operations']);
             self::assertSame(0, $summary['route_only_operations']);
 
@@ -72,13 +72,13 @@ final class ApiContractCatalogTest extends TestCase
                 }
             }
 
-            self::assertOwnerCoverage($endpoints, 'official.article', 21, 21);
+            self::assertOwnerCoverage($endpoints, 'official.article', 27, 27);
             self::assertOwnerCoverage($endpoints, 'official.member', 22, 22);
-            self::assertOwnerCoverage($endpoints, 'official.file', 14, 14);
+            self::assertOwnerCoverage($endpoints, 'official.file', 28, 28);
             self::assertOwnerCoverage($endpoints, 'official.task', 10, 10);
-            self::assertApplicationCoverage($endpoints, 'adminapi', 91);
-            self::assertApplicationCoverage($endpoints, 'platform', 58);
-            self::assertApplicationCoverage($endpoints, 'installation', 5);
+            self::assertApplicationCoverage($endpoints, 'adminapi', 99);
+            self::assertApplicationCoverage($endpoints, 'platform', 59);
+            self::assertApplicationCoverage($endpoints, 'installation', 9);
 
             $byRoute = [];
             foreach ($endpoints as $endpoint) {
@@ -107,14 +107,19 @@ final class ApiContractCatalogTest extends TestCase
         $platform = require $directory . '/platform.php';
         $installation = require $directory . '/installation.php';
 
-        self::assertSame(91, self::operationCount($admin));
-        self::assertSame(58, self::operationCount($platform));
-        self::assertSame(5, self::operationCount($installation));
+        self::assertSame(98, self::operationCount($admin));
+        self::assertSame(59, self::operationCount($platform));
+        self::assertSame(9, self::operationCount($installation));
 
         $schemes = $shared['components']['securitySchemes'];
         self::assertSame('Host', $schemes['platformHost']['name']);
-        self::assertSame('__Host-pa_platform_refresh', $schemes['platformRefreshCookie']['name']);
-        self::assertSame('__Host-pa_tenant_refresh_admin-web', $schemes['tenantRefreshCookie']['name']);
+        foreach (['platformRefreshCookie' => '__Host-pa_platform_refresh', 'tenantRefreshCookie' => '__Host-pa_tenant_refresh_<client>'] as $scheme => $prefix) {
+            self::assertSame('http', $schemes[$scheme]['type']);
+            self::assertSame('bearer', $schemes[$scheme]['scheme']);
+            self::assertStringContainsString($prefix, $schemes[$scheme]['description']);
+            self::assertStringContainsString('SHA-256', $schemes[$scheme]['description']);
+            self::assertArrayNotHasKey('name', $schemes[$scheme]);
+        }
         self::assertSame('bearer', $schemes['installationSetupToken']['scheme']);
 
         $dynamic = $shared['components']['schemas']['ApplicationDynamicValue'];

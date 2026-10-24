@@ -183,7 +183,13 @@ final class TenantModuleStateBoundaryTest extends TestCase
             'platform/validation/plugin/PluginReleaseCompositionGuard.php',
         ] as $file) {
             $source = file_get_contents($root . $file);
-            self::assertStringNotContainsString('module_installation', $source, $file);
+            self::assertStringContainsString('TenantModuleStateQueries', $source, $file);
+            self::assertStringNotContainsString("Db::name('tenant_module')", $source, $file);
+            if ($file === 'platform/services/plugin/PluginLifecycleService.php') {
+                self::assertStringContainsString("Db::name('module_installation')->where('module_key', 'official.document')->value('status') !== 'active'", $source);
+                self::assertStringContainsString("Db::name('module_installation')->where('module_key', 'official.notification')", $source);
+                self::assertStringContainsString("'pa_module_installation' => 'module_key,installed_version", $source);
+            }
         }
     }
 
@@ -193,7 +199,7 @@ final class TenantModuleStateBoundaryTest extends TestCase
         $minimum = [
             \app\platform\services\plugin\PlatformModuleRuntimeService::class => 7,
             \app\platform\services\plugin\PluginRuntimeGovernanceService::class => 4,
-            \app\platform\services\plugin\PluginLifecycleService::class => 6,
+            \app\platform\services\plugin\PluginLifecycleService::class => 5,
         ];
         $sites = 0;
         foreach ([

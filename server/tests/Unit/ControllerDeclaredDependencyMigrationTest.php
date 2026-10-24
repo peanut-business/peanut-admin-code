@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace tests\Unit\ControllerDeclaredDependencyMigration;
 
 use app\BaseController;
+use app\common\infrastructure\module\ModuleHostLayoutFactory;
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use LogicException;
@@ -28,6 +29,11 @@ final class ControllerDeclaredDependencyMigrationTest extends TestCase
     protected function setUp(): void
     {
         $this->previousContainer = Container::getInstance();
+        $server = dirname(__DIR__, 2);
+        ModuleHostLayoutFactory::registerRuntimeAutoload([
+            'official.collaboration' => $server . '/app/modules/official/collaboration',
+            'official.document' => $server . '/app/modules/official/document',
+        ], $server);
     }
 
     protected function tearDown(): void
@@ -38,7 +44,7 @@ final class ControllerDeclaredDependencyMigrationTest extends TestCase
     public function testAllOwnedControllerDeclarationsAreTypedDocumentedConflictFreeAndResolvable(): void
     {
         $controllers = $this->controllerDeclarations();
-        self::assertCount(70, $controllers, 'The two CRUD samples plus all 68 migrated Controllers must be scanned.');
+        self::assertCount(80, $controllers, 'All current Controllers with declared dependencies must be scanned.');
 
         foreach ($controllers as $className => $declarations) {
             $controller = new ReflectionClass($className);
@@ -57,10 +63,12 @@ final class ControllerDeclaredDependencyMigrationTest extends TestCase
                 self::assertFalse($type->allowsNull());
                 self::assertSame($declaration['dependency'], $property->getDefaultValue());
                 self::assertFalse($controller->hasProperty($name), $className . ' has a real $' . $name . ' conflict');
-                self::assertStringContainsString(
-                    '@property-read ' . (new ReflectionClass($declaration['dependency']))->getShortName() . ' $' . $name,
-                    $controller->getDocComment() ?: '',
-                    $className,
+                $annotation = '@property-read ' . (new ReflectionClass($declaration['dependency']))->getShortName() . ' $' . $name;
+                $qualifiedAnnotation = '@property-read \\' . ltrim($declaration['dependency'], '\\') . ' $' . $name;
+                self::assertTrue(
+                    str_contains($controller->getDocComment() ?: '', $annotation)
+                        || str_contains($controller->getDocComment() ?: '', $qualifiedAnnotation),
+                    $className . ' must document the exact declared dependency',
                 );
 
                 $expected[$name] = $this->dependencyInstance($declaration['dependency']);

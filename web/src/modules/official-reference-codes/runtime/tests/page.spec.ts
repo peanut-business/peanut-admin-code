@@ -2,6 +2,8 @@
 
 import { flushPromises, mount } from '@vue/test-utils';
 import { describe, expect, it, vi } from 'vitest';
+import { createI18n } from 'vue-i18n';
+import enUS from '../../locale/en-US';
 
 import ReferenceCodesPage from '../src/ReferenceCodesPage.vue';
 import contribution from '../../contribution';
@@ -254,7 +256,16 @@ describe('reference-code Tenant page', () => {
       now: () => '2026-07-20T02:00:00.000Z',
     });
     const wrapper = mount(ReferenceCodesPage, {
-      global: { provide: { [referenceCodesRuntimeKey as symbol]: runtime } },
+      global: {
+        plugins: [
+          createI18n({
+            legacy: false,
+            locale: 'en-US',
+            messages: { 'en-US': enUS },
+          }),
+        ],
+        provide: { [referenceCodesRuntimeKey as symbol]: runtime },
+      },
     });
     await flushPromises();
 
@@ -370,7 +381,16 @@ describe('reference-code Tenant page', () => {
     });
     await runtime.create();
     const wrapper = mount(ReferenceCodesPage, {
-      global: { provide: { [referenceCodesRuntimeKey as symbol]: runtime } },
+      global: {
+        plugins: [
+          createI18n({
+            legacy: false,
+            locale: 'en-US',
+            messages: { 'en-US': enUS },
+          }),
+        ],
+        provide: { [referenceCodesRuntimeKey as symbol]: runtime },
+      },
     });
     await flushPromises();
 

@@ -102,7 +102,7 @@
                   <el-avatar :size="48" shape="square" :src="item.image">
                     <el-icon><Grid /></el-icon>
                   </el-avatar>
-                  <span>{{ item.name }}</span>
+                  <span>{{ shortcutLabel(item) }}</span>
                 </router-link>
               </el-col>
             </el-row>
@@ -228,11 +228,43 @@
       Boolean(workbench.version.channel.github)
   );
 
+  const shortcutLocaleKeys: Record<string, [string, string]> = {
+    '/system/admin': ['管理员', 'workplace.shortcut.admin'],
+    '/system/role': ['角色管理', 'menu.system.role'],
+    '/app/departments': ['部门管理', 'menu.system.dept'],
+    '/system/dict': ['字典管理', 'menu.system.dict'],
+    '/system/file': ['素材中心', 'workplace.shortcut.file'],
+    '/system/menu': ['菜单权限', 'systemRole.auth.menuPermissions'],
+    '/app-setting/website': ['网站信息', 'workplace.shortcut.website'],
+  };
+  const shortcutLabel = (item: WorkbenchData['menu'][number]) => {
+    const locale = shortcutLocaleKeys[item.url];
+    return locale && item.name === locale[0] ? t(locale[1]) : item.name;
+  };
+
+  const supportLocaleKeys: Record<string, [string, string, string]> = {
+    项目文档: [
+      '查看 Peanut Admin 使用与开发文档',
+      'workplace.support.docs.title',
+      'workplace.support.docs.desc',
+    ],
+    技术支持: [
+      '获取 Peanut Admin 技术支持',
+      'workplace.support.technical.title',
+      'workplace.support.technical.desc',
+    ],
+  };
+
   const supportItems = computed(() =>
-    workbench.support.map((item) => ({
-      ...item,
-      url: (item as typeof item & { url?: string }).url || '',
-    }))
+    workbench.support.map((item) => {
+      const locale = supportLocaleKeys[item.title];
+      return {
+        ...item,
+        title: locale && item.desc === locale[0] ? t(locale[1]) : item.title,
+        desc: locale && item.desc === locale[0] ? t(locale[2]) : item.desc,
+        url: (item as typeof item & { url?: string }).url || '',
+      };
+    })
   );
 
   const hasVisitorData = computed(

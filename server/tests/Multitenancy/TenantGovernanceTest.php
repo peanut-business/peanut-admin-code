@@ -11,6 +11,7 @@ use app\platform\identity\UnavailablePlatformOperatorIdentityPort;
 use app\platform\service\TenantGovernanceService;
 use app\platform\service\TenantOwnerAdminProvisioner;
 use PeanutAdmin\Modules\Identity\Audit\AuditService;
+use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
 use PeanutAdmin\Kernel\Auth\ValidatedPlatformSession;
 use PeanutAdmin\Kernel\Context\PlatformContext;
 use PeanutAdmin\Kernel\Identity\PasswordHasher;
@@ -138,7 +139,7 @@ try {
     $moduleRepository = new ThinkPhpModuleRuntimeRepository();
     $validator = new Pm01FixtureConfigValidator();
     $modules = new TenantModuleManager($registry, $moduleRepository, $validator);
-    $administration = new PlatformTenantAdminService($modules, new AuditService());
+    $administration = new PlatformTenantAdminService($modules, new AuditService(), $registry, new TenantModuleStateQueries());
     $owners = new TenantOwnerAdminService(new AuditService());
     $ownerAdmins = new class implements TenantOwnerAdminProvisioner {
         public function provision(

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use app\common\execution\CurrentExecutionContext;
 use app\common\execution\ExecutionContextStore;
 use app\common\execution\SystemExecutionContext;
+use app\common\execution\SystemExecutionMetadata;
 use app\common\infrastructure\async\ModuleAwareTaskHandler;
 use app\common\infrastructure\module\ModuleExecutionBoundary;
 use PeanutAdmin\Modules\Task\Contract\JobExecution;
@@ -24,6 +25,7 @@ use PeanutAdmin\Kernel\Auth\ValidatedTenantSession;
 use PeanutAdmin\Kernel\Context\AuthorizationDecision;
 use PeanutAdmin\Kernel\Context\AuthorizedOperationContext;
 use PeanutAdmin\Kernel\Context\RequestedTargetSet;
+use PeanutAdmin\Kernel\Context\TenantSystemContext;
 use PeanutAdmin\Kernel\Module\ModuleInstallationRecord;
 use PeanutAdmin\Kernel\Module\ModuleRuntimeRepository;
 use PeanutAdmin\Kernel\Module\TenantModuleRecord;
@@ -210,7 +212,7 @@ final class A1WorkerAuthorizationLifecycleTest extends TestCase
         $moduleAware = $this->moduleAware($contexts, $modules, $handler);
 
         try {
-            $fence->handle(fn(AuthorizedOperationContext $context) => $moduleAware->handle($context, $execution));
+            $this->runModuleAware($contexts, $fence, $moduleAware, $execution);
             self::fail('A disabled owning Module must stop the next batch.');
         } catch (TaskJobException $exception) {
             self::assertSame('TASK_PERMISSION_DENIED', $exception->problemCode);
@@ -252,7 +254,7 @@ final class A1WorkerAuthorizationLifecycleTest extends TestCase
         $moduleAware = $this->moduleAware($contexts, $modules, $handler);
 
         try {
-            $fence->handle(fn(AuthorizedOperationContext $context) => $moduleAware->handle($context, $execution));
+            $this->runModuleAware($contexts, $fence, $moduleAware, $execution);
             self::fail('The handler fixture must fail.');
         } catch (RuntimeException $exception) {
             self::assertSame('A1_HANDLER_FAILURE', $exception->getMessage());
@@ -288,7 +290,7 @@ final class A1WorkerAuthorizationLifecycleTest extends TestCase
         $moduleAware = $this->moduleAware($contexts, $modules, $handler);
 
         try {
-            $fence->handle(fn(AuthorizedOperationContext $context) => $moduleAware->handle($context, $execution));
+            $this->runModuleAware($contexts, $fence, $moduleAware, $execution);
             self::fail('Result delivery must reauthorize after the handler returns.');
         } catch (TaskJobException $exception) {
             self::assertSame('TASK_PERMISSION_DENIED', $exception->problemCode);
@@ -376,5 +378,17 @@ final class A1WorkerAuthorizationLifecycleTest extends TestCase
             'official.import-export',
             $handler,
         );
+    }
+
+    private function runModuleAware(
+        ExecutionContextStore $contexts,
+        JobAuthorizationFence $fence,
+        ModuleAwareTaskHandler $handler,
+        JobExecution $execution,
+    ): void {
+        $contexts->run(new SystemExecutionContext(
+            new TenantSystemContext($execution->tenantId, 'task-worker', 'async.worker', $execution->jobKey),
+            new SystemExecutionMetadata($execution->jobKey, $execution->attemptNumber, $handler->key()),
+        ), fn() => $fence->handle(fn(AuthorizedOperationContext $context) => $handler->handle($context, $execution)));
     }
 }

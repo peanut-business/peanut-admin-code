@@ -188,7 +188,12 @@
               }}</dd></div
             >
           </dl>
-          <div class="table-wrap">
+          <div
+            class="table-wrap"
+            tabindex="0"
+            role="region"
+            aria-label="健康检查表，可左右滚动查看全部列"
+          >
             <table>
               <thead
                 ><tr
@@ -294,7 +299,13 @@
             title="暂无运维任务"
             message="本次会话尚未提交备份或恢复验证任务。"
           />
-          <div v-else class="table-wrap">
+          <div
+            v-else
+            class="table-wrap"
+            tabindex="0"
+            role="region"
+            aria-label="运维任务表，可左右滚动查看全部列"
+          >
             <table>
               <thead
                 ><tr
@@ -443,7 +454,13 @@
               title="暂无运行事件"
               message="没有符合当前筛选条件的结构化事件。"
             />
-            <div v-else class="table-wrap">
+            <div
+              v-else
+              class="table-wrap"
+              tabindex="0"
+              role="region"
+              aria-label="运行事件表，可左右滚动查看全部列"
+            >
               <table>
                 <thead
                   ><tr
@@ -559,6 +576,10 @@
     width: 100%;
     overflow-x: auto;
     margin-bottom: 16px;
+  }
+  .table-wrap:focus-visible {
+    outline: 2px solid var(--el-color-primary);
+    outline-offset: -2px;
   }
   table {
     width: 100%;

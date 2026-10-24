@@ -1,11 +1,11 @@
 {
     "schema_version": 1,
     "key": "fixture.workflow-business",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "346aa901b01a3954d032fe9056f6837a351f82095fde9f9831cd0599d623b55a"
+        "sha256": "13e735606d6597333f3e3e3ce8b529e08754582a339fa0ed94ad9a668b6a2a78"
     },
     "trust": {
         "channel": "bundled",
@@ -39,12 +39,12 @@
             "modules": [
                 {
                     "key": "fixture.workflow-business",
-                    "version": "1.0.7",
+                    "version": "1.0.8",
                     "kernel_constraint": "^1.0",
                     "dependencies": [
                         {
                             "module_key": "official.identity",
-                            "version": "4.0.0-rc.28"
+                            "version": "4.0.0-rc.29"
                         },
                         {
                             "module_key": "official.task",
@@ -52,11 +52,11 @@
                         },
                         {
                             "module_key": "peanut.artifact-revision",
-                            "version": "4.0.0-rc.28"
+                            "version": "4.0.0-rc.29"
                         },
                         {
                             "module_key": "peanut.workflow",
-                            "version": "4.0.0-rc.31"
+                            "version": "4.0.0-rc.32"
                         }
                     ],
                     "permissions": {
