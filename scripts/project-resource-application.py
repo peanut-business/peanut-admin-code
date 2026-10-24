@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+from datetime import datetime
 import hashlib
 import ipaddress
 import json
@@ -19,6 +20,7 @@ import shlex
 import stat
 import subprocess
 import sys
+import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -1728,6 +1730,38 @@ ALLOCATION_PROTOCOL = "peanut.schema-allocation.v1"
 ALLOCATION_STATE = "schema-allocation.json"
 ALLOCATION_PRIVILEGES = {"SELECT", "INSERT", "UPDATE", "DELETE", "CREATE", "ALTER", "DROP",
                          "INDEX", "REFERENCES", "CREATE TEMPORARY TABLES"}
+ALLOCATION_GLOBAL_COLUMNS = {
+    "SELECT": "Select_priv", "INSERT": "Insert_priv", "UPDATE": "Update_priv", "DELETE": "Delete_priv",
+    "CREATE": "Create_priv", "ALTER": "Alter_priv", "DROP": "Drop_priv", "INDEX": "Index_priv",
+    "REFERENCES": "References_priv", "CREATE TEMPORARY TABLES": "Create_tmp_table_priv",
+    "CREATE USER": "Create_user_priv", "GRANT OPTION": "Grant_priv",
+}
+
+
+def allocation_admin_authority(result, op, databases):
+    # mysql.user is the direct global static privilege authority. SHOW GRANTS
+    # in MySQL8.4 deliberately expands ALL, and lists dynamic/PROXY separately.
+    need(result["uuid"] == op["server_uuid"] and result["version"] == op["version"]
+         and result["principal"] == "root@localhost" and result["mandatory_roles"] in ("", "NONE")
+         and result["partial_revokes"] in (0, 1)
+         and set(result["privileges"]) == set(ALLOCATION_GLOBAL_COLUMNS)
+         and all(value == "Y" for value in result["privileges"].values()),
+         "allocation required direct global privileges/grant option not proved")
+    restrictions = result["restrictions"]
+    need(restrictions is None or isinstance(restrictions, list), "allocation privilege restrictions unknown")
+    need(result["partial_revokes"] == 1 or not restrictions, "allocation partial-revoke state differs")
+    names = {database["database"] for database in databases}
+    for restriction in restrictions or []:
+        need(isinstance(restriction, dict) and set(restriction) == {"Database", "Privileges"}
+             and isinstance(restriction["Database"], str) and isinstance(restriction["Privileges"], list)
+             and all(isinstance(p, str) and re.fullmatch(r"[A-Z][A-Z ]*", p) for p in restriction["Privileges"]),
+             "allocation privilege restriction shape unknown")
+        denied = set(restriction["Privileges"])
+        # Global SELECT proves complete SCHEMATA/account visibility only when
+        # neither the target schemas nor the mysql grant tables restrict it.
+        need(not (restriction["Database"] in names and denied & ALLOCATION_PRIVILEGES)
+             and not (restriction["Database"] == "mysql" and "SELECT" in denied),
+             "allocation target privileges/metadata visibility partially revoked")
 
 
 def allocation_authority(operation_id):
@@ -1740,7 +1774,7 @@ def allocation_authority(operation_id):
                if r.get("stable_resource_id") == operation_id]
     need(len(matches) == 1, "allocation must be uniquely registered")
     op = matches[0]
-    need(set(op) == {"stable_resource_id", "protocol", "owner", "thread", "tool_source", "lease_gate",
+    need(set(op) - {"retry_of"} == {"stable_resource_id", "protocol", "owner", "thread", "tool_source", "lease_gate",
                      "database_resource_id", "endpoint_id", "server_uuid", "version", "account_host",
                      "credentials", "transport", "receipt_root", "php_executable", "max_seconds", "paired_operations"}
          and op["protocol"] == ALLOCATION_PROTOCOL, "allocation closed contract differs")
@@ -1810,6 +1844,8 @@ def allocation_authority(operation_id):
     need(root.parent == backup and root.name == operation_id, "allocation receipt root differs")
     php = canonical(op["php_executable"])
     need(php.name == "php" and php.is_file() and os.access(php, os.X_OK), "allocation native PHP unavailable")
+    if "retry_of" in op:
+        allocation_retry(op)
     return op, db, common, registry_sha
 
 
@@ -1820,7 +1856,8 @@ def allocation_pair(op):
               "transport", "php_executable", "max_seconds", "paired_operations")
     for item, database, common, digest in pair:
         need(all(item[key] == op[key] for key in shared) and common == pair[0][2] and digest == pair[0][3]
-             and database["lease_policy"] == pair[0][1]["lease_policy"], "allocation pair authority/physical service differs")
+             and database["lease_policy"] == pair[0][1]["lease_policy"]
+             and item.get("retry_of") == op.get("retry_of"), "allocation pair authority/physical service differs")
     for key in ("database_resource_id", "endpoint_id", "receipt_root"):
         need(len({item[key] for item, _, _, _ in pair}) == 2, "allocation pair targets are not distinct")
     need(len({database["database"] for _, database, _, _ in pair}) == 2, "allocation pair schemas are not distinct")
@@ -1828,10 +1865,13 @@ def allocation_pair(op):
 
 
 def allocation_resources(op, db, registry_sha):
-    pair = allocation_pair(op)
+    return allocation_pair_resources(op, allocation_pair(op), registry_sha)
+
+
+def allocation_pair_resources(op, pair, registry_sha):
     result = {"schema-allocation": {op["stable_resource_id"]},
               "schema-allocation-sha256": {sha(json.dumps([item for item, _, _, _ in pair], sort_keys=True).encode())},
-              "registry-sha256": {registry_sha}, "gate": {op["lease_gate"]}, "worktree": {str(ROOT)}}
+              "registry-sha256": {registry_sha}, "gate": {op["lease_gate"]}, "worktree": {op["tool_source"]["root"]}}
     for item, database, _, digest in pair:
         need(digest == registry_sha, "allocation pair registry drift")
         schema = database["lease_policy"]["physical_endpoint"] + "/" + database["database"]
@@ -1852,6 +1892,10 @@ def allocation_validate(metadata, resources):
          and metadata["candidate"] == op["tool_source"]["commit"]
          and metadata["candidate_repository"] == metadata["worktree"] == str(ROOT)
          and metadata["gate"] == op["lease_gate"], "allocation lease scope/source/actor differs")
+    if "retry_of" in op:
+        need(metadata["lease"] != allocation_retry(op)["lease"]
+             and not (canonical(op["receipt_root"]) / (metadata["lease"] + "-terminal.json")).exists(),
+             "retry cannot reuse a retired lease identity")
     return op, db, common
 
 
@@ -1893,6 +1937,318 @@ def allocation_write(path, value, create=False):
         os.close(fd)
 
 
+def allocation_retry(op):
+    binding = op["retry_of"]
+    need(isinstance(binding, dict) and set(binding) == {"path", "sha256"}, "allocation retry needs original terminal receipt")
+    path = canonical(binding["path"])
+    raw = regular(path, private=True)
+    receipt = json_unique(raw)
+    need(sha(raw) == binding["sha256"] and receipt["protocol"] == "peanut.schema-allocation-zero-mutation-terminal.v1"
+         and receipt["verdict"] == "ZERO_MUTATION_RECONCILED" and receipt["release_intent"] == "ORIGINAL_LOCKS_VERIFIED"
+         and receipt["original_journal"]["mutation_dispatched"] is False
+         and receipt["original_journal"]["status"] == "UNKNOWN", "allocation predecessor is not zero-mutation terminal")
+    old = [item for item in receipt["original_operations"] if item["stable_resource_id"] == op["stable_resource_id"]]
+    need(len(old) == 1 and {k:v for k,v in old[0].items() if k not in ("tool_source", "retry_of")}
+         == {k:v for k,v in op.items() if k not in ("tool_source", "retry_of")}, "allocation retry changed original task/targets")
+    common = canonical(op["tool_source"]["common_dir"])
+    _, project, _, _ = project_authority()
+    git(project, "merge-base", "--is-ancestor", receipt["review_commit"], "HEAD")
+    review_path = project / "resources/operations/schema-allocation" / (receipt["lease"] + "-terminal-review.json")
+    review_raw = git(project, "show", receipt["review_commit"] + ":" + str(review_path.relative_to(project)))
+    review = json_unique(review_raw)
+    need(receipt["review_path"] == str(review_path) and sha(review_raw) == receipt["review_sha256"]
+         and review["protocol"] == "peanut.schema-allocation-zero-mutation-review.v1"
+         and review["verdict"] == "RELEASE_ZERO_MUTATION" and review["owner"] == op["owner"]
+         and review["lease"] == receipt["lease"] and review["reviewer_thread"] not in (None, "", op["owner"])
+         and review["local_process_terminal"] is review["remote_process_terminal"] is review["zero_mutation_source_review"] is True
+         and review["reconciler_source"] == receipt["producer"]
+         and review["journal_sha256"] == receipt["journal_sha256"]
+         and review["metadata_sha256"] == receipt["metadata_sha256"]
+         and review["resources_sha256"] == receipt["resources_sha256"], "allocation terminal producer/review provenance differs")
+    producer = receipt["producer"]
+    need(producer == op["tool_source"], "allocation retry must use the independently reviewed terminal producer source")
+    for name, digest in producer["files"].items():
+        need(sha(git(common.parent, "show", producer["commit"] + ":" + name)) == digest,
+             "allocation terminal producer source differs")
+    git(project, "merge-base", "--is-ancestor", receipt["registry_commit"], receipt["review_commit"])
+    registry_raw = git(project, "show", receipt["registry_commit"] + ":resources/project-resources.json")
+    need(review["registry_commit"] == receipt["registry_commit"] and sha(registry_raw) == receipt["original_registry_sha256"],
+         "allocation terminal original registry differs")
+    original = json_unique(registry_raw)
+    original_ops = [next(item for item in original["resources"]["schema_allocations"] if item["stable_resource_id"] == identity)
+                    for identity in op["paired_operations"]]
+    need(original_ops == receipt["original_operations"], "allocation terminal original operations changed")
+    pair = [(item, next(db for db in original["resources"]["databases"] if db["stable_resource_id"] == item["database_resource_id"]),
+             common, receipt["original_registry_sha256"]) for item in original_ops]
+    rows = receipt["original_resources"]
+    need(sha(receipt["metadata_bytes"].encode()) == receipt["metadata_sha256"]
+         and sha(receipt["resources_bytes"].encode()) == receipt["resources_sha256"]
+         and rows == [line.split("\t") for line in receipt["resources_bytes"].splitlines()]
+         and resource_map(rows) == allocation_pair_resources(original_ops[0], pair, receipt["original_registry_sha256"]),
+         "allocation terminal original scope is incomplete")
+    need(not (common / "peanut-admin-resource-leases/leases" / receipt["lease"]).exists(),
+         "original allocation lease must be normally released before retry admission")
+    for _, kind, value in receipt["original_resources"]:
+        lock = common / "peanut-admin-resource-leases/resources" / sha((kind + "\t" + value).encode())
+        if lock.exists():
+            need(regular(lock / "lease").decode().strip() != receipt["lease"], "original allocation lock still retained")
+    journal_raw = regular(canonical(receipt["journal_path"]), private=True)
+    need(path == canonical(receipt["journal_path"]).parent / (receipt["lease"] + "-terminal.json")
+         and sha(journal_raw) == receipt["journal_sha256"] and json_unique(journal_raw) == receipt["original_journal"]
+         and receipt["original_journal"]["paired_operations"] == op["paired_operations"]
+         and receipt["original_journal"]["owner"] == op["owner"]
+         and receipt["original_journal"]["lease"] == receipt["lease"]
+         and set(receipt["original_journal"]["targets"]) == set(op["paired_operations"])
+         and all(value == dict(status="PREFLIGHT", mutation_dispatched=False) for value in receipt["original_journal"]["targets"].values()),
+         "original allocation failure journal changed")
+    return receipt
+
+
+def allocation_journal(op, lease_id):
+    if "retry_of" not in op:
+        return canonical(op["receipt_root"]) / ALLOCATION_STATE
+    predecessor = allocation_retry(op)
+    need(lease_id != predecessor["lease"], "allocation retry must use a new normally admitted lease")
+    return canonical(op["receipt_root"]) / ("schema-allocation-" + lease_id + ".json")
+
+
+def allocation_zero_terminal(lease_id, owner, *, release=False):
+    """Original-scope retirement only. Never SQL, renewal, a permit, or a retry."""
+    need(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", lease_id) is not None
+         and owner == os.environ.get("CODEX_THREAD_ID"), "allocation terminal requires the real original owner")
+    common = canonical(git(ROOT, "rev-parse", "--path-format=absolute", "--git-common-dir").decode().strip())
+    base = common / "peanut-admin-resource-leases"
+    need(regular(base / "mutex/pid").decode().strip() == str(os.getppid()), "allocation terminal requires native mutex")
+    directory = base / "leases" / lease_id
+    _, project, _, _ = project_authority()
+    review_path = project / "resources/operations/schema-allocation" / (lease_id + "-terminal-review.json")
+    review_raw = regular(review_path)
+    need(git(project, "show", "HEAD:" + str(review_path.relative_to(project))) == review_raw,
+         "allocation terminal review must be versioned by the lawful Project writer")
+    proof = json_unique(review_raw)
+    journal_path = canonical(proof["journal_path"])
+    terminal_path = journal_path.parent / (lease_id + "-terminal.json")
+    published = json_unique(regular(terminal_path, private=True)) if terminal_path.exists() else None
+    if published:
+        git(project, "merge-base", "--is-ancestor", published["review_commit"], "HEAD")
+        need(published["protocol"] == "peanut.schema-allocation-zero-mutation-terminal.v1"
+             and published["release_intent"] == "ORIGINAL_LOCKS_VERIFIED"
+             and git(project, "show", published["review_commit"] + ":" + str(review_path.relative_to(project))) == review_raw,
+             "allocation published release intent review provenance differs")
+    for child in (base / "leases").glob("*/metadata.tsv"):
+        if child.parent.name == lease_id:
+            continue
+        child_metadata = dict(table(child, 2))
+        need(child_metadata.get("parent_lease") != lease_id, "allocation still has an original retained child")
+    # A fully published release intent preserves original proof bytes, so a
+    # crash after normal lock/metadata cleanup never requires recreating them.
+    metadata_raw = regular(directory / "metadata.tsv") if (directory / "metadata.tsv").exists() else (published["metadata_bytes"].encode() if published else b"")
+    resources_raw = regular(directory / "resources.tsv") if (directory / "resources.tsv").exists() else (published["resources_bytes"].encode() if published else b"")
+    metadata_rows = [line.split("\t") for line in metadata_raw.decode().splitlines()]
+    rows = [line.split("\t") for line in resources_raw.decode().splitlines()]
+    need(len(metadata_rows) == 11 and all(len(row) == 2 for row in metadata_rows)
+         and len({row[0] for row in metadata_rows}) == 11 and rows and all(len(row) == 3 for row in rows),
+         "allocation original proof bytes missing or malformed")
+    metadata, resources = dict(metadata_rows), resource_map(rows)
+    need(proof["protocol"] == "peanut.schema-allocation-zero-mutation-review.v1"
+         and proof["verdict"] == "RELEASE_ZERO_MUTATION" and proof["lease"] == lease_id
+         and proof["owner"] == owner and proof["reviewer_thread"] not in (None, "", owner)
+         and proof["local_process_terminal"] is True and proof["remote_process_terminal"] is True
+         and proof["zero_mutation_source_review"] is True
+         and proof["metadata_sha256"] == sha(metadata_raw) and proof["resources_sha256"] == sha(resources_raw),
+         "allocation independent terminal review differs from original proof")
+    commit = proof["registry_commit"]
+    need(re.fullmatch(r"[0-9a-f]{40}", commit) is not None, "allocation original registry commit invalid")
+    git(project, "merge-base", "--is-ancestor", commit, "HEAD")
+    registry_raw = git(project, "show", commit + ":resources/project-resources.json")
+    registry_sha = sha(registry_raw)
+    need(resources.get("registry-sha256") == {registry_sha}
+         and git(project, "show", commit + ":repos.yaml") == git(project, "show", "HEAD:repos.yaml"),
+         "allocation original registry identity/mapping differs")
+    original = json_unique(registry_raw)
+    need(original.get("schema_version") == 1 and original.get("project_id") == "peanut-admin"
+         and original.get("authority", {}).get("role") == "maintainer", "original allocation registry authority differs")
+    operation_id = proof["operation"]
+    operations = [o for o in original["resources"]["schema_allocations"] if o["stable_resource_id"] == operation_id]
+    need(len(operations) == 1, "original allocation operation missing")
+    op = operations[0]
+    ids = op["paired_operations"]
+    need(len(ids) == 2 and ids == sorted(set(ids)) and operation_id == ids[0], "original allocation pair differs")
+    pair = []
+    for identity in ids:
+        ops = [o for o in original["resources"]["schema_allocations"] if o["stable_resource_id"] == identity]
+        need(len(ops) == 1 and ops[0]["paired_operations"] == ids
+             and ops[0]["tool_source"] == op["tool_source"], "original allocation pair source differs")
+        databases = [d for d in original["resources"]["databases"] if d["stable_resource_id"] == ops[0]["database_resource_id"]]
+        need(len(databases) == 1, "original allocation database missing")
+        pair.append((ops[0], databases[0], common, registry_sha))
+    need(resources == allocation_pair_resources(op, pair, registry_sha)
+         and metadata["owner"] == metadata["thread"] == op["owner"] == op["thread"] == owner
+         and metadata["lease"] == lease_id and metadata["status"] == "ACTIVE" and metadata["parent_lease"] == ""
+         and metadata["gate"] == op["lease_gate"] and int(metadata["created_at"]) < int(metadata["expires_at"]),
+         "allocation original identity/resource closure differs")
+    for source, root in ((op["tool_source"], canonical(op["tool_source"]["root"])), (proof["reconciler_source"], ROOT)):
+        need(source["common_dir"] == str(common) and source["root"] == str(root)
+             and git(root, "rev-parse", "HEAD").decode().strip() == source["commit"]
+             and not git(root, "status", "--porcelain=v1", "--untracked-files=all")
+             and set(source["files"]) == {"scripts/project-resource-lease", "scripts/project-resource-application.py", "scripts/project-resource-registry"},
+             "allocation terminal fixed source differs")
+        for name, digest in source["files"].items():
+            raw = regular(root / name)
+            need(sha(raw) == digest and git(root, "show", source["commit"] + ":" + name) == raw,
+                 "allocation terminal fixed source bytes differ")
+    need(metadata["candidate"] == op["tool_source"]["commit"]
+         and metadata["candidate_repository"] == metadata["worktree"] == op["tool_source"]["root"], "original allocation candidate differs")
+    shared = {"resource-id", "endpoint", "gate", "mysql-db", "database", "mysql-access", "registry-sha256"}
+    expected_locks = {digest:(kind, value) for digest, kind, value in rows if kind not in shared}
+    actual_locks = set()
+    for lock in (base / "resources").iterdir():
+        if not (lock / "lease").exists() or regular(lock / "lease").decode().strip() != lease_id:
+            continue
+        kind, value = (regular(lock / field).decode().strip() for field in ("type", "value"))
+        need(lock.name == sha((kind + "\t" + value).encode()), "allocation terminal lock digest differs")
+        actual_locks.add((kind, value))
+    need(actual_locks <= set(expected_locks.values()) and (published is not None or actual_locks == set(expected_locks.values())),
+         "allocation original holder has missing/extra locks without a release intent")
+    lock_directories = published["lock_directories"] if published else {}
+    if published:
+        need(set(lock_directories) == set(expected_locks), "allocation release intent lock set differs")
+    remaining_locks = []
+    for digest, (kind, value) in expected_locks.items():
+        lock = base / "resources" / digest
+        if not lock.exists():
+            need(published is not None, "original allocation lock absent before release intent")
+            continue
+        # After the lease directory is gone, newer owners may normally acquire
+        # these keys. Replaying this completed reconciliation never touches them.
+        if not directory.exists() and (lock / "lease").exists() and regular(lock / "lease").decode().strip() != lease_id:
+            continue
+        info = lock.lstat()
+        need(stat.S_ISDIR(info.st_mode) and lock.resolve() == lock and not lock.is_symlink(), "original allocation lock path differs")
+        identity = dict(device=info.st_dev, inode=info.st_ino)
+        if published:
+            need(lock_directories[digest] == identity, "original allocation lock directory replaced")
+        else:
+            lock_directories[digest] = identity
+        need({p.name for p in lock.iterdir()} <= {"lease", "type", "value"}, "unexpected original allocation lock content")
+        for field, expected in (("lease", lease_id), ("type", kind), ("value", value)):
+            if (lock / field).exists():
+                need(regular(lock / field).decode().strip() == expected, "original allocation holder differs")
+            else:
+                need(published is not None, "original allocation lock proof incomplete before release intent")
+        remaining_locks.append(lock)
+    # Original names/receipt roots remain fixed; retries use their own producer-named journal.
+    expected_journal = canonical(op["receipt_root"]) / ("schema-allocation-" + lease_id + ".json" if "retry_of" in op else ALLOCATION_STATE)
+    need(journal_path == expected_journal, "allocation original journal path differs")
+    journal_raw = regular(journal_path, private=True)
+    journal = json_unique(journal_raw)
+    marker_path = directory / ALLOCATION_STATE
+    marker = dict(journal=str(journal_path), owner=owner)
+    if marker_path.exists():
+        marker_raw = regular(marker_path, private=True)
+        need(sha(marker_raw) == proof["marker_sha256"] and json_unique(marker_raw) == marker, "allocation original marker differs")
+    else:
+        need(published is not None, "allocation original marker absent without terminal receipt")
+    need(sha(journal_raw) == proof["journal_sha256"] and journal["protocol"] == ALLOCATION_PROTOCOL
+         and journal["owner"] == owner and journal["lease"] == lease_id and journal["operation"] == operation_id
+         and journal["registry_sha256"] == registry_sha and journal["paired_operations"] == ids
+         and journal["status"] == "UNKNOWN" and journal["mutation_dispatched"] is False
+         and "pair_precheck" not in journal and "current_operation" not in journal
+         and set(journal["targets"]) == set(ids)
+         and all(value == dict(status="PREFLIGHT", mutation_dispatched=False) for value in journal["targets"].values())
+         and isinstance(journal["process_birth"], str) and journal["process_birth"]
+         and not original_process_alive(journal["pid"], journal["process_birth"]),
+         "allocation is not the exact terminated zero-mutation preflight failure")
+    def evidence(binding):
+        raw = regular(canonical(binding["path"]))
+        need(sha(raw) == binding["sha256"], "allocation terminal evidence bytes changed")
+        return json_unique(raw)
+    observation = evidence(proof["readonly_evidence"])
+    execution = evidence(proof["execution_evidence"])
+    counts = observation["identity_and_target_counts"]
+    need(observation["owner"] == execution["owner"] == owner and observation["lease"] == execution["lease"] == lease_id
+         and observation["native_verify_exit"] == observation["query_exit"] == 0
+         and counts["uuid"] == op["server_uuid"] and counts["version"] == op["version"]
+         and counts["principal"] == "root@localhost" and counts["mandatory_roles"] in ("", "NONE")
+         and counts["partial_revokes"] in (0, 1)
+         and datetime.fromisoformat(observation["observed_at_utc"]).timestamp() >= journal["failed_at"]
+         and proof["reviewed_at"] >= datetime.fromisoformat(observation["observed_at_utc"]).timestamp()
+         and proof["reviewed_at"] <= time.time()
+         and execution["journal_sha256"] == sha(journal_raw) and execution["journal_status"] == "UNKNOWN"
+         and execution["mutation_dispatched"] is False and execution["tool_source"] == metadata["candidate"]
+         and execution["authority_sha256"] == registry_sha
+         and datetime.fromisoformat(execution["finished_at_utc"]).timestamp() >= journal["failed_at"],
+         "allocation independent read/terminal evidence differs")
+    need(set(proof["readonly_counts"]) == set(ids), "allocation absence evidence misses a target")
+    for item, database, _, _ in pair:
+        fields = proof["readonly_counts"][item["stable_resource_id"]]
+        need(set(fields) == {"database", "username", "schema_count_key", "account_count_key"}
+             and fields["database"] == database["database"] and fields["username"] == database["username"]
+             and type(counts[fields["schema_count_key"]]) is int and counts[fields["schema_count_key"]] == 0
+             and type(counts[fields["account_count_key"]]) is int and counts[fields["account_count_key"]] == 0,
+             "allocation exact schema/account absence not proved")
+    receipt = dict(protocol="peanut.schema-allocation-zero-mutation-terminal.v1", verdict="ZERO_MUTATION_RECONCILED",
+                   release_intent="ORIGINAL_LOCKS_VERIFIED", lock_directories=lock_directories,
+                   lease=lease_id, owner=owner, journal_path=str(journal_path), journal_sha256=sha(journal_raw),
+                   original_journal=journal, original_operations=[item for item, _, _, _ in pair],
+                   original_resources=rows, metadata_sha256=sha(metadata_raw), resources_sha256=sha(resources_raw),
+                   metadata_bytes=metadata_raw.decode(), resources_bytes=resources_raw.decode(),
+                   registry_commit=commit, original_registry_sha256=registry_sha,
+                   review_path=str(review_path), review_sha256=sha(review_raw),
+                   review_commit=published["review_commit"] if published else git(project, "rev-parse", "HEAD").decode().strip(),
+                   producer=proof["reconciler_source"])
+    if published:
+        need(published == receipt, "allocation terminal receipt changed; reconcile original evidence")
+    else:
+        # Under the already verified native mutex and original output lock,
+        # write/fsync a same-directory temporary, then atomically publish once.
+        fd, temporary = tempfile.mkstemp(prefix="." + terminal_path.name + "-", dir=terminal_path.parent)
+        try:
+            with os.fdopen(fd, "w") as stream:
+                stream.write(json.dumps(receipt, sort_keys=True) + "\n"); stream.flush(); os.fsync(stream.fileno())
+            need(not terminal_path.exists() and not terminal_path.is_symlink(), "allocation terminal output already exists")
+            os.rename(temporary, terminal_path)
+            fd = os.open(terminal_path.parent, os.O_RDONLY)
+            try:
+                os.fsync(fd)
+            finally:
+                os.close(fd)
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
+    if release:
+        # Only the exact original inodes recorded by the durable intent may be
+        # finished after interruption; never remove a replacement/new holder.
+        for lock in remaining_locks:
+            for field in ("lease", "type", "value"):
+                if (lock / field).exists():
+                    (lock / field).unlink()
+            lock.rmdir()
+        fd = os.open(base / "resources", os.O_RDONLY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+    if release and marker_path.exists():
+        marker_path.unlink()
+        fd = os.open(directory, os.O_RDONLY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+    if release and directory.exists():
+        for name in ("metadata.tsv", "resources.tsv"):
+            if (directory / name).exists():
+                (directory / name).unlink()
+        directory.rmdir()
+        fd = os.open(directory.parent, os.O_RDONLY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+    return terminal_path
+
+
 def allocation_execute(lease_id, owner):
     op, db, directory = allocation_lease(lease_id, owner)
     pair = allocation_pair(op)
@@ -1900,7 +2256,7 @@ def allocation_execute(lease_id, owner):
     root = canonical(op["receipt_root"])
     root.mkdir(mode=0o700, parents=True, exist_ok=True)
     need(root.stat().st_uid == os.getuid() and stat.S_IMODE(root.stat().st_mode) == 0o700, "allocation receipt custody differs")
-    journal = root / ALLOCATION_STATE
+    journal = allocation_journal(op, lease_id)
     marker = directory / ALLOCATION_STATE
     # The operation-wide O_EXCL journal survives lease release; a new lease cannot replay it.
     for item, _, _, _ in pair[1:]:
@@ -1912,6 +2268,8 @@ def allocation_execute(lease_id, owner):
                  targets={item["stable_resource_id"]: dict(status="PREFLIGHT", mutation_dispatched=False)
                           for item, _, _, _ in pair},
                  pid=os.getpid(), process_birth=process_birth(os.getpid()))
+    if "retry_of" in op:
+        value["retry_of"] = op["retry_of"]
     allocation_write(journal, value, create=True)
     allocation_write(marker, {"journal": str(journal), "owner": owner}, create=True)
     deadline = time.monotonic() + op["max_seconds"]
@@ -2019,10 +2377,12 @@ def allocation_execute(lease_id, owner):
              and before["principal"] == "root@localhost" and before["partial_revokes"] in (0, 1)
              and before["mandatory_roles"] in ("", "NONE"),
              "allocation live server/principal differs")
-        admin_grants = mysql("SHOW GRANTS FOR CURRENT_USER();\n").decode().splitlines()
-        need("GRANT ALL PRIVILEGES ON *.* TO `root`@`localhost` WITH GRANT OPTION" in admin_grants
-             and all(line.startswith("GRANT ") for line in admin_grants),
-             "allocation complete privileged visibility/authority not proved")
+        columns = ",".join("'" + privilege + "'," + column for privilege, column in ALLOCATION_GLOBAL_COLUMNS.items())
+        admin = json_unique(mysql("SELECT JSON_OBJECT(" + identity + ",'privileges',JSON_OBJECT(" + columns
+                                 + "),'restrictions',JSON_EXTRACT(User_attributes,'$.Restrictions')) "
+                                 "FROM mysql.user WHERE User='root' AND Host='localhost';\n"))
+        allocation_admin_authority(admin, op, [database for _, database, _, _ in pair])
+        value["admin_authority"] = admin
         value["before"] = before
         if any(before["targets"][item["stable_resource_id"]] != dict(schema_rows=0, accounts=0) for item, _, _, _ in pair):
             value["status"] = "EXISTING_RECONCILIATION_REQUIRED"
@@ -2047,12 +2407,36 @@ def allocation_execute(lease_id, owner):
 
 def allocation_release(lease_id, owner):
     # Terminal-only cleanup; no SQL, registry rebind, retry or UNKNOWN override.
+    need(isinstance(lease_id, str) and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", lease_id), "invalid allocation release lease")
+    common = canonical(git(ROOT, "rev-parse", "--path-format=absolute", "--git-common-dir").decode().strip())
+    directory = common / "peanut-admin-resource-leases/leases" / lease_id
+    if not (directory / "metadata.tsv").exists():
+        allocation_zero_terminal(lease_id, owner, release=True)
+        return
+    metadata = dict(table(directory / "metadata.tsv", 2))
+    marker = directory / ALLOCATION_STATE
+    if metadata["candidate_repository"] != str(ROOT):
+        allocation_zero_terminal(lease_id, owner, release=True)
+        return
+    if marker.exists():
+        reference = json_unique(regular(marker, private=True))
+        if (canonical(reference["journal"]).parent / (lease_id + "-terminal.json")).exists():
+            allocation_zero_terminal(lease_id, owner, release=True)
+            return
+    else:
+        project = project_authority()[1]
+        review = project / "resources/operations/schema-allocation" / (lease_id + "-terminal-review.json")
+        if review.exists():
+            reference = json_unique(regular(review))
+            if (canonical(reference["journal_path"]).parent / (lease_id + "-terminal.json")).exists():
+                allocation_zero_terminal(lease_id, owner, release=True)
+                return
     op, _, directory = allocation_lease(lease_id, owner, live=False)
     marker = directory / ALLOCATION_STATE
     if not marker.exists():
         return
     reference = json_unique(regular(marker, private=True))
-    need(reference["journal"] == str(canonical(op["receipt_root"]) / ALLOCATION_STATE), "allocation journal path differs")
+    need(reference["journal"] == str(allocation_journal(op, lease_id)), "allocation journal path differs")
     journal = json_unique(regular(canonical(reference["journal"]), private=True))
     need(reference["owner"] == journal["owner"] == owner and journal["lease"] == lease_id
          and journal["operation"] == op["stable_resource_id"]
@@ -2073,7 +2457,7 @@ def allocation_release(lease_id, owner):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("allocation-resolve", "allocation-execute", "allocation-release", "resolve", "verify", "release-check", "execute", "consume", "recovery-admit", "recovery-info", "source-window-enter", "source-window-close", "retained-reserve", "retained-verify", "retained-renew", "parent-verify"))
+    parser.add_argument("action", choices=("allocation-resolve", "allocation-execute", "allocation-release", "allocation-reconcile", "resolve", "verify", "release-check", "execute", "consume", "recovery-admit", "recovery-info", "source-window-enter", "source-window-close", "retained-reserve", "retained-verify", "retained-renew", "parent-verify"))
     parser.add_argument("--operation")
     parser.add_argument("--lease")
     parser.add_argument("--owner")
@@ -2098,6 +2482,8 @@ def main():
             print(json.dumps({k: sorted(v) for k, v in allocation_resources(op, db, digest).items()}))
         elif args.action == "allocation-execute":
             allocation_execute(args.lease, args.owner)
+        elif args.action == "allocation-reconcile":
+            print(json.dumps({"verdict": "ZERO_MUTATION_RECONCILED", "receipt": str(allocation_zero_terminal(args.lease, args.owner, release=True))}))
         else:
             allocation_release(args.lease, args.owner)
         return

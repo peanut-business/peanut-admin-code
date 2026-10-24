@@ -28,6 +28,7 @@ Usage:
   scripts/project-resource-lease application-recovery-admit --lease <run-id> --owner <owner>
   scripts/project-resource-lease claim <normal identity options> --schema-allocation <registered-id>
   scripts/project-resource-lease schema-allocate --lease <run-id> --owner <owner>
+  scripts/project-resource-lease schema-allocation-reconcile --lease <original-run-id> --owner <original-owner>
   # Cross-Git APP claims additionally use --application-operation <registered-id> and no --resource arguments.
   scripts/project-resource-lease show --lease <run-id> [--verify-locks]
   scripts/project-resource-lease prune-expired [--lease <run-id>]
@@ -1844,6 +1845,7 @@ PY
     [[ -n "$expected_owner" ]] || die 'schema allocation requires explicit owner release'
     python3 "$REPO_ROOT/scripts/project-resource-application.py" allocation-release --lease "$lease_id" --owner "$expected_owner" \
       || die 'schema allocation RUNNING/UNKNOWN retains its exact resource boundary'
+    [[ -d "$lease_dir" ]] || return 0
   fi
   if [[ -e "$lease_dir/application-operation.json" || -L "$lease_dir/application-operation.json" ]]; then
     [[ -n "$expected_owner" ]] || die 'application execution requires explicit owner release after terminal reconciliation'
@@ -1882,6 +1884,21 @@ case "$COMMAND" in
       || die 'application-mt012 requires only lease/owner; source and scope come from registration'
     python3 "$REPO_ROOT/scripts/project-resource-mt012.py" run --lease "$2" --owner "$4" \
       || die 'MT012 failed or UNKNOWN; retain native lease and exact operation state'
+    ;;
+  schema-allocation-reconcile)
+    [[ "${1:-}" == --lease && -n "${2:-}" && "${3:-}" == --owner && -n "${4:-}" && $# -eq 4 ]] \
+      || die 'schema-allocation-reconcile requires only original --lease and --owner'
+    LEASE_ID="$2"; OWNER="$4"
+    validate_lease_id "$LEASE_ID"; validate_owner "$OWNER"
+    acquire_mutex
+    if custody_prepared_protects "$LEASE_ID"; then die 'unresolved custody protects allocation terminal cleanup'; fi
+    CHILD_LEASE="$(active_child_lease "$LEASE_ID" || true)"
+    [[ -z "$CHILD_LEASE" ]] || die "allocation still has active child lease $CHILD_LEASE"
+    python3 "$REPO_ROOT/scripts/project-resource-application.py" allocation-reconcile --lease "$LEASE_ID" --owner "$OWNER" \
+      || die 'allocation zero-mutation terminal reconciliation rejected; original boundary retained'
+    if [[ -d "$LEASES_DIR/$LEASE_ID" ]]; then release_lease_locked "$LEASE_ID" "$OWNER"; fi
+    release_mutex
+    printf 'reconciled_and_released=%s\n' "$LEASE_ID"
     ;;
   schema-allocate)
     [[ "${1:-}" == --lease && -n "${2:-}" && "${3:-}" == --owner && -n "${4:-}" && $# -eq 4 ]] \
