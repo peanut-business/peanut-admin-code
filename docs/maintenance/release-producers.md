@@ -50,7 +50,11 @@
 
 资格回执必须绑定最终候选 commit/tree 和 `peanut.template-release-inputs.v1` 的四附件长度/摘要、Edition、Workflow、生产输入回执、工具及内部清单摘要；旧 installer/upgrade 回执不会自动通过。默认稳定模式只接受 `X.Y.Z` 和注释 tag `vX.Y.Z`，通过原 candidate、tag、qualification、main 和固定依赖门禁后才以 `--latest` 发布。显式 `--prerelease` 只接受严格预发行 SemVer，且不标 latest。本地只用 `--prepare-only`；正式写入限定本仓 main 的 `scaffold-release.yml` CI。
 
-该workflow已有独立publish job：只读取指定同仓、固定source、成功完成的原workflow run中唯一未过期的`scaffold-full-qualification-<source>`，核独立提供的transport SHA、原八组summary/group/plan/checkpoint和main合并凭据，再让唯一发布器复制原四附件并核SHA，发布阶段不重打模板。模板candidate job只证明标准构建重建及CLI创建，full8明确NOT_RUN，其artifact不能改名冒充完整资格。`p0e-runtime-qualification transport`可封存真实完整结果；当前仍缺获准的完整transport Actions ingress/upload生产步骤，因此仅有publish消费者不代表这条正式链已可运行。不得伪造成功summary或外部run补齐Gate；历史固定候选与证据保持原字节。是否已经公开发行以实际渠道核验为准。
+该workflow已有独立publish job：只读取指定同仓、固定source、成功完成的原workflow run中唯一未过期的`scaffold-full-qualification-<source>`，核独立提供的transport SHA、原八组summary/group/plan/checkpoint和main合并凭据，再让唯一发布器复制原四附件并核SHA，发布阶段不重打模板。模板candidate job只证明标准构建重建及CLI创建，full8明确NOT_RUN，其artifact不能改名冒充完整资格。`p0e-runtime-qualification transport`可封存真实完整结果，独立ingress job接收已获准存在于同仓GitHub Release的原transport附件数字ID；不接收URL，不创建Release或上传Release附件。
+
+导入时显式选择`publish=false`、`qualification_ingress_asset_id=<既有附件数字ID>`、`qualification_source_commit=<本次workflow精确提交>`及独立记录的`qualification_transport_sha256`、`main_integration_sha256`。入口只读固定同仓GitHub API，核附件ID、严格文件名`scaffold-full-qualification.tgz`、uploaded状态、大小上限和GitHub摘要，然后将原件交给与publish共用的`verify-qualified-release-transport.py`：核transport SHA、安全路径/普通成员、精确source/tree、真实八组plan/checkpoint/summary/receipt摘要与lifecycle绑定、原cleanup、main-integration SHA，并复用原生模板检查确认四附件及生产输入仍等于原资格。单独自报passed不能取得资格；它不执行或补做full8，也不加载transport中的脚本。成功后只把同一transport原字节上传为本run的`scaffold-full-qualification-<source>`，由现有publish可信run认证消费。
+
+既有Release附件的准入和对外上传仍需各自授权；此只读导入接口不授权创建临时Release、借其他run token、增加runner/凭据/新存储或任意URL下载。没有合法原full8包及受控附件时，导入成功路径、后续正式发行与真实端到端均NOT_RUN，不能以接口已接线代替实际运行。不得伪造summary、tag或合并凭据；历史固定候选与证据保持原字节。是否已经公开发行以实际渠道核验为准。
 
 产品 tag、qualification、候选锁、归档及 Edition 制品始终精确绑定已资格确认的源码提交 S 和源码树。实际发布要求实时远端 `main` 与本地 `origin/main` 一致，且等于 S；或等于同仓真实已合并 `dev` → `main` PR 的正常合并提交 M。后一种情况只接受精确父序列 `[B,S]`、B 为 S 祖先、M 与 S 同树，以及 GitHub API 的唯一 PR、merged 状态、提交、仓库和分支身份全部一致。开放 PR 的测试合并、squash/rebase、后续同树提交、未知或歧义 API 证据均拒绝，M 不被重新标为已资格确认的源码。
 
