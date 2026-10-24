@@ -1320,33 +1320,175 @@ final class PeanutServerUpdatePlan
         return $actual;
     }
 
-    private static function partialApplicationFailure(string $root, array $progress): array
+    public static function partialApplicationFailure(string $root, array $progress): array
     {
         $started = is_string($progress['started_at'] ?? null) ? strtotime($progress['started_at']) : false;
         $logs = glob($root . '/runtime/log/*/*.log') ?: [];
         if ($started === false || count($logs) > 32) { throw new RuntimeException('partial original failure is unknown'); }
-        $found = [];
+        $found = []; $sentinels = [];
         foreach ($logs as $path) {
             $relative = substr($path, strlen($root) + 1); self::assertOrdinaryParents($root, $relative);
             if (filesize($path) > 4194304) { throw new RuntimeException('partial original log is too large'); }
             $bytes = self::regularBytes($path, 'partial original log');
             foreach (explode("\n", $bytes) as $line) {
                 $offset = strpos($line, '{');
-                if ($offset === false || !str_contains($line, 'installation_failure')) { continue; }
+                if ($offset === false || (!str_contains($line, 'installation_failure') && !str_contains($line, 'installation_notification_fresh_admission_rejected'))) { continue; }
                 $event = json_decode(substr($line, $offset), true, 32, JSON_THROW_ON_ERROR);
                 $at = preg_match('/\A\[([^\]]+)\]/', $line, $match) === 1 ? strtotime($match[1]) : false;
-                if (($event['event'] ?? null) !== 'installation_failure' || $at === false || $at < $started) { continue; }
+                if ($at === false || $at < $started) { continue; }
+                if (($event['event'] ?? null) === 'installation_notification_fresh_admission_rejected') {
+                    $predicates = $event['predicates'] ?? [];
+                    $expected = ['wrong_module' => false, 'context_invalid' => false, 'master_changed' => false,
+                        'transaction_active' => false, 'current_present' => true];
+                    $names = ['wrong_module', 'context_invalid', 'master_changed', 'transaction_active',
+                        'current_present', 'current_status_invalid', 'current_identity_changed', 'receipt_exists', 'receipt_linked',
+                        'manifest_changed', 'file_keys_changed', 'planned_count_changed', 'planned_keys_changed',
+                        'file_absent', 'file_linked', 'file_hash_changed', 'namespace_disposition_invalid',
+                        'namespace_is_applied', 'namespace_resolution_invalid', 'adoption_not_missing', 'adoption_not_execute',
+                        'ledger_present', 'ledger_count_invalid', 'ledger_key_changed', 'ledger_checksum_changed',
+                        'ledger_status_invalid', 'ledger_resolution_invalid', 'ledger_provenance_present', 'ledger_error_present',
+                        'ledger_finish_absent', 'target_table_present', 'parent_keys_returned', 'catalog_rejected',
+                        'constraint_present', 'rollback_failed', 'post_master_changed', 'post_transaction_active',
+                        'post_context_changed', 'post_admission_changed', 'post_target_changed'];
+                    $actualNames = array_keys($predicates); sort($actualNames, SORT_STRING); sort($names, SORT_STRING);
+                    if ($actualNames !== $names) { throw new RuntimeException('partial Notification sentinel predicate schema changed'); }
+                    if (($event['source'] ?? null) !== 'PluginLifecycleService::notificationFreshPredecessorAdmission'
+                        || ($event['stage'] ?? null) !== 'current_installation' || ($event['reason'] ?? null) !== 'THROWN'
+                        || !is_array($predicates) || count($predicates) !== 40) { throw new RuntimeException('partial Notification sentinel diagnostic changed'); }
+                    foreach ($predicates as $key => $value) {
+                        if ($value !== ($expected[$key] ?? 'skipped')) { throw new RuntimeException('partial Notification sentinel predicates changed'); }
+                    }
+                    foreach ($expected as $key => $value) {
+                        if (!array_key_exists($key, $predicates) || $predicates[$key] !== $value) { throw new RuntimeException('partial Notification sentinel predicates incomplete'); }
+                    }
+                    $sentinels[] = ['path' => $relative, 'at' => $at]; continue;
+                }
+                if (($event['event'] ?? null) !== 'installation_failure') { continue; }
                 $chain = array_filter($event['exception_chain'] ?? [], static fn(array $row): bool =>
                     ($row['class'] ?? null) === 'app\\platform\\exception\\plugin\\PluginLifecycleException'
-                    && ($row['path'] ?? null) === 'server/app/platform/services/plugin/PluginLifecycleService.php' && ($row['line'] ?? null) === 362);
+                    && ($row['path'] ?? null) === 'server/app/platform/services/plugin/PluginLifecycleService.php' && in_array($row['line'] ?? null, [362, 440], true));
                 if (($event['stage'] ?? null) !== 'install_modules' || ($event['error_code'] ?? null) !== 'INSTALL_EXECUTION_FAILED' || count($chain) !== 1) {
                     throw new RuntimeException('partial failure is not the fixed File adoption frontier');
                 }
-                $found[] = ['path' => $relative, 'sha256' => hash('sha256', $bytes)];
+                $record = ['path' => $relative, 'sha256' => hash('sha256', $bytes)];
+                $cause = array_values($chain)[0];
+                if ($cause['line'] === 440) {
+                    if (($event['cause_code'] ?? null) !== 'MODULE_MIGRATION_ADOPTION_REJECTED'
+                        || $sentinels !== [['path' => $relative, 'at' => $at]]) { throw new RuntimeException('partial Notification sentinel failure pair changed'); }
+                    $record['frontier'] = 'notification-fresh-sentinel';
+                } elseif ($sentinels !== []) { throw new RuntimeException('partial File failure has unrelated sentinel'); }
+                $found[] = $record;
             }
         }
         if (count($found) !== 1) { throw new RuntimeException('partial original failure is not unique'); }
         return $found[0];
+    }
+
+    /** Exact fresh Notification frontier; pure source readers also work before APP autoload. */
+    public static function notificationPartialHistory(string $root, PDO $pdo): array
+    {
+        $keys = ['official.identity', 'official.content-tools', 'official.file', 'official.rich-text', 'official.document',
+            'official.article', 'official.collaboration', 'official.task', 'official.settings', 'official.integration',
+            'official.import-export', 'official.member'];
+        $sorted = $keys; sort($sorted, SORT_STRING);
+        $plugins = $pdo->query('SELECT * FROM pa_plugin_installation ORDER BY plugin_key')->fetchAll(PDO::FETCH_ASSOC);
+        $modules = $pdo->query('SELECT * FROM pa_module_installation ORDER BY module_key')->fetchAll(PDO::FETCH_ASSOC);
+        $ledger = $pdo->query('SELECT * FROM pa_module_migration ORDER BY module_key,migration_key')->fetchAll(PDO::FETCH_ASSOC);
+        if (array_column($plugins, 'plugin_key') !== $sorted || array_column($modules, 'module_key') !== $sorted) {
+            throw new RuntimeException('partial Notification completed module frontier changed');
+        }
+        $lockPath = $root . '/plugins.lock'; $lock = self::jsonFile($lockPath, 'partial backend plugin lock');
+        if (($lock['protocol'] ?? null) !== 'peanut.server-plugin-lock.v1') { throw new RuntimeException('partial Notification requires backend plugin projection'); }
+        $entries = [];
+        foreach ($lock['plugins'] ?? [] as $entry) {
+            if (isset($entries[$entry['key']])) { throw new RuntimeException('partial Notification duplicate plugin'); }
+            $entries[$entry['key']] = $entry;
+        }
+        $canonical = static function (mixed $value) use (&$canonical): mixed {
+            if (is_object($value)) {
+                $properties = get_object_vars($value); ksort($properties, SORT_STRING); $object = new stdClass();
+                foreach ($properties as $key => $item) { $object->{$key} = $canonical($item); } return $object;
+            }
+            if (is_array($value)) { return array_map($canonical, $value); } return $value;
+        };
+        $json = static fn(mixed $value): string => json_encode($canonical($value), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+        $path = static function (string $relative) use ($root): string {
+            if ($relative === '' || str_starts_with($relative, '/') || in_array('..', explode('/', $relative), true)) { throw new RuntimeException('partial Notification source path invalid'); }
+            $file = $root . '/' . $relative;
+            if (realpath($file) !== $file || is_link($file) || !str_starts_with($file, $root . '/')) { throw new RuntimeException('partial Notification source path changed'); }
+            return $file;
+        };
+        $expected = []; $owned = []; $sourceFiles = [$lockPath => hash_file('sha256', $lockPath)];
+        foreach ($sorted as $position => $key) {
+            $entry = $entries[$key] ?? null; $plugin = $plugins[$position]; $module = $modules[$position];
+            if (!is_array($entry) || count($entry['modules'] ?? []) !== 1 || ($entry['modules'][0]['key'] ?? null) !== $key) { throw new RuntimeException('partial Notification plugin composition changed'); }
+            $pluginManifest = $path($entry['manifest']);
+            if (hash_file('sha256', $pluginManifest) !== $entry['manifest_sha256']) { throw new RuntimeException('partial Notification plugin manifest changed'); }
+            $sourceFiles[$pluginManifest] = $entry['manifest_sha256'];
+            if ($plugin['status'] !== 'active' || $plugin['last_error_code'] !== null || $plugin['installed_version'] !== $entry['version']
+                || $plugin['source'] !== $entry['source']['type'] . ':' . $entry['source']['reference']
+                || $plugin['artifact_sha256'] !== $entry['source']['sha256'] || $plugin['lock_digest'] !== $sourceFiles[$lockPath]) {
+                throw new RuntimeException('partial Notification completed plugin identity changed');
+            }
+            foreach (['composer', 'npm', 'frontend'] as $field) {
+                if ($json(json_decode($plugin[$field . '_identity_json'], false, 512, JSON_THROW_ON_ERROR)) !== $json(json_decode(json_encode($entry[$field], JSON_THROW_ON_ERROR), false, 512, JSON_THROW_ON_ERROR))) {
+                    throw new RuntimeException('partial Notification completed plugin package identity changed');
+                }
+            }
+            $moduleRoot = $path($entry['modules'][0]['root']); $manifestPath = $path($entry['modules'][0]['root'] . '/module.json');
+            $manifest = self::jsonFile($manifestPath, 'partial completed module');
+            $manifestDigest = hash('sha256', $json(json_decode(self::regularBytes($manifestPath, 'partial completed module'), false, 512, JSON_THROW_ON_ERROR)));
+            if (($manifest['key'] ?? null) !== $key || $module['status'] !== 'active' || $module['last_error_code'] !== null
+                || $module['installed_version'] !== $manifest['version'] || $module['manifest_digest'] !== $manifestDigest
+                || (int) $module['manifest_schema_version'] !== $manifest['schema_version']) { throw new RuntimeException('partial Notification completed module identity changed'); }
+            $sourceFiles[$manifestPath] = hash_file('sha256', $manifestPath);
+            foreach ($manifest['database']['owned_tables'] ?? [] as $table) { $owned[$table] = true; }
+            $directories = [$moduleRoot . '/database/migrations'];
+            if (is_string($manifest['backend']['migrations'] ?? null)) { $directories[] = $path($entry['modules'][0]['root'] . '/' . $manifest['backend']['migrations']); }
+            foreach (array_unique($directories) as $directory) {
+                foreach (glob($directory . '/*.sql') ?: [] as $file) {
+                    $body = self::regularBytes($file, 'partial completed migration'); $sha = hash('sha256', $body); $sourceFiles[$file] = $sha;
+                    if (str_contains($body, 'peanut-admin-adopts')) { continue; }
+                    $expected[$key . ':' . basename($file, '.sql')] = ['module' => $key, 'sha256' => $sha, 'version' => $manifest['version']];
+                }
+            }
+        }
+        $actual = []; $adopted = 0;
+        foreach ($ledger as $row) {
+            $migration = $expected[$row['migration_key']] ?? null;
+            if ($migration === null || $row['module_key'] !== $migration['module'] || $row['checksum'] !== $migration['sha256']
+                || $row['module_version'] !== $migration['version'] || $row['status'] !== 'applied'
+                || $row['error_code'] !== null || !is_string($row['finished_at'])) {
+                throw new RuntimeException('partial Notification completed migration history changed');
+            }
+            if ($row['resolution_kind'] === 'adopted') {
+                // Candidate shape only. Host must complete the original native File
+                // reconcilePlan/assertAdopted proof in this same read-only snapshot.
+                if ($row['migration_key'] !== 'official.file:20260823-unify-storage-service'
+                    || $row['module_key'] !== 'official.file' || !is_string($row['provenance_json'])) {
+                    throw new RuntimeException('partial Notification unexpected adoption');
+                }
+                $proof = json_decode($row['provenance_json'], true, 64, JSON_THROW_ON_ERROR);
+                if (($proof['protocol'] ?? null) !== 'peanut.module-migration-adoption.v1'
+                    || ($proof['declaration']['migration_key'] ?? null) !== $row['migration_key']
+                    || ($proof['declaration']['sha256'] ?? null) !== $row['checksum']) { throw new RuntimeException('partial Notification adoption candidate changed'); }
+                ++$adopted;
+            } elseif ($row['resolution_kind'] !== 'executed' || $row['provenance_json'] !== null) {
+                throw new RuntimeException('partial Notification completed resolution changed');
+            }
+            $actual[] = $row['migration_key'];
+        }
+        if (count($ledger) !== 38 || $adopted !== 1) { throw new RuntimeException('partial Notification resolution frontier changed'); }
+        $expectedKeys = array_keys($expected); sort($expectedKeys, SORT_STRING); sort($actual, SORT_STRING);
+        if ($actual !== $expectedKeys) { throw new RuntimeException('partial Notification completed migration history incomplete'); }
+        foreach (['pa_notification_template', 'pa_notification_message', 'pa_notification_attachment', 'pa_notification_outbox',
+            'pa_sms_rate_bucket', 'pa_notification_event', 'pa_notification_task_actor'] as $table) {
+            $query = $pdo->prepare('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');
+            $query->execute([$table]); $present = $query->fetchAll(PDO::FETCH_COLUMN); $query->closeCursor();
+            if ($present !== []) { throw new RuntimeException('partial Notification target object already exists'); }
+        }
+        ksort($sourceFiles, SORT_STRING); $ownedTables = array_keys($owned); sort($ownedTables, SORT_STRING);
+        return ['ledger' => $ledger, 'plugins' => $plugins, 'modules' => $modules, 'source_files' => $sourceFiles, 'owned_tables' => $ownedTables];
     }
 
     private static function protectApplicationDeployment(string $root): void
