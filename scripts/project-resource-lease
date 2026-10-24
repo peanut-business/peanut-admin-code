@@ -1895,7 +1895,7 @@ case "$COMMAND" in
     CHILD_LEASE="$(active_child_lease "$LEASE_ID" || true)"
     [[ -z "$CHILD_LEASE" ]] || die "allocation still has active child lease $CHILD_LEASE"
     python3 "$REPO_ROOT/scripts/project-resource-application.py" allocation-reconcile --lease "$LEASE_ID" --owner "$OWNER" \
-      || die 'allocation zero-mutation terminal reconciliation rejected; original boundary retained'
+      || die 'allocation terminal reconciliation rejected; original boundary retained'
     if [[ -d "$LEASES_DIR/$LEASE_ID" ]]; then release_lease_locked "$LEASE_ID" "$OWNER"; fi
     release_mutex
     printf 'reconciled_and_released=%s\n' "$LEASE_ID"

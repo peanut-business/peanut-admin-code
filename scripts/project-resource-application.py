@@ -2012,7 +2012,82 @@ def allocation_journal(op, lease_id):
     return canonical(op["receipt_root"]) / ("schema-allocation-" + lease_id + ".json")
 
 
-def allocation_zero_terminal(lease_id, owner, *, release=False):
+def allocation_grant_privileges(grants, item, database, partial_revokes):
+    name, user, host = database["database"], database["username"], item["account_host"]
+    scope = name if partial_revokes else name.replace("_", "\\_")
+    actual = set()
+    for grant in grants:
+        match = re.fullmatch(r"GRANT (.+) ON (.+) TO (.+)", grant)
+        need(match is not None and "WITH GRANT OPTION" not in grant
+             and match[3] == "`" + user + "`@`" + host + "`", "allocation grant afterimage differs")
+        if match[1] == "USAGE" and match[2] == "*.*":
+            continue
+        need(match[2] in ("`" + scope + "`.*", "`" + name + "`.*"), "allocation grants exceed exact schema")
+        actual.update(match[1].split(", "))
+    need(actual == ALLOCATION_PRIVILEGES, "allocation effective direct privileges differ")
+    return actual
+
+
+def allocation_completed_afterimages(proof, journal, pair, observation, evidence):
+    """Adopt only proven completed writes; never issue SQL or a retry permit."""
+    op = pair[0][0]
+    ids = op["paired_operations"]
+    precheck = journal["pair_precheck"]
+    need(journal["mutation_dispatched"] is True and journal["current_operation"] in ids
+         and journal["last_native"]["exit_code"] == 0 and journal["last_native"]["mysql_error_codes"] == []
+         and precheck["lease"] == journal["lease"] and precheck["registry_sha256"] == journal["registry_sha256"]
+         and precheck["server_uuid"] == op["server_uuid"] and precheck["version"] == op["version"]
+         and precheck["targets"] == {identity: dict(schema_rows=0, accounts=0) for identity in ids}
+         and set(journal["targets"]) == set(ids)
+         and all(target["mutation_dispatched"] is True and target["status"] in ("COMPLETED", "UNKNOWN")
+                 and precheck["observed_at"] <= target["mutation_started_at"] <= journal["failed_at"]
+                 for target in journal["targets"].values()), "allocation is not a dispatched pair with complete preimage")
+    allocation_admin_authority(journal["admin_authority"], op, [database for _, database, _, _ in pair])
+    need(set(proof["completion_evidence"]) == set(ids), "allocation completion evidence misses a target")
+    adopted = {}
+    for item, database, _, _ in pair:
+        identity = item["stable_resource_id"]
+        target = journal["targets"][identity]
+        binding = proof["completion_evidence"][identity]
+        if binding == {"source": "original-journal"}:
+            need(target["status"] == "COMPLETED" and target["completed_at"] <= journal["failed_at"],
+                 "allocation original target was not completed")
+            after, privileges, login = target["after"], target["exact_privileges"], target["login"]
+        else:
+            need(set(binding) == {"path", "sha256"}, "allocation external completion binding differs")
+            observed = evidence(binding)
+            need(observed["lease"] == journal["lease"]
+                 and observed["original_journal_sha256"] == proof["journal_sha256"]
+                 and observed["native_verify_exit"] == observed["read_only_root_exit"] == observed["ordinary_ST_login_exit"] == 0
+                 and observed["journal_unchanged"] is True and observed["no_SQL_DDL_or_account_changes"] is True
+                 and journal["failed_at"] <= datetime.fromisoformat(observed["at_utc"]).timestamp() <= proof["reviewed_at"],
+                 "allocation independent completion identity/time differs")
+            after, privileges, login = observed["after"], observed["exact_privileges"], observed["ordinary_login"]
+            # Reuse the allocator's actual direct-grant contract, not an evidence boolean.
+            need(allocation_grant_privileges(observed["grants"], item, database, after["partial_revokes"]) == set(privileges),
+                 "allocation independent direct grants differ")
+        need(after["uuid"] == op["server_uuid"] and after["version"] == op["version"]
+             and after["principal"] == "root@localhost" and after["mandatory_roles"] in ("", "NONE")
+             and after["partial_revokes"] == 0
+             and type(after["schema_rows"]) is int and after["schema_rows"] == 1
+             and type(after["accounts"]) is int and after["accounts"] == 1
+             and all(type(after[key]) is int and after[key] == 0 for key in ("objects", "triggers", "routines", "events"))
+             and len(privileges) == len(ALLOCATION_PRIVILEGES) and set(privileges) == ALLOCATION_PRIVILEGES,
+             "allocation successful empty-schema/privilege afterimage not proved")
+        client = login.get("client_identity")
+        need(isinstance(client, str) and client.startswith(database["username"] + "@")
+             and len(client) > len(database["username"]) + 1
+             and login == dict(database=database["database"], principal=database["username"] + "@" + item["account_host"],
+                               client_identity=client, uuid=op["server_uuid"], version=op["version"]),
+             "allocation completed ordinary login identity differs")
+        adopted[identity] = dict(status="COMPLETED", after=after, exact_privileges=privileges, login=login,
+                                 evidence=binding)
+    need(observation["original_journal_sha256"] == proof["journal_sha256"]
+         and observation["original_journal_unchanged"] is True, "allocation completion observation changed original journal")
+    return adopted
+
+
+def allocation_terminal(lease_id, owner, *, release=False):
     """Original-scope retirement only. Never SQL, renewal, a permit, or a retry."""
     need(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", lease_id) is not None
          and owner == os.environ.get("CODEX_THREAD_ID"), "allocation terminal requires the real original owner")
@@ -2026,12 +2101,15 @@ def allocation_zero_terminal(lease_id, owner, *, release=False):
     need(git(project, "show", "HEAD:" + str(review_path.relative_to(project))) == review_raw,
          "allocation terminal review must be versioned by the lawful Project writer")
     proof = json_unique(review_raw)
+    completed = proof.get("protocol") == ALLOCATION_PROTOCOL and proof.get("verdict") == "ADOPT_COMPLETED_PAIR"
+    terminal_protocol = ALLOCATION_PROTOCOL if completed else "peanut.schema-allocation-zero-mutation-terminal.v1"
+    terminal_verdict = "PAIR_COMPLETION_ADOPTED" if completed else "ZERO_MUTATION_RECONCILED"
     journal_path = canonical(proof["journal_path"])
     terminal_path = journal_path.parent / (lease_id + "-terminal.json")
     published = json_unique(regular(terminal_path, private=True)) if terminal_path.exists() else None
     if published:
         git(project, "merge-base", "--is-ancestor", published["review_commit"], "HEAD")
-        need(published["protocol"] == "peanut.schema-allocation-zero-mutation-terminal.v1"
+        need(published["protocol"] == terminal_protocol and published["verdict"] == terminal_verdict
              and published["release_intent"] == "ORIGINAL_LOCKS_VERIFIED"
              and git(project, "show", published["review_commit"] + ":" + str(review_path.relative_to(project))) == review_raw,
              "allocation published release intent review provenance differs")
@@ -2050,11 +2128,11 @@ def allocation_zero_terminal(lease_id, owner, *, release=False):
          and len({row[0] for row in metadata_rows}) == 11 and rows and all(len(row) == 3 for row in rows),
          "allocation original proof bytes missing or malformed")
     metadata, resources = dict(metadata_rows), resource_map(rows)
-    need(proof["protocol"] == "peanut.schema-allocation-zero-mutation-review.v1"
-         and proof["verdict"] == "RELEASE_ZERO_MUTATION" and proof["lease"] == lease_id
+    need((completed or (proof["protocol"] == "peanut.schema-allocation-zero-mutation-review.v1"
+                        and proof["verdict"] == "RELEASE_ZERO_MUTATION")) and proof["lease"] == lease_id
          and proof["owner"] == owner and proof["reviewer_thread"] not in (None, "", owner)
          and proof["local_process_terminal"] is True and proof["remote_process_terminal"] is True
-         and proof["zero_mutation_source_review"] is True
+         and proof["completed_afterimages_source_review" if completed else "zero_mutation_source_review"] is True
          and proof["metadata_sha256"] == sha(metadata_raw) and proof["resources_sha256"] == sha(resources_raw),
          "allocation independent terminal review differs from original proof")
     commit = proof["registry_commit"]
@@ -2152,30 +2230,32 @@ def allocation_zero_terminal(lease_id, owner, *, release=False):
     need(sha(journal_raw) == proof["journal_sha256"] and journal["protocol"] == ALLOCATION_PROTOCOL
          and journal["owner"] == owner and journal["lease"] == lease_id and journal["operation"] == operation_id
          and journal["registry_sha256"] == registry_sha and journal["paired_operations"] == ids
-         and journal["status"] == "UNKNOWN" and journal["mutation_dispatched"] is False
-         and "pair_precheck" not in journal and "current_operation" not in journal
-         and set(journal["targets"]) == set(ids)
-         and all(value == dict(status="PREFLIGHT", mutation_dispatched=False) for value in journal["targets"].values())
+         and journal["status"] == "UNKNOWN"
+         and (completed or (journal["mutation_dispatched"] is False
+                            and "pair_precheck" not in journal and "current_operation" not in journal
+                            and set(journal["targets"]) == set(ids)
+                            and all(value == dict(status="PREFLIGHT", mutation_dispatched=False)
+                                    for value in journal["targets"].values())))
          and isinstance(journal["process_birth"], str) and journal["process_birth"]
          and not original_process_alive(journal["pid"], journal["process_birth"]),
-         "allocation is not the exact terminated zero-mutation preflight failure")
+         "allocation is not the exact terminated original failure")
     def evidence(binding):
         raw = regular(canonical(binding["path"]))
         need(sha(raw) == binding["sha256"], "allocation terminal evidence bytes changed")
         return json_unique(raw)
     observation = evidence(proof["readonly_evidence"])
     execution = evidence(proof["execution_evidence"])
-    counts = observation["identity_and_target_counts"]
+    counts = observation["actual" if completed else "identity_and_target_counts"]
     need(observation["owner"] == execution["owner"] == owner and observation["lease"] == execution["lease"] == lease_id
          and observation["native_verify_exit"] == observation["query_exit"] == 0
          and counts["uuid"] == op["server_uuid"] and counts["version"] == op["version"]
          and counts["principal"] == "root@localhost" and counts["mandatory_roles"] in ("", "NONE")
          and counts["partial_revokes"] in (0, 1)
-         and datetime.fromisoformat(observation["observed_at_utc"]).timestamp() >= journal["failed_at"]
-         and proof["reviewed_at"] >= datetime.fromisoformat(observation["observed_at_utc"]).timestamp()
+         and datetime.fromisoformat(observation["at_utc" if completed else "observed_at_utc"]).timestamp() >= journal["failed_at"]
+         and proof["reviewed_at"] >= datetime.fromisoformat(observation["at_utc" if completed else "observed_at_utc"]).timestamp()
          and proof["reviewed_at"] <= time.time()
          and execution["journal_sha256"] == sha(journal_raw) and execution["journal_status"] == "UNKNOWN"
-         and execution["mutation_dispatched"] is False and execution["tool_source"] == metadata["candidate"]
+         and execution["mutation_dispatched"] is completed and execution["tool_source"] == metadata["candidate"]
          and execution["authority_sha256"] == registry_sha
          and datetime.fromisoformat(execution["finished_at_utc"]).timestamp() >= journal["failed_at"],
          "allocation independent read/terminal evidence differs")
@@ -2184,10 +2264,11 @@ def allocation_zero_terminal(lease_id, owner, *, release=False):
         fields = proof["readonly_counts"][item["stable_resource_id"]]
         need(set(fields) == {"database", "username", "schema_count_key", "account_count_key"}
              and fields["database"] == database["database"] and fields["username"] == database["username"]
-             and type(counts[fields["schema_count_key"]]) is int and counts[fields["schema_count_key"]] == 0
-             and type(counts[fields["account_count_key"]]) is int and counts[fields["account_count_key"]] == 0,
-             "allocation exact schema/account absence not proved")
-    receipt = dict(protocol="peanut.schema-allocation-zero-mutation-terminal.v1", verdict="ZERO_MUTATION_RECONCILED",
+             and type(counts[fields["schema_count_key"]]) is int and counts[fields["schema_count_key"]] == int(completed)
+             and type(counts[fields["account_count_key"]]) is int and counts[fields["account_count_key"]] == int(completed),
+             "allocation exact schema/account counts not proved")
+    adopted = allocation_completed_afterimages(proof, journal, pair, observation, evidence) if completed else None
+    receipt = dict(protocol=terminal_protocol, verdict=terminal_verdict,
                    release_intent="ORIGINAL_LOCKS_VERIFIED", lock_directories=lock_directories,
                    lease=lease_id, owner=owner, journal_path=str(journal_path), journal_sha256=sha(journal_raw),
                    original_journal=journal, original_operations=[item for item, _, _, _ in pair],
@@ -2197,6 +2278,8 @@ def allocation_zero_terminal(lease_id, owner, *, release=False):
                    review_path=str(review_path), review_sha256=sha(review_raw),
                    review_commit=published["review_commit"] if published else git(project, "rev-parse", "HEAD").decode().strip(),
                    producer=proof["reconciler_source"])
+    if completed:
+        receipt["adopted_targets"] = adopted
     if published:
         need(published == receipt, "allocation terminal receipt changed; reconcile original evidence")
     else:
@@ -2332,16 +2415,7 @@ def allocation_execute(lease_id, owner):
              and after["schema_rows"] == after["accounts"] == 1
              and all(after[k] == 0 for k in ("objects", "triggers", "routines", "events")), "allocation empty afterimage differs")
         grants = mysql("SHOW GRANTS FOR '" + user + "'@'" + host + "';\n").decode().splitlines()
-        actual = set()
-        for grant in grants:
-            m = re.fullmatch(r"GRANT (.+) ON (.+) TO (.+)", grant)
-            need(m is not None and "WITH GRANT OPTION" not in grant
-                 and m[3] == "`" + user + "`@`" + host + "`", "allocation grant afterimage differs")
-            if m[1] == "USAGE" and m[2] == "*.*":
-                continue
-            need(m[2] in ("`" + scope + "`.*", "`" + name + "`.*"), "allocation grants exceed exact schema")
-            actual.update(m[1].split(", "))
-        need(actual == ALLOCATION_PRIVILEGES, "allocation effective direct privileges differ")
+        actual = allocation_grant_privileges(grants, item, database, after["partial_revokes"])
         php = r'''$c=json_decode(stream_get_contents(STDIN),true,512,JSON_THROW_ON_ERROR);try{$p=new PDO('mysql:host='.$c['DB_HOST'].';port='.$c['DB_PORT'].';dbname='.$c['DB_NAME'].';charset=utf8mb4',$c['DB_USER'],$c['DB_PASS'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_TIMEOUT=>5]);echo $p->query("SELECT JSON_OBJECT('database',DATABASE(),'principal',CURRENT_USER(),'client_identity',USER(),'uuid',@@server_uuid,'version',VERSION())")->fetchColumn();}catch(Throwable $e){exit(1);}'''
         login = json_unique(run([op["php_executable"], "-r", php], json.dumps(credentials).encode()))
         client_identity = login.get("client_identity")
@@ -2411,17 +2485,17 @@ def allocation_release(lease_id, owner):
     common = canonical(git(ROOT, "rev-parse", "--path-format=absolute", "--git-common-dir").decode().strip())
     directory = common / "peanut-admin-resource-leases/leases" / lease_id
     if not (directory / "metadata.tsv").exists():
-        allocation_zero_terminal(lease_id, owner, release=True)
+        allocation_terminal(lease_id, owner, release=True)
         return
     metadata = dict(table(directory / "metadata.tsv", 2))
     marker = directory / ALLOCATION_STATE
     if metadata["candidate_repository"] != str(ROOT):
-        allocation_zero_terminal(lease_id, owner, release=True)
+        allocation_terminal(lease_id, owner, release=True)
         return
     if marker.exists():
         reference = json_unique(regular(marker, private=True))
         if (canonical(reference["journal"]).parent / (lease_id + "-terminal.json")).exists():
-            allocation_zero_terminal(lease_id, owner, release=True)
+            allocation_terminal(lease_id, owner, release=True)
             return
     else:
         project = project_authority()[1]
@@ -2429,7 +2503,7 @@ def allocation_release(lease_id, owner):
         if review.exists():
             reference = json_unique(regular(review))
             if (canonical(reference["journal_path"]).parent / (lease_id + "-terminal.json")).exists():
-                allocation_zero_terminal(lease_id, owner, release=True)
+                allocation_terminal(lease_id, owner, release=True)
                 return
     op, _, directory = allocation_lease(lease_id, owner, live=False)
     marker = directory / ALLOCATION_STATE
@@ -2483,7 +2557,8 @@ def main():
         elif args.action == "allocation-execute":
             allocation_execute(args.lease, args.owner)
         elif args.action == "allocation-reconcile":
-            print(json.dumps({"verdict": "ZERO_MUTATION_RECONCILED", "receipt": str(allocation_zero_terminal(args.lease, args.owner, release=True))}))
+            path = allocation_terminal(args.lease, args.owner, release=True)
+            print(json.dumps({"verdict": json_unique(regular(path, private=True))["verdict"], "receipt": str(path)}))
         else:
             allocation_release(args.lease, args.owner)
         return

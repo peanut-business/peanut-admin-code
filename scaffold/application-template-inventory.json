@@ -3902,7 +3902,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9584b0fc9b46676e631bd5b3958c6f174735dee527a2a45c438d97653d16d7be"
+            "source_sha256": "0e3e4173e69f052613c95bc60111736e91aff0a808ae7becf6c34f356c98925a"
         },
         {
             "path": "scripts/project-resource-lease",
@@ -3916,7 +3916,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "12b12a6e0f73726f627c5e85b7b0c615ddc49012022b660228c89f29932d0ccf"
+            "source_sha256": "a682f1ae5f58c55fe363a7e8b0fb894f2e3961a3341c83541c74ad5840885cbb"
         },
         {
             "path": "scripts/project-resource-mt012.py",
