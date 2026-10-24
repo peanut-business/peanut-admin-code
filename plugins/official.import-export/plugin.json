@@ -1,11 +1,11 @@
 {
     "schema_version": 1,
     "key": "official.import-export",
-    "version": "1.0.17",
+    "version": "1.0.18",
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "8e55a39602d63faaa1eaeaecd5283ec2b268748c7308f9fead71255150590815"
+        "sha256": "7fe7535b1ac8ce7cfffd9bf750f20431aaf0febb67e4e4cc1d8d61cbfa177090"
     },
     "trust": {
         "channel": "bundled",
@@ -39,7 +39,7 @@
             "modules": [
                 {
                     "key": "official.import-export",
-                    "version": "1.0.17",
+                    "version": "1.0.18",
                     "kernel_constraint": "^1.0",
                     "dependencies": [
                         {
@@ -48,7 +48,7 @@
                         },
                         {
                             "module_key": "official.identity",
-                            "version": "4.0.0-rc.27"
+                            "version": "4.0.0-rc.28"
                         },
                         {
                             "module_key": "official.integration",

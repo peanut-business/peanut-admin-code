@@ -244,10 +244,20 @@ final class IdentitySchemaMigrationProof
             . ' FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$table]);
         if ($meta === []) { return null; }
         if (count($meta) !== 1 || $meta[0]['TABLE_TYPE'] !== 'BASE TABLE' || $meta[0]['ENGINE'] !== 'InnoDB') { self::fail('TABLE_UNSUPPORTED'); }
+        // Open the table before observing its current engine allocator, as in MySqlMetadataObservation.
+        $ddl = array_values(self::query($pdo, 'SHOW CREATE TABLE `' . $table . '`')[0])[1];
         $charset = self::query($pdo, 'SELECT CHARACTER_SET_NAME FROM information_schema.COLLATIONS WHERE COLLATION_NAME=?', [$meta[0]['TABLE_COLLATION']]);
         if (count($charset) !== 1) { self::fail('TABLE_COLLATION_UNKNOWN'); }
         $columns = self::query($pdo, 'SELECT COLUMN_NAME,ORDINAL_POSITION,COLUMN_TYPE,IS_NULLABLE,COLUMN_DEFAULT,EXTRA,CHARACTER_SET_NAME,'
             . 'COLLATION_NAME,COLUMN_COMMENT,GENERATION_EXPRESSION FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY ORDINAL_POSITION', [$table]);
+        $hasAllocator = false;
+        foreach ($columns as $column) { $hasAllocator = $hasAllocator || $column['EXTRA'] === 'auto_increment'; }
+        $counter = self::query($pdo, 'SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$table]);
+        if (count($counter) !== 1 || ($hasAllocator
+            ? !is_string($counter[0]['AUTO_INCREMENT']) || preg_match('/\A[1-9][0-9]*\z/D', $counter[0]['AUTO_INCREMENT']) !== 1
+            : $counter[0]['AUTO_INCREMENT'] !== null)) { self::fail('STATISTICS_UNAVAILABLE'); }
+        // Preserve the exact decimal value and original map position; unknown NULL is never coerced to 1.
+        $meta[0]['AUTO_INCREMENT'] = $counter[0]['AUTO_INCREMENT'];
         $indexes = [];
         foreach (self::query($pdo, 'SELECT INDEX_NAME,NON_UNIQUE,SEQ_IN_INDEX,COLUMN_NAME,COLLATION,SUB_PART,PACKED,INDEX_TYPE,COMMENT,INDEX_COMMENT,IS_VISIBLE,EXPRESSION'
             . ' FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY INDEX_NAME,SEQ_IN_INDEX', [$table]) as $part) { $indexes[$part['INDEX_NAME']][] = $part; }
@@ -259,7 +269,7 @@ final class IdentitySchemaMigrationProof
             . ' WHERE k.TABLE_SCHEMA=DATABASE() AND k.TABLE_NAME=? AND k.REFERENCED_TABLE_NAME IS NOT NULL ORDER BY k.CONSTRAINT_NAME,k.ORDINAL_POSITION', [$table]);
         return ['table' => $meta[0], 'charset' => $charset[0]['CHARACTER_SET_NAME'], 'columns' => array_column($columns, null, 'COLUMN_NAME'),
             'indexes' => $indexes, 'checks' => array_column($checks, null, 'CONSTRAINT_NAME'), 'foreign_keys' => $foreign,
-            'ddl' => array_values(self::query($pdo, 'SHOW CREATE TABLE `' . $table . '`')[0])[1]];
+            'ddl' => $ddl];
     }
 
     private static function ledger(PDO $pdo, array $stage): array
