@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace app\command;
 
 use app\platform\exception\plugin\PluginLifecycleException;
+use app\platform\exception\plugin\PluginPackageException;
+use app\platform\composition\plugin\ModuleDefinitionRegistryFactory;
 use app\platform\infrastructure\plugin\PluginLockResolver;
+use app\platform\validation\plugin\ModulePackagePreflight;
 use app\platform\validation\plugin\PluginReleaseCompositionGuard;
 use app\common\execution\ModuleContextualCommand;
 use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
@@ -120,8 +123,7 @@ final class PluginReconcile extends ModuleContextualCommand
                 $selection = $releaseLocked
                     ? $this->releasePluginSelection($resolver->all(), $officialKeys)
                     : ['reconcile' => $officialKeys, 'preserved_disabled' => []];
-                $keys = $selection['reconcile'];
-                sort($keys, SORT_STRING);
+                $keys = $this->dependencyOrderedPlugins($resolver, $selection['reconcile'], $config);
                 if ($keys === [] && !$releaseLocked) {
                     throw new PluginLifecycleException(
                         'OFFICIAL_PLUGIN_SET_EMPTY',
@@ -180,7 +182,8 @@ final class PluginReconcile extends ModuleContextualCommand
             $lockPath = str_starts_with($lock, '/') ? $lock : $server . '/' . $lock;
             $currentLock = file_exists($current . '/.peanut/release-identity.json')
                 || is_link($current . '/.peanut/release-identity.json') ? $current . '/plugins.lock' : $current . '/../plugins.lock';
-            $locked = (new PluginLockResolver($server, $lockPath))->all();
+            $resolver = new PluginLockResolver($server, $lockPath);
+            $locked = $resolver->all();
             $currentLocked = (new PluginLockResolver($current, $currentLock))->all();
             $report['target_server_root'] = $server;
             $report['current_server_root'] = $current;
@@ -189,6 +192,9 @@ final class PluginReconcile extends ModuleContextualCommand
             (new PluginReleaseCompositionGuard($server, $config, $this->moduleCatalogs()))->compareLocked($currentLocked, $locked);
             $official = array_values(array_filter(array_keys($locked), static fn(string $key): bool => str_starts_with($key, 'official.')));
             $selection = $this->releasePluginSelection($locked, $official);
+            // Validate the same execution graph before approving any release
+            // writes. The report's selection remains canonical key order.
+            $this->dependencyOrderedPlugins($resolver, $selection['reconcile'], $config);
             $keys = array_merge($selection['reconcile'], $selection['preserved_disabled']);
             sort($keys, SORT_STRING);
             $report['selected_package_keys'] = $keys;
@@ -252,6 +258,63 @@ final class PluginReconcile extends ModuleContextualCommand
             return $items;
         };
         return (string) json_encode($normalize($value), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Project the verified Module graph onto atomic Plugin lifecycle owners.
+     * Do not activate an unselected/disabled required dependency implicitly.
+     *
+     * @param list<string> $keys
+     * @param array<string,mixed> $config
+     * @return list<string>
+     */
+    private function dependencyOrderedPlugins(PluginLockResolver $resolver, array $keys, array $config): array
+    {
+        $server = dirname(__DIR__, 2);
+        $locked = $resolver->all();
+        // The existing Kernel compiler validates Module dependency versions,
+        // missing declarations and cycles against the fixed locked sources.
+        $registry = (new ModuleDefinitionRegistryFactory($server))->fromPluginLock($resolver, $config, false);
+        $owners = [];
+        foreach ($locked as $pluginKey => $plugin) {
+            foreach ($plugin->moduleRoots as $moduleKey => $_root) {
+                if (isset($owners[$moduleKey])) {
+                    throw new PluginLifecycleException('PLUGIN_MODULE_CONFLICT', 'Module lifecycle owner is ambiguous.');
+                }
+                $owners[$moduleKey] = $pluginKey;
+            }
+        }
+        $selected = array_fill_keys($keys, true);
+        $packages = [];
+        foreach ($keys as $key) {
+            if (!isset($locked[$key])) {
+                throw new PluginLifecycleException('PLUGIN_LOCK_INVALID', 'Selected lifecycle package is not locked.');
+            }
+            $dependencies = [];
+            foreach ($locked[$key]->moduleRoots as $moduleKey => $_root) {
+                $manifest = $registry->requireManifest($moduleKey)->data;
+                $required = $manifest['dependencies'] ?? [];
+                $optional = array_filter($manifest['optional_dependencies'] ?? [],
+                    static fn(array $edge): bool => isset($selected[$owners[$edge['module_key']] ?? '']));
+                foreach ([...$required, ...$optional] as $edge) {
+                    $owner = $owners[$edge['module_key']] ?? null;
+                    if (!is_string($owner)) {
+                        throw new PluginLifecycleException('MODULE_PACKAGE_DEPENDENCY_MISSING', 'Module dependency has no locked lifecycle owner.');
+                    }
+                    if ($owner !== $key) {
+                        // Module versions were checked above; the package graph
+                        // only orders these exact immutable lifecycle owners.
+                        $dependencies[$owner] = ['module_key' => $owner, 'version' => $locked[$owner]->version];
+                    }
+                }
+            }
+            $packages[$key] = ['version' => $locked[$key]->version, 'dependencies' => array_values($dependencies)];
+        }
+        try {
+            return (new ModulePackagePreflight($server))->dependencyOrder($packages, []);
+        } catch (PluginPackageException $exception) {
+            throw new PluginLifecycleException($exception->errorCode, $exception->getMessage());
+        }
     }
 
     /**
