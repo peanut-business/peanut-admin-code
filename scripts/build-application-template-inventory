@@ -171,7 +171,7 @@ function excluded(string $path): bool
             'scripts/test-core-upgrade-public-entry-gate',
             'scripts/check-product-capability-ledger',
             'scripts/check-release-consistency', 'scripts/generate-release-legal.mjs', 'scripts/publish-github-release',
-            'scripts/release-template-artifacts.mjs', 'scripts/release-asset-verification.mjs',
+            'scripts/release-template-artifacts.mjs', 'scripts/release-asset-verification.mjs', 'scripts/verify-qualified-release-transport.py',
             'scripts/release-metadata-version.cjs', 'scripts/continue-product-release',
             'scripts/tests/continue_product_release_test.py',
             'scripts/tests/publish_github_release_channel_test.py', 'scripts/tests/release-template-artifacts-test.mjs',

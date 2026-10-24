@@ -5138,16 +5138,15 @@
         {
             "path": "scripts/verify-qualified-release-transport.py",
             "target": "scripts/verify-qualified-release-transport.py",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
-            ],
-            "source_sha256": "720b6b4c4f872cfded98ca5bde865b1eabc5b79c69fafe178452aeb26eaf9a9e"
+            ]
         },
         {
             "path": "scripts/workflow-authorized-fixture.py",
