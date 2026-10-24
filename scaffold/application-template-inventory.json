@@ -2497,7 +2497,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a0a46f4959b3e2205fbf3b97f9247c81a278e8d33b839842ed276ce9e1c1d756"
+            "source_sha256": "c2d3e1a114ae0ab0d16f9658713f1c6038c727f05502849ced0ebe03520360b2"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2620,7 +2620,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3158e116a18353e3c8e1e98ed51db1ab5399435e533cd3dc2c4a96d53e4ee0dc"
+            "source_sha256": "2ff03f89c7748da39ec638fc43d7c8e138c045edc910e0eae03fc6ac10b9593c"
         },
         {
             "path": "plugins/official.identity/plugin.json",
@@ -12668,7 +12668,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c22dfa6c807bf574578ff0c40ce186709cd0c14cd3738b942e9b0849b10ec151"
+            "source_sha256": "2f718dea4a93e1910da2f2ca5c6c4b3718c2f215056ae4ecf7480e2f545f2600"
         },
         {
             "path": "server/app/modules/official/file/database/migrations/20260823-unify-storage-service.sql",
@@ -12850,7 +12850,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3f81d088ee1ea58729ea4e9dd89bdc74988f293c2fcd97c4ee19d9d4dfb5c65e"
+            "source_sha256": "e78cbd510d0fc0bdc8c6094fd1dc53a3ea25d812481dc07ec8c0d3f66907bd0f"
         },
         {
             "path": "server/app/modules/official/file/resources/menus.json",
@@ -13102,7 +13102,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "eccc5bf484085d4be5804be640d75f267f58bf711b0a0b4262cdf89721d650e9"
+            "source_sha256": "6314f09c2f0cc61015e859da445566499491aeeb8ffe419da7c741ebfc750e94"
+        },
+        {
+            "path": "server/app/modules/official/file/src/Contract/FileMigrationPreservationFailure.php",
+            "target": "server/app/modules/official/file/src/Contract/FileMigrationPreservationFailure.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "2e9c1f92adddc3ce7c716e72e2fc8f777a1720d2293bab2c504e43423f2f3ca9"
         },
         {
             "path": "server/app/modules/official/file/src/Contract/FileReferenceCommands.php",
@@ -27419,7 +27433,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4919cccd411b6fafeb9f670c6554e939828db29cf6e1591f92b3f8017e7ad1bb"
+            "source_sha256": "ca6f30c6a3f5cd7347991cff4dc6df54877931f5c715b640230fc4decb86e563"
         },
         {
             "path": "server/database/kernel-migrations/20260716010101_create_pa_account.php",
