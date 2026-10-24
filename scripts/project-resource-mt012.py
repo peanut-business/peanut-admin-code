@@ -27,7 +27,7 @@ BASE = runpy.run_path(str(ROOT / 'scripts/project-resource-application.py'))
 need, regular, canonical, sha = (BASE[k] for k in ('need','regular','canonical','sha'))
 PROTOCOL = 'peanut.mt012-partial-firstinstall-operation.v1'
 OPERATION = 'mt012-firstinstall-01a16eb4-20261025'
-B_SHA = 'e2f262995e91c9cc930e0ff9c1d69e874e87167b4d13ede05e7903e937c91935'
+B_SHA = '0f5cff5d17b61d50cd44675ece09a409f7d7eb7ddba08f27c9f5bb22938055d9'
 STATE = 'application-operation.json'
 FILES = {'scripts/project-resource-lease','scripts/project-resource-application.py',
          'scripts/project-resource-registry','scripts/project-resource-mt012.py'}
@@ -261,7 +261,7 @@ def run(lease_id,owner):
         def reader(name,stream):
             while True:
                 data = stream.readline(2*1024*1024+1)
-                events.put((name,data))
+                events.put((name,data,time.time(),time.monotonic()))
                 if not data: break
         for name,stream in [('out',child.stdout),('err',child.stderr)]:
             threading.Thread(target=reader,args=(name,stream),daemon=True).start()
@@ -269,6 +269,7 @@ def run(lease_id,owner):
         rawlog = receipt/(lease_id+'-transport.jsonl')
         with rawlog.open('xb') as log:
             while len(ended)<2 or child.poll() is None:
+                loop_check_started=time.monotonic()
                 try:
                     # Never renew a released/expired lease or re-acquire a gap.
                     if child.poll() is None:
@@ -277,23 +278,33 @@ def run(lease_id,owner):
                 except BaseException as error:
                     failure=type(error).__name__;state['status']='UNKNOWN';durable(directory/STATE,state)
                     if not child.stdin.closed: child.stdin.close()
-                try: name,line=events.get(timeout=1)
+                loop_check_elapsed=time.monotonic()-loop_check_started
+                try: name,line,received_wall,received_monotonic=events.get(timeout=1)
                 except queue.Empty:
                     continue
                 if not line: ended.add(name);continue
                 need(len(line)<=2*1024*1024,'MT012 transport line exceeds bounded contract')
-                log.write(json.dumps({'stream':name,'base64':base64.b64encode(line).decode()}).encode()+b'\n');log.flush()
+                log.write(json.dumps({'stream':name,'base64':base64.b64encode(line).decode(),
+                                      'received_wall':received_wall,'received_monotonic':received_monotonic}).encode()+b'\n');log.flush()
                 if name!='out' or not line.startswith(b'MT012 '):continue
                 event=BASE['json_unique'](line[6:])
                 if failure is not None:continue
                 if event['kind']=='authority':
                     if child.poll() is not None:continue
+                    check_started=time.monotonic()
                     _,_,_,live_meta,_=check(lease_id,owner,running=True)
                     need(re.fullmatch('[0-9a-f]{64}',event['nonce']),'invalid MT012 authority nonce')
                     valid_for=min(5.0,int(live_meta['expires_at'])-time.time(),state['binding_expires_at']-time.time())
                     need(valid_for>0,'MT012 permission expired before reply')
-                    child.stdin.write(json.dumps(dict(kind='permit',nonce=event['nonce'],lease=lease_id,owner=owner,
-                                                    scope_sha256=state['scope_sha256'],expires_at=state['binding_expires_at'],valid_for=valid_for)).encode()+b'\n');child.stdin.flush()
+                    permit=dict(kind='permit',nonce=event['nonce'],lease=lease_id,owner=owner,
+                                scope_sha256=state['scope_sha256'],expires_at=state['binding_expires_at'],valid_for=valid_for)
+                    log.write(json.dumps(dict(stream='decision',nonce=event['nonce'],permit=permit,
+                                              received_wall=received_wall,received_monotonic=received_monotonic,
+                                              issued_wall=time.time(),issued_monotonic=time.monotonic(),
+                                              loop_check_seconds=loop_check_elapsed,
+                                              authority_check_seconds=time.monotonic()-check_started,
+                                              lease_expires_at=int(live_meta['expires_at']))).encode()+b'\n');log.flush()
+                    child.stdin.write(json.dumps(permit).encode()+b'\n');child.stdin.flush()
                 elif event['kind']=='approval':
                     # A fresh observation approval is a separate state acceptance,
                     # never authority. It is accepted only in this live native run.
