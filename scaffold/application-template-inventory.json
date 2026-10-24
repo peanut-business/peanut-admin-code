@@ -3902,7 +3902,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "46b5c6119974339800e52e54245a82bda5f7633da11197a07edc0a8a7303de3c"
+            "source_sha256": "1f253a6cdb1bd884293c7813a09b337311122c90889249ae9d64b03301cb01ff"
         },
         {
             "path": "scripts/project-resource-lease",
@@ -3916,7 +3916,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "26e6b02a0b72c4f5e4d8ddd09a86724556e9c14bf03afe0d27efaec4669385d9"
+            "source_sha256": "d511d46809e0bb944e17217656f28453573036217fe6f876520c45b932830896"
+        },
+        {
+            "path": "scripts/project-resource-mt012.py",
+            "target": "scripts/project-resource-mt012.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "9962c3ace608ffaada98cc1f9bac4206d5a07b1ad5123d3539e3256b1a817eb0"
         },
         {
             "path": "scripts/project-resource-mysql-metadata",
