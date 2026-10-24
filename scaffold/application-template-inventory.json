@@ -7163,7 +7163,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f38e7b9aa4e34a24109007402c68a73d8c70ac2ba49174996c28b8414a192762"
+            "source_sha256": "b0ad2bc176405a4e8a837fc9b53d0f8cdaff3749fe6f03ef941fc591f16dfa66"
         },
         {
             "path": "server/app/command/PluginReleaseComposition.php",

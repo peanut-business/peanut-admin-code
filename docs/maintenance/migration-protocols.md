@@ -69,6 +69,8 @@ File 新鲜安装的采用来源绑定同一 PDO 上真实 applied 的固定基�
 
 直接 CLI 的 `migrate:run preflight|apply|verify` 使用与 `schema:application` 相同的参数、实例上下文和准入；`migrate:status` 委托该入口的 preflight，不创建迁移表，输出真实 text key。源码开发需要原有 `--scope=source-development` 和实际 owner／thread／session／gate、维护及恢复证据；发行升级仍走安装实例的正式升级入口。官方通用的目录扫描执行、`--date`、rollback、breakpoint 和 seed 命令不注册，不能绕过生命周期保护。模块仍通过 `plugin:install`／`plugin:upgrade`／受控 `plugin:reconcile` 进入同一官方执行器，不由应用 schema 命令接管其业务语义。
 
+首次安装自动按已选择 Module 的依赖图执行；官方／发行批量 reconcile 将锁定 Module 依赖映射到所属 Plugin，使用同一原生依赖排序后执行整个包。只读发行计划先核同一执行图，报告的选择列表保留规范 key 顺序；缺失依赖、依赖环或未选择的必需依赖在执行前拒绝，已停用包不被隐式启用。Article 声明的 Document 依赖会先完成真实生命周期；Article 仍核 Document active、两条真实 applied stage 及应用前置证明。用户无需手工调整安装顺序，排序不代替任何账本或业务后态保护。
+
 源码开发 preflight 按真实 pending 顺序列出逐条来源、前置证明和后继依赖；缺少业务终态保全或完整恢复覆盖时，计划仍不授予执行权限。原仅覆盖模块迁移来源字段的两账本恢复合同不能用于包含菜单、权限、通知或认证数据变化的链。已迁移归属的 File 应用历史，只在原不可变 SQL、现行 canonical adoption 声明和原账本 key／checksum／applied 一致时识别为历史保留；不删除原行、不把它记入模块账本、不以历史记录代替当前 File 数据证明。未知额外历史继续拒绝。
 
 源码阶段账本按原有序链核对已完成前缀、当前 applying 与尚未执行项，逐条使用 SQL 真实发行身份；旧历史的完整原行保持不变。源码 apply 只接受现有九条固定 SQL 中由原生账本算出的有序 pending 和精确摘要；维护窗口、原生完整备份、恢复引用、baseline 与完整表并集必须一致，旧两账本证据不能扩大使用。维护证据必须证明 HTTP、worker 和其他受影响 writer 的实际排除，且窗口开始不晚于真实备份开始；租约或 JSON 的声明本身不证明外部进程已停止。完整原结构／数据 payload、原生终态 rc0、manifest 与 RESTORE 摘要仍逐次核对，不自动恢复。
