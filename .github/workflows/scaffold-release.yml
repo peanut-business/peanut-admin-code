@@ -45,7 +45,7 @@ concurrency:
 
 jobs:
   templates:
-    if: ${{ !inputs.publish && inputs.qualification_ingress_asset_id == '' }}
+    if: ${{ inputs.pack_only || (!inputs.publish && inputs.qualification_ingress_asset_id == '') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -57,7 +57,10 @@ jobs:
         if: inputs.pack_only
         env:
           EXPECTED_SOURCE: ${{ inputs.expected_source_commit }}
+          PUBLISH: ${{ inputs.publish }}
+          INGRESS_ASSET: ${{ inputs.qualification_ingress_asset_id }}
         run: |
+          [[ "$PUBLISH" == false && -z "$INGRESS_ASSET" ]]
           [[ "$EXPECTED_SOURCE" =~ ^[a-f0-9]{40}$ && "$EXPECTED_SOURCE" == "$GITHUB_SHA" ]]
           test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE"
       - name: Read the committed producer tool requirements
