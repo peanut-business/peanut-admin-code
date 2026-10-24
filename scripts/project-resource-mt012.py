@@ -27,7 +27,7 @@ BASE = runpy.run_path(str(ROOT / 'scripts/project-resource-application.py'))
 need, regular, canonical, sha = (BASE[k] for k in ('need','regular','canonical','sha'))
 PROTOCOL = 'peanut.mt012-partial-firstinstall-operation.v1'
 OPERATION = 'mt012-firstinstall-01a16eb4-20261025'
-B_SHA = '0f5cff5d17b61d50cd44675ece09a409f7d7eb7ddba08f27c9f5bb22938055d9'
+B_SHA = 'a89e8847ff87f185dcf11d21e84fe61f98cf049a87f3c69f2c5ea606fb116b7c'
 STATE = 'application-operation.json'
 FILES = {'scripts/project-resource-lease','scripts/project-resource-application.py',
          'scripts/project-resource-registry','scripts/project-resource-mt012.py'}
@@ -294,10 +294,15 @@ def run(lease_id,owner):
                     check_started=time.monotonic()
                     _,_,_,live_meta,_=check(lease_id,owner,running=True)
                     need(re.fullmatch('[0-9a-f]{64}',event['nonce']),'invalid MT012 authority nonce')
+                    # This duration ends BEFORE the fresh remaining-TTL budget
+                    # is sampled. Subtracting it from the remote full RTT still
+                    # charges all transport and all time after budget issuance.
+                    pre_budget_seconds=time.monotonic()-received_monotonic
                     valid_for=min(5.0,int(live_meta['expires_at'])-time.time(),state['binding_expires_at']-time.time())
                     need(valid_for>0,'MT012 permission expired before reply')
                     permit=dict(kind='permit',nonce=event['nonce'],lease=lease_id,owner=owner,
-                                scope_sha256=state['scope_sha256'],expires_at=state['binding_expires_at'],valid_for=valid_for)
+                                scope_sha256=state['scope_sha256'],expires_at=state['binding_expires_at'],valid_for=valid_for,
+                                pre_budget_seconds=pre_budget_seconds)
                     log.write(json.dumps(dict(stream='decision',nonce=event['nonce'],permit=permit,
                                               received_wall=received_wall,received_monotonic=received_monotonic,
                                               issued_wall=time.time(),issued_monotonic=time.monotonic(),

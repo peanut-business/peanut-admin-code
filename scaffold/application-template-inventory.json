@@ -3930,7 +3930,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "758441fdc18946d04074b3cf626396845cbce7177a2c7770fa0318b062985b34"
+            "source_sha256": "d0b18a8de5a8861e2e98a9f5e61021d0a150b0506f906898cd34f3068eaeac6e"
         },
         {
             "path": "scripts/project-resource-mysql-metadata",
