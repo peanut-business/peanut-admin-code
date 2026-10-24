@@ -10,7 +10,11 @@
 
 同一原生入口在本地和CI使用。`scaffold-build-inputs.json`另外记录固定源码、生产脚本/工具要求与原生锁摘要、实际PHP/Node/Python/pnpm/Composer版本、系统/架构/zlib身份、全部成员内容及模式指纹和最终附件摘要；不含时间、临时绝对路径或秘密，也不进入APP载荷。模板输入读取器将此回执纳入资格和候选锁；检查按原源码和最终包重算输入/载荷/附件身份，不重新安装tooling，不把检查机器的环境冒充原构建环境。archive摘要证明容器字节，payload摘要证明排序后的路径/模式/内容，二者不能互相替代。
 
-授权重建时，在两个独立输出根分别用标准入口构建双Edition，然后调用`node scripts/release-template-artifacts.mjs compare <原构建根> <version> <commit> <tree> <inventory-sha256> <重建根>`，核生产输入、环境、载荷、四附件摘要及实际字节完全相同。CI候选job执行这一比较后才校验自己生成的模板。差异即停止；不以相同commit、压缩格式说明或手改hash继承资格。正式发布优先传递已经验证的原件；需要更换构建环境或最终包时，先比较并记录确切输入，不能自动继承旧PASS。内部Core候选与公开依赖/锁不同，须作为不同组合记录并验证。
+同一次已准备的工具环境内重复生产时，在两个独立输出根分别用标准入口构建双Edition，再调用`node scripts/release-template-artifacts.mjs compare <原构建根> <version> <commit> <tree> <inventory-sha256> <重建根>`，仍严格核生产输入、完整环境身份、载荷、四附件摘要及实际字节完全相同。CI候选job执行这一比较后才校验自己生成的模板；此原生比较不因独立重建的口径而放宽。
+
+另一次准备环境后的独立本地/CI重建，分别记录固定源码commit/tree、原生锁、生产脚本、来源URI/规范仓身份、实际有效工具及相关库身份，并比较声明的主发行物实际字节和安全解包后的路径、类型、模式与内容。执行时间、runID、本地路径和非交付工具镜像的构建ID单独作为执行来源记录，不要求整份执行回执byte相同；须先证明有效环境字段相同或明确已知差异及未知项，不能仅凭工具版本字符串、相同commit或包相同倒推全部环境相同，也不能忽略包内有效来源或依赖差异。时间等归档字段由标准生产者规范化，不事后改包或手改hash。此口径采用[主发行物可复现定义](https://reproducible-builds.org/docs/definition/)及[时间规则](https://reproducible-builds.org/docs/timestamps/)；[SLSA v1.2 tracks](https://slsa.dev/spec/v1.2/tracks)由生态选择是否采用可复现构建，不表示所有日志/回执均需byte相同或已取得认证。
+
+主发行物或有效输入不符时保留差异，不继承原组合结论；独立重建通过也不自动继承完整资格。正式发布优先传递已验证原件，原件seal/digest及候选锁、发行清单和原资格摘要仍严格绑定；更换环境或最终包先记录确切输入与比较结果，不能自动继承旧PASS。内部Core候选与公开依赖/锁不同，须作为不同组合记录并验证。
 
 升级工具依赖单独位于`tooling/`，由该固定源码的Composer锁以no-dev、no-scripts、no-plugins安装形成；`upgrade-tooling.json`绑定锁、实际生产包身份和全部文件字节/模式，并由包清单摘要覆盖。此域不进入APP创建清单、受管源码或APP vendor。CLI只校验和缓存，不执行依赖安装或要求人工prepare；PHP入口在require之前核完整tooling集合，并将Composer根命名空间映射到同一模板的`files/server`。`--check`核固定工具载荷、锁和清单，不重新安装依赖。
 
@@ -30,7 +34,7 @@
 
 CI 的 `scaffold-release.yml` 可显式选 `publish=false, pack_only=true`，并填写精确 `expected_source_commit`；它只按同一标准生产器独立构建双 Edition 两轮、严格比较来源/锁/工具输入和实际附件字节，跳过独立 CLI checkout 与 candidate 创建。原比较回执及两轮完整输出保存在身份专名 Actions artifact；这不是 full8 或发行资格。默认候选入口和正式发布 Gate 保留，`pack_only=true` 无法进入 ingress 或 publish job。CLI scaffold-ci Recipe 仅含同一标准双轮模板生产，无候选或发布步骤，要求源码中保留原生 `scripts/ci-producer` 及其 `tools/ci-producer/` 输入。两入口的 pnpm 固定锁安装均显式使用 `--package-import-method=copy`，使生产者工具文件满足原有单硬链接路径保护；不改变依赖版本或放宽该保护。
 
-生产 job 通过原生 `scripts/ci-producer prepare <RUNNER_TEMP下不存在的目录>` 在既有 Ubuntu runner 内构建一次临时工具镜像，再用 `exec <同一目录> -- <原命令>` 执行标准生产器、比较器及默认 candidate。两轮共用同一实际 image ID，不发布镜像或另设服务。`tools/ci-producer/inputs.json` 固定同 Debian/bookworm、linux/amd64 的官方 PHP/Python 完整镜像 digest、官方 Node 校验和、Composer PHAR 摘要、pnpm 包摘要和 Debian snapshot 的签名 metadata/精确包版本；仅以官方扩展 helper 编译原本必需的 pdo_mysql/zip，不重编 PHP 解释器。Python 复制完整安装并补齐固定 runtime 库；实际五工具、PHP 扩展、解释器及 PHP 子进程路径和 Python 动态库均核对，输入不符即在制包前停止。实际工具/包/路径/库摘要、image ID 和生产工具文件摘要随每个原生 scaffold-build-inputs.json 的 environment.ci_toolchain 封存并参与双轮比较；不进入便携模板载荷。普通本地开发工具仍由项目工具链合同管理，不把容器环境自报当产品资格。
+生产 job 通过原生 `scripts/ci-producer prepare <RUNNER_TEMP下不存在的目录>` 在既有 Ubuntu runner 内构建一次临时工具镜像，再用 `exec <同一目录> -- <原命令>` 执行标准生产器、比较器及默认 candidate。同一次prepare的两轮共用同一实际 image ID，不发布镜像或另设服务。`tools/ci-producer/inputs.json` 固定同 Debian/bookworm、linux/amd64 的官方 PHP/Python 完整镜像 digest、官方 Node 校验和、Composer PHAR 摘要、pnpm 包摘要和 Debian snapshot 的签名 metadata/精确包版本；仅以官方扩展 helper 编译原本必需的 pdo_mysql/zip，不重编 PHP 解释器。Python 复制完整安装并补齐固定 runtime 库；实际五工具、PHP 扩展、解释器及 PHP 子进程路径和 Python 动态库均核对，输入不符即在制包前停止。实际工具/包/路径/库摘要、image ID 和生产工具文件摘要随每个原生 scaffold-build-inputs.json 的 environment.ci_toolchain 封存，在同一次prepare的双轮原生比较中保持全身份相同；这些字段不进入便携模板载荷。独立prepare所得image构建ID与主发行物复现分记，采用前述独立重建口径，不修改或归一化原回执。普通本地开发工具仍由项目工具链合同管理，不把容器环境自报当产品资格。
 
 ## 冻结内部候选
 
