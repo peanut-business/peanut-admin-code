@@ -1889,7 +1889,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
             $admission = $host->migrationAdoptionAdmission($pdo);
             $stage = 'current_installation';
             $current = $this->pluginInstallation($plugin->key, false);
-            if (($facts['current_present'] = $current !== null) && (($facts['current_status_invalid'] = !in_array($current['status'], ['installing', 'failed'], true)) || ($facts['current_identity_changed'] = !$this->sameIdentity($plugin, $current)))) { $observe('CURRENT_INSTALLATION_REJECTED'); return null; }
+            if (($facts['current_present'] = $current !== false) && (($facts['current_status_invalid'] = !in_array($current['status'], ['installing', 'failed'], true)) || ($facts['current_identity_changed'] = !$this->sameIdentity($plugin, $current)))) { $observe('CURRENT_INSTALLATION_REJECTED'); return null; }
             $stage = 'receipt';
             $receipt = $this->notificationReceiptPath($plugin);
             if (($facts['receipt_exists'] = file_exists($receipt)) || ($facts['receipt_linked'] = is_link($receipt))) { $observe('RECEIPT_PRESENT'); return null; }

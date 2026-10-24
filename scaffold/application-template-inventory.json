@@ -26495,7 +26495,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d48dede8a0b5f1d4492aee79d89627e7ddf9bf755eb63d62ddb072f19619662e"
+            "source_sha256": "088f26dbbf97d81ad36cc7cd1fe9f97f5016da171adc063b31959d1ab8deef6e"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",
