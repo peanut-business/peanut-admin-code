@@ -755,6 +755,16 @@ final class SourceApplicationBackup
         $tool = self::protectedPluginJson($toolPath, $root);
         $contract = $tool['source_schema_backup'] ?? [];
         $database = $binding['database']['database'];
+        if (($binding['source']['kind'] ?? null) === 'notification-server-release') {
+            $sourceKind = $binding['database_source'] ?? null;
+            if (!in_array($sourceKind, ['bundled', 'registered'], true) || ($window['database_binding']['source'] ?? null) !== $sourceKind
+                || ($window['database_binding']['resource_id'] ?? null) !== $binding['resource_id']
+                || ($window['database_binding']['database'] ?? null) !== $database
+                || ($window['database_binding']['registry_sha256'] ?? null) !== $binding['registry_sha256']
+                || ($sourceKind === 'bundled' && ($tool['container_name'] ?? null) !== ($window['containers']['mysql']['id'] ?? null))) {
+                throw new RuntimeException('INSTALL_PARTIAL_METADATA_PHYSICAL_BINDING_REQUIRED');
+            }
+        }
         if (($tool['transport'] ?? null) !== 'ssh-docker-exec' || ($contract['whole_schema'] ?? null) !== true
             || ($contract['database_resource_id'] ?? null) !== $binding['resource_id'] || ($contract['database'] ?? null) !== $database
             || preg_match('/\A[A-Za-z0-9_]+\z/D', $database) !== 1) {
@@ -857,6 +867,10 @@ final class SourceApplicationBackup
 
     private static function metadataSource(array $source): array
     {
+        if (($source['kind'] ?? null) === 'notification-server-release') {
+            return ['kind' => $source['kind'], 'release' => $source['release'], 'files' => $source['files'],
+                'execution_lock' => $source['execution_lock']];
+        }
         return ['runtime_sha256' => $source['runtime_sha256'], 'deployment_sha256' => $source['deployment']['head_sha256'],
             'current_source' => $source['deployment']['current_source'], 'checkpoint' => $source['checkpoint'],
             'transition_id' => $source['state']['transition_id']];
@@ -1496,7 +1510,7 @@ final class SourceApplicationBackup
                 if (!in_array($name, ['progress', 'configuration', 'runtime', 'failure', 'environment', 'ledger'], true)) { throw new RuntimeException('INSTALL_PARTIAL_BACKUP_FILES_REQUIRED'); }
                 $runtimeOriginal = $name === 'runtime' && array_key_exists('mode', $original);
                 if ($runtimeOriginal) {
-                    [$actualOriginal, $bytes] = self::partialRuntimeOriginalBytes($binding['source']['server_root']);
+                    [$actualOriginal, $bytes] = self::partialRuntimeOriginalBytes($binding['source']['server_root'], ($binding['source']['kind'] ?? null) === 'notification-server-release');
                     if ($actualOriginal !== $original) { throw new RuntimeException('INSTALL_PARTIAL_BACKUP_FILES_CHANGED'); }
                 } else {
                     self::pluginFile($original['path'] ?? '', $binding['source']['server_root']);
@@ -2235,14 +2249,15 @@ final class SourceApplicationBackup
     }
 
     /** Only this canonical public program identity may be a 0644 partial original. Payloads stay 0600. */
-    public static function partialRuntimeOriginalReference(string $serverRoot): array
+    public static function partialRuntimeOriginalReference(string $serverRoot, bool $release = false): array
     {
-        return self::partialRuntimeOriginalBytes($serverRoot)[0];
+        return self::partialRuntimeOriginalBytes($serverRoot, $release)[0];
     }
 
-    private static function partialRuntimeOriginalBytes(string $serverRoot): array
+    private static function partialRuntimeOriginalBytes(string $serverRoot, bool $release = false): array
     {
-        $path = $serverRoot . '/.peanut/development-runtime.json'; $owner = fileowner($serverRoot);
+        if ($release) { \app\common\value\installation\ServerReleaseIdentity::load($serverRoot); }
+        $path = $serverRoot . '/.peanut/' . ($release ? 'release-identity.json' : 'development-runtime.json'); $owner = fileowner($serverRoot);
         $stat = @lstat($path);
         if (realpath($serverRoot) !== $serverRoot || realpath(dirname($path)) !== dirname($path)
             || realpath($path) !== $path || !is_file($path) || is_link($path) || !is_array($stat)

@@ -462,7 +462,7 @@ def ordinary_program_identity(server, workspace):
     return checked(workspace, 'backups/' + old, plan['source']['identity_sha256'])
 
 
-def source_database_binding(server, ordinary=False, source_app=False, workspace=None):
+def source_database_binding(server, ordinary=False, source_app=False, workspace=None, partial_release_identity=None):
     """Source maintenance uses only this APP's declared container endpoint."""
     values = env(server / '.env')
     def value(key):
@@ -473,14 +473,45 @@ def source_database_binding(server, ordinary=False, source_app=False, workspace=
             raise ValueError('invalid source database declaration')
         return selected
     source = value('PEANUT_DATABASE_SOURCE')
-    if source in ('', 'bundled'):
+    if source in ('', 'bundled') and partial_release_identity is None:
         return {'source': 'bundled'}
-    if source != 'registered':
+    if source not in ('', 'bundled', 'registered'):
         raise ValueError('unknown source database kind')
+    source = source or 'bundled'
     registry_path = server / 'private/resources/project-resources.json'
     regular(registry_path, 0o600)
     registry = read_json(registry_path)
-    if ordinary and not source_app:
+    if partial_release_identity is not None:
+        # Only the partial installer supplies its already verified, exact release digest.
+        # This is not a missing-source-manifest fallback for existing source operations.
+        if ordinary or source_app or workspace is not None or not isinstance(partial_release_identity, str) \
+                or not HEX64.fullmatch(partial_release_identity) or server.resolve() != server:
+            raise ValueError('partial release window requires its exact native identity')
+        identity_path = server / '.peanut/release-identity.json'
+        identity_parent = identity_path.parent
+        regular(identity_path)
+        original_stat = identity_path.stat()
+        if identity_parent.is_symlink() or not identity_parent.is_dir() or identity_parent.resolve() != identity_parent \
+                or original_stat.st_uid not in (0, server.stat().st_uid) \
+                or (original_stat.st_mode & 0o777) not in (0o600, 0o644):
+            raise ValueError('partial release identity is not canonical or owned by this instance')
+        identity_bytes = identity_path.read_bytes()
+        if hashlib.sha256(identity_bytes).hexdigest() != partial_release_identity:
+            raise ValueError('partial release identity differs from its held binding')
+        manifest = json.loads(identity_bytes)
+        application = manifest.get('application', {})
+        if manifest.get('protocol') != 'peanut.server-release.v1' or manifest.get('schema_version') != 1 \
+                or application.get('edition') not in ('standalone', 'multi-tenant') \
+                or application.get('edition') != value('DEPLOYMENT_MODE') \
+                or not isinstance(application.get('slug'), str) \
+                or not re.fullmatch(r'[a-z][a-z0-9-]{0,62}[a-z0-9]', application['slug']):
+            raise ValueError('partial release identity does not match the actual instance Edition')
+        observed_stat = identity_path.stat()
+        stable_fields = ('st_dev', 'st_ino', 'st_mode', 'st_nlink', 'st_uid', 'st_gid', 'st_size', 'st_mtime_ns', 'st_ctime_ns')
+        if identity_path.is_symlink() or any(getattr(original_stat, name) != getattr(observed_stat, name) for name in stable_fields) \
+                or sha(identity_path) != partial_release_identity:
+            raise ValueError('partial release identity changed during observation')
+    elif ordinary and not source_app:
         manifest = ordinary_program_identity(server, workspace)
     else:
         manifest_path = server.parent / '.peanut/application-manifest.json'
@@ -508,12 +539,12 @@ def source_database_binding(server, ordinary=False, source_app=False, workspace=
             'database': resource['database'], 'registry_sha256': sha(registry_path), 'environment_sha256': sha(server / '.env')}
 
 
-def source_network(server, project, container_ids):
+def source_network(server, project, container_ids, services=('php', 'nginx')):
     config = json.loads(compose(server / 'docker', 'config', '--format', 'json'))
     if config.get('name') != project:
         raise ValueError('source network project changed')
     network_id = None; logical = None
-    for service in ('php', 'nginx'):
+    for service in services:
         projection = '{"Labels":{{json .Config.Labels}},"Networks":{{json .NetworkSettings.Networks}}}'
         observed = json.loads(docker('inspect', '--format', projection, container_ids[service]))
         networks = observed['Networks']
@@ -535,13 +566,16 @@ def source_network(server, project, container_ids):
     return {'id': network_id, 'name': rows[0]['Name'], 'logical': logical, 'driver': 'bridge'}
 
 
-def assert_stopped(server, allow_registered=False, ordinary=False, workspace=None):
+def assert_stopped(server, allow_registered=False, ordinary=False, workspace=None, partial_release_identity=None):
     # Check the APP writer boundary; independent Node custody is not transferred.
     docker_dir = server / "docker"
     project = env(docker_dir / ".env").get("COMPOSE_PROJECT_NAME", "")
     if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,62}", project):
         raise ValueError("Compose project identity is invalid")
-    binding = source_database_binding(server, ordinary=ordinary, workspace=workspace) if allow_registered else {'source': 'bundled'}
+    if partial_release_identity is not None and not allow_registered:
+        raise ValueError('partial release window requires its explicit database binding')
+    binding = source_database_binding(server, ordinary=ordinary, workspace=workspace,
+                                      partial_release_identity=partial_release_identity) if allow_registered else {'source': 'bundled'}
     registered = binding['source'] == 'registered'
     services = compose(docker_dir, "ps", "--status", "running", "--services").splitlines()
     if services != ([] if registered else ["mysql"]):
@@ -590,6 +624,11 @@ def assert_stopped(server, allow_registered=False, ordinary=False, workspace=Non
     mysql_id = compose(docker_dir, "ps", "-a", "-q", "mysql")
     if running != [mysql_id]:
         raise ValueError("another Compose writer is running")
+    if partial_release_identity is not None:
+        network = source_network(server, project, {name: row['id'] for name, row in containers.items()},
+                                 services=('php', 'nginx', 'mysql'))
+        return {'project': project, 'images': images, 'containers': containers,
+                'database_binding': binding, 'admission_network': network}
     return {"project": project, "images": images, 'containers': containers}
 
 

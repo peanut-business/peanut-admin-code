@@ -9490,7 +9490,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8f451fada70871677a3a8e1dc7e9ca25a84e0a7d4ee86ab93fdeef25eede382c"
+            "source_sha256": "cdc617f65d1374662177680bf16f1431e8bf7e4b93050552f51971f351fa5403"
         },
         {
             "path": "server/app/common/services/installation/InstallationPreflightHost.php",
@@ -9617,7 +9617,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2fed95ac214358bba704891a0755ecdfb9529b8b15cd35c8fa7fbeb49701033a"
+            "source_sha256": "4202c2d02006bd264cc03aefbd6544ed9d3f408c46ca4fe156f049b753ce503a"
         },
         {
             "path": "server/app/common/services/upgrade/SourceApplicationDump.php",
@@ -28858,7 +28858,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2d34c939abbc8555a1cd79db597bc0c84d627b3271211c4112636db3082ccbbd"
+            "source_sha256": "5847e3c802b50a8b678f3f7a6cb4c45de928c95ecfc59c79207e7b4c4f6cd2f0"
         },
         {
             "path": "server/docker/scripts/update-preparation.py",
@@ -28886,7 +28886,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a59b1e5299fe8b9af4f94de40641b3838c12533d7922b479864d92504078b960"
+            "source_sha256": "2666c9586656b2bf68ff513db887fe5f600b01448cb4c78675d7957247e2b7b4"
         },
         {
             "path": "server/docker/scripts/update-tooling.py",
