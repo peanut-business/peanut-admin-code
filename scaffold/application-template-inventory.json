@@ -1993,7 +1993,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "165b670b70c44ae132cb6cd6799dee296ead887e1653be647ede0c14b2263d35"
+            "source_sha256": "c3870cf03232fc32ac0e086257f0522228f90403475b87283656062d59a3f35e"
         },
         {
             "path": "platform/src/api/platform.ts",
@@ -2007,7 +2007,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e2a73a2af819bbf33c819bb454714d079816fcc82944c51f83d50257ee00ea23"
+            "source_sha256": "72853c7253939b99b1fec878573b1036bbab69e6a5f2df8aa3967fceb6d1c6ce"
         },
         {
             "path": "platform/src/components/DeveloperCenterPage.vue",
