@@ -30,7 +30,7 @@ Usage:
   scripts/project-resource-lease schema-allocate --lease <run-id> --owner <owner>
   # Cross-Git APP claims additionally use --application-operation <registered-id> and no --resource arguments.
   scripts/project-resource-lease show --lease <run-id> [--verify-locks]
-  scripts/project-resource-lease prune-expired
+  scripts/project-resource-lease prune-expired [--lease <run-id>]
 
 Examples:
   scripts/project-resource-lease claim \
@@ -2123,25 +2123,45 @@ case "$COMMAND" in
     ;;
 
   prune-expired)
-    [[ $# -eq 0 ]] || die 'prune-expired takes no options'
+    PRUNE_LEASE=""
+    if [[ $# -ne 0 ]]; then
+      [[ $# -eq 2 && "$1" == --lease ]] || die 'prune-expired accepts only --lease <run-id>'
+      PRUNE_LEASE="$2"
+      validate_lease_id "$PRUNE_LEASE"
+    fi
     acquire_mutex
     COUNT=0
     shopt -s nullglob
+    if [[ -n "$PRUNE_LEASE" ]]; then
+      LEASE_DIR="$LEASES_DIR/$PRUNE_LEASE"
+      [[ -d "$LEASE_DIR" && ! -L "$LEASE_DIR" && -f "$LEASE_DIR/metadata.tsv" ]] || die "lease does not exist: $PRUNE_LEASE"
+      [[ "$(metadata_value "$LEASE_DIR/metadata.tsv" lease)" == "$PRUNE_LEASE" ]] || die "lease identity mismatch: $PRUNE_LEASE"
+      lease_expired "$LEASE_DIR" || die "lease is not expired: $PRUNE_LEASE"
+    fi
     for LEASE_DIR in "$LEASES_DIR"/*; do
+      [[ -z "$PRUNE_LEASE" || "$LEASE_DIR" == "$LEASES_DIR/$PRUNE_LEASE" ]] || continue
       [[ -d "$LEASE_DIR" && -f "$LEASE_DIR/metadata.tsv" ]] || continue
       if lease_expired "$LEASE_DIR"; then
-        if awk -F '\t' '$2=="schema-allocation" {found=1} END {exit !found}' "$LEASE_DIR/resources.tsv"; then continue; fi
+        PRUNE_PROTECTION=""
+        if awk -F '\t' '$2=="schema-allocation" {found=1} END {exit !found}' "$LEASE_DIR/resources.tsv"; then PRUNE_PROTECTION='schema allocation'
         # Expiry cannot prove the observer's SQL process has terminated.
-        if [[ -e "$LEASE_DIR/application-operation.json" || -L "$LEASE_DIR/application-operation.json" ]]; then continue; fi
-        if awk -F '\t' '$2=="retained-operation" || $2=="retained-parent" {found=1} END {exit !found}' "$LEASE_DIR/resources.tsv"; then continue; fi
-        if lease_has_resource "$LEASE_DIR" lease-role collaboration-read-existing; then continue; fi
-        LEASE_ID="$(metadata_value "$LEASE_DIR/metadata.tsv" lease)"
-        if retirement_requires_explicit_release "$LEASE_ID"; then continue; fi
-        if custody_prepared_protects "$LEASE_ID"; then continue; fi
-        if [[ -z "$(active_child_lease "$LEASE_ID" || true)" ]]; then
-          release_lease_locked "$LEASE_ID"
-          COUNT=$((COUNT + 1))
+        elif [[ -e "$LEASE_DIR/application-operation.json" || -L "$LEASE_DIR/application-operation.json" ]]; then PRUNE_PROTECTION='application operation'
+        elif awk -F '\t' '$2=="retained-operation" || $2=="retained-parent" {found=1} END {exit !found}' "$LEASE_DIR/resources.tsv"; then PRUNE_PROTECTION='retained operation or parent'
+        elif lease_has_resource "$LEASE_DIR" lease-role collaboration-read-existing; then PRUNE_PROTECTION='collaboration observer'
         fi
+        LEASE_ID="$(metadata_value "$LEASE_DIR/metadata.tsv" lease)"
+        if [[ -z "$PRUNE_PROTECTION" ]]; then
+          if retirement_requires_explicit_release "$LEASE_ID"; then PRUNE_PROTECTION='explicit retirement release'
+          elif custody_prepared_protects "$LEASE_ID"; then PRUNE_PROTECTION='unresolved custody'
+          elif [[ -n "$(active_child_lease "$LEASE_ID" || true)" ]]; then PRUNE_PROTECTION='active or retained child'
+          fi
+        fi
+        if [[ -n "$PRUNE_PROTECTION" ]]; then
+          [[ -z "$PRUNE_LEASE" ]] || die "lease $PRUNE_LEASE is protected: $PRUNE_PROTECTION"
+          continue
+        fi
+        release_lease_locked "$LEASE_ID"
+        COUNT=$((COUNT + 1))
       fi
     done
     release_mutex
