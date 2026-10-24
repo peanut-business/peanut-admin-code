@@ -120,7 +120,44 @@ final class IdentitySchemaMigrationProof
         // INDEX_NAME is a map: MySQL's metadata collation differs from PHP byte ordering.
         // Keep each index's ordered parts intact.
         ksort($after['indexes'], SORT_STRING);
-        if ($expected !== $after) { self::fail('ALTER_POSTSTATE_INVALID'); }
+        if ($expected !== $after) {
+            throw new IdentitySchemaMigrationProofFailure(self::alterDifference($expected, $after));
+        }
+    }
+
+    /** The exact guard-normalized arrays are hashed; only bounded structure paths leave this scope. */
+    private static function alterDifference(array $expected, array $actual): array
+    {
+        $differences = []; $count = 0;
+        $record = static function (array $path, string $kind) use (&$differences, &$count): void {
+            ++$count;
+            if (count($differences) < IdentitySchemaMigrationProofFailure::LIMIT) {
+                $differences[] = ['path' => IdentitySchemaMigrationProofFailure::boundedPath($path), 'kind' => $kind];
+            }
+        };
+        $compare = static function (mixed $left, mixed $right, array $path) use (&$compare, $record): void {
+            if (gettype($left) !== gettype($right)) { $record($path, 'type'); return; }
+            if (!is_array($left)) {
+                if ($left !== $right) { $record($path, 'value'); }
+                return;
+            }
+            if (count($path) >= 4) { if ($left !== $right) { $record($path, 'shape'); } return; }
+            $leftKeys = array_keys($left); $rightKeys = array_keys($right);
+            if ($leftKeys !== $rightKeys && array_diff($leftKeys, $rightKeys) === [] && array_diff($rightKeys, $leftKeys) === []) {
+                $record($path, 'order');
+            }
+            foreach (array_unique([...$leftKeys, ...$rightKeys], SORT_REGULAR) as $key) {
+                $child = [...$path, $key];
+                if (!array_key_exists($key, $left)) { $record($child, 'missing_expected'); }
+                elseif (!array_key_exists($key, $right)) { $record($child, 'missing_actual'); }
+                else { $compare($left[$key], $right[$key], $child); }
+            }
+        };
+        $compare($expected, $actual, []);
+        return ['format' => 'identity.schema-alter-difference.v1', 'digest_format' => 'php-serialize-guard-metadata.v1',
+            'expected_sha256' => hash('sha256', serialize($expected)), 'actual_sha256' => hash('sha256', serialize($actual)),
+            'difference_count' => $count, 'reported_count' => count($differences), 'truncated' => $count > count($differences),
+            'differences' => $differences];
     }
 
     /** Model only the fixed additive metadata delta; never generate or execute SQL. */
