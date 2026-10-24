@@ -504,6 +504,10 @@ def retained_parent(operation, common, *, require_live=True):
          "retained parent resource scope changed")
     rows = table(directory / "resources.tsv", 3)
     resources = resource_map(rows)
+    if "registry-sha256" in resources:
+        registry = canonical(os.environ.get("PEANUT_RESOURCE_REGISTRY", ""))
+        need(resources["registry-sha256"] == {sha(regular(registry))},
+             "retained parent registry identity differs from current registry")
     need(resources.get("worktree") == {app["root"]}
          and resources.get("application-root") == {app["root"]}
          and resources.get("gate") == {binding["gate"]}, "retained parent lacks exact APP protection")
@@ -511,6 +515,8 @@ def retained_parent(operation, common, *, require_live=True):
     # acquires its source, DB, outputs and all other authority independently.
     retained = {(kind, app["root"]) for kind in ("worktree", "application-root")}
     for digest, kind, value in rows:
+        if kind == "registry-sha256":
+            continue
         lock = parent_common / "peanut-admin-resource-leases/resources" / digest
         for field, expected in (("lease", binding["lease"]), ("type", kind), ("value", value)):
             need(regular(lock / field).decode().strip() == expected, "retained parent physical holder changed")

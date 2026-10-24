@@ -1546,7 +1546,9 @@ validate_parent_lease_locked() {
   ! lease_expired "$parent_dir" || die "parent lease is expired: $parent_lease"
   [[ "$(metadata_value "$parent_dir/metadata.tsv" owner)" == "$owner" ]] || die "parent lease belongs to another owner: $parent_lease"
   [[ "$(metadata_value "$parent_dir/metadata.tsv" thread)" == "$thread_id" ]] || die "parent lease belongs to another thread: $parent_lease"
-  verify_registry_identity "$parent_dir/resources.tsv" || die 'parent registry identity rejected'
+  if [[ "$COMMAND" != show || "${VERIFY_LOCKS:-0}" == 1 ]]; then
+    verify_registry_identity "$parent_dir/resources.tsv" || die 'parent registry identity rejected'
+  fi
   if [[ -n "$role" ]]; then
     [[ "$role" == collaboration-read-existing && -n "$contract" ]] || die 'invalid parent observation role'
     validate_observation_parent_locked "$parent_lease" "$candidate" "$candidate_repository" "$worktree" "$contract"
