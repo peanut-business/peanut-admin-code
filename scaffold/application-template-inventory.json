@@ -3902,7 +3902,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "59fefda0a0bf5b7445c23a7faafa24c4704cd6be03a0bc2f4c97a8a2f8e472d1"
+            "source_sha256": "e40d4d01fd470516f98cbf1ce40e23e3964f5e53e4719ff019de92136b06e6d9"
         },
         {
             "path": "scripts/project-resource-lease",
@@ -3916,7 +3916,21 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "26e6b02a0b72c4f5e4d8ddd09a86724556e9c14bf03afe0d27efaec4669385d9"
+            "source_sha256": "d511d46809e0bb944e17217656f28453573036217fe6f876520c45b932830896"
+        },
+        {
+            "path": "scripts/project-resource-mt012.py",
+            "target": "scripts/project-resource-mt012.py",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "9962c3ace608ffaada98cc1f9bac4206d5a07b1ad5123d3539e3256b1a817eb0"
         },
         {
             "path": "scripts/project-resource-mysql-metadata",
@@ -7133,7 +7147,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "594fc1566ebf4aa276bdc65d461dd747b43b674a30cb623cbc787ddc9a2a102f"
+            "source_sha256": "e6552a8bc7030a129709d7448cc0aa6c73de8e0955bab65d60943c91ddd8dcc6"
         },
         {
             "path": "server/app/command/PluginInstall.php",
@@ -9589,7 +9603,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a8dcb00377c8ec276dc4e26ea5a0de26a84219c19c5874dc30c3929645c40b9b"
+            "source_sha256": "5b11351fdfd3460e8a43de1ea2095a8115c09302e470398283402888426b3919"
         },
         {
             "path": "server/app/common/services/upgrade/SourceApplicationBackup.php",
@@ -9603,7 +9617,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b9bfe5f06ef2d302bc82c93081034eadebb09b58c03b2cf685955b5b70ac9934"
+            "source_sha256": "2fed95ac214358bba704891a0755ecdfb9529b8b15cd35c8fa7fbeb49701033a"
         },
         {
             "path": "server/app/common/services/upgrade/SourceApplicationDump.php",

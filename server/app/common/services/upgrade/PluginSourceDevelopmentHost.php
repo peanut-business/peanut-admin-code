@@ -25,6 +25,7 @@ final class PluginSourceDevelopmentHost
     private string $sourceMetadataTool = '';
     private string $notificationPredecessor = '';
     private ?array $notificationLineage = null;
+    private ?array $catalogBatchStep = null;
     private const IDENTITY_EXTERNAL_REFERENCES = [
         'pa_platform_role_permission' => ['permission_id' => ['pa_permission', 'id']],
         'pa_role_permission' => ['permission_id' => ['pa_permission', 'id']],
@@ -50,6 +51,256 @@ final class PluginSourceDevelopmentHost
     ];
 
     public function __construct(private readonly App $app) {}
+
+    /** One explicit catalog-only batch, using the existing native lifecycle for every step. */
+    public function catalogBatch(array $keys, array $actor, callable $readAll, callable $readOne, callable $mutate,
+        bool $dryRun, string $planPath, string $maintenancePath, string $recoveryPath, string $toolId, string $output, string $metadataTool): array
+    {
+        $server = rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR); $root = dirname($server);
+        $capture = $dryRun && $toolId !== ''; $apply = !$dryRun; $clock = hrtime(true);
+        if (($actor['scope'] ?? null) !== 'source-development' || $metadataTool === '' || $keys === []
+            || $this->planning !== null || $this->mutation !== null || $this->catalogBatchStep !== null
+            || ($toolId === '') !== ($output === '')
+            || ($capture && ($planPath === '' || $maintenancePath === '' || $recoveryPath !== ''))
+            || ($apply && ($planPath === '' || $maintenancePath === '' || $recoveryPath === '' || $toolId !== ''))
+            || ($dryRun && !$capture && ($planPath !== '' || $maintenancePath !== '' || $recoveryPath !== ''))) {
+            throw new RuntimeException('PLUGIN_SOURCE_BATCH_ARGUMENTS_INVALID');
+        }
+        $context = $this->app->make(CurrentExecutionContext::class)->current();
+        if (!$context instanceof InstanceExecutionContext || $context->operation() !== 'console.plugin:upgrade'
+            || $context->instance->actorKey !== 'console' || PHP_SAPI !== 'cli'
+            || $this->app->config->get('peanut.environment') !== 'development' || !$this->app->isDebug()) {
+            throw new RuntimeException('PLUGIN_SOURCE_CONTEXT_REQUIRED');
+        }
+        $this->sourceMetadataTool = $metadataTool;
+        $admission = new SourceDevelopmentMaintenanceAdmission($server); $initial = $admission->capture($actor, false);
+        $config = \guardedDatabaseConfig(); [$connection, $pdo] = $this->connect($config);
+        $identity = InstallationExecutionHost::migrationDatabaseIdentity($pdo); $binding = $initial + ['database' => $identity];
+        $files = \applicationMigrationFiles($server . '/database'); $versions = \applicationReleaseVersions($server);
+        $target = \applicationMigrationTargetVersion($server, $versions); $runner = new ApplicationMigrationRunner($config, $pdo);
+        return ScaffoldUpgradeRunner::sourceProductLock($root, function () use ($runner, $files, $target, $versions, $binding,
+            $initial, $actor, $admission, $connection, $pdo, $identity, $context, $config, $keys, $readAll, $readOne, $mutate,
+            $server, $dryRun, $capture, $apply, $planPath, $maintenancePath, $recoveryPath, $toolId, $output, $metadataTool, $clock): array {
+            $answer = null; $writeTables = [];
+            $runner->run($files, $target, $versions['release_sequence_version'], true, null,
+                function (PDO $actual, array $application) use (&$answer, &$writeTables, $binding, $initial, $actor, $admission,
+                    $connection, $pdo, $identity, $context, $config, $keys, $readAll, $readOne, $mutate, $server,
+                    $dryRun, $capture, $apply, $planPath, $maintenancePath, $recoveryPath, $toolId, $output, $metadataTool, $clock): void {
+                    if ($actual !== $pdo || $pdo->inTransaction() || $application['pending'] !== []) { throw new RuntimeException('PLUGIN_SOURCE_BATCH_APPLICATION_PENDING'); }
+                    $guard = function () use (&$writeTables, $admission, $actor, $initial, $connection, $pdo, $identity, $context, $config): void {
+                        if ($this->app->make(CurrentExecutionContext::class)->current() !== $context || Db::connect() !== $connection
+                            || $connection->getPdo() !== $pdo || $admission->capture($actor, false, $writeTables) !== $initial
+                            || InstallationExecutionHost::migrationDatabaseIdentity($pdo) !== $identity) { throw new RuntimeException('PLUGIN_SOURCE_BATCH_BINDING_CHANGED'); }
+                        ScaffoldUpgradeRunner::sourceProductLock(dirname(rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR)), static fn() => null);
+                        $lock = $pdo->prepare('SELECT IS_USED_LOCK(?) = CONNECTION_ID()');
+                        try { $lock->execute(['peanut_migrate_' . substr(hash('sha256', $config['database']), 0, 48)]);
+                            if ((int) $lock->fetchColumn() !== 1) { throw new RuntimeException('PLUGIN_SOURCE_SCHEMA_LOCK_REQUIRED'); }
+                        } finally { $lock->closeCursor(); }
+                    };
+                    $guard(); $this->planning = ['pdo' => $pdo, 'recheck' => $guard, 'prerequisite' => null];
+                    try {
+                        $answer = $readAll(function (array $nativePlans) use (&$writeTables, $keys, $binding, $application, $pdo, $guard,
+                            $server, $dryRun, $capture, $apply, $planPath, $maintenancePath, $recoveryPath, $toolId, $output,
+                            $metadataTool, $readOne, $mutate, $context, $config, $clock, $actor): array {
+                            $this->planning = null; $steps = []; $noops = []; $tables = []; $selected = []; $definitions = []; $moduleKeys = [];
+                            foreach ($keys as $key) {
+                                $native = $nativePlans[$key] ?? [];
+                                if (($native['may_apply'] ?? null) !== true || ($native['planning_complete'] ?? null) !== true
+                                    || !in_array($native['action'] ?? null, ['planned_upgrade', 'planned_unchanged'], true)
+                                    || ($native['application_prerequisites'] ?? []) !== []) { throw new RuntimeException('PLUGIN_SOURCE_BATCH_NATIVE_PLAN_REQUIRED'); }
+                                $effects = SourceApplicationBackup::pluginEffects($native);
+                                if (($effects['closure_complete'] ?? null) !== true || $effects['pending'] !== [] || $effects['write_requirements'] !== []
+                                    || $effects['notification_forward_receipt'] !== null) { throw new RuntimeException('PLUGIN_SOURCE_BATCH_NON_CATALOG_EFFECT'); }
+                                foreach ($native['modules'] as $module) {
+                                    foreach ($module['migrations'] as $migration) {
+                                        if (!in_array($migration['disposition'] ?? null, ['already_applied', 'repaired', 'repair_not_required', 'awaiting_repair'], true)
+                                            || isset($migration['after_predecessor'])) { throw new RuntimeException('PLUGIN_SOURCE_BATCH_MIGRATION_EFFECT'); }
+                                    }
+                                }
+                                if ($native['action'] === 'planned_unchanged') { $noops[$key] = $native; continue; }
+                                $report = ['protocol' => 'peanut.source-development-plugin-plan.v1', 'maintenance_scope' => 'source-development',
+                                    'operation' => 'upgrade', 'plugin_key' => $key, 'binding' => $binding, 'application' => $application,
+                                    'plugin' => $native, 'lifecycle_effects' => $effects, 'execution_admitted' => false,
+                                    'recovery' => 'not_attested', 'product_database' => 'not_verified', 'metadata_tool' => $metadataTool];
+                                $base = ['pending' => [], 'selected' => $effects['selected'], 'operation' => 'upgrade', 'plugin_key' => $key,
+                                    'native_plan_sha256' => self::digest($native), 'lifecycle_effects' => $effects];
+                                $steps[$key] = ['report' => $report, 'baseline' => $base];
+                                array_push($tables, ...$effects['tables']); array_push($definitions, ...$effects['reference_code_catalog']['definitions']);
+                                array_push($moduleKeys, ...$effects['reference_code_catalog']['modules']);
+                                foreach ($effects['selected'] as $migration => $sha) {
+                                    if (isset($selected[$migration]) && $selected[$migration] !== $sha) { throw new RuntimeException('PLUGIN_SOURCE_BATCH_MIGRATION_CONFLICT'); }
+                                    $selected[$migration] = $sha;
+                                }
+                            }
+                            if ($steps === [] && ($capture || $apply)) {
+                                // Fresh identities cannot close an earlier entered/UNKNOWN operation.
+                                SourceApplicationBackup::protectedPluginJson($planPath, $server);
+                                throw new RuntimeException('PLUGIN_SOURCE_BATCH_ORIGINAL_OPERATION_RECONCILE');
+                            }
+                            if ($steps === []) { return ['protocol' => 'peanut.source-development-plugin-batch-plan.v1', 'status' => 'unchanged',
+                                'binding' => $binding, 'plugin_keys' => $keys, 'steps' => [], 'native_unchanged' => $noops, 'backup' => 'not_required', 'mutated' => false]; }
+                            $tables = array_values(array_unique($tables)); sort($tables, SORT_STRING); ksort($selected, SORT_STRING);
+                            $moduleKeys = array_values(array_unique($moduleKeys)); sort($moduleKeys, SORT_STRING);
+                            $effects = ['protocol' => 'peanut.source-plugin-effects.v1', 'tables' => $tables, 'pending' => [], 'selected' => $selected,
+                                'closure_complete' => true, 'requirements' => [], 'write_requirements' => [], 'notification_forward_receipt' => null,
+                                'reference_code_catalog' => ['modules' => $moduleKeys, 'definitions' => $definitions]];
+                            $guard(); $scope = SourceApplicationBackup::pluginScope($pdo, $effects, $binding, $metadataTool, $guard);
+                            $writeTables = SourceApplicationBackup::pluginWriteTables($effects, $scope); $guard();
+                            $this->assertEffectBoundary($scope, $effects, $binding['database']['database']); $this->assertBackupReads($scope['tables'], $config);
+                            $state = SourceApplicationBackup::pluginBatchCatalogState($pdo, $scope);
+                            $baseline = ['operation' => 'upgrade-catalog-batch', 'plugin_keys' => array_keys($steps), 'pending' => [], 'selected' => $selected,
+                                'steps' => array_map(static fn(array $step): array => $step['baseline'], $steps), 'lifecycle_effects' => $effects,
+                                'origin_catalog_state_sha256' => self::digest($state)];
+                            $report = ['protocol' => 'peanut.source-development-plugin-batch-plan.v1', 'status' => 'planned', 'binding' => $binding,
+                                'plugin_keys' => $keys, 'steps' => $steps, 'native_unchanged' => $noops, 'baseline' => $baseline,
+                                'backup_scope' => $scope, 'origin_catalog_state' => $state, 'metadata_tool' => $metadataTool,
+                                'recovery_unit' => 'entire_batch_origin_only', 'execution_admitted' => false];
+                            if (!$capture && !$apply) { return $report; }
+                            $expected = SourceApplicationBackup::protectedPluginJson($planPath, $server);
+                            foreach (['protocol', 'binding', 'plugin_keys', 'steps', 'native_unchanged', 'baseline', 'backup_scope', 'origin_catalog_state', 'metadata_tool'] as $field) {
+                                if (self::digest([$expected[$field] ?? null]) !== self::digest([$report[$field]])) { throw new RuntimeException('PLUGIN_SOURCE_BATCH_PLAN_STALE'); }
+                            }
+                            $this->catalogBatchWindow($maintenancePath, $binding, $baseline, $effects['tables']);
+                            $window = SourceApplicationBackup::protectedPluginJson($maintenancePath, $server);
+                            $windowReference = ['path' => $maintenancePath, 'sha256' => hash_file('sha256', $maintenancePath)];
+                            if ($apply && ($expected['maintenance'] ?? null) !== $windowReference) { throw new RuntimeException('PLUGIN_SOURCE_BATCH_WINDOW_CHANGED'); }
+                            $baseGuard = $guard;
+                            $guard = static function () use ($baseGuard, $window, $windowReference, $server): void {
+                                $baseGuard();
+                                SourceApplicationBackup::protectedPluginBytes($windowReference['path'], $server);
+                                if (hash_file('sha256', $windowReference['path']) !== $windowReference['sha256'] || time() >= $window['expires_at']) {
+                                    throw new RuntimeException('PLUGIN_SOURCE_BATCH_WINDOW_CHANGED');
+                                }
+                            };
+                            if ($capture) {
+                                $registry = \projectResourceRegistry($registrySha); $resources = \activeLeaseResources(\requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF'));
+                                $tools = array_values(array_filter($registry['resources']['tooling'] ?? [], static fn(array $row): bool => ($row['stable_resource_id'] ?? null) === $toolId));
+                                if (count($tools) !== 1 || $registrySha !== $binding['registry_sha256']
+                                    || !in_array($toolId, $resources['tooling-resource-id'] ?? [], true) || !in_array($output, $resources['output-dir'] ?? [], true)) {
+                                    throw new RuntimeException('PLUGIN_SOURCE_BACKUP_NATIVE_TOOL_OUTPUT_REQUIRED');
+                                }
+                                $snapshot = function () use ($steps, $readOne, $pdo, $guard, $effects, $binding, $metadataTool, $scope, $state): void {
+                                    $guard(); $this->planning = ['pdo' => $pdo, 'recheck' => $guard, 'prerequisite' => null];
+                                    try {
+                                        foreach ($steps as $key => $step) {
+                                            $current = $readOne($key, static fn(array $plan): array => $plan);
+                                            if (self::digest($current) !== self::digest($step['report']['plugin'])) { throw new RuntimeException('PLUGIN_SOURCE_BATCH_SNAPSHOT_CHANGED'); }
+                                        }
+                                    } finally { $this->planning = null; }
+                                    if (SourceApplicationBackup::pluginScope($pdo, $effects, $binding, $metadataTool, $guard) !== $scope
+                                        || SourceApplicationBackup::pluginBatchCatalogState($pdo, $scope) !== $state) { throw new RuntimeException('PLUGIN_SOURCE_BATCH_SNAPSHOT_CHANGED'); }
+                                    $guard();
+                                };
+                                $report['backup'] = SourceApplicationBackup::capture($binding, $baseline, self::digest($baseline), $scope,
+                                    $tools[0], $output, $guard, 'plugin-catalog-batch', $snapshot);
+                                $report['maintenance'] = $windowReference;
+                                $report['status'] = 'captured'; $report['elapsed_ms'] = (hrtime(true) - $clock) / 1000000;
+                                return $report;
+                            }
+                            if (($expected['status'] ?? null) !== 'captured') { throw new RuntimeException('PLUGIN_SOURCE_BATCH_NATIVE_CAPTURE_REQUIRED'); }
+                            $proof = SourceApplicationBackup::pluginBatchRecovery($binding, $baseline, $scope, $maintenancePath, $recoveryPath, $server);
+                            $directory = dirname($proof['backup_manifest']['path']);
+                            $planReference = ['path' => $planPath, 'sha256' => hash_file('sha256', $planPath)];
+                            $executionPath = $directory . '/batch-execution.json';
+                            if (file_exists($executionPath) || is_link($executionPath)) { throw new RuntimeException('PLUGIN_SOURCE_BATCH_ALREADY_ENTERED_RECONCILE'); }
+                            SourceApplicationBackup::writePluginBatchRecord($executionPath, ['protocol' => 'peanut.source-plugin-batch-execution.v1',
+                                'batch_plan' => $planReference, 'request_id' => $context->requestId(), 'observed_at' => time(),
+                                'writer_sha256' => hash_file('sha256', __FILE__), 'state' => 'entered', 'origin_state' => $state], $server);
+                            $prefix = []; $results = []; $last = $state; $ordinal = 0;
+                            try {
+                                foreach ($steps as $key => $step) {
+                                    $guard();
+                                    if (SourceApplicationBackup::pluginBatchCatalogState($pdo, $scope) !== $last) { throw new RuntimeException('PLUGIN_SOURCE_BATCH_EXTERNAL_CATALOG_WRITE'); }
+                                    $prepared = SourceApplicationBackup::writePluginBatchRecord($directory . '/batch-step-' . $ordinal . '-prepared.json',
+                                        ['protocol' => 'peanut.source-plugin-batch-prepared.v1', 'batch_plan' => $planReference, 'ordinal' => $ordinal,
+                                            'plugin_key' => $key, 'baseline_sha256' => self::digest($step['baseline']), 'before_state' => $last,
+                                            'completed_prefix' => $prefix, 'request_id' => $context->requestId(), 'observed_at' => time()], $server);
+                                    $this->catalogBatchStep = ['evidence' => ['plan' => $planReference, 'prepared' => $prepared],
+                                        'expected' => $step['report'], 'directory' => $directory, 'ordinal' => $ordinal, 'plugin_key' => $key,
+                                        'scope' => $scope, 'before_state' => $last,
+                                        'started' => null, 'entered' => false];
+                                    $native = $this->plan('upgrade', $key, $actor, fn(callable $consume): array => $readOne($key, $consume), '', '',
+                                        ['plan' => $planPath, 'maintenance' => $maintenancePath, 'recovery' => $recoveryPath, 'mutate' => fn(): array => $mutate($key)], $metadataTool);
+                                    if (($native['status'] ?? null) !== 'completed' || ($native['result']['status'] ?? null) !== 'active'
+                                        || $this->catalogBatchStep['started'] === null) { throw new RuntimeException('PLUGIN_SOURCE_BATCH_COMPLETION_UNKNOWN'); }
+                                    $guard(); $after = SourceApplicationBackup::pluginBatchCatalogState($pdo, $scope);
+                                    $reference = ['path' => $native['result_path'], 'sha256' => hash_file('sha256', $native['result_path'])];
+                                    $prefix[] = SourceApplicationBackup::writePluginBatchRecord($directory . '/batch-step-' . $ordinal . '-completed.json',
+                                        ['protocol' => 'peanut.source-plugin-batch-completed.v1', 'batch_plan' => $planReference, 'ordinal' => $ordinal,
+                                            'plugin_key' => $key, 'before_state' => $last, 'after_state' => $after,
+                                            'native_result' => $reference, 'started' => $this->catalogBatchStep['started'],
+                                            'request_id' => $context->requestId(), 'observed_at' => time()], $server);
+                                    $results[$key] = $reference; $last = $after; ++$ordinal; $this->catalogBatchStep = null;
+                                }
+                                $guard();
+                                if (SourceApplicationBackup::pluginBatchCatalogState($pdo, $scope) !== $last) { throw new RuntimeException('PLUGIN_SOURCE_BATCH_EXTERNAL_CATALOG_WRITE'); }
+                                $result = ['protocol' => 'peanut.source-plugin-batch-result.v1', 'status' => 'completed', 'batch_plan' => $planReference,
+                                    'request_id' => $context->requestId(), 'completed_prefix' => $prefix, 'native_results' => $results,
+                                    'final_catalog_state' => $last, 'restore_qualification' => 'closed_after_success_later_writes_must_not_be_rewound',
+                                    'observed_at' => time(), 'elapsed_ms' => (hrtime(true) - $clock) / 1000000];
+                                $result['result_reference'] = SourceApplicationBackup::writePluginBatchRecord($directory . '/batch-result.json', $result, $server);
+                                return $result;
+                            } catch (\Throwable $failure) {
+                                $after = null;
+                                try { $guard(); $after = SourceApplicationBackup::pluginBatchCatalogState($pdo, $scope); } catch (\Throwable) { /* Unknown remains closed. */ }
+                                SourceApplicationBackup::writePluginBatchRecord($directory . '/batch-failure.json',
+                                    ['protocol' => 'peanut.source-plugin-batch-failure.v1', 'status' => 'unknown_requires_original_operation_reconciliation',
+                                        'batch_plan' => $planReference, 'request_id' => $context->requestId(), 'completed_prefix' => $prefix,
+                                        'current_step' => $this->catalogBatchStep, 'last_completed_state' => $last, 'observed_after_state' => $after,
+                                        'failure_type' => $failure::class, 'observed_at' => time(), 'automatic_retry_or_restore' => false], $server);
+                                throw $failure;
+                            } finally { $this->catalogBatchStep = null; }
+                        });
+                    } finally { $this->planning = null; }
+                });
+            if (!is_array($answer)) { throw new RuntimeException('PLUGIN_SOURCE_BATCH_RESULT_REQUIRED'); }
+            return $answer;
+        });
+    }
+
+    private function catalogBatchWindow(string $path, array $binding, array $baseline, array $tables): void
+    {
+        $server = rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR);
+        $window = SourceApplicationBackup::protectedPluginJson($path, $server);
+        foreach (['source', 'database', 'authority', 'registry_sha256'] as $key) {
+            if (($window[$key] ?? null) !== $binding[$key]) { throw new RuntimeException('PLUGIN_SOURCE_BATCH_WINDOW_CHANGED'); }
+        }
+        if (($window['schema_version'] ?? null) !== 1 || ($window['protocol'] ?? null) !== 'peanut.source-plugin-batch-maintenance.v1'
+            || ($window['state'] ?? null) !== 'active' || ($window['excluded_writers'] ?? null) !== ['http', 'workers', 'other-writers']
+            || ($window['baseline_sha256'] ?? null) !== self::digest($baseline) || ($window['scope'] ?? null) !== $tables
+            || ($window['pending'] ?? null) !== [] || ($window['selected'] ?? null) !== [] || !is_int($window['observed_at'] ?? null)
+            || !is_int($window['expires_at'] ?? null) || $window['observed_at'] < $binding['authority']['created_at']
+            || $window['observed_at'] > time() || $window['expires_at'] <= time() || $window['expires_at'] > $binding['authority']['expires_at']
+            || !is_array($window['receipts'] ?? null) || $window['receipts'] === []) { throw new RuntimeException('PLUGIN_SOURCE_BATCH_WINDOW_REQUIRED'); }
+        foreach ($window['receipts'] as $receipt) {
+            SourceApplicationBackup::protectedPluginBytes($receipt['path'] ?? '', $server);
+            if (hash_file('sha256', $receipt['path']) !== ($receipt['sha256'] ?? null)) { throw new RuntimeException('PLUGIN_SOURCE_BATCH_WINDOW_CHANGED'); }
+        }
+    }
+
+    private function startCatalogBatchStep(array $admission): void
+    {
+        if ($this->catalogBatchStep === null) { return; }
+        $step = $this->catalogBatchStep;
+        if ($this->mutation === null || SourceApplicationBackup::pluginBatchCatalogState($this->mutation['pdo'], $step['scope']) !== $step['before_state']) {
+            throw new RuntimeException('PLUGIN_SOURCE_BATCH_EXTERNAL_CATALOG_WRITE');
+        }
+        $reference = SourceApplicationBackup::writePluginBatchRecord($step['directory'] . '/batch-step-' . $step['ordinal'] . '-started.json',
+            ['protocol' => 'peanut.source-plugin-batch-started.v1', 'batch' => $step['evidence'], 'plugin_key' => $step['plugin_key'],
+                'ordinal' => $step['ordinal'], 'request_id' => $admission['request_id'], 'admission_sha256' => self::digest($admission), 'observed_at' => time()],
+            rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR));
+        $this->catalogBatchStep['started'] = $reference; $this->catalogBatchStep['entered'] = true;
+    }
+
+    private function assertCatalogBatchStarted(array $record): void
+    {
+        $batch = $record['evidence']['batch'] ?? null;
+        if ($batch === null) { if (isset($record['batch_started'])) { throw new RuntimeException('PLUGIN_SOURCE_BATCH_EVIDENCE_REQUIRED'); } return; }
+        $started = SourceApplicationBackup::pluginBatchRecord($record['batch_started'] ?? [], rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR));
+        if (($started['protocol'] ?? null) !== 'peanut.source-plugin-batch-started.v1' || ($started['batch'] ?? null) !== $batch
+            || ($started['plugin_key'] ?? null) !== $record['plugin_key'] || ($started['request_id'] ?? null) !== $record['request_id']
+            || ($started['admission_sha256'] ?? null) !== self::digest($record['admission'])) { throw new RuntimeException('PLUGIN_SOURCE_BATCH_STARTED_CHANGED'); }
+    }
 
     public function plan(string $operation, string $pluginKey, array $actor, callable $readPlan, string $toolId = '', string $output = '', ?array $execution = null, string $metadataTool = '', string $notificationPredecessor = ''): array
     {
@@ -156,7 +407,9 @@ final class PluginSourceDevelopmentHost
                                 }
                                 if (!$select || !$trigger) { throw new RuntimeException('PLUGIN_SOURCE_METADATA_VISIBILITY_REQUIRED'); }
                                 }
-                                $expected = SourceApplicationBackup::protectedPluginJson($execution['plan'], $this->app->getRootPath());
+                                $expected = $this->catalogBatchStep === null
+                                    ? SourceApplicationBackup::protectedPluginJson($execution['plan'], $this->app->getRootPath())
+                                    : $this->catalogBatchStep['expected'];
                                 if (($expected['metadata_tool'] ?? '') !== $this->sourceMetadataTool) { throw new RuntimeException('PLUGIN_SOURCE_PLAN_STALE'); }
                                 foreach (array_keys($report) as $field) {
                                     if (self::digest([$expected[$field] ?? null]) !== self::digest([$report[$field]])) { throw new RuntimeException('PLUGIN_SOURCE_PLAN_STALE'); }
@@ -183,7 +436,7 @@ final class PluginSourceDevelopmentHost
                                 $baseline = ['pending' => $effects['pending'], 'selected' => $effects['selected'],
                                     'operation' => $operation, 'plugin_key' => $pluginKey, 'native_plan_sha256' => self::digest($native), 'lifecycle_effects' => $effects];
                                 $evidence = fn(): array => SourceApplicationBackup::pluginRecovery($binding, $baseline, $scope,
-                                    $execution['maintenance'], $execution['recovery'], $this->app->getRootPath());
+                                    $execution['maintenance'], $execution['recovery'], $this->app->getRootPath(), null, $this->catalogBatchStep['evidence'] ?? null);
                                 $proof = $evidence();
                                 $recoveryPreflight = null;
                                 if ($operation === 'install' && $pluginKey === 'official.identity'
@@ -233,6 +486,7 @@ final class PluginSourceDevelopmentHost
                                     // The outer read-plan callback still holds the native package lock.
                                     // Only this call enters the original lifecycle, never a copied SQL runner.
                                     SourceApplicationBackup::sourceApplicationBeforeApply($binding, $execution['maintenance'], $recheck);
+                                    $this->startCatalogBatchStep($this->mutation['admission']);
                                     $enteredLifecycle = true;
                                     $result = ($execution['mutate'])();
                                     $lifecycleCompleted = true;
@@ -265,7 +519,7 @@ final class PluginSourceDevelopmentHost
                                     $writerSha = hash_file('sha256', __FILE__);
                                     $executorSha = hash_file('sha256', rtrim($this->app->getRootPath(), DIRECTORY_SEPARATOR) . '/app/platform/services/plugin/PluginLifecycleService.php');
                                     $acceptedAt = time();
-                                    if (SourceApplicationBackup::pluginRecovery($binding, $baseline, $scope, $execution['maintenance'], $execution['recovery'], $this->app->getRootPath(), $acceptedAt) !== $proof) {
+                                    if (SourceApplicationBackup::pluginRecovery($binding, $baseline, $scope, $execution['maintenance'], $execution['recovery'], $this->app->getRootPath(), $acceptedAt, $this->catalogBatchStep['evidence'] ?? null) !== $proof) {
                                         throw new RuntimeException('PLUGIN_SOURCE_WINDOW_CHANGED');
                                     }
                                     $this->requireMutation($pdo, $pluginKey);
@@ -278,6 +532,8 @@ final class PluginSourceDevelopmentHost
                                         'request_id' => $context->requestId(), 'writer_sha256' => $writerSha, 'executor_sha256' => $executorSha,
                                         'verification_level' => 'native_same_process_lifecycle_completion',
                                         'cross_process_preservation' => 'not_verified', 'product_database' => 'not_verified', 'qualification' => 'not_run'];
+                                    if ($this->catalogBatchStep !== null) { $record['batch_started'] = $this->catalogBatchStep['started']; }
+                                    $this->assertCatalogBatchStarted($record);
                                     $this->assertNotificationReceiptWrite($record, $effects);
                                     $record['document_sha256'] = self::digest($record);
                                     $record['result_path'] = $this->saveReceipt($record);
@@ -311,10 +567,16 @@ final class PluginSourceDevelopmentHost
                                                 . '/app/platform/services/plugin/PluginLifecycleService.php'),
                                             'database_afterimage' => 'not_captured', 'restoration' => 'not_executed',
                                             'product_database' => 'not_verified', 'qualification' => 'not_run'];
+                                        if ($this->catalogBatchStep !== null) { $record['batch_started'] = $this->catalogBatchStep['started']; }
                                         $record['document_sha256'] = self::digest($record);
                                         // Failure to durably preserve the record is itself a stop, not a
                                         // reason to retry the lifecycle or silently discard the error.
-                                        try { $this->saveReceipt($record); }
+                                        try {
+                                            $failurePath = $this->saveReceipt($record);
+                                            if ($this->catalogBatchStep !== null) {
+                                                $this->catalogBatchStep['failure_receipt'] = ['path' => $failurePath, 'sha256' => hash_file('sha256', $failurePath)];
+                                            }
+                                        }
                                         catch (\Throwable $receiptFailure) {
                                             throw new RuntimeException('PLUGIN_SOURCE_FAILURE_RECEIPT_WRITE_FAILED', 0, $receiptFailure);
                                         }
@@ -1803,7 +2065,8 @@ final class PluginSourceDevelopmentHost
                 throw new RuntimeException('PLUGIN_SOURCE_ORIGINAL_PLAN_CHANGED');
             }
             $proof = SourceApplicationBackup::pluginRecovery($binding, $baseline, $scope,
-                $record['evidence']['maintenance']['path'] ?? '', $record['evidence']['recovery']['path'] ?? '', $root, $record['observed_at']);
+                $record['evidence']['maintenance']['path'] ?? '', $record['evidence']['recovery']['path'] ?? '', $root, $record['observed_at'], $record['evidence']['batch'] ?? null);
+            $this->assertCatalogBatchStarted($record);
             $nativeAdmission = $record['admission'] ?? null;
             if (!is_array($nativeAdmission)) { throw new RuntimeException('PLUGIN_SOURCE_ORIGINAL_ADMISSION_CHANGED'); }
             $nativeDigest = $nativeAdmission['admission_digest'] ?? null; unset($nativeAdmission['admission_digest']);
@@ -1854,7 +2117,7 @@ final class PluginSourceDevelopmentHost
             } finally { if ($pdo->inTransaction()) { $pdo->rollBack(); } }
             $recheck();
             if (hash_file('sha256', $path) !== $receiptSha || SourceApplicationBackup::pluginRecovery($binding, $baseline, $scope,
-                $record['evidence']['maintenance']['path'], $record['evidence']['recovery']['path'], $root, $record['observed_at']) !== $proof) {
+                $record['evidence']['maintenance']['path'], $record['evidence']['recovery']['path'], $root, $record['observed_at'], $record['evidence']['batch'] ?? null) !== $proof) {
                 throw new RuntimeException('PLUGIN_SOURCE_ORIGINAL_EVIDENCE_CHANGED');
             }
             return ['protocol' => 'peanut.source-plugin-original-receipt-verification.v1', 'status' => 'verified', 'readonly' => true,
