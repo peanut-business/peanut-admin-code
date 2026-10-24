@@ -1569,7 +1569,7 @@
     return state === 'ready'
       ? 'success'
       : state === 'blocked'
-      ? 'error'
+      ? 'danger'
       : 'warning';
   }
   function upgradeStepLabel(step: string) {
