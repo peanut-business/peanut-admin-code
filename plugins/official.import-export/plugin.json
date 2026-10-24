@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "7d7872f87bddd1c2ccd75e42e04ff04e448511366d2b60d8c6d1054f6fcf16d6"
+        "sha256": "659b03d8bb8e91387fa1c70b74742a4695df013adf8c82d40919a2e705754f2b"
     },
     "trust": {
         "channel": "bundled",
@@ -48,7 +48,7 @@
                         },
                         {
                             "module_key": "official.identity",
-                            "version": "4.0.0-rc.26"
+                            "version": "4.0.0-rc.27"
                         },
                         {
                             "module_key": "official.integration",
