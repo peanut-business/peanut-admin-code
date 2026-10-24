@@ -14,6 +14,13 @@
           type="info"
           :closable="false"
         />
+        <el-alert
+          v-if="error"
+          :title="error"
+          type="error"
+          :closable="false"
+          show-icon
+        />
         <el-form
           v-if="invitation.requires_password"
           label-position="top"
@@ -41,6 +48,9 @@
           class="wide"
           @click="acceptInvitation"
           >接受邀请</el-button
+        >
+        <el-button class="wide" @click="goToTenantLogin"
+          >取消并前往租户管理端登录</el-button
         >
       </template>
       <el-result
@@ -1879,6 +1889,7 @@
     }
   }
   async function acceptInvitation() {
+    if (loading.value || !invitation.value || !invitationToken.value) return;
     loading.value = true;
     error.value = '';
     try {
@@ -1888,7 +1899,7 @@
       window.history.replaceState({}, '', window.location.pathname);
       ElMessage.success('邀请已接受，请使用账户登录 Tenant');
     } catch (cause) {
-      error.value = message(cause);
+      error.value = message(cause) || '接受邀请失败，请稍后重试';
     } finally {
       loading.value = false;
     }
