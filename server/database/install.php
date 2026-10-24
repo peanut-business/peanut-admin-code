@@ -735,6 +735,13 @@ function logInstallationFailure(string $serverDir, string $stage, string $errorC
                 'path' => str_starts_with($file, $projectRoot) ? substr($file, strlen($projectRoot)) : null,
                 'line' => $exception->getLine(),
             ];
+            if ($class === \PeanutAdmin\Modules\Identity\Database\IdentitySchemaMigrationProofFailure::class
+                && $file === rtrim(str_replace('\\', '/', $serverDir), '/') . '/app/modules/official/identity/src/Database/IdentitySchemaMigrationProof.php'
+                && $exception->getMessage() === \PeanutAdmin\Modules\Identity\Database\IdentitySchemaMigrationProofFailure::CAUSE) {
+                $entry['cause_code'] = \PeanutAdmin\Modules\Identity\Database\IdentitySchemaMigrationProofFailure::CAUSE;
+                $difference = $exception->diagnostic();
+                if ($difference !== null) { $entry['metadata_difference'] = $difference; }
+            }
             // Only this fixed producer's finite proof codes are safe to audit.
             // Keep them on their actual chain entry, never in the public response.
             if ($exception instanceof RuntimeException

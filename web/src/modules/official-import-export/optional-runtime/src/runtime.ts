@@ -1,5 +1,3 @@
-import { defineAdminModule } from '@peanut-admin/vue';
-import type { AdminModuleContribution } from '@peanut-admin/vue';
 import { inject, reactive } from 'vue';
 import type { InjectionKey } from 'vue';
 import { parseOperationList, parseOperationResponse } from './contracts';
@@ -133,7 +131,8 @@ export const createImportExportRuntime = (
     error instanceof DOMException && error.name === 'AbortError';
   const load = async (): Promise<void> => {
     const currentDispose = disposeEpoch;
-    const currentRead = ++readEpoch;
+    readEpoch += 1;
+    const currentRead = readEpoch;
     readController?.abort();
     const controller = new AbortController();
     readController = controller;
@@ -142,9 +141,7 @@ export const createImportExportRuntime = (
     try {
       if (!options.canRead())
         throw new Error('IMPORT_EXPORT_PERMISSION_DENIED');
-      const status = state.status;
-      const page = state.page;
-      const pageSize = state.pageSize;
+      const { status, page, pageSize } = state;
       const result = await options.transport.list(
         status,
         page,
@@ -256,7 +253,8 @@ export const createImportExportRuntime = (
     },
     async download(fileKey) {
       const currentDispose = disposeEpoch;
-      const currentDownload = ++downloadEpoch;
+      downloadEpoch += 1;
+      const currentDownload = downloadEpoch;
       downloadController?.abort();
       const controller = new AbortController();
       downloadController = controller;
@@ -339,24 +337,3 @@ export const useImportExportRuntime = (): ImportExportRuntime => {
   if (runtime === undefined) throw new Error('IMPORT_EXPORT_RUNTIME_MISSING');
   return runtime;
 };
-export const createImportExportModuleContribution = (
-  runtime: ImportExportRuntime
-): AdminModuleContribution =>
-  defineAdminModule({
-    key: IMPORT_EXPORT_MODULE_KEY,
-    routes: [
-      {
-        name: IMPORT_EXPORT_ROUTE_NAME,
-        path: IMPORT_EXPORT_ROUTE_PATH,
-        component: async () => ({
-          default: (await import('./ImportExportPage.vue')).default,
-        }),
-        access: {
-          moduleKey: IMPORT_EXPORT_MODULE_KEY,
-          permissionKeys: [IMPORT_EXPORT_READ_PERMISSION],
-        },
-      },
-    ],
-    disposeOnTenantChange: true,
-    stores: [{ key: IMPORT_EXPORT_STORE_KEY, dispose: runtime.dispose }],
-  });

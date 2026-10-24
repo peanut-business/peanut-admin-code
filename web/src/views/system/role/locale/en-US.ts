@@ -11,7 +11,7 @@ export default {
   'systemRole.operation.create': 'New Role',
   'systemRole.operation.refresh': 'Refresh',
   'systemRole.operation.edit': 'Edit',
-  'systemRole.operation.delete': 'Delete',
+  'systemRole.operation.delete': 'Archive',
   'systemRole.operation.permission': 'Permission',
 
   'systemRole.columns.id': 'ID',
@@ -19,6 +19,10 @@ export default {
   'systemRole.columns.desc': 'Remark',
   'systemRole.columns.sort': 'Sort',
   'systemRole.columns.num': 'Administrators',
+  'systemRole.columns.status': 'Status',
+  'systemRole.status.active': 'Active',
+  'systemRole.status.disabled': 'Disabled',
+  'systemRole.status.archived': 'Archived',
   'systemRole.columns.createTime': 'Created At',
   'systemRole.columns.operations': 'Operations',
 
@@ -38,6 +42,6 @@ export default {
   'systemRole.auth.selectAll': 'Select / Clear All',
   'systemRole.auth.parentLinked': 'Parent-child Linkage',
 
-  'systemRole.delete.confirm': 'Are you sure to delete this role?',
+  'systemRole.delete.confirm': 'Archive this role? Historical records will be retained.',
   'systemRole.tip.success': 'Success',
 };

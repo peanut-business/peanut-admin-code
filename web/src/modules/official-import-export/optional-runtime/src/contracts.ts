@@ -170,14 +170,16 @@ export const parseOperation = (value: unknown): ImportExportOperation => {
   )
     throw new Error('IMPORT_EXPORT_RESPONSE_INVALID');
   const mapping = record(item.mapping);
-  for (const [source, target] of Object.entries(mapping))
-    if (
-      source === '' ||
-      source.length > 120 ||
-      typeof target !== 'string' ||
-      !/^[a-z][a-z0-9_]{0,63}$/.test(target)
+  if (
+    Object.entries(mapping).some(
+      ([source, target]) =>
+        source === '' ||
+        source.length > 120 ||
+        typeof target !== 'string' ||
+        !/^[a-z][a-z0-9_]{0,63}$/.test(target)
     )
-      throw new Error('IMPORT_EXPORT_RESPONSE_INVALID');
+  )
+    throw new Error('IMPORT_EXPORT_RESPONSE_INVALID');
   return {
     operationKey: item.operation_key as string,
     providerKey: item.provider_key as string,

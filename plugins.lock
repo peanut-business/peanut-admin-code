@@ -95,11 +95,11 @@
         },
         {
             "key": "fixture.workflow-business",
-            "version": "1.0.4",
+            "version": "1.0.5",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "ac8c6f9357ce96921eed89cd7f8594bb781810602d2aea0e47c02c866cc859d5"
+                "sha256": "a8cdde7510dacac120b9376385d612a85ee2daca0eadc27119f4da527743fb31"
             },
             "trust": {
                 "channel": "bundled",
@@ -133,12 +133,12 @@
                     "modules": [
                         {
                             "key": "fixture.workflow-business",
-                            "version": "1.0.4",
+                            "version": "1.0.5",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
                                     "module_key": "official.identity",
-                                    "version": "4.0.0-rc.26"
+                                    "version": "4.0.0-rc.27"
                                 },
                                 {
                                     "module_key": "official.task",
@@ -146,11 +146,11 @@
                                 },
                                 {
                                     "module_key": "peanut.artifact-revision",
-                                    "version": "4.0.0-rc.26"
+                                    "version": "4.0.0-rc.27"
                                 },
                                 {
                                     "module_key": "peanut.workflow",
-                                    "version": "4.0.0-rc.28"
+                                    "version": "4.0.0-rc.29"
                                 }
                             ],
                             "permissions": {
@@ -204,7 +204,7 @@
                 }
             ],
             "manifest": "plugins/fixture.workflow-business/plugin.json",
-            "manifest_sha256": "8887bc65f46778ec02c2a016ac3476a3e85c19f741e722cfc25524f8846c8377"
+            "manifest_sha256": "d952f5cfe4c738216be777f759f9e3ecfa2b602e933ff6d5ee098af11b3d01af"
         },
         {
             "key": "official.article",
@@ -321,11 +321,11 @@
         },
         {
             "key": "official.collaboration",
-            "version": "1.0.4",
+            "version": "1.0.5",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "a2fc832d6b345e6dea9fc9cb986736ce7b8407a9a96ba115b52e87f31dc3e796"
+                "sha256": "3a3f42cdbf27c424ad53089b931b86cf93d48e4330236d28f1de91a6dd43eb82"
             },
             "trust": {
                 "channel": "bundled",
@@ -359,7 +359,7 @@
                     "modules": [
                         {
                             "key": "official.collaboration",
-                            "version": "1.0.4",
+                            "version": "1.0.5",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
@@ -372,7 +372,7 @@
                                 },
                                 {
                                     "module_key": "official.identity",
-                                    "version": "4.0.0-rc.26"
+                                    "version": "4.0.0-rc.27"
                                 },
                                 {
                                     "module_key": "official.rich-text",
@@ -428,7 +428,7 @@
                 }
             ],
             "manifest": "plugins/official.collaboration/plugin.json",
-            "manifest_sha256": "3aaf97efe357d05923dedfb83b90a3622c40fbe8dddf0154a289f8ed31e740d2"
+            "manifest_sha256": "12fb2be04a7ea174634b1fb960acff5ca41e43a7a1398d2eca2cdb760439e19f"
         },
         {
             "key": "official.content-tools",
@@ -519,11 +519,11 @@
         },
         {
             "key": "official.document",
-            "version": "1.0.4",
+            "version": "1.0.5",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "8c8fa368ad93d9fc8753d5db55041cec7542111f5440f09e59af93a6d55cee50"
+                "sha256": "114e3aea221fcd5f6e9075a1c7d972231b45cb3d06aa4c4b8189d48e7c9cdab9"
             },
             "trust": {
                 "channel": "bundled",
@@ -557,7 +557,7 @@
                     "modules": [
                         {
                             "key": "official.document",
-                            "version": "1.0.4",
+                            "version": "1.0.5",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
@@ -570,7 +570,7 @@
                                 },
                                 {
                                     "module_key": "official.identity",
-                                    "version": "4.0.0-rc.26"
+                                    "version": "4.0.0-rc.27"
                                 },
                                 {
                                     "module_key": "official.rich-text",
@@ -628,15 +628,15 @@
                 }
             ],
             "manifest": "plugins/official.document/plugin.json",
-            "manifest_sha256": "0ee3b3d1e1be25df98a7ba36c4aa9562ae074de7b1cd057014228e97bbbfc06b"
+            "manifest_sha256": "049571b968631d3869d00fcecd9fa7eae30d42fcd265143b289aa9c44ce6268d"
         },
         {
             "key": "official.file",
-            "version": "1.0.20",
+            "version": "1.0.21",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "da476cccbd94a88bb76613cd1f074121d3bfbc8215cdc0ff4c229e2cb99018ae"
+                "sha256": "6afafe7b8816be2753b91488007878cbb79b79bcacf09387b1d9e9bd59598ef4"
             },
             "trust": {
                 "channel": "bundled",
@@ -670,7 +670,7 @@
                     "modules": [
                         {
                             "key": "official.file",
-                            "version": "1.0.20",
+                            "version": "1.0.21",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
@@ -679,7 +679,7 @@
                                 },
                                 {
                                     "module_key": "official.identity",
-                                    "version": "4.0.0-rc.26"
+                                    "version": "4.0.0-rc.27"
                                 }
                             ],
                             "permissions": {
@@ -773,15 +773,15 @@
                 }
             ],
             "manifest": "plugins/official.file/plugin.json",
-            "manifest_sha256": "901f3c2cfb76127ddf0dc5c79336ee943a30813ffa90c475af93d14c77410770"
+            "manifest_sha256": "b201dc2e4903494f6b7b3c1389178e8e02f78a7e31209b5bc552613b2676fffd"
         },
         {
             "key": "official.identity",
-            "version": "4.0.0-rc.26",
+            "version": "4.0.0-rc.27",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "bb2e9a0cd095662d0e2abf77dc0a912e20c01e554f7369f72092856b083f8976"
+                "sha256": "42af9fc7f566d7c65077e2e82ed9e2a7fa4cfcd3bad1a776eac8d2c4961319ee"
             },
             "trust": {
                 "channel": "bundled",
@@ -815,7 +815,7 @@
                     "modules": [
                         {
                             "key": "official.identity",
-                            "version": "4.0.0-rc.26",
+                            "version": "4.0.0-rc.27",
                             "kernel_constraint": "^1.0",
                             "dependencies": [],
                             "permissions": {
@@ -878,8 +878,8 @@
             "composer": [
                 {
                     "name": "peanut-business/official-identity",
-                    "version": "4.0.0-rc.23",
-                    "sha256": "56c3ea9c4d0cae300dbc92ac2a75d4170e474e3135596012e26de366dd48b7e3"
+                    "version": "4.0.0-rc.24",
+                    "sha256": "7f2a57c6d88ab31b273153725db992922bd1de6057efa592e047a23fed435bd3"
                 }
             ],
             "npm": [],
@@ -891,15 +891,15 @@
                 }
             ],
             "manifest": "plugins/official.identity/plugin.json",
-            "manifest_sha256": "c3a745f2cd73532c3a23a59509246261523889cb05fcfb31daf60aa15a539b43"
+            "manifest_sha256": "c044ef0c3a643c9ed0bc19e3d4d9649f16a992903aa98a431da323de37434946"
         },
         {
             "key": "official.import-export",
-            "version": "1.0.15",
+            "version": "1.0.17",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "1e13914826deb28a633911b00a1f6ab0bf906a8e65cebc1a93d02cdca8d40239"
+                "sha256": "659b03d8bb8e91387fa1c70b74742a4695df013adf8c82d40919a2e705754f2b"
             },
             "trust": {
                 "channel": "bundled",
@@ -933,7 +933,7 @@
                     "modules": [
                         {
                             "key": "official.import-export",
-                            "version": "1.0.15",
+                            "version": "1.0.17",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
@@ -942,7 +942,7 @@
                                 },
                                 {
                                     "module_key": "official.identity",
-                                    "version": "4.0.0-rc.26"
+                                    "version": "4.0.0-rc.27"
                                 },
                                 {
                                     "module_key": "official.integration",
@@ -988,17 +988,17 @@
             "npm": [
                 {
                     "name": "@peanut-admin/official-import-export",
-                    "version": "1.0.3",
-                    "integrity": "sha256-g7MTHoUQr7UQdavZ+uXsw2wRJIXxTDBvGtK+vquN3IQ="
+                    "version": "1.0.5",
+                    "integrity": "sha256-UhcZmE9OqyPifxsvku4GP+R6wGLtijL0fyqOJuN/Wtg="
                 }
             ],
             "frontend": [
                 {
                     "client_key": "admin-web",
                     "package": "@peanut-admin/official-import-export",
-                    "version": "1.0.3",
+                    "version": "1.0.5",
                     "entry": "web/src/modules/official-import-export/contribution.ts",
-                    "sha256": "0bd86b7b5abd93eb254ae53993f7696f8fffceeffe5ee85338cb8acfa6bb34a2"
+                    "sha256": "41951b622cbbc7e864eff9dc4723c56643f2fb376bff97aef52255e6013540dc"
                 }
             ],
             "modules": [
@@ -1008,15 +1008,15 @@
                 }
             ],
             "manifest": "plugins/official.import-export/plugin.json",
-            "manifest_sha256": "ae050f368312a278d2db14dbb574ab4c99742f72bcbcafab22eca55359d78c6c"
+            "manifest_sha256": "c4a460ab8500658e283bcdae5cc6023c99881f2d9ff1b758e9c26535b4c8e30a"
         },
         {
             "key": "official.integration",
-            "version": "1.0.15",
+            "version": "1.0.16",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "eb71ab82e74ef29f2501c8ad8f0f2a3996b3728206fd15b732180361ebdc6bfa"
+                "sha256": "61ddc9878367227ed9ca37df70adab3da88870a2a66ce65beac119c4321756f1"
             },
             "trust": {
                 "channel": "bundled",
@@ -1050,12 +1050,12 @@
                     "modules": [
                         {
                             "key": "official.integration",
-                            "version": "1.0.15",
+                            "version": "1.0.16",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
                                     "module_key": "official.identity",
-                                    "version": "4.0.0-rc.26"
+                                    "version": "4.0.0-rc.27"
                                 }
                             ],
                             "permissions": {
@@ -1105,15 +1105,15 @@
                 }
             ],
             "manifest": "plugins/official.integration/plugin.json",
-            "manifest_sha256": "a48e3d48f59a8d7439c972aa894f124466577dd344f80066c33c562493e54ee2"
+            "manifest_sha256": "639f56de946d4986d9aa02606be8e0dd448faba37e8d68c0c75661083f287b15"
         },
         {
             "key": "official.member",
-            "version": "1.0.13",
+            "version": "1.0.14",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "ca5615e273fcaffd0fc95fa100f11826b2343aa6603b6c9cdeb57c51dfcd7366"
+                "sha256": "740a31add29790c125cc817695f9a57467b11a8063e6b53f2093a54df59bc000"
             },
             "trust": {
                 "channel": "bundled",
@@ -1147,7 +1147,7 @@
                     "modules": [
                         {
                             "key": "official.member",
-                            "version": "1.0.13",
+                            "version": "1.0.14",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
@@ -1156,7 +1156,7 @@
                                 },
                                 {
                                     "module_key": "official.identity",
-                                    "version": "4.0.0-rc.26"
+                                    "version": "4.0.0-rc.27"
                                 }
                             ],
                             "permissions": {
@@ -1210,15 +1210,15 @@
                 }
             ],
             "manifest": "plugins/official.member/plugin.json",
-            "manifest_sha256": "df9e688ea3e6ad52803669549b2b9a72293ca960f9e1637f3add73ac89f02b6b"
+            "manifest_sha256": "93b3ed35d7a5a9867a7a81f177236ff747060d043c0471654e8ddcd7da72f0e8"
         },
         {
             "key": "official.notification",
-            "version": "1.0.14",
+            "version": "1.0.15",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "2399f40abba284af53dec5ae447b6475d59b39a9929b3f1f677e022ba2a2fbfa"
+                "sha256": "eb8f7a850e3462f3e0ea12782683c11f98e144e8b9afefacf8e8efa17e10a615"
             },
             "trust": {
                 "channel": "bundled",
@@ -1252,12 +1252,12 @@
                     "modules": [
                         {
                             "key": "official.notification",
-                            "version": "1.0.14",
+                            "version": "1.0.15",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
                                     "module_key": "official.identity",
-                                    "version": "4.0.0-rc.26"
+                                    "version": "4.0.0-rc.27"
                                 },
                                 {
                                     "module_key": "official.integration",
@@ -1327,7 +1327,7 @@
                 }
             ],
             "manifest": "plugins/official.notification/plugin.json",
-            "manifest_sha256": "a556e212603e8504f1c1a63fb9d9af8851b1f58a3b72210d75f5a10a675fd913"
+            "manifest_sha256": "9ef414c99664f28a0df115e63a6f84de6136a35abe6a045c838a6526ec884f4c"
         },
         {
             "key": "official.oauth",
@@ -1444,11 +1444,11 @@
         },
         {
             "key": "official.ops",
-            "version": "1.0.18",
+            "version": "1.0.19",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "9a5d5520f959e5594dd106b10b1efa680c31c035a83233aaa5cecd42cfbe169e"
+                "sha256": "a483b5c6af712d6c875e66496f4001f963f0d0f4876c3b045e263936fc74f360"
             },
             "trust": {
                 "channel": "bundled",
@@ -1482,12 +1482,12 @@
                     "modules": [
                         {
                             "key": "official.ops",
-                            "version": "1.0.18",
+                            "version": "1.0.19",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
                                     "module_key": "official.identity",
-                                    "version": "4.0.0-rc.26"
+                                    "version": "4.0.0-rc.27"
                                 },
                                 {
                                     "module_key": "official.task",
@@ -1536,15 +1536,15 @@
                 }
             ],
             "manifest": "plugins/official.ops/plugin.json",
-            "manifest_sha256": "db1dcded935f81b779c2f3b1f4d628cb585b8eb2a9cbb91dadf7d2dcfe52a9b3"
+            "manifest_sha256": "5f0312667b22a467a867cfcd73ba9f108252ba5ee391bf2bfe521ff2d8da8b25"
         },
         {
             "key": "official.payment",
-            "version": "1.0.13",
+            "version": "1.0.14",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "d209af04576746b91eaf3ec35bce8d5f0698a2c9449d6d52989462c6db7e283e"
+                "sha256": "42a26362cb3bf80deaa7d9916fa97550d8a3cc985f16071cf87b01230bfa0022"
             },
             "trust": {
                 "channel": "bundled",
@@ -1578,7 +1578,7 @@
                     "modules": [
                         {
                             "key": "official.payment",
-                            "version": "1.0.13",
+                            "version": "1.0.14",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
@@ -1587,7 +1587,7 @@
                                 },
                                 {
                                     "module_key": "official.identity",
-                                    "version": "4.0.0-rc.26"
+                                    "version": "4.0.0-rc.27"
                                 },
                                 {
                                     "module_key": "official.integration",
@@ -1653,15 +1653,15 @@
                 }
             ],
             "manifest": "plugins/official.payment/plugin.json",
-            "manifest_sha256": "5f8481384ad95129b11eeff73381f07e233a7a9e9829114352f4140c134359d0"
+            "manifest_sha256": "c81d42dddcead43efbb9c6016df7ccb37e75bb78a534e24cd63e6147c57b60ed"
         },
         {
             "key": "official.reference-codes",
-            "version": "1.0.15",
+            "version": "1.0.16",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "18ffa5ebeffe4a78698f3bce49dad69cb809b230a454ab7ea124bb9e441d8651"
+                "sha256": "99861e2dbad7de5ec4bc1b4241fa2c00a6fb88b88a001f79266028a12a8f7273"
             },
             "trust": {
                 "channel": "bundled",
@@ -1695,12 +1695,12 @@
                     "modules": [
                         {
                             "key": "official.reference-codes",
-                            "version": "1.0.15",
+                            "version": "1.0.16",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
                                     "module_key": "official.identity",
-                                    "version": "4.0.0-rc.26"
+                                    "version": "4.0.0-rc.27"
                                 }
                             ],
                             "permissions": {
@@ -1750,7 +1750,7 @@
                 }
             ],
             "manifest": "plugins/official.reference-codes/plugin.json",
-            "manifest_sha256": "c97523ae940e35291ba5e224977f2158b6933584bfbe257574db2ddd08f9aef5"
+            "manifest_sha256": "2ac37a44bfd4c2486ca1aba0065c533c671139c79bb7dbdb2b4cb4aa5f717896"
         },
         {
             "key": "official.rich-text",
@@ -1855,11 +1855,11 @@
         },
         {
             "key": "official.settings",
-            "version": "1.0.13",
+            "version": "1.0.14",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "bdf2aef01e551878415d3e0d7329cbe93fbee6aa2e00d924b51a5c48268b31b9"
+                "sha256": "44a53286648ae8e50e9e760265338b6364733a25a1d20b2a7000d187ccf18eb0"
             },
             "trust": {
                 "channel": "bundled",
@@ -1893,7 +1893,7 @@
                     "modules": [
                         {
                             "key": "official.settings",
-                            "version": "1.0.13",
+                            "version": "1.0.14",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
@@ -1902,7 +1902,7 @@
                                 },
                                 {
                                     "module_key": "official.identity",
-                                    "version": "4.0.0-rc.26"
+                                    "version": "4.0.0-rc.27"
                                 }
                             ],
                             "permissions": {
@@ -1952,15 +1952,15 @@
                 }
             ],
             "manifest": "plugins/official.settings/plugin.json",
-            "manifest_sha256": "197f2cc8905d555d074e7aa8fa2a9bb76ffc666bdc6c89d05e2de6ef2812e36e"
+            "manifest_sha256": "c982c43a7ec71408047fdddc12ea4b905ea1c5aef084bc0417e0970d38bee942"
         },
         {
             "key": "official.task",
-            "version": "1.0.16",
+            "version": "1.0.17",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "bef739a18ddf74e19a9f6381afcdb6c048294d8ef0ae87f85fdba6d15e4e4e73"
+                "sha256": "bd2f7e5bc2b8efe1dfa4193103fafb23cc0fb7ccb8c25f55c23113994abd1d7e"
             },
             "trust": {
                 "channel": "bundled",
@@ -1994,12 +1994,12 @@
                     "modules": [
                         {
                             "key": "official.task",
-                            "version": "1.0.16",
+                            "version": "1.0.17",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
                                     "module_key": "official.identity",
-                                    "version": "4.0.0-rc.26"
+                                    "version": "4.0.0-rc.27"
                                 }
                             ],
                             "permissions": {
@@ -2061,15 +2061,15 @@
                 }
             ],
             "manifest": "plugins/official.task/plugin.json",
-            "manifest_sha256": "5548d1395bf42a92d1dbbec578aae6ada99be328100eb641f11f7ee90a8b3922"
+            "manifest_sha256": "20dc5e075b9cd07ddb099c3cac974cf351e0d936f4446bd1279db00007595345"
         },
         {
             "key": "peanut.artifact-revision",
-            "version": "4.0.0-rc.26",
+            "version": "4.0.0-rc.27",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "9355c19d0f3b76c370d33904de9596948c5fc5341c4ab8b465289ac7abae213d"
+                "sha256": "dc5d866d353ffd8a5cfc7ba057fe3d49318f8d1faee557d15c6cf82bfc5f60e7"
             },
             "trust": {
                 "channel": "bundled",
@@ -2103,12 +2103,12 @@
                     "modules": [
                         {
                             "key": "peanut.artifact-revision",
-                            "version": "4.0.0-rc.26",
+                            "version": "4.0.0-rc.27",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
                                     "module_key": "official.identity",
-                                    "version": "4.0.0-rc.26"
+                                    "version": "4.0.0-rc.27"
                                 }
                             ],
                             "permissions": {
@@ -2144,15 +2144,15 @@
                 }
             ],
             "manifest": "plugins/peanut.artifact-revision/plugin.json",
-            "manifest_sha256": "cc9d3bec15b43686740d2e007ea6ae2cb97c189dc133fccfea5ed673d7670934"
+            "manifest_sha256": "f10e2850bd61dcdff46026ffab4a3502dc8d5ba7aaf9e0c0aa6ed58191dbc2c0"
         },
         {
             "key": "peanut.entitlement-quota",
-            "version": "4.0.0-rc.26",
+            "version": "4.0.0-rc.27",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "1f196deddc0a56c9e306524d5656173a421f320b6aaca6c78b03d72a390754af"
+                "sha256": "b880e511014851f40e9966647749d5c56d9e31131974f94fe910b682bdf1b11e"
             },
             "trust": {
                 "channel": "bundled",
@@ -2186,12 +2186,12 @@
                     "modules": [
                         {
                             "key": "peanut.entitlement-quota",
-                            "version": "4.0.0-rc.26",
+                            "version": "4.0.0-rc.27",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
                                     "module_key": "official.identity",
-                                    "version": "4.0.0-rc.26"
+                                    "version": "4.0.0-rc.27"
                                 }
                             ],
                             "permissions": {
@@ -2227,15 +2227,15 @@
                 }
             ],
             "manifest": "plugins/peanut.entitlement-quota/plugin.json",
-            "manifest_sha256": "485c561e2e4b02d73e71b818cb83bd34ce64f842c30675fec8b58e3f4a86f3b5"
+            "manifest_sha256": "3fb6a859c1975a899acb317c5e901a6a0039b6ab2eac6fc128609f3cb19b480a"
         },
         {
             "key": "peanut.workflow",
-            "version": "4.0.0-rc.28",
+            "version": "4.0.0-rc.29",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "1cb28c3c4d0226938b5917d8a88e90a3f528fce7a7996136f071b3e281b319c5"
+                "sha256": "e01d99d531a08b1dafcb7012d6aebf45a1c25f90f394939dd58297529e6cbd9c"
             },
             "trust": {
                 "channel": "bundled",
@@ -2269,12 +2269,12 @@
                     "modules": [
                         {
                             "key": "peanut.workflow",
-                            "version": "4.0.0-rc.28",
+                            "version": "4.0.0-rc.29",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
                                     "module_key": "official.identity",
-                                    "version": "4.0.0-rc.26"
+                                    "version": "4.0.0-rc.27"
                                 }
                             ],
                             "permissions": {
@@ -2344,7 +2344,7 @@
                 }
             ],
             "manifest": "plugins/peanut.workflow/plugin.json",
-            "manifest_sha256": "a3ee28f25d645e816b6e058e2485772a1f5c4909fe647b6fe93e4e73b8e67bc7"
+            "manifest_sha256": "c54cf070fa102998e2aca44e59cb413f3954ace2a0127591d6e41e1afc045962"
         }
     ]
 }

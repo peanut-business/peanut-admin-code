@@ -7,6 +7,7 @@ export interface RoleRecord {
   desc: string;
   sort: number;
   num: number;
+  status: 'active' | 'disabled' | 'archived';
   create_time: number | string;
   update_time?: number | string;
   menu_keys?: string[];
