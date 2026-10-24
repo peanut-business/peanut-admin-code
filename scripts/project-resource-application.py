@@ -472,7 +472,7 @@ def authority(operation_id, *, terminal=None):
     return operation, sha(json.dumps(operation, sort_keys=True, separators=(",", ":")).encode()), common, registry_sha
 
 
-def retained_parent(operation, common, *, require_live=True):
+def retained_parent(operation, common, *, require_live=True, registry_sha=None):
     """Read the original authority; renewal may change time, never its identity/scope."""
     if "retained_authority" not in operation:
         return None
@@ -505,8 +505,14 @@ def retained_parent(operation, common, *, require_live=True):
     rows = table(directory / "resources.tsv", 3)
     resources = resource_map(rows)
     if "registry-sha256" in resources:
-        registry = canonical(os.environ.get("PEANUT_RESOURCE_REGISTRY", ""))
-        need(resources["registry-sha256"] == {sha(regular(registry))},
+        # Explicit old digest is used only by the native cross-snapshot custody
+        # reader after it has authenticated the complete original registration.
+        # Execution/renewal callers retain their current-registry default.
+        if registry_sha is None:
+            registry = canonical(os.environ.get("PEANUT_RESOURCE_REGISTRY", ""))
+            registry_sha = sha(regular(registry))
+        need(re.fullmatch(r"[0-9a-f]{64}", registry_sha) is not None
+             and resources["registry-sha256"] == {registry_sha},
              "retained parent registry identity differs from current registry")
     need(resources.get("worktree") == {app["root"]}
          and resources.get("application-root") == {app["root"]}

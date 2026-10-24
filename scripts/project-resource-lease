@@ -899,6 +899,7 @@ requested = resources(args)
 active = []
 active_gates = {}
 active_metadata = {}
+active_original_resources = {}
 expired_scopes = set()
 lock_resources = {}
 known_leases = set()
@@ -967,6 +968,7 @@ for path in pathlib.Path(leases).glob('*'):
         active.append((path.name, r))
         active_gates[path.name] = m['gate']
         active_metadata[path.name] = m
+        active_original_resources[path.name] = resources(row[1]+'='+row[2] for row in resource_rows)
     except (ValueError, OSError, KeyError):
         fail('cannot establish active lease boundary: '+path.name)
 # A remaining physical lock without metadata is an exclusive boundary, never
@@ -1241,17 +1243,58 @@ for lease, r in active:
     if not r.get('mysql-access'): continue
     if lease in expired_scopes: continue
     document = active_registry(lease, r)
+    inherited_locks = {}
     if document is not registry:
         try:
             metadata = active_metadata[lease]
             repository = pathlib.Path(metadata['candidate_repository'])
+            common = pathlib.Path(subprocess.check_output(['git','-C',source,'rev-parse','--path-format=absolute','--git-common-dir'], text=True).strip())
+            application = None
+            if r.get('application-operation'):
+                helper = runpy.run_path(str(pathlib.Path(source)/'scripts/project-resource-application.py'))
+                matches = [o for o in document.get('resources',{}).get('application_operations',[])
+                           if o.get('stable_resource_id') in r['application-operation']]
+                if len(matches) != 1 or len(r['application-operation']) != 1:
+                    fail('active application operation source is ambiguous: '+lease)
+                application = matches[0]
+                digest = hashlib.sha256(json.dumps(application, sort_keys=True, separators=(',',':')).encode()).hexdigest()
+                if (r != helper['expected_resources'](application,digest,next(iter(r['registry-sha256'])))
+                    or metadata['owner'] != application['owner'] or metadata['thread'] != application['thread']
+                    or metadata['candidate'] != application['application']['commit']
+                    or str(repository) != application['application']['root']
+                    or application['tool_source']['common_dir'] != str(common)
+                    or metadata['parent_lease'] != application.get('retained_authority',{}).get('lease','')
+                    or metadata['gate'] != 'permanent-app-development'):
+                    fail('active original application operation proof differs: '+lease)
+                parent = helper['retained_parent'](application,common,registry_sha=next(iter(r['registry-sha256'])))
+                if parent:
+                    if int(metadata['expires_at']) > int(parent[1]['expires_at']):
+                        fail('active application child exceeds parent TTL: '+lease)
+                    if parent[0] == common:
+                        inherited_locks = {item:parent[1]['lease'] for item in parent[2]}
+            elif metadata['parent_lease']:
+                parent_id = metadata['parent_lease']
+                parent = active_metadata.get(parent_id)
+                parent_resources = active_original_resources.get(parent_id, {})
+                if (not parent or parent['parent_lease'] or parent_id in expired_scopes
+                    or any(parent[k] != metadata[k] for k in ('owner','thread','candidate','candidate_repository','worktree'))
+                    or int(metadata['expires_at']) > int(parent['expires_at'])
+                    or parent_resources.get('registry-sha256',r['registry-sha256']) != r['registry-sha256']
+                    or parent_resources.get('worktree') != {metadata['worktree']}
+                    or ('worktree',metadata['worktree']) not in lock_resources.get(parent_id,set())):
+                    fail('active original ordinary parent proof differs: '+lease)
+                session = ('workflow-session',metadata['owner'])
+                if (metadata['owner'] == metadata['thread'] and session[1] in r.get(session[0],set())
+                    and session[1] in parent_resources.get(session[0],set())):
+                    if session not in lock_resources.get(parent_id,set()):
+                        fail('active inherited workflow-session lock differs: '+lease)
+                    inherited_locks[session] = parent_id
             if (repository.resolve(strict=True) != repository or repository != pathlib.Path(metadata['worktree'])
                 or subprocess.check_output(['git','-C',str(repository),'rev-parse','--show-toplevel'], text=True).strip() != str(repository)
                 or subprocess.check_output(['git','-C',str(repository),'rev-parse','HEAD^{commit}'], text=True).strip() != metadata['candidate']
-                or subprocess.check_output(['git','-C',str(repository),'rev-parse','--path-format=absolute','--git-common-dir'], text=True).strip()
-                   != subprocess.check_output(['git','-C',source,'rev-parse','--path-format=absolute','--git-common-dir'], text=True).strip()):
+                or (application is None and subprocess.check_output(['git','-C',str(repository),'rev-parse','--path-format=absolute','--git-common-dir'], text=True).strip() != str(common))):
                 fail('active cross-snapshot Git candidate/source differs: '+lease)
-        except (OSError, KeyError, subprocess.CalledProcessError):
+        except (OSError, KeyError, RuntimeError, ValueError, TypeError, subprocess.CalledProcessError):
             fail('cannot verify active cross-snapshot Git candidate/source: '+lease)
     registered = {}
     for key in r.get('mysql-schema', set()):
@@ -1293,7 +1336,8 @@ for lease, r in active:
                       'application-manifest-sha256','application-env-sha256','environment','consumer','host','version'}
     expected_locks = {(kind,value) for kind,values in r.items() for value in values if kind not in identity_types
                       and not (kind == 'mysql-schema' and all(s[0] in ('read','transaction') for s in parsed.values()))}
-    if lock_resources.get(lease, set()) != expected_locks:
+    if document is not registry and (lock_resources.get(lease, set()) != expected_locks - inherited_locks.keys()
+        or any(item not in expected_locks or item not in lock_resources.get(holder,set()) for item,holder in inherited_locks.items())):
         fail('active shared lease original physical locks differ: '+lease)
     for key in parsed:
         physical, _, name = key.rpartition('/')

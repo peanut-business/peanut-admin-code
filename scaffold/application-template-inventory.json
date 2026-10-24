@@ -3902,7 +3902,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8b2cbc959c8b733561d38968423babf3ed403beccfbde089de526693ea42507a"
+            "source_sha256": "46b5c6119974339800e52e54245a82bda5f7633da11197a07edc0a8a7303de3c"
         },
         {
             "path": "scripts/project-resource-lease",
@@ -3916,7 +3916,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c2bde77f0cd70c22d12f1ab8df04be4c0386ae6bc47baa2ea62d072eabb028f9"
+            "source_sha256": "26e6b02a0b72c4f5e4d8ddd09a86724556e9c14bf03afe0d27efaec4669385d9"
         },
         {
             "path": "scripts/project-resource-mysql-metadata",
