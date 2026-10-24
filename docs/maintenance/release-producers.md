@@ -28,7 +28,9 @@
 
 `scaffold-release.yml`显式选定完整CLI提交，核其真实树并生成同协议输入，构建后调用上述同一候选入口。除了原四附件，CI将完整`standalone/`、`multi-tenant/`根和阶段结果保存在独立Actions artifact；用tar保留隐藏默认文件和可执行模式，附实际传输包SHA-256。该tar仅供同一固定来源资格链传输，不是公开模板包或已采用的APP；后续job须核具体source/run及实际字节，不能重新构建后假定附件相同。候选job保持contents:read，正式发布仍须独立的完整八组及原main/平台Gate，不因候选通过自动运行。
 
-CI 的 `scaffold-release.yml` 可显式选 `publish=false, pack_only=true`，并填写精确 `expected_source_commit`；它只按同一标准生产器独立构建双 Edition 两轮、严格比较来源/锁/工具输入和实际附件字节，跳过独立 CLI checkout 与 candidate 创建。原比较回执及两轮完整输出保存在 Actions artifact；这不是 full8 或发行资格。默认候选入口和正式发布 Gate 保留，`pack_only=true` 无法进入 ingress 或 publish job。CLI scaffold-ci Recipe 原本仅含标准双轮模板生产，继续使用同一生产器和比较器，无候选或发布步骤。两入口的 pnpm 固定锁安装均显式使用 `--package-import-method=copy`，使生产者工具文件满足原有单硬链接路径保护；不改变依赖版本或放宽该保护。
+CI 的 `scaffold-release.yml` 可显式选 `publish=false, pack_only=true`，并填写精确 `expected_source_commit`；它只按同一标准生产器独立构建双 Edition 两轮、严格比较来源/锁/工具输入和实际附件字节，跳过独立 CLI checkout 与 candidate 创建。原比较回执及两轮完整输出保存在身份专名 Actions artifact；这不是 full8 或发行资格。默认候选入口和正式发布 Gate 保留，`pack_only=true` 无法进入 ingress 或 publish job。CLI scaffold-ci Recipe 仅含同一标准双轮模板生产，无候选或发布步骤，要求源码中保留原生 `scripts/ci-producer` 及其 `tools/ci-producer/` 输入。两入口的 pnpm 固定锁安装均显式使用 `--package-import-method=copy`，使生产者工具文件满足原有单硬链接路径保护；不改变依赖版本或放宽该保护。
+
+生产 job 通过原生 `scripts/ci-producer prepare <RUNNER_TEMP下不存在的目录>` 在既有 Ubuntu runner 内构建一次临时工具镜像，再用 `exec <同一目录> -- <原命令>` 执行标准生产器、比较器及默认 candidate。两轮共用同一实际 image ID，不发布镜像或另设服务。`tools/ci-producer/inputs.json` 固定同 Debian/bookworm、linux/amd64 的官方 PHP/Python 完整镜像 digest、官方 Node 校验和、Composer PHAR 摘要、pnpm 包摘要和 Debian snapshot 的签名 metadata/精确包版本；仅以官方扩展 helper 编译原本必需的 pdo_mysql/zip，不重编 PHP 解释器。Python 复制完整安装并补齐固定 runtime 库；实际五工具、PHP 扩展、解释器及 PHP 子进程路径和 Python 动态库均核对，输入不符即在制包前停止。实际工具/包/路径/库摘要、image ID 和生产工具文件摘要随每个原生 scaffold-build-inputs.json 的 environment.ci_toolchain 封存并参与双轮比较；不进入便携模板载荷。普通本地开发工具仍由项目工具链合同管理，不把容器环境自报当产品资格。
 
 ## 冻结内部候选
 

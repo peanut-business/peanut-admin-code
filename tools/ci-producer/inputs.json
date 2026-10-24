@@ -1,0 +1,235 @@
+{
+  "schema": 1,
+  "platform": "linux/amd64",
+  "images": {
+    "php": "docker.io/library/php@sha256:98b4225e9a2c58e98072e52f3934111ea36c83e0c92155f263fde98a04970d89",
+    "python": "docker.io/library/python@sha256:998acd06f485adfd6890e3e15a4b542543e0cf22ff904310095da328a5e3e561"
+  },
+  "snapshot": {
+    "url": "https://snapshot.debian.org/archive/debian/20261001T000000Z/",
+    "inReleaseUrl": "https://snapshot.debian.org/archive/debian/20261001T000000Z/dists/bookworm/InRelease",
+    "inReleaseSha256": "77737fa4b34f2693e982cc9ee35736816c35a7778fc2d326cc1bbf5b301fe1aa",
+    "packagesUrl": "https://snapshot.debian.org/archive/debian/20261001T000000Z/dists/bookworm/main/binary-amd64/Packages.xz",
+    "packagesSha256": "9e0b5aabb2465b3d2e7a7fe27f9913846277833f7a2826e7767acccff5b588c5",
+    "packages": [
+      {
+        "Package": "autoconf",
+        "Version": "2.71-3",
+        "Filename": "pool/main/a/autoconf/autoconf_2.71-3_all.deb",
+        "SHA256": "7d798ed8c21fc7387127de1dfdb4640003d8ba033ae5a1ff29559610cbd0c323"
+      },
+      {
+        "Package": "ca-certificates",
+        "Version": "20230311+deb12u1",
+        "Filename": "pool/main/c/ca-certificates/ca-certificates_20230311+deb12u1_all.deb",
+        "SHA256": "0d5f444f594e48c1e16a41d8fc628a09b24c658916a1274025c2330f2a802bed"
+      },
+      {
+        "Package": "curl",
+        "Version": "7.88.1-10+deb12u15",
+        "Filename": "pool/main/c/curl/curl_7.88.1-10+deb12u15_amd64.deb",
+        "SHA256": "0dd9b6bf7a0bd11af2d68a52ec44c2a223fa7c11f9104c36ce1047e1137d4a8f"
+      },
+      {
+        "Package": "dpkg-dev",
+        "Version": "1.21.23",
+        "Filename": "pool/main/d/dpkg/dpkg-dev_1.21.23_all.deb",
+        "SHA256": "43547075395dbe9290e6a5f34e9ba93aa5dcf7dfc5698c3d30cc3c85e5f7e3de"
+      },
+      {
+        "Package": "file",
+        "Version": "1:5.44-3",
+        "Filename": "pool/main/f/file/file_5.44-3_amd64.deb",
+        "SHA256": "2c57221bf8cc0ff5d2295ececb9215cc1b9ff9040dacb152c385bba3087ab1df"
+      },
+      {
+        "Package": "g++",
+        "Version": "4:12.2.0-3",
+        "Filename": "pool/main/g/gcc-defaults/g++_12.2.0-3_amd64.deb",
+        "SHA256": "26c451a660728cf7c15548a281e17eef2f36fab28499371e83fc2d3accb499d7"
+      },
+      {
+        "Package": "gcc",
+        "Version": "4:12.2.0-3",
+        "Filename": "pool/main/g/gcc-defaults/gcc_12.2.0-3_amd64.deb",
+        "SHA256": "bb63b0fb2797e2a3a294dab8a02614930c557ec1f4ea96637c244b8b5f87e630"
+      },
+      {
+        "Package": "git",
+        "Version": "1:2.39.5-0+deb12u3",
+        "Filename": "pool/main/g/git/git_2.39.5-0+deb12u3_amd64.deb",
+        "SHA256": "637a85ddd6247fab13bdd0592f2f39aff04ce4dbf0655d3ab553ac359a38ce6f"
+      },
+      {
+        "Package": "libbluetooth3",
+        "Version": "5.66-1+deb12u2",
+        "Filename": "pool/main/b/bluez/libbluetooth3_5.66-1+deb12u2_amd64.deb",
+        "SHA256": "06569496d9de5667b54bcda210ac2a35901bd4bb2b0f56397ae8160dedae4108"
+      },
+      {
+        "Package": "libbz2-1.0",
+        "Version": "1.0.8-5+b1",
+        "Filename": "pool/main/b/bzip2/libbz2-1.0_1.0.8-5+b1_amd64.deb",
+        "SHA256": "54149da3f44b22d523b26b692033b84503d822cc5122fed606ea69cc83ca5aeb"
+      },
+      {
+        "Package": "libc6-dev",
+        "Version": "2.36-9+deb12u14",
+        "Filename": "pool/main/g/glibc/libc6-dev_2.36-9+deb12u14_amd64.deb",
+        "SHA256": "0218fc2befcd784c1b0c6292c0a137ce89fad054efaa579ad083bee0f2c01aae"
+      },
+      {
+        "Package": "libcrypt1",
+        "Version": "1:4.4.33-2",
+        "Filename": "pool/main/libx/libxcrypt/libcrypt1_4.4.33-2_amd64.deb",
+        "SHA256": "f5f60a5cdfd4e4eaa9438ade5078a57741a7a78d659fcb0c701204f523e8bd29"
+      },
+      {
+        "Package": "libdb5.3",
+        "Version": "5.3.28+dfsg2-1",
+        "Filename": "pool/main/d/db5.3/libdb5.3_5.3.28+dfsg2-1_amd64.deb",
+        "SHA256": "7dc5127b8dd0da80e992ba594954c005ae4359d839a24eb65d0d8129b5235c84"
+      },
+      {
+        "Package": "libexpat1",
+        "Version": "2.5.0-1+deb12u2",
+        "Filename": "pool/main/e/expat/libexpat1_2.5.0-1+deb12u2_amd64.deb",
+        "SHA256": "2255e62fc22a86d2c544b8a3f516da9aee19383ad5742722ab4ce7f66a30dbc8"
+      },
+      {
+        "Package": "libffi8",
+        "Version": "3.4.4-1",
+        "Filename": "pool/main/libf/libffi/libffi8_3.4.4-1_amd64.deb",
+        "SHA256": "6d9f6c25c30efccce6d4bceaa48ea86c329a3432abb360a141f76ac223a4c34a"
+      },
+      {
+        "Package": "libgdbm-compat4",
+        "Version": "1.23-3",
+        "Filename": "pool/main/g/gdbm/libgdbm-compat4_1.23-3_amd64.deb",
+        "SHA256": "4af36a590b68d415a78d9238b932b6a4579f515ec8a8016597498acff5b515a4"
+      },
+      {
+        "Package": "libgdbm6",
+        "Version": "1.23-3",
+        "Filename": "pool/main/g/gdbm/libgdbm6_1.23-3_amd64.deb",
+        "SHA256": "95fe4a1336532450e67bd067892f46eaa484139919ea8d067a9ffcbf5a4bf883"
+      },
+      {
+        "Package": "liblzma5",
+        "Version": "5.4.1-1+deb12u1",
+        "Filename": "pool/main/x/xz-utils/liblzma5_5.4.1-1+deb12u1_amd64.deb",
+        "SHA256": "f96d8876b53ec89d76a992bc199679b818cf518225a768954d9451fb556a4eb7"
+      },
+      {
+        "Package": "libncursesw6",
+        "Version": "6.4-4",
+        "Filename": "pool/main/n/ncurses/libncursesw6_6.4-4_amd64.deb",
+        "SHA256": "98fa7a53dc565a38b65fb70422ad08001bf5361d8fbc74255280c329996a6bec"
+      },
+      {
+        "Package": "libreadline8",
+        "Version": "8.2-1.3",
+        "Filename": "pool/main/r/readline/libreadline8_8.2-1.3_amd64.deb",
+        "SHA256": "e02ebbd3701cf468dbf98d6d917fbe0325e881f07fe8b316150c8d2a64486e66"
+      },
+      {
+        "Package": "libsqlite3-0",
+        "Version": "3.40.1-2+deb12u2",
+        "Filename": "pool/main/s/sqlite3/libsqlite3-0_3.40.1-2+deb12u2_amd64.deb",
+        "SHA256": "a8d78b40e9b4e422224aeebfe0e4dfc243f6acf3532490b0c05480d4283d41e2"
+      },
+      {
+        "Package": "libssl3",
+        "Version": "3.0.20-1~deb12u2",
+        "Filename": "pool/main/o/openssl/libssl3_3.0.20-1~deb12u2_amd64.deb",
+        "SHA256": "89be24b41bff568ee6e7caf5680a3d808e80315ed92e407056ce0fa7a5bda025"
+      },
+      {
+        "Package": "libtcl8.6",
+        "Version": "8.6.13+dfsg-2",
+        "Filename": "pool/main/t/tcl8.6/libtcl8.6_8.6.13+dfsg-2_amd64.deb",
+        "SHA256": "976c4235b816635e1756016f3adbabb634e8b97a9f6b97cf901be099e4fd2487"
+      },
+      {
+        "Package": "libtk8.6",
+        "Version": "8.6.13-2",
+        "Filename": "pool/main/t/tk8.6/libtk8.6_8.6.13-2_amd64.deb",
+        "SHA256": "b1c4042e5357d37170f210a106f3910c3eac21ae3ad9304d685d1f42dfd18d2e"
+      },
+      {
+        "Package": "libuuid1",
+        "Version": "2.38.1-5+deb12u3",
+        "Filename": "pool/main/u/util-linux/libuuid1_2.38.1-5+deb12u3_amd64.deb",
+        "SHA256": "5fff398321da62d28a842bcbabd193d72ae21724962c029dc32b1dc6b2deaeaf"
+      },
+      {
+        "Package": "libzip-dev",
+        "Version": "1.7.3-1+b1",
+        "Filename": "pool/main/libz/libzip/libzip-dev_1.7.3-1+b1_amd64.deb",
+        "SHA256": "1892a35b6d5ef65c4769f51bd48d7a52e19ede6d630872ee12fef0c4c5b3a34a"
+      },
+      {
+        "Package": "make",
+        "Version": "4.3-4.1",
+        "Filename": "pool/main/m/make-dfsg/make_4.3-4.1_amd64.deb",
+        "SHA256": "a1a83af8cbd854af887b72ad196b1f4af58387815e21ced1000253a116a46e2a"
+      },
+      {
+        "Package": "pkg-config",
+        "Version": "1.8.1-1",
+        "Filename": "pool/main/p/pkgconf/pkg-config_1.8.1-1_amd64.deb",
+        "SHA256": "312b2bdeff4671f8e0d589c124554890e944dd083061e9ad6f129bc76a970765"
+      },
+      {
+        "Package": "re2c",
+        "Version": "3.0-2",
+        "Filename": "pool/main/r/re2c/re2c_3.0-2_amd64.deb",
+        "SHA256": "e39a6b373f97c0d68d32f37bb9549e1021e6f5d58e2d858872198dced0270db8"
+      },
+      {
+        "Package": "xz-utils",
+        "Version": "5.4.1-1+deb12u1",
+        "Filename": "pool/main/x/xz-utils/xz-utils_5.4.1-1+deb12u1_amd64.deb",
+        "SHA256": "cc6dc501e0c06be3f89e9a7f8dfd7a97f92aadfd9daa60fad19b90d6a5558b80"
+      },
+      {
+        "Package": "zlib1g",
+        "Version": "1:1.2.13.dfsg-1",
+        "Filename": "pool/main/z/zlib/zlib1g_1.2.13.dfsg-1_amd64.deb",
+        "SHA256": "d7dd1d1411fedf27f5e27650a6eff20ef294077b568f4c8c5e51466dc7c08ce4"
+      }
+    ]
+  },
+  "tools": {
+    "php": "8.3.24",
+    "python3": "3.14.7",
+    "node": "22.23.2",
+    "pnpm": "9.15.6",
+    "composer": "2.10.2"
+  },
+  "node": {
+    "url": "https://nodejs.org/dist/v22.23.2/node-v22.23.2-linux-x64.tar.xz",
+    "sha256": "d60acfe00a2932254bb0ad20e01b0d74397a0875595de719654b214f4b03f307",
+    "checksumSource": "https://nodejs.org/dist/v22.23.2/SHASUMS256.txt"
+  },
+  "composer": {
+    "url": "https://getcomposer.org/download/2.10.2/composer.phar",
+    "sha256": "5ee7125f8a30a34d246cefdc0bc85b8a783b28f2aec968994118512350d28027"
+  },
+  "pnpm": {
+    "url": "https://registry.npmjs.org/pnpm/-/pnpm-9.15.6.tgz",
+    "sha256": "5bf88eca1e818b973b9359a16e57405177c7a9b8177b9125d587577311786e64",
+    "integrity": "sha512-E5yrBo/fC3USaBeaxfkJtb5yr7SnXFE9GQXRUb78iXe1k9PPhnHtg9TWY3xclLmP+84QgSXeSlonoxIzYBqZ3g=="
+  },
+  "extensions": [
+    "curl",
+    "dom",
+    "fileinfo",
+    "json",
+    "mbstring",
+    "openssl",
+    "pdo_mysql",
+    "sodium",
+    "zip"
+  ]
+}

@@ -41,8 +41,17 @@ def production_environment(source, check):
                   ['composer', '--version', '--no-ansi'], text=True))[1]}
     if actual != versions:
         raise ValueError('TEMPLATE_BUILD_TOOLCHAIN_MISMATCH')
-    return {'tools': actual, 'system': platform.system(), 'architecture': platform.machine(),
-            'zlib_compile': zlib.ZLIB_VERSION, 'zlib_runtime': zlib.ZLIB_RUNTIME_VERSION}
+    environment = {'tools': actual, 'system': platform.system(), 'architecture': platform.machine(),
+                   'zlib_compile': zlib.ZLIB_VERSION, 'zlib_runtime': zlib.ZLIB_RUNTIME_VERSION}
+    if os.environ.get('PEANUT_CI_PRODUCER_IDENTITY'):
+        identity_path = pathlib.Path(os.environ['PEANUT_CI_PRODUCER_IDENTITY'])
+        if identity_path.is_symlink() or identity_path.stat().st_nlink != 1:
+            raise ValueError('TEMPLATE_BUILD_CI_IDENTITY_INVALID')
+        identity = json.loads(identity_path.read_bytes())
+        if identity['actual']['tools'] != actual:
+            raise ValueError('TEMPLATE_BUILD_CI_TOOLCHAIN_MISMATCH')
+        environment['ci_toolchain'] = identity
+    return environment
 
 
 def main():

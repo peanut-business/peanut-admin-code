@@ -98,7 +98,8 @@ function excluded(string $path): bool
         return false;
     }
     // Repository delivery/editor settings do not belong to generated applications.
-    if (str_starts_with($path, '.github/') || str_starts_with($path, '.githooks/') || str_starts_with($path, '.vscode/')
+    if (str_starts_with($path, 'tools/ci-producer/') || $path === 'scripts/ci-producer'
+        || str_starts_with($path, '.github/') || str_starts_with($path, '.githooks/') || str_starts_with($path, '.vscode/')
         || str_starts_with($path, '.peanut/recipes/')
         || str_starts_with($path, 'evidence/')
         || str_starts_with($path, 'deploy/tests/')) {

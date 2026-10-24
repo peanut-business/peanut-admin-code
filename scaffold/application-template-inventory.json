@@ -3200,6 +3200,19 @@
             "source_sha256": "0b486a645c0d94d467dc6d83cfef065fb4fa8814b3b2abded0919f0f2ed9e8a3"
         },
         {
+            "path": "scripts/ci-producer",
+            "target": "scripts/ci-producer",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
             "path": "scripts/ci-server-check.sh",
             "target": "scripts/ci-server-check.sh",
             "classification": "managed",
@@ -34174,6 +34187,45 @@
                 "full"
             ],
             "source_sha256": "8522c067dc5c8817374fbf6a48cbbfbbbd47db0fbffef0c72c4a4c135085c429"
+        },
+        {
+            "path": "tools/ci-producer/Dockerfile",
+            "target": "tools/ci-producer/Dockerfile",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "tools/ci-producer/identity.py",
+            "target": "tools/ci-producer/identity.py",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
+        },
+        {
+            "path": "tools/ci-producer/inputs.json",
+            "target": "tools/ci-producer/inputs.json",
+            "classification": "excluded",
+            "owner": "template-source-only",
+            "transform": "copy",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ]
         },
         {
             "path": "tools/quality/.gitignore",

@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+ROOT="$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+mode="${1:-}"; state="${2:-}"
+[[ "$mode" == prepare || "$mode" == exec ]] && [[ "$state" == /* ]] || exit 2
+shift 2
+inputs="$ROOT/tools/ci-producer/inputs.json"
+if [[ "$mode" == prepare ]]; then
+  [[ $# == 0 && ! -e "$state" && ! -L "$state" ]]
+  mkdir "$state"
+  {
+    read -r php_image
+    read -r python_image
+  } < <(python3 - "$inputs" "$ROOT" <<'PY'
+import json, subprocess, sys
+m=json.load(open(sys.argv[1]))
+assert m['platform']=='linux/amd64'
+requirements=json.loads(subprocess.check_output([sys.executable,sys.argv[2]+'/scripts/project-env','requirements'],text=True))
+assert m['tools']=={name:requirements[name]['version'] for name in m['tools']}, 'Committed producer requirements differ'
+print(m['images']['php']); print(m['images']['python'])
+PY
+  )
+  docker build --platform=linux/amd64 --build-arg "PHP_IMAGE=$php_image" --build-arg "PYTHON_IMAGE=$python_image" \
+    --iidfile "$state/image-id" -f "$ROOT/tools/ci-producer/Dockerfile" "$ROOT/tools/ci-producer"
+  image="$(docker image inspect --format '{{.Id}}' "$(cat "$state/image-id")")"
+  [[ "$image" =~ ^sha256:[a-f0-9]{64}$ ]]
+  printf '%s\n' "$image" > "$state/image-id"
+  docker run --rm --platform=linux/amd64 --entrypoint python3 "$image" /opt/peanut/identity.py > "$state/actual.json"
+  docker run --rm --platform=linux/amd64 --entrypoint cat "$image" /opt/peanut/toolchain-identity.json > "$state/built.json"
+  cmp "$state/actual.json" "$state/built.json"
+  python3 - "$ROOT" "$state" <<'PY'
+import hashlib, json, pathlib, sys
+root, state=map(pathlib.Path,sys.argv[1:])
+files=['inputs.json','Dockerfile','identity.py']
+sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+value=dict(schema=1,imageId=(state/'image-id').read_text().strip(),
+           producerFiles={name:sha(root/'tools/ci-producer'/name) for name in files},
+           launcherSha256=sha(root/'scripts/ci-producer'),
+           inputs=json.loads((root/'tools/ci-producer/inputs.json').read_text()),
+           actual=json.loads((state/'actual.json').read_text()))
+assert value['actual']['inputsSha256']==value['producerFiles']['inputs.json']
+(state/'identity.json').write_text(json.dumps(value,indent=2)+'\n')
+PY
+  exit 0
+fi
+[[ "${1:-}" == -- && $# -gt 1 && -f "$state/identity.json" && ! -L "$state/identity.json" ]]
+shift
+image="$(python3 - "$ROOT" "$state/identity.json" <<'PY'
+import hashlib,json,pathlib,sys
+root=pathlib.Path(sys.argv[1]); value=json.load(open(sys.argv[2]))
+assert hashlib.sha256((root/'scripts/ci-producer').read_bytes()).hexdigest()==value['launcherSha256']
+for name,sha in value['producerFiles'].items():
+ assert hashlib.sha256((root/'tools/ci-producer'/name).read_bytes()).hexdigest()==sha
+print(value['imageId'])
+PY
+)"
+[[ "$image" =~ ^sha256:[a-f0-9]{64}$ && "$(docker image inspect --format '{{.Id}}' "$image")" == "$image" ]]
+[[ -n "${RUNNER_TEMP:-}" && "$state" == "$RUNNER_TEMP/"* ]]
+mkdir -p "$ROOT/.local/ci-producer-home"
+exec docker run --rm -i --platform=linux/amd64 --user "$(id -u):$(id -g)" \
+  --mount "type=bind,source=$ROOT,target=$ROOT" \
+  --mount "type=bind,source=$RUNNER_TEMP,target=$RUNNER_TEMP" \
+  --mount "type=bind,source=$state/identity.json,target=/opt/peanut/run-identity.json,readonly" \
+  --workdir "$ROOT" --env "HOME=$ROOT/.local/ci-producer-home" \
+  --env PEANUT_CI_PRODUCER_IDENTITY=/opt/peanut/run-identity.json \
+  --env GITHUB_SHA --env GITHUB_RUN_ID --env GITHUB_RUN_ATTEMPT --env RUNNER_TEMP --env GITHUB_STEP_SUMMARY --env CLI_COMMIT \
+  --entrypoint /usr/bin/env "$image" "$@"
