@@ -33,7 +33,7 @@ final class EditionProjector
             }
             $content = (string) file_get_contents($absolute);
             if ($mode === 'runtime' && $path === 'web/src/modules/peanut-workflow/contribution.ts') {
-                $content = "export { default } from './runtime/contribution';\n";
+                $content = "import runtimeContribution from './runtime/contribution';\n\nexport default runtimeContribution;\n";
             }
             if ($mode === 'runtime' && $path === 'server/app/modules/peanut/workflow/src/ModuleProvider.php') {
                 $start = strpos($content, '            \\PeanutAdmin\\Modules\\Workflow\\Application\\WorkflowDefinitionService::class =>');
