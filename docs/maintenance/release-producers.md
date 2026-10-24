@@ -4,9 +4,13 @@
 
 ## 正常模板发行
 
-准备本仓原生锁定依赖后，`peanut release --path=<源码根> --source-commit=<完整提交> --output=<不存在的绝对目录>`分别调用同一`build-scaffold-release`生成Standalone和Multi-tenant模板。也可直接调用该原生入口，显式传`--version`、`--source-commit`、`--edition`和`--output`；普通模板不传`--internal-core-inputs`。每个Edition输出`peanut-scaffold-<edition>.tgz`与配套同名`.json`，均来自该次原生APP投影，不另生成运行APP。既有输出拒绝覆盖，`--check`同时核对升级清单、创建载荷、归档成员及配套摘要。
+在干净、HEAD等于目标提交的隔离源码检出中，按原生锁准备生产者依赖和`tools/toolchain.json`精确工具后，`peanut release --path=<源码根> --source-commit=<完整提交> --output=<不存在的绝对目录>`分别调用同一`build-scaffold-release`生成Standalone和Multi-tenant模板。也可直接调用该原生入口，显式传`--version`、`--source-commit`、`--edition`和`--output`；普通模板不传`--internal-core-inputs`。每个Edition输出`peanut-scaffold-<edition>.tgz`与配套同名`.json`，均来自该次原生APP投影，不另生成运行APP。新构建拒绝调用工程与目标源码不一致；既有输出拒绝覆盖，`--check`同时核对升级清单、创建载荷、归档成员及配套摘要。
 
 配套`peanut.template-package.v1`清单绑定产品、版本、Edition、profile、Workflow、源码commit/tree/inventory/Edition profile和归档SHA-256/长度。归档为只含普通文件的USTAR+gzip；`scaffold-manifest.json`保持v3受管升级语义；`template-create.json`另列全部创建文件、模式、摘要、渲染声明、APP manifest模板和可写目录。受管载荷在`files/`，自有初始默认在`defaults/`，自有文件不进入升级受管集合。归档不携带APP安装依赖、Git、秘密、数据库、上传和实例安装身份。
+
+同一原生入口在本地和CI使用。`scaffold-build-inputs.json`另外记录固定源码、生产脚本/工具要求与原生锁摘要、实际PHP/Node/Python/pnpm/Composer版本、系统/架构/zlib身份、全部成员内容及模式指纹和最终附件摘要；不含时间、临时绝对路径或秘密，也不进入APP载荷。模板输入读取器将此回执纳入资格和候选锁；检查按原源码和最终包重算输入/载荷/附件身份，不重新安装tooling，不把检查机器的环境冒充原构建环境。archive摘要证明容器字节，payload摘要证明排序后的路径/模式/内容，二者不能互相替代。
+
+授权重建时，在两个独立输出根分别用标准入口构建双Edition，然后调用`node scripts/release-template-artifacts.mjs compare <原构建根> <version> <commit> <tree> <inventory-sha256> <重建根>`，核生产输入、环境、载荷、四附件摘要及实际字节完全相同。CI候选job执行这一比较后才校验自己生成的模板。差异即停止；不以相同commit、压缩格式说明或手改hash继承资格。正式发布优先传递已经验证的原件；需要更换构建环境或最终包时，先比较并记录确切输入，不能自动继承旧PASS。内部Core候选与公开依赖/锁不同，须作为不同组合记录并验证。
 
 升级工具依赖单独位于`tooling/`，由该固定源码的Composer锁以no-dev、no-scripts、no-plugins安装形成；`upgrade-tooling.json`绑定锁、实际生产包身份和全部文件字节/模式，并由包清单摘要覆盖。此域不进入APP创建清单、受管源码或APP vendor。CLI只校验和缓存，不执行依赖安装或要求人工prepare；PHP入口在require之前核完整tooling集合，并将Composer根命名空间映射到同一模板的`files/server`。`--check`核固定工具载荷、锁和清单，不重新安装依赖。
 
@@ -44,7 +48,13 @@
 
 产品 GitHub Release 的发布入口是单一脚本 `scripts/publish-github-release`，显式提供 `--qualification`、`--template-artifacts` 和 `--output`。模板输入是完整的 `standalone/`、`multi-tenant/` 原生构建目录；校验器按各自声明的 Workflow 复用 `build-scaffold-release --check`，逐项核源码投影、成员/模式、固定工具载荷及摘要，不重新安装 tooling。该 check 会生成临时源码投影，需要已准备的生产者依赖；它不安装业务、连接数据库或登记运行 APP。正式附件是两套 `peanut-scaffold-<edition>.tgz/.json`，同一模板用于创建与升级；开发参考源码归档、许可证、SBOM、候选锁和外部发布清单另附。APP 的 server-only 包归各自 APP。
 
-资格回执必须绑定最终候选 commit/tree 和 `peanut.template-release-inputs.v1` 的四附件长度/摘要、Edition、Workflow、工具及内部清单摘要；旧 installer/upgrade 回执不会自动通过。默认稳定模式只接受 `X.Y.Z` 和注释 tag `vX.Y.Z`，通过原 candidate、tag、qualification、main 和固定依赖门禁后才以 `--latest` 发布。显式 `--prerelease` 只接受严格预发行 SemVer，且不标 latest。本地只用 `--prepare-only`；正式写入限定本仓 main 的 `scaffold-release.yml` CI。当前该 workflow 仍仅构建并上传候选模板，正式发布 job 与新分层运行资格尚待接线，不能把这些源码入口当作已经可发行或已发布。
+资格回执必须绑定最终候选 commit/tree 和 `peanut.template-release-inputs.v1` 的四附件长度/摘要、Edition、Workflow、生产输入回执、工具及内部清单摘要；旧 installer/upgrade 回执不会自动通过。默认稳定模式只接受 `X.Y.Z` 和注释 tag `vX.Y.Z`，通过原 candidate、tag、qualification、main 和固定依赖门禁后才以 `--latest` 发布。显式 `--prerelease` 只接受严格预发行 SemVer，且不标 latest。本地只用 `--prepare-only`；正式写入限定本仓 main 的 `scaffold-release.yml` CI。
+
+该workflow已有独立publish job：只读取指定同仓、固定source、成功完成的原workflow run中唯一未过期的`scaffold-full-qualification-<source>`，核独立提供的transport SHA、原八组summary/group/plan/checkpoint和main合并凭据，再让唯一发布器复制原四附件并核SHA，发布阶段不重打模板。模板candidate job只证明标准构建重建及CLI创建，full8明确NOT_RUN，其artifact不能改名冒充完整资格。`p0e-runtime-qualification transport`可封存真实完整结果，独立ingress job接收已获准存在于同仓GitHub Release的原transport附件数字ID；不接收URL，不创建Release或上传Release附件。
+
+导入时显式选择`publish=false`、`qualification_ingress_asset_id=<既有附件数字ID>`、`qualification_source_commit=<本次workflow精确提交>`及独立记录的`qualification_transport_sha256`、`main_integration_sha256`。入口只读固定同仓GitHub API，核附件ID、严格文件名`scaffold-full-qualification.tgz`、uploaded状态、大小上限和GitHub摘要，然后将原件交给与publish共用的`verify-qualified-release-transport.py`：核transport SHA、安全路径/普通成员、精确source/tree、真实八组plan/checkpoint/summary/receipt摘要与lifecycle绑定、原cleanup、main-integration SHA，并复用原生模板检查确认四附件及生产输入仍等于原资格。单独自报passed不能取得资格；它不执行或补做full8，也不加载transport中的脚本。成功后只把同一transport原字节上传为本run的`scaffold-full-qualification-<source>`，由现有publish可信run认证消费。
+
+既有Release附件的准入和对外上传仍需各自授权；此只读导入接口不授权创建临时Release、借其他run token、增加runner/凭据/新存储或任意URL下载。没有合法原full8包及受控附件时，导入成功路径、后续正式发行与真实端到端均NOT_RUN，不能以接口已接线代替实际运行。不得伪造summary、tag或合并凭据；历史固定候选与证据保持原字节。是否已经公开发行以实际渠道核验为准。
 
 产品 tag、qualification、候选锁、归档及 Edition 制品始终精确绑定已资格确认的源码提交 S 和源码树。实际发布要求实时远端 `main` 与本地 `origin/main` 一致，且等于 S；或等于同仓真实已合并 `dev` → `main` PR 的正常合并提交 M。后一种情况只接受精确父序列 `[B,S]`、B 为 S 祖先、M 与 S 同树，以及 GitHub API 的唯一 PR、merged 状态、提交、仓库和分支身份全部一致。开放 PR 的测试合并、squash/rebase、后续同树提交、未知或歧义 API 证据均拒绝，M 不被重新标为已资格确认的源码。
 
@@ -58,6 +68,8 @@ M 不等于 S 时，发布命令还须传入 `--main-integration=/absolute/preme
 跨仓第一阶段可按[Core 续作入口](https://github.com/peanut-business/peanut-admin-code/blob/main/docs/development/core-release.md#第一阶段跨仓续作入口)使用 `scripts/continue-product-release`：默认只读计划；`--apply` 才建立任务输出根的状态并调用现有工具。候选依次核公开 Core 身份、原生锁、生产者依赖和库存，经审核提交最终源码封存后，在外部 `scaffold-templates/` 构建双 Edition；不再把生成清单/P0-E 投影提交回源码形成第二个产品提交。制品和资格绑定该最终 commit/tree，部分输出或身份漂移拒绝重放。`--core-web-package-evidence` 仍只替代六包元数据读取，原注释 tag、提交、成功 Action、GitHub Release 和固定摘要检查保留。
 
 续发器只在同一获准 CI 内调用唯一发布器。外部结果未知时保留原 publication intent；远端无完整附件不自动重发。发布器创建后和续发核对均要求精确附件集合、Release/channel/size/digest，并实际下载每个 asset 比较本地字节。差异只报告，不覆盖、删除或重新上传远端附件。旧阶段状态不作为新模板流程输入，必须保留原状态和原失败预算。APP 使用正式模板和自身 Git，不依赖此维护者编排或私有 Project。
+
+发布器在prepare完成及最终外部写入前，复用`release-asset-verification.mjs local <输出目录> <version>`将本地附件重新绑定到已封存的`RELEASE_MANIFEST.json`、候选锁及资格模板摘要；发布后同样先核这条本地绑定再核远端。准备后改写附件、重装依赖或重新压包不能只凭远端与当前本地相同而通过。
 
 执行前固定一个尚未使用的产品版本、PHP Core 和 Web Core 的公开精确版本及各自完整 Git 提交。先运行 `--dry-run` 核对输入与将调用的原生命令；移除该选项才会准备候选：
 

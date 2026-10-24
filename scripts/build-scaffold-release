@@ -171,6 +171,12 @@ try {
         || trim(releaseRun(['git','-C',$source,'status','--porcelain=v1','--untracked-files=all'])) !== '') {
         throw new RuntimeException('SCAFFOLD_RELEASE_SOURCE_IDENTITY_MISMATCH');
     }
+    // A new artifact must use the standard producer from its declared source.
+    // Historical --check still verifies immutable payloads without rebuilding tooling.
+    if (!$check && (!hash_equals($commit, trim(releaseRun(['git', '-C', $root, 'rev-parse', 'HEAD'])))
+        || trim(releaseRun(['git', '-C', $root, 'status', '--porcelain=v1', '--untracked-files=all'])) !== '')) {
+        throw new RuntimeException('SCAFFOLD_RELEASE_PRODUCER_SOURCE_MISMATCH');
+    }
     $modernCreator = is_file($source . '/server/app/common/infrastructure/scaffold/ApplicationCreator.php');
     require $source . ($modernCreator
         ? '/server/app/common/validation/scaffold/ScaffoldPathGuard.php'
@@ -365,7 +371,7 @@ try {
             internalCandidateWriteJson($application . '/.peanut/application-manifest.json', $manifest);
         }
         // The same native projection produces creation defaults and upgrade bytes.
-        $packageCommand = ['python3', $root . '/scripts/package-scaffold-template.py',
+        $packageCommand = ['python3', ($check ? $root : $source) . '/scripts/package-scaffold-template.py',
             '--application', $application, '--output', rtrim($options['output'], '/'), '--tooling-source', $source . '/server'];
         if ($check) { $packageCommand[] = '--check'; }
         releaseRun($packageCommand);

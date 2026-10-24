@@ -283,6 +283,7 @@ release_files=(
   RELEASE_MANIFEST.json
 )
 (cd "$OUTPUT_DIR" && shasum -a 256 "${release_files[@]}")
+node "$SCRIPT_DIR/release-asset-verification.mjs" local "$OUTPUT_DIR" "$VERSION"
 
 if [[ "$PREPARE_ONLY" == 1 ]]; then
   printf 'prepared=%s\n' "$OUTPUT_DIR"
@@ -305,6 +306,7 @@ fi
 if [[ "$PREPARE_ONLY" != 1 ]]; then
   verify_main_integration "$OUTPUT_DIR/MAIN_INTEGRATION_PROOF.json" "$INTEGRATION_MAIN" >/dev/null
 fi
+node "$SCRIPT_DIR/release-asset-verification.mjs" local "$OUTPUT_DIR" "$VERSION" >/dev/null
 gh release create "$TAG" "${release_paths[@]}" \
   "${release_flags[@]}"
 verification_channel=stable
