@@ -225,12 +225,19 @@ def run(lease_id,owner):
              'MT012 already started; reconcile original handle, never redispatch')
         need(dict(BASE['table'](directory/'metadata.tsv',2)) == meta,
              'MT012 lease changed between native verification and window entry')
+        original_resources=BASE['resource_map'](BASE['table'](directory/'resources.tsv',3))
+        original_registry=original_resources.get('registry-sha256',set())
+        need(len(original_registry)==1,'MT012 original registry identity ambiguous')
+        original_registry=next(iter(original_registry))
+        need(re.fullmatch('[0-9a-f]{64}',original_registry)
+             and original_resources==resources(op,original_registry),
+             'MT012 original validated resource closure changed before window entry')
         state = dict(protocol='peanut.application-operation-state.v1',phase='mt012',lease=lease_id,owner=owner,
                      pid=os.getpid(),process_birth=BASE['process_birth'](os.getpid()),child_pid=None,
                      status='RUNNING',actual_process_terminal=False,started_at=time.time(),
                      lease_created_at=meta['created_at'],
-                     operation=op,registry_sha256=sha(regular(canonical(os.environ['PEANUT_RESOURCE_REGISTRY']))),
-                     scope_sha256=next(iter(resources(op,sha(regular(canonical(os.environ['PEANUT_RESOURCE_REGISTRY']))))['mt012-operation-sha256'])),
+                     operation=op,registry_sha256=original_registry,
+                     scope_sha256=next(iter(original_resources['mt012-operation-sha256'])),
                      binding_expires_at=min(int(meta['expires_at']),time.time()+op['max_seconds']))
         durable(directory/STATE,state)
     child = None
