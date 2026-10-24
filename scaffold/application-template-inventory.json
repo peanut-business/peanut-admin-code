@@ -2497,7 +2497,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c2d3e1a114ae0ab0d16f9658713f1c6038c727f05502849ced0ebe03520360b2"
+            "source_sha256": "a438eca6517af8d8e88e01e288ca506ea5332bcc2a9ebb7edf9001f2920bcac4"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2620,7 +2620,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2ff03f89c7748da39ec638fc43d7c8e138c045edc910e0eae03fc6ac10b9593c"
+            "source_sha256": "6e6642df53782bad639dba6f56910410e17a285068961e1d043ccc23a646cc6a"
         },
         {
             "path": "plugins/official.identity/plugin.json",
@@ -12668,7 +12668,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2f718dea4a93e1910da2f2ca5c6c4b3718c2f215056ae4ecf7480e2f545f2600"
+            "source_sha256": "022a1850cfba42ea6644b2db6aebcadcbde1988c72b4699b33dd72ac7ed13443"
         },
         {
             "path": "server/app/modules/official/file/database/migrations/20260823-unify-storage-service.sql",
@@ -12850,7 +12850,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e78cbd510d0fc0bdc8c6094fd1dc53a3ea25d812481dc07ec8c0d3f66907bd0f"
+            "source_sha256": "4ef9c0f2738831b52dbdbace62f4ef61d276245e1687d0a608fb2450c32fb79a"
         },
         {
             "path": "server/app/modules/official/file/resources/menus.json",
@@ -13088,7 +13088,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4ed6b306bf87073b79df8ae255917cff0e517d3230a8bee8444f889377aa9149"
+            "source_sha256": "6a2d421e1507414fc9fdcfe420dfb92def7da31bd30d2e1918caab6c13ebaf85"
         },
         {
             "path": "server/app/modules/official/file/src/Contract/FileMigrationPreservation.php",
@@ -13102,7 +13102,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6314f09c2f0cc61015e859da445566499491aeeb8ffe419da7c741ebfc750e94"
+            "source_sha256": "00b031e8f888e7bd31e2fa597a92e516204821e668a1fe904c7992e2b464345e"
         },
         {
             "path": "server/app/modules/official/file/src/Contract/FileMigrationPreservationFailure.php",
