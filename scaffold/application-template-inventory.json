@@ -27405,7 +27405,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2a94a80e718554e7b78b9cb8003e3fc2e7feb0a9b58179089340864a549024d3"
+            "source_sha256": "afc69029d4bbd63a32b8a725dfb0bcf6cd3c6340534211805a9e94402eee9765"
         },
         {
             "path": "server/database/kernel-migrations/20260716010101_create_pa_account.php",

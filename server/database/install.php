@@ -735,6 +735,23 @@ function logInstallationFailure(string $serverDir, string $stage, string $errorC
                 'path' => str_starts_with($file, $projectRoot) ? substr($file, strlen($projectRoot)) : null,
                 'line' => $exception->getLine(),
             ];
+            // Only this fixed producer's finite proof codes are safe to audit.
+            // Keep them on their actual chain entry, never in the public response.
+            if ($exception instanceof RuntimeException
+                && $file === rtrim(str_replace('\\', '/', $serverDir), '/') . '/app/modules/official/identity/src/Database/IdentitySchemaMigrationProof.php'
+                && str_starts_with($exception->getMessage(), 'IDENTITY_SCHEMA_STAGE_')
+                && in_array(substr($exception->getMessage(), strlen('IDENTITY_SCHEMA_STAGE_')), [
+                    'IDENTITY_INVALID', 'INPUT_INVALID', 'SOURCE_CHANGED',
+                    'LEDGER_READER_REQUIRED', 'LEDGER_INVALID', 'LEDGER_CHANGED',
+                    'CREATE_TARGET_EXISTS', 'ALTER_TARGET_MISSING', 'TARGET_MISSING', 'CREATE_POSTSTATE_INVALID',
+                    'ALTER_POSTSTATE_INVALID', 'COLUMN_PRESTATE_INVALID', 'COLUMN_PREDECESSOR_MISSING', 'LEADER_INDEX_INVALID',
+                    'AUDIT_TARGET_EXISTS', 'AUDIT_INDEX_EXISTS', 'AUDIT_COLUMN_MISSING', 'STAGE_UNKNOWN',
+                    'ORIGINAL_ROWS_CHANGED', 'NEW_FIELD_VALUES_INVALID', 'PARENT_KEY_UNSUPPORTED',
+                    'TABLE_UNSUPPORTED', 'TABLE_COLLATION_UNKNOWN', 'CONNECTION_UNSUPPORTED', 'STATISTICS_UNAVAILABLE', 'SNAPSHOT_CHANGED',
+                    'RECOVERY_INPUT_INVALID', 'RECOVERY_CREATE_POSTSTATE_CHANGED',
+                ], true)) {
+                $entry['cause_code'] = $exception->getMessage();
+            }
             $sqlState = null;
             $driverCode = null;
             if ($exception instanceof PDOException) {
