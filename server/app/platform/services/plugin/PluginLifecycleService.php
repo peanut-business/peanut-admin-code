@@ -1940,18 +1940,41 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     private function notificationFreshPredecessorAdmission(PluginDescriptor $plugin, ManifestDocument $manifest, array $files, array $planned, \PDO $pdo): ?array
     {
         $owned = false;
+        $stage = 'context';
+        $facts = array_fill_keys(['wrong_module', 'context_invalid', 'master_changed', 'transaction_active',
+            'current_present', 'current_status_invalid', 'current_identity_changed', 'receipt_exists', 'receipt_linked',
+            'manifest_changed', 'file_keys_changed', 'planned_count_changed', 'planned_keys_changed',
+            'file_absent', 'file_linked', 'file_hash_changed', 'namespace_disposition_invalid',
+            'namespace_is_applied', 'namespace_resolution_invalid', 'adoption_not_missing', 'adoption_not_execute',
+            'ledger_present', 'ledger_count_invalid', 'ledger_key_changed', 'ledger_checksum_changed',
+            'ledger_status_invalid', 'ledger_resolution_invalid', 'ledger_provenance_present', 'ledger_error_present',
+            'ledger_finish_absent', 'target_table_present', 'parent_keys_returned', 'catalog_rejected',
+            'constraint_present', 'rollback_failed', 'post_master_changed', 'post_transaction_active',
+            'post_context_changed', 'post_admission_changed', 'post_target_changed'], 'skipped');
+        $observe = static function (string $reason) use (&$facts, &$stage): void {
+            try {
+                \think\facade\Log::write(json_encode(['event' => 'installation_notification_fresh_admission_rejected',
+                    'source' => 'PluginLifecycleService::notificationFreshPredecessorAdmission',
+                    'stage' => $stage, 'reason' => $reason, 'predicates' => $facts],
+                    JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES), 'error');
+            } catch (\Throwable) { /* Preserve the original fail-closed result even if logging is unavailable. */ }
+        };
         try {
             $context = app()->make(CurrentExecutionContext::class)->current();
-            if ($plugin->key !== 'official.notification' || !$context instanceof InstallationExecutionContext
-                || Db::connect()->getPdo() !== $pdo || $pdo->inTransaction()) { return null; }
+            if (($facts['wrong_module'] = $plugin->key !== 'official.notification') || ($facts['context_invalid'] = !$context instanceof InstallationExecutionContext)
+                || ($facts['master_changed'] = Db::connect()->getPdo() !== $pdo) || ($facts['transaction_active'] = $pdo->inTransaction())) { $observe('CONTEXT_REJECTED'); return null; }
+            $stage = 'held_host_admission';
             $host = app()->make(\app\common\services\installation\InstallationExecutionHost::class);
             $admission = $host->migrationAdoptionAdmission($pdo);
+            $stage = 'current_installation';
             $current = $this->pluginInstallation($plugin->key, false);
-            if ($current !== null && (!in_array($current['status'], ['installing', 'failed'], true) || !$this->sameIdentity($plugin, $current))) { return null; }
+            if (($facts['current_present'] = $current !== null) && (($facts['current_status_invalid'] = !in_array($current['status'], ['installing', 'failed'], true)) || ($facts['current_identity_changed'] = !$this->sameIdentity($plugin, $current)))) { $observe('CURRENT_INSTALLATION_REJECTED'); return null; }
+            $stage = 'receipt';
             $receipt = $this->notificationReceiptPath($plugin);
-            if (file_exists($receipt) || is_link($receipt)) { return null; }
+            if (($facts['receipt_exists'] = file_exists($receipt)) || ($facts['receipt_linked'] = is_link($receipt))) { $observe('RECEIPT_PRESENT'); return null; }
+            $stage = 'target';
             $target = $this->notificationTarget($plugin);
-            if ($target['module_manifest_digest'] !== $manifest->digest) { return null; }
+            if (($facts['manifest_changed'] = $target['module_manifest_digest'] !== $manifest->digest)) { $observe('TARGET_REJECTED'); return null; }
             $namespace = 'official.notification:20260826-namespace-permission-keys';
             $adoption = \PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::ADOPTION_KEY;
             $producer = \PeanutAdmin\Modules\Notification\Contract\NotificationUpgradePreflight::MIGRATION_KEY;
@@ -1959,40 +1982,56 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
                 $adoption => 'eaef582cd762c803f3f7d213687f61d43fd3634e9f0b984471f11648e10979fb',
                 $producer => '7c01bc1bf1f309e879ff3014f89418157abbce45374a58064d1a6dc94fca07ce',
                 NotificationUpgradePreflight::REPAIR_KEY => 'ba16c7a9ed27c293eff812c9341ba1e6657eeb3af3a66626d1b8cc99e4d526ad'];
-            if (array_keys($files) !== array_keys($expected) || count($planned) !== 2
-                || array_column($planned, 'migration_key') !== [$namespace, $adoption]) { return null; }
+            $stage = 'files_and_planned_prefix';
+            if (($facts['file_keys_changed'] = array_keys($files) !== array_keys($expected)) || ($facts['planned_count_changed'] = count($planned) !== 2)
+                || ($facts['planned_keys_changed'] = array_column($planned, 'migration_key') !== [$namespace, $adoption])) { $observe('FILES_OR_PLANNED_PREFIX_REJECTED'); return null; }
+            $fileStages = ['file_namespace', 'file_adoption', 'file_producer', 'file_repair']; $filePosition = 0;
             foreach ($expected as $key => $sha) {
-                if (!is_file($files[$key]) || is_link($files[$key]) || hash_file('sha256', $files[$key]) !== $sha) { return null; }
+                $stage = $fileStages[$filePosition++];
+                $facts['file_absent'] = $facts['file_linked'] = $facts['file_hash_changed'] = 'skipped';
+                if (($facts['file_absent'] = !is_file($files[$key])) || ($facts['file_linked'] = is_link($files[$key])) || ($facts['file_hash_changed'] = hash_file('sha256', $files[$key]) !== $sha)) { $observe('FILE_SOURCE_REJECTED'); return null; }
             }
-            if (!in_array([$planned[0]['ledger_status'], $planned[0]['disposition']], [['missing', 'execute'], ['applied', 'already_applied']], true)
-                || ($planned[0]['ledger_status'] === 'applied' && ($planned[0]['resolution_kind'] ?? null) !== 'executed')
-                || $planned[1]['ledger_status'] !== 'missing' || $planned[1]['disposition'] !== 'execute') { return null; }
-            $pdo->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ'); $pdo->exec('SET TRANSACTION READ ONLY'); $pdo->beginTransaction(); $owned = true;
+            $stage = 'planned_dispositions';
+            if (($facts['namespace_disposition_invalid'] = !in_array([$planned[0]['ledger_status'], $planned[0]['disposition']], [['missing', 'execute'], ['applied', 'already_applied']], true))
+                || (($facts['namespace_is_applied'] = $planned[0]['ledger_status'] === 'applied') && ($facts['namespace_resolution_invalid'] = ($planned[0]['resolution_kind'] ?? null) !== 'executed'))
+                || ($facts['adoption_not_missing'] = $planned[1]['ledger_status'] !== 'missing') || ($facts['adoption_not_execute'] = $planned[1]['disposition'] !== 'execute')) { $observe('PLANNED_DISPOSITION_REJECTED'); return null; }
+            $stage = 'snapshot_isolation'; $pdo->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+            $stage = 'snapshot_read_only'; $pdo->exec('SET TRANSACTION READ ONLY');
+            $stage = 'snapshot_begin'; $pdo->beginTransaction(); $owned = true;
             $read = static function (string $sql, array $parameters = []) use ($pdo): array {
                 if (Db::connect()->getPdo() !== $pdo || !$pdo->inTransaction()) { throw new \RuntimeException('NOTIFICATION_FRESH_SNAPSHOT_CHANGED'); }
                 $statement = $pdo->prepare($sql); $statement->execute($parameters); $rows = $statement->fetchAll(\PDO::FETCH_ASSOC); $statement->closeCursor(); return $rows;
             };
+            $stage = 'ledger';
             $rows = $read('SELECT migration_key,checksum,status,resolution_kind,provenance_json,error_code,finished_at FROM pa_module_migration WHERE module_key=? ORDER BY migration_key', ['official.notification']);
-            if ($rows !== [] && (count($rows) !== 1 || $rows[0]['migration_key'] !== $namespace || $rows[0]['checksum'] !== $expected[$namespace]
-                || $rows[0]['status'] !== 'applied' || $rows[0]['resolution_kind'] !== 'executed' || $rows[0]['provenance_json'] !== null
-                || $rows[0]['error_code'] !== null || $rows[0]['finished_at'] === null)) { return null; }
+            if (($facts['ledger_present'] = $rows !== []) && (($facts['ledger_count_invalid'] = count($rows) !== 1) || ($facts['ledger_key_changed'] = $rows[0]['migration_key'] !== $namespace) || ($facts['ledger_checksum_changed'] = $rows[0]['checksum'] !== $expected[$namespace])
+                || ($facts['ledger_status_invalid'] = $rows[0]['status'] !== 'applied') || ($facts['ledger_resolution_invalid'] = $rows[0]['resolution_kind'] !== 'executed') || ($facts['ledger_provenance_present'] = $rows[0]['provenance_json'] !== null)
+                || ($facts['ledger_error_present'] = $rows[0]['error_code'] !== null) || ($facts['ledger_finish_absent'] = $rows[0]['finished_at'] === null))) { $observe('LEDGER_REJECTED'); return null; }
             $tables = ['pa_notification_template', 'pa_notification_message', 'pa_notification_attachment', 'pa_notification_outbox',
                 'pa_sms_rate_bucket', 'pa_notification_event', 'pa_notification_task_actor'];
+            $stage = 'target_tables';
             foreach ($tables as $table) {
-                if ($read('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$table]) !== []) { return null; }
+                if (($facts['target_table_present'] = $read('SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$table]) !== [])) { $observe('TARGET_TABLE_PRESENT'); return null; }
             }
+            $stage = 'parent_keys';
             self::notificationForwardParentKeys($read);
-            if ((self::notificationForwardCatalogSchema($read)['may_apply'] ?? null) !== true) { return null; }
+            $facts['parent_keys_returned'] = true;
+            $stage = 'catalog';
+            if (($facts['catalog_rejected'] = (self::notificationForwardCatalogSchema($read)['may_apply'] ?? null) !== true)) { $observe('CATALOG_REJECTED'); return null; }
+            $stage = 'constraint_sources';
             $sql = (string) file_get_contents($files[$adoption]);
             preg_match_all('/\bCONSTRAINT\s+`?([a-zA-Z0-9_]+)`?/i', $sql, $matches);
+            $stage = 'constraint_collisions';
             foreach ($matches[1] as $constraint) {
-                if ($read('SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA=DATABASE() AND CONSTRAINT_NAME=?', [$constraint]) !== []) { return null; }
+                if (($facts['constraint_present'] = $read('SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA=DATABASE() AND CONSTRAINT_NAME=?', [$constraint]) !== [])) { $observe('CONSTRAINT_PRESENT'); return null; }
             }
-            if (!$pdo->rollBack()) { throw new \RuntimeException('NOTIFICATION_FRESH_SNAPSHOT_CHANGED'); } $owned = false;
-            if (Db::connect()->getPdo() !== $pdo || $pdo->inTransaction() || app()->make(CurrentExecutionContext::class)->current() !== $context
-                || $host->migrationAdoptionAdmission($pdo) !== $admission || $this->notificationTarget($plugin) !== $target) { return null; }
+            $stage = 'rollback';
+            if (($facts['rollback_failed'] = !$pdo->rollBack())) { throw new \RuntimeException('NOTIFICATION_FRESH_SNAPSHOT_CHANGED'); } $owned = false;
+            $stage = 'post_snapshot';
+            if (($facts['post_master_changed'] = Db::connect()->getPdo() !== $pdo) || ($facts['post_transaction_active'] = $pdo->inTransaction()) || ($facts['post_context_changed'] = app()->make(CurrentExecutionContext::class)->current() !== $context)
+                || ($facts['post_admission_changed'] = $host->migrationAdoptionAdmission($pdo) !== $admission) || ($facts['post_target_changed'] = $this->notificationTarget($plugin) !== $target)) { $observe('POST_SNAPSHOT_REJECTED'); return null; }
             return $admission;
-        } catch (\Throwable) { return null; }
+        } catch (\Throwable) { $observe('THROWN'); return null; }
         finally { if ($owned && $pdo->inTransaction()) { $pdo->rollBack(); } }
     }
 
