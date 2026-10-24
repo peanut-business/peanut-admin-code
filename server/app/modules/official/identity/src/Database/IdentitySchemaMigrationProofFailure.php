@@ -44,8 +44,8 @@ final class IdentitySchemaMigrationProofFailure extends RuntimeException
             }
         }
         $position = $root === 'indexes' ? 2 : ($root === 'foreign_keys' ? 1 : null);
-        if ($position !== null && isset($path[$position]) && (!is_int($path[$position]) || $path[$position] < 0)) { return ['@shape']; }
-        if (isset($path[$fieldPosition]) && !in_array($path[$fieldPosition], $fields[$root], true)) { return ['@shape']; }
+        if ($position !== null && array_key_exists($position, $path) && (!is_int($path[$position]) || $path[$position] < 0)) { return ['@shape']; }
+        if (array_key_exists($fieldPosition, $path) && !in_array($path[$fieldPosition], $fields[$root], true)) { return ['@shape']; }
         return $path;
     }
 

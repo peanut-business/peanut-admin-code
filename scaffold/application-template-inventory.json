@@ -14978,7 +14978,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7e29a8dfdd33c7b697a36821967004e0ba120008775ccad24f6d44abf228e831"
+            "source_sha256": "f3b50de3cfae931c113d26a26fbc2ff9225240836d4f2abcab282c709d863956"
         },
         {
             "path": "server/app/modules/official/identity/src/Http/TenantAuthEndpoint.php",
