@@ -10,7 +10,8 @@
     "esModuleInterop": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "vue": ["node_modules/vue"]
     },
     "lib": ["es2020", "dom"],
     "skipLibCheck": true
