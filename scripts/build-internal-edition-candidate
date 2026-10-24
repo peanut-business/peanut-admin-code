@@ -414,6 +414,23 @@ function internalCandidateProjectScaffold(string $application, array $core, stri
         throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_VERSION_INVALID');
     }
     $coreIdentity = $core['inputs']['core_php'];
+    $originalWeb = $versions['core_web'] ?? null;
+    $requestedWeb = $core['inputs']['core_web'] ?? null;
+    if (!is_array($originalWeb) || !is_array($requestedWeb)
+        || !is_array($originalWeb['packages'] ?? null) || !is_array($requestedWeb['packages'] ?? null)) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_WEB_INPUTS_INVALID');
+    }
+    $sameWeb = ($requestedWeb['source_reference'] ?? null) === ($originalWeb['source_reference'] ?? null)
+        && array_keys($requestedWeb['packages']) === array_keys($originalWeb['packages']);
+    foreach ($requestedWeb['packages'] as $name => $package) {
+        $sameWeb = $sameWeb && is_array($package)
+            && ($package['version'] ?? null) === ($originalWeb['packages'][$name]['version'] ?? null);
+    }
+    if (($coreIdentity['source_reference'] ?? null) === ($originalPhp['source_reference'] ?? null)
+        && ltrim((string) ($coreIdentity['resolved_version'] ?? ''), 'v') === ltrim((string) ($originalPhp['resolved_version'] ?? ''), 'v')
+        && $sameWeb) {
+        throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_PROJECTION_REDUNDANT');
+    }
     $versions['core_php']['constraint'] = $coreIdentity['resolved_version'];
     $versions['core_php']['resolved_version'] = $coreIdentity['resolved_version'];
     $versions['core_php']['source_reference'] = $coreIdentity['source_reference'];

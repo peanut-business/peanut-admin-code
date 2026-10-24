@@ -3019,7 +3019,35 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "77a83bf0c1fa378ebd2e7097a8d4e861fbc1281d1f0ce2994fd89412e30f79b7"
+            "source_sha256": "fc46a6f801c5ff1192dd31a210fc6efceb69782393faac9c78cf8ddb9837cd20"
+        },
+        {
+            "path": "scripts/build-internal-edition-candidate",
+            "target": "scripts/build-internal-edition-candidate",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "fc46a6f801c5ff1192dd31a210fc6efceb69782393faac9c78cf8ddb9837cd20"
+        },
+        {
+            "path": "scripts/build-internal-edition-candidate",
+            "target": "scripts/build-internal-edition-candidate",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 493,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "fc46a6f801c5ff1192dd31a210fc6efceb69782393faac9c78cf8ddb9837cd20"
         },
         {
             "path": "scripts/build-scaffold-release",
