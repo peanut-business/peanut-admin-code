@@ -49,7 +49,7 @@
           @click="acceptInvitation"
           >接受邀请</el-button
         >
-        <el-button class="wide" @click="goToTenantLogin"
+        <el-button class="wide" :disabled="loading" @click="goToTenantLogin"
           >取消并前往租户管理端登录</el-button
         >
       </template>
@@ -1905,7 +1905,7 @@
     }
   }
   function goToTenantLogin() {
-    window.location.assign('/admin/');
+    window.location.replace('/admin/');
   }
   function openProvisionDialog() {
     provisionError.value = '';
