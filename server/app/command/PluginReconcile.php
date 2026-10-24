@@ -182,7 +182,8 @@ final class PluginReconcile extends ModuleContextualCommand
             $lockPath = str_starts_with($lock, '/') ? $lock : $server . '/' . $lock;
             $currentLock = file_exists($current . '/.peanut/release-identity.json')
                 || is_link($current . '/.peanut/release-identity.json') ? $current . '/plugins.lock' : $current . '/../plugins.lock';
-            $locked = (new PluginLockResolver($server, $lockPath))->all();
+            $resolver = new PluginLockResolver($server, $lockPath);
+            $locked = $resolver->all();
             $currentLocked = (new PluginLockResolver($current, $currentLock))->all();
             $report['target_server_root'] = $server;
             $report['current_server_root'] = $current;
