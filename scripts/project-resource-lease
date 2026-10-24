@@ -45,6 +45,9 @@ Examples:
 The registry is local to this repository's Git common directory and is shared by
 all Peanut Admin worktrees. It stores identities only; never pass credentials as
 resource values.
+registry-sha256 records the explicitly selected current registry identity; it is
+not an exclusive lock. Runtime directories, ports, containers and DB scopes keep
+their normal ownership and conflict rules. Old holders and locks are not rewritten.
 
 Schema sharing requires a registered lease_policy.shared_access table/primary-key
 contract and one mysql-access JSON resource per mysql-schema. JSON fields are
@@ -836,13 +839,38 @@ finally:
 PY
 }
 
-# Identity proofs remain in resources.tsv. Only registered schema leases may
-# share these fields; mutable directories, controllers, listeners and writers do not.
+# The registry digest is an audited identity, never a mutable resource lock.
+# Other shared identities remain limited to registered schema leases.
+verify_registry_identity() {
+  python3 - "${PEANUT_RESOURCE_REGISTRY:-}" "$@" <<'PY'
+import hashlib, pathlib, re, sys
+registry, resource_file, *items = sys.argv[1:]
+def fail(message):
+    raise SystemExit('resource-lease: ' + message)
+if resource_file:
+    p = pathlib.Path(resource_file)
+    if p.is_symlink() or not p.is_file(): fail('invalid registry identity resource proof')
+    rows = [line.split('\t') for line in p.read_text().splitlines()]
+    if any(len(row) != 3 or not all(row) for row in rows): fail('invalid registry identity resource proof')
+    items = [row[1] + '=' + row[2] for row in rows]
+values = {item.split('=', 1)[1] for item in items if item.startswith('registry-sha256=')}
+if not values: sys.exit(0)
+if len(values) != 1 or re.fullmatch(r'[0-9a-f]{64}', next(iter(values))) is None:
+    fail('registry identity requires one exact SHA-256')
+p = pathlib.Path(registry)
+if not registry or not p.is_absolute() or p.is_symlink() or not p.is_file() or p.resolve() != p:
+    fail('explicit canonical registry required for registry identity')
+if values != {hashlib.sha256(p.read_bytes()).hexdigest()}:
+    fail('registry identity digest must match current registry')
+PY
+}
+
 schema_identity_resource() {
+  [[ "$1" != registry-sha256 ]] || return 0
   [[ "${SCHEMA_MODE:-exclusive}" == schema || "${SCHEMA_MODE:-exclusive}" == schema-shared ]] || return 1
   case "$1" in
     mysql-schema) [[ "$SCHEMA_MODE" == schema-shared ]] ;;
-    resource-id|database-resource|endpoint|resource-scope|scope|gate|mysql-db|database|mysql-access|registry-sha256|registry-tool-sha256|application-registry-sha256|application-manifest-sha256|application-env-sha256|environment|consumer|host|version) return 0 ;;
+    resource-id|database-resource|endpoint|resource-scope|scope|gate|mysql-db|database|mysql-access|registry-tool-sha256|application-registry-sha256|application-manifest-sha256|application-env-sha256|environment|consumer|host|version) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -1518,6 +1546,7 @@ validate_parent_lease_locked() {
   ! lease_expired "$parent_dir" || die "parent lease is expired: $parent_lease"
   [[ "$(metadata_value "$parent_dir/metadata.tsv" owner)" == "$owner" ]] || die "parent lease belongs to another owner: $parent_lease"
   [[ "$(metadata_value "$parent_dir/metadata.tsv" thread)" == "$thread_id" ]] || die "parent lease belongs to another thread: $parent_lease"
+  verify_registry_identity "$parent_dir/resources.tsv" || die 'parent registry identity rejected'
   if [[ -n "$role" ]]; then
     [[ "$role" == collaboration-read-existing && -n "$contract" ]] || die 'invalid parent observation role'
     validate_observation_parent_locked "$parent_lease" "$candidate" "$candidate_repository" "$worktree" "$contract"
@@ -1860,6 +1889,7 @@ case "$COMMAND" in
     if [[ -n "$PARENT_LEASE" ]]; then
       validate_parent_lease_locked "$PARENT_LEASE" "$OWNER" "$THREAD_ID" "$CANDIDATE" "$CANDIDATE_REPOSITORY" "$WORKTREE" "$LEASE_ROLE" "$OPERATION_CONTRACT"
     fi
+    verify_registry_identity "" "${RESOURCES[@]}" || die 'claim registry identity rejected'
     SCHEMA_MODE="$(mysql_claim_policy "$LEASE_ID" "$GATE" claim "${RESOURCES[@]}")" || die 'MySQL lease policy rejected claim'
     LEASE_DIR="$LEASES_DIR/$LEASE_ID"
     [[ ! -e "$LEASE_DIR" ]] || die "lease already exists: $LEASE_ID"
@@ -1982,6 +2012,7 @@ case "$COMMAND" in
     ! lease_expired "$LEASE_DIR" || die "lease is expired: $LEASE_ID"
     PARENT_LEASE="$(metadata_value "$LEASE_DIR/metadata.tsv" parent_lease)"
     read_lease_role "$LEASE_DIR"
+    verify_registry_identity "$LEASE_DIR/resources.tsv" || die 'renewal registry identity rejected'
     if awk -F '\t' '$2 == "mysql-schema" {found=1} END {exit found ? 0 : 1}' "$LEASE_DIR/resources.tsv"; then
       SCHEMA_PROOFS=()
       while IFS=$'\t' read -r HASH TYPE VALUE; do SCHEMA_PROOFS+=("$TYPE=$VALUE"); done < "$LEASE_DIR/resources.tsv"
@@ -2095,6 +2126,11 @@ case "$COMMAND" in
       VERIFY_LOCKS=1
     fi
     if [[ "$VERIFY_LOCKS" == 1 ]]; then
+      # Schema verification above retains its existing, closed retirement-only
+      # historical binding. All other identities must match the current file.
+      if [[ "$SCHEMA_MODE" == exclusive ]]; then
+        verify_registry_identity "$LEASE_DIR/resources.tsv" || die 'lease registry identity rejected'
+      fi
       [[ ! -L "$LEASE_DIR" && -f "$LEASE_DIR/metadata.tsv" && ! -L "$LEASE_DIR/metadata.tsv" \
         && -f "$LEASE_DIR/resources.tsv" && ! -L "$LEASE_DIR/resources.tsv" ]] || die 'lease proof is invalid'
       awk -F '\t' '
