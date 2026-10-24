@@ -251,7 +251,7 @@ final class IdentitySchemaMigrationProof
         $columns = self::query($pdo, 'SELECT COLUMN_NAME,ORDINAL_POSITION,COLUMN_TYPE,IS_NULLABLE,COLUMN_DEFAULT,EXTRA,CHARACTER_SET_NAME,'
             . 'COLLATION_NAME,COLUMN_COMMENT,GENERATION_EXPRESSION FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY ORDINAL_POSITION', [$table]);
         $hasAllocator = false;
-        foreach ($columns as $column) { $hasAllocator = $hasAllocator || $column['EXTRA'] === 'auto_increment'; }
+        foreach ($columns as $column) { $hasAllocator = $hasAllocator || preg_match('/(?:\A|\s)auto_increment(?:\s|\z)/iD', $column['EXTRA']) === 1; }
         $counter = self::query($pdo, 'SELECT AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?', [$table]);
         if (count($counter) !== 1 || ($hasAllocator
             ? !is_string($counter[0]['AUTO_INCREMENT']) || preg_match('/\A[1-9][0-9]*\z/D', $counter[0]['AUTO_INCREMENT']) !== 1

@@ -2497,7 +2497,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6df38d37edf22d16fe44c7a1ab2ff0a0bcf60a0e7e6939821c4690c4d285a22a"
+            "source_sha256": "a0a46f4959b3e2205fbf3b97f9247c81a278e8d33b839842ed276ce9e1c1d756"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2634,7 +2634,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c5231f331bd96137737f9634e8747cf7e989bcb226f97c267f16ebe5cf3d5146"
+            "source_sha256": "37d4959d678cd85bd1a10e675570eb32698f598ba209504ad6d263ad9beda2ec"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -14964,7 +14964,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "359251a517f95b7491486e92ad4c226214c020d69b9aacc18eb697f920e271ed"
+            "source_sha256": "91f525fbcae872c13c0855164131e5909f491cfb941eda2a68fab112d67dd77f"
         },
         {
             "path": "server/app/modules/official/identity/src/Database/IdentitySchemaMigrationProofFailure.php",
