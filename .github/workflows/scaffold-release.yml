@@ -155,9 +155,11 @@ jobs:
             --candidate-input="$RUNNER_TEMP/candidate-inputs.json" \
             --candidate-input-sha256="$(sha256sum "$RUNNER_TEMP/candidate-inputs.json" | cut -d ' ' -f1)" \
             --output-dir="$RUNNER_TEMP/template-qualification"
-      - name: Preserve actual candidate inputs and stage outcome
+      - name: Preserve actual producer inputs and stage outcome
         id: preserve_candidate
         if: ${{ always() }}
+        env:
+          PACK_ONLY: ${{ inputs.pack_only }}
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -172,15 +174,18 @@ jobs:
             echo "No candidate output was produced." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          test ! -e "$RUNNER_TEMP/scaffold-template-qualification.tgz"
+          transport_name=scaffold-template-qualification
+          if [[ "$PACK_ONLY" == true ]]; then transport_name=scaffold-template-identity; fi
+          test ! -e "$RUNNER_TEMP/$transport_name.tgz"
           # Tar retains hidden defaults, executable modes and any partial CLI target.
-          tar -czf "$RUNNER_TEMP/scaffold-template-qualification.tgz" -C "$RUNNER_TEMP" -- "${inputs[@]}"
+          tar -czf "$RUNNER_TEMP/$transport_name.tgz" -C "$RUNNER_TEMP" -- "${inputs[@]}"
           cd "$RUNNER_TEMP"
-          sha256sum scaffold-template-qualification.tgz > scaffold-template-qualification.tgz.sha256
+          sha256sum "$transport_name.tgz" > "$transport_name.tgz.sha256"
+          echo "transport_path=$RUNNER_TEMP/$transport_name.tgz" >> "$GITHUB_OUTPUT"
           echo "available=true" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
-          name: scaffold-templates-${{ github.sha }}
+          name: ${{ inputs.pack_only && 'scaffold-identity-packages' || 'scaffold-templates' }}-${{ github.sha }}
           path: |
             ${{ runner.temp }}/scaffold-templates/standalone/peanut-scaffold-standalone.tgz
             ${{ runner.temp }}/scaffold-templates/standalone/peanut-scaffold-standalone.json
@@ -194,10 +199,10 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: ${{ always() && steps.preserve_candidate.outputs.available == 'true' }}
         with:
-          name: scaffold-template-qualification-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: ${{ inputs.pack_only && 'scaffold-template-identity' || 'scaffold-template-qualification' }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            ${{ runner.temp }}/scaffold-template-qualification.tgz
-            ${{ runner.temp }}/scaffold-template-qualification.tgz.sha256
+            ${{ steps.preserve_candidate.outputs.transport_path }}
+            ${{ steps.preserve_candidate.outputs.transport_path }}.sha256
           if-no-files-found: error
           retention-days: 7
       - name: Report the remaining full qualification admission
