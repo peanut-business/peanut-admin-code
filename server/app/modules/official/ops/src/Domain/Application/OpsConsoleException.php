@@ -68,6 +68,11 @@ final class OpsConsoleException extends RuntimeException
         return new self('OPS_STATUS_UNAVAILABLE', 503);
     }
 
+    public static function sourceIdentityUnknown(): self
+    {
+        return new self('SOURCE_IDENTITY_UNKNOWN', 503);
+    }
+
     public static function providerUnavailable(): self
     {
         return new self('OPS_PROVIDER_UNAVAILABLE', 503);

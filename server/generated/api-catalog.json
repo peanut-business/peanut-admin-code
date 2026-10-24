@@ -20,7 +20,7 @@
         },
         {
             "path": "server/app/api/metadata/application/platform.php",
-            "sha256": "f2bbca2f2041aede0149134f39d8d4100150c7b09d34945249ee1312efa8cdd7"
+            "sha256": "d98e6168eeea0ab31ae65c982a937af018a0b9bb80f8f97e08660a5831c80916"
         },
         {
             "path": "server/app/api/metadata/application/shared.php",

@@ -204,7 +204,7 @@ export const parseNotificationList = (value: unknown): NotificationList => {
   ) {
     throw new Error('NOTIFICATION_RESPONSE_INVALID');
   }
-  for (const key of ['page', 'page_size', 'total'] as const) {
+  (['page', 'page_size', 'total'] as const).forEach((key) => {
     const number = meta[key];
     if (
       typeof number !== 'number' ||
@@ -213,7 +213,7 @@ export const parseNotificationList = (value: unknown): NotificationList => {
     ) {
       throw new Error('NOTIFICATION_RESPONSE_INVALID');
     }
-  }
+  });
   return {
     items: data.items.map(parseNotification),
     page: meta.page as number,

@@ -1,6 +1,4 @@
-import { defineAdminModule } from '@peanut-admin/vue';
 import { inject, reactive } from 'vue';
-import type { AdminModuleContribution } from '@peanut-admin/vue';
 import type { InjectionKey } from 'vue';
 
 import {
@@ -107,7 +105,8 @@ export const createNotificationRuntime = (
     }
   };
   const load = async (): Promise<void> => {
-    const current = ++generation;
+    generation += 1;
+    const current = generation;
     state.loading = true;
     state.error = null;
     try {
@@ -202,7 +201,7 @@ export const createNotificationRuntime = (
     },
     dispose() {
       generation += 1;
-      for (const controller of controllers) controller.abort();
+      controllers.forEach((controller) => controller.abort());
       controllers.clear();
       state.items = [];
       state.status = 'all';
@@ -225,24 +224,3 @@ export const useNotificationRuntime = (): NotificationRuntime => {
   if (runtime === undefined) throw new Error('NOTIFICATION_RUNTIME_MISSING');
   return runtime;
 };
-export const createNotificationModuleContribution = (
-  runtime: NotificationRuntime
-): AdminModuleContribution =>
-  defineAdminModule({
-    key: NOTIFICATION_SMS_MODULE_KEY,
-    routes: [
-      {
-        name: NOTIFICATION_SMS_ROUTE_NAME,
-        path: NOTIFICATION_SMS_ROUTE_PATH,
-        component: async () => ({
-          default: (await import('./NotificationInboxPage.vue')).default,
-        }),
-        access: {
-          moduleKey: NOTIFICATION_SMS_MODULE_KEY,
-          permissionKeys: [NOTIFICATION_SMS_READ_PERMISSION],
-        },
-      },
-    ],
-    disposeOnTenantChange: true,
-    stores: [{ key: NOTIFICATION_SMS_STORE_KEY, dispose: runtime.dispose }],
-  });

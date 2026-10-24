@@ -40,7 +40,7 @@ final readonly class PlatformUpgradeReadinessService
     /**
      * @param array{
      *   health:string,
-     *   identity:array{commit:string,tree:string,release_key:?string,built_at:string,repository_clean:bool},
+     *   identity:array{commit:?string,tree:?string,release_key:?string,built_at:string,repository_clean:?bool},
      *   migrations:array{applied:int,target:int,pending:int,digest:string,drift:bool,files:array<string,string>}
      * } $runtime
      * @return array<string,mixed>
@@ -49,6 +49,17 @@ final readonly class PlatformUpgradeReadinessService
     {
         if (!$this->permissions->allows($context, Package::READ_PERMISSION)) {
             throw OpsConsoleException::denied();
+        }
+
+        if (!$this->isCommit($runtime['identity']['commit'])
+            || !$this->isCommit($runtime['identity']['tree'])
+            || !is_bool($runtime['identity']['repository_clean'])) {
+            return $this->projection(
+                [$this->check('source.identity', 'blocked', 'SOURCE_IDENTITY_UNKNOWN')],
+                $runtime, null, null, $this->migrationUnavailable($runtime),
+                $this->moduleUnavailable(), $this->scaffoldUnavailable(), $this->backupUnavailable(),
+                null, null, 1,
+            );
         }
 
         $checks = [];

@@ -142,6 +142,9 @@ final readonly class PlatformModuleOperationExecutionService
             }
         }
         $snapshot = $this->runtimeStatus->snapshot($context);
+        if ($snapshot->commit === null || $snapshot->tree === null || $snapshot->repositoryClean === null) {
+            throw OpsConsoleException::sourceIdentityUnknown();
+        }
         return [
             'commit' => $snapshot->commit,
             'tree' => $snapshot->tree,

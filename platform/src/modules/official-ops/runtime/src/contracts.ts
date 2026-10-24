@@ -28,8 +28,8 @@ export interface OpsStatus {
     readonly checks: readonly HealthCheck[];
   };
   readonly version: {
-    readonly commit: string;
-    readonly tree: string;
+    readonly commit: string | null;
+    readonly tree: string | null;
     readonly releaseKey: string | null;
     readonly builtAt: string;
   };
@@ -45,7 +45,7 @@ export interface OpsStatus {
     readonly code: string;
     readonly sourceCommit: string | null;
     readonly targetCommit: string | null;
-    readonly repositoryClean: boolean;
+    readonly repositoryClean: boolean | null;
     readonly backupVerified: boolean;
     readonly sourceEvidenceMatches: boolean;
   };
@@ -221,8 +221,8 @@ export const parseOpsStatus = (value: unknown): OpsStatus => {
     !['healthy', 'degraded', 'unhealthy'].includes(String(health.status)) ||
     !Array.isArray(health.checks) ||
     health.checks.length > 32 ||
-    !commit(version.commit) ||
-    !commit(version.tree) ||
+    (version.commit !== null && !commit(version.commit)) ||
+    (version.tree !== null && !commit(version.tree)) ||
     (version.release_key !== null && !qualifiedKey(version.release_key)) ||
     !instant(version.built_at) ||
     !integer(migrations.applied) ||
@@ -243,7 +243,8 @@ export const parseOpsStatus = (value: unknown): OpsStatus => {
     !stableCode(upgrade.code) ||
     (upgrade.source_commit !== null && !commit(upgrade.source_commit)) ||
     (upgrade.target_commit !== null && !commit(upgrade.target_commit)) ||
-    typeof upgrade.repository_clean !== 'boolean' ||
+    (upgrade.repository_clean !== null &&
+      typeof upgrade.repository_clean !== 'boolean') ||
     typeof upgrade.backup_verified !== 'boolean' ||
     typeof upgrade.source_evidence_matches !== 'boolean'
   )
@@ -274,6 +275,10 @@ export const parseOpsStatus = (value: unknown): OpsStatus => {
   if (
     (health.status === 'healthy' &&
       (criticalCheckDown || migrations.drift || migrations.pending > 0)) ||
+    (['ready', 'running', 'succeeded'].includes(String(upgrade.state)) &&
+      (version.commit === null ||
+        version.tree === null ||
+        upgrade.repository_clean === null)) ||
     (upgrade.state === 'succeeded' &&
       (!upgrade.repository_clean ||
         !upgrade.backup_verified ||

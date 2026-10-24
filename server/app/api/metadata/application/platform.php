@@ -289,9 +289,9 @@ $schemas = [
                     ]],
                 ],
             ],
-            'version' => ['type' => 'object', 'additionalProperties' => false, 'required' => ['commit', 'tree', 'release_key', 'built_at'], 'properties' => ['commit' => ['type' => 'string'], 'tree' => ['type' => 'string'], 'release_key' => $nullableString, 'built_at' => $dateTime]],
+            'version' => ['type' => 'object', 'additionalProperties' => false, 'required' => ['commit', 'tree', 'release_key', 'built_at'], 'properties' => ['commit' => $nullableString, 'tree' => $nullableString, 'release_key' => $nullableString, 'built_at' => $dateTime]],
             'migrations' => ['type' => 'object', 'additionalProperties' => false, 'required' => ['applied', 'target', 'pending', 'inventory_digest', 'drift'], 'properties' => ['applied' => ['type' => 'integer'], 'target' => ['type' => 'integer'], 'pending' => ['type' => 'integer', 'minimum' => 0], 'inventory_digest' => ['type' => 'string', 'pattern' => '^[a-f0-9]{64}$'], 'drift' => ['type' => 'boolean']]],
-            'upgrade' => ['type' => 'object', 'additionalProperties' => false, 'required' => ['state', 'code', 'source_commit', 'target_commit', 'repository_clean', 'backup_verified', 'source_evidence_matches'], 'properties' => ['state' => ['type' => 'string'], 'code' => ['type' => 'string'], 'source_commit' => ['type' => 'string'], 'target_commit' => ['type' => 'string'], 'repository_clean' => ['type' => 'boolean'], 'backup_verified' => ['type' => 'boolean'], 'source_evidence_matches' => ['type' => 'boolean']]],
+            'upgrade' => ['type' => 'object', 'additionalProperties' => false, 'required' => ['state', 'code', 'source_commit', 'target_commit', 'repository_clean', 'backup_verified', 'source_evidence_matches'], 'properties' => ['state' => ['type' => 'string'], 'code' => ['type' => 'string'], 'source_commit' => $nullableString, 'target_commit' => $nullableString, 'repository_clean' => ['type' => 'boolean', 'nullable' => true], 'backup_verified' => ['type' => 'boolean'], 'source_evidence_matches' => ['type' => 'boolean']]],
         ],
     ],
     'PlatformOpsLogPage' => [

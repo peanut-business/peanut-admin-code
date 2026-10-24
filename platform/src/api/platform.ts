@@ -339,10 +339,10 @@ export interface OpsUpgradeReadinessSnapshot {
   checks: OpsUpgradeReadinessCheck[];
   source: {
     runtime: {
-      commit: string;
-      tree: string;
+      commit: string | null;
+      tree: string | null;
       release_key: string | null;
-      repository_clean: boolean;
+      repository_clean: boolean | null;
     };
     application: null | {
       application_version: string;

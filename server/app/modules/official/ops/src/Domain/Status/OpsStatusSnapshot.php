@@ -15,8 +15,8 @@ final readonly class OpsStatusSnapshot
     public function __construct(
         public string $health,
         public array $checks,
-        public string $commit,
-        public string $tree,
+        public ?string $commit,
+        public ?string $tree,
         public ?string $releaseKey,
         public string $builtAt,
         public int $appliedMigrations,
@@ -28,7 +28,7 @@ final readonly class OpsStatusSnapshot
         public string $upgradeCode,
         public ?string $sourceCommit,
         public ?string $targetCommit,
-        public bool $repositoryClean,
+        public ?bool $repositoryClean,
         public bool $backupVerified,
         public bool $sourceEvidenceMatches,
     ) {
@@ -64,6 +64,8 @@ final readonly class OpsStatusSnapshot
             $criticalCheckDown = $criticalCheckDown || ($check['critical'] && $check['status'] === 'down');
         }
         if (($health === 'healthy' && ($criticalCheckDown || $migrationDrift || $pendingMigrations > 0))
+            || (in_array($upgradeState, ['ready', 'running', 'succeeded'], true)
+                && ($commit === null || $tree === null || $repositoryClean === null))
             || ($upgradeState === 'succeeded' && (!$repositoryClean || !$backupVerified || !$sourceEvidenceMatches))
         ) {
             throw new InvalidArgumentException('Inconsistent operations status.');

@@ -155,7 +155,8 @@ final readonly class ThinkPhpUpgradeTaskExecutionService implements UpgradeTaskE
         });
         $context = $this->context($task);
         $snapshot = $this->runtimeStatus->snapshot($context);
-        if (!hash_equals((string) $execution['target_commit'], $snapshot->commit)
+        if ($snapshot->commit === null || $snapshot->tree === null
+            || !hash_equals((string) $execution['target_commit'], $snapshot->commit)
             || !hash_equals((string) $execution['target_tree'], $snapshot->tree)
             || $snapshot->releaseKey !== (string) $execution['target_release_key']
             || $snapshot->health === 'unhealthy'

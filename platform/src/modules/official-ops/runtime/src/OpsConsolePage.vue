@@ -152,13 +152,13 @@
             <div>
               <dt>提交</dt
               ><dd class="mono">
-                {{ state.overview.version.commit }}
+                {{ state.overview.version.commit ?? '未知（源码运行）' }}
               </dd>
             </div>
             <div>
               <dt>源码树</dt
               ><dd class="mono">
-                {{ state.overview.version.tree }}
+                {{ state.overview.version.tree ?? '未知（源码运行）' }}
               </dd>
             </div>
             <div

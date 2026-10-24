@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PeanutAdmin\Modules\Ops\Infrastructure;
 
 use PeanutAdmin\Modules\Ops\Contract\ModuleTaskExecution;
+use PeanutAdmin\Modules\Ops\Domain\Application\OpsConsoleException;
 use PeanutAdmin\Modules\Identity\Contract\PlatformOperatorIdentityQuery;
 use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
 use PeanutAdmin\Modules\Ops\Service\DeploymentModuleRequestService;
@@ -540,6 +541,9 @@ final readonly class ThinkPhpModuleOperationTaskExecutionService implements Modu
             }
         }
         $snapshot = $this->runtimeStatus->snapshot($context);
+        if ($snapshot->commit === null || $snapshot->tree === null || $snapshot->repositoryClean === null) {
+            throw OpsConsoleException::sourceIdentityUnknown();
+        }
         return [
             'commit' => $snapshot->commit,
             'tree' => $snapshot->tree,

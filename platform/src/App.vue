@@ -179,7 +179,8 @@
                   {{ upgradeReadiness.preflight.code }}</el-descriptions-item
                 ><el-descriptions-item label="当前 Runtime">{{
                   upgradeReadiness.source.runtime.release_key ||
-                  upgradeReadiness.source.runtime.commit.slice(0, 12)
+                  upgradeReadiness.source.runtime.commit?.slice(0, 12) ||
+                  '未知（源码运行）'
                 }}</el-descriptions-item
                 ><el-descriptions-item label="目标 Release">{{
                   upgradeReadiness.target?.release_key ||

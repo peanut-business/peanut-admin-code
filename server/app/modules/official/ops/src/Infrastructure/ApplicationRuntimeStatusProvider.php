@@ -12,6 +12,7 @@ use app\common\infrastructure\migration\CleanInstallBaseline;
 use PeanutAdmin\Kernel\Context\PlatformContext;
 use PeanutAdmin\Modules\Ops\Domain\Status\OpsStatusSnapshot;
 use PeanutAdmin\Modules\Ops\Domain\Status\RuntimeStatusProvider;
+use PeanutAdmin\Modules\Ops\Domain\Application\OpsConsoleException;
 use app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider;
 use Throwable;
 use think\facade\Cache;
@@ -64,14 +65,14 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
 
     public function runtimeCommit(): string
     {
-        return $this->runtimeIdentity()['commit'];
+        return $this->runtimeIdentity()['commit'] ?? throw OpsConsoleException::sourceIdentityUnknown();
     }
 
     /**
      * @return array{
      *   health:string,
      *   checks:list<array{key:string,status:string,critical:bool,latency_ms:float}>,
-     *   identity:array{commit:string,tree:string,release_key:?string,built_at:string,repository_clean:bool},
+     *   identity:array{commit:?string,tree:?string,release_key:?string,built_at:string,repository_clean:?bool},
      *   migrations:array{applied:int,target:int,pending:int,digest:string,drift:bool,files:array<string,string>}
      * }
      */
@@ -148,7 +149,7 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
         ];
     }
 
-    /** @return array{commit:string,tree:string,release_key:?string,built_at:string,repository_clean:bool} */
+    /** @return array{commit:?string,tree:?string,release_key:?string,built_at:string,repository_clean:?bool} */
     private function runtimeIdentity(): array
     {
         if ($this->serverReleaseAvailable()) {
@@ -166,6 +167,16 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
                     : null,
                 'built_at' => $this->builtAt($this->projectRoot . '/server/.peanut/release-identity.json'),
                 'repository_clean' => true,
+            ];
+        }
+
+        // Source HTTP requests have no immutable source identity. Repository
+        // inspection belongs to CLI qualification, not the read-only console.
+        if (PHP_SAPI !== 'cli' && file_exists($this->projectRoot . '/.git')) {
+            return [
+                'commit' => null, 'tree' => null, 'release_key' => null,
+                'built_at' => $this->builtAt($this->projectRoot . '/server/composer.lock'),
+                'repository_clean' => null,
             ];
         }
 

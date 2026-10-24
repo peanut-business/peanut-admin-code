@@ -2826,6 +2826,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/platformapi/v1/ops/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listPlatformOpsLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/platformapi/v1/ops/diagnostics": {
         parameters: {
             query?: never;
@@ -7779,8 +7795,8 @@ export interface components {
                 }[];
             };
             version: {
-                commit: string;
-                tree: string;
+                commit: string | null;
+                tree: string | null;
                 release_key: string | null;
                 /** Format: date-time */
                 built_at: string;
@@ -7795,14 +7811,35 @@ export interface components {
             upgrade: {
                 state: string;
                 code: string;
-                source_commit: string;
-                target_commit: string;
-                repository_clean: boolean;
+                source_commit: string | null;
+                target_commit: string | null;
+                repository_clean: boolean | null;
                 backup_verified: boolean;
                 source_evidence_matches: boolean;
             };
         } & {
             [key: string]: components["schemas"]["ApplicationDynamicValue"];
+        };
+        /** @description 最近 24 小时的平台审计脱敏摘要；最多读取 100 个聚合组后按最低级别过滤，不提供完整搜索或游标分页。 */
+        PlatformOpsLogPage: {
+            items: {
+                event_key: string;
+                /** @enum {string} */
+                severity: "info" | "warning" | "error" | "critical";
+                /** @enum {string} */
+                component_key: "platform.audit";
+                /** @description 受控消息目录中的通用说明，不含原始日志消息、身份或载荷。 */
+                message: string;
+                /** Format: date-time */
+                occurred_at: string;
+                request_id: string | null;
+                occurrences: number;
+            }[];
+            /**
+             * @description 固定为 null；不支持后续页。
+             * @enum {string|null}
+             */
+            next_cursor: null;
         };
         PlatformOpsSnapshot: {
             provider?: {
@@ -17091,6 +17128,40 @@ export interface operations {
             403: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listPlatformOpsLogs: {
+        parameters: {
+            query?: {
+                source?: "platform.audit";
+                severity?: "info" | "warning" | "error" | "critical";
+                page_size?: number;
+                cursor?: "";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["PlatformOpsLogPage"];
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
         };
     };
     downloadPlatformDiagnostics: {

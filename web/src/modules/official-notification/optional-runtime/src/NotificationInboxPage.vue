@@ -15,7 +15,7 @@
   import { useNotificationRuntime } from './runtime';
 
   const runtime = useNotificationRuntime();
-  const state = runtime.state;
+  const { state } = runtime;
   const canManage = computed(runtime.canManage);
   const filters: readonly { label: string; value: NotificationFilter }[] = [
     { label: 'All', value: 'all' },
@@ -28,17 +28,16 @@
     try {
       await operation();
     } catch {
-      return;
+      // The runtime exposes request failures through its reactive error state.
     }
   };
   const statusType = (
     message: NotificationMessage
-  ): 'primary' | 'success' | 'info' =>
-    message.status === 'unread'
-      ? 'primary'
-      : message.status === 'read'
-      ? 'success'
-      : 'info';
+  ): 'primary' | 'success' | 'info' => {
+    if (message.status === 'unread') return 'primary';
+    if (message.status === 'read') return 'success';
+    return 'info';
+  };
 
   onMounted(() => run(runtime.load));
 </script>
