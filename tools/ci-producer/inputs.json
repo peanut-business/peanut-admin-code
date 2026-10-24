@@ -198,7 +198,8 @@
         "Filename": "pool/main/z/zlib/zlib1g_1.2.13.dfsg-1_amd64.deb",
         "SHA256": "d7dd1d1411fedf27f5e27650a6eff20ef294077b568f4c8c5e51466dc7c08ce4"
       }
-    ]
+    ],
+    "packagesContentSha256": "515e692f2c4121c6fcec444ef100cc18f79a991910615f3a88c8b7becfc94d2f"
   },
   "tools": {
     "php": "8.3.24",

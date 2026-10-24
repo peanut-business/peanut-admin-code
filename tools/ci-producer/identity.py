@@ -15,6 +15,11 @@ def command(*args):
 
 root = Path('/opt/peanut')
 manifest = json.loads((root / 'inputs.json').read_text())
+apt = json.loads((root / 'apt-input-identity.json').read_text())
+if (apt['inReleaseSha256'] != manifest['snapshot']['inReleaseSha256']
+        or apt['packagesContentSha256'] != manifest['snapshot']['packagesContentSha256']
+        or apt['directPackages'] != manifest['snapshot']['packages']):
+    raise RuntimeError('Actual APT input binding differs')
 versions = dict(php=command('php', '-r', 'echo PHP_VERSION;'),
                 python3=command('python3', '-c', 'import platform; print(platform.python_version())'),
                 node=command('node', '--version').removeprefix('v'),
@@ -46,6 +51,7 @@ for file in sorted(Path('/usr/local/lib/python3.14/lib-dynload').glob('*.so')):
         libraries[str(library)] = hashlib.sha256(library.read_bytes()).hexdigest()
 packages = command('dpkg-query', '-W', '-f=${binary:Package}=${Version}\n')
 value = dict(schema=1, inputsSha256=hashlib.sha256((root / 'inputs.json').read_bytes()).hexdigest(),
+             aptInputs=apt,
              tools=versions, paths=paths,
              executableSha256={name: hashlib.sha256(Path(path).read_bytes()).hexdigest() for name, path in paths.items()},
              extensions=sorted(extensions), osRelease=Path('/etc/os-release').read_text(),
