@@ -141,12 +141,55 @@ def durable(path,value):
 
 
 def release_check(lease_id, owner):
-    op, common, directory, meta, state = check(lease_id,owner,allow_expired=True)
-    need(state and state['phase'] == 'mt012' and state['owner'] == owner
-         and not BASE['original_process_alive'](state['pid'],state['process_birth'])
-         and state['child_pid'] is None and state['actual_process_terminal'] is True,
-         'MT012 real coordinator/SSH window is not terminal')
-    if state['status'] != 'COMPLETED':
+    # Terminal-only consumer of the ORIGINAL native record. Current registry
+    # drift rejects every execution permit, but must not demand reverting current
+    # registry bytes or rewriting old proof in order to retire a dead window.
+    need(re.fullmatch('[A-Za-z0-9][A-Za-z0-9._-]{0,63}',lease_id),'invalid MT012 terminal lease')
+    common=canonical(BASE['git'](ROOT,'rev-parse','--path-format=absolute','--git-common-dir').decode().strip())
+    directory=common/'peanut-admin-resource-leases/leases'/lease_id
+    meta=dict(BASE['table'](directory/'metadata.tsv',2));rows=BASE['table'](directory/'resources.tsv',3)
+    original_raw=regular(directory/STATE,private=True);state=BASE['json_unique'](original_raw)
+    op=state['operation'];registry_sha=state['registry_sha256']
+    need(op['protocol']==PROTOCOL and op['stable_resource_id']==OPERATION
+         and owner==os.environ.get('CODEX_THREAD_ID')==op['owner']==op['thread']==meta['owner']==meta['thread']==state['owner']
+         and state['protocol']=='peanut.application-operation-state.v1' and state['phase']=='mt012'
+         and state['lease']==meta['lease']==lease_id and meta['status']=='ACTIVE'
+         and meta['created_at']==state['lease_created_at'] and not meta['parent_lease'],
+         'MT012 original terminal actor/lease changed')
+    tool=op['tool_source']
+    need(tool['root']==str(ROOT) and tool['common_dir']==str(common) and set(tool['files'])==FILES
+         and BASE['git'](ROOT,'rev-parse','HEAD').decode().strip()==tool['commit']
+         and not BASE['git'](ROOT,'status','--porcelain=v1','--untracked-files=all'),
+         'MT012 original fixed terminal source changed')
+    for name,digest in tool['files'].items():
+        raw=regular(ROOT/name)
+        need(sha(raw)==digest and BASE['git'](ROOT,'show',tool['commit']+':'+name)==raw,
+             'MT012 original terminal source bytes changed')
+    original_resources=resources(op,registry_sha)
+    need(BASE['resource_map'](rows)==original_resources and re.fullmatch('[0-9a-f]{64}',registry_sha)
+         and meta['candidate']==tool['commit'] and meta['candidate_repository']==meta['worktree']==str(ROOT)
+         and meta['gate']=='product-server-first-install'
+         and state['scope_sha256']==next(iter(original_resources['mt012-operation-sha256'])),
+         'MT012 original terminal scope proof changed')
+    # Called by normal release under its existing native mutex. Verify the
+    # original physical holders directly, without granting an expired/current
+    # admission or pretending old registry bytes are the current authority.
+    for digest,kind,item in rows:
+        if kind=='registry-sha256':continue
+        lock=common/'peanut-admin-resource-leases/resources'/digest
+        for field,expected in [('lease',lease_id),('type',kind),('value',item)]:
+            need(regular(lock/field).decode().strip()==expected,'MT012 original terminal physical holder changed')
+    need(not BASE['original_process_alive'](state['pid'],state['process_birth']),
+         'MT012 original coordinator still alive')
+    if state.get('child_pid') is not None:
+        need(not BASE['original_process_alive'](state['child_pid'],state.get('child_birth')),
+             'MT012 original SSH child still alive')
+    terminal=dict(original_state_sha256=sha(original_raw),original_registry_sha256=registry_sha,
+                  original_scope_sha256=state['scope_sha256'],local_processes_terminated=True)
+    successful=(state['status']=='COMPLETED' and state.get('actual_process_terminal') is True
+                and state.get('child_pid') is None and state.get('child_exit_code')==0
+                and state.get('remote_complete',{}).get('scope_sha256')==state['scope_sha256'])
+    if not successful:
         # UNKNOWN is not auto-release or retry permission. Reuse the existing
         # independent versioned terminal-review convention for this exact state.
         review = canonical(op['terminal_review']); raw = regular(review,private=True)
@@ -156,10 +199,16 @@ def release_check(lease_id, owner):
         need(proof.get('lease') == lease_id and proof.get('state_sha256') == sha(regular(directory/STATE,private=True))
              and proof.get('verdict') == 'SAFE_TO_RELEASE' and proof.get('actual_remote_terminal') is True
              and proof.get('reviewer_thread') not in (None,'',owner), 'MT012 exact remote terminal reconciliation absent')
+        terminal.update(independent_review_sha256=sha(raw),reviewer_thread=proof['reviewer_thread'],actual_remote_terminal=True)
+    else:terminal['actual_remote_terminal']=True
     receipt = canonical(op['receipt_root'])/(lease_id+'-terminal.json')
-    need(not receipt.exists() and not receipt.is_symlink(), 'MT012 terminal receipt already exists')
-    durable(receipt,state)
+    value=dict(state,terminal_reconciliation=terminal)
+    if receipt.exists():need(BASE['json_unique'](regular(receipt,private=True))==value,'MT012 terminal receipt differs; reconcile same state')
+    else:durable(receipt,value)
     (directory/STATE).unlink()
+    fd=os.open(directory,os.O_RDONLY)
+    try:os.fsync(fd)
+    finally:os.close(fd)
 
 
 def run(lease_id,owner):
@@ -180,6 +229,7 @@ def run(lease_id,owner):
                      pid=os.getpid(),process_birth=BASE['process_birth'](os.getpid()),child_pid=None,
                      status='RUNNING',actual_process_terminal=False,started_at=time.time(),
                      lease_created_at=meta['created_at'],
+                     operation=op,registry_sha256=sha(regular(canonical(os.environ['PEANUT_RESOURCE_REGISTRY']))),
                      scope_sha256=next(iter(resources(op,sha(regular(canonical(os.environ['PEANUT_RESOURCE_REGISTRY']))))['mt012-operation-sha256'])),
                      binding_expires_at=min(int(meta['expires_at']),time.time()+op['max_seconds']))
         durable(directory/STATE,state)
@@ -243,6 +293,9 @@ def run(lease_id,owner):
                     expected_approval=event
                     need(event['phase'] in ('before-quiesce','quiesced-binding','post-native-start'),
                          'MT012 unknown approval phase')
+                    need(sha(json.dumps(event['observation'],sort_keys=True,separators=(',',':')).encode())==event['observation_sha256']
+                         and event['observation']['owner']==owner and event['observation']['native_lease']==lease_id,
+                         'MT012 fresh private observation payload differs from its acceptance digest')
                     durable(receipt/(lease_id+'-'+event['phase']+'.json'),event)
                     while True:
                         need(child.poll() is None,'MT012 SSH ended before fresh observation acceptance')
