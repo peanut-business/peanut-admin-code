@@ -29,6 +29,54 @@ JSON;
 
     public function __construct(private CurrentExecutionContext $contexts) {}
 
+    /** Reverse only MySQL's equivalent CHECK literal re-encoding during the declared image-index ALTER. */
+    public static function restoreImageIndexCheckIntroducers(string $before, string $after, array $beforeColumns, array $afterColumns): string
+    {
+        foreach (['access_type', 'status', 'disposition', 'file_key', 'purpose', 'sha256'] as $name) {
+            foreach ([$beforeColumns, $afterColumns] as $columns) {
+                $matches = array_values(array_filter($columns, static fn(array $column): bool => $column['COLUMN_NAME'] === $name));
+                if (count($matches) !== 1 || $matches[0]['CHARACTER_SET_NAME'] !== 'ascii' || $matches[0]['COLLATION_NAME'] !== 'ascii_bin') {
+                    return $after;
+                }
+            }
+        }
+        $checks = json_decode(self::SCHEMAS, true, 512, JSON_THROW_ON_ERROR)['post']['file_object']['checks'];
+        foreach ($checks as $name => $declared) {
+            $pattern = '~^  CONSTRAINT `' . preg_quote($name, '~') . '` CHECK \\(([^\\r\\n]*)\\)(,?\\r?)$~m';
+            if (preg_match_all($pattern, $before, $old, PREG_OFFSET_CAPTURE) !== 1
+                || preg_match_all($pattern, $after, $new, PREG_OFFSET_CAPTURE) !== 1) { continue; }
+            $oldExpression = self::imageCheckIntroducerProjection($old[1][0][0]);
+            $newExpression = self::imageCheckIntroducerProjection($new[1][0][0]);
+            if ($oldExpression === null || $newExpression === null || $oldExpression !== $newExpression) { continue; }
+            try {
+                if (self::expression($oldExpression) !== self::expression($declared)) { continue; }
+            } catch (\RuntimeException) { continue; }
+            // Keep constraint spelling, punctuation, enforcement, whitespace and order byte-strict.
+            $oldLine = substr_replace($old[0][0][0], $oldExpression, strpos($old[0][0][0], $old[1][0][0]), strlen($old[1][0][0]));
+            $newLine = substr_replace($new[0][0][0], $newExpression, strpos($new[0][0][0], $new[1][0][0]), strlen($new[1][0][0]));
+            if ($oldLine === $newLine) {
+                $after = substr_replace($after, $old[0][0][0], $new[0][0][1], strlen($new[0][0][0]));
+            }
+        }
+        return $after;
+    }
+
+    /** A lexical admission filter, not a general SQL formatter: literal bodies are never rewritten. */
+    private static function imageCheckIntroducerProjection(string $expression): ?string
+    {
+        $at = 0; $projected = '';
+        $pattern = <<<'RX'
+~\G(?:\s+|`[a-z_][a-z0-9_]*`|(?<introduced>_(?:ascii|utf8mb4))(?<literal>'[\x20-\x26\x28-\x5b\x5d-\x7e]*')|(?<word>[a-z][a-z0-9_]*|[0-9]+)|[(),=<>!+*%\-])~Ai
+RX;
+        while ($at < strlen($expression)) {
+            if (preg_match($pattern, $expression, $token, PREG_UNMATCHED_AS_NULL, $at) !== 1) { return null; }
+            if (isset($token['word']) && strcasecmp($token['word'], 'collate') === 0) { return null; }
+            $projected .= $token['literal'] ?? $token[0];
+            $at += strlen($token[0]);
+        }
+        return $projected;
+    }
+
     /** The application owner supplies this source-bound reader; it runs inside this exact PDO snapshot. */
     public function report(string $oldMigrationKey, \Closure $applicationHistory, ?PDO $expectedPdo = null, ?\Closure $visibilityHistory = null): array
     {

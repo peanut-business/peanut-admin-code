@@ -237,6 +237,9 @@ final readonly class FileMigrationPreservation
                         '', $metadata['ddl'], -1, $removed,
                     );
                     if ($removed !== 1 || !is_string($metadata['ddl'])) { self::fail('IMAGE_INDEX_DELTA_UNKNOWN'); }
+                    $metadata['ddl'] = FileMigrationAdoptionProof::restoreImageIndexCheckIntroducers(
+                        $table['metadata']['ddl'], $metadata['ddl'], $table['metadata']['columns'], $metadata['columns'],
+                    );
                 }
                 if ($metadata !== $table['metadata']) {
                     throw new FileMigrationPreservationFailure(self::metadataDifference(
