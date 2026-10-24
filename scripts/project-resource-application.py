@@ -1767,7 +1767,7 @@ def allocation_authority(operation_id):
     need(len(rows) == 1, "allocation database must be uniquely registered")
     db = rows[0]
     name, user = db["database"], db["username"]
-    need(re.fullmatch(r"[a-z][a-z0-9_]{0,31}", name) and user == name,
+    need(re.fullmatch(r"[a-z][a-z0-9_]{0,31}", name) and user == name and user != "root",
          "allocation requires exact same-name dedicated schema/account")
     endpoint = db["upstream_endpoint"]
     policy = db["lease_policy"]
@@ -1782,8 +1782,15 @@ def allocation_authority(operation_id):
     privileges = db["requested_schema_privileges"]
     need(isinstance(privileges, list) and len(privileges) == len(set(privileges))
          and set(privileges) == ALLOCATION_PRIVILEGES, "allocation exact privilege list differs")
-    need(str(ipaddress.ip_address(op["account_host"])) == op["account_host"]
-         and db["account_host"] == op["account_host"], "allocation requires registered literal client IP")
+    host = op["account_host"]
+    need(db["account_host"] == host, "allocation account Host differs from registered policy")
+    if host == "%":
+        # project_authority authenticates the registration, not caller flags.
+        # The exact development-only boundary above still applies; this is a
+        # new, non-runtime target, never an override for an existing account.
+        need(db.get("application_runtime") is False, "wildcard Host requires a registered local development allocation target")
+    else:
+        need(str(ipaddress.ip_address(host)) == host, "allocation requires an explicitly registered wildcard or literal IP")
     need(re.fullmatch(r"[0-9a-f-]{36}", op["server_uuid"]) and re.fullmatch(r"8\.4\.[0-9]+", op["version"]),
          "allocation server version/UUID invalid")
     transport = op["transport"]
@@ -1977,9 +1984,13 @@ def allocation_execute(lease_id, owner):
             need(m[2] in ("`" + scope + "`.*", "`" + name + "`.*"), "allocation grants exceed exact schema")
             actual.update(m[1].split(", "))
         need(actual == ALLOCATION_PRIVILEGES, "allocation effective direct privileges differ")
-        php = r'''$c=json_decode(stream_get_contents(STDIN),true,512,JSON_THROW_ON_ERROR);try{$p=new PDO('mysql:host='.$c['DB_HOST'].';port='.$c['DB_PORT'].';dbname='.$c['DB_NAME'].';charset=utf8mb4',$c['DB_USER'],$c['DB_PASS'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_TIMEOUT=>5]);echo $p->query("SELECT JSON_OBJECT('database',DATABASE(),'principal',CURRENT_USER(),'uuid',@@server_uuid,'version',VERSION())")->fetchColumn();}catch(Throwable $e){exit(1);}'''
+        php = r'''$c=json_decode(stream_get_contents(STDIN),true,512,JSON_THROW_ON_ERROR);try{$p=new PDO('mysql:host='.$c['DB_HOST'].';port='.$c['DB_PORT'].';dbname='.$c['DB_NAME'].';charset=utf8mb4',$c['DB_USER'],$c['DB_PASS'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_TIMEOUT=>5]);echo $p->query("SELECT JSON_OBJECT('database',DATABASE(),'principal',CURRENT_USER(),'client_identity',USER(),'uuid',@@server_uuid,'version',VERSION())")->fetchColumn();}catch(Throwable $e){exit(1);}'''
         login = json_unique(run([op["php_executable"], "-r", php], json.dumps(credentials).encode()))
-        need(login == dict(database=name, principal=user + "@" + host, uuid=op["server_uuid"], version=op["version"]),
+        client_identity = login.get("client_identity")
+        need(isinstance(client_identity, str) and client_identity.startswith(user + "@")
+             and len(client_identity) > len(user) + 1
+             and login == dict(database=name, principal=user + "@" + host, client_identity=client_identity,
+                               uuid=op["server_uuid"], version=op["version"]),
              "allocation ordinary account live identity differs")
         target.update(status="COMPLETED", after=after, login=login, exact_privileges=sorted(actual), completed_at=time.time())
         allocation_write(journal, value)
