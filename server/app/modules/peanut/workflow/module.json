@@ -3,7 +3,7 @@
   "key": "peanut.workflow",
   "name": "Workflow",
   "description": "可选工作流运行与查询；使用方必须提供授权、分配、附件与副作用协议实现。",
-  "version": "4.0.0-rc.29",
+  "version": "4.0.0-rc.30",
   "kernel_constraint": "^1.0",
   "license": "Apache-2.0",
   "php_package": "peanut-business/workflow",
@@ -67,7 +67,7 @@
   "optional_dependencies": [
     { "module_key": "official.file", "version": "^1.0" },
     { "module_key": "official.task", "version": "^1.0" },
-    { "module_key": "peanut.artifact-revision", "version": "4.0.0-rc.24" },
+    { "module_key": "peanut.artifact-revision", "version": "4.0.0-rc.27" },
     { "module_key": "official.notification", "version": "^1.0" }
   ]
 }
