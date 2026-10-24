@@ -38,33 +38,36 @@
           </el-space>
         </el-form-item>
       </el-form>
-      <el-row style="margin-bottom: 16px">
-        <el-col :span="12">
-          <el-space>
-            <el-button
-              v-permission="['core.department.create']"
-              type="primary"
-              @click="handleAdd()"
-            >
-              <template #icon><Plus /></template>
-              {{ $t('systemDept.operation.create') }}
-            </el-button>
-            <span>按层展开，每次最多20项</span>
-          </el-space>
-        </el-col>
-      </el-row>
+      <div class="department-actions">
+        <el-button
+          v-permission="['core.department.create']"
+          type="primary"
+          @click="handleAdd()"
+        >
+          <template #icon><Plus /></template>
+          {{ $t('systemDept.operation.create') }}
+        </el-button>
+        <span>按层展开，每次最多20项</span>
+      </div>
       <el-table
         :key="tableRevision"
         v-loading="loading"
         row-key="id"
         :data="directory.tree.value"
+        scrollbar-tabindex="0"
+        aria-label="部门列表；可水平滚动查看全部列和操作"
         border
         :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
         @expand-change="expandDepartment"
       >
-        <el-table-column prop="name" :label="$t('systemDept.columns.name')">
+        <el-table-column
+          prop="name"
+          :label="$t('systemDept.columns.name')"
+          min-width="220"
+        >
           <template #default="{ row }">
-            {{ row.name }} <span v-if="row.structuralOnly">（路径）</span>
+            <span :title="row.name">{{ row.name }}</span>
+            <span v-if="row.structuralOnly">（路径）</span>
             <el-button
               v-if="!isSearch && row.hasChildren"
               link
@@ -488,5 +491,16 @@
 <style scoped lang="less">
   .container {
     padding: 0 20px 20px 20px;
+  }
+  .department-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    margin-bottom: 16px;
+  }
+  :deep(.el-table .el-scrollbar__wrap:focus-visible) {
+    outline: 2px solid var(--el-color-primary);
+    outline-offset: -2px;
   }
 </style>

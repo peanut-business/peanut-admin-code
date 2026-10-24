@@ -101,7 +101,9 @@
         },
       });
 
-      const topMenu = computed(() => appStore.topMenu);
+      const topMenu = computed(
+        () => appStore.topMenu && appStore.device !== 'mobile'
+      );
       const openKeys = ref<string[]>([]);
       const selectedKey = ref<string[]>([]);
       const submenuKeys = new Set<string>();

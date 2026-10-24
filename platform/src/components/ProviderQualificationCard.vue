@@ -6,10 +6,15 @@
       type="info"
       :closable="false"
     />
+    <p v-if="snapshot" class="table-scroll-hint"
+      >表格可左右滚动；键盘可聚焦表格后使用方向键查看全部列。</p
+    >
     <el-table
       v-if="snapshot"
       :data="snapshot.providers"
       empty-text="暂无 Provider"
+      scrollbar-tabindex="0"
+      aria-label="服务提供者资格表；可水平滚动查看全部列"
     >
       <el-table-column prop="provider_key" label="Provider" min-width="190" />
       <el-table-column prop="category" label="类别" width="110" />

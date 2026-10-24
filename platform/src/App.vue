@@ -90,9 +90,16 @@
     ></section
   >
   <el-container v-else class="app-shell"
-    ><el-aside width="224px"
+    ><el-aside
+      width="224px"
+      class="platform-navigation"
+      :class="{ 'navigation-open': navigationOpen }"
+      @keydown.esc.capture="closeNavigation"
       ><div class="logo">PEANUT <b>平台</b></div
-      ><el-menu :default-active="view" @select="selectView"
+      ><el-menu
+        id="platform-navigation-menu"
+        :default-active="view"
+        @select="selectView"
         ><el-menu-item index="overview">概览</el-menu-item
         ><el-sub-menu index="tenant-operations"
           ><template #title>租户运营</template
@@ -120,10 +127,18 @@
       ></el-aside
     ><el-container
       ><el-header
-        ><div
+        ><el-button
+          class="navigation-toggle"
+          text
+          :aria-label="navigationOpen ? '关闭导航菜单' : '打开导航菜单'"
+          :aria-expanded="navigationOpen"
+          aria-controls="platform-navigation-menu"
+          @click="toggleNavigation"
+          >菜单</el-button
+        ><div class="platform-header-title"
           ><b>{{ title }}</b
           ><span class="muted">实例平台控制面</span></div
-        ><div
+        ><div class="platform-header-actions"
           ><el-button text :loading="loading" @click="refreshView"
             >刷新</el-button
           ><el-button text @click="logout">退出登录</el-button></div
@@ -428,9 +443,13 @@
                       backupCenter.latest_restore_verified.file_count
                     }}</el-descriptions-item></el-descriptions
                   ><p class="muted">备份与恢复任务</p
+                  ><p class="table-scroll-hint"
+                    >表格可左右滚动；键盘可聚焦表格后使用方向键查看全部列。</p
                   ><el-table
                     :data="backupCenter.tasks"
                     empty-text="暂无备份或恢复任务"
+                    scrollbar-tabindex="0"
+                    aria-label="备份与恢复任务表；可水平滚动查看全部列"
                     ><el-table-column
                       prop="task_key"
                       label="任务标识" /><el-table-column
@@ -1084,6 +1103,7 @@
     computed,
     defineComponent,
     h,
+    nextTick,
     onMounted,
     onUnmounted,
     provide,
@@ -1140,6 +1160,26 @@
   const loading = ref(false);
   const error = ref('');
   const view = ref('overview');
+  const navigationOpen = ref(false);
+  function closeNavigation() {
+    if (!navigationOpen.value) return;
+    navigationOpen.value = false;
+    (
+      document.querySelector('.navigation-toggle') as HTMLElement | null
+    )?.focus();
+  }
+  function toggleNavigation() {
+    navigationOpen.value = !navigationOpen.value;
+    if (navigationOpen.value) {
+      nextTick(() =>
+        (
+          document.querySelector(
+            '.platform-navigation .el-menu-item'
+          ) as HTMLElement | null
+        )?.focus()
+      );
+    }
+  }
   const tenants = ref<Tenant[]>([]);
   const invitations = ref<Invitation[]>([]);
   const bindings = ref<EntryBinding[]>([]);
@@ -1795,6 +1835,7 @@
   }
   async function selectView(next: string) {
     view.value = next;
+    closeNavigation();
     await loadView();
   }
   async function login() {

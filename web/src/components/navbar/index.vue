@@ -1,30 +1,27 @@
 <template>
   <div class="navbar">
     <div class="left-side">
-      <el-space class="left-content" :size="12" alignment="center">
+      <div class="left-content">
         <img
           v-if="brandStore.website.web_logo"
           alt="logo"
           :src="brandStore.website.web_logo"
           style="width: 28px; height: 28px"
         />
-        <h5 class="brand-title">
-          {{
-            userStore.tenantName
-              ? `${userStore.tenantName} - ${brandStore.website.name}`
-              : brandStore.website.name
-          }}
+        <h5 class="brand-title" :title="brandTitle" :aria-label="brandTitle">
+          {{ brandTitle }}
         </h5>
         <el-button
           v-if="!topMenu && appStore.device === 'mobile'"
           class="mobile-menu-button"
           text
           circle
+          :aria-label="$t('settings.menu')"
           @click="toggleDrawerMenu"
         >
           <el-icon><Menu /></el-icon>
         </el-button>
-      </el-space>
+      </div>
     </div>
     <div class="center-side">
       <MenuComponent v-if="topMenu" />
@@ -43,10 +40,15 @@
           </el-button>
         </el-tooltip>
       </li>
-      <li>
+      <li class="desktop-action">
         <el-tooltip :content="$t('settings.language')">
           <el-dropdown trigger="click" @command="handleLocaleChange">
-            <el-button class="nav-btn" plain circle>
+            <el-button
+              class="nav-btn"
+              plain
+              circle
+              :aria-label="$t('settings.language')"
+            >
               <el-icon><Platform /></el-icon>
             </el-button>
             <template #dropdown>
@@ -67,7 +69,7 @@
           </el-dropdown>
         </el-tooltip>
       </li>
-      <li>
+      <li class="desktop-action">
         <el-tooltip
           :content="
             theme === 'light'
@@ -75,12 +77,22 @@
               : $t('settings.navbar.theme.toLight')
           "
         >
-          <el-button class="nav-btn" plain circle @click="handleToggleTheme">
+          <el-button
+            class="nav-btn"
+            plain
+            circle
+            :aria-label="
+              theme === 'light'
+                ? $t('settings.navbar.theme.toDark')
+                : $t('settings.navbar.theme.toLight')
+            "
+            @click="handleToggleTheme"
+          >
             <el-icon><Moon v-if="theme === 'dark'" /><Sunny v-else /></el-icon>
           </el-button>
         </el-tooltip>
       </li>
-      <li>
+      <li class="desktop-action">
         <el-tooltip
           :content="
             isFullscreen
@@ -88,7 +100,17 @@
               : $t('settings.navbar.screen.toFull')
           "
         >
-          <el-button class="nav-btn" plain circle @click="toggleFullScreen">
+          <el-button
+            class="nav-btn"
+            plain
+            circle
+            :aria-label="
+              isFullscreen
+                ? $t('settings.navbar.screen.toExit')
+                : $t('settings.navbar.screen.toFull')
+            "
+            @click="toggleFullScreen"
+          >
             <el-icon>
               <ScaleToOriginal v-if="isFullscreen" />
               <FullScreen v-else />
@@ -96,12 +118,58 @@
           </el-button>
         </el-tooltip>
       </li>
-      <li>
+      <li class="desktop-action">
         <el-tooltip :content="$t('settings.title')">
-          <el-button class="nav-btn" plain circle @click="setVisible">
+          <el-button
+            class="nav-btn"
+            plain
+            circle
+            :aria-label="$t('settings.title')"
+            @click="setVisible"
+          >
             <el-icon><Setting /></el-icon>
           </el-button>
         </el-tooltip>
+      </li>
+      <li v-if="appStore.device === 'mobile'">
+        <el-dropdown trigger="click" @command="handleMoreCommand">
+          <el-button
+            class="nav-btn"
+            plain
+            circle
+            :aria-label="$t('settings.navbar.more')"
+          >
+            <el-icon><MoreFilled /></el-icon>
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item disabled>{{
+                $t('settings.language')
+              }}</el-dropdown-item>
+              <el-dropdown-item
+                v-for="item in locales"
+                :key="item.value"
+                :command="`locale:${item.value}`"
+              >
+                <el-icon v-if="item.value === currentLocale"><Check /></el-icon>
+                {{ item.label }}
+              </el-dropdown-item>
+              <el-dropdown-item command="theme">{{
+                theme === 'light'
+                  ? $t('settings.navbar.theme.toDark')
+                  : $t('settings.navbar.theme.toLight')
+              }}</el-dropdown-item>
+              <el-dropdown-item command="fullscreen">{{
+                isFullscreen
+                  ? $t('settings.navbar.screen.toExit')
+                  : $t('settings.navbar.screen.toFull')
+              }}</el-dropdown-item>
+              <el-dropdown-item command="settings">{{
+                $t('settings.title')
+              }}</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
       </li>
       <li>
         <el-dropdown trigger="click" @command="handleUserCommand">
@@ -139,7 +207,7 @@
     <el-dialog
       v-model="menuSearchVisible"
       :title="$t('settings.search')"
-      width="420px"
+      width="min(420px, calc(100vw - 32px))"
       destroy-on-close
     >
       <el-input
@@ -172,7 +240,7 @@
     <el-dialog
       v-model="tenantSwitchVisible"
       :title="$t('navbar.tenantSwitch')"
-      width="420px"
+      width="min(420px, calc(100vw - 32px))"
       destroy-on-close
     >
       <el-select
@@ -213,6 +281,7 @@
     Check,
     FullScreen,
     Menu,
+    MoreFilled,
     Moon,
     Platform,
     ScaleToOriginal,
@@ -254,10 +323,17 @@
     const identity = userStore.name?.trim() || userStore.email?.trim() || '?';
     return Array.from(identity)[0]?.toLocaleUpperCase() || '?';
   });
+  const brandTitle = computed(() =>
+    userStore.tenantName
+      ? `${userStore.tenantName} - ${brandStore.website.name}`
+      : brandStore.website.name
+  );
   const theme = computed(() => {
     return appStore.theme;
   });
-  const topMenu = computed(() => appStore.topMenu && appStore.menu);
+  const topMenu = computed(
+    () => appStore.topMenu && appStore.menu && appStore.device !== 'mobile'
+  );
   const tenantSession = computed(
     () => getToken()?.startsWith('pa_tat_') === true
   );
@@ -326,6 +402,12 @@
   };
   const handleLocaleChange = (value: string) => {
     changeLocale(value);
+  };
+  const handleMoreCommand = (command: string) => {
+    if (command.startsWith('locale:')) handleLocaleChange(command.slice(7));
+    else if (command === 'theme') handleToggleTheme();
+    else if (command === 'fullscreen') toggleFullScreen();
+    else if (command === 'settings') setVisible();
   };
   const beginTenantSwitch = async () => {
     const snapshot = getSessionSnapshot();
@@ -399,6 +481,8 @@
   .navbar {
     display: flex;
     justify-content: space-between;
+    align-items: center;
+    min-width: 0;
     height: 100%;
     background-color: var(--el-bg-color);
     border-bottom: 1px solid var(--el-border-color);
@@ -407,15 +491,28 @@
   .left-side {
     display: flex;
     align-items: center;
+    min-width: 0;
+    flex: 0 1 auto;
     padding-left: 20px;
   }
 
   .left-content {
-    display: inline-flex;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    img,
+    .mobile-menu-button {
+      flex-shrink: 0;
+    }
   }
 
   .brand-title {
     margin: 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     color: var(--el-text-color-primary);
     font-size: 18px;
     font-weight: 600;
@@ -428,10 +525,15 @@
 
   .center-side {
     flex: 1;
+    min-width: 0;
   }
 
   .right-side {
     display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    margin: 0;
+    padding-left: 0;
     padding-right: 20px;
     list-style: none;
     li {
@@ -466,6 +568,27 @@
       display: inline-block;
       width: 14px;
       height: 14px;
+    }
+  }
+  @media (max-width: 991px) {
+    .left-side {
+      padding-left: 8px;
+    }
+    .left-content {
+      gap: 6px;
+    }
+    .brand-title {
+      font-size: 15px;
+    }
+    .center-side,
+    .desktop-action {
+      display: none;
+    }
+    .right-side {
+      padding-right: 8px;
+    }
+    .right-side li {
+      padding: 0 3px;
     }
   }
 

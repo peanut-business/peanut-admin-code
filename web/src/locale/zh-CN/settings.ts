@@ -6,6 +6,7 @@ export default {
   'settings.search.empty': '没有匹配的菜单项',
   'settings.language': '语言',
   'settings.navbar': '导航栏',
+  'settings.navbar.more': '更多导航操作',
   'settings.menuWidth': '菜单宽度 (px)',
   'settings.navbar.theme.toLight': '点击切换为亮色模式',
   'settings.navbar.theme.toDark': '点击切换为暗黑模式',
