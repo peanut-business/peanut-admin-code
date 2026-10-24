@@ -524,10 +524,31 @@ def unpublished_retirement_evidence(approved, root, plan, state, receipt_path, o
             raise ValueError('unpublished retirement requires the original running containers')
     # Both native locks are already held. An orphaned host/Docker process must
     # also be absent; the saved terminal receipt alone is not sufficient.
-    for line in subprocess.check_output(['ps', '-eo', 'pid=,args='], text=True).splitlines():
-        pid, _, command = line.strip().partition(' ')
-        if pid != str(os.getpid()) and str(workspace) in command:
-            raise ValueError('an unpublished plan executor may still be running')
+    if file_preflight:
+        # This fixed Linux operator has Python but no procps package. Inspect
+        # the same visible process arguments directly; inaccessible live
+        # processes remain a refusal, never evidence of absence.
+        proc = Path('/proc')
+        if not proc.is_dir() or not (proc / 'self/cmdline').is_file():
+            raise ValueError('native process observation is unavailable')
+        for process in proc.iterdir():
+            if not process.name.isdecimal() or int(process.name) == os.getpid():
+                continue
+            try:
+                command = (process / 'cmdline').read_bytes()
+            except FileNotFoundError:
+                if process.exists():
+                    raise ValueError('a live process cannot be observed')
+                continue
+            except OSError as error:
+                raise ValueError('a live process cannot be observed') from error
+            if os.fsencode(str(workspace)) in command:
+                raise ValueError('an unpublished plan executor may still be running')
+    else:
+        for line in subprocess.check_output(['ps', '-eo', 'pid=,args='], text=True).splitlines():
+            pid, _, command = line.strip().partition(' ')
+            if pid != str(os.getpid()) and str(workspace) in command:
+                raise ValueError('an unpublished plan executor may still be running')
     ids = subprocess.check_output(['docker', 'ps', '-q', '--no-trunc'], text=True).splitlines()
     for identifier in ids:
         detail = json.loads(subprocess.check_output(['docker', 'inspect', '--format',
