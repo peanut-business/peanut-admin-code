@@ -47,6 +47,32 @@ UNPUBLISHED_DISPOSITION = 'peanut.unpublished-product-plan-retirement.v1'
 # Fixed B whose original preflight was traced read-only; this is independent
 # of which error that read-only producer reports, and grants no DB admission.
 UNPUBLISHED_B_IDENTITY = 'cd68a5935fc4e21b89dc388d40a9bff64100f66fa8ff9312dd0b4ea0efba925c'
+FILE_PREFLIGHT_VARIANT = 'b7-fresh-file-adoption-preflight'
+FILE_PREFLIGHT = {
+    'source': 'b7eda170486522e6b18c111a792dab926219a28b',
+    'tooling': '5c5c0a106e1ec23c79f315813688772c37a94c90f2a5e5dace529378137138d6',
+    'identity': '25384e8f97e13c0f2f6b9127ed766661089af48c22f52b7781457d4d8bbc65f9',
+    'candidate': 'server_update_20261024203037_4d2e678e5008',
+    'plan': 'sha256:b8327f5203988f2ae3cc7411fd4e0a4b47f37c2d125eaeb7d57ed22f552b4422',
+    'state': 'sha256:cb57648143e93385ee06e310a9ee625e22dce2883380499d8b3d2ab235880775',
+    'sql': 'bb31c4f72e1d2c36fef8fcf556a3c51ef84210e091aac2070ff7ad799f8ce4c7',
+    'business_source': '9cea3217920ee3121a90e3b1e953b66804769b7e',
+    'containers': {
+        'php': '830512481ab477967d6241dc5f90f1b291990953090695f7ac4ee6994a7647a9',
+        'nginx': 'edef83e9e7cf099f80f948fd1e32ea042b56d50b65faac24465fccf83c3a1cf5',
+        'mysql': '79507b92a5a39ab1474069f390b3bc8ac2f28ffbd8999b9e6b938634818de0e5',
+    },
+}
+
+
+def unpublished_case(data):
+    variant = data.get('failure_variant')
+    if variant is None:
+        return {'source': UNPUBLISHED_SOURCE, 'tooling': UNPUBLISHED_TOOLING,
+                'identity': UNPUBLISHED_B_IDENTITY, 'business_source': FAILED_SOURCE}
+    if variant != FILE_PREFLIGHT_VARIANT:
+        raise ValueError('unknown unpublished failure variant')
+    return FILE_PREFLIGHT
 
 
 def regular(path):
@@ -196,16 +222,21 @@ def failed_prepare_state(root, path, state):
     if retired: record_path = retired_path
     elif not recipe: record_path = root / '.peanut/upgrades/pre-host-failures' / (candidate + '.json')
     record = protected(record_path)
+    failure = unpublished_case(record) if retired else None
     protected(Path(record['admission']))
     if record.get('protocol') != (UNPUBLISHED_DISPOSITION if retired else RECIPE_DISPOSITION if recipe else DISPOSITION) or record.get('instance_root') != str(root) \
         or record.get('status') != ('retired-unpublished' if retired else 'failed-after-readonly-prepare' if recipe else 'failed-before-host') \
-        or record.get('source_commit') != (UNPUBLISHED_SOURCE if retired else RECIPE_SOURCE if recipe else FAILED_SOURCE) \
-        or record.get('tooling_manifest_sha256') != (UNPUBLISHED_TOOLING if retired else RECIPE_TOOLING if recipe else FAILED_TOOLING) or record.get('state_path') != str(path) \
+        or record.get('source_commit') != (failure['source'] if retired else RECIPE_SOURCE if recipe else FAILED_SOURCE) \
+        or record.get('tooling_manifest_sha256') != (failure['tooling'] if retired else RECIPE_TOOLING if recipe else FAILED_TOOLING) or record.get('state_path') != str(path) \
         or record.get('plan_path') != str(root / '.peanut/upgrades/product-plans' / (candidate + '.json')) \
         or record.get('state_sha256') != sha(path) or record.get('plan_sha256') != state.get('plan_sha256') \
         or record.get('admission_sha256') != sha(Path(record['admission'])) \
         or record.get('plan_file_sha256') != sha(Path(record['plan_path'])):
         raise ValueError('failed prepare disposition changed')
+    if retired and record.get('failure_variant') == FILE_PREFLIGHT_VARIANT and (
+        candidate != failure['candidate'] or state.get('plan_sha256') != failure['plan']
+        or state.get('state_sha256') != failure['state']):
+        raise ValueError('File preflight retirement belongs to another frozen plan')
 
 
 def states(root, admitted=None):
@@ -390,38 +421,106 @@ def recipe_failure_evidence(approved, root, plan, state, receipt_path, old_tools
         'not_proven': ['internal process restart absence', 'absence of business database writes', 'full recovery']}
 
 
+def file_preflight_originals(approved, root, plan, state, receipt_path, old_tools, current):
+    """One fixed read-only rejection; no invented historical container timestamps."""
+    if plan['candidate'] != FILE_PREFLIGHT['candidate'] or plan['plan_sha256'] != FILE_PREFLIGHT['plan'] \
+        or state['state_sha256'] != FILE_PREFLIGHT['state']:
+        raise ValueError('not the audited File preflight failure')
+    evidence = approved.get('retirement_evidence', {})
+    if set(evidence) != {'apply', 'stdout', 'stderr', 'preservation', 'module_report'}:
+        raise ValueError('File preflight retirement requires its original terminal and preservation records')
+    originals = {}
+    for name, item in evidence.items():
+        if set(item) != {'path', 'sha256'}:
+            raise ValueError('retirement accepts original path/hash only')
+        content = protected_bytes(Path(item['path']))
+        if hashlib.sha256(content).hexdigest() != item['sha256']:
+            raise ValueError('File preflight original changed')
+        originals[name] = content if name in ('stdout', 'stderr') else json.loads(content)
+    terminal = originals['apply']; argv = terminal.get('argv', [])
+    entry = str(old_tools / 'server/docker/scripts/update.sh')
+    tail = ['apply', '--instance-server=' + str(root / 'server'),
+            '--tooling-receipt=' + str(receipt_path), '--workspace=' + plan['workspace']]
+    if argv.count(entry) != 1 or argv[argv.index(entry) + 1:] != tail \
+        or terminal.get('phase') != 'complete' or terminal.get('exit') != 1 \
+        or terminal.get('attach_exit') != 1 or terminal.get('own_container_removed') is not True \
+        or originals['stdout'] != b'' \
+        or originals['stderr'] != b'{"status":"error","error":"PRODUCT_UPGRADE_HOST_PHASE_FAILED:migration-preflight:exit-1"}\n':
+        raise ValueError('File preflight terminal differs from the original apply')
+    report = originals['module_report']; unsigned = dict(report); digest = unsigned.pop('report_sha256', None)
+    if digest != '1b7efa3a561e9ef0ee47890d15cd44eb3d37a7528682e5c75c5a224301116bc7' \
+        or digest != hashlib.sha256(json.dumps(unsigned, sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()).hexdigest() \
+        or report.get('readonly') is not True or report.get('complete') is not True \
+        or report.get('status') != 'blocked' or report.get('planning_complete') is not False:
+        raise ValueError('File preflight report is not the original read-only rejection')
+    packages = report.get('packages', [])
+    rejected = [row for row in packages if row.get('may_apply') is not True]
+    if len(packages) != 17 or rejected != [{'action': 'reject', 'code': 'MODULE_MIGRATION_ADOPTION_PROVENANCE_INVALID',
+                                         'key': 'official.file', 'may_apply': False}]:
+        raise ValueError('File preflight contains another rejection')
+    preservation = originals['preservation']; server = root / 'server'
+    if preservation.get('entire_SQL_matches_installed_R2') is not True \
+        or preservation.get('normalized_SQL_sha256') != FILE_PREFLIGHT['sql'] \
+        or preservation.get('original_normalized_SQL_sha256') != FILE_PREFLIGHT['sql'] \
+        or set(current) != set(FILE_PREFLIGHT['containers']):
+        raise ValueError('File preflight preservation does not bind the paired installed contents')
+    for name, digest in preservation.get('canonical', {}).items():
+        if name not in ('.peanut/release-identity.json', 'private/installation/installed.json', 'private/installation/baseline.json') \
+            or sha(server / name) != digest:
+            raise ValueError('File preflight installation anchor changed')
+    if set(preservation.get('canonical', {})) != {'.peanut/release-identity.json', 'private/installation/installed.json', 'private/installation/baseline.json'} \
+        or set(preservation.get('files', {})) != {'.env', 'docker/.env', 'private/resources/configuration.json',
+                                                'private/resources/database-provisioned.json', 'private/resources/project-resources.json'}:
+        raise ValueError('File preflight protection inventory is incomplete')
+    for name, row in preservation['files'].items():
+        file = server / name; info = file.stat()
+        if sha(file) != row['sha256'] or stat.S_IMODE(info.st_mode) != row['mode'] \
+            or info.st_uid != row['uid'] or info.st_gid != row['gid']:
+            raise ValueError('File preflight protected configuration changed')
+    for service, identifier in FILE_PREFLIGHT['containers'].items():
+        before = preservation.get('services', {}).get(service, {})
+        if current[service]['id'] != identifier or current[service]['running'] is not (service == 'mysql') \
+            or before.get('id') != identifier or before.get('running') is not (service == 'mysql'):
+            raise ValueError('File preflight requires its exact stopped writers and running MySQL')
+    return evidence
+
+
 def unpublished_retirement_evidence(approved, root, plan, state, receipt_path, old_tools, current, admission):
     workspace = Path(plan['workspace']); server = root / 'server'; target = workspace / 'prepared/server'
+    failure = unpublished_case(approved)
+    file_preflight = approved.get('failure_variant') == FILE_PREFLIGHT_VARIANT
     evidence = approved.get('retirement_evidence', {})
-    if set(evidence) != {'arguments', 'stdout', 'stderr', 'terminal', 'before'} \
+    if (not file_preflight and set(evidence) != {'arguments', 'stdout', 'stderr', 'terminal', 'before'}) \
         or approved.get('maintenance_before') != 'NOT_CAPTURED' \
         or 'recovery_context' in state \
         or admission_inside(str(admission), workspace, root):
         raise ValueError('explicit unpublished retirement originals and maintenance inference are required')
+    if file_preflight:
+        evidence = file_preflight_originals(approved, root, plan, state, receipt_path, old_tools, current)
     originals = {}
-    for name, spec in evidence.items():
+    for name, spec in ({} if file_preflight else evidence).items():
         if set(spec) != {'path', 'sha256'}: raise ValueError('retirement accepts original path/hash only')
         content = protected_bytes(Path(spec['path']))
         if hashlib.sha256(content).hexdigest() != spec['sha256']: raise ValueError('retirement original changed')
         originals[name] = json.loads(content) if name in ('arguments', 'before') else content
-    arguments = originals['arguments']; before = originals['before']
+    arguments = originals.get('arguments', {}); before = originals.get('before', {})
     entry = str(old_tools / 'server/docker/scripts/update.sh'); argv = arguments.get('argv', [])
     tail = ['apply', '--instance-server=' + str(server), '--tooling-receipt=' + str(receipt_path), '--workspace=' + str(workspace)]
-    if argv.count(entry) != 1 or argv[argv.index(entry) + 1:] != tail \
+    if not file_preflight and (argv.count(entry) != 1 or argv[argv.index(entry) + 1:] != tail \
         or arguments.get('candidate') != plan['candidate'] \
         or arguments.get('plan_sha256') != plan['plan_sha256'].removeprefix('sha256:') \
         or originals['stdout'] != b'' or originals['terminal'] != b'1\n' \
         or originals['stderr'] != b'{"status":"error","error":"PRODUCT_UPGRADE_HOST_PHASE_FAILED:migration-preflight:exit-1"}\n' \
         or before.get('instance_root') != str(root) or before.get('containers') != current \
-        or not instant(before['observed_at']) < instant(arguments['local_transport_dispatch_at_utc']) <= instant(state['updated_at']):
+        or not instant(before['observed_at']) < instant(arguments['local_transport_dispatch_at_utc']) <= instant(state['updated_at'])):
         raise ValueError('original failed apply or unchanged runtime does not match unpublished plan')
-    if set(before.get('protected_hashes', {})) != {'.env', 'docker/.env', '.peanut/release-identity.json',
+    if not file_preflight and set(before.get('protected_hashes', {})) != {'.env', 'docker/.env', '.peanut/release-identity.json',
         'private/installation/installed.json', 'private/installation/baseline.json'}:
         raise ValueError('original installation/configuration observation is incomplete')
-    for name, digest in before['protected_hashes'].items():
+    for name, digest in before.get('protected_hashes', {}).items():
         if sha(server / name) != digest: raise ValueError('pre-apply installation or configuration changed')
     for service, detail in current.items():
-        if not re.fullmatch(r'[a-f0-9]{64}', detail['id']) or detail['running'] is not True:
+        if not re.fullmatch(r'[a-f0-9]{64}', detail['id']) or (not file_preflight and detail['running'] is not True):
             raise ValueError('unpublished retirement requires the original running containers')
     # Both native locks are already held. An orphaned host/Docker process must
     # also be absent; the saved terminal receipt alone is not sufficient.
@@ -457,8 +556,8 @@ def unpublished_retirement_evidence(approved, root, plan, state, receipt_path, o
         or prepared.get('runtime_images') != {name: value['image'] for name, value in current.items()}:
         raise ValueError('complete native prepare evidence differs from its records or current runtime')
     inputs = protected(workspace / 'plan.json')
-    if inputs['target']['identity_sha256'] != UNPUBLISHED_B_IDENTITY \
-        or sha(target / '.peanut/release-identity.json') != UNPUBLISHED_B_IDENTITY \
+    if inputs['target']['identity_sha256'] != failure['identity'] \
+        or sha(target / '.peanut/release-identity.json') != failure['identity'] \
         or preparation.get('protocol') != 'peanut.server-update-preparation.v1' \
         or preparation.get('update_id') != plan['candidate'] or preparation.get('plan_sha256') != plan['inputs_sha256'] \
         or preparation.get('source_identity_sha256') != inputs['source']['identity_sha256'] \
@@ -492,11 +591,42 @@ def unpublished_retirement_evidence(approved, root, plan, state, receipt_path, o
         or hashlib.sha256(protected_bytes(host_log)).hexdigest() != approved.get('host_log_sha256') \
         or hashlib.sha256(protected_bytes(prepare_log)).hexdigest() != approved.get('prepare_log_sha256'):
         raise ValueError('original terminal host phase log changed')
-    return {'originals': evidence, 'host_dispatched': True, 'executors_absent_under_native_locks': True,
+    if file_preflight:
+        # The original complete installed snapshot was compared outside this
+        # tool. Recheck the exact same contents now under both native locks;
+        # credentials stay inside the original MySQL container.
+        spec = importlib.util.spec_from_file_location('file_retirement_owner', old_tools / 'server/docker/scripts/configure-collaboration.py')
+        owner = importlib.util.module_from_spec(spec); spec.loader.exec_module(owner)
+        environment = owner.backend_environment(server)
+        database = environment.get('DB_NAME', '')
+        if environment.get('PEANUT_DATABASE_SOURCE') != 'bundled' or not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', database):
+            raise ValueError('File preflight requires its original bundled database')
+        command = ['docker', 'exec', current['mysql']['id'], 'sh', '-c',
+            'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump -uroot --single-transaction --routines --events --triggers --hex-blob --set-gtid-purged=OFF --no-tablespaces --databases "$1"',
+            'sh', database]
+        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=120)
+        if result.returncode != 0:
+            raise ValueError('File retirement read-only database capture failed')
+        matches = list(re.finditer(rb'(?m)^-- Dump completed on [^\r\n]*(?:\r?\n)?', result.stdout))
+        if len(matches) != 1 or result.stdout[matches[0].end():] not in (b'', b'\n', b'\r\n'):
+            raise ValueError('File retirement dump has no unique terminal date')
+        match = matches[0]
+        if hashlib.sha256(result.stdout[:match.start()] + result.stdout[match.end():]).hexdigest() != FILE_PREFLIGHT['sql']:
+            raise ValueError('File retirement database differs from the paired installed contents')
+        for service, detail in current.items():
+            observed = json.loads(subprocess.check_output(['docker', 'inspect', '--format',
+                '{"id":{{json .Id}},"image":{{json .Image}},"started_at":{{json .State.StartedAt}},"running":{{json .State.Running}}}', detail['id']], text=True))
+            if observed != detail:
+                raise ValueError('File retirement runtime changed during the read-only capture')
+    result = {'originals': evidence, 'host_dispatched': True, 'executors_absent_under_native_locks': True,
         'maintenance_before': 'NOT_CAPTURED', 'maintenance_current': 'absent',
         'maintenance_inference': 'audited fixed prepare/preflight control flow never calls hold/open or writes/deletes marker',
-        'business_source': '11a327d5a9206c8a8cb1fd21d42c801fec4d55ba', 'business_identity_sha256': UNPUBLISHED_B_IDENTITY,
+        'business_source': failure['business_source'], 'business_identity_sha256': failure['identity'],
         'not_proven': ['absolute maintenance absence before observation', 'absence of external business writes', 'internal process restart absence', 'full recovery']}
+    if file_preflight:
+        result.update(historical_container_started_at='NOT_CAPTURED', historical_container_finished_at='NOT_CAPTURED',
+                      paired_installed_sql_sha256=FILE_PREFLIGHT['sql'], current_containers=current)
+    return result
 
 
 def admission_inside(name, workspace, root):
@@ -508,8 +638,9 @@ def dispose_failed_prepare(root, admission):
     approved = protected(admission)
     retired = approved.get('protocol') == 'peanut.unpublished-product-plan-retirement-admission.v1'
     recipe = approved.get('protocol') == 'peanut.readonly-prepare-rejection-admission.v1'
-    source = UNPUBLISHED_SOURCE if retired else RECIPE_SOURCE if recipe else FAILED_SOURCE
-    tooling = UNPUBLISHED_TOOLING if retired else RECIPE_TOOLING if recipe else FAILED_TOOLING
+    failure = unpublished_case(approved) if retired else None
+    source = failure['source'] if retired else RECIPE_SOURCE if recipe else FAILED_SOURCE
+    tooling = failure['tooling'] if retired else RECIPE_TOOLING if recipe else FAILED_TOOLING
     if approved.get('protocol') not in ('peanut.pre-host-prepare-failure-admission.v1',
         'peanut.readonly-prepare-rejection-admission.v1', 'peanut.unpublished-product-plan-retirement-admission.v1') or approved.get('instance_root') != str(root):
         raise ValueError('explicit owner-approved failed prepare admission is required')
@@ -593,6 +724,8 @@ def dispose_failed_prepare(root, admission):
         'plan_path': str(plan_path), 'plan_file_sha256': sha(plan_path), 'plan_sha256': plan['plan_sha256'],
         'runtime_sha256': plan['runtime_sha256'], 'admission': str(admission), 'admission_sha256': sha(admission),
         'runtime_evidence': runtime_evidence}
+    if retired and approved.get('failure_variant') is not None:
+        disposition['failure_variant'] = approved['failure_variant']
     output = root / '.peanut/upgrades' / ('unpublished-retirements' if retired else 'readonly-prepare-rejections' if recipe else 'pre-host-failures') / (candidate + '.json')
     if output.exists():
         if protected(output) != disposition: raise ValueError('failed prepare disposition already differs')
