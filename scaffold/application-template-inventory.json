@@ -28720,7 +28720,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "eff2f46b65b0972009b6b12a7847dbc25d182886f4cfcc5620feabb11a986895"
+            "source_sha256": "e295a1cb60e68892af1be54ea098cf89747d08c41ef37e4703b04c39da003bee"
         },
         {
             "path": "server/docker/scripts/update.sh",
