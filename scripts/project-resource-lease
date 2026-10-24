@@ -879,7 +879,7 @@ schema_identity_resource() {
 # and complete physical table/primary-key sets, never aliases, define conflicts.
 mysql_claim_policy() {
   python3 - "$LEASES_DIR" "${PEANUT_RESOURCE_REGISTRY:-}" "$REPO_ROOT" "$COMMAND" "$1" "$2" "$3" "${OWNER:-}" "${THREAD_ID:-}" "${CANDIDATE:-}" "${CANDIDATE_REPOSITORY:-}" "${WORKTREE:-}" "${PARENT_LEASE:-}" "$APPLICATION_RECOVERY_STEP" "${@:4}" <<'PY'
-import hashlib, json, pathlib, re, runpy, subprocess, sys, time
+import hashlib, json, os, pathlib, re, runpy, stat, subprocess, sys, time
 leases, registry_path, source, command, own, gate, operation, actor, actor_thread, candidate, candidate_repository, actual_worktree, parent_lease, recovery_step, *args = sys.argv[1:]
 def fail(message):
     raise SystemExit('resource-lease: ' + message)
@@ -898,6 +898,7 @@ def object_without_duplicates(pairs):
 requested = resources(args)
 active = []
 active_gates = {}
+active_metadata = {}
 expired_scopes = set()
 lock_resources = {}
 known_leases = set()
@@ -922,6 +923,11 @@ for path in pathlib.Path(leases).glob('*'):
     if not path.is_dir() or path.name.startswith('.') or path.name == own:
         continue
     try:
+        if path.is_symlink() or any((path/name).is_symlink() or not (path/name).is_file()
+                                    for name in ('metadata.tsv', 'resources.tsv')):
+            # An empty/registry-only directory is handled below; real proofs
+            # must never follow a link into another owner's mutable files.
+            if (path/'metadata.tsv').exists(): raise ValueError('unsafe lease proof')
         # Native lease identity starts at metadata.tsv. Empty directories and
         # registry-only snapshots are not leases, unless a lock references them.
         # Preserve them; partial/corrupt lease records still fail closed.
@@ -948,6 +954,8 @@ for path in pathlib.Path(leases).glob('*'):
         if any(row[0] != hashlib.sha256((row[1]+'\t'+row[2]).encode()).hexdigest() for row in resource_rows):
             raise ValueError('invalid resource digest')
         r = resources(row[1]+'='+row[2] for row in resource_rows)
+        if r.get('mysql-access') and not lock_resources.get(path.name, set()) <= {(row[1],row[2]) for row in resource_rows}:
+            raise ValueError('active physical lock is absent from original proof')
         for kind, value in lock_resources.get(path.name, set()):
             r.setdefault(kind, set()).add(value)
         if expired and not r.get('mysql-access') and path.name not in lock_holders: continue
@@ -958,6 +966,7 @@ for path in pathlib.Path(leases).glob('*'):
         if expired: expired_scopes.add(path.name)
         active.append((path.name, r))
         active_gates[path.name] = m['gate']
+        active_metadata[path.name] = m
     except (ValueError, OSError, KeyError):
         fail('cannot establish active lease boundary: '+path.name)
 # A remaining physical lock without metadata is an exclusive boundary, never
@@ -1180,14 +1189,112 @@ def conflicts(left, right):
     return False
 
 active_scopes = {}
+historical_registries = {}
+def active_registry(lease, r):
+    digests = r.get('registry-sha256', set())
+    if digests == {hashlib.sha256(raw).hexdigest()}: return registry
+    if len(digests) != 1 or not re.fullmatch(r'[0-9a-f]{64}', next(iter(digests))):
+        fail('active shared lease lacks an exact registry digest: '+lease)
+    digest = next(iter(digests))
+    if digest not in historical_registries:
+        # Ordinary native claims bind exact canonical registry bytes, not a Git
+        # commit. Resolve retained bytes only through the registered Project,
+        # then validate every relevant safety field against current authority.
+        # No caller-supplied snapshot path or self-reported projection is used.
+        resolver = runpy.run_path(str(pathlib.Path(source)/'scripts/project-resource-registry'))
+        try:
+            resolver['maintainer_source'](hashlib.sha256(raw).hexdigest())
+            project = resolver['maintainer_project']()
+            git = resolver['maintainer_git']
+            mapping = git(project, 'show', 'HEAD:repos.yaml')
+            retained = project/'resources/project-resources.json'
+            info = retained.lstat()
+            if (retained.resolve(strict=True) != retained or not stat.S_ISREG(info.st_mode)
+                or info.st_uid != os.getuid() or info.st_nlink != 1 or info.st_mode & 0o022
+                or (project/'repos.yaml').read_bytes() != mapping):
+                fail('retained primary registry source/mapping is unsafe: '+lease)
+            snapshot = retained.read_bytes()
+            if hashlib.sha256(snapshot).hexdigest() != digest:
+                snapshot = None
+                commits = git(project, 'log', '--format=%H', 'HEAD', '--', 'resources/project-resources.json').decode().splitlines()
+                for commit in commits:
+                    content = git(project, 'show', commit+':resources/project-resources.json')
+                    if hashlib.sha256(content).hexdigest() != digest: continue
+                    if git(project, 'show', commit+':repos.yaml') != mapping:
+                        fail('active registry repository mapping changed: '+lease)
+                    snapshot = content
+                    break
+            if snapshot is not None:
+                document = json.loads(snapshot, object_pairs_hook=object_without_duplicates)
+                if (document.get('project_id') != registry.get('project_id')
+                    or document.get('schema_version') != registry.get('schema_version')
+                    or document.get('authority') != registry.get('authority')):
+                    fail('active registry authority changed: '+lease)
+                historical_registries[digest] = document
+        except (OSError, ValueError, KeyError, subprocess.CalledProcessError):
+            fail('cannot verify active registry registered source: '+lease)
+        if digest not in historical_registries:
+            fail('active registry digest has no verified retained/committed Project source: '+lease)
+    return historical_registries[digest]
+
 for lease, r in active:
     if not r.get('mysql-access'): continue
     if lease in expired_scopes: continue
-    # Stale registration or missing identity is never a proof of non-conflict.
-    if r.get('registry-sha256') != {hashlib.sha256(raw).hexdigest()}:
-        fail('active shared lease registry digest is stale: '+lease)
-    parsed = access_scopes(r)
+    document = active_registry(lease, r)
+    if document is not registry:
+        try:
+            metadata = active_metadata[lease]
+            repository = pathlib.Path(metadata['candidate_repository'])
+            if (repository.resolve(strict=True) != repository or repository != pathlib.Path(metadata['worktree'])
+                or subprocess.check_output(['git','-C',str(repository),'rev-parse','--show-toplevel'], text=True).strip() != str(repository)
+                or subprocess.check_output(['git','-C',str(repository),'rev-parse','HEAD^{commit}'], text=True).strip() != metadata['candidate']
+                or subprocess.check_output(['git','-C',str(repository),'rev-parse','--path-format=absolute','--git-common-dir'], text=True).strip()
+                   != subprocess.check_output(['git','-C',source,'rev-parse','--path-format=absolute','--git-common-dir'], text=True).strip()):
+                fail('active cross-snapshot Git candidate/source differs: '+lease)
+        except (OSError, KeyError, subprocess.CalledProcessError):
+            fail('cannot verify active cross-snapshot Git candidate/source: '+lease)
+    registered = {}
+    for key in r.get('mysql-schema', set()):
+        physical, _, name = key.rpartition('/')
+        ids = r.get('resource-id', set()) | r.get('database-resource', set())
+        old = [d for d in document.get('resources', {}).get('databases', [])
+               if (d.get('lease_policy') or {}).get('physical_endpoint') == physical
+               and (d.get('database') == name or any(name in g for g in d.get('synthetic_databases', {}).values()))
+               and d.get('stable_resource_id') in ids]
+        current = [d for d in dbs if d.get('stable_resource_id') in {d.get('stable_resource_id') for d in old}]
+        def safety(d):
+            keys = ('stable_resource_id','database','namespace','synthetic_databases','host','port',
+                    'physical_resource_id','upstream_endpoint','container_endpoint','credential_ref','username',
+                    'version','server_uuid','lease_gate','lease_policy','access_policy','fallback','account_host',
+                    'requested_schema_privileges','grant_option')
+            result = {key:d[key] for key in keys if key in d}
+            if 'physical_host' in d:
+                result['physical_host'] = {key:d['physical_host'][key] for key in ('stable_host_id','aliases','management_endpoints')
+                                           if key in d['physical_host']}
+            return result
+        if len(old) != 1 or len(current) != 1 or safety(old[0]) != safety(current[0]):
+            fail('active shared lease relevant registration changed or unknown: '+lease)
+        if document is not registry:
+            uuid = old[0].get('server_uuid')
+            identities = {d.get('server_uuid') for d in dbs
+                          if (d.get('lease_policy') or {}).get('physical_endpoint') == physical and d.get('server_uuid')}
+            identities.update(o.get('server_uuid') for o in registry.get('resources', {}).get('schema_allocations', [])
+                              if o.get('database_resource_id') in {d.get('stable_resource_id') for d in dbs
+                                  if (d.get('lease_policy') or {}).get('physical_endpoint') == physical})
+            if not isinstance(uuid, str) or not re.fullmatch(r'[0-9a-f-]{36}', uuid) or identities != {uuid}:
+                fail('active cross-snapshot physical server UUID is unproved: '+lease)
+        registered[key] = old[0]
+    parsed = access_scopes(r, registered)
     if set(parsed) != r.get('mysql-schema', set()): fail('active access coverage is incomplete: '+lease)
+    # Original native locks remain the custody boundary; never update or renew
+    # the foreign holder as a side effect of comparing registration snapshots.
+    identity_types = {'registry-sha256','resource-id','database-resource','endpoint','resource-scope','scope','gate',
+                      'mysql-db','database','mysql-access','registry-tool-sha256','application-registry-sha256',
+                      'application-manifest-sha256','application-env-sha256','environment','consumer','host','version'}
+    expected_locks = {(kind,value) for kind,values in r.items() for value in values if kind not in identity_types
+                      and not (kind == 'mysql-schema' and all(s[0] in ('read','transaction') for s in parsed.values()))}
+    if lock_resources.get(lease, set()) != expected_locks:
+        fail('active shared lease original physical locks differ: '+lease)
     for key in parsed:
         physical, _, name = key.rpartition('/')
         matches = [d for d in dbs if (d.get('lease_policy') or {}).get('physical_endpoint') == physical

@@ -1736,8 +1736,11 @@ def allocation_authority(operation_id):
     op = matches[0]
     need(set(op) == {"stable_resource_id", "protocol", "owner", "thread", "tool_source", "lease_gate",
                      "database_resource_id", "endpoint_id", "server_uuid", "version", "account_host",
-                     "credentials", "transport", "receipt_root", "php_executable", "max_seconds"}
+                     "credentials", "transport", "receipt_root", "php_executable", "max_seconds", "paired_operations"}
          and op["protocol"] == ALLOCATION_PROTOCOL, "allocation closed contract differs")
+    pair = op["paired_operations"]
+    need(isinstance(pair, list) and len(pair) == 2 and all(isinstance(i, str) for i in pair)
+         and pair == sorted(set(pair)) and operation_id in pair, "allocation exact ordered pair missing")
     need(op["owner"] == op["thread"] == os.environ.get("CODEX_THREAD_ID")
          and re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", op["lease_gate"]), "allocation real actor/gate differs")
     need(type(op["max_seconds"]) is int and 60 <= op["max_seconds"] <= 300, "allocation deadline invalid")
@@ -1797,15 +1800,35 @@ def allocation_authority(operation_id):
     return op, db, common, registry_sha
 
 
+def allocation_pair(op):
+    pair = [allocation_authority(identity) for identity in op["paired_operations"]]
+    need(op["stable_resource_id"] == op["paired_operations"][0], "allocate the pair through its first registered operation only")
+    shared = ("owner", "thread", "tool_source", "lease_gate", "server_uuid", "version", "account_host",
+              "transport", "php_executable", "max_seconds", "paired_operations")
+    for item, database, common, digest in pair:
+        need(all(item[key] == op[key] for key in shared) and common == pair[0][2] and digest == pair[0][3]
+             and database["lease_policy"] == pair[0][1]["lease_policy"], "allocation pair authority/physical service differs")
+    for key in ("database_resource_id", "endpoint_id", "receipt_root"):
+        need(len({item[key] for item, _, _, _ in pair}) == 2, "allocation pair targets are not distinct")
+    need(len({database["database"] for _, database, _, _ in pair}) == 2, "allocation pair schemas are not distinct")
+    return pair
+
+
 def allocation_resources(op, db, registry_sha):
-    schema = db["lease_policy"]["physical_endpoint"] + "/" + db["database"]
-    scope = json.dumps(dict(schema=schema, operation="ddl", complete=True, tables=[]), separators=(",", ":"))
-    return {"schema-allocation": {op["stable_resource_id"]}, "schema-allocation-sha256": {sha(json.dumps(op, sort_keys=True).encode())},
-            "resource-id": {db["stable_resource_id"]}, "endpoint": {op["endpoint_id"]},
-            "mysql-schema": {schema}, "mysql-access": {scope}, "database": {db["database"]}, "mysql-db": {db["database"]},
-            "mysql-account": {db["lease_policy"]["physical_endpoint"] + "/" + db["username"] + "@" + op["account_host"]},
-            "registry-sha256": {registry_sha}, "output-dir": {op["receipt_root"]},
-            "gate": {op["lease_gate"]}, "worktree": {str(ROOT)}}
+    pair = allocation_pair(op)
+    result = {"schema-allocation": {op["stable_resource_id"]},
+              "schema-allocation-sha256": {sha(json.dumps([item for item, _, _, _ in pair], sort_keys=True).encode())},
+              "registry-sha256": {registry_sha}, "gate": {op["lease_gate"]}, "worktree": {str(ROOT)}}
+    for item, database, _, digest in pair:
+        need(digest == registry_sha, "allocation pair registry drift")
+        schema = database["lease_policy"]["physical_endpoint"] + "/" + database["database"]
+        scope = json.dumps(dict(schema=schema, operation="ddl", complete=True, tables=[]), separators=(",", ":"))
+        for key, value in (("resource-id", database["stable_resource_id"]), ("endpoint", item["endpoint_id"]),
+                           ("mysql-schema", schema), ("mysql-access", scope), ("database", database["database"]),
+                           ("mysql-db", database["database"]), ("output-dir", item["receipt_root"]),
+                           ("mysql-account", database["lease_policy"]["physical_endpoint"] + "/" + database["username"] + "@" + item["account_host"])):
+            result.setdefault(key, set()).add(value)
+    return result
 
 
 def allocation_validate(metadata, resources):
@@ -1859,6 +1882,7 @@ def allocation_write(path, value, create=False):
 
 def allocation_execute(lease_id, owner):
     op, db, directory = allocation_lease(lease_id, owner)
+    pair = allocation_pair(op)
     verify_native(lease_id)
     root = canonical(op["receipt_root"])
     root.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -1866,8 +1890,14 @@ def allocation_execute(lease_id, owner):
     journal = root / ALLOCATION_STATE
     marker = directory / ALLOCATION_STATE
     # The operation-wide O_EXCL journal survives lease release; a new lease cannot replay it.
+    for item, _, _, _ in pair[1:]:
+        other = canonical(item["receipt_root"]) / ALLOCATION_STATE
+        need(not other.exists() and not other.is_symlink(), "paired target has an existing journal; reconcile original operation")
     value = dict(protocol=ALLOCATION_PROTOCOL, operation=op["stable_resource_id"], lease=lease_id,
                  owner=owner, status="PREFLIGHT", started_at=time.time(), mutation_dispatched=False,
+                 registry_sha256=pair[0][3], paired_operations=op["paired_operations"],
+                 targets={item["stable_resource_id"]: dict(status="PREFLIGHT", mutation_dispatched=False)
+                          for item, _, _, _ in pair},
                  pid=os.getpid(), process_birth=process_birth(os.getpid()))
     allocation_write(journal, value, create=True)
     allocation_write(marker, {"journal": str(journal), "owner": owner}, create=True)
@@ -1893,42 +1923,34 @@ def allocation_execute(lease_id, owner):
         remote = shlex.join([t["docker_command"], "exec", "-i", t["container_name"], "/bin/sh", "-c", inside])
         return run([t["ssh_command"], "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes", "-o", "ConnectTimeout=5",
                     "-o", "ServerAliveInterval=5", "-o", "ServerAliveCountMax=3", t["ssh_alias"], remote], sql.encode())
-    name, user, host = db["database"], db["username"], op["account_host"]
     identity = ("'uuid',@@server_uuid,'version',VERSION(),'principal',CURRENT_USER(),"
                 "'partial_revokes',@@GLOBAL.partial_revokes,'mandatory_roles',@@GLOBAL.mandatory_roles")
-    inventory = ("'schema_rows',(SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME='" + name + "'),"
-                 "'accounts',(SELECT COUNT(*) FROM mysql.user WHERE User='" + user + "')")
-    try:
+    def inventory_for(database):
+        return ("'schema_rows',(SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME='" + database["database"] + "'),"
+                "'accounts',(SELECT COUNT(*) FROM mysql.user WHERE User='" + database["username"] + "')")
+
+    def allocate_target(item, database, credentials):
+        name, user, host = database["database"], database["username"], item["account_host"]
+        target = value["targets"][item["stable_resource_id"]]
+        inventory = inventory_for(database)
         before = json_unique(mysql("SELECT JSON_OBJECT(" + identity + "," + inventory + ");\n"))
         need(before["uuid"] == op["server_uuid"] and before["version"] == op["version"]
              and before["principal"] == "root@localhost" and before["partial_revokes"] in (0, 1)
-             and before["mandatory_roles"] in ("", "NONE"),
-             "allocation live server/principal differs")
-        admin_grants = mysql("SHOW GRANTS FOR CURRENT_USER();\n").decode().splitlines()
-        need("GRANT ALL PRIVILEGES ON *.* TO `root`@`localhost` WITH GRANT OPTION" in admin_grants
-             and all(line.startswith("GRANT ") for line in admin_grants),
-             "allocation complete privileged visibility/authority not proved")
-        value["before"] = before
+             and before["mandatory_roles"] in ("", "NONE"), "allocation live server/principal differs")
+        target["before"] = before
         if before["schema_rows"] != 0 or before["accounts"] != 0:
-            value["status"] = "EXISTING_RECONCILIATION_REQUIRED"
+            target["status"] = "EXISTING_RECONCILIATION_REQUIRED"
+            value["status"] = "UNKNOWN" if value["mutation_dispatched"] else "EXISTING_RECONCILIATION_REQUIRED"
             allocation_write(journal, value)
-            print(json.dumps({"status": value["status"], "receipt": str(journal), "mutation_dispatched": False}))
-            return
-        credentials = {}
-        for line in regular(op["credentials"]["path"], private=True).decode().splitlines():
-            key, separator, text = line.partition("=")
-            need(separator and key not in credentials, "allocation credential format differs")
-            credentials[key] = text
-        need(set(credentials) == {"DB_HOST", "DB_PORT", "DB_NAME", "DB_USER", "DB_PASS"}
-             and credentials["DB_HOST"] == db["host"] and credentials["DB_PORT"] == str(db["port"])
-             and credentials["DB_NAME"] == name and credentials["DB_USER"] == user
-             and re.fullmatch(r"[A-Za-z0-9_-]{32,128}", credentials["DB_PASS"]), "allocation exact private connection input differs")
+            return False
         scope = name if before["partial_revokes"] else name.replace("_", "\\_")
         sql = ("CREATE DATABASE `" + name + "` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\n"
                "CREATE USER '" + user + "'@'" + host + "' IDENTIFIED BY '" + credentials["DB_PASS"] + "';\n"
-               "GRANT " + ", ".join(db["requested_schema_privileges"]) + " ON `" + scope + "`.* TO '" + user + "'@'" + host + "';\n")
-        # No IF NOT EXISTS, ALTER USER, DROP, FLUSH, global grant or caller SQL.
-        value.update(status="UNKNOWN", mutation_dispatched=True, mutation_started_at=time.time())
+               "GRANT " + ", ".join(database["requested_schema_privileges"]) + " ON `" + scope + "`.* TO '" + user + "'@'" + host + "';\n")
+        # Each target retains its own durable UNKNOWN before dispatch. The pair
+        # is ordered DDL, not a transaction or an automatic rollback promise.
+        target.update(status="UNKNOWN", mutation_dispatched=True, mutation_started_at=time.time())
+        value.update(status="UNKNOWN", mutation_dispatched=True, current_operation=item["stable_resource_id"])
         allocation_write(journal, value)
         mysql(sql)
         counts = ",".join("'" + label + "',(SELECT COUNT(*) FROM information_schema." + table_name + " WHERE " + column + "='" + name + "')"
@@ -1953,9 +1975,53 @@ def allocation_execute(lease_id, owner):
         login = json_unique(run([op["php_executable"], "-r", php], json.dumps(credentials).encode()))
         need(login == dict(database=name, principal=user + "@" + host, uuid=op["server_uuid"], version=op["version"]),
              "allocation ordinary account live identity differs")
-        value.update(status="COMPLETED", after=after, login=login, exact_privileges=sorted(actual), completed_at=time.time())
+        target.update(status="COMPLETED", after=after, login=login, exact_privileges=sorted(actual), completed_at=time.time())
         allocation_write(journal, value)
-        print(json.dumps({"status": "COMPLETED", "receipt": str(journal), "database": name, "ordinary_login_verified": True}))
+        return True
+
+    try:
+        inputs = []
+        for item, database, _, _ in pair:
+            credentials = {}
+            for line in regular(item["credentials"]["path"], private=True).decode().splitlines():
+                key, separator, text = line.partition("=")
+                need(separator and key not in credentials, "allocation credential format differs")
+                credentials[key] = text
+            need(set(credentials) == {"DB_HOST", "DB_PORT", "DB_NAME", "DB_USER", "DB_PASS"}
+                 and credentials["DB_HOST"] == database["host"] and credentials["DB_PORT"] == str(database["port"])
+                 and credentials["DB_NAME"] == database["database"] and credentials["DB_USER"] == database["username"]
+                 and re.fullmatch(r"[A-Za-z0-9_-]{32,128}", credentials["DB_PASS"]), "allocation exact private connection input differs")
+            inputs.append(credentials)
+        # The normal lease already covers both exact schemas and both accounts.
+        # Observe both pairs in one privileged read before the first DDL, and
+        # retain that assertion while the very same pair lease remains held.
+        inventory = ",".join("'" + item["stable_resource_id"] + "',JSON_OBJECT(" + inventory_for(database) + ")"
+                             for item, database, _, _ in pair)
+        before = json_unique(mysql("SELECT JSON_OBJECT(" + identity + ",'targets',JSON_OBJECT(" + inventory + "));\n"))
+        need(before["uuid"] == op["server_uuid"] and before["version"] == op["version"]
+             and before["principal"] == "root@localhost" and before["partial_revokes"] in (0, 1)
+             and before["mandatory_roles"] in ("", "NONE"),
+             "allocation live server/principal differs")
+        admin_grants = mysql("SHOW GRANTS FOR CURRENT_USER();\n").decode().splitlines()
+        need("GRANT ALL PRIVILEGES ON *.* TO `root`@`localhost` WITH GRANT OPTION" in admin_grants
+             and all(line.startswith("GRANT ") for line in admin_grants),
+             "allocation complete privileged visibility/authority not proved")
+        value["before"] = before
+        if any(before["targets"][item["stable_resource_id"]] != dict(schema_rows=0, accounts=0) for item, _, _, _ in pair):
+            value["status"] = "EXISTING_RECONCILIATION_REQUIRED"
+            allocation_write(journal, value)
+            print(json.dumps({"status": value["status"], "receipt": str(journal), "mutation_dispatched": False}))
+            return
+        value["pair_precheck"] = dict(observed_at=time.time(), server_uuid=before["uuid"], version=before["version"],
+                                      lease=lease_id, registry_sha256=pair[0][3], targets=before["targets"])
+        allocation_write(journal, value)
+        for (item, database, _, _), credentials in zip(pair, inputs):
+            if not allocate_target(item, database, credentials):
+                print(json.dumps({"status": value["status"], "receipt": str(journal), "mutation_dispatched": value["mutation_dispatched"]}))
+                return
+        value.update(status="COMPLETED", completed_at=time.time())
+        allocation_write(journal, value)
+        print(json.dumps({"status": "COMPLETED", "receipt": str(journal), "databases": [database["database"] for _, database, _, _ in pair], "ordinary_login_verified": True}))
     except BaseException:
         value.update(status="UNKNOWN", failed_at=time.time())
         allocation_write(journal, value)
@@ -1975,6 +2041,16 @@ def allocation_release(lease_id, owner):
          and journal["operation"] == op["stable_resource_id"]
          and not original_process_alive(journal["pid"], journal.get("process_birth"))
          and journal["status"] in ("COMPLETED", "EXISTING_RECONCILIATION_REQUIRED"), "allocation is not safely terminal")
+    need(journal["paired_operations"] == op["paired_operations"]
+         and set(journal["targets"]) == set(op["paired_operations"]), "allocation terminal pair differs")
+    if journal["status"] == "COMPLETED":
+        need(journal["mutation_dispatched"] is True
+             and all(target["status"] == "COMPLETED" and target["mutation_dispatched"] is True
+                     for target in journal["targets"].values()), "allocation target is not complete")
+    else:
+        need(journal["mutation_dispatched"] is False
+             and all(target["mutation_dispatched"] is False for target in journal["targets"].values()),
+             "partial allocation retains its original pair boundary")
     marker.unlink()  # The durable operation-wide journal remains; only the lease pointer is retired.
 
 
