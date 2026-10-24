@@ -27419,7 +27419,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a5150093907f2f78919df80744d885efe9d1c699e58c089d4ff61f2f1b71914f"
+            "source_sha256": "4919cccd411b6fafeb9f670c6554e939828db29cf6e1591f92b3f8017e7ad1bb"
         },
         {
             "path": "server/database/kernel-migrations/20260716010101_create_pa_account.php",
