@@ -562,10 +562,15 @@ def unpublished_retirement_evidence(approved, root, plan, state, receipt_path, o
         or preparation.get('update_id') != plan['candidate'] or preparation.get('plan_sha256') != plan['inputs_sha256'] \
         or preparation.get('source_identity_sha256') != inputs['source']['identity_sha256'] \
         or preparation.get('target_identity_sha256') != inputs['target']['identity_sha256'] \
-        or preparation.get('source_present') is not True or preparation.get('vendor_mode') != 'prepared' \
+        or preparation.get('source_present') is not True or preparation.get('vendor_mode') != ('reuse' if file_preflight else 'prepared') \
         or preparation.get('source_lock_sha256') != sha(server / 'composer.lock') \
         or preparation.get('target_lock_sha256') != sha(target / 'composer.lock'):
         raise ValueError('unpublished dependency identities differ from the audited read-only inputs')
+    if file_preflight and (sha(server / 'composer.lock') != sha(target / 'composer.lock')
+        or sha(server / 'composer.json') != sha(target / 'composer.json')
+        or preparation.get('source_tree_sha256') != preparation.get('target_tree_sha256')
+        or sha(server / 'vendor/.peanut-complete.json') != preparation.get('vendor_receipt_sha256')):
+        raise ValueError('File preflight vendor reuse differs from its identical locked source')
     spec = importlib.util.spec_from_file_location('retirement_preparation', old_tools / 'server/docker/scripts/update-preparation.py')
     helper = importlib.util.module_from_spec(spec); spec.loader.exec_module(helper)
     if helper.tree(server / 'vendor') != preparation['source_tree_sha256'] \
