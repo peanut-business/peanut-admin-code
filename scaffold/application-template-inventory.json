@@ -7133,7 +7133,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "594fc1566ebf4aa276bdc65d461dd747b43b674a30cb623cbc787ddc9a2a102f"
+            "source_sha256": "e6552a8bc7030a129709d7448cc0aa6c73de8e0955bab65d60943c91ddd8dcc6"
         },
         {
             "path": "server/app/command/PluginInstall.php",
@@ -9589,7 +9589,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a8dcb00377c8ec276dc4e26ea5a0de26a84219c19c5874dc30c3929645c40b9b"
+            "source_sha256": "5b11351fdfd3460e8a43de1ea2095a8115c09302e470398283402888426b3919"
         },
         {
             "path": "server/app/common/services/upgrade/SourceApplicationBackup.php",
@@ -9603,7 +9603,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b9bfe5f06ef2d302bc82c93081034eadebb09b58c03b2cf685955b5b70ac9934"
+            "source_sha256": "2fed95ac214358bba704891a0755ecdfb9529b8b15cd35c8fa7fbeb49701033a"
         },
         {
             "path": "server/app/common/services/upgrade/SourceApplicationDump.php",
