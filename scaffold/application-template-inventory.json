@@ -2497,7 +2497,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f519f5f473b8882d7d3775969b401acce1aa981e2dab669d09ac740e359e4a20"
+            "source_sha256": "e440c5258417d2c34fa85ca2855ced314400fbcd048f5b47f289fb82efba9f33"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2648,7 +2648,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ae050f368312a278d2db14dbb574ab4c99742f72bcbcafab22eca55359d78c6c"
+            "source_sha256": "b44f87f7572e2228dff24692792a7e84a0d974dd29cce5dd0edda71c24d0dce1"
         },
         {
             "path": "plugins/official.integration/plugin.json",
@@ -16237,7 +16237,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1ae2616dc702ff0eacc920da10d97d382ffeae64f1438a07524189031761ec7e"
+            "source_sha256": "19ed2945cb5f6e9027fbb88256183db2bc97bb6358e0bc226f8fffc19d8c71a3"
         },
         {
             "path": "server/app/modules/official/import_export/resources/configuration-package.schema.json",
@@ -37732,7 +37732,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0bd86b7b5abd93eb254ae53993f7696f8fffceeffe5ee85338cb8acfa6bb34a2"
+            "source_sha256": "41951b622cbbc7e864eff9dc4723c56643f2fb376bff97aef52255e6013540dc"
         },
         {
             "path": "web/src/modules/official-import-export/generated/openapi.ts",
@@ -37774,7 +37774,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0b0a35e89d1683c048d54cf0f05fc96638aeb2a203f4d58c4b1afd30fc912c35"
+            "source_sha256": "8cf87dd1ecceb532c460736acffb9e9b0f919ee785c0fab9848283a77a45d758"
         },
         {
             "path": "web/src/modules/official-import-export/optional-runtime/src/contracts.ts",
@@ -37791,6 +37791,20 @@
             "source_sha256": "67527b70e45b929cd839edfa9daeeb918d85d56a58920be26f9d5c5946cb96cc"
         },
         {
+            "path": "web/src/modules/official-import-export/optional-runtime/src/contribution.ts",
+            "target": "web/src/modules/official-import-export/optional-runtime/src/contribution.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "6281d0e6593b3909c2751304a170036701d4f485fe9d2ea1fda135f0d55b3703"
+        },
+        {
             "path": "web/src/modules/official-import-export/optional-runtime/src/index.ts",
             "target": "web/src/modules/official-import-export/optional-runtime/src/index.ts",
             "classification": "managed",
@@ -37802,7 +37816,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "df1000fc995d3a3cd7e58d9392954134c2865d0e095a7992d1990379e97e57ed"
+            "source_sha256": "b9245ee35e89531b6fc0a59a2248b45499819d92014e53c6a3190968778611ad"
         },
         {
             "path": "web/src/modules/official-import-export/optional-runtime/src/runtime.ts",
@@ -37816,7 +37830,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a30d2e45e3df5762604ed63c0de4b744b1429241194b298ddabff484bb3b214f"
+            "source_sha256": "a42251bd595c861fb3ac0496543015fd32316c67e87e3644a3b371228cb6e339"
         },
         {
             "path": "web/src/modules/official-import-export/optional-runtime/tests/contracts.spec.ts",
@@ -37872,7 +37886,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "83b3131e8510afb51075abd9fae5ecc36c112485f14c306f1ad2bebeab8ddc84"
+            "source_sha256": "483d4a57e6e164fe865b6363ed8dd2a8062ffe534679a4a7344adc7d5308e6f9"
         },
         {
             "path": "web/src/modules/official-import-export/views/index.vue",
@@ -37900,7 +37914,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "73e748ceda395e47cdc57cf274dc68eb3e18868a620077bee41f4db75bca7325"
+            "source_sha256": "f3d851a8384d730d588c47e24bb74f10acdc22dd0455c771259afde5878a8390"
         },
         {
             "path": "web/src/modules/official-import-export/views/locale/zh-CN.ts",
@@ -37914,7 +37928,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "68c78a29874818b6212475795ab4a9313d786645f6eb135b5d75e5ba60265b9d"
+            "source_sha256": "de1485096bdf5255d510415e589ab4a3e65c45c8d3c2a0c686090ce5f12abf4f"
         },
         {
             "path": "web/src/modules/official-integration/LICENSE",

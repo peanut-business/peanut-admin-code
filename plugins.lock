@@ -895,11 +895,11 @@
         },
         {
             "key": "official.import-export",
-            "version": "1.0.15",
+            "version": "1.0.16",
             "source": {
                 "type": "canonical-contents",
                 "reference": "canonical-plugin-contents-v1",
-                "sha256": "1e13914826deb28a633911b00a1f6ab0bf906a8e65cebc1a93d02cdca8d40239"
+                "sha256": "d394ed72f8ffd56bef83d8927ce325bae6d50b9fcb688a354699d599c7a73e77"
             },
             "trust": {
                 "channel": "bundled",
@@ -933,7 +933,7 @@
                     "modules": [
                         {
                             "key": "official.import-export",
-                            "version": "1.0.15",
+                            "version": "1.0.16",
                             "kernel_constraint": "^1.0",
                             "dependencies": [
                                 {
@@ -988,17 +988,17 @@
             "npm": [
                 {
                     "name": "@peanut-admin/official-import-export",
-                    "version": "1.0.3",
-                    "integrity": "sha256-g7MTHoUQr7UQdavZ+uXsw2wRJIXxTDBvGtK+vquN3IQ="
+                    "version": "1.0.4",
+                    "integrity": "sha256-SD1KV+bhZP6GW2Nj7Y3SqAYv/lNGeaSnNErcfVMI5vk="
                 }
             ],
             "frontend": [
                 {
                     "client_key": "admin-web",
                     "package": "@peanut-admin/official-import-export",
-                    "version": "1.0.3",
+                    "version": "1.0.4",
                     "entry": "web/src/modules/official-import-export/contribution.ts",
-                    "sha256": "0bd86b7b5abd93eb254ae53993f7696f8fffceeffe5ee85338cb8acfa6bb34a2"
+                    "sha256": "41951b622cbbc7e864eff9dc4723c56643f2fb376bff97aef52255e6013540dc"
                 }
             ],
             "modules": [
@@ -1008,7 +1008,7 @@
                 }
             ],
             "manifest": "plugins/official.import-export/plugin.json",
-            "manifest_sha256": "ae050f368312a278d2db14dbb574ab4c99742f72bcbcafab22eca55359d78c6c"
+            "manifest_sha256": "b44f87f7572e2228dff24692792a7e84a0d974dd29cce5dd0edda71c24d0dce1"
         },
         {
             "key": "official.integration",

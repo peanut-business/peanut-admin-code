@@ -33,7 +33,7 @@ const contribution: PluginFrontendContribution = {
       name: 'OfficialImportExportOperationsRoot',
       component: DEFAULT_LAYOUT,
       meta: {
-        locale: 'Import/export operations',
+        locale: 'menu.system.importExportOperations',
         requiresAuth: true,
         tenantModuleKey: 'official.import-export',
         requiredPermissions: 'official.import-export.operations.read',
@@ -44,7 +44,7 @@ const contribution: PluginFrontendContribution = {
           name: 'OfficialImportExportOperations',
           component: () => import('./OperationsPage.vue'),
           meta: {
-            locale: 'Import/export operations',
+            locale: 'menu.system.importExportOperations',
             requiresAuth: true,
             tenantModuleKey: 'official.import-export',
             requiredPermissions: 'official.import-export.operations.read',
