@@ -1,5 +1,11 @@
 # 源码维护：安装基线与迁移协议
 
+## 5.0.5 专用升级验证表
+
+`server/database/migrations/20261025-create-upgrade-verification-b505.sql` 以 `peanut-release: 5.0.5` 进入现有应用迁移链。安装发现入口和 APP 升级包的 `migration_chain.files` 共用 `ApplicationMigrationRunner`，由 `PeanutMigrationRun` 驱动官方 ThinkPHP `Migrator`；5.0.4 目标不选择该文件。现有应用数据库合同固定使用 `pa_` 前缀。
+
+该迁移只创建 `pa_upgrade_verification_b505`，包含自增主键和默认值为 `5.0.5` 的版本标记列，不插入记录，不修改旧表或业务数据。同名对象已存在时普通 `CREATE TABLE` 失败，不隐式采用。升级完成后保留该表，核对实际结构和原生迁移账本；删除须在 B 版本冻结后另行提交后续版本的前向 Migration，不与本次创建一起执行。源码开发库的固定维护准入不因本文件自动扩大；此处不新增维护入口或执行授权。
+
 ## 固定开发库的 File adopted 来源承接
 
 `schema:application --scope=source-development --file-adoption-relocation=<受保护输入>` 仅显式选择 `database/maintenance/20261024-relocate-file-adoption.sql`；它不进入 seed、默认应用 Migration 或 HTTP 路径。该固定项只承接已知 File adopted key 及原 provenance 摘要，从原开发库／原运行根到已核目标。原 proof、admission、SQL、账本及业务数据不改写；同一 MySQL UUID 本身不是承接授权。

@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.0.4",
+    "template_version": "5.0.5",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -28414,6 +28414,20 @@
             "source_sha256": "5e8abee207d363cdbb48f01c3980a611b01f4457150666a67e67f690dd547ad9"
         },
         {
+            "path": "server/database/migrations/20261025-create-upgrade-verification-b505.sql",
+            "target": "server/database/migrations/20261025-create-upgrade-verification-b505.sql",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "7c6fbdf700a1dedca412614f3515bf6d4526521303289afce7edb80c5d47cd3f"
+        },
+        {
             "path": "server/database/resource-registry.php",
             "target": "server/database/resource-registry.php",
             "classification": "managed",
@@ -29053,7 +29067,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "06d115b9ba13a4e3db171099e59a24debcec53736dba772aa0199fb436c4ab1d"
+            "source_sha256": "b8f23ca34a3e94f59f885a9d01754bb21ac7fbc0f52c2e63a7cc2545ed80fdef"
         },
         {
             "path": "server/generated/openapi.json",
@@ -29067,7 +29081,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "68ef2df116bd7223ce67ee9f4d9d661babda9cddcda2a6049e274c921bdba2e4"
+            "source_sha256": "75c3733452504de3aa80ff21d12d5c75988cdadf0da2f357025ebd0e25019bbf"
         },
         {
             "path": "server/private/storage/.gitkeep",
@@ -36433,7 +36447,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6beb5b7443d18404f549ca5d4a77c17ec1d79b72205620db6ec45b5915fcc505"
+            "source_sha256": "e3ac017ef42f35ef8e5edcc165079a616363f26860043da0f1629f86e0368ee7"
         },
         {
             "path": "web/src/components/tab-bar/index.vue",

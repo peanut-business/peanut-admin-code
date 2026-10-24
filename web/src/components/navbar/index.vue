@@ -30,6 +30,7 @@
       <li>
         <el-tooltip :content="$t('settings.search')">
           <el-button
+            ref="menuSearchTrigger"
             class="nav-btn"
             plain
             circle
@@ -209,6 +210,8 @@
       :title="$t('settings.search')"
       width="min(420px, calc(100vw - 32px))"
       destroy-on-close
+      @opened="menuSearchInput?.focus()"
+      @closed="menuSearchTrigger?.ref?.focus({ preventScroll: true })"
     >
       <el-input
         ref="menuSearchInput"
@@ -272,7 +275,8 @@
 </template>
 
 <script lang="ts" setup>
-  import { computed, inject, nextTick, ref } from 'vue';
+  import { computed, inject, ref } from 'vue';
+  import type { ButtonInstance, InputInstance } from 'element-plus';
   import { useI18n } from 'vue-i18n';
   import { useDark, useToggle, useFullscreen } from '@vueuse/core';
   import { useRouter } from 'vue-router';
@@ -344,7 +348,8 @@
   const selectedTenantId = ref<number>();
   const menuSearchVisible = ref(false);
   const menuSearchQuery = ref('');
-  const menuSearchInput = ref();
+  const menuSearchTrigger = ref<ButtonInstance>();
+  const menuSearchInput = ref<InputInstance>();
   const searchableMenuItems = computed(() => {
     const items: RouteRecordRaw[] = [];
     const collect = (routes: RouteRecordRaw[]) => {
@@ -372,7 +377,6 @@
   const openMenuSearch = () => {
     menuSearchQuery.value = '';
     menuSearchVisible.value = true;
-    nextTick(() => menuSearchInput.value?.focus?.());
   };
   const openMenuSearchResult = (item: RouteRecordRaw) => {
     menuSearchVisible.value = false;
