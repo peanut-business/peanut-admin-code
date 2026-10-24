@@ -96,26 +96,28 @@ final readonly class ArticleBodyService
             $request = ArticleBodySave::where('article_id', $input->articleId)->where('request_id', $input->requestId)->lock(true)->find();
             if ($request !== null) {
                 self::assertRequest($current, $request, $input);
-                if ($request->phase === 'completed') {
+                if (in_array($request->phase, ['completed', 'conflicted'], true)) {
                     return self::json($request->result_json);
                 }
             }
-            self::assertOwner($input, $state);
             $article = Article::where('id', $input->articleId)->lock(true)->find();
             if ($article === null || (int) $article->body_document_id !== $input->documentId) {
                 throw BusinessException::conflict('ARTICLE_DOCUMENT_BINDING_CHANGED', '资讯正文绑定已改变');
             }
             if ($request === null) {
-                ArticleBodySave::create(['tenant_id' => $current->tenantId,'article_id' => $input->articleId,
+                $request = ArticleBodySave::create(['tenant_id' => $current->tenantId,'article_id' => $input->articleId,
                     'document_id' => $input->documentId,'request_id' => $input->requestId,'input_sha256' => $input->hash(),
                     'actor_account_id' => $current->accountId,'actor_member_id' => $current->memberId,'phase' => 'prepared','result_json' => null,'created_at' => gmdate('Y-m-d H:i:s')]);
+            }
+            if (!hash_equals($input->ownerRevision, $state->revision)) {
+                return self::ownerConflict($request, $input);
             }
             $this->commands->beginExplicitTargetConsumption($current, $input->documentId, $input->expectedStateSeq,
                 'Article Save ' . $input->hash(), $input->requestId);
             return null;
         });
         if ($prepared !== null) {
-            return $prepared;
+            return self::saveResult($prepared);
         }
         // Reject a mismatched owner before any freeze/control RPC, using the public edit-purpose resolver.
         $this->queries->ownerEditor($context, $input->documentId, $owner);
@@ -130,16 +132,18 @@ final readonly class ArticleBodyService
         if ($snapshot->contentKind !== 'rich_text' || $snapshot->sourceStateSeq !== ($version['source_state_seq'] ?? null)) {
             throw BusinessException::conflict('ARTICLE_BODY_SAVE_UNCONFIRMED', '正文固定版本回执不一致');
         }
-        return $this->commands->runOwnerVersionSave($context, $owner, function (TenantContext $current, DocumentOwnerState $state) use ($input, $owner, $snapshot, $validateCategory, $metadata): array {
+        $result = $this->commands->runOwnerVersionSave($context, $owner, function (TenantContext $current, DocumentOwnerState $state) use ($input, $owner, $snapshot, $validateCategory, $metadata): array {
             $request = ArticleBodySave::where('article_id', $input->articleId)->where('request_id', $input->requestId)->lock(true)->find();
             if ($request === null) {
                 throw BusinessException::conflict('ARTICLE_BODY_SAVE_UNCONFIRMED', '保存请求不可用');
             }
             self::assertRequest($current, $request, $input);
-            if ($request->phase === 'completed') {
+            if (in_array($request->phase, ['completed', 'conflicted'], true)) {
                 return self::json($request->result_json);
             }
-            self::assertOwner($input, $state);
+            if (!hash_equals($input->ownerRevision, $state->revision)) {
+                return self::ownerConflict($request, $input);
+            }
             $article = Article::where('id', $input->articleId)->lock(true)->find();
             if ($article === null || (int) $article->body_document_id !== $input->documentId) {
                 throw BusinessException::conflict('ARTICLE_DOCUMENT_BINDING_CHANGED', '资讯正文绑定已改变');
@@ -154,6 +158,8 @@ final readonly class ArticleBodyService
             $request->save(['phase' => 'completed','result_json' => $result,'completed_at' => gmdate('Y-m-d H:i:s')]);
             return $result;
         });
+        // Throw only after the native owner transaction commits its terminal receipt.
+        return self::saveResult($result);
     }
 
     public function operation(TenantContext $context, int $id, string $requestId): array
@@ -170,15 +176,26 @@ final readonly class ArticleBodyService
                 throw BusinessException::forbidden('ARTICLE_BODY_SAVE_ACTOR_DENIED', '只能继续原人员保存请求');
             }
             return ['article_id' => $id,'request_id' => $requestId,'document_id' => (int) $request->document_id,'phase' => $request->phase,
-                'result' => $request->phase === 'completed' ? self::json($request->result_json) : null,'continuation' => $request->phase === 'completed' ? null : 'same_request_same_payload'];
+                'result' => $request->phase === 'completed' ? self::json($request->result_json) : null,
+                'error_code' => $request->phase === 'conflicted' ? self::json($request->result_json)['error_code'] : null,
+                'continuation' => $request->phase === 'prepared' ? 'same_request_same_payload' : null];
         });
     }
 
-    private static function assertOwner(ArticleBodySaveInput $input, DocumentOwnerState $state): void
+    private static function ownerConflict(ArticleBodySave $request, ArticleBodySaveInput $input): array
     {
-        if (!hash_equals($input->ownerRevision, $state->revision)) {
+        $result = ['article_id' => $input->articleId,'request_id' => $input->requestId,'document_id' => $input->documentId,
+            'phase' => 'conflicted','error_code' => 'ARTICLE_BODY_SAVE_OWNER_CHANGED'];
+        $request->save(['phase' => 'conflicted','result_json' => $result,'completed_at' => gmdate('Y-m-d H:i:s')]);
+        return $result;
+    }
+
+    private static function saveResult(array $result): array
+    {
+        if (($result['phase'] ?? null) === 'conflicted') {
             throw BusinessException::conflict('ARTICLE_BODY_SAVE_OWNER_CHANGED', '保存期间资讯元数据或生命周期已改变');
         }
+        return $result;
     }
     private static function assertRequest(TenantContext $current, ArticleBodySave $request, ArticleBodySaveInput $input): void
     {

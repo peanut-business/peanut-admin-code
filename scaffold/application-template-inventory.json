@@ -2497,7 +2497,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8e17a8a803dd4003a53766ca04b7057912c9980fc05df061306e7f47a374e178"
+            "source_sha256": "a9eab06bb8aa85fbb696c6381d3d8d8449c85bcdec07d82a86f41cbc58d4878a"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2564,7 +2564,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a21fb7d11788514b333d396c82e9a8c98a3cc113bddb9dff22c65d447e4189a9"
+            "source_sha256": "f0b8dc386865e9da8f4ac1bcbe6bf59a05c000857eeee0b2d8325fe018ee7e4a"
         },
         {
             "path": "plugins/official.collaboration/plugin.json",
@@ -9617,7 +9617,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4202c2d02006bd264cc03aefbd6544ed9d3f408c46ca4fe156f049b753ce503a"
+            "source_sha256": "dcd29ca3453621d161a2db6d223860586b9ce27564a0ed60f99150a7cf0200b8"
         },
         {
             "path": "server/app/common/services/upgrade/SourceApplicationDump.php",
@@ -10972,7 +10972,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3fcd9ce3df9155531a2b816ffea9515c2867935aeb2655f52d0b98e899304e02"
+            "source_sha256": "3f3a8f3b1bc347f3de7617eb39a48c8ef06ececfa5a06878d3191ccde8c2de63"
         },
         {
             "path": "server/app/modules/official/article/api/metadata/openapi.php",
@@ -10986,7 +10986,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c02bba0e0c28b019e51e93d38bc33a452aad01a720375ff15c56c146d8f10e32"
+            "source_sha256": "7cb75f66908af1735721ebd1031503d253300475eefa8f0ad2522ae7ffff3fbc"
         },
         {
             "path": "server/app/modules/official/article/composer.json",
@@ -11045,6 +11045,20 @@
             "source_sha256": "67e504df714ee1a1d0cc6959506eaa584cfaeb0ea26c3e95597586b5ec2576fe"
         },
         {
+            "path": "server/app/modules/official/article/database/migrations/20261025050000_add_article_body_save_conflicted_receipt.sql",
+            "target": "server/app/modules/official/article/database/migrations/20261025050000_add_article_body_save_conflicted_receipt.sql",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "6254d39bb1839dc5d11557e6c9df4ceab7f15b77fd6c0d2ae0ffc103cf0b0218"
+        },
+        {
             "path": "server/app/modules/official/article/module.json",
             "target": "server/app/modules/official/article/module.json",
             "classification": "managed",
@@ -11056,7 +11070,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "934ae57028d94fff7f4bb139c59db0d64151a4c4447d20413186fe6e7cb457f4"
+            "source_sha256": "a9386bf8646c501d0379d3482ef822e805371daadcee4ee63d6a28ba098fa5ca"
         },
         {
             "path": "server/app/modules/official/article/resources/menus.json",
@@ -11168,7 +11182,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fba9635be95f697928a5fc2c698067e210f0de59ead77a4a7bc442b438b14b88"
+            "source_sha256": "a1af9646c66d99e319848f67765a3963d0cf1a0ecfb67838191a4f1062105b97"
         },
         {
             "path": "server/app/modules/official/article/src/Contract/ArticleQueries.php",
@@ -11336,7 +11350,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c7344e1dc13f575e4cc811289bc9c3cd18f945bfdd231f33aed575cf3e6d4cd9"
+            "source_sha256": "57a67259a907d8085e91b5fe8f073a41d29d20871ca5b649dc39be98ae459a4b"
         },
         {
             "path": "server/app/modules/official/article/src/Service/ArticleCategoryAdministrationService.php",
@@ -26661,7 +26675,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b072b6b1b50581ec324c1c534499d3f16e93599e82889fec7d1b4a9a14884c5f"
+            "source_sha256": "f8ef75e0f5570cfbb81fa4d62679117f7fe252013334c9134802e58f182d5c2e"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",
@@ -29025,7 +29039,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d019a2cde2ee97f886aad897587fd9c17cf86c6b0f7330699225803193a546e6"
+            "source_sha256": "37798125bb89759a4d4ec636e048f1a39d62be9d1bb0631416f41d7251ed0dc1"
         },
         {
             "path": "server/generated/openapi.json",
@@ -29039,7 +29053,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8cac6a352926e20aeae27afa41d1ca6d9f9e9071f4dcaec806c1d5fc5a55fd4a"
+            "source_sha256": "5327cdb53279e758f89e0fa76c29971465e66c80020e6fc1bf2944078ffee842"
         },
         {
             "path": "server/private/storage/.gitkeep",
@@ -36574,7 +36588,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "215445ea76f773a5b4a7e7e09e06f9d8edbd5eb8bd3cd845b55626675e9a3453"
+            "source_sha256": "d70c398eda8b67365114b9cc47a844c46224ded9b98205de5a22ace063f16d82"
         },
         {
             "path": "web/src/hooks/chart-option.ts",
@@ -37042,7 +37056,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c5885ac64cc88d0e15e26413bda854e63cb3f87ab3c24f3cc214922b0ccc896c"
+            "source_sha256": "fe7e43ad7facb613ce56d8a0bae5bea6f138dd6de7a6406948ec03eb3f06033d"
         },
         {
             "path": "web/src/modules/official-article/views/list/ArticleBodyHistory.vue",

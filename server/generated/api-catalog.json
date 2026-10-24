@@ -36,7 +36,7 @@
         },
         {
             "path": "server/app/modules/official/article/api/metadata/openapi.php",
-            "sha256": "c02bba0e0c28b019e51e93d38bc33a452aad01a720375ff15c56c146d8f10e32"
+            "sha256": "7cb75f66908af1735721ebd1031503d253300475eefa8f0ad2522ae7ffff3fbc"
         },
         {
             "path": "server/app/modules/official/article/route/app.php",

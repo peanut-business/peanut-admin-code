@@ -8373,7 +8373,7 @@ export interface components {
                 request_id: string;
                 document_id: number;
                 /** @enum {string} */
-                phase: "prepared" | "completed";
+                phase: "prepared" | "completed" | "conflicted";
                 result: {
                     article_id: number;
                     request_id: string;
@@ -8388,6 +8388,8 @@ export interface components {
                     /** @enum {boolean} */
                     published: false;
                 } | null;
+                /** @enum {string|null} */
+                error_code: "ARTICLE_BODY_SAVE_OWNER_CHANGED" | null;
                 /** @enum {string|null} */
                 continuation: "same_request_same_payload" | null;
             };
