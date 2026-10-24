@@ -1969,7 +1969,13 @@ final class InstallationExecutionHost
         $previous = '';
         foreach ($chain as $migration) {
             $id = is_array($migration) ? ($migration['id'] ?? null) : null;
-            if (!is_string($id) || preg_match('/\A[0-9]{8}-[a-z0-9][a-z0-9_-]*\z/D', $id) !== 1
+            // Clean installs record their immutable baseline identity alongside
+            // historical migration IDs; the version dots are part of that ID.
+            $knownBaseline = in_array($id, [
+                '20261019-clean-install-5.0.2-r1',
+                '20261019-clean-install-5.0.2-r2',
+            ], true);
+            if (!is_string($id) || (!$knownBaseline && preg_match('/\A[0-9]{8}-[a-z0-9][a-z0-9_-]*\z/D', $id) !== 1)
                 || strcmp($previous, $id) >= 0
                 || preg_match('/\A[a-f0-9]{64}\z/D', (string) ($migration['sha256'] ?? '')) !== 1) {
                 throw new RuntimeException('APPLICATION_SCHEMA_INSTALLATION_CHAIN_INVALID');
