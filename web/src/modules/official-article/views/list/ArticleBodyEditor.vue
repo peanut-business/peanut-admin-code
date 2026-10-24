@@ -57,12 +57,18 @@
     <el-button v-if="!editor && !busy && !collaborationBaseline" @click="open"
       >重新接入正文</el-button
     >
-    <template v-if="attempt && phase !== 'completed'">
+    <template v-if="attempt && phase !== 'completed' && phase !== 'conflicted'">
       <el-button :disabled="busy" @click="recover">查询原保存请求</el-button>
       <el-button :disabled="busy" @click="submitOriginal"
         >继续原保存请求</el-button
       >
     </template>
+    <el-button
+      v-if="attempt && phase === 'conflicted'"
+      :disabled="busy"
+      @click="reloadAfterConflict"
+      >放弃未保存的资讯元数据并重新加载</el-button
+    >
     <el-button
       v-if="targetAttempt && !attempt"
       :disabled="busy"
@@ -125,6 +131,7 @@
   import ArticleBodyHistory from './ArticleBodyHistory.vue';
   import type {
     ArticleBodyEditor,
+    ArticleBodyOperation,
     ArticleBodySaveInput,
     ArticleBodySaved,
   } from '../../api';
@@ -208,7 +215,9 @@
     metadata: ArticleMetadataInput;
   }>();
   const saved = shallowRef<ArticleBodySaved>();
-  const phase = ref<'idle' | 'pending' | 'unknown' | 'completed'>('idle');
+  const phase = ref<
+    'idle' | 'pending' | 'unknown' | 'completed' | 'conflicted'
+  >('idle');
   const canEnableCollaboration = computed(
     () =>
       mountedEditor.value &&
@@ -353,7 +362,8 @@
       data.owner.slot !== 'body' ||
       data.owner_revision !== ownerBaseline.value ||
       data.authorization_revision !== metadata.authorization_revision ||
-      transportCapabilities.capabilityRevision !== selected.capabilityRevision ||
+      transportCapabilities.capabilityRevision !==
+        selected.capabilityRevision ||
       data.mode !== 'write' ||
       data.protocol !== 2 ||
       !data.document_name ||
@@ -372,7 +382,12 @@
   };
   const loadMetadata = async (discardMetadata: boolean) => {
     if (documentOperationLocked.value) return false;
-    if (attempt.value && phase.value !== 'completed') return false;
+    if (
+      attempt.value &&
+      phase.value !== 'completed' &&
+      phase.value !== 'conflicted'
+    )
+      return false;
     if (
       targetAttempt.value &&
       !attempt.value &&
@@ -457,6 +472,17 @@
     }
   };
   const open = () => loadMetadata(false);
+  const reloadAfterConflict = async () => {
+    const input = attempt.value;
+    if (busy.value || phase.value !== 'conflicted' || !input) return;
+    // The rejected Article request is terminal; its Document version/target is retained.
+    // A known owner slot makes this an authorized read, never ensure/create or cancel.
+    collaborationBaseline.value = {
+      documentId: Number(input.document_id),
+      ownerRevision: input.owner_revision,
+    };
+    await loadMetadata(true);
+  };
   const discardMetadataAndReload = async () => {
     if (
       busy.value ||
@@ -576,9 +602,45 @@
       '数据库已确认正文业务绑定；旧编辑连接已关闭。重新编辑需取得新授权。';
     emit('saved', value);
   };
+  const acceptOperation = (data: ArticleBodyOperation) => {
+    const input = attempt.value;
+    if (
+      !input ||
+      data.article_id !== props.articleId ||
+      data.request_id !== input.request_id ||
+      data.document_id !== input.document_id
+    )
+      throw new Error('ARTICLE_SAVE_RESPONSE_INVALID');
+    if (data.phase === 'completed' && data.result) accept(data.result);
+    else if (
+      data.phase === 'conflicted' &&
+      data.error_code === 'ARTICLE_BODY_SAVE_OWNER_CHANGED' &&
+      data.continuation === null &&
+      data.result === null
+    ) {
+      phase.value = 'conflicted';
+      message.value =
+        '业务保存已因资讯归属版本冲突被拒绝，未覆盖他人保存。未保存的资讯元数据仍保留；不能继续旧请求，可检查修改后明确放弃并重新加载。';
+    } else if (
+      data.phase === 'prepared' &&
+      data.continuation === 'same_request_same_payload' &&
+      data.error_code === null &&
+      data.result === null
+    ) {
+      phase.value = 'pending';
+      message.value =
+        '原请求已准备，尚未确认业务提交；这不表示仍在执行。请保留相同请求和输入，查询或明确继续原请求。';
+    } else throw new Error('ARTICLE_SAVE_RESPONSE_INVALID');
+  };
   const submitOriginal = async () => {
     const input = attempt.value;
-    if (!input || busy.value || phase.value === 'completed') return;
+    if (
+      !input ||
+      busy.value ||
+      phase.value === 'completed' ||
+      phase.value === 'conflicted'
+    )
+      return;
     const { controller, key, token } = start();
     phase.value = 'pending';
     try {
@@ -589,6 +651,17 @@
         phase.value = 'unknown';
         message.value =
           '业务保存未确认。保留原请求与输入，可查询或继续原请求；不能显示已保存。';
+        // Reconcile once by the original read-only query; never repeat the POST.
+        try {
+          const { data } = await getArticleBodyOperation(
+            props.articleId,
+            input.request_id,
+            controller.signal
+          );
+          if (current(controller, key, token)) acceptOperation(data);
+        } catch {
+          // An unavailable status remains unknown, with the original input retained.
+        }
       }
     } finally {
       if (request === controller) busy.value = false;
@@ -605,20 +678,7 @@
         controller.signal
       );
       if (!current(controller, key, token)) return;
-      if (
-        data.article_id !== props.articleId ||
-        data.request_id !== input.request_id ||
-        data.document_id !== input.document_id
-      )
-        throw new Error('ARTICLE_SAVE_RESPONSE_INVALID');
-      if (data.phase === 'completed' && data.result) accept(data.result);
-      else if (
-        data.phase === 'prepared' &&
-        data.continuation === 'same_request_same_payload'
-      ) {
-        phase.value = 'pending';
-        message.value = '原请求尚未完成，请继续相同请求和输入。';
-      } else throw new Error('ARTICLE_SAVE_RESPONSE_INVALID');
+      acceptOperation(data);
     } catch {
       if (current(controller, key, token)) {
         phase.value = 'unknown';

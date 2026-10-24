@@ -397,6 +397,8 @@ final class SourceApplicationBackup
     private const ARTICLE_STAGES = [
         'official.article:20261013230000_add_article_document_save_binding' => ['67e504df714ee1a1d0cc6959506eaa584cfaeb0ea26c3e95597586b5ec2576fe',
             ['pa_article', 'pa_article_body_save']],
+        'official.article:20261025050000_add_article_body_save_conflicted_receipt' => ['6254d39bb1839dc5d11557e6c9df4ceab7f15b77fd6c0d2ae0ffc103cf0b0218',
+            ['pa_article_body_save']],
     ];
     private const MEMBER_STAGES = [
         'official.member:20260921-create-member-session' => ['297fc9de7bc227d584cb79fe6e5d50f6cf8512b33696578acbb3f10243b65337',

@@ -165,9 +165,10 @@ $bodyTransport = $bodyObject([
 ], ['document_id', 'mode', 'protocol', 'owner', 'authorization_revision', 'document_name', 'article_id', 'owner_revision', 'capabilities', 'wss_url']);
 $bodyOperation = $bodyObject([
     'article_id' => $bodyId, 'request_id' => $bodyKey, 'document_id' => $bodyId,
-    'phase' => ['type' => 'string', 'enum' => ['prepared', 'completed']], 'result' => $bodySaved + ['nullable' => true],
+    'phase' => ['type' => 'string', 'enum' => ['prepared', 'completed', 'conflicted']], 'result' => $bodySaved + ['nullable' => true],
+    'error_code' => ['type' => 'string', 'enum' => ['ARTICLE_BODY_SAVE_OWNER_CHANGED'], 'nullable' => true],
     'continuation' => ['type' => 'string', 'enum' => ['same_request_same_payload'], 'nullable' => true],
-], ['article_id', 'request_id', 'document_id', 'phase', 'result', 'continuation']);
+], ['article_id', 'request_id', 'document_id', 'phase', 'result', 'error_code', 'continuation']);
 
 $articleContract = [
     'paths' => [

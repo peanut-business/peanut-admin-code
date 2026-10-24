@@ -46561,7 +46561,8 @@
                                 "type": "string",
                                 "enum": [
                                     "prepared",
-                                    "completed"
+                                    "completed",
+                                    "conflicted"
                                 ]
                             },
                             "result": {
@@ -46630,6 +46631,13 @@
                                 ],
                                 "nullable": true
                             },
+                            "error_code": {
+                                "type": "string",
+                                "enum": [
+                                    "ARTICLE_BODY_SAVE_OWNER_CHANGED"
+                                ],
+                                "nullable": true
+                            },
                             "continuation": {
                                 "type": "string",
                                 "enum": [
@@ -46644,6 +46652,7 @@
                             "document_id",
                             "phase",
                             "result",
+                            "error_code",
                             "continuation"
                         ]
                     }

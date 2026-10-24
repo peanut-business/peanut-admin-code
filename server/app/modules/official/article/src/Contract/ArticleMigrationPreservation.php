@@ -12,12 +12,14 @@ use PDO;
 use RuntimeException;
 use think\facade\Db;
 
-/** Article67 DDL observations; the native caller owns predecessor admission, execution, exclusion and recovery. */
+/** Fixed Article DDL observations; the native caller owns admission, exclusion and recovery. */
 final readonly class ArticleMigrationPreservation
 {
     private const PROTOCOL = 'peanut.article-migration-preservation.v1';
     private const KEY = 'official.article:20261013230000_add_article_document_save_binding';
     private const SQL_SHA256 = '67e504df714ee1a1d0cc6959506eaa584cfaeb0ea26c3e95597586b5ec2576fe';
+    private const CONFLICT_KEY = 'official.article:20261025050000_add_article_body_save_conflicted_receipt';
+    private const CONFLICT_SQL_SHA256 = '6254d39bb1839dc5d11557e6c9df4ceab7f15b77fd6c0d2ae0ffc103cf0b0218';
     private const ADDED = ['body_document_id', 'body_revision_id', 'body_source_state_seq', 'body_snapshot_sha256'];
     private const CONSTRAINTS = ['chk_article_body_binding', 'chk_article_body_save_phase', 'chk_article_body_save_digest',
         'chk_article_body_save_result', 'fk_article_body_save_tenant', 'fk_article_body_save_document'];
@@ -35,13 +37,18 @@ final readonly class ArticleMigrationPreservation
             $context = $this->context($pdo);
             $sqlHash = $this->sqlHash($canonicalMigrationKey);
             $snapshot = $this->snapshot($pdo);
-            $this->prestate($snapshot);
+            if ($canonicalMigrationKey === self::CONFLICT_KEY) {
+                $this->withoutConflictChecks($snapshot['tables']['article_body_save'], false);
+                $snapshot['save_rows'] = $this->saveRows($pdo);
+            } else {
+                $this->prestate($snapshot);
+            }
             if ($this->context($pdo) !== $context) { self::fail('CONTEXT_CHANGED'); }
             $hash = self::hash($snapshot);
             return [
                 'safe_summary' => ['module_key' => 'official.article', 'migration_key' => $canonicalMigrationKey,
                     'sql_sha256' => $sqlHash, 'readonly' => true, 'preservation_verified' => false,
-                    'before_sha256' => $hash, 'proof_kind' => 'fixed_native_additive_ddl'],
+                    'before_sha256' => $hash, 'proof_kind' => $canonicalMigrationKey === self::CONFLICT_KEY ? 'fixed_native_check_ddl' : 'fixed_native_additive_ddl'],
                 'private_state' => ['protocol' => self::PROTOCOL, 'pdo' => $pdo, 'context' => $context,
                     'migration_key' => $canonicalMigrationKey, 'sql_sha256' => $sqlHash,
                     'transaction_active' => false, 'snapshot' => $snapshot, 'before_sha256' => $hash],
@@ -58,7 +65,7 @@ final readonly class ArticleMigrationPreservation
                 || ($privateState['protocol'] ?? null) !== self::PROTOCOL || ($privateState['pdo'] ?? null) !== $pdo
                 || ($privateState['context'] ?? null) !== $this->context($pdo)
                 || ($privateState['transaction_active'] ?? null) !== false
-                || ($privateState['migration_key'] ?? null) !== self::KEY
+                || !in_array($privateState['migration_key'] ?? null, [self::KEY, self::CONFLICT_KEY], true)
                 || !is_array($privateState['snapshot'] ?? null) || !is_string($privateState['before_sha256'] ?? null)
                 || !hash_equals($privateState['before_sha256'], self::hash($privateState['snapshot']))) {
                 self::fail('BEFORE_BINDING_INVALID');
@@ -66,6 +73,9 @@ final readonly class ArticleMigrationPreservation
             $sqlHash = $this->sqlHash($privateState['migration_key']);
             if ($privateState['sql_sha256'] !== $sqlHash) { self::fail('SOURCE_CHANGED'); }
             $old = $privateState['snapshot'];
+            if ($privateState['migration_key'] === self::CONFLICT_KEY) {
+                return $this->afterConflictChecks($pdo, $privateState, $old, $sqlHash);
+            }
             $this->prestate($old);
             $new = $this->snapshot($pdo);
             if ($old['identity'] !== $new['identity']) { self::fail('DATABASE_CHANGED'); }
@@ -97,6 +107,73 @@ final readonly class ArticleMigrationPreservation
                 'before_sha256' => $privateState['before_sha256'], 'after_sha256' => self::hash($new),
                 'delta_kind' => 'article_document_binding_and_empty_save_receipt', 'table_count' => 2];
         });
+    }
+
+    private function afterConflictChecks(PDO $pdo, array $privateState, array $old, string $sqlHash): array
+    {
+        $new = $this->snapshot($pdo);
+        $new['save_rows'] = $this->saveRows($pdo);
+        $afterHash = self::hash($new);
+        $old['tables']['article_body_save'] = $this->withoutConflictChecks($old['tables']['article_body_save'], false);
+        $new['tables']['article_body_save'] = $this->withoutConflictChecks($new['tables']['article_body_save'], true);
+        if ($old !== $new || $this->context($pdo) !== $privateState['context']) {
+            self::fail('CONFLICT_RECEIPT_DATA_OR_SCHEMA_CHANGED');
+        }
+        return ['module_key' => 'official.article','migration_key' => self::CONFLICT_KEY,'sql_sha256' => $sqlHash,
+            'readonly' => true,'preservation_verified' => true,'proof_kind' => 'fixed_native_check_ddl',
+            'before_sha256' => $privateState['before_sha256'],'after_sha256' => $afterHash,
+            'delta_kind' => 'article_save_conflicted_checks_only','table_count' => 1];
+    }
+
+    /** Only the two fixed CHECK expressions may change; all other schema/allocator bytes remain bound. */
+    private function withoutConflictChecks(?array $table, bool $after): array
+    {
+        if ($table === null || array_column($table['columns'], 'COLUMN_NAME') !== self::SAVE_COLUMNS || $table['primary'] !== ['id']) {
+            self::fail('SAVE_TABLE_SHAPE_UNKNOWN');
+        }
+        $phase = $after ? "phasein('prepared','completed','conflicted')" : "phasein('prepared','completed')";
+        $terminal = $after ? "phasein('completed','conflicted')" : "phase='completed'";
+        $forms = [
+            'chk_article_body_save_phase' => [$phase],
+            'chk_article_body_save_result' => [
+                "(phase='prepared'andresult_jsonisnullandcompleted_atisnull)or($terminal" . 'andresult_jsonisnotnullandcompleted_atisnotnull)',
+                "((phase='prepared')and(result_jsonisnull)and(completed_atisnull))or(($terminal)and(result_jsonisnotnull)and(completed_atisnotnull))",
+            ],
+        ];
+        $ddl = $table['ddl'];
+        foreach ($forms as $name => $expressions) {
+            if (preg_match('/^  CONSTRAINT `' . $name . '` CHECK \\((.+)\\)(,?)$/m', $ddl, $match) !== 1
+                || ($tokens = MySqlMetadataObservation::checkTokens($match[1])) === null) {
+                self::fail('SAVE_CHECK_UNKNOWN');
+            }
+            $expression = implode('', $tokens);
+            $known = false;
+            foreach ($expressions as $form) {
+                for ($i = 0; $i <= 4; ++$i) {
+                    $known = $known || $expression === str_repeat('(', $i) . $form . str_repeat(')', $i);
+                }
+            }
+            if (!$known) { self::fail('SAVE_CHECK_UNKNOWN'); }
+            $ddl = preg_replace('/^  CONSTRAINT `' . $name . '` CHECK [^\\r\\n]+\\r?\\n/m', '', $ddl, -1, $removed);
+            if ($removed !== 1 || !is_string($ddl)) { self::fail('SAVE_CHECK_UNKNOWN'); }
+        }
+        $table['ddl'] = preg_replace('/,\\r?\\n\\) ENGINE=/', "\n) ENGINE=", $ddl);
+        return $table;
+    }
+
+    /** Digest every existing receipt, including its actor/hash and prepared/completed payload, without retaining raw rows. */
+    private function saveRows(PDO $pdo): array
+    {
+        $statement = $pdo->query('SELECT ' . implode(',', array_map(self::q(...), self::SAVE_COLUMNS)) . ' FROM `pa_article_body_save` ORDER BY `id`');
+        $hash = hash_init('sha256');
+        $count = 0;
+        try {
+            while (($row = $statement->fetch(PDO::FETCH_ASSOC)) !== false) {
+                hash_update($hash, json_encode($row, JSON_THROW_ON_ERROR) . "\n");
+                ++$count;
+            }
+        } finally { $statement->closeCursor(); }
+        return ['count' => $count,'sha256' => hash_final($hash)];
     }
 
     private function prestate(array $snapshot): void
@@ -284,6 +361,11 @@ final readonly class ArticleMigrationPreservation
 
     private function sqlHash(string $key): string
     {
+        if ($key === self::CONFLICT_KEY) {
+            $path = dirname(__DIR__, 2) . '/database/migrations/20261025050000_add_article_body_save_conflicted_receipt.sql';
+            if (!is_file($path) || hash_file('sha256', $path) !== self::CONFLICT_SQL_SHA256) { self::fail('SOURCE_CHANGED'); }
+            return self::CONFLICT_SQL_SHA256;
+        }
         if ($key !== self::KEY) { self::fail('MIGRATION_UNKNOWN'); }
         $path = dirname(__DIR__, 2) . '/database/migrations/20261013230000_add_article_document_save_binding.sql';
         if (!is_file($path) || hash_file('sha256', $path) !== self::SQL_SHA256) { self::fail('SOURCE_CHANGED'); }
