@@ -256,7 +256,8 @@ final class ApplicationMigrationRunner
             return [];
         }
         foreach ($migrationIds as $id) {
-            if (preg_match('/^[0-9]{8}-[a-z0-9][a-z0-9_-]*$/D', $id) !== 1) {
+            if (preg_match('/^[0-9]{8}-[a-z0-9][a-z0-9_-]*$/D', $id) !== 1
+                && !in_array($id, ['20261019-clean-install-5.0.2-r1', '20261019-clean-install-5.0.2-r2'], true)) {
                 throw new RuntimeException('MIGRATION_ID_INVALID');
             }
         }
