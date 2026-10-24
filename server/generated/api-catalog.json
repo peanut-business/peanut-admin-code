@@ -124,7 +124,7 @@
         },
         {
             "path": "server/app/modules/official/rich_text/api/metadata/openapi.php",
-            "sha256": "12befd35d3975d133c60f1c38bdca978b8c2250c8f21ae755d64470f77a2d6fc"
+            "sha256": "e9ad44b365d04c24d5bddc641e8e2e1805e47a8b67a4a1b27b7252aec133dbdc"
         },
         {
             "path": "server/app/modules/official/rich_text/route/app.php",

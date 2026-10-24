@@ -78,7 +78,7 @@ $markBranches = [];
 foreach (['bold', 'italic', 'strike', 'underline', 'code', 'link', 'textStyle'] as $type) {
     $attrs = match ($type) {
         'link' => $object([
-            'href' => ['type' => 'string', 'pattern' => '^(https?://|mailto:)[^\x00-\x20]+$',
+            'href' => ['type' => 'string', 'pattern' => '^([hH][tT][tT][pP][sS]?://|[mM][aA][iI][lL][tT][oO]:)[^\x00-\x20]+$',
                 'description' => 'At most 2048 bytes; http(s) needs a host; /storage/delivery is forbidden.'],
             'target' => ['type' => 'string', 'nullable' => true, 'enum' => ['_blank', '_self', null]],
             'rel' => ['type' => 'string', 'nullable' => true, 'enum' => ['noopener noreferrer', 'noopener noreferrer nofollow', null]],
