@@ -34,13 +34,26 @@ concurrency:
 jobs:
   templates:
     if: ${{ !inputs.publish }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: Read the committed producer tool requirements
+        id: requirements
+        shell: bash
+        run: |
+          python3 scripts/project-env requirements > "$RUNNER_TEMP/producer-tools.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          tools = json.loads((Path(os.environ['RUNNER_TEMP']) / 'producer-tools.json').read_text())
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              for name in ('php', 'node', 'pnpm', 'python3', 'composer'):
+                  out.write(name + '=' + tools[name]['version'] + '\n')
+          PY
       - name: Require a fixed independent CLI source
         env:
           CLI_COMMIT: ${{ inputs.candidate_cli_commit }}
@@ -57,17 +70,20 @@ jobs:
           persist-credentials: false
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: ${{ steps.requirements.outputs.php }}
           extensions: json, mbstring, pdo_mysql, sodium, dom, fileinfo, curl, zip
-          tools: composer:2.10.2
+          tools: composer:${{ steps.requirements.outputs.composer }}
           coverage: none
       - uses: pnpm/action-setup@v4
         with:
-          version: 9.15.6
+          version: ${{ steps.requirements.outputs.pnpm }}
           run_install: false
       - uses: actions/setup-node@v4
         with:
-          node-version: '22.23.2'
+          node-version: ${{ steps.requirements.outputs.node }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ steps.requirements.outputs.python3 }}
       - name: Prepare the committed producer dependencies
         run: |
           composer --working-dir=server install --no-dev --no-plugins --no-scripts --no-interaction --no-progress --prefer-dist
@@ -79,10 +95,16 @@ jobs:
           test ! -e .peanut/application-manifest.json
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           version="$(node -p "JSON.parse(require('node:fs').readFileSync('release-versions.json','utf8')).scaffold_template")"
-          for edition in standalone multi-tenant; do
-            php scripts/build-scaffold-release --version="$version" --source-commit="$GITHUB_SHA" \
-              --edition="$edition" --workflow=runtime --output="$RUNNER_TEMP/scaffold-templates/$edition"
+          for build in scaffold-templates scaffold-rebuild; do
+            for edition in standalone multi-tenant; do
+              php scripts/build-scaffold-release --version="$version" --source-commit="$GITHUB_SHA" \
+                --edition="$edition" --workflow=runtime --output="$RUNNER_TEMP/$build/$edition"
+            done
           done
+          node scripts/release-template-artifacts.mjs compare "$RUNNER_TEMP/scaffold-templates" "$version" \
+            "$GITHUB_SHA" "$(git rev-parse HEAD^{tree})" \
+            "$(sha256sum scaffold/application-template-inventory.json | cut -d ' ' -f1)" \
+            "$RUNNER_TEMP/scaffold-rebuild" > "$RUNNER_TEMP/rebuild-comparison.json"
       - name: Qualify the native candidate through the local entry
         shell: bash
         env:
@@ -116,7 +138,7 @@ jobs:
           set -Eeuo pipefail
           # Preserve actual failure outputs too. No success status is manufactured.
           inputs=()
-          for name in scaffold-templates template-qualification candidate-inputs.json; do
+          for name in scaffold-templates scaffold-rebuild rebuild-comparison.json producer-tools.json template-qualification candidate-inputs.json; do
             if [[ -e "$RUNNER_TEMP/$name" || -L "$RUNNER_TEMP/$name" ]]; then
               inputs+=("$name")
             fi
@@ -137,8 +159,10 @@ jobs:
           path: |
             ${{ runner.temp }}/scaffold-templates/standalone/peanut-scaffold-standalone.tgz
             ${{ runner.temp }}/scaffold-templates/standalone/peanut-scaffold-standalone.json
+            ${{ runner.temp }}/scaffold-templates/standalone/scaffold-build-inputs.json
             ${{ runner.temp }}/scaffold-templates/multi-tenant/peanut-scaffold-multi-tenant.tgz
             ${{ runner.temp }}/scaffold-templates/multi-tenant/peanut-scaffold-multi-tenant.json
+            ${{ runner.temp }}/scaffold-templates/multi-tenant/scaffold-build-inputs.json
           if-no-files-found: error
           retention-days: 7
 
@@ -159,7 +183,7 @@ jobs:
 
   publish:
     if: ${{ inputs.publish && github.ref == 'refs/heads/main' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
       contents: write
@@ -185,9 +209,9 @@ jobs:
             const { data: run } = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: Number(id) });
             if (run.head_sha !== source || run.head_repository?.full_name !== context.payload.repository.full_name
               || run.status !== 'completed' || run.conclusion !== 'success'
-              || run.event !== 'workflow_dispatch') throw new Error('Qualification run source, origin or completion differs');
-            const { data } = await github.rest.actions.listWorkflowRunArtifacts({ ...context.repo, run_id: Number(id) });
-            const found = data.artifacts.filter(a => a.name === `scaffold-full-qualification-${source}` && !a.expired);
+              || run.event !== 'workflow_dispatch' || run.path !== '.github/workflows/scaffold-release.yml') throw new Error('Qualification run workflow, source, origin or completion differs');
+            const artifacts = await github.paginate(github.rest.actions.listWorkflowRunArtifacts, { ...context.repo, run_id: Number(id), per_page: 100 });
+            const found = artifacts.filter(a => a.name === `scaffold-full-qualification-${source}` && !a.expired);
             if (found.length !== 1) throw new Error('One complete full qualification transport is required');
       - uses: actions/download-artifact@v4
         with:
@@ -263,18 +287,34 @@ jobs:
           if hashlib.sha256(receipt.read_bytes()).hexdigest() != os.environ['EXPECTED_INTEGRATION_SHA256']:
               raise ValueError('Main integration receipt changed')
           PY
+      - name: Read the committed verifier tool requirements
+        id: requirements
+        shell: bash
+        run: |
+          python3 scripts/project-env requirements > "$RUNNER_TEMP/producer-tools.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          tools = json.loads((Path(os.environ['RUNNER_TEMP']) / 'producer-tools.json').read_text())
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              for name in ('php', 'node', 'pnpm', 'python3', 'composer'):
+                  out.write(name + '=' + tools[name]['version'] + '\n')
+          PY
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: ${{ steps.requirements.outputs.php }}
           extensions: json, mbstring, pdo_mysql, sodium, dom, fileinfo, curl, zip
-          tools: composer:2.10.2
+          tools: composer:${{ steps.requirements.outputs.composer }}
           coverage: none
       - uses: actions/setup-node@v4
         with:
-          node-version: '22.23.2'
+          node-version: ${{ steps.requirements.outputs.node }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ steps.requirements.outputs.python3 }}
       - uses: pnpm/action-setup@v4
         with:
-          version: 9.15.6
+          version: ${{ steps.requirements.outputs.pnpm }}
           run_install: false
       - name: Prepare only the committed verifier dependencies
         run: |

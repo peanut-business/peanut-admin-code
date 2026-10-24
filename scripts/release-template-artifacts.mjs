@@ -41,6 +41,7 @@ export function readTemplateArtifacts({ root, version, commit, tree, inventorySh
     const releaseBytes = read(join(directory, 'scaffold-manifest.json'))
     const release = JSON.parse(releaseBytes)
     const archiveBytes = read(join(directory, name + '.tgz'))
+    const build = JSON.parse(read(join(directory, 'scaffold-build-inputs.json')))
     if (metadata.schema_version !== 1 || metadata.protocol !== 'peanut.template-package.v1'
       || metadata.kind !== 'scaffold-template' || metadata.version !== version || metadata.edition !== edition
       || metadata.profile !== 'full' || !['none', 'runtime', 'full'].includes(metadata.workflow)
@@ -55,6 +56,14 @@ export function readTemplateArtifacts({ root, version, commit, tree, inventorySh
       || release.release?.version !== version || release.release?.source_commit !== commit
       || release.release?.source_tree !== tree || release.release?.inventory_sha256 !== inventorySha256
       || release.release?.workflow !== metadata.workflow) fail(`template identity mismatch: ${edition}`)
+    if (build.protocol !== 'peanut.scaffold-build-inputs.v1'
+      || !isDeepStrictEqual(build.source, metadata.source) || !sha(build.payload_sha256)
+      || !build.inputs || !build.environment?.tools
+      || !isDeepStrictEqual(build.artifacts, {
+        [name + '.tgz']: { bytes: archiveBytes.length, sha256: sha256(archiveBytes) },
+        [name + '.json']: { bytes: metadataBytes.length, sha256: sha256(metadataBytes) },
+        'scaffold-manifest.json': { bytes: releaseBytes.length, sha256: sha256(releaseBytes) },
+      })) fail(`build input receipt mismatch: ${edition}`)
     assets[name + '.tgz'] = { size_bytes: archiveBytes.length, sha256: sha256(archiveBytes) }
     assets[name + '.json'] = { size_bytes: metadataBytes.length, sha256: sha256(metadataBytes) }
     editions[edition] = {
@@ -62,9 +71,12 @@ export function readTemplateArtifacts({ root, version, commit, tree, inventorySh
       scaffold_manifest_sha256: metadata.scaffold_manifest_sha256,
       create_manifest_sha256: metadata.create_manifest_sha256,
       upgrade_tooling_sha256: metadata.upgrade_tooling_sha256,
+      production_inputs: build,
     }
   }
   if (editions.standalone.workflow !== editions['multi-tenant'].workflow) fail('Edition workflow mismatch')
+  if (!isDeepStrictEqual(editions.standalone.production_inputs.inputs, editions['multi-tenant'].production_inputs.inputs)
+    || !isDeepStrictEqual(editions.standalone.production_inputs.environment, editions['multi-tenant'].production_inputs.environment)) fail('Edition production inputs differ')
   return { protocol: 'peanut.template-release-inputs.v1', version,
     source: { commit, tree, inventory_sha256: inventorySha256 }, editions, assets }
 }
@@ -85,8 +97,21 @@ export function verifyTemplateArtifacts(input, sourceRoot) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const [operation, root, version, commit, tree, inventorySha256, sourceRoot] = process.argv.slice(2)
-  if (!['read', 'check'].includes(operation) || !inventorySha256
-    || (operation === 'check' ? !sourceRoot : sourceRoot !== undefined)) fail('expected read/check root/version/commit/tree/inventory-sha256 [producer-root]')
+  if (!['read', 'check', 'compare'].includes(operation) || !inventorySha256
+    || (operation === 'read' ? sourceRoot !== undefined : !sourceRoot)) fail('expected read/check/compare root/version/commit/tree/inventory-sha256 [producer-root|rebuilt-root]')
   const input = { root, version, commit, tree, inventorySha256 }
-  console.log(JSON.stringify(operation === 'check' ? verifyTemplateArtifacts(input, sourceRoot) : readTemplateArtifacts(input)))
+  if (operation === 'compare') {
+    const original = readTemplateArtifacts(input)
+    const rebuilt = readTemplateArtifacts({ ...input, root: sourceRoot })
+    if (!isDeepStrictEqual(original, rebuilt)) fail('rebuilt production inputs, payload or final attachments differ; qualification cannot transfer')
+    for (const edition of templateEditions) {
+      for (const name of [original.editions[edition].archive, original.editions[edition].manifest]) {
+        if (!read(join(root, edition, name)).equals(read(join(sourceRoot, edition, name)))) fail(`rebuilt bytes differ: ${name}`)
+      }
+    }
+    console.log(JSON.stringify({ status: 'identical', template_artifacts: original,
+      limitation: 'Byte identity does not grant qualification or publication authorization.' }))
+  } else {
+    console.log(JSON.stringify(operation === 'check' ? verifyTemplateArtifacts(input, sourceRoot) : readTemplateArtifacts(input)))
+  }
 }

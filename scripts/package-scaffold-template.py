@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Serialize the native scaffold projection; never install, start or regenerate it."""
+"""Serialize the native scaffold projection and its locked upgrade tooling."""
 import argparse
 import gzip
 import hashlib
@@ -12,6 +12,8 @@ import subprocess
 import tempfile
 import tarfile
 import shutil
+import platform
+import zlib
 
 
 def digest(data):
@@ -20,6 +22,27 @@ def digest(data):
 
 def encoded(value):
     return (json.dumps(value, ensure_ascii=False, indent=4) + '\n').encode()
+
+
+def production_environment(source, check):
+    required = json.loads((source / 'tools/toolchain.json').read_bytes())['tools']
+    composer_pin = (source / 'scripts/project-composer').read_text()
+    versions = {name: required[name]['version'] for name in ['php', 'node', 'python3']}
+    versions['pnpm'] = re.fullmatch(r'pnpm@([0-9.]+)(?:\+sha[0-9]+\.[a-fA-F0-9]+)?',
+                                  json.loads((source / 'web/package.json').read_bytes())['packageManager'])[1]
+    versions['composer'] = re.search(r"^VERSION='([0-9.]+)'$", composer_pin, re.M)[1]
+    if check:
+        return {'tools': versions}
+    actual = {'php': subprocess.check_output(['php', '-r', 'echo PHP_VERSION;'], text=True).strip(),
+              'node': subprocess.check_output(['node', '--version'], text=True).strip().removeprefix('v'),
+              'python3': platform.python_version(),
+              'pnpm': subprocess.check_output(['pnpm', '--version'], text=True).strip(),
+              'composer': re.search(r'Composer version ([0-9.]+)', subprocess.check_output(
+                  ['composer', '--version', '--no-ansi'], text=True))[1]}
+    if actual != versions:
+        raise ValueError('TEMPLATE_BUILD_TOOLCHAIN_MISMATCH')
+    return {'tools': actual, 'system': platform.system(), 'architecture': platform.machine(),
+            'zlib_compile': zlib.ZLIB_VERSION, 'zlib_runtime': zlib.ZLIB_RUNTIME_VERSION}
 
 
 def main():
@@ -49,6 +72,7 @@ def main():
     tokens = release['release']['tokens']
     members = {'scaffold-manifest.json': (release_bytes, 0o644)}
     tooling_source = pathlib.Path(args.tooling_source).resolve(strict=True)
+    environment_identity = production_environment(tooling_source.parent, args.check)
     tooling_inputs = {name: (tooling_source / name).read_bytes() for name in ['composer.json', 'composer.lock']}
     lock = json.loads(tooling_inputs['composer.lock'])
     def tooling_identity(package):
@@ -187,6 +211,35 @@ def main():
             raise ValueError('TEMPLATE_PACKAGE_MANIFEST_CHANGED')
     else:
         metadata.write_bytes(encoded(package))
+
+    # Keep the actual production environment outside the portable delivery bytes.
+    # Qualification binds this receipt together with the four final attachments.
+    source = tooling_source.parent
+    input_paths = ['release-versions.json', 'scaffold/application-template-inventory.json',
+                   'server/composer.json', 'server/composer.lock', 'web/package.json', 'web/pnpm-lock.yaml',
+                   'platform/package.json', 'platform/package-lock.json', 'pc/package.json', 'pc/package-lock.json',
+                   'uniapp/package.json', 'uniapp/package-lock.json',
+                   'tools/toolchain.json', 'scripts/project-composer', 'scripts/build-scaffold-release',
+                   'scripts/package-scaffold-template.py', 'scripts/generate-api-contracts.php']
+    inputs = {name: digest((source / name).read_bytes()) for name in input_paths}
+    artifacts = {file.name: {'bytes': file.stat().st_size, 'sha256': digest(file.read_bytes())}
+                 for file in [archive, metadata, output / 'scaffold-manifest.json']}
+    payload = digest(encoded([{'path': name, 'mode': mode, 'sha256': digest(content)}
+                              for name, (content, mode) in sorted(members.items())]))
+    receipt_path = output / 'scaffold-build-inputs.json'
+    identity = {'protocol': 'peanut.scaffold-build-inputs.v1', 'source': manifest['generation_source'],
+                'inputs': inputs, 'artifacts': artifacts, 'payload_sha256': payload}
+    if args.check:
+        receipt = json.loads(receipt_path.read_bytes())
+        if ({key: receipt.get(key) for key in identity} != identity
+                or receipt.get('environment', {}).get('tools') != environment_identity['tools']
+                or not all(isinstance(receipt['environment'].get(key), str) and receipt['environment'][key]
+                           for key in ['system', 'architecture', 'zlib_compile', 'zlib_runtime'])):
+            raise ValueError('TEMPLATE_BUILD_INPUTS_CHANGED')
+    else:
+        identity['environment'] = environment_identity
+        with receipt_path.open('xb') as receipt:
+            receipt.write(encoded(identity))
 
 
 if __name__ == '__main__':
