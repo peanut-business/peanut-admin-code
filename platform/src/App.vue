@@ -656,7 +656,13 @@
           ><el-table
             v-loading="loading"
             :data="bindings"
-            empty-text="暂无入口绑定"
+            :empty-text="
+              bindingLoadState === 'error'
+                ? '入口绑定加载失败，请刷新重试'
+                : bindingLoadState === 'ready'
+                ? '暂无入口绑定'
+                : '正在加载入口绑定'
+            "
             ><el-table-column prop="host" label="域名" /><el-table-column
               prop="tenant_name"
               label="租户"
@@ -753,13 +759,16 @@
             ><el-table :data="storage.accounts"
               ><el-table-column
                 prop="account_key"
-                label="标识" /><el-table-column
-                prop="driver"
-                label="供应商" /><el-table-column
+                label="标识"
+              /><el-table-column prop="driver" label="供应商" /><el-table-column
                 prop="name"
-                label="名称" /><el-table-column
-                prop="status"
-                label="状态" /></el-table></el-card
+                label="名称"
+              /><el-table-column prop="status" label="状态"
+                ><template #default="{ row }">{{
+                  statusLabel(row.status)
+                }}</template></el-table-column
+              ></el-table
+            ></el-card
           ><el-card
             ><template #header>Space / Bucket</template
             ><el-table :data="storage.spaces"
@@ -773,9 +782,11 @@
                 ><template #default="{ row }">{{
                   row.bucket || row.local_path
                 }}</template></el-table-column
-              ><el-table-column prop="status" label="状态" /><el-table-column
-                label="操作"
-                width="120"
+              ><el-table-column prop="status" label="状态"
+                ><template #default="{ row }">{{
+                  statusLabel(row.status)
+                }}</template></el-table-column
+              ><el-table-column label="操作" width="120"
                 ><template #default="{ row }"
                   ><el-button
                     v-if="row.status === 'active'"
@@ -930,7 +941,11 @@
                     v-for="permission in permissions"
                     :key="permission.key"
                     :value="permission.key"
-                    >{{ permission.name }}（{{ permission.key }}）</el-checkbox
+                    >{{
+                      permission.name === permission.key
+                        ? permission.key
+                        : `${permission.name}（${permission.key}）`
+                    }}</el-checkbox
                   ></el-checkbox-group
                 ></el-scrollbar
               ><el-button
@@ -945,16 +960,35 @@
             ><el-table-column prop="key" label="角色键" /><el-table-column
               prop="name"
               label="名称"
-            /><el-table-column prop="status" label="状态" /><el-table-column
-              label="权限"
+            /><el-table-column prop="status" label="状态"
+              ><template #default="{ row }">{{
+                statusLabel(row.status)
+              }}</template></el-table-column
+            ><el-table-column label="权限"
               ><template #default="{ row }">{{
                 row.permission_count
               }}</template></el-table-column
             ><el-table-column label="操作" width="250"
               ><template #default="{ row }"
-                ><el-button link @click="editRole(row)">编辑</el-button
-                ><el-button link type="primary" @click="editPermissions(row)"
+                ><el-button
+                  link
+                  :disabled="
+                    row.status !== 'active' || !can('platform.role.update')
+                  "
+                  @click="editRole(row)"
+                  >编辑</el-button
+                ><el-button
+                  link
+                  type="primary"
+                  :disabled="
+                    row.status !== 'active' ||
+                    !can('platform.permission.read') ||
+                    !can('platform.role.permission.assign')
+                  "
+                  @click="editPermissions(row)"
                   >编辑权限</el-button
+                ><span v-if="row.status === 'archived'" class="muted"
+                  >已归档，仅可查看</span
                 ><el-button
                   v-if="!row.is_builtin && row.status === 'active'"
                   link
@@ -1109,6 +1143,7 @@
   const tenants = ref<Tenant[]>([]);
   const invitations = ref<Invitation[]>([]);
   const bindings = ref<EntryBinding[]>([]);
+  const bindingLoadState = ref<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const modules = ref<ModuleState[]>([]);
   const operators = ref<Operator[]>([]);
   const roles = ref<PlatformRole[]>([]);
@@ -1154,6 +1189,7 @@
     tenants.value = [];
     invitations.value = [];
     bindings.value = [];
+    bindingLoadState.value = 'idle';
     modules.value = [];
     operators.value = [];
     roles.value = [];
@@ -1198,6 +1234,11 @@
         permissionCatalogError.value || '权限目录尚未加载，暂不能编辑或保存。'
       );
     if (!permissionRole.value) return '请选择需要编辑权限的角色。';
+    if (
+      roles.value.find((role) => role.id === permissionRole.value?.id)
+        ?.status !== 'active'
+    )
+      return '角色已归档或不可用，仅可查看，不能编辑或保存权限。';
     if (
       permissionRole.value.permission_count !==
       new Set(permissionRole.value.permission_keys).size
@@ -1392,6 +1433,7 @@
           suspended: '已暂停',
           disabled: '已停用',
           closed: '已关闭',
+          archived: '已归档',
           queued: '排队中',
           running: '执行中',
           succeeded: '已完成',
@@ -1581,6 +1623,10 @@
     }
     loading.value = true;
     error.value = '';
+    if (requestedView === 'endpoints') {
+      bindingLoadState.value = 'loading';
+      bindings.value = [];
+    }
     try {
       if (requestedView === 'overview') {
         await Promise.all([
@@ -1611,6 +1657,7 @@
         const bindingData = await api.entryBindings(tenantId ?? undefined);
         if (!isCurrentTenantRequest(tenantId)) return;
         bindings.value = bindingData;
+        bindingLoadState.value = 'ready';
       } else if (requestedView === 'modules') {
         await loadTenants(isCurrentRequest);
         if (!isCurrentRequest()) return;
@@ -1656,6 +1703,7 @@
     } catch (cause) {
       if (isCurrentRequest()) {
         error.value = message(cause);
+        if (requestedView === 'endpoints') bindingLoadState.value = 'error';
         if (!hasPlatformSession()) authenticated.value = false;
       }
     } finally {
@@ -1878,7 +1926,7 @@
       await ElMessageBox.alert(
         `<pre>${escapeHtml(JSON.stringify(detail, null, 2))}</pre>`,
         `${tenant.display_name} 详情`,
-        { dangerouslyUseHTMLString: true }
+        { dangerouslyUseHTMLString: true, closeOnPressEscape: true }
       );
     } catch (cause) {
       if (cause !== 'cancel' && cause !== 'close') error.value = message(cause);
@@ -2241,6 +2289,13 @@
     }, '平台角色已创建');
   }
   async function editRole(item: PlatformRole) {
+    if (
+      !can('platform.role.update') ||
+      roles.value.find((role) => role.id === item.id)?.status !== 'active'
+    ) {
+      error.value = '角色已归档、不可用或缺少编辑权限，不能编辑。';
+      return;
+    }
     try {
       const name = await ElMessageBox.prompt('角色名称', `编辑 ${item.key}`, {
         inputValue: item.name,
@@ -2254,6 +2309,13 @@
         inputPattern: /\S+/,
         inputErrorMessage: '必须填写原因',
       });
+      if (
+        !can('platform.role.update') ||
+        roles.value.find((role) => role.id === item.id)?.status !== 'active'
+      ) {
+        error.value = '角色状态或编辑权限已变化，请刷新后重试。';
+        return;
+      }
       await run(
         () => api.updateRole(item, name.value, description.value, reason.value),
         '平台角色已更新'
@@ -2263,6 +2325,14 @@
     }
   }
   function editPermissions(item: PlatformRole) {
+    if (
+      !can('platform.permission.read') ||
+      !can('platform.role.permission.assign') ||
+      roles.value.find((role) => role.id === item.id)?.status !== 'active'
+    ) {
+      error.value = '角色已归档、不可用或缺少权限，仅可查看，不能编辑权限。';
+      return;
+    }
     permissionRole.value = item;
     permissionSelection.value = [...item.permission_keys];
   }
