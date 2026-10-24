@@ -399,6 +399,8 @@ final class SourceApplicationBackup
             ['pa_article', 'pa_article_body_save']],
         'official.article:20261025050000_add_article_body_save_conflicted_receipt' => ['6254d39bb1839dc5d11557e6c9df4ceab7f15b77fd6c0d2ae0ffc103cf0b0218',
             ['pa_article_body_save']],
+        'official.article:20261025050000_add_article_body_save_conflicted_receipt-repair-20261025' => ['c536e5630a2f832bcbcd9a30da94bc5bfa6841a5ac021b03b1c5afbf9f0d6b3c',
+            ['pa_article_body_save']],
     ];
     private const MEMBER_STAGES = [
         'official.member:20260921-create-member-session' => ['297fc9de7bc227d584cb79fe6e5d50f6cf8512b33696578acbb3f10243b65337',
@@ -1169,6 +1171,7 @@ final class SourceApplicationBackup
                 if (in_array($migration['disposition'] ?? null, ['awaiting_repair', 'repaired'], true)) {
                     $relation = $migration['repair_resolution'] ?? [];
                     $repairKey = match ($id) {
+                        'official.article:20261025050000_add_article_body_save_conflicted_receipt' => 'official.article:20261025050000_add_article_body_save_conflicted_receipt-repair-20261025',
                         'official.identity:20261024020000_create_pa_member_job' => 'official.identity:20261024020000_create_pa_member_job-repair-20261024',
                         'official.file:20261021060200_file_visibility_object_state' => 'official.file:20261021060200_file_visibility_object_state-repair-20261021',
                         'official.collaboration:20261012120000_create_collaboration_runtime' => 'official.collaboration:20261012120000_create_collaboration_runtime-repair-20261021',
@@ -1178,13 +1181,14 @@ final class SourceApplicationBackup
                         'official.notification:20261012-notification-producer-identity' => 'official.notification:20261021-notification-producer-repair',
                         default => null,
                     };
+                    $repairStages = $key === 'official.article' ? self::ARTICLE_STAGES : self::MODULE_DDL_STAGES;
                     $target = array_values(array_filter($module['migrations'], static fn(array $row): bool => ($row['migration_key'] ?? null) === $repairKey));
                     if ($repairKey === null || !str_starts_with($id, $key . ':')
-                        || $sha !== self::MODULE_DDL_STAGES[$id][0] || ($migration['ledger_status'] ?? null) !== 'failed'
+                        || $sha !== $repairStages[$id][0] || ($migration['ledger_status'] ?? null) !== 'failed'
                         || ($migration['executes_original_sql'] ?? null) !== false || ($migration['repair'] ?? null) !== $repairKey
                         || ($relation['original_key'] ?? null) !== $id || ($relation['original_sha256'] ?? null) !== $sha
                         || ($relation['original_status'] ?? null) !== 'failed' || ($relation['executes_original_sql'] ?? null) !== false
-                        || ($relation['repair_key'] ?? null) !== $repairKey || ($relation['repair_sha256'] ?? null) !== self::MODULE_DDL_STAGES[$repairKey][0]
+                        || ($relation['repair_key'] ?? null) !== $repairKey || ($relation['repair_sha256'] ?? null) !== $repairStages[$repairKey][0]
                         || preg_match('/\A[a-f0-9]{64}\z/D', (string) ($relation['original_ledger_sha256'] ?? '')) !== 1
                         || count($target) !== 1 || ($target[0]['sha256'] ?? null) !== $relation['repair_sha256']
                         || !in_array([$migration['disposition'], $relation['state'] ?? null, $target[0]['disposition'] ?? null],

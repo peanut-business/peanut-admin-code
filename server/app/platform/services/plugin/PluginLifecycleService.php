@@ -38,6 +38,7 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     private const ARTICLE_STAGES = [
         'official.article:20261013230000_add_article_document_save_binding' => '67e504df714ee1a1d0cc6959506eaa584cfaeb0ea26c3e95597586b5ec2576fe',
         'official.article:20261025050000_add_article_body_save_conflicted_receipt' => '6254d39bb1839dc5d11557e6c9df4ceab7f15b77fd6c0d2ae0ffc103cf0b0218',
+        'official.article:20261025050000_add_article_body_save_conflicted_receipt-repair-20261025' => 'c536e5630a2f832bcbcd9a30da94bc5bfa6841a5ac021b03b1c5afbf9f0d6b3c',
     ];
     private const MEMBER_STAGES = [
         'official.member:20260921-create-member-session' => '297fc9de7bc227d584cb79fe6e5d50f6cf8512b33696578acbb3f10243b65337',
@@ -1255,12 +1256,13 @@ final readonly class PluginLifecycleService implements PluginLifecycleCommands
     {
         $after = app()->make(ArticleMigrationPreservation::class)->after($pdo, $privateBefore);
         $conflictChecks = $key === 'official.article:20261025050000_add_article_body_save_conflicted_receipt';
+        $conflictRepair = $key === 'official.article:20261025050000_add_article_body_save_conflicted_receipt-repair-20261025';
         if (Db::connect()->getPdo() !== $pdo || $pdo->inTransaction() || ($after['module_key'] ?? null) !== 'official.article'
             || ($after['migration_key'] ?? null) !== $key || ($after['sql_sha256'] ?? null) !== $sha
             || ($after['readonly'] ?? null) !== true || ($after['preservation_verified'] ?? null) !== true
-            || ($after['proof_kind'] ?? null) !== ($conflictChecks ? 'fixed_native_check_ddl' : 'fixed_native_additive_ddl')
-            || ($after['delta_kind'] ?? null) !== ($conflictChecks ? 'article_save_conflicted_checks_only' : 'article_document_binding_and_empty_save_receipt')
-            || ($after['table_count'] ?? null) !== ($conflictChecks ? 1 : 2)) {
+            || ($after['proof_kind'] ?? null) !== ($conflictRepair ? 'fixed_native_check_verification' : ($conflictChecks ? 'fixed_native_check_ddl' : 'fixed_native_additive_ddl'))
+            || ($after['delta_kind'] ?? null) !== ($conflictRepair ? 'article_save_conflicted_poststate_verified' : ($conflictChecks ? 'article_save_conflicted_checks_only' : 'article_document_binding_and_empty_save_receipt'))
+            || ($after['table_count'] ?? null) !== ($conflictChecks || $conflictRepair ? 1 : 2)) {
             throw new PluginLifecycleException('MODULE_MIGRATION_POSTSTATE_REJECTED', 'Article did not prove its fixed native DDL postconditions.');
         }
         app()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->recordStage($pdo, $key, $sha, ArticleMigrationPreservation::class, $after);

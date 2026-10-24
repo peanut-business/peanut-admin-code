@@ -2497,7 +2497,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a9eab06bb8aa85fbb696c6381d3d8d8449c85bcdec07d82a86f41cbc58d4878a"
+            "source_sha256": "e4b22709305afbf99f497f623ad6bead412d167358ff85f6c74f3d9308e20ee1"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2564,7 +2564,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f0b8dc386865e9da8f4ac1bcbe6bf59a05c000857eeee0b2d8325fe018ee7e4a"
+            "source_sha256": "c2e1983d495c2f1178de8961f79218458889c495daa00e3cb0f7959a2573a28d"
         },
         {
             "path": "plugins/official.collaboration/plugin.json",
@@ -9617,7 +9617,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dcd29ca3453621d161a2db6d223860586b9ce27564a0ed60f99150a7cf0200b8"
+            "source_sha256": "6a9c139f59430a6481486b3d6854449684bca6e3451aec3666a786d0a59eef86"
         },
         {
             "path": "server/app/common/services/upgrade/SourceApplicationDump.php",
@@ -10972,7 +10972,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3f3a8f3b1bc347f3de7617eb39a48c8ef06ececfa5a06878d3191ccde8c2de63"
+            "source_sha256": "b82c4c47aa3b2b06c935918ad5756cf8ff4cb73acc515557f1e96e87fc1e0ebb"
         },
         {
             "path": "server/app/modules/official/article/api/metadata/openapi.php",
@@ -11045,6 +11045,20 @@
             "source_sha256": "67e504df714ee1a1d0cc6959506eaa584cfaeb0ea26c3e95597586b5ec2576fe"
         },
         {
+            "path": "server/app/modules/official/article/database/migrations/20261025050000_add_article_body_save_conflicted_receipt-repair-20261025.sql",
+            "target": "server/app/modules/official/article/database/migrations/20261025050000_add_article_body_save_conflicted_receipt-repair-20261025.sql",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "c536e5630a2f832bcbcd9a30da94bc5bfa6841a5ac021b03b1c5afbf9f0d6b3c"
+        },
+        {
             "path": "server/app/modules/official/article/database/migrations/20261025050000_add_article_body_save_conflicted_receipt.sql",
             "target": "server/app/modules/official/article/database/migrations/20261025050000_add_article_body_save_conflicted_receipt.sql",
             "classification": "managed",
@@ -11070,7 +11084,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a9386bf8646c501d0379d3482ef822e805371daadcee4ee63d6a28ba098fa5ca"
+            "source_sha256": "6d8d3d4985149f265610ddafff4daa9efcf3c818abc87ab59547a11015edddee"
         },
         {
             "path": "server/app/modules/official/article/resources/menus.json",
@@ -11182,7 +11196,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a1af9646c66d99e319848f67765a3963d0cf1a0ecfb67838191a4f1062105b97"
+            "source_sha256": "efec0614fb7b5f084e5a71b70260f58ad36ca6316ea95c3420aab0055d1e5174"
         },
         {
             "path": "server/app/modules/official/article/src/Contract/ArticleQueries.php",
@@ -26675,7 +26689,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f8ef75e0f5570cfbb81fa4d62679117f7fe252013334c9134802e58f182d5c2e"
+            "source_sha256": "1b8614fb1fc1efa4d70a7608c08c39a7877a00f3b2f062e41130bbe5f6815966"
         },
         {
             "path": "server/app/platform/services/plugin/PluginPackageAdoptionService.php",

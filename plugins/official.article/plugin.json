@@ -1,11 +1,11 @@
 {
     "schema_version": 1,
     "key": "official.article",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "d3088718fcc5825805e4965756eccc012ba07967ff08d81bad921c5cc664e9b4"
+        "sha256": "f0fb80b80480e4996637ea8f8d360d518678529733490a517098a531e5e74573"
     },
     "trust": {
         "channel": "bundled",
@@ -39,7 +39,7 @@
             "modules": [
                 {
                     "key": "official.article",
-                    "version": "1.0.7",
+                    "version": "1.0.8",
                     "kernel_constraint": "^1.0",
                     "dependencies": [
                         {
@@ -77,6 +77,10 @@
                             {
                                 "key": "official.article:20261025050000_add_article_body_save_conflicted_receipt",
                                 "sha256": "6254d39bb1839dc5d11557e6c9df4ceab7f15b77fd6c0d2ae0ffc103cf0b0218"
+                            },
+                            {
+                                "key": "official.article:20261025050000_add_article_body_save_conflicted_receipt-repair-20261025",
+                                "sha256": "c536e5630a2f832bcbcd9a30da94bc5bfa6841a5ac021b03b1c5afbf9f0d6b3c"
                             }
                         ]
                     }
