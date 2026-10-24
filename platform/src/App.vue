@@ -1161,6 +1161,10 @@
   const error = ref('');
   const view = ref('overview');
   const navigationOpen = ref(false);
+  const navigationViewport = window.matchMedia('(max-width: 760px)');
+  function handleNavigationViewportChange(event: MediaQueryListEvent) {
+    if (!event.matches) navigationOpen.value = false;
+  }
   function closeNavigation() {
     if (!navigationOpen.value) return;
     navigationOpen.value = false;
@@ -2424,6 +2428,7 @@
     }
   }
   onMounted(async () => {
+    navigationViewport.addEventListener('change', handleNavigationViewportChange);
     try {
       if (invitationToken.value) await inspectInvitation();
       else if (authenticated.value) {
@@ -2435,6 +2440,7 @@
     }
   });
   onUnmounted(() => {
+    navigationViewport.removeEventListener('change', handleNavigationViewportChange);
     stopPlatformSessionSync();
     opsRuntime.dispose();
   });
