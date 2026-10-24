@@ -49,6 +49,17 @@
           width="120"
         />
         <el-table-column
+          prop="status"
+          :label="$t('systemRole.columns.status')"
+          width="100"
+        >
+          <template #default="{ row }">
+            <el-tag :type="row.status === 'active' ? 'success' : 'info'">
+              {{ $t(`systemRole.status.${row.status}`) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column
           :label="$t('systemRole.columns.createTime')"
           width="180"
         >
@@ -62,7 +73,7 @@
           fixed="right"
         >
           <template #default="{ row }">
-            <el-space>
+            <el-space v-if="row.status === 'active'">
               <el-button
                 v-permission="['role/edit']"
                 link
@@ -92,6 +103,7 @@
                 >
               </el-popconfirm>
             </el-space>
+            <span v-else>—</span>
           </template>
         </el-table-column>
       </el-table>
