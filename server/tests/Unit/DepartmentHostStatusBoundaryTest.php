@@ -73,14 +73,17 @@ final class DepartmentHostStatusBoundaryTest extends TestCase
         $members->method('activeMembershipCount')->willReturn(1);
         $identity = new TenantAuthorizationQuery($members);
         $grants = $this->createStub(TenantAuthorizationRepository::class);
-        $grants->method('permissions')->willReturn(new EffectivePermissionSet([]));
+        $grants->method('permissions')->willReturn(new EffectivePermissionSet([
+            'core.department.create', 'core.department.update', 'core.department.move',
+        ]));
         $bridge = new CoreTenantModuleAdminBridge(
             (new \ReflectionClass(ThinkPhpModuleGovernanceProvider::class))->newInstanceWithoutConstructor(),
             $grants,
             $this->createStub(MenuCatalogRepository::class), $identity, new MenuAdministrationService(),
         );
         $policy = $this->createStub(AdminPermissionPolicy::class);
-        $policy->method('canAccess')->willReturnCallback(static fn(bool $root, string $uri, iterable $registered): bool => in_array($uri, [...$registered], true));
+        $policy->method('canAccess')->willReturnCallback(static fn(bool $root, string $uri, iterable $registered, iterable $granted): bool =>
+            in_array($uri, [...$registered], true) && in_array($uri, [...$granted], true));
         $this->owner = new DepartmentAdminService(new AuditService());
         $this->host = new DeptApplicationService($this->owner, $current, new AdminAuthorizationService(
             $bridge, $policy, $members, new AdminDirectoryQuery($current), $identity,
