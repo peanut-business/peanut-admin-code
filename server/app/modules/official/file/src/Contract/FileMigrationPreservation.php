@@ -238,7 +238,12 @@ final readonly class FileMigrationPreservation
                     );
                     if ($removed !== 1 || !is_string($metadata['ddl'])) { self::fail('IMAGE_INDEX_DELTA_UNKNOWN'); }
                 }
-                if ($metadata !== $table['metadata']) { self::fail('ORIGINAL_SCHEMA_OR_COUNTER_CHANGED'); }
+                if ($metadata !== $table['metadata']) {
+                    throw new FileMigrationPreservationFailure(self::metadataDifference(
+                        $name, $table['metadata'], $metadata,
+                        $name === 'file_object' && $delta['image_index'],
+                    ));
+                }
               }
             }
             if ($this->context($pdo) !== $privateBefore['context'] || $pdo->inTransaction() !== $privateBefore['transaction_active']) {
@@ -253,6 +258,58 @@ final readonly class FileMigrationPreservation
                     : ($delta['new_tables'] === [] ? 'no_business_delta' : 'empty_file_family_increment'))),
                 'delta_sha256' => self::hash($delta)];
         });
+    }
+
+    /** Hash the exact failed comparison; expose only bounded fields, positions and finite types. */
+    private static function metadataDifference(string $role, array $expected, array $actual, bool $imageIndex): array
+    {
+        $differences = []; $count = 0;
+        $type = static fn(mixed $value): string => match (gettype($value)) {
+            'NULL' => 'null', 'boolean' => 'bool', 'integer' => 'int', 'double' => 'float',
+            'string' => 'string', 'array' => 'array', 'object' => 'object',
+            'resource', 'resource (closed)' => 'resource', default => 'unknown',
+        };
+        $record = static function (array $path, string $kind, string $leftType, string $rightType) use (&$differences, &$count): void {
+            ++$count;
+            if (count($differences) < FileMigrationPreservationFailure::LIMIT) {
+                $differences[] = ['path' => FileMigrationPreservationFailure::boundedPath($path),
+                    'kind' => $kind, 'expected_type' => $leftType, 'actual_type' => $rightType];
+            }
+        };
+        $compare = static function (mixed $left, mixed $right, array $path) use (&$compare, $record, $type): void {
+            $leftType = $type($left); $rightType = $type($right);
+            if ($leftType !== $rightType) { $record($path, 'type', $leftType, $rightType); return; }
+            if (!is_array($left)) {
+                if ($left !== $right) { $record($path, 'value', $leftType, $rightType); }
+                return;
+            }
+            $leftKeys = array_keys($left); $rightKeys = array_keys($right);
+            if ($leftKeys !== $rightKeys && array_diff($leftKeys, $rightKeys) === [] && array_diff($rightKeys, $leftKeys) === []) {
+                $record($path, 'order', 'array', 'array');
+            }
+            // The extended visibility image is a nested closed schema; do not emit its dynamic map keys.
+            if ($path === ['complete'] || count($path) >= 3) {
+                $sameEntries = count($left) === count($right);
+                foreach ($left as $key => $value) {
+                    if (!array_key_exists($key, $right) || $value !== $right[$key]) { $sameEntries = false; break; }
+                }
+                if (!$sameEntries) { $record($path, 'shape', $leftType, $rightType); }
+                return;
+            }
+            foreach (array_unique([...$leftKeys, ...$rightKeys], SORT_REGULAR) as $key) {
+                $child = [...$path, $key];
+                if (!array_key_exists($key, $left)) { $record($child, 'missing_expected', 'missing', $type($right[$key])); }
+                elseif (!array_key_exists($key, $right)) { $record($child, 'missing_actual', $type($left[$key]), 'missing'); }
+                else { $compare($left[$key], $right[$key], $child); }
+            }
+        };
+        $compare($expected, $actual, []);
+        $beforeHash = hash('sha256', serialize($expected));
+        return ['format' => 'file.preservation-metadata-difference.v1', 'digest_format' => 'php-serialize-guard-metadata.v1',
+            'table_role' => $role, 'comparison' => $imageIndex ? 'actual_without_declared_image_index' : 'unchanged_metadata',
+            'before_sha256' => $beforeHash, 'expected_sha256' => $beforeHash, 'actual_sha256' => hash('sha256', serialize($actual)),
+            'difference_count' => $count, 'reported_count' => count($differences), 'truncated' => $count > count($differences),
+            'differences' => $differences];
     }
 
     /** Observe presence only; FileMigrationAdoptionProof remains the sole execute/adopt/reject authority. */
@@ -718,6 +775,10 @@ final readonly class FileMigrationPreservation
         try { return $operation(); }
         catch (\Throwable $error) {
             // Never chain driver exceptions containing SQL, grants or private metadata to a public failure.
+            if (get_class($error) === FileMigrationPreservationFailure::class) {
+                // Reconstruct at this same safe boundary, retaining no original exception or snapshot.
+                throw new FileMigrationPreservationFailure($error->diagnostic() ?? []);
+            }
             $code = $error instanceof RuntimeException && preg_match('/\AFILE_PRESERVATION_[A-Z_]+\z/D', $error->getMessage()) === 1
                 ? $error->getMessage() : 'FILE_PRESERVATION_OBSERVATION_FAILED';
             throw new RuntimeException($code);

@@ -871,6 +871,13 @@ function logInstallationFailure(string $serverDir, string $stage, string $errorC
                 $difference = $exception->diagnostic();
                 if ($difference !== null) { $entry['metadata_difference'] = $difference; }
             }
+            if ($class === \PeanutAdmin\Modules\File\Contract\FileMigrationPreservationFailure::class
+                && $file === rtrim(str_replace('\\', '/', $serverDir), '/') . '/app/modules/official/file/src/Contract/FileMigrationPreservation.php'
+                && $exception->getMessage() === \PeanutAdmin\Modules\File\Contract\FileMigrationPreservationFailure::CAUSE) {
+                $entry['cause_code'] = \PeanutAdmin\Modules\File\Contract\FileMigrationPreservationFailure::CAUSE;
+                $difference = $exception->diagnostic();
+                if ($difference !== null) { $entry['metadata_difference'] = $difference; }
+            }
             // Only this fixed producer's finite proof codes are safe to audit.
             // Keep them on their actual chain entry, never in the public response.
             if ($exception instanceof RuntimeException
