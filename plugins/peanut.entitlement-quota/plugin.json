@@ -1,11 +1,11 @@
 {
     "schema_version": 1,
     "key": "peanut.entitlement-quota",
-    "version": "4.0.0-rc.25",
+    "version": "4.0.0-rc.26",
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "032b75fb3134d1087cea975e4bc7ff3e4add65235a88d9d24ed2f41774073bc2"
+        "sha256": "1f196deddc0a56c9e306524d5656173a421f320b6aaca6c78b03d72a390754af"
     },
     "trust": {
         "channel": "bundled",
@@ -39,12 +39,12 @@
             "modules": [
                 {
                     "key": "peanut.entitlement-quota",
-                    "version": "4.0.0-rc.25",
+                    "version": "4.0.0-rc.26",
                     "kernel_constraint": "^1.0",
                     "dependencies": [
                         {
                             "module_key": "official.identity",
-                            "version": "4.0.0-rc.25"
+                            "version": "4.0.0-rc.26"
                         }
                     ],
                     "permissions": {

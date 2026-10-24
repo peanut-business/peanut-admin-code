@@ -1,11 +1,11 @@
 {
     "schema_version": 1,
     "key": "official.payment",
-    "version": "1.0.12",
+    "version": "1.0.13",
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "c2a00b14597e0af429ba8d6690cf564f2950cddcea5fbcf81e03a3ed3d9e9988"
+        "sha256": "d209af04576746b91eaf3ec35bce8d5f0698a2c9449d6d52989462c6db7e283e"
     },
     "trust": {
         "channel": "bundled",
@@ -39,7 +39,7 @@
             "modules": [
                 {
                     "key": "official.payment",
-                    "version": "1.0.12",
+                    "version": "1.0.13",
                     "kernel_constraint": "^1.0",
                     "dependencies": [
                         {
@@ -48,7 +48,7 @@
                         },
                         {
                             "module_key": "official.identity",
-                            "version": "4.0.0-rc.25"
+                            "version": "4.0.0-rc.26"
                         },
                         {
                             "module_key": "official.integration",
