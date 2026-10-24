@@ -33,7 +33,7 @@ trait PluginCommandSupport
 
     private function configureSourceDevelopmentOptions(): void
     {
-        foreach (['scope', 'owner', 'thread', 'session', 'gate', 'backup-tool', 'backup-output', 'metadata-tool', 'source-plan', 'maintenance', 'recovery', 'verify-receipt', 'snapshot-operation', 'restore-operation', 'notification-predecessor', 'application-recovery'] as $name) {
+        foreach (['scope', 'owner', 'thread', 'session', 'gate', 'backup-tool', 'backup-output', 'metadata-tool', 'source-plan', 'maintenance', 'recovery', 'verify-receipt', 'snapshot-operation', 'restore-operation', 'notification-predecessor', 'application-recovery', 'source-batch'] as $name) {
             $this->addOption($name, null, \think\console\input\Option::VALUE_REQUIRED, 'Native source maintenance ' . $name, '');
         }
     }
@@ -48,6 +48,42 @@ trait PluginCommandSupport
             $dryRun = (bool) $input->getOption('dry-run');
             $actor = ['scope' => $input->getOption('scope')];
             foreach (['owner', 'thread', 'session', 'gate'] as $name) { $actor[$name] = $input->getOption($name); }
+            if ($input->getOption('source-batch') !== '') {
+                if ($operation !== 'upgrade' || $actor['scope'] !== 'source-development') {
+                    throw new PluginLifecycleException('PLUGIN_SOURCE_BATCH_SCOPE_REQUIRED', 'Catalog batches belong only to explicit development source upgrades.');
+                }
+                foreach (['application-recovery', 'snapshot-operation', 'restore-operation', 'notification-predecessor', 'verify-receipt'] as $name) {
+                    if ($input->getOption($name) !== '') { throw new PluginLifecycleException('PLUGIN_SOURCE_BATCH_ARGUMENTS_INVALID', 'A batch cannot imply another lifecycle or recovery operation.'); }
+                }
+                $keys = explode(',', (string) $input->getOption('source-batch'));
+                if (($keys[0] ?? null) !== $key || count($keys) > 22 || count(array_unique($keys)) !== count($keys)) {
+                    throw new PluginLifecycleException('PLUGIN_SOURCE_BATCH_ARGUMENTS_INVALID', 'The explicit ordered batch starts with the command Plugin key.');
+                }
+                foreach ($keys as $pluginKey) {
+                    if (preg_match('/\A[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*\z/D', $pluginKey) !== 1) {
+                        throw new PluginLifecycleException('PLUGIN_SOURCE_BATCH_ARGUMENTS_INVALID', 'Batch Plugin keys must be exact and unique.');
+                    }
+                }
+                $readOne = fn(string $pluginKey, callable $consume): array => $this->pluginLifecycle()->reconcilePlan($pluginKey, false, $consume);
+                // Existing native consumers nest the real package locks; no copied lock algorithm.
+                $readAll = function (callable $consume) use ($keys, $readOne): array {
+                    $plans = [];
+                    $held = function (int $index) use (&$held, &$plans, $keys, $readOne, $consume): array {
+                        if ($index === count($keys)) { return $consume($plans); }
+                        return $readOne($keys[$index], function (array $plan) use (&$plans, $keys, $index, &$held): array {
+                            $plans[$keys[$index]] = $plan;
+                            return $held($index + 1);
+                        });
+                    };
+                    return $held(0);
+                };
+                return $this->getApp()->make(\app\common\services\upgrade\PluginSourceDevelopmentHost::class)->catalogBatch(
+                    $keys, $actor, $readAll, $readOne, fn(string $pluginKey): array => $this->pluginLifecycle()->upgrade($pluginKey, false),
+                    $dryRun, (string) $input->getOption('source-plan'), (string) $input->getOption('maintenance'),
+                    (string) $input->getOption('recovery'), (string) $input->getOption('backup-tool'),
+                    (string) $input->getOption('backup-output'), (string) $input->getOption('metadata-tool'),
+                );
+            }
             if ($input->getOption('application-recovery') !== '') {
                 $mode = (string) $input->getOption('application-recovery');
                 if ($actor['scope'] !== 'source-application' || !in_array($mode, ['verify', 'rehearse', 'restore'], true)
@@ -136,7 +172,7 @@ trait PluginCommandSupport
 
     private function hasSourceDevelopmentOptions(\think\console\Input $input): bool
     {
-        foreach (['scope', 'owner', 'thread', 'session', 'gate', 'backup-tool', 'backup-output', 'metadata-tool', 'source-plan', 'maintenance', 'recovery', 'verify-receipt', 'snapshot-operation', 'restore-operation', 'notification-predecessor', 'application-recovery'] as $name) {
+        foreach (['scope', 'owner', 'thread', 'session', 'gate', 'backup-tool', 'backup-output', 'metadata-tool', 'source-plan', 'maintenance', 'recovery', 'verify-receipt', 'snapshot-operation', 'restore-operation', 'notification-predecessor', 'application-recovery', 'source-batch'] as $name) {
             if ($input->getOption($name) !== '') { return true; }
         }
         return false;

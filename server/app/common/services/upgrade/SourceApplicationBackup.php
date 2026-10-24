@@ -1414,10 +1414,11 @@ final class SourceApplicationBackup
     }
 
     /** Calls only fixed probe/dump programs; emits no database writes or restore command execution. */
-    public static function capture(array $binding, array $baseline, string $baselineSha, array $scope, array $tool, string $directory, callable $recheck, string $purpose = 'application-schema'): array
+    public static function capture(array $binding, array $baseline, string $baselineSha, array $scope, array $tool, string $directory, callable $recheck, string $purpose = 'application-schema', ?callable $snapshotCheck = null): array
     {
         $captureStarted = time();
-        if (!in_array($purpose, ['application-schema', 'application-failure', 'application-restoration', 'plugin-lifecycle',
+        $captureClock = hrtime(true); $timings = []; $batch = $purpose === 'plugin-catalog-batch';
+        if (!in_array($purpose, ['application-schema', 'application-failure', 'application-restoration', 'plugin-lifecycle', 'plugin-catalog-batch',
             'identity-recovery-snapshot', 'identity-recovery-postimage', 'installation-partial', 'task-failure-forensic', 'workflow-failure-forensic', 'notification-failure-forensic', 'collaboration-failure-forensic', 'file-failure-forensic'], true)) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_SOURCE_UNSUPPORTED'); }
         $forensicModule = match ($purpose) { 'task-failure-forensic' => 'task', 'workflow-failure-forensic' => 'workflow', 'notification-failure-forensic' => 'notification', 'collaboration-failure-forensic' => 'collaboration', 'file-failure-forensic' => 'file', default => null };
         $failureForensic = $forensicModule !== null;
@@ -1450,7 +1451,10 @@ final class SourceApplicationBackup
         $partial = $purpose === 'installation-partial';
         $effectMetadata = $partial && ($binding['authority']['kind'] ?? null) === 'app-native-owner'
             ? self::appMetadataOrigin($binding, $baseline, $scope) : null;
-        if ($purpose === 'plugin-lifecycle') { self::pluginEvidenceTables($scope, 'recovery'); }
+        if ($purpose === 'plugin-lifecycle' || $batch) { self::pluginEvidenceTables($scope, 'recovery'); }
+        if ($batch && (($baseline['operation'] ?? null) !== 'upgrade-catalog-batch' || ($baseline['pending'] ?? null) !== []
+            || !is_array($baseline['steps'] ?? null) || $baseline['steps'] === [] || isset($scope['notification_forward_receipt'])
+            || !is_callable($snapshotCheck))) { throw new RuntimeException('PLUGIN_SOURCE_BATCH_CLOSURE_REQUIRED'); }
         $database = $binding['database']['database'];
         $contract = $tool['source_schema_backup'] ?? null;
         if (($tool['transport'] ?? null) !== 'ssh-docker-exec' || !is_array($contract)
@@ -1527,7 +1531,11 @@ final class SourceApplicationBackup
             unset($contents);
             $recheck();
         }
+        $phaseClock = hrtime(true); if ($snapshotCheck !== null) { $snapshotCheck(); }
+        $timings['snapshot_before_ms'] = (hrtime(true) - $phaseClock) / 1000000;
+        $phaseClock = hrtime(true);
         $before = self::probe($tool, $binding, $directory . '/probe-before', 'probe-before', $seconds, $recheck);
+        $timings['probe_before_ms'] = (hrtime(true) - $phaseClock) / 1000000;
         if ($effectMetadata !== null && ($before['mysql_sha256'] !== $effectMetadata['client']['mysql_sha256']
             || $before['identity']['version'] !== $effectMetadata['client']['version'])) { throw new RuntimeException('INSTALL_PARTIAL_METADATA_CLIENT_CHANGED'); }
         $dump = $directory . '/database.sql';
@@ -1541,12 +1549,18 @@ final class SourceApplicationBackup
                 '--order-by-primary', '--skip-comments', '--skip-dump-date', '--skip-extended-insert', '--skip-add-locks', '--skip-disable-keys',
                 '--default-character-set=utf8mb4', '-uroot', '--databases', $database];
         }
+        $phaseClock = hrtime(true);
         self::remote($tool, self::clientShell($tool, 'mysqldump_command', $seconds, $flags), $dump, $directory . '/dump.stderr',
             'dump', $seconds, (int) $binding['authority']['expires_at'], $recheck,
         );
+        $timings['dump_with_guards_ms'] = (hrtime(true) - $phaseClock) / 1000000;
         if (filesize($dump) === 0) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_EMPTY'); }
+        $phaseClock = hrtime(true);
         $after = self::probe($tool, $binding, $directory . '/probe-after', 'probe-after', $seconds, $recheck);
+        $timings['probe_after_ms'] = (hrtime(true) - $phaseClock) / 1000000;
         $recheck();
+        $phaseClock = hrtime(true); if ($snapshotCheck !== null) { $snapshotCheck(); }
+        $timings['snapshot_after_ms'] = (hrtime(true) - $phaseClock) / 1000000;
         if ($before !== $after) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_REMOTE_CHANGED'); }
         if ($receiptBackup !== null) {
             $snapshot = PluginLifecycleService::notificationReceiptSnapshot($receiptBackup['original']['path']);
@@ -1583,7 +1597,7 @@ final class SourceApplicationBackup
                 'The recorded tables are the original object set. Later module-created objects are not removed by replaying this dump; reconcile their actual ownership and separately authorize their exact recovery, never clear the schema.',
                 'An old pre-install empty dump is not this partial afterimage. No automatic restore or installation retry is performed.'];
         }
-        if ($purpose === 'plugin-lifecycle' || $identitySnapshot || $identityPostimage || $failureForensic) {
+        if ($purpose === 'plugin-lifecycle' || $batch || $identitySnapshot || $identityPostimage || $failureForensic) {
             $restore['absent_original_tables'] = $scope['absent_original_tables'];
             $restore['requirements'][] = 'Restore admission must separately cover removal of only the recorded originally absent tables created by this exact operation; the payload cannot recreate absence and no DROP is executed here.';
             $restore['requirements'][] = 'Shared catalog restoration excludes all affected writers, including other tenants/tasks. Preserve audit/failure/unknown evidence before any authorized ledger/audit rollback; never erase it as routine cleanup.';
@@ -1606,6 +1620,16 @@ final class SourceApplicationBackup
             $restore['protocol'] = 'peanut.source-' . $forensicModule . '-forensic-instructions.v1';
             $restore['purpose'] = 'Failure afterimage preservation only; no restore, lifecycle apply or recovery admission.';
         }
+        if ($batch) {
+            $restore['protocol'] = 'peanut.source-plugin-batch-restore-instructions.v1';
+            $restore['restore_unit'] = 'entire_batch_origin_only';
+            $restore['automatic'] = false;
+            $restore['conditions'] = ['Explicit whole-batch restoration authorization and preservation of the current failure/UNKNOWN evidence are required.',
+                'Never use this shared catalog payload to roll back only one step while retaining another completed prefix.',
+                'Require the original continuous writer exclusion, original valid authority, and an exact current full-catalog/schema/allocator match to the last native attributed afterimage.',
+                'After writers reopen, authority expires, foreign writes or an unknown afterimage occur, this payload grants no table restore permission. A new lease cannot restore that permission.',
+                'Runtime logs and batch control receipts remain evidence; never rewind them with catalog tables. No business object, file, account or queue restoration is authorized.'];
+        }
         self::write($directory . '/RESTORE.json', $restore);
         $receipts = [];
         foreach (['probe-before' => 'probe-before.txt', 'dump' => 'database.sql', 'probe-after' => 'probe-after.txt'] as $phase => $file) {
@@ -1620,6 +1644,8 @@ final class SourceApplicationBackup
             'receipts' => $receipts,
             'observed_at' => time(), 'restore_status' => 'not_executed', 'qualification' => 'not_run', 'execution_admitted' => false];
         $record['capture_started_at'] = $captureStarted;
+        $record['phase_timings_ms'] = $timings + ['capture_to_seal_ms' => (hrtime(true) - $captureClock) / 1000000];
+        if ($batch) { $record['protocol'] = 'peanut.source-plugin-batch-backup.v1'; }
         if ($failure) { $record['protocol'] = 'peanut.source-application-failure-snapshot.v1'; $record['failure'] = $baseline; }
         if ($restored) { $record['protocol'] = 'peanut.source-application-restoration-snapshot.v1'; $record['restoration'] = $baseline; }
         if ($identitySnapshot || $identityPostimage) {
@@ -1640,6 +1666,7 @@ final class SourceApplicationBackup
             'restore_contract_sha256' => hash_file('sha256', $directory . '/RESTORE.json'),
             'receipts' => $receipts];
         $recovery['capture_started_at'] = $captureStarted;
+        if ($batch) { $recovery['protocol'] = 'peanut.source-plugin-batch-recovery.v1'; }
         if ($failure) { $recovery['protocol'] = 'peanut.source-application-failure-reference.v1'; }
         if ($restored) { $recovery['protocol'] = 'peanut.source-application-restoration-reference.v1'; }
         if ($identitySnapshot || $identityPostimage) { $recovery['protocol'] = 'peanut.source-identity-recovery-reference.v1'; }
@@ -2249,7 +2276,154 @@ final class SourceApplicationBackup
     }
 
     /** Actual native capture and current exclusion references, never a restore or SQL authorization. */
-    public static function pluginRecovery(array $binding, array $baseline, array $scope, string $maintenancePath, string $recoveryPath, string $serverRoot, ?int $recordedAt = null): array
+    /** A batch is an explicit protocol; a single-plugin receipt can never stand in for it. */
+    public static function pluginRecovery(array $binding, array $baseline, array $scope, string $maintenancePath, string $recoveryPath, string $serverRoot, ?int $recordedAt = null, ?array $batch = null): array
+    {
+        if ($batch !== null) {
+            return self::pluginBatchStepRecovery($binding, $baseline, $scope, $maintenancePath, $recoveryPath, $serverRoot, $recordedAt, $batch);
+        }
+        return self::pluginRecoveryEnvelope($binding, $baseline, $scope, $maintenancePath, $recoveryPath, $serverRoot, $recordedAt, false);
+    }
+
+    public static function pluginBatchRecovery(array $binding, array $baseline, array $scope, string $maintenancePath, string $recoveryPath, string $serverRoot, ?int $recordedAt = null): array
+    {
+        if (($baseline['operation'] ?? null) !== 'upgrade-catalog-batch' || ($baseline['pending'] ?? null) !== []
+            || !is_array($baseline['steps'] ?? null) || $baseline['steps'] === [] || isset($scope['notification_forward_receipt'])
+            || ($binding['source']['kind'] ?? null) === 'generated-application') {
+            throw new RuntimeException('PLUGIN_SOURCE_BATCH_CLOSURE_REQUIRED');
+        }
+        return self::pluginRecoveryEnvelope($binding, $baseline, $scope, $maintenancePath, $recoveryPath, $serverRoot, $recordedAt, true);
+    }
+
+    /** Append-only native control evidence; failure never turns an entered step into a retry. */
+    public static function writePluginBatchRecord(string $path, array $record, string $serverRoot): array
+    {
+        if (!in_array($record['protocol'] ?? null, ['peanut.source-plugin-batch-execution.v1', 'peanut.source-plugin-batch-prepared.v1',
+            'peanut.source-plugin-batch-started.v1', 'peanut.source-plugin-batch-completed.v1',
+            'peanut.source-plugin-batch-result.v1', 'peanut.source-plugin-batch-failure.v1'], true)) {
+            throw new RuntimeException('PLUGIN_SOURCE_BATCH_RECORD_INVALID');
+        }
+        $record['document_sha256'] = self::pluginDigest($record);
+        self::write($path, $record);
+        self::protectedPluginJson($path, $serverRoot);
+        return ['path' => $path, 'sha256' => hash_file('sha256', $path)];
+    }
+
+    public static function pluginBatchRecord(array $reference, string $serverRoot): array
+    {
+        $path = $reference['path'] ?? '';
+        $record = self::protectedPluginJson($path, $serverRoot);
+        $unsigned = $record; unset($unsigned['document_sha256']);
+        if (hash_file('sha256', $path) !== ($reference['sha256'] ?? null)
+            || ($record['document_sha256'] ?? null) !== self::pluginDigest($unsigned)) {
+            throw new RuntimeException('PLUGIN_SOURCE_BATCH_RECORD_CHANGED');
+        }
+        return $record;
+    }
+
+    /** Complete primary-key ordered rows, NULL/binary safe, plus raw schema and allocator. */
+    public static function pluginBatchCatalogState(PDO $pdo, array $scope): array
+    {
+        self::pluginEvidenceTables($scope, 'recovery');
+        if ($pdo->inTransaction()) { throw new RuntimeException('PLUGIN_SOURCE_BATCH_TRANSACTION_ACTIVE'); }
+        $pdo->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+        $pdo->exec('START TRANSACTION READ ONLY');
+        $state = [];
+        try {
+            foreach ($scope['tables'] as $table) {
+                $create = $pdo->query('SHOW CREATE TABLE `' . $table . '`')->fetch(PDO::FETCH_NUM);
+                if (!is_array($create) || !is_string($create[1] ?? null)) { throw new RuntimeException('PLUGIN_SOURCE_BATCH_SCHEMA_UNKNOWN'); }
+                $query = $pdo->prepare("SELECT COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND CONSTRAINT_NAME='PRIMARY' ORDER BY ORDINAL_POSITION");
+                try { $query->execute([$table]); $primary = $query->fetchAll(PDO::FETCH_COLUMN); }
+                finally { $query->closeCursor(); }
+                if ($primary === []) { throw new RuntimeException('PLUGIN_SOURCE_BATCH_PRIMARY_REQUIRED'); }
+                foreach ($primary as $column) {
+                    if (!is_string($column) || preg_match('/\A[a-z][a-z0-9_]*\z/D', $column) !== 1) { throw new RuntimeException('PLUGIN_SOURCE_BATCH_PRIMARY_REQUIRED'); }
+                }
+                $query = $pdo->query('SELECT * FROM `' . $table . '` ORDER BY `' . implode('`,`', $primary) . '`');
+                $hash = hash_init('sha256'); $count = 0;
+                try {
+                    while (($row = $query->fetch(PDO::FETCH_NUM)) !== false) {
+                        $bytes = serialize(array_map(static fn($value) => $value === null ? null : (string) $value, $row));
+                        hash_update($hash, strlen($bytes) . ':' . $bytes); ++$count;
+                    }
+                } finally { $query->closeCursor(); }
+                $state[$table] = ['rows' => $count, 'rows_sha256' => hash_final($hash), 'raw_create_sql_sha256' => hash('sha256', $create[1])];
+            }
+            foreach ($scope['absent_original_tables'] as $table) {
+                $query = $pdo->prepare('SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');
+                try { $query->execute([$table]); if ((int) $query->fetchColumn() !== 0) { throw new RuntimeException('PLUGIN_SOURCE_BATCH_ABSENCE_CHANGED'); } }
+                finally { $query->closeCursor(); }
+                $state[$table] = ['exists' => false];
+            }
+        } finally { if ($pdo->inTransaction()) { $pdo->rollBack(); } }
+        ksort($state, SORT_STRING);
+        return $state;
+    }
+
+    private static function pluginBatchStepRecovery(array $binding, array $baseline, array $scope, string $maintenancePath, string $recoveryPath, string $serverRoot, ?int $recordedAt, array $batch): array
+    {
+        if (array_keys($batch) !== ['plan', 'prepared']) { throw new RuntimeException('PLUGIN_SOURCE_BATCH_EVIDENCE_REQUIRED'); }
+        $plan = self::protectedPluginJson($batch['plan']['path'] ?? '', $serverRoot);
+        if (hash_file('sha256', $batch['plan']['path']) !== ($batch['plan']['sha256'] ?? null)
+            || ($plan['protocol'] ?? null) !== 'peanut.source-development-plugin-batch-plan.v1'
+            || ($plan['status'] ?? null) !== 'captured'
+            || self::pluginDigest($plan['binding'] ?? []) !== self::pluginDigest($binding)
+            || !is_array($plan['steps'] ?? null) || !is_array($plan['baseline'] ?? null) || !is_array($plan['backup_scope'] ?? null)) {
+            throw new RuntimeException('PLUGIN_SOURCE_BATCH_PLAN_CHANGED');
+        }
+        if (($plan['maintenance']['path'] ?? null) !== $maintenancePath
+            || hash_file('sha256', $maintenancePath) !== ($plan['maintenance']['sha256'] ?? null)
+            || ($plan['backup']['recovery_references']['path'] ?? null) !== $recoveryPath
+            || hash_file('sha256', $recoveryPath) !== ($plan['backup']['recovery_references']['sha256'] ?? null)) {
+            throw new RuntimeException('PLUGIN_SOURCE_BATCH_ORIGINAL_EVIDENCE_CHANGED');
+        }
+        $prepared = self::pluginBatchRecord($batch['prepared'], $serverRoot);
+        $index = $prepared['ordinal'] ?? null; $keys = array_keys($plan['steps']); $key = $baseline['plugin_key'] ?? '';
+        if (($prepared['protocol'] ?? null) !== 'peanut.source-plugin-batch-prepared.v1' || !is_int($index) || $index < 0
+            || ($keys[$index] ?? null) !== $key || ($prepared['plugin_key'] ?? null) !== $key
+            || ($prepared['batch_plan'] ?? null) !== $batch['plan'] || ($prepared['baseline_sha256'] ?? null) !== self::pluginDigest($baseline)
+            || self::pluginDigest($plan['baseline']['steps'][$key] ?? []) !== self::pluginDigest($baseline)
+            || array_diff($scope['affected_tables'] ?? [], $plan['backup_scope']['affected_tables']) !== []
+            || ($baseline['pending'] ?? null) !== [] || isset($scope['notification_forward_receipt'])
+            || !is_array($prepared['completed_prefix'] ?? null) || count($prepared['completed_prefix']) !== $index) {
+            throw new RuntimeException('PLUGIN_SOURCE_BATCH_STEP_CHANGED');
+        }
+        $previous = $plan['origin_catalog_state'] ?? null;
+        foreach ($prepared['completed_prefix'] as $i => $reference) {
+            $completed = self::pluginBatchRecord($reference, $serverRoot);
+            $native = self::protectedPluginJson($completed['native_result']['path'] ?? '', $serverRoot);
+            $started = self::pluginBatchRecord($completed['started'] ?? [], $serverRoot);
+            $unsigned = $native; unset($unsigned['document_sha256']);
+            if (($completed['protocol'] ?? null) !== 'peanut.source-plugin-batch-completed.v1' || ($completed['ordinal'] ?? null) !== $i
+                || ($completed['plugin_key'] ?? null) !== $keys[$i] || ($completed['batch_plan'] ?? null) !== $batch['plan']
+                || ($completed['before_state'] ?? null) !== $previous || !is_array($completed['after_state'] ?? null)
+                || hash_file('sha256', $completed['native_result']['path']) !== ($completed['native_result']['sha256'] ?? null)
+                || ($native['document_sha256'] ?? null) !== self::pluginDigest($unsigned)
+                || ($native['protocol'] ?? null) !== 'peanut.source-plugin-result.v1' || ($native['status'] ?? null) !== 'completed'
+                || ($native['plugin_key'] ?? null) !== $keys[$i] || ($native['evidence']['batch']['plan'] ?? null) !== $batch['plan']
+                || ($native['batch_started'] ?? null) !== ($completed['started'] ?? null)
+                || ($started['protocol'] ?? null) !== 'peanut.source-plugin-batch-started.v1' || ($started['ordinal'] ?? null) !== $i
+                || ($started['batch'] ?? null) !== ($native['evidence']['batch'] ?? null)
+                || ($started['request_id'] ?? null) !== ($native['request_id'] ?? null)
+                || ($started['admission_sha256'] ?? null) !== self::pluginDigest($native['admission'] ?? [])
+                || self::pluginDigest($native['binding'] ?? []) !== self::pluginDigest($binding)
+                || self::pluginDigest($native['baseline'] ?? []) !== self::pluginDigest($plan['baseline']['steps'][$keys[$i]] ?? [])) {
+                throw new RuntimeException('PLUGIN_SOURCE_BATCH_PREFIX_CHANGED');
+            }
+            $priorPrepared = self::pluginBatchRecord($native['evidence']['batch']['prepared'] ?? [], $serverRoot);
+            if (($priorPrepared['ordinal'] ?? null) !== $i || ($priorPrepared['before_state'] ?? null) !== $previous
+                || ($priorPrepared['plugin_key'] ?? null) !== $keys[$i] || ($priorPrepared['batch_plan'] ?? null) !== $batch['plan']) {
+                throw new RuntimeException('PLUGIN_SOURCE_BATCH_PREFIX_CHANGED');
+            }
+            $previous = $completed['after_state'];
+        }
+        if (($prepared['before_state'] ?? null) !== $previous) { throw new RuntimeException('PLUGIN_SOURCE_BATCH_STATE_CHAIN_CHANGED'); }
+        return self::pluginBatchRecovery($binding, $plan['baseline'], $plan['backup_scope'], $maintenancePath, $recoveryPath, $serverRoot, $recordedAt)
+            + ['batch' => $batch];
+    }
+
+    private static function pluginRecoveryEnvelope(array $binding, array $baseline, array $scope, string $maintenancePath, string $recoveryPath, string $serverRoot, ?int $recordedAt, bool $batch): array
     {
         $at = $recordedAt ?? time();
         if ($at <= 0 || $at > time()) { throw new RuntimeException('PLUGIN_SOURCE_EVIDENCE_REQUIRED'); }
@@ -2260,7 +2434,7 @@ final class SourceApplicationBackup
         $maintenance = self::protectedPluginJson($maintenancePath, $serverRoot);
         $recovery = self::protectedPluginJson($recoveryPath, $serverRoot);
         foreach (['maintenance' => $maintenance, 'recovery' => $recovery] as $kind => $record) {
-            if (($record['schema_version'] ?? null) !== 1 || ($record['protocol'] ?? null) !== 'peanut.source-plugin-' . $kind . '.v1'
+            if (($record['schema_version'] ?? null) !== 1 || ($record['protocol'] ?? null) !== ($batch ? 'peanut.source-plugin-batch-' : 'peanut.source-plugin-') . $kind . '.v1'
                 || !$same($record['source'] ?? null, $binding['source']) || !$same($record['database'] ?? null, $binding['database'])
                 || !$same($record['authority'] ?? null, $binding['authority']) || ($record['registry_sha256'] ?? null) !== $binding['registry_sha256']
                 || ($record['baseline_sha256'] ?? null) !== self::pluginDigest($baseline)
@@ -2281,9 +2455,12 @@ final class SourceApplicationBackup
         $manifest = self::protectedPluginJson($manifestPath, $serverRoot);
         $restorePath = $manifest['restore_instructions']['path'] ?? '';
         $restore = self::protectedPluginJson($restorePath, $serverRoot);
+        if ($batch && (($restore['restore_unit'] ?? null) !== 'entire_batch_origin_only' || ($restore['automatic'] ?? null) !== false)) {
+            throw new RuntimeException('PLUGIN_SOURCE_BATCH_RESTORE_UNIT_REQUIRED');
+        }
         $payload = $recovery['backup_payload'] ?? [];
         self::pluginFile($payload['path'] ?? '', $serverRoot, null);
-        if (($manifest['protocol'] ?? null) !== 'peanut.source-plugin-backup.v1' || ($manifest['status'] ?? null) !== 'captured'
+        if (($manifest['protocol'] ?? null) !== ($batch ? 'peanut.source-plugin-batch-backup.v1' : 'peanut.source-plugin-backup.v1') || ($manifest['status'] ?? null) !== 'captured'
             || hash_file('sha256', $manifestPath) !== ($recovery['backup_manifest']['sha256'] ?? null)
             || !$same($manifest['binding'] ?? null, $binding) || !$same($manifest['scope'] ?? null, $scope)
             || ($manifest['baseline_sha256'] ?? null) !== self::pluginDigest($baseline)
@@ -2298,7 +2475,7 @@ final class SourceApplicationBackup
             || ($manifest['adapter_sha256'] ?? null) !== hash_file('sha256', __FILE__)
             || hash_file('sha256', $restorePath) !== ($manifest['restore_instructions']['sha256'] ?? null)
             || ($recovery['restore_contract_sha256'] ?? null) !== hash_file('sha256', $restorePath)
-            || ($restore['protocol'] ?? null) !== 'peanut.source-plugin-restore-instructions.v1' || ($restore['executed'] ?? null) !== false
+            || ($restore['protocol'] ?? null) !== ($batch ? 'peanut.source-plugin-batch-restore-instructions.v1' : 'peanut.source-plugin-restore-instructions.v1') || ($restore['executed'] ?? null) !== false
             || !$same($restore['source'] ?? null, $binding['source']) || !$same($restore['database'] ?? null, $binding['database'])
             || !$same($restore['native_client'] ?? null, $manifest['native_client'] ?? null)
             || !$same($restore['payload'] ?? null, $payload) || ($restore['tables'] ?? null) !== $scope['tables']
@@ -2439,7 +2616,9 @@ final class SourceApplicationBackup
         ?int $maximumBytes = null, ?array $stdin = null, ?callable $afterRecheck = null,
     ): void
     {
+        $phaseClock = hrtime(true);
         $recheck();
+        $guardMilliseconds = (hrtime(true) - $phaseClock) / 1000000;
         if (time() + $seconds + 60 >= $expires) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_LIFETIME_REQUIRED'); }
         // Bound SSH itself, including a stalled Docker daemon/exec startup.
         // The remote timeout cannot cover that transport phase.
@@ -2466,6 +2645,7 @@ final class SourceApplicationBackup
             }
             $environment = ['PATH' => '/usr/bin:/bin:/usr/sbin:/sbin', 'LANG' => 'C', 'LC_ALL' => 'C'];
             foreach (['HOME', 'SSH_AUTH_SOCK'] as $name) { if (is_string(getenv($name))) { $environment[$name] = getenv($name); } }
+            $processClock = hrtime(true);
             $process = proc_open(self::argv($tool, $shell), [0 => $input ?? ['file', '/dev/null', 'r'], 1 => $out, 2 => $err], $pipes, null, $environment);
             if (!is_resource($process)) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_PROCESS_UNAVAILABLE'); }
             $timedOut = false; $outputExceeded = false;
@@ -2497,6 +2677,8 @@ final class SourceApplicationBackup
                 'remote_success_terminal_confirmed' => !$timedOut && !$outputExceeded && $terminal && $rc === 0,
                 'stdout' => ['path' => $output, 'sha256' => hash_file('sha256', $output), 'bytes' => filesize($output)],
                 'stderr_sha256' => hash_file('sha256', $error),
+                'timings_ms' => ['guard_before' => $guardMilliseconds, 'native_process_to_terminal' => (hrtime(true) - $processClock) / 1000000,
+                    'phase_to_terminal' => (hrtime(true) - $phaseClock) / 1000000],
                 'note' => 'Nonzero/transport failures preserve partial output; no success record or automatic retry.']);
             if ($timedOut || $outputExceeded || !$terminal || $rc !== 0) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_PROCESS_FAILED'); }
             ($afterRecheck ?? $recheck)();
