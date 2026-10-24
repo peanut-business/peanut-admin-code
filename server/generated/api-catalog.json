@@ -8,7 +8,7 @@
         },
         {
             "path": "server/app/api/metadata/application/adminapi.php",
-            "sha256": "dacca8197155d9e639366b0faa18da3e6e1a17c45dc36bd4d4e265b8ff3b0f2d"
+            "sha256": "f022f9816e7d25393aba5064b7e53fc189ed7143c548e831ec7259e40542585c"
         },
         {
             "path": "server/app/api/metadata/application/common.php",
@@ -60,7 +60,7 @@
         },
         {
             "path": "server/app/modules/official/file/api/metadata/openapi.php",
-            "sha256": "ec0c72acedbffd5588a4d4d08bcc14f9c69dd83137f59321f8b49991d83fe17f"
+            "sha256": "6caeeb0cec1887b2a3ad97618e9c2976f03e5c6067ae76639c6c0d8feec52704"
         },
         {
             "path": "server/app/modules/official/file/route/app.php",
@@ -121,6 +121,10 @@
         {
             "path": "server/app/modules/official/reference_codes/route/app.php",
             "sha256": "d69024a901b671d6f9271d3ee21c2b741ce67643037cf6f6986262263444ae70"
+        },
+        {
+            "path": "server/app/modules/official/rich_text/api/metadata/openapi.php",
+            "sha256": "12befd35d3975d133c60f1c38bdca978b8c2250c8f21ae755d64470f77a2d6fc"
         },
         {
             "path": "server/app/modules/official/rich_text/route/app.php",
@@ -193,15 +197,15 @@
     },
     "summary": {
         "route_count": 439,
-        "generated_api_operations": 392,
-        "route_only_operations": 47,
-        "complete_operations": 392,
+        "generated_api_operations": 405,
+        "route_only_operations": 34,
+        "complete_operations": 405,
         "partial_operations": 0,
         "runtime_routes": 439,
-        "documented_operations": 392,
-        "undocumented_routes": 47,
+        "documented_operations": 405,
+        "undocumented_routes": 34,
         "automatic_route_metadata": 439,
-        "requires_owner_contract": 47,
+        "requires_owner_contract": 34,
         "owners": 20,
         "runtime_inventory": {
             "total": 439,
@@ -393,20 +397,6 @@
         },
         {
             "method": "GET",
-            "path": "/adminapi/dept/leader-candidates",
-            "owner": {
-                "type": "application",
-                "key": "adminapi"
-            },
-            "source": {
-                "file": "server/route/admin.php",
-                "line": 92
-            },
-            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
-            "module_fragment": null
-        },
-        {
-            "method": "GET",
             "path": "/adminapi/official.article.hello",
             "owner": {
                 "type": "module",
@@ -418,62 +408,6 @@
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": "server/app/modules/official/article/api/metadata/openapi.php"
-        },
-        {
-            "method": "GET",
-            "path": "/adminapi/official.rich-text.document.collaboration",
-            "owner": {
-                "type": "module",
-                "key": "official.rich-text"
-            },
-            "source": {
-                "file": "server/app/modules/official/rich_text/route/app.php",
-                "line": 22
-            },
-            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
-            "module_fragment": "server/app/modules/official/rich_text/api/metadata/openapi.php"
-        },
-        {
-            "method": "GET",
-            "path": "/adminapi/official.rich-text.document.detail",
-            "owner": {
-                "type": "module",
-                "key": "official.rich-text"
-            },
-            "source": {
-                "file": "server/app/modules/official/rich_text/route/app.php",
-                "line": 18
-            },
-            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
-            "module_fragment": "server/app/modules/official/rich_text/api/metadata/openapi.php"
-        },
-        {
-            "method": "GET",
-            "path": "/adminapi/official.rich-text.document.list",
-            "owner": {
-                "type": "module",
-                "key": "official.rich-text"
-            },
-            "source": {
-                "file": "server/app/modules/official/rich_text/route/app.php",
-                "line": 17
-            },
-            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
-            "module_fragment": "server/app/modules/official/rich_text/api/metadata/openapi.php"
-        },
-        {
-            "method": "GET",
-            "path": "/platformapi/infrastructure/storage",
-            "owner": {
-                "type": "module",
-                "key": "official.file"
-            },
-            "source": {
-                "file": "server/app/modules/official/file/route/app.php",
-                "line": 66
-            },
-            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
-            "module_fragment": "server/app/modules/official/file/api/metadata/openapi.php"
         },
         {
             "method": "POST",
@@ -768,118 +702,6 @@
             },
             "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
             "module_fragment": "server/app/modules/peanut/workflow/api/metadata/openapi.php"
-        },
-        {
-            "method": "POST",
-            "path": "/adminapi/official.rich-text.document.add",
-            "owner": {
-                "type": "module",
-                "key": "official.rich-text"
-            },
-            "source": {
-                "file": "server/app/modules/official/rich_text/route/app.php",
-                "line": 19
-            },
-            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
-            "module_fragment": "server/app/modules/official/rich_text/api/metadata/openapi.php"
-        },
-        {
-            "method": "POST",
-            "path": "/adminapi/official.rich-text.document.delete",
-            "owner": {
-                "type": "module",
-                "key": "official.rich-text"
-            },
-            "source": {
-                "file": "server/app/modules/official/rich_text/route/app.php",
-                "line": 21
-            },
-            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
-            "module_fragment": "server/app/modules/official/rich_text/api/metadata/openapi.php"
-        },
-        {
-            "method": "POST",
-            "path": "/adminapi/official.rich-text.document.edit",
-            "owner": {
-                "type": "module",
-                "key": "official.rich-text"
-            },
-            "source": {
-                "file": "server/app/modules/official/rich_text/route/app.php",
-                "line": 20
-            },
-            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
-            "module_fragment": "server/app/modules/official/rich_text/api/metadata/openapi.php"
-        },
-        {
-            "method": "POST",
-            "path": "/platformapi/infrastructure/storage/account",
-            "owner": {
-                "type": "module",
-                "key": "official.file"
-            },
-            "source": {
-                "file": "server/app/modules/official/file/route/app.php",
-                "line": 69
-            },
-            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
-            "module_fragment": "server/app/modules/official/file/api/metadata/openapi.php"
-        },
-        {
-            "method": "POST",
-            "path": "/platformapi/infrastructure/storage/account/update",
-            "owner": {
-                "type": "module",
-                "key": "official.file"
-            },
-            "source": {
-                "file": "server/app/modules/official/file/route/app.php",
-                "line": 72
-            },
-            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
-            "module_fragment": "server/app/modules/official/file/api/metadata/openapi.php"
-        },
-        {
-            "method": "POST",
-            "path": "/platformapi/infrastructure/storage/route",
-            "owner": {
-                "type": "module",
-                "key": "official.file"
-            },
-            "source": {
-                "file": "server/app/modules/official/file/route/app.php",
-                "line": 81
-            },
-            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
-            "module_fragment": "server/app/modules/official/file/api/metadata/openapi.php"
-        },
-        {
-            "method": "POST",
-            "path": "/platformapi/infrastructure/storage/space",
-            "owner": {
-                "type": "module",
-                "key": "official.file"
-            },
-            "source": {
-                "file": "server/app/modules/official/file/route/app.php",
-                "line": 75
-            },
-            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
-            "module_fragment": "server/app/modules/official/file/api/metadata/openapi.php"
-        },
-        {
-            "method": "POST",
-            "path": "/platformapi/infrastructure/storage/space/update",
-            "owner": {
-                "type": "module",
-                "key": "official.file"
-            },
-            "source": {
-                "file": "server/app/modules/official/file/route/app.php",
-                "line": 78
-            },
-            "reason": "Runtime metadata is known; request, response and business-error contracts require the route owner.",
-            "module_fragment": "server/app/modules/official/file/api/metadata/openapi.php"
         },
         {
             "method": "PUT",
@@ -4616,7 +4438,10 @@
             ],
             "errors": [
                 401,
-                403
+                403,
+                404,
+                409,
+                422
             ],
             "middleware": [
                 {
@@ -4636,12 +4461,14 @@
                 "file": "server/route/admin.php",
                 "line": 92
             },
-            "documented": false,
-            "openapi_operation_id": null,
-            "contract_quality": "route_only",
-            "sdk_consumers": [],
+            "documented": true,
+            "openapi_operation_id": "listDepartmentLeaderCandidates",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts"
+            ],
             "documentation": {
-                "status": "route_only",
+                "status": "documented",
                 "automatic_metadata": [
                     "route",
                     "owner",
@@ -4651,12 +4478,7 @@
                     "permissions",
                     "source"
                 ],
-                "requires_owner_contract": [
-                    "operationId",
-                    "parameters_or_request_body",
-                    "response_schemas",
-                    "business_errors"
-                ]
+                "requires_owner_contract": []
             }
         },
         {
@@ -9595,8 +9417,13 @@
                 }
             ],
             "errors": [
+                400,
                 401,
-                403
+                403,
+                404,
+                409,
+                422,
+                500
             ],
             "middleware": [
                 {
@@ -9623,12 +9450,15 @@
                 "file": "server/app/modules/official/rich_text/route/app.php",
                 "line": 22
             },
-            "documented": false,
-            "openapi_operation_id": null,
-            "contract_quality": "route_only",
-            "sdk_consumers": [],
+            "documented": true,
+            "openapi_operation_id": "richTextDocumentCollaboration",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts",
+                "web/src/modules/official-rich-text/generated/openapi.ts"
+            ],
             "documentation": {
-                "status": "route_only",
+                "status": "documented",
                 "automatic_metadata": [
                     "route",
                     "owner",
@@ -9638,12 +9468,7 @@
                     "permissions",
                     "source"
                 ],
-                "requires_owner_contract": [
-                    "operationId",
-                    "parameters_or_request_body",
-                    "response_schemas",
-                    "business_errors"
-                ]
+                "requires_owner_contract": []
             }
         },
         {
@@ -9672,8 +9497,13 @@
                 }
             ],
             "errors": [
+                400,
                 401,
-                403
+                403,
+                404,
+                409,
+                422,
+                500
             ],
             "middleware": [
                 {
@@ -9700,12 +9530,15 @@
                 "file": "server/app/modules/official/rich_text/route/app.php",
                 "line": 18
             },
-            "documented": false,
-            "openapi_operation_id": null,
-            "contract_quality": "route_only",
-            "sdk_consumers": [],
+            "documented": true,
+            "openapi_operation_id": "richTextDocumentDetail",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts",
+                "web/src/modules/official-rich-text/generated/openapi.ts"
+            ],
             "documentation": {
-                "status": "route_only",
+                "status": "documented",
                 "automatic_metadata": [
                     "route",
                     "owner",
@@ -9715,12 +9548,7 @@
                     "permissions",
                     "source"
                 ],
-                "requires_owner_contract": [
-                    "operationId",
-                    "parameters_or_request_body",
-                    "response_schemas",
-                    "business_errors"
-                ]
+                "requires_owner_contract": []
             }
         },
         {
@@ -9749,8 +9577,13 @@
                 }
             ],
             "errors": [
+                400,
                 401,
-                403
+                403,
+                404,
+                409,
+                422,
+                500
             ],
             "middleware": [
                 {
@@ -9777,12 +9610,15 @@
                 "file": "server/app/modules/official/rich_text/route/app.php",
                 "line": 17
             },
-            "documented": false,
-            "openapi_operation_id": null,
-            "contract_quality": "route_only",
-            "sdk_consumers": [],
+            "documented": true,
+            "openapi_operation_id": "richTextDocumentList",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts",
+                "web/src/modules/official-rich-text/generated/openapi.ts"
+            ],
             "documentation": {
-                "status": "route_only",
+                "status": "documented",
                 "automatic_metadata": [
                     "route",
                     "owner",
@@ -9792,12 +9628,7 @@
                     "permissions",
                     "source"
                 ],
-                "requires_owner_contract": [
-                    "operationId",
-                    "parameters_or_request_body",
-                    "response_schemas",
-                    "business_errors"
-                ]
+                "requires_owner_contract": []
             }
         },
         {
@@ -12790,8 +12621,11 @@
                 }
             ],
             "errors": [
+                400,
                 401,
-                403
+                403,
+                422,
+                500
             ],
             "middleware": [
                 {
@@ -12809,12 +12643,15 @@
                 "file": "server/app/modules/official/file/route/app.php",
                 "line": 66
             },
-            "documented": false,
-            "openapi_operation_id": null,
-            "contract_quality": "route_only",
-            "sdk_consumers": [],
+            "documented": true,
+            "openapi_operation_id": "getStorageConfiguration",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts",
+                "web/src/modules/official-file/generated/openapi.ts"
+            ],
             "documentation": {
-                "status": "route_only",
+                "status": "documented",
                 "automatic_metadata": [
                     "route",
                     "owner",
@@ -12824,12 +12661,7 @@
                     "permissions",
                     "source"
                 ],
-                "requires_owner_contract": [
-                    "operationId",
-                    "parameters_or_request_body",
-                    "response_schemas",
-                    "business_errors"
-                ]
+                "requires_owner_contract": []
             }
         },
         {
@@ -25072,8 +24904,13 @@
                 }
             ],
             "errors": [
+                400,
                 401,
-                403
+                403,
+                404,
+                409,
+                422,
+                500
             ],
             "middleware": [
                 {
@@ -25100,12 +24937,15 @@
                 "file": "server/app/modules/official/rich_text/route/app.php",
                 "line": 19
             },
-            "documented": false,
-            "openapi_operation_id": null,
-            "contract_quality": "route_only",
-            "sdk_consumers": [],
+            "documented": true,
+            "openapi_operation_id": "richTextDocumentAdd",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts",
+                "web/src/modules/official-rich-text/generated/openapi.ts"
+            ],
             "documentation": {
-                "status": "route_only",
+                "status": "documented",
                 "automatic_metadata": [
                     "route",
                     "owner",
@@ -25115,12 +24955,7 @@
                     "permissions",
                     "source"
                 ],
-                "requires_owner_contract": [
-                    "operationId",
-                    "parameters_or_request_body",
-                    "response_schemas",
-                    "business_errors"
-                ]
+                "requires_owner_contract": []
             }
         },
         {
@@ -25149,8 +24984,13 @@
                 }
             ],
             "errors": [
+                400,
                 401,
-                403
+                403,
+                404,
+                409,
+                422,
+                500
             ],
             "middleware": [
                 {
@@ -25177,12 +25017,15 @@
                 "file": "server/app/modules/official/rich_text/route/app.php",
                 "line": 21
             },
-            "documented": false,
-            "openapi_operation_id": null,
-            "contract_quality": "route_only",
-            "sdk_consumers": [],
+            "documented": true,
+            "openapi_operation_id": "richTextDocumentDelete",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts",
+                "web/src/modules/official-rich-text/generated/openapi.ts"
+            ],
             "documentation": {
-                "status": "route_only",
+                "status": "documented",
                 "automatic_metadata": [
                     "route",
                     "owner",
@@ -25192,12 +25035,7 @@
                     "permissions",
                     "source"
                 ],
-                "requires_owner_contract": [
-                    "operationId",
-                    "parameters_or_request_body",
-                    "response_schemas",
-                    "business_errors"
-                ]
+                "requires_owner_contract": []
             }
         },
         {
@@ -25226,8 +25064,13 @@
                 }
             ],
             "errors": [
+                400,
                 401,
-                403
+                403,
+                404,
+                409,
+                422,
+                500
             ],
             "middleware": [
                 {
@@ -25254,12 +25097,15 @@
                 "file": "server/app/modules/official/rich_text/route/app.php",
                 "line": 20
             },
-            "documented": false,
-            "openapi_operation_id": null,
-            "contract_quality": "route_only",
-            "sdk_consumers": [],
+            "documented": true,
+            "openapi_operation_id": "richTextDocumentEdit",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts",
+                "web/src/modules/official-rich-text/generated/openapi.ts"
+            ],
             "documentation": {
-                "status": "route_only",
+                "status": "documented",
                 "automatic_metadata": [
                     "route",
                     "owner",
@@ -25269,12 +25115,7 @@
                     "permissions",
                     "source"
                 ],
-                "requires_owner_contract": [
-                    "operationId",
-                    "parameters_or_request_body",
-                    "response_schemas",
-                    "business_errors"
-                ]
+                "requires_owner_contract": []
             }
         },
         {
@@ -27884,8 +27725,11 @@
                 }
             ],
             "errors": [
+                400,
                 401,
-                403
+                403,
+                422,
+                500
             ],
             "middleware": [
                 {
@@ -27903,12 +27747,15 @@
                 "file": "server/app/modules/official/file/route/app.php",
                 "line": 69
             },
-            "documented": false,
-            "openapi_operation_id": null,
-            "contract_quality": "route_only",
-            "sdk_consumers": [],
+            "documented": true,
+            "openapi_operation_id": "createStorageAccount",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts",
+                "web/src/modules/official-file/generated/openapi.ts"
+            ],
             "documentation": {
-                "status": "route_only",
+                "status": "documented",
                 "automatic_metadata": [
                     "route",
                     "owner",
@@ -27918,12 +27765,7 @@
                     "permissions",
                     "source"
                 ],
-                "requires_owner_contract": [
-                    "operationId",
-                    "parameters_or_request_body",
-                    "response_schemas",
-                    "business_errors"
-                ]
+                "requires_owner_contract": []
             }
         },
         {
@@ -27948,8 +27790,11 @@
                 }
             ],
             "errors": [
+                400,
                 401,
-                403
+                403,
+                422,
+                500
             ],
             "middleware": [
                 {
@@ -27967,12 +27812,15 @@
                 "file": "server/app/modules/official/file/route/app.php",
                 "line": 72
             },
-            "documented": false,
-            "openapi_operation_id": null,
-            "contract_quality": "route_only",
-            "sdk_consumers": [],
+            "documented": true,
+            "openapi_operation_id": "updateStorageAccount",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts",
+                "web/src/modules/official-file/generated/openapi.ts"
+            ],
             "documentation": {
-                "status": "route_only",
+                "status": "documented",
                 "automatic_metadata": [
                     "route",
                     "owner",
@@ -27982,12 +27830,7 @@
                     "permissions",
                     "source"
                 ],
-                "requires_owner_contract": [
-                    "operationId",
-                    "parameters_or_request_body",
-                    "response_schemas",
-                    "business_errors"
-                ]
+                "requires_owner_contract": []
             }
         },
         {
@@ -28012,8 +27855,11 @@
                 }
             ],
             "errors": [
+                400,
                 401,
-                403
+                403,
+                422,
+                500
             ],
             "middleware": [
                 {
@@ -28031,12 +27877,15 @@
                 "file": "server/app/modules/official/file/route/app.php",
                 "line": 81
             },
-            "documented": false,
-            "openapi_operation_id": null,
-            "contract_quality": "route_only",
-            "sdk_consumers": [],
+            "documented": true,
+            "openapi_operation_id": "setStorageRoute",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts",
+                "web/src/modules/official-file/generated/openapi.ts"
+            ],
             "documentation": {
-                "status": "route_only",
+                "status": "documented",
                 "automatic_metadata": [
                     "route",
                     "owner",
@@ -28046,12 +27895,7 @@
                     "permissions",
                     "source"
                 ],
-                "requires_owner_contract": [
-                    "operationId",
-                    "parameters_or_request_body",
-                    "response_schemas",
-                    "business_errors"
-                ]
+                "requires_owner_contract": []
             }
         },
         {
@@ -28076,8 +27920,11 @@
                 }
             ],
             "errors": [
+                400,
                 401,
-                403
+                403,
+                422,
+                500
             ],
             "middleware": [
                 {
@@ -28095,12 +27942,15 @@
                 "file": "server/app/modules/official/file/route/app.php",
                 "line": 75
             },
-            "documented": false,
-            "openapi_operation_id": null,
-            "contract_quality": "route_only",
-            "sdk_consumers": [],
+            "documented": true,
+            "openapi_operation_id": "createStorageSpace",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts",
+                "web/src/modules/official-file/generated/openapi.ts"
+            ],
             "documentation": {
-                "status": "route_only",
+                "status": "documented",
                 "automatic_metadata": [
                     "route",
                     "owner",
@@ -28110,12 +27960,7 @@
                     "permissions",
                     "source"
                 ],
-                "requires_owner_contract": [
-                    "operationId",
-                    "parameters_or_request_body",
-                    "response_schemas",
-                    "business_errors"
-                ]
+                "requires_owner_contract": []
             }
         },
         {
@@ -28140,8 +27985,11 @@
                 }
             ],
             "errors": [
+                400,
                 401,
-                403
+                403,
+                422,
+                500
             ],
             "middleware": [
                 {
@@ -28159,12 +28007,15 @@
                 "file": "server/app/modules/official/file/route/app.php",
                 "line": 78
             },
-            "documented": false,
-            "openapi_operation_id": null,
-            "contract_quality": "route_only",
-            "sdk_consumers": [],
+            "documented": true,
+            "openapi_operation_id": "updateStorageSpace",
+            "contract_quality": "complete",
+            "sdk_consumers": [
+                "web/src/generated/openapi.d.ts",
+                "web/src/modules/official-file/generated/openapi.ts"
+            ],
             "documentation": {
-                "status": "route_only",
+                "status": "documented",
                 "automatic_metadata": [
                     "route",
                     "owner",
@@ -28174,12 +28025,7 @@
                     "permissions",
                     "source"
                 ],
-                "requires_owner_contract": [
-                    "operationId",
-                    "parameters_or_request_body",
-                    "response_schemas",
-                    "business_errors"
-                ]
+                "requires_owner_contract": []
             }
         },
         {

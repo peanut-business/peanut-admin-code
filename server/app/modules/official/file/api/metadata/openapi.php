@@ -32,8 +32,104 @@ $visibilityBatchRef = ['$ref' => '#/components/schemas/FileVisibilityBatch'];
 $visibilityKey = ['name' => 'batchKey', 'in' => 'path', 'required' => true,
     'schema' => ['type' => 'string', 'pattern' => '^batch_[a-f0-9]{32}$']];
 
+// Instance-owned storage configuration; provider credentials never appear in snapshots.
+$storageObject = static fn(array $properties, array $required = []): array => [
+    'type' => 'object', 'additionalProperties' => false,
+] + ($properties === [] ? [] : ['properties' => $properties]) + ($required === [] ? [] : ['required' => $required]);
+$storageId = ['type' => 'integer', 'minimum' => 1];
+$storageOutputId = ['type' => 'string', 'pattern' => '^[1-9][0-9]*$', 'description' => 'ThinkORM bigint projection.'];
+$storageName = ['type' => 'string', 'minLength' => 1, 'maxLength' => 128, 'description' => 'Trimmed before validation.'];
+$storageKey = ['type' => 'string', 'pattern' => '^[a-z][a-z0-9._-]{2,63}$', 'description' => 'Trimmed ASCII key.'];
+$storageDriver = ['type' => 'string', 'enum' => ['local', 'qiniu', 'aliyun', 'qcloud']];
+$storageAccess = ['type' => 'string', 'enum' => ['public', 'private']];
+$storageStatus = ['type' => 'string', 'enum' => ['active', 'read_only', 'disabled']];
+$storageNullable = ['type' => 'string', 'nullable' => true];
+$storageUrl = $storageNullable + ['description' => 'Blank normalizes to null; otherwise an absolute http(s) URL, with trailing slashes removed.'];
+$storageTimes = ['created_at' => ['type' => 'string'], 'updated_at' => ['type' => 'string']];
+$storageCredentials = $storageObject([
+    'access_key' => ['type' => 'string', 'minLength' => 1, 'writeOnly' => true, 'description' => 'Non-empty after trimming.'],
+    'secret_key' => ['type' => 'string', 'minLength' => 1, 'writeOnly' => true, 'description' => 'Non-empty after trimming.'],
+], ['access_key', 'secret_key']);
+$storageNoCredentials = ['oneOf' => [['type' => 'string', 'nullable' => true, 'enum' => [null]],
+    ['type' => 'array', 'maxItems' => 0, 'items' => ['type' => 'string']], $storageObject([])]];
+$storageOptionalCredentials = ['oneOf' => [...$storageNoCredentials['oneOf'], $storageCredentials],
+    'description' => 'For cloud accounts a non-empty value rotates both keys; omitted/null/empty leaves credentials unchanged. Local accounts reject non-empty credentials.'];
+$storageReference = ['type' => 'string', 'nullable' => true, 'pattern' => '^\s*$', 'description' => 'Non-empty credential references are no longer supported.'];
+$storageAccount = ['id' => $storageOutputId, 'account_key' => $storageKey, 'driver' => $storageDriver,
+    'name' => $storageName, 'credential_key_version' => $storageNullable,
+    'credential_rotated_at' => $storageNullable, 'credential_masked' => ['type' => 'string', 'nullable' => true, 'enum' => ['********', null]],
+    'status' => ['type' => 'string', 'enum' => ['active', 'disabled']]] + $storageTimes;
+$storageLocation = ['bucket' => $storageNullable, 'region' => $storageNullable, 'endpoint' => $storageUrl,
+    'access_domain' => $storageUrl, 'local_path' => ['type' => 'string', 'nullable' => true, 'enum' => ['public/storage', 'private/storage', null]]];
+$storageSpace = ['id' => $storageOutputId, 'space_key' => $storageKey, 'account_id' => $storageOutputId,
+    'name' => $storageName, 'access_type' => $storageAccess] + $storageLocation + [
+    'status' => $storageStatus, 'account_key' => $storageKey, 'driver' => $storageDriver] + $storageTimes;
+$storageRouteKeys = ['default.public', 'default.private', 'material.image', 'material.image-variant', 'material.video',
+    'material.file', 'member.avatar', 'article.asset', 'decoration.asset', 'website.asset', 'export.xlsx', 'export.csv',
+    'attachment.sensitive', 'document.resource', 'document.snapshot', 'document.snapshot-sensitive'];
+$storageRouteKey = ['type' => 'string', 'enum' => $storageRouteKeys];
+$storageRoute = ['route_key' => $storageRouteKey, 'access_type' => $storageAccess, 'space_id' => $storageOutputId,
+    'updated_at' => ['type' => 'string'], 'space_key' => $storageKey, 'space_name' => $storageName, 'driver' => $storageDriver];
+$storageSchemas = [
+    'StorageAccountSnapshot' => $storageObject($storageAccount, array_keys($storageAccount)),
+    'StorageSpaceSnapshot' => $storageObject($storageSpace, array_keys($storageSpace)),
+    'StorageRouteSnapshot' => $storageObject($storageRoute, array_keys($storageRoute)),
+    'StorageSnapshot' => $storageObject([
+        'accounts' => ['type' => 'array', 'items' => ['$ref' => '#/components/schemas/StorageAccountSnapshot']],
+        'spaces' => ['type' => 'array', 'items' => ['$ref' => '#/components/schemas/StorageSpaceSnapshot']],
+        'routes' => ['type' => 'array', 'items' => ['$ref' => '#/components/schemas/StorageRouteSnapshot']],
+        'purposes' => ['type' => 'array', 'minItems' => 5, 'maxItems' => 5, 'items' => ['type' => 'string',
+            'enum' => ['material.image', 'material.video', 'material.file', 'export.xlsx', 'export.csv']]],
+    ], ['accounts', 'spaces', 'routes', 'purposes']),
+    'StorageAccountCreate' => ['oneOf' => [
+        $storageObject(['account_key' => $storageKey, 'driver' => ['type' => 'string', 'enum' => ['local']],
+            'name' => $storageName, 'credentials' => $storageNoCredentials, 'credential_ref' => $storageReference], ['account_key', 'driver', 'name']),
+        $storageObject(['account_key' => $storageKey, 'driver' => ['type' => 'string', 'enum' => ['qiniu', 'aliyun', 'qcloud']],
+            'name' => $storageName, 'credentials' => $storageCredentials, 'credential_ref' => $storageReference], ['account_key', 'driver', 'name', 'credentials']),
+    ]],
+    'StorageAccountUpdate' => $storageObject(['id' => $storageId, 'name' => $storageName,
+        'status' => ['type' => 'string', 'enum' => ['active', 'disabled'], 'default' => 'active'],
+        'credentials' => $storageOptionalCredentials, 'credential_ref' => $storageReference], ['id', 'name']),
+    'StorageSpaceCreate' => $storageObject(['account_id' => $storageId, 'space_key' => $storageKey,
+        'name' => $storageName, 'access_type' => $storageAccess] + $storageLocation, ['account_id', 'space_key', 'name', 'access_type']) + [
+            'description' => 'The existing account selects the driver. local: local_path must equal public/storage or private/storage for access_type, bucket must be blank; persisted local region/endpoint must be null. Cloud: bucket required and local_path blank; qcloud also needs region, aliyun an http(s) endpoint, qiniu or any public cloud space an access_domain. Blank optional strings normalize to null. Account and location are immutable after creation.',
+        ],
+    'StorageSpaceUpdate' => $storageObject(['id' => $storageId, 'name' => $storageName,
+        'access_domain' => $storageUrl, 'status' => $storageStatus + ['default' => 'active']], ['id', 'name']) + [
+            'description' => 'Revalidates the existing immutable account/location. qiniu or a public cloud space must retain a non-blank access_domain; omitted access_domain clears it and can therefore reject.',
+        ],
+    'StorageRouteWrite' => $storageObject(['route_key' => $storageRouteKey, 'access_type' => $storageAccess,
+        'space_id' => $storageId], ['route_key', 'access_type', 'space_id']) + [
+            'description' => 'Target space must be active and have matching access_type. default.public/private must match their suffix; registered material/member/article/decoration/website purposes are public and export/attachment/document purposes are private. Upserts only this route.',
+        ],
+];
+$storagePaths = [];
+foreach ([
+    '' => ['get', 'getStorageConfiguration', null, null],
+    '/account' => ['post', 'createStorageAccount', 'StorageAccountCreate', 'STORAGE_ACCOUNT_CREATE'],
+    '/account/update' => ['post', 'updateStorageAccount', 'StorageAccountUpdate', 'STORAGE_ACCOUNT_UPDATE'],
+    '/space' => ['post', 'createStorageSpace', 'StorageSpaceCreate', 'STORAGE_SPACE_CREATE'],
+    '/space/update' => ['post', 'updateStorageSpace', 'StorageSpaceUpdate', 'STORAGE_SPACE_UPDATE'],
+    '/route' => ['post', 'setStorageRoute', 'StorageRouteWrite', 'STORAGE_ROUTE'],
+] as $suffix => [$method, $operationId, $body, $reason]) {
+    $data = $suffix === '' ? ['$ref' => '#/components/schemas/StorageSnapshot']
+        : (in_array($suffix, ['/account', '/space'], true) ? $storageObject(['id' => $storageId], ['id'])
+            : ['type' => 'array', 'maxItems' => 0, 'items' => ['type' => 'string']]);
+    $operation = ['tags' => ['Storage'], 'operationId' => $operationId,
+        'description' => $suffix === '' ? 'Requires platform.ops.read. Instance-owned snapshot; credential ciphertext and keys are never returned.'
+            : 'Requires platform.ops.maintenance.manage. Validated configuration mutation and platform audit run in the existing transaction. Unknown body keys reject; no provider connection or data migration is requested.',
+        'responses' => ['200' => ['description' => '成功', 'content' => ['application/json' => ['schema' => $visibilityEnvelope($data)]]],
+            '400' => $error, '401' => $error, '403' => $error, '422' => $error, '500' => $error]];
+    if ($body !== null) {
+        $operation['requestBody'] = ['required' => true, 'content' => ['application/json' => ['schema' => ['$ref' => '#/components/schemas/' . $body]]]];
+        $operation['x-peanut-errors'] = [$reason . '_INPUT_INVALID'];
+    }
+    $storagePaths['/platformapi/infrastructure/storage' . $suffix][$method] = $operation;
+}
+
 return [
     'paths' => [
+        ...$storagePaths,
         '/adminapi/api/v1/files/visibility/preview' => ['post' => [
             'tags' => ['File'], 'operationId' => 'previewFileVisibility',
             'description' => 'Read-only whole-batch preflight. Requires manage and visibility.change on every source and derivative. Unqualified external origins reject before intent.',
@@ -205,6 +301,7 @@ return [
         ]],
     ],
     'components' => ['schemas' => [
+        ...$storageSchemas,
         'FileVisibilityConfirmation' => ['type' => 'object', 'additionalProperties' => false,
             'required' => ['version','batch_key','actor','expires_at','target','manifest'], 'properties' => [
                 'version' => ['type' => 'integer', 'enum' => [1]], 'batch_key' => ['type' => 'string', 'pattern' => '^batch_[a-f0-9]{32}$'],

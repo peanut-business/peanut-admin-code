@@ -1290,6 +1290,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/adminapi/dept/leader-candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Requires department update permission and an active department in the current tenant. Returns active tenant members whose accounts are active, ordered by member id; search is a literal display-name substring. Only the four declared query keys are accepted; page offset must fit PHP_INT_MAX. */
+        get: operations["listDepartmentLeaderCandidates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/adminapi/dept/detail": {
         parameters: {
             query?: never;
@@ -3830,6 +3847,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/platformapi/infrastructure/storage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Requires platform.ops.read. Instance-owned snapshot; credential ciphertext and keys are never returned. */
+        get: operations["getStorageConfiguration"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/infrastructure/storage/account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Requires platform.ops.maintenance.manage. Validated configuration mutation and platform audit run in the existing transaction. Unknown body keys reject; no provider connection or data migration is requested. */
+        post: operations["createStorageAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/infrastructure/storage/account/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Requires platform.ops.maintenance.manage. Validated configuration mutation and platform audit run in the existing transaction. Unknown body keys reject; no provider connection or data migration is requested. */
+        post: operations["updateStorageAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/infrastructure/storage/space": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Requires platform.ops.maintenance.manage. Validated configuration mutation and platform audit run in the existing transaction. Unknown body keys reject; no provider connection or data migration is requested. */
+        post: operations["createStorageSpace"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/infrastructure/storage/space/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Requires platform.ops.maintenance.manage. Validated configuration mutation and platform audit run in the existing transaction. Unknown body keys reject; no provider connection or data migration is requested. */
+        post: operations["updateStorageSpace"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platformapi/infrastructure/storage/route": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Requires platform.ops.maintenance.manage. Validated configuration mutation and platform audit run in the existing transaction. Unknown body keys reject; no provider connection or data migration is requested. */
+        post: operations["setStorageRoute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/adminapi/api/v1/files/visibility/preview": {
         parameters: {
             query?: never;
@@ -5937,6 +6056,108 @@ export interface paths {
         put: operations["replaceReferenceCode"];
         post?: never;
         delete: operations["retireReferenceCode"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.rich-text.document.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Current-tenant admin session and route permission required; soft-deleted documents are excluded. */
+        get: operations["richTextDocumentList"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.rich-text.document.detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Current-tenant admin session and route permission required; soft-deleted documents are excluded. */
+        get: operations["richTextDocumentDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.rich-text.document.collaboration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Current-tenant admin session and route permission required; soft-deleted documents are excluded. */
+        get: operations["richTextDocumentCollaboration"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.rich-text.document.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Current-tenant admin session and route permission required; soft-deleted documents are excluded. */
+        post: operations["richTextDocumentAdd"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.rich-text.document.edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Current-tenant admin session and route permission required; soft-deleted documents are excluded. Revision is a compare-and-swap input; successful edit increments it by one. */
+        post: operations["richTextDocumentEdit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/adminapi/official.rich-text.document.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Current-tenant admin session and route permission required; soft-deleted documents are excluded. */
+        post: operations["richTextDocumentDelete"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -8876,6 +9097,157 @@ export interface components {
             unavailableReason: string | null;
             capabilityRevision: string;
         };
+        StorageAccountSnapshot: {
+            /** @description ThinkORM bigint projection. */
+            id: string;
+            /** @description Trimmed ASCII key. */
+            account_key: string;
+            /** @enum {string} */
+            driver: "local" | "qiniu" | "aliyun" | "qcloud";
+            /** @description Trimmed before validation. */
+            name: string;
+            credential_key_version: string | null;
+            credential_rotated_at: string | null;
+            /** @enum {string|null} */
+            credential_masked: "********" | null;
+            /** @enum {string} */
+            status: "active" | "disabled";
+            created_at: string;
+            updated_at: string;
+        };
+        StorageSpaceSnapshot: {
+            /** @description ThinkORM bigint projection. */
+            id: string;
+            /** @description Trimmed ASCII key. */
+            space_key: string;
+            /** @description ThinkORM bigint projection. */
+            account_id: string;
+            /** @description Trimmed before validation. */
+            name: string;
+            /** @enum {string} */
+            access_type: "public" | "private";
+            bucket: string | null;
+            region: string | null;
+            /** @description Blank normalizes to null; otherwise an absolute http(s) URL, with trailing slashes removed. */
+            endpoint: string | null;
+            /** @description Blank normalizes to null; otherwise an absolute http(s) URL, with trailing slashes removed. */
+            access_domain: string | null;
+            /** @enum {string|null} */
+            local_path: "public/storage" | "private/storage" | null;
+            /** @enum {string} */
+            status: "active" | "read_only" | "disabled";
+            /** @description Trimmed ASCII key. */
+            account_key: string;
+            /** @enum {string} */
+            driver: "local" | "qiniu" | "aliyun" | "qcloud";
+            created_at: string;
+            updated_at: string;
+        };
+        StorageRouteSnapshot: {
+            /** @enum {string} */
+            route_key: "default.public" | "default.private" | "material.image" | "material.image-variant" | "material.video" | "material.file" | "member.avatar" | "article.asset" | "decoration.asset" | "website.asset" | "export.xlsx" | "export.csv" | "attachment.sensitive" | "document.resource" | "document.snapshot" | "document.snapshot-sensitive";
+            /** @enum {string} */
+            access_type: "public" | "private";
+            /** @description ThinkORM bigint projection. */
+            space_id: string;
+            updated_at: string;
+            /** @description Trimmed ASCII key. */
+            space_key: string;
+            /** @description Trimmed before validation. */
+            space_name: string;
+            /** @enum {string} */
+            driver: "local" | "qiniu" | "aliyun" | "qcloud";
+        };
+        StorageSnapshot: {
+            accounts: components["schemas"]["StorageAccountSnapshot"][];
+            spaces: components["schemas"]["StorageSpaceSnapshot"][];
+            routes: components["schemas"]["StorageRouteSnapshot"][];
+            purposes: ("material.image" | "material.video" | "material.file" | "export.xlsx" | "export.csv")[];
+        };
+        StorageAccountCreate: {
+            /** @description Trimmed ASCII key. */
+            account_key: string;
+            /** @enum {string} */
+            driver: "local";
+            /** @description Trimmed before validation. */
+            name: string;
+            credentials?: (null) | string[] | Record<string, never>;
+            /** @description Non-empty credential references are no longer supported. */
+            credential_ref?: string | null;
+        } | {
+            /** @description Trimmed ASCII key. */
+            account_key: string;
+            /** @enum {string} */
+            driver: "qiniu" | "aliyun" | "qcloud";
+            /** @description Trimmed before validation. */
+            name: string;
+            credentials: {
+                /** @description Non-empty after trimming. */
+                access_key: string;
+                /** @description Non-empty after trimming. */
+                secret_key: string;
+            };
+            /** @description Non-empty credential references are no longer supported. */
+            credential_ref?: string | null;
+        };
+        StorageAccountUpdate: {
+            id: number;
+            /** @description Trimmed before validation. */
+            name: string;
+            /**
+             * @default active
+             * @enum {string}
+             */
+            status: "active" | "disabled";
+            /** @description For cloud accounts a non-empty value rotates both keys; omitted/null/empty leaves credentials unchanged. Local accounts reject non-empty credentials. */
+            credentials?: (null) | string[] | Record<string, never> | {
+                /** @description Non-empty after trimming. */
+                access_key: string;
+                /** @description Non-empty after trimming. */
+                secret_key: string;
+            };
+            /** @description Non-empty credential references are no longer supported. */
+            credential_ref?: string | null;
+        };
+        /** @description The existing account selects the driver. local: local_path must equal public/storage or private/storage for access_type, bucket must be blank; persisted local region/endpoint must be null. Cloud: bucket required and local_path blank; qcloud also needs region, aliyun an http(s) endpoint, qiniu or any public cloud space an access_domain. Blank optional strings normalize to null. Account and location are immutable after creation. */
+        StorageSpaceCreate: {
+            account_id: number;
+            /** @description Trimmed ASCII key. */
+            space_key: string;
+            /** @description Trimmed before validation. */
+            name: string;
+            /** @enum {string} */
+            access_type: "public" | "private";
+            bucket?: string | null;
+            region?: string | null;
+            /** @description Blank normalizes to null; otherwise an absolute http(s) URL, with trailing slashes removed. */
+            endpoint?: string | null;
+            /** @description Blank normalizes to null; otherwise an absolute http(s) URL, with trailing slashes removed. */
+            access_domain?: string | null;
+            /** @enum {string|null} */
+            local_path?: "public/storage" | "private/storage" | null;
+        };
+        /** @description Revalidates the existing immutable account/location. qiniu or a public cloud space must retain a non-blank access_domain; omitted access_domain clears it and can therefore reject. */
+        StorageSpaceUpdate: {
+            id: number;
+            /** @description Trimmed before validation. */
+            name: string;
+            /** @description Blank normalizes to null; otherwise an absolute http(s) URL, with trailing slashes removed. */
+            access_domain?: string | null;
+            /**
+             * @default active
+             * @enum {string}
+             */
+            status: "active" | "read_only" | "disabled";
+        };
+        /** @description Target space must be active and have matching access_type. default.public/private must match their suffix; registered material/member/article/decoration/website purposes are public and export/attachment/document purposes are private. Upserts only this route. */
+        StorageRouteWrite: {
+            /** @enum {string} */
+            route_key: "default.public" | "default.private" | "material.image" | "material.image-variant" | "material.video" | "material.file" | "member.avatar" | "article.asset" | "decoration.asset" | "website.asset" | "export.xlsx" | "export.csv" | "attachment.sensitive" | "document.resource" | "document.snapshot" | "document.snapshot-sensitive";
+            /** @enum {string} */
+            access_type: "public" | "private";
+            space_id: number;
+        };
         FileVisibilityConfirmation: {
             /** @enum {integer} */
             version: 1;
@@ -10972,6 +11344,343 @@ export interface components {
                 total: number;
             };
             meta: components["schemas"]["ReferenceCodeMeta"];
+        };
+        RichTextNodeDoc: {
+            /** @enum {string} */
+            type: "doc";
+            attrs?: Record<string, never> | string[] | (null);
+            content: (components["schemas"]["RichTextNodeParagraph"] | components["schemas"]["RichTextNodeHeading"] | components["schemas"]["RichTextNodeBlockquote"] | components["schemas"]["RichTextNodeBulletList"] | components["schemas"]["RichTextNodeOrderedList"] | components["schemas"]["RichTextNodeCodeBlock"] | components["schemas"]["RichTextNodeHorizontalRule"] | components["schemas"]["RichTextNodeTable"] | components["schemas"]["RichTextNodeImage"] | components["schemas"]["RichTextNodeVideo"] | components["schemas"]["RichTextNodeAudio"] | components["schemas"]["RichTextNodeFile"] | components["schemas"]["RichTextNodeMedia"])[];
+            marks?: components["schemas"]["RichTextMark"][] | null;
+            /** @enum {string|null} */
+            text?: null;
+        };
+        RichTextNodeParagraph: {
+            /** @enum {string} */
+            type: "paragraph";
+            attrs?: {
+                /** @enum {string|null} */
+                textAlign?: "left" | "right" | "center" | "justify" | null;
+            } | string[] | (null);
+            content?: (components["schemas"]["RichTextNodeText"] | components["schemas"]["RichTextNodeHardBreak"])[] | null;
+            marks?: components["schemas"]["RichTextMark"][] | null;
+            /** @enum {string|null} */
+            text?: null;
+        };
+        RichTextNodeHeading: {
+            /** @enum {string} */
+            type: "heading";
+            attrs?: {
+                level?: number;
+                /** @enum {string|null} */
+                textAlign?: "left" | "right" | "center" | "justify" | null;
+            } | string[] | (null);
+            content?: (components["schemas"]["RichTextNodeText"] | components["schemas"]["RichTextNodeHardBreak"])[] | null;
+            marks?: components["schemas"]["RichTextMark"][] | null;
+            /** @enum {string|null} */
+            text?: null;
+        };
+        RichTextNodeBlockquote: {
+            /** @enum {string} */
+            type: "blockquote";
+            attrs?: Record<string, never> | string[] | (null);
+            content: (components["schemas"]["RichTextNodeParagraph"] | components["schemas"]["RichTextNodeHeading"] | components["schemas"]["RichTextNodeBlockquote"] | components["schemas"]["RichTextNodeBulletList"] | components["schemas"]["RichTextNodeOrderedList"] | components["schemas"]["RichTextNodeCodeBlock"] | components["schemas"]["RichTextNodeHorizontalRule"] | components["schemas"]["RichTextNodeTable"] | components["schemas"]["RichTextNodeImage"] | components["schemas"]["RichTextNodeVideo"] | components["schemas"]["RichTextNodeAudio"] | components["schemas"]["RichTextNodeFile"] | components["schemas"]["RichTextNodeMedia"])[];
+            marks?: components["schemas"]["RichTextMark"][] | null;
+            /** @enum {string|null} */
+            text?: null;
+        };
+        RichTextNodeBulletList: {
+            /** @enum {string} */
+            type: "bulletList";
+            attrs?: Record<string, never> | string[] | (null);
+            content: components["schemas"]["RichTextNodeListItem"][];
+            marks?: components["schemas"]["RichTextMark"][] | null;
+            /** @enum {string|null} */
+            text?: null;
+        };
+        RichTextNodeOrderedList: {
+            /** @enum {string} */
+            type: "orderedList";
+            attrs?: {
+                start?: number;
+            } | string[] | (null);
+            content: components["schemas"]["RichTextNodeListItem"][];
+            marks?: components["schemas"]["RichTextMark"][] | null;
+            /** @enum {string|null} */
+            text?: null;
+        };
+        RichTextNodeCodeBlock: {
+            /** @enum {string} */
+            type: "codeBlock";
+            attrs?: {
+                language?: string | null;
+            } | string[] | (null);
+            content?: components["schemas"]["RichTextNodeText"][] | null;
+            marks?: components["schemas"]["RichTextMark"][] | null;
+            /** @enum {string|null} */
+            text?: null;
+        };
+        RichTextNodeHorizontalRule: {
+            /** @enum {string} */
+            type: "horizontalRule";
+            attrs?: Record<string, never> | string[] | (null);
+            content?: string[] | null;
+            marks?: components["schemas"]["RichTextMark"][] | null;
+            /** @enum {string|null} */
+            text?: null;
+        };
+        RichTextNodeTable: {
+            /** @enum {string} */
+            type: "table";
+            attrs?: Record<string, never> | string[] | (null);
+            content: components["schemas"]["RichTextNodeTableRow"][];
+            marks?: components["schemas"]["RichTextMark"][] | null;
+            /** @enum {string|null} */
+            text?: null;
+        };
+        RichTextNodeImage: {
+            /** @enum {string} */
+            type: "image";
+            attrs: {
+                fileKey: string;
+                /** @enum {string} */
+                kind: "image" | "video" | "audio" | "file";
+                variantKey?: string | null;
+                /** @description At most 1000 UTF-8 bytes when non-null. */
+                alt?: string | null;
+                /** @description At most 1000 UTF-8 bytes when non-null. */
+                title?: string | null;
+            };
+            content?: string[] | null;
+            marks?: components["schemas"]["RichTextMark"][] | null;
+            /** @enum {string|null} */
+            text?: null;
+        };
+        RichTextNodeVideo: {
+            /** @enum {string} */
+            type: "video";
+            attrs: {
+                fileKey: string;
+                /** @enum {string} */
+                kind: "image" | "video" | "audio" | "file";
+                variantKey?: string | null;
+                /** @description At most 1000 UTF-8 bytes when non-null. */
+                alt?: string | null;
+                /** @description At most 1000 UTF-8 bytes when non-null. */
+                title?: string | null;
+            };
+            content?: string[] | null;
+            marks?: components["schemas"]["RichTextMark"][] | null;
+            /** @enum {string|null} */
+            text?: null;
+        };
+        RichTextNodeAudio: {
+            /** @enum {string} */
+            type: "audio";
+            attrs: {
+                fileKey: string;
+                /** @enum {string} */
+                kind: "image" | "video" | "audio" | "file";
+                variantKey?: string | null;
+                /** @description At most 1000 UTF-8 bytes when non-null. */
+                alt?: string | null;
+                /** @description At most 1000 UTF-8 bytes when non-null. */
+                title?: string | null;
+            };
+            content?: string[] | null;
+            marks?: components["schemas"]["RichTextMark"][] | null;
+            /** @enum {string|null} */
+            text?: null;
+        };
+        RichTextNodeFile: {
+            /** @enum {string} */
+            type: "file";
+            attrs: {
+                fileKey: string;
+                /** @enum {string} */
+                kind: "image" | "video" | "audio" | "file";
+                variantKey?: string | null;
+                /** @description At most 1000 UTF-8 bytes when non-null. */
+                alt?: string | null;
+                /** @description At most 1000 UTF-8 bytes when non-null. */
+                title?: string | null;
+            };
+            content?: string[] | null;
+            marks?: components["schemas"]["RichTextMark"][] | null;
+            /** @enum {string|null} */
+            text?: null;
+        };
+        RichTextNodeMedia: {
+            /** @enum {string} */
+            type: "media";
+            attrs: {
+                fileKey: string;
+                /** @enum {string} */
+                kind: "image" | "video" | "audio" | "file";
+                variantKey?: string | null;
+                /** @description At most 1000 UTF-8 bytes when non-null. */
+                alt?: string | null;
+                /** @description At most 1000 UTF-8 bytes when non-null. */
+                title?: string | null;
+            };
+            content?: string[] | null;
+            marks?: components["schemas"]["RichTextMark"][] | null;
+            /** @enum {string|null} */
+            text?: null;
+        };
+        RichTextNodeText: {
+            /** @enum {string} */
+            type: "text";
+            attrs?: Record<string, never> | string[] | (null);
+            content?: string[] | null;
+            marks?: components["schemas"]["RichTextMark"][] | null;
+            text: string;
+        };
+        RichTextNodeHardBreak: {
+            /** @enum {string} */
+            type: "hardBreak";
+            attrs?: Record<string, never> | string[] | (null);
+            content?: string[] | null;
+            marks?: components["schemas"]["RichTextMark"][] | null;
+            /** @enum {string|null} */
+            text?: null;
+        };
+        RichTextNodeListItem: {
+            /** @enum {string} */
+            type: "listItem";
+            attrs?: Record<string, never> | string[] | (null);
+            /** @description First child must be a paragraph. */
+            content: (components["schemas"]["RichTextNodeParagraph"] | components["schemas"]["RichTextNodeHeading"] | components["schemas"]["RichTextNodeBlockquote"] | components["schemas"]["RichTextNodeBulletList"] | components["schemas"]["RichTextNodeOrderedList"] | components["schemas"]["RichTextNodeCodeBlock"] | components["schemas"]["RichTextNodeHorizontalRule"] | components["schemas"]["RichTextNodeTable"] | components["schemas"]["RichTextNodeImage"] | components["schemas"]["RichTextNodeVideo"] | components["schemas"]["RichTextNodeAudio"] | components["schemas"]["RichTextNodeFile"] | components["schemas"]["RichTextNodeMedia"])[];
+            marks?: components["schemas"]["RichTextMark"][] | null;
+            /** @enum {string|null} */
+            text?: null;
+        };
+        RichTextNodeTableRow: {
+            /** @enum {string} */
+            type: "tableRow";
+            attrs?: Record<string, never> | string[] | (null);
+            content: (components["schemas"]["RichTextNodeTableCell"] | components["schemas"]["RichTextNodeTableHeader"])[];
+            marks?: components["schemas"]["RichTextMark"][] | null;
+            /** @enum {string|null} */
+            text?: null;
+        };
+        RichTextNodeTableCell: {
+            /** @enum {string} */
+            type: "tableCell";
+            attrs?: {
+                colspan?: number;
+                rowspan?: number;
+                colwidth?: number[] | null;
+            } | string[] | (null);
+            content: (components["schemas"]["RichTextNodeParagraph"] | components["schemas"]["RichTextNodeHeading"] | components["schemas"]["RichTextNodeBlockquote"] | components["schemas"]["RichTextNodeBulletList"] | components["schemas"]["RichTextNodeOrderedList"] | components["schemas"]["RichTextNodeCodeBlock"] | components["schemas"]["RichTextNodeHorizontalRule"] | components["schemas"]["RichTextNodeTable"] | components["schemas"]["RichTextNodeImage"] | components["schemas"]["RichTextNodeVideo"] | components["schemas"]["RichTextNodeAudio"] | components["schemas"]["RichTextNodeFile"] | components["schemas"]["RichTextNodeMedia"])[];
+            marks?: components["schemas"]["RichTextMark"][] | null;
+            /** @enum {string|null} */
+            text?: null;
+        };
+        RichTextNodeTableHeader: {
+            /** @enum {string} */
+            type: "tableHeader";
+            attrs?: {
+                colspan?: number;
+                rowspan?: number;
+                colwidth?: number[] | null;
+            } | string[] | (null);
+            content: (components["schemas"]["RichTextNodeParagraph"] | components["schemas"]["RichTextNodeHeading"] | components["schemas"]["RichTextNodeBlockquote"] | components["schemas"]["RichTextNodeBulletList"] | components["schemas"]["RichTextNodeOrderedList"] | components["schemas"]["RichTextNodeCodeBlock"] | components["schemas"]["RichTextNodeHorizontalRule"] | components["schemas"]["RichTextNodeTable"] | components["schemas"]["RichTextNodeImage"] | components["schemas"]["RichTextNodeVideo"] | components["schemas"]["RichTextNodeAudio"] | components["schemas"]["RichTextNodeFile"] | components["schemas"]["RichTextNodeMedia"])[];
+            marks?: components["schemas"]["RichTextMark"][] | null;
+            /** @enum {string|null} */
+            text?: null;
+        };
+        RichTextMark: {
+            /** @enum {string} */
+            type: "bold";
+            attrs?: Record<string, never> | string[] | (null);
+        } | {
+            /** @enum {string} */
+            type: "italic";
+            attrs?: Record<string, never> | string[] | (null);
+        } | {
+            /** @enum {string} */
+            type: "strike";
+            attrs?: Record<string, never> | string[] | (null);
+        } | {
+            /** @enum {string} */
+            type: "underline";
+            attrs?: Record<string, never> | string[] | (null);
+        } | {
+            /** @enum {string} */
+            type: "code";
+            attrs?: Record<string, never> | string[] | (null);
+        } | {
+            /** @enum {string} */
+            type: "link";
+            attrs: {
+                /** @description At most 2048 bytes; http(s) needs a host; /storage/delivery is forbidden. */
+                href: string;
+                /** @enum {string|null} */
+                target?: "_blank" | "_self" | null;
+                /** @enum {string|null} */
+                rel?: "noopener noreferrer" | "noopener noreferrer nofollow" | null;
+                /** @enum {string|null} */
+                class?: null;
+            };
+        } | {
+            /** @enum {string} */
+            type: "textStyle";
+            attrs?: {
+                color?: string | null;
+            } | string[] | (null);
+        };
+        /** @description RichTextProjection whitelist: at most 50000 total nodes, nesting <=60, <=1000 distinct file keys. Validator JSON encoding depth 64 and <=1 MiB apply to requests. Code-block text children must have no marks. No Yjs state is synthesized from this JSON. */
+        RichTextStructuredContent: {
+            /** @enum {string} */
+            schemaVersion: "peanut.richtext/1";
+            /** @enum {string} */
+            editorModel: "tiptap-prosemirror";
+            content: components["schemas"]["RichTextNodeDoc"];
+            annotations: string[];
+        };
+        RichTextRecord: {
+            id: string;
+            title: string;
+            revision: number;
+            created_by_member_id: string;
+            updated_by_member_id: string;
+            /** @description Model timestamp formatted with database.datetime_format (Y-m-d H:i:s). */
+            create_time: string;
+            /** @description Model timestamp formatted with database.datetime_format (Y-m-d H:i:s). */
+            update_time: string;
+        };
+        RichTextDetail: {
+            id: string;
+            title: string;
+            revision: number;
+            created_by_member_id: string;
+            updated_by_member_id: string;
+            /** @description Model timestamp formatted with database.datetime_format (Y-m-d H:i:s). */
+            create_time: string;
+            /** @description Model timestamp formatted with database.datetime_format (Y-m-d H:i:s). */
+            update_time: string;
+            document: components["schemas"]["RichTextStructuredContent"];
+            /** Format: byte */
+            collaboration_state: string;
+        };
+        RichTextCollaboration: {
+            /** @enum {boolean} */
+            enabled: false;
+            /** @enum {string|null} */
+            url: null;
+            document_name: string;
+            /** @enum {string|null} */
+            token: null;
+            /** @enum {string|null} */
+            expires_at: null;
+        } | {
+            /** @enum {boolean} */
+            enabled: true;
+            url: string;
+            document_name: string;
+            /** @description Short-lived payload.signature ticket; expires in 300 seconds. */
+            token: string;
+            expires_at: number;
         };
         /** @description 任意 JSON 值；整数同时属于 JSON number，故使用 anyOf 避免 oneOf 重叠。 */
         SettingValue: (string | number | boolean | {
@@ -13939,6 +14648,49 @@ export interface operations {
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
+        };
+    };
+    listDepartmentLeaderCandidates: {
+        parameters: {
+            query: {
+                department_id: string;
+                page_no?: string;
+                page_size?: number;
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            items: {
+                                id: number;
+                                name: string;
+                            }[];
+                            total: number;
+                            page_no: number;
+                            page_size: number;
+                        };
+                    };
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     getDepartment: {
@@ -19151,6 +19903,210 @@ export interface operations {
             422: components["responses"]["ErrorResponse"];
         };
     };
+    getStorageConfiguration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["StorageSnapshot"];
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+        };
+    };
+    createStorageAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageAccountCreate"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            id: number;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateStorageAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageAccountUpdate"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: string[];
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+        };
+    };
+    createStorageSpace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageSpaceCreate"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            id: number;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+        };
+    };
+    updateStorageSpace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageSpaceUpdate"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: string[];
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+        };
+    };
+    setStorageRoute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageRouteWrite"];
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: string[];
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+        };
+    };
     previewFileVisibility: {
         parameters: {
             query?: never;
@@ -23037,6 +23993,247 @@ export interface operations {
             412: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
             428: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+        };
+    };
+    richTextDocumentList: {
+        parameters: {
+            query?: {
+                title?: string;
+                page_no?: number;
+                page_size?: number;
+                /** @description Existing PaginationInput alias, used only when page_no is absent. */
+                page?: number;
+                /** @description Existing PaginationInput alias, used only when page_size is absent; PageRequest still bounds the page. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: {
+                            lists: components["schemas"]["RichTextRecord"][];
+                            count: number;
+                            pageNo: number;
+                            pageSize: number;
+                        };
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+        };
+    };
+    richTextDocumentDetail: {
+        parameters: {
+            query: {
+                id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["RichTextDetail"];
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+        };
+    };
+    richTextDocumentCollaboration: {
+        parameters: {
+            query: {
+                id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: components["schemas"]["RichTextCollaboration"];
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+        };
+    };
+    richTextDocumentAdd: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    title: string;
+                    document: components["schemas"]["RichTextStructuredContent"];
+                    /**
+                     * Format: byte
+                     * @description Strict base64; decoded state <=8 MiB. Empty or null means no state.
+                     */
+                    collaboration_state?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: string[];
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+        };
+    };
+    richTextDocumentEdit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    id: number;
+                    revision: number;
+                    title: string;
+                    document: components["schemas"]["RichTextStructuredContent"];
+                    /**
+                     * Format: byte
+                     * @description Strict base64; decoded state <=8 MiB. Empty or null means no state.
+                     */
+                    collaboration_state?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: string[];
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            500: components["responses"]["ErrorResponse"];
+        };
+    };
+    richTextDocumentDelete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    id: number;
+                };
+            };
+        };
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {integer} */
+                        code: 20000;
+                        msg: string;
+                        data: string[];
+                    };
+                };
+            };
+            400: components["responses"]["ErrorResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
             500: components["responses"]["ErrorResponse"];
         };
     };

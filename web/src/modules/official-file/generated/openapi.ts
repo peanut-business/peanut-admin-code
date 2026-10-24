@@ -7,6 +7,12 @@ export interface ModuleApiOperations {
   uploadFile: paths['/adminapi/official.file.upload.file']['post'];
   deliverTenantFile: paths['/api/storage/delivery']['get'];
   listFiles: paths['/adminapi/official.file.list']['get'];
+  getStorageConfiguration: paths['/platformapi/infrastructure/storage']['get'];
+  createStorageAccount: paths['/platformapi/infrastructure/storage/account']['post'];
+  updateStorageAccount: paths['/platformapi/infrastructure/storage/account/update']['post'];
+  createStorageSpace: paths['/platformapi/infrastructure/storage/space']['post'];
+  updateStorageSpace: paths['/platformapi/infrastructure/storage/space/update']['post'];
+  setStorageRoute: paths['/platformapi/infrastructure/storage/route']['post'];
   previewFileVisibility: paths['/adminapi/api/v1/files/visibility/preview']['post'];
   submitFileVisibility: paths['/adminapi/api/v1/files/visibility/batches']['post'];
   recentFileVisibilityBatches: paths['/adminapi/api/v1/files/visibility/batches']['get'];
@@ -34,6 +40,12 @@ export function createModuleApi(client: Client<paths>) {
     uploadFile: pathClient['/adminapi/official.file.upload.file'].POST,
     deliverTenantFile: pathClient['/api/storage/delivery'].GET,
     listFiles: pathClient['/adminapi/official.file.list'].GET,
+    getStorageConfiguration: pathClient['/platformapi/infrastructure/storage'].GET,
+    createStorageAccount: pathClient['/platformapi/infrastructure/storage/account'].POST,
+    updateStorageAccount: pathClient['/platformapi/infrastructure/storage/account/update'].POST,
+    createStorageSpace: pathClient['/platformapi/infrastructure/storage/space'].POST,
+    updateStorageSpace: pathClient['/platformapi/infrastructure/storage/space/update'].POST,
+    setStorageRoute: pathClient['/platformapi/infrastructure/storage/route'].POST,
     previewFileVisibility: pathClient['/adminapi/api/v1/files/visibility/preview'].POST,
     submitFileVisibility: pathClient['/adminapi/api/v1/files/visibility/batches'].POST,
     recentFileVisibilityBatches: pathClient['/adminapi/api/v1/files/visibility/batches'].GET,

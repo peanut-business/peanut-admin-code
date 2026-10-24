@@ -129,6 +129,9 @@
             "name": "Document"
         },
         {
+            "name": "Storage"
+        },
+        {
             "name": "Integration"
         },
         {
@@ -142,6 +145,9 @@
         },
         {
             "name": "ReferenceCodes"
+        },
+        {
+            "name": "RichText"
         },
         {
             "name": "Settings"
@@ -7992,6 +7998,176 @@
                     {
                         "kind": "tenant_action",
                         "key": "core.department.read"
+                    }
+                ]
+            }
+        },
+        "/adminapi/dept/leader-candidates": {
+            "get": {
+                "tags": [
+                    "Departments"
+                ],
+                "operationId": "listDepartmentLeaderCandidates",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "department_id",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[1-9][0-9]{0,17}$"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "page_no",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[1-9][0-9]{0,17}$",
+                            "default": "1"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "page_size",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 50,
+                            "default": 20
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "search",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 120,
+                            "default": ""
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": [
+                                                "items",
+                                                "total",
+                                                "page_no",
+                                                "page_size"
+                                            ],
+                                            "properties": {
+                                                "items": {
+                                                    "type": "array",
+                                                    "maxItems": 50,
+                                                    "items": {
+                                                        "type": "object",
+                                                        "additionalProperties": false,
+                                                        "required": [
+                                                            "id",
+                                                            "name"
+                                                        ],
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer",
+                                                                "minimum": 1
+                                                            },
+                                                            "name": {
+                                                                "type": "string"
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "minimum": 0
+                                                },
+                                                "page_no": {
+                                                    "type": "integer",
+                                                    "minimum": 1
+                                                },
+                                                "page_size": {
+                                                    "type": "integer",
+                                                    "minimum": 1,
+                                                    "maximum": 50
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "x-peanut-errors": [
+                    "DEPARTMENT_LEADER_INPUT_INVALID",
+                    "DEPARTMENT_INACTIVE"
+                ],
+                "description": "Requires department update permission and an active department in the current tenant. Returns active tenant members whose accounts are active, ordered by member id; search is a literal display-name substring. Only the four declared query keys are accepted; page offset must fit PHP_INT_MAX.",
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "adminapi",
+                    "owner": {
+                        "type": "application",
+                        "key": "adminapi"
+                    },
+                    "controller": "app\\adminapi\\controller\\dept\\DeptController",
+                    "action": "leaderCandidates",
+                    "permission": "core.department.update",
+                    "source": {
+                        "file": "server/route/admin.php",
+                        "line": 92
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "tenant_action",
+                        "key": "core.department.update"
                     }
                 ]
             }
@@ -23525,6 +23701,589 @@
                 ]
             }
         },
+        "/platformapi/infrastructure/storage": {
+            "get": {
+                "tags": [
+                    "Storage"
+                ],
+                "operationId": "getStorageConfiguration",
+                "description": "Requires platform.ops.read. Instance-owned snapshot; credential ciphertext and keys are never returned.",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/StorageSnapshot"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "platform",
+                    "owner": {
+                        "type": "module",
+                        "key": "official.file"
+                    },
+                    "controller": "app\\platform\\controller\\PlatformStorageController",
+                    "action": "snapshot",
+                    "permission": null,
+                    "source": {
+                        "file": "server/app/modules/official/file/route/app.php",
+                        "line": 66
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "platform_action",
+                        "key": "platform.ops.read"
+                    }
+                ]
+            }
+        },
+        "/platformapi/infrastructure/storage/account": {
+            "post": {
+                "tags": [
+                    "Storage"
+                ],
+                "operationId": "createStorageAccount",
+                "description": "Requires platform.ops.maintenance.manage. Validated configuration mutation and platform audit run in the existing transaction. Unknown body keys reject; no provider connection or data migration is requested.",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "minimum": 1
+                                                }
+                                            },
+                                            "required": [
+                                                "id"
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StorageAccountCreate"
+                            }
+                        }
+                    }
+                },
+                "x-peanut-errors": [
+                    "STORAGE_ACCOUNT_CREATE_INPUT_INVALID"
+                ],
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "platform",
+                    "owner": {
+                        "type": "module",
+                        "key": "official.file"
+                    },
+                    "controller": "app\\platform\\controller\\PlatformStorageController",
+                    "action": "createAccount",
+                    "permission": null,
+                    "source": {
+                        "file": "server/app/modules/official/file/route/app.php",
+                        "line": 69
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "platform_action",
+                        "key": "platform.ops.maintenance.manage"
+                    }
+                ]
+            }
+        },
+        "/platformapi/infrastructure/storage/account/update": {
+            "post": {
+                "tags": [
+                    "Storage"
+                ],
+                "operationId": "updateStorageAccount",
+                "description": "Requires platform.ops.maintenance.manage. Validated configuration mutation and platform audit run in the existing transaction. Unknown body keys reject; no provider connection or data migration is requested.",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "maxItems": 0,
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StorageAccountUpdate"
+                            }
+                        }
+                    }
+                },
+                "x-peanut-errors": [
+                    "STORAGE_ACCOUNT_UPDATE_INPUT_INVALID"
+                ],
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "platform",
+                    "owner": {
+                        "type": "module",
+                        "key": "official.file"
+                    },
+                    "controller": "app\\platform\\controller\\PlatformStorageController",
+                    "action": "updateAccount",
+                    "permission": null,
+                    "source": {
+                        "file": "server/app/modules/official/file/route/app.php",
+                        "line": 72
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "platform_action",
+                        "key": "platform.ops.maintenance.manage"
+                    }
+                ]
+            }
+        },
+        "/platformapi/infrastructure/storage/space": {
+            "post": {
+                "tags": [
+                    "Storage"
+                ],
+                "operationId": "createStorageSpace",
+                "description": "Requires platform.ops.maintenance.manage. Validated configuration mutation and platform audit run in the existing transaction. Unknown body keys reject; no provider connection or data migration is requested.",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "minimum": 1
+                                                }
+                                            },
+                                            "required": [
+                                                "id"
+                                            ]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StorageSpaceCreate"
+                            }
+                        }
+                    }
+                },
+                "x-peanut-errors": [
+                    "STORAGE_SPACE_CREATE_INPUT_INVALID"
+                ],
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "platform",
+                    "owner": {
+                        "type": "module",
+                        "key": "official.file"
+                    },
+                    "controller": "app\\platform\\controller\\PlatformStorageController",
+                    "action": "createSpace",
+                    "permission": null,
+                    "source": {
+                        "file": "server/app/modules/official/file/route/app.php",
+                        "line": 75
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "platform_action",
+                        "key": "platform.ops.maintenance.manage"
+                    }
+                ]
+            }
+        },
+        "/platformapi/infrastructure/storage/space/update": {
+            "post": {
+                "tags": [
+                    "Storage"
+                ],
+                "operationId": "updateStorageSpace",
+                "description": "Requires platform.ops.maintenance.manage. Validated configuration mutation and platform audit run in the existing transaction. Unknown body keys reject; no provider connection or data migration is requested.",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "maxItems": 0,
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StorageSpaceUpdate"
+                            }
+                        }
+                    }
+                },
+                "x-peanut-errors": [
+                    "STORAGE_SPACE_UPDATE_INPUT_INVALID"
+                ],
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "platform",
+                    "owner": {
+                        "type": "module",
+                        "key": "official.file"
+                    },
+                    "controller": "app\\platform\\controller\\PlatformStorageController",
+                    "action": "updateSpace",
+                    "permission": null,
+                    "source": {
+                        "file": "server/app/modules/official/file/route/app.php",
+                        "line": 78
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "platform_action",
+                        "key": "platform.ops.maintenance.manage"
+                    }
+                ]
+            }
+        },
+        "/platformapi/infrastructure/storage/route": {
+            "post": {
+                "tags": [
+                    "Storage"
+                ],
+                "operationId": "setStorageRoute",
+                "description": "Requires platform.ops.maintenance.manage. Validated configuration mutation and platform audit run in the existing transaction. Unknown body keys reject; no provider connection or data migration is requested.",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "maxItems": 0,
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StorageRouteWrite"
+                            }
+                        }
+                    }
+                },
+                "x-peanut-errors": [
+                    "STORAGE_ROUTE_INPUT_INVALID"
+                ],
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "platform",
+                    "owner": {
+                        "type": "module",
+                        "key": "official.file"
+                    },
+                    "controller": "app\\platform\\controller\\PlatformStorageController",
+                    "action": "setRoute",
+                    "permission": null,
+                    "source": {
+                        "file": "server/app/modules/official/file/route/app.php",
+                        "line": 81
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "platform_action",
+                        "key": "platform.ops.maintenance.manage"
+                    }
+                ]
+            }
+        },
         "/adminapi/api/v1/files/visibility/preview": {
             "post": {
                 "tags": [
@@ -34902,6 +35661,768 @@
                     {
                         "kind": "tenant_action",
                         "key": "official.reference-codes.manage"
+                    }
+                ]
+            }
+        },
+        "/adminapi/official.rich-text.document.list": {
+            "get": {
+                "tags": [
+                    "RichText"
+                ],
+                "operationId": "richTextDocumentList",
+                "description": "Current-tenant admin session and route permission required; soft-deleted documents are excluded.",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "properties": {
+                                                "lists": {
+                                                    "type": "array",
+                                                    "maxItems": 100,
+                                                    "items": {
+                                                        "$ref": "#/components/schemas/RichTextRecord"
+                                                    }
+                                                },
+                                                "count": {
+                                                    "type": "integer",
+                                                    "minimum": 0
+                                                },
+                                                "pageNo": {
+                                                    "type": "integer",
+                                                    "minimum": 1
+                                                },
+                                                "pageSize": {
+                                                    "type": "integer",
+                                                    "minimum": 1,
+                                                    "maximum": 100
+                                                }
+                                            },
+                                            "required": [
+                                                "lists",
+                                                "count",
+                                                "pageNo",
+                                                "pageSize"
+                                            ]
+                                        }
+                                    },
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "title",
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 200
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "page_no",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "default": 1
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "page_size",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100,
+                            "default": 15
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "page",
+                        "description": "Existing PaginationInput alias, used only when page_no is absent.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "limit",
+                        "description": "Existing PaginationInput alias, used only when page_size is absent; PageRequest still bounds the page.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
+                        }
+                    }
+                ],
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "adminapi",
+                    "owner": {
+                        "type": "module",
+                        "key": "official.rich-text"
+                    },
+                    "controller": "PeanutAdmin\\Modules\\RichText\\Controller\\RichTextDocumentController",
+                    "action": "lists",
+                    "permission": null,
+                    "source": {
+                        "file": "server/app/modules/official/rich_text/route/app.php",
+                        "line": 17
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "module_capability",
+                        "key": "official.rich-text"
+                    },
+                    {
+                        "kind": "tenant_action",
+                        "key": "official.rich-text.document.list"
+                    }
+                ]
+            }
+        },
+        "/adminapi/official.rich-text.document.detail": {
+            "get": {
+                "tags": [
+                    "RichText"
+                ],
+                "operationId": "richTextDocumentDetail",
+                "description": "Current-tenant admin session and route permission required; soft-deleted documents are excluded.",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/RichTextDetail"
+                                        }
+                                    },
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "adminapi",
+                    "owner": {
+                        "type": "module",
+                        "key": "official.rich-text"
+                    },
+                    "controller": "PeanutAdmin\\Modules\\RichText\\Controller\\RichTextDocumentController",
+                    "action": "detail",
+                    "permission": null,
+                    "source": {
+                        "file": "server/app/modules/official/rich_text/route/app.php",
+                        "line": 18
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "module_capability",
+                        "key": "official.rich-text"
+                    },
+                    {
+                        "kind": "tenant_action",
+                        "key": "official.rich-text.document.detail"
+                    }
+                ]
+            }
+        },
+        "/adminapi/official.rich-text.document.collaboration": {
+            "get": {
+                "tags": [
+                    "RichText"
+                ],
+                "operationId": "richTextDocumentCollaboration",
+                "description": "Current-tenant admin session and route permission required; soft-deleted documents are excluded.",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/RichTextCollaboration"
+                                        }
+                                    },
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "id",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "adminapi",
+                    "owner": {
+                        "type": "module",
+                        "key": "official.rich-text"
+                    },
+                    "controller": "PeanutAdmin\\Modules\\RichText\\Controller\\RichTextDocumentController",
+                    "action": "collaboration",
+                    "permission": null,
+                    "source": {
+                        "file": "server/app/modules/official/rich_text/route/app.php",
+                        "line": 22
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "module_capability",
+                        "key": "official.rich-text"
+                    },
+                    {
+                        "kind": "tenant_action",
+                        "key": "official.rich-text.document.collaboration"
+                    }
+                ]
+            }
+        },
+        "/adminapi/official.rich-text.document.add": {
+            "post": {
+                "tags": [
+                    "RichText"
+                ],
+                "operationId": "richTextDocumentAdd",
+                "description": "Current-tenant admin session and route permission required; soft-deleted documents are excluded.",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "maxItems": 0,
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "title": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 200
+                                    },
+                                    "document": {
+                                        "$ref": "#/components/schemas/RichTextStructuredContent"
+                                    },
+                                    "collaboration_state": {
+                                        "type": "string",
+                                        "nullable": true,
+                                        "format": "byte",
+                                        "description": "Strict base64; decoded state <=8 MiB. Empty or null means no state."
+                                    }
+                                },
+                                "required": [
+                                    "title",
+                                    "document"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "x-peanut-errors": [
+                    "RICH_TEXT_PROJECTION_INVALID",
+                    "RICH_TEXT_COLLABORATION_STATE_INVALID"
+                ],
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "adminapi",
+                    "owner": {
+                        "type": "module",
+                        "key": "official.rich-text"
+                    },
+                    "controller": "PeanutAdmin\\Modules\\RichText\\Controller\\RichTextDocumentController",
+                    "action": "add",
+                    "permission": null,
+                    "source": {
+                        "file": "server/app/modules/official/rich_text/route/app.php",
+                        "line": 19
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "module_capability",
+                        "key": "official.rich-text"
+                    },
+                    {
+                        "kind": "tenant_action",
+                        "key": "official.rich-text.document.add"
+                    }
+                ]
+            }
+        },
+        "/adminapi/official.rich-text.document.edit": {
+            "post": {
+                "tags": [
+                    "RichText"
+                ],
+                "operationId": "richTextDocumentEdit",
+                "description": "Current-tenant admin session and route permission required; soft-deleted documents are excluded. Revision is a compare-and-swap input; successful edit increments it by one.",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "maxItems": 0,
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "id": {
+                                        "type": "integer",
+                                        "minimum": 1
+                                    },
+                                    "revision": {
+                                        "type": "integer",
+                                        "minimum": 1
+                                    },
+                                    "title": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 200
+                                    },
+                                    "document": {
+                                        "$ref": "#/components/schemas/RichTextStructuredContent"
+                                    },
+                                    "collaboration_state": {
+                                        "type": "string",
+                                        "nullable": true,
+                                        "format": "byte",
+                                        "description": "Strict base64; decoded state <=8 MiB. Empty or null means no state."
+                                    }
+                                },
+                                "required": [
+                                    "id",
+                                    "revision",
+                                    "title",
+                                    "document"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "x-peanut-errors": [
+                    "RICH_TEXT_PROJECTION_INVALID",
+                    "RICH_TEXT_COLLABORATION_STATE_INVALID",
+                    "RICH_TEXT_DOCUMENT_NOT_FOUND",
+                    "RICH_TEXT_DOCUMENT_REVISION_CONFLICT"
+                ],
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "adminapi",
+                    "owner": {
+                        "type": "module",
+                        "key": "official.rich-text"
+                    },
+                    "controller": "PeanutAdmin\\Modules\\RichText\\Controller\\RichTextDocumentController",
+                    "action": "edit",
+                    "permission": null,
+                    "source": {
+                        "file": "server/app/modules/official/rich_text/route/app.php",
+                        "line": 20
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "module_capability",
+                        "key": "official.rich-text"
+                    },
+                    {
+                        "kind": "tenant_action",
+                        "key": "official.rich-text.document.edit"
+                    }
+                ]
+            }
+        },
+        "/adminapi/official.rich-text.document.delete": {
+            "post": {
+                "tags": [
+                    "RichText"
+                ],
+                "operationId": "richTextDocumentDelete",
+                "description": "Current-tenant admin session and route permission required; soft-deleted documents are excluded.",
+                "responses": {
+                    "200": {
+                        "description": "成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "code": {
+                                            "type": "integer",
+                                            "enum": [
+                                                20000
+                                            ]
+                                        },
+                                        "msg": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "maxItems": 0,
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "code",
+                                        "msg",
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ErrorResponse"
+                    }
+                },
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "id": {
+                                        "type": "integer",
+                                        "minimum": 1
+                                    }
+                                },
+                                "required": [
+                                    "id"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "x-peanut-errors": [
+                    "RICH_TEXT_DOCUMENT_NOT_FOUND"
+                ],
+                "security": [
+                    {
+                        "bearerAuth": {}
+                    }
+                ],
+                "x-peanut-route": {
+                    "application": "adminapi",
+                    "owner": {
+                        "type": "module",
+                        "key": "official.rich-text"
+                    },
+                    "controller": "PeanutAdmin\\Modules\\RichText\\Controller\\RichTextDocumentController",
+                    "action": "delete",
+                    "permission": null,
+                    "source": {
+                        "file": "server/app/modules/official/rich_text/route/app.php",
+                        "line": 21
+                    }
+                },
+                "x-peanut-permissions": [
+                    {
+                        "kind": "module_capability",
+                        "key": "official.rich-text"
+                    },
+                    {
+                        "kind": "tenant_action",
+                        "key": "official.rich-text.document.delete"
                     }
                 ]
             }
@@ -48088,6 +49609,639 @@
                     "capabilityRevision"
                 ]
             },
+            "StorageAccountSnapshot": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "pattern": "^[1-9][0-9]*$",
+                        "description": "ThinkORM bigint projection."
+                    },
+                    "account_key": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9._-]{2,63}$",
+                        "description": "Trimmed ASCII key."
+                    },
+                    "driver": {
+                        "type": "string",
+                        "enum": [
+                            "local",
+                            "qiniu",
+                            "aliyun",
+                            "qcloud"
+                        ]
+                    },
+                    "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "description": "Trimmed before validation."
+                    },
+                    "credential_key_version": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "credential_rotated_at": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "credential_masked": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                            "********",
+                            null
+                        ]
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "active",
+                            "disabled"
+                        ]
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "updated_at": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "account_key",
+                    "driver",
+                    "name",
+                    "credential_key_version",
+                    "credential_rotated_at",
+                    "credential_masked",
+                    "status",
+                    "created_at",
+                    "updated_at"
+                ]
+            },
+            "StorageSpaceSnapshot": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "pattern": "^[1-9][0-9]*$",
+                        "description": "ThinkORM bigint projection."
+                    },
+                    "space_key": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9._-]{2,63}$",
+                        "description": "Trimmed ASCII key."
+                    },
+                    "account_id": {
+                        "type": "string",
+                        "pattern": "^[1-9][0-9]*$",
+                        "description": "ThinkORM bigint projection."
+                    },
+                    "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "description": "Trimmed before validation."
+                    },
+                    "access_type": {
+                        "type": "string",
+                        "enum": [
+                            "public",
+                            "private"
+                        ]
+                    },
+                    "bucket": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "region": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "endpoint": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Blank normalizes to null; otherwise an absolute http(s) URL, with trailing slashes removed."
+                    },
+                    "access_domain": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Blank normalizes to null; otherwise an absolute http(s) URL, with trailing slashes removed."
+                    },
+                    "local_path": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                            "public/storage",
+                            "private/storage",
+                            null
+                        ]
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "active",
+                            "read_only",
+                            "disabled"
+                        ]
+                    },
+                    "account_key": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9._-]{2,63}$",
+                        "description": "Trimmed ASCII key."
+                    },
+                    "driver": {
+                        "type": "string",
+                        "enum": [
+                            "local",
+                            "qiniu",
+                            "aliyun",
+                            "qcloud"
+                        ]
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "updated_at": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "space_key",
+                    "account_id",
+                    "name",
+                    "access_type",
+                    "bucket",
+                    "region",
+                    "endpoint",
+                    "access_domain",
+                    "local_path",
+                    "status",
+                    "account_key",
+                    "driver",
+                    "created_at",
+                    "updated_at"
+                ]
+            },
+            "StorageRouteSnapshot": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "route_key": {
+                        "type": "string",
+                        "enum": [
+                            "default.public",
+                            "default.private",
+                            "material.image",
+                            "material.image-variant",
+                            "material.video",
+                            "material.file",
+                            "member.avatar",
+                            "article.asset",
+                            "decoration.asset",
+                            "website.asset",
+                            "export.xlsx",
+                            "export.csv",
+                            "attachment.sensitive",
+                            "document.resource",
+                            "document.snapshot",
+                            "document.snapshot-sensitive"
+                        ]
+                    },
+                    "access_type": {
+                        "type": "string",
+                        "enum": [
+                            "public",
+                            "private"
+                        ]
+                    },
+                    "space_id": {
+                        "type": "string",
+                        "pattern": "^[1-9][0-9]*$",
+                        "description": "ThinkORM bigint projection."
+                    },
+                    "updated_at": {
+                        "type": "string"
+                    },
+                    "space_key": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9._-]{2,63}$",
+                        "description": "Trimmed ASCII key."
+                    },
+                    "space_name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "description": "Trimmed before validation."
+                    },
+                    "driver": {
+                        "type": "string",
+                        "enum": [
+                            "local",
+                            "qiniu",
+                            "aliyun",
+                            "qcloud"
+                        ]
+                    }
+                },
+                "required": [
+                    "route_key",
+                    "access_type",
+                    "space_id",
+                    "updated_at",
+                    "space_key",
+                    "space_name",
+                    "driver"
+                ]
+            },
+            "StorageSnapshot": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "accounts": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/StorageAccountSnapshot"
+                        }
+                    },
+                    "spaces": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/StorageSpaceSnapshot"
+                        }
+                    },
+                    "routes": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/StorageRouteSnapshot"
+                        }
+                    },
+                    "purposes": {
+                        "type": "array",
+                        "minItems": 5,
+                        "maxItems": 5,
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "material.image",
+                                "material.video",
+                                "material.file",
+                                "export.xlsx",
+                                "export.csv"
+                            ]
+                        }
+                    }
+                },
+                "required": [
+                    "accounts",
+                    "spaces",
+                    "routes",
+                    "purposes"
+                ]
+            },
+            "StorageAccountCreate": {
+                "oneOf": [
+                    {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "account_key": {
+                                "type": "string",
+                                "pattern": "^[a-z][a-z0-9._-]{2,63}$",
+                                "description": "Trimmed ASCII key."
+                            },
+                            "driver": {
+                                "type": "string",
+                                "enum": [
+                                    "local"
+                                ]
+                            },
+                            "name": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Trimmed before validation."
+                            },
+                            "credentials": {
+                                "oneOf": [
+                                    {
+                                        "type": "string",
+                                        "nullable": true,
+                                        "enum": [
+                                            null
+                                        ]
+                                    },
+                                    {
+                                        "type": "array",
+                                        "maxItems": 0,
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    {
+                                        "type": "object",
+                                        "additionalProperties": false
+                                    }
+                                ]
+                            },
+                            "credential_ref": {
+                                "type": "string",
+                                "nullable": true,
+                                "pattern": "^\\s*$",
+                                "description": "Non-empty credential references are no longer supported."
+                            }
+                        },
+                        "required": [
+                            "account_key",
+                            "driver",
+                            "name"
+                        ]
+                    },
+                    {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "account_key": {
+                                "type": "string",
+                                "pattern": "^[a-z][a-z0-9._-]{2,63}$",
+                                "description": "Trimmed ASCII key."
+                            },
+                            "driver": {
+                                "type": "string",
+                                "enum": [
+                                    "qiniu",
+                                    "aliyun",
+                                    "qcloud"
+                                ]
+                            },
+                            "name": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128,
+                                "description": "Trimmed before validation."
+                            },
+                            "credentials": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "access_key": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "writeOnly": true,
+                                        "description": "Non-empty after trimming."
+                                    },
+                                    "secret_key": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "writeOnly": true,
+                                        "description": "Non-empty after trimming."
+                                    }
+                                },
+                                "required": [
+                                    "access_key",
+                                    "secret_key"
+                                ]
+                            },
+                            "credential_ref": {
+                                "type": "string",
+                                "nullable": true,
+                                "pattern": "^\\s*$",
+                                "description": "Non-empty credential references are no longer supported."
+                            }
+                        },
+                        "required": [
+                            "account_key",
+                            "driver",
+                            "name",
+                            "credentials"
+                        ]
+                    }
+                ]
+            },
+            "StorageAccountUpdate": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "description": "Trimmed before validation."
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "active",
+                            "disabled"
+                        ],
+                        "default": "active"
+                    },
+                    "credentials": {
+                        "oneOf": [
+                            {
+                                "type": "string",
+                                "nullable": true,
+                                "enum": [
+                                    null
+                                ]
+                            },
+                            {
+                                "type": "array",
+                                "maxItems": 0,
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            {
+                                "type": "object",
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "access_key": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "writeOnly": true,
+                                        "description": "Non-empty after trimming."
+                                    },
+                                    "secret_key": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "writeOnly": true,
+                                        "description": "Non-empty after trimming."
+                                    }
+                                },
+                                "required": [
+                                    "access_key",
+                                    "secret_key"
+                                ]
+                            }
+                        ],
+                        "description": "For cloud accounts a non-empty value rotates both keys; omitted/null/empty leaves credentials unchanged. Local accounts reject non-empty credentials."
+                    },
+                    "credential_ref": {
+                        "type": "string",
+                        "nullable": true,
+                        "pattern": "^\\s*$",
+                        "description": "Non-empty credential references are no longer supported."
+                    }
+                },
+                "required": [
+                    "id",
+                    "name"
+                ]
+            },
+            "StorageSpaceCreate": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "account_id": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "space_key": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9._-]{2,63}$",
+                        "description": "Trimmed ASCII key."
+                    },
+                    "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "description": "Trimmed before validation."
+                    },
+                    "access_type": {
+                        "type": "string",
+                        "enum": [
+                            "public",
+                            "private"
+                        ]
+                    },
+                    "bucket": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "region": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "endpoint": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Blank normalizes to null; otherwise an absolute http(s) URL, with trailing slashes removed."
+                    },
+                    "access_domain": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Blank normalizes to null; otherwise an absolute http(s) URL, with trailing slashes removed."
+                    },
+                    "local_path": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                            "public/storage",
+                            "private/storage",
+                            null
+                        ]
+                    }
+                },
+                "required": [
+                    "account_id",
+                    "space_key",
+                    "name",
+                    "access_type"
+                ],
+                "description": "The existing account selects the driver. local: local_path must equal public/storage or private/storage for access_type, bucket must be blank; persisted local region/endpoint must be null. Cloud: bucket required and local_path blank; qcloud also needs region, aliyun an http(s) endpoint, qiniu or any public cloud space an access_domain. Blank optional strings normalize to null. Account and location are immutable after creation."
+            },
+            "StorageSpaceUpdate": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128,
+                        "description": "Trimmed before validation."
+                    },
+                    "access_domain": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Blank normalizes to null; otherwise an absolute http(s) URL, with trailing slashes removed."
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "active",
+                            "read_only",
+                            "disabled"
+                        ],
+                        "default": "active"
+                    }
+                },
+                "required": [
+                    "id",
+                    "name"
+                ],
+                "description": "Revalidates the existing immutable account/location. qiniu or a public cloud space must retain a non-blank access_domain; omitted access_domain clears it and can therefore reject."
+            },
+            "StorageRouteWrite": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "route_key": {
+                        "type": "string",
+                        "enum": [
+                            "default.public",
+                            "default.private",
+                            "material.image",
+                            "material.image-variant",
+                            "material.video",
+                            "material.file",
+                            "member.avatar",
+                            "article.asset",
+                            "decoration.asset",
+                            "website.asset",
+                            "export.xlsx",
+                            "export.csv",
+                            "attachment.sensitive",
+                            "document.resource",
+                            "document.snapshot",
+                            "document.snapshot-sensitive"
+                        ]
+                    },
+                    "access_type": {
+                        "type": "string",
+                        "enum": [
+                            "public",
+                            "private"
+                        ]
+                    },
+                    "space_id": {
+                        "type": "integer",
+                        "minimum": 1
+                    }
+                },
+                "required": [
+                    "route_key",
+                    "access_type",
+                    "space_id"
+                ],
+                "description": "Target space must be active and have matching access_type. default.public/private must match their suffix; registered material/member/article/decoration/website purposes are public and export/attachment/document purposes are private. Upserts only this route."
+            },
             "FileVisibilityConfirmation": {
                 "type": "object",
                 "additionalProperties": false,
@@ -56943,6 +59097,2125 @@
                         "$ref": "#/components/schemas/ReferenceCodeMeta"
                     }
                 }
+            },
+            "RichTextNodeDoc": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "doc"
+                        ]
+                    },
+                    "attrs": {
+                        "oneOf": [
+                            {
+                                "type": "object",
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "array",
+                                "maxItems": 0,
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            {
+                                "type": "string",
+                                "nullable": true,
+                                "enum": [
+                                    null
+                                ]
+                            }
+                        ]
+                    },
+                    "content": {
+                        "type": "array",
+                        "maxItems": 50000,
+                        "items": {
+                            "oneOf": [
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeParagraph"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeHeading"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeBlockquote"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeBulletList"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeOrderedList"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeCodeBlock"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeHorizontalRule"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeTable"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeImage"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeVideo"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeAudio"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeFile"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeMedia"
+                                }
+                            ]
+                        },
+                        "minItems": 1
+                    },
+                    "marks": {
+                        "type": "array",
+                        "nullable": true,
+                        "items": {
+                            "$ref": "#/components/schemas/RichTextMark"
+                        },
+                        "maxItems": 0
+                    },
+                    "text": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                            null
+                        ]
+                    }
+                },
+                "required": [
+                    "type",
+                    "content"
+                ]
+            },
+            "RichTextNodeParagraph": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "paragraph"
+                        ]
+                    },
+                    "attrs": {
+                        "oneOf": [
+                            {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "textAlign": {
+                                        "type": "string",
+                                        "nullable": true,
+                                        "enum": [
+                                            "left",
+                                            "right",
+                                            "center",
+                                            "justify",
+                                            null
+                                        ]
+                                    }
+                                }
+                            },
+                            {
+                                "type": "array",
+                                "maxItems": 0,
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            {
+                                "type": "string",
+                                "nullable": true,
+                                "enum": [
+                                    null
+                                ]
+                            }
+                        ]
+                    },
+                    "content": {
+                        "type": "array",
+                        "maxItems": 50000,
+                        "items": {
+                            "oneOf": [
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeText"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeHardBreak"
+                                }
+                            ]
+                        },
+                        "nullable": true
+                    },
+                    "marks": {
+                        "type": "array",
+                        "nullable": true,
+                        "items": {
+                            "$ref": "#/components/schemas/RichTextMark"
+                        },
+                        "maxItems": 0
+                    },
+                    "text": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                            null
+                        ]
+                    }
+                },
+                "required": [
+                    "type"
+                ]
+            },
+            "RichTextNodeHeading": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "heading"
+                        ]
+                    },
+                    "attrs": {
+                        "oneOf": [
+                            {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "level": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 6
+                                    },
+                                    "textAlign": {
+                                        "type": "string",
+                                        "nullable": true,
+                                        "enum": [
+                                            "left",
+                                            "right",
+                                            "center",
+                                            "justify",
+                                            null
+                                        ]
+                                    }
+                                }
+                            },
+                            {
+                                "type": "array",
+                                "maxItems": 0,
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            {
+                                "type": "string",
+                                "nullable": true,
+                                "enum": [
+                                    null
+                                ]
+                            }
+                        ]
+                    },
+                    "content": {
+                        "type": "array",
+                        "maxItems": 50000,
+                        "items": {
+                            "oneOf": [
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeText"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeHardBreak"
+                                }
+                            ]
+                        },
+                        "nullable": true
+                    },
+                    "marks": {
+                        "type": "array",
+                        "nullable": true,
+                        "items": {
+                            "$ref": "#/components/schemas/RichTextMark"
+                        },
+                        "maxItems": 0
+                    },
+                    "text": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                            null
+                        ]
+                    }
+                },
+                "required": [
+                    "type"
+                ]
+            },
+            "RichTextNodeBlockquote": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "blockquote"
+                        ]
+                    },
+                    "attrs": {
+                        "oneOf": [
+                            {
+                                "type": "object",
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "array",
+                                "maxItems": 0,
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            {
+                                "type": "string",
+                                "nullable": true,
+                                "enum": [
+                                    null
+                                ]
+                            }
+                        ]
+                    },
+                    "content": {
+                        "type": "array",
+                        "maxItems": 50000,
+                        "items": {
+                            "oneOf": [
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeParagraph"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeHeading"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeBlockquote"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeBulletList"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeOrderedList"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeCodeBlock"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeHorizontalRule"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeTable"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeImage"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeVideo"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeAudio"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeFile"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeMedia"
+                                }
+                            ]
+                        },
+                        "minItems": 1
+                    },
+                    "marks": {
+                        "type": "array",
+                        "nullable": true,
+                        "items": {
+                            "$ref": "#/components/schemas/RichTextMark"
+                        },
+                        "maxItems": 0
+                    },
+                    "text": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                            null
+                        ]
+                    }
+                },
+                "required": [
+                    "type",
+                    "content"
+                ]
+            },
+            "RichTextNodeBulletList": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "bulletList"
+                        ]
+                    },
+                    "attrs": {
+                        "oneOf": [
+                            {
+                                "type": "object",
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "array",
+                                "maxItems": 0,
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            {
+                                "type": "string",
+                                "nullable": true,
+                                "enum": [
+                                    null
+                                ]
+                            }
+                        ]
+                    },
+                    "content": {
+                        "type": "array",
+                        "maxItems": 50000,
+                        "items": {
+                            "oneOf": [
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeListItem"
+                                }
+                            ]
+                        },
+                        "minItems": 1
+                    },
+                    "marks": {
+                        "type": "array",
+                        "nullable": true,
+                        "items": {
+                            "$ref": "#/components/schemas/RichTextMark"
+                        },
+                        "maxItems": 0
+                    },
+                    "text": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                            null
+                        ]
+                    }
+                },
+                "required": [
+                    "type",
+                    "content"
+                ]
+            },
+            "RichTextNodeOrderedList": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "orderedList"
+                        ]
+                    },
+                    "attrs": {
+                        "oneOf": [
+                            {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "start": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 1000000
+                                    }
+                                }
+                            },
+                            {
+                                "type": "array",
+                                "maxItems": 0,
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            {
+                                "type": "string",
+                                "nullable": true,
+                                "enum": [
+                                    null
+                                ]
+                            }
+                        ]
+                    },
+                    "content": {
+                        "type": "array",
+                        "maxItems": 50000,
+                        "items": {
+                            "oneOf": [
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeListItem"
+                                }
+                            ]
+                        },
+                        "minItems": 1
+                    },
+                    "marks": {
+                        "type": "array",
+                        "nullable": true,
+                        "items": {
+                            "$ref": "#/components/schemas/RichTextMark"
+                        },
+                        "maxItems": 0
+                    },
+                    "text": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                            null
+                        ]
+                    }
+                },
+                "required": [
+                    "type",
+                    "content"
+                ]
+            },
+            "RichTextNodeCodeBlock": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "codeBlock"
+                        ]
+                    },
+                    "attrs": {
+                        "oneOf": [
+                            {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "language": {
+                                        "type": "string",
+                                        "nullable": true,
+                                        "pattern": "^[a-zA-Z0-9_+.-]{0,64}$"
+                                    }
+                                }
+                            },
+                            {
+                                "type": "array",
+                                "maxItems": 0,
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            {
+                                "type": "string",
+                                "nullable": true,
+                                "enum": [
+                                    null
+                                ]
+                            }
+                        ]
+                    },
+                    "content": {
+                        "type": "array",
+                        "maxItems": 50000,
+                        "items": {
+                            "oneOf": [
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeText"
+                                }
+                            ]
+                        },
+                        "nullable": true
+                    },
+                    "marks": {
+                        "type": "array",
+                        "nullable": true,
+                        "items": {
+                            "$ref": "#/components/schemas/RichTextMark"
+                        },
+                        "maxItems": 0
+                    },
+                    "text": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                            null
+                        ]
+                    }
+                },
+                "required": [
+                    "type"
+                ]
+            },
+            "RichTextNodeHorizontalRule": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "horizontalRule"
+                        ]
+                    },
+                    "attrs": {
+                        "oneOf": [
+                            {
+                                "type": "object",
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "array",
+                                "maxItems": 0,
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            {
+                                "type": "string",
+                                "nullable": true,
+                                "enum": [
+                                    null
+                                ]
+                            }
+                        ]
+                    },
+                    "content": {
+                        "type": "array",
+                        "maxItems": 0,
+                        "items": {
+                            "type": "string"
+                        },
+                        "nullable": true
+                    },
+                    "marks": {
+                        "type": "array",
+                        "nullable": true,
+                        "items": {
+                            "$ref": "#/components/schemas/RichTextMark"
+                        },
+                        "maxItems": 0
+                    },
+                    "text": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                            null
+                        ]
+                    }
+                },
+                "required": [
+                    "type"
+                ]
+            },
+            "RichTextNodeTable": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "table"
+                        ]
+                    },
+                    "attrs": {
+                        "oneOf": [
+                            {
+                                "type": "object",
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "array",
+                                "maxItems": 0,
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            {
+                                "type": "string",
+                                "nullable": true,
+                                "enum": [
+                                    null
+                                ]
+                            }
+                        ]
+                    },
+                    "content": {
+                        "type": "array",
+                        "maxItems": 50000,
+                        "items": {
+                            "oneOf": [
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeTableRow"
+                                }
+                            ]
+                        },
+                        "minItems": 1
+                    },
+                    "marks": {
+                        "type": "array",
+                        "nullable": true,
+                        "items": {
+                            "$ref": "#/components/schemas/RichTextMark"
+                        },
+                        "maxItems": 0
+                    },
+                    "text": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                            null
+                        ]
+                    }
+                },
+                "required": [
+                    "type",
+                    "content"
+                ]
+            },
+            "RichTextNodeImage": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "image"
+                        ]
+                    },
+                    "attrs": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "fileKey": {
+                                "type": "string",
+                                "pattern": "^file_[0-9a-f]{32}$"
+                            },
+                            "kind": {
+                                "type": "string",
+                                "enum": [
+                                    "image",
+                                    "video",
+                                    "audio",
+                                    "file"
+                                ]
+                            },
+                            "variantKey": {
+                                "type": "string",
+                                "nullable": true,
+                                "pattern": "^[a-z][a-z0-9-]{0,31}$"
+                            },
+                            "alt": {
+                                "type": "string",
+                                "nullable": true,
+                                "description": "At most 1000 UTF-8 bytes when non-null."
+                            },
+                            "title": {
+                                "type": "string",
+                                "nullable": true,
+                                "description": "At most 1000 UTF-8 bytes when non-null."
+                            }
+                        },
+                        "required": [
+                            "fileKey",
+                            "kind"
+                        ]
+                    },
+                    "content": {
+                        "type": "array",
+                        "maxItems": 0,
+                        "items": {
+                            "type": "string"
+                        },
+                        "nullable": true
+                    },
+                    "marks": {
+                        "type": "array",
+                        "nullable": true,
+                        "items": {
+                            "$ref": "#/components/schemas/RichTextMark"
+                        },
+                        "maxItems": 0
+                    },
+                    "text": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                            null
+                        ]
+                    }
+                },
+                "required": [
+                    "type",
+                    "attrs"
+                ]
+            },
+            "RichTextNodeVideo": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "video"
+                        ]
+                    },
+                    "attrs": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "fileKey": {
+                                "type": "string",
+                                "pattern": "^file_[0-9a-f]{32}$"
+                            },
+                            "kind": {
+                                "type": "string",
+                                "enum": [
+                                    "image",
+                                    "video",
+                                    "audio",
+                                    "file"
+                                ]
+                            },
+                            "variantKey": {
+                                "type": "string",
+                                "nullable": true,
+                                "pattern": "^[a-z][a-z0-9-]{0,31}$"
+                            },
+                            "alt": {
+                                "type": "string",
+                                "nullable": true,
+                                "description": "At most 1000 UTF-8 bytes when non-null."
+                            },
+                            "title": {
+                                "type": "string",
+                                "nullable": true,
+                                "description": "At most 1000 UTF-8 bytes when non-null."
+                            }
+                        },
+                        "required": [
+                            "fileKey",
+                            "kind"
+                        ]
+                    },
+                    "content": {
+                        "type": "array",
+                        "maxItems": 0,
+                        "items": {
+                            "type": "string"
+                        },
+                        "nullable": true
+                    },
+                    "marks": {
+                        "type": "array",
+                        "nullable": true,
+                        "items": {
+                            "$ref": "#/components/schemas/RichTextMark"
+                        },
+                        "maxItems": 0
+                    },
+                    "text": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                            null
+                        ]
+                    }
+                },
+                "required": [
+                    "type",
+                    "attrs"
+                ]
+            },
+            "RichTextNodeAudio": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "audio"
+                        ]
+                    },
+                    "attrs": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "fileKey": {
+                                "type": "string",
+                                "pattern": "^file_[0-9a-f]{32}$"
+                            },
+                            "kind": {
+                                "type": "string",
+                                "enum": [
+                                    "image",
+                                    "video",
+                                    "audio",
+                                    "file"
+                                ]
+                            },
+                            "variantKey": {
+                                "type": "string",
+                                "nullable": true,
+                                "pattern": "^[a-z][a-z0-9-]{0,31}$"
+                            },
+                            "alt": {
+                                "type": "string",
+                                "nullable": true,
+                                "description": "At most 1000 UTF-8 bytes when non-null."
+                            },
+                            "title": {
+                                "type": "string",
+                                "nullable": true,
+                                "description": "At most 1000 UTF-8 bytes when non-null."
+                            }
+                        },
+                        "required": [
+                            "fileKey",
+                            "kind"
+                        ]
+                    },
+                    "content": {
+                        "type": "array",
+                        "maxItems": 0,
+                        "items": {
+                            "type": "string"
+                        },
+                        "nullable": true
+                    },
+                    "marks": {
+                        "type": "array",
+                        "nullable": true,
+                        "items": {
+                            "$ref": "#/components/schemas/RichTextMark"
+                        },
+                        "maxItems": 0
+                    },
+                    "text": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                            null
+                        ]
+                    }
+                },
+                "required": [
+                    "type",
+                    "attrs"
+                ]
+            },
+            "RichTextNodeFile": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "file"
+                        ]
+                    },
+                    "attrs": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "fileKey": {
+                                "type": "string",
+                                "pattern": "^file_[0-9a-f]{32}$"
+                            },
+                            "kind": {
+                                "type": "string",
+                                "enum": [
+                                    "image",
+                                    "video",
+                                    "audio",
+                                    "file"
+                                ]
+                            },
+                            "variantKey": {
+                                "type": "string",
+                                "nullable": true,
+                                "pattern": "^[a-z][a-z0-9-]{0,31}$"
+                            },
+                            "alt": {
+                                "type": "string",
+                                "nullable": true,
+                                "description": "At most 1000 UTF-8 bytes when non-null."
+                            },
+                            "title": {
+                                "type": "string",
+                                "nullable": true,
+                                "description": "At most 1000 UTF-8 bytes when non-null."
+                            }
+                        },
+                        "required": [
+                            "fileKey",
+                            "kind"
+                        ]
+                    },
+                    "content": {
+                        "type": "array",
+                        "maxItems": 0,
+                        "items": {
+                            "type": "string"
+                        },
+                        "nullable": true
+                    },
+                    "marks": {
+                        "type": "array",
+                        "nullable": true,
+                        "items": {
+                            "$ref": "#/components/schemas/RichTextMark"
+                        },
+                        "maxItems": 0
+                    },
+                    "text": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                            null
+                        ]
+                    }
+                },
+                "required": [
+                    "type",
+                    "attrs"
+                ]
+            },
+            "RichTextNodeMedia": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "media"
+                        ]
+                    },
+                    "attrs": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "fileKey": {
+                                "type": "string",
+                                "pattern": "^file_[0-9a-f]{32}$"
+                            },
+                            "kind": {
+                                "type": "string",
+                                "enum": [
+                                    "image",
+                                    "video",
+                                    "audio",
+                                    "file"
+                                ]
+                            },
+                            "variantKey": {
+                                "type": "string",
+                                "nullable": true,
+                                "pattern": "^[a-z][a-z0-9-]{0,31}$"
+                            },
+                            "alt": {
+                                "type": "string",
+                                "nullable": true,
+                                "description": "At most 1000 UTF-8 bytes when non-null."
+                            },
+                            "title": {
+                                "type": "string",
+                                "nullable": true,
+                                "description": "At most 1000 UTF-8 bytes when non-null."
+                            }
+                        },
+                        "required": [
+                            "fileKey",
+                            "kind"
+                        ]
+                    },
+                    "content": {
+                        "type": "array",
+                        "maxItems": 0,
+                        "items": {
+                            "type": "string"
+                        },
+                        "nullable": true
+                    },
+                    "marks": {
+                        "type": "array",
+                        "nullable": true,
+                        "items": {
+                            "$ref": "#/components/schemas/RichTextMark"
+                        },
+                        "maxItems": 0
+                    },
+                    "text": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                            null
+                        ]
+                    }
+                },
+                "required": [
+                    "type",
+                    "attrs"
+                ]
+            },
+            "RichTextNodeText": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "text"
+                        ]
+                    },
+                    "attrs": {
+                        "oneOf": [
+                            {
+                                "type": "object",
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "array",
+                                "maxItems": 0,
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            {
+                                "type": "string",
+                                "nullable": true,
+                                "enum": [
+                                    null
+                                ]
+                            }
+                        ]
+                    },
+                    "content": {
+                        "type": "array",
+                        "maxItems": 0,
+                        "items": {
+                            "type": "string"
+                        },
+                        "nullable": true
+                    },
+                    "marks": {
+                        "type": "array",
+                        "nullable": true,
+                        "items": {
+                            "$ref": "#/components/schemas/RichTextMark"
+                        }
+                    },
+                    "text": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "required": [
+                    "type",
+                    "text"
+                ]
+            },
+            "RichTextNodeHardBreak": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "hardBreak"
+                        ]
+                    },
+                    "attrs": {
+                        "oneOf": [
+                            {
+                                "type": "object",
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "array",
+                                "maxItems": 0,
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            {
+                                "type": "string",
+                                "nullable": true,
+                                "enum": [
+                                    null
+                                ]
+                            }
+                        ]
+                    },
+                    "content": {
+                        "type": "array",
+                        "maxItems": 0,
+                        "items": {
+                            "type": "string"
+                        },
+                        "nullable": true
+                    },
+                    "marks": {
+                        "type": "array",
+                        "nullable": true,
+                        "items": {
+                            "$ref": "#/components/schemas/RichTextMark"
+                        }
+                    },
+                    "text": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                            null
+                        ]
+                    }
+                },
+                "required": [
+                    "type"
+                ]
+            },
+            "RichTextNodeListItem": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "listItem"
+                        ]
+                    },
+                    "attrs": {
+                        "oneOf": [
+                            {
+                                "type": "object",
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "array",
+                                "maxItems": 0,
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            {
+                                "type": "string",
+                                "nullable": true,
+                                "enum": [
+                                    null
+                                ]
+                            }
+                        ]
+                    },
+                    "content": {
+                        "type": "array",
+                        "maxItems": 50000,
+                        "items": {
+                            "oneOf": [
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeParagraph"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeHeading"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeBlockquote"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeBulletList"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeOrderedList"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeCodeBlock"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeHorizontalRule"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeTable"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeImage"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeVideo"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeAudio"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeFile"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeMedia"
+                                }
+                            ]
+                        },
+                        "minItems": 1,
+                        "description": "First child must be a paragraph."
+                    },
+                    "marks": {
+                        "type": "array",
+                        "nullable": true,
+                        "items": {
+                            "$ref": "#/components/schemas/RichTextMark"
+                        },
+                        "maxItems": 0
+                    },
+                    "text": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                            null
+                        ]
+                    }
+                },
+                "required": [
+                    "type",
+                    "content"
+                ]
+            },
+            "RichTextNodeTableRow": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "tableRow"
+                        ]
+                    },
+                    "attrs": {
+                        "oneOf": [
+                            {
+                                "type": "object",
+                                "additionalProperties": false
+                            },
+                            {
+                                "type": "array",
+                                "maxItems": 0,
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            {
+                                "type": "string",
+                                "nullable": true,
+                                "enum": [
+                                    null
+                                ]
+                            }
+                        ]
+                    },
+                    "content": {
+                        "type": "array",
+                        "maxItems": 50000,
+                        "items": {
+                            "oneOf": [
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeTableCell"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeTableHeader"
+                                }
+                            ]
+                        },
+                        "minItems": 1
+                    },
+                    "marks": {
+                        "type": "array",
+                        "nullable": true,
+                        "items": {
+                            "$ref": "#/components/schemas/RichTextMark"
+                        },
+                        "maxItems": 0
+                    },
+                    "text": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                            null
+                        ]
+                    }
+                },
+                "required": [
+                    "type",
+                    "content"
+                ]
+            },
+            "RichTextNodeTableCell": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "tableCell"
+                        ]
+                    },
+                    "attrs": {
+                        "oneOf": [
+                            {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "colspan": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 100
+                                    },
+                                    "rowspan": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 100
+                                    },
+                                    "colwidth": {
+                                        "type": "array",
+                                        "nullable": true,
+                                        "maxItems": 100,
+                                        "items": {
+                                            "type": "integer",
+                                            "minimum": 1,
+                                            "maximum": 10000
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "type": "array",
+                                "maxItems": 0,
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            {
+                                "type": "string",
+                                "nullable": true,
+                                "enum": [
+                                    null
+                                ]
+                            }
+                        ]
+                    },
+                    "content": {
+                        "type": "array",
+                        "maxItems": 50000,
+                        "items": {
+                            "oneOf": [
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeParagraph"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeHeading"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeBlockquote"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeBulletList"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeOrderedList"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeCodeBlock"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeHorizontalRule"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeTable"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeImage"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeVideo"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeAudio"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeFile"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeMedia"
+                                }
+                            ]
+                        },
+                        "minItems": 1
+                    },
+                    "marks": {
+                        "type": "array",
+                        "nullable": true,
+                        "items": {
+                            "$ref": "#/components/schemas/RichTextMark"
+                        },
+                        "maxItems": 0
+                    },
+                    "text": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                            null
+                        ]
+                    }
+                },
+                "required": [
+                    "type",
+                    "content"
+                ]
+            },
+            "RichTextNodeTableHeader": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "tableHeader"
+                        ]
+                    },
+                    "attrs": {
+                        "oneOf": [
+                            {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "colspan": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 100
+                                    },
+                                    "rowspan": {
+                                        "type": "integer",
+                                        "minimum": 1,
+                                        "maximum": 100
+                                    },
+                                    "colwidth": {
+                                        "type": "array",
+                                        "nullable": true,
+                                        "maxItems": 100,
+                                        "items": {
+                                            "type": "integer",
+                                            "minimum": 1,
+                                            "maximum": 10000
+                                        }
+                                    }
+                                }
+                            },
+                            {
+                                "type": "array",
+                                "maxItems": 0,
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            {
+                                "type": "string",
+                                "nullable": true,
+                                "enum": [
+                                    null
+                                ]
+                            }
+                        ]
+                    },
+                    "content": {
+                        "type": "array",
+                        "maxItems": 50000,
+                        "items": {
+                            "oneOf": [
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeParagraph"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeHeading"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeBlockquote"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeBulletList"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeOrderedList"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeCodeBlock"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeHorizontalRule"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeTable"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeImage"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeVideo"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeAudio"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeFile"
+                                },
+                                {
+                                    "$ref": "#/components/schemas/RichTextNodeMedia"
+                                }
+                            ]
+                        },
+                        "minItems": 1
+                    },
+                    "marks": {
+                        "type": "array",
+                        "nullable": true,
+                        "items": {
+                            "$ref": "#/components/schemas/RichTextMark"
+                        },
+                        "maxItems": 0
+                    },
+                    "text": {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                            null
+                        ]
+                    }
+                },
+                "required": [
+                    "type",
+                    "content"
+                ]
+            },
+            "RichTextMark": {
+                "oneOf": [
+                    {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "enum": [
+                                    "bold"
+                                ]
+                            },
+                            "attrs": {
+                                "oneOf": [
+                                    {
+                                        "type": "object",
+                                        "additionalProperties": false
+                                    },
+                                    {
+                                        "type": "array",
+                                        "maxItems": 0,
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    {
+                                        "type": "string",
+                                        "nullable": true,
+                                        "enum": [
+                                            null
+                                        ]
+                                    }
+                                ]
+                            }
+                        },
+                        "required": [
+                            "type"
+                        ]
+                    },
+                    {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "enum": [
+                                    "italic"
+                                ]
+                            },
+                            "attrs": {
+                                "oneOf": [
+                                    {
+                                        "type": "object",
+                                        "additionalProperties": false
+                                    },
+                                    {
+                                        "type": "array",
+                                        "maxItems": 0,
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    {
+                                        "type": "string",
+                                        "nullable": true,
+                                        "enum": [
+                                            null
+                                        ]
+                                    }
+                                ]
+                            }
+                        },
+                        "required": [
+                            "type"
+                        ]
+                    },
+                    {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "enum": [
+                                    "strike"
+                                ]
+                            },
+                            "attrs": {
+                                "oneOf": [
+                                    {
+                                        "type": "object",
+                                        "additionalProperties": false
+                                    },
+                                    {
+                                        "type": "array",
+                                        "maxItems": 0,
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    {
+                                        "type": "string",
+                                        "nullable": true,
+                                        "enum": [
+                                            null
+                                        ]
+                                    }
+                                ]
+                            }
+                        },
+                        "required": [
+                            "type"
+                        ]
+                    },
+                    {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "enum": [
+                                    "underline"
+                                ]
+                            },
+                            "attrs": {
+                                "oneOf": [
+                                    {
+                                        "type": "object",
+                                        "additionalProperties": false
+                                    },
+                                    {
+                                        "type": "array",
+                                        "maxItems": 0,
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    {
+                                        "type": "string",
+                                        "nullable": true,
+                                        "enum": [
+                                            null
+                                        ]
+                                    }
+                                ]
+                            }
+                        },
+                        "required": [
+                            "type"
+                        ]
+                    },
+                    {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "enum": [
+                                    "code"
+                                ]
+                            },
+                            "attrs": {
+                                "oneOf": [
+                                    {
+                                        "type": "object",
+                                        "additionalProperties": false
+                                    },
+                                    {
+                                        "type": "array",
+                                        "maxItems": 0,
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    {
+                                        "type": "string",
+                                        "nullable": true,
+                                        "enum": [
+                                            null
+                                        ]
+                                    }
+                                ]
+                            }
+                        },
+                        "required": [
+                            "type"
+                        ]
+                    },
+                    {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "enum": [
+                                    "link"
+                                ]
+                            },
+                            "attrs": {
+                                "type": "object",
+                                "additionalProperties": false,
+                                "properties": {
+                                    "href": {
+                                        "type": "string",
+                                        "pattern": "^(https?://|mailto:)[^\\x00-\\x20]+$",
+                                        "description": "At most 2048 bytes; http(s) needs a host; /storage/delivery is forbidden."
+                                    },
+                                    "target": {
+                                        "type": "string",
+                                        "nullable": true,
+                                        "enum": [
+                                            "_blank",
+                                            "_self",
+                                            null
+                                        ]
+                                    },
+                                    "rel": {
+                                        "type": "string",
+                                        "nullable": true,
+                                        "enum": [
+                                            "noopener noreferrer",
+                                            "noopener noreferrer nofollow",
+                                            null
+                                        ]
+                                    },
+                                    "class": {
+                                        "type": "string",
+                                        "nullable": true,
+                                        "enum": [
+                                            null
+                                        ]
+                                    }
+                                },
+                                "required": [
+                                    "href"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "type",
+                            "attrs"
+                        ]
+                    },
+                    {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "enum": [
+                                    "textStyle"
+                                ]
+                            },
+                            "attrs": {
+                                "oneOf": [
+                                    {
+                                        "type": "object",
+                                        "additionalProperties": false,
+                                        "properties": {
+                                            "color": {
+                                                "type": "string",
+                                                "nullable": true,
+                                                "pattern": "^#[0-9a-fA-F]{3,8}$"
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "type": "array",
+                                        "maxItems": 0,
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    {
+                                        "type": "string",
+                                        "nullable": true,
+                                        "enum": [
+                                            null
+                                        ]
+                                    }
+                                ]
+                            }
+                        },
+                        "required": [
+                            "type"
+                        ]
+                    }
+                ]
+            },
+            "RichTextStructuredContent": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "schemaVersion": {
+                        "type": "string",
+                        "enum": [
+                            "peanut.richtext/1"
+                        ]
+                    },
+                    "editorModel": {
+                        "type": "string",
+                        "enum": [
+                            "tiptap-prosemirror"
+                        ]
+                    },
+                    "content": {
+                        "$ref": "#/components/schemas/RichTextNodeDoc"
+                    },
+                    "annotations": {
+                        "type": "array",
+                        "maxItems": 0,
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": [
+                    "schemaVersion",
+                    "editorModel",
+                    "content",
+                    "annotations"
+                ],
+                "description": "RichTextProjection whitelist: at most 50000 total nodes, nesting <=60, <=1000 distinct file keys. Validator JSON encoding depth 64 and <=1 MiB apply to requests. Code-block text children must have no marks. No Yjs state is synthesized from this JSON."
+            },
+            "RichTextRecord": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "pattern": "^[1-9][0-9]*$"
+                    },
+                    "title": {
+                        "type": "string",
+                        "maxLength": 200
+                    },
+                    "revision": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "created_by_member_id": {
+                        "type": "string",
+                        "pattern": "^[1-9][0-9]*$"
+                    },
+                    "updated_by_member_id": {
+                        "type": "string",
+                        "pattern": "^[1-9][0-9]*$"
+                    },
+                    "create_time": {
+                        "type": "string",
+                        "description": "Model timestamp formatted with database.datetime_format (Y-m-d H:i:s)."
+                    },
+                    "update_time": {
+                        "type": "string",
+                        "description": "Model timestamp formatted with database.datetime_format (Y-m-d H:i:s)."
+                    }
+                },
+                "required": [
+                    "id",
+                    "title",
+                    "revision",
+                    "created_by_member_id",
+                    "updated_by_member_id",
+                    "create_time",
+                    "update_time"
+                ]
+            },
+            "RichTextDetail": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "pattern": "^[1-9][0-9]*$"
+                    },
+                    "title": {
+                        "type": "string",
+                        "maxLength": 200
+                    },
+                    "revision": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "created_by_member_id": {
+                        "type": "string",
+                        "pattern": "^[1-9][0-9]*$"
+                    },
+                    "updated_by_member_id": {
+                        "type": "string",
+                        "pattern": "^[1-9][0-9]*$"
+                    },
+                    "create_time": {
+                        "type": "string",
+                        "description": "Model timestamp formatted with database.datetime_format (Y-m-d H:i:s)."
+                    },
+                    "update_time": {
+                        "type": "string",
+                        "description": "Model timestamp formatted with database.datetime_format (Y-m-d H:i:s)."
+                    },
+                    "document": {
+                        "$ref": "#/components/schemas/RichTextStructuredContent"
+                    },
+                    "collaboration_state": {
+                        "type": "string",
+                        "format": "byte"
+                    }
+                },
+                "required": [
+                    "id",
+                    "title",
+                    "revision",
+                    "created_by_member_id",
+                    "updated_by_member_id",
+                    "create_time",
+                    "update_time",
+                    "document",
+                    "collaboration_state"
+                ]
+            },
+            "RichTextCollaboration": {
+                "oneOf": [
+                    {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "enabled": {
+                                "type": "boolean",
+                                "enum": [
+                                    false
+                                ]
+                            },
+                            "url": {
+                                "type": "string",
+                                "nullable": true,
+                                "enum": [
+                                    null
+                                ]
+                            },
+                            "document_name": {
+                                "type": "string",
+                                "pattern": "^tenant:[1-9][0-9]*/rich-text:[1-9][0-9]*$"
+                            },
+                            "token": {
+                                "type": "string",
+                                "nullable": true,
+                                "enum": [
+                                    null
+                                ]
+                            },
+                            "expires_at": {
+                                "type": "string",
+                                "nullable": true,
+                                "enum": [
+                                    null
+                                ]
+                            }
+                        },
+                        "required": [
+                            "enabled",
+                            "url",
+                            "document_name",
+                            "token",
+                            "expires_at"
+                        ]
+                    },
+                    {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "enabled": {
+                                "type": "boolean",
+                                "enum": [
+                                    true
+                                ]
+                            },
+                            "url": {
+                                "type": "string",
+                                "pattern": "^wss?://"
+                            },
+                            "document_name": {
+                                "type": "string",
+                                "pattern": "^tenant:[1-9][0-9]*/rich-text:[1-9][0-9]*$"
+                            },
+                            "token": {
+                                "type": "string",
+                                "writeOnly": false,
+                                "description": "Short-lived payload.signature ticket; expires in 300 seconds."
+                            },
+                            "expires_at": {
+                                "type": "integer",
+                                "minimum": 1
+                            }
+                        },
+                        "required": [
+                            "enabled",
+                            "url",
+                            "document_name",
+                            "token",
+                            "expires_at"
+                        ]
+                    }
+                ]
             },
             "SettingValue": {
                 "description": "任意 JSON 值；整数同时属于 JSON number，故使用 anyOf 避免 oneOf 重叠。",

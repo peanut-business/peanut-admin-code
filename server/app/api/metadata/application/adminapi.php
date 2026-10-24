@@ -732,6 +732,23 @@ $add($paths, 'GET', '/adminapi/dept/all', $operation('listActiveDepartments', 'D
 $flatDirectoryParams = $directoryParams;
 $flatDirectoryParams[0] = $query('mode', ['type' => 'string', 'enum' => ['search', 'resolve']], true);
 $add($paths, 'GET', '/adminapi/dept/leaderDept', $operation('listDepartmentLeaderOptions', 'Departments', $directoryResponses, $flatDirectoryParams));
+$add($paths, 'GET', '/adminapi/dept/leader-candidates', $operation(
+    'listDepartmentLeaderCandidates', 'Departments',
+    ['200' => $success(['type' => 'object', 'additionalProperties' => false,
+        'required' => ['items', 'total', 'page_no', 'page_size'], 'properties' => [
+            'items' => ['type' => 'array', 'maxItems' => 50, 'items' => ['type' => 'object',
+                'additionalProperties' => false, 'required' => ['id', 'name'],
+                'properties' => ['id' => ['type' => 'integer', 'minimum' => 1], 'name' => ['type' => 'string']]]],
+            'total' => ['type' => 'integer', 'minimum' => 0], 'page_no' => ['type' => 'integer', 'minimum' => 1],
+            'page_size' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 50],
+        ]]), '401' => $error, '403' => $error, '404' => $error, '409' => $error, '422' => $error],
+    [$query('department_id', ['type' => 'string', 'pattern' => '^[1-9][0-9]{0,17}$'], true),
+        $query('page_no', ['type' => 'string', 'pattern' => '^[1-9][0-9]{0,17}$', 'default' => '1']),
+        $query('page_size', ['type' => 'integer', 'minimum' => 1, 'maximum' => 50, 'default' => 20]),
+        $query('search', ['type' => 'string', 'maxLength' => 120, 'default' => ''])],
+    errors: ['DEPARTMENT_LEADER_INPUT_INVALID', 'DEPARTMENT_INACTIVE'],
+    description: 'Requires department update permission and an active department in the current tenant. Returns active tenant members whose accounts are active, ordered by member id; search is a literal display-name substring. Only the four declared query keys are accepted; page offset must fit PHP_INT_MAX.',
+));
 $add($paths, 'GET', '/adminapi/dept/detail', $operation('getDepartment', 'Departments', $ok('Department'), $idQuery));
 foreach (['add' => 'createDepartment', 'edit' => 'updateDepartment'] as $route => $operationId) {
     $add($paths, 'POST', '/adminapi/dept/' . $route, $operation($operationId, 'Departments', $mutation + ['404' => $error, '409' => $error], requestBody: $jsonBody($ref('DepartmentWriteRequest'))));
