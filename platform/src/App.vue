@@ -155,7 +155,7 @@
         ></el-header
       ><el-main
         ><el-alert
-          v-if="error"
+          v-if="error && view !== 'audit'"
           :title="error"
           type="error"
           show-icon
@@ -1030,26 +1030,43 @@
           ></template
         >
         <template v-else-if="view === 'audit'"
-          ><el-table
-            v-loading="loading"
-            :data="audits"
-            empty-text="暂无平台审计事件"
-            ><el-table-column
-              prop="occurred_at"
-              label="时间"
-              width="180" /><el-table-column
-              prop="event_type"
-              label="事件类型" /><el-table-column
-              prop="action"
-              label="操作" /><el-table-column
-              prop="outcome"
-              label="结果" /><el-table-column
-              prop="target_type"
-              label="目标" /><el-table-column
-              prop="target_id"
-              label="目标 ID" /><el-table-column
-              prop="request_id"
-              label="请求 ID" /></el-table
+          ><p
+            v-if="auditLoadState === 'loading'"
+            role="status"
+            aria-live="polite"
+            >正在加载平台审计事件…</p
+          ><template v-else-if="auditLoadState === 'error'"
+            ><el-alert
+              :title="error || '平台审计事件加载失败'"
+              type="error"
+              show-icon
+              :closable="false"
+            /><el-button @click="loadView">重试</el-button></template
+          ><template v-else-if="auditLoadState === 'ready'"
+            ><el-table :data="audits" empty-text="暂无平台审计事件"
+              ><el-table-column
+                prop="occurred_at"
+                label="时间"
+                width="180" /><el-table-column
+                prop="event_type"
+                label="事件类型" /><el-table-column
+                prop="action"
+                label="操作" /><el-table-column
+                prop="outcome"
+                label="结果" /><el-table-column
+                prop="target_type"
+                label="目标" /><el-table-column
+                prop="target_id"
+                label="目标 ID" /><el-table-column
+                prop="request_id"
+                label="请求 ID" /></el-table
+            ><el-pagination
+              v-if="auditTotal > 0"
+              :current-page="auditPage"
+              :page-size="auditPageSize"
+              :total="auditTotal"
+              layout="prev, pager, next, total"
+              @current-change="changeAuditPage" /></template
         ></template>
         <template v-else-if="view === 'developer'"
           ><developer-center-page
@@ -1210,6 +1227,10 @@
   const permissionCatalogError = ref('');
   let permissionCatalogRequest = 0;
   const audits = ref<AuditEvent[]>([]);
+  const auditPageSize = 20;
+  const auditPage = ref(1);
+  const auditTotal = ref(0);
+  const auditLoadState = ref<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const storage = ref<StorageSnapshot>({
     accounts: [],
     spaces: [],
@@ -1254,6 +1275,9 @@
     permissionCatalogState.value = 'idle';
     permissionCatalogError.value = '';
     audits.value = [];
+    auditPage.value = 1;
+    auditTotal.value = 0;
+    auditLoadState.value = 'idle';
     owner.value = null;
     storage.value = { accounts: [], spaces: [], routes: [], purposes: [] };
     permissionRole.value = null;
@@ -1682,6 +1706,10 @@
     if (requestedView === 'endpoints') {
       bindingLoadState.value = 'loading';
       bindings.value = [];
+    } else if (requestedView === 'audit') {
+      auditLoadState.value = 'loading';
+      audits.value = [];
+      auditTotal.value = 0;
     }
     try {
       if (requestedView === 'overview') {
@@ -1749,17 +1777,24 @@
           loadPermissionCatalog(),
         ]);
       } else if (requestedView === 'audit') {
-        await Promise.all([
-          loadTenants(isCurrentRequest),
-          api.audit().then((result) => {
-            if (isCurrentRequest()) audits.value = result.lists;
-          }),
-        ]);
+        const requestedPage = auditPage.value;
+        const result = await api.audit(requestedPage, auditPageSize);
+        if (!isCurrentRequest() || requestedPage !== auditPage.value) return;
+        const lastPage = Math.max(1, Math.ceil(result.count / auditPageSize));
+        if (requestedPage > lastPage) {
+          auditPage.value = lastPage;
+          await loadView();
+          return;
+        }
+        audits.value = result.lists;
+        auditTotal.value = result.count;
+        auditLoadState.value = 'ready';
       }
     } catch (cause) {
       if (isCurrentRequest()) {
         error.value = message(cause);
         if (requestedView === 'endpoints') bindingLoadState.value = 'error';
+        if (requestedView === 'audit') auditLoadState.value = 'error';
         if (!hasPlatformSession()) authenticated.value = false;
       }
     } finally {
@@ -1850,9 +1885,15 @@
     }
   }
   async function selectView(next: string) {
+    if (next === 'audit' && view.value !== 'audit') auditPage.value = 1;
     view.value = next;
     closeNavigation();
     await loadView();
+  }
+  function changeAuditPage(page: number) {
+    if (page === auditPage.value || auditLoadState.value === 'loading') return;
+    auditPage.value = page;
+    void loadView();
   }
   async function login() {
     await run(async () => {

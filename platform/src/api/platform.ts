@@ -986,10 +986,10 @@ export const api = {
     ),
   setStorageRoute: (payload: Record<string, unknown>) =>
     unwrap(client.post('/platformapi/infrastructure/storage/route', payload)),
-  audit: () =>
+  audit: (page = 1, pageSize = 20) =>
     unwrap<Page<AuditEvent>>(
       client.get('/platformapi/audit', {
-        params: { page: 1, page_size: 100 },
+        params: { page, page_size: pageSize },
       })
     ),
   backupCenter: (page = 1) =>
