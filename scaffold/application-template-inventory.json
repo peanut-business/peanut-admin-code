@@ -2500,34 +2500,6 @@
             "source_sha256": "e68cbe5445c31fba4ac350b50bd8d0f444fac0bc5d0ad5f890c08ece6bc2b8c6"
         },
         {
-            "path": "plugins.lock",
-            "target": "plugins.lock",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "plugins-lock",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "e68cbe5445c31fba4ac350b50bd8d0f444fac0bc5d0ad5f890c08ece6bc2b8c6"
-        },
-        {
-            "path": "plugins.lock",
-            "target": "plugins.lock",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "plugins-lock",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "e68cbe5445c31fba4ac350b50bd8d0f444fac0bc5d0ad5f890c08ece6bc2b8c6"
-        },
-        {
             "path": "plugins/fixture.delivery-record/README.md",
             "target": "plugins/fixture.delivery-record/README.md",
             "classification": "excluded",
@@ -2543,32 +2515,6 @@
         {
             "path": "plugins/fixture.delivery-record/plugin.json",
             "target": "plugins/fixture.delivery-record/plugin.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "plugins/fixture.workflow-business/plugin.json",
-            "target": "plugins/fixture.workflow-business/plugin.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "plugins/fixture.workflow-business/plugin.json",
-            "target": "plugins/fixture.workflow-business/plugin.json",
             "classification": "excluded",
             "owner": "template-source-only",
             "transform": "copy",
@@ -2635,34 +2581,6 @@
             "source_sha256": "12fb2be04a7ea174634b1fb960acff5ca41e43a7a1398d2eca2cdb760439e19f"
         },
         {
-            "path": "plugins/official.collaboration/plugin.json",
-            "target": "plugins/official.collaboration/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "12fb2be04a7ea174634b1fb960acff5ca41e43a7a1398d2eca2cdb760439e19f"
-        },
-        {
-            "path": "plugins/official.collaboration/plugin.json",
-            "target": "plugins/official.collaboration/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "12fb2be04a7ea174634b1fb960acff5ca41e43a7a1398d2eca2cdb760439e19f"
-        },
-        {
             "path": "plugins/official.content-tools/plugin.json",
             "target": "plugins/official.content-tools/plugin.json",
             "classification": "managed",
@@ -2691,34 +2609,6 @@
             "source_sha256": "049571b968631d3869d00fcecd9fa7eae30d42fcd265143b289aa9c44ce6268d"
         },
         {
-            "path": "plugins/official.document/plugin.json",
-            "target": "plugins/official.document/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "049571b968631d3869d00fcecd9fa7eae30d42fcd265143b289aa9c44ce6268d"
-        },
-        {
-            "path": "plugins/official.document/plugin.json",
-            "target": "plugins/official.document/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "049571b968631d3869d00fcecd9fa7eae30d42fcd265143b289aa9c44ce6268d"
-        },
-        {
             "path": "plugins/official.file/plugin.json",
             "target": "plugins/official.file/plugin.json",
             "classification": "managed",
@@ -2731,62 +2621,6 @@
                 "full"
             ],
             "source_sha256": "b201dc2e4903494f6b7b3c1389178e8e02f78a7e31209b5bc552613b2676fffd"
-        },
-        {
-            "path": "plugins/official.file/plugin.json",
-            "target": "plugins/official.file/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "b201dc2e4903494f6b7b3c1389178e8e02f78a7e31209b5bc552613b2676fffd"
-        },
-        {
-            "path": "plugins/official.file/plugin.json",
-            "target": "plugins/official.file/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "b201dc2e4903494f6b7b3c1389178e8e02f78a7e31209b5bc552613b2676fffd"
-        },
-        {
-            "path": "plugins/official.identity/plugin.json",
-            "target": "plugins/official.identity/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "c044ef0c3a643c9ed0bc19e3d4d9649f16a992903aa98a431da323de37434946"
-        },
-        {
-            "path": "plugins/official.identity/plugin.json",
-            "target": "plugins/official.identity/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "c044ef0c3a643c9ed0bc19e3d4d9649f16a992903aa98a431da323de37434946"
         },
         {
             "path": "plugins/official.identity/plugin.json",
@@ -2817,62 +2651,6 @@
             "source_sha256": "c4a460ab8500658e283bcdae5cc6023c99881f2d9ff1b758e9c26535b4c8e30a"
         },
         {
-            "path": "plugins/official.import-export/plugin.json",
-            "target": "plugins/official.import-export/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "c4a460ab8500658e283bcdae5cc6023c99881f2d9ff1b758e9c26535b4c8e30a"
-        },
-        {
-            "path": "plugins/official.import-export/plugin.json",
-            "target": "plugins/official.import-export/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "c4a460ab8500658e283bcdae5cc6023c99881f2d9ff1b758e9c26535b4c8e30a"
-        },
-        {
-            "path": "plugins/official.integration/plugin.json",
-            "target": "plugins/official.integration/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "639f56de946d4986d9aa02606be8e0dd448faba37e8d68c0c75661083f287b15"
-        },
-        {
-            "path": "plugins/official.integration/plugin.json",
-            "target": "plugins/official.integration/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "639f56de946d4986d9aa02606be8e0dd448faba37e8d68c0c75661083f287b15"
-        },
-        {
             "path": "plugins/official.integration/plugin.json",
             "target": "plugins/official.integration/plugin.json",
             "classification": "managed",
@@ -2899,62 +2677,6 @@
                 "full"
             ],
             "source_sha256": "93b3ed35d7a5a9867a7a81f177236ff747060d043c0471654e8ddcd7da72f0e8"
-        },
-        {
-            "path": "plugins/official.member/plugin.json",
-            "target": "plugins/official.member/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "93b3ed35d7a5a9867a7a81f177236ff747060d043c0471654e8ddcd7da72f0e8"
-        },
-        {
-            "path": "plugins/official.member/plugin.json",
-            "target": "plugins/official.member/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "93b3ed35d7a5a9867a7a81f177236ff747060d043c0471654e8ddcd7da72f0e8"
-        },
-        {
-            "path": "plugins/official.notification/plugin.json",
-            "target": "plugins/official.notification/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "9ef414c99664f28a0df115e63a6f84de6136a35abe6a045c838a6526ec884f4c"
-        },
-        {
-            "path": "plugins/official.notification/plugin.json",
-            "target": "plugins/official.notification/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "9ef414c99664f28a0df115e63a6f84de6136a35abe6a045c838a6526ec884f4c"
         },
         {
             "path": "plugins/official.notification/plugin.json",
@@ -2999,34 +2721,6 @@
             "source_sha256": "5f0312667b22a467a867cfcd73ba9f108252ba5ee391bf2bfe521ff2d8da8b25"
         },
         {
-            "path": "plugins/official.ops/plugin.json",
-            "target": "plugins/official.ops/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "5f0312667b22a467a867cfcd73ba9f108252ba5ee391bf2bfe521ff2d8da8b25"
-        },
-        {
-            "path": "plugins/official.ops/plugin.json",
-            "target": "plugins/official.ops/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "5f0312667b22a467a867cfcd73ba9f108252ba5ee391bf2bfe521ff2d8da8b25"
-        },
-        {
             "path": "plugins/official.payment/plugin.json",
             "target": "plugins/official.payment/plugin.json",
             "classification": "managed",
@@ -3039,62 +2733,6 @@
                 "full"
             ],
             "source_sha256": "c81d42dddcead43efbb9c6016df7ccb37e75bb78a534e24cd63e6147c57b60ed"
-        },
-        {
-            "path": "plugins/official.payment/plugin.json",
-            "target": "plugins/official.payment/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "c81d42dddcead43efbb9c6016df7ccb37e75bb78a534e24cd63e6147c57b60ed"
-        },
-        {
-            "path": "plugins/official.payment/plugin.json",
-            "target": "plugins/official.payment/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "c81d42dddcead43efbb9c6016df7ccb37e75bb78a534e24cd63e6147c57b60ed"
-        },
-        {
-            "path": "plugins/official.reference-codes/plugin.json",
-            "target": "plugins/official.reference-codes/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "2ac37a44bfd4c2486ca1aba0065c533c671139c79bb7dbdb2b4cb4aa5f717896"
-        },
-        {
-            "path": "plugins/official.reference-codes/plugin.json",
-            "target": "plugins/official.reference-codes/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "2ac37a44bfd4c2486ca1aba0065c533c671139c79bb7dbdb2b4cb4aa5f717896"
         },
         {
             "path": "plugins/official.reference-codes/plugin.json",
@@ -3139,62 +2777,6 @@
             "source_sha256": "c982c43a7ec71408047fdddc12ea4b905ea1c5aef084bc0417e0970d38bee942"
         },
         {
-            "path": "plugins/official.settings/plugin.json",
-            "target": "plugins/official.settings/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "c982c43a7ec71408047fdddc12ea4b905ea1c5aef084bc0417e0970d38bee942"
-        },
-        {
-            "path": "plugins/official.settings/plugin.json",
-            "target": "plugins/official.settings/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "c982c43a7ec71408047fdddc12ea4b905ea1c5aef084bc0417e0970d38bee942"
-        },
-        {
-            "path": "plugins/official.task/plugin.json",
-            "target": "plugins/official.task/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "20dc5e075b9cd07ddb099c3cac974cf351e0d936f4446bd1279db00007595345"
-        },
-        {
-            "path": "plugins/official.task/plugin.json",
-            "target": "plugins/official.task/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "20dc5e075b9cd07ddb099c3cac974cf351e0d936f4446bd1279db00007595345"
-        },
-        {
             "path": "plugins/official.task/plugin.json",
             "target": "plugins/official.task/plugin.json",
             "classification": "managed",
@@ -3223,34 +2805,6 @@
             "source_sha256": "f10e2850bd61dcdff46026ffab4a3502dc8d5ba7aaf9e0c0aa6ed58191dbc2c0"
         },
         {
-            "path": "plugins/peanut.artifact-revision/plugin.json",
-            "target": "plugins/peanut.artifact-revision/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "f10e2850bd61dcdff46026ffab4a3502dc8d5ba7aaf9e0c0aa6ed58191dbc2c0"
-        },
-        {
-            "path": "plugins/peanut.artifact-revision/plugin.json",
-            "target": "plugins/peanut.artifact-revision/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "f10e2850bd61dcdff46026ffab4a3502dc8d5ba7aaf9e0c0aa6ed58191dbc2c0"
-        },
-        {
             "path": "plugins/peanut.entitlement-quota/plugin.json",
             "target": "plugins/peanut.entitlement-quota/plugin.json",
             "classification": "managed",
@@ -3263,62 +2817,6 @@
                 "full"
             ],
             "source_sha256": "3fb6a859c1975a899acb317c5e901a6a0039b6ab2eac6fc128609f3cb19b480a"
-        },
-        {
-            "path": "plugins/peanut.entitlement-quota/plugin.json",
-            "target": "plugins/peanut.entitlement-quota/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "3fb6a859c1975a899acb317c5e901a6a0039b6ab2eac6fc128609f3cb19b480a"
-        },
-        {
-            "path": "plugins/peanut.entitlement-quota/plugin.json",
-            "target": "plugins/peanut.entitlement-quota/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "3fb6a859c1975a899acb317c5e901a6a0039b6ab2eac6fc128609f3cb19b480a"
-        },
-        {
-            "path": "plugins/peanut.workflow/plugin.json",
-            "target": "plugins/peanut.workflow/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "c54cf070fa102998e2aca44e59cb413f3954ace2a0127591d6e41e1afc045962"
-        },
-        {
-            "path": "plugins/peanut.workflow/plugin.json",
-            "target": "plugins/peanut.workflow/plugin.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "c54cf070fa102998e2aca44e59cb413f3954ace2a0127591d6e41e1afc045962"
         },
         {
             "path": "plugins/peanut.workflow/plugin.json",
@@ -10929,32 +10427,6 @@
             ]
         },
         {
-            "path": "server/app/modules/fixture/workflow_business/module.json",
-            "target": "server/app/modules/fixture/workflow_business/module.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": "server/app/modules/fixture/workflow_business/module.json",
-            "target": "server/app/modules/fixture/workflow_business/module.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "server/app/modules/fixture/workflow_business/resources/menus.json",
             "target": "server/app/modules/fixture/workflow_business/resources/menus.json",
             "classification": "excluded",
@@ -12078,34 +11550,6 @@
             "source_sha256": "0fa7a35c93ecf1467ccd1d049c6e3f3b827589fd0a8c10dc6fea603e77892ece"
         },
         {
-            "path": "server/app/modules/official/collaboration/module.json",
-            "target": "server/app/modules/official/collaboration/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "0fa7a35c93ecf1467ccd1d049c6e3f3b827589fd0a8c10dc6fea603e77892ece"
-        },
-        {
-            "path": "server/app/modules/official/collaboration/module.json",
-            "target": "server/app/modules/official/collaboration/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "0fa7a35c93ecf1467ccd1d049c6e3f3b827589fd0a8c10dc6fea603e77892ece"
-        },
-        {
             "path": "server/app/modules/official/collaboration/resources/menus.json",
             "target": "server/app/modules/official/collaboration/resources/menus.json",
             "classification": "managed",
@@ -12706,34 +12150,6 @@
                 "full"
             ],
             "source_sha256": "e015617440e433d0d443f7c4c13b2bf02e35b4403e25c1009747d5d1d707f579"
-        },
-        {
-            "path": "server/app/modules/official/document/module.json",
-            "target": "server/app/modules/official/document/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "9c52394b5a9ca3f4516ec5d4ab12c29557b62c6028f83bca4e00a28782395579"
-        },
-        {
-            "path": "server/app/modules/official/document/module.json",
-            "target": "server/app/modules/official/document/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "9c52394b5a9ca3f4516ec5d4ab12c29557b62c6028f83bca4e00a28782395579"
         },
         {
             "path": "server/app/modules/official/document/module.json",
@@ -13490,34 +12906,6 @@
                 "full"
             ],
             "source_sha256": "93ab8b34a84124f7d6ed86e7f36a7ea76e6ac122cc64f58810387506bef65b6b"
-        },
-        {
-            "path": "server/app/modules/official/file/module.json",
-            "target": "server/app/modules/official/file/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "4b1a30d1ab30a2db7e9f7c45d8c8ded89017bdb45c17f4a220128e66dd78ff12"
-        },
-        {
-            "path": "server/app/modules/official/file/module.json",
-            "target": "server/app/modules/official/file/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "4b1a30d1ab30a2db7e9f7c45d8c8ded89017bdb45c17f4a220128e66dd78ff12"
         },
         {
             "path": "server/app/modules/official/file/module.json",
@@ -14444,34 +13832,6 @@
             "source_sha256": "7f2a57c6d88ab31b273153725db992922bd1de6057efa592e047a23fed435bd3"
         },
         {
-            "path": "server/app/modules/official/identity/composer.json",
-            "target": "server/app/modules/official/identity/composer.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "7f2a57c6d88ab31b273153725db992922bd1de6057efa592e047a23fed435bd3"
-        },
-        {
-            "path": "server/app/modules/official/identity/composer.json",
-            "target": "server/app/modules/official/identity/composer.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "7f2a57c6d88ab31b273153725db992922bd1de6057efa592e047a23fed435bd3"
-        },
-        {
             "path": "server/app/modules/official/identity/database/migrations/20260716020101_create_pa_data_permission_policy.sql",
             "target": "server/app/modules/official/identity/database/migrations/20260716020101_create_pa_data_permission_policy.sql",
             "classification": "managed",
@@ -14624,34 +13984,6 @@
                 "full"
             ],
             "source_sha256": "505da08d46270f0cddf38aef27f54869b8152ef38cca2923c61034bb024c37a0"
-        },
-        {
-            "path": "server/app/modules/official/identity/module.json",
-            "target": "server/app/modules/official/identity/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "a9ac90b7e14eb488f02025cf27a80bc145e93c32c42cd349858d3acdb8b6f007"
-        },
-        {
-            "path": "server/app/modules/official/identity/module.json",
-            "target": "server/app/modules/official/identity/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "a9ac90b7e14eb488f02025cf27a80bc145e93c32c42cd349858d3acdb8b6f007"
         },
         {
             "path": "server/app/modules/official/identity/module.json",
@@ -16922,34 +16254,6 @@
             "source_sha256": "5432987a931975e2656f0f351190c4ae8ae0e15e2f811c4765046e99f440512d"
         },
         {
-            "path": "server/app/modules/official/import_export/module.json",
-            "target": "server/app/modules/official/import_export/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "5432987a931975e2656f0f351190c4ae8ae0e15e2f811c4765046e99f440512d"
-        },
-        {
-            "path": "server/app/modules/official/import_export/module.json",
-            "target": "server/app/modules/official/import_export/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "5432987a931975e2656f0f351190c4ae8ae0e15e2f811c4765046e99f440512d"
-        },
-        {
             "path": "server/app/modules/official/import_export/resources/configuration-package.schema.json",
             "target": "server/app/modules/official/import_export/resources/configuration-package.schema.json",
             "classification": "managed",
@@ -17761,34 +17065,6 @@
                 "full"
             ],
             "source_sha256": "bc94d9e65a0c8ac1686b00496ea98c4d96eeee1f5677d21f52540605ab641f95"
-        },
-        {
-            "path": "server/app/modules/official/integration/module.json",
-            "target": "server/app/modules/official/integration/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "d1dbdbf7407c3eb9c5ea005f907178e1b7a8c5756aa04aea40a12fd4d2edf7f5"
-        },
-        {
-            "path": "server/app/modules/official/integration/module.json",
-            "target": "server/app/modules/official/integration/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "d1dbdbf7407c3eb9c5ea005f907178e1b7a8c5756aa04aea40a12fd4d2edf7f5"
         },
         {
             "path": "server/app/modules/official/integration/module.json",
@@ -18771,34 +18047,6 @@
             "source_sha256": "480cea9ad472884ac731afb1ea9e07b8d806debe0bf87d86f70e74879ab3940d"
         },
         {
-            "path": "server/app/modules/official/member/module.json",
-            "target": "server/app/modules/official/member/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "480cea9ad472884ac731afb1ea9e07b8d806debe0bf87d86f70e74879ab3940d"
-        },
-        {
-            "path": "server/app/modules/official/member/module.json",
-            "target": "server/app/modules/official/member/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "480cea9ad472884ac731afb1ea9e07b8d806debe0bf87d86f70e74879ab3940d"
-        },
-        {
             "path": "server/app/modules/official/member/resources/menus.json",
             "target": "server/app/modules/official/member/resources/menus.json",
             "classification": "managed",
@@ -19483,34 +18731,6 @@
                 "full"
             ],
             "source_sha256": "3f2ca086cba966bf204e7dc00754342a86c78580860301d9ed4ca170f3295011"
-        },
-        {
-            "path": "server/app/modules/official/notification/module.json",
-            "target": "server/app/modules/official/notification/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "52703448a38569179e091802b90c4910e3fc530a30561ddcb019f681b4c51f10"
-        },
-        {
-            "path": "server/app/modules/official/notification/module.json",
-            "target": "server/app/modules/official/notification/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "52703448a38569179e091802b90c4910e3fc530a30561ddcb019f681b4c51f10"
         },
         {
             "path": "server/app/modules/official/notification/module.json",
@@ -21279,34 +20499,6 @@
             "source_sha256": "6f7eed15b719138b9a934455d9cd556a476ded753acbde37565e87d89f79dbf8"
         },
         {
-            "path": "server/app/modules/official/ops/module.json",
-            "target": "server/app/modules/official/ops/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "6f7eed15b719138b9a934455d9cd556a476ded753acbde37565e87d89f79dbf8"
-        },
-        {
-            "path": "server/app/modules/official/ops/module.json",
-            "target": "server/app/modules/official/ops/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "6f7eed15b719138b9a934455d9cd556a476ded753acbde37565e87d89f79dbf8"
-        },
-        {
             "path": "server/app/modules/official/ops/src/Contract/BackupTaskExecution.php",
             "target": "server/app/modules/official/ops/src/Contract/BackupTaskExecution.php",
             "classification": "managed",
@@ -22133,34 +21325,6 @@
             "source_sha256": "937b9bdacd867f7e697be265da935e59dcefabdd39218f58773893e07ddb4813"
         },
         {
-            "path": "server/app/modules/official/payment/module.json",
-            "target": "server/app/modules/official/payment/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "937b9bdacd867f7e697be265da935e59dcefabdd39218f58773893e07ddb4813"
-        },
-        {
-            "path": "server/app/modules/official/payment/module.json",
-            "target": "server/app/modules/official/payment/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "937b9bdacd867f7e697be265da935e59dcefabdd39218f58773893e07ddb4813"
-        },
-        {
             "path": "server/app/modules/official/payment/resources/menus.json",
             "target": "server/app/modules/official/payment/resources/menus.json",
             "classification": "managed",
@@ -22663,34 +21827,6 @@
                 "full"
             ],
             "source_sha256": "01809393f85e3945fc8832830ac45c5b17c542019b28ae30d3ebba2c990d01be"
-        },
-        {
-            "path": "server/app/modules/official/reference_codes/module.json",
-            "target": "server/app/modules/official/reference_codes/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "d2726e809e7f123b3f31ba87325581b451c648299486a737ea162031c13ecc98"
-        },
-        {
-            "path": "server/app/modules/official/reference_codes/module.json",
-            "target": "server/app/modules/official/reference_codes/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "d2726e809e7f123b3f31ba87325581b451c648299486a737ea162031c13ecc98"
         },
         {
             "path": "server/app/modules/official/reference_codes/module.json",
@@ -23591,34 +22727,6 @@
             "source_sha256": "530a67aed6403536e7905536758dbb1f75db138f78d13fe92980995c1f2c9842"
         },
         {
-            "path": "server/app/modules/official/settings/module.json",
-            "target": "server/app/modules/official/settings/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "530a67aed6403536e7905536758dbb1f75db138f78d13fe92980995c1f2c9842"
-        },
-        {
-            "path": "server/app/modules/official/settings/module.json",
-            "target": "server/app/modules/official/settings/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "530a67aed6403536e7905536758dbb1f75db138f78d13fe92980995c1f2c9842"
-        },
-        {
             "path": "server/app/modules/official/settings/resources/menus.json",
             "target": "server/app/modules/official/settings/resources/menus.json",
             "classification": "managed",
@@ -24392,34 +23500,6 @@
             "source_sha256": "c8e0a0af70c21f18e35fa9a4834d0ffc89c430cfec89231a4eb4ec630689dce5"
         },
         {
-            "path": "server/app/modules/official/task/module.json",
-            "target": "server/app/modules/official/task/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "c8e0a0af70c21f18e35fa9a4834d0ffc89c430cfec89231a4eb4ec630689dce5"
-        },
-        {
-            "path": "server/app/modules/official/task/module.json",
-            "target": "server/app/modules/official/task/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "c8e0a0af70c21f18e35fa9a4834d0ffc89c430cfec89231a4eb4ec630689dce5"
-        },
-        {
             "path": "server/app/modules/official/task/resources/menus.json",
             "target": "server/app/modules/official/task/resources/menus.json",
             "classification": "managed",
@@ -25163,34 +24243,6 @@
             "source_sha256": "65bafd4567638e95149305ee40571a7ba027b433031ce151e74added24caec7e"
         },
         {
-            "path": "server/app/modules/peanut/artifact_revision/module.json",
-            "target": "server/app/modules/peanut/artifact_revision/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "65bafd4567638e95149305ee40571a7ba027b433031ce151e74added24caec7e"
-        },
-        {
-            "path": "server/app/modules/peanut/artifact_revision/module.json",
-            "target": "server/app/modules/peanut/artifact_revision/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "65bafd4567638e95149305ee40571a7ba027b433031ce151e74added24caec7e"
-        },
-        {
             "path": "server/app/modules/peanut/artifact_revision/src/Application/ArtifactRevisionComparison.php",
             "target": "server/app/modules/peanut/artifact_revision/src/Application/ArtifactRevisionComparison.php",
             "classification": "managed",
@@ -25441,34 +24493,6 @@
                 "full"
             ],
             "source_sha256": "3e02b033e1da54869fe90a3e255e3f364f313cf16d6a2423e95667abbd89b787"
-        },
-        {
-            "path": "server/app/modules/peanut/entitlement_quota/module.json",
-            "target": "server/app/modules/peanut/entitlement_quota/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "ea08bcc8ae1b9e6df1ccee90d143ffb0f6386c968e622d41b3cac2eed214e969"
-        },
-        {
-            "path": "server/app/modules/peanut/entitlement_quota/module.json",
-            "target": "server/app/modules/peanut/entitlement_quota/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "ea08bcc8ae1b9e6df1ccee90d143ffb0f6386c968e622d41b3cac2eed214e969"
         },
         {
             "path": "server/app/modules/peanut/entitlement_quota/module.json",
@@ -25917,34 +24941,6 @@
                 "full"
             ],
             "source_sha256": "6607485b8db141a3ecb36578da3f3620917a3333b83308ee1d97846955bd7e60"
-        },
-        {
-            "path": "server/app/modules/peanut/workflow/module.json",
-            "target": "server/app/modules/peanut/workflow/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "9a935652bed8529db8fc4942ba7984d2976a41e802de8ceceaa604db9159a52d"
-        },
-        {
-            "path": "server/app/modules/peanut/workflow/module.json",
-            "target": "server/app/modules/peanut/workflow/module.json",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "9a935652bed8529db8fc4942ba7984d2976a41e802de8ceceaa604db9159a52d"
         },
         {
             "path": "server/app/modules/peanut/workflow/module.json",
