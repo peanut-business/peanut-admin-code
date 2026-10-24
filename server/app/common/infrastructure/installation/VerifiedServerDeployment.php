@@ -123,6 +123,15 @@ final readonly class VerifiedServerDeployment
             throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_UNAVAILABLE');
         }
         self::assertProtectedPath($root, 'runtime/upgrade/verified-deployment', $httpMount);
+        // The owner inherits the secret-file umask. Workers must still traverse
+        // this protected declaration directory; its files keep their own modes.
+        if (!chmod($directory, 0755)) {
+            throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_UNAVAILABLE');
+        }
+        clearstatcache(true, $directory);
+        if ((fileperms($directory) & 07777) !== 0755) {
+            throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_UNAVAILABLE');
+        }
         $key = hash('sha256', json_encode($record, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES));
         $store = self::store($app);
         $path = $store->getCacheKey($key);
