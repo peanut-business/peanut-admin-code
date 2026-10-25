@@ -1191,6 +1191,127 @@ def conflicts(left, right):
         if lr == '*' or rr == '*' or lr & rr: return True
     return False
 
+def affected(r, physical):
+    policy = policies.get(physical)
+    if policy is None: fail('active schema lacks current physical management mapping')
+    aliases = policy['aliases']
+    # Legacy database-only leases did not necessarily claim the DB listener.
+    # They remain exclusive against schema executors on this physical service.
+    legacy_names = (r.get('mysql-db', set()) | r.get('database', set())) if not r.get('mysql-schema') else set()
+    direct = (physical in r.get('mysql-server', set()) or physical.rsplit(':',1)[1] in r.get('port', set())
+              or any(a.split('=',1)[1] in r.get(a.split('=',1)[0], set()) for a in aliases))
+    if direct or legacy_names & physical_names[physical]:
+        return True
+    unknown = legacy_names - set().union(*physical_names.values())
+    if unknown:
+        # A legacy Compose request can name its private database without a
+        # mysql-schema policy. Prove the complete registered DB -> dedicated
+        # container -> DB identity, rather than treating every foreign name as
+        # an unknown consumer of every physical server. Names/hosts alone are
+        # never evidence. This performs no discovery, SQL or lock mutation.
+        def require(ok):
+            if not ok: fail('legacy database lease lacks physical management mapping')
+        require(r.get('database') == r.get('mysql-db') == legacy_names)
+        ids = r.get('resource-id', set()) | r.get('database-resource', set())
+        resolved = set()
+        containers = registry.get('resources', {}).get('containers', [])
+        for name in unknown:
+            matches = [d for d in dbs if d.get('database') == name and d.get('stable_resource_id') in ids
+                       and d.get('stable_resource_id') in r.get('mysql-resource', set())]
+            require(len(matches) == 1)
+            d = matches[0]
+            runtime_id = d.get('runtime_resource_id')
+            runtimes = [c for c in containers if c.get('stable_resource_id') == runtime_id]
+            require(isinstance(runtime_id, str) and len(runtimes) == 1)
+            c = runtimes[0]
+            host, compose, namespace = d.get('host'), d.get('compose_project'), d.get('namespace')
+            require(isinstance(host, str) and re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]*', host)
+                    and isinstance(compose, str) and re.fullmatch(r'[a-z0-9][a-z0-9_-]*', compose)
+                    and isinstance(namespace, str) and namespace.endswith('/server/docker/mysql')
+                    and pathlib.PurePosixPath(namespace).is_absolute()
+                    and '..' not in pathlib.PurePosixPath(namespace).parts
+                    and str(pathlib.PurePosixPath(namespace)) == namespace)
+            endpoint = d.get('container_endpoint') or {}
+            require(d.get('service_type') == 'mysql' and d.get('fallback') == c.get('fallback') == 'none'
+                    and not d.get('upstream_endpoint') and not d.get('lease_policy')
+                    and d.get('port') is None and c.get('port') is None
+                    and c.get('service_type') == 'Docker Compose MySQL service'
+                    and c.get('database_resource_id') == d['stable_resource_id']
+                    and c.get('host') == host and c.get('compose_project') == compose
+                    and c.get('namespace') == namespace
+                    and d.get('compose_file') == c.get('compose_file') == 'server/docker/compose.yaml'
+                    and isinstance(d.get('image'), str) and d['image'] == c.get('image')
+                    and isinstance(d.get('version'), str) and d['version'] == c.get('version')
+                    and endpoint.get('host') == 'mysql' and endpoint.get('port') == 3306
+                    and endpoint.get('consumers') == ['container']
+                    and isinstance(endpoint.get('endpoint_id'), str))
+            deployment = host + ':' + namespace.removesuffix('/server/docker/mysql')
+            require(r.get('host') == {host} and r.get('compose-project') == {compose}
+                    and r.get('deployment-root') == {deployment}
+                    and compose + '-mysql-1' in r.get('docker-container', set()))
+            # Explicit aliases always win, including a dedicated runtime that
+            # is also the service currently being compared.
+            if (runtime_id == policy['physical_resource_id']
+                or d['stable_resource_id'] == policy['physical_resource_id']
+                or 'docker-container=' + compose + '-mysql-1' in aliases):
+                return True
+            resolved.add(d['stable_resource_id'])
+        require(resolved == r.get('mysql-resource'))
+    return False
+identity_types = {'registry-sha256','resource-id','database-resource','endpoint','resource-scope','scope','gate',
+                  'mysql-db','database','mysql-access','registry-tool-sha256','application-registry-sha256',
+                  'application-manifest-sha256','application-env-sha256','environment','consumer','host','version'}
+
+def schema_holder_is_disjoint(lease, r):
+    # Only a complete, currently registered physical boundary can prove that
+    # foreign source provenance is irrelevant to this request. Unknown scopes
+    # retain the original full source/identity/lock validation below.
+    keys = r.get('mysql-schema', set())
+    if not keys:
+        return False
+    registered, physicals, names = {}, set(), set()
+    ids = r.get('resource-id', set()) | r.get('database-resource', set())
+    for key in keys:
+        physical, sep, name = key.rpartition('/')
+        if not sep or physical not in policies or not re.fullmatch(r'[a-z][a-z0-9_]{0,63}', name):
+            return False
+        matches = [d for d in dbs if (d.get('lease_policy') or {}).get('physical_endpoint') == physical
+                   and (d.get('database') == name or any(name in g for g in d.get('synthetic_databases', {}).values()))
+                   and d.get('stable_resource_id') in ids]
+        if (len(matches) != 1 or matches[0].get('lease_gate') != active_gates.get(lease)
+            or (matches[0].get('upstream_endpoint') or {}).get('endpoint_id') not in r.get('endpoint', set())):
+            return False
+        registered[key] = matches[0]
+        physicals.add(physical)
+        names.add(name)
+    parsed = access_scopes(r, registered)
+    if r.get('mysql-db') != names or r.get('database') != names or set(parsed) != keys:
+        return False
+    metadata = active_metadata.get(lease)
+    if not metadata or metadata['parent_lease'] or r.get('application-operation'):
+        return False
+    expected_locks = {(kind, value) for kind, values in r.items() for value in values if kind not in identity_types
+                      and not (kind == 'mysql-schema' and all(scope[0] in ('read', 'transaction') for scope in parsed.values()))}
+    if lock_resources.get(lease, set()) != expected_locks:
+        return False
+    if not r.get('mysql-server', set()) <= policies.keys():
+        return False
+    # r includes the holder's actual native locks, not only its resource rows.
+    # Exact aliases/objects and either direction of management influence keep
+    # full validation even when schema strings themselves differ.
+    overlap_types = ('mysql-schema', 'mysql-server', 'mysql-resource', 'docker-container', 'docker-volume',
+                      'host', 'port', 'resource-id', 'database-resource', 'endpoint', 'deployment-root', 'compose-project')
+    if any(requested.get(kind, set()) & r.get(kind, set()) for kind in overlap_types):
+        return False
+    request_physicals = management_endpoints | {key.rpartition('/')[0] for key in schemas}
+    if physicals & request_physicals:
+        return False
+    if any(affected(requested, physical) for physical in physicals | r.get('mysql-server', set())):
+        return False
+    if any(affected(r, physical) for physical in request_physicals):
+        return False
+    return True
+
 active_scopes = {}
 historical_registries = {}
 def active_registry(lease, r):
@@ -1243,6 +1364,7 @@ def active_registry(lease, r):
 for lease, r in active:
     if not r.get('mysql-access'): continue
     if lease in expired_scopes: continue
+    if schema_holder_is_disjoint(lease, r): continue
     document = active_registry(lease, r)
     inherited_locks = {}
     if document is not registry:
@@ -1332,9 +1454,6 @@ for lease, r in active:
     if set(parsed) != r.get('mysql-schema', set()): fail('active access coverage is incomplete: '+lease)
     # Original native locks remain the custody boundary; never update or renew
     # the foreign holder as a side effect of comparing registration snapshots.
-    identity_types = {'registry-sha256','resource-id','database-resource','endpoint','resource-scope','scope','gate',
-                      'mysql-db','database','mysql-access','registry-tool-sha256','application-registry-sha256',
-                      'application-manifest-sha256','application-env-sha256','environment','consumer','host','version'}
     expected_locks = {(kind,value) for kind,values in r.items() for value in values if kind not in identity_types
                       and not (kind == 'mysql-schema' and all(s[0] in ('read','transaction') for s in parsed.values()))}
     if document is not registry and (lock_resources.get(lease, set()) != expected_locks - inherited_locks.keys()
@@ -1352,73 +1471,6 @@ for lease, r in active:
     if r.get('mysql-db') != names or r.get('database') != names:
         fail('active shared lease database coverage mismatch: '+lease)
     active_scopes[lease] = parsed
-def affected(r, physical):
-    policy = policies.get(physical)
-    if policy is None: fail('active schema lacks current physical management mapping')
-    aliases = policy['aliases']
-    # Legacy database-only leases did not necessarily claim the DB listener.
-    # They remain exclusive against schema executors on this physical service.
-    legacy_names = (r.get('mysql-db', set()) | r.get('database', set())) if not r.get('mysql-schema') else set()
-    direct = (physical in r.get('mysql-server', set()) or physical.rsplit(':',1)[1] in r.get('port', set())
-              or any(a.split('=',1)[1] in r.get(a.split('=',1)[0], set()) for a in aliases))
-    if direct or legacy_names & physical_names[physical]:
-        return True
-    unknown = legacy_names - set().union(*physical_names.values())
-    if unknown:
-        # A legacy Compose request can name its private database without a
-        # mysql-schema policy. Prove the complete registered DB -> dedicated
-        # container -> DB identity, rather than treating every foreign name as
-        # an unknown consumer of every physical server. Names/hosts alone are
-        # never evidence. This performs no discovery, SQL or lock mutation.
-        def require(ok):
-            if not ok: fail('legacy database lease lacks physical management mapping')
-        require(r.get('database') == r.get('mysql-db') == legacy_names)
-        ids = r.get('resource-id', set()) | r.get('database-resource', set())
-        resolved = set()
-        containers = registry.get('resources', {}).get('containers', [])
-        for name in unknown:
-            matches = [d for d in dbs if d.get('database') == name and d.get('stable_resource_id') in ids
-                       and d.get('stable_resource_id') in r.get('mysql-resource', set())]
-            require(len(matches) == 1)
-            d = matches[0]
-            runtime_id = d.get('runtime_resource_id')
-            runtimes = [c for c in containers if c.get('stable_resource_id') == runtime_id]
-            require(isinstance(runtime_id, str) and len(runtimes) == 1)
-            c = runtimes[0]
-            host, compose, namespace = d.get('host'), d.get('compose_project'), d.get('namespace')
-            require(isinstance(host, str) and re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]*', host)
-                    and isinstance(compose, str) and re.fullmatch(r'[a-z0-9][a-z0-9_-]*', compose)
-                    and isinstance(namespace, str) and namespace.endswith('/server/docker/mysql')
-                    and pathlib.PurePosixPath(namespace).is_absolute()
-                    and '..' not in pathlib.PurePosixPath(namespace).parts
-                    and str(pathlib.PurePosixPath(namespace)) == namespace)
-            endpoint = d.get('container_endpoint') or {}
-            require(d.get('service_type') == 'mysql' and d.get('fallback') == c.get('fallback') == 'none'
-                    and not d.get('upstream_endpoint') and not d.get('lease_policy')
-                    and d.get('port') is None and c.get('port') is None
-                    and c.get('service_type') == 'Docker Compose MySQL service'
-                    and c.get('database_resource_id') == d['stable_resource_id']
-                    and c.get('host') == host and c.get('compose_project') == compose
-                    and c.get('namespace') == namespace
-                    and d.get('compose_file') == c.get('compose_file') == 'server/docker/compose.yaml'
-                    and isinstance(d.get('image'), str) and d['image'] == c.get('image')
-                    and isinstance(d.get('version'), str) and d['version'] == c.get('version')
-                    and endpoint.get('host') == 'mysql' and endpoint.get('port') == 3306
-                    and endpoint.get('consumers') == ['container']
-                    and isinstance(endpoint.get('endpoint_id'), str))
-            deployment = host + ':' + namespace.removesuffix('/server/docker/mysql')
-            require(r.get('host') == {host} and r.get('compose-project') == {compose}
-                    and r.get('deployment-root') == {deployment}
-                    and compose + '-mysql-1' in r.get('docker-container', set()))
-            # Explicit aliases always win, including a dedicated runtime that
-            # is also the service currently being compared.
-            if (runtime_id == policy['physical_resource_id']
-                or d['stable_resource_id'] == policy['physical_resource_id']
-                or 'docker-container=' + compose + '-mysql-1' in aliases):
-                return True
-            resolved.add(d['stable_resource_id'])
-        require(resolved == r.get('mysql-resource'))
-    return False
 for physical in management_endpoints:
     for lease, r in active:
         if affected(r, physical) or any(v.rpartition('/')[0] == physical for v in r.get('mysql-schema', set())):
