@@ -2,6 +2,9 @@ export default {
   'menu.dashboard.workplace': 'Workplace',
   'workplace.demoData.notice':
     'Demo data only. Business statistics are not connected; values and trends do not represent actual operations.',
+  'workplace.upgradeDemo.title': 'Scaffold upgrade demo',
+  'workplace.upgradeDemo.releaseVersion': 'Migration version',
+  'workplace.upgradeDemo.message': 'Migration record',
   'workplace.version.title': 'Application version',
   'workplace.version.platform': 'Platform',
   'workplace.version.current': 'Current version',

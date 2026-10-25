@@ -467,7 +467,7 @@ $schemas = [
         ],
     ],
     'Workbench' => [
-        'type' => 'object', 'additionalProperties' => false, 'required' => ['version', 'today', 'menu', 'visitor', 'support', 'sale'],
+        'type' => 'object', 'additionalProperties' => false, 'required' => ['version', 'today', 'menu', 'visitor', 'support', 'sale', 'scaffoldUpgradeDemo'],
         'properties' => [
             'version' => ['type' => 'object', 'additionalProperties' => $ref('ApplicationDynamicValue')],
             'today' => ['type' => 'object', 'additionalProperties' => ['type' => 'integer']],
@@ -479,6 +479,10 @@ $schemas = [
                 'image' => ['type' => 'string'], 'title' => ['type' => 'string'], 'desc' => ['type' => 'string'], 'url' => ['type' => 'string'],
             ]]],
             'sale' => ['type' => 'object', 'additionalProperties' => $ref('ApplicationDynamicValue')],
+            'scaffoldUpgradeDemo' => [
+                'type' => 'object', 'additionalProperties' => false, 'required' => ['release_version', 'message'],
+                'properties' => ['release_version' => ['type' => 'string'], 'message' => ['type' => 'string']],
+            ],
         ],
     ],
     'InvitationInspectRequest' => [

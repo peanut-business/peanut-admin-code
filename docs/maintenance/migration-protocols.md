@@ -10,6 +10,10 @@ B 冻结后的独立前向迁移 `server/database/migrations/20261026-drop-upgra
 
 未来实际执行前，实际 owner 须按既有资源和数据保护规则确认该表仍是这项专用验证对象；若已改变用途或含需保留数据，停止对应清理并处理必要备份。现有 Runner 校验来源摘要及账本状态，不自动拒绝人为改列或新增数据；普通 DROP 对缺失表或阻止删除的外键会报错，不能将其称为完整对象漂移保护。失败或未知状态先沿原账本对账，不重发。源码开发库的固定维护准入不因这两份文件自动扩大；此处不新增维护入口或执行授权。
 
+## S2 5.0.8 工作台升级演示
+
+`server/database/migrations/20261027-create-scaffold-upgrade-demo.sql` 是标准应用迁移，标记 `peanut-release: 5.0.8`。ThinkPHP 原生迁移链在新装或从 S1 升级时按同一迁移身份执行一次；迁移创建实例级 `pa_scaffold_upgrade_demo` 并插入固定 `id=1` 的 5.0.8 演示记录。同名表或重复主键按普通 DDL/DML 冲突失败，不使用 `IF NOT EXISTS` 或忽略冲突。该表不属于租户业务数据，记录不由 seed 或安装器另行写入，升级后保留。工作台通过已有 `GET /adminapi/workbench/index` 返回该记录。
+
 ## 固定开发库的 File adopted 来源承接
 
 `schema:application --scope=source-development --file-adoption-relocation=<受保护输入>` 仅显式选择 `database/maintenance/20261024-relocate-file-adoption.sql`；它不进入 seed、默认应用 Migration 或 HTTP 路径。该固定项只承接已知 File adopted key 及原 provenance 摘要，从原开发库／原运行根到已核目标。原 proof、admission、SQL、账本及业务数据不改写；同一 MySQL UUID 本身不是承接授权。

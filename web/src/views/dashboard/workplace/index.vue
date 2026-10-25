@@ -8,6 +8,17 @@
         :closable="false"
         show-icon
       />
+      <el-card class="general-card scaffold-upgrade-demo-card">
+        <template #header>{{ $t('workplace.upgradeDemo.title') }}</template>
+        <el-descriptions :column="1" border>
+          <el-descriptions-item :label="$t('workplace.upgradeDemo.releaseVersion')">
+            {{ workbench.scaffoldUpgradeDemo.release_version }}
+          </el-descriptions-item>
+          <el-descriptions-item :label="$t('workplace.upgradeDemo.message')">
+            {{ workbench.scaffoldUpgradeDemo.message }}
+          </el-descriptions-item>
+        </el-descriptions>
+      </el-card>
       <el-row :gutter="16" class="workplace-grid">
         <el-col :xs="24" :lg="7">
           <el-card class="general-card full-height">
@@ -220,6 +231,7 @@
     visitor: { date: [], list: [] },
     support: [],
     sale: { date: [], list: [] },
+    scaffoldUpgradeDemo: { release_version: '', message: '' },
   });
 
   const hasChannelLinks = computed(
@@ -374,6 +386,10 @@
 <style scoped lang="less">
   .container {
     padding: 20px;
+  }
+
+  .scaffold-upgrade-demo-card {
+    margin-bottom: 16px;
   }
 
   .full-height {

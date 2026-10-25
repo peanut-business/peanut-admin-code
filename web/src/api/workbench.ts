@@ -43,6 +43,11 @@ export interface SupportItem {
   desc: string;
 }
 
+export interface ScaffoldUpgradeDemo {
+  release_version: string;
+  message: string;
+}
+
 export interface WorkbenchData {
   version: VersionInfo;
   today: TodayMetrics;
@@ -50,6 +55,7 @@ export interface WorkbenchData {
   visitor: TrendSeries;
   support: SupportItem[];
   sale: TrendSeries;
+  scaffoldUpgradeDemo: ScaffoldUpgradeDemo;
 }
 
 export function getWorkbench() {
