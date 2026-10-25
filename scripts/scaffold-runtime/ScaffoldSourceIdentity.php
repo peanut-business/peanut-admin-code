@@ -91,7 +91,9 @@ final class ScaffoldSourceIdentity
                 $relative = $prefix . $name;
                 if (preg_match('/[\x00-\x1f\x7f\\\\]/', $relative) === 1) { throw new RuntimeException('SCAFFOLD_SOURCE_SNAPSHOT_PATH_INVALID'); }
                 $absolute = $resolved . '/' . $relative;
-                if (self::excluded($relative, is_dir($absolute) && !is_link($absolute), $configured)) { continue; }
+                $directoryEntry = is_dir($absolute) && !is_link($absolute);
+                if (self::excluded($relative, $directoryEntry, $configured)) { continue; }
+                if ($directoryEntry && self::nativeScaffoldReleaseRoot($absolute)) { continue; }
                 if (is_link($absolute)) { throw new RuntimeException('SCAFFOLD_SOURCE_SNAPSHOT_SYMLINK: ' . $relative); }
                 if (is_dir($absolute)) { $visit($absolute, $relative . '/'); continue; }
                 if (!is_file($absolute)) { throw new RuntimeException('SCAFFOLD_SOURCE_SNAPSHOT_TYPE_INVALID: ' . $relative); }
@@ -195,5 +197,228 @@ final class ScaffoldSourceIdentity
             || preg_match('/(?:^|\.)secret(?:\.|$)/i', $name) === 1
             || in_array($name, ['.DS_Store', 'Thumbs.db'], true) || preg_match('/\.(?:sqlite3?|db|log)$/i', $name) === 1
             || $path === 'server/docker/collaboration.env';
+    }
+
+    private static function nativeScaffoldReleaseRoot(string $directory): bool
+    {
+        try {
+            if (is_link($directory) || !is_dir($directory)) { return false; }
+            $versions = scandir($directory);
+            if (!is_array($versions)) { return false; }
+            $versions = array_values(array_diff($versions, ['.', '..']));
+            if ($versions === []) { return false; }
+            foreach ($versions as $version) {
+                if (preg_match('/^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/D', $version) !== 1) { return false; }
+                $versionDirectory = $directory . '/' . $version;
+                if (is_link($versionDirectory) || !is_dir($versionDirectory)) { return false; }
+                $editions = scandir($versionDirectory);
+                if (!is_array($editions)) { return false; }
+                $editions = array_values(array_diff($editions, ['.', '..']));
+                if ($editions === []) { return false; }
+                foreach ($editions as $edition) {
+                    if (!in_array($edition, ['standalone', 'multi-tenant'], true)) { return false; }
+                    $editionDirectory = $versionDirectory . '/' . $edition;
+                    if (is_link($editionDirectory) || !is_dir($editionDirectory)
+                        || !self::validScaffoldEdition($editionDirectory, $version, $edition)) { return false; }
+                }
+            }
+            return true;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    private static function validScaffoldEdition(string $directory, string $version, string $edition): bool
+    {
+        try {
+            $name = 'peanut-scaffold-' . $edition;
+            $paths = [
+                'package' => $directory . '/' . $name . '.json',
+                'archive' => $directory . '/' . $name . '.tgz',
+                'manifest' => $directory . '/scaffold-manifest.json',
+                'inputs' => $directory . '/scaffold-build-inputs.json',
+                'files' => $directory . '/files',
+                'snapshot' => $directory . '/source-snapshot.json',
+            ];
+            foreach (['package' => 4194304, 'archive' => 1073741824, 'manifest' => 33554432,
+                'inputs' => 16777216] as $key => $limit) {
+                if (!self::ordinaryReleaseFile($paths[$key], $limit)) { return false; }
+            }
+            if (is_link($paths['files']) || !is_dir($paths['files'])) { return false; }
+            $metadata = self::readReleaseJson($paths['package'], 4194304);
+            if (($metadata['schema_version'] ?? null) !== 1 || ($metadata['protocol'] ?? null) !== 'peanut.template-package.v1'
+                || ($metadata['kind'] ?? null) !== 'scaffold-template' || ($metadata['version'] ?? null) !== $version
+                || ($metadata['edition'] ?? null) !== $edition || !in_array($metadata['profile'] ?? null, ['minimal', 'standard', 'full'], true)
+                || !in_array($metadata['workflow'] ?? null, ['none', 'runtime', 'full'], true)
+                || ($metadata['archive']['name'] ?? null) !== $name . '.tgz'
+                || !is_int($metadata['archive']['bytes'] ?? null) || $metadata['archive']['bytes'] <= 0
+                || !self::sha256($metadata['archive']['sha256'] ?? null)
+                || !self::sha256($metadata['create_manifest_sha256'] ?? null)
+                || !self::sha256($metadata['upgrade_tooling_sha256'] ?? null)
+                || !self::sha256($metadata['scaffold_manifest_sha256'] ?? null)
+                || !self::sourceIdentityValid($metadata['source']['source_identity'] ?? null)
+                || !self::sha256($metadata['source']['inventory_sha256'] ?? null)
+                || !self::sha256($metadata['source']['edition_profile_sha256'] ?? null)) { return false; }
+            $identity = $metadata['source']['source_identity'];
+            $hasSnapshot = file_exists($paths['snapshot']) || is_link($paths['snapshot']);
+            if ($identity['kind'] === 'local') {
+                if (!$hasSnapshot || !self::sha256($metadata['source_snapshot_sha256'] ?? null)
+                    || !self::ordinaryReleaseFile($paths['snapshot'], 67108864)
+                    || !hash_equals($metadata['source_snapshot_sha256'], (string) hash_file('sha256', $paths['snapshot']))) { return false; }
+                $proof = self::readReleaseJson($paths['snapshot'], 67108864);
+                $proofInputs = self::validateProof($proof, $identity);
+                $inventoryBytes = base64_decode($proof['inventory_base64'] ?? '', true);
+                $editionProfileBytes = base64_decode($proof['edition_profile_base64'] ?? '', true);
+                if (!is_string($inventoryBytes) || !is_string($editionProfileBytes)
+                    || !hash_equals($metadata['source']['inventory_sha256'], hash('sha256', $inventoryBytes))
+                    || !hash_equals($metadata['source']['edition_profile_sha256'], hash('sha256', $editionProfileBytes))
+                    || ($proofInputs['inventory']['template_version'] ?? null) !== $version
+                    || !is_array($proof['payload_files'] ?? null)) { return false; }
+            } elseif ($hasSnapshot || (isset($metadata['source_snapshot_sha256']) && $metadata['source_snapshot_sha256'] !== null)) {
+                return false;
+            }
+
+            $manifestBytes = file_get_contents($paths['manifest']);
+            if (!is_string($manifestBytes) || !hash_equals($metadata['scaffold_manifest_sha256'], hash('sha256', $manifestBytes))) { return false; }
+            $manifest = json_decode($manifestBytes, true, 512, JSON_THROW_ON_ERROR);
+            if (!in_array([$manifest['protocol'] ?? null, $manifest['schema_version'] ?? null], [
+                ['peanut.scaffold-release.v3', 3], ['peanut.scaffold-release.v4', 4],
+            ], true) || ($manifest['release']['version'] ?? null) !== $version
+                || ($manifest['edition']['name'] ?? null) !== $edition
+                || !self::sameSourceIdentity($manifest['release']['source_identity'] ?? null, $identity)
+                || ($manifest['release']['inventory_sha256'] ?? null) !== $metadata['source']['inventory_sha256']
+                || ($manifest['edition']['source_sha256'] ?? null) !== $metadata['source']['edition_profile_sha256']
+                || !is_array($manifest['files'] ?? null) || count($manifest['files']) > 100000) { return false; }
+
+            $archiveStat = stat($paths['archive']);
+            if (!is_array($archiveStat) || $archiveStat['size'] !== $metadata['archive']['bytes']
+                || !hash_equals($metadata['archive']['sha256'], (string) hash_file('sha256', $paths['archive']))) { return false; }
+            $inputs = self::readReleaseJson($paths['inputs'], 16777216);
+            if (($inputs['protocol'] ?? null) !== 'peanut.scaffold-build-inputs.v1'
+                || !self::sha256($inputs['payload_sha256'] ?? null)
+                || !self::sameSourceIdentity($inputs['source']['source_identity'] ?? null, $identity)
+                || ($inputs['source']['inventory_sha256'] ?? null) !== $metadata['source']['inventory_sha256']
+                || ($inputs['source']['edition_profile_sha256'] ?? null) !== $metadata['source']['edition_profile_sha256']
+                || !is_array($inputs['artifacts'] ?? null)) { return false; }
+            $expectedArtifacts = [$name . '.json', $name . '.tgz', 'scaffold-manifest.json'];
+            $artifactNames = array_keys($inputs['artifacts']);
+            sort($artifactNames, SORT_STRING);
+            sort($expectedArtifacts, SORT_STRING);
+            if ($artifactNames !== $expectedArtifacts) { return false; }
+            foreach ([$name . '.json' => $paths['package'], $name . '.tgz' => $paths['archive'],
+                'scaffold-manifest.json' => $paths['manifest']] as $artifactName => $artifactPath) {
+                $artifact = $inputs['artifacts'][$artifactName];
+                $stat = stat($artifactPath);
+                if (!is_array($stat) || ($artifact['bytes'] ?? null) !== $stat['size']
+                    || !self::sha256($artifact['sha256'] ?? null)
+                    || !hash_equals($artifact['sha256'], (string) hash_file('sha256', $artifactPath))) { return false; }
+            }
+
+            $expectedFiles = [];
+            $expectedDirectories = [];
+            $totalBytes = 0;
+            foreach ($manifest['files'] as $row) {
+                $relative = $row['path'] ?? null;
+                if (!self::safeManifestPath($relative) || ($row['source'] ?? null) !== 'files/' . $relative
+                    || !self::sha256($row['template_sha256'] ?? null) || !in_array($row['mode'] ?? null, [0644, 0755], true)
+                    || isset($expectedFiles[$relative])) { return false; }
+                $expectedFiles[$relative] = true;
+                $parts = explode('/', $relative);
+                for ($index = 1; $index < count($parts); $index++) {
+                    $expectedDirectories[implode('/', array_slice($parts, 0, $index))] = true;
+                }
+                $file = $paths['files'] . '/' . $relative;
+                $current = $paths['files'];
+                foreach ($parts as $index => $part) {
+                    $current .= '/' . $part;
+                    if (is_link($current)) { return false; }
+                    if ($index < count($parts) - 1 ? !is_dir($current) : !is_file($current)) { return false; }
+                }
+                $stat = stat($file);
+                if (!is_array($stat) || ($stat['mode'] & 0777) !== $row['mode']) { return false; }
+                $totalBytes += $stat['size'];
+                if ($totalBytes > 1073741824 || !hash_equals($row['template_sha256'], (string) hash_file('sha256', $file))) { return false; }
+            }
+            $actualFiles = [];
+            $actualDirectories = [];
+            if (!self::scanReleasePayload($paths['files'], '', $actualFiles, $actualDirectories)
+                || array_diff_key($actualFiles, $expectedFiles) !== [] || array_diff_key($expectedFiles, $actualFiles) !== []
+                || array_diff_key($actualDirectories, $expectedDirectories) !== []
+                || array_diff_key($expectedDirectories, $actualDirectories) !== []) { return false; }
+
+            $topLevel = scandir($directory);
+            if (!is_array($topLevel)) { return false; }
+            $topLevel = array_values(array_diff($topLevel, ['.', '..']));
+            $expectedTopLevel = [$name . '.json', $name . '.tgz', 'scaffold-build-inputs.json', 'scaffold-manifest.json', 'files'];
+            if ($identity['kind'] === 'local') { $expectedTopLevel[] = 'source-snapshot.json'; }
+            sort($topLevel, SORT_STRING);
+            sort($expectedTopLevel, SORT_STRING);
+            return $topLevel === $expectedTopLevel;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    private static function ordinaryReleaseFile(string $path, int $limit): bool
+    {
+        if (is_link($path) || !is_file($path)) { return false; }
+        $size = filesize($path);
+        return is_int($size) && $size <= $limit;
+    }
+
+    private static function readReleaseJson(string $path, int $limit): array
+    {
+        if (!self::ordinaryReleaseFile($path, $limit)) { throw new RuntimeException('invalid release file'); }
+        $decoded = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+        if (!is_array($decoded)) { throw new RuntimeException('invalid release json'); }
+        return $decoded;
+    }
+
+    private static function sha256(mixed $value): bool
+    {
+        return is_string($value) && preg_match('/^[a-f0-9]{64}$/D', $value) === 1;
+    }
+
+    private static function sourceIdentityValid(mixed $identity): bool
+    {
+        if (!is_array($identity)) { return false; }
+        try {
+            self::validate($identity);
+            return true;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    private static function sameSourceIdentity(mixed $left, mixed $right): bool
+    {
+        return self::sourceIdentityValid($left) && self::sourceIdentityValid($right)
+            && self::validate($left) === self::validate($right);
+    }
+
+    private static function safeManifestPath(mixed $path): bool
+    {
+        if (!is_string($path) || $path === '' || str_starts_with($path, '/')
+            || preg_match('/[\x00-\x1f\x7f\\\\]/', $path) === 1) { return false; }
+        return !in_array('', explode('/', $path), true) && !in_array('.', explode('/', $path), true)
+            && !in_array('..', explode('/', $path), true);
+    }
+
+    private static function scanReleasePayload(string $directory, string $prefix, array &$files, array &$directories): bool
+    {
+        $entries = scandir($directory);
+        if (!is_array($entries)) { return false; }
+        foreach (array_diff($entries, ['.', '..']) as $name) {
+            $relative = $prefix === '' ? $name : $prefix . '/' . $name;
+            $absolute = $directory . '/' . $name;
+            if (is_link($absolute)) { return false; }
+            if (is_dir($absolute)) {
+                $directories[$relative] = true;
+                if (!self::scanReleasePayload($absolute, $relative, $files, $directories)) { return false; }
+            } elseif (is_file($absolute)) {
+                $files[$relative] = true;
+            } else { return false; }
+        }
+        return true;
     }
 }

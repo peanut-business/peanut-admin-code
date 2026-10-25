@@ -4070,7 +4070,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8ff99b0abc49f4fa89507834e0a61b4d3c6c6bda9d64da3fb5c01f6100ad3440"
+            "source_sha256": "0e209e5dc2e1d2d8bf2ed70d927ebe17e26bea72ea9fb153c2ec0345b6300127"
         },
         {
             "path": "scripts/scaffold-runtime/ScaffoldUpgradeLedger.php",
