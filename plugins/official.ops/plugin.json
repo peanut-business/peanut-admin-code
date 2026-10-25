@@ -1,11 +1,11 @@
 {
     "schema_version": 1,
     "key": "official.ops",
-    "version": "1.0.21",
+    "version": "1.0.22",
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "09445f92a075099fa0ddb61d0549f9f9241bad0a800e36edc3fa7cc7ba35243a"
+        "sha256": "1b32be7997307cfd07628a9dff757231a0199bf3511322055f25b1d339efd6e5"
     },
     "trust": {
         "channel": "bundled",
@@ -39,12 +39,12 @@
             "modules": [
                 {
                     "key": "official.ops",
-                    "version": "1.0.21",
+                    "version": "1.0.22",
                     "kernel_constraint": "^1.0",
                     "dependencies": [
                         {
                             "module_key": "official.identity",
-                            "version": "4.0.0-rc.29"
+                            "version": "4.0.0-rc.30"
                         },
                         {
                             "module_key": "official.task",

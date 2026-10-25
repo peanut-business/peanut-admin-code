@@ -1,11 +1,11 @@
 {
     "schema_version": 1,
     "key": "official.collaboration",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "bed2a199a131a208d91acf126663acd7c406e7dc4a5a988341dc71576ecf08b0"
+        "sha256": "f9d55ebe7ce1f255e77b9d376818714ea8fec3168b40004f81324f796d1924e2"
     },
     "trust": {
         "channel": "bundled",
@@ -39,7 +39,7 @@
             "modules": [
                 {
                     "key": "official.collaboration",
-                    "version": "1.0.7",
+                    "version": "1.0.8",
                     "kernel_constraint": "^1.0",
                     "dependencies": [
                         {
@@ -52,7 +52,7 @@
                         },
                         {
                             "module_key": "official.identity",
-                            "version": "4.0.0-rc.29"
+                            "version": "4.0.0-rc.30"
                         },
                         {
                             "module_key": "official.rich-text",
