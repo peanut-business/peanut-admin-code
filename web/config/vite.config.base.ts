@@ -121,9 +121,18 @@ export function createBaseConfig(
   const fileEnv = readClientEnvironment(
     resolve(configDir, `../.env.${configEnv.mode}`)
   );
+  const resolvedDeploymentMode = fileEnv.VITE_DEPLOYMENT_MODE || 'standalone';
+  if (
+    resolvedDeploymentMode !== 'standalone' &&
+    resolvedDeploymentMode !== 'multi-tenant'
+  ) {
+    throw new Error(
+      `Invalid VITE_DEPLOYMENT_MODE: ${resolvedDeploymentMode}; expected standalone or multi-tenant`
+    );
+  }
   const instanceToolsCompiled = compileInstanceTools(
     configEnv,
-    fileEnv.VITE_DEPLOYMENT_MODE
+    resolvedDeploymentMode
   );
   return {
     // The admin SPA is published below server/public/admin in every environment.
@@ -164,7 +173,7 @@ export function createBaseConfig(
         instanceToolsCompiled
       ),
       'import.meta.env.VITE_DEPLOYMENT_MODE': JSON.stringify(
-        fileEnv.VITE_DEPLOYMENT_MODE || 'standalone'
+        resolvedDeploymentMode
       ),
       'import.meta.env.VITE_API_BASE_URL': JSON.stringify(
         fileEnv.VITE_API_BASE_URL || ''
