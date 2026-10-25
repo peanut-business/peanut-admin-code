@@ -9,6 +9,7 @@ use RuntimeException;
 use Throwable;
 use app\common\infrastructure\migration\PeanutMigrationAdapter;
 use app\common\infrastructure\migration\PeanutMigrationRun;
+use app\common\infrastructure\migration\CleanInstallBaseline;
 
 /**
  * Applies the application's immutable SQL chain through its durable ledger.
@@ -250,26 +251,50 @@ final class ApplicationMigrationRunner
      * @param list<string> $migrationIds
      * @return array<string,string>
      */
-    public function statuses(array $migrationIds): array
+    public function statuses(array $migrationIds, string $databaseDirectory): array
     {
+        if (!str_starts_with($databaseDirectory, '/') || !is_dir($databaseDirectory)
+            || is_link($databaseDirectory) || realpath($databaseDirectory) !== $databaseDirectory) {
+            throw new RuntimeException('INSTALL_BASELINE_SOURCE_UNRESOLVED');
+        }
         if ($migrationIds === []) {
             return [];
         }
+        $baselines = [];
         foreach ($migrationIds as $id) {
-            if (preg_match('/^[0-9]{8}-[a-z0-9][a-z0-9_-]*$/D', $id) !== 1
-                && !in_array($id, ['20261019-clean-install-5.0.2-r1', '20261019-clean-install-5.0.2-r2'], true)) {
-                throw new RuntimeException('MIGRATION_ID_INVALID');
+            if (!is_string($id)) { throw new RuntimeException('MIGRATION_ID_INVALID'); }
+            if (preg_match('/^[0-9]{8}-[a-z0-9][a-z0-9_-]*$/D', $id) !== 1) {
+                try {
+                    $baselines[$id] = CleanInstallBaseline::load($databaseDirectory, $id);
+                } catch (Throwable $error) {
+                    throw new RuntimeException('MIGRATION_ID_INVALID', 0, $error);
+                }
             }
         }
         $pdo = $this->connection();
         $placeholders = implode(',', array_fill(0, count($migrationIds), '?'));
         $statement = $pdo->prepare(
-            "SELECT migration_id,status FROM pa_schema_migration WHERE migration_id IN ({$placeholders})",
+            "SELECT migration_id,status,checksum,release_version,finished_at,error_code FROM pa_schema_migration WHERE migration_id IN ({$placeholders})",
         );
-        $statement->execute($migrationIds);
+        try {
+            $statement->execute($migrationIds);
+            $rows = $statement->fetchAll(PDO::FETCH_ASSOC);
+        } finally {
+            $statement->closeCursor();
+        }
         $statuses = [];
-        foreach ($statement->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        foreach ($rows as $row) {
+            $baseline = $baselines[$row['migration_id']] ?? null;
+            if ($baseline !== null && ($row['status'] !== 'applied'
+                || !hash_equals($baseline->checksum, (string) $row['checksum'])
+                || $row['release_version'] !== $baseline->manifest['source_product_version']
+                || $row['finished_at'] === null || $row['error_code'] !== null)) {
+                throw new RuntimeException('INSTALL_BASELINE_HISTORY_CONFLICT');
+            }
             $statuses[(string) $row['migration_id']] = (string) $row['status'];
+        }
+        foreach ($baselines as $id => $baseline) {
+            if (!isset($statuses[$id])) { throw new RuntimeException('INSTALL_BASELINE_HISTORY_CONFLICT'); }
         }
         ksort($statuses, SORT_STRING);
         return $statuses;

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Identity\Database;
 
-use app\platform\validation\module\StrictVersionConstraintMatcher;
 use Closure;
 use PDO;
 use RuntimeException;
@@ -347,6 +346,20 @@ final class IdentitySchemaMigrationProof
             'ddl' => $ddl];
     }
 
+    private static function isStrictSemver(string $version): bool
+    {
+        $source = dirname(__DIR__, 7) . '/scripts/scaffold-runtime/Semver.php';
+        if (!class_exists(\app\common\infrastructure\scaffold\Semver::class, false)) {
+            if (!is_file($source) || is_link($source)) { return false; }
+            require_once $source;
+        }
+        try {
+            return \app\common\infrastructure\scaffold\Semver::compare($version, $version) === 0;
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
     private static function ledger(PDO $pdo, array $stage): array
     {
         if (!($stage['stageLedger'] ?? null) instanceof Closure) { self::fail('LEDGER_READER_REQUIRED'); }
@@ -365,7 +378,7 @@ final class IdentitySchemaMigrationProof
                 // the exact rc.25 failure. Neither branch adopts a pre-existing table or rewrites history.
                 $applied = $row['status'] === 'applied' && $row['resolution_kind'] === 'executed'
                     && $row['error_code'] === null && is_string($row['module_version'])
-                    && (new StrictVersionConstraintMatcher())->matches($row['module_version'], $row['module_version']);
+                    && self::isStrictSemver($row['module_version']);
                 $failed = $row['status'] === 'failed' && $row['module_version'] === '4.0.0-rc.25'
                     && $row['error_code'] === 'MODULE_MIGRATION_FAILED' && $row['resolution_kind'] === null;
                 if ((!$applied && !$failed) || $row['checksum'] !== self::STAGES[self::MEMBER_JOB_MIGRATION][0]

@@ -317,7 +317,7 @@ function peanutServerDatabaseStage(string $operation, string $server, string $wo
             PeanutServerUpdatePlan::assertDatabaseMigrationStage($pdo);
         });
     $ids = $migration['selected'];
-    $statuses = $runner->statuses($ids);
+    $statuses = $runner->statuses($ids, $runtimeServer . '/database');
     if (($operation === 'verify' || $replayed) && ($migration['pending'] !== [] || count($statuses) !== count($ids)
         || count(array_filter($statuses, static fn(string $status): bool => $status !== 'applied')) > 0)) { throw new RuntimeException('migration verification requires every selected native applied row'); }
     $evidence = ['status' => 'completed', 'operation' => $operation, 'update_id' => $plan['update_id'],

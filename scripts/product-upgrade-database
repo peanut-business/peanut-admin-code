@@ -175,11 +175,11 @@ try {
         ? $runner->run($files, $target, $target, false)
         : $runner->run($files, $target, $target, true);
     $ids = $migration['selected'];
-    $statuses = $runner->statuses($ids);
+    $statuses = $runner->statuses($ids, $root . '/server/database');
     $module = null;
     if ($operation === 'apply') {
         $module = upgradeDatabaseReconcile($root, $childEnvironment);
-        $statuses = $runner->statuses($ids);
+        $statuses = $runner->statuses($ids, $root . '/server/database');
     }
     if ($operation === 'verify') {
         if ($migration['pending'] !== [] || count($statuses) !== count($ids)) { throw new RuntimeException('PRODUCT_UPGRADE_MIGRATION_VERIFY_FAILED'); }
