@@ -9487,11 +9487,7 @@
                                             "type": "string"
                                         },
                                         "data": {
-                                            "type": "array",
-                                            "maxItems": 0,
-                                            "items": {
-                                                "$ref": "#/components/schemas/ApplicationDynamicValue"
-                                            }
+                                            "$ref": "#/components/schemas/WebsiteConfig"
                                         }
                                     }
                                 }
@@ -9502,9 +9498,6 @@
                         "$ref": "#/components/responses/ErrorResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ErrorResponse"
-                    },
-                    "422": {
                         "$ref": "#/components/responses/ErrorResponse"
                     }
                 },

@@ -15151,13 +15151,12 @@ export interface operations {
                         /** @enum {integer} */
                         code: 20000;
                         msg: string;
-                        data: components["schemas"]["ApplicationDynamicValue"][];
+                        data: components["schemas"]["WebsiteConfig"];
                     };
                 };
             };
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
         };
     };
     getAgreementConfig: {
