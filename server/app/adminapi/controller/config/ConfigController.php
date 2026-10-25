@@ -81,11 +81,10 @@ class ConfigController extends BaseAdminController
 
     public function saveWebsite()
     {
-        $this->configuration->saveWebsite(
+        return $this->data($this->configuration->saveWebsite(
             $this->tenantAdminContext(),
             $this->request->post(),
-        );
-        return $this->success('操作成功');
+        ));
     }
 
     public function getCopyright()

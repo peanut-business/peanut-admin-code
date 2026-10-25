@@ -27,6 +27,12 @@ final readonly class WebsiteConfigService
         return $this->delegate($context)->get();
     }
 
+    /** @return array<string, string> */
+    public function getForEdit(AuthenticatedMemberContext|TenantContext|TenantSystemContext $context): array
+    {
+        return $this->delegate($context)->getForEdit();
+    }
+
     /** @param array<string, mixed> $params */
     public function save(
         AuthenticatedMemberContext|TenantContext|TenantSystemContext $context,

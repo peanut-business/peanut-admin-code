@@ -781,7 +781,8 @@ $configContracts = [
 ];
 foreach ($configContracts as $route => [$schema, $getId, $saveId]) {
     $add($paths, 'GET', '/adminapi/config/' . $route, $operation($getId, 'TenantConfiguration', $ok($schema)));
-    $add($paths, 'POST', '/adminapi/config/' . $route . '/save', $operation($saveId, 'TenantConfiguration', $mutation, requestBody: $jsonBody($ref($schema))));
+    $saveResponse = $route === 'website' ? $ok($schema) : $mutation;
+    $add($paths, 'POST', '/adminapi/config/' . $route . '/save', $operation($saveId, 'TenantConfiguration', $saveResponse, requestBody: $jsonBody($ref($schema))));
 }
 $add($paths, 'GET', '/adminapi/config/copyright', $operation('getCopyrightConfig', 'TenantConfiguration', $ok('CopyrightItemList')));
 $add($paths, 'POST', '/adminapi/config/copyright/save', $operation('saveCopyrightConfig', 'TenantConfiguration', $mutation, requestBody: $jsonBody($ref('CopyrightConfig'))));

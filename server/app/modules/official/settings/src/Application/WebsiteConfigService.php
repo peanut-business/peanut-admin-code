@@ -49,19 +49,21 @@ final class WebsiteConfigService
     /** @return array<string, string> */
     public function get(): array
     {
-        $stored = $this->store->read();
+        $values = $this->effectiveValues();
         $result = [];
-        foreach ($this->defaults as $field => $default) {
-            $value = is_string($stored[$field] ?? null) ? trim($stored[$field]) : $default;
-            if ($value === '' && $default !== '' && $field !== 'official_url') {
-                $value = $default;
-            }
+        foreach ($values as $field => $value) {
             $result[$field] = $this->isImage($field)
                 ? (string) ($this->urlForRead)($value)
                 : $value;
         }
 
         return $result;
+    }
+
+    /** @return array<string, string> Stable references and trusted defaults for the admin editor. */
+    public function getForEdit(): array
+    {
+        return $this->effectiveValues();
     }
 
     /** @param array<string, mixed> $params */
@@ -83,7 +85,7 @@ final class WebsiteConfigService
             if (in_array($field, self::URL_FIELDS, true) && !$this->validUrl($value)) {
                 throw new InvalidArgumentException($this->label($field) . '必须是 HTTP(S) URL');
             }
-            $normalized[$field] = $this->isImage($field)
+            $normalized[$field] = $this->isImage($field) && $value !== $default
                 ? (string) ($this->urlForStorage)($value)
                 : $value;
         }
@@ -100,6 +102,22 @@ final class WebsiteConfigService
     private function isImage(string $field): bool
     {
         return in_array($field, self::IMAGE_FIELDS, true);
+    }
+
+    /** @return array<string, string> */
+    private function effectiveValues(): array
+    {
+        $stored = $this->store->read();
+        $result = [];
+        foreach ($this->defaults as $field => $default) {
+            $value = is_string($stored[$field] ?? null) ? trim($stored[$field]) : $default;
+            if ($value === '' && $default !== '' && $field !== 'official_url') {
+                $value = $default;
+            }
+            $result[$field] = $value;
+        }
+
+        return $result;
     }
 
     private function validUrl(string $value): bool

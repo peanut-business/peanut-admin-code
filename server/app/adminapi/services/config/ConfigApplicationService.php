@@ -23,13 +23,13 @@ class ConfigApplicationService
 
     public function getWebsite(AuthenticatedMemberContext|TenantContext $context): array
     {
-        return $this->website->get($context);
+        return $this->website->getForEdit($context);
     }
 
-    public function saveWebsite(AuthenticatedMemberContext|TenantContext $context, array $params): bool
+    public function saveWebsite(AuthenticatedMemberContext|TenantContext $context, array $params): array
     {
         $this->website->save($context, $params);
-        return true;
+        return $this->website->get($context);
     }
 
     public function getCopyright(AuthenticatedMemberContext|TenantContext $context): array

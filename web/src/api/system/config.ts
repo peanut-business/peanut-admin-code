@@ -30,7 +30,7 @@ export function getWebsiteConfig() {
 }
 
 export function saveWebsiteConfig(data: WebsiteConfig) {
-  return axios.post('/adminapi/config/website/save', data);
+  return axios.post<WebsiteConfig>('/adminapi/config/website/save', data);
 }
 
 export function getPublicBrandConfig() {
