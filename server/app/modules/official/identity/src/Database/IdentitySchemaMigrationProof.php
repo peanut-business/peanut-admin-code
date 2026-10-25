@@ -348,16 +348,10 @@ final class IdentitySchemaMigrationProof
 
     private static function isStrictSemver(string $version): bool
     {
-        $source = dirname(__DIR__, 7) . '/scripts/scaffold-runtime/Semver.php';
-        if (!class_exists(\app\common\infrastructure\scaffold\Semver::class, false)) {
-            if (!is_file($source) || is_link($source)) { return false; }
-            require_once $source;
-        }
-        try {
-            return \app\common\infrastructure\scaffold\Semver::compare($version, $version) === 0;
-        } catch (Throwable) {
-            return false;
-        }
+        return preg_match(
+            '/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/D',
+            $version,
+        ) === 1;
     }
 
     private static function ledger(PDO $pdo, array $stage): array

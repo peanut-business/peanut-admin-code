@@ -16,7 +16,6 @@ final class PeanutServerUpdatePlan
     private static ?array $databaseStage = null;
     private static ?array $applicationPlanning = null;
     private static ?array $sourceConfiguration = null;
-    private static ?string $sourceVersionInitialCommit = null;
 
     /** The database host owns this lock, rather than inheriting a parent's claim. */
     public static function withDatabaseMigration(string $server, string $workspace, string $operation, string $scope, PDO $pdo, callable $callback): mixed
@@ -842,70 +841,6 @@ final class PeanutServerUpdatePlan
         self::assertNoLegacyMaintenanceKey($root);
     }
 
-    /** An explicitly selected fixed coordinator may prove a product's first version-only edit. */
-    public static function withApplicationSourceVersionProof(string $initialCommit, callable $callback): mixed
-    {
-        if (PHP_SAPI !== 'cli' || preg_match('/^[a-f0-9]{40}$/D', $initialCommit) !== 1
-            || self::$sourceVersionInitialCommit !== null) {
-            throw new RuntimeException('SOURCE_ONLY_VERSION_PROOF_INVALID');
-        }
-        self::$sourceVersionInitialCommit = $initialCommit;
-        try { return $callback(); }
-        finally { self::$sourceVersionInitialCommit = null; }
-    }
-
-    private static function applicationSourceVersionOnlyProof(string $server, array $manifest, string $initialSha256): bool
-    {
-        $commit = self::$sourceVersionInitialCommit;
-        if ($commit === null) { return false; }
-        $root = dirname($server);
-        $environment = array_filter(getenv(), static fn(string $name): bool => !str_starts_with($name, 'GIT_'), ARRAY_FILTER_USE_KEY);
-        $environment['GIT_NO_LAZY_FETCH'] = '1'; $environment['GIT_TERMINAL_PROMPT'] = '0';
-        $git = static function (array $arguments) use ($root, $environment): string {
-            $process = proc_open(['git', '--no-pager', '--no-replace-objects', '-C', $root, ...$arguments],
-                [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, null, $environment);
-            if (!is_resource($process)) { throw new RuntimeException('SOURCE_ONLY_VERSION_GIT_UNAVAILABLE'); }
-            $output = stream_get_contents($pipes[1], 4194305); $error = stream_get_contents($pipes[2], 65537);
-            fclose($pipes[1]); fclose($pipes[2]); $code = proc_close($process);
-            if ($code !== 0 || $error !== '' || !is_string($output) || strlen($output) > 4194304) {
-                throw new RuntimeException('SOURCE_ONLY_VERSION_GIT_REJECTED');
-            }
-            return $output;
-        };
-        $grafts = trim($git(['rev-parse', '--git-path', 'info/grafts']));
-        $grafts = str_starts_with($grafts, '/') ? $grafts : $root . '/' . $grafts;
-        if (trim($git(['rev-parse', '--show-toplevel'])) !== $root
-            || trim($git(['rev-parse', '--is-shallow-repository'])) !== 'false'
-            || file_exists($grafts) || is_link($grafts)
-            || trim($git(['rev-parse', $commit . '^{commit}'])) !== $commit) {
-            throw new RuntimeException('SOURCE_ONLY_VERSION_GIT_IDENTITY_INVALID');
-        }
-        $git(['merge-base', '--is-ancestor', $commit, 'HEAD']);
-        $initialBytes = $git(['show', $commit . ':.peanut/application-manifest.json']);
-        $currentBytes = self::regularBytes($root . '/.peanut/application-manifest.json', 'application manifest');
-        if (!hash_equals($initialSha256, hash('sha256', $initialBytes))
-            || !hash_equals(hash('sha256', $currentBytes), hash('sha256', $git(['show', 'HEAD:.peanut/application-manifest.json'])))) {
-            throw new RuntimeException('SOURCE_ONLY_VERSION_GIT_MANIFEST_MISMATCH');
-        }
-        $initial = json_decode($initialBytes, true, 512, JSON_THROW_ON_ERROR);
-        $oldVersion = $initial['application']['version'] ?? null;
-        $newVersion = $manifest['application']['version'] ?? null;
-        $semver = dirname(__DIR__, 3) . '/scripts/scaffold-runtime/Semver.php';
-        if (!class_exists(\app\common\infrastructure\scaffold\Semver::class, false)) {
-            if (!is_file($semver) || is_link($semver)) { throw new RuntimeException('SOURCE_ONLY_VERSION_SEMVER_UNAVAILABLE'); }
-            require_once $semver;
-        }
-        if (!is_array($initial) || !is_string($oldVersion) || !is_string($newVersion)
-            || \app\common\infrastructure\scaffold\Semver::compare($newVersion, $oldVersion) <= 0) {
-            throw new RuntimeException('SOURCE_ONLY_VERSION_NOT_FORWARD');
-        }
-        unset($initial['application']['version'], $manifest['application']['version']);
-        if (self::databaseCanonical($initial) !== self::databaseCanonical($manifest)) {
-            throw new RuntimeException('SOURCE_ONLY_VERSION_NONVERSION_FIELDS_CHANGED');
-        }
-        return true;
-    }
-
     /** Source-only adoption uses the real installed pair, never a fabricated runtime projection. */
     public static function applicationSourceContext(string $root): array
     {
@@ -934,8 +869,7 @@ final class PeanutServerUpdatePlan
         ];
         $manifest = self::jsonFile(dirname($root) . '/.peanut/application-manifest.json', 'application manifest');
         if (hash('sha256', self::regularBytes(dirname($root) . '/.peanut/application-manifest.json', 'application manifest')) !== $initial
-            && array_intersect_key($manifest['last_scaffold_upgrade']['source_installation'] ?? [], $context) !== $context
-            && !self::applicationSourceVersionOnlyProof($root, $manifest, $initial)) {
+            && array_intersect_key($manifest['last_scaffold_upgrade']['source_installation'] ?? [], $context) !== $context) {
             throw new RuntimeException('SOURCE_ONLY_INSTALLATION_SOURCE_CHAIN_CHANGED');
         }
         foreach (['.env', 'private/resources/project-resources.json'] as $relative) {

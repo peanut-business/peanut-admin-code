@@ -932,7 +932,7 @@ function productUpgradeHostPhase(string $packageRoot, string $phase, array $plan
 function productUpgradeRuntimeFiles(): array
 {
     $files = ['scripts/product-upgrade-host', 'server/app/common/services/installation/InstallationExecutionHost.php',
-        'server/app/common/infrastructure/migration/CleanInstallBaseline.php', 'scripts/scaffold-runtime/Semver.php'];
+        'server/app/common/infrastructure/migration/CleanInstallBaseline.php'];
     foreach (['update-plan.php', 'update-database.php', 'update-preparation.py', 'update-recovery.py',
         'prepare-vendor.sh', 'prepare-vendor.php', 'vendor-state.py', 'configure-collaboration.py', 'update-tooling.py'] as $name) {
         $files[] = 'server/docker/scripts/' . $name;

@@ -152,12 +152,14 @@ try {
     $autoload = $root . '/server/vendor/autoload.php';
     $guard = $root . '/server/database/environment-guard.php';
     $runnerPath = $root . '/server/app/common/services/upgrade/ApplicationMigrationRunner.php';
-    if (!is_file($autoload) || !is_file($guard) || !is_file($runnerPath)) {
+    $installPath = $root . '/server/database/install.php';
+    if (!is_file($autoload) || !is_file($guard) || !is_file($runnerPath) || !is_file($installPath)) {
         throw new RuntimeException('PRODUCT_UPGRADE_DATABASE_RUNTIME_MISSING');
     }
     require_once $autoload;
     require_once $guard;
     require_once $runnerPath;
+    require_once $installPath;
     $package = realpath($options['package']);
     if (!is_string($package) || !is_dir($package) || is_link($package)) {
         throw new RuntimeException('PRODUCT_UPGRADE_DATABASE_PACKAGE_INVALID');
@@ -170,10 +172,11 @@ try {
         'database' => (string) $config['database'], 'user' => (string) $config['user'],
         'password' => (string) $config['password'],
     ]);
-    $target = (string) $plan['migration']['target_version'];
+    $versions = applicationReleaseVersions($root . '/server');
+    $target = applicationMigrationTargetVersion($root . '/server', $versions);
     $migration = $operation === 'apply'
-        ? $runner->run($files, $target, $target, false)
-        : $runner->run($files, $target, $target, true);
+        ? $runner->run($files, $target, $versions['release_sequence_version'], false)
+        : $runner->run($files, $target, $versions['release_sequence_version'], true);
     $ids = $migration['selected'];
     $statuses = $runner->statuses($ids, $root . '/server/database');
     $module = null;
