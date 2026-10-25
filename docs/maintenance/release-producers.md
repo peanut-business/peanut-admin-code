@@ -10,7 +10,7 @@
 
 配套`peanut.template-package.v1`清单绑定产品、版本、Edition、profile、Workflow、源码身份、inventory/Edition profile和归档SHA-256/长度；源码身份可为准确Git commit/tree或本地快照摘要。归档为只含普通文件的USTAR+gzip；`scaffold-manifest.json`保持受管升级语义；`template-create.json`另列全部创建文件、模式、摘要、渲染声明、APP manifest模板和可写目录。受管载荷在`files/`，自有初始默认在`defaults/`，自有文件不进入升级受管集合。归档不携带APP安装依赖、Git、秘密、数据库、上传和实例安装身份。
 
-同一原生入口在本地和CI使用。`scaffold-build-inputs.json`另外记录固定源码、生产脚本/工具要求与原生锁摘要、实际PHP/Node/Python/pnpm/Composer版本、系统/架构/zlib身份、全部成员内容及模式指纹和最终附件摘要；不含时间、临时绝对路径或秘密，也不进入APP载荷。模板输入读取器将此回执纳入资格和候选锁；检查按原源码和最终包重算输入/载荷/附件身份，不重新安装tooling，不把检查机器的环境冒充原构建环境。archive摘要证明容器字节，payload摘要证明排序后的路径/模式/内容，二者不能互相替代。
+同一原生入口在本地和CI使用。普通本地 `source_identity.kind=local` 发行使用 `project-env` 已按PHP/Node manifest约束及原生Composer/pnpm锁验证的登记工具；推荐版本差异不阻止本地包，`scaffold-build-inputs.json`记录实际PHP/Node/Python/pnpm/Composer版本。固定Git/CI来源仍要求精确工具版本。该回执还绑定源码、生产脚本/工具要求与原生锁摘要、系统/架构/zlib身份、全部成员内容及模式指纹和最终附件摘要；不含时间、临时绝对路径或秘密，也不进入APP载荷。模板输入读取器将此回执纳入资格和候选锁；检查按原源码和最终包重算输入/载荷/附件身份，不重新安装tooling，不把检查机器的环境冒充原构建环境。archive摘要证明容器字节，payload摘要证明排序后的路径/模式/内容，二者不能互相替代。
 
 同一次已准备的工具环境内重复生产时，在两个独立输出根分别用标准入口构建双Edition，再调用`node scripts/release-template-artifacts.mjs compare <原构建根> <version> <commit> <tree> <inventory-sha256> <重建根>`，仍严格核生产输入、完整环境身份、载荷、四附件摘要及实际字节完全相同。CI候选job执行这一比较后才校验自己生成的模板；此原生比较不因独立重建的口径而放宽。
 

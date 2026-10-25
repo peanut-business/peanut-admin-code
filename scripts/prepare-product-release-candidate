@@ -21,7 +21,7 @@ import shutil
 import subprocess
 from functools import lru_cache
 from urllib.parse import quote, unquote, urlparse
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -85,12 +85,13 @@ def required_release_file_sha256(relative: str) -> str:
     return sha256(path)
 
 
-def run(command: list[str], *, cwd: Path = ROOT, dry_run: bool = False) -> None:
+def run(command: list[str], *, cwd: Path | None = None, dry_run: bool = False) -> None:
+    actual_cwd = ROOT if cwd is None else cwd
     printable = " ".join(command)
     if dry_run:
-        print(f"DRY-RUN {cwd.relative_to(ROOT) if cwd != ROOT else '.'}: {printable}")
+        print(f"DRY-RUN {actual_cwd.relative_to(ROOT) if actual_cwd != ROOT else '.'}: {printable}")
         return
-    subprocess.run(command, cwd=cwd, check=True)
+    subprocess.run(command, cwd=actual_cwd, check=True)
 
 
 def require_semver(value: str, label: str) -> str:
@@ -325,8 +326,27 @@ def provenance_url(value: Any, name: str, version: str) -> bool:
 
 @lru_cache(maxsize=64)
 def public_json(url: str) -> dict[str, Any]:
+    parsed_url = urlparse(url)
+    github_api = parsed_url.hostname == "api.github.com"
+    if github_api and (parsed_url.scheme != "https" or parsed_url.port not in (None, 443)
+                       or parsed_url.username or parsed_url.password):
+        fail("GitHub API source evidence URL is not canonical HTTPS")
+    headers = {"User-Agent": "Peanut-release-coordinator"}
+    if github_api:
+        token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
     try:
-        with urlopen(Request(url, headers={"User-Agent": "Peanut-release-coordinator"}), timeout=30) as stream:
+        request = Request(url, headers=headers)
+        if github_api:
+            class RejectRedirect(HTTPRedirectHandler):
+                def redirect_request(self, req, fp, code, msg, response_headers, newurl):
+                    return None
+
+            response = build_opener(RejectRedirect).open(request, timeout=30)
+        else:
+            response = urlopen(request, timeout=30)
+        with response as stream:
             value = json.load(stream)
     except (OSError, ValueError) as error:
         fail(f"public source evidence lookup failed: {url}: {type(error).__name__}")
