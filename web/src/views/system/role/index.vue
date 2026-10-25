@@ -39,11 +39,6 @@
           show-overflow-tooltip
         />
         <el-table-column
-          prop="sort"
-          :label="$t('systemRole.columns.sort')"
-          width="90"
-        />
-        <el-table-column
           prop="num"
           :label="$t('systemRole.columns.num')"
           width="120"
@@ -144,14 +139,6 @@
             :autosize="{ minRows: 4, maxRows: 6 }"
             maxlength="200"
             show-word-limit
-          />
-        </el-form-item>
-        <el-form-item prop="sort" :label="$t('systemRole.field.sort')">
-          <el-input-number
-            v-model="form.sort"
-            :min="0"
-            :max="9999"
-            style="width: 160px"
           />
         </el-form-item>
       </el-form>
@@ -322,7 +309,6 @@
     id: undefined,
     name: '',
     desc: '',
-    sort: 0,
   });
   const form = reactive<RoleBaseForm>(defaultForm());
 
@@ -346,7 +332,6 @@
       id: record.id,
       name: record.name,
       desc: record.desc,
-      sort: record.sort,
     });
     modalVisible.value = true;
   };
@@ -361,7 +346,6 @@
         id: form.id,
         name: form.name,
         desc: form.desc,
-        sort: form.sort,
       };
       if (isEdit.value) {
         await editRole(payload);

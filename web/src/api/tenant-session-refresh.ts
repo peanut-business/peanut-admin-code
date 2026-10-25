@@ -82,7 +82,24 @@ export async function refreshTenantAccessToken(
     );
     refreshRequests.set(key, pending);
   }
-  const token = await awaitRefresh(pending, signal);
+  let token: string;
+  try {
+    token = await awaitRefresh(pending, signal);
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    const latest = getSessionSnapshot();
+    // Another tab may have completed the same session's rotation while this
+    // request's refresh failed. The business request still retries only once.
+    if (
+      latest.generation === snapshot.generation &&
+      latest.token !== requestToken &&
+      latest.token !== null &&
+      isTenantAccessToken(latest.token)
+    ) {
+      return latest.token;
+    }
+    throw error;
+  }
   const latest = getSessionSnapshot();
   if (signal?.aborted) {
     throw (

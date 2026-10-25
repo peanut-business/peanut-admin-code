@@ -5,7 +5,6 @@ export interface RoleRecord {
   id: number;
   name: string;
   desc: string;
-  sort: number;
   num: number;
   status: 'active' | 'disabled' | 'archived';
   create_time: number | string;
@@ -23,7 +22,6 @@ export interface RoleBaseForm {
   id?: number;
   name: string;
   desc: string;
-  sort: number;
 }
 
 /** 分配权限提交体，沿用角色编辑接口 */
@@ -44,7 +42,7 @@ export interface RoleListResult {
   pageSize: number;
 }
 
-/** 角色列表（按 sort desc, id desc） */
+/** 角色列表（按原生角色 ID 升序） */
 export function getRoleList(params: RoleListParams) {
   return axios.get<RoleListResult>('/adminapi/role/lists', { params });
 }
