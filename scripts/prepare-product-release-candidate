@@ -20,7 +20,7 @@ import re
 import shutil
 import subprocess
 from functools import lru_cache
-from urllib.parse import unquote, urlparse
+from urllib.parse import quote, unquote, urlparse
 from urllib.request import Request, urlopen
 from typing import Any
 
@@ -128,13 +128,10 @@ def set_composer_spec(version: str) -> None:
 
 
 def composer_command() -> list[str]:
-    fixed = ROOT / "scripts/project-composer"
-    if fixed.is_file() and os.access(fixed, os.X_OK):
-        return [str(fixed)]
     composer = shutil.which("composer")
     if composer:
         return [composer]
-    fail("Composer is required")
+    fail("the registered project Composer command is required")
 
 
 def npm_command() -> str:
@@ -145,10 +142,10 @@ def npm_command() -> str:
 
 
 def corepack_command() -> str:
-    corepack = shutil.which("corepack")
-    if not corepack:
-        fail("corepack is required to create the native pnpm lock")
-    return corepack
+    pnpm = shutil.which("pnpm")
+    if not pnpm:
+        fail("the registered project pnpm command is required to create the native lock")
+    return pnpm
 
 
 def preflight_tools() -> None:
@@ -182,8 +179,7 @@ def run_native_lock_updates(dry_run: bool) -> None:
         run([npm, "install", "--package-lock-only", "--ignore-scripts"], cwd=ROOT / client, dry_run=dry_run)
     run(
         [
-            "corepack" if dry_run else corepack_command(),
-            "pnpm",
+            "pnpm" if dry_run else corepack_command(),
             "--dir",
             "web",
             "install",
@@ -525,6 +521,277 @@ def read_core_web(expected_version: str, expected_reference: str,
     }
 
 
+def stable_version_key(value: Any) -> tuple[int, int, int, str] | None:
+    if not isinstance(value, str) or not SEMVER.fullmatch(value):
+        return None
+    core = value.split("+", 1)[0]
+    if "-" in core:
+        return None
+    major, minor, patch = (int(part) for part in core.split("."))
+    return major, minor, patch, value
+
+
+def github_core_release(repository: str, selected_version: str) -> str:
+    """Resolve a published stable tag to its exact commit and successful release Action."""
+    tag = "v" + selected_version
+    prefix = "https://api.github.com/repos/" + repository
+    release = public_json(prefix + "/releases/tags/" + tag)
+    if release.get("tag_name") != tag or release.get("draft") is not False or release.get("prerelease") is not False:
+        fail(f"stable GitHub Release is missing or differs: {repository}@{tag}")
+    reference = public_json(prefix + "/git/ref/tags/" + tag).get("object")
+    for _ in range(4):
+        if not isinstance(reference, dict) or not isinstance(reference.get("sha"), str):
+            fail(f"GitHub tag identity is invalid: {repository}@{tag}")
+        if reference.get("type") == "commit":
+            break
+        if reference.get("type") != "tag":
+            fail(f"GitHub tag does not resolve to a commit: {repository}@{tag}")
+        reference = public_json(prefix + "/git/tags/" + reference["sha"]).get("object")
+    if not isinstance(reference, dict) or reference.get("type") != "commit" or not re.fullmatch(r"[0-9a-f]{40}", reference.get("sha", "")):
+        fail(f"GitHub annotated tag does not resolve to a commit: {repository}@{tag}")
+    commit = reference["sha"]
+    runs = public_json(prefix + "/actions/workflows/release.yml/runs?branch=" + quote(tag) + "&per_page=100")
+    matches = [run for run in runs.get("workflow_runs", []) if isinstance(run, dict)
+               and run.get("head_sha") == commit and run.get("head_branch") == tag
+               and run.get("path") == ".github/workflows/release.yml"
+               and run.get("conclusion") == "success"]
+    if not matches:
+        fail(f"successful release Action for exact tag is missing: {repository}@{tag}")
+    return commit
+
+
+def packagist_php_release(selected_version: str | None) -> dict[str, Any]:
+    records = public_json("https://repo.packagist.org/p2/peanut-admin/core.json").get("packages", {}).get("peanut-admin/core")
+    if not isinstance(records, list):
+        fail("Packagist did not provide peanut-admin/core releases")
+    candidates = []
+    for item in records:
+        if not isinstance(item, dict):
+            continue
+        version_value = str(item.get("version", "")).removeprefix("v")
+        key = stable_version_key(version_value)
+        source = item.get("source")
+        if key is None or not isinstance(source, dict):
+            continue
+        if source.get("type") != "git" or source.get("url", "").rstrip("/").removesuffix(".git") != "https://github.com/peanut-business/peanut-admin-core-php":
+            continue
+        reference = source.get("reference")
+        if not isinstance(reference, str) or not re.fullmatch(r"[0-9a-f]{40}", reference):
+            continue
+        candidates.append((key, version_value, reference))
+    if selected_version is not None:
+        require_semver(selected_version, "Core PHP version")
+        if stable_version_key(selected_version) is None:
+            fail("formal Core PHP version must be stable")
+        candidates = [row for row in candidates if row[1] == selected_version]
+    if not candidates:
+        fail("requested stable Core PHP version is absent from Packagist")
+    _, resolved, reference = max(candidates)
+    verified_reference = github_core_release("peanut-business/peanut-admin-core-php", resolved)
+    if verified_reference != reference:
+        fail("Packagist Core PHP source differs from the successful GitHub release tag")
+    return {"package": "peanut-admin/core", "version": resolved,
+            "source": {"repository": "peanut-business/peanut-admin-core-php", "reference": reference}}
+
+
+def npm_web_versions() -> tuple[dict[str, dict[str, Any]], set[str]]:
+    documents = {}
+    version_sets = []
+    for name in CORE_WEB_PACKAGES:
+        document = public_json("https://registry.npmjs.org/" + quote(name, safe=""))
+        versions = document.get("versions")
+        if not isinstance(versions, dict):
+            fail(f"npm registry package metadata is invalid: {name}")
+        documents[name] = document
+        version_sets.append({version for version in versions if stable_version_key(version) is not None})
+    return documents, set.intersection(*version_sets)
+
+
+def npm_web_release(selected_version: str | None) -> dict[str, Any]:
+    documents, available = npm_web_versions()
+    if selected_version is not None:
+        require_semver(selected_version, "Core Web version")
+        if stable_version_key(selected_version) is None:
+            fail("formal Core Web version must be stable")
+        available &= {selected_version}
+    if not available:
+        fail("requested stable Core Web version is not available as a complete six-package set")
+    resolved = max(available, key=stable_version_key)
+    reference = github_core_release("peanut-business/peanut-admin-core-web", resolved)
+    packages = {}
+    for name in CORE_WEB_PACKAGES:
+        registry = npm_registry_package(name, resolved)
+        if not official_web_repository(registry.get("repository")):
+            fail(f"npm registry repository is missing or wrong for {name}")
+        binding = validate_web_source(name, resolved, reference, registry)
+        registry_version = documents[name]["versions"].get(resolved, {}).get("version")
+        if registry_version != resolved:
+            fail(f"npm package version metadata differs for {name}")
+        packages[name] = {"version": resolved, "resolved": registry["resolved"],
+                          "integrity": registry["integrity"], "source_binding": binding}
+    return {"version": resolved,
+            "source": {"repository": "peanut-business/peanut-admin-core-web", "reference": reference},
+            "packages": packages}
+
+
+def resolve_core_release(core_php_version: str | None, core_web_version: str | None) -> dict[str, Any]:
+    php = packagist_php_release(core_php_version)
+    web = npm_web_release(core_web_version)
+    return {"schema_version": 1, "protocol": "peanut.scaffold-core-release-resolution.v1",
+            "core_php": php, "core_web": web}
+
+
+def prepare_core_snapshot(root: Path, resolution_path: Path) -> dict[str, Any]:
+    """Resolve native locks in a disposable Code source snapshot only."""
+    global ROOT
+    if not root.is_absolute() or not resolution_path.is_absolute():
+        fail("snapshot and Core resolution paths must be absolute")
+    ROOT = root.resolve(strict=True)
+    if not ROOT.is_dir() or not (ROOT / "release-versions.json").is_file():
+        fail("snapshot does not contain a scaffold release source")
+    resolution = read_json(resolution_path)
+    php = resolution.get("core_php")
+    web = resolution.get("core_web")
+    if resolution.get("schema_version") != 1 or resolution.get("protocol") != "peanut.scaffold-core-release-resolution.v1" \
+            or not isinstance(php, dict) or not isinstance(web, dict):
+        fail("Core release resolution protocol is invalid")
+    php_version = require_semver(php.get("version", ""), "resolved Core PHP version")
+    web_version = require_semver(web.get("version", ""), "resolved Core Web version")
+    php_reference = php.get("source", {}).get("reference")
+    web_reference = web.get("source", {}).get("reference")
+    if stable_version_key(php_version) is None or stable_version_key(web_version) is None \
+            or not re.fullmatch(r"[0-9a-f]{40}", str(php_reference)) \
+            or not re.fullmatch(r"[0-9a-f]{40}", str(web_reference)) \
+            or set(web.get("packages", {})) != set(CORE_WEB_PACKAGES) \
+            or any(item.get("version") != web_version for item in web.get("packages", {}).values() if isinstance(item, dict)):
+        fail("Core release resolution is incomplete or not a fixed stable identity")
+    scaffold_version = read_json(ROOT / "release-versions.json").get("scaffold_template")
+    if not isinstance(scaffold_version, str):
+        fail("scaffold template version is missing")
+    originals = {path: (ROOT / path).read_bytes() if (ROOT / path).exists() else None for path in PREPARED_FILES}
+    try:
+        set_composer_spec(php_version)
+        set_core_web_specs(web_version)
+        run_native_lock_updates(False)
+        core_php = read_core_php(php_version, php_reference)
+        core_web = read_core_web(web_version, web_reference)
+        update_release_versions(scaffold_version, core_php, core_web)
+        update_release_metadata(scaffold_version, core_php, core_web)
+        return {"status": "prepared", "core_php": core_php, "core_web": core_web,
+                "lockfiles": {relative: sha256(ROOT / relative) for relative in (
+                    "server/composer.lock", "web/pnpm-lock.yaml", "platform/package-lock.json",
+                    "pc/package-lock.json", "uniapp/package-lock.json")}}
+    except BaseException:
+        for relative, original in originals.items():
+            target = ROOT / relative
+            if original is None:
+                target.unlink(missing_ok=True)
+            else:
+                target.write_bytes(original)
+        raise
+
+
+def prepare_local_core_snapshot(root: Path, core_inputs_path: Path, tool_root: Path) -> dict[str, Any]:
+    """Project already-built local Core archives and native locks into a disposable source copy."""
+    global ROOT
+    if not root.is_absolute() or not core_inputs_path.is_absolute() or not tool_root.is_absolute():
+        fail("snapshot, Core inputs and tool root must be absolute")
+    ROOT = root.resolve(strict=True)
+    tool_root = tool_root.resolve(strict=True)
+    inputs = read_json(core_inputs_path)
+    php, web = inputs.get("core_php"), inputs.get("core_web")
+    if inputs.get("schema_version") != 1 or inputs.get("status") != "frozen-core-build-inputs-not-product-release" \
+            or not isinstance(php, dict) or not isinstance(web, dict) \
+            or php.get("source_type") != "local" or web.get("source_type") != "local":
+        fail("local Core input receipt is invalid")
+    for name, identity in (("php", php.get("source_identity")), ("web", web.get("source_identity"))):
+        if not isinstance(identity, dict) or identity != inputs.get("sources", {}).get(name) \
+                or set(identity) != {"kind", "snapshot_sha256"} or identity.get("kind") != "local" \
+                or not re.fullmatch(r"[0-9a-f]{64}", str(identity.get("snapshot_sha256", ""))):
+            fail(f"local Core {name} source identity is invalid")
+    php_version = require_semver(php.get("resolved_version", ""), "local Core PHP version")
+    web_packages = web.get("packages")
+    if php.get("package") != "peanut-admin/core" or php.get("constraint") != php_version \
+            or not isinstance(web_packages, dict) or set(web_packages) != set(CORE_WEB_PACKAGES):
+        fail("local Core package declarations are invalid")
+    web_version = None
+    archive_rows = []
+    php_archive = inputs.get("core_php_archive")
+    if not isinstance(php_archive, dict) or set(php_archive) != {"path", "sha256", "sha1"} \
+            or php_archive.get("path") != f"packages/core-php/peanut-admin-core-{php_version}.zip" \
+            or not re.fullmatch(r"[0-9a-f]{64}", str(php_archive.get("sha256", ""))) \
+            or not re.fullmatch(r"[0-9a-f]{40}", str(php_archive.get("sha1", ""))):
+        fail("local PHP Core archive identity is invalid")
+    archive_rows.append(php_archive)
+    for name in CORE_WEB_PACKAGES:
+        item = web_packages[name]
+        suffix = name.removeprefix("@peanut-admin/")
+        if not isinstance(item, dict) or set(item) != {"version", "archive", "sha256"} \
+                or not isinstance(item.get("version"), str) or not SEMVER.fullmatch(item["version"]) \
+                or item.get("archive") != f"packages/core-web/peanut-admin-{suffix}-{item.get('version')}.tgz" \
+                or not re.fullmatch(r"[0-9a-f]{64}", str(item.get("sha256", ""))):
+            fail(f"local Web Core archive identity is invalid: {name}")
+        if web_version is None:
+            web_version = item["version"]
+        if item["version"] != web_version:
+            fail("local Web Core six-package versions must match")
+        archive_rows.append(item)
+    archive_paths = set()
+    for row in archive_rows:
+        relative = Path(row["path"] if "path" in row else row["archive"])
+        if relative.is_absolute() or ".." in relative.parts:
+            fail("local Core archive path is unsafe")
+        source = core_inputs_path.parent / relative
+        if source.is_symlink() or not source.is_file() or sha256(source) != row["sha256"]:
+            fail("local Core archive bytes differ from the receipt")
+        target = ROOT / relative
+        if target.exists() or target.is_symlink():
+            fail(f"Core archive output already exists in source snapshot: {relative}")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, target)
+        target.chmod(0o644)
+        archive_paths.add(relative.as_posix())
+    versions = read_json(ROOT / "release-versions.json")
+    composer_path = ROOT / "server/composer.json"
+    composer = read_json(composer_path)
+    if composer.get("require", {}).get("peanut-admin/core") is None:
+        fail("snapshot is missing its PHP Core declaration")
+    composer["require"]["peanut-admin/core"] = php_version
+    existing = composer.get("repositories", [])
+    repositories = [inputs["composer_repository"]]
+    repositories.extend(item for item in existing if isinstance(item, dict)
+                        and not (item.get("type") == "vcs" and "peanut-admin-core-php" in str(item.get("url", ""))))
+    composer["repositories"] = repositories
+    write_json(composer_path, composer)
+    for client, selected in CLIENT_CORE_PACKAGES.items():
+        path = ROOT / client / "package.json"
+        manifest = read_json(path)
+        for section in ("dependencies", "devDependencies", "optionalDependencies"):
+            for name in selected:
+                if name in manifest.get(section, {}):
+                    manifest[section][name] = "file:../" + web_packages[name]["archive"]
+        write_json(path, manifest)
+    versions["core_php"] = php
+    versions["core_web"] = web
+    write_json(ROOT / "release-versions.json", versions)
+    preflight_tools()
+    lock_tool = ROOT / "scripts/release-dependency-locks.mjs"
+    before = subprocess.check_output(["node", str(lock_tool), str(ROOT), "--third-party-only",
+                                      "--tool-root=" + str(tool_root)], text=True)
+    run_native_lock_updates(False)
+    after = subprocess.check_output(["node", str(lock_tool), str(ROOT), "--third-party-only",
+                                     "--tool-root=" + str(tool_root)], text=True)
+    if json.loads(before) != json.loads(after):
+        fail("local Core projection changed unrelated native locks")
+    subprocess.run(["node", str(lock_tool), str(ROOT), "--internal-candidate",
+                    "--tool-root=" + str(tool_root)], check=True)
+    return {"status": "prepared", "core_php": php, "core_web": web,
+            "archives": sorted(archive_paths),
+            "lockfiles": {relative: sha256(ROOT / relative) for relative in (
+                "server/composer.lock", "web/pnpm-lock.yaml", "platform/package-lock.json",
+                "pc/package-lock.json", "uniapp/package-lock.json")}}
+
+
 def update_release_versions(product_version: str, core_php: dict[str, str], core_web: dict[str, Any]) -> None:
     data = read_json(ROOT / "release-versions.json")
     data.update(
@@ -657,15 +924,57 @@ def prepare(product_version: str, core_php_version: str, core_php_reference: str
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--version", required=True)
-    parser.add_argument("--core-php-version", required=True)
-    parser.add_argument("--core-php-reference", required=True)
-    parser.add_argument("--core-web-version", required=True)
-    parser.add_argument("--core-web-reference", required=True)
+    parser.add_argument("--resolve-core", action="store_true",
+                        help="Read-only resolution of exact published stable Core package identities.")
+    parser.add_argument("--prepare-core-snapshot", type=Path,
+                        help="Update only a disposable Code source snapshot from a verified Core resolution.")
+    parser.add_argument("--prepare-local-core-snapshot", type=Path,
+                        help="Project an existing local Core receipt into a disposable Code source copy.")
+    parser.add_argument("--core-resolution", type=Path,
+                        help="Exact JSON emitted by --resolve-core; used with --prepare-core-snapshot.")
+    parser.add_argument("--core-inputs", type=Path,
+                        help="Local frozen Core receipt; used with --prepare-local-core-snapshot.")
+    parser.add_argument("--tool-root", type=Path,
+                        help="Registered Code tooling root used only to parse the native Web lock.")
+    parser.add_argument("--core-php-version")
+    parser.add_argument("--core-web-version")
+    parser.add_argument("--version")
+    parser.add_argument("--core-php-reference")
+    parser.add_argument("--core-web-reference")
     parser.add_argument("--core-web-package-evidence", type=Path)
     parser.add_argument("--core-web-package-evidence-sha256")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
+
+    if args.resolve_core:
+        if args.prepare_core_snapshot or args.prepare_local_core_snapshot or args.core_resolution or args.core_inputs or args.tool_root or args.version or args.core_php_reference or args.core_web_reference or args.core_web_package_evidence:
+            fail("--resolve-core accepts only optional exact Core version selectors")
+        print(json.dumps(resolve_core_release(args.core_php_version, args.core_web_version),
+                         ensure_ascii=False, separators=(",", ":")))
+        return
+
+    if args.prepare_core_snapshot is not None:
+        if args.prepare_local_core_snapshot or args.core_inputs or args.tool_root or args.core_resolution is None or args.version or args.core_php_version or args.core_web_version \
+                or args.core_php_reference or args.core_web_reference or args.core_web_package_evidence:
+            fail("--prepare-core-snapshot requires only --core-resolution")
+        preflight_tools()
+        print(json.dumps(prepare_core_snapshot(args.prepare_core_snapshot, args.core_resolution),
+                         ensure_ascii=False, separators=(",", ":")))
+        return
+
+    if args.prepare_local_core_snapshot is not None:
+        if args.prepare_core_snapshot or args.core_resolution or args.core_inputs is None or args.tool_root is None \
+                or args.version or args.core_php_version or args.core_web_version \
+                or args.core_php_reference or args.core_web_reference or args.core_web_package_evidence:
+            fail("--prepare-local-core-snapshot requires --core-inputs and --tool-root")
+        preflight_tools()
+        print(json.dumps(prepare_local_core_snapshot(args.prepare_local_core_snapshot, args.core_inputs, args.tool_root),
+                         ensure_ascii=False, separators=(",", ":")))
+        return
+
+    if not all((args.version, args.core_php_version, args.core_web_version,
+                args.core_php_reference, args.core_web_reference)):
+        fail("product release preparation requires version and exact PHP/Web Core version/reference")
 
     product_version = require_semver(args.version, "product version")
     core_php_version = require_semver(args.core_php_version, "Core PHP version")

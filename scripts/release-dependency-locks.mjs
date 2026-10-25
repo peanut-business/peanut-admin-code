@@ -55,46 +55,42 @@ const integrity = (value) =>
 export function dependencyMode(versions) {
   const p = versions.core_php,
     w = versions.core_web;
-  if (
-    !keys(p, [
+  const phpGit = keys(p, [
       'package',
       'constraint',
       'resolved_version',
       'source_type',
       'source_url',
       'source_reference',
-    ]) ||
-    p.package !== 'peanut-admin/core' ||
-    p.source_type !== 'git' ||
-    !https(p.source_url) ||
-    !/^[0-9a-f]{40}$/.test(p.source_reference ?? '') ||
-    typeof p.resolved_version !== 'string'
-  )
-    fail('core_php');
+    ]) && p?.source_type === 'git' && https(p.source_url) && /^[0-9a-f]{40}$/.test(p.source_reference ?? '');
+  const phpLocal = keys(p, ['package', 'constraint', 'resolved_version', 'source_type', 'source_identity']) &&
+    p?.source_type === 'local' && object(p.source_identity) &&
+    JSON.stringify(Object.keys(p.source_identity)) === JSON.stringify(['kind', 'snapshot_sha256']) &&
+    p.source_identity.kind === 'local' && /^[0-9a-f]{64}$/.test(p.source_identity.snapshot_sha256 ?? '');
+  if ((!phpGit && !phpLocal) || p.package !== 'peanut-admin/core' || typeof p.resolved_version !== 'string') fail('core_php');
   const dev =
     /^dev-[A-Za-z0-9._-]+$/.test(p.constraint ?? '') &&
     p.constraint === p.resolved_version;
   const pinned =
     fixed(p.constraint) &&
     p.constraint === p.resolved_version.replace(/^v/, '');
-  if (!dev && !pinned) fail('core_php version');
-  if (
-    !keys(w, ['source_type', 'source_url', 'source_reference', 'packages']) ||
-    w.source_type !== 'git' ||
-    !https(w.source_url) ||
-    !/^[0-9a-f]{40}$/.test(w.source_reference ?? '') ||
-    !keys(w.packages, coreWebPackages)
-  )
-    fail('core_web');
+  if (phpLocal ? (!fixed(p.constraint) || p.constraint !== p.resolved_version) : (!dev && !pinned)) fail('core_php version');
+  const webGit = keys(w, ['source_type', 'source_url', 'source_reference', 'packages']) && w?.source_type === 'git' &&
+    https(w.source_url) && /^[0-9a-f]{40}$/.test(w.source_reference ?? '');
+  const webLocal = keys(w, ['source_type', 'source_identity', 'packages']) && w?.source_type === 'local' &&
+    object(w.source_identity) && JSON.stringify(Object.keys(w.source_identity)) === JSON.stringify(['kind', 'snapshot_sha256']) &&
+    w.source_identity.kind === 'local' && /^[0-9a-f]{64}$/.test(w.source_identity.snapshot_sha256 ?? '');
+  if ((!webGit && !webLocal) || !keys(w.packages, coreWebPackages)) fail('core_web');
   const modes = new Set();
+  const webVersions = new Set();
   for (const [name, i] of Object.entries(w.packages)) {
     if (!object(i) || typeof i.version !== 'string' || !semver.test(i.version))
       fail(name);
+    webVersions.add(i.version);
     if (keys(i, ['version', 'archive', 'sha256'])) {
+      const suffix = name.slice('@peanut-admin/'.length);
       if (
-        !/^packages\/core-web\/peanut-admin-[a-z-]+-[0-9A-Za-z.+-]+\.tgz$/.test(
-          i.archive ?? ''
-        ) ||
+        i.archive !== `packages/core-web/peanut-admin-${suffix}-${i.version}.tgz` ||
         !/^[0-9a-f]{64}$/.test(i.sha256 ?? '')
       )
         fail(`${name} archive`);
@@ -105,7 +101,8 @@ export function dependencyMode(versions) {
       modes.add('registry');
     } else fail(`${name} shape`);
   }
-  if (modes.size !== 1 || (modes.has('registry') && !pinned))
+  if (modes.size !== 1 || (modes.has('registry') && !pinned) || (webLocal && !modes.has('archive')) ||
+      (webLocal && webVersions.size !== 1))
     fail('mixed development/registry identities');
   return [...modes][0];
 }
@@ -123,10 +120,13 @@ export function fixedArchiveInputs(root, inputPath, document, read) {
       dependencyMode(document) !== 'archive' || !fixed(document.core_php.constraint) ||
       !isDeepStrictEqual(receipt.core_php, document.core_php) ||
       !isDeepStrictEqual(receipt.core_web, document.core_web) ||
-      receipt.sources?.php?.commit !== document.core_php.source_reference ||
-      receipt.sources?.web?.commit !== document.core_web.source_reference ||
-      !/^[a-f0-9]{40}$/.test(receipt.sources?.php?.tree ?? '') ||
-      !/^[a-f0-9]{40}$/.test(receipt.sources?.web?.tree ?? ''))
+      (document.core_php.source_type === 'local'
+        ? !isDeepStrictEqual(receipt.sources?.php, document.core_php.source_identity) ||
+          !isDeepStrictEqual(receipt.sources?.web, document.core_web.source_identity)
+        : receipt.sources?.php?.commit !== document.core_php.source_reference ||
+          receipt.sources?.web?.commit !== document.core_web.source_reference ||
+          !/^[a-f0-9]{40}$/.test(receipt.sources?.php?.tree ?? '') ||
+          !/^[a-f0-9]{40}$/.test(receipt.sources?.web?.tree ?? '')))
     fail('fixed Core input binding');
   const php = receipt.core_php_archive;
   if (!object(php) || php.path !== `packages/core-php/peanut-admin-core-${document.core_php.resolved_version}.zip` ||
@@ -134,8 +134,13 @@ export function fixedArchiveInputs(root, inputPath, document, read) {
     fail('fixed PHP archive identity');
   const composer = JSON.parse(read('server/composer.json'));
   const locked = JSON.parse(read('server/composer.lock')).packages?.filter(p => p.name === 'peanut-admin/core');
+  const expectedDist = {type: 'zip', url: `../${php.path}`,
+    reference: document.core_php.source_type === 'local' ? document.core_php.source_identity.snapshot_sha256 : document.core_php.source_reference,
+    shasum: php.sha1};
   if (!isDeepStrictEqual(composer.repositories, [receipt.composer_repository]) || locked?.length !== 1 ||
-      !isDeepStrictEqual(locked[0].dist, {type: 'zip', url: `../${php.path}`, reference: document.core_php.source_reference, shasum: php.sha1}))
+      !isDeepStrictEqual(locked[0].dist, expectedDist) ||
+      (document.core_php.source_type === 'local' ? locked[0].source != null
+        : !isDeepStrictEqual(locked[0].source, {type: document.core_php.source_type, url: document.core_php.source_url, reference: document.core_php.source_reference})))
     fail('fixed PHP native origin');
   const archives = [{path: php.path, sha256: php.sha256},
     ...Object.values(document.core_web.packages).map(p => ({path: p.archive, sha256: p.sha256}))];
@@ -183,10 +188,10 @@ export function verifyDependencyLocks(versions, read, parseYaml, internal = fals
     records.length !== 1 ||
     composer.require?.['peanut-admin/core'] !== p.constraint ||
     locked.version !== p.resolved_version ||
-    locked.source?.type !== p.source_type ||
-    locked.source?.url !== p.source_url ||
-    locked.source?.reference !== p.source_reference ||
-    (locked.dist?.reference && locked.dist.reference !== p.source_reference)
+    (p.source_type === 'local'
+      ? (locked.source != null || locked.dist?.reference !== p.source_identity.snapshot_sha256)
+      : (locked.source?.type !== p.source_type || locked.source?.url !== p.source_url ||
+          locked.source?.reference !== p.source_reference || (locked.dist?.reference && locked.dist.reference !== p.source_reference)))
   )
     fail('Composer manifest/lock/provenance');
   if (

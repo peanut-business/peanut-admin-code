@@ -10,6 +10,7 @@ if (!class_exists(\app\common\infrastructure\scaffold\ReleaseDependencyIdentity:
 
 use app\common\validation\scaffold\ScaffoldPathGuard;
 use app\common\value\scaffold\ScaffoldManifest;
+use app\common\value\scaffold\ScaffoldSourceIdentity;
 use app\platform\value\plugin\PluginDescriptor;
 use app\platform\exception\plugin\PluginLifecycleException;
 use app\platform\infrastructure\plugin\PluginLockResolver;
@@ -257,10 +258,9 @@ final class ScaffoldUpgradeRunner
         if ($to->isRecordedBaseline()) { throw new RuntimeException('SCAFFOLD_TARGET_REQUIRES_RELEASE_MANIFEST'); }
         $sourceSelection = $this->validateUpgradeSourceSelection($root, $sourceSelection, $to);
         $development = null;
-        if (isset($sourceSelection['source_checkout'])) {
+        if (isset($sourceSelection['source_checkout']) || ($to->sourceIdentity()['kind'] === 'local' && isset($sourceSelection['template_package_path']))) {
             if (!$from->isRecordedBaseline()
-                || ($application['generation_source']['commit'] ?? null) !== $from->release()['source_commit']
-                || ($application['generation_source']['tree'] ?? null) !== $from->release()['source_tree']
+                || ScaffoldSourceIdentity::from($application['generation_source'] ?? [], true) !== $from->sourceIdentity()
                 || ($application['generation_source']['inventory_sha256'] ?? null) !== $from->release()['inventory_sha256']
                 || ($application['edition']['source_sha256'] ?? null) !== ($application['generation_source']['edition_profile_sha256'] ?? null)) {
                 throw new RuntimeException('SCAFFOLD_DEVELOPMENT_BASE_INVALID');
@@ -457,7 +457,10 @@ final class ScaffoldUpgradeRunner
         }
         if (($from->data['internal_core_projection']['protocol'] ?? null) !== 'peanut.internal-core-scaffold-projection.v1'
             || ($from->data['internal_core_projection']['scope'] ?? null) !== 'internal-upgrade-target-not-formal-release'
-            || ($to->data['internal_core_projection']['source'] ?? null) !== ['commit' => $to->release()['source_commit'], 'tree' => $to->release()['source_tree']]) {
+            || ($to->sourceIdentity()['kind'] === 'local'
+                ? (($to->data['internal_core_projection']['source_identity'] ?? null) !== $to->sourceIdentity()
+                    || array_key_exists('source', $to->data['internal_core_projection']))
+                : (($to->data['internal_core_projection']['source'] ?? null) !== ['commit' => $to->sourceIdentity()['commit'], 'tree' => $to->sourceIdentity()['tree']]))) {
             throw new RuntimeException('INTERNAL_PREINSTALL_CORE_SOURCE_CHANGED');
         }
         foreach (['version', 'inventory_template_version', 'workflow', 'tokens'] as $key) {
@@ -865,8 +868,8 @@ final class ScaffoldUpgradeRunner
             try {
                 [$application] = $this->applicationManifest($root);
                 $seal = $plan['identity']['release_seal'];
-                $application['template']['source_commit'] = $seal['source_commit'];
-                $application['template']['source_tree'] = $seal['source_tree'];
+                $application['template'] = array_diff_key($application['template'], array_flip(['source_identity', 'source_commit', 'source_tree']))
+                    + ScaffoldSourceIdentity::fields(ScaffoldSourceIdentity::from($seal));
                 $application['template']['inventory_sha256'] = $seal['inventory_sha256'];
                 $application['generation_source'] = $plan['identity']['adopted_generation_source'];
                 $application['last_release_adoption'] = [
@@ -1182,6 +1185,7 @@ final class ScaffoldUpgradeRunner
         if (!str_starts_with($lockPath, $root . '/.peanut/upgrades/release-proofs/')) {
             throw new RuntimeException('SCAFFOLD_RELEASE_ADOPTION_LOCK_INVALID');
         }
+        if ($release->sourceIdentity()['kind'] !== 'git') { throw new RuntimeException('SCAFFOLD_RELEASE_ADOPTION_GIT_SOURCE_REQUIRED'); }
         if ($this->releaseGit($sourceRoot, ['status', '--porcelain=v1', '--untracked-files=all']) !== ''
             || $this->releaseGit($sourceRoot, ['rev-parse', 'HEAD']) !== $sourceCommit
             || $this->releaseGit($sourceRoot, ['rev-parse', 'HEAD^{tree}']) !== $sourceTree
@@ -1255,13 +1259,15 @@ final class ScaffoldUpgradeRunner
         $adoptedGeneration['release_version'] = $releaseVersion;
         $adoptedGeneration['commit'] = $sourceCommit;
         $adoptedGeneration['tree'] = $sourceTree;
+        $adoptedGeneration['source_identity'] = ['kind' => 'git', 'commit' => $sourceCommit, 'tree' => $sourceTree];
         $identity = [
             'kind' => 'release-adoption',
             'metadata_writes' => ['.peanut/application-manifest.json'],
             'from' => ['version' => $application['template']['version'], 'generation_source' => $generation],
-            'to' => ['version' => $releaseVersion, 'release_version' => $releaseVersion, 'source_commit' => $sourceCommit,
+            'to' => ['version' => $releaseVersion, 'release_version' => $releaseVersion,
+                'source_identity' => ['kind' => 'git', 'commit' => $sourceCommit, 'tree' => $sourceTree], 'source_commit' => $sourceCommit,
                 'source_tree' => $sourceTree, 'inventory_sha256' => $inventoryDigest],
-            'release_seal' => ['version' => $releaseVersion, 'source_commit' => $release->release()['source_commit'],
+            'release_seal' => ['version' => $releaseVersion, 'source_identity' => $release->sourceIdentity(), 'source_commit' => $release->release()['source_commit'],
                 'source_tree' => $release->release()['source_tree'], 'inventory_sha256' => $inventoryDigest,
                 'manifest_sha256' => $release->digest()],
             'source_proof' => ['repository' => $repository, 'requested_ref' => $requestedRef, 'channel' => $channel,
@@ -1402,8 +1408,7 @@ final class ScaffoldUpgradeRunner
         [$application] = $this->applicationManifest($root);
         $seal = $plan['identity']['release_seal'];
         if (($application['template']['version'] ?? null) !== $seal['version']
-            || ($application['template']['source_commit'] ?? null) !== $seal['source_commit']
-            || ($application['template']['source_tree'] ?? null) !== $seal['source_tree']
+            || ScaffoldSourceIdentity::from($application['template'] ?? []) !== ScaffoldSourceIdentity::from($seal)
             || ($application['template']['inventory_sha256'] ?? null) !== $seal['inventory_sha256']
             || ($application['generation_source'] ?? null) !== $plan['identity']['adopted_generation_source']
             || ($application['last_release_adoption']['candidate'] ?? null) !== $plan['candidate']
@@ -1423,12 +1428,25 @@ final class ScaffoldUpgradeRunner
     private function validateUpgradeSourceSelection(string $root, ?array $selection, ScaffoldManifest $to): ?array
     {
         if ($selection === null) {
+            if ($to->sourceIdentity()['kind'] === 'local') { throw new RuntimeException('SCAFFOLD_LOCAL_SOURCE_PACKAGE_REQUIRED'); }
             return null;
         }
+        if ($to->sourceIdentity()['kind'] === 'local' && !isset($selection['template_package_path'])) {
+            throw new RuntimeException('SCAFFOLD_LOCAL_SOURCE_PACKAGE_REQUIRED');
+        }
         if (isset($selection['template_package_path'])) {
-            if (array_keys(array_diff_key($selection, ['source_checkout' => true])) !== ['repository', 'requested_ref', 'channel', 'commit', 'tree', 'template_package_path', 'template_package_sha256']
+            $sourceIdentity = ScaffoldSourceIdentity::from($selection, true);
+            $local = $sourceIdentity['kind'] === 'local';
+            $expectedKeys = array_merge(['repository', 'requested_ref', 'channel'],
+                $local ? ['source_identity'] : ['commit', 'tree'], ['template_package_path', 'template_package_sha256']);
+            if (!$local && isset($selection['source_identity'])) { $expectedKeys[] = 'source_identity'; }
+            $actualKeys = array_keys(array_diff_key($selection, ['source_checkout' => true]));
+            sort($expectedKeys, SORT_STRING); sort($actualKeys, SORT_STRING);
+            if ($actualKeys !== $expectedKeys
                 || (isset($selection['source_checkout']) && $selection['channel'] !== 'development')
-                || $selection['repository'] !== 'peanut-business/peanut-admin-code'
+                || (!$local && $selection['repository'] !== 'peanut-business/peanut-admin-code')
+                || ($local && ($selection['channel'] !== 'development'
+                    || ($selection['repository'] !== null && !is_string($selection['repository']))))
                 || !in_array($selection['channel'], ['development', 'stable', 'prerelease'], true)
                 || ($selection['channel'] !== 'development' && ($selection['requested_ref'] !== 'v' . $to->version()
                     || ($selection['channel'] === 'stable') === str_contains($to->version(), '-')))
@@ -1445,12 +1463,11 @@ final class ScaffoldUpgradeRunner
                 || $to->digest() !== 'sha256:' . ($metadata['scaffold_manifest_sha256'] ?? '')
                 || ($metadata['version'] ?? null) !== $to->version() || ($metadata['edition'] ?? null) !== ($to->data['edition']['name'] ?? null)
                 || ($metadata['source']['repository'] ?? null) !== $selection['repository']
-                || ($metadata['source']['commit'] ?? null) !== $selection['commit'] || $selection['commit'] !== $to->release()['source_commit']
-                || ($metadata['source']['tree'] ?? null) !== $selection['tree'] || $selection['tree'] !== $to->release()['source_tree']
+                || ScaffoldSourceIdentity::from($metadata['source'] ?? [], true) !== $sourceIdentity || $sourceIdentity !== $to->sourceIdentity()
                 || ($metadata['source']['inventory_sha256'] ?? null) !== $to->release()['inventory_sha256']) {
                 throw new RuntimeException('SCAFFOLD_TEMPLATE_SOURCE_IDENTITY_MISMATCH');
             }
-            if ($selection['channel'] === 'development' && $selection['requested_ref'] !== 'local:' . $metadata['archive']['sha256']) {
+            if ($selection['channel'] === 'development' && $selection['requested_ref'] !== 'local:' . ($local ? $sourceIdentity['snapshot_sha256'] : $metadata['archive']['sha256'])) {
                 throw new RuntimeException('SCAFFOLD_TEMPLATE_LOCAL_SOURCE_INVALID');
             }
             return $selection;
@@ -1480,6 +1497,97 @@ final class ScaffoldUpgradeRunner
             null,
         );
         return $selection;
+    }
+
+    /** Read-only presence rule matching EditionProjector::workflow's registered file projection. */
+    private function localDevelopmentSource(array $base, ScaffoldManifest $to, array $selection, string $profile, string $workflow, string $fromVersion, ?array $workflowPaths): array
+    {
+        $baseIdentity = ScaffoldSourceIdentity::from($base, true);
+        $targetIdentity = $to->sourceIdentity();
+        if (($base['channel'] ?? null) !== 'development' || !array_key_exists('release_version', $base) || $base['release_version'] !== null
+            || ($selection['channel'] ?? null) !== 'development' || !isset($selection['template_package_path'])
+            || !in_array($profile, ['minimal', 'standard', 'full'], true) || !in_array($workflow, ['none', 'runtime', 'full'], true)
+            || Semver::compare($fromVersion, $to->version()) > 0) { throw new RuntimeException('SCAFFOLD_LOCAL_DEVELOPMENT_SOURCE_INVALID'); }
+        $metadata = json_decode((string) file_get_contents($selection['template_package_path']), true, 512, JSON_THROW_ON_ERROR);
+        $directory = dirname($selection['template_package_path']);
+        $proofPath = ScaffoldPathGuard::existingFileWithin($directory, $directory . '/source-snapshot.json', 'SCAFFOLD_LOCAL_SOURCE_PROOF_REQUIRED');
+        if (filesize($proofPath) > 33554432 || hash_file('sha256', $proofPath) !== ($metadata['source_snapshot_sha256'] ?? null)) {
+            throw new RuntimeException('SCAFFOLD_LOCAL_SOURCE_PROOF_CHANGED');
+        }
+        $proof = json_decode((string) file_get_contents($proofPath), true, 512, JSON_THROW_ON_ERROR);
+        if (!is_array($proof)) { throw new RuntimeException('SCAFFOLD_LOCAL_SOURCE_PROOF_INVALID'); }
+        $inputs = ScaffoldSourceIdentity::validateProof($proof, $targetIdentity);
+        $inventory = $inputs['inventory'];
+        $target = $metadata['source'] ?? [];
+        if (isset($selection['source_checkout']) && ScaffoldSourceIdentity::local($selection['source_checkout']) !== $targetIdentity) {
+            throw new RuntimeException('SCAFFOLD_LOCAL_SOURCE_CHECKOUT_CHANGED');
+        }
+        foreach (['inventory' => ['inventory_base64', $to->release()['inventory_sha256']],
+            'edition_profile' => ['edition_profile_base64', $to->data['edition']['source_sha256'] ?? null]] as [$key, $expected]) {
+            if (hash('sha256', base64_decode($proof[$key], true)) !== $expected) { throw new RuntimeException('SCAFFOLD_LOCAL_SOURCE_INPUT_CHANGED'); }
+        }
+        if (($inventory['template_version'] ?? null) !== $to->version()
+            || ScaffoldSourceIdentity::from($target, true) !== $targetIdentity
+            || ($target['channel'] ?? null) !== 'development' || !array_key_exists('release_version', $target) || $target['release_version'] !== null
+            || ($target['inventory_sha256'] ?? null) !== $to->release()['inventory_sha256']
+            || ($target['edition_profile_sha256'] ?? null) !== ($to->data['edition']['source_sha256'] ?? null)
+            || ($metadata['workflow'] ?? null) !== $workflow || ($to->release()['workflow'] ?? null) !== $workflow
+            || preg_match('/^[a-f0-9]{64}$/D', (string) ($base['inventory_sha256'] ?? '')) !== 1
+            || preg_match('/^[a-f0-9]{64}$/D', (string) ($base['edition_profile_sha256'] ?? '')) !== 1
+            || !in_array($metadata['profile'] ?? null, ['minimal', 'standard', 'full'], true)) {
+            throw new RuntimeException('SCAFFOLD_LOCAL_DEVELOPMENT_SOURCE_INVALID');
+        }
+        $createPath = ScaffoldPathGuard::existingFileWithin($directory, $directory . '/template-create.json', 'SCAFFOLD_LOCAL_PAYLOAD_REQUIRED');
+        if (filesize($createPath) > 33554432 || hash_file('sha256', $createPath) !== ($metadata['create_manifest_sha256'] ?? null)) {
+            throw new RuntimeException('SCAFFOLD_LOCAL_PAYLOAD_CHANGED');
+        }
+        $create = json_decode((string) file_get_contents($createPath), true, 512, JSON_THROW_ON_ERROR);
+        if (($create['protocol'] ?? null) !== 'peanut.template-create.v1' || !is_array($create['files'] ?? null)) {
+            throw new RuntimeException('SCAFFOLD_LOCAL_PAYLOAD_INVALID');
+        }
+        $payload = []; $seen = []; $managed = $to->files();
+        foreach ($create['files'] as $file) {
+            $path = ScaffoldManifest::path((string) ($file['path'] ?? ''));
+            $source = (($file['classification'] ?? null) === 'app-owned' ? 'defaults/' : 'files/') . $path;
+            if (isset($seen[$path]) || ($file['source'] ?? null) !== $source || !in_array($file['mode'] ?? null, [0644, 0755], true)
+                || !in_array($file['classification'] ?? null, ['managed', 'generated-managed', 'app-owned'], true)) {
+                throw new RuntimeException('SCAFFOLD_LOCAL_PAYLOAD_INVALID');
+            }
+            $seen[$path] = true;
+            $actual = ScaffoldPathGuard::existingFileWithin($directory, ScaffoldPathGuard::projectPath($directory, $source), 'SCAFFOLD_LOCAL_PAYLOAD_REQUIRED');
+            if (hash_file('sha256', $actual) !== ($file['sha256'] ?? null) || (fileperms($actual) & 0777) !== $file['mode']) {
+                throw new RuntimeException('SCAFFOLD_LOCAL_PAYLOAD_CHANGED');
+            }
+            if ($file['classification'] !== 'app-owned') {
+                $entry = $managed[$path] ?? [];
+                if (($entry['template_sha256'] ?? null) !== $file['sha256'] || ($entry['mode'] ?? null) !== $file['mode']
+                    || ($entry['classification'] ?? null) !== $file['classification']) { throw new RuntimeException('SCAFFOLD_LOCAL_PAYLOAD_MANIFEST_MISMATCH'); }
+                unset($managed[$path]);
+            }
+            $payload[] = array_intersect_key($file, array_flip(['path', 'mode', 'sha256', 'classification']));
+        }
+        if ($managed !== [] || self::canonicalJson($payload) !== self::canonicalJson($proof['payload_files'] ?? null)) {
+            throw new RuntimeException('SCAFFOLD_LOCAL_PAYLOAD_MANIFEST_MISMATCH');
+        }
+        $excluded = [];
+        foreach ($inventory['files'] as $row) {
+            if (!is_array($row['profiles'] ?? null) || !is_string($row['target'] ?? null)
+                || array_diff($row['profiles'], ['minimal', 'standard', 'full']) !== []) { throw new RuntimeException('SCAFFOLD_LOCAL_SOURCE_INVENTORY_INVALID'); }
+            if (($row['classification'] ?? null) !== 'excluded' && in_array($profile, $row['profiles'], true)
+                && !in_array($metadata['profile'], $row['profiles'], true)) { throw new RuntimeException('SCAFFOLD_DEVELOPMENT_PROFILE_NOT_CONTAINED'); }
+            if (!in_array($profile, $row['profiles'], true)) { $excluded[] = $row['target']; }
+        }
+        if ($workflowPaths !== null) {
+            // Legacy APPs do not declare a workflow selection. Its real baseline
+            // remains the authority; do not infer a different workflow from source.
+            foreach ($workflowPaths as $path) {
+                if ($this->workflowPathSelected($path, $workflow) !== true) { throw new RuntimeException('SCAFFOLD_DEVELOPMENT_WORKFLOW_BASELINE_MISMATCH'); }
+            }
+        }
+        sort($excluded, SORT_STRING);
+        return ['relation' => ['kind' => 'local_snapshot', 'base' => $baseIdentity, 'target' => $targetIdentity,
+            'base_inventory_sha256' => $base['inventory_sha256'], 'target_inventory_sha256' => $target['inventory_sha256']],
+            'excluded_paths' => $excluded];
     }
 
     /** Read-only presence rule matching EditionProjector::workflow's registered file projection. */
@@ -1525,6 +1633,9 @@ final class ScaffoldUpgradeRunner
     /** Prove immutable development ancestry locally; caller JSON is never source authority. */
     private function developmentSource(array $base, ScaffoldManifest $to, array $selection, string $profile, string $workflow, string $fromVersion, ?array $workflowPaths = null): array
     {
+        if ($to->sourceIdentity()['kind'] === 'local') {
+            return $this->localDevelopmentSource($base, $to, $selection, $profile, $workflow, $fromVersion, $workflowPaths);
+        }
         $repository = 'peanut-business/peanut-admin-code';
         $checkout = $selection['source_checkout'] ?? null;
         if (!is_string($checkout) || !str_starts_with($checkout, '/') || realpath($checkout) !== $checkout
@@ -1660,7 +1771,10 @@ final class ScaffoldUpgradeRunner
             || $this->releaseIdentity($to) !== $plan['identity']['to']) {
             throw new RuntimeException('SCAFFOLD_DEVELOPMENT_PLAN_BINDING_CHANGED');
         }
-        foreach (['commit' => 'source_commit', 'tree' => 'source_tree', 'inventory_sha256' => 'inventory_sha256'] as $source => $release) {
+        if (ScaffoldSourceIdentity::from($base, true) !== ScaffoldSourceIdentity::from($plan['identity']['from'])) {
+            throw new RuntimeException('SCAFFOLD_DEVELOPMENT_PLAN_BINDING_CHANGED');
+        }
+        foreach (['inventory_sha256' => 'inventory_sha256'] as $source => $release) {
             if (($base[$source] ?? null) !== ($plan['identity']['from'][$release] ?? null)) {
                 throw new RuntimeException('SCAFFOLD_DEVELOPMENT_PLAN_BINDING_CHANGED');
             }
@@ -1691,11 +1805,11 @@ final class ScaffoldUpgradeRunner
         $old = is_array($application['generation_source'] ?? null) ? $application['generation_source'] : [];
         return [
             'repository' => $selection['repository'] ?? $old['repository'] ?? null,
-            'requested_ref' => $selection['requested_ref'] ?? $to->release()['source_commit'],
+            'requested_ref' => $selection['requested_ref'] ?? ($to->sourceIdentity()['kind'] === 'local'
+                ? 'local:' . $to->sourceIdentity()['snapshot_sha256'] : $to->sourceIdentity()['commit']),
             'channel' => $selection['channel'] ?? 'development',
             'release_version' => $selection === null || $selection['channel'] === 'development' ? null : $to->version(),
-            'commit' => $selection['commit'] ?? $to->release()['source_commit'],
-            'tree' => $selection['tree'] ?? $to->release()['source_tree'],
+            ...ScaffoldSourceIdentity::fields($to->sourceIdentity(), true),
             'inventory_sha256' => $to->release()['inventory_sha256'],
             'edition_profile_sha256' => $to->data['edition']['source_sha256']
                 ?? $old['edition_profile_sha256'] ?? null,
@@ -1705,8 +1819,7 @@ final class ScaffoldUpgradeRunner
     private function assertReleaseChain(array $application, ScaffoldManifest $from, ScaffoldManifest $to, bool $internalPreinstall = false): void
     {
         if ((!$internalPreinstall && Semver::greaterThanOrEqualTo($from->version(), $to->version())) || ($application['template']['version'] ?? null) !== $from->version()
-            || ($application['template']['source_commit'] ?? null) !== $from->release()['source_commit']
-            || ($application['template']['source_tree'] ?? null) !== $from->release()['source_tree']) {
+            || ScaffoldSourceIdentity::from($application['template'] ?? []) !== $from->sourceIdentity()) {
             throw new RuntimeException('SCAFFOLD_RELEASE_CHAIN_INVALID');
         }
         $applicationEdition = $application['edition'] ?? null;
@@ -3663,7 +3776,8 @@ final class ScaffoldUpgradeRunner
             || (isset($data['plan_sha256']) && !hash_equals('sha256:' . $digest, (string) $data['plan_sha256']))) {
             throw new RuntimeException('SCAFFOLD_PLAN_CHECKSUM_DRIFT');
         }
-        $developmentKeys = [isset($data['identity']['source_selection']['source_checkout']),
+        $developmentKeys = [isset($data['identity']['source_selection']['source_checkout'])
+            || (($data['identity']['source_selection']['source_identity']['kind'] ?? null) === 'local'),
             isset($data['identity']['development_source']), isset($data['identity']['source_relation'])];
         if (in_array(true, $developmentKeys, true)) {
             if (in_array(false, $developmentKeys, true)) { throw new RuntimeException('SCAFFOLD_DEVELOPMENT_PLAN_BINDING_CHANGED'); }
@@ -3791,8 +3905,7 @@ final class ScaffoldUpgradeRunner
         $to = $this->planTarget($root, $plan);
         $this->assertManifestDigest($to, $plan['identity']['to']['manifest_sha256']);
         if (($application['template']['version'] ?? null) !== $to->version()
-            || ($application['template']['source_commit'] ?? null) !== $to->release()['source_commit']
-            || ($application['template']['source_tree'] ?? null) !== $to->release()['source_tree']
+            || ScaffoldSourceIdentity::from($application['template'] ?? []) !== $to->sourceIdentity()
             || ($application['application']['version'] ?? null) !== $plan['identity']['application_version']
             || ($application['generation_source'] ?? null) !== ($plan['identity']['target_generation_source'] ?? null)
             || ($application['edition'] ?? null) !== ($plan['identity']['edition'] ?? null)) {
@@ -5835,7 +5948,7 @@ final class ScaffoldUpgradeRunner
         $managed = array_values(array_filter($files, static fn(array $f): bool => in_array($f['classification'], ['managed','generated-managed'], true)));
         $appOwned = array_values(array_filter($files, static fn(array $f): bool => $f['classification'] === 'app-owned'));
         $application['template'] = ['version' => $to->version(),'inventory_sha256' => $to->release()['inventory_sha256'],
-            'source_commit' => $to->release()['source_commit'],'source_tree' => $to->release()['source_tree']];
+            ...ScaffoldSourceIdentity::fields($to->sourceIdentity())];
         $application['generation_source'] = $plan['identity']['target_generation_source'];
         $edition = $plan['identity']['edition'] ?? null;
         if (is_array($edition)) {

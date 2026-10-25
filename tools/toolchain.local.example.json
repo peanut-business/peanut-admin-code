@@ -1,18 +1,26 @@
 {
   "schema_version": 1,
   "commands": {
-    "node": ["/absolute/path/to/node"],
-    "npm": ["/absolute/path/to/node", "/absolute/path/to/npm-cli.js"],
-    "pnpm": ["/absolute/path/to/node", "/absolute/path/to/pnpm.cjs"],
-    "php": ["/absolute/path/to/php"],
-    "composer": ["/absolute/path/to/php", "/absolute/path/to/composer.phar"],
-    "python3": ["/absolute/path/to/python3"]
+    "node": [".local/toolchain/runtime/node/bin/node"],
+    "npm": [".local/toolchain/runtime/node/bin/node", ".local/toolchain/runtime/node/lib/node_modules/npm/bin/npm-cli.js"],
+    "pnpm": [".local/toolchain/runtime/node/bin/node", ".local/toolchain/runtime/node/lib/node_modules/pnpm/bin/pnpm.cjs"],
+    "php": [".local/toolchain/runtime/php/bin/php"],
+    "composer": [".local/toolchain/runtime/php/bin/php", ".local/toolchain/runtime/composer/composer.phar"],
+    "python3": [".local/toolchain/runtime/python/bin/python3"]
   },
-  "extra_path": ["/usr/bin", "/bin", "/usr/sbin", "/sbin"],
+  "extra_path": [".local/toolchain/runtime/node/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"],
   "caches": {
-    "pnpm": "/absolute/existing/pnpm/store",
-    "npm": "/absolute/existing/npm/cache",
-    "composer": "/absolute/existing/composer/cache"
+    "pnpm": ".local/toolchain/cache/pnpm",
+    "npm": ".local/toolchain/cache/npm",
+    "composer": ".local/toolchain/cache/composer"
   },
-  "watch_paths": []
+  "watch_paths": ["tools/toolchain.json", "server/composer.json"],
+  "core": {
+    "php": "../peanut-admin-core-php",
+    "web": "../peanut-admin-core-web"
+  },
+  "paths": {
+    "release": "release",
+    "backups": "../backups"
+  }
 }

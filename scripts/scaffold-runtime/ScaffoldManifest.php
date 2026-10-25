@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace app\common\value\scaffold;
 
+require_once __DIR__ . '/ScaffoldSourceIdentity.php';
+
 use app\common\validation\scaffold\ScaffoldPathGuard;
 use RuntimeException;
 
@@ -40,15 +42,19 @@ final class ScaffoldManifest
         $supported = is_array($data) && (
             (($data['schema_version'] ?? null) === 2 && $protocol === 'peanut.scaffold-release.v2')
             || (($data['schema_version'] ?? null) === 3 && $protocol === 'peanut.scaffold-release.v3')
+            || (($data['schema_version'] ?? null) === 4 && $protocol === 'peanut.scaffold-release.v4')
             || ($allowRecordedBaseline && ($data['schema_version'] ?? null) === 1 && $protocol === 'peanut.scaffold-recorded-baseline.v1')
         );
         if (!$supported) {
             throw new RuntimeException('SCAFFOLD_MANIFEST_SCHEMA_UNSUPPORTED');
         }
         $release = $data['release'] ?? null;
+        $identityValid = is_array($release) && self::validSourceIdentity($release)
+            && ($protocol !== 'peanut.scaffold-release.v4' || isset($release['source_identity']))
+            && (($release['source_identity']['kind'] ?? null) !== 'local'
+                || in_array($protocol, ['peanut.scaffold-release.v4', 'peanut.scaffold-recorded-baseline.v1'], true));
         if (!is_array($release) || preg_match(self::VERSION_PATTERN, (string) ($release['version'] ?? '')) !== 1
-            || preg_match('/^[a-f0-9]{40}$/D', (string) ($release['source_commit'] ?? '')) !== 1
-            || preg_match('/^[a-f0-9]{40}$/D', (string) ($release['source_tree'] ?? '')) !== 1
+            || !$identityValid
             || preg_match('/^[a-f0-9]{64}$/D', (string) ($release['inventory_sha256'] ?? '')) !== 1
             || !self::nonEmptyString($release['inventory_template_version'] ?? null)
             || !is_array($release['tokens'] ?? null)) {
@@ -70,12 +76,19 @@ final class ScaffoldManifest
             if (preg_match(self::VERSION_PATTERN, (string) ($data['application']['version'] ?? '')) !== 1) {
                 throw new RuntimeException('SCAFFOLD_RECORDED_BASELINE_VERSION_INVALID');
             }
-        } elseif ($protocol === 'peanut.scaffold-release.v3') {
+        } elseif ($protocol === 'peanut.scaffold-release.v3' || $protocol === 'peanut.scaffold-release.v4') {
             $application = $data['application'] ?? null;
-            if (!is_array($application)
-                || array_keys($application) !== ['version']
-                || preg_match(self::VERSION_PATTERN, (string) $application['version']) !== 1
-                || array_keys($release['tokens']) !== ['product_name', 'slug', 'package_identity', 'application_version']) {
+            $v4Generic = $protocol === 'peanut.scaffold-release.v4' && $application === null
+                && array_keys($release['tokens']) === ['product_name', 'slug', 'package_identity'];
+            $v4Application = $protocol === 'peanut.scaffold-release.v4' && is_array($application)
+                && array_keys($application) === ['version']
+                && preg_match(self::VERSION_PATTERN, (string) $application['version']) === 1
+                && array_keys($release['tokens']) === ['product_name', 'slug', 'package_identity', 'application_version'];
+            $v3Application = $protocol === 'peanut.scaffold-release.v3' && is_array($application)
+                && array_keys($application) === ['version']
+                && preg_match(self::VERSION_PATTERN, (string) $application['version']) === 1
+                && array_keys($release['tokens']) === ['product_name', 'slug', 'package_identity', 'application_version'];
+            if (!$v4Generic && !$v4Application && !$v3Application) {
                 throw new RuntimeException('SCAFFOLD_MANIFEST_APPLICATION_INVALID');
             }
         } elseif (array_keys($release['tokens']) !== ['product_name', 'slug', 'package_identity']) {
@@ -151,7 +164,20 @@ final class ScaffoldManifest
 
     public function supportsApplicationVersion(): bool
     {
-        return $this->data['protocol'] === 'peanut.scaffold-release.v3' || $this->isRecordedBaseline();
+        return (in_array($this->data['protocol'], ['peanut.scaffold-release.v3', 'peanut.scaffold-release.v4'], true)
+            && isset($this->data['application']['version'])) || $this->isRecordedBaseline();
+    }
+
+    /** @return array{kind:'git',commit:string,tree:string}|array{kind:'local',snapshot_sha256:string} */
+    public function sourceIdentity(): array
+    {
+        return ScaffoldSourceIdentity::from($this->release());
+    }
+
+    private static function validSourceIdentity(array $release): bool
+    {
+        try { ScaffoldSourceIdentity::from($release); return true; }
+        catch (RuntimeException) { return false; }
     }
 
     public function isRecordedBaseline(): bool
@@ -169,13 +195,15 @@ final class ScaffoldManifest
         if ($record['application_root'] !== $root || $record['application_manifest_sha256'] !== preg_replace('/^sha256:/', '', $applicationDigest)) {
             throw new RuntimeException('SCAFFOLD_RECORDED_APPLICATION_CHANGED');
         }
-        foreach (['version', 'source_commit', 'source_tree', 'inventory_sha256'] as $key) {
+        if ($this->sourceIdentity() !== ScaffoldSourceIdentity::from($application['template'])) { throw new RuntimeException('SCAFFOLD_RECORDED_APPLICATION_CHANGED'); }
+        foreach (['version', 'inventory_sha256'] as $key) {
             if (($this->release()[$key] ?? null) !== ($application['template'][$key] ?? null)) { throw new RuntimeException('SCAFFOLD_RECORDED_APPLICATION_CHANGED'); }
         }
         $proof = isset($record['mode_manifest_path']) ? self::load($record['mode_manifest_path']) : null;
         if ($proof !== null && $proof->digest() !== $record['mode_manifest_sha256']) { throw new RuntimeException('SCAFFOLD_BASELINE_MODE_PROOF_CHANGED'); }
         if ($proof !== null) {
-            foreach (['version', 'source_commit', 'source_tree', 'inventory_sha256'] as $key) {
+            if ($proof->sourceIdentity() !== ScaffoldSourceIdentity::from($application['template'])) { throw new RuntimeException('SCAFFOLD_BASELINE_MODE_PROOF_SOURCE_MISMATCH'); }
+            foreach (['version', 'inventory_sha256'] as $key) {
                 if (($proof->release()[$key] ?? null) !== ($application['template'][$key] ?? null)) { throw new RuntimeException('SCAFFOLD_BASELINE_MODE_PROOF_SOURCE_MISMATCH'); }
             }
         }
@@ -218,7 +246,8 @@ final class ScaffoldManifest
         $modeProof = $modeManifestPath === null ? null : self::load($modeManifestPath);
         if ($modeProof !== null) {
             if ($modeProof->isRecordedBaseline()) { throw new RuntimeException('SCAFFOLD_BASELINE_MODE_PROOF_INVALID'); }
-            foreach (['version', 'source_commit', 'source_tree', 'inventory_sha256'] as $key) {
+            if ($modeProof->sourceIdentity() !== ScaffoldSourceIdentity::from($template)) { throw new RuntimeException('SCAFFOLD_BASELINE_MODE_PROOF_SOURCE_MISMATCH'); }
+            foreach (['version', 'inventory_sha256'] as $key) {
                 if (($modeProof->release()[$key] ?? null) !== ($template[$key] ?? null)) {
                     throw new RuntimeException('SCAFFOLD_BASELINE_MODE_PROOF_SOURCE_MISMATCH');
                 }

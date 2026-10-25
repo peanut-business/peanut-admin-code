@@ -14,6 +14,7 @@ import tarfile
 import shutil
 import platform
 import zlib
+import base64
 
 
 def digest(data):
@@ -66,7 +67,7 @@ def main():
     release_bytes = (output / 'scaffold-manifest.json').read_bytes()
     release = json.loads(release_bytes)
     manifest = json.loads((app / '.peanut/application-manifest.json').read_bytes())
-    if release['protocol'] != 'peanut.scaffold-release.v3':
+    if release['protocol'] not in ['peanut.scaffold-release.v3', 'peanut.scaffold-release.v4']:
         raise ValueError('TEMPLATE_RELEASE_PROTOCOL_INVALID')
     projection = release.get('internal_core_projection')
     if projection is not None and (projection.get('protocol') != 'peanut.internal-core-scaffold-projection.v1'
@@ -82,6 +83,24 @@ def main():
     members = {'scaffold-manifest.json': (release_bytes, 0o644)}
     tooling_source = pathlib.Path(args.tooling_source).resolve(strict=True)
     environment_identity = production_environment(tooling_source.parent, args.check)
+    source_identity = release['release'].get('source_identity')
+    snapshot_proof_bytes = None
+    if source_identity is not None and source_identity.get('kind') == 'local':
+        if any(key in release['release'] for key in ['source_commit', 'source_tree']):
+            raise ValueError('TEMPLATE_SOURCE_IDENTITY_MIXED')
+        snapshot_proof_bytes = subprocess.check_output([
+            'php', '-r',
+            'require $argv[1]; echo json_encode(\\app\\common\\value\\scaffold\\ScaffoldSourceIdentity::proof($argv[2]), JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);',
+            str(tooling_source.parent / 'scripts/scaffold-runtime/ScaffoldSourceIdentity.php'), str(tooling_source.parent)])
+        proof = json.loads(snapshot_proof_bytes)
+        if (proof['source_identity'] != source_identity
+                or manifest['template'].get('source_identity') != source_identity
+                or manifest['generation_source'].get('source_identity') != source_identity
+                or digest(base64.b64decode(proof['inventory_base64'], validate=True)) != release['release']['inventory_sha256']
+                or digest(base64.b64decode(proof['edition_profile_base64'], validate=True)) != manifest['generation_source']['edition_profile_sha256']):
+            raise ValueError('TEMPLATE_SOURCE_SNAPSHOT_MISMATCH')
+    elif source_identity is not None and source_identity.get('kind') != 'git':
+        raise ValueError('TEMPLATE_SOURCE_IDENTITY_INVALID')
     tooling_inputs = {name: (tooling_source / name).read_bytes() for name in ['composer.json', 'composer.lock']}
     lock = json.loads(tooling_inputs['composer.lock'])
     def tooling_identity(package):
@@ -170,6 +189,17 @@ def main():
     for entry in files:
         if entry['classification'] != 'app-owned' and managed[entry['path']]['template_sha256'] != entry['sha256']:
             raise ValueError('TEMPLATE_UPGRADE_PAYLOAD_MISMATCH')
+    if snapshot_proof_bytes is not None:
+        proof['payload_files'] = [{key: entry[key] for key in ['path', 'mode', 'sha256', 'classification']} for entry in files]
+        snapshot_proof_bytes = encoded(proof)
+        members['source-snapshot.json'] = (snapshot_proof_bytes, 0o644)
+        snapshot_path = output / 'source-snapshot.json'
+        if args.check:
+            if snapshot_path.read_bytes() != snapshot_proof_bytes:
+                raise ValueError('TEMPLATE_SOURCE_SNAPSHOT_CHANGED')
+        else:
+            with snapshot_path.open('xb') as snapshot_file:
+                snapshot_file.write(snapshot_proof_bytes)
     directories = []
     for relative in ['server/runtime/cache', 'server/runtime/log', 'server/runtime/session',
                      'server/runtime/temp', 'server/runtime/storage', 'server/runtime/generator',
@@ -214,6 +244,8 @@ def main():
                'create_manifest_sha256': digest(members['template-create.json'][0]),
                'upgrade_tooling_sha256': digest(tooling_bytes),
                'scaffold_manifest_sha256': digest(release_bytes)}
+    if snapshot_proof_bytes is not None:
+        package['source_snapshot_sha256'] = digest(snapshot_proof_bytes)
     metadata = output / (name + '.json')
     if args.check:
         if metadata.read_bytes() != encoded(package):

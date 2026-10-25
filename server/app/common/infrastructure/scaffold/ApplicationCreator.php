@@ -6,6 +6,7 @@ namespace app\common\infrastructure\scaffold;
 
 use app\common\value\scaffold\EditionProfile;
 use app\common\value\scaffold\ScaffoldManifest;
+use app\common\value\scaffold\ScaffoldSourceIdentity;
 use app\common\value\scaffold\VersionContract;
 use app\common\validation\scaffold\ScaffoldPathGuard;
 use app\platform\infrastructure\plugin\PluginArtifactWriter;
@@ -15,6 +16,7 @@ use RuntimeException;
 require_once dirname(__DIR__, 2) . '/value/scaffold/VersionContract.php';
 require_once dirname(__DIR__, 2) . '/value/scaffold/EditionProfile.php';
 require_once dirname(__DIR__, 2) . '/value/scaffold/ScaffoldManifest.php';
+require_once dirname(__DIR__, 5) . '/scripts/scaffold-runtime/ScaffoldSourceIdentity.php';
 require_once dirname(__DIR__, 2) . '/validation/scaffold/ScaffoldPathGuard.php';
 require_once __DIR__ . '/EditionProjector.php';
 require_once dirname(__DIR__, 3) . '/platform/exception/plugin/PluginArtifactToolException.php';
@@ -45,7 +47,7 @@ final class ApplicationCreator
     ];
 
     /**
-     * @param array{commit:string,tree:string}|null $sourceIdentity
+     * @param array{commit:string,tree:string}|array{kind:'local',snapshot_sha256:string}|null $sourceIdentity
      * @param string|null $apiGeneratorPath Explicit installed API tool with source-identical generation inputs.
      */
     public function __construct(
@@ -90,22 +92,29 @@ final class ApplicationCreator
             $packageIdentity,
             $applicationVersion ?? (string) $inventory['application']['version'],
         );
-        $actualIdentity = $this->gitIdentity();
+        $actualIdentity = ($this->sourceIdentity['kind'] ?? null) === 'local'
+            ? ScaffoldSourceIdentity::local($this->sourceRoot)
+            : ['kind' => 'git', ...$this->gitIdentity()];
         $generationIdentity = $this->validateSourceIdentity($this->sourceIdentity ?? $actualIdentity);
         if ($generationIdentity !== $actualIdentity) {
             throw new RuntimeException('CREATE_APP_SOURCE_IDENTITY_MISMATCH');
         }
-        $originRepository = $this->originRepository();
+        $originRepository = ($generationIdentity['kind'] ?? 'git') === 'git' ? $this->originRepository() : null;
         $declaredProvenance = $this->sourceProvenance;
         if ($declaredProvenance !== null && ($declaredProvenance['repository'] ?? null) === null) {
             $declaredProvenance['repository'] = $originRepository;
         }
         $provenance = $this->validateSourceProvenance($declaredProvenance ?? [
             'repository' => $originRepository,
-            'requested_ref' => $generationIdentity['commit'],
+            'requested_ref' => ($generationIdentity['kind'] ?? 'git') === 'local'
+                ? 'local:' . $generationIdentity['snapshot_sha256'] : $generationIdentity['commit'],
             'channel' => 'development',
             'release_version' => null,
         ]);
+        if ($generationIdentity['kind'] === 'local' && ($provenance['channel'] !== 'development'
+            || $provenance['release_version'] !== null || $provenance['requested_ref'] !== 'local:' . $generationIdentity['snapshot_sha256'])) {
+            throw new RuntimeException('CREATE_APP_LOCAL_SOURCE_PROVENANCE_INVALID');
+        }
         if ($originRepository !== null && $provenance['repository'] !== $originRepository) {
             throw new RuntimeException('CREATE_APP_SOURCE_REPOSITORY_MISMATCH');
         }
@@ -121,7 +130,8 @@ final class ApplicationCreator
             throw new RuntimeException('CREATE_APP_SOURCE_CHANNEL_RELEASE_MISMATCH');
         }
         if ($adoption !== null && $provenance['channel'] !== 'development') {
-            if ($adoption->version() !== $provenance['release_version']
+            if ($generationIdentity['kind'] !== 'git' || $adoption->sourceIdentity()['kind'] !== 'git'
+                || $adoption->version() !== $provenance['release_version']
                 || $adoption->release()['inventory_sha256'] !== $inventoryDigest
                 || $this->git(['rev-parse', $adoption->release()['source_commit'] . '^{tree}']) !== $adoption->release()['source_tree']) {
                 throw new RuntimeException('CREATE_APP_PUBLISHED_SEAL_INVALID');
@@ -201,14 +211,17 @@ final class ApplicationCreator
                 ? [
                     'version' => $inventory['template_version'],
                     'inventory_sha256' => $inventoryDigest,
-                    'source_commit' => $generationIdentity['commit'],
-                    'source_tree' => $generationIdentity['tree'],
+                    ...(($generationIdentity['kind'] ?? 'git') === 'git'
+                        ? ['source_identity' => ['kind' => 'git', 'commit' => $generationIdentity['commit'], 'tree' => $generationIdentity['tree']],
+                            'source_commit' => $generationIdentity['commit'], 'source_tree' => $generationIdentity['tree']]
+                        : ['source_identity' => $generationIdentity]),
                 ]
                 : [
                     'version' => $adoption->version(),
                     'inventory_sha256' => $adoption->release()['inventory_sha256'],
-                    'source_commit' => $adoption->release()['source_commit'],
-                    'source_tree' => $adoption->release()['source_tree'],
+                    ...($adoption->sourceIdentity()['kind'] === 'git'
+                        ? ['source_identity' => $adoption->sourceIdentity(), 'source_commit' => $adoption->sourceIdentity()['commit'], 'source_tree' => $adoption->sourceIdentity()['tree']]
+                        : ['source_identity' => $adoption->sourceIdentity()]),
                 ];
             $manifest = $this->writeApplicationManifest(
                 $stage,
@@ -289,15 +302,13 @@ final class ApplicationCreator
         return $files;
     }
 
-    /** @param array{commit:string,tree:string} $identity @return array{commit:string,tree:string} */
+    /** @return array{kind:'git',commit:string,tree:string}|array{kind:'local',snapshot_sha256:string} */
     private function validateSourceIdentity(array $identity): array
     {
-        if (array_keys($identity) !== ['commit', 'tree']
-            || preg_match('/^[a-f0-9]{40}$/D', (string) $identity['commit']) !== 1
-            || preg_match('/^[a-f0-9]{40}$/D', (string) $identity['tree']) !== 1) {
-            throw new RuntimeException('CREATE_APP_SOURCE_IDENTITY_INVALID');
+        if (array_keys($identity) === ['commit', 'tree']) {
+            $identity = ['kind' => 'git', ...$identity];
         }
-        return $identity;
+        return ScaffoldSourceIdentity::validate($identity);
     }
 
     /** @param array<string,mixed> $provenance @return array{repository:?string,requested_ref:string,channel:string,release_version:?string} */
@@ -386,9 +397,10 @@ final class ApplicationCreator
         if (!is_array($projection)
             || ($projection['protocol'] ?? null) !== 'peanut.internal-core-scaffold-projection.v1'
             || ($projection['scope'] ?? null) !== 'internal-upgrade-target-not-formal-release'
-            || ($projection['source'] ?? null) !== $identity
-            || ($release['source_commit'] ?? null) !== $identity['commit']
-            || ($release['source_tree'] ?? null) !== $identity['tree']
+            || $adoption->sourceIdentity() !== $identity
+            || ($identity['kind'] === 'local'
+                ? (($projection['source_identity'] ?? null) !== $identity || array_key_exists('source', $projection))
+                : (($projection['source'] ?? null) !== ['commit' => $identity['commit'], 'tree' => $identity['tree']]))
             || ($release['inventory_sha256'] ?? null) !== $inventoryDigest
             || ($projection['managed_tree_sha256']['projected'] ?? null) !== ($release['managed_tree_sha256'] ?? null)
             || preg_match('/^[a-f0-9]{64}$/D', (string) ($projection['core_inputs_sha256'] ?? '')) !== 1
@@ -1524,6 +1536,21 @@ final class ApplicationCreator
         $seed = \app\common\infrastructure\migration\CleanInstallBaseline::load($stage . '/server/database');
         $sourceSeed = \app\common\infrastructure\migration\CleanInstallBaseline::load($this->sourceRoot . '/server/database');
         if ($seed->identity() !== $sourceSeed->identity()) { throw new RuntimeException('CREATE_APP_INSTALL_BASELINE_CHANGED'); }
+        $generationSource = [
+            'repository' => $sourceProvenance['repository'],
+            'requested_ref' => $sourceProvenance['requested_ref'],
+            'channel' => $sourceProvenance['channel'],
+            'release_version' => $sourceProvenance['release_version'],
+            'source_identity' => ($generationIdentity['kind'] ?? 'git') === 'git'
+                ? ['kind' => 'git', 'commit' => $generationIdentity['commit'], 'tree' => $generationIdentity['tree']]
+                : $generationIdentity,
+            'inventory_sha256' => $inventoryDigest,
+            'edition_profile_sha256' => $editionProfile->sourceSha256,
+        ];
+        if (($generationIdentity['kind'] ?? 'git') === 'git') {
+            $generationSource['commit'] = $generationIdentity['commit'];
+            $generationSource['tree'] = $generationIdentity['tree'];
+        }
         $manifest = [
             'schema_version' => 2,
             'protocol' => 'peanut.application-scaffold.v2',
@@ -1539,16 +1566,7 @@ final class ApplicationCreator
             'edition' => $editionProfile->identity(),
             'installation_baseline' => $seed->identity(),
             'template' => $templateIdentity,
-            'generation_source' => [
-                'repository' => $sourceProvenance['repository'],
-                'requested_ref' => $sourceProvenance['requested_ref'],
-                'channel' => $sourceProvenance['channel'],
-                'release_version' => $sourceProvenance['release_version'],
-                'commit' => $generationIdentity['commit'],
-                'tree' => $generationIdentity['tree'],
-                'inventory_sha256' => $inventoryDigest,
-                'edition_profile_sha256' => $editionProfile->sourceSha256,
-            ],
+            'generation_source' => $generationSource,
             'ownership' => [
                 'managed_default' => 'three-way against the recorded baseline; never overwrite a locally changed file without an explicit later apply decision',
                 'app_owned_default' => 'preserve; future scaffold versions do not take ownership by default',

@@ -119,22 +119,33 @@ def server_core_archives(server):
     versions = json.loads(read_owned('.peanut/release-versions.json'))
     composer = json.loads(read_owned('composer.json')); lock = json.loads(read_owned('composer.lock'))
     php = receipt.get('core_php', {}); web = receipt.get('core_web', {})
+    local = php.get('source_type') == 'local' and web.get('source_type') == 'local'
+    local_php_identity = php.get('source_identity')
+    local_web_identity = web.get('source_identity')
+    local_sources_valid = isinstance(local_php_identity, dict) and set(local_php_identity) == {'kind', 'snapshot_sha256'} \
+        and local_php_identity.get('kind') == 'local' and re.fullmatch(r'[a-f0-9]{64}', str(local_php_identity.get('snapshot_sha256', ''))) \
+        and isinstance(local_web_identity, dict) and set(local_web_identity) == {'kind', 'snapshot_sha256'} \
+        and local_web_identity.get('kind') == 'local' and re.fullmatch(r'[a-f0-9]{64}', str(local_web_identity.get('snapshot_sha256', ''))) \
+        and receipt.get('sources', {}).get('php') == local_php_identity \
+        and receipt.get('sources', {}).get('web') == local_web_identity
+    git_sources_valid = php.get('source_type') == 'git' and web.get('source_type') == 'git' \
+        and isinstance(receipt.get('sources'), dict) \
+        and all(receipt['sources'].get(name, {}).get('commit') == declaration.get('source_reference')
+                and all(re.fullmatch(r'[a-f0-9]{40}', str(receipt['sources'][name].get(key, ''))) for key in ('commit', 'tree'))
+                for name, declaration in (('php', php), ('web', web)))
     if receipt.get('schema_version') != 1 or receipt.get('status') != 'frozen-core-build-inputs-not-product-release' \
             or versions.get('protocol') != 'peanut.release-versions.v3' \
             or versions.get('core_php') != php or versions.get('core_web') != web \
             or application['version'] != identity.get('versions', {}).get('release_sequence_version') \
-            or php.get('package') != 'peanut-admin/core' or php.get('source_type') != 'git' \
+            or php.get('package') != 'peanut-admin/core' or not (local_sources_valid if local else git_sources_valid) \
             or php.get('constraint') != php.get('resolved_version') \
             or re.fullmatch(SEMVER, str(php.get('resolved_version', ''))) is None \
-            or re.fullmatch(r'[a-f0-9]{40}', str(php.get('source_reference', ''))) is None \
-            or not str(php.get('source_url', '')).startswith('https://') \
-            or web.get('source_type') != 'git' or not str(web.get('source_url', '')).startswith('https://'):
+            or (not local and (re.fullmatch(r'[a-f0-9]{40}', str(php.get('source_reference', ''))) is None
+                or not str(php.get('source_url', '')).startswith('https://')
+                or not str(web.get('source_url', '')).startswith('https://'))):
         raise ValueError('fixed Core release declaration differs')
-    for name, declaration in (('php', php), ('web', web)):
-        source = receipt.get('sources', {}).get(name, {})
-        if source.get('commit') != declaration.get('source_reference') \
-                or any(re.fullmatch(r'[a-f0-9]{40}', str(source.get(key, ''))) is None for key in ('commit', 'tree')):
-            raise ValueError('fixed Core source differs')
+    if local and application.get('formal_release_eligible') is True:
+        raise ValueError('local Core input cannot be marked formally eligible')
     archive = receipt.get('core_php_archive', {})
     expected_php_path = 'packages/core-php/peanut-admin-core-' + php['resolved_version'] + '.zip'
     if set(archive) != {'path', 'sha256', 'sha1'} or archive['path'] != expected_php_path \
@@ -163,7 +174,8 @@ def server_core_archives(server):
     for relative, sha in archives.items():
         if re.fullmatch(r'[a-f0-9]{64}', str(sha)) is None or hashlib.sha256(read_owned(relative)).hexdigest() != sha:
             raise ValueError('fixed Core archive digest differs')
-    relative = '.peanut/' + archive['path']; reference = php['source_reference']
+    relative = '.peanut/' + archive['path']
+    reference = local_php_identity['snapshot_sha256'] if local else php['source_reference']
     locked = [package for package in lock.get('packages', []) if package.get('name') == 'peanut-admin/core']
     repository = receipt.get('composer_repository')
     if not isinstance(repository, dict) or repository.get('type') != 'package':
@@ -173,16 +185,18 @@ def server_core_archives(server):
         raise ValueError('fixed PHP original repository origin differs')
     dist['url'] = relative; package['dist'] = dist; repository['package'] = package
     expected_dist = {'type': 'zip', 'url': relative, 'reference': reference, 'shasum': archive['sha1']}
+    expected_source = None if local else {'type': 'git', 'url': php['source_url'], 'reference': reference}
     if len(locked) != 1 or locked[0].get('version') != php['resolved_version'] \
-            or locked[0].get('source') != {'type': 'git', 'url': php['source_url'], 'reference': reference} \
+            or locked[0].get('source') != expected_source \
             or locked[0].get('dist') != expected_dist or composer.get('repositories') != [repository] \
             or package.get('name') != php['package'] or package.get('version') != php['resolved_version'] \
-            or package.get('source') != locked[0]['source'] or dist != expected_dist \
+            or package.get('source') != locked[0].get('source') or dist != expected_dist \
             or composer.get('require', {}).get('peanut-admin/core') != php['constraint'] \
             or hashlib.sha1((server / relative).read_bytes()).hexdigest() != archive['sha1']:
         raise ValueError('fixed PHP native lock/repository origin differs')
     return {relative: {'sha256': archive['sha256'], 'sha1': archive['sha1'],
-                       'source_reference': reference, 'version': php['resolved_version']}}
+                       ('source_identity' if local else 'source_reference'): (local_php_identity if local else reference),
+                       'version': php['resolved_version']}}
 
 
 def archive_path(server, relative):
@@ -239,10 +253,14 @@ def local_archives(server, inputs=None):
         if package.get('name') != 'peanut-admin/core' or dist.get('type') != 'zip' or match is None:
             raise ValueError('only the canonical native Core archive may be local')
         relative = match.group(1)
-        reference = (package.get('source') or {}).get('reference')
-        if not re.fullmatch(r'[a-f0-9]{40}', str(reference)) or dist.get('reference') != reference \
-                or (package.get('source') or {}).get('type') != 'git' \
-                or not str((package.get('source') or {}).get('url', '')).startswith('https://'):
+        source = package.get('source') or {}
+        local_core = not source
+        reference = dist.get('reference') if local_core else source.get('reference')
+        if local_core:
+            if not re.fullmatch(r'[a-f0-9]{64}', str(reference)):
+                raise ValueError('local Core source identity is invalid')
+        elif not re.fullmatch(r'[a-f0-9]{40}', str(reference)) or dist.get('reference') != reference \
+                or source.get('type') != 'git' or not str(source.get('url', '')).startswith('https://'):
             raise ValueError('local Core source identity is invalid')
         root = server.parent
         if root.resolve() != root or root.is_symlink():
@@ -259,15 +277,34 @@ def local_archives(server, inputs=None):
             versions = json.loads((root / 'release-versions.json').read_text())
             core = versions.get('core_php', {})
             entries = [row for row in manifest.get('files', []) if row.get('path') == relative]
+            declared_local = core.get('source_type') == 'local'
+            local_identity = core.get('source_identity')
+            if declared_local:
+                if not isinstance(local_identity, dict) or set(local_identity) != {'kind', 'snapshot_sha256'} \
+                        or local_identity.get('kind') != 'local' \
+                        or not re.fullmatch(r'[a-f0-9]{64}', str(local_identity.get('snapshot_sha256', ''))) \
+                        or not local_core or dist.get('reference') != local_identity['snapshot_sha256']:
+                    raise ValueError('local Core source identity is invalid')
+                reference = local_identity
+            else:
+                if local_core or not re.fullmatch(r'[a-f0-9]{40}', str(reference)):
+                    raise ValueError('local Core source identity is invalid')
             if manifest.get('protocol') != 'peanut.application-scaffold.v2' or versions.get('protocol') != 'peanut.release-versions.v3' \
                     or len(entries) != 1 or entries[0].get('classification') != 'managed' \
                     or core.get('package') != package['name'] or core.get('resolved_version') != package['version'] \
-                    or core.get('source_reference') != reference or core.get('source_url') != package['source']['url']:
+                    or (not declared_local and (core.get('source_reference') != reference or core.get('source_url') != source.get('url'))):
                 raise ValueError('Core archive is not bound to the application declaration')
             expected = {'sha256': entries[0].get('sha256'), 'sha1': dist.get('shasum'),
-                        'source_reference': reference, 'version': package['version']}
+                        ('source_identity' if declared_local else 'source_reference'): reference,
+                        'version': package['version']}
+        if proof is not None:
+            actual_reference = {'kind': 'local', 'snapshot_sha256': reference} if local_core else reference
+            key = 'source_identity' if local_core else 'source_reference'
+        else:
+            key = 'source_identity' if declared_local else 'source_reference'
+            actual_reference = reference
         actual = {'sha256': digest(archive), 'sha1': hashlib.sha1(archive.read_bytes()).hexdigest(),
-                  'source_reference': reference, 'version': package['version']}
+                  key: actual_reference, 'version': package['version']}
         if expected != actual or not re.fullmatch(r'[a-f0-9]{40}', str(dist.get('shasum', ''))) \
                 or actual['sha1'] != dist['shasum'] or match.group(2) != package['version'] \
                 or archive.stat().st_mode & 0o777 != 0o644:

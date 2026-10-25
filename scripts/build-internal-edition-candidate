@@ -142,6 +142,18 @@ function internalCandidateCoreInputs(string $path): array
     $archive = $inputs['core_php_archive'] ?? null;
     $core = $inputs['core_php'] ?? null;
     $repository = $inputs['composer_repository']['package'] ?? null;
+    $local = ($core['source_type'] ?? null) === 'local';
+    $identity = $core['source_identity'] ?? null;
+    $web = $inputs['core_web'] ?? null;
+    $webIdentity = is_array($web) ? ($web['source_identity'] ?? null) : null;
+    $localIdentityValid = is_array($identity) && array_keys($identity) === ['kind', 'snapshot_sha256']
+        && ($identity['kind'] ?? null) === 'local'
+        && preg_match('/^[a-f0-9]{64}$/D', (string) ($identity['snapshot_sha256'] ?? '')) === 1
+        && is_array($webIdentity) && array_keys($webIdentity) === ['kind', 'snapshot_sha256']
+        && ($webIdentity['kind'] ?? null) === 'local'
+        && preg_match('/^[a-f0-9]{64}$/D', (string) ($webIdentity['snapshot_sha256'] ?? '')) === 1
+        && ($inputs['sources']['php'] ?? null) === $identity
+        && ($inputs['sources']['web'] ?? null) === $webIdentity;
     if (!is_array($archive) || !is_array($core) || !is_array($repository)
         || ($inputs['status'] ?? null) !== 'frozen-core-build-inputs-not-product-release'
         || ($core['package'] ?? null) !== 'peanut-admin/core'
@@ -159,15 +171,22 @@ function internalCandidateCoreInputs(string $path): array
     }
     $sha256 = hash_file('sha256', $zip);
     $sha1 = hash_file('sha1', $zip);
-    if (!is_string($sha256) || !hash_equals((string) $archive['sha256'], $sha256)
-        || !is_string($sha1) || !hash_equals((string) $archive['sha1'], $sha1)
+    $originValid = $local
+        ? ($localIdentityValid && ($repository['dist']['reference'] ?? null) === $identity['snapshot_sha256']
+            && !isset($repository['source']) && ($core['source_identity'] ?? null) === $identity
+            && ($web['source_type'] ?? null) === 'local' && ($web['source_identity'] ?? null) === $webIdentity)
+        : (($core['source_type'] ?? null) === 'git'
+            && ($repository['dist']['reference'] ?? null) === ($core['source_reference'] ?? null)
+            && ($repository['source']['reference'] ?? null) === ($core['source_reference'] ?? null)
+            && ($inputs['sources']['php']['commit'] ?? null) === ($core['source_reference'] ?? null)
+            && ($web['source_type'] ?? null) === 'git'
+            && ($inputs['sources']['web']['commit'] ?? null) === ($web['source_reference'] ?? null));
+    if (!is_string($sha256) || !hash_equals((string) ($archive['sha256'] ?? ''), $sha256)
+        || !is_string($sha1) || !hash_equals((string) ($archive['sha1'] ?? ''), $sha1)
         || ($repository['dist']['shasum'] ?? null) !== $sha1
-        || ($repository['dist']['reference'] ?? null) !== ($core['source_reference'] ?? null)
-        || ($repository['source']['reference'] ?? null) !== ($core['source_reference'] ?? null)
         || ($repository['version'] ?? null) !== ($core['resolved_version'] ?? null)
         || ($repository['dist']['type'] ?? null) !== 'zip'
-        || ($inputs['sources']['php']['commit'] ?? null) !== ($core['source_reference'] ?? null)
-        || ($repository['dist']['url'] ?? null) !== '../' . $relative) {
+        || ($repository['dist']['url'] ?? null) !== '../' . $relative || !$originValid) {
         throw new RuntimeException('INTERNAL_CANDIDATE_CORE_ARCHIVE_IDENTITY_INVALID');
     }
     return [
@@ -177,6 +196,8 @@ function internalCandidateCoreInputs(string $path): array
         'archive_sha256' => $sha256,
         'archive_sha1' => $sha1,
         'package' => $repository,
+        'local' => $local,
+        'source_identity' => $identity,
     ];
 }
 
@@ -276,7 +297,7 @@ function internalCandidateProjectCore(string $application, array $core, string $
     internalCandidateProjectComposer($application, $core['package'], $version);
     internalCandidateProjectModules($application, $version);
     internalCandidateRun([
-        dirname(__DIR__) . '/scripts/project-composer',
+        'composer',
         'update', 'peanut-admin/core',
         '--working-dir=' . $application . '/server',
         '--no-install', '--no-scripts', '--no-interaction', '--no-progress', '--prefer-dist',
@@ -289,9 +310,12 @@ function internalCandidateProjectCore(string $application, array $core, string $
         throw new RuntimeException('INTERNAL_CANDIDATE_THIRD_PARTY_LOCK_CHANGED');
     }
     $lockedCore = internalCandidateLockPackage($application . '/server/composer.lock');
+    $local = $core['local'] ?? false;
     if (($lockedCore['version'] ?? null) !== $version
-        || ($lockedCore['source']['reference'] ?? null) !== ($core['inputs']['core_php']['source_reference'] ?? null)
-        || ($lockedCore['dist']['reference'] ?? null) !== ($core['inputs']['core_php']['source_reference'] ?? null)
+        || ($local
+            ? (isset($lockedCore['source']) || ($lockedCore['dist']['reference'] ?? null) !== ($core['source_identity']['snapshot_sha256'] ?? null))
+            : (($lockedCore['source']['reference'] ?? null) !== ($core['inputs']['core_php']['source_reference'] ?? null)
+                || ($lockedCore['dist']['reference'] ?? null) !== ($core['inputs']['core_php']['source_reference'] ?? null)))
         || ($lockedCore['dist']['shasum'] ?? null) !== $core['archive_sha1']) {
         throw new RuntimeException('INTERNAL_CANDIDATE_CORE_LOCK_IDENTITY_INVALID');
     }
@@ -305,10 +329,18 @@ function internalCandidateProjectWeb(string $application, array $core, string $r
 {
     $web = $core['inputs']['core_web'] ?? null;
     $suffixes = ['client', 'vue', 'ui-vue', 'nuxt', 'uniapp', 'testing'];
+    $local = is_array($web) && ($web['source_type'] ?? null) === 'local';
+    $identity = is_array($web) ? ($web['source_identity'] ?? null) : null;
+    $sourceValid = $local
+        ? (is_array($identity) && array_keys($identity) === ['kind', 'snapshot_sha256']
+            && ($identity['kind'] ?? null) === 'local'
+            && preg_match('/^[a-f0-9]{64}$/D', (string) ($identity['snapshot_sha256'] ?? '')) === 1
+            && ($core['inputs']['sources']['web'] ?? null) === $identity)
+        : (is_array($web) && ($web['source_type'] ?? null) === 'git'
+            && ($web['source_reference'] ?? null) === ($core['inputs']['sources']['web']['commit'] ?? null)
+            && preg_match('/^[a-f0-9]{40}$/D', (string) ($web['source_reference'] ?? '')) === 1);
     if (!is_array($web) || array_keys($web['packages'] ?? []) !== array_map(static fn(string $s): string => '@peanut-admin/' . $s, $suffixes)
-        || ($web['source_type'] ?? null) !== 'git'
-        || ($web['source_reference'] ?? null) !== ($core['inputs']['sources']['web']['commit'] ?? null)
-        || preg_match('/^[a-f0-9]{40}$/D', (string) ($web['source_reference'] ?? '')) !== 1) {
+        || !$sourceValid) {
         throw new RuntimeException('INTERNAL_CANDIDATE_WEB_INPUTS_INVALID');
     }
     $lockTool = $toolRoot . '/scripts/release-dependency-locks.mjs';
@@ -386,12 +418,17 @@ function internalCandidateProjectWeb(string $application, array $core, string $r
  * @param array<string,mixed> $core
  * @return array<string,mixed>
  */
-function internalCandidateProjectScaffold(string $application, array $core, string $temporary, string $commit, string $tree, string $receipt): array
+function internalCandidateProjectScaffold(string $application, array $core, string $temporary, array $sourceIdentity, string $receipt): array
 {
     $manifestPath = $application . '/.peanut/application-manifest.json';
     $manifest = internalCandidateReadJson($manifestPath);
-    if (($manifest['generation_source']['commit'] ?? null) !== $commit
-        || ($manifest['generation_source']['tree'] ?? null) !== $tree
+    $localSource = ($sourceIdentity['kind'] ?? null) === 'local';
+    $generationIdentity = $manifest['generation_source']['source_identity'] ?? null;
+    $sourceMatches = $localSource
+        ? ($generationIdentity === $sourceIdentity)
+        : (($manifest['generation_source']['commit'] ?? null) === ($sourceIdentity['commit'] ?? null)
+            && ($manifest['generation_source']['tree'] ?? null) === ($sourceIdentity['tree'] ?? null));
+    if (!$sourceMatches
         || !is_array($manifest['files'] ?? null)
         || !is_string($manifest['digests']['managed_tree_sha256'] ?? null)) {
         throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_SOURCE_INVALID');
@@ -420,20 +457,26 @@ function internalCandidateProjectScaffold(string $application, array $core, stri
         || !is_array($originalWeb['packages'] ?? null) || !is_array($requestedWeb['packages'] ?? null)) {
         throw new RuntimeException('INTERNAL_CANDIDATE_WEB_INPUTS_INVALID');
     }
-    $sameWeb = ($requestedWeb['source_reference'] ?? null) === ($originalWeb['source_reference'] ?? null)
+    $sameWeb = ($requestedWeb['source_identity'] ?? null) === ($originalWeb['source_identity'] ?? null)
+        && ($requestedWeb['source_reference'] ?? null) === ($originalWeb['source_reference'] ?? null)
         && array_keys($requestedWeb['packages']) === array_keys($originalWeb['packages']);
     foreach ($requestedWeb['packages'] as $name => $package) {
         $sameWeb = $sameWeb && is_array($package)
             && ($package['version'] ?? null) === ($originalWeb['packages'][$name]['version'] ?? null);
     }
-    if (($coreIdentity['source_reference'] ?? null) === ($originalPhp['source_reference'] ?? null)
+    if (!$localSource && !$core['local'] && ($coreIdentity['source_reference'] ?? null) === ($originalPhp['source_reference'] ?? null)
         && ltrim((string) ($coreIdentity['resolved_version'] ?? ''), 'v') === ltrim((string) ($originalPhp['resolved_version'] ?? ''), 'v')
         && $sameWeb) {
         throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_PROJECTION_REDUNDANT');
     }
-    $versions['core_php']['constraint'] = $coreIdentity['resolved_version'];
-    $versions['core_php']['resolved_version'] = $coreIdentity['resolved_version'];
-    $versions['core_php']['source_reference'] = $coreIdentity['source_reference'];
+    if ($core['local']) {
+        $versions['core_php'] = $coreIdentity;
+        $versions['core_web'] = $requestedWeb;
+    } else {
+        $versions['core_php']['constraint'] = $coreIdentity['resolved_version'];
+        $versions['core_php']['resolved_version'] = $coreIdentity['resolved_version'];
+        $versions['core_php']['source_reference'] = $coreIdentity['source_reference'];
+    }
     internalCandidateWriteJson($versionPath, $versions);
     internalCandidateProjectCore($application, $core, $temporary);
     $web = internalCandidateProjectWeb($application, $core, $receipt, dirname(__DIR__));
@@ -522,26 +565,32 @@ function internalCandidateProjectScaffold(string $application, array $core, stri
     if (!is_string($receiptDigest)) {
         throw new RuntimeException('INTERNAL_CANDIDATE_SCAFFOLD_RECEIPT_INVALID');
     }
-    return [
+    $projection = [
         'protocol' => 'peanut.internal-core-scaffold-projection.v1',
         'scope' => 'internal-upgrade-target-not-formal-release',
-        'source' => ['commit' => $commit, 'tree' => $tree],
         'core_inputs_sha256' => $receiptDigest,
         'build_tools_sha256' => [
             'build_scaffold_release' => hash_file('sha256', __DIR__ . '/build-scaffold-release'),
             'build_internal_edition_candidate' => hash_file('sha256', __FILE__),
         ],
         'core' => ['package' => 'peanut-admin/core', 'resolved_version' => $coreIdentity['resolved_version'],
-            'source_reference' => $coreIdentity['source_reference'], 'archive_path' => $corePath,
+            ...($core['local'] ? ['source_identity' => $coreIdentity['source_identity']] : ['source_reference' => $coreIdentity['source_reference']]), 'archive_path' => $corePath,
             'archive_sha256' => $core['archive_sha256'], 'archive_sha1' => $core['archive_sha1']],
         'core_web' => $web['packages'],
-        'web_source_reference' => $core['inputs']['core_web']['source_reference'],
         'release_versions' => ['before' => $originalPhp, 'after' => $versions['core_php']],
         'managed_tree_sha256' => ['source' => $originalDigest, 'projected' => $manifest['digests']['managed_tree_sha256']],
         'changes' => $changes,
         'addition' => ['path' => $corePath, 'sha256' => $core['archive_sha256']],
         'additions' => $additions,
     ];
+    if ($localSource) {
+        $projection['source_identity'] = $sourceIdentity;
+        $projection['core_web_source_identity'] = $core['inputs']['core_web']['source_identity'];
+    } else {
+        $projection['source'] = ['commit' => $sourceIdentity['commit'], 'tree' => $sourceIdentity['tree']];
+        $projection['web_source_reference'] = $core['inputs']['core_web']['source_reference'];
+    }
+    return $projection;
 }
 
 function internalCandidateMain(array $argv): void

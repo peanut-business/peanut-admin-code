@@ -6,6 +6,7 @@ declare(strict_types=1);
 $root = dirname(__DIR__);
 $output = $root . '/scaffold/application-template-inventory.json';
 require_once $root . '/server/app/common/value/scaffold/VersionContract.php';
+require_once $root . '/scripts/scaffold-runtime/ScaffoldSourceIdentity.php';
 $versions = \app\common\value\scaffold\VersionContract::load($root . '/release-versions.json');
 
 /** @return array<string,true> */
@@ -36,6 +37,10 @@ function declaredCoreWebArchives(\app\common\value\scaffold\VersionContract $ver
 
 function inventoryGitFiles(string $root, array $declaredCoreWebArchives): array
 {
+    $local = in_array('--local', array_slice($GLOBALS['argv'], 1), true);
+    if ($local) {
+        $files = \app\common\value\scaffold\ScaffoldSourceIdentity::files($root);
+    } else {
     $command = ['git', '-C', $root, '-c', 'core.quotepath=false', 'ls-files', '--cached', '--others', '--exclude-standard'];
     $pipes = [];
     $process = proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
@@ -50,6 +55,7 @@ function inventoryGitFiles(string $root, array $declaredCoreWebArchives): array
         throw new RuntimeException('git ls-files failed: ' . trim((string) $stderr));
     }
     $files = array_values(array_filter(explode("\n", trim($stdout)), 'strlen'));
+    }
     $files = array_values(array_filter($files, static fn(string $path): bool => $path !== 'scaffold/application-template-inventory.json'
         && !str_starts_with($path, 'scaffold/')
         && $path !== 'SECURITY.md' // Generated applications receive their own declared security template.
@@ -87,6 +93,7 @@ function excluded(string $path): bool
         'scripts/scaffold-upgrade',
         'scripts/scaffold-runtime/ScaffoldPathGuard.php',
         'scripts/scaffold-runtime/ScaffoldManifest.php',
+        'scripts/scaffold-runtime/ScaffoldSourceIdentity.php',
         'scripts/scaffold-runtime/ScaffoldUpgradeLedger.php',
         'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php',
         'scripts/scaffold-runtime/EditionUpgradePackage.php',

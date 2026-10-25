@@ -4,13 +4,15 @@
 
 ## 唯一来源
 
-- `tools/toolchain.json`：随项目提交的工具版本要求。pnpm 读取 `web/package.json` 的 `packageManager`，Composer 读取已有 `scripts/project-composer` 的版本和 SHA-256，不维护第二份手工版本。
-- `.local/toolchain/host.json`：本机私有绝对路径、解释器与 CLI 文件绑定、缓存路径。由 `tools/toolchain.local.example.json` 提供格式，不提交真实桌面路径或凭据。
+- `tools/toolchain.json`：随项目提交的推荐工具版本。版本差异只提示；实际 PHP/Node 约束来自项目 manifest，npm/pnpm 的 Node 要求来自包自身 manifest，锁格式与来源由原生包管理器保持。`web/package.json` 的 `packageManager` 是 pnpm 推荐版本，不单独构成拒绝范围。使用固定 `scripts/project-composer` 时保留其版本和 SHA-256；config 选择其他已安装 Composer 时，在本机 host 中绑定其路径、版本和文件 SHA-256，防止配置文件绑定的文件被替换。该本机摘要只绑定当前文件，不证明官方来源。
+- `.local/toolchain/host.json`：本机私有工具路径、解释器与 CLI 文件绑定、缓存路径及 release/backups/Core 目录设置。由 `tools/toolchain.local.example.json` 提供基础格式，不提交真实桌面路径或凭据。commands、caches、extra_path、watch_paths、Core、release 和 backups 路径均接受相对或绝对值；相对路径统一以 Code 项目根为基准，运行时解析为绝对路径。`peanut config` 在当前 Code `.local/toolchain/cores/php|web/` 下分别保存 Core host 和缓存；Core host 用 `path_base` 记录 Code 根，Core 源码目录保持只读。Core 工具要求从各自的 `composer.json` 或 `package.json` 读取，并由 Code 自己的 `scripts/project-env --root <Core> --state-root <Code> --host <Code-local-host>` 执行，因此不要求 Core 仓有 `tools/toolchain.json` 或 `scripts/project-env`。
 - `scripts/project-env`：统一入口；可由系统已安装 Python 3.9+ 启动。项目业务命令仍使用登记的 Python 版本。入口不会解决工具缺失，缺失或版本不符须先由授权的环境维护操作修正。
+
+Core 的 prepared 指纹绑定 Code state root、该 Core 的 host scope、规范化的 manifest/toolchain 内容摘要、实际命令文件身份及登记观察项，不绑定临时 Core 副本的绝对源码路径。相同 Core scope 与相同声明内容可以复用 prepared 入口；PHP/Web scope相互独立，manifest 或工具身份变化会产生新的指纹。
 
 ## 使用
 
-先按示例登记本机已经安装的六类工具。npm/pnpm 必须绑定同一个登记 Node 与对应 CLI 文件，Composer 必须绑定登记 PHP 与固定 PHAR；原生程序可以使用系统安装，只要实际版本匹配。缓存目录须已经存在。
+先按示例登记本机已经安装的工具。npm/pnpm 必须绑定同一个登记 Node 与对应 CLI 文件，Composer 必须绑定登记 PHP 与所选 CLI 文件；原生程序可以使用系统安装。配置中的路径可写相对路径或绝对路径；相对路径统一以项目根为基准，执行时解析为绝对路径。`peanut config` 先完整预览 Code/Core 工具、推荐差异、路径与写入目标；明确确认（非交互使用 `--yes`）后才创建缓存并执行 `project-env prepare`。拒绝确认不写入。它不安装工具或依赖、下载工具或改变全局 PATH。
 
 ```sh
 python3 scripts/project-env requirements
@@ -20,7 +22,9 @@ python3 scripts/project-env exec -- peanut status
 python3 scripts/project-env exec -- bash scripts/package-release.sh /absolute/new-output --application-root=/absolute/application
 ```
 
-`requirements` 不需要本机配置，可供 CI 读取。`doctor` 只读检查；`prepare` 只在本项目 `.local/toolchain/project-env/` 建立薄命令入口及本项目临时目录，不安装第三方包。`exec` 只使用已经准备好的登记，不自动 prepare；子进程继承同一工具 PATH 和缓存，避免 PHP→Python→pnpm 再次选错版本。缺失、不符或登记改变时退出 2；成功 exec 后保留实际子命令退出码及原始标准输入/输出。首次 `prepare` 先创建项目临时目录，再执行工具版本探测，避免 pnpm 在不存在的 TMPDIR 上失败。`doctor` 遇到缺失的项目临时目录只报告需要显式准备，不创建目录；版本命令非零时报告实际子命令退出码及错误片段，不把错误栈中的依赖版本误当成工具版本。
+Peanut CLI 的 `peanut config [--path <project-root>] [--yes]` 会发现已安装工具并预览后写入 `.local/toolchain/host.json`，推荐版本不一致时显示实际版本。主项目缓存默认是 `.local/toolchain/cache/pnpm`、`.local/toolchain/cache/npm`、`.local/toolchain/cache/composer`；Core 缓存默认是 `.local/toolchain/cores/<php|web>/cache/<工具>`。只有确认后才创建缓存目录并调用 `project-env prepare` 建立本地薄命令入口；它不安装工具、不改变全局 PATH。host.json 可包含 Core 目录、release 与 backups 路径；这些字段同样按 Code 项目根解析，文件保持可读的相对路径。
+
+`requirements` 不需要本机配置，可供 CI 读取。`doctor` 只读检查；`prepare` 只在登记的 state root 下建立薄命令入口及临时目录，不安装第三方包。`exec` 只使用已经准备好的登记，不自动 prepare；子进程继承同一工具 PATH 和缓存。工具缺失、manifest 声明的平台约束不兼容、原生锁拒绝或绑定文件变化时退出 2；推荐版本差异本身不会拒绝。成功 exec 后保留实际子命令退出码及原始标准输入/输出。首次 `prepare` 先创建临时目录，再执行工具版本探测；`doctor` 遇到临时目录缺失只报告需要显式准备，不创建目录。
 
 入口会创建工具入口，不是新的隔离系统或包管理器。命令本身仍具有调用者权限；选择已信任的配置和程序。不要用此入口绕过资源、测试、发布或部署授权。Peanut CLI 是独立安装的全局工具；这里的 project-env 只负责为当前项目选择登记工具环境，并在对应 Node bin 已安装 `peanut` 时调用它，不再在 Peanut Admin 内复制业务 CLI。
 

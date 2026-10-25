@@ -18,15 +18,19 @@ final class ReleaseDependencyIdentity
     ];
     private const SEMVER = '/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/D';
 
-    /** @return 'archive'|'registry' */
+    /** @return 'archive'|'registry'|'local-archive' */
     public static function validate(mixed $php, mixed $web, string $phpError, string $webError): string
     {
-        if (!is_array($php)
-            || array_keys($php) !== ['package', 'constraint', 'resolved_version', 'source_type', 'source_url', 'source_reference']
-            || $php['package'] !== 'peanut-admin/core'
+        $phpLocal = is_array($php)
+            && array_keys($php) === ['package', 'constraint', 'resolved_version', 'source_type', 'source_identity']
+            && $php['source_type'] === 'local' && self::localIdentity($php['source_identity'] ?? null);
+        $phpGit = is_array($php)
+            && array_keys($php) === ['package', 'constraint', 'resolved_version', 'source_type', 'source_url', 'source_reference']
+            && $php['source_type'] === 'git' && self::https($php['source_url'])
+            && is_string($php['source_reference']) && preg_match('/^[0-9a-f]{40}$/D', $php['source_reference']) === 1;
+        if (!is_array($php) || $php['package'] !== 'peanut-admin/core'
             || !is_string($php['constraint']) || !is_string($php['resolved_version'])
-            || $php['source_type'] !== 'git' || !self::https($php['source_url'])
-            || !is_string($php['source_reference']) || preg_match('/^[0-9a-f]{40}$/D', $php['source_reference']) !== 1) {
+            || (!$phpLocal && !$phpGit)) {
             throw new RuntimeException($phpError);
         }
         $development = preg_match('/^dev-[A-Za-z0-9._-]+$/D', $php['constraint']) === 1
@@ -34,27 +38,34 @@ final class ReleaseDependencyIdentity
         $fixed = self::fixed($php['constraint'])
             && $php['constraint'] === (str_starts_with($php['resolved_version'], 'v')
                 ? substr($php['resolved_version'], 1) : $php['resolved_version']);
-        if (!$development && !$fixed) {
+        if (!$development && !$fixed && !($phpLocal && self::fixed($php['resolved_version']) && $php['constraint'] === $php['resolved_version'])) {
             throw new RuntimeException($phpError);
         }
 
-        if (!is_array($web)
-            || array_keys($web) !== ['source_type', 'source_url', 'source_reference', 'packages']
-            || $web['source_type'] !== 'git' || !self::https($web['source_url'])
-            || !is_string($web['source_reference']) || preg_match('/^[0-9a-f]{40}$/D', $web['source_reference']) !== 1
+        $webLocal = is_array($web)
+            && array_keys($web) === ['source_type', 'source_identity', 'packages']
+            && $web['source_type'] === 'local' && self::localIdentity($web['source_identity'] ?? null);
+        $webGit = is_array($web)
+            && array_keys($web) === ['source_type', 'source_url', 'source_reference', 'packages']
+            && $web['source_type'] === 'git' && self::https($web['source_url'])
+            && is_string($web['source_reference']) && preg_match('/^[0-9a-f]{40}$/D', $web['source_reference']) === 1;
+        if (!is_array($web) || (!$webLocal && !$webGit)
             || !is_array($web['packages']) || array_keys($web['packages']) !== self::WEB_PACKAGES) {
             throw new RuntimeException($webError);
         }
         $mode = null;
-        foreach ($web['packages'] as $identity) {
+        $webVersions = [];
+        foreach ($web['packages'] as $packageName => $identity) {
             if (!is_array($identity) || !is_string($identity['version'] ?? null)
                 || preg_match(self::SEMVER, $identity['version']) !== 1) {
                 throw new RuntimeException($webError);
             }
             if (array_keys($identity) === ['version', 'archive', 'sha256']) {
                 $current = 'archive';
+                $expectedArchive = 'packages/core-web/peanut-admin-'
+                    . substr((string) $packageName, strlen('@peanut-admin/')) . '-' . $identity['version'] . '.tgz';
                 if (!is_string($identity['archive'])
-                    || preg_match('#^packages/core-web/peanut-admin-[a-z-]+-[0-9A-Za-z.+-]+\.tgz$#D', $identity['archive']) !== 1
+                    || $identity['archive'] !== $expectedArchive
                     || !is_string($identity['sha256']) || preg_match('/^[0-9a-f]{64}$/D', $identity['sha256']) !== 1) {
                     throw new RuntimeException($webError);
                 }
@@ -71,10 +82,17 @@ final class ReleaseDependencyIdentity
                 throw new RuntimeException($webError);
             }
             $mode = $current;
+            if ($webLocal && $current !== 'archive') {
+                throw new RuntimeException($webError);
+            }
+            $webVersions[$identity['version']] = true;
+        }
+        if ($phpLocal !== $webLocal || ($webLocal && count($webVersions) !== 1)) {
+            throw new RuntimeException($webError);
         }
         // Independently pinned PHP source and Web registry artifacts are valid development inputs.
         // Published packaging separately requires an exact released PHP version; see package-release-files.py.
-        return $mode;
+        return $phpLocal ? 'local-archive' : $mode;
     }
 
     /** 旧本地归档身份仍须验证实际文件；原生 registry 身份由原生锁安装校验制品。 */
@@ -108,6 +126,14 @@ final class ReleaseDependencyIdentity
     {
         return is_string($version) && preg_match(self::SEMVER, $version) === 1
             && preg_match('/(?:^|[.-])dev(?:[.+-]|$)/i', $version) !== 1;
+    }
+
+    private static function localIdentity(mixed $identity): bool
+    {
+        return is_array($identity) && array_keys($identity) === ['kind', 'snapshot_sha256']
+            && ($identity['kind'] ?? null) === 'local'
+            && is_string($identity['snapshot_sha256'] ?? null)
+            && preg_match('/^[0-9a-f]{64}$/D', $identity['snapshot_sha256']) === 1;
     }
 
     private static function https(mixed $url): bool

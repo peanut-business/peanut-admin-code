@@ -17,13 +17,14 @@ require $root . '/server/app/common/infrastructure/scaffold/ApplicationCreator.p
 
 function createAppUsage(): never
 {
+    fwrite(STDERR, "Local snapshot identity: --source-snapshot-sha256=<64-hex> (development only; excludes --source-commit/--source-tree)\n");
     fwrite(STDERR, "Usage: php scripts/create-app --name=<product> --slug=<slug> --package=<vendor/name> --target=/absolute/path --edition=standalone|multi-tenant [--application-version=<semver>] [--profile=minimal|standard|full] [--workflow=none|runtime|full] [--source-repository=peanut-business/peanut-admin-code --source-ref=<ref> --source-channel=development|prerelease|stable --source-commit=<sha> --source-tree=<sha> [--release-version=<semver>]] [--scaffold-manifest=/absolute/path/scaffold-manifest.json]\n");
     exit(64);
 }
 
 $options = [];
 foreach (array_slice($argv, 1) as $argument) {
-    if (preg_match('/^--(name|slug|package|target|edition|application-version|profile|workflow|scaffold-manifest|source-repository|source-ref|source-channel|source-commit|source-tree|release-version)=(.*)$/D', $argument, $matches) !== 1 || isset($options[$matches[1]])) {
+    if (preg_match('/^--(name|slug|package|target|edition|application-version|profile|workflow|scaffold-manifest|source-repository|source-ref|source-channel|source-commit|source-tree|source-snapshot-sha256|release-version)=(.*)$/D', $argument, $matches) !== 1 || isset($options[$matches[1]])) {
         createAppUsage();
     }
     $options[$matches[1]] = $matches[2];
@@ -84,6 +85,14 @@ try {
     $specifiedSourceIdentity = isset($options['source-commit'], $options['source-tree'])
         ? ['commit' => $options['source-commit'], 'tree' => $options['source-tree']]
         : null;
+    if (isset($options['source-snapshot-sha256'])) {
+        if (isset($options['source-commit']) || isset($options['source-tree']) || $channel !== 'development'
+            || preg_match('/^[a-f0-9]{64}$/D', $options['source-snapshot-sha256']) !== 1) {
+            throw new RuntimeException('CREATE_APP_SOURCE_IDENTITY_INVALID');
+        }
+        $specifiedSourceIdentity = ['kind' => 'local', 'snapshot_sha256' => $options['source-snapshot-sha256']];
+        $options['source-ref'] ??= 'local:' . $options['source-snapshot-sha256'];
+    }
     if (isset($options['source-commit']) !== isset($options['source-tree'])) {
         throw new RuntimeException('CREATE_APP_SOURCE_IDENTITY_INVALID');
     }
@@ -119,8 +128,10 @@ try {
         'application_version' => $manifest['application']['version'],
         'profile' => $manifest['application']['profile'],
         'edition' => $manifest['application']['edition'],
-        'source_commit' => $manifest['template']['source_commit'],
-        'generation_source_commit' => $manifest['generation_source']['commit'],
+        'source_identity' => $manifest['template']['source_identity'],
+        ...($manifest['template']['source_identity']['kind'] === 'git'
+            ? ['source_commit' => $manifest['template']['source_commit'],
+                'generation_source_commit' => $manifest['generation_source']['commit']] : []),
         'generation_source' => $manifest['generation_source'],
         'managed_tree_sha256' => $manifest['digests']['managed_tree_sha256'],
         'app_owned_tree_sha256' => $manifest['digests']['app_owned_tree_sha256'],

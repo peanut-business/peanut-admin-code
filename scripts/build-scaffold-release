@@ -11,25 +11,29 @@ const RELEASE_STRICT_SEMVER = '/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]
 
 function releaseUsage(): never
 {
-    fwrite(STDERR, "Usage: php scripts/build-scaffold-release --version=<semver> --source-commit=<full-sha> --output=<absolute-directory> [--edition=standalone|multi-tenant] [--workflow=none|runtime|full] [--internal-core-inputs=<absolute-release-core-inputs.json>] [--api-tool-root=<absolute-tool-root>] [--check]\n");
+    fwrite(STDERR, "Usage: php scripts/build-scaffold-release --version=<semver> (--source-commit=<full-sha>|--source-snapshot=<absolute-directory>) --output=<absolute-directory> [--edition=standalone|multi-tenant] [--workflow=none|runtime|full] [--internal-core-inputs=<absolute-release-core-inputs.json>] [--api-tool-root=<absolute-tool-root>] [--check]\n");
     exit(64);
 }
 
 $root = dirname(__DIR__);
 $options = [];
 $check = false;
-require_once $root . '/server/vendor/autoload.php';
 foreach (array_slice($argv, 1) as $argument) {
     if ($argument === '--check') {
         $check = true;
         continue;
     }
-    if (preg_match('/^--(version|source-commit|output|edition|workflow|internal-core-inputs|api-tool-root)=(.+)$/D', $argument, $matches) !== 1 || isset($options[$matches[1]])) {
+    if (preg_match('/^--(version|source-commit|source-snapshot|tool-root|output|edition|workflow|internal-core-inputs|api-tool-root)=(.+)$/D', $argument, $matches) !== 1 || isset($options[$matches[1]])) {
         releaseUsage();
     }
     $options[$matches[1]] = $matches[2];
 }
-foreach (['version','source-commit','output'] as $required) {
+if (isset($options['tool-root'])) {
+    if (!str_starts_with($options['tool-root'], '/') || !is_dir($options['tool-root']) || is_link($options['tool-root'])) { releaseUsage(); }
+    $root = realpath($options['tool-root']);
+}
+require_once $root . '/server/vendor/autoload.php';
+foreach (['version','output'] as $required) {
     if (!isset($options[$required])) {
         releaseUsage();
     }
@@ -37,7 +41,9 @@ foreach (['version','source-commit','output'] as $required) {
 if (preg_match(RELEASE_STRICT_SEMVER, $options['version']) !== 1) {
     releaseUsage();
 }
-if (preg_match('/^[a-f0-9]{40}$/D', $options['source-commit']) !== 1 || !str_starts_with($options['output'], '/')
+if ((!isset($options['source-snapshot']) && (!isset($options['source-commit']) || preg_match('/^[a-f0-9]{40}$/D', $options['source-commit']) !== 1))
+    || (isset($options['source-snapshot']) && (isset($options['source-commit']) || !str_starts_with($options['source-snapshot'], '/') || !is_dir($options['source-snapshot'])))
+    || !str_starts_with($options['output'], '/')
     || (isset($options['api-tool-root']) && !str_starts_with($options['api-tool-root'], '/'))
     || (isset($options['edition']) && !in_array($options['edition'], ['standalone', 'multi-tenant'], true))
     || (isset($options['workflow']) && !in_array($options['workflow'], ['none', 'runtime', 'full'], true))) {
@@ -56,11 +62,12 @@ if (isset($options['internal-core-inputs'])) {
 // their source commits predate the current release-versions contract and must
 // not be rejected merely because the current template version is newer.
 if (!$check) {
+    $contractRoot = isset($options['source-snapshot']) ? realpath($options['source-snapshot']) : $root;
     if (file_exists($options['output']) || is_link($options['output'])) {
         throw new RuntimeException('SCAFFOLD_RELEASE_OUTPUT_EXISTS');
     }
     try {
-        $contract = json_decode((string) file_get_contents($root . '/release-versions.json'), true, 64, JSON_THROW_ON_ERROR);
+        $contract = json_decode((string) file_get_contents($contractRoot . '/release-versions.json'), true, 64, JSON_THROW_ON_ERROR);
         if (($contract['schema_version'] ?? null) !== 3
             || ($contract['protocol'] ?? null) !== 'peanut.release-versions.v3'
             || !array_key_exists('instance_version', $contract)
@@ -140,11 +147,14 @@ function releaseAssertTracked(string $root, string $path): void
     releaseRun(['git','-C',$root,'ls-files','--error-unmatch','--',$relative]);
 }
 
-$commit = trim(releaseRun(['git','-C',$root,'rev-parse',$options['source-commit'] . '^{commit}']));
-if (!hash_equals($options['source-commit'], $commit)) {
-    throw new RuntimeException('SCAFFOLD_RELEASE_SOURCE_NOT_COMMIT');
+$localSource = isset($options['source-snapshot']);
+$commit = null;
+$tree = null;
+if (!$localSource) {
+    $commit = trim(releaseRun(['git','-C',$root,'rev-parse',$options['source-commit'] . '^{commit}']));
+    if (!hash_equals($options['source-commit'], $commit)) { throw new RuntimeException('SCAFFOLD_RELEASE_SOURCE_NOT_COMMIT'); }
+    $tree = trim(releaseRun(['git','-C',$root,'rev-parse',$commit . '^{tree}']));
 }
-$tree = trim(releaseRun(['git','-C',$root,'rev-parse',$commit . '^{tree}']));
 $temporaryRoot = realpath(sys_get_temp_dir());
 if ($temporaryRoot === false) {
     throw new RuntimeException('SCAFFOLD_RELEASE_TEMP_ROOT_INVALID');
@@ -154,7 +164,18 @@ if (!mkdir($temporary, 0700, true)) {
     throw new RuntimeException('SCAFFOLD_RELEASE_TEMP_FAILED');
 }
 try {
-    $source = $temporary . '/source';
+    $source = $localSource ? realpath($options['source-snapshot']) : $temporary . '/source';
+    if ($localSource) {
+        require_once $source . '/scripts/scaffold-runtime/ScaffoldSourceIdentity.php';
+        $sourceIdentity = \app\common\value\scaffold\ScaffoldSourceIdentity::local($source);
+        spl_autoload_register(static function (string $class) use ($source): void {
+            if (!str_starts_with($class, 'app\\')) { return; }
+            $relative = str_replace('\\', '/', substr($class, 4)) . '.php';
+            $file = $source . '/server/app/' . $relative;
+            if (!is_file($file) || is_link($file)) { throw new RuntimeException('SCAFFOLD_LOCAL_SNAPSHOT_CLASS_MISSING: ' . $class); }
+            require_once $file;
+        }, true, true);
+    } else {
     $origin = trim(releaseRun(['git','-C',$root,'remote','get-url','origin']));
     if ($origin === '') {
         throw new RuntimeException('SCAFFOLD_RELEASE_SOURCE_ORIGIN_INVALID');
@@ -177,6 +198,8 @@ try {
         || trim(releaseRun(['git', '-C', $root, 'status', '--porcelain=v1', '--untracked-files=all'])) !== '')) {
         throw new RuntimeException('SCAFFOLD_RELEASE_PRODUCER_SOURCE_MISMATCH');
     }
+    $sourceIdentity = ['kind' => 'git', 'commit' => $commit, 'tree' => $tree];
+    }
     $modernCreator = is_file($source . '/server/app/common/infrastructure/scaffold/ApplicationCreator.php');
     require $source . ($modernCreator
         ? '/server/app/common/validation/scaffold/ScaffoldPathGuard.php'
@@ -192,7 +215,7 @@ try {
     $creatorClass = $modernCreator
         ? \app\common\infrastructure\scaffold\ApplicationCreator::class
         : \app\common\service\scaffold\ApplicationCreator::class;
-    $creatorArguments = [$source,$source . '/scaffold/application-template-inventory.json',['commit' => $commit,'tree' => $tree]];
+    $creatorArguments = [$source,$source . '/scaffold/application-template-inventory.json',$localSource ? $sourceIdentity : ['commit' => $commit,'tree' => $tree]];
     $constructor = (new ReflectionClass($creatorClass))->getConstructor();
     $constructorCount = $constructor?->getNumberOfParameters() ?? 0;
     if ($constructorCount >= 4) {
@@ -276,15 +299,18 @@ try {
             $application,
             $core,
             $temporary,
-            $commit,
-            $tree,
+            $sourceIdentity,
             $options['internal-core-inputs'],
         );
         $manifest = internalCandidateReadJson($application . '/.peanut/application-manifest.json');
     }
     $generationSource = $manifest['generation_source'] ?? null;
-    if (($manifest['template']['source_commit'] ?? null) !== $commit || ($manifest['template']['source_tree'] ?? null) !== $tree
-        || ($generationSource !== null && (!is_array($generationSource) || ($generationSource['commit'] ?? null) !== $commit || ($generationSource['tree'] ?? null) !== $tree
+    $identityMatches = $localSource
+        ? (($manifest['template']['source_identity'] ?? null) === $sourceIdentity
+            && ($generationSource['source_identity'] ?? null) === $sourceIdentity)
+        : (($manifest['template']['source_commit'] ?? null) === $commit && ($manifest['template']['source_tree'] ?? null) === $tree
+            && ($generationSource === null || (($generationSource['commit'] ?? null) === $commit && ($generationSource['tree'] ?? null) === $tree)));
+    if (!$identityMatches || ($generationSource !== null && (!is_array($generationSource)
             || ($generationSource['inventory_sha256'] ?? null) !== hash_file('sha256', $source . '/scaffold/application-template-inventory.json')))) {
         throw new RuntimeException('SCAFFOLD_RELEASE_GENERATION_IDENTITY_MISMATCH');
     }
@@ -321,7 +347,7 @@ try {
     }
     usort($files, static fn(array $a, array $b): int => strcmp($a['path'], $b['path']));
     $releaseIdentity = [
-        'version' => $options['version'],'source_commit' => $commit,'source_tree' => $tree,'inventory_sha256' => hash('sha256', (string) $inventoryRaw),
+        'version' => $options['version'],'source_identity' => $sourceIdentity,'inventory_sha256' => hash('sha256', (string) $inventoryRaw),
         'inventory_template_version' => $manifest['template']['version'],'managed_tree_sha256' => $manifest['digests']['managed_tree_sha256'],
     ];
     if (array_key_exists('workflow', $manifest['application'])) {
@@ -333,7 +359,9 @@ try {
     }
     if (($inventory['schema_version'] ?? null) === 1 && ($inventory['protocol'] ?? null) === 'peanut.create-app-inventory.v1') {
         $releaseIdentity['tokens'] = ['product_name' => RELEASE_PRODUCT_TOKEN,'slug' => RELEASE_SLUG_TOKEN,'package_identity' => RELEASE_PACKAGE_TOKEN];
-        $release = ['schema_version' => 2,'protocol' => 'peanut.scaffold-release.v2','release' => $releaseIdentity,'files' => $files,'renames' => []];
+        $release = $localSource
+            ? ['schema_version' => 4,'protocol' => 'peanut.scaffold-release.v4','release' => $releaseIdentity + ['tokens' => ['product_name' => RELEASE_PRODUCT_TOKEN,'slug' => RELEASE_SLUG_TOKEN,'package_identity' => RELEASE_PACKAGE_TOKEN]],'files' => $files,'renames' => []]
+            : ['schema_version' => 2,'protocol' => 'peanut.scaffold-release.v2','release' => $releaseIdentity + ['source_commit' => $commit,'source_tree' => $tree],'files' => $files,'renames' => []];
     } else {
         $applicationVersion = $inventory['application']['version'] ?? null;
         if (($inventory['schema_version'] ?? null) !== 2 || ($inventory['protocol'] ?? null) !== 'peanut.create-app-inventory.v2'
@@ -342,8 +370,11 @@ try {
         }
         $releaseIdentity['tokens'] = ['product_name' => RELEASE_PRODUCT_TOKEN,'slug' => RELEASE_SLUG_TOKEN,'package_identity' => RELEASE_PACKAGE_TOKEN,
             'application_version' => RELEASE_APPLICATION_VERSION_TOKEN];
-        $release = ['schema_version' => 3,'protocol' => 'peanut.scaffold-release.v3','application' => ['version' => $applicationVersion],
-            'release' => $releaseIdentity,'files' => $files,'renames' => []];
+        $release = $localSource
+            ? ['schema_version' => 4,'protocol' => 'peanut.scaffold-release.v4','application' => ['version' => $applicationVersion],
+                'release' => $releaseIdentity + ['tokens' => ['product_name' => RELEASE_PRODUCT_TOKEN,'slug' => RELEASE_SLUG_TOKEN,'package_identity' => RELEASE_PACKAGE_TOKEN,'application_version' => RELEASE_APPLICATION_VERSION_TOKEN]],'files' => $files,'renames' => []]
+            : ['schema_version' => 3,'protocol' => 'peanut.scaffold-release.v3','application' => ['version' => $applicationVersion],
+                'release' => $releaseIdentity + ['source_commit' => $commit,'source_tree' => $tree,'tokens' => ['product_name' => RELEASE_PRODUCT_TOKEN,'slug' => RELEASE_SLUG_TOKEN,'package_identity' => RELEASE_PACKAGE_TOKEN,'application_version' => RELEASE_APPLICATION_VERSION_TOKEN]],'files' => $files,'renames' => []];
     }
     if ($edition !== null) {
         $release['edition'] = $manifest['edition'];

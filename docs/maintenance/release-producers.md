@@ -4,9 +4,11 @@
 
 ## 正常模板发行
 
-在干净、HEAD等于目标提交的隔离源码检出中，按原生锁准备生产者依赖和`tools/toolchain.json`精确工具后，`peanut release --path=<源码根> --source-commit=<完整提交> --output=<不存在的绝对目录>`分别调用同一`build-scaffold-release`生成Standalone和Multi-tenant模板。也可直接调用该原生入口，显式传`--version`、`--source-commit`、`--edition`和`--output`；普通模板不传`--internal-core-inputs`。每个Edition输出`peanut-scaffold-<edition>.tgz`与配套同名`.json`，均来自该次原生APP投影，不另生成运行APP。新构建拒绝调用工程与目标源码不一致；既有输出拒绝覆盖，`--check`同时核对升级清单、创建载荷、归档成员及配套摘要。
+正常本地开发发行由独立`peanut-cli`提供`peanut config`与`peanut release`：配置仅绑定已安装工具并复用`project-env`，发行以当前磁盘文件生成受限源码快照，允许dirty、无HEAD及未提交新增源码。默认输出`release/<scaffold版本>/{standalone,multi-tenant}`；显式`--version`必须等于`release-versions.json.scaffold_template`，既有版本拒绝覆盖，只有显式`--overwrite`且目标内容能由原生manifest、构建回执、归档和managed文件逐项验证时才重建。快照排除Git、`.local`、依赖、运行数据和本次输出根；CLI先用`scripts/prepare-product-release-candidate`解析并固定正式PHP/Web Core版本与来源，再更新临时快照中的原生锁和库存，最后调用本仓`scripts/build-scaffold-release`完成两Edition原生投影。需要本地Core时仅显式使用`--with-local-core`，从配置路径快照Core、按其原生锁打包并把本地来源摘要写入归档与锁，不伪造Git身份。最终来源摘要读取原生包manifest。配置/发行测试仍需人工Gate确认后执行。
 
-配套`peanut.template-package.v1`清单绑定产品、版本、Edition、profile、Workflow、源码commit/tree/inventory/Edition profile和归档SHA-256/长度。归档为只含普通文件的USTAR+gzip；`scaffold-manifest.json`保持v3受管升级语义；`template-create.json`另列全部创建文件、模式、摘要、渲染声明、APP manifest模板和可写目录。受管载荷在`files/`，自有初始默认在`defaults/`，自有文件不进入升级受管集合。归档不携带APP安装依赖、Git、秘密、数据库、上传和实例安装身份。
+固定候选和正式资格仍使用本节后续描述的固定源码commit/tree、原生锁与资格流程；这些条件不扩展为普通开发期本地发行的前置条件。也可直接调用原生入口，显式传`--version`、`--source-commit`、`--edition`和`--output`；普通正式模板不传`--internal-core-inputs`。每个Edition输出`peanut-scaffold-<edition>.tgz`与配套同名`.json`，均来自该次原生APP投影，不另生成运行APP。
+
+配套`peanut.template-package.v1`清单绑定产品、版本、Edition、profile、Workflow、源码身份、inventory/Edition profile和归档SHA-256/长度；源码身份可为准确Git commit/tree或本地快照摘要。归档为只含普通文件的USTAR+gzip；`scaffold-manifest.json`保持受管升级语义；`template-create.json`另列全部创建文件、模式、摘要、渲染声明、APP manifest模板和可写目录。受管载荷在`files/`，自有初始默认在`defaults/`，自有文件不进入升级受管集合。归档不携带APP安装依赖、Git、秘密、数据库、上传和实例安装身份。
 
 同一原生入口在本地和CI使用。`scaffold-build-inputs.json`另外记录固定源码、生产脚本/工具要求与原生锁摘要、实际PHP/Node/Python/pnpm/Composer版本、系统/架构/zlib身份、全部成员内容及模式指纹和最终附件摘要；不含时间、临时绝对路径或秘密，也不进入APP载荷。模板输入读取器将此回执纳入资格和候选锁；检查按原源码和最终包重算输入/载荷/附件身份，不重新安装tooling，不把检查机器的环境冒充原构建环境。archive摘要证明容器字节，payload摘要证明排序后的路径/模式/内容，二者不能互相替代。
 

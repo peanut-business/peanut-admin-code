@@ -218,46 +218,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fcdc91125d83cac721ab64e50740eab6567e5ba29dca8c1ecee4e24eb47de9c8"
-        },
-        {
-            "path": ".peanut/recipes/scaffold-ci/baseline/files/.github/workflows/scaffold-release.yml",
-            "target": ".peanut/recipes/scaffold-ci/baseline/files/.github/workflows/scaffold-release.yml",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": ".peanut/recipes/scaffold-ci/manifest.json",
-            "target": ".peanut/recipes/scaffold-ci/manifest.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
-            "path": ".peanut/recipes/scaffold-ci/source-manifest.json",
-            "target": ".peanut/recipes/scaffold-ci/source-manifest.json",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
+            "source_sha256": "7a9c10e3070a6f7033bdd426906f5788dd48a91d7c4ade1d58f549cdaa5ce0bc"
         },
         {
             "path": ".prettierrc.cjs",
@@ -975,7 +936,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9653fe380a36edc4be51f0abe21055892847b3cc984dba9f22edfa1ad56c50ea"
+            "source_sha256": "193817531773d813f1ba436e470b6f3e3a0c55e524645d7bece331d7fb4259e5"
         },
         {
             "path": "docs/development/standard.md",
@@ -1187,19 +1148,6 @@
             "classification": "managed",
             "owner": "scaffold",
             "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "standard",
-                "full"
-            ],
-            "source_sha256": "72cb1b6a306bbaa55e8741afb14ef76e4ce9d96afce2916e9ac664dde43c99db"
-        },
-        {
-            "path": "pc/.env.production",
-            "target": "pc/.env.production",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "standard",
@@ -1896,20 +1844,6 @@
                 "full"
             ],
             "source_sha256": "f6aa29d42b62de7a954608032e2f99ba433a2bb9e98a15fb92a3dbe5e55f0bb5"
-        },
-        {
-            "path": "platform/.env.production",
-            "target": "platform/.env.production",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "4d948f3fbe78254434d7ec3d621a0e6dc6c9bc568299941ff2d86766fa605b92"
         },
         {
             "path": "platform/.gitignore",
@@ -3019,7 +2953,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fc46a6f801c5ff1192dd31a210fc6efceb69782393faac9c78cf8ddb9837cd20"
+            "source_sha256": "a119847c3596983d0cd44eb0983261675c2e6189f537d76b53d61b98ece5207d"
         },
         {
             "path": "scripts/build-scaffold-release",
@@ -3467,7 +3401,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e960faec11b3ad8e9e04fc2f0ca4690a0285651b0843c1eae90ed9ebb1587020"
+            "source_sha256": "dd90403b8eff4b52c88fe6c0a3d8aeb234b5eb38f08561ed534f9c04fee1b2d5"
         },
         {
             "path": "scripts/generate-all-modules-packaging-evidence",
@@ -3888,7 +3822,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "07416a3475e612ef9639cd3f8b7f4974a3dcfc60d6f59f82b7572f2ec5324972"
+            "source_sha256": "43ff9d998b1ff89ae9cfc54dfe1f1cc8a47af39c5e1d908cdfef4b8d0d63421b"
         },
         {
             "path": "scripts/project-resource-application.py",
@@ -3998,7 +3932,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4040ae8745b46aee3a3f43d9872760ba28a83fb85ab8fabd0a2144311b96134b"
+            "source_sha256": "e3016e3d622527113054d221f41b856df5fbe7aca967924b98106f0c18c5d5ad"
         },
         {
             "path": "scripts/release-metadata-version.cjs",
@@ -4080,7 +4014,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0f5c256c9f2fc6eb8c16c7f408661ccb7ca1e103a4d3ff3009d9ba28243a3d6d"
+            "source_sha256": "ae53b790d5435ae77e4bafdb46698bbd4b796d1d8034554229f57059a8021dd2"
         },
         {
             "path": "scripts/scaffold-runtime/ReleaseDependencyIdentity.php",
@@ -4094,7 +4028,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6009176c2990c56b071aa1a3d79980c56359fba0c1f3e1d218dea7772c1ee82f"
+            "source_sha256": "0b3bf7dffc5e78ef4bb6a798c4b9484de04cb46b3983a2701e877b557e00dcd0"
         },
         {
             "path": "scripts/scaffold-runtime/ScaffoldManifest.php",
@@ -4108,7 +4042,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c632b7f57503e787688e6ca0048448f66f859999a1c848d9a427f6e6f8d71bc4"
+            "source_sha256": "f2b9123901e5bfd6d171b678062db3e4e54d2426b13b10c41989a487d621f566"
         },
         {
             "path": "scripts/scaffold-runtime/ScaffoldPathGuard.php",
@@ -4123,6 +4057,20 @@
                 "full"
             ],
             "source_sha256": "5889979d4bb8f22c6612fb4c06d6726ad44d2c592862e1b608a2f3772799290d"
+        },
+        {
+            "path": "scripts/scaffold-runtime/ScaffoldSourceIdentity.php",
+            "target": "scripts/scaffold-runtime/ScaffoldSourceIdentity.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "8ff99b0abc49f4fa89507834e0a61b4d3c6c6bda9d64da3fb5c01f6100ad3440"
         },
         {
             "path": "scripts/scaffold-runtime/ScaffoldUpgradeLedger.php",
@@ -4150,7 +4098,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c86a755a7d9f40128feecb9a7b9646ca5f02fb2e4d9a42910a1f36568884f037"
+            "source_sha256": "068574a8793fcf9bae6639708b0886aa982587db5c635647e057a194f3adad74"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",
@@ -4178,7 +4126,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9ac737f4db68fc2f70183d44ef44f889c8a11c5b498b084396e060bdaf4ca29a"
+            "source_sha256": "95f2cf13dbbf5ccb27cb13531dfdf9006183cc268a107d83079b8cc081dc51c8"
         },
         {
             "path": "scripts/seed-demo-data",
@@ -28998,7 +28946,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ef34345c603f494f9cde7659f7d9e45ef28ce9567ccdb53740bfb3d7755787a2"
+            "source_sha256": "c8ba5112a27f416c12e1d4be86ba8b301f7fe4e95741e632c586fccc7ce94b8c"
         },
         {
             "path": "server/docker/tests/test_first_start_vendor.py",
@@ -29110,20 +29058,6 @@
                 "full"
             ],
             "source_sha256": "e499169cba1cbfcc35b7c61c12234e943570e135cb60b98d960244cccf1272e5"
-        },
-        {
-            "path": "server/private/storage/.gitkeep",
-            "target": "server/private/storage/.gitkeep",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         },
         {
             "path": "server/public/.htaccess",
@@ -29334,20 +29268,6 @@
                 "full"
             ],
             "source_sha256": "5c89a8a9c5af258d02d0bfd3582c75963bea53baa1f5f5132662b80020a63452"
-        },
-        {
-            "path": "server/public/storage/.gitkeep",
-            "target": "server/public/storage/.gitkeep",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         },
         {
             "path": "server/resources/module-scaffold/backend/ModuleProvider.php.stub",
@@ -29614,20 +29534,6 @@
                 "full"
             ],
             "source_sha256": "12cb620e2cd09bcb7b8300076f9a4a65bd10c098bde06a01130df45f0ed07b4d"
-        },
-        {
-            "path": "server/runtime/.gitkeep",
-            "target": "server/runtime/.gitkeep",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         },
         {
             "path": "server/tests/Ablation/DataIsolationAblationTest.php",
@@ -34491,7 +34397,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "71175896292821cd0d814ebc182b3dfe0c38d11d31c9a59d3f5618cec3c3e855"
+            "source_sha256": "be60d4453f0f74058703e0c85402eb68c8ca5925b060514dbdf71dd362e924b3"
         },
         {
             "path": "uniapp/.env.example",
@@ -34505,19 +34411,6 @@
                 "full"
             ],
             "source_sha256": "9948afe573d412e943e1d46f31f879ccdf57742282169ccd65922d6a82518673"
-        },
-        {
-            "path": "uniapp/.env.production",
-            "target": "uniapp/.env.production",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "standard",
-                "full"
-            ],
-            "source_sha256": "05ac6ba180b4c544396473e324031172d30956318dcaca2555a119aabf76d2c4"
         },
         {
             "path": "uniapp/.gitignore",
@@ -35456,20 +35349,6 @@
             ]
         },
         {
-            "path": "web/.env.development",
-            "target": "web/.env.development",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "c480ce314bf06df02c2c882fea7856472eb203175c6d9d1e6c41ba127ad64445"
-        },
-        {
             "path": "web/.env.example",
             "target": "web/.env.example",
             "classification": "managed",
@@ -35482,48 +35361,6 @@
                 "full"
             ],
             "source_sha256": "633645cbf3b97659fce2964c162dfddbf731a35399e71dd7fad1a001d6a1e886"
-        },
-        {
-            "path": "web/.env.multi-tenant",
-            "target": "web/.env.multi-tenant",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "dbff70bc4107d30bf47886559e6d3f3490c34766496622b53d3187d9489ae274"
-        },
-        {
-            "path": "web/.env.production",
-            "target": "web/.env.production",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "2f6c3b1a5e12eaa9ea4f14ea9bb48c03c0d9a9a463d9bb1ece4c50a66b9e5ae6"
-        },
-        {
-            "path": "web/.env.standalone",
-            "target": "web/.env.standalone",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "2f6c3b1a5e12eaa9ea4f14ea9bb48c03c0d9a9a463d9bb1ece4c50a66b9e5ae6"
         },
         {
             "path": "web/.eslintignore",

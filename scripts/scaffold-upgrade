@@ -14,6 +14,7 @@ require $root . '/scripts/scaffold-runtime/Semver.php';
 
 function usage(): never
 {
+    fwrite(STDERR, "Local template packages use --source-snapshot-sha256=<64-hex>; --source-checkout is optional for an additional snapshot check.\n");
     fwrite(STDERR, "Usage:\n"
         . "  php scripts/scaffold-upgrade preflight --project-root=<path> --from-manifest=<path> --to-manifest=<path>\n"
         . "  php scripts/scaffold-upgrade template-plan --project-root=<path> --template-manifest=<path> [--baseline-mode-manifest=<exact-old-release-manifest>] [--source-checkout=<absolute-official-git-checkout> (development local archive selection only)]\n"
@@ -48,7 +49,7 @@ if (!in_array($command, ['template-plan', 'preflight', 'resolve', 'adoption-plan
 }
 $options = [];
 foreach (array_slice($argv, 2) as $argument) {
-    if (preg_match('/^--(project-root|from-manifest|to-manifest|template-manifest|baseline-mode-manifest|tooling-autoload|template-package-manifest|template-package-sha256|package|plan|confirm-plan-sha256|confirm-paths|preserve-paths|replace-paths|release-manifest|source-checkout|source-repository|source-ref|source-channel|release-version|source-commit|source-tree|release-lock|release-lock-sha256)=(.+)$/D', $argument, $matches) !== 1 || isset($options[$matches[1]])) {
+    if (preg_match('/^--(project-root|from-manifest|to-manifest|template-manifest|baseline-mode-manifest|tooling-autoload|template-package-manifest|template-package-sha256|package|plan|confirm-plan-sha256|confirm-paths|preserve-paths|replace-paths|release-manifest|source-checkout|source-repository|source-ref|source-channel|release-version|source-commit|source-tree|source-snapshot-sha256|release-lock|release-lock-sha256)=(.+)$/D', $argument, $matches) !== 1 || isset($options[$matches[1]])) {
         usage();
     }
     $options[$matches[1]] = $matches[2];
@@ -66,10 +67,15 @@ $requiredOptions = match ($command) {
 $sourceSelectionFlags = ['source-repository', 'source-ref', 'source-channel', 'source-commit', 'source-tree', 'release-lock', 'release-lock-sha256'];
 $sourceSelection = null;
 if ($command === 'template-plan' && isset($options['template-package-manifest'])) {
-    $sourceSelectionFlags = ['source-repository', 'source-ref', 'source-channel', 'source-commit', 'source-tree', 'template-package-manifest', 'template-package-sha256'];
+    $local = isset($options['source-snapshot-sha256']);
+    $sourceSelectionFlags = array_merge(['source-repository', 'source-ref', 'source-channel'],
+        $local ? ['source-snapshot-sha256'] : ['source-commit', 'source-tree'],
+        ['template-package-manifest', 'template-package-sha256']);
     foreach ($sourceSelectionFlags as $flag) { if (!isset($options[$flag])) { usage(); } }
-    $sourceSelection = ['repository' => $options['source-repository'], 'requested_ref' => $options['source-ref'],
-        'channel' => $options['source-channel'], 'commit' => $options['source-commit'], 'tree' => $options['source-tree'],
+    $sourceSelection = ['repository' => $local && $options['source-repository'] === '-' ? null : $options['source-repository'], 'requested_ref' => $options['source-ref'],
+        'channel' => $options['source-channel'],
+        ...($local ? ['source_identity' => ['kind' => 'local', 'snapshot_sha256' => $options['source-snapshot-sha256']]]
+            : ['commit' => $options['source-commit'], 'tree' => $options['source-tree']]),
         'template_package_path' => $options['template-package-manifest'], 'template_package_sha256' => $options['template-package-sha256']];
     if (isset($options['source-checkout'])) {
         $sourceSelection['source_checkout'] = $options['source-checkout'];

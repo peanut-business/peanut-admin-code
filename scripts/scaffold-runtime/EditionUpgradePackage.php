@@ -6,6 +6,7 @@ namespace app\common\infrastructure\scaffold;
 
 use app\common\validation\scaffold\ScaffoldPathGuard;
 use app\common\value\scaffold\ScaffoldManifest;
+use app\common\value\scaffold\ScaffoldSourceIdentity;
 use RuntimeException;
 
 final class EditionUpgradePackage
@@ -269,8 +270,7 @@ final class EditionUpgradePackage
             || ($targetEdition['module_profile'] ?? null) !== $packageEdition['module_profile']
             || ($targetEdition['tenant_bootstrap'] ?? null) !== $packageEdition['tenant_bootstrap']
             || ($targetEdition['schema']['projection'] ?? null) !== $packageEdition['schema_projection']
-            || ($release['source_commit'] ?? null) !== ($manifest['build_source']['commit'] ?? null)
-            || ($release['source_tree'] ?? null) !== ($manifest['build_source']['tree'] ?? null)
+            || $targetManifest->sourceIdentity() !== ScaffoldSourceIdentity::from($manifest['build_source'] ?? [], true)
             || ($release['inventory_sha256'] ?? null) !== ($manifest['build_source']['inventory_sha256'] ?? null)
             || ($release['managed_tree_sha256'] ?? null) !== ($manifest['target']['managed_tree_sha256'] ?? null)) {
             throw new RuntimeException('EDITION_UPGRADE_TARGET_IDENTITY_MISMATCH');
@@ -311,7 +311,9 @@ final class EditionUpgradePackage
             || ($upgrade['formal_release_eligible'] ?? null) !== false
             || ($projection['protocol'] ?? null) !== 'peanut.internal-core-scaffold-projection.v1'
             || ($projection['scope'] ?? null) !== 'internal-upgrade-target-not-formal-release'
-            || ($projection['source'] ?? null) !== ['commit' => $release['source_commit'], 'tree' => $release['source_tree']]
+            || ($target->sourceIdentity()['kind'] === 'local'
+                ? (($projection['source_identity'] ?? null) !== $target->sourceIdentity() || array_key_exists('source', $projection))
+                : (($projection['source'] ?? null) !== ['commit' => $target->sourceIdentity()['commit'], 'tree' => $target->sourceIdentity()['tree']]))
             || ($projection['managed_tree_sha256']['projected'] ?? null) !== ($release['managed_tree_sha256'] ?? null)
             || preg_match('/^[a-f0-9]{64}$/D', (string) ($projection['core_inputs_sha256'] ?? '')) !== 1
             || !is_string($path) || !str_starts_with($path, 'packages/core-php/') || !str_ends_with($path, '.zip')) {
@@ -404,8 +406,7 @@ final class EditionUpgradePackage
         if (!is_array($source) || !is_array($entries)
             || ($adoption['protocol'] ?? null) !== 'peanut.ownership-adoption.v1'
             || ($source['version'] ?? null) !== ($application['template']['version'] ?? null)
-            || ($source['commit'] ?? null) !== ($application['template']['source_commit'] ?? null)
-            || ($source['tree'] ?? null) !== ($application['template']['source_tree'] ?? null)) {
+            || ScaffoldSourceIdentity::from($source, true) !== ScaffoldSourceIdentity::from($application['template'] ?? [])) {
             throw new RuntimeException('EDITION_UPGRADE_ADOPTION_SOURCE_INVALID');
         }
         $targetFiles = $target->files();

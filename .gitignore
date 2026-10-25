@@ -13,6 +13,7 @@ deploy/production.env
 /.ops/
 /updates/
 /backups/
+/release/
 /.peanut/application-release.json
 /.peanut/upgrades/
 /release-manifest.txt
