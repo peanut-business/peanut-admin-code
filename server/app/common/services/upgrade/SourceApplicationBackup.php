@@ -508,6 +508,7 @@ final class SourceApplicationBackup
         '20261012-align-platform-ops-permission-ownership' => ['pa_permission'],
         '20261012-repair-seeded-permission-parents' => ['pa_system_menu'],
         '20261019-module-migration-provenance-metadata' => ['pa_module_migration'],
+        '20261027-create-scaffold-upgrade-demo' => ['pa_scaffold_upgrade_demo'],
         \app\common\services\upgrade\FileAdoptionRelocation::ID => [],
     ];
 
@@ -534,8 +535,9 @@ final class SourceApplicationBackup
         if ($pending !== [] && $metadataTool === '') {
             self::assertEffectMetadataVisibility($pdo);
         }
-        $scope = $metadataTool === '' || $tables === [] ? self::observe($pdo, $tables, false)
-            : self::sourceEffectScope($pdo, $tables, false, $binding ?? [], $metadataTool, $guard);
+        $allowMissing = in_array('20261027-create-scaffold-upgrade-demo', $pending, true) ? ['pa_scaffold_upgrade_demo'] : [];
+        $scope = $metadataTool === '' || $tables === [] ? self::observe($pdo, $tables, $allowMissing)
+            : self::sourceEffectScope($pdo, $tables, $allowMissing, $binding ?? [], $metadataTool, $guard);
         $scope['execution_requirements'] = [];
         foreach ($pending as $id) {
             array_push($scope['execution_requirements'], ...self::applicationStageRequirements($scope, $id));
@@ -544,7 +546,7 @@ final class SourceApplicationBackup
     }
 
     /** Live source issuer, using the existing fixed remote metadata reader. No caller receipt or SQL is accepted. */
-    private static function sourceEffectScope(PDO $pdo, array $tables, bool $allowMissing, array $binding, string $toolId, ?callable $guard, bool $wholeSchema = false): array
+    private static function sourceEffectScope(PDO $pdo, array $tables, bool|array $allowMissing, array $binding, string $toolId, ?callable $guard, bool $wholeSchema = false): array
     {
         $root = $binding['source']['root'] ?? '';
         $serverRoot = $root . '/server';
@@ -611,7 +613,7 @@ final class SourceApplicationBackup
             $query = $pdo->prepare('SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');
             $query->execute([$table]); $exists = (int) $query->fetchColumn(); $query->closeCursor();
             if ($exists === 1) { $present[] = $table; }
-            elseif (!$allowMissing) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_TABLE_UNSUPPORTED'); }
+            elseif (!self::allowsMissingTable($allowMissing, $table)) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_TABLE_UNSUPPORTED'); }
         }
         // Metadata reads do not grant row access. The same native declaration must
         // already cover every present source table in full; DDL/exclusive is stronger.
@@ -1363,7 +1365,7 @@ final class SourceApplicationBackup
         return $scope;
     }
 
-    private static function observe(PDO $pdo, array $tables, bool $allowMissing, ?array $effectMetadata = null): array
+    private static function observe(PDO $pdo, array $tables, bool|array $allowMissing, ?array $effectMetadata = null): array
     {
         $query = $pdo->query('SELECT @@SESSION.information_schema_stats_expiry AS expiry');
         $stats = $query->fetch(PDO::FETCH_ASSOC); $query->closeCursor();
@@ -1380,7 +1382,7 @@ final class SourceApplicationBackup
             if (!is_string($table) || preg_match('/\Apa_[a-z0-9_]+\z/D', $table) !== 1) { throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_TABLE_UNSUPPORTED'); }
             $query = $pdo->prepare('SELECT TABLE_TYPE,ENGINE,AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');
             $query->execute([$table]); $rows = $query->fetchAll(PDO::FETCH_ASSOC); $query->closeCursor();
-            if ($allowMissing && $rows === []) { $objects[$table] = ['exists' => false]; continue; }
+            if ($rows === [] && self::allowsMissingTable($allowMissing, $table)) { $objects[$table] = ['exists' => false]; continue; }
             if (count($rows) !== 1 || $rows[0]['TABLE_TYPE'] !== 'BASE TABLE' || $rows[0]['ENGINE'] !== 'InnoDB') {
                 throw new RuntimeException('APPLICATION_SCHEMA_BACKUP_TABLE_UNSUPPORTED');
             }
@@ -1428,9 +1430,14 @@ final class SourceApplicationBackup
             'coverage_required' => ['complete_table_ddl', 'all_table_rows', 'indexes', 'checks', 'foreign_keys', 'triggers', 'auto_increment'],
             'external_dependencies' => 'referenced objects are not automatically added to restore writes; review FK/trigger effects before restoration',
             'backup_status' => 'not_created', 'restore_status' => 'not_executed', 'execution_admitted' => false];
-        if ($allowMissing) { $scope['affected_tables'] = $affected; $scope['absent_original_tables'] = array_values(array_diff($affected, $present)); }
+        if ($allowMissing !== false && $allowMissing !== []) { $scope['affected_tables'] = $affected; $scope['absent_original_tables'] = array_values(array_diff($affected, $present)); }
         return $scope;
         } finally { $pdo->exec('SET SESSION information_schema_stats_expiry=' . $expiry); }
+    }
+
+    private static function allowsMissingTable(bool|array $allowMissing, string $table): bool
+    {
+        return $allowMissing === true || (is_array($allowMissing) && in_array($table, $allowMissing, true));
     }
 
     /** Calls only fixed probe/dump programs; emits no database writes or restore command execution. */

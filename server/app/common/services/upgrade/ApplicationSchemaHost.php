@@ -29,7 +29,7 @@ final class ApplicationSchemaHost
     // Business reads made by the complete fixed chain, including protected FK bindings.
     // Backup/write scope is a separate, smaller contract.
     private const SOURCE_READ_TABLES = ['pa_auth_security_event', 'pa_menu_definition', 'pa_module_migration', 'pa_notice_log',
-        'pa_permission', 'pa_platform_role_permission', 'pa_resource_operation_permission', 'pa_resource_operation_target_type',
+        'pa_permission', 'pa_platform_role_permission', 'pa_resource_operation_permission', 'pa_resource_operation_target_type', 'pa_scaffold_upgrade_demo',
         'pa_role', 'pa_role_permission', 'pa_schema_migration', 'pa_system_menu', 'pa_tenant', 'pa_tenant_session'];
 
     /** Immutable SQL understood by the source-specific read-only proofs below. */
@@ -43,6 +43,7 @@ final class ApplicationSchemaHost
         '20261012-align-platform-ops-permission-ownership' => '038766e7e9ab5356cacf11cc6bb2dd675af02cd9bd3180efd356a8234d6aa1d9',
         '20261012-repair-seeded-permission-parents' => '06c5e8cad88139ba64cbd498765082a52df43e947370ddf2add1de956788ba5f',
         '20261019-module-migration-provenance-metadata' => '5e8abee207d363cdbb48f01c3980a611b01f4457150666a67e67f690dd547ad9',
+        '20261027-create-scaffold-upgrade-demo' => 'bca9d596601187ae6e75bae2c9b25e102f75abe2075974d595ef650016eab147',
         FileAdoptionRelocation::ID => FileAdoptionRelocation::SQL_SHA,
     ];
 
@@ -117,6 +118,13 @@ final class ApplicationSchemaHost
                 'complete_preconditions_proven' => true, 'application_prerequisites' => [],
                 'proof' => ['contract' => AuthClientSchemaMigrationProof::class, 'safe_summary' => $before['safe_summary']],
                 'constraint_names' => $before['constraint_names'], 'tables' => [], 'readonly' => true];
+        }
+        if ($id === '20261027-create-scaffold-upgrade-demo') {
+            $before = self::demoMigrationBefore($pdo, $migration);
+            return ['migration_id' => $id, 'sha256' => $sha, 'status' => 'ready',
+                'complete_preconditions_proven' => true, 'application_prerequisites' => [],
+                'proof' => ['contract' => 'exact_scaffold_upgrade_demo', 'object_absent' => $before['object_absent'], 'readonly' => true],
+                'tables' => [], 'readonly' => true];
         }
         // Other fixed stages returned through their owning business contract above.
         $constraintNames = self::prestateConstraintNames($pdo, $id);
@@ -287,6 +295,82 @@ final class ApplicationSchemaHost
         }
     }
 
+    /** Fixed instance-level S2 demo migration: collisions stop before SQL and exact row/schema are sealed after it. */
+    public static function demoMigrationBefore(PDO $pdo, array $migration): ?array
+    {
+        if (($migration['id'] ?? null) !== '20261027-create-scaffold-upgrade-demo') { return null; }
+        [$id, , $sha] = self::prestateIdentity($migration);
+        if ($id !== '20261027-create-scaffold-upgrade-demo' || $sha !== self::PRESTATE_SQL[$id] || $pdo->inTransaction()) {
+            throw new RuntimeException('APPLICATION_SCHEMA_DEMO_INPUT_INVALID');
+        }
+        $query = $pdo->prepare('SELECT TABLE_TYPE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');
+        $query->execute(['pa_scaffold_upgrade_demo']);
+        if ($query->fetch(PDO::FETCH_ASSOC) !== false) { throw new RuntimeException('APPLICATION_SCHEMA_DEMO_OBJECT_CONFLICT'); }
+        return ['migration_id' => $id, 'source_sha256' => $sha, 'object_absent' => true, 'readonly' => true];
+    }
+
+    public static function demoMigrationAfter(PDO $pdo, array $migration, array $before): array
+    {
+        [$id, , $sha] = self::prestateIdentity($migration);
+        if ($id !== '20261027-create-scaffold-upgrade-demo' || ($before['migration_id'] ?? null) !== $id
+            || ($before['source_sha256'] ?? null) !== $sha || ($before['object_absent'] ?? null) !== true
+            || ($before['readonly'] ?? null) !== true || $pdo->inTransaction()) {
+            throw new RuntimeException('APPLICATION_SCHEMA_DEMO_INPUT_INVALID');
+        }
+        $observed = self::demoObserved($pdo);
+        return ['contract' => 'exact_scaffold_upgrade_demo', 'scope' => 'instance-demo-metadata', 'sha256' => $sha,
+            'schema_sha256' => $observed['schema_sha256'], 'row_sha256' => $observed['row_sha256'], 'row_count' => 1];
+    }
+
+    public static function assertDemoPoststates(PDO $pdo, array $applied, array $poststates, bool $liveVerify): void
+    {
+        $id = '20261027-create-scaffold-upgrade-demo';
+        if (!in_array($id, $applied, true)) { return; }
+        $record = $poststates[$id] ?? null;
+        if (!is_array($record) || ($record['contract'] ?? null) !== 'exact_scaffold_upgrade_demo'
+            || ($record['scope'] ?? null) !== 'instance-demo-metadata' || ($record['sha256'] ?? null) !== self::PRESTATE_SQL[$id]
+            || ($record['row_count'] ?? null) !== 1 || !is_string($record['schema_sha256'] ?? null)
+            || preg_match('/\\A[a-f0-9]{64}\\z/D', $record['schema_sha256']) !== 1
+            || !is_string($record['row_sha256'] ?? null) || preg_match('/\\A[a-f0-9]{64}\\z/D', $record['row_sha256']) !== 1) {
+            throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_PROOF_REQUIRED');
+        }
+        if ($liveVerify) {
+            $observed = self::demoObserved($pdo);
+            if ($record['schema_sha256'] !== $observed['schema_sha256'] || $record['row_sha256'] !== $observed['row_sha256']) {
+                throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_POSTSTATE_REQUIRED');
+            }
+        }
+    }
+
+    private static function demoObserved(PDO $pdo): array
+    {
+        $table = self::prestateTable($pdo, 'pa_scaffold_upgrade_demo');
+        $columns = $table['columns'];
+        $tableMeta = $pdo->prepare('SELECT TABLE_COLLATION,TABLE_COMMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?');
+        $tableMeta->execute(['pa_scaffold_upgrade_demo']); $tableMeta = $tableMeta->fetch(PDO::FETCH_ASSOC);
+        if (array_keys($columns) !== ['id', 'release_version', 'message']
+            || $columns['id']['COLUMN_TYPE'] !== 'bigint unsigned' || $columns['id']['IS_NULLABLE'] !== 'NO' || $columns['id']['COLUMN_DEFAULT'] !== null || $columns['id']['EXTRA'] !== ''
+            || $columns['release_version']['COLUMN_TYPE'] !== 'varchar(16)' || $columns['release_version']['IS_NULLABLE'] !== 'NO'
+            || $columns['release_version']['COLUMN_DEFAULT'] !== null || $columns['release_version']['EXTRA'] !== ''
+            || $columns['release_version']['CHARACTER_SET_NAME'] !== 'ascii' || $columns['release_version']['COLLATION_NAME'] !== 'ascii_bin'
+            || $columns['message']['COLUMN_TYPE'] !== 'varchar(255)' || $columns['message']['IS_NULLABLE'] !== 'NO'
+            || $columns['message']['COLUMN_DEFAULT'] !== null || $columns['message']['EXTRA'] !== ''
+            || $columns['message']['CHARACTER_SET_NAME'] !== 'utf8mb4' || $columns['message']['COLLATION_NAME'] !== 'utf8mb4_0900_ai_ci'
+            || array_keys($table['indexes']) !== ['PRIMARY'] || $table['checks'] !== []
+            || !is_array($tableMeta) || $tableMeta['TABLE_COLLATION'] !== 'utf8mb4_0900_ai_ci'
+            || $tableMeta['TABLE_COMMENT'] !== 'Scaffold upgrade demonstration metadata') {
+            throw new RuntimeException('APPLICATION_SCHEMA_DEMO_SCHEMA_INVALID');
+        }
+        self::prestateUnique($table, ['id']);
+        $statement = $pdo->query('SELECT CAST(`id` AS CHAR) AS `id`,CAST(`release_version` AS CHAR) AS `release_version`,CAST(`message` AS CHAR) AS `message` FROM `pa_scaffold_upgrade_demo` ORDER BY `id`');
+        $rows = $statement->fetchAll(PDO::FETCH_ASSOC); $statement->closeCursor();
+        if ($rows !== [['id' => '1', 'release_version' => '5.0.8', 'message' => 'Scaffold upgrade migration applied.']]) {
+            throw new RuntimeException('APPLICATION_SCHEMA_DEMO_ROW_INVALID');
+        }
+        $create = $pdo->query('SHOW CREATE TABLE `pa_scaffold_upgrade_demo`')->fetch(PDO::FETCH_NUM);
+        return ['schema_sha256' => hash('sha256', (string) $create[1]), 'row_sha256' => hash('sha256', serialize($rows))];
+    }
+
     /**
      * Seal only after every per-SQL business proof and all legal successors have completed.
      * The caller keeps this digest in its protected result, bound to its original recovery point.
@@ -297,6 +381,7 @@ final class ApplicationSchemaHost
         self::assertMenuPoststates($applied, $poststates, false);
         self::assertPermissionPoststates($applied, $poststates, false);
         self::assertSmsPoststates($applied, $poststates, false);
+        self::assertDemoPoststates($pdo, $applied, $poststates, false);
         if ($pdo->inTransaction()) { throw new RuntimeException('APPLICATION_SCHEMA_TERMINAL_TRANSACTION_INVALID'); }
         $sources = [];
         foreach ($applied as $id) {
@@ -312,6 +397,7 @@ final class ApplicationSchemaHost
                 'pa_auth_security_event', 'pa_tenant_session'];
         }
         if (in_array('20260909-notification-sms-reservation', $applied, true)) { $tables[] = 'pa_notice_log'; }
+        if (in_array('20261027-create-scaffold-upgrade-demo', $applied, true)) { $tables[] = 'pa_scaffold_upgrade_demo'; }
         $tables = array_values(array_unique($tables)); sort($tables, SORT_STRING);
         $pdo->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
         $pdo->exec('SET TRANSACTION READ ONLY');
@@ -807,6 +893,16 @@ final class ApplicationSchemaHost
                         $recheck();
                         return false;
                     }
+                    if ($migration['id'] === '20261027-create-scaffold-upgrade-demo') {
+                        $proof = self::migrationPrestate($pdo, $migration, [], false);
+                        $chainIndex = array_search($migration['id'], array_column($expected['chain'], 'migration_id'), true);
+                        if (!is_int($chainIndex) || !$this->sourceSame($proof, $expected['chain'][$chainIndex]['prestate'] ?? null)) {
+                            throw new RuntimeException('APPLICATION_SCHEMA_DEMO_STATE_CHANGED');
+                        }
+                        $businessBefore[$migration['id']] = self::demoMigrationBefore($pdo, $migration);
+                        $recheck();
+                        return false;
+                    }
                     $proof = self::migrationPrestate($pdo, $migration, [], false);
                     if ($migration['id'] === '20261019-module-migration-provenance-metadata') {
                         if (!in_array($proof['proof']['shape'] ?? null, ['before_additions', 'exact_noop'], true)) { throw new RuntimeException('APPLICATION_SCHEMA_PRESTATE_PROVENANCE_PARTIAL'); }
@@ -843,6 +939,11 @@ final class ApplicationSchemaHost
                         if (!is_array($before)) { throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_PROOF_REQUIRED'); }
                         $businessPoststates[$migration['id']] = self::authMigrationAfter($pdo, $migration, $before);
                         unset($businessBefore[$migration['id']]);
+                    } elseif ($migration['id'] === '20261027-create-scaffold-upgrade-demo') {
+                        $before = $businessBefore[$migration['id']] ?? null;
+                        if (!is_array($before)) { throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_PROOF_REQUIRED'); }
+                        $businessPoststates[$migration['id']] = self::demoMigrationAfter($pdo, $migration, $before);
+                        unset($businessBefore[$migration['id']]);
                     }
                     $recheck();
                     $stageBounds[$migration['id']] = $executionBounds;
@@ -866,6 +967,7 @@ final class ApplicationSchemaHost
                         self::assertPermissionPoststates($baseline['pending'], $businessPoststates, $operation === 'verify', $pdo, $expected['business_terminal_state'] ?? null);
                         self::assertSmsPoststates($baseline['pending'], $businessPoststates, $operation === 'verify', $pdo, $expected['business_terminal_state'] ?? null);
                         self::assertAuthPoststates($pdo, $baseline['pending'], $businessPoststates, $operation === 'verify');
+                        self::assertDemoPoststates($pdo, $baseline['pending'], $businessPoststates, $operation === 'verify');
                         if (in_array(FileAdoptionRelocation::ID, $baseline['pending'], true)) {
                             PluginLifecycleService::fileAdoptionRelocationHistory($pdo);
                             if ($operation === 'verify') { $businessPoststates[FileAdoptionRelocation::ID] = $expected['business_poststates'][FileAdoptionRelocation::ID] ?? []; }
@@ -958,6 +1060,7 @@ final class ApplicationSchemaHost
                 '20261012-repair-seeded-permission-parents' => MenuSchemaMigrationProof::class,
                 '20261007-readiness-permission', '20261012-align-department-canonical-permissions',
                 '20261012-align-platform-ops-permission-ownership' => PermissionSchemaMigrationProof::class,
+                '20261027-create-scaffold-upgrade-demo' => 'exact_scaffold_upgrade_demo',
                 default => 'business_preservation_contract_required',
             };
             if ($poststate === 'business_preservation_contract_required') {
@@ -1612,12 +1715,15 @@ final class ApplicationSchemaHost
                 $id === '20260909-notification-sms-reservation' => SmsReservationMigrationProof::class,
                 $id === '20261007-auth-client-schema' => AuthClientSchemaMigrationProof::class,
                 $id === FileAdoptionRelocation::ID => FileAdoptionRelocation::class,
+                $id === '20261027-create-scaffold-upgrade-demo' => self::class,
                 default => throw new RuntimeException('APPLICATION_SCHEMA_RECEIPT_CONTRACT_UNKNOWN'),
             };
-            if (($row['contract'] ?? null) !== $contract) { throw new RuntimeException('APPLICATION_SCHEMA_RECEIPT_CONTRACT_UNKNOWN'); }
+            $expectedContract = $id === '20261027-create-scaffold-upgrade-demo' ? 'exact_scaffold_upgrade_demo' : $contract;
+            if (($row['contract'] ?? null) !== $expectedContract) { throw new RuntimeException('APPLICATION_SCHEMA_RECEIPT_CONTRACT_UNKNOWN'); }
             $file = (new \ReflectionClass($contract))->getFileName();
             if (!is_string($file) || realpath($file) !== $file
-                || ($contract === FileAdoptionRelocation::class ? $file !== __DIR__ . '/FileAdoptionRelocation.php'
+                || ($contract === self::class || $contract === FileAdoptionRelocation::class
+                    ? $file !== __DIR__ . '/' . ($contract === self::class ? 'ApplicationSchemaHost.php' : 'FileAdoptionRelocation.php')
                     : !str_starts_with($file, $this->serverRoot . '/app/modules/official/'))) {
                 throw new RuntimeException('APPLICATION_SCHEMA_RECEIPT_CONTRACT_UNKNOWN');
             }

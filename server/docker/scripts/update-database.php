@@ -266,6 +266,11 @@ function peanutServerDatabaseStage(string $operation, string $server, string $wo
                 $businessBefore[$migration['id']] = $before;
                 return false;
             }
+            $before = \app\common\services\upgrade\ApplicationSchemaHost::demoMigrationBefore($pdo, $migration);
+            if ($before !== null) {
+                $businessBefore[$migration['id']] = $before;
+                return false;
+            }
             \app\common\services\upgrade\ApplicationSchemaHost::migrationPrestate($pdo, $migration, [], false);
             return false;
         },
@@ -277,6 +282,9 @@ function peanutServerDatabaseStage(string $operation, string $server, string $wo
             \app\common\services\upgrade\ApplicationSchemaHost::assertPermissionPoststates($applied, $businessPoststates, $readOnly, $pdo, $previous['business_terminal_state'] ?? null);
             \app\common\services\upgrade\ApplicationSchemaHost::assertSmsPoststates($applied, $businessPoststates, $readOnly, $pdo, $previous['business_terminal_state'] ?? null);
             \app\common\services\upgrade\ApplicationSchemaHost::assertAuthPoststates($pdo,
+                $readOnly ? ($previous['application']['applied'] ?? []) : $migration['applied'],
+                $readOnly ? ($previous['business_poststates'] ?? []) : $businessPoststates, $readOnly);
+            \app\common\services\upgrade\ApplicationSchemaHost::assertDemoPoststates($pdo,
                 $readOnly ? ($previous['application']['applied'] ?? []) : $migration['applied'],
                 $readOnly ? ($previous['business_poststates'] ?? []) : $businessPoststates, $readOnly);
             if ($scope === 'server-release') {
@@ -301,6 +309,8 @@ function peanutServerDatabaseStage(string $operation, string $server, string $wo
                 } elseif ($migration['id'] === '20261007-auth-client-schema') {
                     if ($executionBounds !== null) { throw new RuntimeException('APPLICATION_SCHEMA_BUSINESS_PROOF_REQUIRED'); }
                     $businessPoststates[$migration['id']] = \app\common\services\upgrade\ApplicationSchemaHost::authMigrationAfter($pdo, $migration, $businessBefore[$migration['id']]);
+                } elseif ($migration['id'] === '20261027-create-scaffold-upgrade-demo') {
+                    $businessPoststates[$migration['id']] = \app\common\services\upgrade\ApplicationSchemaHost::demoMigrationAfter($pdo, $migration, $businessBefore[$migration['id']]);
                 } elseif (in_array($migration['id'], ['20261007-readiness-permission', '20261012-align-department-canonical-permissions', '20261012-align-platform-ops-permission-ownership'], true)) {
                     $businessPoststates[$migration['id']] = \app\common\services\upgrade\ApplicationSchemaHost::permissionMigrationAfter($pdo, $migration, $businessBefore[$migration['id']], $executionBounds);
                 } else {
