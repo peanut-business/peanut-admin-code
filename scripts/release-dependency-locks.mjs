@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import { spawnSync } from 'node:child_process';
 import { dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isDeepStrictEqual } from 'node:util';
 
 export const coreWebPackages = [
   'client',
@@ -107,6 +108,51 @@ export function dependencyMode(versions) {
   if (modes.size !== 1 || (modes.has('registry') && !pinned))
     fail('mixed development/registry identities');
   return [...modes][0];
+}
+
+/** Explicit frozen inputs authenticate archive origins, not an artifact category. */
+export function fixedArchiveInputs(root, inputPath, document, read) {
+  if (!inputPath || resolve(inputPath) !== inputPath || realpathSync(inputPath) !== inputPath || !lstatSync(inputPath).isFile() || lstatSync(inputPath).nlink !== 1)
+    fail('fixed Core input path');
+  const raw = readFileSync(inputPath);
+  const receipt = JSON.parse(raw);
+  const application = JSON.parse(read('.peanut/application-manifest.json'));
+  const sha256 = createHash('sha256').update(raw).digest('hex');
+  if (application.scaffold_candidate?.core_inputs_sha256 !== sha256 ||
+      receipt.schema_version !== 1 || receipt.status !== 'frozen-core-build-inputs-not-product-release' ||
+      dependencyMode(document) !== 'archive' || !fixed(document.core_php.constraint) ||
+      !isDeepStrictEqual(receipt.core_php, document.core_php) ||
+      !isDeepStrictEqual(receipt.core_web, document.core_web) ||
+      receipt.sources?.php?.commit !== document.core_php.source_reference ||
+      receipt.sources?.web?.commit !== document.core_web.source_reference ||
+      !/^[a-f0-9]{40}$/.test(receipt.sources?.php?.tree ?? '') ||
+      !/^[a-f0-9]{40}$/.test(receipt.sources?.web?.tree ?? ''))
+    fail('fixed Core input binding');
+  const php = receipt.core_php_archive;
+  if (!object(php) || php.path !== `packages/core-php/peanut-admin-core-${document.core_php.resolved_version}.zip` ||
+      !/^[a-f0-9]{64}$/.test(php.sha256 ?? '') || !/^[a-f0-9]{40}$/.test(php.sha1 ?? ''))
+    fail('fixed PHP archive identity');
+  const composer = JSON.parse(read('server/composer.json'));
+  const locked = JSON.parse(read('server/composer.lock')).packages?.filter(p => p.name === 'peanut-admin/core');
+  if (!isDeepStrictEqual(composer.repositories, [receipt.composer_repository]) || locked?.length !== 1 ||
+      !isDeepStrictEqual(locked[0].dist, {type: 'zip', url: `../${php.path}`, reference: document.core_php.source_reference, shasum: php.sha1}))
+    fail('fixed PHP native origin');
+  const archives = [{path: php.path, sha256: php.sha256},
+    ...Object.values(document.core_web.packages).map(p => ({path: p.archive, sha256: p.sha256}))];
+  if (archives.length !== 7 || new Set(archives.map(p => p.path)).size !== 7) fail('fixed archive count');
+  for (const archive of archives) {
+    let current = root;
+    for (const part of archive.path.split('/')) {
+      if (!part || part === '.' || part === '..') fail('fixed archive path');
+      current = resolve(current, part);
+      if (!current.startsWith(root + sep) || lstatSync(current).isSymbolicLink()) fail('fixed archive symlink');
+    }
+    if (!lstatSync(current).isFile() || lstatSync(current).nlink !== 1 || realpathSync(current) !== current ||
+        createHash('sha256').update(read(archive.path)).digest('hex') !== archive.sha256)
+      fail('fixed archive bytes');
+  }
+  if (createHash('sha1').update(read(php.path)).digest('hex') !== php.sha1) fail('fixed PHP archive SHA-1');
+  return {sha256, core_php_archive: php, archives};
 }
 
 /** 从既有锁定 OpenAPI 工具依赖取得 YAML 解析器，不自造 YAML 解析或安装新依赖。 */
@@ -427,9 +473,9 @@ export function verifyInstalledPhp(applicationRoot, expected) {
 }
 
 /** 开发archive模式保持本地Core连接；registry候选严格核实际PHP/Web安装位置。 */
-export function verifyInstalledDependencies(applicationRoot, document, internal = false) {
+export function verifyInstalledDependencies(applicationRoot, document, internal = false, fixedInputs = null) {
   const root = realpathSync(applicationRoot),
-    independent = dependencyMode(document) === 'registry' || internal;
+    independent = dependencyMode(document) === 'registry' || internal || fixedInputs !== null;
   const php = independent ? verifyInstalledPhp(root, document.core_php) : null;
   if (internal) {
     const marker = JSON.parse(readFileSync(resolve(root, '.peanut/internal-candidate.json')));
@@ -437,6 +483,9 @@ export function verifyInstalledDependencies(applicationRoot, document, internal 
     if (locked?.dist?.url !== `../${marker.core.path_in_archive}` || locked?.dist?.shasum !== marker.core.sha1)
       fail('PHP internal archive origin');
     verifyArchivePayload(resolve(root, marker.core.path_in_archive), resolve(root, php.path), 'zip', 'peanut-admin/core', document.core_php.resolved_version);
+  }
+  if (fixedInputs !== null) {
+    verifyArchivePayload(resolve(root, fixedInputs.core_php_archive.path), resolve(root, php.path), 'zip', 'peanut-admin/core', document.core_php.resolved_version);
   }
   const web = [];
   for (const client of ['web', 'platform', 'pc', 'uniapp']) {
@@ -459,7 +508,7 @@ export function verifyInstalledDependencies(applicationRoot, document, internal 
         installed.version !== document.core_web.packages[name]?.version
       )
         fail(`${client} installed:${name}`);
-      if (internal) {
+      if (internal || fixedInputs !== null) {
         const identity = document.core_web.packages[name];
         const payload = verifyArchivePayload(resolve(root, identity.archive), dirname(actual), 'tgz', name, identity.version);
         for (const [peer, constraint] of Object.entries(payload.peerDependencies ?? {})) {
@@ -475,7 +524,7 @@ export function verifyInstalledDependencies(applicationRoot, document, internal 
         package: name,
         version: installed.version,
         contained: actual.startsWith(root + sep),
-        ...(internal ? { archive: document.core_web.packages[name].archive, proof: 'archive-payload-bytes-and-contained-location' } : {}),
+        ...(internal || fixedInputs !== null ? { archive: document.core_web.packages[name].archive, proof: 'archive-payload-bytes-and-contained-location' } : {}),
       });
     }
   }
@@ -496,9 +545,9 @@ if (
 ) {
   try {
     const args = process.argv.slice(2);
-    if (!args[0] || args.slice(1).some((arg) => !['--installed', '--internal-candidate', '--third-party-only'].includes(arg) && !arg.startsWith('--tool-root=')))
+    if (!args[0] || args.slice(1).some((arg) => !['--installed', '--internal-candidate', '--third-party-only'].includes(arg) && !arg.startsWith('--tool-root=') && !arg.startsWith('--core-inputs=')))
       throw new Error(
-        'Usage: release-dependency-locks.mjs <application-root> [--installed] [--internal-candidate] [--third-party-only] [--tool-root=<root>]'
+        'Usage: release-dependency-locks.mjs <application-root> [--installed] [--internal-candidate] [--core-inputs=<absolute-receipt>] [--third-party-only] [--tool-root=<root>]'
       );
     const root = realpathSync(args[0]);
     const read = (relative) => {
@@ -509,9 +558,12 @@ if (
     };
     const document = JSON.parse(read('release-versions.json'));
     const internal = args.includes('--internal-candidate');
+    const coreInputOptions = args.filter(arg => arg.startsWith('--core-inputs='));
+    if (coreInputOptions.length > 1 || (coreInputOptions.length && (internal || args.includes('--third-party-only')))) fail('fixed Core input mode');
+    const fixedInputs = coreInputOptions.length ? fixedArchiveInputs(root, coreInputOptions[0].slice(14), document, read) : null;
     if (internal && dependencyMode(document) !== 'archive') fail('internal candidate requires carried archives');
     const toolRoot = args.find((arg) => arg.startsWith('--tool-root='))?.slice(12) ?? root;
-    const parseYaml = (internal || args.includes('--third-party-only') || dependencyMode(document) === 'registry')
+    const parseYaml = (internal || fixedInputs !== null || args.includes('--third-party-only') || dependencyMode(document) === 'registry')
       ? lockedYamlParser(toolRoot) : undefined;
     if (args.includes('--third-party-only')) {
       console.log(JSON.stringify(thirdPartyLocks(read, parseYaml)));
@@ -521,15 +573,16 @@ if (
       document,
       read,
       parseYaml,
-      internal
+      internal || fixedInputs !== null
     );
     const installed =
       args.includes('--installed')
-        ? verifyInstalledDependencies(root, document, internal)
+        ? verifyInstalledDependencies(root, document, internal, fixedInputs)
         : null;
     console.log(
       JSON.stringify({
         ...result,
+        ...(fixedInputs !== null ? {fixed_archive_inputs: fixedInputs} : {}),
         installed_manifests_checked: args.includes('--installed'),
         installed,
       })

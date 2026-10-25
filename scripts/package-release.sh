@@ -13,11 +13,13 @@ GENERATED_TEMPLATE=0
 INTERNAL_CANDIDATE=0
 CANDIDATE_SCAFFOLD=""
 CANDIDATE_CORE_INPUTS=""
+CORE_INPUTS=""
 SERVER_ONLY=auto
 SERVER_OUTPUT=""
 usage() {
   cat <<'USAGE'
 Usage: scripts/package-release.sh [/absolute/output] --application-root=/absolute/application [--directory-only] [--server-only|--server-output=/absolute/output]
+       [--core-inputs=/absolute/frozen-core-receipt]
 The existing build-edition-installers uses --generated-template for the initial
 Code-derived edition; a customized APP must be a clean committed Git worktree.
 The default APP package is server-only: server/ program files, release identity,
@@ -33,6 +35,9 @@ four existing clients; it emits an internal APP, never a formal/server-only rele
 For an artifact-derived APP, also pass both actual source proofs:
 --candidate-scaffold-manifest=/absolute/scaffold-manifest.json
 --candidate-core-inputs=/absolute/release-core-inputs.json
+Ordinary server-only APPs may explicitly select --core-inputs to authenticate
+their seven carried fixed archives. This does not select internal-candidate mode
+or claim that the Core archives have been published.
 The source APP is unchanged; only its five known installed dependency directories
 are omitted from the isolated source snapshot. Use that APP's own packaging entry;
 a newer host packer cannot substitute for its source consumers. The isolated
@@ -50,6 +55,7 @@ while [[ $# -gt 0 ]]; do
     --internal-candidate) INTERNAL_CANDIDATE=1; shift ;;
     --candidate-scaffold-manifest=*) CANDIDATE_SCAFFOLD="${1#*=}"; shift ;;
     --candidate-core-inputs=*) CANDIDATE_CORE_INPUTS="${1#*=}"; shift ;;
+    --core-inputs=*) [[ -z "$CORE_INPUTS" && -n "${1#*=}" ]] || die 'fixed Core input must be supplied once'; CORE_INPUTS="${1#*=}"; shift ;;
     --server-only) SERVER_ONLY=1; shift ;;
     --server-output=*) SERVER_OUTPUT="${1#*=}"; shift ;;
     --help|-h) usage; exit 0 ;;
@@ -64,6 +70,7 @@ if [[ "$SERVER_ONLY" == auto ]]; then
 fi
 [[ -z "$SERVER_OUTPUT" || "$GENERATED_TEMPLATE" == 1 ]] || die '--server-output requires the upstream generated-template producer'
 [[ "$INTERNAL_CANDIDATE" != 1 || ( "$GENERATED_TEMPLATE" == 0 && "$SERVER_ONLY" == 0 && -z "$SERVER_OUTPUT" ) ]] || die 'internal candidate requires the complete four-client APP'
+[[ -z "$CORE_INPUTS" || ( "$CORE_INPUTS" == /* && "$INTERNAL_CANDIDATE" == 0 && "$GENERATED_TEMPLATE" == 0 && "$SERVER_ONLY" == 1 && -z "$SERVER_OUTPUT" ) ]] || die 'fixed Core inputs require an ordinary server-only APP'
 if [[ -n "$CANDIDATE_SCAFFOLD" || -n "$CANDIDATE_CORE_INPUTS" ]]; then
   [[ "$INTERNAL_CANDIDATE" == 1 && "$CANDIDATE_SCAFFOLD" == /* && "$CANDIDATE_CORE_INPUTS" == /* ]] || die 'both absolute candidate proof paths require --internal-candidate'
 fi
@@ -158,6 +165,10 @@ if [[ "$INTERNAL_CANDIDATE" == 1 ]]; then
   dependency_option+=(--internal-candidate)
 fi
 if [[ "$SERVER_ONLY" == 1 ]]; then template_option+=(--server-only); fi
+if [[ -n "$CORE_INPUTS" ]]; then
+  template_option+=(--core-inputs="$CORE_INPUTS")
+  dependency_option+=(--core-inputs="$CORE_INPUTS")
+fi
 python3 "$SCRIPT_DIR/package-release-files.py" snapshot --application-root "$APPLICATION_ROOT" --target "$build" ${template_option[@]+"${template_option[@]}"}
 # Frozen native installs prove availability and lock consistency. No installation
 # scripts touch the original checkout, runtime secrets or application database.
@@ -169,7 +180,7 @@ python3 "$SCRIPT_DIR/package-release-files.py" snapshot --application-root "$APP
 "$build/scripts/project-composer" validate --working-dir="$build/server"
 "$build/scripts/project-composer" install --working-dir="$build/server" --no-scripts --no-interaction --no-progress --prefer-dist
 install_option=()
-if [[ "$INTERNAL_CANDIDATE" == 1 ]]; then install_option+=(--ignore-scripts); fi
+if [[ "$INTERNAL_CANDIDATE" == 1 || -n "$CORE_INPUTS" ]]; then install_option+=(--ignore-scripts); fi
 HUSKY=0 pnpm --dir "$build/web" install --frozen-lockfile ${install_option[@]+"${install_option[@]}"}
 for client in platform pc uniapp; do HUSKY=0 npm --prefix "$build/$client" ci ${install_option[@]+"${install_option[@]}"}; done
 # 原生安装完成后，核对实际锁与已安装包，不只检查包名里的版本字符串。

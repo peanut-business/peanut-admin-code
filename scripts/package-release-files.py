@@ -221,7 +221,8 @@ def copy_checked(root: Path, target: Path, relative: str, digest: str, mode: int
     destination.chmod(mode)
 
 
-def application_git(root: Path, manifest: dict, generated_template: bool) -> tuple[str | None, str | None, list[str], dict[str, str], str]:
+def application_git(root: Path, manifest: dict, generated_template: bool,
+                    approved_archives: set[str] | None = None) -> tuple[str | None, str | None, list[str], dict[str, str], str]:
     if generated_template:
         if (root / '.git').exists() or (root / '.git').is_symlink():
             raise ValueError('generated-template mode cannot package an APP Git worktree')
@@ -276,7 +277,7 @@ def application_git(root: Path, manifest: dict, generated_template: bool) -> tup
             raise ValueError('application release has a non-regular Git entry')
         blobs[name.decode()] = blob
     tracked = sorted(name for name in blobs if not release_generated_source(safe_relative(name)))
-    if not tracked or any(not allowed_source(safe_relative(name)) for name in tracked):
+    if not tracked or any(not allowed_source(safe_relative(name)) and name not in (approved_archives or set()) for name in tracked):
         raise ValueError('application Git tree contains forbidden release input')
     for name in tracked:
         regular_file(root, name)
@@ -303,8 +304,21 @@ def internal_contract():
     return module
 
 
+def fixed_archive_dependencies(root: Path, core_inputs: Path) -> dict:
+    proof = subprocess.run(['node', str(regular_file(root, 'scripts/release-dependency-locks.mjs')),
+                            str(root), '--core-inputs=' + str(core_inputs)], capture_output=True)
+    if proof.returncode != 0:
+        raise ValueError('fixed Core archive/lock proof failed: ' + proof.stderr.decode().strip())
+    value = json.loads(proof.stdout)
+    fixed = value.get('fixed_archive_inputs')
+    if not isinstance(fixed, dict) or len(fixed.get('archives', [])) != 7:
+        raise ValueError('fixed Core archive proof is incomplete')
+    return fixed
+
+
 def snapshot(root: Path, target: Path, generated_template: bool, internal: bool = False,
-             candidate_scaffold: Path | None = None, candidate_core: Path | None = None) -> tuple[dict, dict]:
+             candidate_scaffold: Path | None = None, candidate_core: Path | None = None,
+             core_inputs: Path | None = None) -> tuple[dict, dict]:
     if target.exists() or target.is_symlink():
         raise ValueError('snapshot destination must not exist')
     root = root.resolve(strict=True)
@@ -316,6 +330,11 @@ def snapshot(root: Path, target: Path, generated_template: bool, internal: bool 
     artifact_marker = None
     artifact_proof_bytes = None
     approved_archives = set()
+    if core_inputs is not None:
+        fixed = fixed_archive_dependencies(root, core_inputs)
+        approved_archives.update(row['path'] for row in fixed['archives'])
+        approved_archives.update(row['baseline_path'] for row in manifest['files']
+                                 if row.get('baseline_path') and row['path'] in approved_archives)
     if internal:
         contract = internal_contract()
         if not (root / contract.MARKER).exists() and not (root / contract.MARKER).is_symlink():
@@ -343,7 +362,7 @@ def snapshot(root: Path, target: Path, generated_template: bool, internal: bool 
         approved_archives.update(row['baseline_path'] for row in manifest['files']
                                  if row.get('baseline_path') and row['path'].endswith('.tgz'))
     else:
-        commit, tree, tracked, blobs, git_hash = application_git(root, manifest, generated_template)
+        commit, tree, tracked, blobs, git_hash = application_git(root, manifest, generated_template, approved_archives)
     if MANIFEST not in tracked:
         raise ValueError('application manifest is not committed')
     if manifest.get('protocol') != 'peanut.application-scaffold.v2' or not manifest.get('files'):
@@ -371,7 +390,7 @@ def snapshot(root: Path, target: Path, generated_template: bool, internal: bool 
     for client in CLIENTS:
         if not any(p.startswith(client + '/') and p.endswith(('.vue', '.ts', '.js')) for p in paths):
             raise ValueError(f'frontend development source is missing: {client}')
-    versions = document(root, 'release-versions.json') if internal else released_dependencies(root)
+    versions = document(root, 'release-versions.json') if internal or core_inputs is not None else released_dependencies(root)
     validate_release_metadata(root, manifest, versions)
     if not set(paths).issubset(tracked):
         raise ValueError('application ownership manifest names uncommitted files')
@@ -625,8 +644,52 @@ def application_release_identity(source: Path, target: Path, manifest: dict, git
     path.chmod(0o644)
 
 
+def project_fixed_archives(source: Path, target: Path, core_inputs: Path) -> None:
+    fixed = fixed_archive_dependencies(source, core_inputs)
+    server = target / 'server'
+    for archive in fixed['archives']:
+        relative = safe_relative(archive['path'])
+        data = regular_file(source, relative).read_bytes()
+        if hashlib.sha256(data).hexdigest() != archive['sha256']:
+            raise ValueError('fixed Core archive changed during projection')
+        path = server / '.peanut' / relative
+        ensure_new_release_file(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        path.chmod(0o644)
+    proof_path = server / '.peanut/core-inputs.json'
+    ensure_new_release_file(proof_path)
+    proof_bytes = core_inputs.read_bytes()
+    if hashlib.sha256(proof_bytes).hexdigest() != fixed['sha256']:
+        raise ValueError('fixed Core proof changed during projection')
+    proof_path.write_bytes(proof_bytes)
+    proof_path.chmod(0o644)
+    # Only the native archive location changes. Versions, source references,
+    # package records and archive bytes remain those authenticated above.
+    composer_path, lock_path = server / 'composer.json', server / 'composer.lock'
+    composer, lock = json.loads(composer_path.read_bytes()), json.loads(lock_path.read_bytes())
+    old_url = '../' + fixed['core_php_archive']['path']
+    new_url = '.peanut/' + fixed['core_php_archive']['path']
+    repositories = composer.get('repositories', [])
+    rows = [row for row in repositories if row.get('type') == 'package'
+            and row.get('package', {}).get('name') == 'peanut-admin/core']
+    packages = [row for row in lock.get('packages', []) if row.get('name') == 'peanut-admin/core']
+    if len(rows) != 1 or len(packages) != 1 or rows[0]['package']['dist']['url'] != old_url or packages[0]['dist']['url'] != old_url:
+        raise ValueError('fixed PHP archive origin changed during projection')
+    rows[0]['package']['dist']['url'] = new_url
+    packages[0]['dist']['url'] = new_url
+    composer_path.write_text(json.dumps(composer, ensure_ascii=False, indent=2) + '\n')
+    lock_path.write_text(json.dumps(lock, ensure_ascii=False, indent=2) + '\n')
+    rendered = subprocess.run(['php', '-r',
+        'require $argv[1]; echo \\app\\common\\value\\scaffold\\ScaffoldManifest::renderComposerLock(file_get_contents($argv[2]), file_get_contents($argv[3]));',
+        str(regular_file(source, 'scripts/scaffold-runtime/ScaffoldManifest.php')), str(lock_path), str(composer_path)], capture_output=True)
+    if rendered.returncode != 0:
+        raise ValueError('native Composer lock relocation failed')
+    lock_path.write_bytes(rendered.stdout)
+
+
 def server_identity(source: Path, target: Path, manifest: dict, git: dict, versions: dict,
-                    server_only: bool = True) -> None:
+                    server_only: bool = True, core_inputs: Path | None = None) -> None:
     application_rows_sha256 = rows_sha256(release_rows(target))
     server = target / 'server'
     if server_only:
@@ -683,6 +746,10 @@ def server_identity(source: Path, target: Path, manifest: dict, git: dict, versi
         raise ValueError('server release version projection conflicts with application source')
     shutil.copyfile(regular_file(source, 'release-versions.json'), version_projection)
     version_projection.chmod(0o644)
+    if core_inputs is not None:
+        if not server_only or git['kind'] != 'application':
+            raise ValueError('fixed Core inputs require an ordinary server-only application')
+        project_fixed_archives(source, target, core_inputs)
     for legal in ('LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md', 'RELEASE_SBOM.spdx.json'):
         destination = server / '.peanut' / legal
         shutil.copyfile(regular_file(source, legal), destination)
@@ -1167,11 +1234,15 @@ def main() -> None:
     parser.add_argument('--internal-candidate', action='store_true')
     parser.add_argument('--candidate-scaffold-manifest', type=Path)
     parser.add_argument('--candidate-core-inputs', type=Path)
+    parser.add_argument('--core-inputs', type=Path)
     parser.add_argument('--server-only', action='store_true')
     parser.add_argument('--archive', type=Path)
     parser.add_argument('--expected-sha256')
     parser.add_argument('--source-transition-admission', type=Path)
     args = parser.parse_args()
+    if args.core_inputs is not None and (args.internal_candidate or args.generated_template or not args.server_only
+                                        or args.action not in ('snapshot', 'assemble')):
+        raise ValueError('fixed Core inputs require ordinary server-only snapshot/assemble')
     if args.source_transition_admission is not None and args.action != 'development-runtime':
         raise ValueError('source transition admission is limited to development projection')
     if args.internal_candidate and (args.generated_template or args.server_only or args.action not in ('snapshot', 'assemble')):
@@ -1200,7 +1271,7 @@ def main() -> None:
         print('package-files: explicit development runtime projection complete; not a release')
         return
     manifest, git = snapshot(source, destination, args.generated_template, args.internal_candidate,
-                             args.candidate_scaffold_manifest, args.candidate_core_inputs)
+                             args.candidate_scaffold_manifest, args.candidate_core_inputs, args.core_inputs)
     if args.action == 'assemble':
         if args.build_root is None:
             raise ValueError('assemble needs --build-root')
@@ -1233,7 +1304,8 @@ def main() -> None:
             f"upstream_generation_commit={manifest['generation_source']['commit']}\n"
         )
         if args.server_only:
-            server_identity(source, destination, manifest, git, released_dependencies(source))
+            versions = document(source, 'release-versions.json') if args.core_inputs is not None else released_dependencies(source)
+            server_identity(source, destination, manifest, git, versions, core_inputs=args.core_inputs)
         else:
             # The development archive keeps application source and the upstream
             # baseline for later APP customization and scaffold upgrades.

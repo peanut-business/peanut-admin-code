@@ -10,11 +10,13 @@ import re
 import shutil
 import stat
 import sys
+import zipfile
 
 
 RECEIPT = ".peanut-complete.json"
 SEMVER = r'(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?'
 CORE_ARCHIVE = r'\.\./(packages/core-php/peanut-admin-core-(' + SEMVER + r')\.zip)'
+SERVER_CORE_ARCHIVE = r'(\.peanut/packages/core-php/peanut-admin-core-(' + SEMVER + r')\.zip)'
 
 
 def digest(path):
@@ -56,7 +58,7 @@ def ordinary_parents(root, relative):
             raise ValueError("release parent is linked or not a directory")
 
 
-def inventory(vendor):
+def inventory(vendor, exclude_receipt=True):
     if vendor.is_symlink() or not vendor.is_dir():
         raise ValueError("vendor directory is missing or unsafe")
     result = {}
@@ -67,7 +69,7 @@ def inventory(vendor):
                 raise ValueError("vendor contains a linked directory")
         for name in files:
             path = Path(base) / name
-            if path == vendor / RECEIPT:
+            if exclude_receipt and path == vendor / RECEIPT:
                 continue
             ordinary(path)
             relative = path.relative_to(vendor).as_posix()
@@ -75,9 +77,126 @@ def inventory(vendor):
     return dict(sorted(result.items()))
 
 
+def server_core_archives(server):
+    """Consume the ordinary server release's owned, frozen seven-archive proof."""
+    if server.resolve() != server:
+        raise ValueError('server archive root is not canonical')
+    identity_path = server / '.peanut/release-identity.json'
+    ordinary_parents(server, '.peanut/release-identity.json'); ordinary(identity_path)
+    if stat.S_IMODE(identity_path.stat().st_mode) != 0o644:
+        raise ValueError('server release identity mode differs')
+    identity = json.loads(identity_path.read_text())
+    application = identity.get('application', {})
+    if identity.get('schema_version') != 1 or identity.get('protocol') != 'peanut.server-release.v1' \
+            or application.get('kind') != 'application' or application.get('scope') == 'internal-candidate' \
+            or application.get('formal_release_eligible') is False or 'candidate_marker' in application \
+            or application.get('edition') not in ('standalone', 'multi-tenant') \
+            or any(not isinstance(application.get(key), str) or not application[key]
+                   for key in ('slug', 'package_identity', 'version')) \
+            or any(re.fullmatch(r'[a-f0-9]{40}', str(application.get(key, ''))) is None for key in ('commit', 'tree')):
+        raise ValueError('fixed archives require an ordinary application release')
+    files = identity.get('files')
+    if not isinstance(files, list) or not files or hashlib.sha256(json.dumps(files, ensure_ascii=False,
+            separators=(',', ':')).encode()).hexdigest() != identity.get('files_sha256'):
+        raise ValueError('server release inventory is invalid')
+    owned = {}; previous = ''
+    for row in files:
+        if not isinstance(row, dict) or list(row) != ['path', 'sha256', 'mode'] \
+                or not isinstance(row['path'], str) or row['path'] <= previous \
+                or row['mode'] not in (0o644, 0o755) or re.fullmatch(r'[a-f0-9]{64}', str(row['sha256'])) is None:
+            raise ValueError('server release inventory row is invalid')
+        previous = row['path']; owned[release_path(row['path'])] = row
+
+    def read_owned(relative):
+        row = owned.get(relative)
+        ordinary_parents(server, relative); path = server / relative; ordinary(path)
+        if row is None or row['mode'] != 0o644 or stat.S_IMODE(path.stat().st_mode) != row['mode'] \
+                or digest(path) != row['sha256']:
+            raise ValueError('fixed Core input differs from owned release bytes')
+        return path.read_bytes()
+
+    receipt = json.loads(read_owned('.peanut/core-inputs.json'))
+    versions = json.loads(read_owned('.peanut/release-versions.json'))
+    composer = json.loads(read_owned('composer.json')); lock = json.loads(read_owned('composer.lock'))
+    php = receipt.get('core_php', {}); web = receipt.get('core_web', {})
+    if receipt.get('schema_version') != 1 or receipt.get('status') != 'frozen-core-build-inputs-not-product-release' \
+            or versions.get('protocol') != 'peanut.release-versions.v3' \
+            or versions.get('core_php') != php or versions.get('core_web') != web \
+            or application['version'] != identity.get('versions', {}).get('release_sequence_version') \
+            or php.get('package') != 'peanut-admin/core' or php.get('source_type') != 'git' \
+            or php.get('constraint') != php.get('resolved_version') \
+            or re.fullmatch(SEMVER, str(php.get('resolved_version', ''))) is None \
+            or re.fullmatch(r'[a-f0-9]{40}', str(php.get('source_reference', ''))) is None \
+            or not str(php.get('source_url', '')).startswith('https://') \
+            or web.get('source_type') != 'git' or not str(web.get('source_url', '')).startswith('https://'):
+        raise ValueError('fixed Core release declaration differs')
+    for name, declaration in (('php', php), ('web', web)):
+        source = receipt.get('sources', {}).get(name, {})
+        if source.get('commit') != declaration.get('source_reference') \
+                or any(re.fullmatch(r'[a-f0-9]{40}', str(source.get(key, ''))) is None for key in ('commit', 'tree')):
+            raise ValueError('fixed Core source differs')
+    archive = receipt.get('core_php_archive', {})
+    expected_php_path = 'packages/core-php/peanut-admin-core-' + php['resolved_version'] + '.zip'
+    if set(archive) != {'path', 'sha256', 'sha1'} or archive['path'] != expected_php_path \
+            or re.fullmatch(r'[a-f0-9]{40}', str(archive['sha1'])) is None:
+        raise ValueError('fixed PHP archive declaration is invalid')
+    packages = web.get('packages', {})
+    names = ['@peanut-admin/' + name for name in ('client', 'vue', 'ui-vue', 'nuxt', 'uniapp', 'testing')]
+    if not isinstance(packages, dict) or set(packages) != set(names):
+        raise ValueError('fixed Web archive set differs')
+    archives = {'.peanut/' + archive['path']: archive['sha256']}
+    for name in names:
+        value = packages[name]
+        if not isinstance(value, dict) or set(value) != {'version', 'archive', 'sha256'} \
+                or re.fullmatch(SEMVER, str(value['version'])) is None \
+                or value['archive'] != 'packages/core-web/peanut-admin-' + name.split('/')[1] + '-' + value['version'] + '.tgz':
+            raise ValueError('fixed Web archive identity is invalid')
+        archives['.peanut/' + value['archive']] = value['sha256']
+    actual_paths = set()
+    for path in (server / '.peanut/packages').rglob('*'):
+        if path.is_symlink() or (not path.is_dir() and not path.is_file()):
+            raise ValueError('fixed Core archive path is unsafe')
+        if path.is_file(): actual_paths.add(path.relative_to(server).as_posix())
+    owned_paths = {path for path in owned if path.startswith('.peanut/packages/')}
+    if len(archives) != 7 or actual_paths != set(archives) or owned_paths != set(archives):
+        raise ValueError('fixed Core archive inventory differs')
+    for relative, sha in archives.items():
+        if re.fullmatch(r'[a-f0-9]{64}', str(sha)) is None or hashlib.sha256(read_owned(relative)).hexdigest() != sha:
+            raise ValueError('fixed Core archive digest differs')
+    relative = '.peanut/' + archive['path']; reference = php['source_reference']
+    locked = [package for package in lock.get('packages', []) if package.get('name') == 'peanut-admin/core']
+    repository = receipt.get('composer_repository')
+    if not isinstance(repository, dict) or repository.get('type') != 'package':
+        raise ValueError('fixed PHP repository proof is missing')
+    repository = dict(repository); package = dict(repository.get('package', {})); dist = dict(package.get('dist', {}))
+    if dist.get('url') != '../' + archive['path']:
+        raise ValueError('fixed PHP original repository origin differs')
+    dist['url'] = relative; package['dist'] = dist; repository['package'] = package
+    expected_dist = {'type': 'zip', 'url': relative, 'reference': reference, 'shasum': archive['sha1']}
+    if len(locked) != 1 or locked[0].get('version') != php['resolved_version'] \
+            or locked[0].get('source') != {'type': 'git', 'url': php['source_url'], 'reference': reference} \
+            or locked[0].get('dist') != expected_dist or composer.get('repositories') != [repository] \
+            or package.get('name') != php['package'] or package.get('version') != php['resolved_version'] \
+            or package.get('source') != locked[0]['source'] or dist != expected_dist \
+            or composer.get('require', {}).get('peanut-admin/core') != php['constraint'] \
+            or hashlib.sha1((server / relative).read_bytes()).hexdigest() != archive['sha1']:
+        raise ValueError('fixed PHP native lock/repository origin differs')
+    return {relative: {'sha256': archive['sha256'], 'sha1': archive['sha1'],
+                       'source_reference': reference, 'version': php['resolved_version']}}
+
+
+def archive_path(server, relative):
+    return server / relative if re.fullmatch(SERVER_CORE_ARCHIVE, relative) else server.parent / relative
+
+
 def local_archives(server, inputs=None):
     """Only the native Core zip may use a local dist, with independent canonical proof."""
     lock = json.loads((server / 'composer.lock').read_text())
+    if any(re.fullmatch(SERVER_CORE_ARCHIVE, str(package.get('dist', {}).get('url', '')))
+           for package in lock['packages']):
+        if inputs is not None:
+            raise ValueError('ordinary server release cannot use a source transaction proof')
+        return server_core_archives(server)
     result = {}
     proof = None
     if inputs is not None:
@@ -173,7 +292,8 @@ def check_lock(server, inputs=None):
             value = package.get(source)
             if value and not str(value.get("url", "")).startswith("https://") and not (
                     source == 'dist' and package['name'] == 'peanut-admin/core'
-                    and re.fullmatch(CORE_ARCHIVE, str(value.get('url', '')))):
+                    and (re.fullmatch(CORE_ARCHIVE, str(value.get('url', '')))
+                         or re.fullmatch(SERVER_CORE_ARCHIVE, str(value.get('url', ''))))):
                 raise ValueError("locked package has a non-HTTPS source")
     local_archives(server, inputs)
     return digest(composer), digest(lock), {p["name"]: p["version"] for p in data["packages"]}
@@ -196,6 +316,41 @@ def check_installed(server, expected):
     if len(locked) != 1 or len(core) != 1 or core[0].get('source') != locked[0].get('source') \
             or (core[0].get('dist') or {}).get('reference') != (locked[0].get('dist') or {}).get('reference'):
         raise ValueError('installed Core source differs from the fixed lock')
+    relative = (locked[0].get('dist') or {}).get('url', '')
+    if re.fullmatch(SERVER_CORE_ARCHIVE, str(relative)):
+        root = vendor / 'peanut-admin/core'
+        ordinary_parents(vendor, 'peanut-admin/core/composer.json')
+        if not root.is_dir() or root.is_symlink() or root.resolve() != root \
+                or core[0].get('dist') != locked[0]['dist']:
+            raise ValueError('installed fixed Core location or dist differs')
+        # Read the authenticated ZIP without extracting or executing package code.
+        with zipfile.ZipFile(server / relative) as archive:
+            entries = []
+            for member in archive.infolist():
+                path = Path(member.filename)
+                if path.is_absolute() or any(part in ('', '.', '..') for part in member.filename.rstrip('/').split('/')) \
+                        or '\\' in member.filename or stat.S_ISLNK(member.external_attr >> 16):
+                    raise ValueError('fixed Core ZIP path is unsafe')
+                if member.is_dir(): continue
+                mode = stat.S_IFMT(member.external_attr >> 16)
+                if mode not in (0, stat.S_IFREG):
+                    raise ValueError('fixed Core ZIP member is not a regular file')
+                entries.append((member.filename, archive.read(member)))
+        if not any(name == 'composer.json' for name, _ in entries):
+            prefixes = {name.split('/')[0] for name, _ in entries}
+            if len(prefixes) != 1 or any('/' not in name for name, _ in entries):
+                raise ValueError('fixed Core ZIP root differs')
+            entries = [(name.split('/', 1)[1], data) for name, data in entries]
+        seen = set()
+        for name, data in entries:
+            if name in seen or Path(name).as_posix() != name:
+                raise ValueError('fixed Core ZIP has duplicate or ambiguous members')
+            seen.add(name); ordinary_parents(root, name); path = root / name; ordinary(path)
+            if path.read_bytes() != data:
+                raise ValueError('installed fixed Core payload differs')
+        actual = inventory(root, exclude_receipt=False)
+        if set(actual) != seen or json.loads((root / 'composer.json').read_text()).get('name') != 'peanut-admin/core':
+            raise ValueError('installed fixed Core payload inventory differs')
 
 
 def freeze_tool_metadata(server, inputs):
@@ -281,6 +436,9 @@ def main():
         shutil.copy2(identity_path, target)
         archives = local_archives(server, args.inputs)
         for relative, proof in archives.items():
+            if re.fullmatch(SERVER_CORE_ARCHIVE, relative):
+                # All seven archives and their proof were copied as owned server files.
+                continue
             target_archive = destination.parent / relative
             ordinary_parents(destination.parent, relative)
             target_archive.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -289,7 +447,7 @@ def main():
             shutil.copy2(server.parent / relative, target_archive)
             if digest(target_archive) != proof['sha256']:
                 raise ValueError('dependency archive changed while staging')
-        if archives:
+        if archives and not any(re.fullmatch(SERVER_CORE_ARCHIVE, relative) for relative in archives):
             for relative in ('.peanut/application-manifest.json', 'release-versions.json'):
                 ordinary_parents(server.parent, relative); ordinary(server.parent / relative)
                 target = destination.parent / relative

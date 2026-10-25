@@ -72,8 +72,11 @@ module.check_lock(server, inputs)
 archives = module.local_archives(server, inputs)
 if len(archives) > 1: raise ValueError('only one canonical Core archive is supported')
 for relative in archives:
-    source = server.parent / relative
+    # Ordinary server releases carry the archive inside the /srv bind. The old
+    # source projection keeps its separately verified /packages read-only mount.
+    source = module.archive_path(server, relative)
     if ',' in str(source) or any(ord(c) < 32 for c in str(source)): raise ValueError('ambiguous archive mount')
+    if source.is_relative_to(server): continue
     print('type=bind,src=' + str(source) + ',dst=/' + relative + ',readonly')
 PY
 )
