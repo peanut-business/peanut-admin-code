@@ -2497,7 +2497,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bd4ea050ef51a6b1a497ecf032ae47be836d26ca0eb0b854d28f1df91535d48e"
+            "source_sha256": "d2a316e7d4cc237ae7512b1a00717bd3fd4a68ac5074b7c420c742748d236e10"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2774,7 +2774,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "aeb946f45bbbe71169f30d8dc77a46ae1edc0bc8104947b2438f5eb1cb106db8"
+            "source_sha256": "cc0b57e072820daada4537b55360e3c1addb457028afa06c4201489600c8e6ca"
         },
         {
             "path": "plugins/official.task/plugin.json",
@@ -5901,7 +5901,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "21b7a1d1dcd4e3470441bc9d63cbfbba3f7154d3cfaf76d72920e7953b75a4fb"
+            "source_sha256": "7c5b0a9bf7c4e0dc0595fb79c9b1b836a39868c11febb83525926606ccc64180"
         },
         {
             "path": "server/app/adminapi/services/decoration/DecorationPageApplicationService.php",
@@ -22779,7 +22779,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f2b11e6b18619440559654e305a7b229910569607928fa7e270cd8afabfe8cb8"
+            "source_sha256": "de26965a6562047194e4ce53df507434c396fda93d3509fa9879f001c7314914"
         },
         {
             "path": "server/app/modules/official/settings/database/migrations/20260921-adopt-settings-schema.sql",
@@ -22807,7 +22807,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4558fb6761ed058e191b63198676addac8afdfbcaff2eb587c3192b326c20cec"
+            "source_sha256": "3fee521b17ed72bc8a587e40dd1051afa545f66d303771bd2583131d933e2872"
         },
         {
             "path": "server/app/modules/official/settings/resources/menus.json",
@@ -22947,7 +22947,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0353a46758cb524102f72d96ab712a3361518d8cd5af3ce12729d4e702a218d1"
+            "source_sha256": "935054869169cabbbc5443d54a23d5b6579f4196110a36435393e6739cc8e2c5"
         },
         {
             "path": "server/app/modules/official/settings/src/Cache/ArrayRevisionedSettingCache.php",
@@ -23453,7 +23453,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2df8e21e92d301b02a7595e5bf6a5e74f7253496192c7913c364c67c78eda7e6",
+            "source_sha256": "5acb0ae125443d4395cce56d1d05832f2ae25806ce303de0b27b05b72bf0bb1c",
             "adapter_kind": "application-provider"
         },
         {
