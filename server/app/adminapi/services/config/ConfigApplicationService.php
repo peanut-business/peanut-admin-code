@@ -28,8 +28,7 @@ class ConfigApplicationService
 
     public function saveWebsite(AuthenticatedMemberContext|TenantContext $context, array $params): array
     {
-        $this->website->save($context, $params);
-        return $this->website->get($context);
+        return $this->website->save($context, $params);
     }
 
     public function getCopyright(AuthenticatedMemberContext|TenantContext $context): array

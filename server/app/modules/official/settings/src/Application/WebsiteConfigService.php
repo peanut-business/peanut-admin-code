@@ -49,25 +49,13 @@ final class WebsiteConfigService
     /** @return array<string, string> */
     public function get(): array
     {
-        $values = $this->effectiveValues();
-        $result = [];
-        foreach ($values as $field => $value) {
-            $result[$field] = $this->isImage($field)
-                ? (string) ($this->urlForRead)($value)
-                : $value;
-        }
-
-        return $result;
+        return $this->present($this->effectiveValues());
     }
 
-    /** @return array<string, string> Stable references and trusted defaults for the admin editor. */
-    public function getForEdit(): array
-    {
-        return $this->effectiveValues();
-    }
-
-    /** @param array<string, mixed> $params */
-    public function save(array $params): void
+    /** @param array<string, mixed> $params
+     * @return array<string, string>
+     */
+    public function save(array $params): array
     {
         $normalized = [];
         foreach ($this->defaults as $field => $default) {
@@ -90,7 +78,31 @@ final class WebsiteConfigService
                 : $value;
         }
 
+        $presentation = $this->present($this->effectiveValues($normalized));
         $this->store->replaceAtomically($normalized);
+
+        return $presentation;
+    }
+
+    /** @param array<string, string> $values
+     * @return array<string, string>
+     */
+    private function present(array $values): array
+    {
+        $result = [];
+        foreach ($values as $field => $value) {
+            $result[$field] = $this->isImage($field)
+                ? (string) ($this->urlForRead)($value)
+                : $value;
+        }
+
+        return $result;
+    }
+
+    /** @return array<string, string> Stable references and trusted defaults for the admin editor. */
+    public function getForEdit(): array
+    {
+        return $this->effectiveValues();
     }
 
     /** @return list<string> */
@@ -104,13 +116,15 @@ final class WebsiteConfigService
         return in_array($field, self::IMAGE_FIELDS, true);
     }
 
-    /** @return array<string, string> */
-    private function effectiveValues(): array
+    /** @param array<string, mixed>|null $source
+     * @return array<string, string>
+     */
+    private function effectiveValues(?array $source = null): array
     {
-        $stored = $this->store->read();
+        $source ??= $this->store->read();
         $result = [];
         foreach ($this->defaults as $field => $default) {
-            $value = is_string($stored[$field] ?? null) ? trim($stored[$field]) : $default;
+            $value = is_string($source[$field] ?? null) ? trim($source[$field]) : $default;
             if ($value === '' && $default !== '' && $field !== 'official_url') {
                 $value = $default;
             }

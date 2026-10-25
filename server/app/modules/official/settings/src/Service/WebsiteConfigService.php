@@ -37,8 +37,8 @@ final readonly class WebsiteConfigService
     public function save(
         AuthenticatedMemberContext|TenantContext|TenantSystemContext $context,
         array $params,
-    ): void {
-        $this->delegate($context)->save($params);
+    ): array {
+        return $this->delegate($context)->save($params);
     }
 
     /** @return list<string> */
