@@ -3,7 +3,7 @@
   "key": "official.notification",
   "name": "Notification",
   "description": "Tenant-owned notification channels, scenes, templates and delivery logs.",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "kernel_constraint": "^1.0",
   "license": "Apache-2.0",
   "php_package": "peanut-business/official-notification",
@@ -23,7 +23,10 @@
     }
   ],
   "optional_dependencies": [
-    {"module_key": "official.file", "version": "^1.0"}
+    {
+      "module_key": "official.file",
+      "version": "^1.0"
+    }
   ],
   "backend": {
     "provider": "PeanutAdmin\\Modules\\Notification\\ModuleProvider",

@@ -2,10 +2,13 @@ import axios from 'axios';
 import type { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { useUserStore } from '@/store';
-import { getSessionSnapshot, getToken, setToken } from '@/utils/auth';
+import { getSessionSnapshot, getToken } from '@/utils/auth';
 import i18n from '@/locale';
 import { isTenantAccessToken } from '@peanut-admin/vue';
-import { refreshTenantSession } from '@/api/tenant-session';
+import {
+  refreshTenantAccessToken,
+  type TenantSessionSnapshot,
+} from '@/api/tenant-session-refresh';
 
 export interface HttpResponse<T = unknown> {
   status: number;
@@ -18,14 +21,10 @@ if (import.meta.env.VITE_API_BASE_URL) {
   axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL;
 }
 
-type TenantSessionSnapshot = { generation: number; token: string | null };
 type SessionRequestConfig = AxiosRequestConfig & {
   tenantRefreshRetried?: boolean;
   tenantSession?: TenantSessionSnapshot;
 };
-
-// Share one refresh per captured token and generation while rotating the session cookie.
-const tenantRefreshRequests = new Map<string, Promise<string>>();
 
 /** Captures the issuing session so old responses cannot affect a later login. */
 axios.interceptors.request.use(
@@ -57,69 +56,44 @@ const handleResponse = async (response: AxiosResponse<HttpResponse>) => {
   const snapshot = retryConfig.tenantSession ?? getSessionSnapshot();
   retryConfig.tenantSession = snapshot;
   const currentSession = getSessionSnapshot();
-  if (
-    snapshot.generation !== currentSession.generation ||
-    snapshot.token !== currentSession.token
-  ) {
+  if (snapshot.generation !== currentSession.generation) {
+    return Promise.reject(
+      new Error(res.msg || 'The request session has changed.')
+    );
+  }
+  const canRefresh =
+    res.code === 40100 &&
+    isTenantAccessToken(snapshot.token) &&
+    !retryConfig.tenantRefreshRetried &&
+    retryConfig.url !== '/adminapi/tenant/session/refresh' &&
+    retryConfig.url !== '/adminapi/tenant/session/logout';
+  if (snapshot.token !== currentSession.token && !canRefresh) {
     return Promise.reject(
       new Error(res.msg || 'The request session has changed.')
     );
   }
   // The legacy export endpoint uses code 2 to signal a generated file response.
   if (![20000, 2].includes(res.code)) {
-    const accessToken = getToken();
-    if (
-      res.code === 40100 &&
-      isTenantAccessToken(accessToken) &&
-      !retryConfig.tenantRefreshRetried &&
-      retryConfig.url !== '/adminapi/tenant/session/refresh' &&
-      retryConfig.url !== '/adminapi/tenant/session/logout'
-    ) {
+    if (canRefresh) {
       retryConfig.tenantRefreshRetried = true;
       try {
-        let refreshedToken = accessToken;
-        const requestToken = snapshot.token;
-        if (requestToken !== null && requestToken === accessToken) {
-          const refreshKey = JSON.stringify([
-            snapshot.generation,
-            requestToken,
-          ]);
-          let refreshRequest = tenantRefreshRequests.get(refreshKey);
-          if (!refreshRequest) {
-            refreshRequest = refreshTenantSession(
-              requestToken,
-              snapshot.generation
-            )
-              .then((authentication) => authentication.access_token)
-              .finally(() => tenantRefreshRequests.delete(refreshKey));
-            tenantRefreshRequests.set(refreshKey, refreshRequest);
-          }
-          const candidate = await refreshRequest;
-          if (snapshot.generation !== getSessionSnapshot().generation) {
-            throw new Error('The request session has changed.');
-          }
-          const currentToken = getToken();
-          if (currentToken === requestToken) {
-            setToken(candidate);
-            refreshedToken = candidate;
-          } else if (currentToken) {
-            refreshedToken = currentToken;
-          } else {
-            throw new Error('The request session has changed.');
-          }
-        }
-        if (snapshot.generation !== getSessionSnapshot().generation) {
-          throw new Error('The request session has changed.');
-        }
+        const refreshedToken = await refreshTenantAccessToken(
+          snapshot,
+          retryConfig.signal
+        );
         snapshot.token = refreshedToken;
         retryConfig.headers = retryConfig.headers || {};
         retryConfig.headers.Authorization = `Bearer ${refreshedToken}`;
         return axios.request(retryConfig);
-      } catch {
+      } catch (error) {
+        if (retryConfig.signal?.aborted) return Promise.reject(error);
         // Continue to the existing re-login flow below.
       }
     }
-    if (snapshot.generation !== getSessionSnapshot().generation) {
+    if (
+      snapshot.generation !== getSessionSnapshot().generation ||
+      snapshot.token !== getToken()
+    ) {
       return Promise.reject(
         new Error(res.msg || 'The request session has changed.')
       );

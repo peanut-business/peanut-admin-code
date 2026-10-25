@@ -179,19 +179,42 @@ const useUserStore = defineStore('user', {
         beforeLogout.token !== token
       )
         return false;
-      const logoutGeneration = advanceSessionGeneration();
+      const transition: { generation: number | null; token: string | null } = {
+        generation: null,
+        token,
+      };
       let cleared = false;
       try {
-        if (isTenantAccessToken(token)) {
-          await tenantLogout(token as string, logoutGeneration);
+        if (token !== null && isTenantAccessToken(token)) {
+          await tenantLogout(
+            { generation, token },
+            (currentToken, nextGeneration) => {
+              transition.token = currentToken;
+              transition.generation = nextGeneration;
+            }
+          );
+        } else {
+          transition.generation = advanceSessionGeneration();
         }
-      } finally {
-        const afterRemoteLogout = getSessionSnapshot();
+      } catch (error) {
         if (
-          afterRemoteLogout.generation === logoutGeneration &&
-          afterRemoteLogout.token === token
-        ) {
-          cleared = await this.logoutCallBack(logoutGeneration, token);
+          transition.generation === null &&
+          getSessionSnapshot().generation !== generation
+        )
+          return false;
+        throw error;
+      } finally {
+        if (transition.generation !== null) {
+          const afterRemoteLogout = getSessionSnapshot();
+          if (
+            afterRemoteLogout.generation === transition.generation &&
+            afterRemoteLogout.token === transition.token
+          ) {
+            cleared = await this.logoutCallBack(
+              transition.generation,
+              transition.token
+            );
+          }
         }
       }
       return cleared;

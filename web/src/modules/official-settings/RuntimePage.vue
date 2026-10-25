@@ -1,7 +1,7 @@
 <script setup lang="ts">
   import { onBeforeUnmount, provide } from 'vue';
   import { hasPermission } from '@/hooks/permission';
-  import { getToken } from '@/utils/auth';
+  import { tenantSessionFetch } from '@/api/tenant-session-fetch';
   import SettingsPage from './runtime/src/SettingsPage.vue';
   import {
     createSettingsFetchTransport,
@@ -15,16 +15,10 @@
     import.meta.env.VITE_API_BASE_URL || '/',
     window.location.origin
   ).toString();
-  const authenticatedFetch = (request: Request): Promise<Response> => {
-    const headers = new Headers(request.headers);
-    const token = getToken();
-    if (token) headers.set('Authorization', `Bearer ${token}`);
-    return fetch(new Request(request, { headers }));
-  };
   const runtime = createSettingsRuntime({
     transport: createSettingsFetchTransport({
       baseUrl: apiBaseUrl,
-      fetch: authenticatedFetch,
+      fetch: tenantSessionFetch,
     }),
     canRead: () => hasPermission(SETTINGS_READ_PERMISSION),
     canManage: () => hasPermission(SETTINGS_MANAGE_PERMISSION),

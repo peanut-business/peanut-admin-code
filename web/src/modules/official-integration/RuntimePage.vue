@@ -2,7 +2,8 @@
   import { onBeforeUnmount, provide } from 'vue';
   import useUser from '@/hooks/user';
   import { useUserStore } from '@/store';
-  import { getSessionSnapshot, getToken } from '@/utils/auth';
+  import { getSessionSnapshot } from '@/utils/auth';
+  import { tenantSessionFetch } from '@/api/tenant-session-fetch';
   import IntegrationSecurityPage from './runtime/IntegrationSecurityPage.vue';
   import {
     createIntegrationSecurityFetchTransport,
@@ -18,7 +19,7 @@
   const runtime = createIntegrationSecurityRuntime({
     transport: createIntegrationSecurityFetchTransport({
       baseUrl: window.location.origin,
-      authorization: getToken,
+      fetch: tenantSessionFetch,
     }),
     permissions: {
       canReadMachines: () => allowed('official.integration.machine.read'),

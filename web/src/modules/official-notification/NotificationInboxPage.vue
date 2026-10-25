@@ -1,7 +1,7 @@
 <script setup lang="ts">
   import { onBeforeUnmount, provide } from 'vue';
   import { hasPermission } from '@/hooks/permission';
-  import { getToken } from '@/utils/auth';
+  import { tenantSessionFetch } from '@/api/tenant-session-fetch';
   import InboxPage from './optional-runtime/src/NotificationInboxPage.vue';
   import {
     createNotificationFetchTransport,
@@ -15,16 +15,10 @@
     import.meta.env.VITE_API_BASE_URL || '/',
     window.location.origin
   ).toString();
-  const authenticatedFetch = (request: Request): Promise<Response> => {
-    const headers = new Headers(request.headers);
-    const token = getToken();
-    if (token) headers.set('Authorization', `Bearer ${token}`);
-    return fetch(new Request(request, { headers }));
-  };
   const runtime = createNotificationRuntime({
     transport: createNotificationFetchTransport({
       baseUrl,
-      fetch: authenticatedFetch,
+      fetch: tenantSessionFetch,
     }),
     canRead: () => hasPermission(NOTIFICATION_SMS_READ_PERMISSION),
     canManage: () => hasPermission(NOTIFICATION_SMS_MANAGE_PERMISSION),
