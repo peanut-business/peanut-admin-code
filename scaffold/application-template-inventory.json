@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.0.7",
+    "template_version": "5.0.8",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -5817,7 +5817,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "14c9d5de36f83744ba05ce851c71f049ce78b059ef7175ffed685d43fb989eb5"
+            "source_sha256": "d065ae6f1677e9b00702218c3ba1870e50f3f5a7274c76fc885c1a5a56fad8bc"
         },
         {
             "path": "server/app/adminapi/services/auth/AdminApplicationService.php",
@@ -6419,7 +6419,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c47205001bf6fbbee60c12974b87ed10bff4ec4c4be7ff93d4cb626e6832f80a"
+            "source_sha256": "c5b34b9235635afce0fb1bbb62647b16016e42cc77ce1738a159938590d0170e"
         },
         {
             "path": "server/app/api/metadata/application/common.php",
@@ -9561,7 +9561,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "19fc11755db53de632f24e8e6b5692534c4d75c831dd7f5f121d383ce5453d0a"
+            "source_sha256": "9c0b2faa37bb321641cf64cfbc69286a2ce94e49bfe4e4ce0ea8f155a1d9998b"
         },
         {
             "path": "server/app/common/services/upgrade/FileAdoptionRelocation.php",
@@ -9617,7 +9617,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6a9c139f59430a6481486b3d6854449684bca6e3451aec3666a786d0a59eef86"
+            "source_sha256": "2d301379acbd9615e890c1a74bfd982aa23eeb0fe1b226bf7860be463c2dbe4b"
         },
         {
             "path": "server/app/common/services/upgrade/SourceApplicationDump.php",
@@ -28442,6 +28442,20 @@
             "source_sha256": "17e55cb9315fe8194dc7bc16fac7567b664a4780a8fd37af58d23cdba478e3e5"
         },
         {
+            "path": "server/database/migrations/20261027-create-scaffold-upgrade-demo.sql",
+            "target": "server/database/migrations/20261027-create-scaffold-upgrade-demo.sql",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "bca9d596601187ae6e75bae2c9b25e102f75abe2075974d595ef650016eab147"
+        },
+        {
             "path": "server/database/resource-registry.php",
             "target": "server/database/resource-registry.php",
             "classification": "managed",
@@ -28900,7 +28914,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e18cc8c7a67f3a46eed639ece9d5e83cd83cf6e4df976413f25733eaa60c00cd"
+            "source_sha256": "0f85fd8eb0acfb81668538d016b62ebe16a2990b05cdd345c60eb45f38263910"
         },
         {
             "path": "server/docker/scripts/update-plan.php",
@@ -29081,7 +29095,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7541dcf688a5072a10095f297593c40f18843a48ff26a5dcd47ad01b75d91c9c"
+            "source_sha256": "d77b85c43959be4a3a589ecf5fd902c9aa110b218f1ee9db5da040bbcaadfea4"
         },
         {
             "path": "server/generated/openapi.json",
@@ -29095,7 +29109,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "73b6703d71eeabf45f5e34d1fd9957fa36adc6b840972e3b82eb5abbbb668250"
+            "source_sha256": "e499169cba1cbfcc35b7c61c12234e943570e135cb60b98d960244cccf1272e5"
         },
         {
             "path": "server/private/storage/.gitkeep",
@@ -36293,7 +36307,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fb071dc3d0833413007bec2da026abf7dae0cc4fe9d3af4c4bc21afd7671dcd1"
+            "source_sha256": "d54545ed8e26da0f02ddfadc8a667e8cff6bae7e75c8b3cdc3e611a1f1204448"
         },
         {
             "path": "web/src/assets/style/breakpoint.less",
@@ -36658,7 +36672,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4446087f5d09e4137953c67c76c1c16205b7fdcb813cda8c3f6969ad1d15a4ba"
+            "source_sha256": "8596e7b60467d2f226d873754e382641f500b92881890ada91a09b2516232a68"
         },
         {
             "path": "web/src/hooks/chart-option.ts",
@@ -41088,7 +41102,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d0bad7aabeda398fc136d0ee54dec99d5ce267a2200f35a4e25032ba26ec222a"
+            "source_sha256": "c7d20e8fb7d11fa348fb87a6436cc39fbe3da4abde0cd450ea32ef7d6096d263"
         },
         {
             "path": "web/src/views/dashboard/workplace/locale/en-US.ts",
@@ -41102,7 +41116,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d919c95fc1e4efe5c5682e7edd550e432249e1a900812ae2112270ca175e5334"
+            "source_sha256": "b7cd8210166d3182ee4e2b333c2d2355726af38c7d0b81b916b1846effe9612a"
         },
         {
             "path": "web/src/views/dashboard/workplace/locale/zh-CN.ts",
@@ -41116,7 +41130,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d696b95a1a562b733636d5a0d787e2363c4475bb7fdc24a9a38d060b1a156644"
+            "source_sha256": "a0c279aea49b1935b4dd02c33ab90d73b8d7f26bc7f79b00dac38b2b6a53bb08"
         },
         {
             "path": "web/src/views/decoration/mobile/index.vue",
