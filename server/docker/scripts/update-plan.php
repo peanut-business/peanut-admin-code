@@ -2517,6 +2517,9 @@ final class PeanutServerUpdatePlan
     /** Original installation facts are never rewritten to make a new transport fit. */
     private static function installationFacts(string $serverRoot): array
     {
+        if (!class_exists(\app\common\infrastructure\migration\CleanInstallBaseline::class, false)) {
+            require_once dirname(__DIR__, 2) . '/app/common/infrastructure/migration/CleanInstallBaseline.php';
+        }
         if (!class_exists(\app\common\services\installation\InstallationExecutionHost::class, false)) {
             require_once dirname(__DIR__, 2) . '/app/common/services/installation/InstallationExecutionHost.php';
         }

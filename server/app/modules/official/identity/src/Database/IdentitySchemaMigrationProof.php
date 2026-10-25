@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PeanutAdmin\Modules\Identity\Database;
 
+use app\platform\validation\module\StrictVersionConstraintMatcher;
 use Closure;
 use PDO;
 use RuntimeException;
@@ -349,7 +350,7 @@ final class IdentitySchemaMigrationProof
     private static function ledger(PDO $pdo, array $stage): array
     {
         if (!($stage['stageLedger'] ?? null) instanceof Closure) { self::fail('LEDGER_READER_REQUIRED'); }
-        $rows = ($stage['stageLedger'])($pdo); $current = 0; $failed = 0;
+        $rows = ($stage['stageLedger'])($pdo); $current = 0; $predecessors = 0;
         if (!is_array($rows)) { self::fail('LEDGER_INVALID'); }
         foreach ($rows as $row) {
             if (!is_array($row) || ($row['module_key'] ?? null) !== 'official.identity') { self::fail('LEDGER_INVALID'); }
@@ -360,20 +361,26 @@ final class IdentitySchemaMigrationProof
                 foreach (['id', 'module_version', 'batch_no', 'started_at', 'finished_at', 'resolution_kind', 'provenance_json', 'error_code'] as $field) {
                     if (!array_key_exists($field, $row)) { self::fail('REPAIR_FAILED_HISTORY_INVALID'); }
                 }
-                if ($row['status'] !== 'failed' || $row['checksum'] !== self::STAGES[self::MEMBER_JOB_MIGRATION][0]
-                    || $row['module_version'] !== '4.0.0-rc.25' || $row['error_code'] !== 'MODULE_MIGRATION_FAILED'
-                    || $row['resolution_kind'] !== null || $row['provenance_json'] !== null
+                // Fresh installs execute CREATE successfully; the historical repair instead verifies
+                // the exact rc.25 failure. Neither branch adopts a pre-existing table or rewrites history.
+                $applied = $row['status'] === 'applied' && $row['resolution_kind'] === 'executed'
+                    && $row['error_code'] === null && is_string($row['module_version'])
+                    && (new StrictVersionConstraintMatcher())->matches($row['module_version'], $row['module_version']);
+                $failed = $row['status'] === 'failed' && $row['module_version'] === '4.0.0-rc.25'
+                    && $row['error_code'] === 'MODULE_MIGRATION_FAILED' && $row['resolution_kind'] === null;
+                if ((!$applied && !$failed) || $row['checksum'] !== self::STAGES[self::MEMBER_JOB_MIGRATION][0]
+                    || $row['provenance_json'] !== null
                     || !ctype_digit((string) $row['id']) || (int) $row['id'] < 1
                     || !ctype_digit((string) $row['batch_no']) || (int) $row['batch_no'] < 1
                     || !is_string($row['started_at']) || !is_string($row['finished_at'])
                     || preg_match('/\A[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}\z/D', $row['started_at']) !== 1
                     || preg_match('/\A[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}\z/D', $row['finished_at']) !== 1
                     || strcmp($row['started_at'], $row['finished_at']) > 0) { self::fail('REPAIR_FAILED_HISTORY_INVALID'); }
-                ++$failed;
+                ++$predecessors;
             } elseif (($row['status'] ?? null) !== 'applied') { self::fail('LEDGER_INVALID'); }
         }
         if ($current !== 1) { self::fail('LEDGER_INVALID'); }
-        if ($stage['migration_key'] === self::MEMBER_JOB_REPAIR && $failed !== 1) { self::fail('REPAIR_FAILED_HISTORY_REQUIRED'); }
+        if ($stage['migration_key'] === self::MEMBER_JOB_REPAIR && $predecessors !== 1) { self::fail('REPAIR_PREDECESSOR_REQUIRED'); }
         usort($rows, static fn(array $a, array $b): int => strcmp($a['migration_key'], $b['migration_key']));
         return $rows;
     }
