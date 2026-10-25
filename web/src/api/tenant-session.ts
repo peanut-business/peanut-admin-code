@@ -57,7 +57,7 @@ function queueSessionCookieRequest<T>(
       }
       return operation();
     }
-    return await locks.request<Promise<T>>(
+    const result = await locks.request<Promise<T>>(
       SESSION_COOKIE_LOCK,
       { mode: 'exclusive' },
       () => {
@@ -67,6 +67,7 @@ function queueSessionCookieRequest<T>(
         return operation();
       }
     );
+    return result;
   });
   sessionCookieQueue = request.then(
     () => undefined,
@@ -185,12 +186,11 @@ export async function tenantLogout(
     throw new Error('The tenant session has changed.');
   }
   return queueSessionCookieRequest(async () => {
-    const current = getSessionSnapshot();
-    if (current.token === null || !isTenantAccessToken(current.token)) {
+    const { token } = getSessionSnapshot();
+    if (token === null || !isTenantAccessToken(token)) {
       throw new Error('The tenant session has changed.');
     }
     // A refresh that held this lock first may have rotated the access token.
-    const token = current.token;
     const generation = advanceSessionGeneration();
     onStart(token, generation);
     await tenantClient.post(

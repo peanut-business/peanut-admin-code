@@ -85,3 +85,5 @@ export async function tenantSessionFetch(request: Request): Promise<Response> {
   assertCurrentSession(snapshot, token);
   return retried;
 }
+
+export default tenantSessionFetch;
