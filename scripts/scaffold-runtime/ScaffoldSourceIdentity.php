@@ -11,7 +11,7 @@ final class ScaffoldSourceIdentity
 {
     private const EXCLUDED_NAMES = ['.git', '.local', '.ops', 'vendor', 'node_modules', '.nuxt', '.cache', 'coverage'];
     private const EXCLUDED_PATHS = ['backups', 'release', 'releases', 'output', 'evidence', 'updates', '.peanut',
-        'scaffold/releases', 'server/runtime', 'server/private/installation', 'server/private/resources',
+        'scaffold/releases', 'pc/dist', 'server/runtime', 'server/private/installation', 'server/private/resources',
         'server/private/storage', 'server/private/collaboration', 'server/public/uploads', 'server/public/storage',
         'server/public/admin', 'server/public/platform', 'server/public/pc', 'server/public/mobile',
         'server/docker/mysql', 'server/docker/secrets', 'server/docker/tls'];
