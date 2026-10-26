@@ -13,7 +13,11 @@
 - 派生生成：同一Code准备入口在源码副本安装锁定依赖，生成API和inventory。CLI不维护这组内部执行顺序。
 - 封装：CLI调用Code的`scripts/build-scaffold-release`生成两Edition，核对原生来源身份与输出，原子采用最终版本目录。
 
-快照规则唯一登记在`scripts/scaffold-runtime/source-snapshot-policy.json`：`excluded_names`排除任意层同名工具/依赖目录，`excluded_paths`登记源码相对路径，`retained_name_patterns`保留环境示例，`excluded_name_patterns`排除秘密和运行文件。pattern采用PHP/JavaScript共同支持的正则子集、忽略大小写，不含`~`分隔符；两个读取器均在扫描前校验并编译。PHP源码身份入口与CLI本地升级摘要同读这份配置，不内置第二份目录清单；配置随原生升级脚本一起进入APP受管载荷，包内来源证明也包含其摘要。`.github`、`.githooks`等标准工具目录保留本身职责；APP是否交付仍由inventory分类决定，不能一概排除点开头的源配置。
+模板静态声明唯一登记在`scripts/scaffold-runtime/scaffold.conf.json`。`source_snapshot`控制输入扫描，PHP源码身份与CLI本地升级摘要同读；其中`excluded_names`排除任意层同名工具/依赖目录，`excluded_paths`登记源码相对路径，两个name-pattern列表保留环境示例、排除秘密及运行文件。这组pattern采用PHP/JavaScript共同支持的正则子集、忽略大小写、不含`~`，读取时校验并编译。源码中保留`.github`、`.githooks`等标准配置不代表它们会交付APP，不能一概排除点开头的源配置。
+
+`delivery`声明交付排除、归属、profile和adapter元数据；`inventory_omissions`登记不生成库存行的维护者入口；`file_mappings`明确source→target整文件映射及其分类、transform与profile。`transforms`按顺序选择已有转换器，匹配精确path、prefix或既有路径pattern，未匹配的普通文件原样复制。`variables`声明支持的应用变量，`text_replacements`收录已有全局及按文件的字面替换，动态值只引用已声明变量及固定前后缀。复杂的版本、锁、品牌、模块与Edition转换继续由`ApplicationCreator`及既有投影器执行；配置不承载表达式或脚本。
+
+`build-application-template-inventory`展开配置为现有inventory，`ApplicationCreator`消费其映射和转换声明。配置及读取器随原生升级脚本进入APP受管载荷；配置自身使用`copy`，不参与应用变量或品牌改写，其摘要进入来源证明。修改声明后运行原生inventory生成入口；不另维护手工库存或CLI过滤清单。
 
 每次操作可变工作区集中在Code `.local/release/build-<随机ID>/`，包含`source`、本地Core的`core-php`/`core-web`、`core-inputs`及子进程临时目录；封装器通过`--work-root`使用该操作目录，正常结束清理自己的工作区。为保证最终采用与恢复使用同卷rename，输出根下仅短暂存在`.<版本>.stage-*`及覆盖时的`.<版本>.previous-*`，成功后只保留两Edition最终产物。已有未知owner的隐藏目录不迁移或清扫，既有版本也不因规则更新自动重打。
 

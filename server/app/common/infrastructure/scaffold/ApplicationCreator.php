@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace app\common\infrastructure\scaffold;
 
 use app\common\value\scaffold\EditionProfile;
+use app\common\value\scaffold\ScaffoldConfiguration;
 use app\common\value\scaffold\ScaffoldManifest;
 use app\common\value\scaffold\ScaffoldSourceIdentity;
 use app\common\value\scaffold\VersionContract;
@@ -689,15 +690,15 @@ final class ApplicationCreator
             $target = ScaffoldManifest::path((string) ($entry['target'] ?? $path));
             $classification = (string) ($entry['classification'] ?? '');
             $transform = (string) ($entry['transform'] ?? 'copy');
-            if (str_starts_with($path, 'server/resources/scaffold-application/')) {
-                $expectedTarget = substr($path, strlen('server/resources/scaffold-application/'), -5);
-                $expectedClassification = $target === 'SECURITY.md' ? 'app-owned' : 'generated-managed';
-                if (!str_ends_with($path, '.stub') || $target !== $expectedTarget
-                    || (!str_starts_with($target, 'docs-site/') && !in_array($target, ['SECURITY.md', 'AGENTS.md'], true))
-                    || $classification !== $expectedClassification || $transform !== 'docs-page'
+            $mapping = ScaffoldConfiguration::load()['file_mappings'][$path] ?? null;
+            if ($mapping !== null) {
+                if ($target !== $mapping['target'] || $classification !== $mapping['classification']
+                    || $transform !== $mapping['transform'] || ($entry['profiles'] ?? null) !== $mapping['profiles']
                     || ($entry['mode'] ?? null) !== 0644) {
                     throw new RuntimeException('CREATE_APP_DOCUMENT_TEMPLATE_INVALID: ' . $path);
                 }
+            } elseif (str_starts_with($path, 'server/resources/scaffold-application/')) {
+                throw new RuntimeException('CREATE_APP_DOCUMENT_TEMPLATE_INVALID: ' . $path);
             }
             if (isset($seenSource[$path]) || isset($seenTarget[$target])) {
                 throw new RuntimeException('CREATE_APP_INVENTORY_DUPLICATE_PATH: ' . $path);
@@ -864,53 +865,13 @@ final class ApplicationCreator
             // must not mutate their canonical contents or dependency fingerprints.
             return $content;
         }
-        $content = str_replace(
-            ['Peanut Admin', 'https://peanut-admin.007345.xyz', 'https://peanut-admin-doc.007345.xyz', '花生科技'],
-            [$parameters['PRODUCT_NAME'], 'https://example.invalid', 'https://docs.example.invalid', 'application owner'],
-            $content,
-        );
-        if ($path === 'server/database/init.sql') {
-            $content = str_replace(
-                ["-- 超级管理员（密码：admin123456）", "MD5(CONCAT(MD5('admin123456'),'abcd1234'))", '系统预置角色（仅菜单管理权限，演示用）'],
-                ['-- 超级管理员（密码必须由安装器注入）', "MD5(CONCAT(MD5('__INSTALLER_MUST_REPLACE__'),'abcd1234'))", '系统预置最小权限角色'],
-                $content,
-            );
-        }
-        if ($path === 'server/database/install.php') {
-            $content = str_replace("MD5(CONCAT(MD5('admin123456'),'abcd1234'))", "MD5(CONCAT(MD5('__INSTALLER_MUST_REPLACE__'),'abcd1234'))", $content);
-        }
-        if ($path === 'server/tests/Productization/InstallerBootstrapTest.php') {
-            $content = str_replace(
-                ["MD5(CONCAT(MD5('admin123456')", '密码：admin123456', 'known password expression must not reach the database', 'installer must only replace the executable seed'],
-                ["MD5(CONCAT(MD5('__INSTALLER_MUST_REPLACE__')", '密码必须由安装器注入', 'placeholder password expression must not reach the database', 'installer must preserve the neutral seed comment'],
-                $content,
-            );
-        }
-        if ($path === 'scripts/check-local-runtime-contract') {
-            $contractIdentity = $parameters['SLUG'] . '-contract';
-            $content = str_replace(
-                [
-                    'peanut-admin-php:contract',
-                    'peanut-admin-nginx:contract',
-                    'peanut-admin-mysql84-development-host-direct',
-                    'peanut-admin-mysql84-development',
-                    'DB_HOST=192.168.192.2',
-                    'DB_PORT=20183',
-                    'DB_NAME=peanut_admin_development',
-                    'DB_USER=peanut_admin_development',
-                ],
-                [
-                    $parameters['SLUG'] . '-php:contract',
-                    $parameters['SLUG'] . '-nginx:contract',
-                    $parameters['SLUG'] . '-mysql84-contract-host',
-                    $parameters['SLUG'] . '-mysql84-contract',
-                    'DB_HOST=127.0.0.1',
-                    'DB_PORT=3306',
-                    'DB_NAME=' . $contractIdentity,
-                    'DB_USER=' . $contractIdentity,
-                ],
-                $content,
-            );
+        $replacements = ScaffoldConfiguration::load()['text_replacements'];
+        foreach ([$replacements['all'], $replacements['files'][$path] ?? []] as $pairs) {
+            foreach ($pairs as $source => $replacement) {
+                $value = is_string($replacement) ? $replacement
+                    : ($replacement['prefix'] ?? '') . $parameters[$replacement['variable']] . ($replacement['suffix'] ?? '');
+                $content = str_replace($source, $value, $content);
+            }
         }
         if ($path === 'server/app/adminapi/application/WorkbenchApplicationService.php') {
             $content = preg_replace("/'(today_sales|total_sales|today_visitor|total_visitor|today_new_user|total_new_user|order_num|order_sum)' => [0-9]+,/", "'$1' => 0,", $content) ?? $content;

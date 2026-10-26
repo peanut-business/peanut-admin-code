@@ -4097,6 +4097,20 @@
             "source_sha256": "0b3bf7dffc5e78ef4bb6a798c4b9484de04cb46b3983a2701e877b557e00dcd0"
         },
         {
+            "path": "scripts/scaffold-runtime/ScaffoldConfiguration.php",
+            "target": "scripts/scaffold-runtime/ScaffoldConfiguration.php",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "9bf16f1813f44192c5a4427efd837147d0b887151d0a1066fc691894c4f70d0a"
+        },
+        {
             "path": "scripts/scaffold-runtime/ScaffoldManifest.php",
             "target": "scripts/scaffold-runtime/ScaffoldManifest.php",
             "classification": "managed",
@@ -4136,7 +4150,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6d2d22cb37c5f075764b87cbf6ce0d63eb2b8adafb57ca5046b964fe0f539445"
+            "source_sha256": "0fdaa96876846cee14e80f45625c8f14987226436af0f18268c35a9bf8aade35"
         },
         {
             "path": "scripts/scaffold-runtime/ScaffoldUpgradeLedger.php",
@@ -4181,18 +4195,18 @@
             "source_sha256": "7d8124d7aae6138a73a47ea2b67276746408773604a5d6c9dd04d1ae84d67223"
         },
         {
-            "path": "scripts/scaffold-runtime/source-snapshot-policy.json",
-            "target": "scripts/scaffold-runtime/source-snapshot-policy.json",
+            "path": "scripts/scaffold-runtime/scaffold.conf.json",
+            "target": "scripts/scaffold-runtime/scaffold.conf.json",
             "classification": "managed",
             "owner": "scaffold",
-            "transform": "text",
+            "transform": "copy",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
             ],
-            "source_sha256": "ce81b4db168b1f8582ae40838d6cbac530ba778d4b69d7f8ebe8a1e5c1f6ae7b"
+            "source_sha256": "2f0b802fa7380bdedd077d28991f7bccc3e2045f35274f582b41c88a4e99b79d"
         },
         {
             "path": "scripts/scaffold-upgrade",

@@ -6,6 +6,8 @@ namespace app\common\value\scaffold;
 
 use RuntimeException;
 
+require_once __DIR__ . '/ScaffoldConfiguration.php';
+
 /** One identity grammar for source snapshots, manifests and upgrade seals. */
 final class ScaffoldSourceIdentity
 {
@@ -13,10 +15,7 @@ final class ScaffoldSourceIdentity
     {
         static $policy = null;
         if ($policy !== null) { return $policy; }
-        $value = json_decode((string) file_get_contents(__DIR__ . '/source-snapshot-policy.json'), true, 512, JSON_THROW_ON_ERROR);
-        if (($value['protocol'] ?? null) !== 'peanut.source-snapshot-policy.v1') {
-            throw new RuntimeException('SCAFFOLD_SOURCE_POLICY_INVALID');
-        }
+        $value = ScaffoldConfiguration::load()['source_snapshot'];
         foreach (['excluded_names', 'excluded_paths', 'excluded_name_patterns', 'retained_name_patterns'] as $key) {
             if (!is_array($value[$key] ?? null) || !array_is_list($value[$key])) { throw new RuntimeException('SCAFFOLD_SOURCE_POLICY_INVALID'); }
             foreach ($value[$key] as $entry) {
