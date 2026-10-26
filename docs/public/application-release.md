@@ -1,5 +1,7 @@
 # APP发行与server-only交付
 
+本页记录当前 APP `server-only` 制包及实例更新合同。产品生产改为从自身 Git `main` 首装和更新仍是目标方案，工程编排尚待完整接通；现有包与 `server/docker/scripts/update.sh` 不因此弃用。生命周期状态见[产品开发流程](README.md#产品开发与定版)。
+
 ## 1. 产物、源码和版本
 
 APP开发源码归APP自己的Git仓库。`scripts/package-release.sh`的普通入口默认且仅生成server-only部署内容；`--server-only`只是同一默认行为的显式写法。上游维护者的`--generated-template`和已冻结内部候选属于不同输入合同，不是APP日常全源码发行选项。

@@ -1,5 +1,7 @@
 # 发行渠道、来源与版本
 
+完整生命周期见[产品开发与定版流程](README.md#产品开发与定版)。脚手架保留 ST、MT 两种模板包；创建和吸收模板升级继续由 Peanut CLI 完成。产品源码在自己的 Git `dev` 分支开发，定版需人工审核后进入 `main` 并打 tag。生产直接跟踪产品 `main` 是目标流程，尚未完整接通；当前可执行的 server-only 包更新见[APP发行](application-release.md)。
+
 ## 1. 从哪里取得产品
 
 正式发行以官方GitHub Release的固定tag、来源提交、附件清单和可信摘要为准。开发源码版本由`release-versions.json#source_product_version`读取，不能从本页日期或示例推断已发布。历史实例按自己采用的版本阅读资料；CI构建成功、本地文件存在和正式公开发行分别记录。

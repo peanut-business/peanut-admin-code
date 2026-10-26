@@ -5,6 +5,7 @@
 ## 产品使用：创建、开发、发行与部署
 
 - [产品使用资料](public/README.md)：按角色进入。
+- [产品开发与定版流程](public/README.md#产品开发与定版)：脚手架模板、产品 `dev` 开发、审核后定版，以及生产 Git 流程的目标与当前状态。
 - [发行渠道与版本身份](public/release-channels.md)：脚手架、APP、Core和CLI版本分开。
 - [首次安装与实例配置](public/installation.md)：新实例与已有实例分开。
 - [APP发行、server-only部署及升级](public/application-release.md)：包内容、受管文件、静态资源、失败恢复。
