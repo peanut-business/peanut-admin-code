@@ -17,7 +17,7 @@ final class ScaffoldConfiguration
         if (($value['protocol'] ?? null) !== 'peanut.scaffold-configuration.v1') {
             throw new RuntimeException('SCAFFOLD_CONFIGURATION_INVALID');
         }
-        foreach (['source_snapshot', 'inventory_omissions', 'delivery', 'file_mappings', 'transforms', 'variables', 'untracked_exclusions', 'text_replacements'] as $key) {
+        foreach (['source_snapshot', 'inventory_omissions', 'delivery', 'file_mappings', 'transforms', 'variables', 'text_replacements'] as $key) {
             if (!is_array($value[$key] ?? null)) { throw new RuntimeException('SCAFFOLD_CONFIGURATION_INVALID: ' . $key); }
         }
         foreach (['managed', 'excluded', 'application_owned', 'retained_paths', 'generated_managed_paths', 'owner_by_classification', 'default_profiles', 'profile_overrides', 'adapters'] as $key) {

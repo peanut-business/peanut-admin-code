@@ -11,40 +11,6 @@
         "PRODUCT_NAME",
         "SLUG"
     ],
-    "untracked_exclusions": [
-        ".git/**",
-        ".local/**",
-        ".ops/**",
-        ".env",
-        "server/.env",
-        "**/vendor/**",
-        "**/node_modules/**",
-        "**/dist/**",
-        "**/runtime/**",
-        "server/private/installation/**",
-        "server/private/resources/**",
-        "server/public/uploads/**",
-        "server/public/storage/**",
-        "server/private/storage/**",
-        "server/docker/mysql/**",
-        "server/docker/secrets/**",
-        "server/private/collaboration/**",
-        "server/docker/tls/**",
-        "server/docker/collaboration.env",
-        "server/.env.collaboration.lock",
-        "updates/**",
-        "backups/**",
-        ".peanut/application-release.json",
-        "release-manifest.txt",
-        "server/public/admin/**",
-        "server/public/platform/**",
-        "server/public/pc/**",
-        "server/public/mobile/**",
-        "**/.cache/**",
-        "output/**",
-        "*.log",
-        ".DS_Store"
-    ],
     "files": [
         {
             "path": ".dockerignore",
@@ -989,7 +955,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "047e691f89d44cfad1f8678a5e243e68e4ed4547a4770b8b51b7501dcce5284e"
+            "source_sha256": "90d42b6b89d7eb8c6199460335a642336805b13db34294b382ace65cbf130e2f"
         },
         {
             "path": "docs/maintenance/README.md",
@@ -3971,7 +3937,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9bf16f1813f44192c5a4427efd837147d0b887151d0a1066fc691894c4f70d0a"
+            "source_sha256": "e701c6629f5372c158715d5122d027e192f14270894b178bfeaca2f5145ca42b"
         },
         {
             "path": "scripts/scaffold-runtime/ScaffoldManifest.php",
@@ -4069,7 +4035,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1aa6423fdcb0d8a58ac5a43f7c317c7960b1570ea97d77ad956bc546b665e69c"
+            "source_sha256": "9bda0dc3af8170ce0371c059c31291f181cc7c39f186230e72f3b4e4ac4a3cac"
         },
         {
             "path": "scripts/scaffold-upgrade",

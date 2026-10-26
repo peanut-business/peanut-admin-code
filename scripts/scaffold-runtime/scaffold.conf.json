@@ -33,6 +33,15 @@
       ".peanut",
       "scaffold/releases",
       "server/runtime",
+      "server/.peanut",
+      "server/plugins",
+      "server/plugins.lock",
+      "server/resources/project-resources.json",
+      "server/docker/scripts/upgrade",
+      "server/docker/scripts/product-upgrade-host",
+      "server/docker/scripts/scaffold-runtime/ScaffoldPathGuard.php",
+      "server/docker/scripts/ops-backup-worker",
+      "server/docker/scripts/ops-restore-worker",
       "server/private/installation",
       "server/private/resources",
       "server/private/credential-maintenance",
@@ -64,11 +73,20 @@
     "paths": [
       "scaffold/application-template-inventory.json",
       "SECURITY.md",
-      "AGENTS.md"
+      "AGENTS.md",
+      "server/plugins.lock",
+      "server/resources/project-resources.json",
+      "server/docker/scripts/upgrade",
+      "server/docker/scripts/product-upgrade-host",
+      "server/docker/scripts/scaffold-runtime/ScaffoldPathGuard.php",
+      "server/docker/scripts/ops-backup-worker",
+      "server/docker/scripts/ops-restore-worker"
     ],
     "prefixes": [
       "scaffold/",
-      "output/"
+      "output/",
+      "server/.peanut/",
+      "server/plugins/"
     ]
   },
   "delivery": {
@@ -545,40 +563,6 @@
     "PACKAGE_IDENTITY",
     "PRODUCT_NAME",
     "SLUG"
-  ],
-  "untracked_exclusions": [
-    ".git/**",
-    ".local/**",
-    ".ops/**",
-    ".env",
-    "server/.env",
-    "**/vendor/**",
-    "**/node_modules/**",
-    "**/dist/**",
-    "**/runtime/**",
-    "server/private/installation/**",
-    "server/private/resources/**",
-    "server/public/uploads/**",
-    "server/public/storage/**",
-    "server/private/storage/**",
-    "server/docker/mysql/**",
-    "server/docker/secrets/**",
-    "server/private/collaboration/**",
-    "server/docker/tls/**",
-    "server/docker/collaboration.env",
-    "server/.env.collaboration.lock",
-    "updates/**",
-    "backups/**",
-    ".peanut/application-release.json",
-    "release-manifest.txt",
-    "server/public/admin/**",
-    "server/public/platform/**",
-    "server/public/pc/**",
-    "server/public/mobile/**",
-    "**/.cache/**",
-    "output/**",
-    "*.log",
-    ".DS_Store"
   ],
   "text_replacements": {
     "all": {
