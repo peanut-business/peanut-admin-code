@@ -2,9 +2,9 @@
 
 ## 职责
 
-CLI是独立工具产品，提供release/create/upgrade/package及状态、诊断入口。Code提供模板、APP身份、受管baseline、原生安装/升级和制包合同；Core不导入CLI，也不复制业务工具实现。普通APP不依赖维护者Project。
+CLI是独立工具产品，提供config/release/create/upgrade及状态、诊断入口；package保留为既有APP包消费者的命令。Code提供模板、APP身份、受管baseline、原生安装/升级及生产工具合同；Core不导入CLI，也不复制业务工具实现。普通APP不依赖维护者Project。
 
-模板包用于创建APP及上游源码升级；APP自己的部署包是server-only。CLI、脚手架、APP和Recipe版本独立，不能把一处版本升级当作全部运行环境已更新。
+模板包用于创建APP及上游源码升级；APP在自己的Git开发与定版，生产采用固定main提交，完整协调尚待接通，见[产品Git交付](../public/application-release.md)。CLI、脚手架、APP和Recipe版本独立，不能把一处版本升级当作全部运行环境已更新。
 
 ## 当前命令与简化目标
 
@@ -18,7 +18,7 @@ Recipe是可选CI配置，来源在CLI仓的recipes目录，各版本有manifest
 
 初次安装先核文件占用和归属；既有文件即使内容相同也不得静默收编。Recipe文件归recipe owner，用户改动保留；后续更新应复用同一三方比较及恢复机制，不复制第二个升级引擎。当前未实现的更新/卸载/远端下载保持明确缺口，不把add当覆盖升级。
 
-当前开发catalog将GitHub职责拆成`scaffold-ci`和`app-ci`，安装时分别核脚手架inventory/版本合同或APP manifest。前者串行调用与本地相同的原生生产者，生成两Edition模板及配套清单；后者只调用APP自己的server-only制包器并使用显式APP根和输出目录。CLI仓自己的CI只发行CLI工具。候选工作流上传构建结果，正式GitHub附件仍由通过资格的获准CI发布；不能把候选artifact当正式发行。
+当前开发catalog将GitHub职责拆成`scaffold-ci`和`app-ci`，安装时分别核脚手架inventory/版本合同或APP manifest。前者串行调用与本地相同的原生生产者，生成两Edition模板及配套清单；后者仍调用APP的server-only制包器，是尚未适配产品Git交付的既有实现，不作为日常生产步骤。CLI仓自己的CI只发行CLI工具。候选工作流上传构建结果，正式GitHub附件仍由通过资格的获准CI发布；不能把候选artifact当正式发行。
 
 GitHub配方只有显式触发才运行，不默认修改Secrets、权限或生产。已退役的混合`github-ci`源码从当前catalog移除；已发布Git历史与APP已安装baseline保留。新Recipe遇到既有工作流即拒绝，不通过add覆写定制或收编旧owner。脚手架仓自己的Recipe状态不进入生成APP；APP选择自己的Recipe并维护独立baseline。
 

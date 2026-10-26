@@ -8,7 +8,7 @@
 - [产品开发与定版流程](public/README.md#产品开发与定版)：脚手架模板、产品 `dev` 开发、审核后定版，以及生产 Git 流程的目标与当前状态。
 - [发行渠道与版本身份](public/release-channels.md)：脚手架、APP、Core和CLI版本分开。
 - [首次安装与实例配置](public/installation.md)：新实例与已有实例分开。
-- [APP发行、server-only部署及升级](public/application-release.md)：包内容、受管文件、静态资源、失败恢复。
+- [产品 Git 交付与生产更新](public/application-release.md)：定版、首次部署、原目录更新、数据保护及实现差距。
 - [API合同与SDK](public/api-and-sdk.md)、[模块开发与交付](public/module-development.md)。
 
 ## 二开开发：规范与源码
@@ -27,6 +27,6 @@
 
 ## 不随APP分发的维护资料
 
-维护者的源级制包、资格工具和受限修复合同在源码仓`docs/maintenance/`，包括[本地身份凭据维护](maintenance/identity-credentials.md)、[授权 Workflow 身份消费者](maintenance/workflow-authorized-fixture.md)；内部需求决定、资源实值、任务和运行回执在私有Project。它们不是产品使用者的必读前置。历史发行快照和APP旧baseline保留其原版本，不改成当前事实，也不从历史任务书恢复执行。
+维护者的[模板生产、资格与既有包技术合同](maintenance/release-producers.md)、[本地身份凭据维护](maintenance/identity-credentials.md)、[授权 Workflow 身份消费者](maintenance/workflow-authorized-fixture.md)在源码仓`docs/maintenance/`；内部需求决定、资源实值、任务和运行回执在私有Project。它们不是产品使用者的必读前置。历史发行快照和APP旧baseline保留其原版本，不改成当前事实，也不从历史任务书恢复执行。
 
 API与模块清单由原生结构化源生成；没有第二份手工API真值。公开文档站只展示固定来源，不拥有另一套技术正文。

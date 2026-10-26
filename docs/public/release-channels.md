@@ -1,6 +1,6 @@
 # 发行渠道、来源与版本
 
-完整生命周期见[产品开发与定版流程](README.md#产品开发与定版)。脚手架保留 ST、MT 两种模板包；创建和吸收模板升级继续由 Peanut CLI 完成。产品源码在自己的 Git `dev` 分支开发，定版需人工审核后进入 `main` 并打 tag。生产直接跟踪产品 `main` 是目标流程，尚未完整接通；当前可执行的 server-only 包更新见[APP发行](application-release.md)。
+完整生命周期见[产品开发与定版流程](README.md#产品开发与定版)。脚手架保留 ST、MT 两种模板包；创建和吸收模板升级继续由 Peanut CLI 完成。产品源码在自己的 Git `dev` 分支开发，定版需人工审核后进入 `main` 并打 tag。生产采用产品 `main` 的固定提交，尚未完整接通；边界见[产品 Git 交付](application-release.md)。
 
 ## 1. 从哪里取得产品
 
@@ -10,7 +10,7 @@
 | --- | --- |
 | 脚手架模板 | 官方固定发行来源，用于创建APP及提供上游升级输入 |
 | APP开发源码 | APP自己的Git仓，承载业务、自有版本和上游baseline |
-| APP部署包 | APP固定提交生成的server-only归档，用于该APP安装与生产更新 |
+| APP生产来源 | APP自己的定版 `main` 提交/tag；原目录更新链尚待工程接通 |
 | Core包 | Composer/npm固定公开版本及锁定摘要；开发联调不冒充正式包 |
 | CLI | 独立工具版本，不等同脚手架或APP版本 |
 
@@ -32,11 +32,9 @@ php /absolute/my-app/scripts/upgrade plan --scope=source --instance-root=/absolu
 
 ## 3. APP发行与生产更新
 
-普通APP默认只发行server-only包，具体命令、输出、受管文件和构建见[APP发行](application-release.md)。上游模板与冻结内部候选的显式入口保留原合同，不成为普通APP完整源码包模式。
+生产首次在固定空目录、空库取得产品定版 `main`，准备锁定依赖、必要构建、配置并通过[安装页面向导](installation.md)完成安装；已有实例在原目录更新固定 `main`，按变化处理依赖、构建和未应用迁移。具体程序/数据边界、恢复和实现差距见[交付合同](application-release.md)。
 
-新实例使用`php server/database/install.php`或该版本安装向导，见[安装指南](installation.md)。已有实例使用自身可信`server/docker/scripts/update.sh`，先按APP发行说明明确`PEANUT_UPGRADE_PHP`绝对解释器与已经存在的私有workspace，再使用同一计划。它不执行首次安装器、生产`peanut upgrade`或不受控git pull。
-
-人工和CI触发采用同一包、清单、摘要、计划、备份、受管替换、迁移、真实验证和恢复合同。固定Git取源生产更新尚需接通同一部署采用器并验收；Git能退版本不意味着数据库可以自动回退。
+B 部署包、`peanut package` 和 `release/apps` 退出日常生产环节。现有包生产者、固定 Git 输入与 `update.sh` 仍保留实际消费者的技术合同，不因文档改动删代码，也不作为新流程的额外用户步骤。源码升级不等于生产更新；Git 能退版本不意味着数据库可自动回退。
 
 ## 4. 来源与失败保护
 

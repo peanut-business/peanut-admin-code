@@ -12,15 +12,17 @@ Core 的 prepared 指纹绑定 Code state root、该 Core 的 host scope、规�
 
 ## 使用
 
-先按示例登记本机已经安装的工具。npm/pnpm 必须绑定同一个登记 Node 与对应 CLI 文件，Composer 必须绑定登记 PHP 与所选 CLI 文件；原生程序可以使用系统安装。工具及非 Core 目录路径可写相对路径或绝对路径；相对路径统一以项目根为基准，执行时解析为绝对路径。Core 参数可相对 Code 根输入，但 `core.php`/`core.web` 保存绝对路径；工作区或 Core 位置变化后重新运行 config 并指定当前 Core。`.local` 配置不随 Git 合并，新工作区须重新配置。`peanut config` 先完整预览 Code/Core 工具、推荐差异、路径与写入目标；明确确认（非交互使用 `--yes`）后才创建缓存并执行 `project-env prepare`。拒绝确认不写入。它不安装工具或依赖、下载工具或改变全局 PATH。
+使用已安装的 CLI，在选定 Code 根执行 `peanut config`，预览并确认已安装工具和路径；环境、路径和声明不变时，之后生成 ST/MT 模板只需 `peanut release`。CLI 内部调用 `project-env` 和原生模板生产者，不要求每次手动 prepare/install/hash，也无需再运行 APP 的 `package-release.sh`。需要本地 Core 随模板携带时显式选择 `--with-local-core`。
+
+npm/pnpm 必须绑定同一个登记 Node 与对应 CLI 文件，Composer 必须绑定登记 PHP 与所选 CLI 文件。工具及非 Core 目录路径可相对 Code 根，Core 参数可相对输入但配置保存绝对路径。`.local` 不随 Git 合并；新工作区、路径或声明变化后重新 config。配置先预览 Code/Core 工具、推荐差异和写入目标，确认（非交互 `--yes`）后才创建缓存并执行 `project-env prepare`；拒绝确认不写入，不安装工具或依赖、不改变全局 PATH。
 
 ```sh
 python3 scripts/project-env requirements
 python3 scripts/project-env doctor
-python3 scripts/project-env prepare
 python3 scripts/project-env exec -- peanut status
-python3 scripts/project-env exec -- bash scripts/package-release.sh /absolute/new-output --application-root=/absolute/application
 ```
+
+上面是维护者只读检查及已准备环境的调用示例；首次常规准备使用 `peanut config`，内部或 CI 显式准备才直接调用 `project-env prepare`。
 
 Peanut CLI 的 `peanut config [--path <project-root>] [--yes]` 会发现已安装工具并预览后写入 `.local/toolchain/host.json`，推荐版本不一致时显示实际版本。主项目缓存默认是 `.local/toolchain/cache/pnpm`、`.local/toolchain/cache/npm`、`.local/toolchain/cache/composer`；Core 缓存默认是 `.local/toolchain/cores/<php|web>/cache/<工具>`。只有确认后才创建缓存目录并调用 `project-env prepare` 建立本地薄命令入口；它不安装工具、不改变全局 PATH。`host.json` 的 `core.php`/`core.web` 可相对 Code 根输入但保存绝对路径，以固定绑定实际 Core 位置并避免 Code 工作目录变化后按另一基准解析；`.local` 配置不随 Git 合并，新工作区或 Code/Core 位置变化后须重新运行 config。release、backups 及其他既有路径仍按 Code 项目根解析并保持可读相对路径。
 
@@ -40,13 +42,9 @@ CI 安装工具的步骤先从 `requirements` 输出读取版本，再绑定 CI 
 
 下游交付约定是通过同一可变模板 inventory 接收 `scripts/project-env`、`tools/toolchain.json`、本机配置示例和本指南；公开 AGENTS 引导使用该入口。维护者必须先用原生生成器更新 inventory 并核对来源，之后正常生成应用；仅修改生成器或入口文档不代表已经完成交付。生成应用不携带真实 `host.json`、维护者资源或凭据，也不自动安装 GitHub 工作流。工具要求是可定制的 managed 文件，升级遇到本地修改沿既有冲突流程处理；历史应用不因模板更新被直接改写。
 
-`github-ci@1.1.0` 候选源码和 catalog 已归独立 `peanut-cli` 仓库管理；Peanut Admin 不再保存第二份 Recipe 源码。CLI `v0.1.0` 的 catalog 仍指向 `1.0.0`，`peanut recipe add github-ci` 不会自动升级既有 Recipe。激活新默认必须在 CLI 仓库完成相应回归及 CI 验证并发布新的 CLI/Recipe 版本；既有 Recipe 的 update/adoption 尚未实现，不能用 add、复制文件或更换 baseline 代替升级。
+Recipe 源码与 catalog 由独立 CLI 维护，现行职责见[CLI 与配方](../architecture/cli-and-recipes.md)：`scaffold-ci` 使用正常模板生产者；`app-ci` 仍是既有 server-only 候选实现，尚未适配产品 Git 生产流程，不列为日常生产前置。旧混合 `github-ci` 已退役，既有安装 baseline 和定制保留；不能用 add、复制文件或改 baseline 冒充 Recipe 更新。
 
-新候选由手动触发的 `ci.yml`、`release.yml` 复用 `toolchain.yml`。后者只接受 `workflow_call`，统一读取 `project-env requirements`，按项目版本准备一次 Node、pnpm、PHP、Python 和固定 Composer，再生成 CI 自己的私有路径绑定并执行 prepare。后续命令均经 project-env，不继承维护者电脑路径。固定版本不可取得、实际版本或 PHP 扩展不符时失败，不自动放宽为最新版本。CI 引入的下载、依赖安装、编译及工件上传只有在后续获得执行授权并启动工作流时才发生。
-
-缓存只保存 pnpm/npm/Composer 包缓存，并按 runner 系统、架构、工具要求及依赖锁区分；不缓存 host.json、工具 shim、vendor、node_modules、凭据或数据库。CI 保留原有应用布局、后端语法与客户端构建步骤；server-only candidate 使用既有 package-release 入口，上传服务端归档和对应外部 manifest，不签名、不创建 Release、不部署。
-
-待验证：工具精确版本在 Linux Actions 中的供应、实际安装路径、缓存恢复、生成 APP 的入口闭合，以及独立 CLI Recipe 在真实 Actions 环境中的执行。当前 Python 与 PHP 精确版本来自本机登记，不代表已经证明 hosted runner 可以取得同版本。Recipe 安装/重复/冲突回归归 `peanut-cli` 仓库；Peanut Admin 只保留自身 scaffold 的归属迁移保护。
+CI 使用自己的工具绑定与缓存，不继承本机 host.json；缓存只保存包缓存，不保存 vendor/node_modules、工具 shim、凭据或数据库。具体工作流实现、资格及实际运行结果分别核对，文档示例不触发 CI、正式发布或生产。
 
 ## 固定发行候选
 

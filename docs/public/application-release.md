@@ -1,106 +1,46 @@
-# APP发行与server-only交付
+# 产品 Git 交付与生产更新
 
-本页记录当前 APP `server-only` 制包及实例更新合同。产品生产改为从自身 Git `main` 首装和更新仍是目标方案，工程编排尚待完整接通；现有包与 `server/docker/scripts/update.sh` 不因此弃用。生命周期状态见[产品开发流程](README.md#产品开发与定版)。
+本页是产品定版、首次部署和原目录更新的现行合同。产品源码归自己的 Git：`dev` 开发，经人工审核后合入 `main` 并打对应 tag，生产采用已核定的 `main` 提交。脚手架模板仍用于 CLI `create` / `upgrade`；B 部署包、`peanut package` 和 `release/apps` 已退出日常生产流程。
 
-## 1. 产物、源码和版本
+**实现状态：Git 生产流程尚未完整接通和验收。** 现有固定 Git 输入准备器只从已审阅的本地仓库读取精确对象，在独立目录构建程序；原生 `update.sh` 可接收其结果。这不等于已经具备从产品 `main` 更新活动生产目录的完整入口。以下是目标合同，不能作为当前可直接执行的生产命令清单。
 
-APP开发源码归APP自己的Git仓库。`scripts/package-release.sh`的普通入口默认且仅生成server-only部署内容；`--server-only`只是同一默认行为的显式写法。上游维护者的`--generated-template`和已冻结内部候选属于不同输入合同，不是APP日常全源码发行选项。
+## 1. 定版和来源
 
-`scripts/deploy-release`只接收独立APP自己的server Release及已有APP数据库权限投影。临时模板来源部署和空数据库权限投影在计划阶段即拒绝，不发布目录或启动服务；其他模板工具和历史制品保持其各自合同。
+产品保留独立版本、Edition、上游模板 baseline 和自己的业务定制。吸收脚手架变化使用 CLI 的三方升级，不以 Git 合并上游或重新创建产品代替。完成产品开发和相应验证后，再按授权审核 `dev` → `main` 及 tag；提交、定版、正式发行和生产采用分别记录。
 
-脚手架模板版本、APP独立版本、Core依赖及CLI版本分别记录。APP吸收上游后须正常提交和提升自己的发行版本，再生成部署包；不能用上游号覆盖APP号。已有输出拒绝覆盖，同名版本内容变化须形成新版本，而不是覆盖已发布附件。
+生产记录产品仓库、精确 commit/tag、版本、Edition 和依赖锁。只读仓库授权由主机秘密机制提供，不进入仓库、URL 或日志。不能从开发分支日期、tag 存在或 CI 构建成功推断该组合已通过发行资格。
 
-## 2. 制包入口与输出
+## 2. 程序与实例数据边界
 
-在已准备工具链的APP中执行：
-
-```sh
-bash scripts/package-release.sh --application-root=/absolute/workspace/my-app
-# CI或维护者可显式指定同一个输出合同：
-bash scripts/package-release.sh /absolute/workspace/release/apps/my-app/1.2.3/my-app-1.2.3-standalone-server --application-root=/absolute/workspace/my-app
-```
-
-省略输出时，路径为`<APP父目录>/release/apps/<APP slug>/<APP版本>/<slug>-<version>-<edition>-server`。输出包含装配目录、同名`.tar.gz`和`.tar.gz.manifest.json`；它们是同次产物，不再向另一个artifacts目录复制。固定维护工作区或CI应显式选择其登记输出根；未迁入统一工作区的APP不能靠目录名自动推断位置。
-
-脚本检查APP身份、干净已提交的Git源码、受管baseline及固定已公开依赖；在输出父目录的私有暂存中完成原生依赖安装、Web/Platform/PC SPA/UniApp H5构建，核源码未被构建改变，再装配server。临时目录正常结束清理；原实例不修改、不安装数据库，也不自动发布或部署。生成失败保留真实错误，不能使用未完成目录当成功包。
-
-本地和CI必须调用同一版本的脚本、依赖锁和制包合同。GitHub Release附件与本地输出属于同一产品类型；只有同一输入及实际SHA-256比对相等时，才能声称字节完全相同。CI生成成功也不等于已获准正式发布。
-
-## 3. 包内与保护对象
-
-| 类别 | 内容和处理 |
+| 对象 | 管理方式 |
 | --- | --- |
-| 受管程序 | 后端PHP、原生安装/升级工具、版本化迁移、模块声明和后端插件投影；按发行清单更新 |
-| 浏览器成品 | `server/public/admin`、`platform`、`pc`、`mobile`；来自同次固定源码构建，PC当前使用SPA |
-| 发行元数据 | `server/.peanut/release-identity.json`、版本及合法告知、`server/composer.lock`；原生生成，不手填摘要 |
-| 配置与安装身份 | `.env`、Docker私有环境、安装baseline/完成锁、实例资源和服务秘密；不得以新包覆盖 |
-| 持久数据 | 数据库、上传、公共/私有存储、未完成操作、运行记录和恢复计划；不进入包、不被升级清空 |
-| 开发内容 | `.git`、四端开发工程、scaffold baseline、node_modules/vendor、维护者Project及历史Evidence；不进入server-only包 |
+| 后端、前端源码、默认配置、迁移、脚本及依赖 manifest/lock | 产品 Git 跟踪，按已审核提交更新 |
+| vendor、node_modules、构建产物 | 按实际锁和原生构建入口准备，遵守产品忽略规则，不擅自提交产物 |
+| `.env`、凭据、证书、仓库授权 | 未跟踪且忽略，由实例 owner 安全提供 |
+| uploads、DB/卷、安装身份及防重装标记 | 未跟踪且忽略，普通程序更新保留 |
+| runtime、日志、缓存和队列运行数据 | 未跟踪且忽略，只执行本次变化必要的缓存/进程操作 |
 
-Composer依赖不直接附带已安装vendor；目标实例按同一锁在升级workspace准备并核验，再按原生命周期采用。Git ignore不是包的安全边界；真正边界是制包白名单、受管清单和实例保护合同。
+添加 `.gitignore` 不会取消已跟踪文件。实施前必须核真实追踪状态与差异；不能用 `reset --hard`、`clean`、无边界目录覆盖或删安装锁消除冲突。退役程序由明确受管差异处理，不删除上传和未知文件。
 
-## 4. 三种不同操作
+## 3. 生产首次部署
 
-**新建APP**只创建源码工程，不部署、不初始化数据库。**吸收脚手架升级**在现有APP中作三方比较，保留APP身份、业务和定制；具体入口见[渠道说明](release-channels.md)。**生产更新**消费该APP自己的server包，不能拿模板包替换已部署APP。
+1. 核产品、固定目录、独立生产库、定版提交和有效恢复条件；首次安装要求全新空目录、空库。既有或 partial 实例不能按新建处理。
+2. 取得产品 `main` 的已审核提交，记录实际来源；不在生产隐式吸收脚手架升级。
+3. 按实际原生锁准备 PHP/客户端依赖和必要前端构建，配置生产环境及登记资源。沿用已有包管理器，不用无锁的安装替换固定依赖。
+4. 通过产品原生服务入口启动并走[安装页面向导](installation.md)，完成安装、访问和本次业务确认，保留安装身份及防重装保护。
 
-前端代码或依赖变化必须重新构建受影响客户端；正式制包由当前脚本统一构建四端。生产采用包内已构建内容，不在服务器临时构建未固定前端。没有相关变化时，开发验证可按输入身份复用，不能凭“版本相同”复用不同内容。
+生产可能需要前端构建，不能沿用旧 server-only 包“服务器无需构建”的假设。依赖、静态资源、程序和 schema 必须对应同一采用版本。
 
-## 5. 已安装实例更新与恢复
+## 4. 已有生产原目录更新
 
-使用实例已经安装的可信更新器。宿主必须先将`PEANUT_UPGRADE_PHP`设置为已登记、普通可执行文件的绝对路径，解释器满足PHP 8.3及该APP实际依赖锁；不能用PATH猜测或执行目标包提供的解释器。`workspace`必须是已存在、canonical绝对路径、无符号链接且归实际维护者所有的私有目录。第一次plan使用新建空目录；apply/verify/recover保持同一目录，不能重建或清空原journal。
+固定当前实例和目标 `main` 提交 → 审阅受管差异并准备真实有效恢复材料 → 按实际影响停写、排空 → 原目录更新程序 → 锁变化时更新对应依赖 → 前端变化时构建受影响客户端 → 执行尚未应用的迁移 → 必要缓存/进程更新 → 确认访问与本次业务。
 
-```sh
-# 使用已核实的真实解释器和本次新空目录，勿直接复制占位路径。
-export PEANUT_UPGRADE_PHP=/absolute/trusted/php
-umask 077
-mkdir -m 700 /absolute/private/upgrade-workspace
-server/docker/scripts/update.sh plan --archive=/absolute/release/app-server.tar.gz --expected-sha256=TRUSTED_SHA256 --workspace=/absolute/private/upgrade-workspace
-server/docker/scripts/update.sh apply --workspace=/absolute/private/upgrade-workspace
-server/docker/scripts/update.sh verify --workspace=/absolute/private/upgrade-workspace
-```
+无变化的层不重复处理。首次安装、迁移和上游源码升级是不同动作；不重新初始化数据库、改写已应用迁移历史或重置管理员。未知结果先对账，不重复副作用。
 
-以上只展示入口顺序，不自动取得生产/数据库操作权限。首次workspace创建失败先核归属，不加强制删除参数。占位摘要须换成可信来源的实际64位SHA-256。plan固定包、APP身份、受管差异、依赖及迁移；apply前完成必要备份和实际停写。只替换受管程序与静态内容，删除仅限目标版本明确移除且未被合法定制的受管文件；未知冲突拒绝，不能整目录`rm`、盲覆盖或清空public上传。
+代码回退不等于数据恢复；旧代码必须与当前 schema 兼容。开放写入后不能自动回灌旧数据库覆盖新业务数据。失败时保留实际效果、原计划和 journal，按明确恢复边界处理。
 
-失败保持原计划、journal、原错误和已发生效果。激活前按原workspace使用`recover`完成配对恢复并核旧运行；激活后不自动回灌旧数据库。代码与静态文件回退只有在数据库/模块状态兼容时才能作为业务回退；数据库DDL不因Git回退而撤销。首次安装、重复安装拒绝和partial恢复是不同入口。
+## 5. 工程接通前的边界
 
-### 固定Git目录生产者
+后续工程需在既有入口内接通产品 Git 身份与追踪检查、原目录受管更新、按锁准备和构建、pending 迁移、安装身份保留及失败恢复。已有 `package-release.sh`、包 Recipe、固定 Git 输入和 `update.sh` 仍有真实消费者，保留其技术合同；不把它们追加为上述流程的用户必做步骤，也不以旧包成功证明新 Git 流程完成。
 
-`scripts/prepare-fixed-git-release`只准备一个可供后续接纳的目录，不操作已安装实例。它从显式审阅的**本地Git仓或mirror**读取固定对象，核对该仓唯一的`origin`与`--allowed-origin`完全相同，再在不存在的独立`--checkout`克隆，并从同一本地locator显式获取精确`--commit`后核对`--tree`、检出。仅由tag保留的提交同样按完整SHA取得；tag不是选择器。它不联网fetch、不拉取活动APP、不采用仓内未提交文件，也不以分支或tag替代完整SHA。仓、checkout和output必须是互不嵌套的canonical绝对路径；checkout/output的父目录须已存在，目标须不存在。
-
-```sh
-python3 scripts/prepare-fixed-git-release \
-  --repository=/absolute/reviewed-app-repository \
-  --allowed-origin=https://github.com/example/my-app.git \
-  --commit=REVIEWED_40_HEX_COMMIT --tree=REVIEWED_40_HEX_TREE \
-  --checkout=/absolute/private/new-checkout --output=/absolute/private/new-program \
-  --build-inputs=/absolute/private/reviewed-build-inputs.json \
-  --expected-build-inputs-sha256=REVIEWED_64_HEX_SHA256
-```
-
-占位值必须换成已审阅的精确来源。批准文件是普通JSON对象：`schema_version=1`、`protocol=peanut.fixed-git-build-approval.v1`、显式工具搜索`path`、`tools`及`inputs`。`tools`恰好包含`git/bash/python3/node/npm/pnpm/php`，每项记录最终解析到的绝对普通可执行文件`path`及文件`sha256`；PATH的解析结果和字节必须匹配。`inputs`恰好记录以下16个已提交文件的SHA-256：原`.peanut/application-manifest.json`、`release-versions.json`、`scripts/package-release.sh`、`scripts/package-release-files.py`、`scripts/release-dependency-locks.mjs`、`scripts/project-composer`、`server/composer.json`/`composer.lock`，以及`web/platform/pc/uniapp`各自的`package.json`与现有锁（Web为`pnpm-lock.yaml`，其余为`package-lock.json`）。批准文件摘要、APP commit/tree和allowed origin共同构成执行前的明确选择，不自动导入信任或凭据。
-
-入口先逐项核对checkout的全部tracked路径、普通文件类型、Git blob字节和mode，以及批准输入。随后仅调用**该APP自己的**`package-release.sh OUTPUT --application-root=CHECKOUT --directory-only --server-only`，复用其固定依赖安装、四端静态构建及canonical程序清单。构建日志转到stderr，stdout仅返回本入口的JSON结果。构建使用新建私有HOME/TMPDIR和批准PATH，不继承调用者的凭据、Git配置或构建环境覆盖；执行已批准源码仍是信任决定，本入口不是进程沙箱，也不证明宿主全部依赖可复现。`--check-only`仅取得并校验新checkout，不运行构建或发布output；它不能报告完整制品通过。
-
-构建后重新核对源码、批准文件和工具字节；逐项比对真实server目录与`server/.peanut/release-identity.json`的文件、mode、摘要和APP身份，并要求四个浏览器入口及plugin投影存在。仅全部通过后以exclusive mkdir取得output，发布server目录及最后的0444非秘密`fixed-git-source.json`。描述符协议为`peanut.fixed-git-source.v1`，`source.kind=fixed-git`，绑定allowed repository、APP commit/tree、原APP manifest与tracked清单摘要、Edition/profile/APP版本、批准输入与工具、native build entry及生产者摘要、canonical identity/files摘要和四端静态投影；stdout返回描述符SHA-256。程序文件维持原canonical mode，后续消费者仍须用可信外部摘要重验描述符与目录，不能把只读描述符当文件系统防篡改能力。
-
-缺失/改变的身份或不完整输出拒绝；旧checkout/output不覆盖。失败的新checkout和私有staging保留给实际owner诊断；若最终发布遇到文件系统错误，没有完整描述符的目录不算已接受，不能作为更新输入或自动清空后重试。成功仅清理自己的构建暂存，精确checkout保留。此入口不生成tgz，不把Git来源伪装成归档，不改写任何安装baseline或完成身份。
-
-原生`update.sh plan`还接受互斥的`--git-input=/absolute/fixed-git-source.json --expected-source-sha256=TRUSTED_DESCRIPTOR_SHA256`；其余workspace、已安装解释器及apply/verify/recover入口与包更新相同。描述符目录须与实例程序及可变workspace互不嵌套。不能混用归档参数，也不将目录转成临时tgz。已安装可信工具在任何计划发布前核对描述符、完整普通程序文件/mode、原APP/Git/build绑定、四端静态及plugin投影；后续阶段重新核对原描述符/目录及prepared内容，因此这些固定输入须保留至操作收口。采用目标时不执行目标中的取源或构建脚本。
-
-两种目标共用同一操作清单、配置/数据保护、依赖准备、迁移、停写、配对备份、健康和流量Gate。安装receipt/baseline原字节与原source kind保持不变。原server-release沿用真实deployment链；原generated-application仅在原manifest摘要和完整旧server文件证明相符、且没有未知head时接纳，已有development-runtime必须通过原生runtime/dependency校验及authenticated application deployment链，并核全旧程序。缺少完整证明、有未知/漂移head或product-source缺少独立APP映射时精确拒绝，不猜实际实例的安装种类、不把development-only维护接口扩成生产权限。
-
-首个server部署successor在唯一`private/installation/deployment.json`记录原source kind、前任协议/摘要/原source与runtime计数、旧程序清单摘要及typed目标provenance；原application计数作为前任事实保留，server部署从自己的首个generation开始。后续server更新继续原安装anchors。安装事实始终读取canonical私有baseline并核对精确摘要，保留原生支持的历史收据引用及原字节。激活前按同一journal及配对恢复还原旧程序/身份/head；runtime身份删除与release身份写入之间的合法中断，仅允许从同一product plan绑定的文件intent及精确旧身份preimage读取APP身份，数据库权限及其他恢复守卫仍须通过。激活后仍须前向修复，不自动回灌数据库。源码直接检查不证明真实权限、APP构建、安装、升级、恢复或生产资格；普通`git pull`、忽略文件规则、`git reset --hard`和tag均不是完整恢复机制。
-
-## 6. 验证口径
-
-`scripts/deploy-release`从所选部署登记的`required_non_secret_environment.PEANUT_DATABASE_SOURCE`选择`bundled`或`registered`；省略时沿用现有`bundled`语义，未知值或与显式`database_source`冲突的值拒绝执行。部署与APP的`database_resource_id`必须指向同一精确数据库；归档中的APP身份和应用所有的资源投影须一致，不能从宿主endpoint推测容器权限。
-
-`bundled`保留同宿主、同Compose、`mysql:3306`、本地MySQL目录以及PHP/Nginx/MySQL三枚不可变镜像的限制。`registered`要求数据库明确允许`container`消费者、固定`endpoint_id`/host/整数port、数据库namespace等于database，并允许当前Edition；登记的`PEANUT_DATABASE_CONSUMER=container`、`PEANUT_DATABASE_ENDPOINT_ID`、`DB_HOST`、`DB_PORT`和`DB_NAME`须精确相符。它仅接受PHP/Nginx两枚不可变镜像，不接受启用bundled数据库的Compose profile，也不要求外部数据库属于应用Compose。
-
-计划固定模式及endpoint；新实例按同一模式调用原生runtime配置，registered首次启动显式传递官方`compose.registered-database.yaml`，仅启动PHP/Nginx。更新还核对实例现有私有环境的模式及数据库绑定；模式变更须单独处理，不能在部署中隐式切换。外部数据库的凭据、实例资源发布和连通性仍由原生配置/安装流程处理，包装器不生成外部凭据、不启动外部数据库。Docker模板中的镜像必须与登记一致，包装器不会重写镜像来掩盖不一致。
-
-首次启动前，包装器以owner所有、0444的非秘密`server/private/mounted-deployment-receipt.json`发布同一固定计划。原生首次配置同时核对回执的APP身份、部署目标、模式、数据库和容器端点，以及APP本身的登记权限；界面固定该实例的选择，直接伪造配置请求同样被拒绝。HTTP暂存配置的v3 journal固定回执字节摘要，owner最终发布前重新核对摘要并执行相同校验。旧v2 pending保留并拒绝自动发布，需要原owner处理；缺少回执的普通安装维持自身选择，存在但不安全或漂移的回执不得视为缺失。
-
-bundled同样须先从APP自己的登记解析唯一的资源、数据库和容器端点权限，再采用部署回执中的固定ID；回执不能生成新的权限。完成身份存在时，配置状态按当前可信APP身份返回已安装/锁定，不再将原首次安装回执作为新版本身份约束，因此正常的原生`update.sh`更新无需改写原安装历史；未完成的首次配置仍严格校验回执。
-
-脚本默认值及离线文件边界测试，不代表四端实际构建、公开附件、安装、数据库迁移、生产更新或回退已通过。记录精确源码、包摘要、已执行断言、NOT_RUN和失败；不为验证打包参数生成新的真实测试APP。
+本文不触发构建、安装、数据库操作或部署。实际实施、运行确认、自动化测试与正式资格分别按授权执行；尚未执行的项目不记通过。历史制品和回执继续按其原版本解释。

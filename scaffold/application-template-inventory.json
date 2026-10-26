@@ -669,7 +669,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5337a386b824feb917c69240bec5e936a800abc70837a72fff1a89a40599225c"
+            "source_sha256": "df3396d4a2095b2152fe884d42166518ca59ba7753c6667ca09eb2482f6973cf"
         },
         {
             "path": "docs/architecture/cli-and-recipes.md",
@@ -683,7 +683,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e707e215ca1998eb553c37d7b8e0d9a65cdaf782c9cfec07eb2e3298ee6cd34c"
+            "source_sha256": "96fc4898d428e9735b1e0ca3dbb02de64b98758c915fa5312830daf37ec633b7"
         },
         {
             "path": "docs/architecture/content-surface-and-format-adapters.md",
@@ -906,7 +906,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2ee0f4cbf119873581ae6585f716d88534d0c4f1043f6470f9f12f46c712ec4b"
+            "source_sha256": "743ae2a2ee4b9d112bdd2caadc7f22506241ab59a5b1ee8d43c78c3e51f5be46"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -975,7 +975,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "727f15f16ed8d803a07135dcb7b4cc3c0b86f3f380bbb28b96d72622b5b44e51"
+            "source_sha256": "588c54f31ed58815dd73a0f460aa23a1a1208c3dfd1adfc9e5a67b7cc72cb1ae"
         },
         {
             "path": "docs/development/standard.md",
@@ -989,7 +989,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5992c342810ee55b3d7721a9346a8951b1340616aa0d2bc4390cf00c1114c948"
+            "source_sha256": "2ffc3ed6043259123a222ddf0f390e6bf9cee53bcf74e9529500667cf7b5effa"
         },
         {
             "path": "docs/maintenance/README.md",
@@ -1095,7 +1095,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c68412b499f3220a9e6146c776cea6a1af897625cfcd1134aa916ae47edd522a"
+            "source_sha256": "79b123c411bcc9482cc18686b70585d6772de9cd156b85d04cdd3289764f4985"
         },
         {
             "path": "docs/public/api-and-sdk.md",
@@ -1123,7 +1123,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "89a02b4ed4ec6ef8cdd222b185cc25696385ff37b0de2f7cf737ec55e79af47b"
+            "source_sha256": "e539c9ab5cd214963ef0733bcaa0c99ba085a14ce0e139769cef990b9071a894"
         },
         {
             "path": "docs/public/installation.md",
@@ -1137,7 +1137,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7106efaf41a2ccf71cdb1dd5c1a3dd93ddca4b2d794968d9f2bdc0cd3d751998"
+            "source_sha256": "ad702ff99afdb014990d8e19b4c1e018a60beabdc22c50b169139581305e89e9"
         },
         {
             "path": "docs/public/module-development.md",
@@ -1165,7 +1165,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c71002ce3ee117e58ae2c781ea6618df07e91978122e4d8f06b938278cd536ec"
+            "source_sha256": "5f05bf45e59bd9ce25d19b33b9ecc2d2f90e8da30a44ecd9e92a262d47d1c8bf"
         },
         {
             "path": "docs/public/support.md",
