@@ -94,6 +94,7 @@ function excluded(string $path): bool
         'scripts/scaffold-runtime/ScaffoldPathGuard.php',
         'scripts/scaffold-runtime/ScaffoldManifest.php',
         'scripts/scaffold-runtime/ScaffoldSourceIdentity.php',
+        'scripts/scaffold-runtime/source-snapshot-policy.json',
         'scripts/scaffold-runtime/ScaffoldUpgradeLedger.php',
         'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php',
         'scripts/scaffold-runtime/EditionUpgradePackage.php',

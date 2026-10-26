@@ -9,13 +9,31 @@ use RuntimeException;
 /** One identity grammar for source snapshots, manifests and upgrade seals. */
 final class ScaffoldSourceIdentity
 {
-    private const EXCLUDED_NAMES = ['.git', '.local', '.ops', 'vendor', 'node_modules', '.nuxt', '.output', '.cache', '.playwright-cli', '.playwright-mcp', 'coverage'];
-    private const EXCLUDED_PATHS = ['backups', 'release', 'releases', 'output', 'evidence', 'updates', '.peanut',
-        'scaffold/releases', 'server/runtime', 'server/private/installation', 'server/private/resources',
-        'server/private/credential-maintenance', 'server/private/credentials',
-        'server/private/storage', 'server/private/collaboration', 'server/public/uploads', 'server/public/storage',
-        'server/public/admin', 'server/public/platform', 'server/public/pc', 'server/public/mobile',
-        'server/docker/mysql', 'server/docker/secrets', 'server/docker/tls'];
+    private static function policy(): array
+    {
+        static $policy = null;
+        if ($policy !== null) { return $policy; }
+        $value = json_decode((string) file_get_contents(__DIR__ . '/source-snapshot-policy.json'), true, 512, JSON_THROW_ON_ERROR);
+        if (($value['protocol'] ?? null) !== 'peanut.source-snapshot-policy.v1') {
+            throw new RuntimeException('SCAFFOLD_SOURCE_POLICY_INVALID');
+        }
+        foreach (['excluded_names', 'excluded_paths', 'excluded_name_patterns', 'retained_name_patterns'] as $key) {
+            if (!is_array($value[$key] ?? null) || !array_is_list($value[$key])) { throw new RuntimeException('SCAFFOLD_SOURCE_POLICY_INVALID'); }
+            foreach ($value[$key] as $entry) {
+                if (!is_string($entry) || $entry === '') { throw new RuntimeException('SCAFFOLD_SOURCE_POLICY_INVALID'); }
+            }
+        }
+        foreach (['excluded_name_patterns', 'retained_name_patterns'] as $key) {
+            foreach ($value[$key] as &$pattern) {
+                if (str_contains($pattern, '~') || @preg_match('~' . $pattern . '~i', '') === false) {
+                    throw new RuntimeException('SCAFFOLD_SOURCE_POLICY_INVALID');
+                }
+                $pattern = '~' . $pattern . '~i';
+            }
+            unset($pattern);
+        }
+        return $policy = $value;
+    }
 
     /** Legacy Git projections are accepted only when no union was declared. */
     public static function from(array $value, bool $generation = false): array
@@ -65,12 +83,13 @@ final class ScaffoldSourceIdentity
     }
 
     /** @return list<string> Source-relative regular files, with excluded directories pruned before descent. */
-    public static function files(string $root): array
+    public static function files(string $root, array $additionalExcludedPaths = []): array
     {
         $resolved = realpath($root);
         if ($resolved === false || !is_dir($resolved)) { throw new RuntimeException('SCAFFOLD_SOURCE_SNAPSHOT_INVALID'); }
+        self::policy();
         $files = [];
-        $configured = [];
+        $configured = $additionalExcludedPaths;
         $configPath = $resolved . '/.local/toolchain/host.json';
         if (is_file($configPath)) {
             $config = json_decode((string) file_get_contents($configPath), true, 512, JSON_THROW_ON_ERROR);
@@ -188,16 +207,18 @@ final class ScaffoldSourceIdentity
     private static function excluded(string $path, bool $directory, array $configured): bool
     {
         $name = basename($path);
-        if (in_array($name, self::EXCLUDED_NAMES, true)) { return true; }
-        foreach ([...self::EXCLUDED_PATHS, ...$configured] as $prefix) {
+        $policy = self::policy();
+        if (in_array($name, $policy['excluded_names'], true)) { return true; }
+        foreach ([...$policy['excluded_paths'], ...$configured] as $prefix) {
             if ($path === $prefix || str_starts_with($path, $prefix . '/')) { return true; }
         }
-        if ($name === 'dist') { return true; }
-        $envTemplate = $name === '.env.example' || preg_match('/^\.env\.[A-Za-z0-9_-]+\.example$/D', $name) === 1;
-        return (!$envTemplate && ($name === '.env' || str_starts_with($name, '.env.')))
-            || preg_match('/(?:^|\.)secret(?:\.|$)/i', $name) === 1
-            || in_array($name, ['.DS_Store', 'Thumbs.db'], true) || preg_match('/\.(?:sqlite3?|db|log)$/i', $name) === 1
-            || $path === 'server/docker/collaboration.env';
+        foreach ($policy['retained_name_patterns'] as $pattern) {
+            if (preg_match($pattern, $name) === 1) { return false; }
+        }
+        foreach ($policy['excluded_name_patterns'] as $pattern) {
+            if (preg_match($pattern, $name) === 1) { return true; }
+        }
+        return false;
     }
 
     private static function nativeScaffoldReleaseRoot(string $directory): bool

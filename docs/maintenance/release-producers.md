@@ -4,7 +4,18 @@
 
 ## 正常模板发行
 
-正常本地开发发行由独立`peanut-cli`提供`peanut config`与`peanut release`：配置仅绑定已安装工具并复用`project-env`，发行以当前磁盘文件生成受限源码快照，允许dirty、无HEAD及未提交新增源码。默认输出`release/<scaffold版本>/{standalone,multi-tenant}`；显式`--version`必须等于`release-versions.json.scaffold_template`，既有版本拒绝覆盖，只有显式`--overwrite`且目标内容能由原生manifest、构建回执、归档和managed文件逐项验证时才重建。快照排除Git、`.local`、依赖、运行数据和本次输出根；CLI先用`scripts/prepare-product-release-candidate`解析并固定正式PHP/Web Core版本与来源，再更新临时快照中的原生锁和库存，最后调用本仓`scripts/build-scaffold-release`完成两Edition原生投影。需要本地Core时仅显式使用`--with-local-core`，从配置路径快照Core、按其原生锁打包并把本地来源摘要写入归档与锁，不伪造Git身份。最终来源摘要读取原生包manifest。配置/发行测试仍需人工Gate确认后执行。
+正常本地开发发行由独立`peanut-cli`提供`peanut config`与`peanut release`，环境与路径未变时日常只运行`peanut release`。发行以当前磁盘文件生成受限源码快照，允许dirty、无HEAD及未提交新增源码。默认输出`release/<scaffold版本>/{standalone,multi-tenant}`；显式`--version`必须等于`release-versions.json.scaffold_template`，既有版本拒绝覆盖，只有显式`--overwrite`且目标内容能由原生manifest、构建回执、归档和managed文件逐项验证时才重建。配置/发行测试仍需人工Gate确认后执行。
+
+职责按阶段划分：
+
+- 配置：CLI绑定已安装工具、本地Core与输出路径，保存于`.local/toolchain`；Code的`project-env`提供登记环境。
+- 输入准备：CLI调用Code既有`scripts/prepare-product-release-candidate --prepare-release-workspace=<操作目录> --release-output-root=<输出根>`。Code负责源码复制、正式Core解析/原生锁投影；显式`--with-local-core`时从配置路径复制Core、按原生锁冻结包并保留本地摘要，不改写Core源码或伪造Git身份。
+- 派生生成：同一Code准备入口在源码副本安装锁定依赖，生成API和inventory。CLI不维护这组内部执行顺序。
+- 封装：CLI调用Code的`scripts/build-scaffold-release`生成两Edition，核对原生来源身份与输出，原子采用最终版本目录。
+
+快照规则唯一登记在`scripts/scaffold-runtime/source-snapshot-policy.json`：`excluded_names`排除任意层同名工具/依赖目录，`excluded_paths`登记源码相对路径，`retained_name_patterns`保留环境示例，`excluded_name_patterns`排除秘密和运行文件。pattern采用PHP/JavaScript共同支持的正则子集、忽略大小写，不含`~`分隔符；两个读取器均在扫描前校验并编译。PHP源码身份入口与CLI本地升级摘要同读这份配置，不内置第二份目录清单；配置随原生升级脚本一起进入APP受管载荷，包内来源证明也包含其摘要。`.github`、`.githooks`等标准工具目录保留本身职责；APP是否交付仍由inventory分类决定，不能一概排除点开头的源配置。
+
+每次操作可变工作区集中在Code `.local/release/build-<随机ID>/`，包含`source`、本地Core的`core-php`/`core-web`、`core-inputs`及子进程临时目录；封装器通过`--work-root`使用该操作目录，正常结束清理自己的工作区。为保证最终采用与恢复使用同卷rename，输出根下仅短暂存在`.<版本>.stage-*`及覆盖时的`.<版本>.previous-*`，成功后只保留两Edition最终产物。已有未知owner的隐藏目录不迁移或清扫，既有版本也不因规则更新自动重打。
 
 固定候选和正式资格仍使用本节后续描述的固定源码commit/tree、原生锁与资格流程；这些条件不扩展为普通开发期本地发行的前置条件。也可直接调用原生入口，显式传`--version`、`--source-commit`、`--edition`和`--output`；普通正式模板不传`--internal-core-inputs`。每个Edition输出`peanut-scaffold-<edition>.tgz`与配套同名`.json`，均来自该次原生APP投影，不另生成运行APP。
 

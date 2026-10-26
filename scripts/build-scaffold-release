@@ -11,7 +11,7 @@ const RELEASE_STRICT_SEMVER = '/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]
 
 function releaseUsage(): never
 {
-    fwrite(STDERR, "Usage: php scripts/build-scaffold-release --version=<semver> (--source-commit=<full-sha>|--source-snapshot=<absolute-directory>) --output=<absolute-directory> [--edition=standalone|multi-tenant] [--workflow=none|runtime|full] [--internal-core-inputs=<absolute-release-core-inputs.json>] [--api-tool-root=<absolute-tool-root>] [--check]\n");
+    fwrite(STDERR, "Usage: php scripts/build-scaffold-release --version=<semver> (--source-commit=<full-sha>|--source-snapshot=<absolute-directory>) --output=<absolute-directory> [--work-root=<absolute-operation-directory>] [--edition=standalone|multi-tenant] [--workflow=none|runtime|full] [--internal-core-inputs=<absolute-release-core-inputs.json>] [--api-tool-root=<absolute-tool-root>] [--check]\n");
     exit(64);
 }
 
@@ -23,7 +23,7 @@ foreach (array_slice($argv, 1) as $argument) {
         $check = true;
         continue;
     }
-    if (preg_match('/^--(version|source-commit|source-snapshot|tool-root|output|edition|workflow|internal-core-inputs|api-tool-root)=(.+)$/D', $argument, $matches) !== 1 || isset($options[$matches[1]])) {
+    if (preg_match('/^--(version|source-commit|source-snapshot|tool-root|work-root|output|edition|workflow|internal-core-inputs|api-tool-root)=(.+)$/D', $argument, $matches) !== 1 || isset($options[$matches[1]])) {
         releaseUsage();
     }
     $options[$matches[1]] = $matches[2];
@@ -155,13 +155,20 @@ if (!$localSource) {
     if (!hash_equals($options['source-commit'], $commit)) { throw new RuntimeException('SCAFFOLD_RELEASE_SOURCE_NOT_COMMIT'); }
     $tree = trim(releaseRun(['git','-C',$root,'rev-parse',$commit . '^{tree}']));
 }
-$temporaryRoot = realpath(sys_get_temp_dir());
+$temporaryRoot = isset($options['work-root']) ? realpath($options['work-root']) : realpath(sys_get_temp_dir());
+if (isset($options['work-root']) && (!str_starts_with($options['work-root'], '/') || is_link($options['work-root']) || !is_dir($options['work-root']))) {
+    throw new RuntimeException('SCAFFOLD_RELEASE_TEMP_ROOT_INVALID');
+}
 if ($temporaryRoot === false) {
     throw new RuntimeException('SCAFFOLD_RELEASE_TEMP_ROOT_INVALID');
 }
 $temporary = $temporaryRoot . '/peanut-scaffold-release-' . bin2hex(random_bytes(8));
 if (!mkdir($temporary, 0700, true)) {
     throw new RuntimeException('SCAFFOLD_RELEASE_TEMP_FAILED');
+}
+if (isset($options['work-root'])) {
+    // Keep native serializers and their locked tooling installs in this operation.
+    putenv('TMPDIR=' . $temporary);
 }
 try {
     $source = $localSource ? realpath($options['source-snapshot']) : $temporary . '/source';

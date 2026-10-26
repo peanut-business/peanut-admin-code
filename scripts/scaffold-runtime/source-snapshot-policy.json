@@ -1,0 +1,18 @@
+{
+  "protocol": "peanut.source-snapshot-policy.v1",
+  "excluded_names": [
+    ".git", ".local", ".ops", ".claude", ".codex", ".codegraph", ".workspace", ".worktrees",
+    ".playwright-cli", ".playwright-mcp", ".nuxt", ".output", ".cache", ".pnpm-store",
+    "vendor", "node_modules", "coverage", "dist", ".DS_Store", "Thumbs.db"
+  ],
+  "excluded_paths": [
+    "backups", "release", "releases", "output", "evidence", "updates", ".peanut",
+    "scaffold/releases", "server/runtime", "server/private/installation", "server/private/resources",
+    "server/private/credential-maintenance", "server/private/credentials", "server/private/storage",
+    "server/private/collaboration", "server/public/uploads", "server/public/storage", "server/public/admin",
+    "server/public/platform", "server/public/pc", "server/public/mobile", "server/docker/mysql",
+    "server/docker/secrets", "server/docker/tls", "server/docker/collaboration.env"
+  ],
+  "retained_name_patterns": ["^\\.env\\.example$", "^\\.env\\.[A-Za-z0-9_-]+\\.example$"],
+  "excluded_name_patterns": ["^\\.env(?:\\.|$)", "(?:^|\\.)secret(?:\\.|$)", "\\.(?:sqlite3?|db|log)$"]
+}

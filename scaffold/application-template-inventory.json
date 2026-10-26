@@ -4136,7 +4136,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "852680f812e20f9861b450ccbaec35da1826bf35b8b572e051eab18e2cce0292"
+            "source_sha256": "6d2d22cb37c5f075764b87cbf6ce0d63eb2b8adafb57ca5046b964fe0f539445"
         },
         {
             "path": "scripts/scaffold-runtime/ScaffoldUpgradeLedger.php",
@@ -4179,6 +4179,20 @@
                 "full"
             ],
             "source_sha256": "7d8124d7aae6138a73a47ea2b67276746408773604a5d6c9dd04d1ae84d67223"
+        },
+        {
+            "path": "scripts/scaffold-runtime/source-snapshot-policy.json",
+            "target": "scripts/scaffold-runtime/source-snapshot-policy.json",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "ce81b4db168b1f8582ae40838d6cbac530ba778d4b69d7f8ebe8a1e5c1f6ae7b"
         },
         {
             "path": "scripts/scaffold-upgrade",

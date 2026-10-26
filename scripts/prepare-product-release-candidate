@@ -19,6 +19,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 from functools import lru_cache
 from urllib.parse import quote, unquote, urlparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
@@ -942,8 +943,99 @@ def prepare(product_version: str, core_php_version: str, core_php_reference: str
         raise
 
 
+def prepare_release_workspace(workspace: Path, output_root: Path, local_core: bool,
+                              php_version: str | None, web_version: str | None) -> None:
+    """Prepare disposable inputs; the CLI owns output selection and atomic adoption."""
+    source_root = ROOT
+    parent = source_root / '.local/release'
+    if not workspace.is_absolute() or workspace.is_symlink() or not workspace.is_dir() \
+            or workspace.resolve().parent != parent.resolve() or any(workspace.iterdir()):
+        fail('release workspace must be an empty operation directory under .local/release')
+    if not output_root.is_absolute() or output_root.resolve() == source_root:
+        fail('release output root must be absolute and distinct from source')
+    temporary = workspace / 'tmp'
+    temporary.mkdir(mode=0o700)
+    os.environ['TMPDIR'] = str(temporary)
+    helper = source_root / 'scripts/scaffold-runtime/ScaffoldSourceIdentity.php'
+
+    def source_value(root: Path, method: str, excluded: list[str] | None = None) -> Any:
+        code = ('require $argv[1]; echo json_encode(\\app\\common\\value\\scaffold\\ScaffoldSourceIdentity::'
+                + method + '($argv[2]' + (', json_decode($argv[3],true,512,JSON_THROW_ON_ERROR)' if excluded is not None else '')
+                + '), JSON_THROW_ON_ERROR);')
+        command = ['php', '-r', code, str(helper), str(root)]
+        if excluded is not None:
+            command.append(json.dumps(excluded))
+        return json.loads(subprocess.check_output(command, text=True, cwd=source_root))
+
+    def snapshot(root: Path, target: Path) -> None:
+        root = root.resolve(strict=True)
+        exclusions = [output_root.resolve().relative_to(root).as_posix()] if output_root.resolve().is_relative_to(root) else []
+        files = source_value(root, 'files', exclusions)
+        target.mkdir(mode=0o700)
+        for relative in files:
+            original, destination = root / relative, target / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(original, destination)
+            destination.chmod(0o755 if original.stat().st_mode & 0o111 else 0o644)
+
+    snapshot_root = workspace / 'source'
+    print('[peanut release] Input snapshot', flush=True)
+    snapshot(source_root, snapshot_root)
+    producer = source_root / 'scripts/prepare-product-release-candidate'
+    # Each preparation subcommand retains its own ROOT and native lock contract.
+    if local_core:
+        print('[peanut release] Core inputs: configured local sources', flush=True)
+        host = read_json(source_root / '.local/toolchain/host.json')
+        core = host.get('core', {})
+        if any(not isinstance(core.get(name), str) or not core[name] for name in ('php', 'web')):
+            fail('local PHP and Web Core paths must be configured')
+        php_copy, web_copy = workspace / 'core-php', workspace / 'core-web'
+        snapshot(source_root / core['php'], php_copy)
+        snapshot(source_root / core['web'], web_copy)
+        php_digest = source_value(php_copy, 'local')['snapshot_sha256']
+        web_digest = source_value(web_copy, 'local')['snapshot_sha256']
+        version = read_json(snapshot_root / 'release-versions.json').get('core_php', {}).get('resolved_version')
+        if not isinstance(version, str):
+            fail('local PHP Core version is missing')
+        version = require_semver(version.removeprefix('v'), 'local PHP Core version')
+        web_host = source_root / '.local/toolchain/cores/web/host.json'
+        read_json(web_host)
+        receipt_parent = workspace / 'core-inputs'
+        receipt_parent.mkdir()
+        receipt_dir = receipt_parent / 'frozen'
+        run(['pnpm', '--dir', str(snapshot_root / 'web'), 'install', '--frozen-lockfile', '--ignore-scripts'])
+        php_executable = shutil.which('php')
+        if php_executable is None:
+            fail('registered PHP command is required')
+        run([sys.executable, str(source_root / 'scripts/project-env'), '--root', str(web_copy),
+             '--state-root', str(source_root), '--host', str(web_host), 'exec', '--', sys.executable,
+             str(source_root / 'scripts/freeze-core-release'), '--local', f'--php-core-dir={php_copy}',
+             f'--web-core-dir={web_copy}', f'--output={receipt_dir}', f'--php-version={version}',
+             f'--php-source-sha256={php_digest}', f'--web-source-sha256={web_digest}',
+             f'--source-identity-helper={helper}', f'--source-identity-php={php_executable}'])
+        run([sys.executable, str(producer), f'--prepare-local-core-snapshot={snapshot_root}',
+             f'--core-inputs={receipt_dir / "release-core-inputs.json"}', f'--tool-root={snapshot_root}'])
+    else:
+        print('[peanut release] Core inputs: published fixed releases', flush=True)
+        resolution = resolve_core_release(php_version, web_version)
+        resolution_path = workspace / 'core-resolution.json'
+        write_json(resolution_path, resolution)
+        run([sys.executable, str(producer), f'--prepare-core-snapshot={snapshot_root}',
+             f'--core-resolution={resolution_path}'])
+    print('[peanut release] Derived inputs: locked dependencies, API, inventory', flush=True)
+    run(['composer', 'install', f'--working-dir={snapshot_root / "server"}', '--no-scripts', '--no-plugins',
+         '--no-interaction', '--no-progress', '--prefer-dist'])
+    run(['pnpm', '--dir', str(snapshot_root / 'web'), 'install', '--frozen-lockfile', '--ignore-scripts'])
+    run(['php', str(snapshot_root / 'scripts/generate-api-contracts.php')])
+    run(['php', str(snapshot_root / 'scripts/build-application-template-inventory'), '--local'])
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
+    parser.add_argument('--prepare-release-workspace', type=Path,
+                        help='Prepare complete source/Core/derived inputs in an empty .local/release operation directory.')
+    parser.add_argument('--release-output-root', type=Path)
+    parser.add_argument('--with-local-core', action='store_true')
     parser.add_argument("--resolve-core", action="store_true",
                         help="Read-only resolution of exact published stable Core package identities.")
     parser.add_argument("--prepare-core-snapshot", type=Path,
@@ -965,6 +1057,18 @@ def main() -> None:
     parser.add_argument("--core-web-package-evidence-sha256")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
+
+    if args.prepare_release_workspace is not None:
+        if args.release_output_root is None or args.resolve_core or args.prepare_core_snapshot or args.prepare_local_core_snapshot \
+                or args.core_resolution or args.core_inputs or args.tool_root or args.version or args.core_php_reference \
+                or args.core_web_reference or args.core_web_package_evidence or args.core_web_package_evidence_sha256 or args.dry_run \
+                or (args.with_local_core and (args.core_php_version or args.core_web_version)):
+            fail('--prepare-release-workspace requires only output root and optional Core selectors')
+        prepare_release_workspace(args.prepare_release_workspace, args.release_output_root,
+                                  args.with_local_core, args.core_php_version, args.core_web_version)
+        return
+    if args.release_output_root is not None or args.with_local_core:
+        fail('--release-output-root and --with-local-core require --prepare-release-workspace')
 
     if args.resolve_core:
         if args.prepare_core_snapshot or args.prepare_local_core_snapshot or args.core_resolution or args.core_inputs or args.tool_root or args.version or args.core_php_reference or args.core_web_reference or args.core_web_package_evidence:
