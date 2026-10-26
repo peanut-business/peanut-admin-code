@@ -350,13 +350,11 @@ export function thirdPartyLocks(read, parseYaml) {
       : JSON.parse(String(read(`${client}/package-lock.json`)));
     const rows = [];
     for (const [key, value] of Object.entries(lock.packages ?? {})) {
-      if (!key) continue;
+      if (!key || key.startsWith('@peanut-admin/') || /(?:^|\/)node_modules\/@peanut-admin\//.test(key)) continue;
       // Peer-context paths may change when Core is projected; third-party
       // package name/version and native origin/integrity must not change.
       const name = client === 'web' ? key.split('(')[0]
         : key.slice(key.lastIndexOf('node_modules/') + 13);
-      const packageName = client === 'web' ? name.slice(0, name.lastIndexOf('@')) : name;
-      if (coreWebPackages.includes(packageName)) continue;
       rows.push(JSON.stringify([name, value.version ?? null,
         value.resolution ?? { resolved: value.resolved ?? null, integrity: value.integrity ?? null }]));
     }

@@ -62,14 +62,12 @@ if (isset($options['internal-core-inputs'])) {
 // their source commits predate the current release-versions contract and must
 // not be rejected merely because the current template version is newer.
 if (!$check) {
+    $contractRoot = isset($options['source-snapshot']) ? realpath($options['source-snapshot']) : $root;
     if (file_exists($options['output']) || is_link($options['output'])) {
         throw new RuntimeException('SCAFFOLD_RELEASE_OUTPUT_EXISTS');
     }
     try {
-        $contractBytes = isset($options['source-snapshot'])
-            ? (string) file_get_contents(realpath($options['source-snapshot']) . '/release-versions.json')
-            : releaseRun(['git', '-C', $root, 'show', $options['source-commit'] . ':release-versions.json']);
-        $contract = json_decode($contractBytes, true, 64, JSON_THROW_ON_ERROR);
+        $contract = json_decode((string) file_get_contents($contractRoot . '/release-versions.json'), true, 64, JSON_THROW_ON_ERROR);
         if (($contract['schema_version'] ?? null) !== 3
             || ($contract['protocol'] ?? null) !== 'peanut.release-versions.v3'
             || !array_key_exists('instance_version', $contract)
@@ -276,9 +274,6 @@ try {
         );
     } else {
         throw new RuntimeException('SCAFFOLD_RELEASE_CREATOR_SIGNATURE_UNSUPPORTED');
-    }
-    if (!$check && ($manifest['template']['version'] ?? null) !== $options['version']) {
-        throw new RuntimeException('SCAFFOLD_RELEASE_TEMPLATE_VERSION_MISMATCH');
     }
     if (isset($options['workflow']) && ($manifest['application']['workflow'] ?? null) !== $options['workflow']) {
         throw new RuntimeException('SCAFFOLD_RELEASE_WORKFLOW_MISMATCH');

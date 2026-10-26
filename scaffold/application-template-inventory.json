@@ -1,6 +1,6 @@
 {
     "schema_version": 2,
-    "template_version": "5.0.9",
+    "template_version": "5.0.8",
     "protocol": "peanut.create-app-inventory.v2",
     "application": {
         "version": "0.1.0"
@@ -669,7 +669,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "285cd9304b62a81b28bc776055bb19583d073476cf639fa755d3f68fe894da9d"
+            "source_sha256": "5337a386b824feb917c69240bec5e936a800abc70837a72fff1a89a40599225c"
         },
         {
             "path": "docs/architecture/cli-and-recipes.md",
@@ -1095,7 +1095,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "923c013e3fc763ad49d25b3267b73c56c23f1a1be2cd0758cbb450e0c9cc8c6e"
+            "source_sha256": "c68412b499f3220a9e6146c776cea6a1af897625cfcd1134aa916ae47edd522a"
         },
         {
             "path": "docs/public/api-and-sdk.md",
@@ -1123,7 +1123,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "85b75351e68e51922fa8bcb73520c21a7d2a709eb285ba4838c0cb27d0fbb840"
+            "source_sha256": "89a02b4ed4ec6ef8cdd222b185cc25696385ff37b0de2f7cf737ec55e79af47b"
         },
         {
             "path": "docs/public/installation.md",
@@ -1137,7 +1137,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e77fa60787cafd2974772dda93aa0cd819207313e8a7dfb1834a1b7efcd86c59"
+            "source_sha256": "7106efaf41a2ccf71cdb1dd5c1a3dd93ddca4b2d794968d9f2bdc0cd3d751998"
         },
         {
             "path": "docs/public/module-development.md",
@@ -1165,7 +1165,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ff85e58e34843b66247dbfea04002f72704c355171a231ee6bbd99cbb9f41a2f"
+            "source_sha256": "c71002ce3ee117e58ae2c781ea6618df07e91978122e4d8f06b938278cd536ec"
         },
         {
             "path": "docs/public/support.md",
@@ -3998,7 +3998,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4a23d0c8938a42ef795fcbb4f2c16190307a439c2b3f5bfce663ddbb62952900"
+            "source_sha256": "e3016e3d622527113054d221f41b856df5fbe7aca967924b98106f0c18c5d5ad"
         },
         {
             "path": "scripts/release-metadata-version.cjs",
@@ -4136,7 +4136,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "01b7de71a7295f7f80705ce09486dad98dfa93a7d93983c65aa4847f253d306e"
+            "source_sha256": "0e209e5dc2e1d2d8bf2ed70d927ebe17e26bea72ea9fb153c2ec0345b6300127"
         },
         {
             "path": "scripts/scaffold-runtime/ScaffoldUpgradeLedger.php",
@@ -29109,7 +29109,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4cd6370186e5186208c5c1da3cbc8085c2f1fb73eec4cb55513c9b4233a2f890"
+            "source_sha256": "d77b85c43959be4a3a589ecf5fd902c9aa110b218f1ee9db5da040bbcaadfea4"
         },
         {
             "path": "server/generated/openapi.json",
@@ -29123,7 +29123,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "1a5b9bf9b16d98d13284584638e9a9e3935f14e1a47b87c2239a7ecc5d3f2c8d"
+            "source_sha256": "e499169cba1cbfcc35b7c61c12234e943570e135cb60b98d960244cccf1272e5"
         },
         {
             "path": "server/private/storage/.gitkeep",
