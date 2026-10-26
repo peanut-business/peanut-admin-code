@@ -67,9 +67,6 @@
       "PeanutAdmin\\Fixtures\\DeliveryRecord\\": "app/modules/fixture/delivery_record/src/",
       "PeanutAdmin\\Fixtures\\WorkflowBusiness\\": "app/modules/fixture/workflow_business/src/"
     },
-    "classmap": [
-      "database/schema/"
-    ],
     "exclude-from-classmap": [
       "app/modules/*/*/database/migrations/",
       "app/modules/*/*/*/database/migrations/",

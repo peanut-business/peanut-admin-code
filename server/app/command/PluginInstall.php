@@ -19,14 +19,13 @@ final class PluginInstall extends ModuleContextualCommand
         $this->setName('plugin:install')->setDescription('Install one immutable locked Plugin')
             ->addArgument('plugin_key', Argument::REQUIRED, 'Plugin key')
             ->addOption('dry-run', null, Option::VALUE_NONE, 'Only output the locked install plan');
-        $this->configureSourceDevelopmentOptions();
     }
 
     protected function handle(Input $input, Output $output): int
     {
         $key = trim((string) $input->getArgument('plugin_key'));
-        if ($this->hasSourceDevelopmentOptions($input) || $input->getOption('dry-run')) {
-            return $this->sourceDevelopmentPluginPlan($input, $output, 'install', $key);
+        if ($input->getOption('dry-run')) {
+            return $this->runPluginOperation($output, static fn($service): array => $service->installPlan($key));
         }
         return $this->runPluginOperation($output, static fn($service): array => $service->install($key));
     }

@@ -1,1 +1,0 @@
--- peanut-admin-adopts: {"migration_key":"official.file:20260823-unify-storage-service","proof_contract":"peanut.file-migration-adoption.v1","sha256":"f79c35b2fe8414dc172a81a45183d2a52eadb05833a704149780b36e400ca2d4"}

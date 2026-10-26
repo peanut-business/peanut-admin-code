@@ -763,7 +763,7 @@ final class InstallationConfigurationHost
             && (file_exists($sourcePath) || is_link($sourcePath))) {
             // The installer already consumes this native generated APP identity.
             // Configuration/status must not require a fabricated runtime first.
-            $source = ApplicationSourceIdentity::loadGeneratedApp($this->serverRoot);
+            $source = ApplicationSourceIdentity::load($this->serverRoot);
             return ['application' => $source->applicationIdentity() + ['kind' => 'generated-application'],
                 'versions' => $source->versions()];
         }

@@ -26,8 +26,6 @@ final readonly class LocalWorker
         private Closure $executeAuthorizedJob,
         private int $leaseSeconds = 60,
         private ?string $negativeSigningKey = null,
-        /** Additional host maintenance condition; it grants no job authority. */
-        private ?Closure $executionFence = null,
     ) {
         if ($tenantId < 1
             || preg_match('/^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$/D', $workerId) !== 1
@@ -39,14 +37,8 @@ final readonly class LocalWorker
 
     public function runOnce(): ?string
     {
-        $this->fence();
         $claim = Db::transaction(
-            function (): ?JobClaim {
-                $this->fence();
-                $claim = $this->repository->claim($this->tenantId, $this->workerId, $this->leaseSeconds);
-                $this->fence();
-                return $claim;
-            },
+            fn(): ?JobClaim => $this->repository->claim($this->tenantId, $this->workerId, $this->leaseSeconds),
         );
         if ($claim === null) {
             return null;
@@ -75,10 +67,9 @@ final readonly class LocalWorker
                         fn() => $authorization->assertNegativeAuthorized($handler),
                         fn(string $reference) => $this->repository->negativeState($claim, $reference),
                         fn(string $reference, array $state) => Db::transaction(function () use ($claim, $reference, $state): void {
-                            $this->fence(); $this->repository->recordNegativeState($claim, $reference, $state); $this->fence();
+                            $this->repository->recordNegativeState($claim, $reference, $state);
                         }),
                     );
-                    if ($this->executionFence !== null) { $execution->addAuthorizationCheck($this->executionFence); }
                     $handler->handleNegativeFact($envelope, $execution);
                     $execution->assertLeaseOwned();
                 });
@@ -99,7 +90,6 @@ final readonly class LocalWorker
                             fn() => $this->assertExecutable($claim),
                             fn() => $authorization->assertAuthorized(),
                         );
-                        if ($this->executionFence !== null) { $execution->addAuthorizationCheck($this->executionFence); }
                         ($this->executeAuthorizedJob)($context, $claim, function () use ($handler, $context, $execution): void {
                             $handler->handle($context, $execution);
                             $execution->assertLeaseOwned();
@@ -119,9 +109,7 @@ final readonly class LocalWorker
         }
         try {
             Db::transaction(function () use ($claim): void {
-                $this->fence();
                 $this->repository->succeed($claim);
-                $this->fence();
             });
         } catch (TaskJobException $exception) {
             if ($exception->problemCode === 'TASK_STATE_CONFLICT') {
@@ -136,12 +124,7 @@ final readonly class LocalWorker
     {
         try {
             return Db::transaction(
-                function () use ($claim, $code, $retryable, $backoff): string {
-                    $this->fence();
-                    $result = $this->repository->fail($claim, $code, $retryable, $backoff);
-                    $this->fence();
-                    return $result;
-                },
+                fn(): string => $this->repository->fail($claim, $code, $retryable, $backoff),
             );
         } catch (TaskJobException $exception) {
             if ($exception->problemCode === 'TASK_STATE_CONFLICT') {
@@ -153,22 +136,14 @@ final readonly class LocalWorker
 
     public function renew(JobClaim $claim): void
     {
-        $this->fence();
         if ($claim->tenantId !== $this->tenantId) {
             throw TaskJobException::denied();
         }
         $this->repository->renew($claim, $this->leaseSeconds);
-        $this->fence();
-    }
-
-    private function fence(): void
-    {
-        if ($this->executionFence !== null) { ($this->executionFence)(); }
     }
 
     private function assertExecutable(JobClaim $claim): void
     {
-        $this->fence();
         $this->repository->assertExecutable($claim);
     }
 

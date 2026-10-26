@@ -733,7 +733,8 @@ class AppService extends Service
             && \app\common\infrastructure\installation\ReadonlyHttpMount::active($serverRoot);
         $factory = new ModuleDefinitionRegistryFactory($serverRoot);
         if (!$this->app->runningInConsole()) {
-            $registry = file_exists($releasePath) || is_link($releasePath) || $developmentReadonly
+            $registry = file_exists($releasePath) || is_link($releasePath)
+                || \app\common\infrastructure\installation\ReadonlyHttpMount::active($serverRoot)
                 ? $this->app->make(\app\common\infrastructure\installation\VerifiedServerDeployment::class)->registry()
                 : $factory->fromCompiled($config);
         } else {

@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "47c67896bb41abc6ecb0cf3e89da6dbe8ab9b96259a445081a29996fdc40fdb3"
+        "sha256": "b1506ad6fcf4a2187013be0b31f94bee6abbd79873e5dcef3318496c35e8d4bb"
     },
     "trust": {
         "channel": "bundled",
@@ -50,35 +50,6 @@
                     "permissions": {
                         "path": "resources/permissions.json",
                         "sha256": "ba3676e0e72f1fd9b1ad10039446ffa1f1b3ada4dd80ae0a24e9b0c216098cd0"
-                    },
-                    "migrations": {
-                        "reversibility": "verified-backup-required",
-                        "files": [
-                            {
-                                "key": "peanut.workflow:20260921-register-module-schema",
-                                "sha256": "f0a21d63c83afcd2438fc327bf6ad97a59d82daa571bc4de51d74c32eb487ff7"
-                            },
-                            {
-                                "key": "peanut.workflow:20261012-workflow-managed-template",
-                                "sha256": "fd02893a4b7a0ea60aa6c5434ff8b46f11e35bec94f10a76fc0b0f64609282a5"
-                            },
-                            {
-                                "key": "peanut.workflow:20261012-workflow-managed-template-repair-20261021",
-                                "sha256": "f3416b6c726a4a97ef70df967f14227c328c0ced156ac98656200f44712e5993"
-                            },
-                            {
-                                "key": "peanut.workflow:20261012-workflow-notification-facts",
-                                "sha256": "ff26361f27773b9500fe6484729a26c0655d18f893cac8739bae9edfec8f6378"
-                            },
-                            {
-                                "key": "peanut.workflow:20261012-workflow-v2-execution",
-                                "sha256": "f46f8b9a7a567584988e3520669daa1a8f893b69d837a1dedf223deb4f2a1b09"
-                            },
-                            {
-                                "key": "peanut.workflow:20261012-workflow-v2-repair-20261021",
-                                "sha256": "6607485b8db141a3ecb36578da3f3620917a3333b83308ee1d97846955bd7e60"
-                            }
-                        ]
                     }
                 }
             ]

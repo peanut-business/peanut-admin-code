@@ -222,13 +222,12 @@ foreach (['SECURITY.md', 'AGENTS.md'] as $targetPath) {
 foreach ([
     'server/database/install.php',
     'server/app/common/services/installation/InstallationExecutionHost.php',
-    'server/app/common/services/upgrade/ApplicationMigrationRunner.php',
-    'scripts/upgrade',
+    'server/database/migrations/20261101000000_initial_baseline.php',
+    'server/database/seeds/InitialSeeder.php',
+    'scripts/deploy-update.sh',
     'scripts/scaffold-upgrade',
-    'scripts/product-upgrade-host',
-    'scripts/product-upgrade-database',
     'scripts/scaffold-runtime/Semver.php',
-    'scripts/scaffold-runtime/ReleaseDependencyIdentity.php',
+    'server/app/common/infrastructure/scaffold/ReleaseDependencyIdentity.php',
     'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php',
     'web/src/views/user/setting/index.vue',
 ] as $managedPath) {
@@ -527,8 +526,8 @@ try {
             && str_contains((string) file_get_contents($first . '/server/.env.example'), 'DEPLOYMENT_MODE=multi-tenant'),
         'Edition route and environment composition changed outside the selected profile',
     );
-    $standaloneSchema = (string) file_get_contents($standalone . '/server/database/init.sql');
-    $multiTenantSchema = (string) file_get_contents($first . '/server/database/init.sql');
+    $standaloneSchema = (string) file_get_contents($standalone . '/server/database/schema/baseline-schema.sql');
+    $multiTenantSchema = (string) file_get_contents($first . '/server/database/schema/baseline-schema.sql');
     createApplicationExpect(
         $standaloneSchema === $multiTenantSchema
             && str_contains($standaloneSchema, '`tenant_id`')
@@ -536,8 +535,8 @@ try {
         'Both Editions must retain one Tenant-owned fresh Schema',
     );
     foreach ([
-        'server/app/modules/official/file/database/migrations/20260823-unify-storage-service.sql',
-        'server/database/migrations/20260824-payment-channel-grants.sql',
+        'server/database/schema/baseline-schema.sql',
+        'server/database/schema/baseline-data.sql',
     ] as $projectedMigration) {
         $standaloneMigration = (string) file_get_contents($standalone . '/' . $projectedMigration);
         $multiTenantMigration = (string) file_get_contents($first . '/' . $projectedMigration);
@@ -548,8 +547,8 @@ try {
         );
     }
     createApplicationExpect(
-        (string) file_get_contents($standalone . '/server/database/migrations/20260828-provider-qualification-evidence.sql')
-            === (string) file_get_contents($first . '/server/database/migrations/20260828-provider-qualification-evidence.sql'),
+        (string) file_get_contents($standalone . '/server/database/migrations/20261101000000_initial_baseline.php')
+            === (string) file_get_contents($first . '/server/database/migrations/20261101000000_initial_baseline.php'),
         'Edition projection must not fork migration history',
     );
     createApplicationExpect(
@@ -606,19 +605,20 @@ try {
         'server/database/install.php' => false,
         'server/database/environment-guard.php' => false,
         'server/app/common/services/installation/InstallationExecutionHost.php' => false,
-        'server/app/common/services/upgrade/ApplicationMigrationRunner.php' => false,
+        'server/database/migrations/20261101000000_initial_baseline.php' => false,
         'server/app/common/infrastructure/scaffold/DeterministicEditionArchive.php' => false,
-        'scripts/upgrade' => true,
+        'server/database/seeds/InitialSeeder.php' => false,
+        'server/database/schema/baseline-schema.sql' => false,
+        'server/database/schema/baseline-data.sql' => false,
+        'scripts/deploy-update.sh' => true,
         'scripts/scaffold-upgrade' => true,
-        'scripts/product-upgrade-host' => true,
-        'scripts/product-upgrade-database' => true,
         'scripts/scaffold-runtime/ScaffoldPathGuard.php' => false,
         'scripts/scaffold-runtime/ScaffoldManifest.php' => false,
         'scripts/scaffold-runtime/ScaffoldUpgradeLedger.php' => false,
         'scripts/scaffold-runtime/ScaffoldUpgradeRunner.php' => false,
         'scripts/scaffold-runtime/EditionUpgradePackage.php' => false,
         'scripts/scaffold-runtime/Semver.php' => false,
-        'scripts/scaffold-runtime/ReleaseDependencyIdentity.php' => false,
+        'server/app/common/infrastructure/scaffold/ReleaseDependencyIdentity.php' => false,
     ] as $managedRuntimePath => $mustBeExecutable) {
         $generatedRuntimePath = $first . '/' . $managedRuntimePath;
         $generatedRuntimeBaseline = $first . '/.peanut/scaffold-baseline/'
@@ -736,7 +736,7 @@ try {
             && preg_match('/"versionCode"\s*:\s*"10"/', $uniappManifest) === 1,
         'new UniApp must use versionName 0.1.0 and versionCode 10',
     );
-    createApplicationExpect(!str_contains((string) file_get_contents($first . '/server/database/init.sql'), "MD5(CONCAT(MD5('admin123456')"), 'shared default password must be absent');
+    createApplicationExpect(!str_contains((string) file_get_contents($first . '/server/database/schema/baseline-schema.sql'), "MD5(CONCAT(MD5('admin123456')"), 'shared default password must be absent');
     createApplicationExpect((string) json_decode((string) file_get_contents($first . '/server/config/brand.json'), true)['website']['name'] === 'Acme Console', 'generated brand identity must be used');
     createApplicationExpect(is_file($first . '/server/config/peanut.php') && is_file($first . '/web/src/peanut.overrides.ts'), 'stable Host override entries must be preserved');
     $sourceComposerLock = json_decode((string) file_get_contents($root . '/server/composer.lock'), true, 512, JSON_THROW_ON_ERROR);
@@ -804,10 +804,10 @@ try {
         'generated README must describe the exact managed and app-owned boundaries',
     );
     createApplicationExpect(is_file($first . '/server/database/environment-guard.php'), 'production database guard must remain in the deployment inventory');
-    $generatedSchema = (string) file_get_contents($first . '/server/database/init.sql');
-    createApplicationExpect(str_contains($generatedSchema, 'pa_schema_migration'), 'generated application is missing the application migration ledger');
+    $generatedSchema = (string) file_get_contents($first . '/server/database/schema/baseline-schema.sql');
+    createApplicationExpect(is_file($first . '/server/database/migrations/20261101000000_initial_baseline.php') && is_file($first . '/server/database/seeds/InitialSeeder.php'), 'generated application is missing native initial migration or seeder');
     createApplicationExpect(!str_contains((string) file_get_contents($first . '/server/database/install.php'), "'--migrate'"), 'generated fresh installer still exposes the retired upgrade mode');
-    createApplicationExpect(is_file($first . '/scripts/upgrade'), 'generated application is missing the standalone product upgrade entry');
+    createApplicationExpect(is_file($first . '/scripts/deploy-update.sh'), 'generated application is missing the Git deployment update entry');
     foreach ([
         'pa_tenant_setting',
         'pa_tenant_entry_binding',

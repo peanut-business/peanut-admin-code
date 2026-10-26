@@ -28,7 +28,6 @@
   ],
   "backend": {
     "provider": "PeanutAdmin\\Fixtures\\WorkflowBusiness\\ModuleProvider",
-    "migrations": "database/migrations",
     "menus": "resources/menus.json",
     "permissions": "resources/permissions.json",
     "protected_resources": "resources/protected-resources.json"
@@ -52,8 +51,7 @@
       "PeanutAdmin\\Fixtures\\WorkflowBusiness\\Service\\WorkflowBusinessService",
       "PeanutAdmin\\Fixtures\\WorkflowBusiness\\Integration\\WorkflowBusinessComposition",
       "PeanutAdmin\\Fixtures\\WorkflowBusiness\\Integration\\WorkflowBusinessScenarioProvider",
-      "PeanutAdmin\\Fixtures\\WorkflowBusiness\\Integration\\WorkflowBusinessPolicyProvider",
-      "PeanutAdmin\\Fixtures\\WorkflowBusiness\\Database\\WorkflowBusinessMigrationPreservation"
+      "PeanutAdmin\\Fixtures\\WorkflowBusiness\\Integration\\WorkflowBusinessPolicyProvider"
     ],
     "events": []
   },

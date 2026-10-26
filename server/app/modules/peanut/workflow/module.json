@@ -16,7 +16,6 @@
   ],
   "backend": {
     "provider": "PeanutAdmin\\Modules\\Workflow\\ModuleProvider",
-    "migrations": "database/migrations",
     "permissions": "resources/permissions.json",
     "menus": "resources/menus.json",
     "config_schema": "resources/config-schema.json"
@@ -54,8 +53,7 @@
       "PeanutAdmin\\Modules\\Workflow\\Application\\WorkflowManagedDefinitions",
       "PeanutAdmin\\Modules\\Workflow\\Application\\WorkflowLifecycleQueries",
       "PeanutAdmin\\Modules\\Workflow\\Application\\WorkflowNotificationDelivery",
-      "PeanutAdmin\\Modules\\Workflow\\Application\\WorkflowUpgradePreflight",
-      "PeanutAdmin\\Modules\\Workflow\\Database\\WorkflowSchemaMigrationProof"
+      "PeanutAdmin\\Modules\\Workflow\\Application\\WorkflowUpgradePreflight"
     ],
     "events": []
   },

@@ -12,7 +12,7 @@ Core 的 prepared 指纹绑定 Code state root、该 Core 的 host scope、规�
 
 ## 使用
 
-使用已安装的 CLI，在选定 Code 根执行 `peanut config`，预览并确认已安装工具和路径；环境、路径和声明不变时，之后生成 ST/MT 模板只需 `peanut release`。CLI 内部调用 `project-env` 和原生模板生产者，不要求每次手动 prepare/install/hash，也无需再运行 APP 的 `package-release.sh`。需要本地 Core 随模板携带时显式选择 `--with-local-core`。
+使用已安装的 CLI，在选定 Code 根执行 `peanut config`，预览并确认已安装工具和路径；环境、路径和声明不变时，之后生成 ST/MT 模板只需 `peanut release`。CLI 内部调用 `project-env` 和原生模板生产者，不要求每次手动 prepare/install/hash。需要本地 Core 随模板携带时显式选择 `--with-local-core`。
 
 npm/pnpm 必须绑定同一个登记 Node 与对应 CLI 文件，Composer 必须绑定登记 PHP 与所选 CLI 文件。工具及非 Core 目录路径可相对 Code 根，Core 参数可相对输入但配置保存绝对路径。`.local` 不随 Git 合并；新工作区、路径或声明变化后重新 config。配置先预览 Code/Core 工具、推荐差异和写入目标，确认（非交互 `--yes`）后才创建缓存并执行 `project-env prepare`；拒绝确认不写入，不安装工具或依赖、不改变全局 PATH。
 

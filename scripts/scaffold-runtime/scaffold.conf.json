@@ -134,7 +134,8 @@
         "server/app/platform/infrastructure/plugin/ScopedMenuCatalogRepository.php",
         "server/app/platform/infrastructure/plugin/ModuleCatalogMutationRepository.php",
         "server/database/seed-demo-data.php",
-        "server/app/common/value/installation/ApplicationReleaseVersions.php"
+        "server/app/common/value/installation/ApplicationReleaseVersions.php",
+        "scripts/deploy-update.sh"
       ],
       "prefixes": [
         "server/app/modules/official/"
@@ -149,7 +150,7 @@
       "scripts/scaffold-runtime/ScaffoldUpgradeRunner.php",
       "scripts/scaffold-runtime/EditionUpgradePackage.php",
       "scripts/scaffold-runtime/Semver.php",
-      "scripts/scaffold-runtime/ReleaseDependencyIdentity.php",
+      "server/app/common/infrastructure/scaffold/ReleaseDependencyIdentity.php",
       "scripts/ops-backup-worker",
       "scripts/ops-restore-worker",
       "server/app/common/infrastructure/scaffold/DeterministicEditionArchive.php",
@@ -207,8 +208,6 @@
         "scripts/package-scaffold-template.py",
         "scripts/check-test-integrity",
         "scripts/generate-all-modules-packaging-evidence",
-        "scripts/build-edition-installers",
-        "scripts/build-edition-upgrades",
         "scripts/core-qualification-runner",
         "scripts/core-upgrade-compatibility",
         "scripts/combined-upgrade-qualification",
@@ -229,7 +228,6 @@
         "scripts/tests/publish_github_release_channel_test.py",
         "scripts/tests/release-template-artifacts-test.mjs",
         "scripts/tests/p0e_template_stage_test.py",
-        "scripts/tests/package-release-default-test.py",
         "scripts/tests/public-doc-delivery-test.py",
         "scripts/check-public-docs",
         "scripts/tests/release_metadata_version_test.py",
@@ -237,7 +235,6 @@
         "scripts/tests/project_resource_lease_parent_test.py",
         "scripts/prepare-product-release-candidate",
         "scripts/tests/prepare_product_release_candidate_test.py",
-        "scripts/deploy-release",
         "scripts/ops-backup-worker",
         "scripts/ops-restore-worker",
         "scripts/ops-upgrade-worker",
@@ -593,11 +590,6 @@
       "花生科技": "application owner"
     },
     "files": {
-      "server/database/init.sql": {
-        "-- 超级管理员（密码：admin123456）": "-- 超级管理员（密码必须由安装器注入）",
-        "MD5(CONCAT(MD5('admin123456'),'abcd1234'))": "MD5(CONCAT(MD5('__INSTALLER_MUST_REPLACE__'),'abcd1234'))",
-        "系统预置角色（仅菜单管理权限，演示用）": "系统预置最小权限角色"
-      },
       "server/database/install.php": {
         "MD5(CONCAT(MD5('admin123456'),'abcd1234'))": "MD5(CONCAT(MD5('__INSTALLER_MUST_REPLACE__'),'abcd1234'))"
       },

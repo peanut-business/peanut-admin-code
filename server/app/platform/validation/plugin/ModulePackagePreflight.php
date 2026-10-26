@@ -54,7 +54,6 @@ final readonly class ModulePackagePreflight
         }
         $backend = is_array($manifest->data['backend'] ?? null) ? $manifest->data['backend'] : null;
         $canonicalBackend = [
-            'migrations' => ['database/migrations', 'directory'],
             'seeds' => ['database/seeds', 'directory'],
             'menus' => ['resources/menus.json', 'file'],
             'permissions' => ['resources/permissions.json', 'file'],
@@ -65,8 +64,8 @@ final readonly class ModulePackagePreflight
             'reference_code_sets' => ['resources/reference-code-sets.json', 'file'],
             'system_actors' => ['resources/system-actors.json', 'file'],
         ];
-        if ($backend === null || array_key_exists('routes', $backend)) {
-            throw new PluginPackageException('MODULE_PACKAGE_MANIFEST_INVALID', 'Module backend.routes is prohibited.');
+        if ($backend === null || array_key_exists('routes', $backend) || array_key_exists('migrations', $backend)) {
+            throw new PluginPackageException('MODULE_PACKAGE_MANIFEST_INVALID', 'Module backend.routes and backend.migrations are prohibited.');
         }
         foreach ($canonicalBackend as $field => [$path, $kind]) {
             if (!array_key_exists($field, $backend)) {

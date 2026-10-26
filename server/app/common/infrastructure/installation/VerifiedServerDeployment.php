@@ -30,27 +30,6 @@ final readonly class VerifiedServerDeployment
         $started = class_exists(RequestTrace::class, false) ? RequestTrace::beginDeploymentTiming() : null;
         try {
             $root = rtrim($app->getRootPath(), '/');
-            $sourcePending = $root . '/runtime/upgrade/source-transition.json';
-            if (file_exists($sourcePending) || is_link($sourcePending)) {
-                self::assertProtectedPath($root, 'runtime/upgrade/source-transition.json');
-                $source = self::json(self::bytes($sourcePending));
-                $sourceDeployment = $root . '/private/installation/deployment.json';
-                $sourceDeploymentSha = file_exists($sourceDeployment) || is_link($sourceDeployment)
-                    ? hash('sha256', self::bytes($sourceDeployment)) : null;
-                if (($source['protocol'] ?? null) !== 'peanut.source-runtime-pointer.v1'
-                    || !in_array($source['phase'] ?? null, ['opening', 'opened'], true)
-                    || ($source['activation_started'] ?? null) !== true
-                    || ($source['deployment_sha256'] ?? null) !== $sourceDeploymentSha
-                    || ($source['runtime_sha256'] ?? null) !== hash('sha256', self::bytes($root . '/.peanut/development-runtime.json'))) {
-                    throw new RuntimeException('SERVER_DEPLOYMENT_SOURCE_TRANSITION_CLOSED');
-                }
-            }
-            foreach (['maintenance.json', 'current-update.json'] as $guard) {
-                $path = $root . '/runtime/upgrade/' . $guard;
-                if (file_exists($path) || is_link($path)) {
-                    throw new RuntimeException('SERVER_DEPLOYMENT_TRAFFIC_CLOSED');
-                }
-            }
             if (!is_file($root . '/runtime/upgrade/.traffic-ready')) {
                 throw new RuntimeException('SERVER_DEPLOYMENT_TRAFFIC_CLOSED');
             }
@@ -90,7 +69,7 @@ final readonly class VerifiedServerDeployment
         }
     }
 
-    /** Called only under the updater's exclusive instance lock, before granting traffic. */
+    /** Called by the native startup owner before granting traffic. */
     public static function publish(App $app, ServerReleaseIdentity|ApplicationSourceIdentity $identity): void
     {
         $root = rtrim($app->getRootPath(), '/');
@@ -230,9 +209,15 @@ final readonly class VerifiedServerDeployment
             || !in_array(posix_geteuid(), [0, $owner], true))) {
             throw new RuntimeException('SERVER_DEPLOYMENT_OWNER_REQUIRED');
         }
-        $identityPath = self::identityPath($root);
-        self::assertProtectedPath($root, $identityPath, $httpMount);
-        $identity = self::json(self::bytes($root . '/' . $identityPath));
+        $source = self::sourceApplication($root);
+        $identity = [];
+        if (!$source) {
+            $identityPath = self::identityPath($root);
+            self::assertProtectedPath($root, $identityPath, $httpMount);
+            $identity = self::json(self::bytes($root . '/' . $identityPath));
+        } else {
+            ReadonlyHttpMount::assertSourceInputs($root);
+        }
         foreach ($identity['files'] ?? [] as $file) {
             if (!is_array($file) || !is_string($file['path'] ?? null) || !str_starts_with($file['path'], 'server/')) {
                 throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_INVALID');
@@ -240,6 +225,9 @@ final readonly class VerifiedServerDeployment
             self::assertProtectedPath($root, substr($file['path'], strlen('server/')), $httpMount);
         }
         foreach (['app', 'config', 'database', '.peanut', 'resources', 'vendor', 'route', 'bootstrap', 'extend'] as $directory) {
+            if ($source && $directory === '.peanut' && !file_exists($root . '/.peanut')) {
+                continue;
+            }
             self::assertProtectedPath($root, $directory, $httpMount);
             $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(
                 $root . '/' . $directory,
@@ -252,7 +240,10 @@ final readonly class VerifiedServerDeployment
                 self::assertProtectedPath($root, self::relative($root, $file->getPathname()), $httpMount);
             }
         }
-        foreach (['plugins.lock', 'composer.json', 'composer.lock', 'think', 'public/index.php'] as $file) {
+        foreach ([$source ? '../plugins.lock' : 'plugins.lock', 'composer.json', 'composer.lock', 'think', 'public/index.php'] as $file) {
+            if ($file === '../plugins.lock') {
+                continue; // The source lock is part of the verified readonly APP inputs above.
+            }
             self::assertProtectedPath($root, $file, $httpMount);
         }
         return $httpMount;
@@ -269,15 +260,23 @@ final readonly class VerifiedServerDeployment
             $config['roots'][$index] = self::relative($root, $absolute);
         }
         $lock = $config['plugin_lock'] ?? null;
-        if ($lock !== 'plugins.lock' && $lock !== $root . '/plugins.lock') {
+        $source = self::sourceApplication($root);
+        $expectedLock = $source ? '../plugins.lock' : 'plugins.lock';
+        if ($lock !== $expectedLock && $lock !== $root . '/' . $expectedLock) {
             throw new RuntimeException('SERVER_DEPLOYMENT_ADMISSION_INVALID');
         }
-        $config['plugin_lock'] = 'plugins.lock';
+        $config['plugin_lock'] = $expectedLock;
         $binding = ['modules' => hash('sha256', json_encode($config, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)),
             'program_authority' => $httpMount !== null ? ['boundary' => 'native-readonly-http']
                 : ['boundary' => 'unix-dac', 'deployment_owner' => fileowner($root), 'root_mode' => fileperms($root) & 07777]];
-        foreach (['identity' => self::identityPath($root), 'lock' => 'plugins.lock',
+        if ($source) {
+            ReadonlyHttpMount::assertSourceInputs($root);
+            $binding['identity'] = ApplicationSourceIdentity::sourceDigest($root);
+            $binding['lock'] = hash('sha256', self::bytes(dirname($root) . '/plugins.lock'));
+        }
+        foreach (['identity' => $source ? null : self::identityPath($root), 'lock' => $source ? null : 'plugins.lock',
             'dependencies' => 'composer.lock', 'installed_dependencies' => 'vendor/composer/installed.json'] as $key => $path) {
+            if ($path === null) { continue; }
             self::assertProtectedPath($root, $path, $httpMount);
             $binding[$key] = hash('sha256', self::bytes($root . '/' . $path));
         }
@@ -318,6 +317,19 @@ final readonly class VerifiedServerDeployment
             return ApplicationSourceIdentity::RUNTIME_PATH;
         }
         return '.peanut/release-identity.json';
+    }
+
+    public static function sourceApplication(string $root): bool
+    {
+        return !ApplicationSourceIdentity::hasRuntime($root)
+            && !file_exists($root . '/.peanut/release-identity.json')
+            && !is_link($root . '/.peanut/release-identity.json');
+    }
+
+    public static function inputIdentityDigest(string $root): string
+    {
+        return self::sourceApplication($root) ? ApplicationSourceIdentity::sourceDigest($root)
+            : hash('sha256', self::bytes($root . '/' . self::identityPath($root)));
     }
 
     private static function store(App $app): File

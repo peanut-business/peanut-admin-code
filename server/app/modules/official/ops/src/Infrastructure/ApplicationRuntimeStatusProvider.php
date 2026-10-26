@@ -5,10 +5,7 @@ declare(strict_types=1);
 namespace PeanutAdmin\Modules\Ops\Infrastructure;
 
 use PeanutAdmin\Modules\Ops\Service\PlatformUpgradeReadinessService;
-use app\common\value\installation\ApplicationReleaseVersions;
 use app\common\value\installation\ServerReleaseIdentity;
-use app\common\services\upgrade\ApplicationMigrationRunner;
-use app\common\infrastructure\migration\CleanInstallBaseline;
 use PeanutAdmin\Kernel\Context\PlatformContext;
 use PeanutAdmin\Modules\Ops\Domain\Status\OpsStatusSnapshot;
 use PeanutAdmin\Modules\Ops\Domain\Status\RuntimeStatusProvider;
@@ -16,6 +13,7 @@ use PeanutAdmin\Modules\Ops\Domain\Application\OpsConsoleException;
 use app\platform\infrastructure\module\ThinkPhpModuleGovernanceProvider;
 use Throwable;
 use think\facade\Cache;
+use think\facade\Config;
 use think\facade\Db;
 
 /** Application-owned runtime evidence provider for the Core Ops status contract. */
@@ -167,16 +165,6 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
                     : null,
                 'built_at' => $this->builtAt($this->projectRoot . '/server/.peanut/release-identity.json'),
                 'repository_clean' => true,
-            ];
-        }
-
-        // Source HTTP requests have no immutable source identity. Repository
-        // inspection belongs to CLI qualification, not the read-only console.
-        if (PHP_SAPI !== 'cli' && file_exists($this->projectRoot . '/.git')) {
-            return [
-                'commit' => null, 'tree' => null, 'release_key' => null,
-                'built_at' => $this->builtAt($this->projectRoot . '/server/composer.lock'),
-                'repository_clean' => null,
             ];
         }
 
@@ -377,8 +365,13 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
     /** @param array<string,mixed> $metadata */
     private function releaseKey(array $metadata): ?string
     {
-        $version = ($metadata['schema_version'] ?? null) === 2
-            && ($metadata['protocol'] ?? null) === 'peanut.release-metadata.v2'
+        $version = in_array([
+            $metadata['schema_version'] ?? null,
+            $metadata['protocol'] ?? null,
+        ], [
+            [2, 'peanut.release-metadata.v2'],
+            [3, 'peanut.release-metadata.v3'],
+        ], true)
             ? (string) ($metadata['instance_version'] ?? $metadata['source_product_version'] ?? '')
             : (string) ($metadata['version'] ?? '');
         return preg_match('/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/D', $version) === 1
@@ -391,7 +384,7 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
     {
         $pipes = [];
         $process = proc_open(
-            ['git', '-C', $this->projectRoot, ...$arguments],
+            ['git', '--no-optional-locks', '-C', $this->projectRoot, ...$arguments],
             [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $pipes,
         );
@@ -428,167 +421,41 @@ final readonly class ApplicationRuntimeStatusProvider implements RuntimeStatusPr
     /** @return array{applied:int,target:int,pending:int,digest:string,drift:bool,files:array<string,string>} */
     private function migrationState(): array
     {
-        $source = $this->expectedMigrations();
-        $directory = $this->projectRoot . '/server/database/migrations/';
-        $files = ApplicationMigrationRunner::effectiveFiles(array_map(
-            static fn(string $id): string => $directory . $id . '.sql',
-            array_keys($source),
-        ));
-        $pdo = Db::connect()->getPdo();
-        $targetVersion = $this->migrationTargetVersion();
-        $selection = CleanInstallBaseline::selection($pdo, $files, $targetVersion, $this->projectRoot . '/server/database');
-        $files = $selection['files'];
-        // The native relation verifies source hashes, history and the correction's actual schema.
-        $supersession = ApplicationMigrationRunner::provenanceSupersession($pdo, $files, $targetVersion);
-        $expected = [];
-        if ($selection['baseline'] !== null) {
-            $expected[$selection['baseline']['key']] = $selection['baseline']['sha256'];
-        }
-        foreach ($files as $file) {
-            $id = basename($file, '.sql');
-            if (!isset($source[$id]) || hash_file('sha256', $file) !== $source[$id]) {
-                throw new \RuntimeException('OPS_MIGRATION_INVENTORY_CHANGED');
-            }
-            $expected[$id] = $source[$id];
-        }
-        ksort($expected, SORT_STRING);
-        $rows = Db::name('schema_migration')->field('migration_id,checksum,status')
-            ->order('migration_id')->select()->toArray();
-        $actual = [];
-        foreach ($rows as $row) {
-            $actual[(string) $row['migration_id']] = [
-                'checksum' => (string) $row['checksum'],
-                'status' => (string) $row['status'],
-            ];
-        }
-
-        $applied = 0;
-        // Native execution checks the selected target; applied historical rows remain in the ledger.
-        $drift = false;
-        foreach (array_diff_key($actual, $expected) as $id => $row) {
-            if ($row['status'] === 'applied') {
-                continue;
-            }
-            if ($supersession !== null
-                && $supersession['state'] === 'resolved_by_correction'
-                && $id === $supersession['original_key']
-                && $row['checksum'] === $supersession['original_sha256']
-                && $row['status'] === $supersession['original_status']) {
-                continue;
-            }
-            $drift = true;
-        }
-        foreach ($expected as $id => $checksum) {
-            $row = $actual[$id] ?? null;
-            if (is_array($row)
-                && $row['status'] === 'applied'
-                && hash_equals($checksum, $row['checksum'])) {
-                $applied++;
-                continue;
-            }
-            if (is_array($row)) {
-                $drift = true;
-            }
-        }
-
-        $target = count($expected);
+        $expected = $this->expectedMigrations();
+        // ThinkPHP migration uses the configured connection prefix and native ledger.
+        // Read it directly: constructing a migration adapter may create the ledger.
+        $table = (string) Db::connect()->getConfig('prefix') . (string) Config::get('database.migration_table', 'migrations');
+        $actual = array_fill_keys(array_map('strval', Db::table($table)->column('version')), true);
+        $applied = count(array_intersect_key($expected, $actual));
         return [
             'applied' => $applied,
-            'target' => $target,
-            'pending' => $target - $applied,
+            'target' => count($expected),
+            'pending' => count($expected) - $applied,
             'digest' => hash('sha256', json_encode($expected, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)),
-            'drift' => $drift,
+            'drift' => array_diff_key($actual, $expected) !== [],
             'files' => $expected,
         ];
     }
 
-    /** Return migrations eligible for the deployed scaffold or verified demo overlay target. */
+    /** Current native migration source versions and their source digests. */
     private function expectedMigrations(): array
     {
-        $targetVersion = $this->migrationTargetVersion();
-        $directory = $this->projectRoot . '/server/database/migrations';
-        $files = glob($directory . '/*.sql') ?: [];
+        $files = glob($this->projectRoot . '/server/database/migrations/*.php') ?: [];
         sort($files, SORT_STRING);
         $expected = [];
         foreach ($files as $file) {
-            $name = basename($file);
-            if (!is_file($file)
-                || is_link($file)
-                || preg_match('/^[0-9]{8}-[a-z0-9][a-z0-9_-]*\.sql$/D', $name) !== 1) {
+            if (!is_file($file) || is_link($file)
+                || !\Phinx\Util\Util::isValidMigrationFileName(basename($file))) {
                 throw new \RuntimeException('OPS_MIGRATION_INVENTORY_INVALID');
             }
-            $contents = file_get_contents($file);
-            if (!is_string($contents) || trim($contents) === '') {
+            $version = (string) \Phinx\Util\Util::getVersionFromFileName(basename($file));
+            $digest = hash_file('sha256', $file);
+            if (!is_string($digest) || isset($expected[$version])) {
                 throw new \RuntimeException('OPS_MIGRATION_INVENTORY_INVALID');
             }
-            $peanutRelease = $this->peanutMigrationRelease($contents);
-            if ($peanutRelease !== null && version_compare($peanutRelease, $targetVersion, '>')) {
-                continue;
-            }
-            $expected[basename($name, '.sql')] = hash('sha256', $contents);
+            $expected[$version] = $digest;
         }
         return $expected;
-    }
-
-    /** Return one valid Peanut marker, while leaving truly unmarked application SQL unversioned. */
-    private function peanutMigrationRelease(string $sql): ?string
-    {
-        preg_match_all('/^\s*--\s*peanut-release\b[^\r\n]*$/mi', $sql, $markerLines);
-        if (count($markerLines[0]) === 0) {
-            return null;
-        }
-        if (count($markerLines[0]) !== 1
-            || preg_match(
-                '/^\s*--\s*peanut-release:\s*((0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*))\s*$/iD',
-                $markerLines[0][0],
-                $matches,
-            ) !== 1
-        ) {
-            throw new \RuntimeException('OPS_MIGRATION_INVENTORY_INVALID');
-        }
-        return $matches[1];
-    }
-
-    /** Resolve the same scaffold/overlay migration target used by deployment. */
-    private function migrationTargetVersion(): string
-    {
-        if ($this->serverReleaseAvailable()) {
-            $identity = ServerReleaseIdentity::resolve($this->projectRoot . '/server');
-            $versions = $identity->versions();
-            $base = (string) ($versions['scaffold_template'] ?? '');
-            if ($base === '') {
-                throw new \RuntimeException('OPS_MIGRATION_TARGET_INVALID');
-            }
-            return $base;
-        }
-
-        $versions = ApplicationReleaseVersions::load($this->projectRoot . '/release-versions.json');
-        $base = $versions->scaffoldTemplate();
-        $overlayPath = $this->projectRoot . '/DEMO_PATCH_METADATA.json';
-        if (!file_exists($overlayPath)) {
-            return $base;
-        }
-        if (!is_file($overlayPath) || is_link($overlayPath)) {
-            throw new \RuntimeException('OPS_MIGRATION_TARGET_INVALID');
-        }
-        try {
-            $overlay = json_decode((string) file_get_contents($overlayPath), true, 512, JSON_THROW_ON_ERROR);
-        } catch (\JsonException $exception) {
-            throw new \RuntimeException('OPS_MIGRATION_TARGET_INVALID', 0, $exception);
-        }
-        $target = is_array($overlay) ? ($overlay['migration_target_version'] ?? null) : null;
-        if (!is_array($overlay)
-            || ($overlay['schema_version'] ?? null) !== 1
-            || ($overlay['kind'] ?? null) !== 'peanut-admin-demo-site-overlay'
-            || ($overlay['base_tag'] ?? null) !== 'v' . $versions->sourceProductVersion()
-            || !is_array($overlay['files'] ?? null)
-            || !is_string($target)
-            || preg_match('/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/D', $target) !== 1
-            || version_compare($target, $base, '<')
-        ) {
-            throw new \RuntimeException('OPS_MIGRATION_TARGET_INVALID');
-        }
-        return $target;
     }
 
     /** @return array{applied:int,target:int,pending:int,digest:string,drift:bool,files:array<string,string>} */

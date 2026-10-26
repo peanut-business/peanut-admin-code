@@ -31,7 +31,6 @@
   },
   "backend": {
     "provider": "PeanutAdmin\\Modules\\Document\\ModuleProvider",
-    "migrations": "database/migrations",
     "menus": "resources/menus.json",
     "permissions": "resources/permissions.json",
     "setting_definitions": "resources/setting-definitions.json"
@@ -54,7 +53,6 @@
       "PeanutAdmin\\Modules\\Document\\Contract\\DocumentCommands",
       "PeanutAdmin\\Modules\\Document\\Contract\\DocumentQueries",
       "PeanutAdmin\\Modules\\Document\\Contract\\DocumentUpgradePreservationQuery",
-      "PeanutAdmin\\Modules\\Document\\Contract\\DocumentMigrationPreservation",
       "PeanutAdmin\\Modules\\Document\\Contract\\DocumentOwnerReference",
       "PeanutAdmin\\Modules\\Document\\Contract\\DocumentOwnerState",
       "PeanutAdmin\\Modules\\Document\\Contract\\DocumentOwnerPolicy",

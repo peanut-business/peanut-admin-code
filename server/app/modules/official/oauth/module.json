@@ -32,7 +32,6 @@
   ],
   "backend": {
     "provider": "PeanutAdmin\\Modules\\OAuth\\ModuleProvider",
-    "migrations": "database/migrations",
     "menus": "resources/menus.json",
     "permissions": "resources/permissions.json",
     "setting_definitions": "resources/setting-definitions.json"

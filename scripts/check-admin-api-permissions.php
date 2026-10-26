@@ -14,7 +14,7 @@ $inventoryJson = in_array('--inventory-json', $argv, true);
 function adminApiMatrix(string $repositoryRoot, array $inventory, array $accessConfig): array
 {
     $permissionKeys = [];
-    $sqlFiles = [$repositoryRoot . '/server/database/init.sql'];
+    $sqlFiles = [$repositoryRoot . '/server/database/schema/baseline-data.sql'];
     $sqlFiles = array_merge(
         $sqlFiles,
         glob($repositoryRoot . '/server/database/migrations/*.sql') ?: [],

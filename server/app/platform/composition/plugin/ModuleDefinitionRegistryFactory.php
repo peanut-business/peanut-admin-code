@@ -17,7 +17,6 @@ use PeanutAdmin\Kernel\Module\ModuleBoundaryChecker;
 use PeanutAdmin\Kernel\Module\ModuleException;
 use PeanutAdmin\Kernel\Module\ModuleProvider;
 use PeanutAdmin\Kernel\Module\ModuleRegistryCompiler;
-use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
 use think\cache\driver\File;
 
 /** Compiles immutable deployment metadata without opening a database connection. */
@@ -196,8 +195,7 @@ final readonly class ModuleDefinitionRegistryFactory
             $this->frontendComponents($documents),
             $layout,
             [
-                ...KernelSchema::tableNames(),
-                ...ModuleSchema::tableNames(),
+                ...array_diff(ModuleSchema::tableNames(), ['pa_module_migration']),
                 ...IdempotencySchema::tableNames(),
                 ...array_keys($reservedTableOwners),
             ],
@@ -218,12 +216,12 @@ final readonly class ModuleDefinitionRegistryFactory
      * cannot opt themselves into the historical table exception by declaring a table.
      * Core may still provide bootstrap DDL for tables whose runtime/business ownership
      * has moved to a protected shipped Module. Keep that transfer explicit and narrow:
-     * pa_module_migration and every other technical table remain Core-owned/reserved.
+     * Active technical tables remain Core-owned/reserved.
      * @return array<string,string>
      */
     private function historicalBusinessTableOwners(): array
     {
-        $technical = [...ModuleSchema::tableNames(), ...IdempotencySchema::tableNames()];
+        $technical = [...array_diff(ModuleSchema::tableNames(), ['pa_module_migration']), ...IdempotencySchema::tableNames()];
         $transferredTechnicalOwners = [
             'official.identity' => ['pa_menu_definition', 'pa_module_installation'],
         ];

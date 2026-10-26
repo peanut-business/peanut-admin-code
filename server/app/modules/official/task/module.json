@@ -16,7 +16,6 @@
   ],
   "backend": {
     "provider": "PeanutAdmin\\Modules\\Task\\ModuleProvider",
-    "migrations": "database/migrations",
     "menus": "resources/menus.json",
     "permissions": "resources/permissions.json",
     "setting_definitions": "resources/setting-definitions.json"
@@ -34,7 +33,6 @@
   },
   "contracts": {
     "exports": [
-      "PeanutAdmin\\Modules\\Task\\Job\\Database\\TaskSchemaMigrationProof",
       "PeanutAdmin\\Modules\\Task\\Contract\\NegativeFactTaskHandler",
       "PeanutAdmin\\Modules\\Task\\Job\\Execution\\NegativeFactJobEnvelope",
       "PeanutAdmin\\Modules\\Task\\Service\\TaskWorkerDefinitionRegistry",

@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "f8e9da9c5a4be85f327aadd8bc82bff2f4f1faabe3f3302889f0be1ed82b0a56"
+        "sha256": "89ff8bc6d5f5b3788c008bac9655b430338b6e93371ae17635114a5fb7a40f94"
     },
     "trust": {
         "channel": "bundled",
@@ -45,55 +45,6 @@
                     "permissions": {
                         "path": null,
                         "sha256": null
-                    },
-                    "migrations": {
-                        "reversibility": "verified-backup-required",
-                        "files": [
-                            {
-                                "key": "official.identity:20260716020101_create_pa_data_permission_policy",
-                                "sha256": "9ccbb19f70c230b27f97d1eeac818dfd08197406664cdf85ddd63a25cb51750e"
-                            },
-                            {
-                                "key": "official.identity:20260716020102_create_pa_data_permission_group",
-                                "sha256": "bac2408f49ffcfa3470e854b7550b5197d9cc9cf4c96ac74dd732572b9f91cbd"
-                            },
-                            {
-                                "key": "official.identity:20260716020103_create_pa_data_permission_target_set",
-                                "sha256": "d34eecc5886ee842b78e44556a8029487668a22b32190c1d275137dd9e3c2708"
-                            },
-                            {
-                                "key": "official.identity:20260716020104_create_pa_data_permission_condition",
-                                "sha256": "52b4836e3be7e87a6ccc5f5eab410778f947fa892f0708b2fd3f332989f54530"
-                            },
-                            {
-                                "key": "official.identity:20260716020105_create_pa_data_permission_target",
-                                "sha256": "baa95b025a3bdae3ee9e56f40018443f1927959f41c71828fd40bca96bd9078e"
-                            },
-                            {
-                                "key": "official.identity:20260921020000_create_pa_source_read_grant",
-                                "sha256": "e59e69ed167d4f565dd7e9b60284f69b021e93a9826fdf1f9b9a35a7bf6e7c0c"
-                            },
-                            {
-                                "key": "official.identity:20261007010000_department_contact_fields",
-                                "sha256": "47626b595811ced52d25b9eb7438fc4ba9cb921a76272e47c073c2faae11b9ee"
-                            },
-                            {
-                                "key": "official.identity:20261012010000_department_leader_member",
-                                "sha256": "909c7bd6885a93cf2975ecbbb108cbbe993bc1e0b47f2590292968a886051532"
-                            },
-                            {
-                                "key": "official.identity:20261015010000_index_revocation_audit_facts",
-                                "sha256": "eacd6eddd89a9f064688ff45ba67210d896a65bbeaea1448394e7b6df3c271aa"
-                            },
-                            {
-                                "key": "official.identity:20261024020000_create_pa_member_job",
-                                "sha256": "505da08d46270f0cddf38aef27f54869b8152ef38cca2923c61034bb024c37a0"
-                            },
-                            {
-                                "key": "official.identity:20261024020000_create_pa_member_job-repair-20261024",
-                                "sha256": "18689e857aac3196895455b85b2b662a5563fb2b63062295a5b8ad854c1300ae"
-                            }
-                        ]
                     }
                 }
             ]

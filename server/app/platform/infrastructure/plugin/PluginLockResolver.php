@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace app\platform\infrastructure\plugin;
 
 use app\common\infrastructure\module\ModuleHostLayoutFactory;
-use app\common\infrastructure\scaffold\ScaffoldUpgradeRunner;
 use app\common\validation\scaffold\ScaffoldPathGuard;
 use app\common\value\installation\ApplicationSourceIdentity;
 use app\common\value\installation\ServerReleaseIdentity;
@@ -37,19 +36,6 @@ final class PluginLockResolver
         $serverIdentity = $root . '/server/.peanut/release-identity.json';
         if (file_exists($serverIdentity) || is_link($serverIdentity)) {
             throw new PluginLifecycleException('PLUGIN_SOURCE_UPGRADE_ROOT_INVALID', 'A server release cannot be resolved as a source application.');
-        }
-        return self::sourceUpgradeResolver($root)->resolve(true);
-    }
-
-    /** Only the actual native Runner can prove its live origin or protected runtime/preimage chain. */
-    public static function forInternalPreinstallSourceUpgrade(string $projectRoot, ScaffoldUpgradeRunner $issuer): array
-    {
-        $root = self::sourceUpgradeRoot($projectRoot);
-        $issuer->assertInternalPreinstallSourceGraph($root);
-        if (!file_exists($root . '/server/.peanut/release-identity.json')
-            && !is_link($root . '/server/.peanut/release-identity.json')) {
-            // The issuer has proved native retirement; the ordinary source role now applies.
-            return self::forSourceUpgrade($root);
         }
         return self::sourceUpgradeResolver($root)->resolve(true);
     }
@@ -111,8 +97,7 @@ final class PluginLockResolver
             }
             $release = $this->serverRoot . '/.peanut/release-identity.json';
             $verified = file_exists($release) || is_link($release)
-                || (ApplicationSourceIdentity::hasRuntime($this->serverRoot)
-                    && \app\common\infrastructure\installation\ReadonlyHttpMount::active($this->serverRoot));
+                || \app\common\infrastructure\installation\ReadonlyHttpMount::active($this->serverRoot);
             return $this->resolved = $verified
                 ? $app->make(\app\common\infrastructure\installation\VerifiedServerDeployment::class)->plugins()
                 : (new \app\platform\composition\plugin\ModuleDefinitionRegistryFactory($this->serverRoot))->pluginsFromCompiled($config);
@@ -333,6 +318,13 @@ final class PluginLockResolver
             || !array_is_list($trust['compatibility']['modules'])
             || $trust['compatibility']['modules'] === []) {
             throw new PluginLifecycleException('PLUGIN_TRUST_INVALID', 'Plugin trust record is invalid.');
+        }
+        foreach ($trust['compatibility']['modules'] as $module) {
+            if (!is_array($module)) {
+                throw new PluginLifecycleException('PLUGIN_TRUST_INVALID', 'Plugin compatibility module is invalid.');
+            }
+            $this->assertExactKeys($module,
+                ['key', 'version', 'kernel_constraint', 'dependencies', 'permissions'], 'PLUGIN_TRUST_INVALID');
         }
         return $trust;
     }

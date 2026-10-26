@@ -8,7 +8,6 @@ use app\common\services\authorization\AdminAuthorizationService;
 use PeanutAdmin\Modules\File\Contract\FileReferences;
 use PeanutAdmin\Modules\Settings\Service\WebsiteConfigService;
 use PeanutAdmin\Kernel\Auth\TenantContext;
-use think\facade\Db;
 
 class WorkbenchApplicationService
 {
@@ -31,23 +30,6 @@ class WorkbenchApplicationService
             'visitor' => self::visitor(),
             'support' => $this->support($context, $website),
             'sale'    => self::sale(),
-            'scaffoldUpgradeDemo' => $this->scaffoldUpgradeDemo(),
-        ];
-    }
-
-    private function scaffoldUpgradeDemo(): array
-    {
-        $row = Db::name('scaffold_upgrade_demo')
-            ->where('id', 1)
-            ->field('release_version,message')
-            ->find();
-        if (!is_array($row)) {
-            throw new \RuntimeException('SCAFFOLD_UPGRADE_DEMO_MISSING');
-        }
-
-        return [
-            'release_version' => (string) $row['release_version'],
-            'message' => (string) $row['message'],
         ];
     }
 

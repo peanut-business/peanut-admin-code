@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "f9d55ebe7ce1f255e77b9d376818714ea8fec3168b40004f81324f796d1924e2"
+        "sha256": "b3bbb7e6bb99f2d58cd6102eed67615767ae7a64c05268645088d422174b02a1"
     },
     "trust": {
         "channel": "bundled",
@@ -62,31 +62,6 @@
                     "permissions": {
                         "path": "resources/permissions.json",
                         "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
-                    },
-                    "migrations": {
-                        "reversibility": "verified-backup-required",
-                        "files": [
-                            {
-                                "key": "official.collaboration:20261012120000_create_collaboration_runtime",
-                                "sha256": "0befec8d041ce121f624417fef9df343907b2686e57c8c0a8dde509d556813ac"
-                            },
-                            {
-                                "key": "official.collaboration:20261012120000_create_collaboration_runtime-repair-20261021",
-                                "sha256": "38d46aa0ee5874a23d96e97cbdc954aac378a085ed41f27f93a5298fe4dea5a1"
-                            },
-                            {
-                                "key": "official.collaboration:20261013120100_add_collaboration_business_barriers",
-                                "sha256": "6cd0d6dab2b08f26371ba97d6887f0e3ae7f7e0b1fcdb3fa3f8a59c54e2f850b"
-                            },
-                            {
-                                "key": "official.collaboration:20261013130000_add_instance_lifecycle",
-                                "sha256": "e876c39e990491ba422ecb9067c8050ed98573b3ee457108de7d8955a084d6bd"
-                            },
-                            {
-                                "key": "official.collaboration:20261014120000_add_native_collaboration_grants",
-                                "sha256": "15a44a7aaa282b9addcc8c7b72cae027197e5f68058244e881ffc48695ac2f18"
-                            }
-                        ]
                     }
                 }
             ]

@@ -146,5 +146,9 @@ function memberUploadInstalledAssertions(
     }
 }
 
-require_once dirname(__DIR__, 2) . '/app/common/services/upgrade/SourceApplicationBackup.php';
-exit(app\common\services\upgrade\SourceApplicationBackup::qualificationEntry('member-upload', $argv));
+// These assertions require a separately authorized installed-instance owner.
+// Loading this file must not manufacture a qualification frame or initialize data.
+if (realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')) === __FILE__) {
+    fwrite(STDERR, "NOT_RUN: supply an authorized installed-instance harness before invoking these assertions.\n");
+    exit(2);
+}

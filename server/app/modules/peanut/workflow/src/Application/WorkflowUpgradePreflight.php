@@ -10,7 +10,7 @@ use think\facade\Db;
 /** Native module upgrade report. Legacy opinions/versions stay untouched; there is no inferred execution conversion. */
 final readonly class WorkflowUpgradePreflight
 {
-    public const MIGRATION_KEY = 'peanut.workflow:20261012-workflow-v2-execution';
+    private const SCHEMA_VERSION = 20261101000000;
     public function __construct(private WorkflowLegacyOrganizationQuery $organization) {}
 
     public function report(): array
@@ -23,8 +23,11 @@ final readonly class WorkflowUpgradePreflight
             if ((int) ($present[0]['count'] ?? 0) === 0) { $missing[] = $table; $counts[$table] = 0; }
             else { $counts[$table] = (int) Db::name($table)->count(); }
         }
-        $applied = Db::name('module_migration')->where('module_key', 'peanut.workflow')->where('migration_key', self::MIGRATION_KEY)->where('status', 'applied')->count() > 0;
-        $report = ['schema_version' => 1, 'module_key' => 'peanut.workflow', 'migration_key' => self::MIGRATION_KEY, 'already_applied' => $applied,
+        $installed = Db::name('module_installation')->where('module_key', 'peanut.workflow')
+            ->whereIn('status', ['active', 'maintenance'])->count() > 0;
+        $applied = $missing === [] && $installed
+            && Db::name((string) config('database.migration_table', 'migrations'))->where('version', self::SCHEMA_VERSION)->count() > 0;
+        $report = ['schema_version' => 1, 'module_key' => 'peanut.workflow', 'migration_version' => self::SCHEMA_VERSION, 'already_applied' => $applied,
             'table_counts' => $counts, 'missing_tables' => $missing, 'legacy_graph_count' => 0, 'legacy_all_graph_count' => 0, 'unknown_graph_count' => 0,
             'graph_details' => [], 'details_truncated' => false, 'organization' => $this->organization->leaderReport(),
             'history_preserved' => true, 'automatic_conversion' => false,

@@ -7,7 +7,6 @@ return [
     // 指令定义
     'commands' => [
         'identity:credential-recover' => \app\command\IdentityCredentialRecovery::class,
-        'development:tenant-sites' => \app\command\DevelopmentTenantSites::class,
         'identity:revocations' => \PeanutAdmin\Modules\Identity\Console\RevocationFactsCommand::class,
         'workflow:install-managed' => \app\command\WorkflowInstallManaged::class,
         // 平台系统维护仅允许顶层CLI执行，不登记为租户调度命令。
@@ -43,7 +42,6 @@ return [
         'plugin:make'      => \app\command\PluginMake::class,
         'plugin:lock'      => \app\command\PluginLock::class,
         'plugin:upgrade'   => \app\command\PluginUpgrade::class,
-        'schema:application' => \app\command\ApplicationSchema::class,
         'plugin:rollback'  => \app\command\PluginRollback::class,
         'plugin:uninstall' => \app\command\PluginUninstall::class,
         'tenant-module:apply-profile' => \app\command\TenantModuleProfile::class,

@@ -23,7 +23,6 @@
   },
   "backend": {
     "provider": "PeanutAdmin\\Modules\\File\\ModuleProvider",
-    "migrations": "database/migrations",
     "menus": "resources/menus.json",
     "permissions": "resources/permissions.json",
     "setting_definitions": "resources/setting-definitions.json"
@@ -52,8 +51,6 @@
   "contracts": {
     "exports": [
       "PeanutAdmin\\Modules\\File\\Contract\\FileVisibility",
-      "PeanutAdmin\\Modules\\File\\Contract\\FileMigrationAdoptionProof",
-      "PeanutAdmin\\Modules\\File\\Contract\\FileMigrationPreservation",
       "PeanutAdmin\\Modules\\File\\Contract\\StorageQualificationQueries",
       "PeanutAdmin\\Modules\\File\\Contract\\FileAdministration",
       "PeanutAdmin\\Modules\\File\\Contract\\FileUploads",

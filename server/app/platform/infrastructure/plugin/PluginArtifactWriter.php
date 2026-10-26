@@ -308,10 +308,6 @@ final readonly class PluginArtifactWriter
                 'kernel_constraint' => $this->versionConstraint($module['kernel_constraint'] ?? ''),
                 'dependencies' => $dependencies,
                 'permissions' => $permissions,
-                'migrations' => [
-                    'reversibility' => 'verified-backup-required',
-                    'files' => $this->migrationFingerprints($absoluteRoot, $moduleKey, $backend),
-                ],
             ];
             $licenses[] = trim((string) ($module['license'] ?? ''));
         }
@@ -336,42 +332,6 @@ final readonly class PluginArtifactWriter
             ],
             'compatibility' => ['modules' => $modules],
         ];
-    }
-
-    /** @param array<string,mixed> $backend @return list<array{key:string,sha256:string}> */
-    private function migrationFingerprints(string $root, string $moduleKey, array $backend): array
-    {
-        if (!array_key_exists('migrations', $backend)) {
-            return [];
-        }
-        if ($backend['migrations'] !== 'database/migrations') {
-            throw new PluginArtifactToolException("Module migration path is not canonical: {$moduleKey}");
-        }
-        $directories = ['database/migrations'];
-        $files = [];
-        $resolvedDirectories = [];
-        foreach (array_values(array_unique($directories)) as $directory) {
-            $resolved = realpath($root . '/' . ltrim($directory, '/'));
-            if ($resolved === false || !is_dir($resolved)) {
-                throw new PluginArtifactToolException("Module migration directory is unavailable: {$moduleKey}");
-            }
-            $stat = stat($resolved);
-            if (!is_array($stat) || !isset($stat['dev'], $stat['ino'])) {
-                throw new PluginArtifactToolException("Module migration directory is unavailable: {$moduleKey}");
-            }
-            $resolvedDirectories[$stat['dev'] . ':' . $stat['ino']] = $resolved;
-        }
-        foreach (array_values($resolvedDirectories) as $resolved) {
-            foreach (glob($resolved . '/*.sql') ?: [] as $path) {
-                $key = $moduleKey . ':' . basename($path, '.sql');
-                if (isset($files[$key])) {
-                    throw new PluginArtifactToolException("Duplicate Module migration: {$key}");
-                }
-                $files[$key] = ['key' => $key, 'sha256' => $this->digest($path)];
-            }
-        }
-        ksort($files, SORT_STRING);
-        return array_values($files);
     }
 
     private function withinModule(string $root, string $relative, string $moduleKey): string

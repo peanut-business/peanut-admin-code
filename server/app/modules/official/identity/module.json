@@ -9,8 +9,7 @@
   "php_package": "peanut-business/official-identity",
   "dependencies": [],
   "backend": {
-    "provider": "PeanutAdmin\\Modules\\Identity\\ModuleProvider",
-    "migrations": "database/migrations"
+    "provider": "PeanutAdmin\\Modules\\Identity\\ModuleProvider"
   },
   "frontend": {},
   "database": {
@@ -77,8 +76,6 @@
       "PeanutAdmin\\Modules\\Identity\\Audit\\GovernanceAuditFilter",
       "PeanutAdmin\\Modules\\Identity\\Audit\\GovernanceAuditMetadata",
       "PeanutAdmin\\Modules\\Identity\\Auth\\AuthCredential",
-      "PeanutAdmin\\Modules\\Identity\\Auth\\AuthClientSchemaMigrationProof",
-      "PeanutAdmin\\Modules\\Identity\\Database\\IdentitySchemaMigrationProof",
       "PeanutAdmin\\Modules\\Identity\\Auth\\LoginChallengeRecord",
       "PeanutAdmin\\Modules\\Identity\\Auth\\PlatformAuthPrincipal",
       "PeanutAdmin\\Modules\\Identity\\Auth\\PlatformAuthService",
@@ -144,9 +141,7 @@
       "PeanutAdmin\\Modules\\Identity\\Contract\\TenantSessionAccessException",
       "PeanutAdmin\\Modules\\Identity\\Contract\\TenantAuthorizationQuery",
       "PeanutAdmin\\Modules\\Identity\\Contract\\TenantAuthorizationCommands",
-      "PeanutAdmin\\Modules\\Identity\\Menu\\MenuAdministrationService",
-      "PeanutAdmin\\Modules\\Identity\\Menu\\MenuSchemaMigrationProof",
-      "PeanutAdmin\\Modules\\Identity\\Permission\\PermissionSchemaMigrationProof"
+      "PeanutAdmin\\Modules\\Identity\\Menu\\MenuAdministrationService"
     ],
     "events": []
   },

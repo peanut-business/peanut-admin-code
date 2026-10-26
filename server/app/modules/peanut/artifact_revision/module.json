@@ -15,8 +15,7 @@
     }
   ],
   "backend": {
-    "provider": "PeanutAdmin\\Modules\\ArtifactRevision\\ModuleProvider",
-    "migrations": "database/migrations"
+    "provider": "PeanutAdmin\\Modules\\ArtifactRevision\\ModuleProvider"
   },
   "frontend": {},
   "database": {
@@ -27,8 +26,7 @@
       "PeanutAdmin\\Modules\\ArtifactRevision\\Application\\ArtifactRevisionService",
       "PeanutAdmin\\Modules\\ArtifactRevision\\Contract\\ArtifactRevisionQuery",
       "PeanutAdmin\\Modules\\ArtifactRevision\\Contract\\Dto\\ArtifactRevisionSnapshot",
-      "PeanutAdmin\\Modules\\ArtifactRevision\\Application\\ArtifactRevisionException",
-      "PeanutAdmin\\Modules\\ArtifactRevision\\Database\\ArtifactRevisionMigrationPreservation"
+      "PeanutAdmin\\Modules\\ArtifactRevision\\Application\\ArtifactRevisionException"
     ],
     "events": []
   },

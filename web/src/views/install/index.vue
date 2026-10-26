@@ -71,7 +71,7 @@
       </section>
       <section v-else-if="stage === 5">
         <h2>安装完成</h2>
-        <p>完成锁为 server/private/installation/installed.json。正常启动或数据库故障不会删除它。手动删除该锁只重新开放入口，既有数据和 baseline 仍阻止重新初始化。</p>
+        <p>完成锁为 server/private/installation/installed.json。正常启动或数据库故障不会删除它。手动删除该锁只重新开放入口，既有数据与未完成安装记录仍阻止重新初始化。</p>
         <el-button type="primary" @click="goToLogin">前往登录</el-button>
       </section>
       <template v-else-if="loading">

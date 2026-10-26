@@ -229,7 +229,7 @@ classify() {
     scaffold/*|scripts/create-app|scripts/build-application-template-inventory|scripts/build-scaffold-release)
       mark server web platform pc uniapp create_app docs integration
       ;;
-    scripts/build-edition-installers|scripts/build-edition-upgrades|scripts/consumer-module-reference-chain|scripts/consumer-upgrade-qualification|scripts/combined-upgrade-qualification|scripts/scaffold-upgrade|scripts/scaffold-runtime/*|scripts/package-release.sh)
+    scripts/consumer-module-reference-chain|scripts/consumer-upgrade-qualification|scripts/combined-upgrade-qualification|scripts/scaffold-upgrade|scripts/scaffold-runtime/*|scripts/deploy-update.sh)
       mark server web platform pc uniapp create_app docs integration
       ;;
     deploy/*|compose.yaml|.dockerignore|.env.example|server/.env.example|web/.env.*|platform/.env.*|pc/.env.*|uniapp/.env.*)

@@ -150,10 +150,10 @@ if (!str_contains($documents['docs/public/api-and-sdk.md'] ?? '', './scripts/che
     $violations[] = 'API guide is missing the generated-artifact drift check';
 }
 if (!str_contains($documents['docs/public/release-channels.md'] ?? '', 'php server/database/install.php')
-    || !str_contains($documents['docs/public/release-channels.md'] ?? '', 'scripts/upgrade plan')) {
+    || !str_contains($documents['docs/public/release-channels.md'] ?? '', 'scripts/scaffold-upgrade plan')) {
     $violations[] = 'release channel guide is missing the first-install or independent-upgrade entry';
 }
-foreach (['PEANUT_UPGRADE_PHP', 'PHP 8.3', 'workspace'] as $requiredUpdatePrerequisite) {
+foreach (['scripts/deploy-update.sh', 'main', '--target'] as $requiredUpdatePrerequisite) {
     if (!str_contains($documents['docs/public/application-release.md'] ?? '', $requiredUpdatePrerequisite)) {
         $violations[] = 'APP update guide lost required prerequisite: ' . $requiredUpdatePrerequisite;
     }

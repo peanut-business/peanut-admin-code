@@ -1124,7 +1124,7 @@ def schema_coverage_gaps() -> list[str]:
 
 
 def schema_tenant_tables() -> set[str]:
-    paths = [ROOT / "server/database/init.sql"]
+    paths = [ROOT / "server/database/schema/baseline-schema.sql"]
     paths.extend(sorted((ROOT / "server/database/migrations").glob("*.sql")))
     paths.extend(sorted((ROOT / "server/app/modules").glob("*/*/database/migrations/*.sql")))
     tables: set[str] = set()

@@ -15,8 +15,7 @@
     }
   ],
   "backend": {
-    "provider": "PeanutAdmin\\Modules\\EntitlementQuota\\ModuleProvider",
-    "migrations": "database/migrations"
+    "provider": "PeanutAdmin\\Modules\\EntitlementQuota\\ModuleProvider"
   },
   "frontend": {},
   "database": {

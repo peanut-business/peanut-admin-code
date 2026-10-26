@@ -171,9 +171,7 @@ final readonly class ApplicationReleaseVersions
 
     private static function assertV3Dependencies(mixed $php, mixed $web, string $root): void
     {
-        $source = dirname(__DIR__, 5) . '/scripts/scaffold-runtime/ReleaseDependencyIdentity.php';
-        $projected = dirname(__DIR__, 4) . '/docker/scripts/scaffold-runtime/ReleaseDependencyIdentity.php';
-        require_once ApplicationSourceIdentity::hasRuntime(dirname(__DIR__, 4)) ? $projected : $source;
+        require_once dirname(__DIR__, 2) . '/infrastructure/scaffold/ReleaseDependencyIdentity.php';
         ReleaseDependencyIdentity::validate(
             $php,
             $web,

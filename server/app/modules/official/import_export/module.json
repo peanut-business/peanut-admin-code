@@ -32,7 +32,6 @@
   ],
   "backend": {
     "provider": "PeanutAdmin\\Modules\\ImportExport\\ModuleProvider",
-    "migrations": "database/migrations",
     "menus": "resources/menus.json",
     "permissions": "resources/permissions.json",
     "setting_definitions": "resources/setting-definitions.json"
@@ -50,7 +49,6 @@
     "exports": [
       "PeanutAdmin\\Modules\\ImportExport\\Contract\\ImportExportCommands",
       "PeanutAdmin\\Modules\\ImportExport\\Contract\\ImportExportQueries",
-      "PeanutAdmin\\Modules\\ImportExport\\Contract\\ImportExportMigrationPreservation",
       "PeanutAdmin\\Modules\\ImportExport\\Contract\\ImportExportWorkerRuntime",
       "PeanutAdmin\\Modules\\ImportExport\\Contract\\ConfigurationTransferCommands",
       "PeanutAdmin\\Modules\\ImportExport\\Contract\\ConfigurationTransferQueries",

@@ -2,13 +2,11 @@
 
 declare(strict_types=1);
 
-use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
-
 require_once dirname(__DIR__) . '/bootstrap/environment.php';
 
 $autoload = dirname(__DIR__) . '/vendor/autoload.php';
 if (!is_file($autoload)) {
-    throw new RuntimeException('缺少 Composer autoload，无法校验 Core Schema');
+    throw new RuntimeException('缺少 Composer autoload，无法校验应用数据库');
 }
 require_once $autoload;
 
@@ -1576,10 +1574,10 @@ function waitForDatabase(array $config, int $seconds): PDO
 /** @return list<string> */
 function canonicalBaselineTables(): array
 {
-    $tables = array_fill_keys(KernelSchema::tableNames(), true);
-    $schema = file_get_contents(__DIR__ . '/init.sql');
+    $tables = [];
+    $schema = file_get_contents(__DIR__ . '/schema/baseline-schema.sql');
     if (!is_string($schema)) {
-        throw new RuntimeException('无法读取完整基线 init.sql');
+        throw new RuntimeException('无法读取初始表结构 baseline-schema.sql');
     }
     preg_match_all('/CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+`([^`]+)`/i', $schema, $matches);
     foreach ($matches[1] ?? [] as $table) {
@@ -1624,17 +1622,21 @@ function assertRequiredIndexes(PDO $pdo, array $requirements): void
     }
 }
 
-/** @return array{baseline_table_count:int,installed_table_count:int,application_migration_count:int,module_migration_count:int,management_member_count:int,menu_count:int,config_count:int,permission_count:int,tenant_count:int,owner_count:int,operator_count:int} */
+/** @return array{baseline_table_count:int,installed_table_count:int,application_migration_count:int,management_member_count:int,menu_count:int,config_count:int,permission_count:int,tenant_count:int,owner_count:int,operator_count:int} */
 function assertCurrentDatabase(PDO $pdo): array
 {
     $expected = canonicalBaselineTables();
+    // The native command defaults to "migrations"; this application's database
+    // configuration sets only DB_PREFIX and does not override migration_table.
+    $migrationTable = requiredEnvironment('DB_PREFIX') . 'migrations';
+    $expected[] = $migrationTable;
     $actual = array_map('strval', $pdo->query(
         'SELECT TABLE_NAME FROM information_schema.TABLES '
         . 'WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME',
     )->fetchAll(PDO::FETCH_COLUMN));
     $missing = array_values(array_diff($expected, $actual));
     if ($missing !== []) {
-        throw new RuntimeException('数据库缺少 v3.0 基线表：' . implode(', ', $missing));
+        throw new RuntimeException('数据库缺少初始应用表：' . implode(', ', $missing));
     }
 
     assertRequiredColumns($pdo, [
@@ -1645,8 +1647,7 @@ function assertCurrentDatabase(PDO $pdo): array
         'pa_permission' => ['key', 'module_key', 'status'],
         'pa_system_menu' => ['id', 'type', 'perms', 'component'],
         'pa_config' => ['type', 'name', 'value'],
-        'pa_module_migration' => ['module_key', 'migration_key', 'checksum', 'status'],
-        'pa_schema_migration' => ['migration_id', 'release_version', 'checksum', 'status'],
+        $migrationTable => ['version', 'migration_name', 'start_time', 'end_time', 'breakpoint'],
     ]);
     assertRequiredIndexes($pdo, [
         'pa_tenant' => ['PRIMARY', 'uk_tenant_code'],
@@ -1654,8 +1655,7 @@ function assertCurrentDatabase(PDO $pdo): array
         'pa_permission' => ['PRIMARY', 'uk_permission_key'],
         'pa_system_menu' => ['PRIMARY'],
         'pa_config' => ['PRIMARY', 'uk_type_name'],
-        'pa_module_migration' => ['PRIMARY', 'uk_module_migration'],
-        'pa_schema_migration' => ['PRIMARY', 'idx_schema_migration_status'],
+        $migrationTable => ['PRIMARY'],
     ]);
 
     $menuCount = (int) $pdo->query('SELECT COUNT(*) FROM pa_system_menu')->fetchColumn();
@@ -1663,8 +1663,18 @@ function assertCurrentDatabase(PDO $pdo): array
     $permissionCount = (int) $pdo->query(
         "SELECT COUNT(*) FROM pa_permission WHERE status = 'active'",
     )->fetchColumn();
-    $moduleMigrationCount = (int) $pdo->query('SELECT COUNT(*) FROM pa_module_migration')->fetchColumn();
-    $applicationMigrationCount = (int) $pdo->query("SELECT COUNT(*) FROM pa_schema_migration WHERE status = 'applied'")->fetchColumn();
+    $quotedMigrationTable = '`' . str_replace('`', '``', $migrationTable) . '`';
+    $appliedVersions = array_map('strval', $pdo->query('SELECT version FROM ' . $quotedMigrationTable)->fetchAll(PDO::FETCH_COLUMN));
+    $expectedVersions = [];
+    foreach (glob(__DIR__ . '/migrations/*.php') ?: [] as $file) {
+        if (\Phinx\Util\Util::isValidMigrationFileName(basename($file))) {
+            $expectedVersions[] = (string) \Phinx\Util\Util::getVersionFromFileName(basename($file));
+        }
+    }
+    if ($expectedVersions === [] || array_diff($expectedVersions, $appliedVersions) !== []) {
+        throw new RuntimeException('数据库原生迁移尚未完成');
+    }
+    $applicationMigrationCount = count($appliedVersions);
     $tenantCount = (int) $pdo->query(
         "SELECT COUNT(*) FROM pa_tenant WHERE code = 'default' AND status = 'active'",
     )->fetchColumn();
@@ -1707,7 +1717,6 @@ SQL)->fetchColumn();
         'baseline_table_count' => count($expected),
         'installed_table_count' => count($actual),
         'application_migration_count' => $applicationMigrationCount,
-        'module_migration_count' => $moduleMigrationCount,
         'management_member_count' => $ownerCount,
         'menu_count' => $menuCount,
         'config_count' => $configCount,

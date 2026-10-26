@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "d9fba8677c297a65bf4069c1635d85f71246ccd045b61a329cccd2f78eb31ed6"
+        "sha256": "03cd36555c5aef44bcab58a195479d3fe097cedb99fe02acc2788f084bd80022"
     },
     "trust": {
         "channel": "bundled",
@@ -58,27 +58,6 @@
                     "permissions": {
                         "path": "resources/permissions.json",
                         "sha256": "768d5b2d563064798ec2409e16254d8a60f3d5bd78e4b11099d248406720fe63"
-                    },
-                    "migrations": {
-                        "reversibility": "verified-backup-required",
-                        "files": [
-                            {
-                                "key": "official.notification:20260826-namespace-permission-keys",
-                                "sha256": "8be087e7adacb8d34f2fa61111e683a7b15af4b62d93910d3a9655f1a605f606"
-                            },
-                            {
-                                "key": "official.notification:20260921-adopt-notification-delivery-schema",
-                                "sha256": "eaef582cd762c803f3f7d213687f61d43fd3634e9f0b984471f11648e10979fb"
-                            },
-                            {
-                                "key": "official.notification:20261012-notification-producer-identity",
-                                "sha256": "7c01bc1bf1f309e879ff3014f89418157abbce45374a58064d1a6dc94fca07ce"
-                            },
-                            {
-                                "key": "official.notification:20261021-notification-producer-repair",
-                                "sha256": "ba16c7a9ed27c293eff812c9341ba1e6657eeb3af3a66626d1b8cc99e4d526ad"
-                            }
-                        ]
                     }
                 }
             ]

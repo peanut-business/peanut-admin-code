@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use app\common\infrastructure\authorization\CoreTenantModuleAdminBridge;
-use app\common\services\upgrade\ApplicationMigrationRunner;
 use app\platform\composition\plugin\PluginModuleRegistryFactory;
 use PeanutAdmin\Kernel\Menu\MenuRegistry;
 use PeanutAdmin\Modules\Identity\Authorization\ModuleAuthorizationCatalogSynchronizer;
@@ -25,7 +24,6 @@ $logConfig = require $root . '/server/config/log.php';
 $logConfig['channels']['file']['path'] = $root . '/.local/tmp/menu-grouping/conflicts';
 $app->config->set($logConfig, 'log');
 $server = $root . '/server';
-$targetVersion = \app\common\value\installation\ApplicationReleaseVersions::load($root . '/release-versions.json')->releaseSequenceVersion();
 $registry = (new PluginModuleRegistryFactory($server))->fromDeploymentConfig([
     'roots' => array_map(static fn(string $path): string => dirname($path), glob($server . '/app/modules/official/*/module.json')),
     'kernel_version' => '1.0.0', 'registered_client_keys' => ['admin-web', 'platform-web'],
@@ -82,6 +80,18 @@ foreach ($scenarios as $scenario) {
     [$pdo, $created] = RegisteredMysqlTestResource::openEmptyDatabase($database);
     try {
         \ThinkPhpTestConnection::fromPdo($pdo);
+        require_once $server . '/database/migrations/20261101000000_initial_baseline.php';
+        require_once $server . '/database/seeds/InitialSeeder.php';
+        $adapterOptions = [
+            'host' => getenv('DB_HOST'), 'port' => getenv('DB_PORT'), 'name' => $database,
+            'user' => getenv('DB_USER'), 'pass' => getenv('DB_PASS'),
+            'charset' => 'utf8mb4', 'migration_table' => 'pa_migrations',
+        ];
+        $adapter = new \Phinx\Db\Adapter\MysqlAdapter($adapterOptions);
+        $adapter->setConnection($pdo);
+        $initial = new InitialBaseline('default', 20261101000000);
+        $initial->setAdapter($adapter);
+        $initial->up();
         $bootstrap = initializeCoreIdentity(
             $pdo,
             'menu-owner@example.test',
@@ -93,39 +103,22 @@ foreach ($scenarios as $scenario) {
                 'execution_context' => \PeanutAdmin\Kernel\Context\TenantSystemContext::class, 'module_lifecycle' => 'required',
             ],
         );
-        executeSqlFiles($pdo, [$server . '/database/init.sql']);
-        $migration = new ApplicationMigrationRunner([
-            'host' => getenv('DB_HOST'), 'port' => getenv('DB_PORT'), 'database' => $database,
-            'user' => getenv('DB_USER'), 'password' => getenv('DB_PASS'),
-        ]);
-        $files = glob($server . '/database/migrations/*.sql');
-        $grouping = $server . '/database/migrations/20261004-group-default-navigation.sql';
-        $identity = $server . '/database/migrations/20261004-menu-stable-identities.sql';
-        $oldFiles = array_values(array_diff($files, [$grouping, $identity]));
-        $migration->run($oldFiles, $targetVersion, $targetVersion);
+        // Match seed:run's separate native connection and transaction lifecycle.
+        $seedAdapter = new \Phinx\Db\Adapter\MysqlAdapter($adapterOptions);
+        $seed = new InitialSeeder();
+        $seed->setAdapter($seedAdapter);
+        $seedAdapter->beginTransaction();
+        $seed->run();
+        $seedAdapter->commitTransaction();
         (new ModuleAuthorizationCatalogSynchronizer(new ThinkPhpAuthorizationCatalogRepository()))->synchronize($registry);
         $legacyBefore = menuRows($pdo, 'pa_system_menu');
         $bindingsBefore = [menuRows($pdo, 'pa_role_permission'), menuRows($pdo, 'pa_platform_role_permission')];
         $oldIds = [];
+        $applier = \ThinkPhpTestConnection::moduleCatalogs($pdo);
+        $applier->apply($registry);
         if ($scenario === 'plugin_lifecycle') {
-            // Reconstruct the committed pre-change catalog, including an old schema.
-            foreach (['pa_system_menu', 'pa_menu_definition'] as $table) {
-                $pdo->exec('ALTER TABLE ' . $table . ' DROP COLUMN upstream_defaults_json, DROP COLUMN menu_conflict_json');
-            }
-            $old = json_decode(file_get_contents(dirname(__DIR__) . '/fixtures/menu-grouping/catalog-before.json'), true, 512, JSON_THROW_ON_ERROR);
-            foreach ($old['definitions'] as $definition) {
-                $permission = $pdo->prepare('SELECT id FROM pa_permission WHERE `key`=?');
-                $permission->execute([$definition['required_permission'] ?? '']);
-                $permissionId = $permission->fetchColumn();
-                $row = $definition;
-                unset($row['required_permission'], $row['client_keys']);
-                $row['parent_key'] ??= null;
-                $row['required_permission_id'] = $permissionId === false ? null : (int) $permissionId;
-                $row['client_keys_json'] = json_encode($definition['client_keys'], JSON_THROW_ON_ERROR);
-                $row += ['status' => 'active', 'manifest_digest' => str_repeat('a', 64), 'created_at' => gmdate('Y-m-d H:i:s'), 'updated_at' => gmdate('Y-m-d H:i:s')];
-                $pdo->prepare('INSERT INTO pa_menu_definition (`' . implode('`,`', array_keys($row)) . '`) VALUES (' . implode(',', array_fill(0, count($row), '?')) . ')')->execute(array_values($row));
-                $oldIds[$definition['key']] = (int) $pdo->lastInsertId();
-            }
+            $existingMenus = $pdo->query('SELECT `key`,id FROM pa_menu_definition')->fetchAll(PDO::FETCH_KEY_PAIR);
+            $oldIds = array_map('intval', $existingMenus);
             $pdo->exec("UPDATE pa_system_menu SET name='我的文件',sort=997,icon='my-icon',is_show=0,is_cache=1 WHERE id=84");
             $pdo->exec("UPDATE pa_system_menu SET name='我的业务目录' WHERE id=20");
             $pdo->exec("INSERT INTO pa_system_menu (pid,type,name,paths,sort) VALUES (0,'M','我的目录','/my-category',999)");
@@ -137,8 +130,6 @@ foreach ($scenarios as $scenario) {
             $pdo->exec("INSERT INTO pa_menu_definition (`key`,module_key,scope,type,name,client_keys_json,status,manifest_digest,created_at,updated_at) VALUES ('customer.category','core','tenant','group','客户目录',JSON_ARRAY('admin-web'),'active',REPEAT('b',64),UTC_TIMESTAMP(3),UTC_TIMESTAMP(3))");
             $customBefore = [$pdo->query('SELECT * FROM pa_system_menu WHERE id=84')->fetch(), $pdo->query('SELECT * FROM pa_menu_definition WHERE `key`=\'official.article.articles\'')->fetch()];
         }
-        $firstMigration = $migration->run([$grouping, $identity], $targetVersion, $targetVersion);
-        menuExpect($firstMigration['applied'] === ['20261004-group-default-navigation', '20261004-menu-stable-identities'], 'normal upgrade runner did not apply menu migration');
         $applier = \ThinkPhpTestConnection::moduleCatalogs($pdo);
         $first = $applier->apply($registry);
         $repository = new ThinkPhpMenuCatalogRepository();
@@ -271,7 +262,7 @@ foreach ($scenarios as $scenario) {
             menuExpect(true, 'parent cycle rejected');
         }
         $management->delete($createdMenu['menu_key']);
-        // The first replay records legacy customization diagnostics; business fields must already be stable.
+        // Repeated catalog reconciliation must preserve presentation and permission bindings.
         $presentationSnapshot = static function (array $rows): array {
             return array_map(static function (array $row): array {
                 unset($row['conflict']);
@@ -279,16 +270,11 @@ foreach ($scenarios as $scenario) {
             }, $rows);
         };
         $presentationBefore = $presentationSnapshot($management->records());
-        $pdo->exec(file_get_contents($grouping));
-        $pdo->exec(file_get_contents($identity));
         $applier->apply($registry);
         menuExpect($presentationSnapshot($management->records()) === $presentationBefore, 'first replay changed managed presentation, IDs, parent keys or permission identity');
         $stable = menuStable($pdo);
-        menuExpect($migration->run([$grouping, $identity], $targetVersion, $targetVersion)['status'] === 'up_to_date', 'repeat upgrade was not ledger-idempotent');
-        $pdo->exec(file_get_contents($grouping));
-        $pdo->exec(file_get_contents($identity));
         $applier->apply($registry);
-        menuExpect(menuStable($pdo) === $stable, 'repeat SQL/synchronization changed menus or grants');
+        menuExpect(menuStable($pdo) === $stable, 'repeat catalog synchronization changed menus or grants');
         $results[] = ['scenario' => $scenario, 'official_pages' => count($pages), 'tenant_roots' => 6, 'catalog_revision' => $first['catalog_revision']];
         echo json_encode(['scenario' => $scenario, 'status' => 'passed', 'assertions' => $assertions], JSON_THROW_ON_ERROR), PHP_EOL;
     } finally {

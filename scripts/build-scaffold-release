@@ -3,6 +3,8 @@
 
 declare(strict_types=1);
 
+use app\common\infrastructure\scaffold\ReleaseDependencyIdentity;
+
 const RELEASE_PRODUCT_TOKEN = 'Scaffold Product Token';
 const RELEASE_SLUG_TOKEN = 'scaffold-product-token';
 const RELEASE_PACKAGE_TOKEN = 'scaffold-vendor-token/scaffold-package-token';
@@ -53,8 +55,7 @@ if (isset($options['internal-core-inputs'])) {
     if ($check || !isset($options['edition']) || !str_starts_with($options['internal-core-inputs'], '/')) {
         releaseUsage();
     }
-    require_once $root . '/scripts/build-internal-edition-candidate';
-    internalCandidatePath($options['internal-core-inputs'], false, true);
+    releaseInputFile($options['internal-core-inputs']);
 }
 
 // A normal build can only create the currently declared scaffold template.
@@ -91,10 +92,11 @@ if (!$check) {
     }
 }
 
-function releaseRun(array $command, ?string $cwd = null): string
+function releaseRun(array $command, ?string $cwd = null, array $environment = []): string
 {
     $pipes = [];
-    $process = proc_open($command, [1 => ['pipe','w'],2 => ['pipe','w']], $pipes, $cwd);
+    $process = proc_open($command, [1 => ['pipe','w'],2 => ['pipe','w']], $pipes, $cwd,
+        $environment === [] ? null : array_replace(getenv(), $environment));
     if (!is_resource($process)) {
         throw new RuntimeException('SCAFFOLD_RELEASE_PROCESS_FAILED');
     }
@@ -145,6 +147,510 @@ function releaseAssertTracked(string $root, string $path): void
         throw new RuntimeException('SCAFFOLD_RELEASE_OUTPUT_OUTSIDE_REPOSITORY');
     }
     releaseRun(['git','-C',$root,'ls-files','--error-unmatch','--',$relative]);
+}
+
+/** Encode derived source metadata with the producer's existing write primitive. */
+function releaseWriteJson(string $path, array $data, int $mode = 0644): void
+{
+    releaseWrite($path, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n", $mode);
+}
+
+function releaseCopyFile(string $source, string $target, int $mode = 0644): void
+{
+    if (!is_file($source) || is_link($source)) {
+        throw new RuntimeException('SCAFFOLD_RELEASE_INPUT_FILE_INVALID: ' . $source);
+    }
+    if (file_exists($target) || is_link($target)) {
+        throw new RuntimeException('SCAFFOLD_RELEASE_OUTPUT_EXISTS: ' . $target);
+    }
+    if ((!is_dir(dirname($target)) && !mkdir(dirname($target), 0775, true))
+        || !copy($source, $target)
+        || !chmod($target, $mode)) {
+        throw new RuntimeException('SCAFFOLD_RELEASE_COPY_FAILED: ' . $target);
+    }
+}
+
+/** Require a fixed regular input without filesystem aliases or hard links. */
+function releaseInputFile(string $path): void
+{
+    if ($path === '' || $path[0] !== '/' || str_contains($path, '\\') || str_contains($path, "\0")) {
+        throw new RuntimeException('SCAFFOLD_RELEASE_PATH_INVALID');
+    }
+    $current = '';
+    $parts = explode('/', substr($path, 1));
+    foreach ($parts as $index => $part) {
+        if ($part === '' || $part === '.' || $part === '..') {
+            throw new RuntimeException('SCAFFOLD_RELEASE_PATH_INVALID');
+        }
+        $current .= '/' . $part;
+        clearstatcache(true, $current);
+        if (is_link($current)) {
+            throw new RuntimeException('SCAFFOLD_RELEASE_PATH_LINK_REJECTED');
+        }
+        if (!file_exists($current)) {
+            throw new RuntimeException('SCAFFOLD_RELEASE_PATH_MISSING');
+        }
+        if ($index < count($parts) - 1 && !is_dir($current)) {
+            throw new RuntimeException('SCAFFOLD_RELEASE_PATH_PARENT_INVALID');
+        }
+    }
+    $stat = stat($path);
+    if (!is_file($path) || !is_array($stat) || $stat['nlink'] !== 1) {
+        throw new RuntimeException('SCAFFOLD_RELEASE_INPUT_FILE_INVALID');
+    }
+}
+
+function releaseReadJson(string $path): array
+{
+    releaseInputFile($path);
+    $data = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+    if (!is_array($data)) {
+        throw new RuntimeException('SCAFFOLD_RELEASE_JSON_INVALID: ' . $path);
+    }
+    return $data;
+}
+
+function releaseCoreInputs(string $path): array
+{
+    $inputs = releaseReadJson($path);
+    $root = dirname($path);
+    $archive = $inputs['core_php_archive'] ?? null;
+    $core = $inputs['core_php'] ?? null;
+    $repository = $inputs['composer_repository']['package'] ?? null;
+    $local = ($core['source_type'] ?? null) === 'local';
+    $identity = $core['source_identity'] ?? null;
+    $web = $inputs['core_web'] ?? null;
+    $webIdentity = is_array($web) ? ($web['source_identity'] ?? null) : null;
+    $localIdentityValid = is_array($identity) && array_keys($identity) === ['kind', 'snapshot_sha256']
+        && ($identity['kind'] ?? null) === 'local'
+        && preg_match('/^[a-f0-9]{64}$/D', (string) ($identity['snapshot_sha256'] ?? '')) === 1
+        && is_array($webIdentity) && array_keys($webIdentity) === ['kind', 'snapshot_sha256']
+        && ($webIdentity['kind'] ?? null) === 'local'
+        && preg_match('/^[a-f0-9]{64}$/D', (string) ($webIdentity['snapshot_sha256'] ?? '')) === 1
+        && ($inputs['sources']['php'] ?? null) === $identity
+        && ($inputs['sources']['web'] ?? null) === $webIdentity;
+    if (!is_array($archive) || !is_array($core) || !is_array($repository)
+        || ($inputs['status'] ?? null) !== 'frozen-core-build-inputs-not-product-release'
+        || ($core['package'] ?? null) !== 'peanut-admin/core'
+        || ($repository['name'] ?? null) !== 'peanut-admin/core') {
+        throw new RuntimeException('SCAFFOLD_RELEASE_CORE_INPUTS_INVALID');
+    }
+    $relative = (string) ($archive['path'] ?? '');
+    if ($relative === '' || str_starts_with($relative, '/') || str_contains($relative, '\\') || in_array('..', explode('/', $relative), true)) {
+        throw new RuntimeException('SCAFFOLD_RELEASE_CORE_ARCHIVE_PATH_INVALID');
+    }
+    $zip = $root . '/' . $relative;
+    releaseInputFile($zip);
+    if (!is_file($zip) || is_link($zip)) {
+        throw new RuntimeException('SCAFFOLD_RELEASE_CORE_ARCHIVE_MISSING');
+    }
+    $sha256 = hash_file('sha256', $zip);
+    $sha1 = hash_file('sha1', $zip);
+    $originValid = $local
+        ? ($localIdentityValid && ($repository['dist']['reference'] ?? null) === $identity['snapshot_sha256']
+            && !isset($repository['source']) && ($core['source_identity'] ?? null) === $identity
+            && ($web['source_type'] ?? null) === 'local' && ($web['source_identity'] ?? null) === $webIdentity)
+        : (($core['source_type'] ?? null) === 'git'
+            && ($repository['dist']['reference'] ?? null) === ($core['source_reference'] ?? null)
+            && ($repository['source']['reference'] ?? null) === ($core['source_reference'] ?? null)
+            && ($inputs['sources']['php']['commit'] ?? null) === ($core['source_reference'] ?? null)
+            && ($web['source_type'] ?? null) === 'git'
+            && ($inputs['sources']['web']['commit'] ?? null) === ($web['source_reference'] ?? null));
+    if (!is_string($sha256) || !hash_equals((string) ($archive['sha256'] ?? ''), $sha256)
+        || !is_string($sha1) || !hash_equals((string) ($archive['sha1'] ?? ''), $sha1)
+        || ($repository['dist']['shasum'] ?? null) !== $sha1
+        || ($repository['version'] ?? null) !== ($core['resolved_version'] ?? null)
+        || ($repository['dist']['type'] ?? null) !== 'zip'
+        || ($repository['dist']['url'] ?? null) !== '../' . $relative || !$originValid) {
+        throw new RuntimeException('SCAFFOLD_RELEASE_CORE_ARCHIVE_IDENTITY_INVALID');
+    }
+    return [
+        'inputs' => $inputs,
+        'archive_absolute' => $zip,
+        'archive_relative' => $relative,
+        'archive_sha256' => $sha256,
+        'archive_sha1' => $sha1,
+        'package' => $repository,
+        'local' => $local,
+        'source_identity' => $identity,
+    ];
+}
+
+function releaseProjectComposer(string $application, array $corePackage, string $constraint): void
+{
+    $path = $application . '/server/composer.json';
+    $composer = releaseReadJson($path);
+    if (($composer['require']['peanut-admin/core'] ?? null) === null) {
+        throw new RuntimeException('SCAFFOLD_RELEASE_CORE_REQUIRE_MISSING');
+    }
+    $composer['require']['peanut-admin/core'] = $constraint;
+    $existing = is_array($composer['repositories'] ?? null) ? $composer['repositories'] : [];
+    $repositories = [[
+        'type' => 'package',
+        'package' => $corePackage,
+    ]];
+    foreach ($existing as $repository) {
+        if (!is_array($repository) || ($repository['type'] ?? null) === 'path') {
+            throw new RuntimeException('SCAFFOLD_RELEASE_COMPOSER_REPOSITORY_UNSUPPORTED');
+        }
+        if (($repository['url'] ?? null) === 'https://github.com/peanut-business/peanut-admin-core-php.git') {
+            continue;
+        }
+        $repositories[] = $repository;
+    }
+    $composer['repositories'] = $repositories;
+    releaseWriteJson($path, $composer);
+}
+
+function releaseLockPackage(string $lockPath): array
+{
+    $lock = releaseReadJson($lockPath);
+    foreach (($lock['packages'] ?? []) as $package) {
+        if (is_array($package) && ($package['name'] ?? null) === 'peanut-admin/core') {
+            return $package;
+        }
+    }
+    throw new RuntimeException('SCAFFOLD_RELEASE_CORE_LOCK_MISSING');
+}
+
+function releaseLockRows(string $lockPath): string
+{
+    $lock = releaseReadJson($lockPath);
+    $rows = [];
+    foreach ([...($lock['packages'] ?? []), ...($lock['packages-dev'] ?? [])] as $package) {
+        if (!is_array($package) || ($package['name'] ?? null) === 'peanut-admin/core') {
+            continue;
+        }
+        $rows[] = implode("\0", [
+            (string) ($package['name'] ?? ''),
+            (string) ($package['version'] ?? ''),
+            (string) ($package['source']['type'] ?? ''),
+            (string) ($package['source']['url'] ?? ''),
+            (string) ($package['source']['reference'] ?? ''),
+            (string) ($package['dist']['type'] ?? ''),
+            (string) ($package['dist']['url'] ?? ''),
+            (string) ($package['dist']['reference'] ?? ''),
+            (string) ($package['dist']['shasum'] ?? ''),
+        ]);
+    }
+    sort($rows, SORT_STRING);
+    return hash('sha256', implode("\n", $rows));
+}
+
+function releaseProjectModules(string $application, string $version): void
+{
+    foreach (glob($application . '/server/app/modules/*/*/composer.json') ?: [] as $path) {
+        $composer = releaseReadJson($path);
+        if (isset($composer['require']['peanut-admin/core'])) {
+            $composer['require']['peanut-admin/core'] = $version;
+            releaseWriteJson($path, $composer);
+        }
+    }
+    $writer = new app\platform\infrastructure\plugin\PluginArtifactWriter($application . '/server', false);
+    foreach (glob($application . '/plugins/*/plugin.json') ?: [] as $path) {
+        $plugin = releaseReadJson($path);
+        $specs = [];
+        foreach ($plugin['modules'] as $module) {
+            $specs[] = $module['key'] . '=' . $module['root'];
+        }
+        $writer->make($plugin['key'], $plugin['version'], $specs);
+    }
+    $writer->writeLock();
+}
+
+function releaseProjectCore(string $application, array $core, string $temporary): string
+{
+    $coreTarget = $application . '/' . $core['archive_relative'];
+    releaseCopyFile($core['archive_absolute'], $coreTarget);
+    $lockBefore = releaseLockRows($application . '/server/composer.lock');
+    $version = (string) $core['inputs']['core_php']['resolved_version'];
+    releaseProjectComposer($application, $core['package'], $version);
+    releaseProjectModules($application, $version);
+    releaseRun([
+        'composer',
+        'update', 'peanut-admin/core',
+        '--working-dir=' . $application . '/server',
+        '--no-install', '--no-scripts', '--no-interaction', '--no-progress', '--prefer-dist',
+    ], $application, [
+        'COMPOSER_HOME' => $temporary . '/composer-home',
+        'COMPOSER_CACHE_DIR' => getenv('COMPOSER_CACHE_DIR') ?: $temporary . '/composer-cache',
+    ]);
+    $lockAfter = releaseLockRows($application . '/server/composer.lock');
+    if (!hash_equals($lockBefore, $lockAfter)) {
+        throw new RuntimeException('SCAFFOLD_RELEASE_THIRD_PARTY_LOCK_CHANGED');
+    }
+    $lockedCore = releaseLockPackage($application . '/server/composer.lock');
+    $local = $core['local'] ?? false;
+    if (($lockedCore['version'] ?? null) !== $version
+        || ($local
+            ? (isset($lockedCore['source']) || ($lockedCore['dist']['reference'] ?? null) !== ($core['source_identity']['snapshot_sha256'] ?? null))
+            : (($lockedCore['source']['reference'] ?? null) !== ($core['inputs']['core_php']['source_reference'] ?? null)
+                || ($lockedCore['dist']['reference'] ?? null) !== ($core['inputs']['core_php']['source_reference'] ?? null)))
+        || ($lockedCore['dist']['shasum'] ?? null) !== $core['archive_sha1']) {
+        throw new RuntimeException('SCAFFOLD_RELEASE_CORE_LOCK_IDENTITY_INVALID');
+    }
+    return $lockAfter;
+}
+
+function releaseProjectWeb(string $application, array $core, string $receipt, string $toolRoot): array
+{
+    $web = $core['inputs']['core_web'] ?? null;
+    $suffixes = ['client', 'vue', 'ui-vue', 'nuxt', 'uniapp', 'testing'];
+    $local = is_array($web) && ($web['source_type'] ?? null) === 'local';
+    $identity = is_array($web) ? ($web['source_identity'] ?? null) : null;
+    $sourceValid = $local
+        ? (is_array($identity) && array_keys($identity) === ['kind', 'snapshot_sha256']
+            && ($identity['kind'] ?? null) === 'local'
+            && preg_match('/^[a-f0-9]{64}$/D', (string) ($identity['snapshot_sha256'] ?? '')) === 1
+            && ($core['inputs']['sources']['web'] ?? null) === $identity)
+        : (is_array($web) && ($web['source_type'] ?? null) === 'git'
+            && ($web['source_reference'] ?? null) === ($core['inputs']['sources']['web']['commit'] ?? null)
+            && preg_match('/^[a-f0-9]{40}$/D', (string) ($web['source_reference'] ?? '')) === 1);
+    if (!is_array($web) || array_keys($web['packages'] ?? []) !== array_map(static fn(string $s): string => '@peanut-admin/' . $s, $suffixes)
+        || !$sourceValid) {
+        throw new RuntimeException('SCAFFOLD_RELEASE_WEB_INPUTS_INVALID');
+    }
+    $lockTool = $toolRoot . '/scripts/release-dependency-locks.mjs';
+    $before = json_decode(releaseRun(['node', $lockTool, $application, '--third-party-only', '--tool-root=' . $toolRoot]), true, 512, JSON_THROW_ON_ERROR);
+    $packages = [];
+    $webVersion = $web['packages']['@peanut-admin/client']['version'] ?? null;
+    if (!ReleaseDependencyIdentity::fixed($webVersion)) {
+        throw new RuntimeException('SCAFFOLD_RELEASE_WEB_INPUTS_INVALID');
+    }
+    foreach ($web['packages'] as $name => $identity) {
+        $suffix = substr($name, strlen('@peanut-admin/'));
+        $path = $identity['archive'] ?? '';
+        if (($identity['version'] ?? null) !== $webVersion
+            || $path !== 'packages/core-web/peanut-admin-' . $suffix . '-' . $identity['version'] . '.tgz') {
+            throw new RuntimeException('SCAFFOLD_RELEASE_WEB_ARCHIVE_IDENTITY_INVALID');
+        }
+        $input = dirname($receipt) . '/' . $path;
+        releaseInputFile($input);
+        if (!hash_equals((string) ($identity['sha256'] ?? ''), (string) hash_file('sha256', $input))) {
+            throw new RuntimeException('SCAFFOLD_RELEASE_WEB_ARCHIVE_DIGEST_INVALID');
+        }
+        $destination = $application . '/' . $path;
+        if (file_exists($destination)) {
+            releaseInputFile($destination);
+            if (!unlink($destination)) {
+                throw new RuntimeException('SCAFFOLD_RELEASE_WEB_ARCHIVE_REPLACE_FAILED');
+            }
+        }
+        releaseCopyFile($input, $destination);
+        $packages[$name] = $identity + ['integrity' => 'sha512-' . base64_encode(hash_file('sha512', $input, true)), 'consumers' => []];
+    }
+    foreach (['web', 'platform', 'pc', 'uniapp'] as $client) {
+        $path = $application . '/' . $client . '/package.json';
+        $manifest = releaseReadJson($path);
+        foreach (['dependencies', 'devDependencies', 'optionalDependencies'] as $section) {
+            foreach (($manifest[$section] ?? []) as $name => $specifier) {
+                if (!str_starts_with($name, '@peanut-admin/')) {
+                    continue;
+                }
+                if (!isset($packages[$name])) {
+                    throw new RuntimeException('SCAFFOLD_RELEASE_WEB_PACKAGE_UNKNOWN');
+                }
+                $manifest[$section][$name] = 'file:../' . $packages[$name]['archive'];
+                $packages[$name]['consumers'][] = $client;
+            }
+        }
+        releaseWriteJson($path, $manifest);
+    }
+    $versions = releaseReadJson($application . '/release-versions.json');
+    $versions['core_php'] = $core['inputs']['core_php'];
+    $versions['core_web'] = $web;
+    releaseWriteJson($application . '/release-versions.json', $versions);
+    // These are native lock generation operations, not hand-edited lock data.
+    // Lifecycle hooks are disabled; none may install the APP or touch a database.
+    releaseRun(['pnpm', '--dir', $application . '/web', 'install', '--lockfile-only', '--ignore-scripts'], $application, ['HUSKY' => '0']);
+    foreach (['platform', 'pc', 'uniapp'] as $client) {
+        releaseRun(['npm', '--prefix', $application . '/' . $client, 'install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund'], $application, ['HUSKY' => '0']);
+    }
+    $after = json_decode(releaseRun(['node', $lockTool, $application, '--third-party-only', '--tool-root=' . $toolRoot]), true, 512, JSON_THROW_ON_ERROR);
+    if ($before !== $after) {
+        throw new RuntimeException('SCAFFOLD_RELEASE_WEB_THIRD_PARTY_LOCK_CHANGED');
+    }
+    releaseRun(['node', $lockTool, $application, '--core-inputs=' . $receipt, '--tool-root=' . $toolRoot]);
+    foreach ($packages as &$identity) {
+        $identity['consumers'] = array_values(array_unique($identity['consumers']));
+        $identity['consumption'] = $identity['consumers'] === [] ? 'carried-not-consumed' : 'selected-client-dependency';
+    }
+    unset($identity);
+    return ['packages' => $packages, 'third_party_locks' => $after];
+}
+
+function releaseProjectScaffold(string $application, array $core, string $temporary, array $sourceIdentity, string $receipt, string $toolRoot): array
+{
+    $manifestPath = $application . '/.peanut/application-manifest.json';
+    $manifest = releaseReadJson($manifestPath);
+    $localSource = ($sourceIdentity['kind'] ?? null) === 'local';
+    $generationIdentity = $manifest['generation_source']['source_identity'] ?? null;
+    $sourceMatches = $localSource
+        ? ($generationIdentity === $sourceIdentity)
+        : (($manifest['generation_source']['commit'] ?? null) === ($sourceIdentity['commit'] ?? null)
+            && ($manifest['generation_source']['tree'] ?? null) === ($sourceIdentity['tree'] ?? null));
+    if (!$sourceMatches
+        || !is_array($manifest['files'] ?? null)
+        || !is_string($manifest['digests']['managed_tree_sha256'] ?? null)) {
+        throw new RuntimeException('SCAFFOLD_RELEASE_SCAFFOLD_SOURCE_INVALID');
+    }
+    $originalDigest = $manifest['digests']['managed_tree_sha256'];
+    $versionPath = $application . '/release-versions.json';
+    $versions = releaseReadJson($versionPath);
+    $originalPhp = $versions['core_php'] ?? null;
+    if (!defined('RELEASE_APPLICATION_VERSION_TOKEN')
+        || !defined('RELEASE_PRODUCT_TOKEN')
+        || !defined('RELEASE_SLUG_TOKEN')
+        || !defined('RELEASE_PACKAGE_TOKEN')
+        || ($versions['schema_version'] ?? null) !== 3
+        || ($versions['protocol'] ?? null) !== 'peanut.release-versions.v3'
+        || !is_array($originalPhp)
+        || ($originalPhp['package'] ?? null) !== 'peanut-admin/core'
+        || ($versions['instance_version'] ?? null) !== constant('RELEASE_APPLICATION_VERSION_TOKEN')
+        || ($versions['source_product_version'] ?? null) !== ($versions['scaffold_template'] ?? null)
+        || ($versions['scaffold_template'] ?? null) !== ($manifest['template']['version'] ?? null)) {
+        throw new RuntimeException('SCAFFOLD_RELEASE_SCAFFOLD_VERSION_INVALID');
+    }
+    $coreIdentity = $core['inputs']['core_php'];
+    $originalWeb = $versions['core_web'] ?? null;
+    $requestedWeb = $core['inputs']['core_web'] ?? null;
+    if (!is_array($originalWeb) || !is_array($requestedWeb)
+        || !is_array($originalWeb['packages'] ?? null) || !is_array($requestedWeb['packages'] ?? null)) {
+        throw new RuntimeException('SCAFFOLD_RELEASE_WEB_INPUTS_INVALID');
+    }
+    $sameWeb = ($requestedWeb['source_identity'] ?? null) === ($originalWeb['source_identity'] ?? null)
+        && ($requestedWeb['source_reference'] ?? null) === ($originalWeb['source_reference'] ?? null)
+        && array_keys($requestedWeb['packages']) === array_keys($originalWeb['packages']);
+    foreach ($requestedWeb['packages'] as $name => $package) {
+        $sameWeb = $sameWeb && is_array($package)
+            && ($package['version'] ?? null) === ($originalWeb['packages'][$name]['version'] ?? null);
+    }
+    if (!$localSource && !$core['local'] && ($coreIdentity['source_reference'] ?? null) === ($originalPhp['source_reference'] ?? null)
+        && ltrim((string) ($coreIdentity['resolved_version'] ?? ''), 'v') === ltrim((string) ($originalPhp['resolved_version'] ?? ''), 'v')
+        && $sameWeb) {
+        throw new RuntimeException('SCAFFOLD_RELEASE_SCAFFOLD_PROJECTION_REDUNDANT');
+    }
+    if ($core['local']) {
+        $versions['core_php'] = $coreIdentity;
+        $versions['core_web'] = $requestedWeb;
+    } else {
+        $versions['core_php']['constraint'] = $coreIdentity['resolved_version'];
+        $versions['core_php']['resolved_version'] = $coreIdentity['resolved_version'];
+        $versions['core_php']['source_reference'] = $coreIdentity['source_reference'];
+    }
+    releaseWriteJson($versionPath, $versions);
+    releaseProjectCore($application, $core, $temporary);
+    $web = releaseProjectWeb($application, $core, $receipt, $toolRoot);
+    $versions = releaseReadJson($versionPath);
+
+    $allowed = ['release-versions.json' => true, 'server/composer.json' => true,
+        'server/composer.lock' => true, 'plugins.lock' => true];
+    foreach (['web', 'platform', 'pc', 'uniapp'] as $client) {
+        $allowed[$client . '/package.json'] = true;
+        $allowed[$client . '/' . ($client === 'web' ? 'pnpm-lock.yaml' : 'package-lock.json')] = true;
+    }
+    $changes = [];
+    $managed = [];
+    foreach ($manifest['files'] as &$file) {
+        $path = $file['path'] ?? null;
+        if (!is_string($path) || !is_string($file['sha256'] ?? null)) {
+            throw new RuntimeException('SCAFFOLD_RELEASE_SCAFFOLD_FILE_INVALID');
+        }
+        $actual = hash_file('sha256', $application . '/' . $path);
+        if (!is_string($actual)) {
+            throw new RuntimeException('SCAFFOLD_RELEASE_SCAFFOLD_FILE_MISSING: ' . $path);
+        }
+        if (!hash_equals($file['sha256'], $actual)) {
+            if (!isset($allowed[$path]) && preg_match('#^server/app/modules/[a-z0-9_-]+/[a-z0-9_-]+/composer\.json$#D', $path) !== 1
+                && preg_match('#^plugins/[a-z0-9._-]+/plugin\.json$#D', $path) !== 1) {
+                throw new RuntimeException('SCAFFOLD_RELEASE_SCAFFOLD_PROJECTION_UNEXPECTED: ' . $path);
+            }
+            if (!in_array($file['classification'], ['managed', 'generated-managed'], true)
+                || !is_string($file['baseline_path'] ?? null)) {
+                throw new RuntimeException('SCAFFOLD_RELEASE_SCAFFOLD_PROJECTION_UNMANAGED: ' . $path);
+            }
+            $changes[] = ['path' => $path, 'before_sha256' => $file['sha256'], 'after_sha256' => $actual];
+            $baseline = $application . '/' . $file['baseline_path'];
+            if (!is_file($baseline) || is_link($baseline)
+                || hash_file('sha256', $baseline) !== $file['baseline_sha256']) {
+                throw new RuntimeException('SCAFFOLD_RELEASE_SCAFFOLD_BASELINE_INVALID: ' . $path);
+            }
+            if (!copy($application . '/' . $path, $baseline)) {
+                throw new RuntimeException('SCAFFOLD_RELEASE_SCAFFOLD_BASELINE_WRITE_FAILED: ' . $path);
+            }
+            $file['sha256'] = $actual;
+            $file['baseline_sha256'] = $actual;
+        }
+        if (in_array($file['classification'], ['managed', 'generated-managed'], true)) {
+            $managed[] = $file;
+        }
+    }
+    unset($file);
+    $corePath = $core['archive_relative'];
+    $archives = [$corePath => $core['archive_sha256']];
+    foreach ($web['packages'] as $package) {
+        $archives[$package['archive']] = $package['sha256'];
+    }
+    $additions = [];
+    foreach ($archives as $path => $digest) {
+        $bytes = file_get_contents($application . '/' . $path);
+        if (!is_string($bytes) || !hash_equals($digest, hash('sha256', $bytes))) {
+            throw new RuntimeException('SCAFFOLD_RELEASE_SCAFFOLD_CORE_READ_FAILED: ' . $path);
+        }
+        foreach ([constant('RELEASE_PRODUCT_TOKEN'), constant('RELEASE_SLUG_TOKEN'),
+            constant('RELEASE_PACKAGE_TOKEN'), constant('RELEASE_APPLICATION_VERSION_TOKEN')] as $token) {
+            if (str_contains($bytes, $token)) {
+                throw new RuntimeException('SCAFFOLD_RELEASE_SCAFFOLD_CORE_TOKEN_COLLISION: ' . $path);
+            }
+        }
+        foreach ($manifest['files'] as $file) {
+            if ($file['path'] === $path) {
+                throw new RuntimeException('SCAFFOLD_RELEASE_SCAFFOLD_CORE_PATH_COLLISION: ' . $path);
+            }
+        }
+        $baseline = $manifest['ownership']['baseline_root'] . '/' . $path;
+        releaseCopyFile($application . '/' . $path, $application . '/' . $baseline);
+        $file = ['path' => $path, 'sha256' => $digest, 'mode' => 0644,
+            'classification' => 'managed', 'owner' => 'host', 'source' => $path,
+            'baseline_path' => $baseline, 'baseline_sha256' => $digest];
+        $manifest['files'][] = $file;
+        $managed[] = $file;
+        $additions[] = ['path' => $path, 'sha256' => $digest];
+    }
+    usort($manifest['files'], static fn(array $a, array $b): int => strcmp($a['path'], $b['path']));
+    $rows = array_map(static fn(array $file): string => $file['path'] . "\0" . $file['sha256'], $managed);
+    sort($rows, SORT_STRING);
+    $manifest['digests']['managed_tree_sha256'] = hash('sha256', implode("\n", $rows));
+    releaseWriteJson($manifestPath, $manifest);
+    $receiptDigest = hash_file('sha256', $receipt);
+    if (!is_string($receiptDigest)) {
+        throw new RuntimeException('SCAFFOLD_RELEASE_SCAFFOLD_RECEIPT_INVALID');
+    }
+    $projection = [
+        'protocol' => 'peanut.internal-core-scaffold-projection.v1',
+        'scope' => 'internal-upgrade-target-not-formal-release',
+        'core_inputs_sha256' => $receiptDigest,
+        'build_tools_sha256' => [
+            'build_scaffold_release' => hash_file('sha256', $toolRoot . '/scripts/build-scaffold-release'),
+        ],
+        'core' => ['package' => 'peanut-admin/core', 'resolved_version' => $coreIdentity['resolved_version'],
+            ...($core['local'] ? ['source_identity' => $coreIdentity['source_identity']] : ['source_reference' => $coreIdentity['source_reference']]), 'archive_path' => $corePath,
+            'archive_sha256' => $core['archive_sha256'], 'archive_sha1' => $core['archive_sha1']],
+        'core_web' => $web['packages'],
+        'release_versions' => ['before' => $originalPhp, 'after' => $versions['core_php']],
+        'managed_tree_sha256' => ['source' => $originalDigest, 'projected' => $manifest['digests']['managed_tree_sha256']],
+        'changes' => $changes,
+        'addition' => ['path' => $corePath, 'sha256' => $core['archive_sha256']],
+        'additions' => $additions,
+    ];
+    if ($localSource) {
+        $projection['source_identity'] = $sourceIdentity;
+        $projection['core_web_source_identity'] = $core['inputs']['core_web']['source_identity'];
+    } else {
+        $projection['source'] = ['commit' => $sourceIdentity['commit'], 'tree' => $sourceIdentity['tree']];
+        $projection['web_source_reference'] = $core['inputs']['core_web']['source_reference'];
+    }
+    return $projection;
 }
 
 $localSource = isset($options['source-snapshot']);
@@ -301,15 +807,16 @@ try {
         ] as $dependency) {
             require_once $source . $dependency;
         }
-        $core = internalCandidateCoreInputs($options['internal-core-inputs']);
-        $internalProjection = internalCandidateProjectScaffold(
+        $core = releaseCoreInputs($options['internal-core-inputs']);
+        $internalProjection = releaseProjectScaffold(
             $application,
             $core,
             $temporary,
             $sourceIdentity,
             $options['internal-core-inputs'],
+            $root,
         );
-        $manifest = internalCandidateReadJson($application . '/.peanut/application-manifest.json');
+        $manifest = releaseReadJson($application . '/.peanut/application-manifest.json');
     }
     $generationSource = $manifest['generation_source'] ?? null;
     $identityMatches = $localSource
@@ -406,7 +913,7 @@ try {
                 'core_inputs_sha256' => $internalProjection['core_inputs_sha256'],
                 'formal_release_eligible' => false,
             ];
-            internalCandidateWriteJson($application . '/.peanut/application-manifest.json', $manifest);
+            releaseWriteJson($application . '/.peanut/application-manifest.json', $manifest);
         }
         // The same native projection produces creation defaults and upgrade bytes.
         $packageCommand = ['python3', ($check ? $root : $source) . '/scripts/package-scaffold-template.py',

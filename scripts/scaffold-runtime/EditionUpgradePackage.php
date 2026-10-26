@@ -84,27 +84,6 @@ final class EditionUpgradePackage
         return $prepared;
     }
 
-    /** Reuse the authenticated predecessor's sealed target snapshot; do not rebuild a different baseline. */
-    public function preparePartialSourceSuccessor(string $projectRoot, string $packageRoot, string $predecessor): array
-    {
-        $root = ScaffoldPathGuard::projectRoot($projectRoot);
-        if (!class_exists(\PeanutServerUpdatePlan::class, false)) { require_once dirname(__DIR__, 2) . '/server/docker/scripts/update-plan.php'; }
-        return ScaffoldUpgradeRunner::sourceProductLock($root, fn(): array => \PeanutServerUpdatePlan::withSourceInstanceLock($root . '/server',
-            function () use ($root, $packageRoot, $predecessor): array {
-                $previous = \app\common\services\upgrade\SourceApplicationBackup::protectedPluginJson($predecessor, $root . '/server');
-                $plan = \app\common\services\upgrade\SourceApplicationBackup::protectedPluginJson($previous['binding']['plan_path'], $root . '/server');
-                $from = ScaffoldManifest::load($plan['manifest_paths']['to']);
-                $toPath = ScaffoldPathGuard::existingFileWithin($packageRoot, $packageRoot . '/scaffold-manifest.json', 'SOURCE_SUCCESSOR_TARGET_UNSAFE');
-                $to = ScaffoldManifest::load($toPath);
-                $context = \PeanutServerUpdatePlan::sourceSuccessorContext($root . '/server', $from->release(), $to->release());
-                if ($context['predecessor']['checkpoint']['path'] !== $predecessor
-                    || $context['source_manifest']['path'] !== $from->path || 'sha256:' . $context['source_manifest']['sha256'] !== $from->digest()) {
-                    throw new RuntimeException('SOURCE_SUCCESSOR_BASELINE_CHANGED');
-                }
-                return ['from_manifest' => $from->path, 'to_manifest' => $to->path];
-            }));
-    }
-
     /** Authenticate a formal package without writing source-baseline metadata. */
     public function prepareAdoption(string $projectRoot, string $packageRoot): array
     {
@@ -121,7 +100,7 @@ final class EditionUpgradePackage
         return $prepared;
     }
 
-    /** Same native source coordinator, with the public template archive/cache protocol. */
+    /** Authenticate the fixed template cache through its existing source manifest. */
     public function authenticateTemplate(string $projectRoot, string $packageRoot): array
     {
         $root = ScaffoldPathGuard::projectRoot($projectRoot);
@@ -131,33 +110,34 @@ final class EditionUpgradePackage
         if ($package !== $root . '/.peanut/upgrades/template-packages/' . ($metadata['archive']['sha256'] ?? '')) {
             throw new RuntimeException('TEMPLATE_UPGRADE_CACHE_IDENTITY_INVALID');
         }
-        $pipes = [];
-        $process = proc_open(['python3', '-B', dirname(__DIR__) . '/product-upgrade-host', 'source-template-check', '--cache=' . $package],
-            [0 => ['file', '/dev/null', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
-        if (!is_resource($process)) { throw new RuntimeException('TEMPLATE_UPGRADE_VALIDATOR_UNAVAILABLE'); }
-        $output = stream_get_contents($pipes[1]); $diagnostic = stream_get_contents($pipes[2]);
-        fclose($pipes[1]); fclose($pipes[2]);
-        $code = proc_close($process);
-        $checked = json_decode($output, true);
-        if ($code !== 0 || $diagnostic !== '' || ($checked['status'] ?? null) !== 'verified'
-            || ($checked['metadata_sha256'] ?? null) !== hash_file('sha256', $metadataPath)) {
-            throw new RuntimeException('TEMPLATE_UPGRADE_ARCHIVE_REJECTED:' . hash('sha256', $diagnostic));
-        }
         $application = $this->applicationManifest($root);
         $target = ScaffoldManifest::load($package . '/scaffold-manifest.json');
+        if (($metadata['protocol'] ?? null) !== 'peanut.template-package.v1'
+            || preg_match('/^[a-f0-9]{64}$/D', (string) ($metadata['archive']['sha256'] ?? '')) !== 1
+            || ($metadata['scaffold_manifest_sha256'] ?? null) !== substr($target->digest(), 7)
+            || ($metadata['version'] ?? null) !== $target->version()
+            || ScaffoldSourceIdentity::from($metadata['source'] ?? [], true) !== $target->sourceIdentity()
+            || ($metadata['source']['inventory_sha256'] ?? null) !== $target->release()['inventory_sha256']) {
+            throw new RuntimeException('TEMPLATE_UPGRADE_SOURCE_IDENTITY_MISMATCH');
+        }
+        foreach ($target->files() as $file) {
+            if (hash_file('sha256', $target->artifactPath($file)) !== $file['template_sha256']) {
+                throw new RuntimeException('SCAFFOLD_ARTIFACT_DIGEST_MISMATCH: ' . $file['path']);
+            }
+        }
         $currentVersion = $application['template']['version'] ?? '';
         if (preg_match(self::VERSION, $currentVersion) !== 1 || preg_match(self::VERSION, $target->version()) !== 1
             || Semver::compare($currentVersion, $target->version()) > 0) {
             throw new RuntimeException('TEMPLATE_UPGRADE_SOURCE_RANGE_UNSUPPORTED');
         }
         if (($metadata['edition'] ?? null) !== ($application['application']['edition'] ?? null)
-            || ($target->data['edition']['name'] ?? null) !== ($application['edition']['name'] ?? null)
-            || ($checked['manifest_sha256'] ?? null) !== substr($target->digest(), 7)) {
+            || ($target->data['edition']['name'] ?? null) !== ($application['edition']['name'] ?? null)) {
             throw new RuntimeException('TEMPLATE_UPGRADE_EDITION_MISMATCH');
         }
-        $selection = ['repository' => 'peanut-business/peanut-admin-code',
-            'requested_ref' => 'local:' . $metadata['archive']['sha256'], 'channel' => 'development',
-            'commit' => $metadata['source']['commit'], 'tree' => $metadata['source']['tree'],
+        $identity = $target->sourceIdentity();
+        $selection = ['repository' => $metadata['source']['repository'] ?? null,
+            'requested_ref' => 'local:' . ($identity['kind'] === 'local' ? $identity['snapshot_sha256'] : $metadata['archive']['sha256']), 'channel' => 'development',
+            ...($identity['kind'] === 'local' ? ['source_identity' => $identity] : ['commit' => $identity['commit'], 'tree' => $identity['tree']]),
             'template_package_path' => $metadataPath, 'template_package_sha256' => 'sha256:' . hash_file('sha256', $metadataPath)];
         return ['project_root' => $root, 'application' => $application,
             'to_manifest' => $target->path, 'source_selection' => $selection,
@@ -200,7 +180,7 @@ final class EditionUpgradePackage
             || ($manifest['schema_version'] ?? null) !== 1
             || ($manifest['protocol'] ?? null) !== 'peanut.edition-upgrade-package.v1'
             || ($manifest['upgrader']['scope'] ?? null) !== 'source'
-            || ($manifest['upgrader']['installed_entrypoint'] ?? null) !== 'scripts/upgrade'
+            || ($manifest['upgrader']['installed_entrypoint'] ?? null) !== 'scripts/scaffold-upgrade'
             || ($manifest['upgrader']['internal_scaffold_engine'] ?? null) !== 'scripts/scaffold-upgrade'
             || isset($manifest['upgrader']['host_driver'])
             || isset($manifest['upgrader']['database_driver'])
@@ -275,10 +255,7 @@ final class EditionUpgradePackage
             || ($release['managed_tree_sha256'] ?? null) !== ($manifest['target']['managed_tree_sha256'] ?? null)) {
             throw new RuntimeException('EDITION_UPGRADE_TARGET_IDENTITY_MISMATCH');
         }
-        $this->assertInternalCoreProjection($targetManifest, $manifest);
-
         $this->assertOwnership($manifest);
-        $this->assertMigrationChain($manifest, $targetManifest);
         $adoption = $requireSourceCompatibility
             ? $this->assertAdoption($package, $files, $manifest, $application, $targetManifest)
             : null;
@@ -293,72 +270,6 @@ final class EditionUpgradePackage
                 'manifest_sha256' => 'sha256:' . hash_file('sha256', $manifestPath),
             ],
         ];
-    }
-
-    /** The identified target and upgrade manifest must identify the same projected Core bytes. */
-    private function assertInternalCoreProjection(ScaffoldManifest $target, array $upgrade): void
-    {
-        $projection = $target->data['internal_core_projection'] ?? null;
-        $declared = $upgrade['target']['internal_core_projection'] ?? null;
-        if ($projection === null && $declared === null) {
-            return;
-        }
-        $release = $target->release();
-        $core = is_array($projection) ? ($projection['core'] ?? null) : null;
-        $path = is_array($core) ? ($core['archive_path'] ?? null) : null;
-        if (!is_array($projection) || $projection !== $declared || !is_array($core)
-            || ($upgrade['scope'] ?? null) !== 'internal-upgrade-candidate'
-            || ($upgrade['formal_release_eligible'] ?? null) !== false
-            || ($projection['protocol'] ?? null) !== 'peanut.internal-core-scaffold-projection.v1'
-            || ($projection['scope'] ?? null) !== 'internal-upgrade-target-not-formal-release'
-            || ($target->sourceIdentity()['kind'] === 'local'
-                ? (($projection['source_identity'] ?? null) !== $target->sourceIdentity() || array_key_exists('source', $projection))
-                : (($projection['source'] ?? null) !== ['commit' => $target->sourceIdentity()['commit'], 'tree' => $target->sourceIdentity()['tree']]))
-            || ($projection['managed_tree_sha256']['projected'] ?? null) !== ($release['managed_tree_sha256'] ?? null)
-            || preg_match('/^[a-f0-9]{64}$/D', (string) ($projection['core_inputs_sha256'] ?? '')) !== 1
-            || !is_string($path) || !str_starts_with($path, 'packages/core-php/') || !str_ends_with($path, '.zip')) {
-            throw new RuntimeException('EDITION_UPGRADE_INTERNAL_PROJECTION_INVALID');
-        }
-        ScaffoldManifest::path($path);
-        $files = $target->files();
-        $coreFile = $files[$path] ?? null;
-        $versionFile = $files['release-versions.json'] ?? null;
-        $lockFile = $files['server/composer.lock'] ?? null;
-        if (!is_array($coreFile) || !is_array($versionFile) || !is_array($lockFile)
-            || ($coreFile['template_sha256'] ?? null) !== ($core['archive_sha256'] ?? null)) {
-            throw new RuntimeException('EDITION_UPGRADE_INTERNAL_PROJECTION_FILES_INVALID');
-        }
-        $rows = [];
-        foreach ($files as $name => $file) {
-            $artifact = $target->artifactPath($file);
-            $digest = hash_file('sha256', $artifact);
-            if (!is_string($digest) || !hash_equals((string) $file['template_sha256'], $digest)) {
-                throw new RuntimeException('EDITION_UPGRADE_INTERNAL_TARGET_DIGEST_INVALID: ' . $name);
-            }
-            $rows[] = $name . "\0" . $digest;
-        }
-        sort($rows, SORT_STRING);
-        if (!hash_equals((string) $release['managed_tree_sha256'], hash('sha256', implode("\n", $rows)))) {
-            throw new RuntimeException('EDITION_UPGRADE_INTERNAL_TARGET_TREE_INVALID');
-        }
-        try {
-            $version = json_decode((string) file_get_contents($target->artifactPath($versionFile)), true, 512, JSON_THROW_ON_ERROR);
-            $lock = json_decode((string) file_get_contents($target->artifactPath($lockFile)), true, 512, JSON_THROW_ON_ERROR);
-        } catch (\JsonException $exception) {
-            throw new RuntimeException('EDITION_UPGRADE_INTERNAL_DEPENDENCY_INVALID', 0, $exception);
-        }
-        $locked = array_values(array_filter($lock['packages'] ?? [], static fn(mixed $package): bool => is_array($package) && ($package['name'] ?? null) === 'peanut-admin/core'));
-        if (!is_array($version)
-            || ($version['source_product_version'] ?? null) !== ($release['version'] ?? null)
-            || ($version['core_php'] ?? null) !== ($projection['release_versions']['after'] ?? null)
-            || count($locked) !== 1
-            || ($locked[0]['version'] ?? null) !== ($core['resolved_version'] ?? null)
-            || ($locked[0]['source']['reference'] ?? null) !== ($core['source_reference'] ?? null)
-            || ($locked[0]['dist']['reference'] ?? null) !== ($core['source_reference'] ?? null)
-            || ($locked[0]['dist']['url'] ?? null) !== '../' . $path
-            || ($locked[0]['dist']['shasum'] ?? null) !== ($core['archive_sha1'] ?? null)) {
-            throw new RuntimeException('EDITION_UPGRADE_INTERNAL_DEPENDENCY_INVALID');
-        }
     }
 
     /** @return array{name:string,deployment_mode:string,profile_sha256:string,generator_version:int,module_profile:string,tenant_bootstrap:array<string,string>,schema_projection:string} */
@@ -525,79 +436,5 @@ final class EditionUpgradePackage
     }
 
     /** @param array<string,mixed> $manifest */
-    private function assertMigrationChain(array $manifest, ScaffoldManifest $target): void
-    {
-        $chain = $manifest['migration_chain'] ?? null;
-        if (!is_array($chain) || ($chain['strategy'] ?? null) !== 'append-only-ledger' || !is_array($chain['files'] ?? null)) {
-            throw new RuntimeException('EDITION_UPGRADE_MIGRATION_CHAIN_INVALID');
-        }
-        $expected = [];
-        foreach ($target->files() as $path => $file) {
-            if (str_starts_with($path, 'server/database/migrations/') && str_ends_with($path, '.sql')) {
-                $expected[$path] = $file['template_sha256'];
-            }
-        }
-        $actual = [];
-        foreach ($chain['files'] as $file) {
-            if (!is_array($file) || !is_string($file['path'] ?? null) || !is_string($file['sha256'] ?? null)
-                || isset($actual[$file['path']])) {
-                throw new RuntimeException('EDITION_UPGRADE_MIGRATION_CHAIN_INVALID');
-            }
-            $actual[$file['path']] = $file['sha256'];
-        }
-        if ($actual !== $expected) {
-            throw new RuntimeException('EDITION_UPGRADE_MIGRATION_CHAIN_INCOMPLETE');
-        }
-        // Validate data as package input, without loading executable PHP from the target candidate.
-        $files = $target->files();
-        $baselines = [
-            '20261019-clean-install-5.0.2-r1' => ['directory' => '5.0.2-r1', 'revision' => 1],
-            '20261019-clean-install-5.0.2-r2' => ['directory' => '5.0.2-r2', 'revision' => 2],
-        ];
-        if (!array_key_exists('installation_baseline', $chain)) {
-            foreach ($baselines as $baseline) {
-                if (isset($files['server/database/baselines/' . $baseline['directory'] . '/manifest.json'])) {
-                    throw new RuntimeException('EDITION_UPGRADE_INSTALL_BASELINE_UNEXPECTED');
-                }
-            }
-            return;
-        }
-        $identityKey = $chain['installation_baseline']['key'] ?? null;
-        if (!is_string($identityKey) || !isset($baselines[$identityKey])) { throw new RuntimeException('EDITION_UPGRADE_INSTALL_BASELINE_INVALID'); }
-        $source = $baselines[$identityKey];
-        $prefix = 'server/database/baselines/' . $source['directory'] . '/';
-        $bytes = [];
-        foreach (['manifest.json', 'baseline.lock', 'schema.sql', 'data.sql'] as $name) {
-            $file = $files[$prefix . $name] ?? null;
-            if (!is_array($file)) { throw new RuntimeException('EDITION_UPGRADE_INSTALL_BASELINE_INCOMPLETE'); }
-            $content = file_get_contents($target->artifactPath($file));
-            if (!is_string($content) || hash('sha256', $content) !== $file['template_sha256']) { throw new RuntimeException('EDITION_UPGRADE_INSTALL_BASELINE_CHANGED'); }
-            $bytes[$name] = $content;
-        }
-        $seed = json_decode($bytes['manifest.json'], true, 64, JSON_THROW_ON_ERROR);
-        $lock = json_decode($bytes['baseline.lock'], true, 64, JSON_THROW_ON_ERROR);
-        if (($seed['protocol'] ?? null) !== 'peanut.clean-install-baseline.v1' || ($seed['schema_version'] ?? null) !== 1
-            || ($seed['key'] ?? null) !== $identityKey || ($seed['revision'] ?? null) !== $source['revision']
-            || ($seed['source_product_version'] ?? null) !== '5.0.2' || ($seed['fresh_only'] ?? null) !== true
-            || ($lock['protocol'] ?? null) !== 'peanut.clean-install-baseline-lock.v1' || ($lock['schema_version'] ?? null) !== 1
-            || ($lock['key'] ?? null) !== $seed['key'] || !is_array($seed['covered_migrations'] ?? null)) {
-            throw new RuntimeException('EDITION_UPGRADE_INSTALL_BASELINE_INVALID');
-        }
-        $locked = array_keys($lock['files'] ?? []); sort($locked, SORT_STRING);
-        if ($locked !== ['data.sql', 'manifest.json', 'schema.sql']) { throw new RuntimeException('EDITION_UPGRADE_INSTALL_BASELINE_INVALID'); }
-        foreach ($locked as $name) {
-            if ($lock['files'][$name] !== hash('sha256', $bytes[$name])
-                || ($name !== 'manifest.json' && ($seed['payloads'][$name] ?? null) !== $lock['files'][$name])) {
-                throw new RuntimeException('EDITION_UPGRADE_INSTALL_BASELINE_CHANGED');
-            }
-        }
-        foreach ($seed['covered_migrations'] as $covered) {
-            if (!is_string($covered['path'] ?? null) || !is_string($covered['sha256'] ?? null)
-                || ($actual[$covered['path']] ?? null) !== $covered['sha256']) { throw new RuntimeException('EDITION_UPGRADE_INSTALL_BASELINE_COVERAGE_CHANGED'); }
-        }
-        $identity = ['key' => $seed['key'], 'sha256' => hash('sha256', $bytes['manifest.json']), 'source_product_version' => $seed['source_product_version'],
-            'revision' => $seed['revision'], 'coverage_semantics' => 'covered_by_baseline', 'covered_migrations' => $seed['covered_migrations']];
-        if (($chain['installation_baseline'] ?? null) !== $identity) { throw new RuntimeException('EDITION_UPGRADE_INSTALL_BASELINE_IDENTITY_CHANGED'); }
-    }
 
 }

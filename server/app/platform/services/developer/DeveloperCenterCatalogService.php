@@ -95,7 +95,7 @@ final readonly class DeveloperCenterCatalogService
                 'lifecycle' => $this->lifecycle($data),
                 'events' => array_values((array) ($data['contracts']['events'] ?? [])),
                 'tasks' => $this->tasks($key, $data, $commands),
-                'migrations' => $this->migrations($root, $data),
+                'migrations' => $this->migrations(),
                 'documentation' => $this->documentation($root),
                 'package_preview' => $this->packagePreview($key),
             ];
@@ -450,17 +450,12 @@ final readonly class DeveloperCenterCatalogService
         return ['commands' => $ownedCommands, 'public_contracts' => $contracts];
     }
 
-    /** @param array<string,mixed> $data */
-    private function migrations(string $root, array $data): array
+    private function migrations(): array
     {
-        $relative = $data['backend']['migrations'] ?? null;
-        if (!is_string($relative)) {
-            return ['declared_path' => null, 'files' => []];
-        }
-        $files = glob($root . '/' . trim($relative, '/') . '/*.sql') ?: [];
+        $files = glob($this->serverRoot . '/database/migrations/*.php') ?: [];
         sort($files, SORT_STRING);
         return [
-            'declared_path' => $relative,
+            'declared_path' => 'server/database/migrations',
             'files' => array_map(fn(string $path): array => [
                 'path' => $this->relative($path),
                 'sha256' => hash_file('sha256', $path),

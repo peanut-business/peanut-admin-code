@@ -42789,8 +42789,7 @@
                     "menu",
                     "visitor",
                     "support",
-                    "sale",
-                    "scaffoldUpgradeDemo"
+                    "sale"
                 ],
                 "properties": {
                     "version": {
@@ -42865,22 +42864,6 @@
                         "type": "object",
                         "additionalProperties": {
                             "$ref": "#/components/schemas/ApplicationDynamicValue"
-                        }
-                    },
-                    "scaffoldUpgradeDemo": {
-                        "type": "object",
-                        "additionalProperties": false,
-                        "required": [
-                            "release_version",
-                            "message"
-                        ],
-                        "properties": {
-                            "release_version": {
-                                "type": "string"
-                            },
-                            "message": {
-                                "type": "string"
-                            }
                         }
                     }
                 }

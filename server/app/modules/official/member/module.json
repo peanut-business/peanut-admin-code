@@ -20,7 +20,6 @@
   ],
   "backend": {
     "provider": "PeanutAdmin\\Modules\\Member\\ModuleProvider",
-    "migrations": "database/migrations",
     "menus": "resources/menus.json",
     "permissions": "resources/permissions.json",
     "setting_definitions": "resources/setting-definitions.json"
@@ -51,8 +50,7 @@
       "PeanutAdmin\\Modules\\Member\\Contract\\MemberSubjectLookup",
       "PeanutAdmin\\Modules\\Member\\Contract\\MemberSessions",
       "PeanutAdmin\\Modules\\Member\\Contract\\Dto\\MemberSessionGrant",
-      "PeanutAdmin\\Modules\\Member\\Contract\\Dto\\MemberSessionSubject",
-      "PeanutAdmin\\Modules\\Member\\Contract\\MemberSessionMigrationPreservation"
+      "PeanutAdmin\\Modules\\Member\\Contract\\Dto\\MemberSessionSubject"
     ],
     "events": []
   },

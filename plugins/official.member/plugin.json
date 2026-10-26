@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "e72060ea4588f46e5f5bebdc640a370b0c6d135f9987f67c662502101da5c1ed"
+        "sha256": "6c85e8ebff090c225d0ce298ec6cf595d22c0fa485227d368c335db8b0ab09d9"
     },
     "trust": {
         "channel": "bundled",
@@ -54,19 +54,6 @@
                     "permissions": {
                         "path": "resources/permissions.json",
                         "sha256": "e62cfbdd9e82165875b38fdcdf57f236fd532737aed2f80921cdd1584e933dc9"
-                    },
-                    "migrations": {
-                        "reversibility": "verified-backup-required",
-                        "files": [
-                            {
-                                "key": "official.member:20260826-namespace-permission-keys",
-                                "sha256": "c391d790995786d3ef05002f25a4156b67e42f2f7e4227da39ba15190a1328b0"
-                            },
-                            {
-                                "key": "official.member:20260921-create-member-session",
-                                "sha256": "297fc9de7bc227d584cb79fe6e5d50f6cf8512b33696578acbb3f10243b65337"
-                            }
-                        ]
                     }
                 }
             ]

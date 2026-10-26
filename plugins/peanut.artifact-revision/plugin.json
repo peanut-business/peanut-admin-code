@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "1f961f63b06b74c822047b3816ae721fd7ea0d3be567ca28af23cd9ecda2a666"
+        "sha256": "fc456fab6aa6e896e6a40ed6acc67a9a60ab35f5ec471e3fd79795d802fbdef4"
     },
     "trust": {
         "channel": "bundled",
@@ -50,15 +50,6 @@
                     "permissions": {
                         "path": null,
                         "sha256": null
-                    },
-                    "migrations": {
-                        "reversibility": "verified-backup-required",
-                        "files": [
-                            {
-                                "key": "peanut.artifact-revision:20260921-register-module-schema",
-                                "sha256": "fe70a60a35892fc6352764a4ee8eb065ca8a19e067ab99ccb91c79c21ce95e39"
-                            }
-                        ]
                     }
                 }
             ]

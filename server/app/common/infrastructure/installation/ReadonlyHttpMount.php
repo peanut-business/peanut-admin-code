@@ -13,6 +13,7 @@ final readonly class ReadonlyHttpMount
     private const CONTEXT = '/run/peanut-http/context.json';
     public const MUTABLE = ['private/installation', 'private/storage', 'private/resources/pending',
         'public/storage', 'runtime/cache', 'runtime/log', 'runtime/session', 'runtime/temp', 'runtime/storage', 'runtime/generator', 'runtime/file'];
+    private const SOURCE_INPUTS = ['.peanut/application-manifest.json', 'release-versions.json', 'plugins.lock', 'RELEASE_METADATA.json'];
 
     private function __construct(private string $root) {}
 
@@ -59,6 +60,9 @@ final readonly class ReadonlyHttpMount
         $seen = [];
         $imageMounts = [self::CHROOT . '/usr/local/etc/php/conf.d/zz-peanut.ini',
             self::CHROOT . '/run/peanut-admin/resource-lease', self::CHROOT . '/run/peanut-admin/resource-lease-parent'];
+        foreach (self::SOURCE_INPUTS as $relative) {
+            $imageMounts[] = self::CHROOT . '/' . $relative;
+        }
         foreach ($mounts as $mount) {
             if ($mount['path'] === self::CHROOT || str_starts_with($mount['path'], self::CHROOT . '/')) {
                 if (isset($seen[$mount['path']])) {
@@ -128,8 +132,13 @@ final readonly class ReadonlyHttpMount
         $mounts = self::mounts((string) file_get_contents('/proc/self/mountinfo'));
         $directory = self::CHROOT . dirname(self::CONTEXT);
         $pointer = $root . '/runtime/upgrade/verified-deployment/current.json';
-        $identity = $root . '/' . VerifiedServerDeployment::identityPath($root);
-        foreach ([$pointer, $identity] as $path) {
+        $paths = [$pointer];
+        if (VerifiedServerDeployment::sourceApplication($root)) {
+            self::assertSourceInputs($ownerRoot);
+        } else {
+            $paths[] = $root . '/' . VerifiedServerDeployment::identityPath($root);
+        }
+        foreach ($paths as $path) {
             if (is_link($path) || !is_file($path) || !self::effective($mounts, $path)['readonly']) {
                 throw new RuntimeException('HTTP_MOUNT_ADMISSION_UNAVAILABLE');
             }
@@ -137,7 +146,7 @@ final readonly class ReadonlyHttpMount
         $worker = posix_getpwnam('www-data');
         $context = ['worker_uid' => $worker['uid'], 'worker_gid' => $worker['gid'], 'protocol' => 'peanut.native-readonly-http.v1', 'root' => '/server',
             'device' => $httpStat['dev'], 'inode' => $httpStat['ino'],
-            'identity_sha256' => hash_file('sha256', $identity), 'pointer_sha256' => hash_file('sha256', $pointer),
+            'identity_sha256' => VerifiedServerDeployment::inputIdentityDigest($root), 'pointer_sha256' => hash_file('sha256', $pointer),
             'deployment_sha256' => is_file($ownerRoot . '/private/installation/deployment.json')
                 ? hash_file('sha256', $ownerRoot . '/private/installation/deployment.json') : null];
         $target = self::CHROOT . self::CONTEXT;
@@ -217,13 +226,67 @@ final readonly class ReadonlyHttpMount
             || ($context['worker_uid'] ?? null) !== posix_geteuid() || ($context['worker_gid'] ?? null) !== posix_getegid()
             || ($context['root'] ?? null) !== $root || ($context['device'] ?? null) !== $stat['dev']
             || ($context['inode'] ?? null) !== $stat['ino']
-            || ($context['identity_sha256'] ?? null) !== hash_file('sha256', $root . '/' . VerifiedServerDeployment::identityPath($root))
+            || ($context['identity_sha256'] ?? null) !== VerifiedServerDeployment::inputIdentityDigest($root)
             || ($context['pointer_sha256'] ?? null) !== hash_file('sha256', $root . '/runtime/upgrade/verified-deployment/current.json')
             || ($context['deployment_sha256'] ?? null) !== (is_file($root . '/private/installation/deployment.json')
                 ? hash_file('sha256', $root . '/private/installation/deployment.json') : null)) {
             throw new RuntimeException('HTTP_MOUNT_CONTEXT_MISMATCH');
         }
         return new self($root);
+    }
+
+    /** Only tracked declarations cross the APP/server boundary; no Git or secrets mount. */
+    public static function assertSourceInputs(string $root): void
+    {
+        $mounts = self::mounts((string) file_get_contents('/proc/self/mountinfo'));
+        $parent = rtrim(dirname($root), '/');
+        foreach (self::SOURCE_INPUTS as $relative) {
+            $path = $parent . '/' . $relative;
+            $stat = @lstat($path);
+            if (!is_array($stat) || is_link($path) || !is_file($path) || $stat['nlink'] !== 1
+                || !self::effective($mounts, $path)['readonly']) {
+                throw new RuntimeException('HTTP_SOURCE_INPUT_NOT_READONLY');
+            }
+            if ($root === '/run/peanut-owner/server') {
+                $http = @lstat(self::CHROOT . '/' . $relative);
+                if (!is_array($http) || $http['dev'] !== $stat['dev'] || $http['ino'] !== $stat['ino']) {
+                    throw new RuntimeException('HTTP_SOURCE_INPUT_SOURCE_MISMATCH');
+                }
+            }
+        }
+    }
+
+    /** Rebuild the existing native module admission while the owner has closed public traffic. */
+    public static function initialize(string $root): void
+    {
+        if ($root !== '/run/peanut-owner/server' || PHP_SAPI !== 'cli' || posix_geteuid() !== 0) {
+            throw new RuntimeException('HTTP_MOUNT_OWNER_REQUIRED');
+        }
+        self::verifyOwnerMounts($root);
+        if (file_exists($root . '/runtime/upgrade/.traffic-ready') || is_link($root . '/runtime/upgrade/.traffic-ready')) {
+            throw new RuntimeException('HTTP_STARTUP_TRAFFIC_NOT_CLOSED');
+        }
+        $identity = VerifiedServerDeployment::sourceApplication($root)
+            ? \app\common\value\installation\ApplicationSourceIdentity::loadGeneratedApp($root)
+            : (\app\common\value\installation\ApplicationSourceIdentity::hasRuntime($root)
+                ? \app\common\value\installation\ApplicationSourceIdentity::loadRuntime($root)
+                : \app\common\value\installation\ServerReleaseIdentity::load($root));
+        require_once $root . '/database/install.php';
+        $app = new \think\App($root);
+        $app->instance($identity::class, $identity);
+        $app->initialize();
+        VerifiedServerDeployment::publish($app, $identity);
+        $ready = $root . '/runtime/upgrade/.traffic-ready';
+        $handle = fopen($ready, 'xb');
+        if (!is_resource($handle)) { throw new RuntimeException('HTTP_STARTUP_TRAFFIC_UNAVAILABLE'); }
+        try {
+            $bytes = "peanut.server-traffic-ready.v1\n";
+            if (fwrite($handle, $bytes) !== strlen($bytes) || !fflush($handle) || !fsync($handle) || !chmod($ready, 0644)) {
+                throw new RuntimeException('HTTP_STARTUP_TRAFFIC_UNAVAILABLE');
+            }
+        } finally {
+            fclose($handle);
+        }
     }
 
     public static function assertWorkers(int $master): void

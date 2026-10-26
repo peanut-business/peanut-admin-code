@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "8902a2e9c97767ecb61ceaf7a04ede2578c73a8e629fd47ceb534670a77b3574"
+        "sha256": "d69e7af896c5cfb92f746fe3a9ccaebe5ffa030f2463368f2a9ced80bb3a5cae"
     },
     "trust": {
         "channel": "bundled",
@@ -54,59 +54,6 @@
                     "permissions": {
                         "path": "resources/permissions.json",
                         "sha256": "e0639ca36308220f2f9e7ca36972a9199fb6be1f44e25f61a41e00477faed5df"
-                    },
-                    "migrations": {
-                        "reversibility": "verified-backup-required",
-                        "files": [
-                            {
-                                "key": "official.file:20260823-unify-storage-service",
-                                "sha256": "f79c35b2fe8414dc172a81a45183d2a52eadb05833a704149780b36e400ca2d4"
-                            },
-                            {
-                                "key": "official.file:20260826-namespace-permission-keys",
-                                "sha256": "fd7801e514efdde57945b9756e4303ea8685d02f07dfd86e7131b92ca28003f7"
-                            },
-                            {
-                                "key": "official.file:20260921020000_add_file_image_assets",
-                                "sha256": "826fa9d8fd841b6834bc5f23cabced30b7ca111de4bb1f629ccbdb8501200cd4"
-                            },
-                            {
-                                "key": "official.file:20261012030000_add_controlled_file_references",
-                                "sha256": "005edad54fc0cf06a4eeb6afa7c0e5f374a0bc352eaa088282b2f12932251591"
-                            },
-                            {
-                                "key": "official.file:20261012051000_add_immutable_document_snapshots",
-                                "sha256": "7b73c0c24f14f4c7f4fc1f75321e009b1a645d7df3f7d653dbb3d018e3b5bdbe"
-                            },
-                            {
-                                "key": "official.file:20261016010000_adopt_storage_service",
-                                "sha256": "ac9f164162854a61eaebecc58c6108c33af168843c7a18e3a7bd4c2320a641ed"
-                            },
-                            {
-                                "key": "official.file:20261016010100_adopt_image_assets",
-                                "sha256": "285c5695e71e249dd626201e61846f9e8f4d15c2dcaa19c2dd34a03fb4445596"
-                            },
-                            {
-                                "key": "official.file:20261016010200_adopt_controlled_references",
-                                "sha256": "ad598a21b72d97a93005d46dd51353f121bdb3f04e953f5a2711db940209b4a3"
-                            },
-                            {
-                                "key": "official.file:20261016010300_adopt_document_snapshots",
-                                "sha256": "03f0310da23b0c19a8631edce0a07e96ea57a97d781a582ad87c99ab4136cd73"
-                            },
-                            {
-                                "key": "official.file:20261021060100_file_visibility_batches",
-                                "sha256": "3827e993c38855ce94ceaa2b7c0ae8c7082a9d231476e6c42358cd29f977edb7"
-                            },
-                            {
-                                "key": "official.file:20261021060200_file_visibility_object_state",
-                                "sha256": "93ab8b34a84124f7d6ed86e7f36a7ea76e6ac122cc64f58810387506bef65b6b"
-                            },
-                            {
-                                "key": "official.file:20261021060200_file_visibility_object_state-repair-20261021",
-                                "sha256": "76538d58ff041c940360550f3b34c584f0385ebc0f6163e4256f0c0e74b6bc4d"
-                            }
-                        ]
                     }
                 }
             ]

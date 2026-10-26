@@ -20,7 +20,6 @@ final class ModuleScaffoldGenerator
         'resources/permissions.json' => 'backend/empty-array.json.stub',
         'resources/menus.json' => 'backend/empty-array.json.stub',
         'resources/setting-definitions.json' => 'backend/empty-array.json.stub',
-        'database/migrations/README.md' => 'backend/migration-guide.md.stub',
         'composer.json' => 'backend/composer.json.stub',
     ];
 

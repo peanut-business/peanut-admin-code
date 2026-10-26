@@ -2,76 +2,6 @@
 
 路径相对本应用源码根；本文解释实际接线，不是第二套规范或完整产品验收。先读[开发规范](standard.md)和[应用约定](application-conventions.md)。调用顺序以本次原生锁及实际加载源码为准；执行者分别记录源码、依赖、命令与验证范围，不能从本文推断某项运行验证已通过。
 
-### 既有实例显式采用维护工具
-
-旧实例的既有计划和 `trusted` 工具保持冻结。需要修复升级协调器时，从已审阅、固定提交的工具源码根生成独立维护工具目录；它不是产品包 B，不修改 B 的身份或摘要。源码须 clean，`server/vendor` 须由该源码 Composer lock 安装为 production 依赖；目录只包含协调器的唯一工具闭包、入口、lock 和锁定 vendor，不包含运行配置或凭据。
-
-```sh
-"$PHP" /fixed/source/scripts/upgrade tooling-pack --source-root=/fixed/source --output=/new/maintenance-tools
-```
-
-制包返回 manifest SHA-256、source commit/tree。传输前后由操作者在执行任何包内入口前独立核对该固定 manifest 摘要及其中每个文件的摘要/模式、无额外文件或链接；不能仅执行一个尚未核实的包内校验器建立信任。维护包来源与本次产品 B 的 source commit 分别登记；迁移语义修复仍须通过正常脚手架升级进入实际 B。
-
-```sh
-"$PHP" /verified/maintenance-tools/scripts/upgrade tooling-observe --instance-root=/installed/app
-"$PHP" /verified/maintenance-tools/scripts/upgrade tooling-adopt --instance-root=/installed/app \
-  --tooling-root=/verified/maintenance-tools --expected-tooling-sha256=MANIFEST_SHA256 \
-  --expected-before-sha256=OBSERVED_BEFORE_SHA256 --workspace=/new/tooling-adoption
-```
-
-`observe` 只读安装身份、release identity、保护配置、旧协调器和原计划状态的摘要。`adopt` 使用与正常升级相同的产品锁和原生 update 锁，再核对精确前态；活动或需恢复的操作拒绝采用。它将固定闭包复制到独立 workspace、备份原工具并持久化 `adoption.json`，最后原子切换实例的 `.peanut/upgrades/tooling-active.json` 指针；不覆盖 APP 或原工具、不修改旧计划、trusted、journal、数据库或卷。收据与 active 指针由当前执行 owner 持有、模式为 0600。中断在收据持久化之后且 active 指针切换之前，可用相同 pins 重入；更早的非空半成品 workspace 拒绝使用，由 owner 查明后处理。
-
-新计划通过采用后的同一公开 `update.sh` 入口创建，显式指定收据与原实例；使用新的空产品升级 workspace。每次入口在 Composer 加载前核实完整闭包和 active 收据，并在取得产品锁后重核；新计划绑定收据摘要。原计划不允许换工具重绑。
-
-```sh
-PEANUT_UPGRADE_PHP="$PHP" /new/tooling-adoption/tools/server/docker/scripts/update.sh plan \
-  --instance-server=/installed/app/server --tooling-receipt=/new/tooling-adoption/adoption.json \
-  --archive=/fixed/server.tar.gz --expected-sha256=ARCHIVE_SHA256 --workspace=/new/product-update
-```
-
-后续 `apply|verify|recover` 使用同一 wrapper、instance、收据和产品 workspace。业务 apply 的备份、写者暂停、迁移、恢复和人工 Gate 沿用原状态机。若尚未改变业务或原计划状态，可以运行 `tooling-recover --instance-root=... --receipt=...` 撤销工具指针；已经改变业务时必须先走产品恢复，工具恢复不能代替数据库/文件恢复。原安装工具始终保留。
-
-协调器 plan 阶段只使用固定选定来源的 `update-plan.php`；apply/verify/recover 在完整 frozen closure 校验后只加载同一个 trusted 物理路径。统一加载器同时核 canonical 路径、摘要和 Reflection 实际声明来源；已经加载别的路径时明确拒绝，不以 `class_exists` 跳过来源证明。
-
-### 已知 11a prepare 声明故障的明确裁定
-
-此入口只处理已审固定 `11a327d5`、维护 manifest `beb909dd9563118a810ef454d8438aa9293511903558e00bd96f5fc394ff4ce6` 的确定性重复类声明：selected helper 先加载，写 prepare intent 后加载其同字节 trusted 副本，在 host dispatch 之前 PHP fatal。它不处理任意 fatal、超时或 UNKNOWN，不清理或改写旧 plan/state/trusted/journal，也不将失败冒充恢复。
-
-执行 owner 须提供经审阅的 canonical mode-0600 admission JSON，协议 `peanut.pre-host-prepare-failure-admission.v1`，字段为 `instance_root`、`candidate`、`tooling_receipt`、原 `plan_file_sha256`、原失败 `state_sha256`、`runtime_sha256`、`stdout` 绝对路径及 `stdout_sha256`、`exit_code:255`、原安装/保护配置 `source` 摘要字典，以及显式 `runtime_evidence`。原安装 prestate 来自当次 active tooling receipt，并与批准材料、当前实例一致。stdout 原件和证据原件同样须 owner 持有、0600。
-
-本故障采用 `runtime_evidence.variant=post-start-inference`，仅收 `pre`、`post`、`arguments` 三个原件的 `{path, sha256}`；直接解析原件 header 和内容，不能重写观察时间或补 `runtime_before`。前原件必须保留三服务完整 ID/image/state=running 及保护锚点，StartedAt 明确 NOT_CAPTURED；后原件保留同一完整 ID/running/实际 StartedAt，image 明确 NOT_CAPTURED。原 argv 必须指向该 active receipt 的 wrapper、apply、同实例和同 workspace，并绑定该 candidate/plan。当前原生检查要求 ID/image 与前原件一致、StartedAt 与后原件一致且仍 running；只有同一不可变 ID 能连接前 image 与后/当前 StartedAt，不能声称后原件测过 image。
-
-时间链必须为后/当前 StartedAt < 原前观察时间 < 原 native plan 的已认证 `created_at` <= 原失败 state 的已认证 `updated_at`（prepare intent）<= 原后观察时间。命令 start 本身标 NOT_CAPTURED；因为该 apply 的确切输入 plan 必须先存在，才可推导前观察早于本 apply，不能把 prepare intent 或文件名日期冒充 command-start。仅推导容器在该窗口未重启，并结合固定源码证明本 host 未派发；不证明容器内部进程未重启、没有正常业务数据库写入或完整恢复。任一原件/时间/身份缺失或漂移均拒绝，不降级放行。
-
-```sh
-"$PHP" /verified/new-maintenance-tools/scripts/upgrade tooling-dispose-failed-prepare \
-  --instance-root=/installed/app --admission=/approved/fixed-failure.json
-```
-
-新工具先经外部完整闭包核验。裁定同时取得原 product/update 锁，核当次 active receipt、固定已认证旧工具来源及完整 trusted 摘要/模式/集合、原 plan/native inputs/state/身份，确认恰好 planned+prepare、所有迁移/激活 flag 为 false、evidence 为空；stdout 必须精确为该 trusted 路径第 6 行重复 `PeanutServerUpdatePlan` 声明的 255 终态。该已知固定源码控制流保证 fatal 必在 host 调度前；无 host log、prepared/preparation/backup/journal/migration/dependency-switch 回执及当前容器未变只作额外交叉验证，不能单独据此裁定。其他活动状态或任何漂移均拒绝。
-
-成功仅新建 `.peanut/upgrades/pre-host-failures/<candidate>.json` 受保护 immutable disposition，绑定批准材料、原 plan/state/runtime 摘要；旧文件逐字节不变。工具准入仅接受此精确已裁定旧失败状态，新协调器拒绝继续该旧计划。随后正常 observe → pins adopt 新工具 → 新 workspace/new plan，原失败保留。新工具与可复用 B 的来源须分别登记；若差异只有这次工具加载/裁定修复，可采用已固定且业务 PHP 未变的 B，不能改 B 摘要或声称它含新工具源码。
-
-### 已知 b4e 只读 prepare 拒绝的明确裁定
-
-同一 `tooling-dispose-failed-prepare` 入口另接受协议 `peanut.readonly-prepare-rejection-admission.v1`，仅处理固定 b4e 源码、manifest `c40be6d88bfaeaf8f3b510370d14e422d7880f0718d103246212ec548037a187` 的这次 auxiliary recipe 拒绝。host 已派发；固定闭包证明它在 vendor 准备、preparation、配置复制、nginx 检查和交易步骤之前拒绝，不能套用前述 pre-host 结论。
-
-admission 沿用上述身份、receipt、plan/state/runtime、source、stdout 字段，`exit_code` 为 1；`runtime_evidence` 必须恰含 `pre`、`post`、`arguments`、`render`、`stdout`、`stderr`、`terminal` 七个原件的 `{path, sha256}`。实现固定本次七原件摘要，直接解析原始内容；核三容器完整 ID/image/StartedAt/running 的前后与当前一致、真实 transport dispatch 时间链、精确 host log、原生状态和完整旧闭包，以及所有 11 个 recipe 的当前/目标字节和模式、目标 B 身份、保护 env 和实际只选 base Compose 的证据。缺失、漂移、其他 exit-1 或 UNKNOWN 均拒绝。
-
-成功只新增 `.peanut/upgrades/readonly-prepare-rejections/<candidate>.json`，状态为 `failed-after-readonly-prepare`，旧 state/plan/trusted/log 保持原样；旧计划不可再执行。仅放行正常 observe → pins adopt → 新 plan，不能宣称已恢复、无业务 DB 写入或容器内部进程未重启。业务 B 仍固定 11a，维护工具差异单独登记，不重制或改写 B。
-
-固定镜像环境准备仅支持 Dockerfile、PHP/MySQL/cron 镜像配置不变、无 active collaboration 的既有 Compose 演进。辅助 recipe 仅允许 `compose.registered-database.yaml`、`compose.collaboration.yaml` 及两个 `nginx.*collaboration.conf.template` 从不存在新增为目标 B manifest 固定的普通 0644 文件，且未被当前 Composition 选择、未作为运行配置挂载；已有辅助文件修改/删除和未知配置拒绝。PHP 既有整个应用目录 bind 只被动暴露数据文件，不等于选择 overlay 或 nginx template。旧/新 Compose 都在原实例 project-directory、同一只读保护 env 下解析；服务集合、固定本地镜像、挂载、网络、端口、数据库模式和其余配置必须完全一致，只允许 PHP stop signal 从缺省/SIGQUIT 改为 SIGTERM。目标 nginx 配置用原固定 nginx 镜像执行原生 `nginx -t`。不 build/pull 镜像、不改保护 env、不新建或清空数据库/卷。prepare 记录旧/新 recipe、未激活新增清单、所选 Compose、保护 env、镜像、Compose 摘要和计划/输入绑定；后续步骤拒绝第三种 recipe，原 `runtime_environment_changed` 要求保留。未知变化拒绝，不能删 flag 或用旧环境重新打包冒充通过。
-
-### 未发布 prepared 计划的正式退役
-
-`tooling-retire-unpublished --instance-root=... --admission=...` 复用同一工具准入机制和两把原生锁，仅处理完成 prepare、正在只读 migration-preflight、尚无 backup/quiesce/managed/migrate 的固定计划。admission 协议为 `peanut.unpublished-product-plan-retirement-admission.v1`，沿用 instance/candidate/receipt、原 plan/state/runtime/source 摘要，另固定 `prepared_sha256`、`preparation_sha256`、`host_log_sha256`、`prepare_log_sha256`。原件须 canonical、owner-0600；admission 位于实例和原 workspace 之外。不是按 fatal 文本认定安全。
-
-默认历史分支仍仅接受固定 2211 工具与 11a 业务 B，`retirement_evidence` 恰含原 `arguments`、`stdout`、`stderr`、`terminal`、`before` 的 `{path, sha256}`，要求原三容器 ID/image/StartedAt/running 不变及原观察时间链。另一个精确分支必须显式指定 `failure_variant:b7-fresh-file-adoption-preflight`：只接受源码 b7eda170、维护 manifest 5c5c0a10、B identity 25384e8f、candidate `server_update_20261024203037_4d2e678e5008` 及源码内固定的 plan/state 摘要。其 `retirement_evidence` 恰含原 `apply` 终态 JSON、`stdout`、`stderr`、`preservation` 和 `module_report` 的 `{path, sha256}`；17 包报告唯一拒绝必须是 File 历史 adoption provenance。核原 PHP/nginx stopped、MySQL running 的精确不可变 ID，安装双标记、配置、完整程序/vendor/prepared 不变，并在两锁内只读捕获原 MySQL 完整 SQL，仅移除唯一末尾 dump 日期行，摘要必须等于已核安装配对内容。凭据仅留原 MySQL 容器内。该分支未采的历史 StartedAt/FinishedAt 明确记为 NOT_CAPTURED，不制造时间链，不声称历史零写入或无进程重启。
-
-所有分支均核 prepare evidence 完整 canonical 摘要及 plan/B/record/inputs 绑定，所有 managed 路径仍为原 current hash/mode/absence、源 vendor 全树仍为原 preparation.source_tree、目标 vendor/程序仍完整且未 switch。核原 apply 终态与真实 argv，并在锁内用原生进程和运行容器观察拒绝遗留执行器；不能只凭 state 或无 artifact。不得试探 native recover 来逃过本入口；旧实例尚有已知启动缺陷时，其 resume-old 重建原程序也不能当作已恢复。
-
-本次 maintenance 前快照未捕获，必须显式 `maintenance_before:NOT_CAPTURED`。只依据固定已审 prepare/preflight 完整控制流不调用 hold/open/marker 写删，加上述原生事实及当前 marker 不存在，有限推导本升级未改变 maintenance 边界；不声称此前绝对不存在 marker、全现场无外部业务写入或完整恢复。当前 marker 存在、source 不符或其他未知条件均拒绝。成功仅新增 immutable `.peanut/upgrades/unpublished-retirements/<candidate>.json`，旧 state/plan/trusted/prepared/log 不改、不 stop/restore/清 workspace。旧计划拒用，随后正常 observe/pins adopt 与包含业务修复的新产品版本 B/new plan；不能用新工具替代业务 B 更新。
-
 ## 1. 产品与代码
 
 这是模块化管理应用基础，不是预先完成的全部行业系统。官方模块及workflow、artifact-revision、entitlement-quota等可选模块以实际module.json和插件锁为准；fixture.delivery-record是测试模块，不算产品。已有身份组织、会话、审计、设置字典文件、文章分类、富文本、会员/OAuth、任务通知CSV、机器/Webhook、充值回调退款及运营诊断等源码；存在源码不代表外部渠道和业务已经全部验收。
@@ -179,7 +109,7 @@ app/event.php保留AppInit、HttpRun、HttpEnd、LogLevel和LogWrite项，但默
 
 ## 9. 应用生成、安装与升级
 
-本节解释已有源码能力。APP在自己的Git开发、定版，生产采用固定main提交；[产品Git交付](../public/application-release.md)说明目标流程、保护与尚未接通的部分。下面的server-only、固定输入、安装及恢复实现按其实际消费者解释，不构成额外日常步骤。源码维护专用合同在源码仓`docs/maintenance/`，不随普通APP交付；旧发行、baseline和冻结工具保持原版本。
+本节解释已有源码能力。APP在自己的Git开发、定版，生产采用固定main提交；[产品Git交付](../public/application-release.md)说明目标流程、保护与尚未接通的部分。安装、迁移及源码三方升级各用正式入口；维护资料位于源码仓 docs/maintenance，历史回执按原版本解释。
 
 开发联调明确选择本地 PHP/Web Core：PHP 使用真实 Composer path link，普通 PHP 源码修改直接由开发消费者读取，不以逐次提交、固定包、发布或重新封装 development-runtime 为前提；依赖声明、路径或配置合同变化才刷新相应原生依赖/服务登记。Web Core 保留 dist 导出，由显式本地 Core 模式的标准开发入口托管原生 TypeScript watch。开发链接与候选、正式 APP 的固定依赖分别使用，不把维护者目录或活链接放进交付 APP。
 
@@ -189,80 +119,15 @@ app/event.php保留AppInit、HttpRun、HttpEnd、LogLevel和LogWrite项，但默
 
 UniApp 小程序、custom、SSR 等原生 dev:* 入口保留原始参数和调用环境；只在显式或已保存 daily 选择时增加 Core 校验/watch，不要求维护者 host-client.env/PHP_PORT，不覆盖已有 PEANUT_CLIENT_ENV_FILE；显式 --env-file 才选择该文件。H5 仍沿用原有维护者 host 环境入口。未保存选择的普通下游与生成 APP 继续使用自己的固定依赖；无效选择或缺链接明确报错。开发入口不修改 tracked 依赖声明和锁。日常可变源码联调不构成候选资格：阶段候选通过冻结合同生成 PHP ZIP、Web 六个 TGZ，并由同格式模板 TGZ 创建 APP，按候选原生 Composer/npm 锁安装到 APP 自身 `vendor`/`node_modules`，必须拒绝维护者源码链接；正式交付再核适用公开包的最终内容、来源及原生正式锁。
 
-现有APP包生产者绑定干净的已提交Git commit/tree，并按Git blob校验发行源码；它保留既有调用者，不是现行产品Git生产的额外步骤。合法客户修改和新增文件不要求重写 `.peanut/application-manifest.json` 的上游采用摘要。该清单的归属及原受管baseline路径、摘要仍需严格校验并保持不变，供后续冲突检测使用。初始generated-template没有独立APP Git身份，仍须逐文件符合生成清单，不接受生成后修改。
+首次安装继续使用网页安装向导，控制台入口是 `php server/database/install.php`。首次空库检查、动态管理员/租户、模块选择、租户模块开通、健康检查和完成锁均由安装业务负责。结构通过官方 `migrate:run` 执行唯一 `server/database/migrations` 目录；动态身份创建后，官方 `seed:run --seed=InitialSeeder` 写默认数据并同步权限目录。种子从实际唯一默认租户读取身份，不依赖另一个 PDO 的会话变量；重复或部分初始化拒绝重放。安装完成身份位于 `server/private/installation/installed.json`，包含原生迁移版本与当前源码摘要，不能据此声称官方账本提供历史 checksum 验证。
 
-维护应用源码可直接在当前工程开发。内部 `create-app` 按干净源码的实际 commit、tree、inventory 和形态生成独立应用，记录 `.peanut/application-manifest.json` 及受管基线。`generation_source` 记录仓库、请求的 ref、`development`／`prerelease`／`stable` 渠道和正式发行版本（开发来源为 `null`）；`template.version` 是升级兼容与 baseline 版本，不能替代实际源码身份。开发默认使用当前模板；显式候选采用上述固定产物消费者，不能借同号历史发行清单把自己的来源标成已发行。公开来源仍须核既有固定发行锁、仓内封存路径与清单，公开候选 commit/tree 和清单封存的 scaffold commit/tree 分别保留。生成应用的根 AGENTS.md 来自专用公开模板，不复制维护者入口。生成器不复制 Git 历史、私有维护资料、秘密或已安装依赖，也不改变 Core 包和许可证身份。创建工程、首次安装数据库、创建租户是三件事。取得完整产品发行包的使用者按包内说明装依赖和安装，不必先运行维护者生成器。
+数据库只采用 ThinkPHP 原生迁移和 `pa_migrations`（可由 database.migration_table 配置）。本次最终结构为唯一 `20261101000000_initial_baseline.php`，后续用 `php server/think migrate:create <Name>` 增加标准 PHP 迁移；初始基线明确不支持回滚。旧 baseline 覆盖、自研版本账本、schema:application 及历史 partial continuation 已退役。不存在自动清库、重建身份或旧数据库兼容路径。详见[原生迁移合同](../maintenance/migration-protocols.md)。
 
-业务 CRUD 预览另从 `server/app/adminapi/services/generator/GeneratorRenderService.php::render` 进入，目标是已登记模块的 admin-web 贡献，不是创建整个应用。其页面使用 Web 已声明的 Element Plus，表格行插槽、独立分页、确认事件和权限键遵循实际组件合同；列表与提交状态复用公开 `useAsyncList/useAsyncAction`。输入未声明软删除时不生成回收动作，已声明时保留普通/回收接口及主键类型；失败结果不能提示操作成功。预览返回 create/merge 与原文件摘要，不会自动应用合并或建表。源码仓可复用 `server/tests/fixtures/generator-element-plus-inputs.php` 的四组定义分别调用该入口；PHP 模板回归、实际前端消费者检查和完整产品安装是不同验证范围。
+模块安装/升级仍负责信任、依赖、锁、模块状态、目录和租户业务，结构变更由应用主目录原生迁移统一交付；不再读取模块私有 SQL 目录或 backend.migrations。安装执行原生 pending 迁移并核声明的自有表，缺失结构明确拒绝，不能把模块目录提升视为数据库交付。模块 schema 的新增/删除应在应用版本中审阅并交付，卸载保留原生迁移历史。
 
-首次安装的用户入口是安装页面向导，原生控制台入口为 `server/database/install.php`。开发APP通过 `peanut upgrade` 选择固定模板、审阅plan后沿同一计划应用、核验和恢复，复用Scaffold归属、冲突、账本及文件前像。CLI先验证归档、完整成员、摘要与独立tooling锁，再引导同一原生源码升级器；旧APP无需手工修改升级脚本或安装新运行依赖。已更新的本机 `scripts/upgrade plan|apply|verify|recover --scope=source` 也接受模板缓存作为 `--package`，固定 `--instance-root` 和绝对 `--plan`。创建与源码升级不安装业务、不连接或迁移数据库、不启动服务、不部署，也不要求额外人工prepare。既有包更新实现由已安装 `server/docker/scripts/update.sh` 映射协调器的 `--scope=server`，以APP归档、外部可信摘要及workspace驱动product plan/state；这不证明新Git生产协调已接通。目标未验代码不作为维护入口。
+开发 APP 吸收脚手架源码仍使用 CLI `peanut upgrade` 或 `scripts/scaffold-upgrade` 的固定模板、完整 inventory、来源摘要、三方比较、归属与显式冲突决策。源码 apply 不安装依赖、不构建客户端、不迁移数据库、不部署。`.peanut/scaffold-baseline` 是有效源码比较元数据，与已删除的数据库基线目录无关；APP 自有业务、秘密、配置与持久文件不进入自动覆盖。
 
-普通生成 APP 即使已经首装，也以真实 installed／baseline 不可变锚点、APP 身份和当前私有配置摘要绑定源码计划；不伪造 development-runtime。源码写入持有原生 product／project／instance 锁，并由现有宿主适配器只读核对实际进程、打开文件及已配置容器。活动进程、保存服务、未知操作、权限不足或无法完整观察时拒绝；调用者须先按自己的现有维护合同停写和排空，CLI 不隐式启停。观察需要宿主可用的 `ps`、`lsof` 及完整可读的 Docker 容器视图；配置文件不存在也不跳过容器排除，无法观察时保持拒绝，不自动安装工具或启动 daemon。已有受保护 runtime projection／server-release／partial 安装继续使用各自完整维护入口，不以普通 source-only 分支取消其门禁。源码 apply 的维护标记延续至同计划 verify 或 recover；失败保留标记和前像。完成不重新开放流量，后续依赖、构建、实际迁移、业务确认与开放写入按运行维护合同执行。源码恢复只证明文件恢复，不是 DB 恢复资格。
-
-普通已安装 APP 的 server-release registered 数据库升级在首次 `plan --scope=server` 显式选择 `--backup-tool=/absolute/protected/tool.json`；工具为实例 owner 或 root 持有的 canonical、单链接、0600 JSON。原 product plan 冻结其路径、owner、模式和完整字节摘要；同一 plan 再次调用仍须选择同一工具，apply／verify／recover 从原计划复核，工具缺失、变化或数据库 provider 改变即停止。bundled 和 source／runtime 路径不接受此参数。工具复用已审的 `ssh-docker-exec` 固定 SSH alias、现有容器和客户端绝对路径；`source_schema_backup` 绑定该 APP 的 `database_resource_id`、`database`、`whole_schema=true`、实际 `server_uuid`、MySQL 8.4 精确 `mysql_version` 与 30–600 秒 `timeout_seconds`。凭据仍只由现有数据库容器中的原环境提供，不复制给 APP 普通账号。PHP/Nginx 使用自己的固定镜像和 APP bridge；registered 不准备或依赖本地 MySQL 镜像、容器或数据目录。
-
-原生 backup 在原计划、真实 writer／DDL 排除窗口和流量关闭后，以独立 Root 客户端核精确目标 UUID／schema／版本、客户端摘要和直接完整可见权限，读取目标 schema 的完整 tables／views／routines／events／triggers／definers 及入出 FK 元数据；跨库仅观察引用边，不读取其他 schema 的业务行或定义。捕获前后须保持同一元数据和客户端。完整逻辑备份保留 routines、triggers、events、原 definer、CREATE／DROP／USE 及配对公共／私有文件、安装身份，过程终态、原始定义、dump 摘要和工具引用由原 whole-backup HMAC 认证。普通 APP PDO 继续使用自己的 schema 权限和业务证明，权限模式匹配只接受实际 `partial_revokes` 下的精确 schema literal，不借 Root 可见性代替。
-
-
-host-only 的普通 generated source APP 使用显式 `schema:application … --scope=source-application` 或 `plugin:install|upgrade … --scope=source-application`，绑定真实 owner/thread/Session/Gate、干净 APP Git、安装完成锚点、当前依赖与私有配置，以及自身 application registry 中的精确开发专库。普通同源资源域沿用 APP 自己的原生租约；共享 central 资源域必须在 APP 自有 `lease_policy.native_authority` 明确固定工具 root、Git common-dir、commit 和三份 lease/application/registry 工具摘要。工具身份与 APP candidate/worktree 分开，不能改 cwd 分裂锁库，也不把私有 Project 注入产品 PHP。维护标记、实例/product/schema/package 锁和真实停写观察复用现有入口；source-development 的资格 fixture、Identity 受限逆向与 server-release 门禁保持各自范围。
-
-这一路径的 selected-table capture 继续使用原 SourceApplicationBackup，完整恢复接入同一个 ordinary registered provider。工具另登记绝对 `python_command`，whole-schema 工具及其身份固定在原生计划的 protected workspace；真实源程序、依赖、配置、安装身份和精确 UUID/schema 均须与同一计划一致。完整 capture 不是资格：显式 `--application-recovery=rehearse` 在第一条 DROP/CREATE 或存储替换前，以同一固定客户端 dump 逐字节核当前整库前像，同时核全部保护目录的内容、缺失状态及根权限；任一漂移无 DB/存储写入拒绝。实际恢复后再核还原结果，apply 前再次核当前前像。真正失败/迁移后的 rollback 使用单独明确准入，并在写前用原 provider 保存当前数据库、存储及请求/独审引用的 afterimage，不把 rehearsal 的前像相等要求冒充 rollback 合同。整个 source APP 维护保持停写；完整 DB 恢复使用独立原生 PHP 阶段，不沿用恢复前的 PDO。安装历史、失败与当前 journal 原位保留；只恢复既有 provider 的持久目录及精确数据库，不把 Identity inverse 扩为通用恢复。
-
-application schema 的原始 preflight、backup、实际恢复演练和带证据的 rebind 分别留存；apply 消费明确的 admitted plan，不覆盖原计划。保护执行窗口只短暂取得已有资源 mutex，子进程期间保留 in-use 边界及必要续租；实际子进程、过期或 UNKNOWN 都不能自动释放、重放或变成新额度。原 plan/actor/APP/DB/source 和原期限保持不变；已知失败或过期时，由真正未参与者先核全部本地/远端实际终态，再以 `application-recovery-admit --lease <原ID> --owner <原owner>` 在原物理锁域明确建立限时 recovery-only authority，不释放重领、不把旧失败改成 COMPLETED。普通 renew 仍拒绝过期租约。新权限只允许原计划的 restore，或已真实恢复后的 open，不能 plan/apply/rehearse。
-
-central 对账使用 operation 已固定的 versioned `terminal_review.path`；普通 APP 使用自身 `server/private/maintenance/source-recovery-review-<lease>.json` 的原生认证记录，不依赖私有 Project。central 的原 workspace 必须精确为该 operation 已登记且持有物理锁的 `output_root/backup/application-recovery`，原计划入口为 `output_root/plan.json`；它们位于 APP 源码外，不搬移备份或改登记来迁就准入。普通 APP 的 workspace 必须是原租约精确 `output-dir` backup 根下的 `application-recovery`；不以任意外部路径或“位于 APP 内”替代原输出合同。两者均核 owner/private mode、canonical 路径及 context 中固定的 `native-plan.json`/`backup-tool.json` 原路径。独审记录协议为 `peanut.source-application-terminal-reconciliation.v1`、verdict=`ORIGINAL_PLAN_RECOVERY_ONLY`，须绑定不同 reviewer_thread、原 owner/lease、当前 state/metadata SHA、真实进程终态和远端效果已知、当前明确有效的 `effective_expires_at`（最多一小时）、原 workspace/plan_path，以及 `terminal_evidence` 和 `approved_sha256` 中全部原 plan/context/tool/配对 backup/journal/终态附件摘要。它是实际独立审查的回执，作者不得自造或自签独审成功。适配器在原锁下核真实 PID/birth、当前源码/配置/物理资源及精确原绑定，保存原状态/metadata/journal/独审原文和 rebind 到原 backup workspace；不改原计划或清除原过期/UNKNOWN 证据。再次过期仍需新的真实对账与授权，不能隐式续原计划。中断的 restore 不能重放；只有认证的实际 provider completed/终态成功凭据才可进入只读核对既有恢复结果及收口。源码检查不证明实际 APP 首装、迁移、数据保全或恢复已经通过。
-
-成功迁移后仍不开放写入。显式 `schema:application source-recovery --scope=source-application --application-recovery=open` 复核本批原始完成回执、application migration 与全部已安装插件的原生图及迁移状态，再先关闭当前程序对应的旧恢复点、最后清除维护标记；不启动任何服务，不把该结果称作业务资格。失败、未知或尚未完成的操作保持保护；开放写入后旧备份不得再次回灌。
-
-当前普通升级合同尚未覆盖任意视图、stored routine、event、trigger 的外部效果及跨库 FK；真实完整观察发现这些对象、非事务表或共享 tablespace 时明确 `NOT_READY`，保留 protected 元数据、已捕获备份和现场，指出需要审阅的具体对象，不进入受管代码或数据库写入。目标 InnoDB tablespace 元数据也必须真实读取；普通受支持的 file-per-table 路径显式使用 `--no-tablespaces`，不生成全局 tablespace DDL，`--set-gtid-purged=OFF` 不改变实例全局 GTID 状态。完整 dump 不等于 effects 审阅或恢复资格。恢复仍需原有明确授权和原计划恢复窗口，核当前外部效果及精确目标、工具、客户端；不改 definer、不启停 event、不隐式授予全局权限。已开始但无成功终态的恢复不得重放；activation 开始后不得自动回灌旧数据。本段源码能力不代表普通升级、定制数据保全或实际恢复已经验证完成。
-
-当前模板包由创建与源码升级共同消费，包含完整APP开发源码及独立tooling；源码升级验证模板协议、归档安全、来源／Edition、成员／模式及摘要，只采用受管源码。包内有安装、宿主或迁移源码不代表此命令可以执行它们。既有Edition source包入口仍严格要求 `upgrader.scope=source`，拒绝混入host_driver／database_driver；迁移源码按append-only清单核完整性。既有server更新器消费APP自己的包或经校验的固定Git程序目录，不直接接纳上游模板，不等于原目录main更新已经实现。
-
-升级包的 `compatibility.source` 使用合法 Semver 范围 `minimum_inclusive <= 当前源码版本 < maximum_exclusive`，上界必须等于目标版本。现有 `same-major` 包要求来源、下界和目标处于同一主版本，不能用于 4→5；明确跨主版本来源的包须标记 `major_policy=source-range`。跨主版本可能改变业务功能、API、依赖和迁移行为。原生源码 upgrade plan 在目标官方模块图之外保留客户 Module，并使用目标版本自身的 Module Kernel 合同检查其 `kernel_constraint`；同时扫描明确 `use PeanutAdmin\Kernel\...` 的类及直接静态方法调用。目标类/方法不存在或不再是公开静态方法时，plan 记录 Module、文件、行号并保持 blocked，不自动重写业务源码；动态调用、实例方法和业务语义仍由受影响测试/人工审阅负责。执行前审阅所选来源→目标的变化及 APP 自有业务、依赖、API 与迁移影响，备份并解决已知风险后再尝试。CLI 跨主版本 apply 必须传入 `--confirm-major-upgrade`；AI 在执行前须向人说明来源→目标、风险和计划并取得明确确认，已提前明确授权本次操作或明确范围的可按该授权执行，不重复确认，泛开发授权不足以确认跨主版本 apply。当前开发仅吸收源码，不包含生产数据库迁移或部署；新源码尚未发行，不能据此推断既有包可跨主版本或目标兼容性已获完整验证。
-
-开发来源归入公开同版本时，原生 `release-adoption-plan|apply|verify|recover` 使用同一 Scaffold 计划、锁、账本及恢复目录。只有 APP 实际 generation tree 与固定公开候选 tree、inventory 均相等，原受管 baseline 逐文件完整，且公开锁、封存清单及文件摘要核对后，才只改应用来源元数据；客户定制和 APP 自有版本保留。候选 tree 与封存 scaffold tree 是不同角色，不因版本号或 inventory 单独相同就视为等价。源码确有变化时必须使用目标版本严格升版且来源范围覆盖当前兼容版本的真实升级包，继续走现有三方合并；范围不覆盖时返回 `SOURCE_RANGE_UNSUPPORTED`。安装包本身不冒充升级包。普通源码升级和同内容归位均更新清单中的当前来源字段；同计划恢复还原旧清单，不需要网络或发行 checkout。
-
-受管文件重命名只能由目标 Scaffold manifest 的 `renames` 显式声明 `from`、`to` 与 `owner`，不按文件名、路径相似度或相同字节猜测。旧路径未被 APP 定制且目标路径空闲时可以在同一计划内自动迁移；旧路径已定制或目标路径已存在时必须进入显式 `preserve`／`replace` 决策，旧、目标两端都已定制时禁止歧义保留，只允许明确 `replace`。链式或循环重命名、归属不一致、目标已被 application manifest 声明占用，或计划后任一路径发生漂移时均 fail closed；apply、verify 与 recover 同时绑定重命名前后的两个路径及新 baseline。
-
-已安装工具核 inventory、文件 SHA-256/权限、来源/目标身份及实际受管内容。维护 PHP 使用 `PEANUT_UPGRADE_PHP` 指定已登记、满足 PHP 8.3 的绝对入口。目标 vendor 按原生锁在同一计划的 workspace 准备，锁和完整性符合时复用；不构建应用镜像。文件、依赖、数据库回执是从属证据，不另推进升级生命周期。未知 staging 或缺绑定恢复材料拒绝追认。
-
-官方模块随维护者明确选择和审阅的固定 scaffold 来源整体吸收，绑定真实源码 commit/tree、release manifest、逐文件摘要与 canonical 模块 manifest/lock；这些摘要证明选定输入的内容，不认证发布者，不要求签名私钥。预检以已安装且通过生产 canonical 核验的官方图为起点，投影目标官方模块的完整控制器、服务、迁移及客户端贡献，先以原生 `PluginArtifactWriter::checkLock()` 核固定模板原文的完整 canonical 图；产品名称等参数渲染改变源文件字节后，按原生 make → lock 重建 APP 派生 manifest 和含原客户模块的锁并核依赖。计划同时固定原文图、渲染参数、APP 派生图与派生字节，应用及新基线使用同一派生字节，不要求渲染后摘要等于模板原文摘要。官方包与模块的变化必须提升各自版本，同版本内容不得变化；模块成员、根路径及官方归属不能借升级转给客户包。非官方 bundled 包只有在当前应用受管清单、固定 from/target 声明中的包/成员/根路径与来源合同一致，完整包文件均为 scaffold owner 且当前内容、权限、受管基线摘要全部吻合时，才能按上游整体吸收；命名空间或 bundled 标签不能替代归属证明。客户模块、app-owned 重叠和未登记的额外官方根文件受到保护，冲突不得靠单文件填入或手改摘要解决。应用/核验检查目标完整插件图，恢复检查原图；`module:adopt-package` 保持私有模块源码入口，不用于接收 official.*。
-
-既有server更新实现入口为 `server/docker/scripts/update.sh plan|apply|verify|recover`。`--instance-server=/absolute/instance/server` 显式选择原实例；协调器、维护工具、Compose、数据库和私有配置取原实例。它接收server-only归档，或经可信描述符摘要核验的固定Git程序目录；完整输入合同保留在源码仓维护资料中。归档先核外部可信SHA-256；plan固化已安装维护工具，每阶段复核工具清单和哈希。文件按路径、SHA-256和权限比较，归档遍历顺序不作为内容身份。原目录main更新仍需工程接通，不以此底层入口存在宣称完成。
-
-Compose 使用已准备的固定 PHP-FPM/Nginx 镜像和正常 bridge 网络、服务 DNS；普通部署不使用 ThinkPHP 开发服务或 Vite。应用代码与 vendor 位于宿主 `server/`，公共上传、runtime、私有上传及安装身份随该目录持久保留；只有 bundled 数据库使用 `server/docker/mysql/`。运行配置取 `server/docker/.env`，应用配置取 `server/.env`，两者不互换。`start.sh` 和 `update.sh` 不构建应用镜像。APP 独立发行来源与 Peanut 上游来源分别绑定。静态入口、API、安装页面及其错误由现有 Nginx 明确路由；HTTPS 使用已登记域名及外部私钥/CA，不能关闭校验或依赖固定容器 IP、host 网络或 SSH 隧道替代登记路线。PC 使用同次构建的 SPA 静态产物，SSR 后置。
-
-首次配置的 `database_source` 明确选择 `bundled` 或 `registered`。网页的后者只从 APP 自有公共资源登记选择唯一数据库和 `host`／`container` 消费端点；部署 owner 则在下面的首次配置输入中明确声明自己的单库登记。两者复用同一环境、Edition、库名和端点校验；已有普通账号与密码仅写入私有 0600 配置。配置发布不连接数据库、不建库、不创建或修改账号、不授予权限；连接与权限仍由安装向导实际 ThinkORM/PDO 的 `database-check` 判断。只有 `bundled` 才调用内置数据库 provision。APP 不读取维护者的私有 Project 登记作为运行依赖。普通 APP 可在封包前维护根 `resources/project-resources.json`；已封包实例的公共登记属于程序身份，不得改写它或预造私有配置来追加部署资源。
-
-外部专库的新实例以 `python3 server/docker/scripts/configure-runtime.py --php-image=<prepared-immutable-image> --database-source=registered` 准备 Docker 配置；不写本地 MySQL image/port/root 密码。首次向导尚未发布 `server/.env` 时，正常 `start.sh -f compose.registered-database.yaml` 显式选本包的 registered overlay；发布后复用 `PEANUT_DATABASE_SOURCE=registered` 自动选择。两种情况均只启动 PHP/Nginx，不创建 MySQL 数据目录，不受 `COMPOSE_PROFILES` 意外选中内置库的影响。registered 模式不能传本地 `--mysql-host-port`；bundled 模式仍校验固定 MySQL 镜像和 root 凭据。完整源码中普通、空的 `.gitkeep`/`.gitignore` 目录占位可保留；已有数据、密钥、链接、配置或安装状态不得被初始化入口覆盖。每个 APP 使用自己明确登记的专库，不能通过共享首装 schema 或替换 `.env` 安装另一 Edition。
-
-外部已有数据库使用后端配置的 database_source=registered。原生启动器从实例 .env 自动选择随产品交付的 compose.registered-database.yaml，只启动 PHP 与 Nginx；不启动、拉取或初始化内置 MySQL，也不调用其 provision。普通账号、端点和数据库仍须来自当前 APP 自有登记并经真实 PDO 复查。bundled 使用原来的默认 Compose、MySQL 健康依赖及 provision 路径。
-
-若希望在尚未配置 .env 时通过网页完成外部数据库配置，可在已完成原生镜像与实例编排配置后运行 server/docker/scripts/start.sh -f /absolute/app/server/docker/compose.registered-database.yaml；这里必须是当前 APP 自带的官方文件，不是私有复制的 override。安装 bootstrap 保留原有 owner、Token、不可变程序、只读 FPM 与 HTTP 准入；开发运行投影使用 development 环境，发行包保持原环境。网页真实提交 registered 配置后仍由既有 owner 发布，再切入实际数据库复查和安装。配置前如需正常关闭，stop.sh 传相同 -f 官方文件参数；配置后启动和停止会从 .env 自动识别。即使额外启用 Compose profile，外部数据库模式的原生 up/stop 也只选择 PHP/Nginx。
-
-启动前必须由实际 Docker Compose 成功解析官方合成配置；不支持 !reset 等原生能力或服务依赖不符时停止该启动路径，不改成私有备用编排。上述行为的源码交付不代表实际安装、登录、404 或删锁保护已经验收。
-
-尚未启动 PHP 的主机首次配置，由该实例真实 owner 在程序完整性准入、初始流量关闭和实例原生锁下执行 `php server/docker/scripts/update-plan.php configure-startup --instance-server=/absolute/app/server --configuration-input=/absolute/private/input.json`。输入必须是当前 owner 持有的单链接普通 0600 文件，JSON 包含 `setup_token` 和 `configuration`：前者为本次真实 Setup Token，后者与 `/installapi/configure` 使用同一字段合同。owner 的 `registered` 模式还必须包含 `resource_registry`，`bundled` 模式禁止该字段。该登记仅允许 `schema_version: 1`、当前 APP slug 的 `project_id`、`authority: {"role":"application"}`、`resources: {"databases":[单个数据库]}`；不接受登记路径、维护者登记、其他资源或凭据字段。它不由 HTTP 输入提供，也不更改候选或正式发行身份。
-
-单库登记必需字符串字段为 `stable_resource_id`、`purpose`、`owner`、`version`、`database`、`schema`、`namespace`、`data_source`、`freshness_requirement`、`health_check`；另需 `service_type: "mysql"`、`fallback: "none"`、`application_runtime: true`、`environments` 和 `deployment_modes` 字符串列表。至少声明一个 `upstream_endpoint` 或 `container_endpoint`，每个仅含 `endpoint_id`、`host`、整数 `port` 和分别为 `["host"]` 或 `["container"]` 的 `consumers`。数据库 ID 必须与 `configuration.database_resource_id` 相同，所选 consumer、目标环境、Edition、库名仍通过现有登记解析器校验。DB 普通账号/密码仅放在 `configuration.database_user`／`database_password`，不放入资源登记；最终私有登记自动使用实例 `.env` 凭据引用。部署者须自行核准真实目标、权限和备份，此声明不证明数据库健康、为空或已获操作授权。
-
-原生发布器一次生成 `.env`、实例私有资源登记和配置记录，不改 APP 来源身份、安装锁或数据库；Setup Token 与数据库密码不进入输出。已存在配置、安装锚点或待发布输入时拒绝覆盖。输入由 owner 在正常生命周期中保护及回收，不放入版本库；不得手写配置记录冒充完成。网页继续只将已有公共登记的选择暂存为私有待发布记录，绑定 APP 身份、实际 Setup Token 和所选登记摘要，仍由正常 owner 发布，登记漂移时停止。owner 单库登记不会成为第二套全局资源事实源，也不会为网页提供注册或改绑权限。
-
-只有 Nginx 配置变化时，apply 在维护/停机前用实例登记的不可变 Nginx 镜像执行目标配置的 `nginx -t`，结果绑定计划、镜像及配置 SHA-256。切换后重新创建 PHP/Nginx 容器，使文件绑定挂载读取新文件；数据库容器保持原样。Dockerfile、Compose 或其他运行配置变化仍要求独立准备兼容镜像，本入口不自动放行。
-
-PHP 维护容器将实例挂载为 `/instance/server`，保留发布及插件清单中的 `server/` 路径；workspace 在宿主机和各维护容器中使用同一个规范化绝对路径。私有运行确认只让 runtime、private 和 public/storage 按实例合同可写，程序文件保持只读。
-
-数据库迁移后调用原生模块协调命令时，子进程从自己的受控环境文件重新加载配置；父进程已加载的后端及临时安装变量不传入子进程，仍保留环境文件选择和非配置进程环境，不放宽禁止外部配置覆盖的规则。
-
-迁移适配器将成对备份的数据库身份按字段排序后严格比较，保持资源、端点、库名和类型一致，不因 JSON 字段顺序误拒。SQL 目标复用安装器的 scaffold/overlay 版本解析，APP 独立发行序号仅作为自有迁移的默认版本，不用于过滤 Peanut 上游迁移。核验通过原生 runner 检查适用 SQL 的不可变摘要和 pending 集合，缺少任何应执行的迁移账本行即拒绝完成；不能只检查查询实际返回的状态行。
-
-菜单、权限与短信迁移先在原连接逐 SQL 执行所属模块的业务断言，所有合法后继迁移及模块协调完成后，再将业务表的完整 schema 与全行终态摘要存入受保护的原生完成回执。摘要保留 NULL、二进制值、重复行及 schema 类型差异，不保存私有行载荷；verify 重新读取实际终态并严格比较，不能将旧安全摘要当作实时证明，也不能跨连接复用原 before DTO。server 更新的签名回执同时绑定原计划、配对备份、执行来源、目标 release identity 和真实数据库身份；源码维护沿用原计划及恢复证明保护。缺少终态摘要的旧回执或开放写入后的业务漂移须明确拒绝复核，不补写历史证明、不自动重放 SQL。模块预检的应用 schema 延后条件仅接受固定 `20261019-module-migration-provenance-metadata` 来源及不可变摘要，旧 provenance 账本仍原位保留。
-
-数据库配置固定分层：应用后端只使用 `DB_HOST`、`DB_PORT`、`DB_NAME`、`DB_USER`、`DB_PASS`；MySQL 管理密码只在 Docker/部署编排环境使用 `MYSQL_ROOT_PASSWORD`。应用 `server/.env` 不保存 root 密码，Docker 私有环境（例如 `server/docker/.env`）不改用应用密码别名。现行实现不使用 `MYSQL_ROOT_PASSWORD_FILE`，旧 `DB_ROOT_PASS` 或旧 root 密码文件只允许被一次性兼容迁移消费，不能作为新的配置来源。Compose 向 MySQL 官方镜像映射 `MYSQL_DATABASE` / `MYSQL_USER` / `MYSQL_PASSWORD` 仅是容器初始化边界，不改变上述应用配置命名。
-
-文件协调层仍使用已有基线和三方差异：上游变化可更新，本地变化保留，双方变化或未知冲突明确报告；应用自有和第三方文件不自动覆盖。所有权变更需要精确adoption，不能把整个后端或前端都标为自有。文件锁、计划新鲜度、恢复副本和逐文件替换不等于完整数据库事务。
-
-部署实例更新还要准备目标依赖、配对备份并限制写入、执行应用/模块迁移及健康/业务验证。失败恢复按同一计划处理数据库、公共与私有文件、安装身份、受管代码及依赖；activation_started 后不得自动回灌旧备份。开发源码范围的 recover 不证明数据恢复，不保证任意历史版本或未支持 rename 自动迁移。详见[模块交付](../architecture/module-development-delivery.md)与[开发规范](standard.md)。
+产品在自己的 Git dev 开发，经审核定版 main/tag。已有产品用 `scripts/deploy-update.sh [--target=<full-commit>]` 在原 main 目录 ff-only 更新 origin/main，按变化准备锁定依赖和前端构建，再执行原生迁移与清缓存。运行前准备真实恢复材料和所需停写，运行后按环境刷新进程并确认访问和本次业务；脚本失败保留现场，不自动 reset、回灌旧数据库或重装。该入口的源码实现、必要静态检查与真实生产验收分别记录。
 
 ## 10. SSR与两种形态
 

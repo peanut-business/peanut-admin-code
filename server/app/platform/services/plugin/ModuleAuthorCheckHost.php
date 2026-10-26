@@ -18,7 +18,6 @@ final readonly class ModuleAuthorCheckHost
         'dependencies',
         'permissions',
         'menus',
-        'migrations',
         'frontend',
         'package',
     ];
@@ -111,17 +110,6 @@ final readonly class ModuleAuthorCheckHost
         }
 
         try {
-            $migrationCount = $this->migrationCount($inspection);
-            $checks['migrations'] = $this->passed(
-                'migrations',
-                'MODULE_CHECK_MIGRATIONS_READY',
-                sprintf('Migration 目录和 %d 个 SQL 文件已通过只读检查', $migrationCount),
-            );
-        } catch (Throwable $exception) {
-            $checks['migrations'] = $this->failure('migrations', $exception);
-        }
-
-        try {
             $this->checkPackage(
                 $inspection['key'],
                 $inspection['version'],
@@ -195,66 +183,6 @@ final readonly class ModuleAuthorCheckHost
         $preflight->dependencyOrder($modules, $available);
         ksort($available, SORT_STRING);
         return $available;
-    }
-
-    /**
-     * @param array{
-     *   key:string,version:string,backend_relative:string,frontend_relative:?string,
-     *   frontend_contributions:list<array{client_key:string,entry:string,root:string}>,
-     *   manifest:\PeanutAdmin\Kernel\Module\ManifestDocument,
-     *   dependencies:list<array{module_key:string,version:string}>,owned_tables:list<string>
-     * } $inspection
-     */
-    private function migrationCount(array $inspection): int
-    {
-        $backend = $inspection['manifest']->data['backend'] ?? null;
-        $relative = is_array($backend) ? ($backend['migrations'] ?? null) : null;
-        if ($relative === null) {
-            return 0;
-        }
-        if (!is_string($relative) || trim($relative) === '') {
-            throw new PluginPackageException(
-                'MODULE_CHECK_MIGRATIONS_INVALID',
-                'Module migration path is invalid.',
-            );
-        }
-        $backendRoot = realpath($this->root() . '/' . $inspection['backend_relative']);
-        if ($backendRoot === false) {
-            throw new PluginPackageException(
-                'MODULE_CHECK_MIGRATIONS_INVALID',
-                'Module backend root is unavailable for migration inspection.',
-            );
-        }
-        $directory = realpath($backendRoot . '/' . ltrim($relative, '/'));
-        if ($directory === false || !is_dir($directory)
-            || !str_starts_with($directory, $backendRoot . DIRECTORY_SEPARATOR)) {
-            throw new PluginPackageException(
-                'MODULE_CHECK_MIGRATIONS_INVALID',
-                'Module migration directory is missing or outside its backend root.',
-            );
-        }
-        $files = glob($directory . '/*.sql') ?: [];
-        sort($files, SORT_STRING);
-        $keys = [];
-        foreach ($files as $path) {
-            $key = basename($path, '.sql');
-            if (isset($keys[$key]) || preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]*$/D', $key) !== 1
-                || is_link($path) || !is_file($path) || !is_readable($path)) {
-                throw new PluginPackageException(
-                    'MODULE_CHECK_MIGRATIONS_INVALID',
-                    'Module migration file identity is invalid or unreadable.',
-                );
-            }
-            $contents = file_get_contents($path);
-            if (!is_string($contents) || trim($contents) === '') {
-                throw new PluginPackageException(
-                    'MODULE_CHECK_MIGRATIONS_INVALID',
-                    'Module migration SQL file is empty or unreadable.',
-                );
-            }
-            $keys[$key] = true;
-        }
-        return count($files);
     }
 
     /** @param array<string,string> $availableVersions */
@@ -380,7 +308,6 @@ final readonly class ModuleAuthorCheckHost
             'MODULE_PACKAGE_DEPENDENCY_CYCLE',
             'MODULE_CHECK_DEPENDENCY_DUPLICATE',
             'MODULE_CHECK_DEPENDENCY_SOURCE_INVALID' => '修正 dependencies 的 Module key、版本约束和依赖图后重试',
-            'MODULE_CHECK_MIGRATIONS_INVALID' => '恢复 Module 内可读、非空且 key 唯一的 append-only SQL migration 文件',
             'MODULE_CHECK_PACKAGE_PATH_REQUIRED',
             'MODULE_CHECK_PACKAGE_UNREADABLE',
             'MODULE_CHECK_PACKAGE_TEMPORARY_UNAVAILABLE' => '确认临时目录可写，或提供可读 package 路径及对应 SHA-256',

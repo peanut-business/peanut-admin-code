@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "2f19a3f4e89c7e97e2bcd26b650fae13e42bc5acf5382bc717e7b84b5336cb05"
+        "sha256": "eedb27d2fbd364d630a5e2a04a3a537a215f0a4ea1757d6863cd0b0c4c3c24cb"
     },
     "trust": {
         "channel": "bundled",
@@ -50,27 +50,6 @@
                     "permissions": {
                         "path": "resources/permissions.json",
                         "sha256": "1b56ee05df1fb24c69f2d0c2374c47f4c3785e4a8ba3b7bffe64f26457f07647"
-                    },
-                    "migrations": {
-                        "reversibility": "verified-backup-required",
-                        "files": [
-                            {
-                                "key": "official.task:20260826-namespace-permission-keys",
-                                "sha256": "81bff457523333ad56c1d30fb84094fbf3941902c37a56f27fe291c09145d131"
-                            },
-                            {
-                                "key": "official.task:20260921-adopt-task-job-schema",
-                                "sha256": "f04762aeab007bea0b0c4ce277d8f7781a694b17891f1193f303d0481366f21a"
-                            },
-                            {
-                                "key": "official.task:20261015020000_add_negative_fact_job_profile",
-                                "sha256": "2217e8a0cfc44e2c4c6c1a76a0413ed2448c5695e32f2a31a6a2a3072f44dbd4"
-                            },
-                            {
-                                "key": "official.task:20261021010000_verify_negative_fact_job_profile",
-                                "sha256": "5618ab95890f84ccd3b009199c55ebe399e9021a282f8d5e1e375c2772408cf1"
-                            }
-                        ]
                     }
                 }
             ]

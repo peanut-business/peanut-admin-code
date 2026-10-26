@@ -379,8 +379,7 @@ final class ScaffoldManifest
         array $values,
         ?string $composerContent = null,
     ): string {
-        if (str_starts_with($path, 'server/database/baselines/')
-            || str_starts_with($path, 'server/database/migrations/')
+        if (str_starts_with($path, 'server/database/migrations/')
             || preg_match('#^packages/core-(?:php|web)/[^/]+\.(?:zip|tgz)$#D', $path) === 1) {
             return $content;
         }

@@ -23,16 +23,12 @@ deployment_root="$(jq -r '.deployment_root' <<<"$worker_json")"
 target="$(jq -r '.deployment_target' <<<"$worker_json")"
 deployment_resource="$(jq -r '.deployment_resource_id' <<<"$worker_json")"
 application_slug="$(jq -r '.application_slug' <<<"$worker_json")"
-upgrade_artifact_directory="$(jq -r '.upgrade_artifact_directory // empty' <<<"$worker_json")"
 [[ "$project_root" == "$control_checkout" ]] || die 'run from the registered deployment-control checkout'
 [[ "$ssh_alias" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ \
   && "$deployment_root" =~ ^/([A-Za-z0-9_-][A-Za-z0-9._-]*/)*[A-Za-z0-9_-][A-Za-z0-9._-]*$ \
   && "$deployment_resource" =~ ^[a-z0-9][a-z0-9-]{2,127}$ \
   && "$application_slug" =~ ^[a-z0-9][a-z0-9-]{0,63}$ && "$target" == production ]] \
   || die 'registered upgrade worker boundary is invalid'
-[[ "$upgrade_artifact_directory" == /* && -d "$upgrade_artifact_directory" && ! -L "$upgrade_artifact_directory" ]] \
-  || die 'registered upgrade artifact directory is unavailable'
-[[ -x "$project_root/scripts/deploy-release" ]] || die 'deploy-release owner is unavailable'
 git -C "$project_root" diff --quiet || die 'deployment-control checkout has unstaged changes'
 git -C "$project_root" diff --cached --quiet || die 'deployment-control checkout has staged changes'
 [[ -z "$(git -C "$project_root" ls-files --others --exclude-standard)" ]] \
@@ -98,34 +94,6 @@ target_tree="$(jq -r '.result.target_tree' <<<"$claim_json")"
 [[ "$target_release_key" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || die 'claimed target release is invalid'
 [[ "$target_commit" =~ ^[a-f0-9]{40}$ ]] || die 'claimed target commit is invalid'
 [[ "$target_tree" =~ ^[a-f0-9]{40}$ ]] || die 'claimed target tree is invalid'
-target_version="${target_release_key#v}"
-artifact_matches=()
-while IFS= read -r manifest; do
-  [[ ! -L "$manifest" ]] || continue
-  if jq -e --arg version "$target_version" --arg commit "$target_commit" --arg tree "$target_tree" \
-    --arg slug "$application_slug" '
-      .protocol == "peanut.server-archive.v1" and .application.kind == "application"
-      and .application.version == $version and .application.commit == $commit
-      and .application.tree == $tree and .application.slug == $slug
-    ' "$manifest" >/dev/null 2>&1; then artifact_matches+=("$manifest"); fi
-done < <(find "$upgrade_artifact_directory" -maxdepth 1 -type f -name '*.manifest.json' -print)
-[[ "${#artifact_matches[@]}" == 1 ]] || die 'APP task must select exactly one server Release manifest'
-upgrade_manifest="${artifact_matches[0]}"
-upgrade_basename="$(jq -er '.archive.filename' "$upgrade_manifest")"
-[[ "$upgrade_basename" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*\.tar\.gz$ ]] || die 'APP archive filename is invalid'
-upgrade_package="$upgrade_artifact_directory/$upgrade_basename"
-[[ -f "$upgrade_package" && ! -L "$upgrade_package" \
-  && -f "$upgrade_manifest" && ! -L "$upgrade_manifest" ]] \
-  || die 'task-bound upgrade artifact is unavailable'
-jq -e --arg version "$target_version" --arg commit "$target_commit" --arg tree "$target_tree" \
-  '.protocol == "peanut.server-archive.v1" and .application.kind == "application"
-   and .application.version == $version
-   and .application.commit == $commit and .application.tree == $tree
-   and (.identity_sha256 | type == "string" and test("^[a-f0-9]{64}$"))
-   and (.archive.sha256 | type == "string" and test("^[a-f0-9]{64}$"))
-   and (.archive.bytes | type == "number" and . > 0)' \
-  "$upgrade_manifest" >/dev/null || die 'task-bound upgrade artifact identity is invalid'
-
 failure_code='OPS_UPGRADE_PREFLIGHT_FAILED'
 heartbeat_pid=''
 worker_pid=$$
@@ -189,10 +157,25 @@ jq -e --arg release "$target_release_key" --arg commit "$target_commit" --arg tr
 
 stop_heartbeat
 failure_code='OPS_UPGRADE_DEPLOYMENT_FAILED'
-"$project_root/scripts/deploy-release" "$target_release_key" --target "$target" --update --apply \
-  --deployment-resource "$deployment_resource" \
-  --expected-commit "$target_commit" --expected-tree "$target_tree" \
-  --server-package "$upgrade_package" --expected-sha256 "$(jq -er '.archive.sha256' "$upgrade_manifest")"
+ssh -o BatchMode=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=120 \
+  "$ssh_alias" sudo -n bash -s -- "$deployment_root" "$target_commit" "$target_tree" "$application_slug" <<'REMOTE'
+set -euo pipefail
+root="$1"; commit="$2"; tree="$3"; slug="$4"
+[[ "$root" =~ ^/([A-Za-z0-9_-][A-Za-z0-9._-]*/)*[A-Za-z0-9_-][A-Za-z0-9._-]*$ \
+  && -d "$root" && ! -L "$root" && "$(realpath -e "$root")" == "$root" \
+  && "$commit" =~ ^[a-f0-9]{40}$ && "$tree" =~ ^[a-f0-9]{40}$ ]] || exit 64
+cd "$root"
+[[ "$(git rev-parse --show-toplevel)" == "$root" \
+  && "$(git branch --show-current)" == main \
+  && -f scripts/deploy-update.sh && ! -L scripts/deploy-update.sh ]] || exit 64
+jq -e --arg slug "$slug" '.application.slug == $slug' .peanut/application-manifest.json >/dev/null
+# Bind the approved task to the current main head before any dependency or DB changes.
+git fetch origin main
+[[ "$(git rev-parse refs/remotes/origin/main)" == "$commit" \
+  && "$(git rev-parse "$commit^{tree}")" == "$tree" ]] || exit 65
+bash scripts/deploy-update.sh "--target=$commit"
+[[ "$(git rev-parse HEAD)" == "$commit" && "$(git rev-parse 'HEAD^{tree}')" == "$tree" ]]
+REMOTE
 
 failure_code='OPS_UPGRADE_SMOKE_FAILED'
 succeed_json="$(remote_upgrade succeed "$task_key" "$revision")"

@@ -7493,10 +7493,6 @@ export interface components {
             sale: {
                 [key: string]: components["schemas"]["ApplicationDynamicValue"];
             };
-            scaffoldUpgradeDemo: {
-                release_version: string;
-                message: string;
-            };
         };
         InvitationInspectRequest: {
             token: string;

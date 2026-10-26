@@ -251,16 +251,6 @@ while IFS= read -r path; do
       select_test server/tests/Unit/PhpTestRunnerTest.php
       behavior_selected=1
       ;;
-    scripts/package-release-files.py|scripts/tests/release-public-assets-test.py)
-      select_test server/tests/Productization/ReleasePublicAssetsBoundaryTest.php
-      behavior_selected=1
-      ;;
-    scripts/product-upgrade-host)
-      select_test server/tests/Productization/ProductUpgradeHostBackupBindingTest.php
-      select_test server/tests/Productization/ProductUpgradeHostResumeFailureTest.php
-      select_test server/tests/Productization/ProductUpgradeHostRecoveryVerifyTest.php
-      behavior_selected=1
-      ;;
     scripts/create-app|scripts/build-application-template-inventory|scaffold/*)
       select_test server/tests/Productization/CreateApplicationTest.php
       behavior_selected=1

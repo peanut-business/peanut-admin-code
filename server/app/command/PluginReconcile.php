@@ -9,7 +9,6 @@ use app\platform\exception\plugin\PluginPackageException;
 use app\platform\composition\plugin\ModuleDefinitionRegistryFactory;
 use app\platform\infrastructure\plugin\PluginLockResolver;
 use app\platform\validation\plugin\ModulePackagePreflight;
-use app\platform\validation\plugin\PluginReleaseCompositionGuard;
 use app\common\execution\ModuleContextualCommand;
 use PeanutAdmin\Modules\Identity\Contract\TenantModuleStateQueries;
 use think\console\Input;
@@ -17,63 +16,11 @@ use think\console\input\Option;
 use think\console\Output;
 use think\facade\Config;
 use think\facade\Db;
-use PDO;
-use think\App;
 
 /** Reconciles either the canonical official set or the full release replacement set. */
 final class PluginReconcile extends ModuleContextualCommand
 {
     use PluginCommandSupport;
-
-    /** Continues the release on the held native connection through the normal command lifecycle. */
-    public static function reconcileInProcess(App $app, PDO $pdo): array
-    {
-        self::assertNativeAdmission($pdo);
-        $result = self::callInProcess($app, $pdo, ['--release-locked']);
-        self::assertNativeAdmission($pdo);
-        return $result;
-    }
-
-    /** Reads the same full release selection without launching a second application process. */
-    public static function planInProcess(App $app, PDO $pdo, string $currentServer): array
-    {
-        return self::callInProcess($app, $pdo, ['--release-locked', '--plan-only', '--current-server=' . $currentServer]);
-    }
-
-    private static function assertNativeAdmission(PDO $pdo): void
-    {
-        if (Db::connect()->getPdo() !== $pdo || $pdo->inTransaction()
-            || !class_exists('PeanutServerUpdatePlan', false)) {
-            throw new \RuntimeException('PLUGIN_RECONCILE_NATIVE_ADMISSION_REQUIRED');
-        }
-        $admission = \PeanutServerUpdatePlan::databaseMigrationAdmission($pdo);
-        if (($admission['schema_version'] ?? null) !== 1 || ($admission['scope'] ?? null) !== 'server-release') {
-            throw new \RuntimeException('PLUGIN_RECONCILE_NATIVE_ADMISSION_REQUIRED');
-        }
-    }
-
-    private static function callInProcess(App $app, PDO $pdo, array $arguments): array
-    {
-        $connection = Db::connect();
-        if ($connection->getPdo() !== $pdo || $pdo->inTransaction()) {
-            throw new \RuntimeException('PLUGIN_RECONCILE_NATIVE_MASTER_CHANGED');
-        }
-        $command = $app->console->find('plugin:reconcile');
-        if (!$command instanceof self || $command->getApp() !== $app) {
-            throw new \RuntimeException('PLUGIN_RECONCILE_COMMAND_UNAVAILABLE');
-        }
-        $output = new Output('buffer');
-        $exitCode = $command->run(new Input(['plugin:reconcile', ...$arguments]), $output);
-        $bytes = trim($output->fetch());
-        if (Db::connect() !== $connection || $connection->getPdo() !== $pdo || $pdo->inTransaction()) {
-            throw new \RuntimeException('PLUGIN_RECONCILE_NATIVE_MASTER_CHANGED');
-        }
-        $result = json_decode($bytes, true, 128, JSON_THROW_ON_ERROR);
-        if (!is_array($result) || ($exitCode !== 0 && !isset($result['protocol']))) {
-            throw new \RuntimeException('PLUGIN_RECONCILE_FAILED: ' . (is_array($result) ? (string) ($result['error'] ?? 'UNKNOWN') : 'INVALID_RESULT'));
-        }
-        return $result;
-    }
 
     /** Declares mutually exclusive reconciliation scopes so deployments cannot select arbitrary Plugin keys. */
     protected function configure()
@@ -82,8 +29,7 @@ final class PluginReconcile extends ModuleContextualCommand
             ->setDescription('Reconcile immutable locked Plugin installations')
             ->addOption('official-locked', null, Option::VALUE_NONE, 'Reconcile every official.* Plugin in plugins.lock')
             ->addOption('release-locked', null, Option::VALUE_NONE, 'Reconcile official and already installed Plugins in plugins.lock')
-            ->addOption('plan-only', null, Option::VALUE_NONE, 'Read the full release plan without lifecycle changes')
-            ->addOption('current-server', null, Option::VALUE_REQUIRED, 'Canonical current server root for release plan identity comparison');
+            ->addOption('plan-only', null, Option::VALUE_NONE, 'Read the locked Plugin plans without lifecycle changes');
     }
 
     /** Resolves the fixed lock scope and applies each eligible lifecycle operation. */
@@ -93,10 +39,6 @@ final class PluginReconcile extends ModuleContextualCommand
         $releaseLocked = (bool) $input->getOption('release-locked');
         if ((bool) $input->getOption('plan-only')) {
             return $this->releasePlan($input, $output, $releaseLocked && !$officialLocked);
-        }
-        if ($input->getOption('current-server') !== null) {
-            $output->writeln('{"error":"PLUGIN_RECONCILE_SCOPE_CONFLICT"}');
-            return 1;
         }
         if (!$officialLocked && !$releaseLocked) {
             $output->writeln('{"error":"OFFICIAL_LOCKED_REQUIRED"}');
@@ -157,107 +99,30 @@ final class PluginReconcile extends ModuleContextualCommand
         );
     }
 
-    /** The plan branch never calls reconcile, including on failed/missing installations. */
+    /** The plan branch observes the current locked selection without mutation. */
     private function releasePlan(Input $input, Output $output, bool $validScope): int
     {
-        $report = ['schema_version' => 1, 'protocol' => 'peanut.plugin-reconcile-plan.v1',
-            'scope' => 'release-locked', 'readonly' => true, 'may_apply' => false, 'packages' => [],
-            'execution_admitted' => false,
-            'complete' => false, 'observation_started_at' => gmdate(DATE_ATOM)];
-        try {
+        return $this->runPluginOperation($output, function ($service) use ($validScope): array {
             if (!$validScope) {
                 throw new PluginLifecycleException('PLUGIN_RECONCILE_SCOPE_CONFLICT', 'Plans require release-locked scope.');
-            }
-            $server = realpath(dirname(__DIR__, 2));
-            $current = (string) $input->getOption('current-server');
-            if ($current === '' || realpath($current) !== $current || is_link($current) || !is_dir($current)
-                || $server === false || $current === $server) {
-                throw new PluginLifecycleException('PLUGIN_RELEASE_CURRENT_ROOT_INVALID', 'A distinct canonical current server is required.');
             }
             $config = Config::get('modules', []);
             $lock = is_array($config) ? trim((string) ($config['plugin_lock'] ?? '')) : '';
             if ($lock === '') {
-                throw new PluginLifecycleException('PLUGIN_LOCK_INVALID', 'Target lock is unavailable.');
+                throw new PluginLifecycleException('PLUGIN_LOCK_INVALID', 'Plugin lock path is not configured.');
             }
-            $lockPath = str_starts_with($lock, '/') ? $lock : $server . '/' . $lock;
-            $currentLock = file_exists($current . '/.peanut/release-identity.json')
-                || is_link($current . '/.peanut/release-identity.json') ? $current . '/plugins.lock' : $current . '/../plugins.lock';
-            $resolver = new PluginLockResolver($server, $lockPath);
-            $locked = $resolver->all();
-            $currentLocked = (new PluginLockResolver($current, $currentLock))->all();
-            $report['target_server_root'] = $server;
-            $report['current_server_root'] = $current;
-            $report['target_lock_sha256'] = hash_file('sha256', $lockPath);
-            $report['current_lock_sha256'] = hash_file('sha256', $currentLock);
-            (new PluginReleaseCompositionGuard($server, $config, $this->moduleCatalogs()))->compareLocked($currentLocked, $locked);
-            $official = array_values(array_filter(array_keys($locked), static fn(string $key): bool => str_starts_with($key, 'official.')));
-            $selection = $this->releasePluginSelection($locked, $official);
-            // Validate the same execution graph before approving any release
-            // writes. The report's selection remains canonical key order.
+            $resolver = new PluginLockResolver(dirname(__DIR__, 2), $lock);
+            $official = array_values(array_filter(array_keys($resolver->all()),
+                static fn(string $key): bool => str_starts_with($key, 'official.')));
+            $selection = $this->releasePluginSelection($resolver->all(), $official);
             $this->dependencyOrderedPlugins($resolver, $selection['reconcile'], $config);
-            $keys = array_merge($selection['reconcile'], $selection['preserved_disabled']);
-            sort($keys, SORT_STRING);
-            $report['selected_package_keys'] = $keys;
-            $report['may_apply'] = true;
-            $report['planning_complete'] = true;
-            $prerequisites = [];
-            $service = $this->pluginLifecycle();
-            foreach ($keys as $key) {
-                try {
-                    $item = $service->reconcilePlan($key, in_array($key, $selection['preserved_disabled'], true));
-                } catch (PluginLifecycleException $exception) {
-                    $item = ['key' => $key, 'action' => 'reject', 'may_apply' => false, 'code' => $exception->errorCode];
-                } catch (\Throwable) {
-                    $item = ['key' => $key, 'action' => 'reject', 'may_apply' => false, 'code' => 'UNKNOWN_PRECONDITION'];
-                }
-                $report['packages'][] = $item;
-                $report['may_apply'] = $report['may_apply'] && ($item['may_apply'] ?? null) === true;
-                $report['planning_complete'] = $report['planning_complete'] && ($item['planning_complete'] ?? $item['may_apply'] ?? false) === true;
-                foreach ($item['application_prerequisites'] ?? [] as $prerequisite) {
-                    $prerequisites[$prerequisite['migration_id']] = $prerequisite;
-                }
+            $packages = [];
+            foreach ([...$selection['reconcile'], ...$selection['preserved_disabled']] as $key) {
+                $packages[] = $service->reconcilePlan($key, in_array($key, $selection['preserved_disabled'], true));
             }
-            $report['action'] = $keys === [] ? 'planned_noop' : 'planned_reconcile';
-            if (hash_file('sha256', $lockPath) !== $report['target_lock_sha256']
-                || hash_file('sha256', $currentLock) !== $report['current_lock_sha256']) {
-                throw new PluginLifecycleException('MODULE_PACKAGE_RECOVERY_REQUIRED', 'Release locks changed during observation.');
-            }
-            $report['complete'] = true;
-            $report['application_prerequisites'] = array_values($prerequisites);
-        } catch (PluginLifecycleException $exception) {
-            $report['may_apply'] = false;
-            $report['code'] = $exception->errorCode;
-            if (preg_match('/: ([a-zA-Z0-9_.-]{1,128})\z/D', $exception->getMessage(), $match) === 1
-                && (isset($locked[$match[1]]) || isset($currentLocked[$match[1]]))) {
-                $report['plugin_key'] = $match[1];
-            }
-        } catch (\Throwable) {
-            $report['may_apply'] = false;
-            $report['code'] = 'UNKNOWN_PRECONDITION';
-        }
-        $report['status'] = $report['may_apply'] ? 'ready'
-            : (($report['complete'] && ($report['planning_complete'] ?? false) && ($report['application_prerequisites'] ?? []) !== []) ? 'planned' : 'blocked');
-        $report['observation_completed_at'] = gmdate(DATE_ATOM);
-        $report['observation'] = 'bounded non-atomic read interval on old database; execution-time guards remain required';
-        $report['report_sha256'] = hash('sha256', $this->canonicalPlan($report));
-        $output->writeln($this->canonicalPlan($report));
-        return $report['may_apply'] ? 0 : 1;
-    }
-
-    private function canonicalPlan(array $value): string
-    {
-        $normalize = static function (array $items) use (&$normalize): array {
-            if (!array_is_list($items)) {
-                ksort($items, SORT_STRING);
-            }
-            foreach ($items as $key => $item) {
-                if (is_array($item)) {
-                    $items[$key] = $normalize($item);
-                }
-            }
-            return $items;
-        };
-        return (string) json_encode($normalize($value), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            return ['readonly' => true, 'packages' => $packages,
+                'may_apply' => !in_array(false, array_column($packages, 'may_apply'), true)];
+        });
     }
 
     /**

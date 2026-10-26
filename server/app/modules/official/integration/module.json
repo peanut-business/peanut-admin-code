@@ -18,7 +18,6 @@
   },
   "backend": {
     "provider": "PeanutAdmin\\Modules\\Integration\\ModuleProvider",
-    "migrations": "database/migrations",
     "menus": "resources/menus.json",
     "permissions": "resources/permissions.json"
   },
@@ -34,7 +33,6 @@
   },
   "contracts": {
     "exports": [
-      "PeanutAdmin\\Modules\\Integration\\Contract\\IntegrationMigrationPreservation",
       "PeanutAdmin\\Modules\\Integration\\Contract\\ExternalTenantBinding",
       "PeanutAdmin\\Modules\\Integration\\Contract\\ExternalTenantContext",
       "PeanutAdmin\\Modules\\Integration\\Contract\\ExternalTenantResolutionService",

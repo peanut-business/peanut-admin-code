@@ -1,1 +1,0 @@
--- peanut-admin-adopts: {"migration_key":"official.file:20261012030000_add_controlled_file_references","proof_contract":"peanut.file-migration-adoption.v1","sha256":"005edad54fc0cf06a4eeb6afa7c0e5f374a0bc352eaa088282b2f12932251591"}

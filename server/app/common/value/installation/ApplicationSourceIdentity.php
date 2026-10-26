@@ -29,7 +29,7 @@ final readonly class ApplicationSourceIdentity
     public static function admitted(\app\common\infrastructure\installation\VerifiedServerDeployment $deployment): self
     {
         $value = $deployment->identityDocument();
-        if (($value['protocol'] ?? null) !== 'peanut.development-server-runtime.v1') {
+        if (!in_array($value['protocol'] ?? null, ['peanut.development-server-runtime.v1', 'peanut.application-source-identity.v1'], true)) {
             throw new RuntimeException('APPLICATION_DEVELOPMENT_RUNTIME_INVALID');
         }
         return new self($value['application'], $value['versions'], $value['tenant_bootstrap'], $value, $deployment->identityDigest());
@@ -37,13 +37,13 @@ final readonly class ApplicationSourceIdentity
 
     public static function load(string $serverRoot): self
     {
-        if (self::hasRuntime($serverRoot)) {
-            if (\app\common\infrastructure\installation\ReadonlyHttpMount::active($serverRoot)) {
-                $app = \think\Container::getInstance();
-                if ($app instanceof \think\App && !$app->runningInConsole()) {
-                    return self::admitted($app->make(\app\common\infrastructure\installation\VerifiedServerDeployment::class));
-                }
+        if (\app\common\infrastructure\installation\ReadonlyHttpMount::active($serverRoot)) {
+            $app = \think\Container::getInstance();
+            if ($app instanceof \think\App && !$app->runningInConsole()) {
+                return self::admitted($app->make(\app\common\infrastructure\installation\VerifiedServerDeployment::class));
             }
+        }
+        if (self::hasRuntime($serverRoot)) {
             return self::loadRuntime($serverRoot);
         }
         return self::loadGeneratedApp($serverRoot);
@@ -54,7 +54,28 @@ final readonly class ApplicationSourceIdentity
     {
         $projectRoot = dirname($serverRoot);
         $manifest = self::jsonFile($projectRoot . '/.peanut/application-manifest.json', 'APPLICATION_SOURCE_MANIFEST_INVALID');
-        return self::fromManifest($manifest, ApplicationReleaseVersions::load($projectRoot . '/release-versions.json'));
+        $identity = self::fromManifest($manifest, ApplicationReleaseVersions::load($projectRoot . '/release-versions.json'));
+        $document = ['protocol' => 'peanut.application-source-identity.v1',
+            'application' => $identity->applicationIdentity(), 'versions' => $identity->versions(),
+            'tenant_bootstrap' => $identity->tenantBootstrap,
+            'application_manifest_sha256' => hash_file('sha256', $projectRoot . '/.peanut/application-manifest.json')];
+        return new self($identity->application, $identity->versions, $identity->tenantBootstrap,
+            $document, self::sourceDigest($serverRoot));
+    }
+
+    /** The two tracked APP declarations are mounted read-only beside the server in Docker. */
+    public static function sourceDigest(string $serverRoot): string
+    {
+        $root = dirname($serverRoot);
+        $digests = [];
+        foreach (['.peanut/application-manifest.json', 'release-versions.json'] as $relative) {
+            $path = $root . '/' . $relative;
+            if (!is_file($path) || is_link($path)) {
+                throw new RuntimeException('APPLICATION_SOURCE_MANIFEST_INVALID');
+            }
+            $digests[] = hash_file('sha256', $path);
+        }
+        return hash('sha256', implode(':', $digests));
     }
 
     private static function fromManifest(array $manifest, ApplicationReleaseVersions $versions): self

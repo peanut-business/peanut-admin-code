@@ -11,7 +11,7 @@ if (!class_exists(\think\migration\Service::class)) {
 
 return [
     // Register the official Service subtype before automatic vendor discovery.
-    \app\common\infrastructure\migration\PeanutMigrationService::class,
+    \think\migration\Service::class,
     AppService::class,
     ModuleExtensionService::class,
 ];

@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "1b32be7997307cfd07628a9dff757231a0199bf3511322055f25b1d339efd6e5"
+        "sha256": "0e158720fdf91f6960ef9f106eb2006a75867abcfdee78963f47ad658a641e95"
     },
     "trust": {
         "channel": "bundled",
@@ -54,10 +54,6 @@
                     "permissions": {
                         "path": null,
                         "sha256": null
-                    },
-                    "migrations": {
-                        "reversibility": "verified-backup-required",
-                        "files": []
                     }
                 }
             ]

@@ -21,11 +21,15 @@ for path in runtime runtime/upgrade public/storage private/storage private/insta
     [ ! -L "$path" ] || { echo "runtime path is a symlink: $path" >&2; exit 1; }
     mkdir -p "$path"
 done
+close_startup_traffic() {
+    [ ! -L runtime/upgrade ] || { echo 'startup guard directory is a symlink' >&2; return 1; }
+    rm -f runtime/upgrade/.traffic-ready
+}
 cleanup() {
     cleanup_status=$?
     trap - EXIT HUP TERM INT
     rm -f "$CONTEXT"
-    php docker/scripts/update-plan.php close-startup-traffic --instance-server="$SERVER_ROOT" >/dev/null 2>&1 || true
+    close_startup_traffic >/dev/null 2>&1 || true
     if [ -n "${fpm_pid:-}" ]; then
         kill -TERM "$fpm_pid" 2>/dev/null || true
         wait "$fpm_pid" 2>/dev/null || true
@@ -36,7 +40,13 @@ trap cleanup EXIT
 trap 'exit 129' HUP
 trap 'exit 143' TERM
 trap 'exit 130' INT
-php docker/scripts/update-plan.php close-startup-traffic --instance-server="$SERVER_ROOT"
+close_startup_traffic
+for marker in runtime/upgrade/maintenance.json runtime/upgrade/current-update.json; do
+    if [ -e "$marker" ] || [ -L "$marker" ]; then
+        echo "OWNER_MAINTENANCE_REQUIRED: unresolved previous upgrade state: $marker" >&2
+        exit 1
+    fi
+done
 if [ -e private/installation/update-verification.key ] || [ -L private/installation/update-verification.key ]; then
     echo 'OWNER_MAINTENANCE_REQUIRED: complete the previous fixed-tool transaction and retire its legacy verification key before adopting readonly runtime' >&2
     exit 1
@@ -125,7 +135,7 @@ write_installing_env() {
 run_monitored_fpm() {
     phase="$1"
     rm -f "$CONTEXT"
-    php docker/scripts/update-plan.php initialize-owner-traffic --instance-server="$SERVER_ROOT"
+    php -r 'require "vendor/autoload.php"; app\common\infrastructure\installation\ReadonlyHttpMount::initialize(getcwd());'
     # The prepared image supplies OS files to the chroot; runtime DNS is container-specific.
     for file in hosts resolv.conf hostname; do
         cp "/etc/$file" "$HTTP_CHROOT/etc/$file"
@@ -139,7 +149,7 @@ run_monitored_fpm() {
     fpm_pid=$!
     if ! php -r 'require "vendor/autoload.php"; app\common\infrastructure\installation\ReadonlyHttpMount::assertWorkers((int)$argv[1]);' "$fpm_pid"; then
         rm -f "$CONTEXT"
-        php docker/scripts/update-plan.php close-startup-traffic --instance-server="$SERVER_ROOT"
+        close_startup_traffic
         kill -TERM "$fpm_pid" 2>/dev/null || true
         wait "$fpm_pid" 2>/dev/null || true
         exit 1
@@ -147,18 +157,26 @@ run_monitored_fpm() {
     php -r 'require "vendor/autoload.php"; app\common\infrastructure\installation\ReadonlyHttpMount::publish(getcwd());'
     while kill -0 "$fpm_pid" 2>/dev/null; do
         if [ "$phase" = bootstrap ] && { [ -e private/resources/pending/configuration.json ] || [ -L private/resources/pending/configuration.json ]; }; then
-            php docker/scripts/update-plan.php close-startup-traffic --instance-server="$SERVER_ROOT"
+            close_startup_traffic
             rm -f "$CONTEXT"
             sleep 2
             kill -QUIT "$fpm_pid" 2>/dev/null || true
             wait "$fpm_pid" || true
             fpm_pid=
-            php docker/scripts/update-plan.php publish-startup-configuration --instance-server="$SERVER_ROOT"
+            php -r '
+              require "vendor/autoload.php";
+              $path = "docker/secrets/install-token";
+              if (!is_file($path) || is_link($path) || (fileperms($path) & 0777) !== 0600) {
+                  throw new RuntimeException("INSTALL_CONFIGURATION_SETUP_TOKEN_INVALID");
+              }
+              $app = new think\App(getcwd());
+              (new app\common\services\installation\InstallationConfigurationHost(getcwd()))->publishPending(trim(file_get_contents($path)));
+            '
             rm -f "$BOOTSTRAP_ENV"
             exec "$0"
         fi
         if [ "$phase" = installing ] && [ -f "$INSTALLED" ]; then
-            php docker/scripts/update-plan.php close-startup-traffic --instance-server="$SERVER_ROOT"
+            close_startup_traffic
             rm -f "$CONTEXT"
             sleep 2
             kill -QUIT "$fpm_pid" 2>/dev/null || true
@@ -173,7 +191,7 @@ run_monitored_fpm() {
     wait "$fpm_pid" || result=$?
     fpm_pid=
     rm -f "$CONTEXT"
-    php docker/scripts/update-plan.php close-startup-traffic --instance-server="$SERVER_ROOT"
+    close_startup_traffic
     return "$result"
 }
 

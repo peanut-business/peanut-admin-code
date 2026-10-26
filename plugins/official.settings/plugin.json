@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "2f96b78b1fd9a85aa9e67e1c2932635bf73938758a8e26892f881bc75953074b"
+        "sha256": "321e2048c24310987e4cab70806e1e4c1fbe724a7bcdc6ee1ee09aeb68ca01fb"
     },
     "trust": {
         "channel": "bundled",
@@ -54,15 +54,6 @@
                     "permissions": {
                         "path": "resources/permissions.json",
                         "sha256": "ae62d6f6704fd7d362edcd0b731653d4aacd7c50143112d2fdcbb095e11ccfcd"
-                    },
-                    "migrations": {
-                        "reversibility": "verified-backup-required",
-                        "files": [
-                            {
-                                "key": "official.settings:20260921-adopt-settings-schema",
-                                "sha256": "74c07e8118dd83a20791300f2eeb63cff5718033d41dd8f1cba200ed6610255b"
-                            }
-                        ]
                     }
                 }
             ]

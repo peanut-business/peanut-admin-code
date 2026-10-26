@@ -138,7 +138,6 @@ final class PluginRuntimeGovernanceService
                     $this->inject('after-first-drop');
                     $this->assertOwnedTablesAbsent($ownedTables);
                     Db::transaction(function () use ($moduleKeys): void {
-                        Db::name('module_migration')->whereIn('module_key', $moduleKeys)->delete();
                         if ($this->catalogs->plan($moduleKeys, true)['removed'] !== []) {
                             throw new PluginLifecycleException('MODULE_PURGE_INCOMPLETE', 'Module catalog remains after purge.');
                         }
@@ -178,11 +177,12 @@ final class PluginRuntimeGovernanceService
         sort($ownedTables, SORT_STRING);
         if ($purge) {
             $this->appendPlanEntry($removed, 'database', 'owned_tables', 'drop', $this->existingOwnedTables($ownedTables), true);
-            $this->appendPlanEntry($removed, 'database', 'pa_module_migration', 'delete', $this->migrationIdentifiers($moduleKeys), true);
         } else {
             $this->appendPlanEntry($preserved, 'database', 'owned_tables', 'preserve', $this->existingOwnedTables($ownedTables), true);
-            $this->appendPlanEntry($preserved, 'database', 'pa_module_migration', 'preserve', $this->migrationIdentifiers($moduleKeys), true);
         }
+        $migrationTable = Db::name((string) config('database.migration_table', 'migrations'));
+        $this->appendPlanEntry($preserved, 'database', $migrationTable->getTable(), 'preserve',
+            array_map('strval', $migrationTable->order('version')->column('version')), true);
         $this->sortPlanEntries($removed);
         $this->sortPlanEntries($preserved);
         usort($blockers, static fn(array $a, array $b): int => strcmp((string) $a['code'], (string) $b['code']));
@@ -495,17 +495,6 @@ final class PluginRuntimeGovernanceService
         return array_map('strval', Db::table('information_schema.TABLES')
             ->where('TABLE_SCHEMA', Db::raw('DATABASE()'))->whereIn('TABLE_NAME', $tables)
             ->order('TABLE_NAME')->column('TABLE_NAME'));
-    }
-
-    /** @param list<string> $moduleKeys @return list<string> */
-    private function migrationIdentifiers(array $moduleKeys): array
-    {
-        if ($moduleKeys === []) {
-            return [];
-        }
-        $rows = Db::name('module_migration')->whereIn('module_key', $moduleKeys)
-            ->field('module_key,migration_key')->order('module_key')->order('migration_key')->select()->toArray();
-        return array_map(static fn(array $row): string => $row['module_key'] . '/' . $row['migration_key'], $rows);
     }
 
     /** @param list<string> $moduleKeys */

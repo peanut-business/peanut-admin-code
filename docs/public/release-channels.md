@@ -25,7 +25,7 @@
 原生源码入口：
 
 ```sh
-php /absolute/my-app/scripts/upgrade plan --scope=source --instance-root=/absolute/my-app --package=/absolute/authenticated-upstream
+php /absolute/my-app/scripts/scaffold-upgrade plan --instance-root=/absolute/my-app --package=/absolute/authenticated-upstream
 ```
 
 用返回的同一plan_path继续apply、verify或recover。旧baseline、APP当前文件和目标上游作三方比较；冲突明确解决，未知或部分写入先对账。源码升级不等于依赖、数据库、前端构建或生产采用成功。

@@ -6,9 +6,6 @@ use app\common\value\installation\ApplicationReleaseVersions;
 use app\common\value\installation\ApplicationSourceIdentity;
 use app\common\value\installation\ServerReleaseIdentity;
 use app\common\value\scaffold\EditionProfile;
-use PeanutAdmin\Kernel\Persistence\Schema\KernelSchema;
-use PeanutAdmin\Modules\Identity\Authorization\CorePermissionCatalogSynchronizer;
-use PeanutAdmin\Modules\Identity\Authorization\Persistence\ThinkPhpAuthorizationCatalogRepository;
 use PeanutAdmin\Modules\Identity\Platform\Bootstrap\BootstrapService;
 use think\App;
 use think\Container;
@@ -337,7 +334,7 @@ function ensureThinkPhpApplication(string $serverDir): App
 
 function expectedTables(array $files): array
 {
-    $tables = array_fill_keys(KernelSchema::tableNames(), true);
+    $tables = [];
     foreach ($files as $file) {
         $sql = file_get_contents($file);
         if ($sql === false) {
@@ -485,19 +482,14 @@ function seedBrandDefaults(PDO $pdo, array $website): void
 /** @return list<string> */
 function applicationMigrationFiles(string $databaseDir): array
 {
-    $directory = $databaseDir . '/migrations';
-    if (!is_dir($directory)) {
-        return [];
-    }
-    $files = [];
-    foreach (glob($directory . '/*.sql') ?: [] as $file) {
-        if (!is_file($file) || is_link($file) || preg_match('/^[0-9]{8}-[a-z0-9][a-z0-9_-]*\.sql$/D', basename($file)) !== 1) {
+    $files = glob($databaseDir . '/migrations/*.php') ?: [];
+    foreach ($files as $file) {
+        if (!is_file($file) || is_link($file) || !\Phinx\Util\Util::isValidMigrationFileName(basename($file))) {
             throw new RuntimeException('迁移文件名无效：' . basename($file));
         }
-        $files[] = $file;
     }
     sort($files, SORT_STRING);
-    return \app\common\services\upgrade\ApplicationMigrationRunner::effectiveFiles($files);
+    return $files;
 }
 
 /**
@@ -531,92 +523,6 @@ function applicationReleaseVersions(string $serverDir): array
         'release_sequence_version' => $contract->releaseSequenceVersion(),
         'scaffold_template' => $contract->scaffoldTemplate(),
     ];
-}
-
-/**
- * Resolve the SQL target from this scaffold and its optional deployment-verified demo overlay.
- *
- * @param array{source_product_version:string,release_sequence_version:string,scaffold_template:string} $versions
- */
-function applicationMigrationTargetVersion(string $serverDir, array $versions): string
-{
-    $base = $versions['scaffold_template'];
-    $path = dirname($serverDir) . '/DEMO_PATCH_METADATA.json';
-    if (!file_exists($path)) {
-        return $base;
-    }
-    if (!is_file($path) || is_link($path)) {
-        throw new RuntimeException('MIGRATION_TARGET_CONTRACT_INVALID');
-    }
-    try {
-        $overlay = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
-    } catch (JsonException $exception) {
-        throw new RuntimeException('MIGRATION_TARGET_CONTRACT_INVALID', 0, $exception);
-    }
-    if (!is_array($overlay)
-        || ($overlay['schema_version'] ?? null) !== 1
-        || ($overlay['kind'] ?? null) !== 'peanut-admin-demo-site-overlay'
-        || ($overlay['base_tag'] ?? null) !== 'v' . $versions['source_product_version']
-        || !is_array($overlay['files'] ?? null)
-        || !is_string($overlay['migration_target_version'] ?? null)
-        || preg_match('/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/D', $overlay['migration_target_version']) !== 1
-        || version_compare($overlay['migration_target_version'], $base, '<')
-    ) {
-        throw new RuntimeException('MIGRATION_TARGET_CONTRACT_INVALID');
-    }
-    return $overlay['migration_target_version'];
-}
-
-/**
- * Refuse a caller-provided SQL target that differs from the adopted scaffold/overlay identity.
- *
- * @param array{source_product_version:string,release_sequence_version:string,scaffold_template:string} $versions
- */
-function validatedMigrationTargetVersion(string $serverDir, string $targetVersion, array $versions): string
-{
-    if (!hash_equals(applicationMigrationTargetVersion($serverDir, $versions), $targetVersion)) {
-        throw new RuntimeException('MIGRATION_TARGET_CONTRACT_MISMATCH');
-    }
-    return $targetVersion;
-}
-
-/**
- * Resolve immutable Peanut markers separately from the three hash-pinned application migrations.
- *
- * @return array{release_version:string,peanut_release:bool}
- */
-function migrationReleaseIdentity(string $sql, string $applicationVersion): array
-{
-    return \app\common\services\upgrade\ApplicationMigrationRunner::releaseIdentity(
-        $sql,
-        $applicationVersion,
-    );
-}
-
-/**
- * Select and apply eligible immutable migrations while preserving their checksum ledger.
- *
- * @return array{status:string,target_version:string,applied:list<string>,pending:list<string>}
- */
-function migrateDatabase(string $serverDir, string $targetVersion, bool $dryRun = false): array
-{
-    // 版本格式由已固定的 ApplicationReleaseVersions 校验，CLI 目标必须逐字匹配。
-    // 开发候选与正式版本共用同一权威来源；不得用旧 RELEASE_METADATA 代替候选迁移目标。
-    $versions = applicationReleaseVersions($serverDir);
-    $targetVersion = validatedMigrationTargetVersion($serverDir, $targetVersion, $versions);
-    $config = loadConfig($serverDir);
-    return (new \app\common\services\upgrade\ApplicationMigrationRunner([
-        'host' => $config['DB_HOST'],
-        'port' => $config['DB_PORT'],
-        'database' => $config['DB_NAME'],
-        'user' => $config['DB_USER'],
-        'password' => $config['DB_PASS'],
-    ]))->run(
-        applicationMigrationFiles(__DIR__),
-        $targetVersion,
-        $versions['release_sequence_version'],
-        $dryRun,
-    );
 }
 
 /**
@@ -724,214 +630,22 @@ function installationFailureDiagnostic(string $serverDir, string $stage, Throwab
 function logInstallationFailure(string $serverDir, string $stage, string $errorCode, Throwable $exception, ?string $currentModule = null): void
 {
     try {
-        $diagnostic = installationFailureDiagnostic($serverDir, $stage, $exception, $currentModule);
-        $projectRoot = rtrim(str_replace('\\', '/', dirname($serverDir)), '/') . '/';
-        // Literal codes from the selected migration contracts, bound to their actual throw file.
-        // No arbitrary exception message, SQL or business metadata is copied into the private log.
-        $preservationCauseCodes = [
-            'app/modules/official/file/src/Contract/FileMigrationPreservation.php' => [
-                'FILE_PRESERVATION_BASE_POSTSTATE_REQUIRED', 'FILE_PRESERVATION_BEFORE_BINDING_INVALID', 'FILE_PRESERVATION_CANONICAL_STORAGE_DEFAULTS_REQUIRED',
-                'FILE_PRESERVATION_COLUMNS_UNKNOWN', 'FILE_PRESERVATION_CONTEXT_CHANGED', 'FILE_PRESERVATION_CONTINUATION_AUTHORITY_CHANGED',
-                'FILE_PRESERVATION_DATABASE_CHANGED', 'FILE_PRESERVATION_DATABASE_UNKNOWN', 'FILE_PRESERVATION_DDL_CHANGED_DURING_READ',
-                'FILE_PRESERVATION_DDL_UNAVAILABLE', 'FILE_PRESERVATION_EXECUTE_PREFIX_UNSUPPORTED', 'FILE_PRESERVATION_GENERATED_COLUMN_UNKNOWN',
-                'FILE_PRESERVATION_IDENTIFIER_UNKNOWN', 'FILE_PRESERVATION_IMAGE_INDEX_DELTA_UNKNOWN', 'FILE_PRESERVATION_LEDGER_CHANGED',
-                'FILE_PRESERVATION_METADATA_VISIBILITY_UNKNOWN', 'FILE_PRESERVATION_MIGRATION_UNKNOWN', 'FILE_PRESERVATION_NATIVE_CONTEXT_OR_PDO_REQUIRED',
-                'FILE_PRESERVATION_NATIVE_STAGE_REQUIRED', 'FILE_PRESERVATION_NEW_TABLE_NOT_EMPTY_OR_UNKNOWN', 'FILE_PRESERVATION_OBSERVATION_FAILED',
-                'FILE_PRESERVATION_ORIGINAL_ROWS_CHANGED', 'FILE_PRESERVATION_ORIGINAL_SCHEMA_OR_COUNTER_CHANGED', 'FILE_PRESERVATION_PARTIAL_FILE_FAMILY',
-                'FILE_PRESERVATION_PARTIAL_IMAGE_INDEX', 'FILE_PRESERVATION_PRIMARY_KEY_BYTES_UNKNOWN', 'FILE_PRESERVATION_PRIMARY_KEY_PROGRESS_UNKNOWN',
-                'FILE_PRESERVATION_PRIMARY_KEY_UNKNOWN', 'FILE_PRESERVATION_REPAIR_GRAPH_CHANGED', 'FILE_PRESERVATION_REPAIR_GRAPH_INCOMPLETE',
-                'FILE_PRESERVATION_REPAIR_SHAPE_UNKNOWN', 'FILE_PRESERVATION_ROW_BYTES_UNKNOWN', 'FILE_PRESERVATION_SNAPSHOT_CLOSE_FAILED',
-                'FILE_PRESERVATION_SOURCE_CHANGED', 'FILE_PRESERVATION_SQL_CLOCK_CHANGED', 'FILE_PRESERVATION_STATISTICS_UNAVAILABLE',
-                'FILE_PRESERVATION_TABLE_IDENTITY_UNKNOWN', 'FILE_PRESERVATION_TABLE_SHAPE_UNKNOWN', 'FILE_PRESERVATION_UNDECLARED_TABLE_DELTA',
-                'FILE_PRESERVATION_VISIBILITY_PRESTATE_UNKNOWN', 'FILE_PRESERVATION_VISIBILITY_SCHEMA_UNKNOWN',
-            ],
-            'app/modules/official/document/src/Contract/DocumentMigrationPreservation.php' => [
-                'DOCUMENT_PRESERVATION_BARRIER_CHECK_UNKNOWN', 'DOCUMENT_PRESERVATION_BARRIER_COLUMNS_UNKNOWN', 'DOCUMENT_PRESERVATION_BARRIER_COLUMN_SEMANTICS_UNKNOWN',
-                'DOCUMENT_PRESERVATION_BARRIER_DDL_UNKNOWN', 'DOCUMENT_PRESERVATION_BASE_REQUIRES_ABSENT_TABLES', 'DOCUMENT_PRESERVATION_BASE_SHAPE_UNKNOWN',
-                'DOCUMENT_PRESERVATION_BEFORE_BINDING_INVALID', 'DOCUMENT_PRESERVATION_CONTEXT_CHANGED', 'DOCUMENT_PRESERVATION_DATABASE_CHANGED',
-                'DOCUMENT_PRESERVATION_DATABASE_UNKNOWN', 'DOCUMENT_PRESERVATION_DDL_UNAVAILABLE', 'DOCUMENT_PRESERVATION_EXECUTE_PREFIX_UNSUPPORTED',
-                'DOCUMENT_PRESERVATION_IDENTIFIER_UNKNOWN', 'DOCUMENT_PRESERVATION_METADATA_VISIBILITY_UNKNOWN', 'DOCUMENT_PRESERVATION_MIGRATION_UNKNOWN',
-                'DOCUMENT_PRESERVATION_NATIVE_DDL_CONTEXT_REQUIRED', 'DOCUMENT_PRESERVATION_NATIVE_PARENT_OBSERVATION_REQUIRED', 'DOCUMENT_PRESERVATION_NEW_TABLE_NOT_EMPTY_OR_UNKNOWN',
-                'DOCUMENT_PRESERVATION_OBSERVATION_FAILED', 'DOCUMENT_PRESERVATION_ORIGINAL_SCHEMA_OR_COUNTER_CHANGED', 'DOCUMENT_PRESERVATION_PARENT_OBSERVATION_CHANGED',
-                'DOCUMENT_PRESERVATION_PHASE_CONSTRAINT_ALREADY_PRESENT', 'DOCUMENT_PRESERVATION_SOURCE_CHANGED', 'DOCUMENT_PRESERVATION_STATISTICS_UNAVAILABLE',
-                'DOCUMENT_PRESERVATION_TABLE_DISAPPEARED', 'DOCUMENT_PRESERVATION_TABLE_SHAPE_UNKNOWN',
-            ],
-            'app/modules/official/article/src/Contract/ArticleMigrationPreservation.php' => [
-                'ARTICLE_PRESERVATION_ALLOCATOR_UNKNOWN', 'ARTICLE_PRESERVATION_ARTICLE_INBOUND_CHANGED', 'ARTICLE_PRESERVATION_BEFORE_BINDING_INVALID',
-                'ARTICLE_PRESERVATION_BINDING_CHECK_UNKNOWN', 'ARTICLE_PRESERVATION_BINDING_COLUMNS_UNKNOWN', 'ARTICLE_PRESERVATION_BINDING_COLUMN_SEMANTICS_UNKNOWN',
-                'ARTICLE_PRESERVATION_BINDING_DDL_UNKNOWN', 'ARTICLE_PRESERVATION_CONSTRAINT_DELTA_UNKNOWN', 'ARTICLE_PRESERVATION_CONTEXT_CHANGED',
-                'ARTICLE_PRESERVATION_DATABASE_CHANGED', 'ARTICLE_PRESERVATION_DATABASE_UNKNOWN', 'ARTICLE_PRESERVATION_DDL_UNAVAILABLE',
-                'ARTICLE_PRESERVATION_DOCUMENT_BARRIERS_REQUIRED', 'ARTICLE_PRESERVATION_DOCUMENT_PREDECESSOR_REQUIRED', 'ARTICLE_PRESERVATION_EXECUTE_PREFIX_UNSUPPORTED',
-                'ARTICLE_PRESERVATION_IDENTIFIER_UNKNOWN', 'ARTICLE_PRESERVATION_METADATA_VISIBILITY_UNKNOWN', 'ARTICLE_PRESERVATION_MIGRATION_UNKNOWN',
-                'ARTICLE_PRESERVATION_NATIVE_DDL_CONTEXT_REQUIRED', 'ARTICLE_PRESERVATION_OBSERVATION_FAILED', 'ARTICLE_PRESERVATION_ORIGINAL_SCHEMA_OR_COUNTER_CHANGED',
-                'ARTICLE_PRESERVATION_PARENT_KEY_SHAPE_UNKNOWN', 'ARTICLE_PRESERVATION_SAVE_TABLE_NOT_EMPTY_OR_UNKNOWN', 'ARTICLE_PRESERVATION_SOURCE_CHANGED',
-                'ARTICLE_PRESERVATION_TABLE_DISAPPEARED', 'ARTICLE_PRESERVATION_TABLE_SHAPE_UNKNOWN', 'ARTICLE_PRESERVATION_TARGET_ABSENCE_REQUIRED',
-            ],
-            'app/modules/official/member/src/Contract/MemberSessionMigrationPreservation.php' => [
-                'MEMBER_SESSION_PRESERVATION_BASE_INNODB_TABLE_REQUIRED', 'MEMBER_SESSION_PRESERVATION_BEFORE_BINDING_INVALID', 'MEMBER_SESSION_PRESERVATION_CONTEXT_CHANGED',
-                'MEMBER_SESSION_PRESERVATION_DATABASE_OR_REFERENCES_CHANGED', 'MEMBER_SESSION_PRESERVATION_FIXED_TABLE_PREFIX_REQUIRED', 'MEMBER_SESSION_PRESERVATION_MEMBER_REVISION_TARGET_INVALID',
-                'MEMBER_SESSION_PRESERVATION_NATIVE_DDL_CONTEXT_REQUIRED', 'MEMBER_SESSION_PRESERVATION_OBSERVATION_FAILED', 'MEMBER_SESSION_PRESERVATION_REFERENCE_COLUMNS_INVALID',
-                'MEMBER_SESSION_PRESERVATION_REFERENCE_TABLE_REQUIRED', 'MEMBER_SESSION_PRESERVATION_REFERENCE_UNIQUE_KEY_REQUIRED', 'MEMBER_SESSION_PRESERVATION_SESSION_COLUMNS_INVALID',
-                'MEMBER_SESSION_PRESERVATION_SESSION_COLUMN_SEMANTICS_INVALID', 'MEMBER_SESSION_PRESERVATION_SESSION_FOREIGN_KEYS_INVALID', 'MEMBER_SESSION_PRESERVATION_SESSION_INDEXES_INVALID',
-                'MEMBER_SESSION_PRESERVATION_SESSION_TABLE_TARGET_INVALID', 'MEMBER_SESSION_PRESERVATION_SOURCE_CHANGED', 'MEMBER_SESSION_PRESERVATION_TARGET_CHECKS_INVALID',
-                'MEMBER_SESSION_PRESERVATION_TARGET_CONSTRAINT_NAMES_INVALID', 'MEMBER_SESSION_PRESERVATION_UNAPPLIED_TARGET_ABSENCE_REQUIRED',
-            ],
-            'app/modules/official/import_export/src/Contract/ImportExportMigrationPreservation.php' => [
-                'CLAUSE_OBSERVATION_FAILED', 'IMPORT_EXPORT_PRESERVATION_ALLOCATOR_UNKNOWN', 'IMPORT_EXPORT_PRESERVATION_BASE_INNODB_REQUIRED',
-                'IMPORT_EXPORT_PRESERVATION_BEFORE_BINDING_INVALID', 'IMPORT_EXPORT_PRESERVATION_CLAUSE_OBSERVATION_FAILED', 'IMPORT_EXPORT_PRESERVATION_CONSTRAINT_OWNER_CONFLICT',
-                'IMPORT_EXPORT_PRESERVATION_CONSTRAINT_VISIBILITY_REQUIRED', 'IMPORT_EXPORT_PRESERVATION_CONTEXT_CHANGED', 'IMPORT_EXPORT_PRESERVATION_CREATED_TABLE_CHANGED',
-                'IMPORT_EXPORT_PRESERVATION_DATABASE_OR_PARENT_CHANGED', 'IMPORT_EXPORT_PRESERVATION_EXISTING_METADATA_OR_COUNTER_CHANGED', 'IMPORT_EXPORT_PRESERVATION_FOREIGN_KEY_CHECKS_REQUIRED',
-                'IMPORT_EXPORT_PRESERVATION_NATIVE_DDL_CONTEXT_REQUIRED', 'IMPORT_EXPORT_PRESERVATION_OBSERVATION_FAILED', 'IMPORT_EXPORT_PRESERVATION_OPERATION_PARENT_REQUIRED',
-                'IMPORT_EXPORT_PRESERVATION_REFERENCE_KEY_INVALID', 'IMPORT_EXPORT_PRESERVATION_REFERENCE_REQUIRED', 'IMPORT_EXPORT_PRESERVATION_REFERENCE_UNIQUE_REQUIRED',
-                'IMPORT_EXPORT_PRESERVATION_SOURCE_CHANGED', 'IMPORT_EXPORT_PRESERVATION_TARGET_CHECK_INVALID', 'IMPORT_EXPORT_PRESERVATION_TARGET_COLUMNS_REQUIRED',
-                'IMPORT_EXPORT_PRESERVATION_TARGET_COLUMN_INVALID', 'IMPORT_EXPORT_PRESERVATION_TARGET_CONSTRAINT_DELTA_INVALID', 'IMPORT_EXPORT_PRESERVATION_TARGET_FOREIGN_INVALID',
-                'IMPORT_EXPORT_PRESERVATION_TARGET_INDEX_DELTA_INVALID', 'IMPORT_EXPORT_PRESERVATION_TARGET_INDEX_INVALID',
-            ],
-            'app/modules/official/collaboration/src/Contract/CollaborationMigrationPreservation.php' => [
-                'COLLABORATION_STAGE_ALLOCATOR_UNKNOWN', 'COLLABORATION_STAGE_CHECK_NOT_ENFORCED', 'COLLABORATION_STAGE_CHECK_UNKNOWN',
-                'COLLABORATION_STAGE_COLUMN_ALREADY_PRESENT', 'COLLABORATION_STAGE_COLUMN_PRESTATE_INVALID', 'COLLABORATION_STAGE_CONNECTION_INVALID',
-                'COLLABORATION_STAGE_CREATE_POSTSTATE_INVALID', 'COLLABORATION_STAGE_CREATE_SCHEMA_INVALID', 'COLLABORATION_STAGE_CREATE_SOURCE_UNKNOWN',
-                'COLLABORATION_STAGE_DDL_COLUMN_UNKNOWN', 'COLLABORATION_STAGE_DDL_UNKNOWN', 'COLLABORATION_STAGE_GENERATED_COLUMN_UNKNOWN',
-                'COLLABORATION_STAGE_IDENTITY_INVALID', 'COLLABORATION_STAGE_INPUT_INVALID', 'COLLABORATION_STAGE_LEDGER_CHANGED',
-                'COLLABORATION_STAGE_LEDGER_INVALID', 'COLLABORATION_STAGE_LEDGER_READER_REQUIRED', 'COLLABORATION_STAGE_PRESTATE_TABLES_INVALID',
-                'COLLABORATION_STAGE_REPAIR_BASE_MISSING', 'COLLABORATION_STAGE_REPAIR_FUTURE_PRESENT', 'COLLABORATION_STAGE_SCHEMA_OR_ALLOCATOR_CHANGED',
-                'COLLABORATION_STAGE_SNAPSHOT_CHANGED', 'COLLABORATION_STAGE_SOURCE_CHANGED', 'COLLABORATION_STAGE_TABLES_CHANGED',
-                'COLLABORATION_STAGE_TABLE_UNKNOWN',
-            ],
-            'app/modules/peanut/artifact_revision/src/Database/ArtifactRevisionMigrationPreservation.php' => [
-                'ARTIFACT_REVISION_STAGE_ALLOCATOR_UNKNOWN', 'ARTIFACT_REVISION_STAGE_CHECK_NOT_ENFORCED', 'ARTIFACT_REVISION_STAGE_CONNECTION_INVALID',
-                'ARTIFACT_REVISION_STAGE_CONNECTION_UNKNOWN', 'ARTIFACT_REVISION_STAGE_CREATE_POSTSTATE_INVALID', 'ARTIFACT_REVISION_STAGE_CREATE_PRESTATE_INVALID',
-                'ARTIFACT_REVISION_STAGE_EXPECTED_SCHEMA_UNKNOWN', 'ARTIFACT_REVISION_STAGE_GENERATED_COLUMN_UNKNOWN', 'ARTIFACT_REVISION_STAGE_IDENTIFIER_UNKNOWN',
-                'ARTIFACT_REVISION_STAGE_IDENTITY_INVALID', 'ARTIFACT_REVISION_STAGE_INPUT_INVALID', 'ARTIFACT_REVISION_STAGE_LEDGER_CHANGED',
-                'ARTIFACT_REVISION_STAGE_LEDGER_INVALID', 'ARTIFACT_REVISION_STAGE_PARENT_METADATA_CHANGED', 'ARTIFACT_REVISION_STAGE_PARENT_UNKNOWN',
-                'ARTIFACT_REVISION_STAGE_PRESTATE_TABLES_INVALID', 'ARTIFACT_REVISION_STAGE_SCHEMA_INVALID', 'ARTIFACT_REVISION_STAGE_SNAPSHOT_CHANGED',
-                'ARTIFACT_REVISION_STAGE_SOURCE_CHANGED', 'ARTIFACT_REVISION_STAGE_SOURCE_UNKNOWN', 'ARTIFACT_REVISION_STAGE_TABLE_MISSING',
-                'ARTIFACT_REVISION_STAGE_TRIGGER_UNKNOWN',
-            ],
-            'app/modules/peanut/workflow/src/Database/WorkflowSchemaMigrationProof.php' => [
-                'WORKFLOW_SCHEMA_STAGE_ADDED_VALUE_CHANGED', 'WORKFLOW_SCHEMA_STAGE_COLUMN_DELTA_INVALID', 'WORKFLOW_SCHEMA_STAGE_CONNECTION_UNSUPPORTED',
-                'WORKFLOW_SCHEMA_STAGE_CREATE_NOT_EMPTY', 'WORKFLOW_SCHEMA_STAGE_EXPRESSION_UNSUPPORTED', 'WORKFLOW_SCHEMA_STAGE_IDENTITY_INVALID',
-                'WORKFLOW_SCHEMA_STAGE_INPUT_INVALID', 'WORKFLOW_SCHEMA_STAGE_LEDGER_CHANGED', 'WORKFLOW_SCHEMA_STAGE_LEDGER_INVALID',
-                'WORKFLOW_SCHEMA_STAGE_LEDGER_READER_REQUIRED', 'WORKFLOW_SCHEMA_STAGE_LEGACY_DATA_REQUIRES_REVIEW', 'WORKFLOW_SCHEMA_STAGE_MANAGED_SCHEMA_INVALID',
-                'WORKFLOW_SCHEMA_STAGE_OBSERVATION_FAILED', 'WORKFLOW_SCHEMA_STAGE_ORIGINAL_ROWS_CHANGED', 'WORKFLOW_SCHEMA_STAGE_PARTIAL_SCHEMA',
-                'WORKFLOW_SCHEMA_STAGE_REPAIR_METADATA_CHANGED', 'WORKFLOW_SCHEMA_STAGE_RETAINED_CHECK_INVALID', 'WORKFLOW_SCHEMA_STAGE_RETAINED_GENERATED_INVALID',
-                'WORKFLOW_SCHEMA_STAGE_SCHEMA_REQUIRES_REVIEW', 'WORKFLOW_SCHEMA_STAGE_SNAPSHOT_CHANGED', 'WORKFLOW_SCHEMA_STAGE_SOURCE_CHANGED',
-                'WORKFLOW_SCHEMA_STAGE_STATISTICS_UNAVAILABLE', 'WORKFLOW_SCHEMA_STAGE_UNDECLARED_METADATA_CHANGED', 'WORKFLOW_SCHEMA_STAGE_UNRECORDED_SCHEMA_REQUIRES_REVIEW',
-                'WORKFLOW_SCHEMA_STAGE_V2_ASSIGNEE_DELTA_INVALID', 'WORKFLOW_SCHEMA_STAGE_V2_CHECK_INVALID', 'WORKFLOW_SCHEMA_STAGE_V2_COLUMN_INVALID',
-                'WORKFLOW_SCHEMA_STAGE_V2_CREATE_INVALID', 'WORKFLOW_SCHEMA_STAGE_V2_FOREIGN_KEY_INVALID', 'WORKFLOW_SCHEMA_STAGE_V2_GENERATED_EXPRESSION_INVALID',
-                'WORKFLOW_SCHEMA_STAGE_V2_INDEX_INVALID', 'WORKFLOW_SCHEMA_STAGE_V2_NOT_EMPTY', 'WORKFLOW_SCHEMA_STAGE_V2_SCHEMA_INVALID',
-            ],
-            'app/modules/official/notification/src/Contract/NotificationUpgradePreflight.php' => [
-                'CHECK_BETWEEN_UNKNOWN', 'CHECK_FUNCTION_UNKNOWN', 'CHECK_GROUP_UNKNOWN',
-                'CHECK_LIST_UNKNOWN', 'CHECK_NULL_UNKNOWN', 'CHECK_SYNTAX_UNKNOWN',
-                'CHECK_TRAILING_UNKNOWN', 'CHECK_VALUE_UNKNOWN', 'NOTIFICATION_FORWARD_CHECK_UNENFORCED',
-                'NOTIFICATION_FORWARD_CONNECTION_UNSUPPORTED', 'NOTIFICATION_FORWARD_CONSTRAINT_COLLISION', 'NOTIFICATION_FORWARD_CONTEXT_UNKNOWN',
-                'NOTIFICATION_FORWARD_DATABASE_UNKNOWN', 'NOTIFICATION_FORWARD_FOREIGN_SCHEMA', 'NOTIFICATION_FORWARD_INDEX_UNKNOWN',
-                'NOTIFICATION_FORWARD_LEDGER_ORDER_INVALID', 'NOTIFICATION_FORWARD_LEDGER_UNRESOLVED', 'NOTIFICATION_FORWARD_LEGACY_SCHEMA_UNKNOWN',
-                'NOTIFICATION_FORWARD_NAMESPACE_UNVERIFIED', 'NOTIFICATION_FORWARD_PARTIAL_SCHEMA', 'NOTIFICATION_FORWARD_PRODUCER_COLLISION',
-                'NOTIFICATION_FORWARD_SCHEMA_MISMATCH', 'NOTIFICATION_FORWARD_SNAPSHOT_CHANGED', 'NOTIFICATION_FORWARD_SNAPSHOT_UNAVAILABLE',
-                'NOTIFICATION_FORWARD_SOURCE_CHANGED', 'NOTIFICATION_FORWARD_SQL_CONTRACT_UNKNOWN', 'NOTIFICATION_FORWARD_TABLE_UNKNOWN',
-                'NOTIFICATION_FORWARD_TRIGGER_UNKNOWN', 'NOTIFICATION_STAGE_ALLOCATOR_UNKNOWN', 'NOTIFICATION_STAGE_CHECK_REPRESENTATION_UNKNOWN',
-                'NOTIFICATION_STAGE_CONNECTION_UNSUPPORTED', 'NOTIFICATION_STAGE_DDL_UNKNOWN', 'NOTIFICATION_STAGE_DELIVERY_NOT_READY',
-                'NOTIFICATION_STAGE_EXISTING_METADATA_CHANGED', 'NOTIFICATION_STAGE_IDENTITY_INVALID', 'NOTIFICATION_STAGE_INPUT_INVALID',
-                'NOTIFICATION_STAGE_LEDGER_CHANGED', 'NOTIFICATION_STAGE_LEDGER_INVALID', 'NOTIFICATION_STAGE_LEDGER_READER_REQUIRED',
-                'NOTIFICATION_STAGE_NEW_TABLE_NOT_EMPTY', 'NOTIFICATION_STAGE_OBSERVATION_FAILED', 'NOTIFICATION_STAGE_POSTSTATE_INVALID',
-                'NOTIFICATION_STAGE_PRESTATE_INVALID', 'NOTIFICATION_STAGE_REPAIR_METADATA_CHANGED', 'NOTIFICATION_STAGE_REPAIR_SCHEMA_INVALID',
-                'NOTIFICATION_STAGE_SNAPSHOT_CHANGED', 'NOTIFICATION_STAGE_SOURCE_CHANGED',
-            ],
-            'app/modules/official/task/src/Job/Database/TaskSchemaMigrationProof.php' => [
-                'TASK_SCHEMA_STAGE_CONNECTION_UNSUPPORTED', 'TASK_SCHEMA_STAGE_CREATE_POSTSTATE_INVALID', 'TASK_SCHEMA_STAGE_EXISTING_METADATA_CHANGED',
-                'TASK_SCHEMA_STAGE_FIXED_CHECK_DOMAIN_INVALID', 'TASK_SCHEMA_STAGE_FIXED_CHECK_INVALID', 'TASK_SCHEMA_STAGE_IDENTITY_INVALID',
-                'TASK_SCHEMA_STAGE_INPUT_INVALID', 'TASK_SCHEMA_STAGE_LEDGER_CHANGED', 'TASK_SCHEMA_STAGE_LEDGER_INVALID',
-                'TASK_SCHEMA_STAGE_LEDGER_READER_REQUIRED', 'TASK_SCHEMA_STAGE_OBSERVATION_FAILED', 'TASK_SCHEMA_STAGE_PROFILE_CHECK_INVALID',
-                'TASK_SCHEMA_STAGE_PROFILE_CHECK_RECOMPILATION_INVALID', 'TASK_SCHEMA_STAGE_PROFILE_POSTSTATE_INVALID', 'TASK_SCHEMA_STAGE_PROFILE_PRESTATE_INVALID',
-                'TASK_SCHEMA_STAGE_PROFILE_UNIQUE_CONFLICT', 'TASK_SCHEMA_STAGE_PROFILE_VALUES_INVALID', 'TASK_SCHEMA_STAGE_REPAIR_METADATA_CHANGED',
-                'TASK_SCHEMA_STAGE_REPAIR_PROFILE_INCOMPLETE', 'TASK_SCHEMA_STAGE_SNAPSHOT_CHANGED', 'TASK_SCHEMA_STAGE_SOURCE_CHANGED',
-                'TASK_SCHEMA_STAGE_STATISTICS_UNAVAILABLE', 'TASK_SCHEMA_STAGE_TABLE_UNSUPPORTED',
-            ],
-            'app/common/services/upgrade/MySqlMetadataObservation.php' => [
-                'MYSQL_METADATA_ALLOCATOR_UNKNOWN', 'MYSQL_METADATA_CHECK_NOT_ENFORCED', 'MYSQL_METADATA_CHECK_UNKNOWN',
-                'MYSQL_METADATA_COLUMN_UNKNOWN', 'MYSQL_METADATA_CREATE_SOURCE_UNKNOWN', 'MYSQL_METADATA_DDL_UNKNOWN',
-                'MYSQL_METADATA_DRIVER_UNSUPPORTED', 'MYSQL_METADATA_STATS_STATE_UNKNOWN', 'MYSQL_METADATA_TABLE_UNKNOWN',
-            ],
-        ];
         $chain = [];
         do {
-            $file = str_replace('\\', '/', $exception->getFile());
-            $class = get_class($exception);
-            $entry = [
-                'class' => str_contains($class, "\0") ? 'anonymous-class' : $class,
-                'path' => str_starts_with($file, $projectRoot) ? substr($file, strlen($projectRoot)) : null,
-                'line' => $exception->getLine(),
-            ];
-            if ($class === \PeanutAdmin\Modules\Identity\Database\IdentitySchemaMigrationProofFailure::class
-                && $file === rtrim(str_replace('\\', '/', $serverDir), '/') . '/app/modules/official/identity/src/Database/IdentitySchemaMigrationProof.php'
-                && $exception->getMessage() === \PeanutAdmin\Modules\Identity\Database\IdentitySchemaMigrationProofFailure::CAUSE) {
-                $entry['cause_code'] = \PeanutAdmin\Modules\Identity\Database\IdentitySchemaMigrationProofFailure::CAUSE;
-                $difference = $exception->diagnostic();
-                if ($difference !== null) { $entry['metadata_difference'] = $difference; }
-            }
-            if ($class === \PeanutAdmin\Modules\File\Contract\FileMigrationPreservationFailure::class
-                && $file === rtrim(str_replace('\\', '/', $serverDir), '/') . '/app/modules/official/file/src/Contract/FileMigrationPreservation.php'
-                && $exception->getMessage() === \PeanutAdmin\Modules\File\Contract\FileMigrationPreservationFailure::CAUSE) {
-                $entry['cause_code'] = \PeanutAdmin\Modules\File\Contract\FileMigrationPreservationFailure::CAUSE;
-                $difference = $exception->diagnostic();
-                if ($difference !== null) { $entry['metadata_difference'] = $difference; }
-            }
-            // Only this fixed producer's finite proof codes are safe to audit.
-            // Keep them on their actual chain entry, never in the public response.
-            if ($exception instanceof RuntimeException
-                && $file === rtrim(str_replace('\\', '/', $serverDir), '/') . '/app/modules/official/identity/src/Database/IdentitySchemaMigrationProof.php'
-                && str_starts_with($exception->getMessage(), 'IDENTITY_SCHEMA_STAGE_')
-                && in_array(substr($exception->getMessage(), strlen('IDENTITY_SCHEMA_STAGE_')), [
-                    'IDENTITY_INVALID', 'INPUT_INVALID', 'SOURCE_CHANGED',
-                    'LEDGER_READER_REQUIRED', 'LEDGER_INVALID', 'LEDGER_CHANGED',
-                    'CREATE_TARGET_EXISTS', 'ALTER_TARGET_MISSING', 'TARGET_MISSING', 'CREATE_POSTSTATE_INVALID',
-                    'ALTER_POSTSTATE_INVALID', 'COLUMN_PRESTATE_INVALID', 'COLUMN_PREDECESSOR_MISSING', 'LEADER_INDEX_INVALID',
-                    'AUDIT_TARGET_EXISTS', 'AUDIT_INDEX_EXISTS', 'AUDIT_COLUMN_MISSING', 'STAGE_UNKNOWN',
-                    'ORIGINAL_ROWS_CHANGED', 'NEW_FIELD_VALUES_INVALID', 'PARENT_KEY_UNSUPPORTED',
-                    'TABLE_UNSUPPORTED', 'TABLE_COLLATION_UNKNOWN', 'CONNECTION_UNSUPPORTED', 'STATISTICS_UNAVAILABLE', 'SNAPSHOT_CHANGED',
-                    'RECOVERY_INPUT_INVALID', 'RECOVERY_CREATE_POSTSTATE_CHANGED',
-                ], true)) {
-                $entry['cause_code'] = $exception->getMessage();
-            }
-            if ($class === RuntimeException::class) {
-                $relativeFile = str_starts_with($file, $projectRoot . 'server/')
-                    ? substr($file, strlen($projectRoot . 'server/')) : null;
-                if ($relativeFile !== null && isset($preservationCauseCodes[$relativeFile])
-                    && in_array($exception->getMessage(), $preservationCauseCodes[$relativeFile], true)) {
-                    $entry['cause_code'] = $exception->getMessage();
-                }
-            }
-            $sqlState = null;
-            $driverCode = null;
+            $entry = ['class' => $exception::class];
             if ($exception instanceof PDOException) {
-                $sqlState = $exception->errorInfo[0] ?? $exception->getCode();
-                $driverCode = $exception->errorInfo[1] ?? null;
-            } elseif ($exception instanceof \think\db\exception\PDOException) {
-                $pdoError = $exception->getData()['PDO Error Info'] ?? [];
-                $sqlState = $pdoError['SQLSTATE'] ?? null;
-                $driverCode = $pdoError['Driver Error Code'] ?? null;
-            }
-            if (is_string($sqlState) && preg_match('/^[A-Z0-9]{5}$/D', $sqlState) === 1) {
-                $entry['sqlstate'] = $sqlState;
-            }
-            if (is_int($driverCode) || (is_string($driverCode) && preg_match('/^[0-9]+$/D', $driverCode) === 1)) {
-                $entry['driver_code'] = (int) $driverCode;
+                $entry['sqlstate'] = $exception->errorInfo[0] ?? $exception->getCode();
+                $entry['driver_code'] = $exception->errorInfo[1] ?? null;
             }
             $chain[] = $entry;
             $exception = $exception->getPrevious();
         } while ($exception !== null);
-
         \think\facade\Log::write(json_encode([
-            'event' => 'installation_failure',
-            'stage' => $stage,
-            'error_code' => $errorCode,
-            'exception_chain' => $chain,
-            ...$diagnostic,
-        ], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), 'error');
+            'event' => 'installation_failure', 'stage' => $stage, 'error_code' => $errorCode,
+            'module_key' => $currentModule, 'exception_chain' => $chain,
+        ], JSON_THROW_ON_ERROR), 'error');
     } catch (Throwable) {
-        // A logging failure must never replace the installation failure.
+        // Diagnostics must not replace the original installation failure.
     }
 }
 
@@ -965,9 +679,6 @@ function installFreshDatabase(string $serverDir, array $input): array
     $pdo = $connection->getPdo();
     if (!$pdo instanceof PDO || $pdo->inTransaction()) { throw new RuntimeException('INSTALL_NATIVE_MASTER_REQUIRED'); }
     if ($pdo->query('SELECT DATABASE()')->fetchColumn() !== $database) { throw new RuntimeException('INSTALL_NATIVE_DATABASE_IDENTITY_CHANGED'); }
-    $baseline = \app\common\infrastructure\migration\CleanInstallBaseline::load($databaseDir);
-    $versions = applicationReleaseVersions($serverDir);
-    if (version_compare($versions['source_product_version'], $baseline->manifest['source_product_version'], '<')) { throw new RuntimeException('INSTALL_BASELINE_VERSION_CONFLICT'); }
 
     $lockName = 'peanut_install_' . substr(hash('sha256', $database), 0, 48);
     $lockStatement = $pdo->prepare('SELECT GET_LOCK(?, 10)');
@@ -983,7 +694,8 @@ function installFreshDatabase(string $serverDir, array $input): array
         if (installationStateBlocksFreshDatabase($serverDir)) {
             throw new RuntimeException('INSTALL_STATE_PRESENT: 安装身份状态已存在，拒绝再次初始化数据库');
         }
-        $expected = array_merge($baseline->manifest['tables'], ['pa_schema_migration']);
+        $expected = expectedTables([$databaseDir . '/schema/baseline-schema.sql']);
+        $expected[] = (string) $connection->getConfig('prefix') . \think\facade\Config::get('database.migration_table', 'migrations');
         $tableCount = (int) $pdo->query(
             'SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()',
         )->fetchColumn();
@@ -1001,29 +713,21 @@ function installFreshDatabase(string $serverDir, array $input): array
                 $platformCredentials['email'] ?? '',
             ])),
         );
-        $coreIdentity = [];
-        $baselineResult = $baseline->install($pdo,
-            function () use ($pdo, $adminEmail, $adminPassword, $platformCredentials, $demoAccounts, $tenantBootstrap, &$coreIdentity): void {
-                $coreIdentity = initializeCoreIdentity($pdo, $adminEmail, $adminPassword, $platformCredentials, $demoAccounts, $tenantBootstrap);
-                if ($demoAccounts->enabled()) { replaceInstalledDemoCredentialHashes($pdo, [$adminEmail, $platformCredentials['email'] ?? ''], $demoAccounts->credentialHash()); }
-                $pdo->exec('SET @pa_default_tenant_id = ' . (int) $coreIdentity['tenant_id']);
-                $pdo->prepare('SET @pa_default_tenant_code = ?')->execute([$tenantBootstrap['code']]);
-            },
-            function () use ($pdo, $serverDir): void {
-                (new CorePermissionCatalogSynchronizer(new ThinkPhpAuthorizationCatalogRepository()))->synchronize();
-                seedBrandDefaults($pdo, brandWebsiteDefaults($serverDir));
-            },
-            function () use ($pdo, $connection, $expected, $tenantBootstrap, $lockName): void {
-                if (\think\facade\Db::connect() !== $connection || $connection->getPdo() !== $pdo || $pdo->inTransaction()) { throw new RuntimeException('INSTALL_NATIVE_MASTER_CHANGED'); }
-                $lock = $pdo->prepare('SELECT IS_USED_LOCK(?) = CONNECTION_ID()'); $lock->execute([$lockName]);
-                if ((int) $lock->fetchColumn() !== 1) { throw new RuntimeException('INSTALL_DATABASE_LOCK_LOST'); }
-                $lock->closeCursor();
-                $actual = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
-                if (array_diff($expected, $actual) !== [] || count($actual) !== count($expected)
-                    || coreIdentityCounts($pdo, $tenantBootstrap['code']) !== ['tenant_count' => 1, 'owner_count' => 1, 'operator_count' => 1]
-                    || (int) $pdo->query('SELECT COUNT(*) FROM pa_system_menu')->fetchColumn() === 0
-                    || (int) $pdo->query('SELECT COUNT(*) FROM pa_config')->fetchColumn() === 0) { throw new RuntimeException('INSTALL_BASELINE_RESULT_INCOMPLETE'); }
-            });
+        $application = ensureThinkPhpApplication($serverDir);
+        $application->console->call('migrate:run');
+        $coreIdentity = initializeCoreIdentity($pdo, $adminEmail, $adminPassword, $platformCredentials, $demoAccounts, $tenantBootstrap);
+        if ($demoAccounts->enabled()) {
+            replaceInstalledDemoCredentialHashes($pdo, [$adminEmail, $platformCredentials['email'] ?? ''], $demoAccounts->credentialHash());
+        }
+        $application->console->call('seed:run', ['--seed=InitialSeeder']);
+        seedBrandDefaults($pdo, brandWebsiteDefaults($serverDir));
+        if (\think\facade\Db::connect() !== $connection || $connection->getPdo() !== $pdo || $pdo->inTransaction()) {
+            throw new RuntimeException('INSTALL_NATIVE_MASTER_CHANGED');
+        }
+        $lock = $pdo->prepare('SELECT IS_USED_LOCK(?) = CONNECTION_ID()');
+        $lock->execute([$lockName]);
+        if ((int) $lock->fetchColumn() !== 1) { throw new RuntimeException('INSTALL_DATABASE_LOCK_LOST'); }
+        $lock->closeCursor();
 
         $actual = array_map('strval', $pdo->query(
             'SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME',
@@ -1041,7 +745,7 @@ function installFreshDatabase(string $serverDir, array $input): array
 
         return [
             'database' => $database,
-            'baseline' => $baselineResult,
+            'migration' => 'native',
             'tables' => count($actual),
             'expected_tables' => count($expected),
             'active_menus' => $activeMenus,
@@ -1078,19 +782,6 @@ if ($installerIsDirect) {
     try {
         $application = ensureThinkPhpApplication(dirname(__DIR__));
         $host = $application->make(\app\common\services\installation\InstallationExecutionHost::class);
-        $partial = array_values(array_filter(array_slice($_SERVER['argv'] ?? [], 1), static fn(string $arg): bool => str_starts_with($arg, '--partial=')));
-        if ($partial === [] && array_filter(array_slice($_SERVER['argv'] ?? [], 1), static fn(string $arg): bool => str_starts_with($arg, '--partial-input=')) !== []) { throw new RuntimeException('INSTALL_PARTIAL_ARGUMENTS_INVALID'); }
-        if ($partial !== []) {
-            $inputs = array_values(array_filter(array_slice($_SERVER['argv'], 1), static fn(string $arg): bool => str_starts_with($arg, '--partial-input=')));
-            if (count($partial) !== 1 || count($inputs) !== 1 || count($_SERVER['argv']) !== 3) { throw new RuntimeException('INSTALL_PARTIAL_ARGUMENTS_INVALID'); }
-            $operation = substr($partial[0], strlen('--partial=')); $input = substr($inputs[0], strlen('--partial-input='));
-            $result = $application->make(\app\common\execution\ExecutionContextStore::class)->run(
-                new \app\common\execution\InstallationExecutionContext('installation.console.partial', 'install-' . bin2hex(random_bytes(16))),
-                static fn() => $host->partialInstallation($operation, $input),
-            );
-            echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR), PHP_EOL;
-            exit(0);
-        }
         if (in_array('--status', $_SERVER['argv'] ?? [], true)) {
             $status = $host->status();
             echo json_encode($status, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR), PHP_EOL;
@@ -1118,8 +809,7 @@ if ($installerIsDirect) {
         }
         exit(1);
     } catch (Throwable $exception) {
-        $code = isset($partial) && $partial !== [] && preg_match('/\A(?:INSTALL_(?:PARTIAL|SETUP_TOKEN)|MIGRATION_(?:CORRECTION|ORIGINAL)|APPLICATION_(?:DEVELOPMENT_RUNTIME|SOURCE))_[A-Z_]+\z/D', $exception->getMessage()) === 1
-            ? $exception->getMessage() : 'INSTALL_EXECUTION_FAILED';
+        $code = 'INSTALL_EXECUTION_FAILED';
         fwrite(STDERR, '安装失败：' . $code . PHP_EOL);
         if (in_array('--status', $_SERVER['argv'] ?? [], true)) {
             emitUnavailableInstallStatus();

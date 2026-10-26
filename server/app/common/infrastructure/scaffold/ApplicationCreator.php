@@ -859,7 +859,7 @@ final class ApplicationCreator
     private function textTransform(string $content, array $parameters, string $path): string
     {
         // Fixed artifacts and immutable migration source identities survive APP branding byte-for-byte.
-        if (str_starts_with($path, 'server/database/baselines/') || str_starts_with($path, 'server/database/migrations/')
+        if (str_starts_with($path, 'server/database/schema/') || str_starts_with($path, 'server/database/migrations/') || str_starts_with($path, 'server/database/seeds/')
             || preg_match('#^(?:server/app/modules|(?:web|platform|uniapp)/src/modules|pc/modules)/#D', $path) === 1) {
             // Official Module contents belong to their published identity. APP branding
             // must not mutate their canonical contents or dependency fingerprints.
@@ -1494,9 +1494,19 @@ final class ApplicationCreator
         unset($file);
         $managed = array_values(array_filter($files, static fn(array $file): bool => in_array($file['classification'], ['managed', 'generated-managed'], true)));
         $appOwned = array_values(array_filter($files, static fn(array $file): bool => $file['classification'] === 'app-owned'));
-        $seed = \app\common\infrastructure\migration\CleanInstallBaseline::load($stage . '/server/database');
-        $sourceSeed = \app\common\infrastructure\migration\CleanInstallBaseline::load($this->sourceRoot . '/server/database');
-        if ($seed->identity() !== $sourceSeed->identity()) { throw new RuntimeException('CREATE_APP_INSTALL_BASELINE_CHANGED'); }
+        $installationSources = [];
+        foreach (['migrations/*.php', 'schema/*.sql', 'seeds/*.php'] as $pattern) {
+            foreach (glob($this->sourceRoot . '/server/database/' . $pattern) ?: [] as $path) {
+                $relative = substr($path, strlen($this->sourceRoot) + 1);
+                $digest = hash_file('sha256', $path);
+                if (!is_string($digest) || !is_file($stage . '/' . $relative)
+                    || hash_file('sha256', $stage . '/' . $relative) !== $digest) {
+                    throw new RuntimeException('CREATE_APP_INSTALL_MIGRATION_CHANGED');
+                }
+                $installationSources[$relative] = $digest;
+            }
+        }
+        ksort($installationSources, SORT_STRING);
         $generationSource = [
             'repository' => $sourceProvenance['repository'],
             'requested_ref' => $sourceProvenance['requested_ref'],
@@ -1525,7 +1535,7 @@ final class ApplicationCreator
                 'edition' => $editionProfile->edition,
             ],
             'edition' => $editionProfile->identity(),
-            'installation_baseline' => $seed->identity(),
+            'installation_migrations' => $installationSources,
             'template' => $templateIdentity,
             'generation_source' => $generationSource,
             'ownership' => [

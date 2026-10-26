@@ -59,21 +59,17 @@ final class ModuleCheck extends ModuleContextualCommand
             || !hash_equals($manifest->digest, (string) ($installation['manifest_digest'] ?? ''))) {
             throw new \RuntimeException('PRESERVATION_OPTIONAL_MODULE_IDENTITY_UNKNOWN');
         }
-        // Identity alone does not prove that the schema migrations were actually applied.
-        $moduleRoot = realpath($manifest->root);
-        $declared = $manifest->data['backend']['migrations'] ?? null;
-        $directory = is_string($declared) ? realpath($manifest->root . '/' . $declared) : false;
-        if ($moduleRoot === false || $directory === false || !str_starts_with($directory . '/', $moduleRoot . '/')
-            || !is_dir($directory) || !is_readable($directory) || is_link($manifest->root . '/' . $declared)) {
-            throw new \RuntimeException('PRESERVATION_OPTIONAL_MODULE_MIGRATIONS_UNKNOWN');
+        $files = glob($this->getApp()->getRootPath() . 'database/migrations/*.php') ?: [];
+        $applied = array_map('strval', Db::name((string) config('database.migration_table', 'migrations'))->column('version'));
+        if ($files === []) {
+            throw new \RuntimeException('PRESERVATION_APPLICATION_MIGRATIONS_UNKNOWN');
         }
-        $files = glob($directory . '/*.sql');
-        if (!is_array($files) || $files === []) { throw new \RuntimeException('PRESERVATION_OPTIONAL_MODULE_MIGRATIONS_UNKNOWN'); }
-        sort($files, SORT_STRING);
-        $migrationFiles = [];
-        foreach ($files as $file) { $migrationFiles[$moduleKey . ':' . basename($file, '.sql')] = $file; }
-        // An adopted requirement is not evidence that historical SQL ran; validate its native provenance and live proof.
-        \app\platform\services\plugin\PluginLifecycleService::assertResolvedMigrationRows($moduleKey, $migrationFiles, $pdo);
+        foreach ($files as $file) {
+            if (!\Phinx\Util\Util::isValidMigrationFileName(basename($file))
+                || !in_array((string) \Phinx\Util\Util::getVersionFromFileName(basename($file)), $applied, true)) {
+                throw new \RuntimeException('PRESERVATION_APPLICATION_MIGRATIONS_PENDING');
+            }
+        }
         $states = $modules->installationStates([$moduleKey]);
         $state = $states[$moduleKey] ?? null;
         if (!is_array($state) || !in_array($state['status'] ?? null, ['active', 'maintenance'], true)

@@ -5,7 +5,7 @@
     "source": {
         "type": "canonical-contents",
         "reference": "canonical-plugin-contents-v1",
-        "sha256": "5acf155c947f0c08e3095303317bf32bfc4e1b3f61e1684ae96b7d87eac7dbce"
+        "sha256": "e3d1f2ad8d6348e2371e9b9f9b025eb241cf2391909b5d28c794a792bbc9a369"
     },
     "trust": {
         "channel": "bundled",
@@ -62,19 +62,6 @@
                     "permissions": {
                         "path": "resources/permissions.json",
                         "sha256": "1555e87dc071eb84e56631d77ab969bffd84fd16c7452f384e50f30eabe5da33"
-                    },
-                    "migrations": {
-                        "reversibility": "verified-backup-required",
-                        "files": [
-                            {
-                                "key": "fixture.workflow-business:20261012050100_workflow_business",
-                                "sha256": "34c60bca6ac1dd7bdb31a77be9a137ae99f7de8b863e9d309f4f7075d094a99c"
-                            },
-                            {
-                                "key": "fixture.workflow-business:20261012050200_workflow_collaboration",
-                                "sha256": "fd9e10722653314d2fdfd28bd9bbafd969a4e00eaec64a6c970053a259d04399"
-                            }
-                        ]
                     }
                 }
             ]

@@ -16,7 +16,6 @@
   ],
   "backend": {
     "provider": "PeanutAdmin\\Modules\\ReferenceCodes\\ModuleProvider",
-    "migrations": "database/migrations",
     "menus": "resources/menus.json",
     "permissions": "resources/permissions.json",
     "reference_code_sets": "resources/reference-code-sets.json"

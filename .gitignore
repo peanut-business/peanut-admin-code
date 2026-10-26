@@ -16,6 +16,7 @@ deploy/production.env
 /release/
 /.peanut/application-release.json
 /.peanut/upgrades/
+/.peanut/deploy-update.pending
 /release-manifest.txt
 # Backend deployment metadata is rebuilt from the same committed full APP.
 /server/.peanut/release-identity.json
