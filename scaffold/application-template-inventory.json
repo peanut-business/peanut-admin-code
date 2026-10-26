@@ -669,7 +669,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5337a386b824feb917c69240bec5e936a800abc70837a72fff1a89a40599225c"
+            "source_sha256": "285cd9304b62a81b28bc776055bb19583d073476cf639fa755d3f68fe894da9d"
         },
         {
             "path": "docs/architecture/cli-and-recipes.md",
@@ -1095,7 +1095,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c68412b499f3220a9e6146c776cea6a1af897625cfcd1134aa916ae47edd522a"
+            "source_sha256": "923c013e3fc763ad49d25b3267b73c56c23f1a1be2cd0758cbb450e0c9cc8c6e"
         },
         {
             "path": "docs/public/api-and-sdk.md",
@@ -1123,7 +1123,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "89a02b4ed4ec6ef8cdd222b185cc25696385ff37b0de2f7cf737ec55e79af47b"
+            "source_sha256": "85b75351e68e51922fa8bcb73520c21a7d2a709eb285ba4838c0cb27d0fbb840"
         },
         {
             "path": "docs/public/installation.md",
@@ -1137,7 +1137,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7106efaf41a2ccf71cdb1dd5c1a3dd93ddca4b2d794968d9f2bdc0cd3d751998"
+            "source_sha256": "e77fa60787cafd2974772dda93aa0cd819207313e8a7dfb1834a1b7efcd86c59"
         },
         {
             "path": "docs/public/module-development.md",
@@ -1165,7 +1165,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c71002ce3ee117e58ae2c781ea6618df07e91978122e4d8f06b938278cd536ec"
+            "source_sha256": "ff85e58e34843b66247dbfea04002f72704c355171a231ee6bbd99cbb9f41a2f"
         },
         {
             "path": "docs/public/support.md",
@@ -3998,7 +3998,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e3016e3d622527113054d221f41b856df5fbe7aca967924b98106f0c18c5d5ad"
+            "source_sha256": "4a23d0c8938a42ef795fcbb4f2c16190307a439c2b3f5bfce663ddbb62952900"
         },
         {
             "path": "scripts/release-metadata-version.cjs",
