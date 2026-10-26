@@ -9,9 +9,10 @@ use RuntimeException;
 /** One identity grammar for source snapshots, manifests and upgrade seals. */
 final class ScaffoldSourceIdentity
 {
-    private const EXCLUDED_NAMES = ['.git', '.local', '.ops', 'vendor', 'node_modules', '.nuxt', '.cache', 'coverage'];
+    private const EXCLUDED_NAMES = ['.git', '.local', '.ops', 'vendor', 'node_modules', '.nuxt', '.output', '.cache', '.playwright-cli', '.playwright-mcp', 'coverage'];
     private const EXCLUDED_PATHS = ['backups', 'release', 'releases', 'output', 'evidence', 'updates', '.peanut',
         'scaffold/releases', 'server/runtime', 'server/private/installation', 'server/private/resources',
+        'server/private/credential-maintenance', 'server/private/credentials',
         'server/private/storage', 'server/private/collaboration', 'server/public/uploads', 'server/public/storage',
         'server/public/admin', 'server/public/platform', 'server/public/pc', 'server/public/mobile',
         'server/docker/mysql', 'server/docker/secrets', 'server/docker/tls'];
@@ -191,7 +192,7 @@ final class ScaffoldSourceIdentity
         foreach ([...self::EXCLUDED_PATHS, ...$configured] as $prefix) {
             if ($path === $prefix || str_starts_with($path, $prefix . '/')) { return true; }
         }
-        if ($directory) { return $name === 'dist'; }
+        if ($name === 'dist') { return true; }
         $envTemplate = $name === '.env.example' || preg_match('/^\.env\.[A-Za-z0-9_-]+\.example$/D', $name) === 1;
         return (!$envTemplate && ($name === '.env' || str_starts_with($name, '.env.')))
             || preg_match('/(?:^|\.)secret(?:\.|$)/i', $name) === 1
