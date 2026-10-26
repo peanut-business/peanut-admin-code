@@ -1400,7 +1400,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4c52b5e4df7efebf18dd099f7fc13e17dbbe2c9fbb8b72507bb6423a4ce0af5b"
+            "source_sha256": "fa1005472f18ab98faeeb5859400ce087480b38674d4f6730d5279c405baa67d"
         },
         {
             "path": "pc/package.json",
@@ -1413,7 +1413,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dfcec74a8510f3c799dec2aba9a4aa1f988dbd9dacd1dab7b2c58df991438580"
+            "source_sha256": "07d167f93ac4aa374fb1d0fefea106ef0c227ccaa5ead499d020c3738125cadd"
         },
         {
             "path": "pc/pages/about.vue",
@@ -34570,7 +34570,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "39971095de732799385306655948f9f84073ee530848b3fe8443105f0c9ba16b"
+            "source_sha256": "155c84a4775c769e09880984afb3feb454d894aa15dd307e376670711e97c66e"
         },
         {
             "path": "uniapp/package.json",
@@ -35831,7 +35831,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2448b1bbc6ea267d7f8dcd9fefb35e1eb25b8ea249397b2d50cfed5e5f650db4"
+            "source_sha256": "6695f9f25a020cd3070e6fc0313c2cf2522791aec872856afa809e01c509d4b5"
         },
         {
             "path": "web/pnpm-lock.yaml",
@@ -35845,7 +35845,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0692bfaecbb28e888177ca298b3b300756ed7d825ff06ddee9b6556eea1a85c3"
+            "source_sha256": "fc55356738495f1ffda3d178797fe6203472e309593a9568997ded0cdb1b65a9"
         },
         {
             "path": "web/public/brand/avatar-admin.svg",

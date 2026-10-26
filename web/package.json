@@ -47,7 +47,7 @@
     "@vueuse/core": "^9.3.0",
     "axios": "0.34.0",
     "dayjs": "^1.11.5",
-    "dompurify": "^3.4.16",
+    "dompurify": "^3.4.17",
     "echarts": "6.1.0",
     "element-plus": "2.14.3",
     "lodash": "^4.17.21",
