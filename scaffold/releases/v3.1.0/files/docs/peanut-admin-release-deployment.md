@@ -1,5 +1,0 @@
-# Deployment
-
-One deployment is one application instance with its own database, secrets, file storage and lifecycle. Root `.env` is Docker orchestration only; `server/.env` is the only backend configuration source. Invoke Compose with `--env-file .env --env-file server/.env` after registering this application's resources; never inherit the scaffold source environment.
-
-A fresh install creates the Core/Application baseline and then applies the current scaffold's append-only Peanut migrations plus unmarked application-owned migrations before reporting success. Normal updates preserve data, install locked dependencies, and run `php server/database/install.php --migrate --target-version=<scaffold-template>`, where the target is the adopted `release-versions.json.scaffold_template`; the application's own release tag controls deployment order and does not filter Peanut SQL. A scaffold major change must use the explicit, backed-up `--fresh` path. Plugin Module migrations keep their independent lifecycle. Multi-tenant deployments require a separate PlatformOperator identity and the `/platform/` bundle.

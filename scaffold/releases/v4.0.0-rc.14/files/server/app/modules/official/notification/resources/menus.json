@@ -1,5 +1,0 @@
-[
-  {"key":"official.notification.channel","parent_key":"core.applications","scope":"tenant","type":"page","name":"通知渠道","route_name":"NoticeChannel","route_path":"/notice/channel","component_key":"official.notification.channel","required_permission":"official.notification.channel.detail","icon":"icon-notification","sort_order":70,"client_keys":["admin-web"]},
-  {"key":"official.notification.template","parent_key":"core.applications","scope":"tenant","type":"page","name":"通知模板","route_name":"NoticeTemplate","route_path":"/notice/template","component_key":"official.notification.template","required_permission":"official.notification.scene.list","icon":"icon-file","sort_order":60,"client_keys":["admin-web"]},
-  {"key":"official.notification.log","parent_key":"core.operations","scope":"tenant","type":"page","name":"通知日志","route_name":"NoticeLog","route_path":"/notice/log","component_key":"official.notification.log","required_permission":"official.notification.log.list","icon":"icon-history","sort_order":50,"client_keys":["admin-web"]}
-]

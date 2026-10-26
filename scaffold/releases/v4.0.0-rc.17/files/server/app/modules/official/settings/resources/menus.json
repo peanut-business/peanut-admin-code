@@ -1,3 +1,0 @@
-[
-  {"key":"official.settings.page","parent_key":"core.system","scope":"tenant","type":"page","name":"设置","route_name":"OfficialSettings","route_path":"/system/settings","component_key":"official.settings.page","required_permission":"official.settings.read","icon":"icon-settings","sort_order":70,"client_keys":["admin-web"]}
-]

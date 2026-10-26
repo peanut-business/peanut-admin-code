@@ -1,9 +1,0 @@
-{
-    "name": "@peanut-admin/official-article",
-    "version": "999999.999999.999999",
-    "private": true,
-    "type": "module",
-    "exports": {
-        ".": "./contribution.ts"
-    }
-}
