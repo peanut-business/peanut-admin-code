@@ -452,7 +452,7 @@ final class TenantAuthService
         string $requestId,
     ): \PeanutAdmin\Kernel\Auth\TenantContext {
         return \PeanutAdmin\Kernel\Auth\TenantContext::fromValidatedSession(
-            $this->validatedAccessSession($accessToken),
+            $this->validatedAccessSession($accessToken, false),
             $requestId,
         );
     }
@@ -546,16 +546,35 @@ final class TenantAuthService
         return $result;
     }
 
-    private function validatedAccessSession(string $accessToken): \PeanutAdmin\Kernel\Auth\ValidatedTenantSession
+    private function validatedAccessSession(string $accessToken, bool $forUpdate = true): \PeanutAdmin\Kernel\Auth\ValidatedTenantSession
     {
         $this->assertTenantTokenPrefix($accessToken, \PeanutAdmin\Kernel\Auth\TokenIssuer::TENANT_ACCESS_PREFIX);
-        $now = $this->clock->now();
-        $result = Db::transaction(function () use ($accessToken, $now): \PeanutAdmin\Kernel\Auth\ValidatedTenantSession|\PeanutAdmin\Kernel\Auth\AuthException {
+        // Normal HTTP context reads never lock authority rows. Existing write callers
+        // and calls inside transactions retain current locking reads, not MVCC snapshots.
+        $pdo = Db::connect()->getPdo();
+        if (!$forUpdate && (!$pdo instanceof \PDO || !$pdo->inTransaction())) {
+            $record = $this->repository->sessionByTokenHash(hash('sha256', $accessToken), 'access');
+            $now = $this->clock->now();
+            \app\common\services\upgrade\SourceApplicationBackup::assertInstalledQualificationWrite(Db::connect()->getPdo());
+            if ($record === null || $record->clientKey !== $this->client->key) {
+                throw new \PeanutAdmin\Kernel\Auth\AuthException('AUTH_TOKEN_INVALID', 401);
+            }
+            $tokenFailure = $this->tokenFailure($record, 'access', $now);
+            if ($tokenFailure !== null) {
+                throw $tokenFailure;
+            }
+            if ($this->sessionFailure($record, $now) === null) {
+                return $record->validated();
+            }
+        }
+
+        $result = Db::transaction(function () use ($accessToken): \PeanutAdmin\Kernel\Auth\ValidatedTenantSession|\PeanutAdmin\Kernel\Auth\AuthException {
             $record = $this->repository->sessionByTokenHash(
                 hash('sha256', $accessToken),
                 'access',
                 true,
             );
+            $now = $this->clock->now();
             // The locked read may have waited beyond a native qualification window.
             \app\common\services\upgrade\SourceApplicationBackup::assertInstalledQualificationWrite(Db::connect()->getPdo());
             if ($record === null) {

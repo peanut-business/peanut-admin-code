@@ -108,6 +108,24 @@ final readonly class ApplicationReleaseVersions
     public static function runningVersion(string $serverRoot): string
     {
         if (ApplicationSourceIdentity::hasRuntime($serverRoot)) {
+            // Version presentation is not deployment admission. CLI maintenance still
+            // verifies the complete identity; HTTP only reads its version declaration.
+            if (PHP_SAPI !== 'cli') {
+                $path = $serverRoot . '/' . ApplicationSourceIdentity::RUNTIME_PATH;
+                if (!is_file($path) || is_link($path)) {
+                    throw new RuntimeException('APPLICATION_DEVELOPMENT_RUNTIME_INVALID');
+                }
+                $value = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+                $version = $value['versions']['release_sequence_version'] ?? null;
+                if (($value['protocol'] ?? null) !== 'peanut.development-server-runtime.v1'
+                    || ($value['schema_version'] ?? null) !== 1
+                    || ($value['environment'] ?? null) !== 'development'
+                    || !is_string($version) || preg_match(self::STRICT_SEMVER, $version) !== 1
+                    || ($value['application']['version'] ?? null) !== $version) {
+                    throw new RuntimeException('APPLICATION_DEVELOPMENT_RUNTIME_INVALID');
+                }
+                return $version;
+            }
             return ApplicationSourceIdentity::load($serverRoot)->versions()['release_sequence_version'];
         }
         $identityPath = $serverRoot . '/.peanut/release-identity.json';

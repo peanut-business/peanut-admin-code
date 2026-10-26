@@ -212,7 +212,7 @@ final class ThinkPhpPlatformAuthRepository implements PlatformAuthRepository
         string $tokenType,
         bool $forUpdate = false,
     ): ?PlatformSessionAuthenticationRecord {
-        $query = PlatformSessionToken::alias('token')
+        $query = PlatformSessionToken::alias('token')->master()
             ->join('platform_session session', 'session.id = token.session_id')
             ->join('account account', 'account.id = session.account_id')
             ->join(

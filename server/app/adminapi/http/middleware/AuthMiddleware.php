@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace app\adminapi\http\middleware;
 
 use app\adminapi\infrastructure\AdminApiAccessRegistry;
-use app\common\dto\authorization\AdminPrincipal;
 use app\common\dto\authorization\PermissionDecision;
 use app\common\services\authorization\AdminAuthorizationService;
 use app\common\http\JsonResponseFactory;
@@ -55,9 +54,9 @@ class AuthMiddleware
 
         $tenantContext = $current instanceof AdminExecutionContext ? $current->tenant : null;
         $decision = $tenantContext instanceof \PeanutAdmin\Kernel\Auth\TenantContext
-            ? $this->authorization->decide(
+            ? $this->authorization->decideForRequest(
+                $request,
                 $tenantContext,
-                AdminPrincipal::fromArray($adminInfo),
                 $accessUri,
             )
             : PermissionDecision::deny($accessUri, 'INVALID_TENANT_ADMIN_CONTEXT');

@@ -19,6 +19,10 @@ php think module:pack <vendor.module> --output=<absolute-release-path>/<name>.ta
 
 源码 HTTP 请求只读取已编译模块注册表，不逐请求校验插件目录、编译声明或扫描 PHP 源码边界。`module:compile` 在本地 CLI 中完成全量校验并写入 ThinkPHP 原生 File 缓存，不运行迁移或访问业务数据库；缓存只含模块声明，不含租户、用户或权限快照。`think run` 和 `scripts/local-php-runtime start` 启动前自动生成，直接使用 `php -S` 的调用方须先执行该命令。`plugin:lock --write` 同步刷新编译结果；锁文件、依赖身份或编译配置改变后，其他采用入口须重新执行 `module:compile`。缺失或输入不匹配时 HTTP 返回 503，不在请求中自动重编译。编译结果位于 `runtime/module-registry`，普通业务缓存清理不删除它；清空整个 runtime 后须重新编译。正式部署继续使用既有 VerifiedServerDeployment 发布/读取流程。
 
+生成产品的 HTTP 版本展示只读取 development-runtime 的版本声明，不借展示入口重新校验整个源码与 vendor。该版本值不能作为安装、升级或部署准入证明；这些维护入口继续校验完整身份。配置了 `project.version` 时不再读取默认版本。
+
+普通平台、租户 access token 认证从主库无锁读取当前会话及身份状态，不为正常读取锁住租户、账号和会话行。失效会话的撤销先在事务中加锁复核；刷新、登出、切换租户等写操作及既有事务内的认证继续使用加锁路径。租户后台 Login 与 Auth 中间件通过 ThinkPHP Request 内部存储传递一次已装载的身份，权限中间件消费后清除；身份不进入跨请求缓存。业务用例的 `decide()` 和授权操作仍重新核对当前身份，不复用这一中间件传递记录。
+
 包作者通过可信渠道交付archive和SHA-256，不能把未知包旁自行计算的摘要当作可信来源。`module:install-package <archive> --sha256=<trusted-64-hex>`是已知Standalone / multi-tenant实例的本地开发或调试Runtime安装入口；它不创建租户、开通TenantModule或授予RBAC。确需签名时，打包同时提供`--signing-key-id`和`--signing-secret-key-file`，安装可显式要求`--signature-key-id`；既有签名不被无条件忽略。生产模块交付仍走该版本支持的受控入口，不允许普通租户自行上传和运行PHP。
 
 租户开通与成员授权各有独立入口。Standalone 部署 owner 对已安装且锁定的私有模块，可用 `php think tenant-module:enable-locked-private --module=<vendor.module>` 显式加入默认租户；该命令不授予 RBAC。平台路由提供受 `platform.tenant.module.manage` 权限保护的 `POST tenants/modules/enable` / `disable`，用于受支持的租户模块管理。成员权限沿应用的角色、成员管理入口办理，并核对实际权限键及租户 Scope；平台 `operators/roles/replace` 是平台操作员角色入口，不等同租户成员授权。当前没有已核实的“安装包后自动为任意租户开通并给所有成员授权”的单一命令，因此不得把安装成功当作可用授权回执。

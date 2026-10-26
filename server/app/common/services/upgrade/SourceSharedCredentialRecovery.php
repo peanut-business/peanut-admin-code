@@ -18,8 +18,9 @@ use think\facade\Db;
 /** Native source-only maintenance of one credential shared by the two current administrator identities. */
 final readonly class SourceSharedCredentialRecovery
 {
-    private const EFFECTS = ['one_credential_password', 'one_credential_revision', 'one_account_security_revision',
-        'both_surfaces_session_token_revocation', 'account_challenge_revocation', 'both_security_and_business_audiences'];
+    private const EFFECTS = ['one_credential_password', 'one_credential_revision', 'one_credential_failed_attempts_reset', 'one_account_security_revision',
+        'all_tenant_memberships_explicitly_bound', 'both_surfaces_session_token_revocation',
+        'account_challenge_revocation', 'both_security_and_business_audiences'];
 
     public function __construct(private App $app) {}
 
@@ -79,7 +80,8 @@ final readonly class SourceSharedCredentialRecovery
                 $bytes = $this->encode($plan);
                 $this->createPrivate($planPath, $bytes);
                 return ['mode' => 'preflight_only', 'plan_path' => $planPath, 'plan_sha256' => hash('sha256', $bytes),
-                    'operation_id' => $operation, 'affected_surfaces' => ['tenant', 'platform'], 'mutation' => 'not_executed'];
+                    'operation_id' => $operation, 'affected_surfaces' => ['tenant', 'platform'],
+                    'affected_tenant_ids' => $snapshot['affected_tenant_ids'], 'mutation' => 'not_executed'];
             }
             $bytes = $this->readPrivate($planPath);
             $digest = hash('sha256', $bytes);
@@ -118,13 +120,17 @@ final readonly class SourceSharedCredentialRecovery
             $result = $recovery->recoverCurrentSharedAccount($tenant, $platform, $password, $plan, $guard);
             $receipt = ['protocol' => 'peanut.current-shared-credential-result.v1', 'operation_id' => $operation,
                 'plan_sha256' => $digest, 'status' => 'completed', 'result' => $result,
-                'affected_surfaces' => ['tenant', 'platform'], 'observed_at' => time(), 'login' => 'not_verified'];
+                'affected_surfaces' => ['tenant', 'platform'], 'affected_tenant_ids' => $snapshot['affected_tenant_ids'],
+                'failed_attempts_reset' => true,
+                'observed_at' => time(), 'login' => 'not_verified'];
             $resultPath = $directory . '/' . $operation . '.result.json';
             $resultBytes = $this->encode($receipt);
             $this->createPrivate($resultPath, $resultBytes);
             return ['status' => 'completed', 'operation_id' => $operation, 'result_path' => $resultPath,
                 'result_sha256' => hash('sha256', $resultBytes), 'password_ref' => $passwordRef,
-                'affected_surfaces' => ['tenant', 'platform'], 'login' => 'not_verified'];
+                'affected_surfaces' => ['tenant', 'platform'], 'affected_tenant_ids' => $snapshot['affected_tenant_ids'],
+                'failed_attempts_reset' => true,
+                'login' => 'not_verified'];
         } finally {
             if (function_exists('sodium_memzero')) {
                 sodium_memzero($passwordBytes);

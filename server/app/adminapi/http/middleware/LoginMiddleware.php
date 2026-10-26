@@ -48,7 +48,7 @@ final class LoginMiddleware
                 TenantEntryBindingResolver::ADMIN_CLIENT,
                 $context->tenantId,
             );
-            $principal = $this->authorization->principal($context)->toArray();
+            $principal = $this->authorization->principalForRequest($request, $context)->toArray();
             $principal['terminal'] = 1;
             $entryBound = $entryBindings->boundTenantId(
                 $request,

@@ -1151,7 +1151,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "63df597af96f8bc8745f5309e2664385af871e8dc51d84417067fdb317d850c5"
+            "source_sha256": "7d7fab3bf02482a7864768b7ee5484c2bf9c8b7bc1c96180dbca542c4c4594de"
         },
         {
             "path": "docs/public/release-channels.md",
@@ -2497,7 +2497,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ff621fb031137ab3d262ebba177c3f24f9af54b7893d5d0e5e6e157dbc0bfa54"
+            "source_sha256": "80ffaf289935e251f0236c9f0ebebe3c6f73a76047035bdaae401313d6dad2cd"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2634,7 +2634,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "54b8afe20ed0fff25f89dd13c9cfbd6e61a22c511fc52dce54e42bdf55a572cd"
+            "source_sha256": "da73f6d7decdaa123642a8eeaa46cc039b586d00afd656c7d1d417749980ee52"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -5677,7 +5677,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "df27f4c4060fa884883949ecf410a7fef9ee7f7c4ce95a5d75bf4b994986f3b9"
+            "source_sha256": "2565330396f3676e59badd84fc5775f18c65e73ba42c697c404c1d877e6bfcd7"
         },
         {
             "path": "server/app/adminapi/http/middleware/LoginMiddleware.php",
@@ -5691,7 +5691,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fa59ca3015b3eda601458d007bc213b7bb08811457a9eea14ec3a445c7e8db20"
+            "source_sha256": "eb5c7c34611852b771660455d20f7d3381a5e06823b50329891624e191aa2979"
         },
         {
             "path": "server/app/adminapi/http/middleware/OperationLogMiddleware.php",
@@ -9434,7 +9434,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e56f3d2f6bd99517d0f6bc4fc4cba1c0565ec67f08c336007d7a41e6fdcfad9c"
+            "source_sha256": "4e0565c0d154793fc716eb3dc30b5a9374fbc1e9b5abdf5fb75cc28ec27ba038"
         },
         {
             "path": "server/app/common/services/authorization/MenuPermissionUsageQuery.php",
@@ -9673,7 +9673,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2e3e522ae2f6129dbc5953cd2a5a39f3586c0c862ccebb10049ead382ce5c388"
+            "source_sha256": "84cb7233f9fca1df5ee20b44ef3472157a159258072b50f0b8048dfe3449f505"
         },
         {
             "path": "server/app/common/support/ExportPageInfo.php",
@@ -9995,7 +9995,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "473050afecca91800cc22b1b4224def519819fe3b8c0404227fd55951c50220e"
+            "source_sha256": "70811d530eddc2593ab8c151f858a2069c8cec152b63a9c173b15083dde1d86f"
         },
         {
             "path": "server/app/common/value/installation/ApplicationSourceIdentity.php",
@@ -14234,7 +14234,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4902886d5edccc781b4c00e6738d94a1754fa568c12b5c22df58b13cec6468ab"
+            "source_sha256": "e6351af39bb41d41eff6f4ff504d417e51d2f0d5e62b28f9c9d7a93c384b7a4b"
         },
         {
             "path": "server/app/modules/official/identity/src/Auth/Persistence/ThinkPhpTenantAuthRepository.php",
@@ -14248,7 +14248,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "ba79193a35fec80b3da7b8a7c36d1e46eb63d1b20708739d2f35105945e86622"
+            "source_sha256": "e7d20a08a480c9e73d15f9d243595272d3f19e1fed2b803d76362f1f2e097171"
         },
         {
             "path": "server/app/modules/official/identity/src/Auth/PlatformAuthPrincipal.php",
@@ -14290,7 +14290,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "47c73ba1d574a4278767fe6b5cfa1ac73779cf986d775b465a70a3cc9d0548a0"
+            "source_sha256": "c8947bce2a160df8636bd3676e14c1a9c3bad02759933fbc7032373cadf9a812"
         },
         {
             "path": "server/app/modules/official/identity/src/Auth/PlatformAuthentication.php",
@@ -14374,7 +14374,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f25f618449c5fb697eac5007c7468e46d89cafb0f70afbca5c3e4ef058f4f5aa"
+            "source_sha256": "286b6dad0801fdfdac0267642d5e2b55e9e771cfdfd3b1d59d092e90a5928155"
         },
         {
             "path": "server/app/modules/official/identity/src/Auth/TenantAuthentication.php",
@@ -15228,7 +15228,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3e5fe895872162eb7c0e49d58ea03083a9873f27ea2a4aacb9148750d86a4f03"
+            "source_sha256": "45e2a3b60071fc1ec7e596fd90509f4ffc255351d5c34ff55c01fb9e3c3978d0"
         },
         {
             "path": "server/app/modules/official/identity/src/Identity/Query/ThinkPhpPlatformOperatorIdentityQuery.php",
@@ -27417,7 +27417,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3bbfd015b5c0936802c516886a718ecd77a2192cc0b5335acb95e5e6d494800e"
+            "source_sha256": "a0a55bf076f8b3b3301c5b234e0db5c25d777b7ce14827863e0240938d82c292"
         },
         {
             "path": "server/config/route.php",

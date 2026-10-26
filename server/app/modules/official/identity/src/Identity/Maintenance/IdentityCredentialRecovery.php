@@ -205,6 +205,7 @@ final readonly class IdentityCredentialRecovery
             || ($origin['kind'] ?? null) !== 'local-cli' || ($origin['uid'] ?? null) !== posix_geteuid()
             || ($origin['username'] ?? null) !== (posix_getpwuid(posix_geteuid())['name'] ?? null)
             || !is_array($before) || ($before['eligible'] ?? null) !== true
+            || !is_array($before['affected_tenant_ids'] ?? null) || $before['affected_tenant_ids'] === []
             || ($before['tenant_id'] ?? null) !== $tenant->tenantId
             || ($plan['operation_id'] ?? null) !== $tenant->operationId || $tenant->operationId !== $platform->operationId
             || preg_match('/\A[a-z0-9][a-z0-9._-]{0,63}\z/D', $tenant->operationId) !== 1
@@ -218,24 +219,22 @@ final readonly class IdentityCredentialRecovery
         $metadata = ['mode' => 'current-existing-shared', 'approval_ref' => $plan['approval_ref'],
             'operation_id' => $operation, 'password_ref' => $plan['password_ref'], 'caller_origin' => $origin,
             'plan_sha256' => $plan['plan_sha256'],
-            'affected_surfaces' => ['tenant', 'platform']];
+            'affected_surfaces' => ['tenant', 'platform'], 'affected_tenant_ids' => $before['affected_tenant_ids']];
         return $this->recover(
             'current-shared', $before['account_id'], $before['credential_id'], $newPassword,
             $operation, $operation, $plan['approval_ref'], $origin['username'], $plan['password_ref'],
             function () use ($nativeGuard, $before): array {
                 $nativeGuard();
                 $current = $this->currentSharedSnapshot($before['tenant_id'], $before['account_id'], $before['credential_id'], true);
-                if ($current !== $before) { throw new RuntimeException('IDENTITY_CURRENT_RECOVERY_TARGET_CHANGED'); }
+                self::assertCurrentSharedSnapshot($before, $current, false);
                 return $current;
             },
             function (array $old, array $after, array $revoked) use ($tenant, $platform, $metadata, $operation, $nativeGuard): void {
                 $current = $this->currentSharedSnapshot($old['tenant_id'], $old['account_id'], $old['credential_id'], true);
-                $expected = $old;
-                $expected['credential_revision']++;
-                $expected['security_revision']++;
-                if ($current !== $expected) { throw new RuntimeException('IDENTITY_CURRENT_RECOVERY_POSTSTATE_CHANGED'); }
+                self::assertCurrentSharedSnapshot($old, $current, true);
                 $beforeJson = $this->json($old);
-                $afterJson = $this->json($after + ['revoked' => $revoked, 'affected_surfaces' => ['tenant', 'platform']]);
+                $afterJson = $this->json($after + ['revoked' => $revoked, 'failed_attempts' => 0,
+                    'affected_surfaces' => ['tenant', 'platform'], 'affected_tenant_ids' => $old['affected_tenant_ids']]);
                 $this->audit->appendTenantEvent($old['tenant_id'], 'identity.credential.recovered', self::TENANT_OWNER_OPERATION,
                     'success', null, $old['tenant_id'], null, null, null, 'tenant_system', 'credential',
                     (string) $old['credential_id'], null, null, 1, null, $this->json($metadata), $operation, $operation,
@@ -261,37 +260,127 @@ final readonly class IdentityCredentialRecovery
     private function currentSharedSnapshot(int $tenantId, int $accountId, int $credentialId, bool $lock): array
     {
         if (min($tenantId, $accountId, $credentialId) < 1) { throw new RuntimeException('IDENTITY_CURRENT_RECOVERY_TARGET_INVALID'); }
-        $tenant = Tenant::where('id', $tenantId)->field(['id', 'status'])->lock($lock)->find();
+        $tenantFields = ['id', 'status', 'security_revision', 'authorization_revision', 'revision'];
+        $tenant = Tenant::where('id', $tenantId)->field($tenantFields)->lock($lock)->find();
         $account = Account::where('id', $accountId)->field(['id', 'status', 'security_revision', 'locked_until', 'last_login_at'])->lock($lock)->find();
         $credential = Credential::where('id', $credentialId)->where('account_id', $accountId)
-            ->field(['id', 'kind', 'identifier_type', 'identifier_normalized', 'status', 'revision', 'failed_attempts', 'locked_until', 'expires_at'])->lock($lock)->find();
+            ->field(['id', 'account_id', 'kind', 'identifier_type', 'identifier_normalized', 'status', 'revision', 'failed_attempts', 'locked_until', 'expires_at'])->lock($lock)->find();
         $members = TenantMember::where('account_id', $accountId)
-            ->field(['id', 'tenant_id', 'status'])->lock($lock)->select()->toArray();
-        $operators = PlatformOperator::where('account_id', $accountId)->field(['id', 'status'])->lock($lock)->select()->toArray();
-        if ($tenant === null || $account === null || $credential === null || count($members) !== 1 || count($operators) !== 1
+            ->field(['id', 'account_id', 'tenant_id', 'status', 'security_revision', 'authorization_revision'])
+            ->order('tenant_id,id')->lock($lock)->select()->toArray();
+        $operators = PlatformOperator::where('account_id', $accountId)
+            ->field(['id', 'account_id', 'status', 'security_revision'])->order('id')->lock($lock)->select()->toArray();
+        $memberIds = array_column($members, 'id');
+        $tenantIds = array_values(array_unique(array_column($members, 'tenant_id')));
+        $tenants = $tenantIds === [] ? [] : Tenant::whereIn('id', $tenantIds)->field($tenantFields)
+            ->order('id')->lock($lock)->select()->toArray();
+        $memberRoles = $memberIds === [] ? [] : MemberRole::alias('binding')
+            ->leftJoin('role role', 'role.id=binding.role_id AND role.tenant_id=binding.tenant_id')
+            ->whereIn('binding.tenant_member_id', $memberIds)
+            ->field(['binding.id' => 'binding_id', 'binding.tenant_id', 'binding.tenant_member_id', 'binding.role_id',
+                'role.key' => 'role_key', 'role.is_builtin' => 'role_is_builtin', 'role.status' => 'role_status',
+                'role.authorization_revision' => 'role_authorization_revision', 'role.archived_at' => 'role_archived_at'])
+            ->order('binding.tenant_id,binding.tenant_member_id,binding.id')->lock($lock)->select()->toArray();
+        $platformRoles = $operators === [] ? [] : Db::name('platform_operator_role')->alias('binding')
+            ->leftJoin('platform_role role', 'role.id=binding.platform_role_id')
+            ->whereIn('binding.platform_operator_id', array_column($operators, 'id'))
+            ->field(['binding.id' => 'binding_id', 'binding.platform_operator_id', 'binding.platform_role_id' => 'role_id',
+                'role.key' => 'role_key', 'role.is_builtin' => 'role_is_builtin', 'role.status' => 'role_status',
+                'role.revision' => 'role_revision', 'role.archived_at' => 'role_archived_at'])
+            ->order('binding.id')->lock($lock)->select()->toArray();
+        return self::currentSharedSnapshotFromRows($tenantId, $accountId, $credentialId, [
+            'tenant' => $tenant?->toArray(), 'account' => $account?->toArray(), 'credential' => $credential?->toArray(),
+            'members' => $members, 'tenants' => $tenants, 'operators' => $operators,
+            'member_roles' => $memberRoles, 'platform_roles' => $platformRoles,
+        ], $this->accountSessionCounts($accountId));
+    }
+
+    /** The complete account affiliation is part of the approved business target, not an inferred extra tenant. */
+    private static function currentSharedSnapshotFromRows(int $tenantId, int $accountId, int $credentialId, array $rows, array $sessions): array
+    {
+        $tenant = $rows['tenant']; $account = $rows['account']; $credential = $rows['credential'];
+        $members = self::currentSharedOrderedRows($rows['members'], ['id', 'account_id', 'tenant_id', 'security_revision', 'authorization_revision']);
+        $tenants = self::currentSharedOrderedRows($rows['tenants'], ['id', 'security_revision', 'authorization_revision', 'revision']);
+        $operators = self::currentSharedOrderedRows($rows['operators'], ['id', 'account_id', 'security_revision']);
+        $memberRoles = self::currentSharedOrderedRows($rows['member_roles'], ['binding_id', 'tenant_id', 'tenant_member_id', 'role_id', 'role_is_builtin', 'role_authorization_revision'], 'binding_id');
+        $platformRoles = self::currentSharedOrderedRows($rows['platform_roles'], ['binding_id', 'platform_operator_id', 'role_id', 'role_is_builtin', 'role_revision'], 'binding_id');
+        $selectedMembers = array_values(array_filter($members, static fn(array $member): bool => $member['tenant_id'] === $tenantId));
+        if ($tenant === null || $account === null || $credential === null || count($selectedMembers) !== 1 || count($operators) !== 1
+            || (int) $tenant['id'] !== $tenantId || (int) $account['id'] !== $accountId
+            || (int) $credential['id'] !== $credentialId || (int) $credential['account_id'] !== $accountId
             || (string) $tenant['status'] !== 'active' || (string) $account['status'] !== 'active'
-            || $account['locked_until'] !== null || (int) $members[0]['tenant_id'] !== $tenantId
-            || $members[0]['status'] !== 'active' || $operators[0]['status'] !== 'active'
+            || $account['locked_until'] !== null || $selectedMembers[0]['status'] !== 'active'
+            || $operators[0]['account_id'] !== $accountId || $operators[0]['status'] !== 'active'
             || (string) $credential['kind'] !== 'email_password' || (string) $credential['identifier_type'] !== 'email'
             || (string) $credential['status'] !== 'active' || $credential['locked_until'] !== null
-            || (int) $credential['failed_attempts'] !== 0 || $credential['expires_at'] !== null) {
+            || (int) $credential['failed_attempts'] < 0 || $credential['expires_at'] !== null) {
             throw new RuntimeException('IDENTITY_CURRENT_RECOVERY_TARGET_INELIGIBLE');
         }
-        $ownerRoles = MemberRole::alias('binding')->join('role role', 'role.id=binding.role_id AND role.tenant_id=binding.tenant_id')
-            ->where('binding.tenant_id', $tenantId)->where('binding.tenant_member_id', $members[0]['id'])
-            ->where('role.key', 'core.tenant-owner')->where('role.is_builtin', 1)->where('role.status', 'active')
-            ->field(['binding.id' => 'binding_id', 'role.id' => 'role_id'])->lock($lock)->select()->toArray();
-        $platformRoles = Db::name('platform_operator_role')->alias('binding')->join('platform_role role', 'role.id=binding.platform_role_id')
-            ->where('binding.platform_operator_id', $operators[0]['id'])->where('role.key', 'platform.bootstrap-owner')->where('role.status', 'active')
-            ->field(['binding.id' => 'binding_id', 'role.id' => 'role_id'])->lock($lock)->select()->toArray();
-        if (count($ownerRoles) !== 1 || count($platformRoles) !== 1) { throw new RuntimeException('IDENTITY_CURRENT_RECOVERY_ROLES_CHANGED'); }
-        return ['eligible' => true, 'tenant_id' => $tenantId, 'member_id' => (int) $members[0]['id'],
+        $tenantIndex = array_column($tenants, null, 'id');
+        $memberIndex = array_column($members, null, 'id');
+        foreach ($members as $member) {
+            if ($member['account_id'] !== $accountId || !isset($tenantIndex[$member['tenant_id']])) {
+                throw new RuntimeException('IDENTITY_CURRENT_RECOVERY_TARGET_INELIGIBLE');
+            }
+        }
+        if (count($tenants) !== count(array_unique(array_column($members, 'tenant_id')))) {
+            throw new RuntimeException('IDENTITY_CURRENT_RECOVERY_TARGET_INELIGIBLE');
+        }
+        foreach ($memberRoles as $role) {
+            if (!isset($memberIndex[$role['tenant_member_id']]) || $memberIndex[$role['tenant_member_id']]['tenant_id'] !== $role['tenant_id']
+                || $role['role_key'] === null || $role['role_status'] === null) {
+                throw new RuntimeException('IDENTITY_CURRENT_RECOVERY_ROLES_CHANGED');
+            }
+        }
+        foreach ($platformRoles as $role) {
+            if ($role['platform_operator_id'] !== $operators[0]['id'] || $role['role_key'] === null || $role['role_status'] === null) {
+                throw new RuntimeException('IDENTITY_CURRENT_RECOVERY_ROLES_CHANGED');
+            }
+        }
+        $ownerRoles = array_values(array_filter($memberRoles, static fn(array $role): bool => $role['tenant_id'] === $tenantId
+            && $role['tenant_member_id'] === $selectedMembers[0]['id'] && $role['role_key'] === 'core.tenant-owner'
+            && $role['role_is_builtin'] === 1 && $role['role_status'] === 'active'));
+        $bootstrapRoles = array_values(array_filter($platformRoles, static fn(array $role): bool => $role['role_key'] === 'platform.bootstrap-owner'
+            && $role['role_status'] === 'active'));
+        if (count($ownerRoles) !== 1 || count($bootstrapRoles) !== 1) { throw new RuntimeException('IDENTITY_CURRENT_RECOVERY_ROLES_CHANGED'); }
+        $affectedTenantIds = array_values(array_unique(array_column($members, 'tenant_id')));
+        sort($affectedTenantIds, SORT_NUMERIC);
+        return ['eligible' => true, 'tenant_id' => $tenantId, 'member_id' => $selectedMembers[0]['id'],
             'operator_id' => (int) $operators[0]['id'], 'account_id' => $accountId, 'credential_id' => $credentialId,
             'tenant_role_id' => (int) $ownerRoles[0]['role_id'], 'tenant_role_binding_id' => (int) $ownerRoles[0]['binding_id'],
-            'platform_role_id' => (int) $platformRoles[0]['role_id'], 'platform_role_binding_id' => (int) $platformRoles[0]['binding_id'],
+            'platform_role_id' => (int) $bootstrapRoles[0]['role_id'], 'platform_role_binding_id' => (int) $bootstrapRoles[0]['binding_id'],
             'identifier_sha256' => hash('sha256', (string) $credential['identifier_normalized']),
             'last_login_at' => $account['last_login_at'], 'security_revision' => (int) $account['security_revision'],
-            'credential_revision' => (int) $credential['revision'], ...$this->accountSessionCounts($accountId)];
+            'credential_revision' => (int) $credential['revision'], 'failed_attempts' => (int) $credential['failed_attempts'],
+            'affected_tenant_ids' => $affectedTenantIds, 'members' => $members, 'tenants' => $tenants,
+            'member_roles' => $memberRoles, 'operator' => $operators[0], 'platform_roles' => $platformRoles, ...$sessions];
+    }
+
+    /** Normalize only the already selected business rows, so a DB return order never changes the approved target. */
+    private static function currentSharedOrderedRows(array $rows, array $integerFields, string $idField = 'id'): array
+    {
+        foreach ($rows as &$row) {
+            foreach ($integerFields as $field) { $row[$field] = (int) $row[$field]; }
+        }
+        unset($row);
+        usort($rows, static fn(array $left, array $right): int => $left[$idField] <=> $right[$idField]);
+        if (count(array_unique(array_column($rows, $idField))) !== count($rows)) {
+            throw new RuntimeException('IDENTITY_CURRENT_RECOVERY_TARGET_INELIGIBLE');
+        }
+        return $rows;
+    }
+
+    private static function assertCurrentSharedSnapshot(array $before, array $current, bool $after): void
+    {
+        $expected = $before;
+        if ($after) {
+            $expected['credential_revision']++;
+            $expected['security_revision']++;
+            $expected['failed_attempts'] = 0;
+        }
+        if ($current !== $expected) {
+            throw new RuntimeException($after ? 'IDENTITY_CURRENT_RECOVERY_POSTSTATE_CHANGED' : 'IDENTITY_CURRENT_RECOVERY_TARGET_CHANGED');
+        }
     }
 
     /** @param callable(): array<string, mixed> $snapshot

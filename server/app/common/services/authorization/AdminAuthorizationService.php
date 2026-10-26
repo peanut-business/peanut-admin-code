@@ -73,6 +73,27 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         );
     }
 
+    /** Native Request storage is confined to the Login -> Auth middleware handoff. */
+    public function principalForRequest(\think\Request $request, TenantContext $context): AdminPrincipal
+    {
+        $principal = $this->principal($context);
+        $request->withMiddleware([self::class => ['context' => $context, 'principal' => $principal]]);
+        return $principal;
+    }
+
+    /** Consume only the server-loaded identity for this exact Request and context. */
+    public function decideForRequest(\think\Request $request, TenantContext $context, string $accessUri): PermissionDecision
+    {
+        $handoff = $request->middleware(self::class);
+        $request->withMiddleware([self::class => null]);
+        $principal = is_array($handoff) ? ($handoff['principal'] ?? null) : null;
+        if (!is_array($handoff) || ($handoff['context'] ?? null) !== $context || !$principal instanceof AdminPrincipal
+            || !$this->validContext($context, $principal)) {
+            return PermissionDecision::deny($accessUri, 'INVALID_TENANT_ADMIN_CONTEXT');
+        }
+        return $this->permissionDecision($context, $principal, $accessUri);
+    }
+
     public function accessData(TenantContext $tenantContext, AdminPrincipal $admin): AdminAccessData
     {
         $admin = $this->currentPrincipal($tenantContext, $admin);
@@ -150,6 +171,11 @@ final class AdminAuthorizationService implements AdminAuthorizationQuery, Author
         if (!$admin instanceof AdminPrincipal) {
             return PermissionDecision::deny($accessUri, 'STALE_TENANT_ADMIN_PRINCIPAL');
         }
+        return $this->permissionDecision($tenantContext, $admin, $accessUri);
+    }
+
+    private function permissionDecision(TenantContext $tenantContext, AdminPrincipal $admin, string $accessUri): PermissionDecision
+    {
         if (InstanceControlPlanePolicy::isTenantAdminRoute($accessUri)) {
             return PermissionDecision::deny($accessUri, 'PLATFORM_ROUTE_FORBIDDEN');
         }

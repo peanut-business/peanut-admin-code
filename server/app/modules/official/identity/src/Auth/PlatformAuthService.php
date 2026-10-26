@@ -160,7 +160,7 @@ final class PlatformAuthService
         string $requestId,
     ): PlatformContext {
         return PlatformContext::fromValidatedSession(
-            $this->validatedAccessSession($accessToken, $requestId),
+            $this->validatedAccessSession($accessToken, $requestId, false),
             $requestId,
         );
     }
@@ -240,11 +240,27 @@ final class PlatformAuthService
         });
     }
 
-    private function validatedAccessSession(string $accessToken, ?string $requestId = null): \PeanutAdmin\Kernel\Auth\ValidatedPlatformSession
+    private function validatedAccessSession(string $accessToken, ?string $requestId = null, bool $forUpdate = true): \PeanutAdmin\Kernel\Auth\ValidatedPlatformSession
     {
         $this->assertPlatformPrefix($accessToken, \PeanutAdmin\Kernel\Auth\TokenIssuer::PLATFORM_ACCESS_PREFIX);
-        $now = $this->clock->now();
-        $result = Db::transaction(function () use ($accessToken, $now, $requestId): \PeanutAdmin\Kernel\Auth\ValidatedPlatformSession|\PeanutAdmin\Kernel\Auth\AuthException {
+        // Keep write callers and existing transactions on the locking path.
+        $pdo = Db::connect()->getPdo();
+        if (!$forUpdate && (!$pdo instanceof \PDO || !$pdo->inTransaction())) {
+            $record = $this->repository->sessionByTokenHash(hash('sha256', $accessToken), 'access');
+            $now = $this->clock->now();
+            if ($record === null) {
+                throw new \PeanutAdmin\Kernel\Auth\AuthException('AUTH_TOKEN_INVALID', 401);
+            }
+            $tokenFailure = $this->tokenFailure($record, 'access', $now);
+            if ($tokenFailure !== null) {
+                throw $tokenFailure;
+            }
+            if ($this->sessionFailure($record, $now) === null) {
+                return $record->validated();
+            }
+        }
+
+        $result = Db::transaction(function () use ($accessToken, $requestId): \PeanutAdmin\Kernel\Auth\ValidatedPlatformSession|\PeanutAdmin\Kernel\Auth\AuthException {
             $phase = 'session_lookup';
             try {
                 $record = $this->repository->sessionByTokenHash(
@@ -252,6 +268,7 @@ final class PlatformAuthService
                     'access',
                     true,
                 );
+                $now = $this->clock->now();
                 if ($record === null) {
                     return new \PeanutAdmin\Kernel\Auth\AuthException('AUTH_TOKEN_INVALID', 401);
                 }

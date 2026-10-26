@@ -317,7 +317,7 @@ final class ThinkPhpTenantAuthRepository implements TenantAuthRepository
         string $tokenType,
         bool $forUpdate = false,
     ): ?SessionAuthenticationRecord {
-        $query = TenantSessionToken::alias('token')
+        $query = TenantSessionToken::alias('token')->master()
             ->join('tenant_session session', 'session.id = token.session_id')
             ->join('account account', 'account.id = session.account_id')
             ->join('tenant tenant', 'tenant.id = session.tenant_id')
