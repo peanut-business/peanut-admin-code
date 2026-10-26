@@ -8,7 +8,7 @@
 
 ## 可用的开发与交付入口
 
-以下命令在完整产品应用的 `server/` 内执行，使用该应用实际安装的依赖和模块信任配置。`module:create` 默认仅生成后端骨架；有管理端贡献时显式选择 `--client=admin-web`。命令存在不表示模块业务、迁移或客户端已验收。
+以下命令在完整产品应用的 `server/` 内执行。先在 APP 根运行 `scripts/project-composer prepare`，再用 `scripts/project-composer install --working-dir=server --no-scripts` 按应用的 Composer lock 安装依赖；源码生成不执行需要运行环境的 Composer hooks。`php think module:create` 是仅生成源码的入口，不要求 `.env`、数据库或已安装实例，也不启动运行服务。它使用 ThinkPHP 原生参数解析和同一个模块生成器，默认仅生成后端骨架；有管理端贡献时显式选择 `--client=admin-web`。`php think module:create --help` 可在配置运行环境前查看参数。检查、打包、安装等其他命令仍使用应用自己的运行环境和模块信任配置。命令存在不表示模块业务、迁移或客户端已验收。
 
 ```sh
 php think module:create <vendor.module> --vendor=<vendor>
