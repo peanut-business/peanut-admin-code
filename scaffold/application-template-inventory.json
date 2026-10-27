@@ -52,7 +52,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "fbde5a28b06f7504cf6f2dcab1897f5234b7e2d81f2b4e8195ea0c0a06873966"
+            "source_sha256": "bb3b7ec9258c7fccefe791d8adb0ff59e538fa36d82870a271a85ba0fcd1c3fe"
         },
         {
             "path": ".gitattributes",
@@ -461,19 +461,6 @@
             "source_sha256": "c734d5f046c349ad96d661adb7bd36efde584d42edfa8d0aedece9d9c85a1f08"
         },
         {
-            "path": "deploy/docker/php-development-entrypoint.sh",
-            "target": "deploy/docker/php-development-entrypoint.sh",
-            "classification": "excluded",
-            "owner": "template-source-only",
-            "transform": "copy",
-            "mode": 493,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ]
-        },
-        {
             "path": "deploy/docker/php-development.Dockerfile",
             "target": "deploy/docker/php-development.Dockerfile",
             "classification": "excluded",
@@ -872,7 +859,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7fabed8ef04744c7c4daa1f08836bb62039d6755bb6364a33760e01c2d56ff5c"
+            "source_sha256": "79577710b9d5757ee55992aa0e4d56c95267d99aadd97ce6c739e5c1e32dbffe"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -1103,7 +1090,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "349e824331904fbecfc3b6d520c99f4698e2f2d230fce223e480fab6fa20de6f"
+            "source_sha256": "0f4353facc4234c1b1c9d0910eb07f3eb519316b08e13597008835d271aff834"
         },
         {
             "path": "docs/public/module-development.md",
@@ -3927,7 +3914,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "eabe29b7f486b7ea947e8cc38ea902b8f3985328833874719e68fa1ff465c3a1"
+            "source_sha256": "3170f5a46033cfdc4b4849b20f386e2b6568b9aa72e4f6b85b4aee17d05ee286"
         },
         {
             "path": "scripts/scaffold-upgrade",
@@ -4937,7 +4924,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0a24dc9abee426fcef441a2659d491b99051df3f4d8023eb34989cf7a282f4e6"
+            "source_sha256": "048d93eaf7550dd8bb3a8b8ac6bbc1156f03e0d48e4bde86c2355c02d0ede891"
         },
         {
             "path": "server/.gitignore",
@@ -9072,7 +9059,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bc7abc2cd2b965f3a5cf41a1cb2570a30b721ac0b27803d86426991eb863bc8d"
+            "source_sha256": "bafb5913066160d9aff000214996b5db37930230dc82dea49c00a3890f84a421"
         },
         {
             "path": "server/app/common/services/installation/InstallationExecutionHost.php",
@@ -9100,7 +9087,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "19bebac39f18f494a492d28153e352e4a2ed13b3214df6704276aa8f795b16cc"
+            "source_sha256": "8854c9a12771a669483d569b32f4c6a798a485a57b97670dd04b4a163c0432e6"
         },
         {
             "path": "server/app/common/services/notice/NoticeChannelService.php",
@@ -9563,7 +9550,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "04c562010636ba43ac4a85be49c5e19eef3fa84ab4584f35db4e762012fa90cb"
+            "source_sha256": "d8a645e238c821a7202bafe1865cf03a0fbef82774e0ebb1f808006262e1bc18"
         },
         {
             "path": "server/app/common/value/scaffold/EditionProfile.php",
@@ -25435,7 +25422,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b2757fc1206a418f8623da2e05aac9a4a537054a4f8b86a78bab29953267575c"
+            "source_sha256": "1850c1a47a24402b80b2f364b2902875b1634d18b729d570f43b06342b9fd35b"
         },
         {
             "path": "server/config/app.php",
@@ -25533,7 +25520,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "eefac006b16d86d724596f50cb56784ff730c609a694d3ce437d44f0a864bf55"
+            "source_sha256": "469559851f0bcf15983c043a2c29b8a53601dbd12b0283877a857115d9252d4d"
         },
         {
             "path": "server/config/deployment.php",
@@ -26204,7 +26191,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2e9c47720b8b7e37ca34f7ba5ae70813c714f1045321156625b00d444353bbe6"
+            "source_sha256": "4a67141c82cfad52cf79e76f8029ba6103bc0e58d6de0631539395d659658e84"
         },
         {
             "path": "server/docker/scripts/prepare-install-permissions.sh",
