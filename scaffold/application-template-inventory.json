@@ -498,7 +498,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6b3ba9446b77057c59732543c6fad2988a7990cc6d59aaae3da7abec05001df1"
+            "source_sha256": "e49168a11854a674728508372628a7f7b2de69fde5f2a1d5da33b640cf9c3353"
         },
         {
             "path": "deploy/docker/php-upload.ini",
@@ -526,7 +526,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "54ef95f8fd10fa872e3146cd4a84bf7c182d13f53ee2c3fc2a77563c067588b4"
+            "source_sha256": "ec30055ec96f8b84b7e86cbd81c4fc93d44474472eea2bfbbc57ffd49526a7e5"
         },
         {
             "path": "deploy/docker/read-backend-enum.sh",
@@ -554,7 +554,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "65fd5f35138e66ced4feb4cb651dda0f2e77b0ae4294c13ca98343df651d2af3"
+            "source_sha256": "b698b5fdaa21719e956c18e6ca6402fbcc5846697b23ccc0ed5ed6be5c2cd50d"
         },
         {
             "path": "deploy/local-stack.env.example",
@@ -872,7 +872,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "98680eecc6274b01678a7de57fa2ccc0543c8ae4f23cb69a2f25c0b8554f75f3"
+            "source_sha256": "4a648bdda12367c784492088d89e8833715776eec5d0638cc00c49d4b7849cde"
         },
         {
             "path": "docs/development/developer-center-and-documentation.md",
@@ -1103,7 +1103,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8ff0d67f60223c928479dc77b64ff249238ba262f3cd329b6a40dc1af9211664"
+            "source_sha256": "0bbdce66a6242803e6469ea102cca664101e8d7e7509aa76b6b6da4667d24f37"
         },
         {
             "path": "docs/public/module-development.md",
@@ -1158,20 +1158,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "72cb1b6a306bbaa55e8741afb14ef76e4ce9d96afce2916e9ac664dde43c99db"
-        },
-        {
-            "path": "pc/.env.production",
-            "target": "pc/.env.production",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "standard",
-                "full"
-            ],
-            "source_sha256": "72cb1b6a306bbaa55e8741afb14ef76e4ce9d96afce2916e9ac664dde43c99db"
+            "source_sha256": "e88126283a188e10652dbcadf5bee073540db809911ff1cf7b6d21d689ddbd27"
         },
         {
             "path": "pc/.gitignore",
@@ -1184,7 +1171,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e0757241b8ea72df6ded09b4e4c29e5244efacd43cabbce4153ec9eac7cf5595"
+            "source_sha256": "0cefbdcf6209d5e047696240260ecd16da72ce29fecfbe3b3c073765ced690c8"
         },
         {
             "path": "pc/api/article.ts",
@@ -1353,7 +1340,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c1d9fc0f15d319b23351759f0a335a729988a07e96d28fbd7b5a61ccb23aaae8"
+            "source_sha256": "2b97d15109540710fb2cb196ef3b16abee07f88a5729ca87d39f799dffac5519"
         },
         {
             "path": "pc/package-lock.json",
@@ -1379,7 +1366,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "07d167f93ac4aa374fb1d0fefea106ef0c227ccaa5ead499d020c3738125cadd"
+            "source_sha256": "77cc11552c2ca917f71b7383fe16ba6f9d82efb57a4d83b25668f76e1bbc9ad6"
         },
         {
             "path": "pc/pages/about.vue",
@@ -1861,21 +1848,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f6aa29d42b62de7a954608032e2f99ba433a2bb9e98a15fb92a3dbe5e55f0bb5"
-        },
-        {
-            "path": "platform/.env.production",
-            "target": "platform/.env.production",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "4d948f3fbe78254434d7ec3d621a0e6dc6c9bc568299941ff2d86766fa605b92"
+            "source_sha256": "9cc5ed127b9588474983b8faff82ddcc283e92c86c6f2af7204bdbf5fbb519b9"
         },
         {
             "path": "platform/.gitignore",
@@ -1889,7 +1862,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "5aa6c09c935719075ebb9b0a406876573b5dab6db373f5225db5bd18f80e643b"
+            "source_sha256": "a5d8accdeb680a42b9171adefaff2eb89b463d8215ad655a5d1dd38c3e058027"
         },
         {
             "path": "platform/index.html",
@@ -1931,7 +1904,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4c7e0b7e956ffe6a8354d6518a0f2366731bd946128568fea4652bff0ec9450b"
+            "source_sha256": "77b39c98eca27592a8cb2d45e78367e056cee1bd8fac523c5a1d9fee9583bd28"
         },
         {
             "path": "platform/scripts/check-governance-types.mjs",
@@ -2424,18 +2397,18 @@
             "source_sha256": "21d97b364e65a6f59018457af6b6c6dc2d6fb681a54462f70dcfc5cad5b30ac8"
         },
         {
-            "path": "platform/vite.config.mts",
-            "target": "platform/vite.config.mts",
+            "path": "platform/vite.config.ts",
+            "target": "platform/vite.config.ts",
             "classification": "managed",
             "owner": "scaffold",
-            "transform": "copy",
+            "transform": "text",
             "mode": 420,
             "profiles": [
                 "minimal",
                 "standard",
                 "full"
             ],
-            "source_sha256": "ebaf166811765741d173e80e020ad019650702813855fe1cb8807b567b2a02bf"
+            "source_sha256": "d764cc30aded7b90978849ddb25aecea7dffe3e9715db693e0c33549dd01df04"
         },
         {
             "path": "platform/vitest.governance.config.mjs",
@@ -2986,7 +2959,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "939370c7cd181b110fec50c404718679a5783452f58726b8b5db5dcdef569957"
+            "source_sha256": "d1e8fd2c3e84a98c1a2005e5a0b266f84d1b3427279f4fc55f58c7bb2a41b1ea"
         },
         {
             "path": "scripts/check-local-runtime-contract",
@@ -3000,7 +2973,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4b0878de8493a18ed8d0c982af0b9014a4791361a716fa272306cdc110555409"
+            "source_sha256": "c2fd155519e5d7481add2aa5e8dab0f3917efab5747b4a189e5fcfbc707903e9"
         },
         {
             "path": "scripts/check-module-boundaries.php",
@@ -3150,7 +3123,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "70090d9ffc4aac75012810d21d3f2170a928762405607a61524e0d858720be45"
+            "source_sha256": "0cd7e168e160538d43b4f314b0e0f3535e3d4ab31478a5c9e06aaa5a218dd950"
         },
         {
             "path": "scripts/ci-summary",
@@ -3165,20 +3138,6 @@
                 "full"
             ],
             "source_sha256": "e9940c1eb9bd66ca734e2d5bf616d2043e8420229dbe1c9afabaa1d230995d08"
-        },
-        {
-            "path": "scripts/client-environment.ts",
-            "target": "scripts/client-environment.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "00d72c434bbe973136b042601b4a2d1ec3acaf3fef4aed2287c44f659277eb2e"
         },
         {
             "path": "scripts/combined-upgrade-qualification",
@@ -3313,7 +3272,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9b28a188ae91c3ca3d21b9f3e29e63191d3e19ba96decbbc4fd778e2d939c481"
+            "source_sha256": "5fcfb4f5de28c3c19a359f08be27a7379d7a133a344539cfb44ecb4c9fecb69a"
         },
         {
             "path": "scripts/core-qualification-runner",
@@ -3437,20 +3396,6 @@
             ]
         },
         {
-            "path": "scripts/local-client-dev",
-            "target": "scripts/local-client-dev",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 493,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "5a540f10d3c89530cd3d4217f75df76bceef22c72a024f99819e44fc347008b6"
-        },
-        {
             "path": "scripts/local-core-composer",
             "target": "scripts/local-core-composer",
             "classification": "managed",
@@ -3462,7 +3407,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "cd715c3448a3067ea96a0edb2f499900edadf52fba37f60b14d537c69f32d623"
+            "source_sha256": "c24a916db8b7fea80de9a102f519927882aceb3bf9a334f9d021f96ad9a8d48b"
         },
         {
             "path": "scripts/local-core-links.mjs",
@@ -3517,7 +3462,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bbd4344f8c08f62df24c812412f6118e1cf64d7fe16f2a40f9adcf856c13eb31"
+            "source_sha256": "69c6570ed7289eacdfe3220f35ff3df368e1c33f4caaad6f36b3f2e7d6a89ecb"
         },
         {
             "path": "scripts/local-php-runtime",
@@ -3895,7 +3840,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "28554f2cd35d4de9270ed6c982bc2c3a4485ad173ff718e0c6e9dd6fc91adc5b"
+            "source_sha256": "1f6146e6cd5d8dc08080da318e657fcbff8423a299a75f7433eb3130f4444983"
         },
         {
             "path": "scripts/scaffold-doctor",
@@ -5045,7 +4990,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e49807f6925b8f407fbc95edbaad3f5bde444ac6aca301b80fc6cfebeb0756a7"
+            "source_sha256": "918105a10f211b6ba8446555edd627ea97d881b3fe2f8e183fc5fd10b4bd1272"
         },
         {
             "path": "server/.gitignore",
@@ -5129,7 +5074,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "b9eee16ddbdbac6c4f0daf187939c00624e2d41782fa2c51bb201a5f543d5214"
+            "source_sha256": "b6ec115c126a9710793407cd69a88abdbe342861da222bc78b4e07aff1105743"
         },
         {
             "path": "server/app/BaseController.php",
@@ -9180,7 +9125,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "e119688bab3fbdf9b33ed87b0825f7ace73b48ee45a772099106e1e1d20c1e12"
+            "source_sha256": "8eb0bd115ff0b08e16b7af4328189317176edc7900a4ff9d3f95a011acdb3ede"
         },
         {
             "path": "server/app/common/services/installation/InstallationExecutionHost.php",
@@ -9208,7 +9153,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9cfd6347371f5d20839500f9dbde092fe397c1abbf44e196f4ad09d31cbf8e39"
+            "source_sha256": "38eb5cec8973fd41117b390a07afd9964b33769421cd8f109d16a3c17e14bb62"
         },
         {
             "path": "server/app/common/services/notice/NoticeChannelService.php",
@@ -9265,7 +9210,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "559fd0980018d29cdf6decb204e7b9ee5da9d45e01c19d888a8eef3f6005257b"
+            "source_sha256": "aaa75a88ff3bb8fb58673ae89c3fc788fb8759d12dad2bb80e7ce9b65162304a"
         },
         {
             "path": "server/app/common/services/upgrade/SourceSharedCredentialRecovery.php",
@@ -9671,7 +9616,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7c061d7e3ee47f922b81b9c655d4279f1572db664f568b16d57ba54561fdedc4"
+            "source_sha256": "6504183c4c3c86799251a35c19c21b03afb44b44e768926bf0b80c6a76d682ae"
         },
         {
             "path": "server/app/common/value/scaffold/EditionProfile.php",
@@ -11002,7 +10947,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7f91e11059130ae500bc3ea4ced82aa748e511cf928089c5654dd7bb9ebe0655"
+            "source_sha256": "c84318d1eafe9dd028a268c7d324e7ada26acba62ec4d0f48399bd36005fbee8"
         },
         {
             "path": "server/app/modules/official/collaboration/module.json",
@@ -25179,7 +25124,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a74819ae1da576967585f7f9148d1bc41a3057a41c103d4abfafa45492dcf396"
+            "source_sha256": "a2e721e64b379699b37e8b6d48941a6e7c34cc42435854c22c37758bf2ee5732"
         },
         {
             "path": "server/app/platform/services/provider/PlatformProviderQualificationService.php",
@@ -25389,7 +25334,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "4dc6ebba095a195b963916bf77229209f7d589a3915aa4bb824d6bc57a3cc927"
+            "source_sha256": "18a56d59a705689fde32e3bfac9c80d59a0bad4b4e7c609f4ab9af8f3555c3d8"
         },
         {
             "path": "server/app/platform/value/ops/PlatformUpgradeTarget.php",
@@ -25417,7 +25362,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "7677d8c2e24aa0d9e84f1ea1adce935863468efdcf6fa728200ebd34e6d7f477"
+            "source_sha256": "a02608b3e4759ed2685de7aca265c06a1aa70bdcab870751ac0cb39a1ec3732c"
         },
         {
             "path": "server/app/platform/value/plugin/ModuleFrontendLayout.php",
@@ -25488,20 +25433,6 @@
                 "full"
             ],
             "source_sha256": "e5cb7e5b503332f74b0b3b28596090ce9b43ce314b30043852a8c8fca193365c"
-        },
-        {
-            "path": "server/bootstrap/environment.php",
-            "target": "server/bootstrap/environment.php",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "b8ce6cfdebcd3ab10e88fbdd2221db96023b468ee4725277cf4add65d98ff477"
         },
         {
             "path": "server/composer.json",
@@ -25655,7 +25586,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0f2b648f624f9c7406d293f0d49753cde75dfcdbb17654037c6c77e28a138982"
+            "source_sha256": "b433c013bf3923c014c36f2c9bb2b5e309b6b685f30be585ebdfc50cb755fd2e"
         },
         {
             "path": "server/config/deployment.php",
@@ -25669,7 +25600,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9cdc20242e3df0e7f1d12587d238b78156fbcb2ef55fe45a7fe1190788ab4ca2"
+            "source_sha256": "026c1085ed791b7fe3851a39dd890d0da574cc6cf1e3cf7a3aabd9707d351816"
         },
         {
             "path": "server/config/filesystem.php",
@@ -25935,7 +25866,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "f4b6fc276037d64122f6cf71d81660980522fe6762b779b0e9efa8085cc82afd"
+            "source_sha256": "2982554f749117a5b2416eba0aba1c90db3e7347dd01f2d6fc0e42ea8b6fbec2"
         },
         {
             "path": "server/database/install.php",
@@ -25949,7 +25880,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "65a0b353fad488c03cc3aef5fb08b84e811e790605de6aecbcea02008570de40"
+            "source_sha256": "db9aa8261a29896fe7a4edd1b0d9a0a647bcd97d519368ca90d1e21efaaf810f"
         },
         {
             "path": "server/database/migrations/20261101000000_initial_baseline.php",
@@ -26019,7 +25950,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d650af149c66942cd0cc004942c660ec523a20280f335a83b5ac36b3f5677696"
+            "source_sha256": "e9210aad284ffa712db69259ab5bcb20f6be5dea06e7c3a5654adf147cc848b9"
         },
         {
             "path": "server/database/seed-multi-tenant-demo.php",
@@ -26326,7 +26257,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "423669ca0e5bca63c6f224ae615a3a365bf619599c614e312599870a51bd646c"
+            "source_sha256": "0178331ab7e90a3a7bb9a4fd67db88e97f6ddd77f45703ede5b94dabfcde69ef"
         },
         {
             "path": "server/docker/scripts/prepare-install-permissions.sh",
@@ -26731,7 +26662,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "c3332bb1ef4b2721f3b045bc09e6220491edf1f1c1db7468cf2378a6557a3365"
+            "source_sha256": "431f87690d8171cb17e3c81aa6f4149b3451da9723b24b5932cb5a9e2438f972"
         },
         {
             "path": "server/public/install/index.html",
@@ -31647,7 +31578,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "55ce300f5d66f24895007974f3e343d4d6fcf950617f651d41cc80819bfac38d"
+            "source_sha256": "44c28fe825a76ef3b01dbdd75921a97ebe283a8c406647761d55f7003fc4f441"
         },
         {
             "path": "server/view/README.md",
@@ -31853,20 +31784,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9948afe573d412e943e1d46f31f879ccdf57742282169ccd65922d6a82518673"
-        },
-        {
-            "path": "uniapp/.env.production",
-            "target": "uniapp/.env.production",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "standard",
-                "full"
-            ],
-            "source_sha256": "05ac6ba180b4c544396473e324031172d30956318dcaca2555a119aabf76d2c4"
+            "source_sha256": "705f39262e7bad5db50505ba4930f83ad68625353ef3992d2d7e147a2ff55abd"
         },
         {
             "path": "uniapp/.gitignore",
@@ -31879,7 +31797,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3b579efb542217b7327c6699059480ac897531f04d6e8132d8d342df7e156128"
+            "source_sha256": "f5a54410065b8ee7af171b97bb385825add8df69092f975fddcad164c1470047"
         },
         {
             "path": "uniapp/index.html",
@@ -31918,7 +31836,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "33601dd37e05749bdfa397620f70496bd2a3374b1bd4ef603bf00aa60a0497bb"
+            "source_sha256": "a571286e5c300f25a7411f7a5a8cae52fde4a990929ee39d34064273b98af27f"
         },
         {
             "path": "uniapp/packages/pages/404/404.vue",
@@ -32789,7 +32707,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8148fa3dc630efcdd1e6c0c8b82faf57d9444423ec2e94eaeb40652bbff8c3ef"
+            "source_sha256": "d8f5aca67d668176abf5693a4d9a250e9b7cfc72de4d4857d68da2d93e7511a3"
         },
         {
             "path": "web/.claude/launch.json",
@@ -32805,20 +32723,6 @@
             ]
         },
         {
-            "path": "web/.env.development",
-            "target": "web/.env.development",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "c480ce314bf06df02c2c882fea7856472eb203175c6d9d1e6c41ba127ad64445"
-        },
-        {
             "path": "web/.env.example",
             "target": "web/.env.example",
             "classification": "managed",
@@ -32830,7 +32734,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "633645cbf3b97659fce2964c162dfddbf731a35399e71dd7fad1a001d6a1e886"
+            "source_sha256": "5d4f827e3a7ccb342aa984d48defdf4e67766051ab60ec00d0be1655ec947d23"
         },
         {
             "path": "web/.env.multi-tenant",
@@ -32845,20 +32749,6 @@
                 "full"
             ],
             "source_sha256": "dbff70bc4107d30bf47886559e6d3f3490c34766496622b53d3187d9489ae274"
-        },
-        {
-            "path": "web/.env.production",
-            "target": "web/.env.production",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "copy",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "2f6c3b1a5e12eaa9ea4f14ea9bb48c03c0d9a9a463d9bb1ece4c50a66b9e5ae6"
         },
         {
             "path": "web/.env.standalone",
@@ -32914,7 +32804,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "094101aa37edf6c7fad902b996638e7df6e59c2772b16f804e57b38e1f3e6f3b"
+            "source_sha256": "c52722a2cfcd1c2f379532ad9ec5190c42d7ff01305eebbe4ed051a7f80f0593"
         },
         {
             "path": "web/.husky/commit-msg",
@@ -33068,7 +32958,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a09ae70a6034298c593a3b126aad15f435a15b47f9699ab533a86bc5180fbdc8"
+            "source_sha256": "2624f829e858c6a0073966045dbe2680510dfd0a33ee5e0b83f06581a65e8197"
         },
         {
             "path": "web/config/stylelint-property-order.js",
@@ -33083,62 +32973,6 @@
                 "full"
             ],
             "source_sha256": "93cc8a8b673fb2abbdb66cab95bd7513eefccbd0ca987abe3ead253601da0a48"
-        },
-        {
-            "path": "web/config/utils/index.ts",
-            "target": "web/config/utils/index.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "7870cbbaae55e102ec304ca673ea97934d4d605a1a54c7ba169756e9a220e4e6"
-        },
-        {
-            "path": "web/config/vite.config.base.ts",
-            "target": "web/config/vite.config.base.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "d101088c42fb5109284cb92c232c61f1269a12ca158f84299a43f13a26e73e22"
-        },
-        {
-            "path": "web/config/vite.config.dev.ts",
-            "target": "web/config/vite.config.dev.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "77eb410e5914d12d833cbea1457750299e4edf0e86c00e9f6f62a3e6cdd0c265"
-        },
-        {
-            "path": "web/config/vite.config.prod.ts",
-            "target": "web/config/vite.config.prod.ts",
-            "classification": "managed",
-            "owner": "scaffold",
-            "transform": "text",
-            "mode": 420,
-            "profiles": [
-                "minimal",
-                "standard",
-                "full"
-            ],
-            "source_sha256": "a81f5a90119c0e5f69c01df113abf24bd7c885b9473877ce7dcaeb06dd22db30"
         },
         {
             "path": "web/index.html",
@@ -33166,7 +33000,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "6695f9f25a020cd3070e6fc0313c2cf2522791aec872856afa809e01c509d4b5"
+            "source_sha256": "5e9a38d8f5486a6e6a385eee2457b474b4d7c1db1f5a355c8cda9f20486eed59"
         },
         {
             "path": "web/pnpm-lock.yaml",
@@ -37989,7 +37823,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "dfe4d707ff93ac42c00563917b3eec0e4687fcbb8d63078463ee946e2c063146"
+            "source_sha256": "41c9eadbb99cdab9f5815fb9c7c8b21da8661fe503b43d966f6b5836c1cc7bb0"
         },
         {
             "path": "web/src/router/routes/types.ts",
@@ -39375,6 +39209,20 @@
                 "full"
             ],
             "source_sha256": "86466f06eab5cae0cf15805edb6041b0f52b1319754cc8db20f0bca8cbdb9f66"
+        },
+        {
+            "path": "web/vite.config.ts",
+            "target": "web/vite.config.ts",
+            "classification": "managed",
+            "owner": "scaffold",
+            "transform": "text",
+            "mode": 420,
+            "profiles": [
+                "minimal",
+                "standard",
+                "full"
+            ],
+            "source_sha256": "b77562e88ab611bc72353f4b408609f5757f93129b9fbe74adfa5f825a132668"
         },
         {
             "path": "web/vitest.optional.config.mjs",
