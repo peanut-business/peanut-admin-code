@@ -14,7 +14,7 @@
 
 按该版本准备Docker Compose、Python、OpenSSL、shell和固定PHP/Nginx镜像。PHP及扩展须满足Composer锁。Compose挂载实例源码、vendor、配置与持久目录；普通更新不构建应用镜像，环境变化另行准备和验证。
 
-server/.env存后端配置，包括DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASS；ThinkPHP原生加载该文件，config中的env()优先读取环境值并使用固定默认值。原生PHP_ENV_NAME选择server/.env.<name>；其PHP_<KEY>进程变量只在文件未提供该键时生效。server/docker/.env仅管编排、端口和镜像。配置使用实际owner、普通单链接和私有权限，拒绝越界链接。初始管理员密码不写入这些环境文件，也不进Git或产品包。
+server/.env存后端配置，包括DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASS；ThinkPHP原生加载该文件，config中的env()优先读取环境值并使用固定默认值。原生PHP_ENV_NAME选择server/.env.<name>；其PHP_<KEY>进程变量只在文件未提供该键时生效。server/docker/.env仅管编排、端口和镜像。配置使用实际owner、普通单链接和私有权限，拒绝越界链接。初始管理员密码不写入这些环境文件，也不进Git或产品包。 `server/.env.example` 中注释的可选项展示配置代码的默认值，只有需要覆盖时才取消注释。登录锁定默认 30 分钟；异步 worker 默认每批处理 25 项。已有实例的显式配置继续生效，更新示例不会改写它们。
 
 ## 2. 数据库与资源
 

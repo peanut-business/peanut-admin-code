@@ -286,7 +286,6 @@
         "scripts/project-development-database.sh",
         "server/tests/Productization/DatabaseResourceRegistryTest.php",
         "deploy/docker-compose.dev.yml",
-        "deploy/docker/php-development-entrypoint.sh",
         "deploy/docker/php-development.Dockerfile",
         "deploy/nginx/development.conf",
         "deploy/local-stack.env.example"
