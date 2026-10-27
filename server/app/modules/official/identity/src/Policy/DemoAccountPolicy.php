@@ -38,16 +38,12 @@ final class DemoAccountPolicy
             $host = TenantEntryBindingResolver::normalizeHost($host);
             $tenantAHost = TenantEntryBindingResolver::normalizeHost((string) ($config['tenant_a_host'] ?? ''));
             $tenantBHost = TenantEntryBindingResolver::normalizeHost((string) ($config['tenant_b_host'] ?? ''));
-            $sharedHosts = array_map(
-                static fn(string $value): string => TenantEntryBindingResolver::normalizeHost($value),
-                (array) ($config['shared_hosts'] ?? []),
-            );
         } catch (\Throwable) {
             return $disabled;
         }
         if (hash_equals($tenantBHost, $host)) {
             $email = (string) ($config['tenant_b_email'] ?? '');
-        } elseif (hash_equals($tenantAHost, $host) || in_array($host, $sharedHosts, true)) {
+        } elseif (hash_equals($tenantAHost, $host)) {
             $email = (string) ($config['tenant_a_email'] ?? '');
         } else {
             return $disabled;

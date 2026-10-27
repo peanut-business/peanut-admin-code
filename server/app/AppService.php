@@ -430,8 +430,7 @@ class AppService extends Service
         });
         $this->app->bind(ApplicationHostPolicy::class, fn(): ApplicationHostPolicy => new ApplicationHostPolicy(
             (string) Config::get('deployment.mode', ''),
-            self::hostList((string) Config::get('deployment.platform_hosts', '')),
-            self::hostList((string) Config::get('deployment.tenant_admin_hosts', '')),
+            ApplicationHostPolicy::hostList((string) Config::get('deployment.platform_hosts', '')),
             $this->app->make(TenantEntryBindingResolver::class),
         ));
         $this->app->bind(DataScopePolicy::class, function (): DataScopePolicy {
@@ -675,7 +674,6 @@ class AppService extends Service
                 'enabled' => $this->app->make(DemoAccountPolicy::class)->enabled(),
                 'tenant_a_host' => (string) Config::get('peanut.demo.tenant_a_host', ''),
                 'tenant_b_host' => (string) Config::get('peanut.demo.tenant_b_host', ''),
-                'shared_hosts' => self::hostList((string) Config::get('deployment.tenant_admin_hosts', '')),
                 'tenant_a_email' => (string) Config::get('peanut.demo.tenant_a_email', ''),
                 'tenant_b_email' => (string) Config::get('peanut.demo.tenant_b_email', ''),
                 'password' => (string) Config::get('peanut.demo.shared_password', ''),
@@ -794,9 +792,4 @@ class AppService extends Service
         return $key;
     }
 
-    /** @return list<string> */
-    private static function hostList(string $hosts): array
-    {
-        return array_values(array_filter(array_map('trim', explode(',', $hosts))));
-    }
 }

@@ -360,6 +360,7 @@ final class TenantAuthService
         string $ipAddress,
         ?string $userAgent,
         string $requestId,
+        int $expectedTenantId,
     ): TenantAuthentication {
         $this->assertTenantTokenPrefix($refreshToken, \PeanutAdmin\Kernel\Auth\TokenIssuer::TENANT_REFRESH_PREFIX);
         $this->assertTenantTokenPrefix($expectedAccessToken, \PeanutAdmin\Kernel\Auth\TokenIssuer::TENANT_ACCESS_PREFIX);
@@ -370,15 +371,17 @@ final class TenantAuthService
             $ipAddress,
             $userAgent,
             $requestId,
+            $expectedTenantId,
             $now,
         ): TenantAuthentication|\PeanutAdmin\Kernel\Auth\AuthException {
             // Access expiry/rotation is why refresh is needed. Only its immutable
-            // session binding is used; current validity is checked on the locked refresh record.
+            // session/tenant binding is used; current validity is checked on the locked refresh record.
             $expected = $this->repository->sessionByTokenHash(
                 hash('sha256', $expectedAccessToken),
                 'access',
             );
-            if ($expected === null || $expected->clientKey !== $this->client->key) {
+            if ($expected === null || $expected->clientKey !== $this->client->key
+                || $expected->tenantId !== $expectedTenantId) {
                 return new \PeanutAdmin\Kernel\Auth\AuthException('AUTH_TOKEN_INVALID', 401);
             }
             $record = $this->repository->sessionByTokenHash(

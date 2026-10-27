@@ -108,6 +108,10 @@ final readonly class TenantSessionApplicationService
             if ($accessToken === '') {
                 throw new AuthException('AUTH_TOKEN_INVALID', 401);
             }
+            $tenantId = $this->entryBindings->boundTenantId($request, TenantEntryBindingResolver::ADMIN_CLIENT);
+            if ($tenantId === null) {
+                throw new \DomainException('TENANT_ENTRY_BINDING_UNAVAILABLE');
+            }
             return $this->tenantAuth->refresh(
                 trim((string) $request->cookie($this->tenantAuth->refreshCookieName($accessToken), '')),
                 $accessToken,
@@ -115,6 +119,7 @@ final readonly class TenantSessionApplicationService
                 $request->ip(),
                 $request->header('User-Agent'),
                 PlatformRequest::requestId($this->executionContext, $request),
+                $tenantId,
             );
         } catch (AuthException|\DomainException|\InvalidArgumentException) {
             throw new BusinessException(

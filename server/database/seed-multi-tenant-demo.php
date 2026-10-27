@@ -302,7 +302,7 @@ function demoMultiAssertFinalState(
     string $sharedPassword,
     string $tenantAHost,
     string $tenantBHost,
-    array $sharedAdminHosts,
+    string $defaultHost,
 ): void {
     $tenants = Db::name('tenant')->field('code,name,display_name,status')->order('code')->select()->toArray();
     $expectedTenants = [
@@ -379,8 +379,8 @@ function demoMultiAssertFinalState(
         $bindings[$row['host'] . "\0" . $row['client_key']] = [$row['code'], $row['status']];
     }
     $expectedBindings = [];
-    foreach ($sharedAdminHosts as $host) {
-        $expectedBindings[$host . "\0member-api"] = ['default', 'active'];
+    foreach (['admin-web', 'member-api'] as $clientKey) {
+        $expectedBindings[$defaultHost . "\0" . $clientKey] = ['default', 'active'];
     }
     foreach ([$tenantAHost => 'tenant-a', $tenantBHost => 'tenant-b'] as $host => $code) {
         foreach (['admin-web', 'member-api'] as $clientKey) {
@@ -396,8 +396,9 @@ function demoMultiAssertFinalState(
 
 function demoMultiMain(): int
 {
-    if (($_SERVER['argv'][1] ?? '') !== '--apply' || count($_SERVER['argv']) !== 2) {
-        fwrite(STDERR, "Usage: server/database/seed-multi-tenant-demo.php --apply\n");
+    if (($_SERVER['argv'][1] ?? '') !== '--apply' || count($_SERVER['argv']) !== 3
+        || !str_starts_with($_SERVER['argv'][2], '--default-host=')) {
+        fwrite(STDERR, "Usage: server/database/seed-multi-tenant-demo.php --apply --default-host=<host>\n");
         return 64;
     }
     if (env('PEANUT_DEMO_MODE', false) !== 'enabled') {
@@ -436,18 +437,17 @@ function demoMultiMain(): int
     $tenantBHost = TenantEntryBindingResolver::normalizeHost(
         demoMultiRequired('PEANUT_DEMO_TENANT_B_HOST'),
     );
-    $sharedAdminHosts = demoMultiHostList('TENANT_ADMIN_HOSTS');
-    if ($sharedAdminHosts === []) {
-        throw new RuntimeException('demo shared Admin Hosts are required');
-    }
+    $defaultHost = TenantEntryBindingResolver::normalizeHost(substr($_SERVER['argv'][2], strlen('--default-host=')));
+    $platformHosts = demoMultiHostList('PLATFORM_HOSTS');
     $reservedHosts = array_merge(
-        demoMultiHostList('PLATFORM_HOSTS'),
-        $sharedAdminHosts,
+        $platformHosts,
+        [$defaultHost],
     );
     if (hash_equals($tenantAHost, $tenantBHost)
+        || in_array($defaultHost, $platformHosts, true)
         || in_array($tenantAHost, $reservedHosts, true)
         || in_array($tenantBHost, $reservedHosts, true)) {
-        throw new RuntimeException('demo Tenant hosts must be distinct from Platform and shared Admin hosts');
+        throw new RuntimeException('demo Tenant hosts must be distinct from Platform and default Tenant hosts');
     }
 
     loadConfig($serverDir);
@@ -468,7 +468,7 @@ function demoMultiMain(): int
         $demoAccounts,
         $tenantAHost,
         $tenantBHost,
-        $sharedAdminHosts
+        $defaultHost
     ): array {
         demoMultiAssertSeedState();
         $platforms = Db::name('platform_operator')->where('status', 'active')
@@ -517,9 +517,7 @@ function demoMultiMain(): int
         if (!is_array($defaultTenant)) {
             throw new RuntimeException('demo default Tenant is unavailable');
         }
-        foreach ($sharedAdminHosts as $sharedAdminHost) {
-            demoMultiBinding((int) $defaultTenant['id'], $sharedAdminHost, ['member-api']);
-        }
+        demoMultiBinding((int) $defaultTenant['id'], $defaultHost);
         demoMultiBinding($tenantA['tenant_id'], $tenantAHost);
         demoMultiBinding($tenantB['tenant_id'], $tenantBHost);
         demoMultiAssertFinalState(
@@ -529,7 +527,7 @@ function demoMultiMain(): int
             $sharedPassword,
             $tenantAHost,
             $tenantBHost,
-            $sharedAdminHosts,
+            $defaultHost,
         );
         return [$tenantA, $tenantB];
     });
