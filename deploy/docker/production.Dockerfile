@@ -21,20 +21,18 @@ COPY web/package.json web/pnpm-lock.yaml ./
 RUN corepack enable && corepack prepare "$(node -p "require('./package.json').packageManager")" --activate
 RUN HUSKY=0 pnpm install --frozen-lockfile
 COPY plugins.lock /build/plugins.lock
-COPY scripts/client-environment.ts /build/scripts/client-environment.ts
 COPY web/ ./
 RUN printf '%s\n' 'VITE_DEPLOYMENT_MODE=standalone' 'VITE_API_BASE_URL=' > .env.standalone \
     && printf '%s\n' 'VITE_DEPLOYMENT_MODE=multi-tenant' 'VITE_API_BASE_URL=' > .env.multi-tenant \
     && pnpm exec vue-tsc --noEmit \
-    && PEANUT_CLIENT_ENV_FILE=/build/web/.env.standalone pnpm exec vite build --config ./config/vite.config.prod.ts --outDir dist/standalone \
-    && PEANUT_CLIENT_ENV_FILE=/build/web/.env.multi-tenant pnpm exec vite build --config ./config/vite.config.prod.ts --outDir dist/multi-tenant
+    && pnpm exec vite build --mode standalone --outDir dist/standalone \
+    && pnpm exec vite build --mode multi-tenant --outDir dist/multi-tenant
 
 FROM client-base AS mobile-builder
 
 WORKDIR /build/uniapp
 COPY uniapp/package.json uniapp/package-lock.json ./
 RUN npm ci
-COPY scripts/client-environment.ts /build/scripts/client-environment.ts
 COPY uniapp/ ./
 RUN npm run build:h5
 
@@ -43,7 +41,6 @@ FROM client-base AS platform-builder
 WORKDIR /build/platform
 COPY platform/package.json platform/package-lock.json ./
 RUN npm ci
-COPY scripts/client-environment.ts /build/scripts/client-environment.ts
 COPY platform/ ./
 RUN npm run build
 
@@ -52,12 +49,10 @@ FROM client-base AS pc-builder
 WORKDIR /build/pc
 COPY pc/package.json pc/package-lock.json ./
 RUN npm ci
-COPY scripts/client-environment.ts /build/scripts/client-environment.ts
 COPY pc/ ./
 RUN npm run build \
     && mv .output /build/pc-ssr-output \
-    && printf 'NUXT_PC_RENDER_MODE=spa\n' > /build/pc-spa.env \
-    && PEANUT_CLIENT_ENV_FILE=/build/pc-spa.env npm run generate
+    && NUXT_PC_RENDER_MODE=spa npm run generate
 
 FROM node:22.23.2-bookworm-slim AS pc
 
@@ -139,8 +134,8 @@ RUN if [ -n "$PEANUT_DEPLOYMENT_RECEIPT_BASE64" ]; then \
         'DB_PASS=build-only' \
         'DB_PREFIX=pa_' > .env.image-build \
     && chmod 600 .env.image-build \
-    && PEANUT_SERVER_ENV_FILE=/var/www/peanut-admin/server/.env.image-build php think service:discover \
-    && PEANUT_SERVER_ENV_FILE=/var/www/peanut-admin/server/.env.image-build php think vendor:publish \
+    && PHP_ENV_NAME=image-build php think service:discover \
+    && PHP_ENV_NAME=image-build php think vendor:publish \
     && rm -f .env.image-build \
     && cd .. \
     && chmod +x server/think server/database/seed-demo-data.php /usr/local/bin/peanut-php-entrypoint \

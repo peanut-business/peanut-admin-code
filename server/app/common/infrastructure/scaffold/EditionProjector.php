@@ -134,6 +134,7 @@ final class EditionProjector
         'deploy/docker/production.Dockerfile',
         'server/.env.example',
         'server/config/app.php',
+        'web/.env.example',
     ];
 
     /** @return list<string> */
@@ -151,7 +152,8 @@ final class EditionProjector
     ): array {
         $path = (string) $entry['target'];
         $content = match ($path) {
-            'server/.env.example' => $this->serverEnvironment($content, $profile->edition),
+            'server/.env.example' => $this->deploymentEnvironment($content, $profile->edition, 'DEPLOYMENT_MODE'),
+            'web/.env.example' => $this->deploymentEnvironment($content, $profile->edition, 'VITE_DEPLOYMENT_MODE'),
             'server/config/app.php' => $this->applicationConfig($content, $profile),
             'deploy/docker/production.Dockerfile' => $this->productionDockerfile($content, $profile),
             'deploy/docker/nginx-select-admin.sh' => $this->adminSelector($content, $profile),
@@ -171,14 +173,15 @@ final class EditionProjector
         ];
     }
 
-    private function serverEnvironment(string $content, string $edition): string
+    private function deploymentEnvironment(string $content, string $edition, string $key): string
     {
-        if (preg_match_all('/^DEPLOYMENT_MODE=(standalone|multi-tenant)$/m', $content) !== 1) {
+        $pattern = '/^' . $key . '=(standalone|multi-tenant)$/m';
+        if (preg_match_all($pattern, $content) !== 1) {
             throw new RuntimeException('CREATE_APP_EDITION_ENV_SOURCE_INVALID');
         }
         return preg_replace(
-            '/^DEPLOYMENT_MODE=(standalone|multi-tenant)$/m',
-            'DEPLOYMENT_MODE=' . $edition,
+            $pattern,
+            $key . '=' . $edition,
             $content,
             1,
         ) ?? $content;
@@ -202,13 +205,13 @@ final class EditionProjector
 
     private function productionDockerfile(string $content, EditionProfile $profile): string
     {
-        $bothAdminBuilds = "    && PEANUT_CLIENT_ENV_FILE=/build/web/.env.standalone pnpm exec vite build --config ./config/vite.config.prod.ts --outDir dist/standalone \\\n"
-            . "    && PEANUT_CLIENT_ENV_FILE=/build/web/.env.multi-tenant pnpm exec vite build --config ./config/vite.config.prod.ts --outDir dist/multi-tenant";
+        $bothAdminBuilds = "    && pnpm exec vite build --mode standalone --outDir dist/standalone \\\n"
+            . "    && pnpm exec vite build --mode multi-tenant --outDir dist/multi-tenant";
         if ($profile->edition === 'standalone') {
             $content = $this->replaceOnce(
                 $content,
                 $bothAdminBuilds,
-                '    && PEANUT_CLIENT_ENV_FILE=/build/web/.env.standalone pnpm exec vite build --config ./config/vite.config.prod.ts --outDir dist/standalone',
+                '    && pnpm exec vite build --mode standalone --outDir dist/standalone',
                 'CREATE_APP_EDITION_DOCKER_ADMIN_BUILD_SOURCE_INVALID',
             );
             $content = preg_replace(
@@ -230,7 +233,7 @@ final class EditionProjector
             $content = $this->replaceOnce(
                 $content,
                 $bothAdminBuilds,
-                '    && PEANUT_CLIENT_ENV_FILE=/build/web/.env.multi-tenant pnpm exec vite build --config ./config/vite.config.prod.ts --outDir dist/multi-tenant',
+                '    && pnpm exec vite build --mode multi-tenant --outDir dist/multi-tenant',
                 'CREATE_APP_EDITION_DOCKER_ADMIN_BUILD_SOURCE_INVALID',
             );
         }

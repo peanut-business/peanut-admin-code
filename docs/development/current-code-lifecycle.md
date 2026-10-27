@@ -111,13 +111,24 @@ app/event.php保留AppInit、HttpRun、HttpEnd、LogLevel和LogWrite项，但默
 
 本节解释已有源码能力。APP在自己的Git开发、定版，生产采用固定main提交；[产品Git交付](../public/application-release.md)说明目标流程、保护与尚未接通的部分。安装、迁移及源码三方升级各用正式入口；维护资料位于源码仓 docs/maintenance，历史回执按原版本解释。
 
-开发联调明确选择本地 PHP/Web Core：PHP 使用真实 Composer path link，普通 PHP 源码修改直接由开发消费者读取，不以逐次提交、固定包、发布或重新封装 development-runtime 为前提；依赖声明、路径或配置合同变化才刷新相应原生依赖/服务登记。Web Core 保留 dist 导出，由显式本地 Core 模式的标准开发入口托管原生 TypeScript watch。开发链接与候选、正式 APP 的固定依赖分别使用，不把维护者目录或活链接放进交付 APP。
+开发联调明确选择本地 PHP/Web Core：PHP 使用真实 Composer path link，普通 PHP 源码修改直接由开发消费者读取，不以逐次提交、固定包、发布或重新封装 development-runtime 为前提；依赖声明、路径或配置合同变化才刷新相应原生依赖/服务登记。Web Core 保留 dist 导出，维护者在所选 Core 工作区单独运行原生 `pnpm run watch`，只启动一个编译写者；客户端启动不再托管 Core 编译器。开发链接与候选、正式 APP 的固定依赖分别使用，不把维护者目录或活链接放进交付 APP。
 
 维护者首次在无消费者、所选 Core 无编译写者的窗口执行 `scripts/core-dev select --php-core-dir /absolute/php-core --web-core-dir /absolute/web-core --backend-env /absolute/server/.env`，再执行 `scripts/core-dev install`。选择保存在当前工程忽略的 `.local/core-dev.json`，不含凭据；绝对路径由维护者明确指定，不推断相邻仓或私有 Project。`select` 只保存选择，`install` 才通过原生 Composer path 和现有 Web 链接入口激活依赖，初次生成 Web dist；两步均不连接或迁移数据库。`scripts/core-dev status` 核实际链接。切换 Core 或刷新依赖前重新核运行消费者和 Core 写者，不能替换在途候选现场。
 
-选择生效后，现有 PHP 开发启动入口校验真实 path link；PHP 普通源码无需重新安装。`local-core-composer`、`local-php-runtime` 和 Core 选择配置共用本工程 `.local/core-links/php` 临界区，启动内校验链接，依赖/配置写入在持有记录时核原生 PID 与 canonical router 进程（覆盖原入口自定义 PID），运行中明确拒绝切换。OPcache、常驻 worker 或已加载类仍须由其 owner 按原运行合同刷新/重启，脚本不替别人重启服务。在 `pc/` 运行 `npm run dev`、在 `uniapp/` 运行 `npm run dev:h5` 以及 UniApp 其他 `dev:*` 脚本读取同一选择，托管客户端实际依赖闭包的原生 Core watch，随该前台命令退出；标准命令不逐次 pack 或全仓 build。每个客户端的链接目标另由 Code 的 `.local/core-links/<client>/owner.json` 原子记录保护，与选哪个 Core 无关。源码链接和候选安装均先取客户端记录，再扫描旧来源、取得新旧 Core writer，最终安装位置核验也在记录内；开发入口按同样顺序取得记录，取得 Core writer 后重新验证全部直接依赖，整个运行期间持有客户端记录。配置选择取得所有受其影响的客户端记录并复核，漂移或读取失败拒绝；不同客户端仍按实际包写集独立。多个客户端依赖同一 Core 包时只允许一个编译写者。所选 Core 的 `scripts/local-core-writer.mjs` 用原子目录和唯一凭据在 `.local/client-watch/<package>/owner.json` 登记；安装/全构建/链接一次取得并持有六包记录，watch 持有实际依赖闭包记录，切换源码链接还取得旧 Core 受影响包记录。Core 根与各包原生 build/watch 也使用同一入口，嵌套命令只复用活祖先进程持有的凭据；获取或读取错误即拒绝，不删除未知记录。这些入口保护正常工具调用，不承诺拦截任意手工链接写入、裸包管理器操作或绕入口启动的进程。异常强杀留下记录时先核 PID、实际进程和 Core 路径，由原 owner 确认空闲后清理该记录，不把别人的编译器停掉。
+选择生效后，现有 PHP 开发启动入口校验真实 path link；PHP 普通源码无需重新安装。`local-core-composer`、`local-php-runtime` 和 Core 选择配置共用本工程 `.local/core-links/php` 临界区，启动内校验链接，依赖/配置写入在持有记录时核原生 PID 与 canonical router 进程（覆盖原入口自定义 PID），运行中明确拒绝切换。OPcache、常驻 worker 或已加载类仍须由其 owner 按原运行合同刷新/重启，脚本不替别人重启服务。在已选 Web Core 根单独运行 `pnpm run watch`；它先构建，再持续编译各包，通过 Core 已有的 `scripts/local-core-writer.mjs` 保护输出写集。多客户端共享这一个编译写者，各自用原生开发入口读取已链接的 dist，不为每个客户端再获取同一 Core writer。Core 根与包级原生 build/watch 共用原记录，嵌套命令只复用活祖先进程凭据。安装、切换链接或刷新依赖前，先由实际 owner 关闭相关客户端和 Core watch；现有安装/选择入口仍保护 `.local/core-links/<client>/owner.json` 与 Core writer，不能在原生客户端运行期间手工换链接。这些入口保护正常工具调用，不承诺拦截任意手工链接写入、裸包管理器操作或绕入口启动的进程。异常强杀留下记录时先核 PID、实际进程和 Core 路径，由原 owner 确认空闲后清理该记录，不把别人的编译器停掉。
 
-UniApp 小程序、custom、SSR 等原生 dev:* 入口保留原始参数和调用环境；只在显式或已保存 daily 选择时增加 Core 校验/watch，不要求维护者 host-client.env/PHP_PORT，不覆盖已有 PEANUT_CLIENT_ENV_FILE；显式 --env-file 才选择该文件。H5 仍沿用原有维护者 host 环境入口。未保存选择的普通下游与生成 APP 继续使用自己的固定依赖；无效选择或缺链接明确报错。开发入口不修改 tracked 依赖声明和锁。日常可变源码联调不构成候选资格：阶段候选通过冻结合同生成 PHP ZIP、Web 六个 TGZ，并由同格式模板 TGZ 创建 APP，按候选原生 Composer/npm 锁安装到 APP 自身 `vendor`/`node_modules`，必须拒绝维护者源码链接；正式交付再核适用公开包的最终内容、来源及原生正式锁。
+各客户端配置独立：复制各自 `.env.example` 为本目录 `.env`，保留其中实际有用的字段。Web 和 Platform 各用根 `vite.config.ts`；`npm run dev` 直接启动 Vite，Web/Platform/UniApp 配置用原生 `loadEnv` 加载当前 mode，Nuxt 使用自己的 dotenv（默认 `.env`，可通过原生 `--dotenv` 显式选择）。环境变量遵循框架优先级，不再读取共享 `.local/host-client.env`、额外 selector 或拒绝普通父环境。UniApp 的 H5、小程序、custom、SSR 等 `dev:*` 直接运行原生 `uni`，保留原参数。启动不会安装依赖、改锁、构建或启动 Core watch。
+
+| 客户端 | 原生开发入口 | 本目录配置 |
+| --- | --- | --- |
+| Web | `npm run dev` | `VITE_HOST`、`VITE_PORT`、`VITE_ALLOWED_HOSTS`、`VITE_OPEN_BROWSER`、`VITE_API_PROXY_TARGET`、`VITE_API_BASE_URL`、`VITE_DEPLOYMENT_MODE`、`REPORT` |
+| Platform | `npm run dev` | `VITE_HOST`、`VITE_PORT`、`VITE_ALLOWED_HOSTS`、`VITE_OPEN_BROWSER`、`VITE_API_PROXY_TARGET`、`VITE_API_BASE_URL` |
+| PC | `npm run dev` | `NUXT_HOST`、`NUXT_PORT`、`NUXT_DEV_PROXY_ORIGIN`、`NUXT_DEV_PROXY_TARGET`、`NUXT_PC_RENDER_MODE` 及 SSR/公开 runtime 配置，详见本目录示例 |
+| UniApp | `npm run dev:h5` 或所需 `dev:*` | `VITE_HOST`、`VITE_PORT`、`VITE_API_PROXY_TARGET`、`VITE_APP_BASE_URL` |
+
+端口由各客户端配置；维护者填写自己登记的实际端口。Docker 对外端口仍由 Docker 编排配置管理，不替换宿主客户端配置。文档站使用自己的原生 VitePress 命令及启动参数；`DOCS_PORT` 是编排监听选项。`PHP_PORT`、网关/HTTP/Redis 端口属于其服务，不进入浏览器配置。开发 API 通过同源路径代理到明确上游，代理保留原始 Host；不设置固定租户 Host，不在浏览器 JavaScript 中设置 Host。生产也使用同域名下的 API/资源路径，浏览器 API 前缀留空；UniApp 小程序/App 的绝对后端地址按实际终端另行配置。`VITE_` 和公开 runtime 字段会交付客户端，不能存放秘密。
+
+日常可变源码联调不构成候选资格：阶段候选通过冻结合同生成 PHP ZIP、Web 六个 TGZ，并由同格式模板 TGZ 创建 APP，按候选原生 Composer/npm 锁安装到 APP 自身 `vendor`/`node_modules`，必须拒绝维护者源码链接；正式交付再核适用公开包的最终内容、来源及原生正式锁。
 
 首次安装继续使用网页安装向导，控制台入口是 `php server/database/install.php`。首次空库检查、动态管理员/租户、模块选择、租户模块开通、健康检查和完成锁均由安装业务负责。结构通过官方 `migrate:run` 执行唯一 `server/database/migrations` 目录；动态身份创建后，官方 `seed:run --seed=InitialSeeder` 写默认数据并同步权限目录。种子从实际唯一默认租户读取身份，不依赖另一个 PDO 的会话变量；重复或部分初始化拒绝重放。安装完成身份位于 `server/private/installation/installed.json`，包含原生迁移版本与当前源码摘要，不能据此声称官方账本提供历史 checksum 验证。
 
@@ -137,7 +148,7 @@ SSR常驻Node为多个请求生成HTML，全局可变Token、租户、store或�
 
 公共 Layout 只消费既有网站公开配置；头像、昵称、登录和充值导航在 `MemberNavigation.client.vue` 中读取。新闻详情用请求级 `useAsyncData` 保存固定公开字段，匿名请求不携个人凭据，响应额外字段不进入新闻 payload。`ArticleFavorite.client.vue` 在浏览器消费既有鉴权详情接口中的收藏布尔值，收藏写入沿原权限接口；失败或失效个人会话保留可匿名阅读的正文。关于我们复用网站标题、logo、简介、slogan 和 copyright，不新增配置表。
 
-PC URL 为 `/`，物理产物仍放 `server/public/pc`；Admin、Platform、Mobile 和 PHP API 保留独立 Nginx location。`pc/.env.production` 或显式 `PEANUT_CLIENT_ENV_FILE` 选择 `NUXT_PC_RENDER_MODE=hybrid|spa`：Hybrid 执行 `npm run build` 并运行 `.output/server/index.mjs`；SPA 必须另用包含 `NUXT_PC_RENDER_MODE=spa` 的配置执行 `npm run generate`，只部署该次生成的完整 `.output/public`，无需 PC Node SSR 服务。当前部署选定 SPA，只消费同次 APP 发行生成的完整浏览器产物；SSR 常驻服务及 Hybrid 运行合同本批后置，不能将 Hybrid 的 public 目录当成完整 SPA。
+PC URL 为 `/`，物理产物仍放 `server/public/pc`；Admin、Platform、Mobile 和 PHP API 保留独立 Nginx location。在 `pc/.env`（或原生 `--dotenv` 选择的文件）/命令环境中设置 `NUXT_PC_RENDER_MODE=hybrid|spa`：Hybrid 执行 `npm run build` 并运行 `.output/server/index.mjs`；SPA 必须另用包含 `NUXT_PC_RENDER_MODE=spa` 的配置执行 `npm run generate`，只部署该次生成的完整 `.output/public`，无需 PC Node SSR 服务。当前部署选定 SPA，只消费同次 APP 发行生成的完整浏览器产物；SSR 常驻服务及 Hybrid 运行合同本批后置，不能将 Hybrid 的 public 目录当成完整 SPA。
 
 hybrid公开首屏、浏览器个人态、代理、缓存、退出及完整SPA模式需要真实HTTP/浏览器验证。类型检查、源码构建或模拟上游不能证明生产PHP、数据库、CDN及实际终端正确。发布前另核各依赖支持范围，不把开发标识当发布版本。
 

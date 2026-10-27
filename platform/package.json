@@ -12,7 +12,7 @@
     "directory": "platform"
   },
   "scripts": {
-    "dev": "../scripts/local-client-dev platform",
+    "dev": "vite --configLoader runner",
     "build": "vue-tsc --noEmit && vite build --configLoader runner",
     "type:check": "vue-tsc --noEmit",
     "type:check:governance": "node scripts/check-governance-types.mjs",

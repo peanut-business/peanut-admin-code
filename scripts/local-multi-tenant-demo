@@ -185,6 +185,9 @@ wait_http() {
 }
 
 start_clients() {
+    php_port=$(awk -F= '$1 == "PHP_PORT" { print $2; exit }' "$orchestration_env")
+    allowed_hosts=$(awk -F= '$1 == "VITE_ALLOWED_HOSTS" { print $2; exit }' "$orchestration_env")
+    [ -n "$php_port" ] && [ -n "$allowed_hosts" ] || die 'prepared client listener configuration is missing'
     if [ ! -x "$repo_dir/web/node_modules/.bin/vite" ]; then
         (cd "$repo_dir/web" && corepack pnpm install --frozen-lockfile)
     fi
@@ -197,9 +200,9 @@ start_clients() {
         (
             trap '' HUP
             cd "$repo_dir/web"
-            exec env -i PATH="$PATH" HOME="$HOME" PEANUT_CLIENT_ENV_FILE="$orchestration_env" \
-                node node_modules/vite/bin/vite.js --config ./config/vite.config.dev.ts \
-                --host 127.0.0.1 --port 20179
+            exec env -i PATH="$PATH" HOME="$HOME" VITE_API_PROXY_TARGET="http://127.0.0.1:$php_port" \
+                VITE_DEPLOYMENT_MODE=multi-tenant VITE_ALLOWED_HOSTS="$allowed_hosts" VITE_OPEN_BROWSER=false \
+                npm run dev -- --host 127.0.0.1 --port 20179
         ) >> "$admin_log" 2>&1 &
         printf '%s\n' "$!" > "$admin_pid"
     fi
@@ -208,8 +211,9 @@ start_clients() {
         (
             trap '' HUP
             cd "$repo_dir/platform"
-            exec env -i PATH="$PATH" HOME="$HOME" PEANUT_CLIENT_ENV_FILE="$orchestration_env" \
-                node node_modules/vite/bin/vite.js --configLoader runner --host 127.0.0.1 --port 20176
+            exec env -i PATH="$PATH" HOME="$HOME" VITE_API_PROXY_TARGET="http://127.0.0.1:$php_port" \
+                VITE_ALLOWED_HOSTS="$allowed_hosts" VITE_OPEN_BROWSER=false \
+                npm run dev -- --host 127.0.0.1 --port 20176
         ) >> "$platform_log" 2>&1 &
         printf '%s\n' "$!" > "$platform_pid"
     fi
@@ -245,11 +249,11 @@ case "${1:-}" in
             'ADMIN_INITIAL_PASSWORD=peanut1234' \
             'PLATFORM_INITIAL_EMAIL=platform@local.test' \
             'PLATFORM_INITIAL_PASSWORD=peanut1234' > "$installation_env"
-        PEANUT_SERVER_ENV_FILE="$backend_env" PEANUT_INSTALLATION_ENV_FILE="$installation_env" \
+        PHP_ENV_NAME=mt-demo PEANUT_INSTALLATION_ENV_FILE="$installation_env" \
             php "$repo_dir/server/database/install.php" --skip-if-installed
         rm -f "$installation_env"
         trap - EXIT HUP INT TERM
-        PEANUT_SERVER_ENV_FILE="$backend_env" \
+        PHP_ENV_NAME=mt-demo \
             php "$repo_dir/server/database/seed-multi-tenant-demo.php" --apply
         "$repo_dir/scripts/local-php-runtime" start --env-file "$orchestration_env" --backend-env "$backend_env" \
             --pid-file "$php_pid" --log-file "$php_log"
