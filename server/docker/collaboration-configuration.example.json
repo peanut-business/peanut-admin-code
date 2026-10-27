@@ -13,6 +13,7 @@
   "php_origin": "https://php-control.example.invalid:8443",
   "control_origin": "https://node-control.example.invalid:8443",
   "wss_hostname": "collaboration.example.invalid",
+  "websocket_scheme": "wss",
   "wss_bind": "127.0.0.1",
   "wss_port": 21443,
   "config_revision": 1,

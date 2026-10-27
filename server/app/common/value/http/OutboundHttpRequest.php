@@ -24,9 +24,11 @@ final readonly class OutboundHttpRequest
         public array $multipart = [],
         public ?string $caBundleFile = null,
         public bool $directConnection = false,
+        // Explicit local collaboration opt-in; ordinary outbound callers remain HTTPS-only.
+        public bool $allowDevelopmentHttp = false,
     ) {
         if (!in_array(strtoupper($method), ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], true)
-            || !str_starts_with($url, 'https://')
+            || !(str_starts_with($url, 'https://') || ($allowDevelopmentHttp && str_starts_with($url, 'http://')))
             || $connectTimeoutSeconds < 1
             || $connectTimeoutSeconds > 30
             || $timeoutSeconds < $connectTimeoutSeconds

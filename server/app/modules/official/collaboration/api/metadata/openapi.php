@@ -78,7 +78,7 @@ return ['paths' => [
 ], 'components' => ['securitySchemes' => ['CollaborationServiceHmac' => ['type' => 'apiKey','in' => 'header','name' => 'X-Collaboration-Signature',
     'description' => 'Exact transport envelope v2 HMAC binds the real process holder. Service custody is not a human capability.']], 'schemas' => [
     'CollaborationTransportResponse' => $envelope($object(['document_name' => $text,'document_id' => $id,'mode' => $mode,'protocol' => $protocol,
-        'wss_url' => ['type' => 'string','format' => 'uri','pattern' => '^wss://[^/?#@]+:[0-9]+/collaboration$']])),
+        'wss_url' => ['type' => 'string','format' => 'uri','pattern' => '^wss?://[^/?#@]+:[0-9]+/collaboration$']])),
     'CollaborationConnectionResponse' => $envelope($connection),'CollaborationLoadResponse' => $envelope($load),'CollaborationStoreResponse' => $envelope($receipt),
     'CollaborationReceiptResponse' => $envelope(['oneOf' => [$object(['found' => ['type' => 'boolean','enum' => [false]]]),
         $object(['found' => ['type' => 'boolean','enum' => [true]],'receipt' => $receipt])]]),
