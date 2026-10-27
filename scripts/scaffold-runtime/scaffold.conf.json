@@ -15,6 +15,7 @@
       ".nuxt",
       ".output",
       ".cache",
+      "__pycache__",
       ".pnpm-store",
       "vendor",
       "node_modules",
@@ -66,7 +67,7 @@
     "excluded_name_patterns": [
       "^\\.env(?:\\.|$)",
       "(?:^|\\.)secret(?:\\.|$)",
-      "\\.(?:sqlite3?|db|log)$"
+      "\\.(?:sqlite3?|db|log|py[co])$"
     ]
   },
   "inventory_omissions": {
