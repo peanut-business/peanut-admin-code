@@ -23,6 +23,7 @@ services:
       VITE_DEPLOYMENT_MODE: ${VITE_DEPLOYMENT_MODE:?set the instance Edition}
     volumes:
       - ../web:/workspace/web
+      - ../server/app/modules:/workspace/server/app/modules:ro
       - web-node-modules:/workspace/web/node_modules
     ports:
       - "127.0.0.1:${VITE_PORT:?set the registered admin port}:5173"
