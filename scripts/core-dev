@@ -24,11 +24,12 @@ Following commands reuse that choice; command-line paths override it for that ca
 Development always uses both explicitly selected local Core checkouts.
 install/link activate source links; status/link-status verify those links.
 Local Web exports use dist/, compiled by the existing TypeScript toolchain.
-After selecting and linking, normal npm run dev / npm run dev:h5 reads the choice.
-Without a saved choice, --core-web-dir remains an explicit one-call selection.
-The dev entry verifies links
-and watches only the client's Core packages and their Core dependencies;
-watchers stop with that dev command. Do not re-link or rebuild for each edit.
+First select the checkouts and run install/link to prepare source dependencies.
+Then run the existing pnpm run watch once in the selected Web Core root.
+Start clients separately with native npm run dev / npm run dev:h5 commands;
+they consume the prepared links and do not start Core watchers or read this choice.
+Do not re-link or rebuild for each edit; stop affected clients and Core watch
+before switching source links or refreshing dependencies.
 An APP without a saved choice uses its normal fixed packages. Candidate delivery
 uses fixed Core packages and native locks, independently of these source links.
 USAGE
