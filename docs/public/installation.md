@@ -26,7 +26,7 @@ server/.env存后端配置，包括DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASS；Thi
 
 DB_NAME、DB_USER 为空或 DB_PASS 未提供时，配置可以加载，但不登记数据库连接；实际使用连接时由 ThinkPHP 明确拒绝。显式空密码沿用原生连接能力，安装向导对已有数据库仍要求填写密码。首配前的文件缓存和会话标识使用应用根目录与 `APP_ENV`，防止不同未配置实例共用 cookie 名；配置齐全后切换到上述数据库配置标识。环境预检不检查数据库，后续数据库配置预检会明确报告未配置。host/port/type/charset/prefix 使用 config 中的固定默认值，容器连接须按实际服务覆盖 host。SQL 调试输出默认关闭，只有显式启用 APP_DEBUG 或原有受控采样才启用。
 
-ThinkPHP 会优先使用 `server/runtime/config.php`，已有配置缓存可能遮盖 `.env` 或源码配置变更。真正首次配置发布完成时只失效该原生配置缓存文件，既有实例与其他运行数据不因此清理。首配不写入 PROJECT_VERSION，未设置手工覆盖时，版本继续由已采用的源码或发行身份决定。HTTP 首配仍须满足依赖、模块编译、Edition 与来源准入，配置可加载不等于整个 APP 首次安装已通过。
+ThinkPHP 会优先使用 `server/runtime/config.php`，已有配置缓存可能遮盖 `.env` 或源码配置变更。真正首次配置发布时，先失效该原生配置缓存文件，再发布 `.env` 和配置回执；缓存失效失败时不先发布已配置状态。既有实例与其他运行数据不因此清理。首配不写入 PROJECT_VERSION，未设置手工覆盖时，版本继续由已采用的源码或发行身份决定。HTTP 首配仍须满足依赖、模块编译、Edition 与来源准入，配置可加载不等于整个 APP 首次安装已通过。
 
 多租户首配只要求 `PLATFORM_HOSTS` 标识平台入口；租户站点入口在数据库中绑定。资源登记、endpoint、consumer 和租约证明属于需要它们的维护命令准入，普通运行与首次安装不强制填写维护资源身份。
 

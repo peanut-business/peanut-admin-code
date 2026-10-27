@@ -329,6 +329,12 @@ final class InstallationConfigurationHost
 
             // Validate credential serialization before publishing any instance file.
             $environmentBytes = $this->environmentBytes($environmentValues);
+            // ThinkPHP prefers this native cache over config/*.php and .env.
+            // Invalidate it before publishing configured state, so a failure
+            // cannot leave the new configuration hidden by an old cache.
+            if (file_exists($configurationCache) && !unlink($configurationCache)) {
+                throw new RuntimeException('INSTALL_CONFIGURATION_CACHE_INVALIDATION_FAILED');
+            }
             $this->writeAtomic($this->serverRoot . '/.env', $environmentBytes);
             $record = [
                 'schema_version' => 1,
@@ -342,12 +348,6 @@ final class InstallationConfigurationHost
             ];
             if ($sourceBinding !== null) { $record['application_source'] = $sourceBinding; }
             $this->writeJsonAtomic($stateDirectory . '/configuration.json', $record);
-            // ThinkPHP prefers this native cache over config/*.php and .env.
-            // Only a real first publication invalidates it; existing instance
-            // configuration and other runtime files are never cleared here.
-            if (file_exists($configurationCache) && !unlink($configurationCache)) {
-                throw new RuntimeException('INSTALL_CONFIGURATION_CACHE_INVALIDATION_FAILED');
-            }
 
             return [
                 'state' => 'configured',
