@@ -8,7 +8,7 @@
 
 生产首次安装从产品已定版 `main` 的固定提交取得源码，在全新空目录、空库准备依赖、适用前端构建和生产配置，启动后走同一安装页面向导。程序更新入口及运行验收边界见[交付合同](application-release.md#5-执行入口与失败边界)。
 
-生成 APP 的网页首次配置支持 `development` 与 `production`，使用有效 Setup Token；来源身份由 `.peanut/application-manifest.json` 与 `release-versions.json` 校验，Edition、版本及两份声明的摘要绑定到私有配置回执。Docker 中网页只提交 pending 输入，原生入口关闭流量并停止 PHP 后重新核对身份和 token，再由 owner 发布配置。已有配置、安装身份和部分失败继续阻止重复首次配置。带 `development-runtime.json` 的开发运行布局与内部候选仍只允许 `development`，不能用于生产。
+生成 APP 的网页首次配置支持 `development` 与 `production`，使用有效 Setup Token；来源身份由 `.peanut/application-manifest.json` 与 `release-versions.json` 校验，Edition、版本及两份声明的摘要绑定到私有配置回执。Docker 中网页只提交 pending 输入，原生入口关闭流量并停止 PHP 后重新核对身份和 token，再由 owner 发布配置。非 Docker 部署由同一 PHP 用户写入和读取首配私有文件，源码目录可以由独立部署用户持有。已有配置、安装身份和部分失败继续阻止重复首次配置。带 `development-runtime.json` 的开发运行布局与内部候选仍只允许 `development`，不能用于生产。
 
 ## 1. 准备独立实例
 

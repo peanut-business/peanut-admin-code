@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace app\common\services\installation;
 
 use app\common\exception\installation\InstallationExecutionException;
-use app\common\infrastructure\installation\ReadonlyHttpMount;
 use app\common\value\installation\ApplicationSourceIdentity;
 use app\common\value\installation\ServerReleaseIdentity;
 use Closure;
@@ -41,9 +40,10 @@ final class InstallationConfigurationHost
             $stat = lstat($record);
             $configuration = json_decode((string) file_get_contents($record), true, 512, JSON_THROW_ON_ERROR);
             $source = $configuration['application_source'] ?? null;
-            // Docker grants the worker read access to this owner-published file
-            // through a readonly mount already bound by VerifiedServerDeployment.
-            $owner = ReadonlyHttpMount::active($this->serverRoot) ? posix_geteuid() : fileowner($this->serverRoot);
+            // HTTP configuration is private to its actual PHP writer. Docker
+            // additionally binds this file through VerifiedServerDeployment's
+            // readonly mount; native CLI publication retains the code owner.
+            $owner = PHP_SAPI === 'cli' ? fileowner($this->serverRoot) : posix_geteuid();
             if ($stat['nlink'] !== 1 || ($stat['mode'] & 0777) !== 0600 || $stat['uid'] !== $owner
                 || !is_array($source) || $source !== ($identity['application_source'] ?? null)) {
                 throw new RuntimeException('INSTALL_CONFIGURATION_SOURCE_BINDING_CHANGED');
