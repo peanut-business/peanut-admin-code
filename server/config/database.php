@@ -1,16 +1,11 @@
 <?php
 
-$requiredDatabaseValue = static function (string $name): string {
-    $value = env($name, null);
-    if (!is_string($value) && !is_int($value)) {
-        throw new RuntimeException("BACKEND_ENVIRONMENT_REQUIRED:{$name}");
-    }
-    $value = (string) $value;
-    if (trim($value) === '') {
-        throw new RuntimeException("BACKEND_ENVIRONMENT_REQUIRED:{$name}");
-    }
-    return $value;
-};
+$databaseName = env('DB_NAME', '');
+$databaseUser = env('DB_USER', '');
+$databasePassword = env('DB_PASS', null);
+// Configuration must load before first setup. An absent connection is rejected
+// by ThinkPHP when used; an explicitly configured empty password remains valid.
+$databaseConfigured = $databaseName !== '' && $databaseUser !== '' && $databasePassword !== null;
 
 $databaseConnectTimeout = env('DB_CONNECT_TIMEOUT_SECONDS', 5);
 if (
@@ -41,18 +36,18 @@ return [
     'datetime_field'  => '',
 
     // 数据库连接配置信息
-    'connections'     => [
+    'connections'     => $databaseConfigured ? [
         'mysql' => [
             // 数据库类型
             'type'            => env('DB_TYPE', 'mysql'),
             // 服务器地址
             'hostname'        => env('DB_HOST', '127.0.0.1'),
             // 数据库名
-            'database'        => $requiredDatabaseValue('DB_NAME'),
+            'database'        => $databaseName,
             // 用户名
-            'username'        => $requiredDatabaseValue('DB_USER'),
+            'username'        => $databaseUser,
             // 密码
-            'password'        => $requiredDatabaseValue('DB_PASS'),
+            'password'        => $databasePassword,
             // 端口
             'hostport'        => env('DB_PORT', '3306'),
             // 数据库连接参数
@@ -77,11 +72,11 @@ return [
             // 是否需要断线重连
             'break_reconnect' => false,
             // Preserve normal debug logging; an owner-selected FPM sample enables this connection only after its safe listener is installed.
-            'trigger_sql'     => env('APP_DEBUG', true),
+            'trigger_sql'     => env('APP_DEBUG', false),
             // 开启字段缓存
             'fields_cache'    => false,
         ],
 
         // 更多的数据库配置信息
-    ],
+    ] : [],
 ];

@@ -287,6 +287,13 @@ final class InstallationConfigurationHost
         try {
             $this->assertFreshConfigurationState();
 
+            $configurationCache = $this->serverRoot . '/runtime/config.php';
+            if (is_link($this->serverRoot . '/runtime') || is_link($configurationCache)
+                || (file_exists($configurationCache)
+                    && (!is_file($configurationCache) || lstat($configurationCache)['nlink'] !== 1))) {
+                throw new RuntimeException('INSTALL_CONFIGURATION_CACHE_UNSAFE');
+            }
+
             $slug = (string) $application['slug'];
             $databaseUser = $connection['user'] ?? $this->databaseUser($slug);
             $databasePassword = $connection['password'] ?? $this->secret();
@@ -316,7 +323,6 @@ final class InstallationConfigurationHost
                 'PEANUT_DEMO_MODE' => 'disabled',
                 'PLATFORM_HOSTS' => implode(',', $platformHosts),
                 'DEFAULT_LANG' => 'zh-cn',
-                'PROJECT_VERSION' => (string) $application['version'],
                 'ASYNC_WORKER_LIMIT' => '25',
                 ...$secrets,
             ];
@@ -336,6 +342,12 @@ final class InstallationConfigurationHost
             ];
             if ($sourceBinding !== null) { $record['application_source'] = $sourceBinding; }
             $this->writeJsonAtomic($stateDirectory . '/configuration.json', $record);
+            // ThinkPHP prefers this native cache over config/*.php and .env.
+            // Only a real first publication invalidates it; existing instance
+            // configuration and other runtime files are never cleared here.
+            if (file_exists($configurationCache) && !unlink($configurationCache)) {
+                throw new RuntimeException('INSTALL_CONFIGURATION_CACHE_INVALIDATION_FAILED');
+            }
 
             return [
                 'state' => 'configured',

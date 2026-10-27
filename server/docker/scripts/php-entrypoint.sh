@@ -94,7 +94,6 @@ release_field() {
 write_bootstrap_env() {
     token=$(read_token)
     edition=$(release_field edition)
-    version=$(release_field version)
     case "$edition" in standalone|multi-tenant) ;; *) echo "server release edition is invalid" >&2; exit 1 ;; esac
     bootstrap_environment=production
     # release_field already strictly verified the runtime declaration above.
@@ -107,10 +106,9 @@ write_bootstrap_env() {
         printf 'APP_ENV=%s\nAPP_DEBUG=false\n' "$bootstrap_environment"
         printf 'DEPLOYMENT_MODE=%s\n' "$edition"
         printf 'PEANUT_INSTALLATION_MODE=guided\nPEANUT_INSTALLATION_SETUP_TOKEN=%s\n' "$token"
-        printf 'DB_DRIVER=mysql\nDB_TYPE=mysql\nDB_HOST=127.0.0.1\nDB_PORT=3306\nDB_NAME=bootstrap_unconfigured\nDB_USER=bootstrap\nDB_PASS=bootstrap_not_used\nDB_CHARSET=utf8mb4\nDB_PREFIX=pa_\n'
         printf 'JWT_SECRET=%s\nTENANT_IDENTIFIER_HMAC_KEY=%s\nPLATFORM_IDENTIFIER_HMAC_KEY=%s\n' "$(secret)" "$(secret)" "$(secret)"
         printf 'PEANUT_STORAGE_CREDENTIAL_MASTER_KEY=%s\nASYNC_SIGNING_KEY=%s\n' "$(secret)" "$(secret)"
-        printf 'PEANUT_DEMO_MODE=disabled\nDEFAULT_LANG=zh-cn\nPROJECT_VERSION=%s\n' "$version"
+        printf 'PEANUT_DEMO_MODE=disabled\nDEFAULT_LANG=zh-cn\n'
     } > "$tmp"
     chmod 600 "$tmp"
     chown www-data:www-data "$tmp"

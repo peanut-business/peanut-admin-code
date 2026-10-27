@@ -7,7 +7,7 @@ namespace app\common\value\runtime;
 use think\facade\Db;
 use think\facade\Config;
 
-/** Stable, non-secret namespace shared by every replica of one application instance. */
+/** Stable non-secret namespace for identical database endpoint settings; aliases remain distinct. */
 final readonly class RuntimeNamespace
 {
     private const PROJECT_ID = 'peanut-admin';
@@ -28,7 +28,13 @@ final readonly class RuntimeNamespace
     /** Config files call this before ThinkPHP's configuration repository is available. */
     public static function fromDatabaseConfiguration(array $configuration, string $environment): self
     {
-        $connection = $configuration['connections'][$configuration['default'] ?? ''] ?? null;
+        $connections = $configuration['connections'] ?? [];
+        if ($connections === []) {
+            // Before setup there is no database identity. Native file stores are
+            // local to this application; its root also isolates the session name.
+            return new self(self::PROJECT_ID . "\0bootstrap\0" . $environment . "\0" . app()->getRootPath(), '');
+        }
+        $connection = $connections[$configuration['default'] ?? ''] ?? null;
         if (!is_array($connection) || ($connection['database'] ?? '') === '') {
             throw new \RuntimeException('RUNTIME_NAMESPACE_DATABASE_INVALID');
         }
@@ -82,5 +88,4 @@ final readonly class RuntimeNamespace
         $logicalFingerprint = substr(hash('sha256', $logicalName), 0, 32);
         return "pa:l:{$databaseFingerprint}:{$logicalFingerprint}";
     }
-
 }
