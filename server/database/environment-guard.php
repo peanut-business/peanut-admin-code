@@ -1635,7 +1635,7 @@ function assertCurrentDatabase(PDO $pdo): array
     $expected = canonicalBaselineTables();
     // The native command defaults to "migrations"; this application's database
     // configuration sets only DB_PREFIX and does not override migration_table.
-    $migrationTable = requiredEnvironment('DB_PREFIX') . 'migrations';
+    $migrationTable = requiredEnvironment('DB_PREFIX', 'pa_') . 'migrations';
     $expected[] = $migrationTable;
     $actual = array_map('strval', $pdo->query(
         'SELECT TABLE_NAME FROM information_schema.TABLES '
