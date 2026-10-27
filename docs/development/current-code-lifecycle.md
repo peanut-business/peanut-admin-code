@@ -23,13 +23,13 @@ Model在一次Controller操作内复用，新记录显式resetControllerModel；
 
 ## 3. HTTP实际顺序
 
-[HTTP入口](../../server/public/index.php)先加载受控环境，再加载Composer，最后执行Http::run、Response::send和Http::end。[CLI入口](../../server/think)同样先加载环境和依赖，再进入console。当前框架的服务初始化应区分应用service.php和框架初始化器：
+[HTTP入口](../../server/public/index.php)加载Composer后执行Http::run、Response::send和Http::end；[CLI入口](../../server/think)进入原生console。两者均由 ThinkPHP `App::initialize()` 原生加载环境和配置。当前框架的服务初始化应区分应用service.php和框架初始化器：
 
 ```text
 server/public/index.php
-→ server/bootstrap/environment.php → server/vendor/autoload.php
+→ server/vendor/autoload.php
 → new App / Http::run
-→ App::initialize → load配置、公共文件、事件和app/service.php
+→ App::initialize → loadEnv → load配置、公共文件、事件和app/service.php
 → app/service.php登记AppService → AppService::register及模块绑定
 → ModuleExtensionService::register → ThinkPHP登记模块原生Service
 → AppInit事件
@@ -40,11 +40,13 @@ server/public/index.php
 → 中间件逆序返回、日志及finally恢复 → Response::send → Http::end
 ```
 
+ThinkPHP 8.1.4 的 `Env` 读取 `server/.env`；原生 `PHP_ENV_NAME=<name>` 选择 `server/.env.<name>`。`config/*.php` 使用 `env()` 和固定默认值，业务代码读取配置或 `env()`；文件不再镜像到 `getenv()`、`$_ENV` 或 `$_SERVER`。原生 `Env` 支持 INI section，并在已加载值不存在时读取 `PHP_<KEY>` 进程变量；文件值覆盖同名进程输入，具体转换以锁定框架实现为准。独立数据库维护命令先调用原生 `App::loadEnv()`，不提前初始化应用服务。
+
 这里的 `AppService::register` 发生在加载本应用service.php时，早于AppInit；不能因为框架的RegisterService初始化器在AppInit之后，就把应用服务注册也写成之后。[AppService](../../server/app/AppService.php)登记现有身份reader、基础设施和模块接口；boot通过Model::maker为相应模型接入Scope策略。
 
 ### Owner 限定的 HTTP SQL 计时
 
-默认关闭。部署 owner 可在已获准的传统 FPM pool 本地进程环境中配置 `env[PEANUT_HTTP_SQL_TIMING_REQUEST_ID]` 为一个符合 RequestTrace 格式的精确请求 ID；保留 `clear_env`，由 pool 显式传递这一个变量。只有真正的 `fpm-fcgi` 请求且 `X-Request-Id` 与该值匹配才会选择采样。选择器只读 `getenv(..., true)` 的 OS/putenv 本地值，不接受普通 SAPI/FastCGI 参数或仅靠 HTTP header 开启；此变量不是 `server/.env` 白名单项，不将请求值复制进本地环境。CLI、长驻 worker 和其他请求不安装新 listener、不输出采样日志。启用仍须运行资源 owner、FPM 配置和变更准入；源码具备该开关不表示保留的 APP 可立即启用，本次不修改或重载任何运行配置、环境、镜像或 deployment binding。不得改 APP_DEBUG 来取得样本。
+默认关闭。部署 owner 可在已获准的传统 FPM pool 本地进程环境中配置 `env[PEANUT_HTTP_SQL_TIMING_REQUEST_ID]` 为一个符合 RequestTrace 格式的精确请求 ID；保留 `clear_env`，由 pool 显式传递这一个变量。只有真正的 `fpm-fcgi` 请求且 `X-Request-Id` 与该值匹配才会选择采样。选择器只读 `getenv(..., true)` 的 OS/putenv 本地值，不接受普通 SAPI/FastCGI 参数或仅靠 HTTP header 开启；此变量不从 `server/.env` 读取，不将请求值复制进本地环境。CLI、长驻 worker 和其他请求不安装新 listener、不输出采样日志。启用仍须运行资源 owner、FPM 配置和变更准入；源码具备该开关不表示保留的 APP 可立即启用，本次不修改或重载任何运行配置、环境、镜像或 deployment binding。不得改 APP_DEBUG 来取得样本。
 
 选择请求在 AppService 注册最开始确认没有既有 SQL listener 或已创建的连接后，先登记原生 Db listener，再仅为当前默认连接启用 trigger_sql。冲突时放弃采样，不清空 listener、不改变原配置；未选中时原 APP_DEBUG 的 SQL 日志行为不变。选中请求的 listener 替代原生缺省 raw SQL 日志 fallback，只累计非 CONNECT 的成功原生回调数与秒数，不保留、哈希或输出 SQL、绑定参数、DSN、身份或凭据。最终 Request 在 Http::run 初始化之后才创建，所以计数暂存为本次 FPM 请求的标量；HttpEnd 核验最终 header、owner 本地值和现有 RequestTrace ID 后，仅输出 `http_sql_timing` 的 request_id、count、sql_seconds、coverage_start、coverage_elapsed_seconds。记录发生在原生日志 save 之前，无响应字段或新指标 header。
 

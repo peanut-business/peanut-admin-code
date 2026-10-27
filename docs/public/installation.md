@@ -14,11 +14,13 @@
 
 按该版本准备Docker Compose、Python、OpenSSL、shell和固定PHP/Nginx镜像。PHP及扩展须满足Composer锁。Compose挂载实例源码、vendor、配置与持久目录；普通更新不构建应用镜像，环境变化另行准备和验证。
 
-server/.env仅存后端配置，包括DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASS；server/docker/.env仅管编排、端口和镜像。配置使用实际owner、普通单链接和私有权限，拒绝越界链接。初始管理员密码不写入这些环境文件，也不进Git或产品包。
+server/.env存后端配置，包括DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASS；ThinkPHP原生加载该文件，config中的env()优先读取环境值并使用固定默认值。原生PHP_ENV_NAME选择server/.env.<name>；其PHP_<KEY>进程变量只在文件未提供该键时生效。server/docker/.env仅管编排、端口和镜像。配置使用实际owner、普通单链接和私有权限，拒绝越界链接。初始管理员密码不写入这些环境文件，也不进Git或产品包。
 
 ## 2. 数据库与资源
 
 APP拥有自己的数据库、域名、端口、存储及服务登记，不回退维护者环境。database_source=bundled使用实例MySQL；registered使用已获准外部数据库，通过原生配置与compose.registered-database.yaml只启动PHP/Nginx。实例选择和凭据由原生配置发布器处理，不能修改不可变发行投影绕过身份验证。
+
+当前运行的缓存、会话和锁命名空间仍要求非空 `PEANUT_DATABASE_RESOURCE_ID`，使用本实例真实资源ID；它的后续职责调整尚未完成。DB_NAME、DB_USER、DB_PASS没有可连接的默认值，缺失或空值明确拒绝；host/port/type/charset/prefix使用config中的固定默认值，容器连接须按实际服务覆盖host。
 
 操作前核实际目标、连接、权限、空库和安装身份。未知数据、已有 APP 库或 partial 库不得清空。开发源码、内部候选和正式实例身份不同，开发模式不能带入生产；具体身份适配尚未完成时停止相应安装路径，不手改清单或回执。
 
@@ -34,7 +36,7 @@ PEANUT_INSTALLATION_ENV_FILE=/absolute/private/initial-admin.env php server/data
 php server/database/install.php --status
 ```
 
-仅preflight明确ready才执行。一次性0600文件提供ADMIN_INITIAL_EMAIL/ADMIN_INITIAL_PASSWORD；多租户还需独立PLATFORM_INITIAL_EMAIL/PLATFORM_INITIAL_PASSWORD。成功核对后销毁一次性文件，不保存或输出秘密。
+仅preflight明确ready才执行。一次性0600文件提供ADMIN_INITIAL_EMAIL/ADMIN_INITIAL_PASSWORD；多租户还需独立PLATFORM_INITIAL_EMAIL/PLATFORM_INITIAL_PASSWORD。安装器直接将其解析为一次性身份输入，不同步到全局环境。成功核对后销毁一次性文件，不保存或输出秘密。
 
 依赖按 `server/composer.lock` 准备。已有原生安装入口处理首次 vendor 缺失时，会在独立目录安装并完成 service discovery/vendor publish 和平台校验后采用；失败不改原 vendor 或启动业务。这项组件能力不代替 Git 首装链的依赖和构建接通。已安装实例 vendor 损坏走停写维护，不在线覆盖。
 

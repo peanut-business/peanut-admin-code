@@ -440,7 +440,6 @@ final class InstallationConfigurationHost
                 'PEANUT_INSTALLATION_MODE' => 'guided',
                 'PEANUT_INSTALLATION_SETUP_TOKEN' => $token,
                 'PEANUT_DEMO_MODE' => 'disabled',
-                'PUBLIC_DEFAULT_TENANT_FALLBACK' => $edition === 'standalone' ? 'true' : 'false',
                 'PLATFORM_HOSTS' => implode(',', $platformHosts),
                 'TENANT_ADMIN_HOSTS' => implode(',', $tenantAdminHosts),
                 'DEFAULT_LANG' => 'zh-cn',

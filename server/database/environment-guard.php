@@ -2,21 +2,28 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/bootstrap/environment.php';
-
 $autoload = dirname(__DIR__) . '/vendor/autoload.php';
 if (!is_file($autoload)) {
     throw new RuntimeException('缺少 Composer autoload，无法校验应用数据库');
 }
 require_once $autoload;
 
-function requiredEnvironment(string $name): string
+// Standalone database commands need native Env before any application services.
+$application = \think\Container::getInstance();
+if (!$application instanceof \think\App) {
+    $application = new \think\App(dirname(__DIR__));
+}
+if (!$application->initialized()) {
+    $application->loadEnv((string) $application->env->get('env_name', ''));
+}
+
+function requiredEnvironment(string $name, string|false $default = false): string
 {
-    $value = getenv($name);
-    if ($value === false || trim($value) === '') {
+    $value = env($name, $default);
+    if ((!is_string($value) && !is_int($value)) || trim((string) $value) === '') {
         throw new RuntimeException("缺少环境配置：{$name}");
     }
-    return trim($value);
+    return trim((string) $value);
 }
 
 /** Only an explicitly registered schema policy replaces a port lock. */
@@ -817,20 +824,20 @@ function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null)
         throw new RuntimeException("数据库资源 {$resourceId} 的服务类型或 fallback 不符合门禁");
     }
 
-    $configuredConsumer = getenv('PEANUT_DATABASE_CONSUMER');
+    $configuredConsumer = env('PEANUT_DATABASE_CONSUMER', false);
     $consumer = $configuredConsumer === false || trim($configuredConsumer) === ''
         ? $target['default_consumer']
         : trim($configuredConsumer);
     $endpoint = registeredDatabaseEndpoint($database, $consumer);
-    $configuredEndpointId = getenv('PEANUT_DATABASE_ENDPOINT_ID');
+    $configuredEndpointId = env('PEANUT_DATABASE_ENDPOINT_ID', false);
     if ($configuredEndpointId !== false && trim($configuredEndpointId) !== ''
         && !hash_equals((string) $endpoint['endpoint_id'], trim($configuredEndpointId))) {
         throw new RuntimeException("数据库资源 {$resourceId} 的 endpoint identity 不匹配登记值");
     }
 
     $actual = [
-        'host' => requiredEnvironment('DB_HOST'),
-        'port' => requiredEnvironment('DB_PORT'),
+        'host' => requiredEnvironment('DB_HOST', '127.0.0.1'),
+        'port' => requiredEnvironment('DB_PORT', '3306'),
         'database' => requiredEnvironment('DB_NAME'),
     ];
     if (!hash_equals((string) $endpoint['host'], $actual['host'])
@@ -1040,8 +1047,8 @@ function observeRegisteredCollaborationRuntime(array $actor): array
         || requiredEnvironment('DEPLOYMENT_MODE') !== 'standalone'
         || requiredEnvironment('PEANUT_DATABASE_CONSUMER') !== 'host'
         || requiredEnvironment('PEANUT_DATABASE_ENDPOINT_ID') !== (string) $endpoint['endpoint_id']
-        || requiredEnvironment('DB_HOST') !== (string) $endpoint['host']
-        || requiredEnvironment('DB_PORT') !== (string) $endpoint['port']) {
+        || requiredEnvironment('DB_HOST', '127.0.0.1') !== (string) $endpoint['host']
+        || requiredEnvironment('DB_PORT', '3306') !== (string) $endpoint['port']) {
         throw new RuntimeException('COLLABORATION_OBSERVATION_REGISTERED_TARGET_INVALID');
     }
     $config = ['host' => (string) $endpoint['host'], 'port' => (string) $endpoint['port'],

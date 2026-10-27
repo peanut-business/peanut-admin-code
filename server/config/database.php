@@ -49,7 +49,7 @@ return [
             // 数据库类型
             'type'            => env('DB_TYPE', 'mysql'),
             // 服务器地址
-            'hostname'        => $requiredDatabaseValue('DB_HOST'),
+            'hostname'        => env('DB_HOST', '127.0.0.1'),
             // 数据库名
             'database'        => $requiredDatabaseValue('DB_NAME'),
             // 用户名
@@ -57,7 +57,7 @@ return [
             // 密码
             'password'        => $requiredDatabaseValue('DB_PASS'),
             // 端口
-            'hostport'        => $requiredDatabaseValue('DB_PORT'),
+            'hostport'        => env('DB_PORT', '3306'),
             // 数据库连接参数
             'params'          => [
                 PDO::ATTR_TIMEOUT => $databaseConnectTimeout,
@@ -65,7 +65,7 @@ return [
             // 数据库编码
             'charset'         => env('DB_CHARSET', 'utf8mb4'),
             // 数据库表前缀
-            'prefix'          => $requiredDatabaseValue('DB_PREFIX'),
+            'prefix'          => env('DB_PREFIX', 'pa_'),
 
             // 数据库部署方式:0 集中式(单一服务器),1 分布式(主从服务器)
             'deploy'          => 0,

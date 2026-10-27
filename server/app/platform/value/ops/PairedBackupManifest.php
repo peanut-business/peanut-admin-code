@@ -357,7 +357,7 @@ final readonly class PairedBackupManifest
         $database = $find($resources['database']);
         $application = $find($resources['application']);
         $backup = $find($resources['backup']);
-        if (($deployment['database_resource_id'] ?? null) !== getenv('PEANUT_DATABASE_RESOURCE_ID')
+        if (($deployment['database_resource_id'] ?? null) !== env('PEANUT_DATABASE_RESOURCE_ID', false)
             || ($deployment['database_resource_id'] ?? null) !== $resources['database']
             || ($deployment['application_resource_id'] ?? null) !== $resources['application']
             || ($deployment['backup_resource_id'] ?? null) !== $resources['backup']

@@ -22,9 +22,5 @@ if ((new \think\console\Input())->getFirstArgument() === 'module:create') {
     exit(0);
 }
 
-// 命令行入口文件
-// 加载基础文件
-require __DIR__ . '/bootstrap/environment.php';
-
 // 应用初始化
 (new App())->console->run();

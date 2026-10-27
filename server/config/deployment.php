@@ -10,8 +10,4 @@ return [
     // declare both lists; tenant-bound hosts remain dynamic database records.
     'platform_hosts' => env('PLATFORM_HOSTS', ''),
     'tenant_admin_hosts' => env('TENANT_ADMIN_HOSTS', ''),
-    // Standalone may expose its default Tenant on an unbound public Host.
-    // Operators can disable that compatibility entry without changing mode;
-    // multi-tenant mode always ignores this value and fails closed.
-    'public_default_tenant_fallback' => env('PUBLIC_DEFAULT_TENANT_FALLBACK', true),
 ];

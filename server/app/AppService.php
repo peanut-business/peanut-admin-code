@@ -170,12 +170,23 @@ class AppService extends Service
         $this->registerModules();
     }
 
+    /** The sampling selector is FPM process configuration, never a request or .env setting. */
+    private function httpSqlTimingRequestId(): ?string
+    {
+        $selected = getenv('PEANUT_HTTP_SQL_TIMING_REQUEST_ID', true);
+        if (!is_string($selected) || preg_match('/^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/D', $selected) !== 1) {
+            return null;
+        }
+        $header = $_SERVER['HTTP_X_REQUEST_ID'] ?? null;
+        return is_string($header) && hash_equals($selected, trim($header)) ? $selected : null;
+    }
+
     private function registerHttpSqlTiming(): void
     {
-        if (PHP_SAPI !== 'fpm-fcgi' || $this->app->runningInConsole() || !function_exists('peanutHttpSqlTimingRequestId')) {
+        if (PHP_SAPI !== 'fpm-fcgi' || $this->app->runningInConsole()) {
             return;
         }
-        $requestId = peanutHttpSqlTimingRequestId();
+        $requestId = $this->httpSqlTimingRequestId();
         if ($requestId === null) {
             return;
         }
@@ -197,7 +208,7 @@ class AppService extends Service
         $this->app->config->set($configuration, 'database');
         $this->app->event->listen(\think\event\HttpEnd::class, function (): void {
             $timing = RequestTrace::finishSqlTiming($this->app->request);
-            if ($timing !== null && peanutHttpSqlTimingRequestId() === $timing['request_id']) {
+            if ($timing !== null && $this->httpSqlTimingRequestId() === $timing['request_id']) {
                 $this->app->log->info('http_sql_timing ' . json_encode($timing, JSON_THROW_ON_ERROR));
             }
         });

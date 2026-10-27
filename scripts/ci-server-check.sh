@@ -18,7 +18,16 @@ fi
   echo "ERROR: backend environment is missing or unsafe: $BACKEND_ENV" >&2
   exit 2
 }
-export PEANUT_SERVER_ENV_FILE="$BACKEND_ENV"
+backend_directory=$(CDPATH= cd -- "$(dirname -- "$BACKEND_ENV")" && pwd -P)
+[[ "$backend_directory" == "$ROOT/server" ]] || { echo 'backend environment must be inside server/' >&2; exit 2; }
+backend_name=$(basename -- "$BACKEND_ENV")
+case "$backend_name" in
+  .env) native_env_name= ;;
+  .env.example) echo 'backend environment must not be the example file' >&2; exit 2 ;;
+  .env.*) native_env_name=${backend_name#.env.} ;;
+  *) echo 'backend environment must be .env or .env.<name>' >&2; exit 2 ;;
+esac
+export PHP_ENV_NAME="$native_env_name"
 
 case "$mode" in
   --daily|--broad|--integration|--mysql) ;;

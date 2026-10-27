@@ -158,7 +158,8 @@ final class InstallationPreflightHost
         $developmentRuntime = file_exists($runtimeIdentity) || is_link($runtimeIdentity);
         $serverLayout = $serverRelease || $developmentRuntime;
         $sourceDevelopment = !$serverLayout
-            && getenv('PEANUT_INSTALLATION_SOURCE_MODE') === 'development'
+            && function_exists('env')
+            && env('PEANUT_INSTALLATION_SOURCE_MODE', false) === 'development'
             && file_exists($sourceRoot . '/.git')
             && !is_link($sourceRoot . '/.git')
             && is_file($sourceRoot . '/release-versions.json')
@@ -420,7 +421,7 @@ final class InstallationPreflightHost
         if (!function_exists('guardedDatabaseConfig')) {
             throw new RuntimeException('database environment guard is unavailable');
         }
-        $hostLeaseProof = getenv('P0E_HOST_LEASE_PROOF');
+        $hostLeaseProof = env('P0E_HOST_LEASE_PROOF', false);
         return guardedDatabaseConfig(
             $hostLeaseProof === false || trim($hostLeaseProof) === '' ? null : $hostLeaseProof,
         );

@@ -15,7 +15,6 @@ use think\App;
 // [ 应用入口文件 ]
 
 try {
-    require __DIR__ . '/../bootstrap/environment.php';
     require __DIR__ . '/../vendor/autoload.php';
 
     // 执行HTTP应用并响应；服务注册也属于启动异常边界。

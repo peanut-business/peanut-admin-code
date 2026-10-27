@@ -437,16 +437,15 @@ set_exception_handler(static function (Throwable $error): void {
     exit(1);
 });
 
-require $argv[1] . '/server/bootstrap/environment.php';
 require $argv[1] . '/server/vendor/autoload.php';
 
 $action = $argv[2] ?? '';
 $identityFile = $argv[3] ?? '';
 $app = (new think\App($argv[1] . '/server'))->initialize();
 $pdo = new PDO(
-    'mysql:host=' . getenv('DB_HOST') . ';port=' . getenv('DB_PORT') . ';dbname=' . getenv('DB_NAME') . ';charset=utf8mb4',
-    (string)getenv('DB_USER'),
-    (string)getenv('DB_PASS'),
+    'mysql:host=' . env('DB_HOST', '127.0.0.1') . ';port=' . env('DB_PORT', '3306') . ';dbname=' . env('DB_NAME') . ';charset=utf8mb4',
+    (string)env('DB_USER'),
+    (string)env('DB_PASS'),
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
 );
 $module = 'acme.reference-chain';

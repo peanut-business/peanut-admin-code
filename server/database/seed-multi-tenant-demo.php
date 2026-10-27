@@ -24,7 +24,7 @@ function demoMultiFail(string $message): never
 
 function demoMultiRequired(string $name): string
 {
-    $value = trim((string) (getenv($name) ?: ''));
+    $value = trim((string) (env($name, false) ?: ''));
     if ($value === '') {
         throw new RuntimeException("{$name} is required");
     }
@@ -65,7 +65,7 @@ function demoMultiBinding(int $tenantId, string $host, array $clientKeys = ['adm
 function demoMultiHostList(string $name): array
 {
     $hosts = [];
-    foreach (explode(',', (string) (getenv($name) ?: '')) as $host) {
+    foreach (explode(',', (string) (env($name, false) ?: '')) as $host) {
         $host = trim($host);
         if ($host !== '') {
             $hosts[] = TenantEntryBindingResolver::normalizeHost($host);
@@ -400,7 +400,7 @@ function demoMultiMain(): int
         fwrite(STDERR, "Usage: server/database/seed-multi-tenant-demo.php --apply\n");
         return 64;
     }
-    if (getenv('PEANUT_DEMO_MODE') !== 'enabled') {
+    if (env('PEANUT_DEMO_MODE', false) !== 'enabled') {
         throw new RuntimeException('PEANUT_DEMO_MODE=enabled is required');
     }
     $target = demoMultiRequired('PEANUT_DEPLOYMENT_TARGET');
@@ -451,7 +451,6 @@ function demoMultiMain(): int
     }
 
     loadConfig($serverDir);
-    require_once $serverDir . '/bootstrap/environment.php';
     $app = (new App($serverDir))->initialize();
     $tenants = $app->make(PlatformTenantAdminService::class);
     $owners = $app->make(TenantOwnerAdminService::class);

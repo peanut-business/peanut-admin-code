@@ -17,6 +17,12 @@ function emitUnavailableInstallStatus(): void
     echo json_encode(['state' => 'blocked', 'code' => 'INSTALL_STATUS_UNAVAILABLE'], JSON_THROW_ON_ERROR), PHP_EOL;
 }
 if ($installerIsDirect && in_array('--preflight', $installerArguments, true)) {
+    $autoload = dirname(__DIR__) . '/vendor/autoload.php';
+    if (is_file($autoload)) {
+        require_once $autoload;
+        $application = new App(dirname(__DIR__));
+        $application->loadEnv((string) $application->env->get('env_name', ''));
+    }
     require_once dirname(__DIR__) . '/app/common/services/installation/InstallationPreflightHost.php';
     $preflight = (new \app\common\services\installation\InstallationPreflightHost(dirname(__DIR__)))->inspect();
     echo json_encode($preflight, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR), PHP_EOL;
@@ -26,8 +32,8 @@ if ($installerIsDirect && in_array('--preflight', $installerArguments, true)) {
 /**
  * Peanut Admin fresh-database installer.
  *
- * Run from the repository root or server directory after selecting a
- * registered database through process environment variables:
+ * Run from the repository root or server directory after configuring the
+ * registered database in server/.env or a native PHP_ENV_NAME sibling:
  *
  *     php server/database/install.php
  */
@@ -59,7 +65,7 @@ try {
 
 function loadConfig(string $serverDir): array
 {
-    $hostLeaseProof = getenv('P0E_HOST_LEASE_PROOF');
+    $hostLeaseProof = env('P0E_HOST_LEASE_PROOF', false);
     $config = guardedDatabaseConfig(
         $hostLeaseProof === false || trim($hostLeaseProof) === '' ? null : $hostLeaseProof,
     );
@@ -74,14 +80,14 @@ function loadConfig(string $serverDir): array
 
 function initialAdminPassword(string $serverDir): string
 {
-    $environment = getenv('ADMIN_INITIAL_PASSWORD');
+    $environment = env('ADMIN_INITIAL_PASSWORD', false);
     validateInitialAdminPassword($environment === false ? '' : $environment);
     return $environment === false ? '' : $environment;
 }
 
 function initialAdminEmail(string $serverDir): string
 {
-    $environment = getenv('ADMIN_INITIAL_EMAIL');
+    $environment = env('ADMIN_INITIAL_EMAIL', false);
     $email = $environment === false ? '' : $environment;
     if (filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
         throw new RuntimeException('ADMIN_INITIAL_EMAIL 必须是有效邮箱');
@@ -91,7 +97,7 @@ function initialAdminEmail(string $serverDir): string
 
 function validateInitialAdminPassword(string $password): void
 {
-    if (getenv('PEANUT_DEMO_MODE') === 'enabled') {
+    if (env('PEANUT_DEMO_MODE', false) === 'enabled') {
         if ($password !== 'peanut1234') {
             throw new RuntimeException('演示模式的初始管理员密码必须统一为 peanut1234');
         }
@@ -103,13 +109,13 @@ function validateInitialAdminPassword(string $password): void
 /** @return array{email:string,password:string}|null */
 function initialPlatformCredentials(string $serverDir, string $adminEmail): ?array
 {
-    $environmentMode = getenv('DEPLOYMENT_MODE');
+    $environmentMode = env('DEPLOYMENT_MODE', false);
     $mode = $environmentMode === false ? '' : $environmentMode;
     if ($mode !== 'multi-tenant') {
         return null;
     }
 
-    $environmentEmail = getenv('PLATFORM_INITIAL_EMAIL');
+    $environmentEmail = env('PLATFORM_INITIAL_EMAIL', false);
     $email = $environmentEmail === false ? '' : $environmentEmail;
     if (filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
         throw new RuntimeException('PLATFORM_INITIAL_EMAIL 必须是有效邮箱');
@@ -119,9 +125,9 @@ function initialPlatformCredentials(string $serverDir, string $adminEmail): ?arr
         throw new RuntimeException('PLATFORM_INITIAL_EMAIL 必须与 ADMIN_INITIAL_EMAIL 不同');
     }
 
-    $environmentPassword = getenv('PLATFORM_INITIAL_PASSWORD');
+    $environmentPassword = env('PLATFORM_INITIAL_PASSWORD', false);
     $password = $environmentPassword === false ? '' : $environmentPassword;
-    if (getenv('PEANUT_DEMO_MODE') === 'enabled') {
+    if (env('PEANUT_DEMO_MODE', false) === 'enabled') {
         if ((string) $password !== 'peanut1234') {
             throw new RuntimeException('演示模式的 Platform 初始密码必须统一为 peanut1234');
         }
@@ -151,7 +157,7 @@ function normalizeInstallationCredentials(array $input): array
     $adminPassword = (string) ($input['admin_password'] ?? '');
     validateInitialAdminPassword($adminPassword);
 
-    $mode = getenv('DEPLOYMENT_MODE');
+    $mode = env('DEPLOYMENT_MODE', false);
     if ($mode !== 'standalone' && $mode !== 'multi-tenant') {
         throw new RuntimeException('DEPLOYMENT_MODE 必须是 standalone 或 multi-tenant');
     }
@@ -175,7 +181,7 @@ function normalizeInstallationCredentials(array $input): array
         throw new RuntimeException('PLATFORM_INITIAL_EMAIL 必须与 ADMIN_INITIAL_EMAIL 不同');
     }
     $platformPassword = (string) ($input['platform_password'] ?? '');
-    if (getenv('PEANUT_DEMO_MODE') === 'enabled') {
+    if (env('PEANUT_DEMO_MODE', false) === 'enabled') {
         if ($platformPassword !== 'peanut1234') {
             throw new RuntimeException('演示模式的 Platform 初始密码必须统一为 peanut1234');
         }
@@ -190,14 +196,44 @@ function normalizeInstallationCredentials(array $input): array
     ];
 }
 
+/** @return array<string,string> */
+function installationProcessInput(): array
+{
+    $path = getenv('PEANUT_INSTALLATION_ENV_FILE');
+    if ($path === false || trim($path) === '') {
+        return [];
+    }
+    $path = trim($path);
+    if (!str_starts_with($path, '/') || !is_file($path) || is_link($path)) {
+        throw new RuntimeException('INSTALLATION_ENVIRONMENT_FILE_INVALID');
+    }
+    $stat = lstat($path);
+    if (!is_array($stat) || ($stat['nlink'] ?? 0) !== 1 || (($stat['mode'] ?? 0) & 0777) !== 0600) {
+        throw new RuntimeException('INSTALLATION_ENVIRONMENT_PERMISSIONS_INVALID');
+    }
+    $values = parse_ini_file($path, false, INI_SCANNER_RAW);
+    if (!is_array($values) || $values === []) {
+        throw new RuntimeException('INSTALLATION_ENVIRONMENT_PARSE_FAILED');
+    }
+    $allowed = ['ADMIN_INITIAL_EMAIL', 'ADMIN_INITIAL_PASSWORD', 'PLATFORM_INITIAL_EMAIL',
+        'PLATFORM_INITIAL_PASSWORD', 'PEANUT_DEMO_TENANT_ID'];
+    foreach ($values as $key => $value) {
+        if (!in_array($key, $allowed, true) || !is_string($value)) {
+            throw new RuntimeException('INSTALLATION_ENVIRONMENT_INPUT_INVALID');
+        }
+    }
+    return $values;
+}
+
 /** @return array{admin_email:string,admin_password:string,platform_email:string,platform_password:string} */
 function installationCredentialsFromEnvironment(): array
 {
+    $input = installationProcessInput();
     return [
-        'admin_email' => (string) (getenv('ADMIN_INITIAL_EMAIL') ?: ''),
-        'admin_password' => (string) (getenv('ADMIN_INITIAL_PASSWORD') ?: ''),
-        'platform_email' => (string) (getenv('PLATFORM_INITIAL_EMAIL') ?: ''),
-        'platform_password' => (string) (getenv('PLATFORM_INITIAL_PASSWORD') ?: ''),
+        'admin_email' => (string) ($input['ADMIN_INITIAL_EMAIL'] ?? env('ADMIN_INITIAL_EMAIL', '')),
+        'admin_password' => (string) ($input['ADMIN_INITIAL_PASSWORD'] ?? env('ADMIN_INITIAL_PASSWORD', '')),
+        'platform_email' => (string) ($input['PLATFORM_INITIAL_EMAIL'] ?? env('PLATFORM_INITIAL_EMAIL', '')),
+        'platform_password' => (string) ($input['PLATFORM_INITIAL_PASSWORD'] ?? env('PLATFORM_INITIAL_PASSWORD', '')),
     ];
 }
 
@@ -205,7 +241,7 @@ function installationCredentialsFromEnvironment(): array
 function automaticInstallationInput(): array
 {
     $input = installationCredentialsFromEnvironment();
-    $configuredModules = getenv('PEANUT_INSTALLATION_OFFICIAL_MODULES');
+    $configuredModules = env('PEANUT_INSTALLATION_OFFICIAL_MODULES', false);
     if ($configuredModules !== false && trim($configuredModules) !== '') {
         $input['official_modules'] = array_values(array_filter(array_map(
             'trim',
@@ -264,7 +300,7 @@ function loadCoreRuntime(string $serverDir): void
  */
 function installationTenantBootstrapContract(string $serverDir): array
 {
-    $mode = getenv('DEPLOYMENT_MODE');
+    $mode = env('DEPLOYMENT_MODE', false);
     if ($mode !== 'standalone' && $mode !== 'multi-tenant') {
         throw new RuntimeException('DEPLOYMENT_MODE 必须是 standalone 或 multi-tenant');
     }
@@ -309,7 +345,7 @@ function installationTenantBootstrapContract(string $serverDir): array
 function installationSourceDevelopmentMode(string $serverDir): bool
 {
     $root = dirname($serverDir);
-    return getenv('PEANUT_INSTALLATION_SOURCE_MODE') === 'development'
+    return env('PEANUT_INSTALLATION_SOURCE_MODE', false) === 'development'
         && file_exists($root . '/.git')
         && !is_link($root . '/.git')
         && (
@@ -326,7 +362,7 @@ function ensureThinkPhpApplication(string $serverDir): App
 {
     $container = Container::getInstance();
     if ($container instanceof App) {
-        return $container;
+        return $container->initialized() ? $container : $container->initialize();
     }
 
     return (new App($serverDir))->initialize();
@@ -707,7 +743,7 @@ function installFreshDatabase(string $serverDir, array $input): array
         $adminPassword = $credentials['admin_password'];
         $platformCredentials = $credentials['platform_credentials'];
         $demoAccounts = new \PeanutAdmin\Modules\Identity\Policy\DemoAccountPolicy(
-            getenv('PEANUT_DEMO_MODE') === 'enabled',
+            env('PEANUT_DEMO_MODE', false) === 'enabled',
             array_values(array_filter([
                 $adminEmail,
                 $platformCredentials['email'] ?? '',

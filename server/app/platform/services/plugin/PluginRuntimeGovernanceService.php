@@ -604,7 +604,7 @@ final class PluginRuntimeGovernanceService
             ApplicationSourceIdentity::load($this->serverRoot);
         }
         $lockPath = dirname($this->serverRoot) . '/plugins.lock';
-        if ((!$applicationSource && getenv('PEANUT_INSTALLATION_SOURCE_MODE') !== 'development')
+        if ((!$applicationSource && env('PEANUT_INSTALLATION_SOURCE_MODE', false) !== 'development')
             || ($this->moduleConfig['plugin_lock'] ?? null) !== '../plugins.lock'
             || !is_file($lockPath) || is_link($lockPath)) {
             throw new PluginLifecycleException(

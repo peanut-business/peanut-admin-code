@@ -76,7 +76,16 @@ start_runtime() {
     [ -x "$composer_bin" ] || die "registered Composer is unavailable: $composer_bin"
     [ -f "$env_file" ] || die "local environment is missing: $env_file"
     [ -f "$backend_env" ] || die "backend environment is missing: $backend_env"
-    if grep -Eq '^(PHP_(ENV_NAME|APP_|DB_|JWT_|DEPLOYMENT_MODE|PUBLIC_DEFAULT|PLATFORM_|TENANT_|ADMIN_|OWNER_|PEANUT_)|APP_|DB_|JWT_|DEPLOYMENT_MODE=|PUBLIC_DEFAULT_TENANT_FALLBACK=|PLATFORM_(HOSTS|IDENTIFIER_HMAC_KEY|INITIAL_EMAIL|INITIAL_PASSWORD)=|TENANT_|ADMIN_|OWNER_INVITATION_|PEANUT_(DEPLOYMENT_TARGET|DATABASE_|RESOURCE_LEASE_PROOF|STORAGE_|DEMO_|MODULE_))' "$env_file"; then
+    backend_directory=$(CDPATH= cd -- "$(dirname -- "$backend_env")" && pwd -P)
+    [ "$backend_directory" = "$repo_dir/server" ] || die 'backend environment must be inside server/'
+    backend_name=$(basename -- "$backend_env")
+    case "$backend_name" in
+        .env) native_env_name= ;;
+        .env.example) die 'backend environment must not be the example file' ;;
+        .env.*) native_env_name=${backend_name#.env.} ;;
+        *) die 'backend environment must be .env or .env.<name>' ;;
+    esac
+    if grep -Eq '^(PHP_(ENV_NAME|APP_|DB_|JWT_|DEPLOYMENT_MODE|PLATFORM_|TENANT_|ADMIN_|OWNER_|PEANUT_)|APP_|DB_|JWT_|DEPLOYMENT_MODE=|PLATFORM_(HOSTS|IDENTIFIER_HMAC_KEY|INITIAL_EMAIL|INITIAL_PASSWORD)=|TENANT_|ADMIN_|OWNER_INVITATION_|PEANUT_(DEPLOYMENT_TARGET|DATABASE_|RESOURCE_LEASE_PROOF|STORAGE_|DEMO_|MODULE_))' "$env_file"; then
         die "orchestration environment contains backend configuration: $env_file"
     fi
     actual_php_version=$("$php_bin" -r 'echo PHP_VERSION;')
@@ -110,7 +119,7 @@ start_runtime() {
         printf 'Installing locked PHP dependencies with %s\n' "$composer_bin"
         (cd "$repo_dir/server" && "$composer_bin" install --no-interaction --prefer-dist)
     fi
-    PEANUT_SERVER_ENV_FILE="$backend_env" "$php_bin" "$repo_dir/server/database/environment-guard.php" --current >/dev/null \
+    PHP_ENV_NAME="$native_env_name" "$php_bin" "$repo_dir/server/database/environment-guard.php" --current >/dev/null \
         || die "selected database environment is not current"
 
     if is_running; then
@@ -133,11 +142,11 @@ start_runtime() {
         printf 'Removed stale PHP pid file (pid=%s). Previous log: %s\n' "$stale_pid" "$log_file" >&2
     fi
 
-    PEANUT_SERVER_ENV_FILE="$backend_env" "$php_bin" "$repo_dir/server/think" module:compile
+    PHP_ENV_NAME="$native_env_name" "$php_bin" "$repo_dir/server/think" module:compile
     : > "$log_file"
     (
         cd "$repo_dir/server"
-        PEANUT_SERVER_ENV_FILE="$backend_env" \
+        PHP_ENV_NAME="$native_env_name" \
         HTTP_PROXY= HTTPS_PROXY= ALL_PROXY= http_proxy= https_proxy= all_proxy= \
         NO_PROXY="127.0.0.1,localhost,192.168.192.2" \
         no_proxy="127.0.0.1,localhost,192.168.192.2" \

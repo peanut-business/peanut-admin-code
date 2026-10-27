@@ -2,6 +2,14 @@
 
 仅供Peanut源码维护者使用。产品日常交付见[产品Git合同](../public/application-release.md)；本文件维护模板生产、固定资格、冻结消费者与既有APP包/更新器的技术合同，不把内部命令追加为用户日常步骤，不反复派生测试APP。内部完整候选不等于公开发行、生产安装或新的默认流程。
 
+## 数据库维护输入
+
+普通运行配置使用 `server/.env` 与 ThinkPHP 原生 `PHP_ENV_NAME`，不再使用PHP自定义文件选择器。Compose的 `PEANUT_SERVER_ENV_FILE` 如仍用于选择挂载源，仅属于编排输入，不传给PHP作为配置加载入口。
+
+数据库安装、seed、迁移维护和固定资格仍消费资源门禁输入，不能因移出日常 `.env.example` 就省略：`PEANUT_DEPLOYMENT_TARGET` 必须匹配APP_ENV和登记环境；`PEANUT_DATABASE_CONSUMER` 选择登记endpoint（未指定时使用该target的默认consumer）；`PEANUT_DATABASE_ENDPOINT_ID` 是可选精确断言；`PEANUT_RESOURCE_LEASE_PROOF` 与 `P0E_HOST_LEASE_PROOF` 按原操作门禁提供实际租约。它们由已有资源选择或安装配置入口产生，具体值取本应用登记，维护者仅在明确提供 `PEANUT_RESOURCE_REGISTRY` 进程输入时读取维护登记；不从示例猜测地址、身份或凭据。运行仍要求 `PEANUT_DATABASE_RESOURCE_ID`，本轮未解耦它与命名空间的关系。
+
+这些字段是现有受控维护操作的输入，不是普通日常配置的通用必填表；缺失时仅相应受控操作明确拒绝，不能用空默认值、私有配置loader或备用库替代门禁。一次性身份文件只在安装/明确的demo输入入口读取，不进入全局Env。
+
 ## 正常模板发行
 
 正常本地开发发行由独立`peanut-cli`提供`peanut config`与`peanut release`，环境与路径未变时日常只运行`peanut release`。发行以当前磁盘文件生成受限源码快照，允许dirty、无HEAD及未提交新增源码。默认输出`release/<scaffold版本>/{standalone,multi-tenant}`；显式`--version`必须等于`release-versions.json.scaffold_template`，既有版本拒绝覆盖，只有显式`--overwrite`且目标内容能由原生manifest、构建回执、归档和managed文件逐项验证时才重建。配置/发行测试仍需人工Gate确认后执行。

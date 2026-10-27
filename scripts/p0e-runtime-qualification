@@ -369,15 +369,17 @@ def verify_runtime_admission(admission: dict[str, Any], owner: str, thread: str)
 def runtime_environment(runtime: dict[str, Any], admission: dict[str, Any], *, php: str = "php") -> dict[str, str]:
     path = file_reference(runtime["environment"])
     root = canonical(admission["root"], directory=True)
-    # The native loader enforces sibling path, permissions, key allowlist and
-    # ambient rejection. Configuration belongs to the protected file, not env.
-    environment = {"PEANUT_SERVER_ENV_FILE": str(path), "PEANUT_RESOURCE_REGISTRY": str(REGISTRY_PATH)}
+    if path.parent != root / "server" or (path.name != ".env" and not path.name.startswith(".env.")):
+        fail("runtime environment must be server/.env or a named sibling")
+    name = "" if path.name == ".env" else path.name.removeprefix(".env.")
+    environment = {"PHP_ENV_NAME": name, "PEANUT_RESOURCE_REGISTRY": str(REGISTRY_PATH)}
     result = command([php, "-r",
-        "try { require $argv[1]; "
+        "try { require $argv[1] . '/vendor/autoload.php'; "
+        "$app = new think\\App($argv[1]); $app->loadEnv((string) env('env_name', '')); "
         "foreach (['P0E_HOST_LEASE_PROOF','PEANUT_RESOURCE_LEASE_PROOF'] as $key) {"
-        "if (getenv($key) !== $argv[2]) { fwrite(STDERR, 'RUNTIME_ENVIRONMENT_PROOF_MISMATCH:'.$key); exit(2); }}"
+        "if (env($key) !== $argv[2]) { fwrite(STDERR, 'RUNTIME_ENVIRONMENT_PROOF_MISMATCH:'.$key); exit(2); }}"
         "} catch (Throwable $e) { fwrite(STDERR, 'RUNTIME_ENVIRONMENT_LOAD_FAILED'); exit(2); }",
-        str(root / "server/bootstrap/environment.php"), admission["proof_dir"]],
+        str(root / "server"), admission["proof_dir"]],
         cwd=root, env=environment, capture=True, check=False)
     if result.returncode != 0:
         fail("runtime protected environment must load natively and configure both proof keys to "

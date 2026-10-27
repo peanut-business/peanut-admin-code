@@ -155,7 +155,7 @@ final readonly class RestoreVerificationEvidence
             return $found[0];
         };
         $sources = array_values(array_filter($rows, static fn (array $row): bool =>
-            ($row['database_resource_id'] ?? null) === getenv('PEANUT_DATABASE_RESOURCE_ID')
+            ($row['database_resource_id'] ?? null) === env('PEANUT_DATABASE_RESOURCE_ID', false)
             && ($row['compose_file'] ?? null) === 'server/docker/compose.yaml'
             && isset($row['restore_verification_resource_id'])));
         if (count($sources) !== 1) {

@@ -122,14 +122,8 @@ if printf '%s\n' "$production_compose" | grep -q 'PHP_APP_ENV:'; then
     exit 1
 fi
 for entrypoint in server/think server/public/index.php; do
-    grep -q 'bootstrap/environment.php' "$repo_dir/$entrypoint" || {
-        printf 'PHP entry point lost the backend environment loader: %s\n' "$entrypoint" >&2
-        exit 1
-    }
-done
-for conventional_key in PLATFORM_HOSTS TENANT_ADMIN_HOSTS OWNER_INVITATION_DELIVERY_MODE PEANUT_MODULE_TRUSTED_KEYS_JSON; do
-    grep -q "'$conventional_key'" "$repo_dir/server/bootstrap/environment.php" || {
-        printf 'backend environment loader lost key: %s\n' "$conventional_key" >&2
+    grep -q 'new App(' "$repo_dir/$entrypoint" || {
+        printf 'PHP entry point lost the native ThinkPHP application: %s\n' "$entrypoint" >&2
         exit 1
     }
 done

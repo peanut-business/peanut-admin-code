@@ -142,8 +142,8 @@ run_monitored_fpm() {
         chown 0:0 "$HTTP_CHROOT/etc/$file"
         chmod 0644 "$HTTP_CHROOT/etc/$file"
     done
-    case "$phase" in bootstrap) http_env=.env.bootstrap ;; installing) http_env=.env.installing ;; installed) http_env=.env ;; *) exit 1 ;; esac
-    printf '[www]\nenv[PEANUT_SERVER_ENV_FILE] = /server/%s\n' "$http_env" > /usr/local/etc/php-fpm.d/zzz-peanut-runtime.conf
+    case "$phase" in bootstrap) http_env=bootstrap ;; installing) http_env=installing ;; installed) http_env= ;; *) exit 1 ;; esac
+    printf '[www]\nenv[PHP_ENV_NAME] = "%s"\n' "$http_env" > /usr/local/etc/php-fpm.d/zzz-peanut-runtime.conf
     chmod 0600 /usr/local/etc/php-fpm.d/zzz-peanut-runtime.conf
     php-fpm -F &
     fpm_pid=$!
@@ -198,14 +198,14 @@ run_monitored_fpm() {
 if [ -f "$INSTALLED" ] && [ ! -L "$INSTALLED" ]; then
     rm -f "$BOOTSTRAP_ENV" "$INSTALLING_ENV" "$TOKEN_FILE"
     [ -f "$FINAL_ENV" ] && [ ! -L "$FINAL_ENV" ] || { echo "installed instance is missing server/.env" >&2; exit 1; }
-    export PEANUT_SERVER_ENV_FILE="$FINAL_ENV"
+    export PHP_ENV_NAME=''
     run_monitored_fpm installed
     exit $?
 fi
 
 if [ ! -e "$FINAL_ENV" ]; then
     write_bootstrap_env
-    export PEANUT_SERVER_ENV_FILE="$BOOTSTRAP_ENV"
+    export PHP_ENV_NAME=bootstrap
     run_monitored_fpm bootstrap
     exit $?
 fi
@@ -224,12 +224,12 @@ case "$installation_mode" in
       *) echo "database source must be bundled or registered" >&2; exit 1 ;;
     esac
     write_installing_env
-    export PEANUT_SERVER_ENV_FILE="$INSTALLING_ENV"
+    export PHP_ENV_NAME=installing
     php database/environment-guard.php --wait=60
     run_monitored_fpm installing
     ;;
   automatic)
-    export PEANUT_SERVER_ENV_FILE="$FINAL_ENV"
+    export PHP_ENV_NAME=''
     php database/environment-guard.php --wait=60
     php database/install.php --skip-if-installed
     php database/environment-guard.php --current

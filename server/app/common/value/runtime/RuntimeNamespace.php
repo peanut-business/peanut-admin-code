@@ -31,8 +31,8 @@ final readonly class RuntimeNamespace
     public static function fromEnvironment(): self
     {
         return self::fromResourceId(
-            (string) (getenv('PEANUT_DATABASE_RESOURCE_ID') ?: ''),
-            (string) (getenv('APP_ENV') ?: ''),
+            (string) (env('PEANUT_DATABASE_RESOURCE_ID', false) ?: ''),
+            (string) (env('APP_ENV', false) ?: ''),
         );
     }
 

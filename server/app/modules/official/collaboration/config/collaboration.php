@@ -2,13 +2,19 @@
 
 declare(strict_types=1);
 
+$secret = env('COLLABORATION_SECRET', '');
+if (!is_string($secret) || ($secret !== '' && (strlen($secret) < 32 || strlen($secret) > 4096
+    || preg_match('/[\r\n\x00]/', $secret)))) {
+    throw new RuntimeException('COLLABORATION_SECRET_INVALID');
+}
+
 return [
     'enabled' => env('COLLABORATION_ENABLED', 'disabled') === 'enabled',
     // Stable deployment identity, never a hostname or a client-provided Room name.
     'instance_id' => env('COLLABORATION_INSTANCE_ID', ''),
     'service_instance_id' => env('COLLABORATION_SERVICE_INSTANCE_ID', ''),
     'key_id' => env('COLLABORATION_SERVICE_KEY_ID', ''),
-    'secret' => env('COLLABORATION_SECRET', ''),
+    'secret' => $secret,
     // Registered HTTPS service ingress. E1 managed loader supplies it; no loopback/TLS fallback.
     'control_origin' => env('COLLABORATION_CONTROL_ORIGIN', ''),
     // Public TLS ingress used by authorized browser transports.

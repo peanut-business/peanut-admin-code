@@ -85,9 +85,11 @@ final readonly class SourceDevelopmentMaintenanceAdmission
             $file = $this->serverRoot . '/private/installation/' . $name;
             $originals[$name] = file_exists($file) || is_link($file) ? $this->fileDigest($file) : null;
         }
+        $environmentName = (string) env('env_name', '');
+        $environmentPath = $this->serverRoot . '/.env' . ($environmentName !== '' ? '.' . $environmentName : '');
         return ['source' => ['root' => $root, 'head' => $head, 'tree' => \leaseGit(['-C', $root, 'rev-parse', 'HEAD^{tree}']),
                 'files_sha256' => $sourceDigest, 'php_binary_sha256' => $this->fileDigest(PHP_BINARY)],
-            'environment_sha256' => $this->fileDigest(\peanutBackendEnvironmentPath()),
+            'environment_sha256' => $this->fileDigest($environmentPath),
             'installation_originals' => $originals, 'registry_sha256' => $registrySha,
             'resource_id' => $config['resource_id'], 'endpoint_id' => $config['endpoint_id'],
             'validation_only' => $database['lease_gate'] === 'migration-validation',

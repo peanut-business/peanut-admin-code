@@ -3,8 +3,7 @@
 
 declare(strict_types=1);
 
-require __DIR__ . '/environment-guard.php';
-require_once __DIR__ . '/../bootstrap/environment.php';
+require __DIR__ . '/install.php';
 require __DIR__ . '/../vendor/autoload.php';
 
 use think\App;
@@ -112,10 +111,11 @@ if ($arguments[0] === '--plan') {
 }
 
 try {
-    if (getenv('PEANUT_DEMO_MODE') !== 'enabled') {
+    if (env('PEANUT_DEMO_MODE', false) !== 'enabled') {
         throw new RuntimeException('PEANUT_DEMO_MODE=enabled is required');
     }
-    $tenantId = (int) requiredEnvironment('PEANUT_DEMO_TENANT_ID');
+    $input = installationProcessInput();
+    $tenantId = (int) ($input['PEANUT_DEMO_TENANT_ID'] ?? env('PEANUT_DEMO_TENANT_ID', ''));
     if ($tenantId < 1) {
         throw new RuntimeException('PEANUT_DEMO_TENANT_ID must be a positive integer');
     }
