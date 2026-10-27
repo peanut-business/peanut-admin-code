@@ -12,9 +12,9 @@
     "directory": "web"
   },
   "scripts": {
-    "dev": "../scripts/local-client-dev web",
-    "build": "vue-tsc --noEmit && vite build --config ./config/vite.config.prod.ts --configLoader runner",
-    "report": "PEANUT_CLIENT_ENV_FILE=$PWD/.env.report npm run build",
+    "dev": "vite --configLoader runner",
+    "build": "vue-tsc --noEmit && vite build --configLoader runner",
+    "report": "REPORT=true npm run build",
     "preview": "npm run build && vite preview --host",
     "type:check": "vue-tsc --noEmit --skipLibCheck",
     "lint-staged": "npx lint-staged",

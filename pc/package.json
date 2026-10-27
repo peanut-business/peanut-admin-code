@@ -13,7 +13,7 @@
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
-    "dev": "../scripts/local-client-dev pc",
+    "dev": "nuxt dev",
     "build": "nuxt build",
     "generate": "nuxt generate",
     "preview": "nuxt preview",

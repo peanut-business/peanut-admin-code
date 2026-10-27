@@ -15,14 +15,14 @@ services:
   web:
     image: node:22.22.0-bookworm-slim
     working_dir: /workspace/web
-    command: ["sh", "-c", "set -e; test -x node_modules/.bin/vite || (corepack enable && corepack prepare pnpm@9.15.6 --activate && pnpm install --frozen-lockfile); exec node node_modules/vite/bin/vite.js --config ./config/vite.config.dev.ts --host 0.0.0.0 --port 5173"]
+    command: ["sh", "-c", "set -e; test -x node_modules/.bin/vite || (corepack enable && corepack prepare pnpm@9.15.6 --activate && pnpm install --frozen-lockfile); exec npm run dev -- --host 0.0.0.0 --port 5173"]
     environment:
       <<: *node-environment
       CHOKIDAR_USEPOLLING: ${CHOKIDAR_USEPOLLING:-true}
-      PEANUT_CLIENT_ENV_FILE: /run/peanut/client.env
+      VITE_API_PROXY_TARGET: http://host.docker.internal:${PHP_PORT:?set the registered host PHP port}
+      VITE_DEPLOYMENT_MODE: ${VITE_DEPLOYMENT_MODE:?set the instance Edition}
     volumes:
       - ../web:/workspace/web
-      - ../.local/container-client.env:/run/peanut/client.env:ro
       - web-node-modules:/workspace/web/node_modules
     ports:
       - "127.0.0.1:${VITE_PORT:?set the registered admin port}:5173"
@@ -30,14 +30,13 @@ services:
   platform:
     image: node:22.22.0-bookworm-slim
     working_dir: /workspace/platform
-    command: ["sh", "-c", "set -e; test -x node_modules/.bin/vite || npm ci; exec node node_modules/vite/bin/vite.js --host 0.0.0.0 --port 5177"]
+    command: ["sh", "-c", "set -e; test -x node_modules/.bin/vite || npm ci; exec npm run dev -- --host 0.0.0.0 --port 5177"]
     environment:
       <<: *node-environment
       CHOKIDAR_USEPOLLING: ${CHOKIDAR_USEPOLLING:-true}
-      PEANUT_CLIENT_ENV_FILE: /run/peanut/client.env
+      VITE_API_PROXY_TARGET: http://host.docker.internal:${PHP_PORT:?set the registered host PHP port}
     volumes:
       - ../platform:/workspace/platform
-      - ../.local/container-client.env:/run/peanut/client.env:ro
       - platform-node-modules:/workspace/platform/node_modules
     ports:
       - "127.0.0.1:${PLATFORM_PORT:?set the registered platform port}:5177"
@@ -49,12 +48,11 @@ services:
     environment:
       <<: *node-environment
       CHOKIDAR_USEPOLLING: ${CHOKIDAR_USEPOLLING:-true}
-      PEANUT_CLIENT_ENV_FILE: /run/peanut/client.env
+      NUXT_DEV_PROXY_ORIGIN: http://host.docker.internal:${PHP_PORT:?set the registered host PHP port}
       NUXT_UPSTREAM_ORIGIN: http://host.docker.internal:${PHP_PORT:?set the registered host PHP port}
       NUXT_FORWARDED_PROTO: http
     volumes:
       - ../pc:/workspace/pc
-      - ../.local/container-client.env:/run/peanut/client.env:ro
       - pc-node-modules:/workspace/pc/node_modules
     ports:
       - "127.0.0.1:${PC_PORT:?set the registered PC port}:3100"
@@ -66,10 +64,9 @@ services:
     environment:
       <<: *node-environment
       CHOKIDAR_USEPOLLING: ${CHOKIDAR_USEPOLLING:-true}
-      PEANUT_CLIENT_ENV_FILE: /run/peanut/client.env
+      VITE_API_PROXY_TARGET: http://host.docker.internal:${PHP_PORT:?set the registered host PHP port}
     volumes:
       - ../uniapp:/workspace/uniapp
-      - ../.local/container-client.env:/run/peanut/client.env:ro
       - mobile-node-modules:/workspace/uniapp/node_modules
     ports:
       - "127.0.0.1:${MOBILE_PORT:?set the registered mobile port}:5174"
@@ -80,10 +77,8 @@ services:
     command: ["sh", "-c", "set -e; corepack enable; corepack prepare pnpm@9.15.6 --activate; test -x node_modules/.bin/vitepress || pnpm install --frozen-lockfile; exec node node_modules/vitepress/bin/vitepress.js dev . --host 0.0.0.0 --port 4173"]
     environment:
       <<: *node-environment
-      PEANUT_CLIENT_ENV_FILE: /run/peanut/client.env
     volumes:
       - ../../peanut-admin-project:/workspace/peanut-admin-project
-      - ../.local/container-client.env:/run/peanut/client.env:ro
       - docs-node-modules:/workspace/peanut-admin-project/docs-site/node_modules
     ports:
       - "127.0.0.1:${DOCS_PORT:?set the registered docs port}:4173"

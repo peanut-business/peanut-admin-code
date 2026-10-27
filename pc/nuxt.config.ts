@@ -1,22 +1,16 @@
 import defaultBrand from './generated/brand.json';
 import { resolve } from 'node:path';
 import { extendRouteRules, useNitro } from '@nuxt/kit';
-import { readClientEnvironment } from '../scripts/client-environment';
 import {
   createPcRenderingOptions,
   createPcPageRules,
 } from './utils/rendering-policy';
 
-const fileEnv = readClientEnvironment(
-  resolve(import.meta.dirname, '.env.production')
-);
 const devProxyOrigin =
-  fileEnv.NUXT_DEV_PROXY_ORIGIN ||
-  (fileEnv.PHP_PORT
-    ? `http://127.0.0.1:${fileEnv.PHP_PORT}`
-    : 'http://127.0.0.1');
-const devProxyTarget = fileEnv.NUXT_DEV_PROXY_TARGET || `${devProxyOrigin}/api`;
-const rendering = createPcRenderingOptions(fileEnv.NUXT_PC_RENDER_MODE);
+  process.env.NUXT_DEV_PROXY_ORIGIN || 'http://127.0.0.1:20180';
+const devProxyTarget =
+  process.env.NUXT_DEV_PROXY_TARGET || `${devProxyOrigin}/api`;
+const rendering = createPcRenderingOptions(process.env.NUXT_PC_RENDER_MODE);
 
 export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',

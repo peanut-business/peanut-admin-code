@@ -1,19 +1,15 @@
-import { dirname, resolve } from 'node:path';
+import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import uni from '@dcloudio/vite-plugin-uni';
-import { readClientEnvironment } from '../scripts/client-environment';
 
 const configDir = dirname(fileURLToPath(import.meta.url));
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  const environment = readClientEnvironment(resolve(configDir, `.env.${mode}`));
+  const environment = loadEnv(mode, configDir, '');
   const apiProxyTarget =
-    environment.VITE_API_PROXY_TARGET ||
-    (environment.PHP_PORT
-      ? `http://127.0.0.1:${environment.PHP_PORT}`
-      : 'http://127.0.0.1');
+    environment.VITE_API_PROXY_TARGET || 'http://127.0.0.1:20180';
   return {
     base: '/mobile/',
     plugins: [uni()],
@@ -23,6 +19,9 @@ export default defineConfig(({ mode }) => {
       ),
     },
     server: {
+      host: environment.VITE_HOST || '127.0.0.1',
+      port: Number(environment.VITE_PORT || 5174),
+      strictPort: true,
       proxy: {
         '/installapi': {
           target: apiProxyTarget,
