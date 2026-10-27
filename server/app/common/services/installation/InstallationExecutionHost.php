@@ -341,6 +341,7 @@ final class InstallationExecutionHost
                         'writes' => ['database' => 'none'], 'safe_retry' => true]);
             }
             [$credentials, $moduleKeys] = $this->normalizeInput($input);
+            $this->installationSource();
             $this->writeProgressMarker($moduleKeys);
             $stage = 'fresh_database';
             try {
@@ -756,13 +757,6 @@ final class InstallationExecutionHost
                 'server_release_identity_sha256' => $identity->identitySha256(),
                 'application_manifest_sha256' => $identity->manifestSha256(),
             ];
-        } elseif (\installationSourceDevelopmentMode($this->serverRoot)) {
-            $source = [
-                'kind' => 'product-source',
-                'inventory_sha256' => $this->fileDigest($projectRoot . '/scaffold/application-template-inventory.json'),
-                'edition_profiles_sha256' => $this->fileDigest($projectRoot . '/scaffold/edition-profiles.json'),
-                'release_versions_sha256' => $this->fileDigest($projectRoot . '/release-versions.json'),
-            ];
         } elseif (file_exists($applicationManifest) || is_link($applicationManifest)) {
             if (!is_file($applicationManifest) || is_link($applicationManifest)) {
                 throw new RuntimeException('INSTALL_RELEASE_IDENTITY_UNAVAILABLE');
@@ -770,6 +764,13 @@ final class InstallationExecutionHost
             $source = [
                 'kind' => 'generated-application',
                 'application_manifest_sha256' => $this->fileDigest($applicationManifest),
+            ];
+        } elseif (\installationSourceDevelopmentMode($this->serverRoot)) {
+            $source = [
+                'kind' => 'product-source',
+                'inventory_sha256' => $this->fileDigest($projectRoot . '/scaffold/application-template-inventory.json'),
+                'edition_profiles_sha256' => $this->fileDigest($projectRoot . '/scaffold/edition-profiles.json'),
+                'release_versions_sha256' => $this->fileDigest($projectRoot . '/release-versions.json'),
             ];
         } else {
             throw new RuntimeException('INSTALL_RELEASE_IDENTITY_UNAVAILABLE');
