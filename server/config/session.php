@@ -2,7 +2,10 @@
 
 use app\common\value\runtime\RuntimeNamespace;
 
-$runtimeNamespace = RuntimeNamespace::fromEnvironment();
+$runtimeNamespace = RuntimeNamespace::fromDatabaseConfiguration(
+    require __DIR__ . '/database.php',
+    (string) env('APP_ENV', 'production'),
+);
 
 // +----------------------------------------------------------------------
 // | 会话设置

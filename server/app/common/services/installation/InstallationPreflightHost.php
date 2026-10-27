@@ -34,20 +34,20 @@ final class InstallationPreflightHost
 
     private string $serverRoot;
     private Closure $extensionProbe;
-    private Closure $resourceConfigLoader;
+    private Closure $databaseConfigLoader;
     private string $phpVersion;
 
     public function __construct(
         ?string $serverRoot = null,
         ?Closure $extensionProbe = null,
-        ?Closure $resourceConfigLoader = null,
+        ?Closure $databaseConfigLoader = null,
         ?string $phpVersion = null,
     ) {
         $this->serverRoot = rtrim($serverRoot ?? dirname(__DIR__, 4), '/');
         $this->extensionProbe = $extensionProbe
             ?? static fn(string $extension): bool => extension_loaded($extension);
-        $this->resourceConfigLoader = $resourceConfigLoader
-            ?? fn(): array => $this->loadRegisteredResourceConfig();
+        $this->databaseConfigLoader = $databaseConfigLoader
+            ?? fn(): array => $this->loadDatabaseConfig();
         $this->phpVersion = $phpVersion ?? PHP_VERSION;
     }
 
@@ -58,10 +58,10 @@ final class InstallationPreflightHost
      *   reason:string,
      *   remediation:string,
      *   checks:list<array{id:string,status:string,code:string,reason:string,remediation:string}>,
-     *   resource:array{environment:string,deployment_target:string,resource_id:string,endpoint_id:string,consumer:string}|null
+     *   database:array{host:string,port:string,database:string}|null
      * }
      */
-    public function inspect(bool $includeResource = true): array
+    public function inspect(bool $includeDatabase = true): array
     {
         $checks = [
             $this->phpVersionCheck(),
@@ -73,9 +73,9 @@ final class InstallationPreflightHost
             $checks[] = $this->directoryCheck($id, $relativePath);
         }
         $resource = null;
-        if ($includeResource) {
-            [$resourceCheck, $resource] = $this->resourceCheck();
-            $checks[] = $resourceCheck;
+        if ($includeDatabase) {
+            [$databaseConfigurationCheck, $resource] = $this->databaseConfigurationCheck();
+            $checks[] = $databaseConfigurationCheck;
         }
 
         $failed = array_values(array_filter(
@@ -89,17 +89,17 @@ final class InstallationPreflightHost
                 'reason' => sprintf('安装预检有 %d 项未通过', count($failed)),
                 'remediation' => '按 checks 中的修复建议处理后重新运行安装预检',
                 'checks' => $checks,
-                'resource' => $resource,
+                'database' => $resource,
             ];
         }
 
         return [
             'status' => 'ready',
             'code' => 'INSTALL_PREFLIGHT_READY',
-            'reason' => '安装运行环境和登记资源身份已通过只读预检',
+            'reason' => '安装运行环境和数据库配置已通过只读预检',
             'remediation' => '可以继续数据库连通、空库和安装锁检查',
             'checks' => $checks,
-            'resource' => $resource,
+            'database' => $resource,
         ];
     }
 
@@ -370,40 +370,40 @@ final class InstallationPreflightHost
     /**
      * @return array{
      *   0:array{id:string,status:string,code:string,reason:string,remediation:string},
-     *   1:array{environment:string,deployment_target:string,resource_id:string,endpoint_id:string,consumer:string}|null
+     *   1:array{host:string,port:string,database:string}|null
      * }
      */
-    private function resourceCheck(): array
+    private function databaseConfigurationCheck(): array
     {
         try {
-            $config = ($this->resourceConfigLoader)();
+            $config = ($this->databaseConfigLoader)();
             if (!is_array($config)) {
-                throw new RuntimeException('resource config loader must return an array');
+                throw new RuntimeException('database config loader must return an array');
             }
             $identity = [];
-            foreach (['environment', 'deployment_target', 'resource_id', 'endpoint_id', 'consumer'] as $field) {
+            foreach (['host', 'port', 'database'] as $field) {
                 $value = $config[$field] ?? null;
                 if (!is_string($value) || trim($value) === '') {
-                    throw new RuntimeException('resource identity is incomplete');
+                    throw new RuntimeException('database configuration is incomplete');
                 }
                 $identity[$field] = $value;
             }
 
             return [
                 $this->passed(
-                    'database-resource',
-                    'INSTALL_DATABASE_RESOURCE_READY',
-                    '数据库环境、资源、consumer 和 endpoint 身份与项目登记一致',
+                    'database-configuration',
+                    'INSTALL_DATABASE_CONFIGURATION_READY',
+                    '数据库主机、端口和库名配置完整',
                 ),
                 $identity,
             ];
         } catch (Throwable) {
             return [
                 $this->failed(
-                    'database-resource',
-                    'INSTALL_DATABASE_RESOURCE_INVALID',
-                    '数据库资源身份未通过项目登记校验',
-                    '按本应用 resources/project-resources.json 选择环境、资源 ID、consumer 和 endpoint；维护者仅在显式指定 PEANUT_RESOURCE_REGISTRY 时使用其登记，禁止猜测地址或凭据',
+                    'database-configuration',
+                    'INSTALL_DATABASE_CONFIGURATION_INVALID',
+                    '数据库连接配置不完整或无效',
+                    '在 server/.env 配置 DB_HOST、DB_PORT、DB_NAME、DB_USER 和 DB_PASS；本预检不连接数据库，下一步检查实际连接和权限',
                 ),
                 null,
             ];
@@ -411,20 +411,15 @@ final class InstallationPreflightHost
     }
 
     /** @return array<string,mixed> */
-    private function loadRegisteredResourceConfig(): array
+    private function loadDatabaseConfig(): array
     {
-        $guard = $this->serverRoot . '/database/environment-guard.php';
-        if (!is_file($guard)) {
-            throw new RuntimeException('database environment guard is missing');
+        $configuration = require $this->serverRoot . '/config/database.php';
+        $connection = $configuration['connections'][$configuration['default']] ?? null;
+        if (!is_array($connection) || ($connection['type'] ?? null) !== 'mysql') {
+            throw new RuntimeException('INSTALL_DATABASE_CONNECTION_INVALID');
         }
-        require_once $guard;
-        if (!function_exists('guardedDatabaseConfig')) {
-            throw new RuntimeException('database environment guard is unavailable');
-        }
-        $hostLeaseProof = env('P0E_HOST_LEASE_PROOF', false);
-        return guardedDatabaseConfig(
-            $hostLeaseProof === false || trim($hostLeaseProof) === '' ? null : $hostLeaseProof,
-        );
+        return ['host' => (string) $connection['hostname'], 'port' => (string) $connection['hostport'],
+            'database' => (string) $connection['database']];
     }
 
     /** @return array{id:string,status:string,code:string,reason:string,remediation:string} */

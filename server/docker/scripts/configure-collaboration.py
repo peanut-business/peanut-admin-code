@@ -259,10 +259,15 @@ def enable(server, data, expected_revision):
 def compose_arguments(server):
     values = backend_environment(server)
     arguments = ['docker', 'compose', '--env-file', '.env', '-f', 'compose.yaml']
-    source = values.get('PEANUT_DATABASE_SOURCE', 'bundled')
-    if source not in ('bundled', 'registered'):
+    configuration_path = server / 'private/resources/configuration.json'
+    source = 'bundled'
+    if configuration_path.exists() or configuration_path.is_symlink():
+        ordinary(configuration_path)
+        configuration = json.loads(configuration_path.read_text())
+        source = configuration.get('database_source')
+    if source not in ('bundled', 'existing'):
         raise ValueError('RUNTIME_DATABASE_SOURCE_INVALID')
-    if source == 'registered':
+    if source == 'existing':
         ordinary(server / 'docker/compose.registered-database.yaml', private=False)
         arguments += ['-f', 'compose.registered-database.yaml']
     if values.get('COLLABORATION_ENABLED') == 'enabled':

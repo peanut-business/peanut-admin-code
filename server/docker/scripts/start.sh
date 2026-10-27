@@ -43,7 +43,7 @@ server = pathlib.Path(sys.argv[1])
 spec = importlib.util.spec_from_file_location('native_compose', server / 'docker/scripts/configure-collaboration.py')
 module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
 arguments = module.compose_arguments(server) + sys.argv[2:]
-print('registered' if module.registered_database_services(server, arguments) else 'bundled')
+print('existing' if module.registered_database_services(server, arguments) else 'bundled')
 PY
 )
 php_image=$(sed -n 's/^PHP_IMAGE=//p' "$DOCKER_DIR/.env" | tail -n 1)
