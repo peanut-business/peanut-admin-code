@@ -62,6 +62,7 @@ final readonly class TenantAuthEndpoint
         string $ipAddress,
         ?string $userAgent,
         string $requestId,
+        int $expectedTenantId,
     ): TenantAuthResponse {
         if (!$trustedOrigin) {
             throw new AuthException('AUTH_TOKEN_INVALID', 401);
@@ -73,6 +74,7 @@ final readonly class TenantAuthEndpoint
             $ipAddress,
             $userAgent,
             $requestId,
+            $expectedTenantId,
         ), $requestId, [$this->refreshCookieName($expectedAccessToken)]);
     }
 
