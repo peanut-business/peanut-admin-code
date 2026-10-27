@@ -3979,7 +3979,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "0fdaa96876846cee14e80f45625c8f14987226436af0f18268c35a9bf8aade35"
+            "source_sha256": "78c94711e56b510748c9fdb8f45cc2479b0cc8c6854bc3c270e48e3222469fb9"
         },
         {
             "path": "scripts/scaffold-runtime/ScaffoldUpgradeLedger.php",
@@ -4035,7 +4035,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "9d341625a9f524e263a68a983d8ef320b3171f5c7b72fc6455a80b7712180b38"
+            "source_sha256": "fc9db73d1da582a7d34d2be1cc5e29257972be20b511c58a34b1807d07385e96"
         },
         {
             "path": "scripts/scaffold-upgrade",

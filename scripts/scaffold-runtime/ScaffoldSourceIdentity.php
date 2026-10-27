@@ -16,10 +16,17 @@ final class ScaffoldSourceIdentity
         static $policy = null;
         if ($policy !== null) { return $policy; }
         $value = ScaffoldConfiguration::load()['source_snapshot'];
-        foreach (['excluded_names', 'excluded_paths', 'excluded_name_patterns', 'retained_name_patterns'] as $key) {
+        $value['retained_paths'] ??= [];
+        foreach (['excluded_names', 'excluded_paths', 'excluded_name_patterns', 'retained_name_patterns', 'retained_paths'] as $key) {
             if (!is_array($value[$key] ?? null) || !array_is_list($value[$key])) { throw new RuntimeException('SCAFFOLD_SOURCE_POLICY_INVALID'); }
             foreach ($value[$key] as $entry) {
                 if (!is_string($entry) || $entry === '') { throw new RuntimeException('SCAFFOLD_SOURCE_POLICY_INVALID'); }
+            }
+        }
+        foreach ($value['retained_paths'] as $path) {
+            if (str_starts_with($path, '/') || preg_match('/[\x00-\x1f\x7f\\\\]/', $path) === 1
+                || array_intersect(explode('/', $path), ['', '.', '..']) !== []) {
+                throw new RuntimeException('SCAFFOLD_SOURCE_POLICY_INVALID');
             }
         }
         foreach (['excluded_name_patterns', 'retained_name_patterns'] as $key) {
@@ -86,7 +93,7 @@ final class ScaffoldSourceIdentity
     {
         $resolved = realpath($root);
         if ($resolved === false || !is_dir($resolved)) { throw new RuntimeException('SCAFFOLD_SOURCE_SNAPSHOT_INVALID'); }
-        self::policy();
+        $retainedPaths = self::policy()['retained_paths'];
         $files = [];
         $configured = $additionalExcludedPaths;
         $configPath = $resolved . '/.local/toolchain/host.json';
@@ -102,7 +109,7 @@ final class ScaffoldSourceIdentity
                 }
             }
         }
-        $visit = static function (string $directory, string $prefix = '') use (&$visit, &$files, $resolved, $configured): void {
+        $visit = static function (string $directory, string $prefix = '', bool $retainedOnly = false) use (&$visit, &$files, $resolved, $configured, $retainedPaths): void {
             $entries = scandir($directory);
             if ($entries === false) { throw new RuntimeException('SCAFFOLD_SOURCE_SNAPSHOT_READ_FAILED'); }
             foreach ($entries as $name) {
@@ -111,10 +118,22 @@ final class ScaffoldSourceIdentity
                 if (preg_match('/[\x00-\x1f\x7f\\\\]/', $relative) === 1) { throw new RuntimeException('SCAFFOLD_SOURCE_SNAPSHOT_PATH_INVALID'); }
                 $absolute = $resolved . '/' . $relative;
                 $directoryEntry = is_dir($absolute) && !is_link($absolute);
-                if (self::excluded($relative, $directoryEntry, $configured)) { continue; }
+                $retained = in_array($relative, $retainedPaths, true) && !$directoryEntry;
+                if ($directoryEntry) {
+                    foreach ($retainedPaths as $path) {
+                        if (str_starts_with($path, $relative . '/')) { $retained = true; break; }
+                    }
+                }
+                if ($retainedOnly && !$retained) { continue; }
+                $restricted = $retainedOnly;
+                if (self::excluded($relative, $directoryEntry, $configured)) {
+                    if (!$retained || self::excluded($relative, $directoryEntry, $configured, false)) { continue; }
+                    // Enter an otherwise excluded ancestor only for the declared exact files.
+                    $restricted = true;
+                }
                 if ($directoryEntry && self::nativeScaffoldReleaseRoot($absolute)) { continue; }
                 if (is_link($absolute)) { throw new RuntimeException('SCAFFOLD_SOURCE_SNAPSHOT_SYMLINK: ' . $relative); }
-                if (is_dir($absolute)) { $visit($absolute, $relative . '/'); continue; }
+                if (is_dir($absolute)) { $visit($absolute, $relative . '/', $restricted); continue; }
                 if (!is_file($absolute)) { throw new RuntimeException('SCAFFOLD_SOURCE_SNAPSHOT_TYPE_INVALID: ' . $relative); }
                 $files[] = $relative;
             }
@@ -203,7 +222,7 @@ final class ScaffoldSourceIdentity
         return $decoded;
     }
 
-    private static function excluded(string $path, bool $directory, array $configured): bool
+    private static function excluded(string $path, bool $directory, array $configured, bool $namePatterns = true): bool
     {
         $name = basename($path);
         $policy = self::policy();
@@ -211,6 +230,7 @@ final class ScaffoldSourceIdentity
         foreach ([...$policy['excluded_paths'], ...$configured] as $prefix) {
             if ($path === $prefix || str_starts_with($path, $prefix . '/')) { return true; }
         }
+        if (!$namePatterns) { return false; }
         foreach ($policy['retained_name_patterns'] as $pattern) {
             if (preg_match($pattern, $name) === 1) { return false; }
         }

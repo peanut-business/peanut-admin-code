@@ -64,6 +64,12 @@
       "^\\.env\\.example$",
       "^\\.env\\.[A-Za-z0-9_-]+\\.example$"
     ],
+    "retained_paths": [
+      "settings/src/Secret/SecretProtectionException.php",
+      "settings/src/Secret/SecretProtector.php",
+      "settings/src/Secret/SecretStorageContext.php",
+      "settings/src/Secret/SodiumSecretProtector.php"
+    ],
     "excluded_name_patterns": [
       "^\\.env(?:\\.|$)",
       "(?:^|\\.)secret(?:\\.|$)",
