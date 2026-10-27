@@ -2451,11 +2451,13 @@ final class ScaffoldUpgradeRunner
         $core = count($cores) === 1 ? $cores[0] : null;
         $reference = $core['source']['reference'] ?? null;
         if ($versions['source_product_version'] !== $release->version()
-            || !is_array($core) || ($core['version'] ?? null) !== $version
-            || !is_string($reference) || preg_match('/^[a-f0-9]{40}$/D', $reference) !== 1
-            || ($core['source']['type'] ?? null) !== 'git'
-            || (is_array($identity) && (($identity['source_reference'] ?? null) !== $reference
-                || ($identity['source_url'] ?? null) !== ($core['source']['url'] ?? null)))) {
+            || !is_array($core) || ($core['version'] ?? null) !== $version) {
+            throw new RuntimeException('SCAFFOLD_TARGET_MODULE_SCHEMA_CORE_IDENTITY_INVALID');
+        }
+        if (is_array($identity)) {
+            $reference = ReleaseDependencyIdentity::phpComposerReference($core, $identity, 'SCAFFOLD_TARGET_MODULE_SCHEMA_CORE_IDENTITY_INVALID');
+        } elseif (!is_string($reference) || preg_match('/^[a-f0-9]{40}$/D', $reference) !== 1
+            || ($core['source']['type'] ?? null) !== 'git') {
             throw new RuntimeException('SCAFFOLD_TARGET_MODULE_SCHEMA_CORE_IDENTITY_INVALID');
         }
 
@@ -2471,9 +2473,7 @@ final class ScaffoldUpgradeRunner
             }
             // Read and hash before opening the archive; never extract or autoload it.
             $archiveBytes = $read($archivePath);
-            if (!hash_equals($core['dist']['shasum'], sha1($archiveBytes))) {
-                throw new RuntimeException('SCAFFOLD_TARGET_MODULE_SCHEMA_ARCHIVE_DIGEST_MISMATCH');
-            }
+            ReleaseDependencyIdentity::verifyPhpArchiveBytes($core, $archiveBytes, 'SCAFFOLD_TARGET_MODULE_SCHEMA_ARCHIVE_DIGEST_MISMATCH');
             $archive = new \PharData($release->artifactPath($files[$archivePath]));
             $entry = static function (string $path) use ($archive): string {
                 if (!isset($archive[$path]) || !$archive[$path]->isFile() || $archive[$path]->isLink()

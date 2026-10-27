@@ -4007,7 +4007,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a5dbaddc7ea06886813fded4460a73caceabdea99dd06874d84fa1a4da151b26"
+            "source_sha256": "edf3cff721f0b209c4b869b81bbcf4415e0249f57426e58150697a587a9a2be2"
         },
         {
             "path": "scripts/scaffold-runtime/Semver.php",
@@ -8635,7 +8635,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "d43713ebd27efa1e58bf07e1fda3a965dccd7c01cc76d609507e52c7f3b79c43"
+            "source_sha256": "f134eac17c4c8b28c1aa12e9236f1b223a20fbdf047bf5578c30d909cd853025"
         },
         {
             "path": "server/app/common/infrastructure/scaffold/ScaffoldUpgradeLedger.php",
@@ -9208,7 +9208,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "8945f924ead350d0b55e4992fbe7b55a26d44df2ea0c111b92a6ff7122bf9256"
+            "source_sha256": "a3b240ca6bd96184b9ac847d11f27ccea882c3ac42df76efd9e307db2344f5fd"
         },
         {
             "path": "server/app/common/services/notice/NoticeChannelService.php",

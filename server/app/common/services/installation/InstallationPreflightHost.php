@@ -6,6 +6,8 @@ namespace app\common\services\installation;
 
 use app\common\value\installation\ApplicationSourceIdentity;
 use app\common\value\installation\ServerReleaseIdentity;
+use app\common\infrastructure\scaffold\ReleaseDependencyIdentity;
+use app\common\value\scaffold\VersionContract;
 use Closure;
 use RuntimeException;
 use Throwable;
@@ -257,9 +259,28 @@ final class InstallationPreflightHost
                 || !is_array($installed['packages'] ?? null) || !array_is_list($installed['packages'])) {
                 return $blocked();
             }
-            $identity = static function (array $package): array {
+            $localCore = null;
+            foreach ($lock['packages'] as $package) {
+                if (($package['name'] ?? null) !== 'peanut-admin/core' || isset($package['source'])) { continue; }
+                require_once dirname(__DIR__, 2) . '/value/scaffold/VersionContract.php';
+                $root = dirname($this->serverRoot);
+                $localCore = VersionContract::load($root . '/release-versions.json')->corePhpPackage();
+                if ($localCore['source_type'] !== 'local') { return $blocked(); }
+                ReleaseDependencyIdentity::phpComposerReference($package, $localCore, 'Composer Core identity invalid');
+                $archive = $root;
+                foreach (explode('/', 'packages/core-php/peanut-admin-core-' . $localCore['resolved_version'] . '.zip') as $part) {
+                    $archive .= '/' . $part;
+                    if (is_link($archive)) { return $blocked(); }
+                }
+                if (!is_file($archive) || !is_readable($archive)) { return $blocked(); }
+                ReleaseDependencyIdentity::verifyPhpArchiveBytes($package, (string) file_get_contents($archive), 'Composer Core archive invalid');
+            }
+            $identity = static function (array $package) use ($localCore): array {
                 $name = $package['name'] ?? null;
                 $version = $package['version'] ?? null;
+                if ($name === 'peanut-admin/core' && $localCore !== null) {
+                    return [$name, $version, ReleaseDependencyIdentity::phpComposerReference($package, $localCore, 'Composer Core identity invalid')];
+                }
                 $source = $package['source']['reference'] ?? null;
                 $dist = $package['dist']['reference'] ?? null;
                 if (!is_string($name) || $name === '' || !is_string($version) || $version === ''

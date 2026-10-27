@@ -95,6 +95,42 @@ final class ReleaseDependencyIdentity
         return $phpLocal ? 'local-archive' : $mode;
     }
 
+    /** Match a Composer package against an already validated PHP Core declaration. */
+    public static function phpComposerReference(array $package, array $php, string $error): string
+    {
+        if (($package['name'] ?? null) !== 'peanut-admin/core'
+            || ($package['version'] ?? null) !== $php['resolved_version']) {
+            throw new RuntimeException($error);
+        }
+        if ($php['source_type'] === 'local') {
+            $reference = $php['source_identity']['snapshot_sha256'];
+            if (isset($package['source']) || ($package['dist']['type'] ?? null) !== 'zip'
+                || ($package['dist']['url'] ?? null) !== '../packages/core-php/peanut-admin-core-' . $php['resolved_version'] . '.zip'
+                || ($package['dist']['reference'] ?? null) !== $reference
+                || !is_string($package['dist']['shasum'] ?? null)
+                || preg_match('/^[a-f0-9]{40}$/D', $package['dist']['shasum']) !== 1) {
+                throw new RuntimeException($error);
+            }
+            return $reference;
+        }
+        if (($package['source']['type'] ?? null) !== 'git'
+            || ($package['source']['url'] ?? null) !== $php['source_url']
+            || ($package['source']['reference'] ?? null) !== $php['source_reference']
+            || ($package['dist']['reference'] ?? null) !== $php['source_reference']) {
+            throw new RuntimeException($error);
+        }
+        return $php['source_reference'];
+    }
+
+    public static function verifyPhpArchiveBytes(array $package, string $bytes, string $error): void
+    {
+        $digest = $package['dist']['shasum'] ?? null;
+        if (!is_string($digest) || preg_match('/^[a-f0-9]{40}$/D', $digest) !== 1
+            || !hash_equals($digest, sha1($bytes))) {
+            throw new RuntimeException($error);
+        }
+    }
+
     /** 旧本地归档身份仍须验证实际文件；原生 registry 身份由原生锁安装校验制品。 */
     public static function verifyArchives(string $root, array $web, string $error): void
     {
