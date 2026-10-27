@@ -372,18 +372,27 @@ def runtime_environment(runtime: dict[str, Any], admission: dict[str, Any], *, p
     if path.parent != root / "server" or (path.name != ".env" and not path.name.startswith(".env.")):
         fail("runtime environment must be server/.env or a named sibling")
     name = "" if path.name == ".env" else path.name.removeprefix(".env.")
-    environment = {"PHP_ENV_NAME": name, "PEANUT_RESOURCE_REGISTRY": str(REGISTRY_PATH)}
+    environment = {
+        "PHP_ENV_NAME": name,
+        "PEANUT_RESOURCE_REGISTRY": str(REGISTRY_PATH) if root == ROOT else "",
+        "PEANUT_DEPLOYMENT_TARGET": "local-development",
+        "PEANUT_DATABASE_RESOURCE_ID": runtime["resource_id"],
+        "PEANUT_DATABASE_CONSUMER": "host",
+        "PEANUT_DATABASE_ENDPOINT_ID": runtime["endpoint_id"],
+        "PEANUT_RESOURCE_LEASE_PROOF": admission["proof_dir"],
+        "P0E_HOST_LEASE_PROOF": admission["proof_dir"],
+    }
     result = command([php, "-r",
         "try { require $argv[1] . '/vendor/autoload.php'; "
         "$app = new think\\App($argv[1]); $app->loadEnv((string) env('env_name', '')); "
         "foreach (['P0E_HOST_LEASE_PROOF','PEANUT_RESOURCE_LEASE_PROOF'] as $key) {"
-        "if (env($key) !== $argv[2]) { fwrite(STDERR, 'RUNTIME_ENVIRONMENT_PROOF_MISMATCH:'.$key); exit(2); }}"
+        "if (getenv($key) !== $argv[2]) { fwrite(STDERR, 'RUNTIME_ENVIRONMENT_PROOF_MISMATCH:'.$key); exit(2); }}"
         "} catch (Throwable $e) { fwrite(STDERR, 'RUNTIME_ENVIRONMENT_LOAD_FAILED'); exit(2); }",
         str(root / "server"), admission["proof_dir"]],
         cwd=root, env=environment, capture=True, check=False)
     if result.returncode != 0:
-        fail("runtime protected environment must load natively and configure both proof keys to "
-             + admission["proof_dir"] + "; its configuration owner must update the selected file and repin its sha256 before planning")
+        fail("runtime protected application configuration must load natively and maintenance process proofs must match "
+             + admission["proof_dir"])
     return environment
 
 
@@ -1182,12 +1191,11 @@ class Runner:
             fail("runtime backend environment differs from the registered APP database environment")
         parsed = json.loads(command(["php", "-r", "$v=parse_ini_file($argv[1],false,INI_SCANNER_RAW);"
             "if(!is_array($v)){exit(1);}echo json_encode(array_intersect_key($v,array_flip("
-            "['DB_HOST','DB_PORT','DB_NAME','PEANUT_DATABASE_RESOURCE_ID','PEANUT_DATABASE_ENDPOINT_ID'])));",
+            "['DB_HOST','DB_PORT','DB_NAME'])));",
             str(root / "server/.env")], cwd=root, capture=True).stdout)
         database = database_registration(app)
         endpoint = database["upstream_endpoint"]
-        if parsed != {"DB_HOST": endpoint["host"], "DB_PORT": str(endpoint["port"]), "DB_NAME": app["database"],
-                      "PEANUT_DATABASE_RESOURCE_ID": app["resource_id"], "PEANUT_DATABASE_ENDPOINT_ID": app["endpoint_id"]}:
+        if parsed != {"DB_HOST": endpoint["host"], "DB_PORT": str(endpoint["port"]), "DB_NAME": app["database"]}:
             fail("resolved backend configuration points to another registered database/endpoint")
         ports = services.get("nginx", {}).get("ports", [])
         if (len(ports) != 1 or str(ports[0].get("published")) != str(runtime["port"])

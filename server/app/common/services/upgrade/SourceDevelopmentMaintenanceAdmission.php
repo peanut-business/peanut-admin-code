@@ -49,7 +49,7 @@ final readonly class SourceDevelopmentMaintenanceAdmission
         $endpoint = \registeredDatabaseEndpoint($database, $config['consumer']);
         $schema = \mysqlSchemaLeaseResource($database, $endpoint, $config);
         if ($schema === null) { throw new RuntimeException('APPLICATION_SCHEMA_NATIVE_SCHEMA_LEASE_REQUIRED'); }
-        $path = \requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
+        $path = \requiredMaintenanceEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
         $meta = \activeLeaseMetadata($path, time(), $actor['gate']); $resources = \activeLeaseResources($path);
         if ($meta['owner'] !== $actor['owner'] || $meta['thread'] !== $actor['thread'] || $meta['candidate'] !== $head
             || $meta['gate'] !== ($database['lease_gate'] ?? null)

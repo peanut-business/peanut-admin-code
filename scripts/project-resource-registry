@@ -250,78 +250,6 @@ def emit(values: dict[str, str | int]) -> None:
         print(f"{name}={rendered}")
 
 
-def local_stack_defaults(registry: dict[str, Any], target: str) -> dict[str, int]:
-    values: dict[str, int] = {}
-    environment = target_environment(target)
-    for item in registry["resources"]["local_listeners"]:
-        environments = item.get("environments", [item.get("environment")])
-        if environment not in environments or not item.get("port_env"):
-            continue
-        name, port = item["port_env"], item.get("port")
-        if not isinstance(name, str) or not isinstance(port, int) or not 1 <= port <= 65535 or name in values:
-            fail(f"invalid local listener port mapping for {target}: {item.get('stable_resource_id')}")
-        values[name] = port
-    if target == "local-development":
-        for item in registry["resources"].get("optional_services", []):
-            if "development" not in item.get("environments", []) or not item.get("port_env"):
-                continue
-            name, port = item["port_env"], item.get("port")
-            if not isinstance(name, str) or not isinstance(port, int) or not 1 <= port <= 65535 or name in values:
-                fail(f"invalid optional listener port mapping: {item.get('stable_resource_id')}")
-            values[name] = port
-    if not values:
-        fail(f"no listener registration for {target}")
-    return values
-
-
-def effective_local_stack_ports(registry: dict[str, Any], env_file: Path) -> dict[str, int]:
-    if not env_file.is_absolute() or env_file.is_symlink():
-        fail("local stack environment must be an absolute regular path, not a symlink")
-    defaults = {
-        **local_stack_defaults(registry, "local-development"),
-        **local_stack_defaults(registry, "local-production-preview"),
-    }
-    overrides: dict[str, int] = {}
-    if env_file.exists():
-        if not env_file.is_file():
-            fail("local stack environment is not a regular file")
-        try:
-            lines = env_file.read_text(encoding="utf-8").splitlines()
-        except (OSError, UnicodeError):
-            fail("cannot read local stack environment")
-        seen: set[str] = set()
-        for line in lines:
-            name, separator, raw = line.partition("=")
-            if not separator or name not in defaults:
-                continue
-            if name in seen:
-                fail(f"duplicate local listener setting: {name}")
-            seen.add(name)
-            if raw == "":
-                continue
-            if not re.fullmatch(r"[1-9][0-9]*", raw) or int(raw) > 65535:
-                fail(f"invalid local listener port: {name} (expected decimal 1-65535)")
-            overrides[name] = int(raw)
-
-    effective = defaults | overrides
-    reserved_ports: set[int] = set()
-    for item in [
-        *registry["resources"]["local_listeners"],
-        *registry["resources"].get("optional_services", []),
-    ]:
-        port = item.get("port")
-        if isinstance(port, int):
-            reserved_ports.add(port)
-    occupied: dict[int, str] = {}
-    for name, port in effective.items():
-        if port in occupied:
-            fail(f"local listener port collision: {name} and {occupied[port]}")
-        occupied[port] = name
-        if port in reserved_ports and port != defaults[name]:
-            fail(f"local listener port reserved by another resource: {name}")
-    return effective
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -335,16 +263,6 @@ def main() -> int:
     database_parser.add_argument("--consumer", choices=("host", "container"), required=True)
     database_parser.add_argument("--resource-id")
     database_parser.add_argument("--database-name")
-
-    stack_parser = subparsers.add_parser("local-stack-env")
-    stack_parser.add_argument(
-        "--deployment-target",
-        choices=("local-development", "local-production-preview", "local-multi-tenant-demo"),
-        required=True,
-    )
-
-    local_ports_parser = subparsers.add_parser("local-stack-ports")
-    local_ports_parser.add_argument("--env-file", type=Path, required=True)
 
     qualification_parser = subparsers.add_parser("qualification-env")
     qualification_parser.add_argument("--runner-id", required=True)
@@ -569,6 +487,7 @@ def main() -> int:
                 selected_database_name = database_template
         endpoint = endpoint_for_consumer(database, args.consumer)
         values = {
+            "PEANUT_DEPLOYMENT_TARGET": args.deployment_target,
             "PEANUT_DATABASE_RESOURCE_ID": database["stable_resource_id"],
             "PEANUT_DATABASE_ENDPOINT_ID": endpoint["endpoint_id"],
             "PEANUT_DATABASE_CONSUMER": args.consumer,
@@ -576,10 +495,6 @@ def main() -> int:
             "DB_PORT": endpoint["port"],
             "DB_NAME": selected_database_name,
         }
-    if args.command == "local-stack-env":
-        values = local_stack_defaults(registry, args.deployment_target)
-    if args.command == "local-stack-ports":
-        values = effective_local_stack_ports(registry, args.env_file)
     if args.command == "qualification-env":
         runner = resource_by_id(registry, "tooling", args.runner_id)
         if (

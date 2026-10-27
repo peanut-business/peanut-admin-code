@@ -6,9 +6,11 @@
 
 普通运行配置使用 `server/.env` 与 ThinkPHP 原生 `PHP_ENV_NAME`，不再使用PHP自定义文件选择器。Compose的 `PEANUT_SERVER_ENV_FILE` 如仍用于选择挂载源，仅属于编排输入，不传给PHP作为配置加载入口。
 
-seed、受控迁移维护和固定资格仍消费资源门禁输入：`PEANUT_DATABASE_RESOURCE_ID` 选择已登记数据库；`PEANUT_DEPLOYMENT_TARGET` 必须匹配APP_ENV和登记环境；`PEANUT_DATABASE_CONSUMER` 选择登记endpoint（未指定时使用该target的默认consumer）；`PEANUT_DATABASE_ENDPOINT_ID` 是可选精确断言；`PEANUT_RESOURCE_LEASE_PROOF` 与 `P0E_HOST_LEASE_PROOF` 按原操作门禁提供实际租约。具体值由维护命令的资源选择提供；维护者仅在明确提供 `PEANUT_RESOURCE_REGISTRY` 进程输入时读取维护登记，不从示例猜测地址、身份或凭据。普通运行和首次安装直接使用 ThinkPHP 默认连接；安装配置器不再生成这些维护环境项或私有资源登记。
+seed、受控迁移维护和固定资格的资源选择使用独立进程输入，不从普通 `.env` 或 ThinkPHP Env 读取：`PEANUT_DATABASE_RESOURCE_ID` 选择已登记数据库；`PEANUT_DEPLOYMENT_TARGET` 必须匹配APP_ENV和登记环境；`PEANUT_DATABASE_CONSUMER` 明确选择登记endpoint；`PEANUT_DATABASE_ENDPOINT_ID` 是可选精确断言；`PEANUT_RESOURCE_LEASE_PROOF` 提供原操作要求的真实租约。先通过 `scripts/project-resource-registry database-env --resource-id=<已登记ID> --deployment-target=<已登记target> --consumer=<host或container>` 读取非秘密选择；该命令输出target、resource/endpoint/consumer及登记地址，不读取密码、不授予租约、不修改应用配置。只将维护选择传入相应命令进程，实际DB连接继续由原生应用配置加载并逐项匹配登记，不把全部输出追加到 `.env`。固定库的登记/选择检查可用同一工具的 `validate` 加相同三参数；它只证明该数据库范围，不证明健康或租约。维护者仅在明确提供绝对 `PEANUT_RESOURCE_REGISTRY` 进程输入时读取维护登记，不自动寻找Project，不从示例猜测地址、身份或凭据。普通运行和首次安装直接使用 ThinkPHP 默认连接；安装配置器不生成这些维护环境项或私有资源登记。
 
 这些字段是现有受控维护操作的输入，不是普通日常配置的通用必填表；缺失时仅相应受控操作明确拒绝，不能用空默认值、私有配置loader或备用库替代门禁。一次性身份文件只在安装/明确的demo输入入口读取，不进入全局Env。
+
+成对备份/恢复worker从APP自己的登记部署解析精确数据库选择，将其作为Compose子进程参数传给既有guard，确认原生应用连接与production登记一致后才领取任务。备份清单及隔离恢复证据从当前APP登记中的唯一production备份源绑定数据库，随后匹配原生默认MySQL连接；多匹配拒绝，不能按DB_NAME猜资源。普通备份中心读取无需把维护字段放进应用 `.env`；缺少完整APP备份/隔离目标登记仍拒绝，不自动投影维护者资源。旧 `local-stack-env` / `local-stack-ports` 资源子命令已退出，端口使用各项目原生配置。
 
 ## 正常模板发行
 

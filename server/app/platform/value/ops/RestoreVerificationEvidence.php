@@ -154,14 +154,10 @@ final readonly class RestoreVerificationEvidence
             }
             return $found[0];
         };
-        $sources = array_values(array_filter($rows, static fn (array $row): bool =>
-            ($row['database_resource_id'] ?? null) === env('PEANUT_DATABASE_RESOURCE_ID', false)
-            && ($row['compose_file'] ?? null) === 'server/docker/compose.yaml'
-            && isset($row['restore_verification_resource_id'])));
-        if (count($sources) !== 1) {
+        $source = \registeredApplicationBackupSource($registry, $rows);
+        if (!is_string($source['restore_verification_resource_id'] ?? null)) {
             throw new RuntimeException('OPS_RESTORE_SOURCE_NOT_REGISTERED');
         }
-        $source = $sources[0];
         $target = $find((string) $source['restore_verification_resource_id']);
         $database = $find((string) ($target['database_resource_id'] ?? ''));
         $runtime = $find((string) ($target['application_resource_id'] ?? ''));

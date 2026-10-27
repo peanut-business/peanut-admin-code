@@ -39,7 +39,7 @@ final readonly class SourceSharedCredentialRecovery
         if ($admission['authority']['operation'] !== 'exclusive') { self::fail('WRITE_WINDOW_REQUIRED'); }
         $directory = $root . '/private/credential-maintenance';
         $credentials = $root . '/private/credentials';
-        $resources = \activeLeaseResources(\requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF'));
+        $resources = \activeLeaseResources(\requiredMaintenanceEnvironment('PEANUT_RESOURCE_LEASE_PROOF'));
         foreach ([$directory, $credentials] as $path) {
             if (!in_array($path, $resources['output-dir'] ?? [], true)) { self::fail('OUTPUT_LEASE_REQUIRED'); }
             $this->privateDirectory($path, $root);
