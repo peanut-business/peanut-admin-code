@@ -160,6 +160,18 @@ function registeredDatabaseEndpoint(array $database, string $consumer): array
     return $endpoint;
 }
 
+/** @param array{host:string|int,port:string|int,database:string|null} $expected */
+function registeredMysqlConnectionMatches(array $expected): bool
+{
+    $connection = \think\facade\Config::get('database.connections.mysql', []);
+    return \think\facade\Config::get('database.default') === 'mysql'
+        && is_array($connection)
+        && ($connection['type'] ?? null) === 'mysql'
+        && (string) ($connection['hostname'] ?? '') === (string) $expected['host']
+        && (string) ($connection['hostport'] ?? '') === (string) $expected['port']
+        && (string) ($connection['database'] ?? '') === $expected['database'];
+}
+
 /**
  * Bind the paired-backup source inside this APP's own registry before comparing
  * its connection. A schema name never selects a resource or another deployment.
@@ -186,14 +198,10 @@ function registeredApplicationBackupSource(array $registry, array $rows): array
     $source = $sources[0];
     $database = registeredDatabase($registry, $source['database_resource_id']);
     $endpoint = registeredDatabaseEndpoint($database, 'container');
-    $connection = \think\facade\Config::get('database.connections.mysql', []);
     if (env('APP_ENV', false) !== 'production'
-        || \think\facade\Config::get('database.default') !== 'mysql'
-        || !is_array($connection)
-        || ($connection['type'] ?? null) !== 'mysql'
-        || (string) ($connection['hostname'] ?? '') !== (string) $endpoint['host']
-        || (string) ($connection['hostport'] ?? '') !== (string) $endpoint['port']
-        || (string) ($connection['database'] ?? '') !== ($database['database'] ?? null)
+        || !registeredMysqlConnectionMatches([
+            'host' => $endpoint['host'], 'port' => $endpoint['port'], 'database' => $database['database'] ?? null,
+        ])
         || !in_array('production', $database['environments'] ?? [], true)
         || ($database['application_runtime'] ?? null) !== true
         || ($database['service_type'] ?? null) !== 'mysql'
