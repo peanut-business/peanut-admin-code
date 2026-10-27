@@ -90,8 +90,12 @@ export function createCollaborationProvider(options: ProviderOptions): {
   requestSaveTarget: (requestId: string) => Promise<CommittedProof>;
   destroy: () => void;
 } {
+  const url = new URL(options.url);
   if (
-    new URL(options.url).protocol !== 'wss:' ||
+    !(
+      url.protocol === 'wss:' ||
+      (url.protocol === 'ws:' && globalThis.location?.protocol === 'http:')
+    ) ||
     !Number.isSafeInteger(options.documentId) ||
     options.documentId < 1 ||
     !options.documentName ||

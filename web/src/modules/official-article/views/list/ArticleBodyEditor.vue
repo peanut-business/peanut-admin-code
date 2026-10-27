@@ -367,7 +367,7 @@
       data.mode !== 'write' ||
       data.protocol !== 2 ||
       !data.document_name ||
-      !/^wss:\/\/[^/?#@]+:[0-9]+\/collaboration$/.test(data.wss_url)
+      !/^wss?:\/\/[^/?#@]+:[0-9]+\/collaboration$/.test(data.wss_url)
     )
       throw new Error('ARTICLE_TRANSPORT_INVALID');
     return {

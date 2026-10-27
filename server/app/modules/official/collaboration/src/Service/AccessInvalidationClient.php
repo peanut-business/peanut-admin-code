@@ -26,13 +26,14 @@ final readonly class AccessInvalidationClient
         $c = $this->configuration;
         $origin = $c['control_origin'] ?? null;
         $url = is_string($origin) ? parse_url($origin) : false;
-        $ca = $c['ca_bundle_file'] ?? null;
-        if (($c['enabled'] ?? null) !== true || !$url || ($url['scheme'] ?? '') !== 'https'
+        $developmentHttp = ($c['environment'] ?? null) === 'development' && ($url['scheme'] ?? null) === 'http';
+        $ca = $developmentHttp ? null : ($c['ca_bundle_file'] ?? null);
+        if (($c['enabled'] ?? null) !== true || !$url || !(($url['scheme'] ?? '') === 'https' || $developmentHttp)
             || !isset($url['host']) || isset($url['user']) || isset($url['pass']) || isset($url['query']) || isset($url['fragment'])
-            || !in_array($url['path'] ?? '', ['', '/'], true) || !is_string($ca)
+            || !in_array($url['path'] ?? '', ['', '/'], true) || (!$developmentHttp && (!is_string($ca)
             || $ca !== dirname(__DIR__, 6) . '/private/collaboration/service/ca.pem'
             || !is_file($ca) || is_link($ca) || !is_string($c['ca_sha256'] ?? null)
-            || !hash_equals($c['ca_sha256'], hash_file('sha256', $ca)) || !is_string($c['secret'] ?? null) || strlen($c['secret']) < 32
+            || !hash_equals($c['ca_sha256'], hash_file('sha256', $ca)))) || !is_string($c['secret'] ?? null) || strlen($c['secret']) < 32
             || ($input['instance_id'] ?? null) !== ($c['instance_id'] ?? null)
             || ($input['service_instance_id'] ?? null) !== ($c['service_instance_id'] ?? null)
             || !is_string($c['key_id'] ?? null) || preg_match('/^[A-Za-z0-9_-]{1,128}$/D', $c['key_id']) !== 1) {
@@ -60,6 +61,7 @@ final readonly class AccessInvalidationClient
                 false,
                 caBundleFile: $ca,
                 directConnection: true,
+                allowDevelopmentHttp: $developmentHttp,
             ));
         } catch (\Throwable) {
             throw new RetryableTaskException('REVOCATION_NODE_UNREACHABLE');

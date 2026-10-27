@@ -9,7 +9,9 @@ a broadcast or native SyncStatus is not a database commit.
 ## Service authentication
 
 The managed application configuration supplies the fixed instance/service/key,
-TLS origins, secret and CA reference. No browser selects these values. Internal
+origins, secret and CA reference. Explicit HTTP/WS is accepted only when the
+application's APP_ENV is development; HTTPS/WSS keeps normal CA verification.
+No browser selects these values. Internal
 calls reject ambient human/Task identity and authenticate only the service.
 
 Transport envelope version is 2. Request HMAC-SHA256 input is UTF-8 lines
@@ -46,7 +48,7 @@ a separately reviewed stopped/drained migration. Recovery never unlocks unknown 
 
 ## Authorization and batch persistence
 
-The authorized transport endpoint returns only WSS URL and document context.
+The authorized transport endpoint returns only the configured WS/WSS URL and document context.
 The browser supplies its existing native user token to Hocuspocus, which forwards
 `{token,document_name}` to the authenticated backend authorize API. Both fields
 are untrusted: configured instance/edition, native TenantAuthService session/member

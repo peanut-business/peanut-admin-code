@@ -245,8 +245,8 @@ occurred_at 在事务内写入，不作为准确 T0。上述独立命令对30秒
 ### 7.1 交付结构
 
 - `peanut-hocuspocus` 是与 `peanut-admin-code` 同级的独立项目，拥有完整服务源码、锁定依赖、独立 Docker 配置与启停入口。以当前 Hocuspocus 4.6.0 原生服务增量接入；PHP 内部 API、统一身份和业务权限仍归 Code 官方模块，前端 SDK 仍归对应模块。服务通过接口认证、加载和保存，不导入、挂载或执行应用 PHP、前端源码，不直连业务 SQL。
-- 服务使用固定 Node 22.23.2 运行镜像并只读挂载本项目程序及锁定依赖，不把 APP 源码烘焙进镜像。应用保留现有 PHP/MySQL/Nginx 配置和可选 TLS/WSS overlay；独立服务使用显式登记的接口网络，不复制应用默认部署，不维护第二套长期协作机制。
-- 服务容器不直接暴露公网 Node 端口；由应用 Nginx 经严格 Host/TLS/WSS 代理 `/collaboration/`，内网只可访问 PHP 内部接口。PHP 内部服务鉴权凭据通过既有受管 secret/env 装配，不入 Git、日志、客户端；镜像使用可复现源、锁及 digest。健康/就绪检查覆盖 Node 进程、PHP 合约可用、必要存储；就绪失败不得让编辑 UI 显示可用。
+- 服务使用固定 Node 22.23.2 运行镜像并只读挂载本项目程序及锁定依赖，不把 APP 源码烘焙进镜像。应用保留现有 PHP/MySQL/Nginx 配置和可选 TLS/WSS overlay；明确 `APP_ENV=development` 且配置 `websocket_scheme=ws` 时，使用本机 HTTP/WS，Compose APP 仅为同一 Nginx 选开发内部 HTTP 模板。独立服务按实际接口路线选择已有网络，不复制应用默认部署，不维护第二套长期协作机制。
+- 正式环境的服务容器不直接暴露公网 Node 端口；由应用 Nginx 经严格 Host/TLS/WSS 代理 `/collaboration/`，内网只可访问 PHP 内部接口。开发 WS 直接使用 Node 自身已登记的 loopback 监听，PHP API 为已登记 host HTTP 或 Compose 内网 8080，不发布管理 host 端口。`wss_url` 为历史字段名，开发可为 `ws://`，其他环境只签发 `wss://`；HTTP 页面消费 WS，HTTPS 页面仍要求 WSS。PHP 内部服务鉴权凭据通过既有受管 secret/env 装配，不入 Git、日志、客户端；HTTP 同样执行 HMAC、nonce、防重放、实时授权、撤权、保存回执和业务屏障。HTTPS 保留 CA 校验，不自动降级；镜像使用可复现源、锁及 digest。健康/就绪检查覆盖 Node 进程、PHP 合约可用、必要存储；就绪失败不得让编辑 UI 显示可用。
 - 运行时建议非 root、只读根文件系统、必要临时 tmpfs、资源/连接/请求体限制、重启策略、心跳和审计脱敏。日志携带 instance、room 的受限哈希、trace、保存序号/延迟、错误类别，不记录正文、票据、Secret、临时文件 URL。
 - V1 单 Node 实例为正式支持拓扑；**不要**只通过 `replicas:2` 就宣称横向 HA。后续 Redis 房间同步/租约、节点间状态合并、一致性与保存接管验证后再开放多副本；Redis 可作为未来扩展，而非 V1 强制依赖。
 
