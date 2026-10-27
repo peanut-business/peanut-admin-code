@@ -160,3 +160,46 @@ function registeredDatabaseEndpoint(array $database, string $consumer): array
     return $endpoint;
 }
 
+/**
+ * Bind the paired-backup source inside this APP's own registry before comparing
+ * its connection. A schema name never selects a resource or another deployment.
+ *
+ * @param array<string,mixed> $registry
+ * @param list<array<string,mixed>> $rows
+ * @return array<string,mixed>
+ */
+function registeredApplicationBackupSource(array $registry, array $rows): array
+{
+    if (($registry['authority']['role'] ?? null) !== 'application') {
+        throw new RuntimeException('OPS_BACKUP_APPLICATION_REGISTRY_REQUIRED');
+    }
+    $selectedId = getenv('PEANUT_DATABASE_RESOURCE_ID');
+    $sources = array_values(array_filter($rows, static fn (array $row): bool =>
+        ($row['compose_file'] ?? null) === 'server/docker/compose.yaml'
+        && is_string($row['backup_resource_id'] ?? null)
+        && is_string($row['database_resource_id'] ?? null)
+        && in_array('production', $row['environments'] ?? [], true)
+        && ($selectedId === false || trim($selectedId) === '' || $row['database_resource_id'] === trim($selectedId))));
+    if (count($sources) !== 1) {
+        throw new RuntimeException('OPS_BACKUP_SOURCE_NOT_REGISTERED');
+    }
+    $source = $sources[0];
+    $database = registeredDatabase($registry, $source['database_resource_id']);
+    $endpoint = registeredDatabaseEndpoint($database, 'container');
+    $connection = \think\facade\Config::get('database.connections.mysql', []);
+    if (env('APP_ENV', false) !== 'production'
+        || \think\facade\Config::get('database.default') !== 'mysql'
+        || !is_array($connection)
+        || ($connection['type'] ?? null) !== 'mysql'
+        || (string) ($connection['hostname'] ?? '') !== (string) $endpoint['host']
+        || (string) ($connection['hostport'] ?? '') !== (string) $endpoint['port']
+        || (string) ($connection['database'] ?? '') !== ($database['database'] ?? null)
+        || !in_array('production', $database['environments'] ?? [], true)
+        || ($database['application_runtime'] ?? null) !== true
+        || ($database['service_type'] ?? null) !== 'mysql'
+        || ($database['fallback'] ?? null) !== 'none') {
+        throw new RuntimeException('OPS_BACKUP_APPLICATION_CONNECTION_MISMATCH');
+    }
+    return $source;
+}
+

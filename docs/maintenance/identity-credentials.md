@@ -12,6 +12,8 @@
 
 本机 principal、真实 owner/thread/Session、源码、registry、DB endpoint/schema/UUID 和当前原生独占 DML 窗口均被绑定。租约还须覆盖 `server/private/credential-maintenance` 和 `server/private/credentials` 两个精确输出目录；不得借用读租约、DDL 计划、旧身份或旧窗口。
 
+维护的resource/target/consumer、可选endpoint断言和真实lease proof通过独立进程环境传入，具体读取和登记检查见[数据库维护输入](release-producers.md#数据库维护输入)。普通 `server/.env` 只提供应用配置；缺少维护选择会拒绝相应维护操作。initial模式仍要求真实初始grant binding与approved plan，不从首次配置回执补造资源身份；当前源码没有生成这两个私有批准文件的入口，不能把新安装配置成功视为已具备initial恢复前置。
+
 在 `server/private/credentials/` 准备实例 owner 所有、0600、普通单链接的单行密码文件。先不加 `--execute`：
 
 ```sh

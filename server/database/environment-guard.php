@@ -26,6 +26,16 @@ function requiredEnvironment(string $name, string|false $default = false): strin
     return trim((string) $value);
 }
 
+/** Maintenance selections and lease handles are process inputs, never APP .env fields. */
+function requiredMaintenanceEnvironment(string $name): string
+{
+    $value = getenv($name);
+    if ($value === false || trim($value) === '') {
+        throw new RuntimeException("缺少维护进程输入：{$name}");
+    }
+    return trim($value);
+}
+
 /** Only an explicitly registered schema policy replaces a port lock. */
 function mysqlSchemaLeaseResource(array $database, array $endpoint, array $actual): ?string
 {
@@ -804,13 +814,13 @@ function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null)
 {
     $registry = projectResourceRegistry($registrySha256);
     $environment = requiredEnvironment('APP_ENV');
-    $deploymentTarget = requiredEnvironment('PEANUT_DEPLOYMENT_TARGET');
+    $deploymentTarget = requiredMaintenanceEnvironment('PEANUT_DEPLOYMENT_TARGET');
     $target = deploymentTargetContract($deploymentTarget);
     if (!hash_equals($target['app_environment'], $environment)) {
         throw new RuntimeException("APP_ENV={$environment} 与部署目标 {$deploymentTarget} 不匹配");
     }
 
-    $resourceId = requiredEnvironment('PEANUT_DATABASE_RESOURCE_ID');
+    $resourceId = requiredMaintenanceEnvironment('PEANUT_DATABASE_RESOURCE_ID');
     $database = registeredDatabase($registry, $resourceId);
     $registeredName = $database['database'] ?? null;
     $isTemplated = is_string($registeredName)
@@ -824,12 +834,9 @@ function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null)
         throw new RuntimeException("数据库资源 {$resourceId} 的服务类型或 fallback 不符合门禁");
     }
 
-    $configuredConsumer = env('PEANUT_DATABASE_CONSUMER', false);
-    $consumer = $configuredConsumer === false || trim($configuredConsumer) === ''
-        ? $target['default_consumer']
-        : trim($configuredConsumer);
+    $consumer = requiredMaintenanceEnvironment('PEANUT_DATABASE_CONSUMER');
     $endpoint = registeredDatabaseEndpoint($database, $consumer);
-    $configuredEndpointId = env('PEANUT_DATABASE_ENDPOINT_ID', false);
+    $configuredEndpointId = getenv('PEANUT_DATABASE_ENDPOINT_ID');
     if ($configuredEndpointId !== false && trim($configuredEndpointId) !== ''
         && !hash_equals((string) $endpoint['endpoint_id'], trim($configuredEndpointId))) {
         throw new RuntimeException("数据库资源 {$resourceId} 的 endpoint identity 不匹配登记值");
@@ -859,7 +866,7 @@ function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null)
                 throw new RuntimeException('P0-E 只允许固定 production-preview 容器 lease proof');
             }
             if ($leaseProofPath === null) {
-                $leaseProofPath = requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
+                $leaseProofPath = requiredMaintenanceEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
                 if ($leaseProofPath !== '/run/peanut-admin/resource-lease') {
                     throw new RuntimeException('P0-E 容器必须使用固定只读 active-lease proof mount');
                 }
@@ -872,7 +879,7 @@ function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null)
             if ($deploymentTarget !== 'local-development' || $consumer !== 'host') {
                 throw new RuntimeException('consumer-upgrade 只允许 lease-bound local-development Host execution');
             }
-            $leaseProofPath ??= requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
+            $leaseProofPath ??= requiredMaintenanceEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
             $metadata = activeLeaseMetadata($leaseProofPath, $now ?? time(), 'consumer-upgrade-qualification');
             if ($metadata['parent_lease'] !== '') {
                 throw new RuntimeException('consumer-upgrade 不允许继承 parent lease');
@@ -904,7 +911,7 @@ function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null)
             || !in_array($deploymentMode, $database['deployment_modes'] ?? [], true)) {
             throw new RuntimeException('development-test database 或 deployment mode 未登记');
         }
-        $leaseProofPath ??= requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
+        $leaseProofPath ??= requiredMaintenanceEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
         $metadata = activeLeaseMetadata($leaseProofPath, $now ?? time(), $database['lease_gate']);
         if ($metadata['parent_lease'] !== '') {
             throw new RuntimeException('development-test 不允许继承 parent lease');
@@ -958,7 +965,7 @@ function guardedDatabaseConfig(?string $leaseProofPath = null, ?int $now = null)
             if ($schemaResource === null || !is_string($database['lease_gate'] ?? null)) {
                 throw new RuntimeException('shared schema runtime 缺少 schema policy/gate');
             }
-            $leaseProofPath ??= requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
+            $leaseProofPath ??= requiredMaintenanceEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
             $metadata = activeLeaseMetadata($leaseProofPath, $now ?? time(), $database['lease_gate']);
             $resources = activeLeaseResources($leaseProofPath);
             assertNativeMysqlSchemaLease(
@@ -1027,7 +1034,7 @@ function observeRegisteredCollaborationRuntime(array $actor): array
     }
     $root = (string) realpath(dirname(__DIR__, 2));
     $registry = projectResourceRegistry($registrySha256);
-    $resourceId = requiredEnvironment('PEANUT_DATABASE_RESOURCE_ID');
+    $resourceId = requiredMaintenanceEnvironment('PEANUT_DATABASE_RESOURCE_ID');
     $database = registeredDatabase($registry, $resourceId);
     $endpoint = registeredDatabaseEndpoint($database, 'host');
     $name = requiredEnvironment('DB_NAME');
@@ -1043,10 +1050,10 @@ function observeRegisteredCollaborationRuntime(array $actor): array
         || !is_string($database['lease_gate'] ?? null) || $database['lease_gate'] === ''
         || isset($database['lease_policy']['shared_access'])
         || requiredEnvironment('APP_ENV') !== 'development'
-        || requiredEnvironment('PEANUT_DEPLOYMENT_TARGET') !== 'local-development'
+        || requiredMaintenanceEnvironment('PEANUT_DEPLOYMENT_TARGET') !== 'local-development'
         || requiredEnvironment('DEPLOYMENT_MODE') !== 'standalone'
-        || requiredEnvironment('PEANUT_DATABASE_CONSUMER') !== 'host'
-        || requiredEnvironment('PEANUT_DATABASE_ENDPOINT_ID') !== (string) $endpoint['endpoint_id']
+        || requiredMaintenanceEnvironment('PEANUT_DATABASE_CONSUMER') !== 'host'
+        || requiredMaintenanceEnvironment('PEANUT_DATABASE_ENDPOINT_ID') !== (string) $endpoint['endpoint_id']
         || requiredEnvironment('DB_HOST', '127.0.0.1') !== (string) $endpoint['host']
         || requiredEnvironment('DB_PORT', '3306') !== (string) $endpoint['port']) {
         throw new RuntimeException('COLLABORATION_OBSERVATION_REGISTERED_TARGET_INVALID');
@@ -1057,7 +1064,7 @@ function observeRegisteredCollaborationRuntime(array $actor): array
     if ($schema === null) {
         throw new RuntimeException('COLLABORATION_OBSERVATION_SCHEMA_POLICY_REQUIRED');
     }
-    $proof = requiredEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
+    $proof = requiredMaintenanceEnvironment('PEANUT_RESOURCE_LEASE_PROOF');
     $windowHandle = null;
     $windowDeadline = null;
     $authorize = static function () use ($root, $proof, $actor, $database, $endpoint, $resourceId, $schema, $registrySha256, $name, &$windowHandle, &$windowDeadline): array {

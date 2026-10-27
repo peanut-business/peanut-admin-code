@@ -1054,6 +1054,14 @@ def command(operation, directory, value, lease_id, argv, *, accepted=(0,), envir
     env = {key: item for key, item in os.environ.items()
            if key in ("HOME", "USER", "LOGNAME", "LANG", "LC_ALL", "TZ")}
     env["PATH"] = str(Path(sys.executable).parent) + ":" + str(Path(operation["php_executable"]).parent) + ":/usr/bin:/bin:/usr/sbin:/sbin"
+    database = operation["database"]
+    env.update({
+        "PEANUT_DEPLOYMENT_TARGET": "local-development" if database["environment"] == "development" else database["environment"],
+        "PEANUT_DATABASE_RESOURCE_ID": database["resource_id"],
+        "PEANUT_DATABASE_CONSUMER": database["consumer"],
+        "PEANUT_DATABASE_ENDPOINT_ID": database["upstream_endpoint"]["endpoint_id"],
+        "PEANUT_RESOURCE_LEASE_PROOF": str(directory),
+    })
     if environment:
         env.update(environment)
     child = subprocess.Popen(argv, cwd=operation["application"]["root"], env=env,
@@ -1224,10 +1232,10 @@ def install_metadata(operation, directory, value, lease_id):
 
 def application_metadata(operation, directory, value, lease_id):
     app, db = operation["application"], operation["database"]
-    # This is the original APP database guard and its ordinary credentials.
-    # Project registry/proofs never enter the APP process environment.
+    # The APP keeps its own registry and ordinary credentials. Fixed operation
+    # selections and the native proof enter only through command's process inputs.
     php = r"""require 'server/database/environment-guard.php';
-$proof=env('P0E_HOST_LEASE_PROOF',false);
+$proof=getenv('PEANUT_RESOURCE_LEASE_PROOF');
 $c=guardedDatabaseConfig($proof===false||trim($proof)===''?null:$proof);
 $p=new PDO('mysql:host='.$c['host'].';port='.$c['port'].';dbname='.$c['database'].';charset=utf8mb4',
 $c['user'],$c['password'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_TIMEOUT=>10]);

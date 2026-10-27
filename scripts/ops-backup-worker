@@ -46,11 +46,16 @@ jq -e --arg project "$compose_project" --arg root "$project_root" --arg deployme
    and .application_runtime == true and .fallback == "none"' <<<"$database_json" >/dev/null || die 'database mount registration differs'
 jq -e --arg deployment "$deployment_id" '.deployment_resource_id == $deployment and .fallback == "none"' \
   <<<"$backup_json" >/dev/null || die 'backup ownership differs'
-grep -Fqx "PEANUT_DATABASE_RESOURCE_ID=$database_id" "$backend_env" || die 'backend database differs from registration'
-grep -Fqx 'PEANUT_DEPLOYMENT_TARGET=production' "$backend_env" || die 'production backend target is required'
+jq -e '.fallback == "none" and (.environments | index("production") != null)' \
+  <<<"$deployment_json" >/dev/null || die 'registered production deployment is required'
+database_endpoint_id="$(jq -er .container_endpoint.endpoint_id <<<"$database_json")"
 [[ ! -L "$backup_root" && ! -L "$project_root/server/docker" ]] || die 'backup/runtime parent is linked'
 compose=(sudo -n docker compose --env-file "$project_root/server/docker/.env" -p "$compose_project" -f "$project_root/server/docker/compose.yaml")
-think=("${compose[@]}" run -T --rm --no-deps --entrypoint php php think ops-backup:task)
+maintenance=("${compose[@]}" run -T --rm --no-deps \
+  -e "PEANUT_DATABASE_RESOURCE_ID=$database_id" -e "PEANUT_DATABASE_ENDPOINT_ID=$database_endpoint_id" \
+  -e PEANUT_DATABASE_CONSUMER=container -e PEANUT_DEPLOYMENT_TARGET=production --entrypoint php php)
+"${maintenance[@]}" database/environment-guard.php --validate-config >/dev/null || die 'APP database configuration differs from registered production resource'
+think=("${maintenance[@]}" think ops-backup:task)
 claim_json="$("${think[@]}" claim </dev/null)" || die 'task claim failed'
 jq -e '.ok == true' <<<"$claim_json" >/dev/null || die 'task claim was rejected'
 if [[ "$(jq -r '.result == null' <<<"$claim_json")" == true ]]; then
@@ -123,7 +128,9 @@ jq -e '.protocol == "peanut.server-release.v1" and .application.kind == "applica
 host_receipt="$(cat "$deployment_receipt")"
 container_receipt="$("${compose[@]}" exec -T php cat .peanut/release-identity.json)"
 [[ "$host_receipt" == "$container_receipt" ]] || { failure_code='OPS_BACKUP_RUNTIME_FAILED'; false; }
-"${compose[@]}" exec -T php php database/environment-guard.php --current >/dev/null
+"${compose[@]}" exec -T -e "PEANUT_DATABASE_RESOURCE_ID=$database_id" \
+  -e "PEANUT_DATABASE_ENDPOINT_ID=$database_endpoint_id" -e PEANUT_DATABASE_CONSUMER=container \
+  -e PEANUT_DEPLOYMENT_TARGET=production php php database/environment-guard.php --current >/dev/null
 source_commit="$(jq -r .application.commit "$deployment_receipt")"
 source_tree="$(jq -r .application.tree "$deployment_receipt")"
 release_key="v$(jq -r .application.version "$deployment_receipt")"
