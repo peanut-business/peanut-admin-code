@@ -1226,12 +1226,13 @@ def application_metadata(operation, directory, value, lease_id):
     app, db = operation["application"], operation["database"]
     # This is the original APP database guard and its ordinary credentials.
     # Project registry/proofs never enter the APP process environment.
-    php = r"""require 'server/database/install.php';
-$c=loadConfig(__DIR__.'/server');
-$p=new PDO('mysql:host='.$c['DB_HOST'].';port='.$c['DB_PORT'].';dbname='.$c['DB_NAME'].';charset=utf8mb4',
-$c['DB_USER'],$c['DB_PASS'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_TIMEOUT=>10]);
+    php = r"""require 'server/database/environment-guard.php';
+$proof=env('P0E_HOST_LEASE_PROOF',false);
+$c=guardedDatabaseConfig($proof===false||trim($proof)===''?null:$proof);
+$p=new PDO('mysql:host='.$c['host'].';port='.$c['port'].';dbname='.$c['database'].';charset=utf8mb4',
+$c['user'],$c['password'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_TIMEOUT=>10]);
 $v=json_decode($p->query("SELECT JSON_OBJECT('database',DATABASE(),'version',VERSION(),'server_uuid',@@server_uuid,'principal',CURRENT_USER(),'tables_views',(SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()),'triggers',(SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()),'routines',(SELECT COUNT(*) FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE()),'events',(SELECT COUNT(*) FROM information_schema.EVENTS WHERE EVENT_SCHEMA=DATABASE()))")->fetchColumn(),true,512,JSON_THROW_ON_ERROR);
-$v['host']=$c['DB_HOST'];$v['port']=(string)$c['DB_PORT'];echo json_encode($v),PHP_EOL;"""
+$v['host']=$c['host'];$v['port']=(string)$c['port'];echo json_encode($v),PHP_EOL;"""
     result = json_unique(command(operation, directory, value, lease_id,
                                  [operation["php_executable"], "-r", php]))
     endpoint = db["upstream_endpoint"]

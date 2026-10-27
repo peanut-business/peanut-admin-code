@@ -450,7 +450,7 @@ function demoMultiMain(): int
         throw new RuntimeException('demo Tenant hosts must be distinct from Platform and default Tenant hosts');
     }
 
-    loadConfig($serverDir);
+    guardedDatabaseConfig();
     $app = (new App($serverDir))->initialize();
     $tenants = $app->make(PlatformTenantAdminService::class);
     $owners = $app->make(TenantOwnerAdminService::class);
