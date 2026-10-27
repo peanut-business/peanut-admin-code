@@ -2423,7 +2423,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "3c7d0528de58c09c8196411e5782df38bbbe46e94ad0d1ffd60dcb9bfef9799d"
+            "source_sha256": "fb83db8cec821f2c94fe76a265414688db7798d15a236affe8bbacfb3934271c"
         },
         {
             "path": "plugins/fixture.delivery-record/README.md",
@@ -2490,7 +2490,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "09021a4b9d3f620a3735588e8b6568f67ceecd43c1f33d8c1fe3fb14db56d98e"
+            "source_sha256": "2ab92fb510714255336db1edb06db64bdd67866367f5b994ca9a86e2591aa194"
         },
         {
             "path": "plugins/official.collaboration/plugin.json",
@@ -2504,7 +2504,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "06da26f4aa8d319a17899fe1ea2f752c7f53e40cd87841e477b02dc431275af1"
+            "source_sha256": "9d4aa23b732d3633227aba9f51f52593c51c100934b077c22e4d2a38b5c3506e"
         },
         {
             "path": "plugins/official.content-tools/plugin.json",
@@ -2532,7 +2532,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "63257529ff3b45be7c3bd627999e907c5dca82bbae72ffb6a91072a2d1014fc9"
+            "source_sha256": "d003791fcec343b94f209b8b9cc2e5df476c6e22837cead66ef59480c67bd71a"
         },
         {
             "path": "plugins/official.file/plugin.json",
@@ -2560,7 +2560,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "bdb2d6e985c68c1812ecba84ecee2503966568bb095bf58ced9ad9c7abbaa910"
+            "source_sha256": "691ea4bd441f3b229ee320fa689d358b3291cede8b53dd7396b565cda7c8eb16"
         },
         {
             "path": "plugins/official.import-export/plugin.json",
@@ -2686,7 +2686,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "2c2979425e0289f6b1274502ad6dce6fd38a94c32e731d0680c49650460d03c7"
+            "source_sha256": "d4accb851125503670ad0839d5eae8b317c1546a4a1d9953f8403802223b0454"
         },
         {
             "path": "plugins/official.settings/plugin.json",
