@@ -214,6 +214,9 @@ def env_payload(values, compose=False):
         value = str(value)
         if any(character in value for character in ('\r', '\n', '\0')):
             raise ValueError('COLLABORATION_ENVIRONMENT_INVALID')
+        if compose and (len(value) - len(value.rstrip('\\'))) % 2 == 1:
+            # An odd trailing backslash escapes Compose's closing single quote.
+            raise ValueError('COLLABORATION_COMPOSE_VALUE_UNREPRESENTABLE')
         # ThinkPHP uses INI_SCANNER_RAW: quoted UTF-8 and backslashes are literal,
         # not JSON strings. Keep bytes intact instead of emitting JSON escapes.
         return "'" + value.replace("'", "\\'") + "'" if compose else '"' + value + '"'
@@ -253,6 +256,7 @@ def publish_independent_service(server, data, owner):
             raise ValueError('COLLABORATION_FILE_PERMISSIONS_INVALID')
         previous = stream.read()
     runtime = independent_service_values(data, environment(path, previous, compose=True))
+    runtime_payload = env_payload(runtime, True)
     if data['websocket_scheme'] == 'wss':
         for directory in (root / 'certs', server / 'private/collaboration', server / SERVICE_DIRECTORY):
             if not directory.exists(): directory.mkdir(mode=0o755)
@@ -261,7 +265,7 @@ def publish_independent_service(server, data, owner):
         ca = (server / 'docker/tls/ca.pem').read_bytes()
         atomic(root / 'certs/ca.pem', ca, private=False)
         atomic(server / SERVICE_CA, ca, owner=owner, private=False)
-    atomic(path, env_payload(runtime, True), digest(previous), service_owner)
+    atomic(path, runtime_payload, digest(previous), service_owner)
 
 
 def publication_values(data):
@@ -291,6 +295,8 @@ def migrate_state(server, data, expected_revision):
     if data['websocket_scheme'] != 'wss' or data['config_revision'] != expected_revision:
         raise ValueError('COLLABORATION_STATE_MIGRATION_INPUT_INVALID')
     node, updates = publication_values(data)
+    node_payload = env_payload(node, True)
+    env_payload(independent_service_values(data), True)
     legacy = {key: value for key, value in data.items() if key != 'websocket_scheme'}
     legacy_sha = digest(json.dumps(legacy, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode())
     with locked(server):
@@ -312,7 +318,7 @@ def migrate_state(server, data, expected_revision):
                 raise ValueError('COLLABORATION_CA_REFERENCE_INVALID')
         if completed:
             return result('migrate-state', values, node)
-        atomic(projection, env_payload(node, True), digest(previous), projection_owner)
+        atomic(projection, node_payload, digest(previous), projection_owner)
         lines = [line for line in old.decode().rstrip('\n').split('\n') if line.partition('=')[0] not in PUBLICATION_KEYS]
         atomic(path, ('\n'.join(lines) + '\n').encode(), digest(old), owner)
         return result('migrate-state', values, node)
@@ -329,8 +335,11 @@ def enable(server, data, expected_revision):
         if values.get('DEPLOYMENT_MODE') != data['edition']:
             raise ValueError('COLLABORATION_EDITION_MISMATCH')
         node, updates = publication_values(data)
+        node_payload = env_payload(node, True)
+        updates_payload = env_payload(updates)
         if deployment.get('COLLABORATION_CONFIG_SHA256') == node['COLLABORATION_CONFIG_SHA256'] and values.get('COLLABORATION_ENABLED') == 'enabled':
             root = Path(data['service_root'])
+            env_payload(independent_service_values(data), True)
             if any(values.get(key) != value for key, value in updates.items()) \
                     or environment(root / '.env', compose=True) != independent_service_values(data) \
                     or environment(server / 'docker/collaboration.env', compose=True) != node:
@@ -349,11 +358,11 @@ def enable(server, data, expected_revision):
         if revision != expected_revision or data['config_revision'] != revision + 1 or values.get('COLLABORATION_ENABLED') == 'enabled':
             raise ValueError('COLLABORATION_CONFIGURATION_CAS_CONFLICT')
         publish_independent_service(server, data, owner)
-        atomic(server / 'docker/collaboration.env', env_payload(node, True))
+        atomic(server / 'docker/collaboration.env', node_payload)
         retired = {'COLLABORATION_SERVICE_SECRET_FILE', 'COLLABORATION_TICKET_SECRET_FILE',
                    'RICH_TEXT_COLLABORATION_URL', 'RICH_TEXT_COLLABORATION_SECRET'}
         lines = [line for line in old.decode().rstrip('\n').split('\n') if line.partition('=')[0] not in updates.keys() | retired]
-        atomic(path, ('\n'.join(lines) + '\n').encode() + env_payload(updates), digest(old), owner)
+        atomic(path, ('\n'.join(lines) + '\n').encode() + updates_payload, digest(old), owner)
         return result('enable', updates, node)
 
 
