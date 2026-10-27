@@ -3,6 +3,7 @@ import {
   HocuspocusProviderWebsocket,
 } from '@hocuspocus/provider';
 import * as Y from 'yjs';
+import { randomUuid } from '@/utils/random-uuid';
 import {
   LocalEditTracker,
   coversSnapshot,
@@ -103,7 +104,7 @@ export function createCollaborationProvider(options: ProviderOptions): {
   )
     throw new Error('TRUSTED_PROVIDER_CONFIGURATION_REQUIRED');
   const document = new Y.Doc({ gc: false });
-  const generation = crypto.randomUUID().replace(/-/g, '');
+  const generation = randomUuid().replace(/-/g, '');
   let closed = false;
   let frozen = false;
   let connectionStopped = false;
@@ -205,7 +206,7 @@ export function createCollaborationProvider(options: ProviderOptions): {
       recover('PROGRESS_TIMEOUT');
       return;
     }
-    const requestId = crypto.randomUUID();
+    const requestId = randomUuid();
     if (progressRequests.size >= 64) {
       const oldest = [...progressRequests].find(
         ([, request]) => request.settled

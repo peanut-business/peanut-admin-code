@@ -22,6 +22,11 @@ carriage return or NUL. Store the completed input as an ordinary, single-link
 0600 file; never commit it or print it. No service-secret file or ticket-secret
 file is required. The same secret is published as `COLLABORATION_SECRET` to PHP
 and `SERVICE_SECRET` to Node. Instance, service instance and key identities remain explicit.
+PHP `.env` uses ThinkPHP's literal `INI_SCANNER_RAW` quoted UTF-8 values;
+Compose/Node uses its own single-quoted encoding. JSON escape sequences are not
+used to encode PHP secrets. The publisher reads these known flat formats and
+rejects ambiguous hand-edited inline comments or Compose interpolation/double-quote escapes
+rather than treating its own parse as proof of the runtime's value.
 The required `websocket_scheme` selects `wss` or, only for development, `ws`.
 Both internal origins must use the matching `https` or `http` scheme; there is
 no automatic downgrade or certificate-verification bypass.
@@ -111,8 +116,9 @@ to the actual registered HTTP routes. `wss_hostname`/`wss_port` are historical
 field names for the public WS address; that port and `wss_bind` must match the
 independent service's existing `PORT` and loopback `BIND_ADDRESS`. Publication
 preserves the listener rather than moving it. The browser page must use HTTP;
-HTTPS pages continue to require WSS. Local loopback HTTP also retains the
-browser secure-context APIs used by the editor.
+HTTPS pages continue to require WSS. The collaboration editor uses
+`crypto.getRandomValues()` for UUIDv4 IDs, including on HTTP hostnames where
+the secure-context-only `crypto.randomUUID()` is unavailable.
 
 For host PHP source development, Node's `php_origin` must be the registered
 host route reachable from its container (for example the registered
@@ -162,6 +168,8 @@ secret, enablement and all runtime settings, publishes the new input digest in
 the existing projection and removes only the four old fields from `server/.env`.
 A mismatch stops the operation; do not manufacture values to satisfy it. An
 interruption after projection publication can resume the same migration input.
+Repeating a completed migration verifies all PHP, projection, service and CA
+outputs again and returns without rewriting files.
 After success, normal unchanged enable publication uses that reviewed input.
 Changing TLS to HTTP is a separate owner-controlled reconfiguration requiring
 the original instance's safe stop/drain boundary; this metadata migration never

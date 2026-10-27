@@ -90,6 +90,7 @@
   import axios from 'axios';
   import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue';
   import { getSessionSnapshot } from '@/utils/auth';
+  import { randomUuid } from '@/utils/random-uuid';
   import type { CommittedProof } from '@/modules/official-rich-text/src/collaboration/provider';
   import {
     DocumentOperationRejection,
@@ -395,8 +396,8 @@
       return;
     const key =
       selected === 'version.create'
-        ? (targetRequestId ??= crypto.randomUUID())
-        : crypto.randomUUID();
+        ? (targetRequestId ??= randomUuid())
+        : randomUuid();
     if (selected === 'version.create') {
       if (!reason.value.trim() || [...reason.value].length > 255) return;
       targetReason ??= reason.value;

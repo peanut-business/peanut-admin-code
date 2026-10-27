@@ -105,6 +105,7 @@
   } from 'vue';
   import { useUserStore } from '@/store';
   import { getSessionSnapshot } from '@/utils/auth';
+  import { randomUuid } from '@/utils/random-uuid';
   import DocumentEditor from '@/modules/official-document/components/DocumentEditor.vue';
   import parseCapabilities from '@/modules/official-content-tools/src/capabilities';
   import {
@@ -252,7 +253,7 @@
         token: number;
       }
     | undefined;
-  let ensureId = crypto.randomUUID();
+  let ensureId = randomUuid();
   const current = (controller: AbortController, key: string, token: number) =>
     !disposed &&
     !controller.signal.aborted &&
@@ -702,7 +703,7 @@
     )
       return false;
     const { controller, key, token } = start();
-    const requestId = targetAttempt.value?.requestId ?? crypto.randomUUID();
+    const requestId = targetAttempt.value?.requestId ?? randomUuid();
     try {
       targetAttempt.value ??= {
         requestId,
@@ -874,7 +875,7 @@
       targetAttempt.value = undefined;
       saved.value = undefined;
       phase.value = 'idle';
-      ensureId = crypto.randomUUID();
+      ensureId = randomUuid();
       open();
     },
     { immediate: true, flush: 'sync' }

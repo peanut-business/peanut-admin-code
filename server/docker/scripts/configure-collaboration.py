@@ -55,19 +55,39 @@ def ordinary(path, private=True):
     return stat
 
 
-def environment(path, payload=None):
+def environment(path, payload=None, compose=False):
     ordinary(path)
     rows = {}
-    for line in (path.read_text() if payload is None else payload.decode()).splitlines():
+    for line in (path.read_text() if payload is None else payload.decode()).split('\n'):
         if not line or line.startswith('#'):
             continue
         key, separator, value = line.partition('=')
         if not separator or key in rows or not re.fullmatch(r'[A-Z][A-Z0-9_]*', key):
             raise ValueError('COLLABORATION_ENVIRONMENT_INVALID')
-        if value.startswith('"'):
-            value = json.loads(value)
-        elif value.startswith("'") and value.endswith("'"):
+        if compose and value.startswith('"'):
+            # Published Compose values are single-quoted. Accept only simple
+            # literal double quotes from initial templates, never JSON escapes
+            # or process interpolation that this reader cannot attest.
+            if not value.endswith('"') or len(value) < 2 or any(character in value[1:-1] for character in ('\\', '$', '"')):
+                raise ValueError('COLLABORATION_ENVIRONMENT_INVALID')
+            value = value[1:-1]
+        elif compose and value.startswith("'") and value.endswith("'"):
             value = value[1:-1].replace("\\'", "'")
+        elif compose and (value.startswith("'") or '$' in value or re.search(r'\s+#', value)):
+            raise ValueError('COLLABORATION_ENVIRONMENT_INVALID')
+        elif compose:
+            value = value.strip(' \t')
+        elif not compose:
+            # Only the publisher/native installer's flat INI_RAW forms are read.
+            # JSON escapes are literal bytes here; hand-edited inline comments
+            # are rejected instead of being mistaken for PHP's actual value.
+            value = value.strip(' \t')
+            if value.startswith('"'):
+                if not value.endswith('"') or len(value) < 2:
+                    raise ValueError('COLLABORATION_ENVIRONMENT_INVALID')
+                value = value[1:-1]
+            elif ';' in value:
+                raise ValueError('COLLABORATION_ENVIRONMENT_INVALID')
         rows[key] = value
     return rows
 
@@ -163,7 +183,7 @@ def validate_configuration(data, server):
             raise ValueError('COLLABORATION_HTTP_CA_NOT_APPLICABLE')
         if not ipaddress.ip_address(data['wss_bind']).is_loopback:
             raise ValueError('COLLABORATION_DEVELOPMENT_LOOPBACK_REQUIRED')
-        service = environment(root / '.env')
+        service = environment(root / '.env', compose=True)
         if service.get('PORT', '1234') != str(data['wss_port']) or service.get('BIND_ADDRESS', '127.0.0.1') != data['wss_bind']:
             raise ValueError('COLLABORATION_DIRECT_LISTENER_MISMATCH')
         return data
@@ -178,7 +198,7 @@ def validate_configuration(data, server):
 
 def deployment_environment(server):
     path = server / 'docker/collaboration.env'
-    return environment(path) if path.exists() or path.is_symlink() else {}
+    return environment(path, compose=True) if path.exists() or path.is_symlink() else {}
 
 
 def result(action, values, deployment):
@@ -191,14 +211,19 @@ def result(action, values, deployment):
 def env_payload(values, compose=False):
     def quote(value):
         # Compose single quotes suppress interpolation, including secrets containing '$'.
-        return "'" + str(value).replace("'", "\\'") + "'" if compose else json.dumps(str(value), ensure_ascii=False)
+        value = str(value)
+        if any(character in value for character in ('\r', '\n', '\0')):
+            raise ValueError('COLLABORATION_ENVIRONMENT_INVALID')
+        # ThinkPHP uses INI_SCANNER_RAW: quoted UTF-8 and backslashes are literal,
+        # not JSON strings. Keep bytes intact instead of emitting JSON escapes.
+        return "'" + value.replace("'", "\\'") + "'" if compose else '"' + value + '"'
     return ''.join(key + '=' + quote(value) + '\n' for key, value in values.items()).encode()
 
 
 def independent_service_values(data, existing=None):
     root = Path(data['service_root'])
     if existing is None:
-        existing = environment(root / '.env')
+        existing = environment(root / '.env', compose=True)
     port = existing.get('PORT', '1234')
     bind = existing.get('BIND_ADDRESS', '127.0.0.1')
     if not re.fullmatch(r'[0-9]{1,5}', port) or not 1 <= int(port) <= 65535:
@@ -227,7 +252,7 @@ def publish_independent_service(server, data, owner):
         if not stat.S_ISREG(service_owner.st_mode) or service_owner.st_nlink != 1 or service_owner.st_mode & 0o777 != 0o600:
             raise ValueError('COLLABORATION_FILE_PERMISSIONS_INVALID')
         previous = stream.read()
-    runtime = independent_service_values(data, environment(path, previous))
+    runtime = independent_service_values(data, environment(path, previous, compose=True))
     if data['websocket_scheme'] == 'wss':
         for directory in (root / 'certs', server / 'private/collaboration', server / SERVICE_DIRECTORY):
             if not directory.exists(): directory.mkdir(mode=0o755)
@@ -271,21 +296,24 @@ def migrate_state(server, data, expected_revision):
     with locked(server):
         path = server / '.env'; owner = ordinary(path); old = path.read_bytes(); values = environment(path)
         projection = server / 'docker/collaboration.env'; projection_owner = ordinary(projection)
-        previous = projection.read_bytes(); deployment = environment(projection, previous)
+        previous = projection.read_bytes(); deployment = environment(projection, previous, compose=True)
         expected_legacy = {key: value for key, value in node.items() if key not in PUBLICATION_KEYS | {'COLLABORATION_WEBSOCKET_SCHEME'}}
         expected_state = {key: node[key] for key in PUBLICATION_KEYS}
         expected_state['COLLABORATION_CONFIG_SHA256'] = legacy_sha
+        completed = not (PUBLICATION_KEYS & values.keys()) and deployment == node
         if values.get('DEPLOYMENT_MODE') != data['edition'] or any(values.get(key) != value for key, value in updates.items()) \
-                or any(values.get(key) != value for key, value in expected_state.items()) \
-                or deployment not in (expected_legacy, node) \
-                or environment(Path(data['service_root']) / '.env') != independent_service_values(data):
+                or (not completed and (any(values.get(key) != value for key, value in expected_state.items()) \
+                    or deployment not in (expected_legacy, node))) \
+                or environment(Path(data['service_root']) / '.env', compose=True) != independent_service_values(data):
             raise ValueError('COLLABORATION_STATE_MIGRATION_MISMATCH')
         for ca in (Path(data['service_root']) / 'certs/ca.pem', server / SERVICE_CA):
             ordinary(ca, False)
             if digest(ca.read_bytes()) != data['ca_sha256']:
                 raise ValueError('COLLABORATION_CA_REFERENCE_INVALID')
+        if completed:
+            return result('migrate-state', values, node)
         atomic(projection, env_payload(node, True), digest(previous), projection_owner)
-        lines = [line for line in old.decode().splitlines() if line.partition('=')[0] not in PUBLICATION_KEYS]
+        lines = [line for line in old.decode().rstrip('\n').split('\n') if line.partition('=')[0] not in PUBLICATION_KEYS]
         atomic(path, ('\n'.join(lines) + '\n').encode(), digest(old), owner)
         return result('migrate-state', values, node)
 
@@ -304,8 +332,8 @@ def enable(server, data, expected_revision):
         if deployment.get('COLLABORATION_CONFIG_SHA256') == node['COLLABORATION_CONFIG_SHA256'] and values.get('COLLABORATION_ENABLED') == 'enabled':
             root = Path(data['service_root'])
             if any(values.get(key) != value for key, value in updates.items()) \
-                    or environment(root / '.env') != independent_service_values(data) \
-                    or environment(server / 'docker/collaboration.env') != node:
+                    or environment(root / '.env', compose=True) != independent_service_values(data) \
+                    or environment(server / 'docker/collaboration.env', compose=True) != node:
                 raise ValueError('COLLABORATION_CONFIGURATION_PUBLICATION_MISMATCH')
             if data['websocket_scheme'] == 'wss':
                 for ca in (root / 'certs/ca.pem', server / SERVICE_CA):
@@ -324,7 +352,7 @@ def enable(server, data, expected_revision):
         atomic(server / 'docker/collaboration.env', env_payload(node, True))
         retired = {'COLLABORATION_SERVICE_SECRET_FILE', 'COLLABORATION_TICKET_SECRET_FILE',
                    'RICH_TEXT_COLLABORATION_URL', 'RICH_TEXT_COLLABORATION_SECRET'}
-        lines = [line for line in old.decode().splitlines() if line.partition('=')[0] not in updates.keys() | retired]
+        lines = [line for line in old.decode().rstrip('\n').split('\n') if line.partition('=')[0] not in updates.keys() | retired]
         atomic(path, ('\n'.join(lines) + '\n').encode() + env_payload(updates), digest(old), owner)
         return result('enable', updates, node)
 
