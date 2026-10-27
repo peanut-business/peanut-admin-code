@@ -22,7 +22,11 @@ server/.env存后端配置，包括DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASS；Thi
 
 为已有数据库运行 `configure-runtime.py --database-source=existing` 后，按其返回的 `start_command` 首次启动。此时安装向导尚未写入私有配置回执，必须显式选择原生 Compose override：从产品根目录运行 `server/docker/scripts/start.sh -f compose.registered-database.yaml`。在向导中选择“已有数据库”并填写连接；配置回执发布后，后续启动自动读取该选择。首次启动不省略 `-f`，不准备或启动内置 MySQL。
 
-缓存、会话和日志的运行标识由 `APP_ENV` 与默认连接的类型、主机、端口、库名和表前缀稳定派生，不包含账号、密码、目录或维护资源 ID。改变这些配置会使既有缓存和会话失效。MySQL 业务锁使用真实 schema 和表前缀，同库同表通过不同连接地址访问仍互斥。DB_NAME、DB_USER、DB_PASS没有可连接的默认值，缺失或空值明确拒绝；host/port/type/charset/prefix使用config中的固定默认值，容器连接须按实际服务覆盖host。
+已配置实例的缓存、会话和日志运行标识由 `APP_ENV` 与默认连接的类型、主机、端口、库名和表前缀稳定派生，不包含账号、密码、目录或维护资源 ID。相同数据库使用不同 hostname 配置时，缓存和会话标识仍不同；改变这些配置会使既有缓存和会话失效。MySQL 业务锁使用真实 schema 和表前缀，同库同表通过不同连接地址访问仍互斥。
+
+DB_NAME、DB_USER 为空或 DB_PASS 未提供时，配置可以加载，但不登记数据库连接；实际使用连接时由 ThinkPHP 明确拒绝。显式空密码沿用原生连接能力，安装向导对已有数据库仍要求填写密码。首配前的文件缓存和会话标识使用应用根目录与 `APP_ENV`，防止不同未配置实例共用 cookie 名；配置齐全后切换到上述数据库配置标识。环境预检不检查数据库，后续数据库配置预检会明确报告未配置。host/port/type/charset/prefix 使用 config 中的固定默认值，容器连接须按实际服务覆盖 host。SQL 调试输出默认关闭，只有显式启用 APP_DEBUG 或原有受控采样才启用。
+
+ThinkPHP 会优先使用 `server/runtime/config.php`，已有配置缓存可能遮盖 `.env` 或源码配置变更。真正首次配置发布完成时只失效该原生配置缓存文件，既有实例与其他运行数据不因此清理。首配不写入 PROJECT_VERSION，未设置手工覆盖时，版本继续由已采用的源码或发行身份决定。HTTP 首配仍须满足依赖、模块编译、Edition 与来源准入，配置可加载不等于整个 APP 首次安装已通过。
 
 多租户首配只要求 `PLATFORM_HOSTS` 标识平台入口；租户站点入口在数据库中绑定。资源登记、endpoint、consumer 和租约证明属于需要它们的维护命令准入，普通运行与首次安装不强制填写维护资源身份。
 

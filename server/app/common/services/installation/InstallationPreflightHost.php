@@ -96,8 +96,8 @@ final class InstallationPreflightHost
         return [
             'status' => 'ready',
             'code' => 'INSTALL_PREFLIGHT_READY',
-            'reason' => '安装运行环境和数据库配置已通过只读预检',
-            'remediation' => '可以继续数据库连通、空库和安装锁检查',
+            'reason' => $includeDatabase ? '安装运行环境和数据库配置已通过只读预检' : '安装运行环境已通过只读预检，尚未检查数据库配置',
+            'remediation' => $includeDatabase ? '可以继续数据库连通、空库和安装锁检查' : '可以继续实例配置，随后检查数据库连接与权限',
             'checks' => $checks,
             'database' => $resource,
         ];
