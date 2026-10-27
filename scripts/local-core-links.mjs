@@ -60,7 +60,7 @@ function assertPhpIdle(repository) {
     catch (error) { if (error.code !== 'ESRCH') throw error; live = false; }
     if (live) throw new Error('Native PHP runtime is active; its owner must stop it normally before changing Core dependencies or selection');
   }
-  // local-stack/demo may select a custom PID file. Their native runtime still
+  // A directly started PHP server may have no PID file. Its command still
   // exposes the canonical router path; inspect it under the same startup lock.
   const processes = spawnSync('ps', ['-axo', 'comm=,args='], { encoding: 'utf8' });
   if (processes.status !== 0 || !processes.stdout) throw new Error('Cannot inspect native PHP runtime consumers');
@@ -72,9 +72,8 @@ function assertPhpIdle(repository) {
   }
 }
 
-// Only the synchronous PHP/select command is wrapped here. PHP's native runtime
-// PID is checked under this record before dependency/config writes; a daemon
-// started by local-php-runtime remains governed by that entry's PID contract.
+// PHP's native runtime is checked under this record before dependency/config
+// writes. The selected command keeps the link writer until its children exit.
 if (process.argv[1] && process.argv[1] !== '-' && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   const [repository, names, operation, separator, command, ...args] = process.argv.slice(2);
   if (separator !== '--' || !command) throw new Error('Invalid client link writer command');
@@ -82,46 +81,38 @@ if (process.argv[1] && process.argv[1] !== '-' && import.meta.url === pathToFile
   const lease = acquireClientLinks(root, names.split(','), operation);
   let completed = false;
   process.on('exit', () => { if (completed) lease.release(); });
-  try { if (names.split(',').includes('php') && !['php-runtime', 'php-read'].includes(operation)) assertPhpIdle(root); }
+  try { if (names.split(',').includes('php') && operation !== 'php-read') assertPhpIdle(root); }
   catch (error) { completed = true; throw error; }
-  if (operation === 'php-runtime') {
-    // The native daemon outlives this startup/control operation. A later write
-    // checks its canonical router/PID while holding this same record.
-    const child = spawnSync(command, args, { stdio: 'inherit' });
-    completed = true;
-    process.exitCode = child.status ?? 1;
-  } else {
-    const child = spawn(command, args, { stdio: 'inherit', detached: true });
-    let closed = false;
-    let status = 1;
-    let stopping = false;
-    let timer;
-    const signal = name => {
-      if (!child.pid) return;
-      try { process.kill(-child.pid, name); } catch (error) { if (error.code !== 'ESRCH') throw error; }
-    };
-    for (const [name, code] of [['SIGINT', 130], ['SIGTERM', 143], ['SIGHUP', 129]]) process.on(name, () => {
-      if (stopping) return;
-      stopping = true;
-      status = code;
-      signal('SIGTERM');
-      timer = setTimeout(() => signal('SIGKILL'), 5000);
-    });
-    child.on('error', error => { console.error(error.message); closed = true; });
-    child.on('close', code => { closed = true; if (!stopping) status = code ?? 1; });
-    await new Promise(resolve => {
-      const poll = setInterval(() => {
-        if (!closed) return;
-        if (child.pid) {
-          try { process.kill(-child.pid, 0); return; }
-          catch (error) { if (error.code !== 'ESRCH') { console.error(error.message); return; } }
-        }
-        clearInterval(poll);
-        clearTimeout(timer);
-        resolve();
-      }, 50);
-    });
-    process.exitCode = status;
-  }
+  const child = spawn(command, args, { stdio: 'inherit', detached: true });
+  let closed = false;
+  let status = 1;
+  let stopping = false;
+  let timer;
+  const signal = name => {
+    if (!child.pid) return;
+    try { process.kill(-child.pid, name); } catch (error) { if (error.code !== 'ESRCH') throw error; }
+  };
+  for (const [name, code] of [['SIGINT', 130], ['SIGTERM', 143], ['SIGHUP', 129]]) process.on(name, () => {
+    if (stopping) return;
+    stopping = true;
+    status = code;
+    signal('SIGTERM');
+    timer = setTimeout(() => signal('SIGKILL'), 5000);
+  });
+  child.on('error', error => { console.error(error.message); closed = true; });
+  child.on('close', code => { closed = true; if (!stopping) status = code ?? 1; });
+  await new Promise(resolve => {
+    const poll = setInterval(() => {
+      if (!closed) return;
+      if (child.pid) {
+        try { process.kill(-child.pid, 0); return; }
+        catch (error) { if (error.code !== 'ESRCH') { console.error(error.message); return; } }
+      }
+      clearInterval(poll);
+      clearTimeout(timer);
+      resolve();
+    }, 50);
+  });
+  process.exitCode = status;
   completed = true;
 }

@@ -117,7 +117,7 @@ app/event.php保留AppInit、HttpRun、HttpEnd、LogLevel和LogWrite项，但默
 
 维护者首次在无消费者、所选 Core 无编译写者的窗口执行 `scripts/core-dev select --php-core-dir /absolute/php-core --web-core-dir /absolute/web-core --backend-env /absolute/server/.env`，再执行 `scripts/core-dev install`。选择保存在当前工程忽略的 `.local/core-dev.json`，不含凭据；绝对路径由维护者明确指定，不推断相邻仓或私有 Project。`select` 只保存选择，`install` 才通过原生 Composer path 和现有 Web 链接入口激活依赖，初次生成 Web dist；两步均不连接或迁移数据库。`scripts/core-dev status` 核实际链接。切换 Core 或刷新依赖前重新核运行消费者和 Core 写者，不能替换在途候选现场。
 
-选择生效后，现有 PHP 开发启动入口校验真实 path link；PHP 普通源码无需重新安装。`local-core-composer`、`local-php-runtime` 和 Core 选择配置共用本工程 `.local/core-links/php` 临界区，启动内校验链接，依赖/配置写入在持有记录时核原生 PID 与 canonical router 进程（覆盖原入口自定义 PID），运行中明确拒绝切换。OPcache、常驻 worker 或已加载类仍须由其 owner 按原运行合同刷新/重启，脚本不替别人重启服务。在已选 Web Core 根单独运行 `pnpm run watch`；它先构建，再持续编译各包，通过 Core 已有的 `scripts/local-core-writer.mjs` 保护输出写集。多客户端共享这一个编译写者，各自用原生开发入口读取已链接的 dist，不为每个客户端再获取同一 Core writer。Core 根与包级原生 build/watch 共用原记录，嵌套命令只复用活祖先进程凭据。安装、切换链接或刷新依赖前，先由实际 owner 关闭相关客户端和 Core watch；现有安装/选择入口仍保护 `.local/core-links/<client>/owner.json` 与 Core writer，不能在原生客户端运行期间手工换链接。这些入口保护正常工具调用，不承诺拦截任意手工链接写入、裸包管理器操作或绕入口启动的进程。异常强杀留下记录时先核 PID、实际进程和 Core 路径，由原 owner 确认空闲后清理该记录，不把别人的编译器停掉。
+选择生效后，PHP 普通源码无需重新安装。`local-core-composer` 和 Core 选择配置共用本工程 `.local/core-links/php` 临界区，依赖/配置写入在持有记录时核原生 PID 与 canonical router 进程，运行中明确拒绝切换。OPcache、常驻 worker 或已加载类仍须由其 owner 按原运行合同刷新/重启，脚本不替别人重启服务。在已选 Web Core 根单独运行 `pnpm run watch`；它先构建，再持续编译各包，通过 Core 已有的 `scripts/local-core-writer.mjs` 保护输出写集。多客户端共享这一个编译写者，各自用原生开发入口读取已链接的 dist，不为每个客户端再获取同一 Core writer。Core 根与包级原生 build/watch 共用原记录，嵌套命令只复用活祖先进程凭据。安装、切换链接或刷新依赖前，先由实际 owner 关闭相关客户端和 Core watch；现有安装/选择入口仍保护 `.local/core-links/<client>/owner.json` 与 Core writer，不能在原生客户端运行期间手工换链接。这些入口保护正常工具调用，不承诺拦截任意手工链接写入、裸包管理器操作或绕入口启动的进程。异常强杀留下记录时先核 PID、实际进程和 Core 路径，由原 owner 确认空闲后清理该记录，不把别人的编译器停掉。
 
 各客户端配置独立：复制各自 `.env.example` 为本目录 `.env`，保留其中实际有用的字段。Web 和 Platform 各用根 `vite.config.ts`；`npm run dev` 直接启动 Vite，Web/Platform/UniApp 配置用原生 `loadEnv` 加载当前 mode，Nuxt 使用自己的 dotenv（默认 `.env`，可通过原生 `--dotenv` 显式选择）。环境变量遵循框架优先级，不再读取共享 `.local/host-client.env`、额外 selector 或拒绝普通父环境。UniApp 的 H5、小程序、custom、SSR 等 `dev:*` 直接运行原生 `uni`，保留原参数。启动不会安装依赖、改锁、构建或启动 Core watch。
 
@@ -130,9 +130,15 @@ app/event.php保留AppInit、HttpRun、HttpEnd、LogLevel和LogWrite项，但默
 
 端口由各客户端配置；维护者填写自己登记的实际端口。Docker 对外端口仍由 Docker 编排配置管理，不替换宿主客户端配置。文档站使用自己的原生 VitePress 命令及启动参数；`DOCS_PORT` 是编排监听选项。`PHP_PORT`、网关/HTTP/Redis 端口属于其服务，不进入浏览器配置。开发 API 通过同源路径代理到明确上游，代理保留原始 Host；不设置固定租户 Host，不在浏览器 JavaScript 中设置 Host。生产也使用同域名下的 API/资源路径，浏览器 API 前缀留空；UniApp 小程序/App 的绝对后端地址按实际终端另行配置。`VITE_` 和公开 runtime 字段会交付客户端，不能存放秘密。
 
+`.local` 按真实消费者保留：`toolchain/` 是本机工具绑定、缓存与 shim，`core-dev.json` 是已选择的 Core 源码，`core-links/` 是正在使用的链接写保护，均不属于普通清理目标。开发配置使用 `server/.env` 和各端自己的 `.env`；旧 `local-stack`、`local-php-runtime`、`local-multi-tenant-demo` 与其环境探针已退出开发入口，不再生成共享 `stack.env`、同步数据库配置、隐式安装依赖或代启全部服务。可选 Docker 开发编排与网关文件保留，由使用者明确选择 Compose 文件和私有 `--env-file`；生产编排按 `server/docker/README.md`。
+
+清理本地残留时逐对象核 owner、活跃进程、直接引用和恢复用途。已终态且能重建的临时输出或字节相同的重复副本可删除；有效配置先保全并核完整摘要。安装身份、凭据、数据库/上传备份、FAIL/UNKNOWN 现场、冻结候选、未知 owner 和活跃 PID/shim 保留，不清空整个 `.local`，不把旧证据批量改名为永久备份。旧自动化对已退役入口的引用按当前开发期测试政策保留，另行授权测试时再按最终设计处理。
+
 日常可变源码联调不构成候选资格：阶段候选通过冻结合同生成 PHP ZIP、Web 六个 TGZ，并由同格式模板 TGZ 创建 APP，按候选原生 Composer/npm 锁安装到 APP 自身 `vendor`/`node_modules`，必须拒绝维护者源码链接；正式交付再核适用公开包的最终内容、来源及原生正式锁。
 
 首次安装继续使用网页安装向导，控制台入口是 `php server/database/install.php`。首次空库检查、动态管理员/租户、模块选择、租户模块开通、健康检查和完成锁均由安装业务负责。结构通过官方 `migrate:run` 执行唯一 `server/database/migrations` 目录；动态身份创建后，官方 `seed:run --seed=InitialSeeder` 写默认数据并同步权限目录。种子从实际唯一默认租户读取身份，不依赖另一个 PDO 的会话变量；重复或部分初始化拒绝重放。安装完成身份位于 `server/private/installation/installed.json`，包含原生迁移版本与当前源码摘要，不能据此声称官方账本提供历史 checksum 验证。
+
+既有 `server/database/seed-multi-tenant-demo.php` 仍保留专项演示数据能力；它与首次安装、脚手架开发库初始化是不同操作。需要该能力时，先按其既有 target/resource 准入及恢复合同核对明确目标，在对应后端环境配置 `PEANUT_DEMO_MODE`、演示租户邮件/密码/域名等所需值，再显式选择 `PHP_ENV_NAME` 并执行 `php server/database/seed-multi-tenant-demo.php --apply --default-host=<明确的default租户域名>`。它不负责选择工具、安装依赖、生成秘密或启动服务；不得向共享开发库重放旧演示配方，也不能把退出的聚合脚本当作当前初始化入口。
 
 数据库只采用 ThinkPHP 原生迁移和 `pa_migrations`（可由 database.migration_table 配置）。本次最终结构为唯一 `20261101000000_initial_baseline.php`，后续用 `php server/think migrate:create <Name>` 增加标准 PHP 迁移；初始基线明确不支持回滚。旧 baseline 覆盖、自研版本账本、schema:application 及历史 partial continuation 已退役。不存在自动清库、重建身份或旧数据库兼容路径。详见[原生迁移合同](../maintenance/migration-protocols.md)。
 
