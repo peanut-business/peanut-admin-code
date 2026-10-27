@@ -9208,7 +9208,7 @@
                 "standard",
                 "full"
             ],
-            "source_sha256": "a3b240ca6bd96184b9ac847d11f27ccea882c3ac42df76efd9e307db2344f5fd"
+            "source_sha256": "9cfd6347371f5d20839500f9dbde092fe397c1abbf44e196f4ad09d31cbf8e39"
         },
         {
             "path": "server/app/common/services/notice/NoticeChannelService.php",

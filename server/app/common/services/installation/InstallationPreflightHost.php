@@ -7,7 +7,7 @@ namespace app\common\services\installation;
 use app\common\value\installation\ApplicationSourceIdentity;
 use app\common\value\installation\ServerReleaseIdentity;
 use app\common\infrastructure\scaffold\ReleaseDependencyIdentity;
-use app\common\value\scaffold\VersionContract;
+use app\common\value\installation\ApplicationReleaseVersions;
 use Closure;
 use RuntimeException;
 use Throwable;
@@ -262,9 +262,9 @@ final class InstallationPreflightHost
             $localCore = null;
             foreach ($lock['packages'] as $package) {
                 if (($package['name'] ?? null) !== 'peanut-admin/core' || isset($package['source'])) { continue; }
-                require_once dirname(__DIR__, 2) . '/value/scaffold/VersionContract.php';
+                require_once dirname(__DIR__, 2) . '/value/installation/ApplicationReleaseVersions.php';
                 $root = dirname($this->serverRoot);
-                $localCore = VersionContract::load($root . '/release-versions.json')->corePhpPackage();
+                $localCore = ApplicationReleaseVersions::load($root . '/release-versions.json')->toArray()['core_php'];
                 if ($localCore['source_type'] !== 'local') { return $blocked(); }
                 ReleaseDependencyIdentity::phpComposerReference($package, $localCore, 'Composer Core identity invalid');
                 $archive = $root;
