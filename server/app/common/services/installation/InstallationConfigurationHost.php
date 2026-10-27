@@ -40,9 +40,12 @@ final class InstallationConfigurationHost
             $stat = lstat($record);
             $configuration = json_decode((string) file_get_contents($record), true, 512, JSON_THROW_ON_ERROR);
             $source = $configuration['application_source'] ?? null;
-            if ($stat['nlink'] !== 1 || ($stat['mode'] & 0777) !== 0600 || $stat['uid'] !== fileowner($this->serverRoot)
-                || !is_array($source) || !is_string($source['manifest_sha256'] ?? null)
-                || !hash_equals($source['manifest_sha256'], (string) hash_file('sha256', dirname($this->serverRoot) . '/.peanut/application-manifest.json'))) {
+            // HTTP configuration is private to its actual PHP writer. Docker
+            // additionally binds this file through VerifiedServerDeployment's
+            // readonly mount; native CLI publication retains the code owner.
+            $owner = PHP_SAPI === 'cli' ? fileowner($this->serverRoot) : posix_geteuid();
+            if ($stat['nlink'] !== 1 || ($stat['mode'] & 0777) !== 0600 || $stat['uid'] !== $owner
+                || !is_array($source) || $source !== ($identity['application_source'] ?? null)) {
                 throw new RuntimeException('INSTALL_CONFIGURATION_SOURCE_BINDING_CHANGED');
             }
         }
@@ -80,7 +83,7 @@ final class InstallationConfigurationHost
             'configured' => $configured,
             'application' => $this->publicIdentity($identity),
             'app_environments' => (ApplicationSourceIdentity::hasRuntime($this->serverRoot)
-                || in_array($identity['application']['kind'] ?? null, ['internal-candidate', 'generated-application'], true))
+                || ($identity['application']['kind'] ?? null) === 'internal-candidate')
                 ? ['development'] : ['development', 'production'],
         ];
     }
@@ -96,12 +99,6 @@ final class InstallationConfigurationHost
                 'Setup token 无效。',
                 403,
             );
-        }
-
-        // A guided HTTP token is not the mutable source owner's publication
-        // authority. Status may read that identity; this writer may not use it.
-        if (($this->identity()['application']['kind'] ?? null) === 'generated-application') {
-            throw new RuntimeException('INSTALL_CONFIGURATION_SOURCE_OWNER_REQUIRED');
         }
 
         return $this->configureInput($token, $input);
@@ -137,13 +134,7 @@ final class InstallationConfigurationHost
         $this->assertFreshConfigurationState();
 
         $identity = $this->identity();
-        $sourceBinding = null;
-        if (($identity['application']['kind'] ?? null) === 'generated-application') {
-            if (!class_exists(\PeanutServerUpdatePlan::class, false)) {
-                throw new RuntimeException('INSTALL_CONFIGURATION_SOURCE_OWNER_REQUIRED');
-            }
-            $sourceBinding = \PeanutServerUpdatePlan::sourceConfigurationBinding($this->serverRoot);
-        }
+        $sourceBinding = $identity['application_source'] ?? null;
         $application = $identity['application'];
         $environment = is_string($input['app_env'] ?? null)
             ? trim($input['app_env'])
@@ -156,7 +147,7 @@ final class InstallationConfigurationHost
             );
         }
         if ((ApplicationSourceIdentity::hasRuntime($this->serverRoot)
-                || in_array($application['kind'] ?? null, ['internal-candidate', 'generated-application'], true))
+                || ($application['kind'] ?? null) === 'internal-candidate')
             && $environment !== 'development') {
             throw new InstallationExecutionException(
                 'INSTALL_CONFIGURATION_TARGET_INVALID',
@@ -476,7 +467,9 @@ final class InstallationConfigurationHost
             // Configuration/status must not require a fabricated runtime first.
             $source = ApplicationSourceIdentity::load($this->serverRoot);
             return ['application' => $source->applicationIdentity() + ['kind' => 'generated-application'],
-                'versions' => $source->versions()];
+                'versions' => $source->versions(),
+                'application_source' => ['manifest_sha256' => $source->manifestSha256(),
+                    'identity_sha256' => $source->identitySha256()]];
         }
         $release = ApplicationSourceIdentity::hasRuntime($this->serverRoot)
             ? ApplicationSourceIdentity::load($this->serverRoot)
